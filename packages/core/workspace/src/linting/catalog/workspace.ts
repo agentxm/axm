@@ -1,3 +1,4 @@
+import type * as Config from "effect/Config";
 /**
  * Executable `workspace/*` rule catalog.
  *
@@ -60,7 +61,9 @@ import { agentContentHasSettingsRule } from "./workspace/agent-content-has-setti
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const repositoryWorkspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
+export const repositoryWorkspaceRules: ReadonlyArray<
+  LintRule<WorkspaceRuleContext, Config.ConfigError>
+> = [
   // Foundation (classification-independent workspace well-formedness).
   initializedRule,
   settingsSchemaValidRule,
@@ -93,7 +96,9 @@ export const repositoryWorkspaceRules: ReadonlyArray<LintRule<WorkspaceRuleConte
 ];
 
 /** Rules whose evidence exists only in the live managed workspace. */
-export const liveOnlyWorkspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
+export const liveOnlyWorkspaceRules: ReadonlyArray<
+  LintRule<WorkspaceRuleContext, Config.ConfigError>
+> = [
   agentsDetectedDeclaredRule,
   agentsProjectionsStaleRule,
   instructionsTargetCurrentRule,
@@ -115,7 +120,7 @@ export const liveOnlyWorkspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext
 ];
 
 /** Complete workspace-view catalog, retained as the public catalog surface. */
-export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
+export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext, Config.ConfigError>> = [
   initializedRule,
   settingsSchemaValidRule,
   settingsKeysRecognizedRule,

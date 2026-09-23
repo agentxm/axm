@@ -7,6 +7,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import type * as Config from "effect/Config";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
@@ -324,7 +325,7 @@ export const skillsInDir = (
   options: DiscoveryOptions,
 ): Effect.Effect<
   ReadonlyArray<DiscoveredSkill>,
-  SkillDiscoveryRootInvalid,
+  SkillDiscoveryRootInvalid | Config.ConfigError,
   FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {

@@ -1,3 +1,4 @@
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -318,19 +319,13 @@ const readInTempCargoHome = (
     };
 
     // Override CARGO_HOME for this test
-    const origCargoHome = process.env["CARGO_HOME"];
-    process.env["CARGO_HOME"] = cargoHome;
-    return yield* cargoReader.read(detected).pipe(
-      Effect.ensuring(
-        Effect.sync(() => {
-          if (origCargoHome === undefined) {
-            delete process.env["CARGO_HOME"];
-          } else {
-            process.env["CARGO_HOME"] = origCargoHome;
-          }
-        }),
-      ),
-    );
+    return yield* cargoReader
+      .read(detected)
+      .pipe(
+        Effect.provide(
+          ConfigProvider.layer(ConfigProvider.fromEnv({ env: { CARGO_HOME: cargoHome } })),
+        ),
+      );
   }).pipe(Effect.scoped);
 
 describe("cargoReader", () => {
@@ -512,26 +507,15 @@ describe("cargoReader", () => {
           const purl = makePurl({ type: "cargo", name: "nonexistent", version: "1.0.0" });
 
           // Unset CARGO_HOME to test default
-          const origCargoHome = process.env["CARGO_HOME"];
-          delete process.env["CARGO_HOME"];
-
           const detected = {
             purl,
             type: cargoType,
             source: "/tmp/fake/Cargo.toml",
           };
 
-          const result = yield* cargoReader.read(detected).pipe(
-            Effect.ensuring(
-              Effect.sync(() => {
-                if (origCargoHome === undefined) {
-                  delete process.env["CARGO_HOME"];
-                } else {
-                  process.env["CARGO_HOME"] = origCargoHome;
-                }
-              }),
-            ),
-          );
+          const result = yield* cargoReader
+            .read(detected)
+            .pipe(Effect.provide(ConfigProvider.layer(ConfigProvider.fromEnv({ env: {} }))));
           // Should return none since the crate won't exist at ~/.cargo
           expect(Option.isNone(result)).toBe(true);
         }),

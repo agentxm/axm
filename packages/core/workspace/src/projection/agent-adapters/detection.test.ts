@@ -227,6 +227,8 @@ describe("detectAgent", () => {
 
       expect(error).toBeInstanceOf(AgentDetectionFailed);
       expect(error._tag).toBe("AgentDetectionFailed");
+      if (error._tag !== "AgentDetectionFailed")
+        return yield* Effect.die("Expected agent detection failure");
       expect(error.detail).toContain("Claude Code");
       const cause = expectDefined(error.cause, "Expected original cause");
       expect(cause).toBeInstanceOf(PlatformError.PlatformError);

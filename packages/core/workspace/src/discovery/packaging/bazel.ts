@@ -11,7 +11,7 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
-import { readEnv } from "../internal/environment.js";
+import { envOption } from "../internal/environment.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import {
   decodeAgentExtensions,
@@ -125,7 +125,7 @@ export const bazelReader: PackageReader = {
       const projectDir = path.dirname(pkg.source);
 
       // Try to find output base from environment or common location
-      const outputBase = readEnv("BAZEL_OUTPUT_BASE");
+      const outputBase = Option.getOrUndefined(yield* envOption("BAZEL_OUTPUT_BASE"));
 
       // Candidate paths for agent-extensions.json
       const candidatePaths: Array<string> = [];

@@ -1,3 +1,4 @@
+import type * as Config from "effect/Config";
 import { renderAxmSkillCompatibility } from "@agentxm/cli-maintenance/official-skill/adapters/cli";
 /**
  * Lint runner — the reusable core of `axm lint`.
@@ -42,6 +43,7 @@ import {
   CATALOG_GROUP_ORDER,
   lintCatalogsForView,
   type CatalogContext,
+  type CatalogError,
   type CatalogGroup,
   type CatalogRuleContexts,
   type LintView,
@@ -81,7 +83,7 @@ export interface RenderedFinding {
  * @experimental This API is unstable and may change without notice.
  */
 export type GroupEvaluations = {
-  readonly [K in CatalogGroup]: ReadonlyArray<Evaluated<CatalogContext<K>>>;
+  readonly [K in CatalogGroup]: ReadonlyArray<Evaluated<CatalogContext<K>, CatalogError<K>>>;
 };
 
 /**
@@ -127,7 +129,7 @@ export const evaluateAllCatalogs = (args: {
   readonly contexts: CatalogRuleContexts;
   readonly config: LintConfig;
   readonly view: LintView;
-}): Effect.Effect<GroupEvaluations> =>
+}): Effect.Effect<GroupEvaluations, Config.ConfigError> =>
   Effect.gen(function* () {
     const catalogs = lintCatalogsForView(args.view);
     const [skill, pack, subagent, mcpServer, hook, rule, knowledge, workspace] = yield* Effect.all(

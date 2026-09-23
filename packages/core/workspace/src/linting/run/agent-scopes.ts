@@ -10,6 +10,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import type * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -61,7 +62,7 @@ export const observeUserScope = (
   userHome: string,
 ): Effect.Effect<
   UserScopeObservation,
-  never,
+  Config.ConfigError,
   CodingAgentRepository | FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {

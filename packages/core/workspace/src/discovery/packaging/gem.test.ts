@@ -1,3 +1,4 @@
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -281,20 +282,11 @@ const readInTempGemDir = (
     };
 
     // Override GEM_HOME for this test
-    const origGemHome = process.env["GEM_HOME"];
-    process.env["GEM_HOME"] = gemDir;
-
-    return yield* gemReader.read(detected).pipe(
-      Effect.ensuring(
-        Effect.sync(() => {
-          if (origGemHome === undefined) {
-            delete process.env["GEM_HOME"];
-          } else {
-            process.env["GEM_HOME"] = origGemHome;
-          }
-        }),
-      ),
-    );
+    return yield* gemReader
+      .read(detected)
+      .pipe(
+        Effect.provide(ConfigProvider.layer(ConfigProvider.fromEnv({ env: { GEM_HOME: gemDir } }))),
+      );
   }).pipe(Effect.scoped);
 
 describe("gemReader", () => {

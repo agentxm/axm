@@ -6,6 +6,7 @@
  */
 
 import type * as Effect from "effect/Effect";
+import type * as Config from "effect/Config";
 import type * as Option from "effect/Option";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
@@ -48,7 +49,7 @@ export interface PackageReader {
     pkg: DetectedPackage,
   ) => Effect.Effect<
     Option.Option<ReadonlyArray<AgentExtensionRecommendation>>,
-    never,
+    Config.ConfigError,
     FileSystem.FileSystem | Path.Path
   >;
 }

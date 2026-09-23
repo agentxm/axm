@@ -1,3 +1,4 @@
+import * as ConfigProvider from "effect/ConfigProvider";
 /**
  * Unit tests for pypi detector and reader.
  *
@@ -487,22 +488,16 @@ describe("pypiReader", () => {
           source: "pyproject.toml",
         };
 
-        const origVirtualEnv = process.env["VIRTUAL_ENV"];
-        process.env["VIRTUAL_ENV"] = tmpDir;
-        try {
-          const result = yield* pypiReader.read(pkg);
-          expect(Option.isSome(result)).toBe(true);
-          if (Option.isSome(result)) {
-            expect(result.value).toEqual([
-              { ref: "@django/skills/django", versionRange: "^1.0.0" },
-            ]);
-          }
-        } finally {
-          if (origVirtualEnv === undefined) {
-            delete process.env["VIRTUAL_ENV"];
-          } else {
-            process.env["VIRTUAL_ENV"] = origVirtualEnv;
-          }
+        const result = yield* pypiReader
+          .read(pkg)
+          .pipe(
+            Effect.provide(
+              ConfigProvider.layer(ConfigProvider.fromEnv({ env: { VIRTUAL_ENV: tmpDir } })),
+            ),
+          );
+        expect(Option.isSome(result)).toBe(true);
+        if (Option.isSome(result)) {
+          expect(result.value).toEqual([{ ref: "@django/skills/django", versionRange: "^1.0.0" }]);
         }
       }).pipe(Effect.scoped),
     ),
@@ -547,22 +542,17 @@ describe("pypiReader", () => {
         };
 
         // Override VIRTUAL_ENV for this test
-        const origVirtualEnv = process.env["VIRTUAL_ENV"];
-        process.env["VIRTUAL_ENV"] = tmpDir;
-        try {
-          const result = yield* pypiReader.read(pkg);
-          expect(Option.isSome(result)).toBe(true);
-          if (Option.isSome(result)) {
-            expect(result.value).toEqual([
-              { ref: "@django/skills/django", versionRange: "^1.0.0" },
-            ]);
-          }
-        } finally {
-          if (origVirtualEnv === undefined) {
-            delete process.env["VIRTUAL_ENV"];
-          } else {
-            process.env["VIRTUAL_ENV"] = origVirtualEnv;
-          }
+
+        const result = yield* pypiReader
+          .read(pkg)
+          .pipe(
+            Effect.provide(
+              ConfigProvider.layer(ConfigProvider.fromEnv({ env: { VIRTUAL_ENV: tmpDir } })),
+            ),
+          );
+        expect(Option.isSome(result)).toBe(true);
+        if (Option.isSome(result)) {
+          expect(result.value).toEqual([{ ref: "@django/skills/django", versionRange: "^1.0.0" }]);
         }
       }).pipe(Effect.scoped),
     ),
@@ -595,18 +585,14 @@ describe("pypiReader", () => {
           source: "requirements.txt",
         };
 
-        const origVirtualEnv = process.env["VIRTUAL_ENV"];
-        process.env["VIRTUAL_ENV"] = tmpDir;
-        try {
-          const result = yield* pypiReader.read(pkg);
-          expect(Option.isNone(result)).toBe(true);
-        } finally {
-          if (origVirtualEnv === undefined) {
-            delete process.env["VIRTUAL_ENV"];
-          } else {
-            process.env["VIRTUAL_ENV"] = origVirtualEnv;
-          }
-        }
+        const result = yield* pypiReader
+          .read(pkg)
+          .pipe(
+            Effect.provide(
+              ConfigProvider.layer(ConfigProvider.fromEnv({ env: { VIRTUAL_ENV: tmpDir } })),
+            ),
+          );
+        expect(Option.isNone(result)).toBe(true);
       }).pipe(Effect.scoped),
     ),
   );
@@ -646,18 +632,14 @@ describe("pypiReader", () => {
           source: "requirements.txt",
         };
 
-        const origVirtualEnv = process.env["VIRTUAL_ENV"];
-        process.env["VIRTUAL_ENV"] = tmpDir;
-        try {
-          const result = yield* pypiReader.read(pkg);
-          expect(Option.isNone(result)).toBe(true);
-        } finally {
-          if (origVirtualEnv === undefined) {
-            delete process.env["VIRTUAL_ENV"];
-          } else {
-            process.env["VIRTUAL_ENV"] = origVirtualEnv;
-          }
-        }
+        const result = yield* pypiReader
+          .read(pkg)
+          .pipe(
+            Effect.provide(
+              ConfigProvider.layer(ConfigProvider.fromEnv({ env: { VIRTUAL_ENV: tmpDir } })),
+            ),
+          );
+        expect(Option.isNone(result)).toBe(true);
       }).pipe(Effect.scoped),
     ),
   );
@@ -703,22 +685,18 @@ describe("pypiReader", () => {
           source: "requirements.txt",
         };
 
-        const origVirtualEnv = process.env["VIRTUAL_ENV"];
-        process.env["VIRTUAL_ENV"] = tmpDir;
-        try {
-          const result = yield* pypiReader.read(pkg);
-          expect(Option.isSome(result)).toBe(true);
-          if (Option.isSome(result)) {
-            expect(result.value).toEqual([
-              { ref: "@acme/skills/flask-rest", versionRange: "^1.0.0" },
-            ]);
-          }
-        } finally {
-          if (origVirtualEnv === undefined) {
-            delete process.env["VIRTUAL_ENV"];
-          } else {
-            process.env["VIRTUAL_ENV"] = origVirtualEnv;
-          }
+        const result = yield* pypiReader
+          .read(pkg)
+          .pipe(
+            Effect.provide(
+              ConfigProvider.layer(ConfigProvider.fromEnv({ env: { VIRTUAL_ENV: tmpDir } })),
+            ),
+          );
+        expect(Option.isSome(result)).toBe(true);
+        if (Option.isSome(result)) {
+          expect(result.value).toEqual([
+            { ref: "@acme/skills/flask-rest", versionRange: "^1.0.0" },
+          ]);
         }
       }).pipe(Effect.scoped),
     ),

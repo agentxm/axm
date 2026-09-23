@@ -27,7 +27,7 @@ export type ApplyConfirmation = "approved" | "declined" | "cancelled";
 
 export interface ResolvePlanInteractionService {
   /** Whether an interactive confirmation can be obtained. */
-  readonly isConfirmationAvailable: Effect.Effect<boolean>;
+  readonly isConfirmationAvailable: Effect.Effect<boolean, PlanInteractionFailed>;
   readonly confirmApplyChanges: (
     recovery: ConfirmationRecovery,
   ) => Effect.Effect<ApplyConfirmation, PlanInteractionFailed>;

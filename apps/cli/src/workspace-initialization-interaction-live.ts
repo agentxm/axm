@@ -1,3 +1,4 @@
+import type * as Config from "effect/Config";
 import { OutputWriteFailed } from "./screen/streams.js";
 /**
  * CLI implementation of the workspace-initialization interaction port.
@@ -160,16 +161,21 @@ const carriedCategory = (
  * byte-identical.
  */
 const toInteractionFailure = (
-  error: AppError | OutputWriteFailed | WorkspaceInitializationCancelled,
+  error: AppError | OutputWriteFailed | Config.ConfigError | WorkspaceInitializationCancelled,
 ): WorkspaceConfigurationFailed | WorkspaceInitializationCancelled =>
   error instanceof WorkspaceInitializationCancelled
     ? error
     : new WorkspaceConfigurationFailed({
-        category: error._tag === "OutputWriteFailed" ? "internal" : carriedCategory(error.code),
+        category:
+          error._tag === "OutputWriteFailed" || error._tag === "ConfigError"
+            ? "internal"
+            : carriedCategory(error.code),
         detail:
-          error._tag === "OutputWriteFailed"
-            ? "The workspace setup interaction could not be displayed."
-            : error.detail,
+          error._tag === "ConfigError"
+            ? "Workspace interaction configuration could not be read."
+            : error._tag === "OutputWriteFailed"
+              ? "The workspace setup interaction could not be displayed."
+              : error.detail,
         ...("suggestions" in error && error.suggestions !== undefined
           ? { suggestions: error.suggestions }
           : {}),

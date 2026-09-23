@@ -5,6 +5,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import type * as Config from "effect/Config";
 import * as Option from "effect/Option";
 import { Flag, GlobalFlag } from "effect/unstable/cli";
 import { isCI } from "../utils/environment.js";
@@ -29,8 +30,9 @@ export const nonInteractiveFlag = GlobalFlag.Setting("axm-non-interactive")({
  */
 export const isNonInteractive = Effect.gen(function* () {
   const flag = yield* nonInteractiveFlag;
+  if (Option.isSome(flag)) return flag.value;
   const ci = yield* isCI;
-  return Option.getOrElse(flag, () => ci || process.stdin.isTTY !== true);
+  return ci || process.stdin.isTTY !== true;
 });
 
 /**
@@ -40,8 +42,11 @@ export const isNonInteractive = Effect.gen(function* () {
  * tests that provide no flag layer; an absent flag falls back to environment
  * detection exactly as an unset flag would.
  */
-export const isNonInteractiveOptional: Effect.Effect<boolean> = Effect.gen(function* () {
-  const explicit = Option.flatten(yield* Effect.serviceOption(nonInteractiveFlag));
-  const ci = yield* isCI;
-  return Option.getOrElse(explicit, () => ci || process.stdin.isTTY !== true);
-});
+export const isNonInteractiveOptional: Effect.Effect<boolean, Config.ConfigError> = Effect.gen(
+  function* () {
+    const explicit = Option.flatten(yield* Effect.serviceOption(nonInteractiveFlag));
+    if (Option.isSome(explicit)) return explicit.value;
+    const ci = yield* isCI;
+    return ci || process.stdin.isTTY !== true;
+  },
+);

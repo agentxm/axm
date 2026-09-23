@@ -1,3 +1,4 @@
+import type * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -97,7 +98,7 @@ export class Screen extends ServiceMap.Service<
     readonly ask: <A>(
       ask: Ask<A>,
       guard?: InteractiveGuard,
-    ) => Effect.Effect<A, QuestionCancelled | AppError | OutputWriteFailed>;
+    ) => Effect.Effect<A, QuestionCancelled | AppError | OutputWriteFailed | Config.ConfigError>;
     /**
      * Park the terminal while a person acts somewhere else, and answer with
      * what the awaited effect settled on. The wait's brief prints once, its
@@ -110,7 +111,7 @@ export class Screen extends ServiceMap.Service<
       view: WaitView,
       awaited: Effect.Effect<A, E, R>,
       actions?: WaitActions,
-    ) => Effect.Effect<A, E | WaitAbandoned | OutputWriteFailed, R>;
+    ) => Effect.Effect<A, E | WaitAbandoned | OutputWriteFailed | Config.ConfigError, R>;
     readonly facts: Effect.Effect<ScreenFacts>;
     readonly settle: Effect.Effect<void, OutputWriteFailed>;
   }

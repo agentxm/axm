@@ -11,6 +11,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import type * as Config from "effect/Config";
 import * as Option from "effect/Option";
 
 import { jsonFlag } from "./json-flag.js";
@@ -22,8 +23,10 @@ export const isMachineOutput: Effect.Effect<boolean> = Effect.map(
 );
 
 /** Whether an interactive prompt can open in this invocation. */
-export const promptAvailability: Effect.Effect<boolean> = Effect.gen(function* () {
-  const nonInteractive = yield* isNonInteractiveOptional;
-  const machine = yield* isMachineOutput;
-  return !nonInteractive && !machine;
-});
+export const promptAvailability: Effect.Effect<boolean, Config.ConfigError> = Effect.gen(
+  function* () {
+    const machine = yield* isMachineOutput;
+    if (machine) return false;
+    return !(yield* isNonInteractiveOptional);
+  },
+);

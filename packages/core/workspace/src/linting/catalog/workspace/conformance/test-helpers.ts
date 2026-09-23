@@ -1,3 +1,4 @@
+import type * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 
 import type { AdvisoryFinding, LintRule } from "@agentxm/extension-content/lint";
@@ -11,7 +12,7 @@ export type ExpectedWorkspaceFinding = Omit<AdvisoryFinding, "kind" | "ruleId" |
 
 /** Executable satisfied, violated, and optional inapplicable evidence for one rule. */
 export interface WorkspaceRuleConformanceCase {
-  readonly rule: LintRule<WorkspaceRuleContext>;
+  readonly rule: LintRule<WorkspaceRuleContext, Config.ConfigError>;
   readonly satisfied: WorkspaceContextFixture;
   readonly violated: WorkspaceContextFixture;
   readonly expectedFindings: ReadonlyArray<ExpectedWorkspaceFinding>;

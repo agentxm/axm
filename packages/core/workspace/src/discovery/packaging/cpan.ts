@@ -13,7 +13,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { readEnv } from "../internal/environment.js";
+import { envOption, envWithDefault } from "../internal/environment.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
@@ -193,9 +193,10 @@ export const cpanReader: PackageReader = {
       const path = yield* Path.Path;
 
       // Default Perl local::lib path
-      const libPath = yield* Effect.sync(
-        () => readEnv("PERL5LIB") ?? readEnv("PERL_LOCAL_LIB_ROOT") ?? "local/lib/perl5",
-      );
+      const configuredLibPath = yield* envOption("PERL5LIB");
+      const libPath = Option.isSome(configuredLibPath)
+        ? configuredLibPath.value
+        : yield* envWithDefault("PERL_LOCAL_LIB_ROOT", "local/lib/perl5");
 
       const distName = pkg.purl.name;
       const version = pkg.purl.version;

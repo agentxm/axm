@@ -21,6 +21,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import type * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -195,6 +196,7 @@ export type LintWorkspaceRequirements =
 
 /** Every failure a lint run can settle into. */
 export type LintWorkspaceFailure =
+  | Config.ConfigError
   | LintStagingFailed
   | Effect.Error<ReturnType<typeof buildLintWorkspace>>
   | Effect.Error<ReturnType<typeof acceptedCanonicalObservation>>

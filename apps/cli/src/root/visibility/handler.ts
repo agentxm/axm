@@ -37,7 +37,7 @@ const visibilityColumns: ReadonlyArray<ViewColumn<VisibilityRow>> = [
 /** The invocation's human-verification inputs, as the capability reads them. */
 const verificationOptions = Effect.gen(function* () {
   const { stepUpRequest, waitForHuman } = yield* HumanVerificationOptions;
-  const unattended = (yield* isNonInteractive) || Option.getOrElse(yield* jsonFlag, () => false);
+  const unattended = Option.getOrElse(yield* jsonFlag, () => false) || (yield* isNonInteractive);
   return {
     ...(Option.isNone(stepUpRequest) ? {} : { resumeReference: stepUpRequest.value }),
     ...(Option.isNone(waitForHuman) ? {} : { waitForHumanSeconds: waitForHuman.value }),

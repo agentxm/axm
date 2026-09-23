@@ -1,3 +1,4 @@
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -137,25 +138,20 @@ const readInTempBazel = (
       );
 
       // Set BAZEL_OUTPUT_BASE
-      const origOutputBase = process.env["BAZEL_OUTPUT_BASE"];
-      process.env["BAZEL_OUTPUT_BASE"] = outputBase;
-
       const detected = {
         purl: pkgPurl,
         type: bazelType,
         source: path.join(projectDir, "MODULE.bazel"),
       };
-      return yield* bazelReader.read(detected).pipe(
-        Effect.ensuring(
-          Effect.sync(() => {
-            if (origOutputBase === undefined) {
-              delete process.env["BAZEL_OUTPUT_BASE"];
-            } else {
-              process.env["BAZEL_OUTPUT_BASE"] = origOutputBase;
-            }
-          }),
-        ),
-      );
+      return yield* bazelReader
+        .read(detected)
+        .pipe(
+          Effect.provide(
+            ConfigProvider.layer(
+              ConfigProvider.fromEnv({ env: { BAZEL_OUTPUT_BASE: outputBase } }),
+            ),
+          ),
+        );
     }
 
     const detected = {

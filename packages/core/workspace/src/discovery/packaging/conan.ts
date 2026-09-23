@@ -17,7 +17,7 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
-import { readEnv } from "../internal/environment.js";
+import { envWithDefault } from "../internal/environment.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import { decodeAgentExtensions, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
@@ -231,8 +231,7 @@ const decodeConanDataAgentExtensions = Schema.decodeUnknownResult(ConanDataAgent
  * Resolve the Conan cache directory.
  * Checks CONAN_USER_HOME, then defaults to ~/.conan2.
  */
-const resolveConanCache = () =>
-  Effect.sync(() => readEnv("CONAN_USER_HOME") ?? `${os.homedir()}/.conan2`);
+const resolveConanCache = () => envWithDefault("CONAN_USER_HOME", `${os.homedir()}/.conan2`);
 
 /**
  * Conan package reader.

@@ -2,7 +2,7 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientError from "effect/unstable/http/HttpClientError";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
+import { describe, expect, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as FileSystem from "effect/FileSystem";
@@ -51,6 +51,7 @@ const getTelemetry = (
   mode: "all" | "errors" | "off",
   command: string,
   mock: { client: HttpClient.HttpClient },
+  environment: Readonly<Record<string, string>> = { VITEST: "false" },
 ) => {
   const telemetryLayer = Layer.provide(
     TelemetryClientLive({
@@ -59,16 +60,20 @@ const getTelemetry = (
       client: { name: "cli", version: "1.2.3" },
       ...testTelemetryIdentity,
     }),
-    Layer.mergeAll(NodeServices.layer, Layer.succeed(HttpClient.HttpClient, mock.client)),
+    Layer.mergeAll(
+      NodeServices.layer,
+      Layer.succeed(HttpClient.HttpClient, mock.client),
+      ConfigProvider.layer(ConfigProvider.fromEnv({ env: { ...environment } })),
+    ),
   );
 
   return TelemetryClient.pipe(Effect.provide(telemetryLayer));
 };
 
 describe("TelemetryClientLive", () => {
-  it.effect(
-    "disables collection without writing a fallback identity when home configuration fails",
-    () =>
+  it.effect.each(["VITEST", "CI", "AXM_TELEMETRY_BASE_URL", "AXM_USER_HOME"])(
+    "disables collection without writing an identity when %s configuration fails",
+    (key) =>
       Effect.gen(function* () {
         const mock = makeMockHttpClient();
         const files: string[] = [];
@@ -79,14 +84,17 @@ describe("TelemetryClientLive", () => {
                 mode: "all",
                 command: "install",
                 client: { name: "cli", version: "1.2.3" },
-                deliverInTest: true,
               }),
               Layer.mergeAll(
                 Path.layer,
                 Layer.succeed(HttpClient.HttpClient, mock.client),
                 ConfigProvider.layer(
-                  ConfigProvider.make(() =>
-                    Effect.fail(new ConfigProvider.SourceError({ message: "source unavailable" })),
+                  ConfigProvider.make((path) =>
+                    path[0] === key
+                      ? Effect.fail(
+                          new ConfigProvider.SourceError({ message: "source unavailable" }),
+                        )
+                      : Effect.succeed(undefined),
                   ),
                 ),
                 FileSystem.layerNoop({
@@ -113,17 +121,6 @@ describe("TelemetryClientLive", () => {
         expect(mock.captured).toEqual([]);
       }),
   );
-
-  // isTest() reads VITEST env var. Override to false so the live path runs.
-  let savedVitest: string | undefined;
-  beforeEach(() => {
-    savedVitest = process.env["VITEST"];
-    process.env["VITEST"] = "false";
-  });
-  afterEach(() => {
-    if (savedVitest === undefined) delete process.env["VITEST"];
-    else process.env["VITEST"] = savedVitest;
-  });
 
   describe("mode 'all'", () => {
     it.effect("trackEvent sends POST to /events with correct payload shape", () =>
@@ -261,9 +258,8 @@ describe("TelemetryClientLive", () => {
   describe("test mode", () => {
     it.effect("uses the no-op implementation when VITEST=true", () =>
       Effect.gen(function* () {
-        process.env["VITEST"] = "true";
         const mock = makeMockHttpClient();
-        const telemetry = yield* getTelemetry("all", "setup", mock);
+        const telemetry = yield* getTelemetry("all", "setup", mock, { VITEST: "true" });
 
         yield* telemetry.trackEvent("command:start");
         yield* telemetry.reportError({
@@ -393,6 +389,7 @@ describe("TelemetryClientLive", () => {
             command: "setup",
             client: { name: "cli", version: "1.2.3" },
             ...testTelemetryIdentity,
+            deliverInTest: true,
           }),
           Layer.mergeAll(NodeServices.layer, Layer.succeed(HttpClient.HttpClient, hangingClient)),
         );
@@ -417,6 +414,7 @@ describe("TelemetryClientLive", () => {
             command: "setup",
             client: { name: "cli", version: "1.2.3" },
             ...testTelemetryIdentity,
+            deliverInTest: true,
           }),
           Layer.mergeAll(NodeServices.layer, Layer.succeed(HttpClient.HttpClient, failingClient)),
         );
@@ -449,6 +447,7 @@ describe("TelemetryClientLive", () => {
             command: "setup",
             client: { name: "cli", version: "1.2.3" },
             ...testTelemetryIdentity,
+            deliverInTest: true,
           }),
           Layer.mergeAll(NodeServices.layer, Layer.succeed(HttpClient.HttpClient, errorClient)),
         );
@@ -486,6 +485,7 @@ describe("TelemetryClientLive", () => {
             command: "setup",
             client: { name: "cli", version: "1.2.3" },
             ...testTelemetryIdentity,
+            deliverInTest: true,
           }),
           Layer.mergeAll(
             NodeServices.layer,
@@ -534,6 +534,7 @@ describe("TelemetryClientLive", () => {
             command: "setup",
             client: { name: "cli", version: "1.2.3" },
             ...testTelemetryIdentity,
+            deliverInTest: true,
           }),
           Layer.mergeAll(NodeServices.layer, Layer.succeed(HttpClient.HttpClient, error400Client)),
         );

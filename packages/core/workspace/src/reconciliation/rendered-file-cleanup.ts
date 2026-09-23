@@ -5,6 +5,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import type * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -43,7 +44,7 @@ const inventory = (
   args: ReconcileAgentOutputsArgs,
 ): Effect.Effect<
   AgentOutputInventory,
-  WorkspaceSyncFailed,
+  WorkspaceSyncFailed | Config.ConfigError,
   | CodingAgentRepository
   | FileSystem.FileSystem
   | Path.Path

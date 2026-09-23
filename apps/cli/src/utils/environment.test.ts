@@ -1,181 +1,66 @@
-import * as FileSystem from "effect/FileSystem";
+import { describe, expect, it } from "@effect/vitest";
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as NodeServices from "@effect/platform-node/NodeServices";
-import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
-import { isContainer, isRoot, isSSH, isWSL } from "./environment.js";
+import * as Option from "effect/Option";
+import { envOption, envWithDefault, isCI } from "./environment.js";
 
-// ---------------------------------------------------------------------------
-// Mock FileSystem for container/WSL tests
-// ---------------------------------------------------------------------------
-
-const mockFileSystem = (overrides: {
-  exists?: (path: string) => boolean;
-  readFileString?: (path: string) => string;
-}) =>
-  Layer.effect(
-    FileSystem.FileSystem,
+describe("CLI environment configuration", () => {
+  it.effect.each([
+    { value: undefined, expected: false },
+    { value: "", expected: false },
+    { value: "0", expected: false },
+    { value: "false", expected: false },
+    { value: "FALSE", expected: false },
+    { value: "true", expected: true },
+    { value: "1", expected: true },
+  ])("resolves CI=$value through the injected provider", ({ value, expected }) =>
     Effect.gen(function* () {
-      const fileSystem = yield* FileSystem.FileSystem;
-      const overridesLayer = {
-        exists: (path: string) => Effect.succeed(overrides.exists?.(path) ?? false),
-        readFileString: (path: string) => {
-          const content = overrides.readFileString?.(path);
-          return content !== undefined
-            ? Effect.succeed(content)
-            : fileSystem.readFileString("/definitely-missing-environment-test-path");
-        },
-      } satisfies Pick<FileSystem.FileSystem, "exists" | "readFileString">;
+      expect(yield* isCI).toBe(expected);
+    }).pipe(
+      Effect.provide(
+        ConfigProvider.layer(
+          ConfigProvider.fromEnv({
+            env: value === undefined ? {} : { CI: value },
+          }),
+        ),
+      ),
+    ),
+  );
 
-      return {
-        ...fileSystem,
-        ...overridesLayer,
-      } satisfies FileSystem.FileSystem;
-    }),
-  ).pipe(Layer.provide(NodeServices.layer));
+  it.effect("defaults only absent values and preserves an explicit empty value", () =>
+    Effect.gen(function* () {
+      expect(yield* envOption("ABSENT")).toEqual(Option.none());
+      expect(yield* envWithDefault("ABSENT", "fallback")).toBe("fallback");
+      expect(yield* envOption("EMPTY")).toEqual(Option.some(""));
+      expect(yield* envWithDefault("EMPTY", "fallback")).toBe("");
+    }).pipe(
+      Effect.provide(
+        ConfigProvider.layer(
+          ConfigProvider.fromEnv({ env: { EMPTY: "" }, preserveEmptyStrings: true }),
+        ),
+      ),
+    ),
+  );
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
-describe("Environment detection", () => {
-  describe("isSSH", () => {
-    let origSshClient: string | undefined;
-    let origSshTty: string | undefined;
-
-    beforeEach(() => {
-      origSshClient = process.env["SSH_CLIENT"];
-      origSshTty = process.env["SSH_TTY"];
-      delete process.env["SSH_CLIENT"];
-      delete process.env["SSH_TTY"];
-    });
-
-    afterEach(() => {
-      if (origSshClient !== undefined) process.env["SSH_CLIENT"] = origSshClient;
-      else delete process.env["SSH_CLIENT"];
-      if (origSshTty !== undefined) process.env["SSH_TTY"] = origSshTty;
-      else delete process.env["SSH_TTY"];
-    });
-
-    it.effect("returns true when SSH_CLIENT is set", () =>
+  it.effect(
+    "does not turn an unreadable provider into absence, a default, or interactive mode",
+    () =>
       Effect.gen(function* () {
-        process.env["SSH_CLIENT"] = "192.168.1.1 12345 22";
-        expect(yield* isSSH).toBe(true);
+        const sourceError = new ConfigProvider.SourceError({ message: "source unavailable" });
+        for (const read of [
+          envOption("OPTION").pipe(Effect.asVoid),
+          envWithDefault("DEFAULT", "fallback").pipe(Effect.asVoid),
+          isCI.pipe(Effect.asVoid),
+        ]) {
+          const failure = yield* read.pipe(
+            Effect.provide(
+              ConfigProvider.layer(ConfigProvider.make(() => Effect.fail(sourceError))),
+            ),
+            Effect.flip,
+          );
+          expect(failure._tag).toBe("ConfigError");
+          expect(failure.cause).toBe(sourceError);
+        }
       }),
-    );
-
-    it.effect("returns true when SSH_TTY is set", () =>
-      Effect.gen(function* () {
-        process.env["SSH_TTY"] = "/dev/pts/0";
-        expect(yield* isSSH).toBe(true);
-      }),
-    );
-
-    it.effect("returns false when neither SSH var is set", () =>
-      Effect.gen(function* () {
-        expect(yield* isSSH).toBe(false);
-      }),
-    );
-  });
-
-  describe("isRoot", () => {
-    it("returns true when getuid returns 0", () => {
-      const originalGetuid = process.getuid;
-      Object.defineProperty(process, "getuid", { value: () => 0, configurable: true });
-      try {
-        expect(isRoot()).toBe(true);
-      } finally {
-        Object.defineProperty(process, "getuid", { value: originalGetuid, configurable: true });
-      }
-    });
-
-    it("returns false when getuid returns non-zero", () => {
-      const originalGetuid = process.getuid;
-      Object.defineProperty(process, "getuid", { value: () => 1000, configurable: true });
-      try {
-        expect(isRoot()).toBe(false);
-      } finally {
-        Object.defineProperty(process, "getuid", { value: originalGetuid, configurable: true });
-      }
-    });
-
-    it("returns false when getuid is not available", () => {
-      const originalGetuid = process.getuid;
-      Object.defineProperty(process, "getuid", { value: undefined, configurable: true });
-      try {
-        expect(isRoot()).toBe(false);
-      } finally {
-        Object.defineProperty(process, "getuid", { value: originalGetuid, configurable: true });
-      }
-    });
-  });
-
-  describe("isContainer", () => {
-    it.effect("returns true when /.dockerenv exists", () =>
-      Effect.gen(function* () {
-        const layer = mockFileSystem({ exists: (p) => p === "/.dockerenv" });
-        const result = yield* isContainer.pipe(Effect.provide(layer));
-        expect(result).toBe(true);
-      }),
-    );
-
-    it.effect("returns true when /.containerenv exists", () =>
-      Effect.gen(function* () {
-        const layer = mockFileSystem({ exists: (p) => p === "/.containerenv" });
-        const result = yield* isContainer.pipe(Effect.provide(layer));
-        expect(result).toBe(true);
-      }),
-    );
-
-    it.effect("returns false when neither exists", () =>
-      Effect.gen(function* () {
-        const layer = mockFileSystem({ exists: () => false });
-        const result = yield* isContainer.pipe(Effect.provide(layer));
-        expect(result).toBe(false);
-      }),
-    );
-  });
-
-  describe("isWSL", () => {
-    it.effect("returns true when /proc/version contains microsoft", () =>
-      Effect.gen(function* () {
-        const layer = mockFileSystem({
-          exists: (p) => p === "/proc/version",
-          readFileString: () => "Linux version 5.10.16.3-microsoft-standard-WSL2 (oe-user@oe-host)",
-        });
-        const result = yield* isWSL.pipe(Effect.provide(layer));
-        expect(result).toBe(true);
-      }),
-    );
-
-    it.effect("returns true case-insensitively", () =>
-      Effect.gen(function* () {
-        const layer = mockFileSystem({
-          exists: (p) => p === "/proc/version",
-          readFileString: () => "Linux version 5.10.16.3-Microsoft-standard",
-        });
-        const result = yield* isWSL.pipe(Effect.provide(layer));
-        expect(result).toBe(true);
-      }),
-    );
-
-    it.effect("returns false when /proc/version does not contain microsoft", () =>
-      Effect.gen(function* () {
-        const layer = mockFileSystem({
-          exists: (p) => p === "/proc/version",
-          readFileString: () => "Linux version 5.10.0-generic (builder@buildhost)",
-        });
-        const result = yield* isWSL.pipe(Effect.provide(layer));
-        expect(result).toBe(false);
-      }),
-    );
-
-    it.effect("returns false when /proc/version does not exist", () =>
-      Effect.gen(function* () {
-        const layer = mockFileSystem({ exists: () => false });
-        const result = yield* isWSL.pipe(Effect.provide(layer));
-        expect(result).toBe(false);
-      }),
-    );
-  });
+  );
 });

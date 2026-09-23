@@ -1,3 +1,4 @@
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -312,19 +313,13 @@ const readInTempCondaPrefix = (
     };
 
     // Set CONDA_PREFIX for this test
-    const origCondaPrefix = process.env["CONDA_PREFIX"];
-    process.env["CONDA_PREFIX"] = condaPrefix;
-    return yield* condaReader.read(detected).pipe(
-      Effect.ensuring(
-        Effect.sync(() => {
-          if (origCondaPrefix === undefined) {
-            delete process.env["CONDA_PREFIX"];
-          } else {
-            process.env["CONDA_PREFIX"] = origCondaPrefix;
-          }
-        }),
-      ),
-    );
+    return yield* condaReader
+      .read(detected)
+      .pipe(
+        Effect.provide(
+          ConfigProvider.layer(ConfigProvider.fromEnv({ env: { CONDA_PREFIX: condaPrefix } })),
+        ),
+      );
   }).pipe(Effect.scoped);
 
 describe("condaReader", () => {
@@ -443,26 +438,15 @@ describe("condaReader", () => {
         Effect.gen(function* () {
           const purl = makePurl({ type: "conda", name: "numpy" });
 
-          const origCondaPrefix = process.env["CONDA_PREFIX"];
-          delete process.env["CONDA_PREFIX"];
-
           const detected = {
             purl,
             type: condaType,
             source: "/tmp/fake/environment.yml",
           };
 
-          const result = yield* condaReader.read(detected).pipe(
-            Effect.ensuring(
-              Effect.sync(() => {
-                if (origCondaPrefix === undefined) {
-                  delete process.env["CONDA_PREFIX"];
-                } else {
-                  process.env["CONDA_PREFIX"] = origCondaPrefix;
-                }
-              }),
-            ),
-          );
+          const result = yield* condaReader
+            .read(detected)
+            .pipe(Effect.provide(ConfigProvider.layer(ConfigProvider.fromEnv({ env: {} }))));
           expect(Option.isNone(result)).toBe(true);
         }),
       ),

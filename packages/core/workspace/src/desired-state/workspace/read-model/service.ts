@@ -575,7 +575,7 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
       onSome: (probe) =>
         probe.detect(workspaceRoot, scope).pipe(
           Effect.map((detected) => new Set<AgentId>(detected)),
-          Effect.catch((error) =>
+          Effect.catchTag("AgentPresenceUnavailable", (error) =>
             diagnostics
               .append({
                 source: "scanner",

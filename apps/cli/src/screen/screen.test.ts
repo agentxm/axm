@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -30,7 +31,7 @@ const wait: WaitView = {
 };
 
 const makeLayer = (
-  options: { readonly stderrIsTTY: boolean; readonly nonInteractive: boolean },
+  options: { readonly stderrIsTTY: boolean; readonly nonInteractive: boolean | undefined },
   onRead: () => void,
 ) =>
   Layer.unwrap(
@@ -66,13 +67,35 @@ const makeLayer = (
           frame,
           streams.layer,
           terminal,
-          Layer.succeed(nonInteractiveFlag, Option.some(options.nonInteractive)),
+          Layer.succeed(nonInteractiveFlag, Option.fromUndefinedOr(options.nonInteractive)),
         ),
       );
     }),
   );
 
 describe("Screen interaction availability", () => {
+  it.effect("fails unreadable CI configuration before opening a prompt", () => {
+    let reads = 0;
+    const sourceError = new ConfigProvider.SourceError({ message: "source unavailable" });
+    return Effect.gen(function* () {
+      const screen = yield* Screen;
+      const failure = yield* screen.ask(gate).pipe(Effect.flip);
+      expect(failure._tag).toBe("ConfigError");
+      if (failure._tag === "ConfigError") expect(failure.cause).toBe(sourceError);
+      expect(reads).toBe(0);
+    }).pipe(
+      Effect.provide(
+        Layer.mergeAll(
+          makeLayer({ stderrIsTTY: true, nonInteractive: undefined }, () => {
+            reads += 1;
+          }),
+          ConfigProvider.layer(ConfigProvider.make(() => Effect.fail(sourceError))),
+        ),
+      ),
+      Effect.scoped,
+    );
+  });
+
   it.effect("refuses a prompt when stderr cannot paint it", () => {
     let reads = 0;
     return Effect.gen(function* () {

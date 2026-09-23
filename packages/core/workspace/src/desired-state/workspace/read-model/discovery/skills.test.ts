@@ -9,6 +9,9 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
+import * as ConfigProvider from "effect/ConfigProvider";
+import * as Layer from "effect/Layer";
+import * as FileSystem from "effect/FileSystem";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { at } from "../../../test-helpers.js";
@@ -24,22 +27,18 @@ const TestLayer = NodeServices.layer;
 const withFileSystem = <A, E>(effect: Effect.Effect<A, E, NodeServices.NodeServices>) =>
   effect.pipe(Effect.provide(TestLayer));
 
-/** Set INSTALL_INTERNAL_SKILLS env var for the duration of the effect. */
-const withInstallInternalSkills = (value: string) => {
-  return <A, E>(effect: Effect.Effect<A, E, NodeServices.NodeServices>) => {
-    const saved = process.env["INSTALL_INTERNAL_SKILLS"];
-    process.env["INSTALL_INTERNAL_SKILLS"] = value;
-    return effect.pipe(
-      Effect.provide(TestLayer),
-      Effect.ensuring(
-        Effect.sync(() => {
-          if (saved === undefined) delete process.env["INSTALL_INTERNAL_SKILLS"];
-          else process.env["INSTALL_INTERNAL_SKILLS"] = saved;
-        }),
+/** Inject discovery configuration without changing the process environment. */
+const withInstallInternalSkills =
+  (value: string) =>
+  <A, E>(effect: Effect.Effect<A, E, NodeServices.NodeServices>) =>
+    effect.pipe(
+      Effect.provide(
+        Layer.mergeAll(
+          TestLayer,
+          ConfigProvider.layer(ConfigProvider.fromEnv({ env: { INSTALL_INTERNAL_SKILLS: value } })),
+        ),
       ),
     );
-  };
-};
 
 /**
  * Create a SKILL.md with valid YAML frontmatter in a directory.
@@ -67,6 +66,34 @@ const createSkillMd = (
 // -----------------------------------------------------------------------------
 
 describe("skillsInDir", () => {
+  it.effect("preserves internal-skill configuration failure before scanning", () =>
+    Effect.gen(function* () {
+      const sourceError = new ConfigProvider.SourceError({ message: "source unavailable" });
+      const probes: string[] = [];
+      const failure = yield* skillsInDir("/skills", Option.none(), {
+        fullDepth: true,
+        includeInternal: false,
+      }).pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            ConfigProvider.layer(ConfigProvider.make(() => Effect.fail(sourceError))),
+            FileSystem.layerNoop({
+              stat: (path) =>
+                Effect.sync(() => {
+                  probes.push(path);
+                  throw new Error("Unexpected scan");
+                }),
+            }),
+          ),
+        ),
+        Effect.flip,
+      );
+      expect(failure._tag).toBe("ConfigError");
+      if (failure._tag === "ConfigError") expect(failure.cause).toBe(sourceError);
+      expect(probes).toEqual([]);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
   let tempDir: string;
 
   beforeEach(() => {

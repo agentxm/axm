@@ -232,7 +232,7 @@ const withPublishPreviewOwnedByView = Effect.updateService(
 export const handleRootPublish = Effect.fn("Publish.handle")(
   function* (args: RootPublishHandlerArgs) {
     const startedAtMs = yield* Clock.currentTimeMillis;
-    const unattended = (yield* isNonInteractive) || Option.getOrElse(yield* jsonFlag, () => false);
+    const unattended = Option.getOrElse(yield* jsonFlag, () => false) || (yield* isNonInteractive);
     yield* withLiveOperation(
       {
         command: "publish",

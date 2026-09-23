@@ -437,13 +437,14 @@ const selectSetupAgents = (args: {
       }
     }
     const detections = yield* detectAgentScopeResults(args.workspaceRoot).pipe(
-      Effect.mapError(
-        (error) =>
-          new WorkspaceConfigurationFailed({
-            category: "internal",
-            detail: `Failed to detect agents: ${error.message}`,
-            cause: error,
-          }),
+      Effect.mapError((error) =>
+        error._tag === "ConfigError"
+          ? error
+          : new WorkspaceConfigurationFailed({
+              category: "internal",
+              detail: `Failed to detect agents: ${error.message}`,
+              cause: error,
+            }),
       ),
     );
     const detectedAgents = detections.map((detection) => detection.agent);

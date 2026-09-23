@@ -30,8 +30,8 @@ import type { LintFinding, LintRule, Severity } from "./rule.js";
  *
  * @experimental This API is unstable and may change without notice.
  */
-export interface Evaluated<C> {
-  readonly rule: LintRule<C>;
+export interface Evaluated<C, E = never> {
+  readonly rule: LintRule<C, E>;
   readonly context: C;
   readonly findings: ReadonlyArray<LintFinding>;
 }
@@ -87,30 +87,30 @@ const withSeverity = (finding: LintFinding, severity: Severity): LintFinding => 
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const evaluateContexts = <C>(
-  rules: ReadonlyArray<LintRule<C>>,
+export const evaluateContexts = <C, E>(
+  rules: ReadonlyArray<LintRule<C, E>>,
   contexts: ReadonlyArray<C>,
   config: LintConfig,
-): Effect.Effect<ReadonlyArray<Evaluated<C>>> =>
+): Effect.Effect<ReadonlyArray<Evaluated<C, E>>, E> =>
   Effect.forEach(
     rules.flatMap((rule) => contexts.map((context) => ({ rule, context }))),
     ({ rule, context }) => evaluateOne(rule, context, config),
     { concurrency: 1 },
   );
 
-const evaluateOne = <C>(
-  rule: LintRule<C>,
+const evaluateOne = <C, E>(
+  rule: LintRule<C, E>,
   context: C,
   config: LintConfig,
-): Effect.Effect<Evaluated<C>> =>
+): Effect.Effect<Evaluated<C, E>, E> =>
   Effect.map(rule.check(context), (rawFindings) => ({
     rule,
     context,
     findings: applySeverityConfig(rule, rawFindings, config),
   }));
 
-const applySeverityConfig = <C>(
-  rule: LintRule<C>,
+const applySeverityConfig = <C, E>(
+  rule: LintRule<C, E>,
   findings: ReadonlyArray<LintFinding>,
   config: LintConfig,
 ): ReadonlyArray<LintFinding> => {

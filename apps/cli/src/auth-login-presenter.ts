@@ -5,6 +5,7 @@
  * machine-mode document emission for the device and loopback sign-in flows.
  */
 
+import { ConfigError } from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { observeChildUnit, observeUnit } from "@agentxm/workspace/transitions/planning";
@@ -60,10 +61,13 @@ const sessionReplacementAsk: ConfirmAsk<SessionReplacementDecision> = {
   ],
 };
 
-const outputFailure = (cause: OutputWriteFailed) =>
+const outputFailure = (cause: OutputWriteFailed | ConfigError) =>
   new RegistryAccessFailed({
     category: "internal",
-    detail: "The authentication output could not be delivered.",
+    detail:
+      cause._tag === "ConfigError"
+        ? "Authentication interaction configuration could not be read."
+        : "The authentication output could not be delivered.",
     cause,
   });
 
@@ -71,10 +75,11 @@ export const AuthLoginPresenterLive = Layer.effect(
   AuthLoginPresenter,
   Effect.gen(function* () {
     const screen = yield* Screen;
-    const required = <A, E, R>(effect: Effect.Effect<A, E | OutputWriteFailed, R>) =>
+    const required = <A, E, R>(effect: Effect.Effect<A, E | OutputWriteFailed | ConfigError, R>) =>
       effect.pipe(
         Effect.catchIf(
-          (error): error is OutputWriteFailed => error instanceof OutputWriteFailed,
+          (error): error is OutputWriteFailed | ConfigError =>
+            error instanceof OutputWriteFailed || error instanceof ConfigError,
           (cause) => Effect.fail(outputFailure(cause)),
         ),
       );

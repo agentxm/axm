@@ -1,3 +1,4 @@
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -378,20 +379,13 @@ const readInTempNuget = (
     };
 
     // Override NUGET_PACKAGES for this test
-    const origNugetPackages = process.env["NUGET_PACKAGES"];
-    process.env["NUGET_PACKAGES"] = packagesFolder;
-
-    return yield* nugetReader.read(detected).pipe(
-      Effect.ensuring(
-        Effect.sync(() => {
-          if (origNugetPackages === undefined) {
-            delete process.env["NUGET_PACKAGES"];
-          } else {
-            process.env["NUGET_PACKAGES"] = origNugetPackages;
-          }
-        }),
-      ),
-    );
+    return yield* nugetReader
+      .read(detected)
+      .pipe(
+        Effect.provide(
+          ConfigProvider.layer(ConfigProvider.fromEnv({ env: { NUGET_PACKAGES: packagesFolder } })),
+        ),
+      );
   }).pipe(Effect.scoped);
 
 describe("nugetReader", () => {
@@ -555,26 +549,15 @@ describe("nugetReader", () => {
           });
 
           // Unset NUGET_PACKAGES to test default
-          const origNugetPackages = process.env["NUGET_PACKAGES"];
-          delete process.env["NUGET_PACKAGES"];
-
           const detected = {
             purl,
             type: nugetType,
             source: "/tmp/fake/MyApp.csproj",
           };
 
-          const result = yield* nugetReader.read(detected).pipe(
-            Effect.ensuring(
-              Effect.sync(() => {
-                if (origNugetPackages === undefined) {
-                  delete process.env["NUGET_PACKAGES"];
-                } else {
-                  process.env["NUGET_PACKAGES"] = origNugetPackages;
-                }
-              }),
-            ),
-          );
+          const result = yield* nugetReader
+            .read(detected)
+            .pipe(Effect.provide(ConfigProvider.layer(ConfigProvider.fromEnv({ env: {} }))));
           // Should return none since the package won't exist at ~/.nuget/packages
           expect(Option.isNone(result)).toBe(true);
         }),
@@ -592,9 +575,6 @@ describe("nugetReader", () => {
             version: "1.0.0",
           });
 
-          const origNugetPackages = process.env["NUGET_PACKAGES"];
-          process.env["NUGET_PACKAGES"] = "/tmp/nonexistent-nuget-packages-12345";
-
           const detected = {
             purl,
             type: nugetType,
@@ -602,14 +582,12 @@ describe("nugetReader", () => {
           };
 
           const result = yield* nugetReader.read(detected).pipe(
-            Effect.ensuring(
-              Effect.sync(() => {
-                if (origNugetPackages === undefined) {
-                  delete process.env["NUGET_PACKAGES"];
-                } else {
-                  process.env["NUGET_PACKAGES"] = origNugetPackages;
-                }
-              }),
+            Effect.provide(
+              ConfigProvider.layer(
+                ConfigProvider.fromEnv({
+                  env: { NUGET_PACKAGES: "/tmp/nonexistent-nuget-packages-12345" },
+                }),
+              ),
             ),
           );
           expect(Option.isNone(result)).toBe(true);

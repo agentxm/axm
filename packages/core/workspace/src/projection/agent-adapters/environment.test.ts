@@ -1,4 +1,5 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
@@ -84,6 +85,45 @@ describe("agent environment configuration", () => {
         ),
       ),
   );
+
+  it.effect("probes PATH in order and stops after the first executable", () => {
+    const probes: string[] = [];
+    return Effect.gen(function* () {
+      const resolver = yield* AgentExecutableResolver;
+      expect(yield* resolver.exists("agent-cli.exe")).toBe(true);
+      expect(probes).toEqual([
+        path.join("first", "agent-cli.exe"),
+        path.join("second", "agent-cli.exe"),
+      ]);
+    }).pipe(
+      Effect.provide(
+        Layer.mergeAll(
+          AgentExecutableResolverLive.pipe(
+            Layer.provide(
+              Layer.mergeAll(
+                NodeServices.layer,
+                FileSystem.layerNoop({
+                  exists: (target) =>
+                    Effect.sync(() => {
+                      probes.push(target);
+                      return target === path.join("second", "agent-cli.exe");
+                    }),
+                }),
+              ),
+            ),
+          ),
+          ConfigProvider.layer(
+            ConfigProvider.fromEnv({
+              env: {
+                PATH: ["first", "second", "third"].join(path.delimiter),
+                PATHEXT: ".EXE",
+              },
+            }),
+          ),
+        ),
+      ),
+    );
+  });
 
   it.effect.each([
     { id: "claude-code", key: "AXM_CLAUDE_SKILLS_DIR" },

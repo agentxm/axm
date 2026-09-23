@@ -48,7 +48,8 @@ export NX_TASKS_RUNNER_DYNAMIC_OUTPUT=false
 ```
 
 During implementation, run the narrowest relevant target, then
-`pnpm run verify:affected`. Before merge, run `pnpm run verify:pr`; use
+`pnpm run verify:affected`. Before merge, run `pnpm run verify:affected`; use
+`pnpm run verify:pr` to reproduce a merge-queue failure locally. Use
 `pnpm run ci` for full-workspace automation diagnostics. Run
 `pnpm run format` before committing. Pull-request CI renders the requirement
 impact against its affected base. Use the in-flight CLI against another

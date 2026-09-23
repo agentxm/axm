@@ -95,7 +95,8 @@ reviewer for maintainer-authored work.
    first file edit.
 2. Make your changes.
 3. Add or update tests for any new or changed behavior.
-4. Verify the complete change boundary: `pnpm run verify:pr`.
+4. Run `pnpm run verify:affected` locally before merge. Use
+   `pnpm run verify:pr` when reproducing a merge-queue failure.
 5. Open a pull request against `main`. After acceptance, enable auto-merge to
    enter GitHub's native merge queue. GitHub tests the synthesized merge-group
    revision and squash-merges only after its `Required CI` succeeds. Do not

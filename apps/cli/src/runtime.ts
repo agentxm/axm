@@ -111,7 +111,7 @@ import {
 import { LatestReleaseCheckLive } from "@agentxm/cli-maintenance/self-update/composition";
 
 import { loadVersion } from "./version.js";
-import { suggestionsForScope } from "./root/shared/scoped-command.js";
+import { failureForWorkspaceScope } from "./root/shared/scoped-command.js";
 import { ScreenLoggerLive } from "./screen/index.js";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
 import { ReleaseAgePosture } from "@agentxm/workspace/resolution";
@@ -429,22 +429,7 @@ export const withWorkspace =
           Effect.flatMap((workspaceContext) => Effect.provide(program, workspaceContext)),
         ),
       ).pipe(
-        Effect.mapError((error) => {
-          if (error._tag !== "AppError" || error.suggestions === undefined) return error;
-          return new AppError({
-            code: error.code,
-            title: error.title,
-            detail: error.detail,
-            ...(error.metadata === undefined ? {} : { metadata: error.metadata }),
-            ...(error.status === undefined ? {} : { status: error.status }),
-            ...(error.retryable === undefined ? {} : { retryable: error.retryable }),
-            ...(error.blockedOn === undefined ? {} : { blockedOn: error.blockedOn }),
-            ...(error.action === undefined ? {} : { action: error.action }),
-            ...(error.problem === undefined ? {} : { problem: error.problem }),
-            suggestions: suggestionsForScope(error.suggestions, resolved.scope),
-            cause: error.cause,
-          });
-        }),
+        Effect.mapError((error) => failureForWorkspaceScope(error, resolved.scope)),
         Effect.ensuring(
           Effect.gen(function* () {
             const semanticProperties = yield* getCommandSemanticProperties;

@@ -2,7 +2,19 @@ import * as Cause from "effect/Cause";
 import { ConfigError } from "effect/Config";
 import { SourceError } from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
-import { describe, expect, it } from "@effect/vitest";
+import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
+import { afterAll, describe, expect, it } from "@effect/vitest";
+
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
+import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+import {
+  prepareExecutionCandidate,
+  resolveExecutionCandidate,
+  type FailureInput,
+  type Plan,
+} from "@agentxm/workspace/transitions/planning";
+import { preapprovedPlanExecution } from "@agentxm/workspace/transitions/planning/testing";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { FqnInvalidError } from "@agentxm/extension-model/unstable/extensions/fqn";
@@ -206,26 +218,43 @@ import {
   type WorkspaceFailure,
 } from "@agentxm/workspace/reconciliation";
 
-import type { AppError } from "./app-error/index.js";
+import { AppError } from "./app-error/index.js";
 import { stepFailureToAppError, toAppError } from "./app-error/conversions.js";
+import { JsonErrorEnvelopeSchema, classifyError } from "./cli-runtime/index.js";
+import { withOperationLifecycle } from "./operation-lifecycle.js";
+import { PlanResolutionResultSchema, emitOperationResolution } from "./operation-output.js";
+import { failureForWorkspaceScope } from "./root/shared/scoped-command.js";
+import { makeSpecWorkspace } from "./test-support/install-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/failures-render-identically-on-direct-and-plan-paths",
   title: "A failure reads the same whether a command or a plan step reports it",
   statement:
-    "A typed failure shall render with the same category, title, detail, structured problem, recorded evidence, and recoveries, including each recovery's command and the scope that command runs in, whether it surfaces directly at the command boundary or settles a plan step.",
+    "A typed failure shall report the same category, exit code, title, detail, structured problem, recorded evidence, and stated recoveries, each recovery's command addressed to the scope it runs in, whether it surfaces directly at the command boundary or settles a plan step.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "machine-automation"],
+  boundary: "memory",
+  boundaryRationale:
+    "The two paths share only the kernel's rendering of the typed failure and diverge where the envelope is built, so each row compares their printed output in process: the direct column is the runtime's classification of a failure the workspace boundary addressed to its scope (exit code and machine error document); the plan column is an applied one-unit plan resolved by the plan pipeline over a temporary workspace and written by the plan-family renderer (exit code and plan result document).",
   methods: ["decision-table", "example"],
   derivedFrom: [
     "apps/cli/src/app-error/conversions.test.ts",
     "apps/cli/src/app-error/conversions/extension-materialization.test.ts",
   ],
   supersedes: [],
-  assumptions: [],
+  assumptions: [
+    "Where a failure states no recovery, the command boundary offers its category's generic recovery and a plan offers the command's own route; cli/non-success-results-name-a-fitting-recovery owns the plan's choice, so only stated recoveries are compared.",
+    "An operation's message names the failed unit's settled message; the failure's own sentence is the unit's error message, which the plan result carries at verbose detail.",
+  ],
   openQuestions: [],
   limitations: [
+    {
+      limitation:
+        "Inputs appear only in human output and are compared on the failure each human renderer is handed, not on painted text; the plan-family human render does not list them.",
+      retirementCondition:
+        "Compare painted text once the plan-family human render lists a failure's inputs.",
+    },
     {
       limitation:
         "A selection the terminal could not obtain renders the terminal interaction's own guidance when that interaction supplied it; selection happens before any plan exists, so no plan step carries it.",
@@ -791,6 +820,162 @@ const representatives: Representatives = {
 
 const rows: ReadonlyArray<WorkspaceFailure> = Object.values(representatives).flat();
 
+/** Every field an operator reads from a reported failure, whichever path reported it. */
+interface OperatorView {
+  readonly code: string;
+  readonly exitCode: number;
+  readonly title: string | undefined;
+  readonly detail: string | undefined;
+  readonly problemCode: string | undefined;
+  readonly metadata: unknown;
+  readonly retryable: boolean | undefined;
+  readonly inputs: ReadonlyArray<FailureInput> | undefined;
+  readonly suggestions: ReadonlyArray<SuggestedAction>;
+}
+
+/**
+ * A suggestion as an operator reads it from either document. The published
+ * suggestion contract also rejects commands that are not one inert AXM
+ * invocation; several producers still state placeholder commands, which both
+ * paths print alike, so this reader keeps what was printed.
+ */
+const PrintedSuggestionSchema = Schema.Struct({
+  description: Schema.String,
+  cmd: Schema.optional(Schema.String),
+  url: Schema.optional(Schema.String),
+});
+
+/** The machine error document the runtime writes for a failed command. */
+const decodeErrorDocument = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(
+    Schema.Struct({
+      ...JsonErrorEnvelopeSchema.fields,
+      suggestions: Schema.optional(Schema.Array(PrintedSuggestionSchema)),
+    }),
+  ),
+);
+
+/** The machine document a plan-family command writes for a settled operation. */
+const decodePlanDocument = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(
+    Schema.Struct({
+      result: PlanResolutionResultSchema,
+      suggestions: Schema.optional(Schema.Array(PrintedSuggestionSchema)),
+    }),
+  ),
+);
+
+/**
+ * The direct path: the failure leaves a command inside the workspace
+ * boundary, which addresses it to the workspace's scope, and the runtime
+ * classifies it into its exit code and machine error document. Inputs appear
+ * only in human output, so they are read from the envelope that output is
+ * rendered from. The document offers a category's generic recovery when a
+ * failure states none, so only the recoveries the failure states are compared.
+ */
+const directView = (failure: WorkspaceFailure, scope: WorkspaceScope) =>
+  Effect.gen(function* () {
+    const reported = failureForWorkspaceScope(failure, scope);
+    const envelope = reported instanceof AppError ? reported : undefined;
+    const classified = classifyError(reported, "json");
+    const document = yield* decodeErrorDocument(classified.stdout ?? "");
+    return {
+      code: document.code,
+      exitCode: classified.exitCode,
+      title: document.title,
+      detail: document.detail,
+      problemCode: document.problem?.code,
+      metadata: document.metadata,
+      retryable: document.retryable,
+      inputs: envelope?.inputs,
+      suggestions: envelope?.suggestions === undefined ? [] : (document.suggestions ?? []),
+    } satisfies OperatorView;
+  });
+
+/** A one-unit plan whose unit settles with the kernel's rendering of the failure. */
+const failingPlan = (failure: StepFailure): Plan => ({
+  _tag: "Plan",
+  name: "Render a failure",
+  description: Option.none(),
+  jobs: [
+    {
+      concurrency: 1,
+      steps: [{ readiness: "ready", key: "unit", label: "unit", run: Effect.fail(failure) }],
+    },
+  ],
+});
+
+const PARITY_COMMAND = "failure-parity";
+
+/**
+ * A workspace in each scope whose plan pipeline and machine renderer are the
+ * product's own, reused across rows so each row runs one plan.
+ */
+const planWorkspaces = {
+  project: makeSpecWorkspace({
+    machine: true,
+    flags: { json: true, verbose: true },
+    screen: { kind: "machine" },
+  }),
+  user: makeSpecWorkspace({
+    scope: "user",
+    userSettings: {},
+    machine: true,
+    flags: { json: true, verbose: true },
+    screen: { kind: "machine" },
+  }),
+} as const;
+
+afterAll(() => {
+  planWorkspaces.project.cleanup();
+  planWorkspaces.user.cleanup();
+});
+
+/**
+ * The plan path: an applied plan whose unit settled with the kernel's
+ * rendering is resolved by the plan pipeline and written by the plan-family
+ * renderer, which carries the failure on the operation and its unit and
+ * addresses the operation's recoveries to the workspace's scope. Detail is the
+ * unit's rendered sentence; the operation's message names the unit's settled
+ * message instead. Inputs are read from the settled failure the human
+ * renderer is handed.
+ */
+const planView = (failure: WorkspaceFailure, scope: WorkspaceScope) =>
+  Effect.gen(function* () {
+    const workspace = planWorkspaces[scope];
+    const log = workspace.streams?.log ?? [];
+    const written = log.length;
+    const { resolution, emitted } = yield* withOperationLifecycle(
+      { command: PARITY_COMMAND, mode: "apply", planName: "Render a failure" },
+      Effect.gen(function* () {
+        const candidate = yield* prepareExecutionCandidate(
+          failingPlan(workspaceFailureToStepFailure(failure)),
+        );
+        const resolution = yield* resolveExecutionCandidate(candidate, preapprovedPlanExecution);
+        const emitted = yield* emitOperationResolution(PARITY_COMMAND, resolution);
+        return { resolution, emitted };
+      }),
+    ).pipe(workspace.provide);
+    const stdout = log
+      .slice(written)
+      .flatMap((entry) => (entry.channel === "stdout" ? [entry.content] : []))
+      .join("");
+    const document = yield* decodePlanDocument(stdout);
+    const operation = document.result.failure;
+    const [unit] = document.result.units;
+    return {
+      code: operation?.code ?? document.result.outcome,
+      exitCode: emitted.exitCode,
+      title: operation?.title,
+      detail: unit?.error?.message,
+      problemCode: operation?.problem?.code,
+      metadata: operation?.metadata,
+      retryable: operation?.retryable,
+      inputs: resolution.failure?.inputs,
+      suggestions: document.suggestions ?? [],
+    } satisfies OperatorView;
+  });
+
 /** Every field a person or a machine reads from a rendered failure. */
 const rendered = (error: AppError) => ({
   code: error.code,
@@ -806,53 +991,78 @@ const rendered = (error: AppError) => ({
 const viaPlanStep = (failure: StepFailure): AppError => stepFailureToAppError(failure);
 
 describe("A failure reads the same on the direct and plan paths", () => {
-  it.each(rows.map((failure, index) => [`${failure._tag} #${index}`, failure] as const))(
-    "%s renders identically whether a command or a plan step reports it",
-    (_name, failure) => {
+  // A kernel rendering reaches the direct column only through the CLI's
+  // envelope projection and the runtime's error document, and the plan
+  // column only through the plan pipeline and the plan-family renderer, so a
+  // CLI-side rendering of any one tag breaks that tag's rows.
+  it.effect.each(
+    rows.flatMap((failure, index) =>
+      (["project", "user"] as const).map(
+        (scope) => [`${failure._tag} #${index} in a ${scope} workspace`, failure, scope] as const,
+      ),
+    ),
+  )("%s reads the same whether a command or a plan step reports it", ([, failure, scope]) =>
+    Effect.gen(function* () {
       expect(isWorkspaceFailure(failure)).toBe(true);
-      const direct = toAppError(failure);
-      const plan = viaPlanStep(workspaceFailureToStepFailure(failure));
-      expect(rendered(plan)).toEqual(rendered(direct));
-    },
+      const direct = yield* directView(failure, scope);
+      const plan = yield* planView(failure, scope);
+      expect(plan).toEqual(direct);
+    }),
   );
 
-  it("names the unsupported lockfile problem and its upgrade on every path", () => {
-    const newer = new LockfileVersionUnsupported({
-      path: "/w/axm-lock.yaml",
-      observedVersion: 8,
-      supportedVersion: 7,
-    });
-    const catalog = new WorkspaceCatalogUnavailable({
-      category: "validation",
-      detail: "Workspace state is invalid.",
-      cause: newer,
-    });
-    for (const error of [
-      toAppError(newer),
-      toAppError(catalog),
-      viaPlanStep(workspaceFailureToStepFailure(newer)),
-    ]) {
-      expect(error.code).toBe("validation");
-      expect(error.problem?.code).toBe("workspace-lockfile-version-unsupported");
-      expect(error.suggestions).toEqual([
-        {
-          description: "Upgrade AXM before accessing this workspace.",
-          cmd: "axm upgrade",
-          commandScope: "global",
-        },
-      ]);
-    }
-  });
+  it.effect("addresses a lockfile recovery to the scope it runs in on every path", () =>
+    Effect.gen(function* () {
+      const lockfile = (observedVersion: number) =>
+        new LockfileVersionUnsupported({
+          path: "/w/axm-lock.yaml",
+          observedVersion,
+          supportedVersion: 7,
+        });
+      const viaCatalog = (cause: LockfileVersionUnsupported) =>
+        new WorkspaceCatalogUnavailable({
+          category: "validation",
+          detail: "Workspace state is invalid.",
+          cause,
+        });
+      // A newer lockfile needs a newer AXM, which is upgraded for the whole
+      // installation; an older one is regenerated in the workspace itself.
+      const views = [
+        ...[lockfile(8), viaCatalog(lockfile(8))].map((failure) => directView(failure, "user")),
+        planView(lockfile(8), "user"),
+      ];
+      for (const view of yield* Effect.all(views)) {
+        expect(view.problemCode).toBe("workspace-lockfile-version-unsupported");
+        expect(view.suggestions.map((suggestion) => suggestion.cmd)).toEqual(["axm upgrade"]);
+      }
+      for (const view of yield* Effect.all([
+        directView(lockfile(5), "user"),
+        directView(viaCatalog(lockfile(5)), "user"),
+        planView(lockfile(5), "user"),
+      ])) {
+        expect(view.suggestions.flatMap((suggestion) => suggestion.cmd ?? [])).toEqual([
+          "axm sync --preview --scope user",
+          "axm sync --scope user",
+        ]);
+      }
+    }),
+  );
 
-  it("reads an unreadable settings or lockfile as unavailable storage on every path", () => {
-    for (const failure of [
-      new SettingsIoError({ path: "/w/axm.json", cause: ioCause }),
-      new LockfileIoError({ path: "/w/axm-lock.yaml", cause: ioCause }),
-    ]) {
-      expect(toAppError(failure).code).toBe("unavailable");
-      expect(viaPlanStep(workspaceFailureToStepFailure(failure)).code).toBe("unavailable");
-    }
-  });
+  it.effect("reads an unreadable settings or lockfile as unavailable storage on every path", () =>
+    Effect.gen(function* () {
+      for (const failure of [
+        new SettingsIoError({ path: "/w/axm.json", cause: ioCause }),
+        new LockfileIoError({ path: "/w/axm-lock.yaml", cause: ioCause }),
+      ]) {
+        for (const view of yield* Effect.all([
+          directView(failure, "project"),
+          planView(failure, "project"),
+        ])) {
+          expect(view.code).toBe("unavailable");
+          expect(view.exitCode).toBe(11);
+        }
+      }
+    }),
+  );
 
   it.effect("renders a lifecycle plan step the same way through the provided conversion", () =>
     Effect.gen(function* () {

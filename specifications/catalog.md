@@ -109,13 +109,16 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/failures-render-identically-on-direct-and-plan-paths`
 - Owner: `cli`
-- Statement: A typed failure shall render with the same category, title, detail, structured problem, recorded evidence, and recoveries, including each recovery's command and the scope that command runs in, whether it surfaces directly at the command boundary or settles a plan step.
+- Statement: A typed failure shall report the same category, exit code, title, detail, structured problem, recorded evidence, and stated recoveries, each recovery's command addressed to the scope it runs in, whether it surfaces directly at the command boundary or settles a plan step.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `machine-automation`
 - Boundary: memory; selection: per-change
+- Boundary rationale: The two paths share only the kernel's rendering of the typed failure and diverge where the envelope is built, so each row compares their printed output in process: the direct column is the runtime's classification of a failure the workspace boundary addressed to its scope (exit code and machine error document); the plan column is an applied one-unit plan resolved by the plan pipeline over a temporary workspace and written by the plan-family renderer (exit code and plan result document).
 - Methods: decision-table, example
 - Derived from: `apps/cli/src/app-error/conversions.test.ts`, `apps/cli/src/app-error/conversions/extension-materialization.test.ts`
+- Assumptions: Where a failure states no recovery, the command boundary offers its category's generic recovery and a plan offers the command's own route; cli/non-success-results-name-a-fitting-recovery owns the plan's choice, so only stated recoveries are compared.; An operation's message names the failed unit's settled message; the failure's own sentence is the unit's error message, which the plan result carries at verbose detail.
+- Limitation: Inputs appear only in human output and are compared on the failure each human renderer is handed, not on painted text; the plan-family human render does not list them. Retires when: Compare painted text once the plan-family human render lists a failure's inputs.
 - Limitation: A selection the terminal could not obtain renders the terminal interaction's own guidance when that interaction supplied it; selection happens before any plan exists, so no plan step carries it. Retires when: Bind a plan-step example here if extension selection ever runs inside a plan.
 - Source: [`apps/cli/src/failures-render-identically-on-direct-and-plan-paths.spec.ts`](../apps/cli/src/failures-render-identically-on-direct-and-plan-paths.spec.ts)
 

@@ -132,18 +132,20 @@ ESLint configuration, with no build prerequisite; the
 existing Nx constraints remain active for unconverted scopes.
 
 Use the confidence ladder consistently. A focused Nx target answers one question
-during implementation. `verify:affected` is the fast source-only loop over the
-current Nx range. `verify:pr` is the source and artifact change-boundary gate: clean and
-format checks, affected source verification, packed artifacts, and affected CLI
-E2E. `ci` runs full-workspace source and CLI diagnostics for automation and scheduled
-coverage; it is not the routine substitute for `verify:pr`.
+during implementation. Run `verify:affected` locally before merge; it checks the
+current Nx affected range. `verify:pr` remains available to reproduce a
+merge-queue failure locally. CI runs the source and artifact change-boundary
+gate: clean and format checks, affected source verification, packed artifacts,
+and affected CLI E2E. `ci` runs full-workspace source and CLI diagnostics for
+automation and scheduled coverage; it is not the routine substitute for
+`verify:affected`.
 
 `verify:pr:source` owns the source and packed-artifact portion of that gate.
 CI runs it alongside the existing CLI E2E shards, using the same Nx affected
 range for every partition. Other projects' E2E targets stay in the proposed-change
 job. Main and recovery runs use the full partitions. Each partition must succeed
 for Required CI; splitting execution does not make E2E optional. Locally,
-`verify:pr` remains the complete command.
+`verify:pr` remains the complete local reproduction command.
 
 `axm:audit:dependencies` is a fresh registry-backed gate in `verify:pr:source`
 and `ci:workspace`. It fails for high or critical advisories in production

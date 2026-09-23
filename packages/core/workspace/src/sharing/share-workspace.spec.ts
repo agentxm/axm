@@ -9,6 +9,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import { WorkspaceFileWriteLocksLive } from "../transitions/settlement/live.js";
 import * as Option from "effect/Option";
 
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
@@ -102,7 +103,7 @@ describe("Share workspace", () => {
       const before = snapshot(root);
       const layer = Layer.provideMerge(
         WorkspaceStateLive({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
-        NodeServices.layer,
+        Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),
       );
       const result = yield* ShareWorkspace.query().pipe(Effect.provide(layer));
       const discovered = yield* discoverExtensionPackages(root, {
@@ -140,7 +141,7 @@ describe("Share workspace", () => {
       const before = snapshot(root);
       const layer = Layer.provideMerge(
         WorkspaceStateLive({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
-        NodeServices.layer,
+        Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),
       );
       const result = yield* ShareWorkspace.query().pipe(Effect.provide(layer), Effect.result);
 
@@ -161,7 +162,7 @@ describe("Share workspace", () => {
       roots.push(root);
       const layer = Layer.provideMerge(
         WorkspaceStateLive({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
-        NodeServices.layer,
+        Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),
       );
       const result = yield* ShareWorkspace.query({ ecosystem: "npm" }).pipe(Effect.provide(layer));
 
@@ -191,7 +192,7 @@ describe("Share workspace", () => {
       roots.push(root);
       const layer = Layer.provideMerge(
         WorkspaceStateLive({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
-        NodeServices.layer,
+        Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),
       );
 
       for (const ecosystem of packageMetadataEcosystems) {

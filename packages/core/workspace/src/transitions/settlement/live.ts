@@ -15,6 +15,13 @@ import {
 } from "./scope.js";
 import { runFilesystemTransaction, type FilesystemTransactionRuntime } from "./transaction.js";
 import { makeWorkspaceTransitionLock, type WorkspaceTransitionLock } from "./transition-lock.js";
+import { makeWorkspaceFileWriteLocks, WorkspaceFileWriteLocks } from "./file-write-locks.js";
+
+/** One owner shared across every workspace graph in an invocation. */
+export const WorkspaceFileWriteLocksLive = Layer.effect(
+  WorkspaceFileWriteLocks,
+  Effect.map(makeWorkspaceFileWriteLocks, ({ service }) => service),
+);
 
 const makeFilesystemScope = (
   fs: FileSystem.FileSystem,

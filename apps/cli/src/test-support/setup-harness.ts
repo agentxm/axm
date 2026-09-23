@@ -1,4 +1,7 @@
-import { WorkspaceTransactionScopesLive } from "@agentxm/workspace/transitions/settlement/live";
+import {
+  WorkspaceFileWriteLocksLive,
+  WorkspaceTransactionScopesLive,
+} from "@agentxm/workspace/transitions/settlement/live";
 /**
  * Uninitialized-directory harness for setup-driven specifications.
  *
@@ -92,12 +95,13 @@ export const makeSetupSpecContext = (options: SetupSpecContextOptions = {}) => {
           NodeServices.layer,
         )
       : NodeServices.layer;
+  const foundation = Layer.provideMerge(WorkspaceFileWriteLocksLive, platformLayer);
   const layer = Layer.mergeAll(
     Layer.provide(WorkspaceTransactionScopesLive, platformLayer),
-    platformLayer,
+    foundation,
     FetchHttpClient.layer,
     CodingAgentRepositoryLive,
-    NativeWriteAuthorityLive,
+    Layer.provide(NativeWriteAuthorityLive, foundation),
     // Setup applies the bundled official skill inside the initialization
     // closure, through the same asset layer the executable composes.
     BundledAxmSkillAssetLive,

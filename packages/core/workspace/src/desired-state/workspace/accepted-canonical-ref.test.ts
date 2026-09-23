@@ -5,6 +5,8 @@ import { pathToFileURL } from "node:url";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import { WorkspaceFileWriteLocksLive } from "../../transitions/settlement/live.js";
 import * as Option from "effect/Option";
 import { LOCKFILE_VERSION, type SkillLockEntry } from "../lockfile/schema.js";
 import type { GitHostedSkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
@@ -99,6 +101,9 @@ describe("accepted canonical source transitions", () => {
 
       expect(nodeFs.existsSync(previousPath)).toBe(false);
       expect(nodeFs.existsSync(unrelatedPath)).toBe(true);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer)),
+    ),
   );
 });

@@ -27,6 +27,11 @@ export interface NativeWriteRecord {
 }
 
 export interface NativeWriteAuthorityService {
+  /** Serialize a target's complete read/modify/write within this invocation. */
+  readonly withExclusiveWrite: <A, E, R>(
+    absolutePath: string,
+    effect: Effect.Effect<A, E, R>,
+  ) => Effect.Effect<A, E, R>;
   /**
    * Preserve the pre-mutation preimage of an absolute path. Fails before the
    * write when the preimage cannot be taken, so an unprotectable path is never

@@ -11,6 +11,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import { WorkspaceFileWriteLocksLive } from "../../transitions/settlement/live.js";
 import { afterEach, beforeEach } from "vitest";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import type { WorkspaceStateOptions } from "../../desired-state/index.js";
@@ -66,7 +67,10 @@ describe("bootstrapWorkspace", () => {
     const workspaceInitInteraction = WorkspaceInitializationInteractionTest({
       selectAgents: () => Effect.succeed([]),
     });
-    const base = Layer.mergeAll(NodeServices.layer, workspaceInitInteraction.layer);
+    const base = Layer.provideMerge(
+      Layer.mergeAll(WorkspaceFileWriteLocksLive, workspaceInitInteraction.layer),
+      NodeServices.layer,
+    );
     // Initialization reads non-interactivity from the options, not the flag.
     const wsOptions = {
       ...defaultOptions,
@@ -199,7 +203,12 @@ describe("bootstrapWorkspace", () => {
       });
 
       yield* bootstrapWorkspace({ ...defaultOptions, nonInteractive: false }).pipe(
-        Effect.provide(Layer.mergeAll(NodeServices.layer, interaction.layer)),
+        Effect.provide(
+          Layer.provideMerge(
+            Layer.mergeAll(WorkspaceFileWriteLocksLive, interaction.layer),
+            NodeServices.layer,
+          ),
+        ),
         Effect.scoped,
       );
 

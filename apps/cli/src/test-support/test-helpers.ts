@@ -35,7 +35,11 @@ import {
   type WorkspaceStateServices,
 } from "@agentxm/workspace/desired-state/live";
 import { ConfiguredAgentOutcomesProviderTest } from "@agentxm/workspace/desired-state/testing";
-import type { WorkspaceTransactionScope } from "@agentxm/workspace/transitions/settlement";
+import type {
+  WorkspaceTransactionScope,
+  WorkspaceFileWriteLocks,
+} from "@agentxm/workspace/transitions/settlement";
+import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace/transitions/settlement/live";
 import {
   BundledAxmSkillAssetLive,
   ExtensionSelectionLive,
@@ -568,6 +572,7 @@ export const makeCliTestContext = (opts?: {
   );
   const baseLayer = Layer.mergeAll(
     platformLayer,
+    Layer.provide(WorkspaceFileWriteLocksLive, platformLayer),
     Layer.succeed(HttpClient.HttpClient, opts?.httpClient ?? testHttpClient),
     registryClientFactoryLayer,
     rendererLayer,
@@ -638,7 +643,7 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
   readonly workspaceLayer?: Layer.Layer<
     WorkspaceStateServices | WorkspaceTransactionScope,
     WorkspaceStateError,
-    FileSystem.FileSystem | Path.Path
+    FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks
   >;
   readonly wsOptions?:
     | (Omit<Partial<WorkspaceStateOptions>, "projectRoot"> & {
@@ -671,15 +676,16 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
     opts?.workspaceLayer ?? coreWorkspaceLayer(wsOptions),
     cliTestContext.baseLayer,
   );
+  const authorityLayer = Layer.provide(NativeWriteAuthorityLive, cliTestContext.baseLayer);
   const wsLayer = Layer.mergeAll(
     coreWsLayer,
-    NativeWriteAuthorityLive,
+    authorityLayer,
     Layer.provide(
       WorkspaceCatalogLive,
       Layer.mergeAll(
         coreWsLayer,
         CodingAgentRepositoryLive,
-        NativeWriteAuthorityLive,
+        authorityLayer,
         cliTestContext.baseLayer,
       ),
     ),
@@ -690,7 +696,7 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
     // Tests that need the native refinement merge
     // `ConfiguredAgentOutcomesProviderLive` over this layer.
     ConfiguredAgentOutcomesProviderTest,
-  );
+  ).pipe(Layer.provide(cliTestContext.baseLayer));
   const fullLayer = Layer.mergeAll(
     cliTestContext.baseLayer,
     wsLayer,

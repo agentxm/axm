@@ -8,7 +8,6 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Semaphore from "effect/Semaphore";
 import { applyEdits, modify, parse, type ParseError } from "jsonc-parser";
 import {
   McpConfigInvalid,
@@ -392,19 +391,6 @@ const pickProjectTarget = (
 ): Option.Option<McpConfigTarget> =>
   Option.fromUndefinedOr(targets.find((target) => target.scope === "project"));
 
-// Serializes concurrent read-modify-write access to a single agent MCP config
-// file within a process, so parallel sync steps writing different servers to the
-// same file cannot clobber each other's entries (last-write-wins data loss).
-// eslint-disable-next-line no-restricted-syntax -- Process-owned keys are bounded by MCP config paths touched during this one CLI invocation.
-const configWriteLocks = new Map<string, Semaphore.Semaphore>();
-const configWriteLockFor = (configPath: string): Semaphore.Semaphore => {
-  const existing = configWriteLocks.get(configPath);
-  if (existing !== undefined) return existing;
-  const created = Semaphore.makeUnsafe(1);
-  configWriteLocks.set(configPath, created);
-  return created;
-};
-
 export const writeAgentMcpConfig = (
   args: WriteAgentMcpConfigArgs,
 ): Effect.Effect<
@@ -415,7 +401,9 @@ export const writeAgentMcpConfig = (
   Effect.gen(function* () {
     const target = Option.getOrElse(pickProjectTarget([args.target]), () => args.target);
     const configPath = yield* resolveAgentMcpConfigTargetPath(args.workspaceRoot, target);
-    return yield* configWriteLockFor(configPath).withPermits(1)(
+    const authority = yield* NativeWriteAuthority;
+    return yield* authority.withExclusiveWrite(
+      configPath,
       Effect.gen(function* () {
         const raw = yield* readExisting(configPath);
         const next = yield* Effect.gen(function* () {
@@ -463,7 +451,9 @@ export const removeAgentMcpConfig = (
   Effect.gen(function* () {
     const target = Option.getOrElse(pickProjectTarget([args.target]), () => args.target);
     const configPath = yield* resolveAgentMcpConfigTargetPath(args.workspaceRoot, target);
-    return yield* configWriteLockFor(configPath).withPermits(1)(
+    const authority = yield* NativeWriteAuthority;
+    return yield* authority.withExclusiveWrite(
+      configPath,
       Effect.gen(function* () {
         const raw = yield* readExisting(configPath);
         const next = yield* Effect.gen(function* () {

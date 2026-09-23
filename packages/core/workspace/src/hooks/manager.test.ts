@@ -13,6 +13,7 @@ import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import { WorkspaceFileWriteLocksLive } from "../transitions/settlement/live.js";
 import * as Option from "effect/Option";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { HookManager } from "../materialization/managers.js";
@@ -152,6 +153,7 @@ const makeHookManagerLayer = (
     Layer.provideMerge(MockWorkspaceTransactionScope(axmDir)),
     Layer.provide(makeSourceHostProviders()),
     Layer.provideMerge(NativeWriteAuthorityLive),
+    Layer.provideMerge(WorkspaceFileWriteLocksLive),
     Layer.provideMerge(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),
   );
 };

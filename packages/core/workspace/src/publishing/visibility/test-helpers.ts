@@ -18,6 +18,7 @@ import * as nodePath from "node:path";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import { WorkspaceFileWriteLocksLive } from "../../transitions/settlement/live.js";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -129,7 +130,7 @@ export const makeVisibilityWorld = (
       Layer.succeed(HttpClient.HttpClient, transport),
     ),
     Layer.merge(
-      NodeServices.layer,
+      Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),
       // A hermetic user home: user-scope state is this world's, and the
       // machine's real home is never read or written.
       ConfigProvider.layer(ConfigProvider.fromEnv({ env: { AXM_USER_HOME: home } })),

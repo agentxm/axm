@@ -1,3 +1,4 @@
+import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace/transitions/settlement/live";
 import { WorkspaceTransactionScopesLive } from "@agentxm/workspace/transitions/settlement/live";
 // Raw node:fs/node:os/node:path is the repo-wide convention for test fixtures.
 import * as fs from "node:fs";
@@ -102,7 +103,7 @@ const makeSetupTestContext = (opts?: {
         { preserveEmptyStrings: true },
       ),
     ),
-    NodeServices.layer,
+    Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),
     FetchHttpClient.layer,
     CodingAgentRepositoryLive,
     Layer.provide(WorkspaceTransactionScopesLive, NodeServices.layer),

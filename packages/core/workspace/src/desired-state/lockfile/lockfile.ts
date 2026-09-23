@@ -13,7 +13,6 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import * as Semaphore from "effect/Semaphore";
 import YAML from "yaml";
 
 import {
@@ -21,22 +20,10 @@ import {
   recordFootprint,
   sweepStaleAtomicWriteTemps,
   writeFileAtomic,
+  WorkspaceFileWriteLocks,
 } from "../../transitions/settlement/index.js";
 import { LockfileValidationError, LockfileWriteError } from "./errors.js";
 import { LOCKFILE_VERSION, type Lockfile, LockfileSchema } from "./schema.js";
-
-// -----------------------------------------------------------------------------
-// Constants
-// -----------------------------------------------------------------------------
-
-/**
- * Filename for the lockfile.
- *
- * @experimental This API is unstable and may change without notice.
- */
-
-// eslint-disable-next-line no-restricted-syntax -- Process-owned keys are bounded by lockfiles touched during this one CLI invocation.
-const lockSemaphores = new Map<string, Semaphore.Semaphore>();
 
 /**
  * Pure lockfile transformation used to batch multiple lockfile updates before
@@ -52,14 +39,6 @@ export type LockfileUpdate = (lockfile: Lockfile) => Lockfile;
 
 const lockfilePathFor = (path: Path.Path, axmDir: string): string =>
   path.join(axmDir, LOCKFILE_NAME);
-
-const inProcessSemaphoreFor = (key: string): Semaphore.Semaphore => {
-  const existing = lockSemaphores.get(key);
-  if (existing !== undefined) return existing;
-  const created = Semaphore.makeUnsafe(1);
-  lockSemaphores.set(key, created);
-  return created;
-};
 
 const ensureLockfileParent = (lockfilePath: string) =>
   Effect.gen(function* () {
@@ -185,15 +164,13 @@ const readLockfileIfPresent = (
 const withLockfileLock = <A, E, R>(
   lockfilePath: string,
   effect: Effect.Effect<A, E, R>,
-): Effect.Effect<A, E, R | FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<A, E, R | WorkspaceFileWriteLocks> =>
   Effect.gen(function* () {
-    const path = yield* Path.Path;
-    const key = path.resolve(lockfilePath);
-    const semaphore = inProcessSemaphoreFor(key);
+    const locks = yield* WorkspaceFileWriteLocks;
     // Cross-process exclusion belongs to the workspace transaction. This
     // semaphore only serializes multiple updates in one runtime so the
     // read/patch/write helper cannot race with itself.
-    return yield* semaphore.withPermits(1)(effect);
+    return yield* locks.withLock(lockfilePath, effect);
   });
 
 const writeLockfileUnlocked = (lockfilePath: string, lockfile: Lockfile) =>
@@ -227,14 +204,15 @@ const writeLockfileUnlocked = (lockfilePath: string, lockfile: Lockfile) =>
  * Writes the lockfile to the selected scope's `axm-lock.yaml` in YAML format.
  *
  * Creates the containing directory if it does not exist. Writes are serialized by
- * an in-process keyed semaphore plus a best-effort local advisory lock file.
+ * the invocation's scoped keyed lock. Cross-process exclusion belongs to
+ * the enclosing workspace transaction.
  * Temporary files are removed by scoped finalizer on interruption, and stale
  * temp files from older crashed writers are swept before each write. When the
  * encoded bytes already match, the existing lockfile is left untouched.
  *
  * `writeLockfile` remains a full replacement operation. Call
  * `commitLockfileUpdates` when applying deltas that must reread the latest
- * lockfile state under the advisory lock.
+ * lockfile state under the keyed lock.
  *
  * @param axmDir - Directory containing the selected scope's lockfile
  * @param lockfile - The lockfile object to write
@@ -302,7 +280,7 @@ export const commitLockfileUpdates = (
  * Commits a caller-computed lockfile snapshot as an entry-level patch.
  *
  * The caller supplies the base snapshot it read and the next snapshot it
- * computed. The helper rereads the current on-disk lockfile under the advisory
+ * computed. The helper rereads the current on-disk lockfile under the keyed
  * lock, applies only the base→next entry changes, then writes once. This keeps
  * independent concurrent updates from dropping each other while preserving
  * explicit entry deletions.

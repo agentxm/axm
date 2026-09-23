@@ -1,3 +1,4 @@
+import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace/transitions/settlement/live";
 import * as fs from "node:fs";
 import { LifecycleStepFailureConversionLive } from "../../feature-errors.js";
 import { MockWorkspaceTransactionScope } from "@agentxm/workspace/desired-state/testing";
@@ -76,7 +77,7 @@ describe("agents remove.handler", () => {
     const baseLayer = Layer.mergeAll(
       NativeWriteAuthorityPermissive,
       FetchHttpClient.layer,
-      NodeServices.layer,
+      Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),
       renderer.layer,
       TestFlagsLayer(),
       interaction.layer,

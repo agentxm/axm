@@ -5,6 +5,7 @@ import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import { WorkspaceFileWriteLocksLive } from "../../transitions/settlement/live.js";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
@@ -79,7 +80,10 @@ const makeInlineWorkspace = () => {
           WorkspaceStateOverProject({
             scope: "project",
             projectRoot: decodeAbsolutePathSync(root),
-          }).pipe(Layer.provideMerge(NodeServices.layer)),
+          }).pipe(
+            Layer.provideMerge(WorkspaceFileWriteLocksLive),
+            Layer.provideMerge(NodeServices.layer),
+          ),
         ),
       ),
     cleanup: () => fs.rmSync(root, { recursive: true, force: true }),

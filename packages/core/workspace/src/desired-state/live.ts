@@ -16,7 +16,10 @@ import type * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import type * as Path from "effect/Path";
 
-import { WorkspaceTransactionScope } from "../transitions/settlement/index.js";
+import {
+  WorkspaceTransactionScope,
+  type WorkspaceFileWriteLocks,
+} from "../transitions/settlement/index.js";
 import { WorkspaceTransactionScopeLive as TransactionScopeLive } from "../transitions/settlement/live.js";
 import { FilesystemPackManifests } from "./workspace/adapters/filesystem/pack-manifests.js";
 import { FilesystemWorkspaceDocuments } from "./workspace/adapters/filesystem/documents.js";
@@ -57,7 +60,11 @@ export type WorkspaceStateServices =
 
 const stateServicesOver = (
   location: Layer.Layer<WorkspaceLocation, WorkspaceStateError, FileSystem.FileSystem | Path.Path>,
-): Layer.Layer<WorkspaceStateServices, WorkspaceStateError, FileSystem.FileSystem | Path.Path> => {
+): Layer.Layer<
+  WorkspaceStateServices,
+  WorkspaceStateError,
+  FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks
+> => {
   // The shared mutex and cache are composition-internal: one instance (the
   // layer is memoized by reference within a build) provided to every service
   // that needs it and never published to consumers.
@@ -86,8 +93,11 @@ const stateServicesOver = (
  */
 export const WorkspaceStateLive = (
   options: WorkspaceStateOptions,
-): Layer.Layer<WorkspaceStateServices, WorkspaceStateError, FileSystem.FileSystem | Path.Path> =>
-  stateServicesOver(WorkspaceLocationLive(options));
+): Layer.Layer<
+  WorkspaceStateServices,
+  WorkspaceStateError,
+  FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks
+> => stateServicesOver(WorkspaceLocationLive(options));
 
 /** The production transaction scope over the located workspace's paths. */
 export const WorkspaceTransactionScopeLive: Layer.Layer<
@@ -113,5 +123,5 @@ export const layer = (
 ): Layer.Layer<
   WorkspaceStateServices | WorkspaceTransactionScope,
   WorkspaceStateError,
-  FileSystem.FileSystem | Path.Path
+  FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks
 > => Layer.provideMerge(WorkspaceTransactionScopeLive, WorkspaceStateLive(options));

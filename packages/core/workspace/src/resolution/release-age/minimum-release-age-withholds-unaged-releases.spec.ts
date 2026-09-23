@@ -16,6 +16,7 @@ import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import { WorkspaceFileWriteLocksLive } from "../../transitions/settlement/live.js";
 import * as Option from "effect/Option";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
@@ -107,7 +108,7 @@ const evaluationFor = (scenario: Scenario = {}) => {
           Layer.succeed(ReleaseAgePosture, scenario.posture ?? "enforce"),
         ),
         Layer.merge(
-          NodeServices.layer,
+          Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),
           ConfigProvider.layer(ConfigProvider.fromEnv({ env: { AXM_USER_HOME: home } })),
         ),
       ),

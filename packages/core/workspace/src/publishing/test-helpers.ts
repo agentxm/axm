@@ -26,6 +26,7 @@ import * as Schema from "effect/Schema";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import { WorkspaceFileWriteLocksLive } from "../transitions/settlement/live.js";
 import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
@@ -265,7 +266,10 @@ export const makePublishWorld = (options: PublishWorldOptions = {}) => {
       : options.httpClient;
 
   const platform = Layer.provideMerge(
-    recordingFileSystemLayer((event) => void writes.push(event)),
+    Layer.merge(
+      recordingFileSystemLayer((event) => void writes.push(event)),
+      WorkspaceFileWriteLocksLive,
+    ),
     NodeServices.layer,
   );
   const interaction = ResolvePlanInteractionTest();

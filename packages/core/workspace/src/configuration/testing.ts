@@ -19,6 +19,7 @@ import * as nodePath from "node:path";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import { WorkspaceFileWriteLocksLive } from "../transitions/settlement/live.js";
 import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
@@ -189,7 +190,9 @@ export const makeConfigurationFixture = (options: ConfigurationFixtureOptions = 
     Layer.mergeAll(WorkspaceInvariantFactsLive, WorkspaceCatalogLive),
     base,
   );
-  const services = Layer.provideMerge(RuleManagerLive, withProjection);
+  const services = Layer.provideMerge(RuleManagerLive, withProjection).pipe(
+    Layer.provideMerge(WorkspaceFileWriteLocksLive),
+  );
 
   return {
     root,
@@ -290,6 +293,7 @@ export const makeSetupFixture = (options: SetupFixtureOptions = {}) => {
   });
   const installedExecutables = new Set(options.installedExecutables ?? []);
   const services = Layer.mergeAll(
+    WorkspaceFileWriteLocksLive,
     WorkspaceTransactionScopesLive,
     ConfigProvider.layer(ConfigProvider.fromEnv({ env: { AXM_USER_HOME: home, HOME: home } })),
     CodingAgentRepositoryLive,

@@ -52,6 +52,7 @@ import {
   runWorkspaceTransaction,
   WorkspaceTransactionScope,
   WorkspaceTransactionScopes,
+  type WorkspaceFileWriteLocks,
   type WorkspaceRestorationIncomplete,
   type WorkspaceTransactionFailure,
 } from "../../transitions/settlement/index.js";
@@ -377,6 +378,7 @@ export const previewOrApplySetupWorkspace = <
   SetupWorkspaceFailure | BundledSkillError,
   | BundledSkillRequirements
   | WorkspaceTransactionScopes
+  | WorkspaceFileWriteLocks
   | FileSystem.FileSystem
   | Path.Path
   | WorkspaceInitializationInteraction

@@ -18,6 +18,7 @@ import * as nodePath from "node:path";
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Layer from "effect/Layer";
+import { WorkspaceFileWriteLocksLive } from "../../transitions/settlement/live.js";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 
 import { AgentPresenceProbeLive } from "../../projection/agent-adapters/live.js";
@@ -206,7 +207,10 @@ export const authoringWorkspaceEnvironment = (workspace: AuthoringWorkspace) => 
     CredentialStoreTest(),
     Layer.succeed(RegistryUrl, "https://registry.example.com"),
   );
-  const platform = Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer);
+  const platform = Layer.provideMerge(
+    WorkspaceFileWriteLocksLive,
+    Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer),
+  );
   const presence = Layer.provideMerge(AgentPresenceProbeLive, platform);
   const state = Layer.provideMerge(
     workspaceStateLayer({ scope: "project", projectRoot: decodeAbsolutePathSync(workspace.root) }),

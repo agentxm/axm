@@ -11,13 +11,22 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Ref from "effect/Ref";
+import * as Path from "effect/Path";
 import { NativeWriteAuthority, type NativeWriteRecord } from "./native-write-authority.js";
+import { WorkspaceFileWriteLocks } from "../../transitions/settlement/index.js";
+import { WorkspaceFileWriteLocksLive } from "../../transitions/settlement/live.js";
+
+const writeLocks = Layer.provide(WorkspaceFileWriteLocksLive, Path.layer);
 
 /** Permits every protection request and drops every reported change. */
-export const NativeWriteAuthorityPermissive = Layer.succeed(NativeWriteAuthority, {
-  protect: () => Effect.void,
-  record: () => Effect.void,
-});
+export const NativeWriteAuthorityPermissive = Layer.effect(
+  NativeWriteAuthority,
+  Effect.map(WorkspaceFileWriteLocks, (locks) => ({
+    withExclusiveWrite: locks.withLock,
+    protect: () => Effect.void,
+    record: () => Effect.void,
+  })),
+).pipe(Layer.provide(writeLocks));
 
 /** What a recording authority observed while a native writer ran. */
 export interface RecordedNativeWrites {
@@ -31,17 +40,21 @@ export interface RecordedNativeWrites {
  */
 export const makeRecordingNativeWriteAuthority = Effect.gen(function* () {
   const observed = yield* Ref.make<RecordedNativeWrites>({ protectedPaths: [], records: [] });
-  const layer = Layer.succeed(NativeWriteAuthority, {
-    protect: (absolutePath: string) =>
-      Ref.update(observed, (current) => ({
-        ...current,
-        protectedPaths: [...current.protectedPaths, absolutePath],
-      })),
-    record: (change: NativeWriteRecord) =>
-      Ref.update(observed, (current) => ({
-        ...current,
-        records: [...current.records, change],
-      })),
-  });
+  const layer = Layer.effect(
+    NativeWriteAuthority,
+    Effect.map(WorkspaceFileWriteLocks, (locks) => ({
+      withExclusiveWrite: locks.withLock,
+      protect: (absolutePath: string) =>
+        Ref.update(observed, (current) => ({
+          ...current,
+          protectedPaths: [...current.protectedPaths, absolutePath],
+        })),
+      record: (change: NativeWriteRecord) =>
+        Ref.update(observed, (current) => ({
+          ...current,
+          records: [...current.records, change],
+        })),
+    })),
+  ).pipe(Layer.provide(writeLocks));
   return { layer, observed: Ref.get(observed) } as const;
 });

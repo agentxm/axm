@@ -15,6 +15,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import { WorkspaceFileWriteLocksLive } from "../transitions/settlement/live.js";
 import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import * as Schema from "effect/Schema";
@@ -186,6 +187,7 @@ describe("RuleManager graph-derived region projection", () => {
       Layer.provideMerge(MockWorkspaceTransactionScope(axmDir)),
       Layer.provide(Layer.succeed(SourceHostProviders, providersStub)),
       Layer.provideMerge(NativeWriteAuthorityLive),
+      Layer.provideMerge(WorkspaceFileWriteLocksLive),
       Layer.provideMerge(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),
     );
   };

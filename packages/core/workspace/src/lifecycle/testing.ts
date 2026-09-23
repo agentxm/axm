@@ -18,6 +18,7 @@ import * as nodePath from "node:path";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import { WorkspaceFileWriteLocksLive } from "../transitions/settlement/live.js";
 import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
@@ -370,7 +371,9 @@ export const makeLifecycleFixture = (options: LifecycleFixtureOptions = {}) => {
   // The participant registry indexes the managers, and the invariant facts
   // read the registry, so both come after every manager is available.
   const withParticipants = Layer.provideMerge(ProjectionParticipantsLive, withPack);
-  const services = Layer.provideMerge(WorkspaceInvariantFactsLive, withParticipants);
+  const services = Layer.provideMerge(WorkspaceInvariantFactsLive, withParticipants).pipe(
+    Layer.provideMerge(WorkspaceFileWriteLocksLive),
+  );
 
   return {
     root,

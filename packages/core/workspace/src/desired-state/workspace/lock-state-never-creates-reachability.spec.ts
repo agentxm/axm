@@ -3,6 +3,8 @@ import * as os from "node:os";
 import * as nodePath from "node:path";
 
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import { WorkspaceFileWriteLocksLive } from "../../transitions/settlement/live.js";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
@@ -86,7 +88,9 @@ const makeWorkspace = (lockfile: Readonly<Record<string, unknown>>) => {
   );
   return {
     root,
-    layer: WorkspaceStateLive({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
+    layer: WorkspaceStateLive({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }).pipe(
+      Layer.provide(WorkspaceFileWriteLocksLive),
+    ),
     cleanup: () => fs.rmSync(root, { recursive: true, force: true }),
   };
 };

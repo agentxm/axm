@@ -21,6 +21,7 @@ import { WorkspaceTransactionScopeTest } from "../../transitions/settlement/test
 import { NativeWriteAuthorityPermissive } from "../../projection/agent-adapters/testing.js";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import { WorkspaceFileWriteLocksLive } from "../../transitions/settlement/live.js";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import {
@@ -84,6 +85,7 @@ const grounded = <A, E>(
       Layer.provideMerge(
         recipeWorkspace(transactionDir, writes),
         Layer.mergeAll(
+          WorkspaceFileWriteLocksLive,
           WorkspaceTransactionScopeTest({
             workspaceDir: transactionDir,
             settingsPath: nodePath.join(transactionDir, "settings.json"),

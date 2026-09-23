@@ -1,3 +1,4 @@
+import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace/transitions/settlement/live";
 /**
  * Integration tests for the `axm lint` handler.
  *
@@ -108,7 +109,7 @@ describe("axm lint handler", () => {
   const makeLayers = (opts?: { machine?: boolean; quiet?: boolean; verbose?: boolean }) => {
     const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
     const baseLayer = Layer.mergeAll(
-      NodeServices.layer,
+      Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),
       FetchHttpClient.layer,
       renderer.layer,
       TestFlagsLayer({
@@ -161,7 +162,7 @@ describe("axm lint handler", () => {
       workspaceCatalogLayer,
       sourceProvidersLayer,
       CodingAgentRepositoryLive,
-      NativeWriteAuthorityLive,
+      Layer.provide(NativeWriteAuthorityLive, baseLayer),
       LifecycleStepFailureConversionLive,
     );
     const mcpServersLayer = McpServerManagerLive;

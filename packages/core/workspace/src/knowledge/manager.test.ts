@@ -9,6 +9,7 @@ import * as Effect from "effect/Effect";
 import * as Deferred from "effect/Deferred";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
+import { WorkspaceFileWriteLocksLive } from "../transitions/settlement/live.js";
 import * as Option from "effect/Option";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { computeSourceHash } from "../desired-state/index.js";
@@ -198,6 +199,7 @@ const managerLayer = (
       }),
     ),
     Layer.provideMerge(NativeWriteAuthorityLive),
+    Layer.provideMerge(WorkspaceFileWriteLocksLive),
     Layer.provideMerge(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),
   );
 };

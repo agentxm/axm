@@ -12,11 +12,12 @@ import { writeSettingsAtPath } from "../../../settings/index.js";
 import { WorkspaceDocuments } from "../../documents.js";
 import { WorkspaceLocation } from "../../location.js";
 import { readLockfileCell, readSettingsOrDefault } from "../../state-cells.js";
+import { WorkspaceFileWriteLocks } from "../../../../transitions/settlement/index.js";
 
 export const FilesystemWorkspaceDocuments: Layer.Layer<
   WorkspaceDocuments,
   never,
-  WorkspaceLocation | FileSystem.FileSystem | Path.Path
+  WorkspaceLocation | FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks
 > = Layer.effect(
   WorkspaceDocuments,
   Effect.gen(function* () {
@@ -24,6 +25,7 @@ export const FilesystemWorkspaceDocuments: Layer.Layer<
     const fs = yield* FileSystem.FileSystem;
     const io = Context.make(FileSystem.FileSystem, fs).pipe(
       Context.add(Path.Path, yield* Path.Path),
+      Context.add(WorkspaceFileWriteLocks, yield* WorkspaceFileWriteLocks),
     );
     const acceptedResolutions = readLockfileCell(location, location.runtimeDir).pipe(
       Effect.provideContext(io),

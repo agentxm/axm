@@ -11,12 +11,23 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { NativeWriteAuthority, NativeWriteRefused } from "./agent-adapters/index.js";
-import { protectWorkspacePath, recordFootprint } from "../transitions/settlement/index.js";
+import {
+  protectWorkspacePath,
+  recordFootprint,
+  WorkspaceFileWriteLocks,
+} from "../transitions/settlement/index.js";
 
-export const NativeWriteAuthorityLive = Layer.succeed(NativeWriteAuthority, {
-  protect: (absolutePath: string) =>
-    protectWorkspacePath(absolutePath).pipe(
-      Effect.mapError((cause) => new NativeWriteRefused({ path: absolutePath, cause })),
-    ),
-  record: (change) => recordFootprint(change),
-});
+export const NativeWriteAuthorityLive = Layer.effect(
+  NativeWriteAuthority,
+  Effect.gen(function* () {
+    const locks = yield* WorkspaceFileWriteLocks;
+    return NativeWriteAuthority.of({
+      withExclusiveWrite: locks.withLock,
+      protect: (absolutePath: string) =>
+        protectWorkspacePath(absolutePath).pipe(
+          Effect.mapError((cause) => new NativeWriteRefused({ path: absolutePath, cause })),
+        ),
+      record: (change) => recordFootprint(change),
+    });
+  }),
+);

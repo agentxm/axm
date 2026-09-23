@@ -1,4 +1,7 @@
-import { WorkspaceTransactionScopesLive } from "@agentxm/workspace/transitions/settlement/live";
+import {
+  WorkspaceTransactionScopesLive,
+  WorkspaceFileWriteLocksLive,
+} from "@agentxm/workspace/transitions/settlement/live";
 import { UpdateCheckCacheLive } from "./cli-runtime/update-cache.js";
 import { CliUpgradeObservationLive } from "./cli-runtime/upgrade-observation.js";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -555,7 +558,7 @@ export const withRuntime =
           Effect.fail(registryAccessFailedToAppError(error)),
         ),
       );
-    });
+    }).pipe(Effect.provide(WorkspaceFileWriteLocksLive));
 
 // Machine-output decoding surface for JavaScript and TypeScript automation.
 // The machine-output help topic points consumers here, so the published

@@ -1,3 +1,4 @@
+import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace/transitions/settlement/live";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -62,7 +63,7 @@ const resolveTarget = (fixture: SettingsFixture) =>
   resolveDefaultRegistryTarget(decodeAbsolutePathSync(fixture.project)).pipe(
     Effect.provide(
       Layer.mergeAll(
-        NodeServices.layer,
+        Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),
         ConfigProvider.layer(ConfigProvider.fromEnv({ env: { AXM_USER_HOME: fixture.home } })),
       ),
     ),

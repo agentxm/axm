@@ -32,6 +32,11 @@ export {
 export { protectCreatedAncestors, protectWorkspacePath } from "./context.js";
 
 export {
+  WorkspaceFileWriteLocks,
+  type WorkspaceFileWriteLocksService,
+} from "./file-write-locks.js";
+
+export {
   WorkspaceTransactionScope,
   WorkspaceTransactionScopes,
   acquireWorkspaceTransition,

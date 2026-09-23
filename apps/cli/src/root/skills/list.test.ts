@@ -1,3 +1,4 @@
+import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace/transitions/settlement/live";
 /**
  * Unit tests for the list command handler.
  *
@@ -89,7 +90,11 @@ describe("list.handler", () => {
     const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
     const rendererLayer = renderer.layer;
     const rendererState = renderer.state;
-    const BaseLayer = Layer.mergeAll(NodeServices.layer, rendererLayer, TestFlagsLayer());
+    const BaseLayer = Layer.mergeAll(
+      Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),
+      rendererLayer,
+      TestFlagsLayer(),
+    );
     const wsOptions: WorkspaceStateOptions = {
       scope: "project",
       ...opts?.wsOverrides,

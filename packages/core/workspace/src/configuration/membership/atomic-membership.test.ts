@@ -16,6 +16,7 @@ import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-t
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import { WorkspaceFileWriteLocksLive } from "../../transitions/settlement/live.js";
 import * as Option from "effect/Option";
 import { StepFailure } from "../../transitions/planning/index.js";
 import { makeAtomicMembershipSteps } from "./atomic-membership.js";
@@ -49,7 +50,7 @@ describe("makeAtomicMembershipSteps", () => {
   it.effect("restores membership and an earlier materialized target after add failure", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "agents-add-transaction-"));
     writeWorkspace(root, []);
-    const platform = NodeServices.layer;
+    const platform = Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer);
     const workspace = Layer.provide(
       coreWorkspaceLayer({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
       platform,
@@ -127,7 +128,7 @@ describe("makeAtomicMembershipSteps", () => {
   it.effect("attributes a membership-step failure only to that membership step", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "agents-membership-failure-"));
     writeWorkspace(root, []);
-    const platform = NodeServices.layer;
+    const platform = Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer);
     const workspace = Layer.provide(
       coreWorkspaceLayer({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
       platform,
@@ -186,7 +187,7 @@ describe("makeAtomicMembershipSteps", () => {
     const target = path.join(root, ".cursor", "commands", "review.md");
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, "managed\n");
-    const platform = NodeServices.layer;
+    const platform = Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer);
     const workspace = Layer.provide(
       coreWorkspaceLayer({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
       platform,

@@ -19,6 +19,7 @@ import * as nodePath from "node:path";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import { WorkspaceFileWriteLocksLive } from "../../transitions/settlement/live.js";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { AgentExecutableResolver } from "../../projection/agent-adapters/index.js";
@@ -217,7 +218,9 @@ export const makeSyncFixture = (options: SyncFixtureOptions = {}) => {
   const withMcp = Layer.provideMerge(McpServerManagerLive, leafManagers);
   const withPack = Layer.provideMerge(PackManagerLive, withMcp);
   const withParticipants = Layer.provideMerge(ProjectionParticipantsLive, withPack);
-  const services = Layer.provideMerge(WorkspaceInvariantFactsLive, withParticipants);
+  const services = Layer.provideMerge(WorkspaceInvariantFactsLive, withParticipants).pipe(
+    Layer.provideMerge(WorkspaceFileWriteLocksLive),
+  );
 
   return {
     root,

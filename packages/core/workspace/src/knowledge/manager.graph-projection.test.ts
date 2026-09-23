@@ -13,6 +13,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import { WorkspaceFileWriteLocksLive } from "../transitions/settlement/live.js";
 import * as Option from "effect/Option";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
@@ -154,6 +155,7 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
         }),
       ),
       Layer.provideMerge(NativeWriteAuthorityLive),
+      Layer.provideMerge(WorkspaceFileWriteLocksLive),
       Layer.provideMerge(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),
     );
   };

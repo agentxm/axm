@@ -17,6 +17,7 @@ import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import { WorkspaceFileWriteLocksLive } from "../../transitions/settlement/live.js";
 import * as Ref from "effect/Ref";
 
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
@@ -67,7 +68,7 @@ const makeKnowledgeFixtureLayer = (root: string, home: string, scope: WorkspaceS
       KnowledgeIndexLive,
     ),
     ConfigProvider.layer(ConfigProvider.fromEnv({ env: { AXM_USER_HOME: home } })),
-  );
+  ).pipe(Layer.provideMerge(WorkspaceFileWriteLocksLive));
 
 /**
  * A project workspace whose Knowledge bundles are authored in place, exactly

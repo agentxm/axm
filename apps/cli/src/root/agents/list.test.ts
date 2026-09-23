@@ -1,3 +1,4 @@
+import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace/transitions/settlement/live";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -49,7 +50,7 @@ describe("agents list.handler", () => {
   const makeLayers = () => {
     const renderer = TestRenderer.make();
     const baseLayer = Layer.mergeAll(
-      NodeServices.layer,
+      Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),
       renderer.layer,
       TestFlagsLayer(),
       Layer.succeed(AgentExecutableResolver, {

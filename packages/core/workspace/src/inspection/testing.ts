@@ -20,6 +20,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Layer from "effect/Layer";
+import { WorkspaceFileWriteLocksLive } from "../transitions/settlement/live.js";
 import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
@@ -226,6 +227,7 @@ export const makeInspectionFixture = (options: InspectionFixtureOptions = {}) =>
         Effect.provide(catalog),
         Effect.provide(transport),
         Effect.provide(workspaceState),
+        Effect.provide(WorkspaceFileWriteLocksLive),
       ),
     cleanup: () => {
       fs.rmSync(root, { recursive: true, force: true });

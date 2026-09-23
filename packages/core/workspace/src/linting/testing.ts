@@ -28,6 +28,7 @@ import * as nodePath from "node:path";
 
 import type * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import { WorkspaceFileWriteLocksLive } from "../transitions/settlement/live.js";
 import type * as Path from "effect/Path";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 
@@ -152,7 +153,7 @@ export const lintWorkspaceServices = (args: {
       makeAxmSkillCompatibilityPolicyLayer(args.cliVersion ?? null),
     ),
     agents,
-  );
+  ).pipe(Layer.provide(WorkspaceFileWriteLocksLive));
 };
 
 /** A throwaway initialized workspace with the services a lint run reads it through. */

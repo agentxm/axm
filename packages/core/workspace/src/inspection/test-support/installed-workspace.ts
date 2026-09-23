@@ -29,6 +29,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import { WorkspaceFileWriteLocksLive } from "../../transitions/settlement/live.js";
 import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { strToU8, zipSync } from "fflate";
@@ -285,7 +286,10 @@ export const makeInstalledWorkspace = (options: InstalledWorkspaceOptions = {}) 
     Layer.succeed(ReleaseAgePosture, "enforce" as const),
     credentials,
   );
-  const platform = Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer);
+  const platform = Layer.provideMerge(
+    WorkspaceFileWriteLocksLive,
+    Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer),
+  );
   const presence = Layer.provideMerge(AgentPresenceProbeLive, platform);
   const state = Layer.provideMerge(
     Layer.provideMerge(

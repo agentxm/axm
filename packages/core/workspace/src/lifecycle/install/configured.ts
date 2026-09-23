@@ -14,6 +14,7 @@
 
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
+import { ConfigError } from "effect/Config";
 import * as Option from "effect/Option";
 import { OperationRequestBudget } from "@agentxm/registry-client";
 
@@ -246,7 +247,8 @@ const mergeFragments = (
  * own refusal, plus the resolution refusal a configured entry's source
  * carries through with its own category and sentence.
  */
-export type ConfiguredInstallFailure = ExtensionLifecycleFailed | ExtensionResolutionFailed;
+export type ConfiguredInstallFailure =
+  ExtensionLifecycleFailed | ExtensionResolutionFailed | ConfigError;
 
 /**
  * A resolution refusal already carries its own category and fact sentence —
@@ -257,8 +259,8 @@ export type ConfiguredInstallFailure = ExtensionLifecycleFailed | ExtensionResol
  */
 const resolutionFailed =
   (name: string) =>
-  (cause: unknown): ExtensionLifecycleFailed | ExtensionResolutionFailed =>
-    cause instanceof ExtensionResolutionFailed
+  (cause: unknown): ConfiguredInstallFailure =>
+    cause instanceof ExtensionResolutionFailed || cause instanceof ConfigError
       ? cause
       : installRefused({
           category: "conflict",

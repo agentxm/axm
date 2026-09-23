@@ -1,5 +1,6 @@
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
+import type * as Config from "effect/Config";
 import {
   ExtensionPaths,
   LockfileReader,
@@ -141,8 +142,10 @@ const releaseAge = (ref: Extract<SkillExtensionRef, { readonly refType: "registr
       mature: yield* isVersionEntryMature(versionEntry, minimumAge.value),
     });
   }).pipe(
-    Effect.catch(() =>
-      Effect.succeed(Option.none<{ readonly minimumAge: string; readonly mature: boolean }>()),
+    Effect.catch((error) =>
+      error._tag === "ConfigError"
+        ? Effect.fail(error)
+        : Effect.succeed(Option.none<{ readonly minimumAge: string; readonly mature: boolean }>()),
     ),
   );
 
@@ -283,12 +286,12 @@ const unavailable = (ref: SkillExtensionRef) => (cause: unknown) =>
     cause,
   });
 
-export const skillInstallationFacts: SkillInstallationFacts<
-  ExtensionLifecycleFailed,
-  InstallStepRequirements | SkillManager,
-  InstallStepRequirements
-> = {
+export const skillInstallationFacts = {
   inspect: (ref) => inspect(ref).pipe(Effect.mapError(unavailable(ref))),
   releaseAge,
   readContent: (ref) => readContent(ref).pipe(Effect.mapError(unavailable(ref))),
-};
+} satisfies SkillInstallationFacts<
+  ExtensionLifecycleFailed | Config.ConfigError,
+  InstallStepRequirements | SkillManager,
+  InstallStepRequirements
+>;

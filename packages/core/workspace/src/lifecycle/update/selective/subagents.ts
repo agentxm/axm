@@ -346,12 +346,14 @@ export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate
           } satisfies ResolveResult;
         }).pipe(
           Effect.catch((error) =>
-            Effect.succeed({
-              type: "skip",
-              name,
-              source: sourceStr,
-              reason: `Failed to resolve "${name}": ${String(error)}`,
-            } satisfies ResolveResult),
+            error._tag === "ConfigError"
+              ? Effect.fail(error)
+              : Effect.succeed({
+                  type: "skip",
+                  name,
+                  source: sourceStr,
+                  reason: `Failed to resolve "${name}": ${String(error)}`,
+                } satisfies ResolveResult),
           ),
         ),
       { concurrency: "unbounded" },

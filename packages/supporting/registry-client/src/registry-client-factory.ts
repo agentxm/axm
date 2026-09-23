@@ -11,6 +11,7 @@
  */
 
 import * as ServiceMap from "effect/Context";
+import type * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -23,9 +24,9 @@ import { RegistryUrl } from "./registry-url.js";
 
 export interface RegistryClientFactoryService {
   /** A client for one registry location: an HTTP(S) URL, a `file://` URL, or a path. */
-  readonly forLocation: (location: string) => Effect.Effect<RegistryClient>;
+  readonly forLocation: (location: string) => Effect.Effect<RegistryClient, Config.ConfigError>;
   /** A client for the configured default registry. */
-  readonly forDefaultRegistry: Effect.Effect<RegistryClient>;
+  readonly forDefaultRegistry: Effect.Effect<RegistryClient, Config.ConfigError>;
 }
 
 export class RegistryClientFactory extends ServiceMap.Service<
@@ -39,7 +40,7 @@ export const makeRegistryClientFactory = (services: {
   readonly path: Path.Path;
   readonly defaultRegistryLocation: string;
 }): RegistryClientFactoryService => {
-  const forLocation = (location: string): Effect.Effect<RegistryClient> =>
+  const forLocation = (location: string): Effect.Effect<RegistryClient, Config.ConfigError> =>
     createRegistryClient(location).pipe(
       Effect.provideService(HttpClient.HttpClient, services.httpClient),
       Effect.provideService(FileSystem.FileSystem, services.fileSystem),

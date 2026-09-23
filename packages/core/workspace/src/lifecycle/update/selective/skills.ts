@@ -650,7 +650,7 @@ export const prepareSelectiveSkillUpdate = Effect.fn("SelectiveSkillUpdate.prepa
         } satisfies ResolveResult;
       }).pipe(
         Effect.catch((error) =>
-          isOfficialAxmSource
+          isOfficialAxmSource || error._tag === "ConfigError"
             ? Effect.fail(error)
             : Effect.succeed({
                 type: "skip",

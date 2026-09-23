@@ -19,6 +19,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import type * as Config from "effect/Config";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -257,7 +258,7 @@ export const prepareSetupWorkspace = (
   request: SetupWorkspaceRequest,
 ): Effect.Effect<
   SetupWorkspaceCandidate | SetupApprovalRequired,
-  WorkspaceConfigurationFailed,
+  WorkspaceConfigurationFailed | Config.ConfigError,
   FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {

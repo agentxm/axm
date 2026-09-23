@@ -38,7 +38,7 @@ const resolveNameWithFallback = (
 ) =>
   resolveSource(name).pipe(
     Effect.catch((error) => {
-      if (sourceResolutionFailureCategory(error) !== "validation") {
+      if (error._tag === "ConfigError" || sourceResolutionFailureCategory(error) !== "validation") {
         return Effect.fail(error);
       }
 
@@ -106,7 +106,10 @@ export const resolveSourcePattern = (
       })
     : resolveSource(input).pipe(
         Effect.catch((error) => {
-          if (sourceResolutionFailureCategory(error) !== "validation") {
+          if (
+            error._tag === "ConfigError" ||
+            sourceResolutionFailureCategory(error) !== "validation"
+          ) {
             return Effect.fail(error);
           }
           return Effect.gen(function* () {

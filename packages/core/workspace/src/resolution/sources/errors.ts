@@ -14,6 +14,7 @@
  */
 
 import * as Data from "effect/Data";
+import { ConfigError } from "effect/Config";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { isRegistryClientFailure, type RegistryClientFailure } from "@agentxm/registry-client";
 import { AxmSkillGateUnavailable } from "./axm-skill-gate.js";
@@ -115,7 +116,11 @@ export type SourceError =
  * failures propagated from registry-backed providers.
  */
 export type SourceResolutionFailure =
-  SourceError | WorkspaceCatalogUnavailable | AxmSkillGateUnavailable | RegistryClientFailure;
+  | SourceError
+  | WorkspaceCatalogUnavailable
+  | AxmSkillGateUnavailable
+  | RegistryClientFailure
+  | ConfigError;
 
 export const isSourceError = (error: unknown): error is SourceError =>
   error instanceof SourceSyntaxInvalid ||
@@ -126,6 +131,7 @@ export const isSourceError = (error: unknown): error is SourceError =>
 
 export const isSourceResolutionFailure = (error: unknown): error is SourceResolutionFailure =>
   isSourceError(error) ||
+  error instanceof ConfigError ||
   error instanceof WorkspaceCatalogUnavailable ||
   error instanceof AxmSkillGateUnavailable ||
   isRegistryClientFailure(error);
@@ -137,6 +143,8 @@ export const isSourceResolutionFailure = (error: unknown): error is SourceResolu
  */
 export const sourceResolutionFailureCategory = (error: SourceResolutionFailure): string => {
   switch (error._tag) {
+    case "ConfigError":
+      return error.cause._tag === "SourceError" ? "unavailable" : "validation";
     case "SourceSyntaxInvalid":
     case "SourceHostNotConfigured":
       return "validation";

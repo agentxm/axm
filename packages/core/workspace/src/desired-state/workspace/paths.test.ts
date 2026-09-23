@@ -8,6 +8,7 @@ import * as Layer from "effect/Layer";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import {
   getProjectRuntimeDir,
+  locateWorkspace,
   resolveUserAxmHome,
   resolveUserHome,
   resolveUserWorkspaceRoot,
@@ -17,6 +18,28 @@ const projectRoot = decodeAbsolutePathSync("/tmp/axm-project");
 
 describe("paths", () => {
   describe("user paths", () => {
+    for (const [label, resolve] of [
+      ["user home", () => resolveUserHome().pipe(Effect.asVoid)],
+      ["AXM home", () => resolveUserAxmHome().pipe(Effect.asVoid)],
+      ["user workspace root", () => resolveUserWorkspaceRoot().pipe(Effect.asVoid)],
+      ["user workspace location", () => locateWorkspace("user", projectRoot).pipe(Effect.asVoid)],
+    ] as const) {
+      it.effect(`${label} preserves configuration-source failures`, () =>
+        Effect.gen(function* () {
+          const sourceError = new ConfigProvider.SourceError({ message: "source unavailable" });
+          const failure = yield* resolve().pipe(
+            Effect.provideService(
+              ConfigProvider.ConfigProvider,
+              ConfigProvider.make(() => Effect.fail(sourceError)),
+            ),
+            Effect.flip,
+          );
+          expect(failure._tag).toBe("ConfigError");
+          expect(failure.cause).toBe(sourceError);
+        }).pipe(Effect.provide(NodeServices.layer)),
+      );
+    }
+
     it.effect("separates user home, AXM application home, and workspace root", () =>
       Effect.gen(function* () {
         expect(yield* resolveUserHome()).toBe(os.homedir());

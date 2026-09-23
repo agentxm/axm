@@ -4,6 +4,9 @@ import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
+import * as ConfigProvider from "effect/ConfigProvider";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
@@ -63,6 +66,54 @@ const getTelemetry = (
 };
 
 describe("TelemetryClientLive", () => {
+  it.effect(
+    "disables collection without writing a fallback identity when home configuration fails",
+    () =>
+      Effect.gen(function* () {
+        const mock = makeMockHttpClient();
+        const files: string[] = [];
+        const telemetry = yield* TelemetryClient.pipe(
+          Effect.provide(
+            Layer.provide(
+              TelemetryClientLive({
+                mode: "all",
+                command: "install",
+                client: { name: "cli", version: "1.2.3" },
+                deliverInTest: true,
+              }),
+              Layer.mergeAll(
+                Path.layer,
+                Layer.succeed(HttpClient.HttpClient, mock.client),
+                ConfigProvider.layer(
+                  ConfigProvider.make(() =>
+                    Effect.fail(new ConfigProvider.SourceError({ message: "source unavailable" })),
+                  ),
+                ),
+                FileSystem.layerNoop({
+                  readFileString: (path) =>
+                    Effect.sync(() => {
+                      files.push(path);
+                      return "";
+                    }),
+                  makeDirectory: (path) =>
+                    Effect.sync(() => {
+                      files.push(path);
+                    }),
+                  writeFileString: (path) =>
+                    Effect.sync(() => {
+                      files.push(path);
+                    }),
+                }),
+              ),
+            ),
+          ),
+        );
+        yield* telemetry.trackEvent("command_invoked", {}, { bounded: true });
+        expect(files).toEqual([]);
+        expect(mock.captured).toEqual([]);
+      }),
+  );
+
   // isTest() reads VITEST env var. Override to false so the live path runs.
   let savedVitest: string | undefined;
   beforeEach(() => {

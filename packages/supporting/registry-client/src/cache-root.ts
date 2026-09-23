@@ -47,12 +47,10 @@ const cacheEnvironmentConfig = Config.all({
   xdgCacheHome: Config.option(Config.String("XDG_CACHE_HOME")),
 });
 
-export const resolveAxmCacheRoot = (): Effect.Effect<string, never, Path.Path> =>
+export const resolveAxmCacheRoot = (): Effect.Effect<string, Config.ConfigError, Path.Path> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    // All fields are optional strings; failure would violate the provider contract.
-    // eslint-disable-next-line no-restricted-syntax -- Config cannot fail for an all-optional record.
-    const environment = yield* Effect.orDie(cacheEnvironmentConfig);
+    const environment = yield* cacheEnvironmentConfig;
     const axmUserHome = Option.getOrUndefined(environment.axmUserHome);
     const localAppData = Option.getOrUndefined(environment.localAppData);
     const xdgCacheHome = Option.getOrUndefined(environment.xdgCacheHome);

@@ -4,6 +4,8 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { ConfigError } from "effect/Config";
+import { SourceError } from "effect/ConfigProvider";
 
 import { RegistryProblem, RegistryRequestFailed } from "@agentxm/registry-client";
 import type { RegistryErrorCategory } from "@agentxm/registry-client";
@@ -65,6 +67,16 @@ describe("aggregatePublishFailure", () => {
 });
 
 describe("publishCause", () => {
+  it("reports unavailable configuration without exposing provider details or claiming a retry", () => {
+    const failure = new ConfigError(new SourceError({ message: "private source detail" }));
+    expect(publishCause(failure)).toEqual({
+      code: "unavailable",
+      class: "external",
+      message: "Registry cache configuration could not be read.",
+      retryable: false,
+    });
+  });
+
   it.each([
     ["timeout", "deadline"],
     ["network", "replay-unsafe"],

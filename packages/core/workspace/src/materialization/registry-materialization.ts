@@ -8,6 +8,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import type * as Config from "effect/Config";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -84,6 +85,7 @@ export const materializeRegistryPackageWithTreeIntegrity = <E = never>(
 ): Effect.Effect<
   MaterializedPackage,
   | E
+  | Config.ConfigError
   | RegistryClientFailure
   | ArchiveIntegrityMismatch
   | CanonicalDirectoryReplacementError

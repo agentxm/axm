@@ -8,16 +8,17 @@
 
 import { isRegistryClientFailure, redactRegistryText } from "@agentxm/registry-client";
 import type { RegistryClientFailure } from "@agentxm/registry-client";
+import { ConfigError } from "effect/Config";
 import type { OperationErrorCategory } from "../transitions/planning/index.js";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 import { PublishFailed } from "./errors.js";
 
 /** Every typed failure a publish use case can surface. */
-export type PublishFailure = PublishFailed | RegistryClientFailure;
+export type PublishFailure = PublishFailed | RegistryClientFailure | ConfigError;
 
 export const isPublishFailure = (error: unknown): error is PublishFailure =>
-  error instanceof PublishFailed || isRegistryClientFailure(error);
+  error instanceof PublishFailed || error instanceof ConfigError || isRegistryClientFailure(error);
 
 /** Error classes the publish document reports beside the category. */
 export type PublishCauseClass = "internal" | "user" | "external";
@@ -43,22 +44,29 @@ const CAUSE_CLASS_BY_CATEGORY: Readonly<Record<OperationErrorCategory, PublishCa
 
 /** The category the failure assigned itself. */
 export const publishFailureCategory = (failure: PublishFailure): OperationErrorCategory =>
-  failure._tag === "PublishFailed" ? failure.category : failure.category;
+  failure._tag === "ConfigError"
+    ? failure.cause._tag === "SourceError"
+      ? "unavailable"
+      : "validation"
+    : failure.category;
 
 /** The user-facing sentence the failure carries. */
 export const publishFailureDetail = (failure: PublishFailure): string =>
-  failure._tag === "PublishFailed"
-    ? failure.detail
-    : failure._tag === "RegistryProblem"
-      ? (failure.detail ?? failure.title ?? "The registry rejected the request.")
-      : failure.detail;
+  failure._tag === "ConfigError"
+    ? "Registry cache configuration could not be read."
+    : failure._tag === "PublishFailed"
+      ? failure.detail
+      : failure._tag === "RegistryProblem"
+        ? (failure.detail ?? failure.title ?? "The registry rejected the request.")
+        : failure.detail;
 
 export const publishFailureSuggestions = (
   failure: PublishFailure,
-): ReadonlyArray<SuggestedAction> => failure.suggestions ?? [];
+): ReadonlyArray<SuggestedAction> =>
+  failure._tag === "ConfigError" ? [] : (failure.suggestions ?? []);
 
 const failureMetadata = (failure: PublishFailure) =>
-  failure._tag === "PublishFailed" ? undefined : failure.metadata;
+  failure._tag === "PublishFailed" || failure._tag === "ConfigError" ? undefined : failure.metadata;
 
 /** True when the request policy proved the failure worth retrying. */
 export const isRetryablePublishFailure = (failure: PublishFailure): boolean =>

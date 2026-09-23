@@ -918,7 +918,7 @@ export const KnowledgeManagerLive = Layer.effect(
           yield* Effect.forEach([...prepared].reverse(), (item) => item.rollback, {
             discard: true,
           });
-          return yield* discovered.failure;
+          return yield* Effect.fail(discovered.failure);
         }
         if (!dryRun) yield* applyKnowledgeProjection;
         yield* Effect.forEach(

@@ -143,7 +143,7 @@ describe("Shared Registry index for pack planning", () => {
       });
       const args = { owner: index.owner, type: index.type, name: index.name };
       const failure = yield* memo.get(source.location.href, source.name, args).pipe(Effect.flip);
-      expect(failure.category).toBe("network");
+      expect(failure).toMatchObject({ category: "network" });
       expect(yield* memo.get(source.location.href, source.name, args)).toEqual(Option.some(index));
       expect(reads).toBe(2);
     }),

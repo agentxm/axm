@@ -23,6 +23,7 @@ export interface RegistryFailureContext {
   readonly requestConstructionDetail: string;
   readonly fallbackDetail: string;
   readonly suggestions?: ReadonlyArray<SuggestedAction>;
+  readonly nowMillis?: number;
 }
 
 const incompatibleResponse = (
@@ -98,6 +99,7 @@ export const mapRegistryFailure = (
   if (isAnyRegistryClientError(error)) {
     return registryClientErrorToProblem(error, {
       ...(context.suggestions === undefined ? {} : { suggestions: context.suggestions }),
+      ...(context.nowMillis === undefined ? {} : { nowMillis: context.nowMillis }),
     });
   }
 
@@ -112,6 +114,7 @@ export const mapRegistryFailure = (
           error.reason.response,
           {
             ...(context.suggestions === undefined ? {} : { suggestions: context.suggestions }),
+            ...(context.nowMillis === undefined ? {} : { nowMillis: context.nowMillis }),
             cause: error,
           },
         );

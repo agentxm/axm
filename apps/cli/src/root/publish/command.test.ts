@@ -7,7 +7,6 @@ import { AuthClientTest, DeviceLoginInteractionTest } from "@agentxm/registry-ac
 import {
   CommandSemanticPropertiesLive,
   getCommandSemanticProperties,
-  isCommandExit,
 } from "../../cli-runtime/index.js";
 import {
   StepFailure,
@@ -19,7 +18,6 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import { applyPlan, type JobStepResult } from "@agentxm/workspace/transitions/planning";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
-import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as HttpClient from "effect/unstable/http/HttpClient";
@@ -501,11 +499,7 @@ describe("root publish", () => {
 
           // The reported outcome is the whole report: the invocation ends with
           // its exit code, not with a second problem on stderr.
-          expect(Exit.isFailure(exit)).toBe(true);
-          if (Exit.isFailure(exit)) {
-            const squashed = Cause.squash(exit.cause);
-            expect(isCommandExit(squashed) ? squashed.exitCode : undefined).toBe(2);
-          }
+          expect(exit).toEqual(Exit.succeed({ _tag: "ProcessOutcome", exitCode: 2 }));
           const lines = painted(rendererState);
           expect(lines).toContain(
             " !!  @acme/skills/review           1.0.0     blocked   1 path differs from HEAD",
@@ -875,13 +869,9 @@ describe("root publish", () => {
 
             // The reported outcome carries the failure's recoveries and ends
             // with the conflict's exit code.
-            expect(Exit.isFailure(exit)).toBe(true);
-            if (Exit.isFailure(exit)) {
-              const squashed = Cause.squash(exit.cause);
-              expect(isCommandExit(squashed) ? squashed.exitCode : undefined).toBe(
-                exitCodeFor("conflict"),
-              );
-            }
+            expect(exit).toEqual(
+              Exit.succeed({ _tag: "ProcessOutcome", exitCode: exitCodeFor("conflict") }),
+            );
             const reported = rendererState.docs
               .flatMap((entry) => paintText(entry.doc, { width: "unbounded", colors: false }))
               .join("\n");
@@ -949,10 +939,8 @@ describe("root publish", () => {
               expect(Object.keys(item)).not.toContain("version");
               expect(JSON.stringify(data)).not.toContain("0.0.0");
               expect(rendererState.results[index]?.ok).toBe(false);
-              expect(Exit.isFailure(exit)).toBe(true);
-              if (Exit.isFailure(exit)) {
-                expect(isCommandExit(Cause.squash(exit.cause))).toBe(true);
-              }
+              expect(Exit.isSuccess(exit)).toBe(true);
+              if (Exit.isSuccess(exit)) expect(exit.value.exitCode).toBeGreaterThan(0);
             }
             expect(rendererState.results).toHaveLength(selectors.length);
           }),

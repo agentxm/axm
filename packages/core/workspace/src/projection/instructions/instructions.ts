@@ -8,7 +8,7 @@ import {
   managedFileFormatForPath,
   managedFileMarker,
 } from "../managed-file-banner.js";
-import { type InstructionsConfig } from "../../desired-state/index.js";
+import { makeScannerFileSystem, type InstructionsConfig } from "../../desired-state/index.js";
 import { createSymlink } from "../../desired-state/index.js";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 import { DISCOVERY_SKIPPED_DIRECTORIES } from "@agentxm/extension-model/unstable/discovery-walk";
@@ -396,7 +396,7 @@ const discoverInstructionTree = (
   scope: WorkspaceScope,
 ): Effect.Effect<InstructionTree, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
+    const fs = yield* makeScannerFileSystem(yield* FileSystem.FileSystem);
     const path = yield* Path.Path;
     const candidatesIn = (dir: string, entries: ReadonlyArray<string>) =>
       Effect.forEach(
@@ -450,14 +450,14 @@ const discoverInstructionTree = (
                     if (yield* isSeparateTree(full)) return EMPTY_TREE;
                     return yield* visit(full);
                   }),
-                { concurrency: "unbounded" },
+                { concurrency: 16 },
               );
         return {
           roots: [...(hasSource ? [dir] : []), ...children.flatMap((child) => child.roots)],
           candidates: [...candidates, ...children.flatMap((child) => child.candidates)],
         };
       });
-    const tree = yield* visit(workspaceRoot);
+    const tree = yield* visit(workspaceRoot).pipe(Effect.provideService(FileSystem.FileSystem, fs));
     return {
       roots: tree.roots.length > 0 ? tree.roots : [workspaceRoot],
       candidates: tree.candidates,
@@ -819,7 +819,7 @@ const observePlannedItems = (args: {
           details: instructionDetails(item.instructions, health, target.ownership),
         } satisfies InstructionStatusItem;
       }),
-    { concurrency: "unbounded" },
+    { concurrency: 16 },
   );
 
 /**
@@ -1506,7 +1506,7 @@ const applyInstructionProjection = (args: {
             dryRun: args.dryRun,
           });
         }),
-      { concurrency: "unbounded" },
+      { concurrency: 16 },
     );
     const patterns = desiredGitignorePatterns({
       enabled: args.config.gitignoreAliases,

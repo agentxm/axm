@@ -844,7 +844,7 @@ const collectRulePlans = (selection: WorkspaceUpdateCollectionRequest) =>
               (error) => workspacePlanningErrorPlan("rule", name, error),
               toTypedLabel("rule", name),
             ),
-      { concurrency: "unbounded" },
+      { concurrency: 16 },
     );
 
     return toCollectedWorkspaceUpdatePlans({
@@ -876,7 +876,7 @@ const collectHookPlans = (selection: WorkspaceUpdateCollectionRequest) =>
               (error) => workspacePlanningErrorPlan("hook", name, error),
               toTypedLabel("hook", name),
             ),
-      { concurrency: "unbounded" },
+      { concurrency: 16 },
     );
 
     return toCollectedWorkspaceUpdatePlans({
@@ -908,7 +908,7 @@ const collectKnowledgePlans = (selection: WorkspaceUpdateCollectionRequest) =>
               (error) => workspacePlanningErrorPlan("knowledge", name, error),
               toTypedLabel("knowledge", name),
             ),
-      { concurrency: "unbounded" },
+      { concurrency: 16 },
     );
 
     return toCollectedWorkspaceUpdatePlans({
@@ -942,7 +942,7 @@ const collectSubagentPlans = (selection: WorkspaceUpdateCollectionRequest) =>
               (error) => workspacePlanningErrorPlan("subagent", name, error),
               toTypedLabel("subagent", name),
             ),
-      { concurrency: "unbounded" },
+      { concurrency: 16 },
     );
 
     return toCollectedWorkspaceUpdatePlans({
@@ -1003,7 +1003,7 @@ const collectMcpServerPlans = (selection: WorkspaceUpdateCollectionRequest) =>
                 (error) => workspacePlanningErrorPlan("mcp-server", name, error),
                 name,
               ),
-      { concurrency: "unbounded" },
+      { concurrency: 16 },
     );
 
     return toCollectedWorkspaceUpdatePlans({
@@ -1078,7 +1078,9 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
             ),
       { concurrency: Option.isSome(requestBudget) ? requestBudget.value.capacity : 1 },
     );
-    const resolved = yield* Effect.all(prepared, { concurrency: "unbounded" });
+    const resolved = yield* Effect.all(prepared, {
+      concurrency: Option.isSome(requestBudget) ? requestBudget.value.capacity : 1,
+    });
 
     const selected: ReadonlyArray<SelectedPackAdvance> = resolved.flatMap((item) =>
       item.kind === "resolved" && item.resolution.kind === "selected"
@@ -1130,7 +1132,7 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
     const selectedPlans = yield* Effect.forEach(
       readyAdvances,
       ({ intent }) => planPackInstall(intent),
-      { concurrency: "unbounded" },
+      { concurrency: 16 },
     );
     const plannedCollections = resolved.flatMap((item) =>
       item.kind === "planned" ? [item.collection] : [],
@@ -1227,7 +1229,7 @@ export const buildWorkspaceUpdatePlan: (
         },
         collect(selection),
       ),
-    { concurrency: "unbounded" },
+    { concurrency: 1 },
   );
   const fragments = mergeFragments(collections);
   const holdbacks = normalizeReleaseAgeRecords(

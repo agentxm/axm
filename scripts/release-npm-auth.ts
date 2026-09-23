@@ -24,32 +24,23 @@ export const loadNpmPublicationAuth = (provider: ConfigProvider.ConfigProvider) 
     return { kind: "initialize", token: token.value, userConfig } as const;
   });
 
-/** Presence enables first creation; npm still verifies the supplied credential. */
-export const requireNpmPackageInitialization = (
-  name: string,
-  packageExists: boolean,
-  authentication: NpmPublicationAuth,
-) =>
-  packageExists || authentication.kind === "initialize"
-    ? Effect.void
-    : Effect.fail(new NpmPackagesUninitialized({ packages: [name] }));
-
-/** Unwrap first-publish credentials only for the foreign npm process that needs them. */
-export const npmPublicationEnvironment = (
+/** Select credentials at the foreign npm process boundary, after package existence is known. */
+export const npmPublicationProcessEnvironment = (
   name: string,
   packageExists: boolean,
   authentication: NpmPublicationAuth,
   environment: NodeJS.ProcessEnv,
-) =>
-  Effect.gen(function* () {
-    yield* requireNpmPackageInitialization(name, packageExists, authentication);
-    const result = { ...environment };
-    delete result["NPM_INITIAL_PUBLISH_TOKEN"];
-    delete result["NODE_AUTH_TOKEN"];
-    delete result["NPM_CONFIG_USERCONFIG"];
-    if (!packageExists && authentication.kind === "initialize") {
-      result["NODE_AUTH_TOKEN"] = Redacted.value(authentication.token);
-      result["NPM_CONFIG_USERCONFIG"] = authentication.userConfig;
-    }
-    return result;
-  });
+): NodeJS.ProcessEnv => {
+  if (!packageExists && authentication.kind !== "initialize") {
+    throw new NpmPackagesUninitialized({ packages: [name] });
+  }
+  const result = { ...environment };
+  delete result["NPM_INITIAL_PUBLISH_TOKEN"];
+  delete result["NODE_AUTH_TOKEN"];
+  delete result["NPM_CONFIG_USERCONFIG"];
+  if (!packageExists && authentication.kind === "initialize") {
+    result["NODE_AUTH_TOKEN"] = Redacted.value(authentication.token);
+    result["NPM_CONFIG_USERCONFIG"] = authentication.userConfig;
+  }
+  return result;
+};

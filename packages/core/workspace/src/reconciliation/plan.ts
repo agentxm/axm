@@ -267,7 +267,7 @@ export const buildMcpServerPruneOperation = ({
         declaredServerNames,
         scope: location.scope,
       }).pipe(Effect.map((outcome) => ({ agentId, outcome }))),
-    { concurrency: "unbounded" },
+    { concurrency: 1 },
   ).pipe(
     Effect.map((outcomes) => {
       const warnings = outcomes.filter(({ outcome }) => outcome._tag !== "success");
@@ -698,7 +698,7 @@ export const makeSyncPlan = <R>({
       jobs.push({ concurrency: 1, steps: [knowledgeStep.value] });
     }
     if (ruleSteps.length > 0) {
-      jobs.push({ concurrency: "unbounded", steps: ruleSteps });
+      jobs.push({ concurrency: 16, steps: ruleSteps });
     }
     // Aggregate hook units render after canonical hook materialization.
     if (Option.isSome(hooksStep)) {

@@ -772,7 +772,7 @@ const dematerializeMember = (
                     : Effect.void,
                 ),
               ),
-          { concurrency: "unbounded", discard: true },
+          { concurrency: 1, discard: true },
         );
       }
       case "subagent": {
@@ -814,7 +814,7 @@ const dematerializeMember = (
                       ),
                 ),
               ),
-          { concurrency: "unbounded", discard: true },
+          { concurrency: 1, discard: true },
         );
       }
       case "rule":

@@ -29,21 +29,15 @@ import {
   publishImmutableCohort,
   publishImmutableInDependencyOrder,
   readNpmPublication,
+  releaseCohortTarballPath,
+  releaseBoundaryError,
   reconcileNpmStableTag,
   SupersededRelease,
 } from "./release-publication.js";
 import { formulaVersion, prepareFormula } from "./release-formula.js";
 import { decodeGitHubReleaseAssetView } from "./release-github-release-api.js";
 
-import {
-  loadNpmPublicationAuth,
-  npmPublicationEnvironment,
-  requireNpmPackageInitialization,
-} from "./release-npm-auth.js";
-
-const npmAuthentication = await Effect.runPromise(
-  loadNpmPublicationAuth(ConfigProvider.fromEnvRecord(process.env)),
-);
+import { loadNpmPublicationAuth, npmPublicationProcessEnvironment } from "./release-npm-auth.js";
 
 const version = process.argv[2];
 const tag = process.argv[3];
@@ -58,7 +52,17 @@ if (
   !/^[0-9a-f]{40}$/u.test(releaseCommit)
 )
   throw new Error("Expected <version> <cli-vVERSION> <release-commit>.");
+if (!/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u.test(version))
+  throw new Error("Expected a stable release version in major.minor.patch form.");
 guardPublicationVersion(version, null, "candidate");
+
+const npmAuthentication = await Effect.runPromise(
+  loadNpmPublicationAuth(ConfigProvider.fromEnvRecord(process.env)),
+);
+const publicationEnvironment = (name: string, packageExists: boolean): NodeJS.ProcessEnv => {
+  return npmPublicationProcessEnvironment(name, packageExists, npmAuthentication, process.env);
+};
+
 validateReleaseAssets(assets);
 await validateReleaseCohort(npmCohort, version, releaseCommit);
 
@@ -88,9 +92,7 @@ const readFormula = async (
 };
 const latestGuard = async (name: string, signal?: AbortSignal) => {
   const metadata = await readNpmPublication(name, version, fetch, signal);
-  await Effect.runPromise(
-    requireNpmPackageInitialization(name, metadata.packageExists, npmAuthentication),
-  );
+  publicationEnvironment(name, metadata.packageExists);
   guardPublicationVersion(version, metadata.latest, name);
   return metadata;
 };
@@ -125,180 +127,201 @@ try {
       }
     }
   } else {
-    const outcome = await distributeRelease(
-      // Global preflight prevents historical repair when any distribution owner
-      // already exposes a newer version, regardless of canonical queue order.
-      preflight,
-      [
-        {
-          name: "artifacts",
-          publish: async () => {
-            const readAsset = async (name: string): Promise<string | null> => {
-              const release = decodeGitHubReleaseAssetView(
-                capture("gh", [
-                  "release",
-                  "view",
-                  tag,
-                  "--repo",
-                  RELEASE_REPO,
-                  "--json",
-                  "targetCommitish,assets",
-                ]),
-              );
-              if (release.targetCommitish !== releaseCommit)
-                throw new Error(
-                  `GitHub Release target integrity conflict: expected ${releaseCommit}, observed ${release.targetCommitish}.`,
-                );
-              if (!release.assets.some((asset) => asset.name === name)) return null;
-              const directory = mkdtempSync(join(temporary, "asset-"));
-              run("gh", [
-                "release",
-                "download",
-                tag,
-                "--repo",
-                RELEASE_REPO,
-                "--pattern",
-                name,
-                "--dir",
-                directory,
-              ]);
-              return contentIntegrity(readFileSync(join(directory, name)));
-            };
-            await publishImmutableCohort(
-              EXPECTED_RELEASE_ASSETS.map((name) => ({
-                name,
-                integrity: contentIntegrity(readFileSync(join(assets, name))),
-                read: () => readAsset(name),
-                publish: async () => {
-                  run("gh", ["release", "upload", tag, join(assets, name), "--repo", RELEASE_REPO]);
-                },
-              })),
-              { concurrency: 3 },
-            );
-          },
-        },
-        {
-          name: "npm",
-          publish: async () => {
-            const publications = RELEASE_PACKAGES.map((pkg) => {
-              const tarball = join(npmCohort, `${pkg.tarballPrefix}${version}.tgz`);
-              const integrity = contentIntegrity(readFileSync(tarball));
-              return {
-                name: `${pkg.name}@${version}`,
-                integrity,
-                read: async (signal: AbortSignal) =>
-                  (await latestGuard(pkg.name, signal)).integrity,
-                publish: async () => {
-                  const metadata = await latestGuard(pkg.name);
-                  const publicationEnv = await Effect.runPromise(
-                    npmPublicationEnvironment(
-                      pkg.name,
-                      metadata.packageExists,
-                      npmAuthentication,
-                      process.env,
-                    ),
-                  );
-                  run(
-                    "npm",
-                    [
-                      "publish",
-                      tarball,
-                      "--provenance",
-                      "--access",
-                      "public",
-                      "--tag",
-                      "latest",
-                      "--loglevel=warn",
-                    ],
-                    publicationEnv,
+    const outcome = await Effect.runPromise(
+      distributeRelease(
+        // Global preflight prevents historical repair when any distribution owner
+        // already exposes a newer version, regardless of canonical queue order.
+        Effect.tryPromise({ try: () => preflight(), catch: releaseBoundaryError }),
+        [
+          {
+            name: "artifacts",
+            publish: () =>
+              Effect.tryPromise({
+                try: async () => {
+                  const readAsset = async (name: string): Promise<string | null> => {
+                    const release = decodeGitHubReleaseAssetView(
+                      capture("gh", [
+                        "release",
+                        "view",
+                        tag,
+                        "--repo",
+                        RELEASE_REPO,
+                        "--json",
+                        "targetCommitish,assets",
+                      ]),
+                    );
+                    if (release.targetCommitish !== releaseCommit)
+                      throw new Error(
+                        `GitHub Release target integrity conflict: expected ${releaseCommit}, observed ${release.targetCommitish}.`,
+                      );
+                    if (!release.assets.some((asset) => asset.name === name)) return null;
+                    const directory = mkdtempSync(join(temporary, "asset-"));
+                    run("gh", [
+                      "release",
+                      "download",
+                      tag,
+                      "--repo",
+                      RELEASE_REPO,
+                      "--pattern",
+                      name,
+                      "--dir",
+                      directory,
+                    ]);
+                    return contentIntegrity(readFileSync(join(directory, name)));
+                  };
+                  await publishImmutableCohort(
+                    EXPECTED_RELEASE_ASSETS.map((name) => ({
+                      name,
+                      integrity: contentIntegrity(readFileSync(join(assets, name))),
+                      read: () => readAsset(name),
+                      publish: async () => {
+                        run("gh", [
+                          "release",
+                          "upload",
+                          tag,
+                          join(assets, name),
+                          "--repo",
+                          RELEASE_REPO,
+                        ]);
+                      },
+                    })),
+                    { concurrency: 3 },
                   );
                 },
-              };
-            });
-            await Effect.runPromise(
-              // npm acknowledged two 0.33.0 uploads before registry reads exposed them
-              // more than two minutes later. Keep each dependency readback bounded.
-              publishImmutableInDependencyOrder(publications, { timeoutMs: 360_000 }),
-            );
-            await mapWithConcurrency(RELEASE_PACKAGES, 6, async (pkg) =>
-              reconcileNpmStableTag({
-                name: pkg.name,
-                version,
-                read: async (signal) => (await latestGuard(pkg.name, signal)).latest,
-                promote: async () => {
-                  await latestGuard(pkg.name);
-                  const publicationEnv = await Effect.runPromise(
-                    npmPublicationEnvironment(pkg.name, true, npmAuthentication, process.env),
-                  );
-                  run(
-                    "npm",
-                    ["dist-tag", "add", `${pkg.name}@${version}`, "latest"],
-                    publicationEnv,
-                  );
-                },
+                catch: releaseBoundaryError,
               }),
-            );
           },
-        },
-        {
-          name: "tap",
-          publish: async () => {
-            const formula = await readFormula();
-            const candidate = prepareFormula(formula, version, RELEASE_REPO, checksums);
-            if (!candidate.changed) return;
-            const token = process.env["HOMEBREW_TAP_TOKEN"];
-            if (token === undefined || token === "")
-              throw new Error("HOMEBREW_TAP_TOKEN is required to publish the missing formula.");
-            const tap = join(temporary, "tap");
-            run(
-              "git",
-              ["clone", "--depth", "1", "https://github.com/agentxm/homebrew-tap.git", tap],
-              foreignGitEnvironment(),
-            );
-            requireForeignGitRoot(tap, tap);
-            const env = {
-              ...foreignGitEnvironment(),
-              HOMEBREW_TAP_DIR: tap,
-              RELEASE_ASSET_DIR: assets,
-              GIT_CONFIG_COUNT: "1",
-              GIT_CONFIG_KEY_0: "http.https://github.com/.extraheader",
-              GIT_CONFIG_VALUE_0: `AUTHORIZATION: basic ${Buffer.from(`x-access-token:${token}`).toString("base64")}`,
-            };
-            try {
-              runIn(
-                process.cwd(),
-                "pnpm",
-                ["exec", "nx", "run", "axm:update-homebrew-formula", "--", version],
-                env,
-              );
-            } catch (cause) {
-              try {
-                await observePublication({
-                  name: `Homebrew formula ${version}`,
-                  read: async (signal) =>
-                    prepareFormula(await readFormula(signal), version, RELEASE_REPO, checksums),
-                  matches: (observed) => !observed.changed,
-                  retryError: isTransientPublicationError,
+          {
+            name: "npm",
+            publish: () =>
+              Effect.gen(function* () {
+                const publications = RELEASE_PACKAGES.map((pkg) => {
+                  const tarball = releaseCohortTarballPath(npmCohort, pkg.tarballPrefix, version);
+                  const integrity = contentIntegrity(readFileSync(tarball));
+                  return {
+                    name: `${pkg.name}@${version}`,
+                    integrity,
+                    read: async (signal: AbortSignal) =>
+                      (await latestGuard(pkg.name, signal)).integrity,
+                    publish: async () => {
+                      const metadata = await latestGuard(pkg.name);
+                      const publicationEnv = publicationEnvironment(
+                        pkg.name,
+                        metadata.packageExists,
+                      );
+                      run(
+                        "npm",
+                        [
+                          "publish",
+                          tarball,
+                          "--provenance",
+                          "--access",
+                          "public",
+                          "--tag",
+                          "latest",
+                          "--loglevel=warn",
+                        ],
+                        publicationEnv,
+                      );
+                    },
+                  };
                 });
-              } catch (readbackFailure) {
-                throw new AggregateError(
-                  [cause, readbackFailure],
-                  "Homebrew submission and bounded public readback failed.",
-                  { cause: readbackFailure },
-                );
-              }
-            }
-            await observePublication({
-              name: `Homebrew formula ${version}`,
-              read: async (signal) =>
-                prepareFormula(await readFormula(signal), version, RELEASE_REPO, checksums),
-              matches: (candidate) => !candidate.changed,
-              retryError: isTransientPublicationError,
-            });
+                // npm acknowledged two 0.33.0 uploads before registry reads exposed them
+                // more than two minutes later. Keep each dependency readback bounded.
+                yield* publishImmutableInDependencyOrder(publications, { timeoutMs: 360_000 });
+                yield* Effect.tryPromise({
+                  try: () =>
+                    mapWithConcurrency(RELEASE_PACKAGES, 6, async (pkg) =>
+                      reconcileNpmStableTag({
+                        name: pkg.name,
+                        version,
+                        read: async (signal) => (await latestGuard(pkg.name, signal)).latest,
+                        promote: async () => {
+                          await latestGuard(pkg.name);
+                          const publicationEnv = publicationEnvironment(pkg.name, true);
+                          run(
+                            "npm",
+                            ["dist-tag", "add", `${pkg.name}@${version}`, "latest"],
+                            publicationEnv,
+                          );
+                        },
+                      }),
+                    ),
+                  catch: releaseBoundaryError,
+                });
+              }),
           },
-        },
-      ],
-      (states) => output("publication", JSON.stringify(states)),
+          {
+            name: "tap",
+            publish: () =>
+              Effect.tryPromise({
+                try: async () => {
+                  const formula = await readFormula();
+                  const candidate = prepareFormula(formula, version, RELEASE_REPO, checksums);
+                  if (!candidate.changed) return;
+                  const token = process.env["HOMEBREW_TAP_TOKEN"];
+                  if (token === undefined || token === "")
+                    throw new Error(
+                      "HOMEBREW_TAP_TOKEN is required to publish the missing formula.",
+                    );
+                  const tap = join(temporary, "tap");
+                  run(
+                    "git",
+                    ["clone", "--depth", "1", "https://github.com/agentxm/homebrew-tap.git", tap],
+                    foreignGitEnvironment(),
+                  );
+                  requireForeignGitRoot(tap, tap);
+                  const env = {
+                    ...foreignGitEnvironment(),
+                    HOMEBREW_TAP_DIR: tap,
+                    RELEASE_ASSET_DIR: assets,
+                    GIT_CONFIG_COUNT: "1",
+                    GIT_CONFIG_KEY_0: "http.https://github.com/.extraheader",
+                    GIT_CONFIG_VALUE_0: `AUTHORIZATION: basic ${Buffer.from(`x-access-token:${token}`).toString("base64")}`,
+                  };
+                  try {
+                    runIn(
+                      process.cwd(),
+                      "pnpm",
+                      ["exec", "nx", "run", "axm:update-homebrew-formula", "--", version],
+                      env,
+                    );
+                  } catch (cause) {
+                    try {
+                      await observePublication({
+                        name: `Homebrew formula ${version}`,
+                        read: async (signal) =>
+                          prepareFormula(
+                            await readFormula(signal),
+                            version,
+                            RELEASE_REPO,
+                            checksums,
+                          ),
+                        matches: (observed) => !observed.changed,
+                        retryError: isTransientPublicationError,
+                      });
+                    } catch (readbackFailure) {
+                      throw new AggregateError(
+                        [cause, readbackFailure],
+                        "Homebrew submission and bounded public readback failed.",
+                        { cause: readbackFailure },
+                      );
+                    }
+                  }
+                  await observePublication({
+                    name: `Homebrew formula ${version}`,
+                    read: async (signal) =>
+                      prepareFormula(await readFormula(signal), version, RELEASE_REPO, checksums),
+                    matches: (candidate) => !candidate.changed,
+                    retryError: isTransientPublicationError,
+                  });
+                },
+                catch: releaseBoundaryError,
+              }),
+          },
+        ],
+        (states) => output("publication", JSON.stringify(states)),
+      ),
     );
     output("outcome", outcome);
     console.log(`Release distribution: ${outcome}.`);

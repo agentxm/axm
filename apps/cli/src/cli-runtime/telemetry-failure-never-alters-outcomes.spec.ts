@@ -63,7 +63,7 @@ describe("Telemetry failure isolation", () => {
             cleanups.push(operation.cleanup);
             const capture = captureTelemetry();
             const baseline = yield* operation.run({ client: capture.client, mode: "off", fail });
-            expect(baseline.exit._tag).toBe(fail ? "Failure" : "Success");
+            expect(baseline.exit._tag).toBe("Success");
             expect(capture.requests).toHaveLength(0);
             expect(baseline.exitCode).toBe(fail ? 3 : 0);
             if (!fail) {

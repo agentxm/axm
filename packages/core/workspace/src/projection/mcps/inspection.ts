@@ -599,7 +599,7 @@ export const inspectMcpServerAcrossAgents = (args: {
                 },
               });
             }),
-          { concurrency: "unbounded" },
+          { concurrency: 16 },
         );
       }
       return yield* Effect.forEach(
@@ -612,7 +612,7 @@ export const inspectMcpServerAcrossAgents = (args: {
             serverName: args.serverName,
             entry: args.entry,
           }),
-        { concurrency: "unbounded" },
+        { concurrency: 16 },
       );
     }
     const transport = yield* inspectionTransportForEntry(args.entry);
@@ -640,7 +640,7 @@ export const inspectMcpServerAcrossAgents = (args: {
               target: member.target,
             },
           }),
-        { concurrency: "unbounded" },
+        { concurrency: 16 },
       );
       for (const inspection of inspections) {
         byAgentId.set(inspection.agentId, inspection);
@@ -662,7 +662,7 @@ export const inspectMcpServerAcrossAgents = (args: {
             })
           : Effect.succeed(resolved);
       },
-      { concurrency: "unbounded" },
+      { concurrency: 16 },
     );
   });
 
@@ -734,7 +734,7 @@ export const collectManagedAgentMcpServers = (
             })),
           );
         }),
-      { concurrency: "unbounded" },
+      { concurrency: 16 },
     );
     return perGroup.flat();
   });

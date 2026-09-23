@@ -387,7 +387,9 @@ const collectPackPlansInPhase: (
   );
   // Local preparation finishes before Registry requests enter the shared resolver.
   // The operation's request budget bounds transport while selections run together.
-  const resolvedPacks = yield* Effect.all(preparedPacks, { concurrency: "unbounded" });
+  const resolvedPacks = yield* Effect.all(preparedPacks, {
+    concurrency: Option.isSome(requestBudget) ? requestBudget.value.capacity : 1,
+  });
 
   const prospectivePacks = resolvedPacks.map(({ intent }) => intent.packToInstall);
   const constraintProblems = yield* prospectivePackConstraintProblems({
@@ -423,7 +425,7 @@ const collectPackPlansInPhase: (
           attachConfiguredReleaseAge(plan, args.releaseAgeEvaluation, releaseAge),
         ),
       ),
-    { concurrency: "unbounded" },
+    { concurrency: 16 },
   );
 
   // A pack's own step comes first; everything after it is a member the pack
@@ -717,7 +719,7 @@ const collectSimpleTypePlans = (
         );
         return toCollectedPlans({
           plans: yield* Effect.forEach(entries, ([name, entry]) => planFor(name, entry.source), {
-            concurrency: "unbounded",
+            concurrency: 16,
           }),
         });
       }
@@ -727,7 +729,7 @@ const collectSimpleTypePlans = (
           plans: yield* Effect.forEach(
             acquisitionConfiguredEntries(configured),
             ([name, entry]) => planFor(name, entry.source),
-            { concurrency: "unbounded" },
+            { concurrency: 16 },
           ),
         });
       }
@@ -737,7 +739,7 @@ const collectSimpleTypePlans = (
           plans: yield* Effect.forEach(
             acquisitionConfiguredEntries(configured),
             ([name, entry]) => planFor(name, entry.source),
-            { concurrency: "unbounded" },
+            { concurrency: 16 },
           ),
         });
       }
@@ -747,7 +749,7 @@ const collectSimpleTypePlans = (
           plans: yield* Effect.forEach(
             acquisitionConfiguredEntries(configured),
             ([name, entry]) => planFor(name, entry.source),
-            { concurrency: "unbounded" },
+            { concurrency: 16 },
           ),
         });
       }
@@ -757,7 +759,7 @@ const collectSimpleTypePlans = (
           plans: yield* Effect.forEach(
             acquisitionConfiguredEntries(configured),
             ([name, entry]) => planFor(name, entry.source),
-            { concurrency: "unbounded" },
+            { concurrency: 16 },
           ),
         });
       }
@@ -772,7 +774,7 @@ const collectSimpleTypePlans = (
               entry.kind === "inline"
                 ? Effect.succeed(inlineMcpNotApplicablePlan(name, "install"))
                 : planFor(name, entry.source),
-            { concurrency: "unbounded" },
+            { concurrency: 16 },
           ),
         });
       }
@@ -901,7 +903,7 @@ export const buildConfiguredInstallPlan: (
           })
         : collectSimpleTypePlans(type, releaseAgeEvaluation, args.nonInteractive, args.force)
       ).pipe(Effect.map((collection) => ({ type, collection }))),
-    { concurrency: "unbounded" },
+    { concurrency: 1 },
   );
   const fragments = mergeFragments(collections.map(({ collection }) => collection));
 

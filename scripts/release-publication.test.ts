@@ -1,4 +1,8 @@
 import { describe, expect, it, vi } from "@effect/vitest";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
@@ -8,6 +12,9 @@ import {
   PublicationHttpError,
   readNpmDistTag,
   readNpmPublication,
+  releaseCohortTarballPath,
+  releaseBoundaryError,
+  ReleaseBoundaryFailed,
   requireInitializedNpmPackages,
   reconcileNpmStableTag,
   distributeRelease,
@@ -22,6 +29,60 @@ import { prepareFormula } from "./release-formula.js";
 
 const bytes = new TextEncoder().encode("candidate");
 const integrity = contentIntegrity(bytes);
+
+describe("release tarball paths", () => {
+  it.each(["../outside", "1.2.3/../../outside", "1.2.3-rc.1", "1.2.3+build", "01.2.3"])(
+    "rejects an invalid release version before reading release inputs: %s",
+    (version) => {
+      const result = spawnSync(
+        "bun",
+        [join("scripts", "distribute-release.ts"), version, `cli-v${version}`, "a".repeat(40)],
+        { cwd: process.cwd(), encoding: "utf8" },
+      );
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain(
+        "Expected a stable release version in major.minor.patch form.",
+      );
+    },
+  );
+
+  it("selects only the exact regular tarball from the cohort directory", () => {
+    const directory = mkdtempSync(join(tmpdir(), "axm-release-cohort-"));
+    const expected = join(directory, "axm.sh-1.2.3.tgz");
+    const other = join(directory, "axm.sh-1.2.30.tgz");
+    try {
+      writeFileSync(other, "other release");
+      expect(() => releaseCohortTarballPath(directory, "axm.sh-", "1.2.3")).toThrow(
+        "Release tarball is missing or not a regular file",
+      );
+      symlinkSync(other, expected);
+      expect(() => releaseCohortTarballPath(directory, "axm.sh-", "1.2.3")).toThrow(
+        "Release tarball is missing or not a regular file",
+      );
+      rmSync(expected);
+      writeFileSync(expected, "exact release");
+      expect(releaseCohortTarballPath(directory, "axm.sh-", "1.2.3")).toBe(expected);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it.each(["../outside", "../../outside", "/../../outside"])(
+    "rejects a version that is not a stable numeric release: %s",
+    (version) => {
+      expect(() => releaseCohortTarballPath("release-npm", "axm.sh-", version)).toThrow(
+        "Expected a stable release version in major.minor.patch form.",
+      );
+    },
+  );
+
+  it("rejects an invalid tarball prefix even when the version is valid", () => {
+    expect(() => releaseCohortTarballPath("release-npm", "../outside/", "1.2.3")).toThrow(
+      "Release tarball name must be a basename.",
+    );
+  });
+});
+
 const boundedObservation = (timeoutMs = 10) => {
   let current = 0;
   return {
@@ -386,60 +447,59 @@ describe("bounded publication observation", () => {
 });
 
 describe("distribution ordering and recovery", () => {
-  it.each(["artifacts", "npm", "tap"] as const)(
+  it.effect.each(["artifacts", "npm", "tap"] as const)(
     "records %s failure and permits a rerun to reuse prior outputs",
-    async (failed) => {
-      const completed = new Set<string>();
-      const writes: string[] = [];
-      const records: PublicationStates[] = [];
-      let failure = true;
-      const boundaries = (["artifacts", "npm", "tap"] as const).map((name) => ({
-        name,
-        publish: async () => {
-          if (name === failed && failure) throw new Error("publisher failed");
-          if (!completed.has(name)) {
-            writes.push(name);
-            completed.add(name);
-          }
-        },
-      }));
-      await expect(
-        distributeRelease(
-          async () => undefined,
-          boundaries,
-          (state) => records.push(state),
-        ),
-      ).rejects.toThrow("publisher failed");
-      expect(records.at(-1)?.[failed]).toBe("failed");
-      failure = false;
-      await expect(
-        distributeRelease(
-          async () => undefined,
-          boundaries,
-          (state) => records.push(state),
-        ),
-      ).resolves.toBe("distributed");
-      expect(writes).toEqual(["artifacts", "npm", "tap"]);
-      expect(records.at(-1)).toEqual({
-        artifacts: "succeeded",
-        npm: "succeeded",
-        tap: "succeeded",
-      });
-    },
+    (failed) =>
+      Effect.gen(function* () {
+        const completed = new Set<string>();
+        const writes: string[] = [];
+        const records: PublicationStates[] = [];
+        let failure = true;
+        const boundaries = (["artifacts", "npm", "tap"] as const).map((name) => ({
+          name,
+          publish: () =>
+            Effect.tryPromise({
+              try: async () => {
+                if (name === failed && failure) throw new Error("publisher failed");
+                if (!completed.has(name)) {
+                  writes.push(name);
+                  completed.add(name);
+                }
+              },
+              catch: releaseBoundaryError,
+            }),
+        }));
+        const firstFailure = yield* Effect.flip(
+          distributeRelease(Effect.void, boundaries, (state) => records.push(state)),
+        );
+        expect(firstFailure).toBeInstanceOf(ReleaseBoundaryFailed);
+        expect(firstFailure).toHaveProperty("message", "publisher failed");
+        expect(records.at(-1)?.[failed]).toBe("failed");
+        failure = false;
+        const outcome = yield* distributeRelease(Effect.void, boundaries, (state) =>
+          records.push(state),
+        );
+        expect(outcome).toBe("distributed");
+        expect(writes).toEqual(["artifacts", "npm", "tap"]);
+        expect(records.at(-1)).toEqual({
+          artifacts: "succeeded",
+          npm: "succeeded",
+          tap: "succeeded",
+        });
+      }),
   );
-  it("stops a superseded candidate before any historical publication repair", async () => {
-    const publish = vi.fn(async () => undefined);
-    await expect(
-      distributeRelease(
-        async () => {
-          guardPublicationVersion("1.2.3", "1.2.4", "npm");
-        },
+  it.effect("stops a superseded candidate before any historical publication repair", () =>
+    Effect.gen(function* () {
+      const publish = vi.fn(() => Effect.void);
+      const outcome = yield* distributeRelease(
+        Effect.fail(new SupersededRelease("1.2.3", "1.2.4", "npm")),
         [{ name: "artifacts", publish }],
         () => undefined,
-      ),
-    ).resolves.toBe("superseded");
-    expect(publish).not.toHaveBeenCalled();
-  });
+      );
+      expect(outcome).toBe("superseded");
+      expect(publish).not.toHaveBeenCalled();
+    }),
+  );
   it.each(["npm", "Homebrew", "stable"])(
     "guards an older candidate at the %s write boundary",
     (owner) => {

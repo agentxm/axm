@@ -785,6 +785,17 @@ describe("mcp-sync helpers", () => {
               env: {},
             },
           });
+          yield* syncInlineMcpServerToAgent("claude-code", {
+            workspaceRoot,
+            serverName: "stale-two",
+            scope: "project",
+            entry: {
+              source: "inline",
+              command: "stale-mcp",
+              enabled: true,
+              env: {},
+            },
+          });
 
           const outcome = yield* pruneManagedMcpServersForAgent("claude-code", {
             workspaceRoot,
@@ -800,6 +811,7 @@ describe("mcp-sync helpers", () => {
           const config = yield* fs.readFileString(`${workspaceRoot}/.mcp.json`);
           expect(config).toContain('"linear"');
           expect(config).not.toContain('"stale"');
+          expect(config).not.toContain('"stale-two"');
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }

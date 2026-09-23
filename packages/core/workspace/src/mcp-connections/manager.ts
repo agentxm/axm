@@ -398,7 +398,7 @@ export const McpServerManagerLive = Layer.effect(
         return (yield* Effect.forEach(
           Object.entries(entries).filter(([, entry]) => state === "projected" || entry.enabled),
           ([name, entry]) => configuredAgentOutcomesForEntry({ name, entry, state }),
-          { concurrency: "unbounded" },
+          { concurrency: 16 },
         )).flat();
       });
 

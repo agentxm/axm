@@ -50,7 +50,7 @@ export {
   type MachineOutputDocument,
   type MachineOutputDocumentKind,
 } from "./machine-output-document.js";
-export { CommandExit, commandExit, isCommandExit } from "./command-exit.js";
+export { processOutcome, isProcessOutcome, type ProcessOutcome } from "./process-outcome.js";
 export {
   hasExplicitJsonFlag,
   optionArgs,

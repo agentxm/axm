@@ -177,7 +177,8 @@ describe("publish source-state comparison scheduling", () => {
           .provide(handleRootPublish(args(registryUrl, { preview: false, acceptWarnings: true })))
           .pipe(Effect.exit);
 
-        expect(Exit.isFailure(exit)).toBe(true);
+        expect(Exit.isSuccess(exit)).toBe(true);
+        if (Exit.isSuccess(exit)) expect(exit.value.exitCode).toBeGreaterThan(0);
         expect(comparisonCount).toBe(2);
         expect(fs.readdirSync(path.join(tempDir, "registry"))).toEqual([]);
         const result = expectPublishResult(at(context.rendererState.results, 0).data, {

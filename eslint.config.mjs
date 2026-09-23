@@ -59,6 +59,48 @@ const axmPolicyPlugin = {
         };
       },
     },
+    "no-command-defect-exit": {
+      meta: {
+        type: "problem",
+        schema: [],
+        messages: {
+          outcome:
+            "Return a typed command outcome or failure; Effect.die is for violated invariants, not CLI exit status.",
+        },
+      },
+      create(context) {
+        const effectNamespaces = new Set();
+        return {
+          ImportDeclaration(node) {
+            if (node.source.value !== "effect/Effect") return;
+            for (const specifier of node.specifiers) {
+              if (specifier.type === "ImportNamespaceSpecifier") {
+                effectNamespaces.add(specifier.local.name);
+              } else if (
+                specifier.type === "ImportSpecifier" &&
+                specifier.imported.type === "Identifier" &&
+                specifier.imported.name === "die"
+              ) {
+                context.report({ node: specifier, messageId: "outcome" });
+              }
+            }
+          },
+          MemberExpression(node) {
+            if (node.object.type !== "Identifier" || !effectNamespaces.has(node.object.name)) {
+              return;
+            }
+            const property = node.computed
+              ? node.property.type === "Literal"
+                ? node.property.value
+                : undefined
+              : node.property.type === "Identifier"
+                ? node.property.name
+                : undefined;
+            if (property === "die") context.report({ node, messageId: "outcome" });
+          },
+        };
+      },
+    },
     "no-direct-process-output": {
       meta: {
         type: "problem",
@@ -657,6 +699,18 @@ export default [
     },
   },
   {
+    // A command may return a nonzero process outcome or a typed failure.
+    // Screen's duplicate-output guard is a true invariant outside this scope.
+    files: ["apps/cli/src/root/**/*.ts", "apps/cli/src/cli-runtime/**/*.ts"],
+    ignores: ["**/*.test.ts", "**/*.spec.ts", "**/test-support/**"],
+    plugins: {
+      "axm-policy": axmPolicyPlugin,
+    },
+    rules: {
+      "axm-policy/no-command-defect-exit": "error",
+    },
+  },
+  {
     // `Screen` is the sole writer after runtime startup
     // (docs/architecture/commands/output.md); streams.ts is its process
     // adapter and owns the process stream handles.
@@ -701,6 +755,11 @@ export default [
         {
           selector: "CallExpression[callee.object.name='Date'][callee.property.name='now']",
           message: "Use DateTime.now or Clock.currentTimeMillis instead of Date.now().",
+        },
+        {
+          selector:
+            "CallExpression[callee.object.name='DateTime'][callee.property.name='nowUnsafe']",
+          message: "Use DateTime.now or Clock.currentTimeMillis from the active Effect clock.",
         },
       ],
     },
@@ -765,6 +824,11 @@ export default [
         {
           selector: "CallExpression[callee.object.name='Date'][callee.property.name='now']",
           message: "Use DateTime.now or Clock.currentTimeMillis instead of Date.now().",
+        },
+        {
+          selector:
+            "CallExpression[callee.object.name='DateTime'][callee.property.name='nowUnsafe']",
+          message: "Use DateTime.now or Clock.currentTimeMillis from the active Effect clock.",
         },
         {
           selector: "MemberExpression[object.name='Effect'][property.name='orDie']",

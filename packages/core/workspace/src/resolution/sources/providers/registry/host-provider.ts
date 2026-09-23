@@ -463,7 +463,7 @@ const findWithVersionRange = (
           const resolved = yield* Effect.forEach(
             result.indexes,
             (index) => manifestFromIndex(index, options.versionRange, options.minimumReleaseAge),
-            { concurrency: "unbounded" },
+            { concurrency: 20 },
           );
 
           return getSupportedExtensionRefs(Array.getSomes(resolved), source);
@@ -501,9 +501,11 @@ const findWithVersionRange = (
                         ),
                   ),
                 ),
-              { concurrency: "unbounded" },
+              { concurrency: 1 },
             ),
-          { concurrency: "unbounded" },
+          // The local Registry client admits twenty index reads per scope.
+          // Keep the nested name/type traversal within that same allowance.
+          { concurrency: 20 },
         );
 
         return resolved.flat().flatMap((entry) =>
@@ -513,7 +515,8 @@ const findWithVersionRange = (
           }),
         );
       }),
-    { concurrency: "unbounded" },
+    // One scope scan can already use the client's twenty-read allowance.
+    { concurrency: 1 },
   ).pipe(Effect.map((results) => results.flat()));
 
 /** Map RegistryExtensionManifest to ExtensionRef, stamped with the source. */
@@ -760,7 +763,8 @@ export const createLocalRegistrySourceHostProvider = (
             );
             return getSupportedExtensionRefs(result.extensions, source);
           }),
-        { concurrency: "unbounded" },
+        // Each local scope scan owns its own twenty-read allowance.
+        { concurrency: 1 },
       );
       return results.flat();
     }),

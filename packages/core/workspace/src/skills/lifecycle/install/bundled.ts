@@ -161,7 +161,7 @@ const materializeBundledAxmSkill = Effect.gen(function* () {
                 Effect.mapError(writeFailed(destination)),
               );
           },
-          { concurrency: "unbounded", discard: true },
+          { concurrency: 16, discard: true },
         );
       });
     },

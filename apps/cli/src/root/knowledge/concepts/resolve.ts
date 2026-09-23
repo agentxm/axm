@@ -9,7 +9,7 @@ import {
 
 import { ExitCode, makeAppError } from "../../../app-error/index.js";
 import { emitResult, rawDoc, tableDoc, type ViewColumn } from "../../../screen/index.js";
-import { commandExit, withArgvTracking } from "../../../cli-runtime/index.js";
+import { processOutcome, withArgvTracking } from "../../../cli-runtime/index.js";
 import {
   readOnlyCapabilities,
   withCommandCapabilities,
@@ -78,8 +78,9 @@ export const handleKnowledgeConceptResolve = Effect.fn("Knowledge.concepts.resol
     { ok: success },
   );
   if (!success) {
-    return yield* Effect.fail(commandExit(ExitCode.Conflict));
+    return processOutcome(ExitCode.Conflict);
   }
+  return processOutcome(ExitCode.Success);
 });
 
 const resolveConfig = {

@@ -24,7 +24,7 @@ import {
 import { ExitCode } from "../../app-error/index.js";
 import { Screen } from "../../screen/index.js";
 import { Verbosity } from "../../cli-flags/index.js";
-import { commandExit } from "../../cli-runtime/index.js";
+import { processOutcome } from "../../cli-runtime/index.js";
 import { lintFailureToAppError } from "../../feature-errors.js";
 import { lintDoc } from "./view.js";
 import { toLintHumanFindings } from "./human-findings.js";
@@ -87,7 +87,5 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
     });
   }
 
-  if (!ok) {
-    return yield* Effect.fail(commandExit(ExitCode.Issues));
-  }
+  return processOutcome(ok ? ExitCode.Success : ExitCode.Issues);
 });

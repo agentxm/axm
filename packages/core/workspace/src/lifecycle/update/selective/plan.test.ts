@@ -275,7 +275,7 @@ describe("buildSelectiveUpdatePlan — skills", () => {
     expect(plan._tag).toBe("Plan");
     expect(plan.name).toBe("Update skills");
     expect(plan.description).toEqual(Option.some("description"));
-    expect(plan.jobs[0]?.concurrency).toBe("unbounded");
+    expect(plan.jobs[0]?.concurrency).toBe(16);
     expect(plan.jobs[0]?.steps).toEqual([]);
   });
 });
@@ -358,7 +358,7 @@ describe("buildSelectiveUpdatePlan — subagents", () => {
     }),
   );
 
-  it("produces one empty unbounded job for empty input", () => {
+  it("produces one empty bounded job for empty input", () => {
     const plan = buildSelectiveUpdatePlan<RegistrySubagentRef, never>(
       [],
       {} satisfies SubagentsLockMap,
@@ -367,7 +367,7 @@ describe("buildSelectiveUpdatePlan — subagents", () => {
       applied,
     );
     expect(plan.jobs).toHaveLength(1);
-    expect(plan.jobs[0]?.concurrency).toBe("unbounded");
+    expect(plan.jobs[0]?.concurrency).toBe(16);
     expect(plan.jobs[0]?.steps).toEqual([]);
   });
 });

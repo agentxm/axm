@@ -8,7 +8,7 @@ import {
 
 import { ExitCode } from "../../../app-error/index.js";
 import { emitResult, type Screen, errorDoc } from "../../../screen/index.js";
-import { type CommandExit, commandExit } from "../../../cli-runtime/index.js";
+import { type ProcessOutcome, processOutcome } from "../../../cli-runtime/index.js";
 
 const failWithConflict = Effect.fn("Knowledge.concepts.failWithConflict")(function* (output: {
   readonly outcome: "failed";
@@ -29,17 +29,17 @@ const failWithConflict = Effect.fn("Knowledge.concepts.failWithConflict")(functi
       ),
     { ok: false },
   );
-  return yield* Effect.fail(commandExit(ExitCode.Conflict));
+  return processOutcome(ExitCode.Conflict);
 });
 
 export const failKnowledgeCursorExpired = (): Effect.Effect<
-  never,
-  CommandExit | OutputWriteFailed,
+  ProcessOutcome,
+  OutputWriteFailed,
   Screen
 > => failWithConflict({ outcome: "failed", reason: "cursor-expired" });
 
 export const failKnowledgeCorpusChanging = (): Effect.Effect<
-  never,
-  CommandExit | OutputWriteFailed,
+  ProcessOutcome,
+  OutputWriteFailed,
   Screen
 > => failWithConflict({ outcome: "failed", reason: "corpus-changing" });

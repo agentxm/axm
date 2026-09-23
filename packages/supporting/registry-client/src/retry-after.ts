@@ -19,12 +19,16 @@ const retryAfterFromBody = (status: number, body: unknown): number | undefined =
 
 export const parseRetryAfterHeader = (
   value: string | undefined,
-  nowMillis: number,
+  nowMillis?: number,
 ): number | undefined => {
   if (value === undefined) return undefined;
 
   const seconds = Number(value);
   if (Number.isFinite(seconds) && seconds >= 0) return Math.ceil(seconds);
+
+  // A date-valued header needs a caller-owned clock. Ungoverned translations
+  // can still use a numeric header or the response body's retry advice.
+  if (nowMillis === undefined) return undefined;
 
   const retryAt = DateTime.make(value);
   if (Option.isNone(retryAt)) return undefined;
@@ -36,7 +40,7 @@ export const registryRetryAfterSeconds = (args: {
   readonly status: number;
   readonly body: unknown;
   readonly response: HttpClientResponse.HttpClientResponse;
-  readonly nowMillis: number;
+  readonly nowMillis?: number;
 }): number | undefined =>
   parseRetryAfterHeader(
     args.response.headers["retry-after"] ?? args.response.headers["Retry-After"],

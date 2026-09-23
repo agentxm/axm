@@ -423,7 +423,7 @@ export const createRemoteRegistryClient = (
       readonly method: string;
       readonly path: string;
       readonly replaySafety: RegistryRequestReplaySafety;
-      readonly mapError: (error: E) => RegistryClientFailure;
+      readonly mapError: (error: E, nowMillis: number) => RegistryClientFailure;
       readonly policy?: RegistryRequestPolicy;
     },
   ) =>
@@ -445,9 +445,11 @@ export const createRemoteRegistryClient = (
       readonly incompatibleDetail: string;
       readonly fallbackDetail: string;
     },
+    nowMillis?: number,
   ): RegistryClientFailure =>
     mapRegistryFailure(error, {
       baseUrl,
+      ...(nowMillis === undefined ? {} : { nowMillis }),
       requestConstructionDetail: "Could not construct the Registry request.",
       ...context,
     });
@@ -474,7 +476,8 @@ export const createRemoteRegistryClient = (
         method: "GET",
         path: `/v1/extensions/${args.owner}/${pluralizeType(args.type)}/${args.name}`,
         replaySafety: safe,
-        mapError: (error) => mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY"),
+        mapError: (error, nowMillis) =>
+          mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY", nowMillis),
       },
     ).pipe(
       Effect.flatMap((response) => {
@@ -541,7 +544,8 @@ export const createRemoteRegistryClient = (
         method: "GET",
         path: `/v1/extensions/${args.owner}/${pluralizeType(args.type)}/${args.name}/${args.version}`,
         replaySafety: safe,
-        mapError: (error) => mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY"),
+        mapError: (error, nowMillis) =>
+          mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY", nowMillis),
         policy: SETTLEMENT_READ_REQUEST_POLICY,
       },
     );
@@ -550,12 +554,20 @@ export const createRemoteRegistryClient = (
   /**
    * Map all discovery/read errors to typed registry failures.
    */
-  const mapDiscoveryError = (e: unknown, _prefix: string): RegistryClientFailure => {
-    return mapFailure(e, {
-      networkDetail: "Failed to connect to remote registry discovery endpoint",
-      incompatibleDetail: "Remote discovery response does not match expected schema",
-      fallbackDetail: "Remote discovery failed",
-    });
+  const mapDiscoveryError = (
+    e: unknown,
+    _prefix: string,
+    nowMillis?: number,
+  ): RegistryClientFailure => {
+    return mapFailure(
+      e,
+      {
+        networkDetail: "Failed to connect to remote registry discovery endpoint",
+        incompatibleDetail: "Remote discovery response does not match expected schema",
+        fallbackDetail: "Remote discovery failed",
+      },
+      nowMillis,
+    );
   };
 
   const getResolutionMetadata = (request: ResolutionMetadataRequest) =>
@@ -583,7 +595,8 @@ export const createRemoteRegistryClient = (
               method: "POST",
               path: "/v1/resolutions/metadata",
               replaySafety: safe,
-              mapError: (error) => mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY"),
+              mapError: (error, nowMillis) =>
+                mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY", nowMillis),
             },
           ),
         );
@@ -736,7 +749,8 @@ export const createRemoteRegistryClient = (
       method: "GET",
       path: `/v1/extensions/${owner}`,
       replaySafety: safe,
-      mapError: (error) => mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY"),
+      mapError: (error, nowMillis) =>
+        mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY", nowMillis),
     }).pipe(Effect.map((response) => response.extensions));
 
   const fetchExtensionListByType = (
@@ -755,7 +769,8 @@ export const createRemoteRegistryClient = (
         method: "GET",
         path: `/v1/extensions/${owner}/${pluralizeType(type)}`,
         replaySafety: safe,
-        mapError: (error) => mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY"),
+        mapError: (error, nowMillis) =>
+          mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY", nowMillis),
       },
     ).pipe(Effect.map((response) => response.extensions));
 
@@ -786,12 +801,16 @@ export const createRemoteRegistryClient = (
   /**
    * Map ownerExists errors to typed registry failures.
    */
-  const mapOwnerExistsError = (e: unknown): RegistryClientFailure => {
-    return mapFailure(e, {
-      networkDetail: "Failed to connect to remote registry owner endpoint",
-      incompatibleDetail: "Remote owner endpoint response does not match expected schema",
-      fallbackDetail: "Remote owner check failed",
-    });
+  const mapOwnerExistsError = (e: unknown, nowMillis?: number): RegistryClientFailure => {
+    return mapFailure(
+      e,
+      {
+        networkDetail: "Failed to connect to remote registry owner endpoint",
+        incompatibleDetail: "Remote owner endpoint response does not match expected schema",
+        fallbackDetail: "Remote owner check failed",
+      },
+      nowMillis,
+    );
   };
 
   // ---------------------------------------------------------------------------
@@ -914,12 +933,16 @@ export const createRemoteRegistryClient = (
   /**
    * Map errors from the index fetch step of getExtensionPackage.
    */
-  const mapPackageFetchError = (e: unknown): RegistryClientFailure => {
-    const mapped = mapFailure(e, {
-      networkDetail: "Failed to connect to remote registry package endpoint",
-      incompatibleDetail: "Remote package index response does not match expected schema",
-      fallbackDetail: "Remote package index request failed",
-    });
+  const mapPackageFetchError = (e: unknown, nowMillis?: number): RegistryClientFailure => {
+    const mapped = mapFailure(
+      e,
+      {
+        networkDetail: "Failed to connect to remote registry package endpoint",
+        incompatibleDetail: "Remote package index response does not match expected schema",
+        fallbackDetail: "Remote package index request failed",
+      },
+      nowMillis,
+    );
     return mapped.metadata?.response?.status === 404
       ? withRegistrySemantics(mapped, {
           category: "not_found",
@@ -931,12 +954,16 @@ export const createRemoteRegistryClient = (
   /**
    * Map errors from the archive download step of getExtensionPackage.
    */
-  const mapArchiveFetchError = (e: unknown): RegistryClientFailure => {
-    const mapped = mapFailure(e, {
-      networkDetail: "Failed to connect to remote registry package archive endpoint",
-      incompatibleDetail: "Failed to read remote package archive response",
-      fallbackDetail: "Remote package archive request failed",
-    });
+  const mapArchiveFetchError = (e: unknown, nowMillis?: number): RegistryClientFailure => {
+    const mapped = mapFailure(
+      e,
+      {
+        networkDetail: "Failed to connect to remote registry package archive endpoint",
+        incompatibleDetail: "Failed to read remote package archive response",
+        fallbackDetail: "Remote package archive request failed",
+      },
+      nowMillis,
+    );
     return mapped.metadata?.response?.status === 404
       ? withRegistrySemantics(mapped, {
           category: "not_found",
@@ -973,12 +1000,16 @@ export const createRemoteRegistryClient = (
   /**
    * Map extensionExists errors to typed registry failures.
    */
-  const mapExtensionExistsError = (e: unknown): RegistryClientFailure => {
-    return mapFailure(e, {
-      networkDetail: "Failed to connect to remote registry extension check endpoint",
-      incompatibleDetail: "Remote extension check response does not match expected schema",
-      fallbackDetail: "Remote extension check failed",
-    });
+  const mapExtensionExistsError = (e: unknown, nowMillis?: number): RegistryClientFailure => {
+    return mapFailure(
+      e,
+      {
+        networkDetail: "Failed to connect to remote registry extension check endpoint",
+        incompatibleDetail: "Remote extension check response does not match expected schema",
+        fallbackDetail: "Remote extension check failed",
+      },
+      nowMillis,
+    );
   };
 
   // ---------------------------------------------------------------------------
@@ -1098,13 +1129,17 @@ export const createRemoteRegistryClient = (
         method: "POST",
         path: "/v1/publish-previews",
         replaySafety: safe,
-        mapError: (error) =>
-          mapFailure(error, {
-            networkDetail: "Failed to connect to the publish preview endpoint",
-            incompatibleDetail:
-              "The registry returned an incompatible authoritative publish preview.",
-            fallbackDetail: "Publish preview failed",
-          }),
+        mapError: (error, nowMillis) =>
+          mapFailure(
+            error,
+            {
+              networkDetail: "Failed to connect to the publish preview endpoint",
+              incompatibleDetail:
+                "The registry returned an incompatible authoritative publish preview.",
+              fallbackDetail: "Publish preview failed",
+            },
+            nowMillis,
+          ),
       },
     );
 
@@ -1141,12 +1176,17 @@ export const createRemoteRegistryClient = (
         method: "PATCH",
         path: `/v1/extensions/${target.owner}/${pluralizeType(target.type)}/${target.name}`,
         replaySafety: mutation,
-        mapError: (error) =>
-          mapFailure(error, {
-            networkDetail: "Failed to connect to extension visibility endpoint",
-            incompatibleDetail: "Extension visibility response does not match the expected schema.",
-            fallbackDetail: "Remote extension visibility update failed",
-          }),
+        mapError: (error, nowMillis) =>
+          mapFailure(
+            error,
+            {
+              networkDetail: "Failed to connect to extension visibility endpoint",
+              incompatibleDetail:
+                "Extension visibility response does not match the expected schema.",
+              fallbackDetail: "Remote extension visibility update failed",
+            },
+            nowMillis,
+          ),
       },
     );
   };
@@ -1170,24 +1210,33 @@ export const createRemoteRegistryClient = (
         method: "GET",
         path: `/v1/extensions/${args.owner}/${pluralizeType(args.type)}/${args.name}/visibility`,
         replaySafety: safe,
-        mapError: (error) =>
-          mapFailure(error, {
-            networkDetail: "Failed to connect to extension visibility endpoint",
-            incompatibleDetail: "Extension visibility response does not match the expected schema.",
-            fallbackDetail: "Remote extension visibility evaluation failed",
-          }),
+        mapError: (error, nowMillis) =>
+          mapFailure(
+            error,
+            {
+              networkDetail: "Failed to connect to extension visibility endpoint",
+              incompatibleDetail:
+                "Extension visibility response does not match the expected schema.",
+              fallbackDetail: "Remote extension visibility evaluation failed",
+            },
+            nowMillis,
+          ),
       },
     );
 
   /**
    * Map all publish error types through the shared Registry boundary.
    */
-  const mapPublishError = (e: unknown): RegistryClientFailure =>
-    mapFailure(e, {
-      networkDetail: "Remote registry is unreachable",
-      incompatibleDetail: "The registry returned a response the CLI could not parse.",
-      fallbackDetail: "Publish failed",
-    });
+  const mapPublishError = (e: unknown, nowMillis?: number): RegistryClientFailure =>
+    mapFailure(
+      e,
+      {
+        networkDetail: "Remote registry is unreachable",
+        incompatibleDetail: "The registry returned a response the CLI could not parse.",
+        fallbackDetail: "Publish failed",
+      },
+      nowMillis,
+    );
 
   // ---------------------------------------------------------------------------
   // discoverPackages
@@ -1219,7 +1268,8 @@ export const createRemoteRegistryClient = (
         method: "POST",
         path: "/v1/discovery",
         replaySafety: safe,
-        mapError: (error) => mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY"),
+        mapError: (error, nowMillis) =>
+          mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY", nowMillis),
       },
     );
   };

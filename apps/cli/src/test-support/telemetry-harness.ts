@@ -9,7 +9,6 @@
 
 import * as fs from "node:fs";
 
-import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Option from "effect/Option";
@@ -124,12 +123,7 @@ export const makeTelemetryOperation = () => {
         Effect.provide(workspace.layer),
         Effect.exit,
       );
-      const failure = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined;
-      const exitCode = Exit.isSuccess(exit)
-        ? 0
-        : typeof failure === "object" && failure !== null && "exitCode" in failure
-          ? failure.exitCode
-          : undefined;
+      const exitCode = Exit.isSuccess(exit) ? exit.value.exitCode : undefined;
       return {
         exit,
         exitCode,

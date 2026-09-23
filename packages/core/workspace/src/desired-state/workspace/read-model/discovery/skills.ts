@@ -24,6 +24,7 @@ import {
   DISCOVERY_SKIPPED_DIRECTORIES,
 } from "@agentxm/extension-model/unstable/discovery-walk";
 import { envOption } from "../../../utils/environment.js";
+import { SCANNER_IO_CONCURRENCY } from "../scanners/fs-helpers.js";
 
 /**
  * A discovered skill — intermediate result from directory scanning.
@@ -187,7 +188,7 @@ const scanDirectory = (
           const discovered = yield* discoverSkillInDir(fullPath, options, installInternalSkills);
           return discovered.skills;
         }),
-      { concurrency: "unbounded" },
+      { concurrency: SCANNER_IO_CONCURRENCY },
     ).pipe(Effect.map((results) => Array.flatten(results)));
   });
 
@@ -242,10 +243,10 @@ const scanSkillContainerDirectory = (
                 );
                 return childDiscovered.skills;
               }),
-            { concurrency: "unbounded" },
+            { concurrency: SCANNER_IO_CONCURRENCY },
           ).pipe(Effect.map((results) => Array.flatten(results)));
         }),
-      { concurrency: "unbounded" },
+      { concurrency: SCANNER_IO_CONCURRENCY },
     ).pipe(Effect.map((results) => Array.flatten(results)));
   });
 
@@ -299,7 +300,7 @@ const recursiveScan = (
           );
           return subResults;
         }),
-      { concurrency: "unbounded" },
+      { concurrency: SCANNER_IO_CONCURRENCY },
     ).pipe(Effect.map((results) => Array.flatten(results)));
   });
 
@@ -389,7 +390,7 @@ export const skillsInDir = (
       priorityEntries,
       ({ priorityDir, fullDir }) =>
         scanPriorityDirectory(priorityDir, fullDir, options, installInternalSkills),
-      { concurrency: "unbounded" },
+      { concurrency: SCANNER_IO_CONCURRENCY },
     ).pipe(Effect.map((results) => Array.flatten(results)));
 
     // ── Phase 3: Recursive Fallback ────────────────────────────────────

@@ -78,7 +78,7 @@ describe("Machine mode never prompts", () => {
           Effect.exit,
         );
 
-        expect(Exit.isFailure(exit)).toBe(true);
+        expect(exit).toEqual(Exit.succeed({ _tag: "ProcessOutcome", exitCode: 2 }));
         expect(context.promptState.selectAgentsCalls).toEqual([]);
         expect(context.promptState.confirmSetupPlanCalls).toEqual([]);
         expect(context.promptState.confirmInstructionSyncCalls).toEqual([]);

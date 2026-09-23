@@ -9,7 +9,7 @@ import {
 } from "@agentxm/workspace/knowledge/query";
 
 import { emitResult, inventoryDoc, type ViewColumn } from "../../../screen/index.js";
-import { withArgvTracking } from "../../../cli-runtime/index.js";
+import { processOutcome, withArgvTracking } from "../../../cli-runtime/index.js";
 import {
   readOnlyCapabilities,
   withCommandCapabilities,
@@ -67,6 +67,7 @@ export const handleKnowledgeConceptRelated = Effect.fn("Knowledge.concepts.relat
       empty: "No related installed knowledge concepts were found",
     });
   });
+  return processOutcome(0);
 });
 
 const relatedConfig = {

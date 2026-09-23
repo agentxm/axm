@@ -7,7 +7,7 @@ import { KnowledgeLintQueryResultSchema, lintKnowledge } from "@agentxm/workspac
 
 import { ExitCode } from "../../app-error/index.js";
 import { emitResult, errorDoc, headlineDoc, successDoc } from "../../screen/index.js";
-import { commandExit, withArgvTracking } from "../../cli-runtime/index.js";
+import { processOutcome, withArgvTracking } from "../../cli-runtime/index.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
@@ -62,9 +62,7 @@ export const handleKnowledgeLint = Effect.fn("Knowledge.lint")(function* (
   // Exit non-zero without a second stdout document: the findings above are the
   // command's only output, so signal failure with an exit code rather than an
   // AppError envelope (mirrors `axm lint`).
-  if (result.errorCount > 0) {
-    return yield* Effect.fail(commandExit(ExitCode.Issues));
-  }
+  return processOutcome(result.errorCount > 0 ? ExitCode.Issues : ExitCode.Success);
 });
 
 const lintConfig = {

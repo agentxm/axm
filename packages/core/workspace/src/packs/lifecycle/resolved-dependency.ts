@@ -30,5 +30,5 @@ export const validateExactPackDependencyVersions = (
             ),
           )
         : Effect.void,
-    { concurrency: "unbounded", discard: true },
+    { discard: true },
   );

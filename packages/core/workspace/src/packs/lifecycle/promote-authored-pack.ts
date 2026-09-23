@@ -282,7 +282,7 @@ const settleUnpack = Effect.fn("PromoteAuthoredPack.prepare")(function* (
       }
       return node;
     }),
-    { concurrency: "unbounded" },
+    { concurrency: 16 },
   );
 
   const promotionSteps = promotions.map((node): PlannedJobStep<PromoteAuthoredPackRequirements> => {

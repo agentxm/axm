@@ -446,7 +446,7 @@ const buildLintWorkspaceView = (
         populateRuleManifestJson(namedRules),
         populateKnowledgeManifestJson(namedKnowledge, args.inspectKnowledge),
       ],
-      { concurrency: "unbounded" },
+      { concurrency: 1 },
     );
 
     const installedManifests: ReadonlyArray<InstalledExtensionManifest> = [
@@ -608,7 +608,7 @@ const populateSkillManifestJson = (
         const skillJson = yield* readManifestJson(entry.info.packageFiles, SKILL_MANIFEST_FILENAME);
         return { ...entry, info: { ...entry.info, skillJson } };
       }),
-    { concurrency: "unbounded" },
+    { concurrency: 16 },
   );
 
 const populateSubagentManifestJson = (
@@ -624,7 +624,7 @@ const populateSubagentManifestJson = (
         );
         return { ...entry, context: { ...entry.context, subject: { subagentJson } } };
       }),
-    { concurrency: "unbounded" },
+    { concurrency: 16 },
   );
 
 const populateMcpServerManifestJson = (
@@ -640,7 +640,7 @@ const populateMcpServerManifestJson = (
         );
         return { ...entry, context: { ...entry.context, subject: { mcpServerJson } } };
       }),
-    { concurrency: "unbounded" },
+    { concurrency: 16 },
   );
 
 const populateHookManifestJson = (
@@ -653,7 +653,7 @@ const populateHookManifestJson = (
         const hookJson = yield* readManifestJson(entry.context.files, HOOK_MANIFEST_FILENAME);
         return { ...entry, context: { ...entry.context, subject: { hookJson } } };
       }),
-    { concurrency: "unbounded" },
+    { concurrency: 16 },
   );
 
 const populateRuleManifestJson = (
@@ -666,7 +666,7 @@ const populateRuleManifestJson = (
         const ruleJson = yield* readManifestJson(entry.context.files, RULE_MANIFEST_FILENAME);
         return { ...entry, context: { ...entry.context, subject: { ruleJson } } };
       }),
-    { concurrency: "unbounded" },
+    { concurrency: 16 },
   );
 
 const populateKnowledgeManifestJson = (
@@ -707,7 +707,7 @@ const populateKnowledgeManifestJson = (
           context: { ...entry.context, subject },
         };
       }),
-    { concurrency: "unbounded" },
+    { concurrency: 16 },
   );
 
 const populatePackManifestJson = (
@@ -720,7 +720,7 @@ const populatePackManifestJson = (
         const packJson = yield* readManifestJson(entry.info.files, PACK_MANIFEST_FILENAME);
         return { ...entry, info: { ...entry.info, packJson } };
       }),
-    { concurrency: "unbounded" },
+    { concurrency: 16 },
   );
 
 /**

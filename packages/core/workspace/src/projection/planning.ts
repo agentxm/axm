@@ -29,6 +29,10 @@ const ProjectionPlanTypeId: unique symbol = Symbol.for(
   "@agentxm/workspace/projection/planning/ProjectionPlan",
 );
 
+// Projection observation and application use the same local filesystem as the
+// workspace scanners. Their measured allowance is sixteen concurrent reads.
+export const PROJECTION_IO_CONCURRENCY = 16;
+
 /** Shared semantic decision made before a desired-state-dependent plan is exposed. */
 export type DesiredStateGraphPlanningDecision =
   | { readonly readiness: "ready"; readonly graph: DesiredStateGraph }
@@ -195,7 +199,7 @@ export const observeProjectionPlans = <E, R>(
   plans: ReadonlyArray<ProjectionPlan<void, E, R>>,
 ): Effect.Effect<ReadonlyArray<ProjectionUnitObservation>, E, R> =>
   Effect.forEach(plans, (plan) => plan[ProjectionPlanTypeId].observe, {
-    concurrency: "unbounded",
+    concurrency: PROJECTION_IO_CONCURRENCY,
   });
 
 /**
@@ -231,7 +235,7 @@ export const applyProjectionPlansWithResults = <ApplyResult, E, R>(
           concurrency: 1,
         },
       ),
-    { concurrency: "unbounded" },
+    { concurrency: PROJECTION_IO_CONCURRENCY },
   ).pipe(
     Effect.map((groups) =>
       groups

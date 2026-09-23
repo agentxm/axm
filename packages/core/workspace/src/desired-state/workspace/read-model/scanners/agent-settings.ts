@@ -28,7 +28,7 @@ import {
   makeAgentRootResolverState,
   type AgentRootResolverState,
 } from "./agent-root.js";
-import { fileExists } from "./fs-helpers.js";
+import { fileExists, SCANNER_IO_CONCURRENCY } from "./fs-helpers.js";
 import type { AgentSettingsOccurrence } from "./types.js";
 
 const SCANNER_NAME = "agent-settings";
@@ -97,7 +97,7 @@ const scanAgentSettings = Effect.fn("workspace.read-model.scanner.agent-settings
           contentLocation: makeAbsolutePath(path, filePath),
         });
       }),
-    { concurrency: "unbounded" },
+    { concurrency: SCANNER_IO_CONCURRENCY },
   );
 
   return Array.getSomes(occurrences);

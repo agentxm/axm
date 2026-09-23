@@ -425,7 +425,7 @@ describe("root command parser output", () => {
 
       await expect(
         run(["-C", failureDir, "lint", "--non-interactive", "--json"]),
-      ).rejects.toBeInstanceOf(ExitCalled);
+      ).rejects.toMatchObject({ code: ExitCode.Issues });
       expect(process.cwd()).toBe(originalCwd);
 
       await run(["-C", successDir, "--help"]);

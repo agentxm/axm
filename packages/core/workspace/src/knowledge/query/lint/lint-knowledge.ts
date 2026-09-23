@@ -91,7 +91,7 @@ const inspectInstalled = Effect.fn("Knowledge.lintInstalled")(function* (bundle?
             }),
         ),
       ),
-    { concurrency: "unbounded" },
+    { concurrency: 16 },
   );
 });
 

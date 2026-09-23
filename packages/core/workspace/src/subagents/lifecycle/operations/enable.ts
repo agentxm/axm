@@ -209,7 +209,7 @@ export const enableSubagent: OperationHandler<
                   }).pipe(Effect.map((entries) => Option.some([agent.id, entries] as const)));
                 }),
               ),
-          { concurrency: "unbounded" },
+          { concurrency: 1 },
         );
         yield* settingsWriter.updateEntry("subagent", op.args.subagentName, (entry) => ({
           ...entry,

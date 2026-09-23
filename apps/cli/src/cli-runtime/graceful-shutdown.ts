@@ -8,7 +8,7 @@ import * as Ref from "effect/Ref";
 import * as Deferred from "effect/Deferred";
 import { writeSync } from "node:fs";
 
-import { type CommandExit, commandExit } from "./command-exit.js";
+import { processOutcome } from "./process-outcome.js";
 import { OperationExit } from "./operation-exit.js";
 import { recordInterruptionSignal } from "./interruption.js";
 import { interruptionFallback } from "../screen/index.js";
@@ -117,11 +117,9 @@ export const withGracefulShutdown = <A, E, R>(program: Effect.Effect<A, E, R>) =
     process.on("SIGINT", onSigint);
 
     return yield* Fiber.join(fiber).pipe(
-      Effect.catchCause((cause): Effect.Effect<never, E | CommandExit> =>
+      Effect.catchCause((cause) =>
         Cause.hasInterruptsOnly(cause) && requestedExitCode !== undefined
-          ? Deferred.await(signalFinalized).pipe(
-              Effect.andThen(Effect.fail(commandExit(requestedExitCode))),
-            )
+          ? Deferred.await(signalFinalized).pipe(Effect.as(processOutcome(requestedExitCode)))
           : Effect.failCause(cause),
       ),
       Effect.ensuring(

@@ -598,6 +598,40 @@ const expectRegistrySubagentRef = (ref: ExtensionRef): RegistrySubagentRef => {
 // -----------------------------------------------------------------------------
 
 describe("LocalRegistrySourceHostProvider.find", () => {
+  it.effect("keeps nested local index reads within one registry IO allowance", () => {
+    const registry = makeTestRegistry(["@first", "@second"]);
+    let active = 0;
+    let peak = 0;
+    const client = createMockClient({
+      getExtensionIndex: () =>
+        Effect.promise(
+          () =>
+            new Promise<Option.Option<ExtensionIndex>>((resolve) => {
+              active += 1;
+              peak = Math.max(peak, active);
+              setTimeout(() => {
+                active -= 1;
+                resolve(Option.none());
+              }, 5);
+            }),
+        ),
+    });
+    const provider = createLocalRegistrySourceHostProvider(client);
+
+    return runEffect(
+      Effect.gen(function* () {
+        const refs = yield* provider.find(registry.source, {
+          ...defaultFindOptions,
+          names: Array.from({ length: 40 }, (_, index) => `skill-${index}`),
+          versionRange: Option.some("*"),
+        });
+        expect(refs).toEqual([]);
+        expect(peak).toBe(20);
+        expect(active).toBe(0);
+      }).pipe(Effect.ensuring(Effect.sync(() => registry.cleanup()))),
+    );
+  });
+
   it.effect("selects a version from the index already read by broad discovery", () => {
     const registry = makeTestRegistry();
     const index = {

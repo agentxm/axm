@@ -30,9 +30,9 @@ import type * as Path from "effect/Path";
 import * as Semaphore from "effect/Semaphore";
 import type { Diagnostics } from "../diagnostics.js";
 
-// Wide/deep Node and Bun discovery measurements support the existing local
-// filesystem allowance of sixteen. Scanners share this owner, so fixed outer
-// catalogs cannot multiply the number of filesystem operations in flight.
+// Reuse the local filesystem allowance of sixteen. Scanners share this owner,
+// so nested traversals and fixed outer catalogs cannot multiply filesystem
+// operations in flight; discovery/skills.test.ts verifies the aggregate limit.
 export const SCANNER_IO_CONCURRENCY = 16;
 
 export const makeScannerFileSystem = (fs: FileSystem.FileSystem) =>

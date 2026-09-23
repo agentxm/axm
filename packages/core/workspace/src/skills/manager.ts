@@ -395,7 +395,7 @@ export const SkillManagerLive = Layer.effect(
                     Option.filter((ref): ref is SkillExtensionRef => ref.type === "skill"),
                   ),
                 ),
-          { concurrency: "unbounded" },
+          { concurrency: 16 },
         );
         const refsByName = new Map(workspaceRefs.map((ref) => [ref.skill.name, ref]));
         for (const ref of trustedRefs) {

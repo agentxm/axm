@@ -130,9 +130,10 @@ const normalizeTransition = (value: GeneratedRegistryClient.DeprecationTransitio
 
 const mapAdminClientError =
   (registryUrl: string) =>
-  (error: unknown): RegistryClientFailure =>
+  (error: unknown, nowMillis: number): RegistryClientFailure =>
     mapRegistryFailure(error, {
       baseUrl: registryUrl,
+      nowMillis,
       networkDetail: "Registry request failed.",
       incompatibleDetail: "Registry response did not match the expected schema.",
       requestConstructionDetail: "Could not construct the Registry request.",

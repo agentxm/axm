@@ -10,10 +10,10 @@ depends-on:
 
 # Effect in AXM
 
-AXM pins Effect `4.0.0-rc.112` and consumes the installed
-`@craigsmitham/packs/effect-v4`, whose portable guidance currently targets
-Effect v4. This guide owns only AXM-specific policy. Select the relevant guide in the
-[Effect v4 Knowledge bundle](../../agent_extensions/registry/@craigsmitham/knowledge/effect-v4/src/index.md).
+The [workspace dependency catalog](../../pnpm-workspace.yaml) owns the Effect
+version AXM uses. This guide owns only AXM-specific policy. Select the relevant
+guide in the [Effect v4 Knowledge bundle](../../agent_extensions/registry/@craigsmitham/knowledge/effect-v4/src/index.md)
+and consult the matching dependency source for API details.
 
 Route AXM environment and secret handling to
 [config](../../agent_extensions/registry/@craigsmitham/knowledge/effect-v4/src/config.md),
@@ -60,14 +60,11 @@ dates, ambient dates inside Effects, and missing Effect service dependencies.
 Treat new warnings as findings to remediate or classify at the boundary that
 owns them.
 
-The 2026-08 baseline retained 19 app-owned unknown-error findings after service
-requirements were repaired: six HTTP response/provider boundaries that are
-immediately translated, ten filesystem/schema corpus boundaries whose foreign
-error remains opaque until the owning inspection or lint translation, and
-three generic process-entry/telemetry adapters. Generated registry-client
-findings are owned by the OpenAPI generator contract. Do not use these
-exceptions as reusable service signatures; narrow or translate before an error
-crosses its owning boundary.
+Keep foreign `unknown` errors at their annotated adapter, inspection, or
+process-entry boundary and translate them before they reach application
+orchestration. Generated Registry client diagnostics belong to the OpenAPI
+generator contract. A prior warning count is not an exception list: inspect
+the current source and typecheck result before retaining a boundary.
 
 ### JSON Schema annotations
 
@@ -106,26 +103,13 @@ Start with the Knowledge guides for
 [structured concurrency](../../agent_extensions/registry/@craigsmitham/knowledge/effect-v4/src/structured-concurrency.md),
 and [async coordination](../../agent_extensions/registry/@craigsmitham/knowledge/effect-v4/src/async-coordination.md).
 
-### 2026-08 concurrency census
+### Reviewed unbounded concurrency
 
-The production census began with 203 literal `"unbounded"` concurrency sites.
-The result was mostly no-change because most sites describe closed catalog
-vocabularies, already-materialized command inputs, or declarative Plan jobs
-whose mutation order is enforced by the executor. Those sites remain subject
-to the policy above; retention is not evidence for copying the setting.
-
-Seventeen variable-cardinality I/O sites were bounded:
-
-- registry discovery now shares the established four-request publish transport
-  cap and flattens name/type combinations so nested traversals cannot multiply
-  it;
-- Git source-freshness and convention metadata probes are serial because each
-  may allocate a clone/worktree or subprocess and no higher capacity is
-  established; and
-- convention filesystem discovery reuses the existing sixteen-read archive
-  cap.
-
-`verify-source-hygiene` holds the reviewed production literals as a
-repository-wide ceiling. Lower the ceiling when removing a site; never raise
-it for a new traversal. ESLint separately prohibits literal unbounded
-concurrency from returning to the three remediated I/O surfaces.
+The [exact-site inventory](../../scripts/unbounded-concurrency-sites.ts)
+records retained literals. The [source-hygiene check](../../scripts/verify-source-hygiene.ts)
+rejects both new and removed sites until each change is reviewed and the
+inventory is updated. Its [tests](../../scripts/verify-source-hygiene.test.ts)
+cover replacement and relocation, not only a total count. Retained sites still
+need the workload rationale above; the inventory is not a policy for new work.
+ESLint also rejects literal unbounded concurrency in the remediated I/O
+surfaces.

@@ -579,7 +579,7 @@ const resolveDependencyGroup = <E = never, R = never>(
         workspaceResolver,
         dependencyResolver,
       ),
-    { concurrency: "unbounded" },
+    { concurrency: 16 },
   );
 
 /**
@@ -749,7 +749,7 @@ export const resolvePackDependenciesWithReleaseAge = <E = never, R = never>(
           workspaceResolver,
           dependencyResolver,
         ),
-      { concurrency: "unbounded" },
+      { concurrency: 16 },
     );
     const holdbacks = resolutions.flatMap((resolution) =>
       resolution.kind === "policy_held" ? [resolution.holdback] : resolution.holdbacks,

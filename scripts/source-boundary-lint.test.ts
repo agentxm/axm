@@ -182,6 +182,45 @@ describe("production source boundary lint rules", () => {
     expect(reported).toContain("axm-policy/no-direct-process-output");
     expect(reported).toContain("no-restricted-syntax");
   });
+
+  it("rejects ambient Effect clock reads in production source", async () => {
+    const eslint = new ESLint({ cwd: repoRoot });
+    const [result] = await eslint.lintText("DateTime.nowUnsafe();", {
+      filePath: PRODUCTION_SOURCE,
+    });
+    expect(result?.messages).toContainEqual(
+      expect.objectContaining({
+        ruleId: "no-restricted-syntax",
+        message: "Use DateTime.now or Clock.currentTimeMillis from the active Effect clock.",
+      }),
+    );
+  });
+
+  it("rejects defect-based CLI exits while leaving invariant owners alone", async () => {
+    const command = 'import * as Fx from "effect/Effect"; Fx.die("exit 2");';
+    const message =
+      "axm-policy/no-command-defect-exit: Return a typed command outcome or failure; Effect.die is for violated invariants, not CLI exit status.";
+    expect(await violations(command, PRODUCTION_SOURCE)).toEqual([message]);
+    expect(
+      await violations(
+        'import * as Fx from "effect/Effect"; Fx["die"]("exit 2");',
+        PRODUCTION_SOURCE,
+      ),
+    ).toEqual([message]);
+    expect(
+      await violations(
+        'import { die as terminate } from "effect/Effect"; terminate("exit 2");',
+        "apps/cli/src/cli-runtime/runtime-envelope.ts",
+      ),
+    ).toEqual([message]);
+    expect(
+      await violations(
+        'import * as Fx from "effect/Effect"; Fx.fail("expected");',
+        PRODUCTION_SOURCE,
+      ),
+    ).toEqual([]);
+    expect(await violations(command, "apps/cli/src/screen/screen.ts")).toEqual([]);
+  });
 });
 
 /**

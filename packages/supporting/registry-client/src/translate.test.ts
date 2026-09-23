@@ -110,6 +110,17 @@ describe("registryErrorToProblem", () => {
     expect(error.suggestions?.[0]?.description).toBe("Retry after 30s.");
   });
 
+  it("uses the supplied clock for an HTTP-date Retry-After header", () => {
+    const nowMillis = Date.parse("2026-09-23T12:00:00.000Z");
+    const error = registryErrorToProblem(
+      { title: "Unavailable", status: 503 },
+      responseFor(503, { "retry-after": "Wed, 23 Sep 2026 12:00:45 GMT" }),
+      { nowMillis },
+    );
+
+    expect(error.suggestions?.[0]?.description).toBe("Retry after 45s.");
+  });
+
   it("adds registry request and normalized response metadata", () => {
     const error = registryErrorToProblem(
       {

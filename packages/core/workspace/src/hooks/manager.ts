@@ -23,6 +23,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as RcMap from "effect/RcMap";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import { HookDefinitionInvalid, HookInstallStateMissing } from "./errors.js";
@@ -433,18 +434,11 @@ export const HookManagerLive = Layer.effect(
         Effect.provideService(WorkspaceCatalog, catalog),
       );
 
-    // One re-materialization at a time per hook package, scoped to this layer
-    // rather than to the process: the semaphores die with the manager.
-    const packageMaterializeLocks = yield* Ref.make(new Map<string, Semaphore.Semaphore>());
-    const packageMaterializeLockFor = (key: string): Effect.Effect<Semaphore.Semaphore> =>
-      Ref.modify(packageMaterializeLocks, (locks) => {
-        const existing = locks.get(key);
-        if (existing !== undefined) return [existing, locks];
-        const created = Semaphore.makeUnsafe(1);
-        const next = new Map(locks);
-        next.set(key, created);
-        return [created, next];
-      });
+    // Active materializations and waiters retain a package key; the map closes
+    // with this manager layer.
+    const packageMaterializeLocks = yield* RcMap.make({
+      lookup: (_key: string) => Semaphore.make(1),
+    });
 
     // The hook units are aggregates: they render after desired state commits,
     // so the closure reads back what the render projected.
@@ -533,8 +527,11 @@ export const HookManagerLive = Layer.effect(
     // the same hook packages, so without this the remove+copy steps race on one
     // package dir.
     const materializePackage = (ref: HookExtensionRef) =>
-      packageMaterializeLockFor(`${baseDir}\u0000${ref.hook.name}`).pipe(
-        Effect.flatMap((lock) => lock.withPermits(1)(materializePackageUnlocked(ref))),
+      Effect.scoped(
+        Effect.flatMap(
+          RcMap.get(packageMaterializeLocks, `${baseDir}\u0000${ref.hook.name}`),
+          (lock) => lock.withPermits(1)(materializePackageUnlocked(ref)),
+        ),
       );
 
     const materializePackageUnlocked = (ref: HookExtensionRef) =>

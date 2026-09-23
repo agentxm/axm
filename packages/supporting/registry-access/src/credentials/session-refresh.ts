@@ -16,6 +16,7 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as RcMap from "effect/RcMap";
 import * as Ref from "effect/Ref";
 import * as Semaphore from "effect/Semaphore";
 
@@ -88,20 +89,11 @@ export const SessionRefresherLive = Layer.effect(
   Effect.gen(function* () {
     const store = yield* CredentialStore;
     const exchange = yield* TokenExchange;
-    const locks = yield* Ref.make(new Map<string, Semaphore.Semaphore>());
+    // Borrow each origin while renewing or waiting; idle lock keys disappear.
+    const locks = yield* RcMap.make({ lookup: (_registryUrl: string) => Semaphore.make(1) });
     const outcomes = yield* Ref.make(
       new Map<string, { readonly spentToken: string; readonly outcome: RefreshOutcome }>(),
     );
-
-    const lockFor = (registryUrl: string) =>
-      Ref.modify(locks, (current) => {
-        const existing = current.get(registryUrl);
-        if (existing !== undefined) return [existing, current];
-        const created = Semaphore.makeUnsafe(1);
-        const updated = new Map(current);
-        updated.set(registryUrl, created);
-        return [created, updated];
-      });
 
     const recall = (credential: CredentialStoreTokenSource) =>
       Effect.map(Ref.get(outcomes), (current) => {
@@ -205,8 +197,11 @@ export const SessionRefresherLive = Layer.effect(
         const memoized = yield* recall(credential);
         if (Option.isSome(memoized)) return yield* settle(memoized.value, credential.registryUrl);
 
-        const lock = yield* lockFor(credential.registryUrl);
-        return yield* lock.withPermits(1)(store.withRefreshLock(renewUnderLock(credential)));
+        return yield* Effect.scoped(
+          Effect.flatMap(RcMap.get(locks, credential.registryUrl), (lock) =>
+            lock.withPermits(1)(store.withRefreshLock(renewUnderLock(credential))),
+          ),
+        );
       },
     );
 

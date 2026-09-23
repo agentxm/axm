@@ -28,7 +28,9 @@ export const makeCliUpgradeExecutionObserver = () =>
     const screen = yield* Screen;
     const verbosity = yield* Verbosity;
     const narrate = (message: string) =>
-      verbosity.level === "quiet" ? Effect.void : screen.note(headlineDoc("info", message));
+      verbosity.level === "quiet"
+        ? Effect.void
+        : screen.note(headlineDoc("info", message)).pipe(Effect.ignore);
     return {
       during: (stage, execution) =>
         observeUnit(

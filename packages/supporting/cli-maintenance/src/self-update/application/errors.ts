@@ -31,6 +31,8 @@ const CarriedSuggestedActionSchema = Schema.Struct({
 export class UpgradeFailed extends Schema.TaggedError<UpgradeFailed>()("UpgradeFailed", {
   category: UpgradeFailureCategory,
   detail: Schema.String,
+  step: Schema.optional(Schema.String),
+  backupPath: Schema.optional(Schema.String),
   suggestions: Schema.optional(Schema.Array(CarriedSuggestedActionSchema)),
   cause: Schema.optional(Schema.Unknown),
 }) {}

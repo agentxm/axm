@@ -2,11 +2,45 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
+import * as Ref from "effect/Ref";
+import * as Option from "effect/Option";
+import * as Exit from "effect/Exit";
+import * as Cause from "effect/Cause";
 import * as TestClock from "effect/testing/TestClock";
 
 import { makeSignalShutdown } from "./graceful-shutdown.js";
 
 describe("makeSignalShutdown", () => {
+  it.effect("keeps a reported interruption intact and suppresses duplicate fallback output", () =>
+    Effect.gen(function* () {
+      const started = yield* Deferred.make<void>();
+      const reported = yield* Ref.make(Option.none<number>());
+      const finalized = yield* Deferred.make<void>();
+      const services = yield* Effect.context<never>();
+      const terminated: Array<number> = [];
+      const fiber = yield* Deferred.succeed(started, undefined).pipe(
+        Effect.andThen(Effect.never),
+        Effect.ensuring(Ref.set(reported, Option.some(130))),
+        Effect.forkChild,
+      );
+      yield* Deferred.await(started);
+      const onSignal = makeSignalShutdown({
+        fiber,
+        // eslint-disable-next-line no-restricted-syntax -- Mirrors the process signal callback adapter.
+        runFork: Effect.runForkWith(services),
+        reportedExitCode: Ref.get(reported),
+        finalized: Deferred.succeed(finalized, undefined).pipe(Effect.asVoid),
+        terminate: (code) => {
+          terminated.push(code);
+        },
+      });
+      onSignal(130, "SIGINT");
+      yield* Deferred.await(finalized);
+      const exit = yield* Fiber.await(fiber);
+      expect(Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause)).toBe(true);
+      expect(terminated).toEqual([]);
+    }),
+  );
   // The first signal interrupts and then waits for finalizers to finish —
   // there is no forced-exit bound. Restoration and settlement recording take
   // the time they take; truncating them is what loses workspaces.

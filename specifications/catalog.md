@@ -396,11 +396,12 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/reads-carry-the-invocations-credential`
 - Owner: `registry-access`
-- Statement: When an invocation reads from a Registry, AXM shall present the credential it holds — so a signed-in person sees what their permissions allow, including their own private extensions — shall read anonymously when it holds none rather than refusing, shall fail the read with the reason, sending nothing, when a credential source it was pointed at — a token file or the credential store — cannot be read, shall treat a read the Registry rejects for its credential exactly as a rejected write — renewing a stored session once and retrying, and otherwise keeping the rejection rather than reading anonymously — and shall leave a credential the caller set on the request exactly as the caller set it.
+- Statement: When an invocation reads from a Registry, AXM shall present the credential it holds — so a signed-in person sees what their permissions allow, including their own private extensions — shall read anonymously when it holds none rather than refusing, shall fail the read with the reason, sending nothing, when a credential source it was pointed at — configuration, a token file, or the credential store — cannot be read or decoded, shall treat a read the Registry rejects for its credential exactly as a rejected write — renewing a stored session once and retrying, and otherwise keeping the rejection rather than reading anonymously — and shall leave a credential the caller set on the request exactly as the caller set it.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: The live credential adapter reads real isolated files so malformed and unreadable persisted credentials cannot become anonymous requests.
 - Methods: example
 - Derived from: `packages/supporting/registry-access/src/adapters/auth-middleware.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/rejected-read-credential.e2e.test.ts`](../apps/cli-e2e/src/rejected-read-credential.e2e.test.ts) — Only a real invocation against a real HTTP origin shows a rejected read travelling the same renewal as a rejected write, and a rejected or unreadable ambient credential reported for what it is rather than hidden behind a not-found.
@@ -2270,6 +2271,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary rationale: Signal delivery, atomic replacement, and lock reclamation are process and filesystem facts an in-memory port cannot establish.
 - Methods: example
 - Derived from: `cli/mutations-are-closure-atomic`, `docs/architecture/workspace/execution.md`, `docs/architecture/decisions/closure-atomicity-and-recovery.md`
+- Additional evidence: process via [`apps/cli-e2e/src/publication-lock-interruption.e2e.test.ts`](../apps/cli-e2e/src/publication-lock-interruption.e2e.test.ts) — A real CLI publisher waits on a native lock owned by the live test process. SIGINT must exit after cleaning only the waiting publisher's staged state, preserve the owner's bytes and existing publication, and permit a later invocation after release.
 - Additional evidence: process via [`apps/cli-e2e/src/signal-interruption.e2e.test.ts`](../apps/cli-e2e/src/signal-interruption.e2e.test.ts) — Delivers a real signal to the built binary mid-acquisition, so the terminal document, its durable-state disposition, and the signal exit code are observed from outside the process rather than derived from a journal in memory.
 - Source: [`apps/cli-e2e/src/interruption-preserves-authority-and-reports-recovery.spec.ts`](../apps/cli-e2e/src/interruption-preserves-authority-and-reports-recovery.spec.ts)
 
@@ -3103,6 +3105,19 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Supersedes: `cli/upgrade/latest-uses-promoted-stable-channel`
 - Assumptions: The release workflow publishes a stable CLI release as GitHub's latest release after all immutable artifacts are attached.
 - Source: [`packages/supporting/cli-maintenance/src/self-update/adapters/releases/latest-uses-github-release.spec.ts`](../packages/supporting/cli-maintenance/src/self-update/adapters/releases/latest-uses-github-release.spec.ts)
+
+##### Script upgrades distinguish storage failures from an occupied installation
+
+- Requirement: `cli/upgrade/reports-replacement-storage-failures`
+- Owner: `cli-maintenance`
+- Statement: When a script upgrade cannot inspect or acquire its installation lock, prepare its replacement, or protect, replace, or restore its executable, AXM shall report the failed operation without claiming another upgrade owns the installation, preserve the original executable when restoration succeeds, and identify a retained recovery backup when restoration fails.
+- Class: functional
+- Role: experience
+- Product goals: `trustworthy-distribution`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Assumptions: The filesystem reports completed operations truthfully.
+- Source: [`packages/supporting/cli-maintenance/src/self-update/adapters/native/upgrade/reports-replacement-storage-failures.spec.ts`](../packages/supporting/cli-maintenance/src/self-update/adapters/native/upgrade/reports-replacement-storage-failures.spec.ts)
 
 ##### Unsupported upgrade routes require explicit recovery
 
@@ -4735,6 +4750,18 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Open questions: When a stream is a capable terminal, should CI prohibit styling even when FORCE_COLOR explicitly requests it? Earlier environment help described unconditional plain CI output, while the resolver permits that terminal override; this requirement governs pipes and does not decide terminal precedence.
 - Source: [`apps/cli/src/screen/non-tty-output-is-plain-and-unpadded.spec.ts`](../apps/cli/src/screen/non-tty-output-is-plain-and-unpadded.spec.ts)
 
+##### Output writes await delivery acknowledgement
+
+- Requirement: `cli/output-writes-await-acknowledgement`
+- Owner: `cli`
+- Statement: The CLI shall await native output acknowledgement before reporting a write as delivered, preserve delivery failures as typed failures without exposing output content, and release per-write listeners on completion or interruption while preserving interruption.
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`apps/cli/src/screen/output-writes-await-acknowledgement.spec.ts`](../apps/cli/src/screen/output-writes-await-acknowledgement.spec.ts)
+
 ##### Assessment is spelled --preview everywhere it exists and nowhere else
 
 - Requirement: `cli/preview-uses-the-canonical-flag`
@@ -5319,6 +5346,26 @@ Changes and releases land through the governed repository process with required 
 - Assumptions: Publishing credentials are available only to the canonical workflow, so no manual or external path can publish release artifacts.
 - Source: [`scripts/releases-publish-through-canonical-workflow.spec.ts`](../scripts/releases-publish-through-canonical-workflow.spec.ts)
 
+### Goal: machine-automation
+
+Machine consumers can drive AgentXM surfaces non-interactively with complete, schema-backed results separated from diagnostics.
+
+#### Quality
+
+##### Credential updates preserve committed sessions
+
+- Requirement: `cli/auth/persistence-preserves-committed-credentials`
+- Owner: `registry-access`
+- Statement: When saving or clearing a Registry session, AXM shall preserve other Registries' committed credentials, including concurrent updates, shall leave the last committed file intact if replacement fails or is interrupted before commit, and shall refuse to overwrite credential storage it cannot read or decode.
+- Class: quality (reliability)
+- Role: supporting
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Independent live credential stores share a real temporary home; filesystem fault injection and interruption establish preservation at the persistence boundary.
+- Methods: example
+- Assumptions: The local filesystem provides atomic same-filesystem rename.
+- Source: [`packages/supporting/registry-access/src/credentials/persistence-preserves-committed-credentials.spec.ts`](../packages/supporting/registry-access/src/credentials/persistence-preserves-committed-credentials.spec.ts)
+
 ### Goal: platform-reach
 
 AXM works on every supported operating system, runtime, shell, and filesystem.
@@ -5493,6 +5540,21 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Source: [`packages/core/workspace/src/resolution/sources/providers/registry/shared-pack-index-lookup.spec.ts`](../packages/core/workspace/src/resolution/sources/providers/registry/shared-pack-index-lookup.spec.ts)
 
 #### Quality
+
+##### Local publication coordinates owners and releases cancelled waits
+
+- Requirement: `registry/local-publication-coordinates-owners`
+- Owner: `registry-client`
+- Statement: AXM shall serialize publications to the same local Registry extension across independently created clients and processes, allow unrelated extensions to proceed, release a cancelled wait without modifying the current owner's lock or committed publication, and allow subsequent publication after the owner releases the lock. An aged live owner shall retain its lock; recovery and release shall preserve replacement owners and report operational storage failures.
+- Class: quality (reliability)
+- Role: supporting
+- Product goals: `safe-repetition`, `trustworthy-distribution`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Independent public local Registry clients publish to native temporary storage. A controlled index-read boundary holds a real filesystem lock while another client is interrupted; byte readback and later publications establish ownership and recovery. Process evidence also delivers SIGINT to the CLI while it waits for a live owner's lock.
+- Methods: example, contract
+- Assumptions: The local filesystem provides atomic exclusive hard links within the Registry directory.; Publishers reporting the same hostname share one PID namespace and cooperate with the publication lock protocol; lock files are not concurrently replaced by external manual operations.
+- Additional evidence: process via [`apps/cli-e2e/src/publication-lock-interruption.e2e.test.ts`](../apps/cli-e2e/src/publication-lock-interruption.e2e.test.ts) — A real CLI publisher waits on a native lock owned by the live test process. SIGINT must exit after cleaning only the waiting publisher's staged state, preserve the owner's bytes and existing publication, and permit a later invocation after release.
+- Source: [`packages/supporting/registry-client/src/local-publication-coordinates-owners.spec.ts`](../packages/supporting/registry-client/src/local-publication-coordinates-owners.spec.ts)
 
 ##### Local Registry storage failures remain failures
 

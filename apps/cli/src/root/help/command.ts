@@ -1,3 +1,4 @@
+import type { OutputWriteFailed } from "../../screen/index.js";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
@@ -183,7 +184,7 @@ export const resolveCommandPath = (
 export const handleHelpPath = (
   path: ReadonlyArray<string>,
   root: Command.Command.Any,
-): Effect.Effect<void, AppError | CliError.ShowHelp, Screen> => {
+): Effect.Effect<void, AppError | CliError.ShowHelp | OutputWriteFailed, Screen> => {
   if (path.length === 0) return writeHelpTopicIndex();
 
   const [singleTopic] = path;

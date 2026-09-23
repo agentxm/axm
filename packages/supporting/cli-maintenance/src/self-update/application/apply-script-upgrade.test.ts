@@ -31,12 +31,27 @@ const makeTrial = (options: TrialOptions = {}) =>
     const calls = yield* Ref.make<ReadonlyArray<string>>([]);
     const inspected = yield* Ref.make(0);
     const call = (name: string) => Ref.update(calls, (current) => [...current, name]);
+    const mutation = (name: string, succeeds: boolean | undefined) =>
+      call(name).pipe(
+        Effect.andThen(
+          succeeds === false
+            ? Effect.fail(
+                new UpgradeFailed({
+                  category: "internal",
+                  step: name,
+                  detail: `${name} failed; recoverable backup: /recovery/axm`,
+                  cause: { reason: "PermissionDenied" },
+                }),
+              )
+            : Effect.void,
+        ),
+      );
     const staged: StagedExecutable = {
       path: "/staged/axm",
       backupPath: "/recovery/axm",
-      protectOriginal: call("protect").pipe(Effect.as(options.protect ?? true)),
-      replace: call("replace").pipe(Effect.as(options.replace ?? true)),
-      restore: call("restore").pipe(Effect.as(options.restore ?? true)),
+      protectOriginal: mutation("protect", options.protect),
+      replace: mutation("replace", options.replace),
+      restore: mutation("restore", options.restore),
       accept: call("accept"),
     };
     const layer = Layer.mergeAll(
@@ -154,9 +169,9 @@ describe("script upgrade application", () => {
   it.effect("requires a restorable original before replacement", () =>
     Effect.gen(function* () {
       const trial = yield* makeTrial({ protect: false });
-      const result = yield* trial.run;
-      expect(result.mutationState).toBe("not-attempted");
-      expect(result.executedCommands).toHaveLength(1);
+      const failure = yield* Effect.flip(trial.run);
+      expect(failure.step).toBe("protect");
+      expect(failure.cause).toEqual({ reason: "PermissionDenied" });
       expect(yield* Ref.get(trial.calls)).not.toContain("replace");
     }),
   );
@@ -164,7 +179,10 @@ describe("script upgrade application", () => {
   it.effect("restores an unsuccessful replacement without recording an installation", () =>
     Effect.gen(function* () {
       const trial = yield* makeTrial({ replace: false });
-      expect((yield* trial.run).resultStatus).toBe("rolled-back");
+      const failure = yield* Effect.flip(trial.run);
+      expect(failure.step).toBe("replace");
+      expect(failure.cause).toEqual({ reason: "PermissionDenied" });
+      expect(failure.detail).toContain("The original executable was restored.");
       expect(yield* Ref.get(trial.calls)).toEqual([
         "acquire",
         "download",

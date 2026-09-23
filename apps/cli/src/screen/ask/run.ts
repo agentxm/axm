@@ -1,3 +1,4 @@
+import type { OutputWriteFailed } from "../streams.js";
 /**
  * Running a question against a real terminal.
  *
@@ -50,7 +51,7 @@ const runKind = <S, A>(
   label: Text,
   terminal: Terminal.Terminal,
   surface: AskSurface,
-): Effect.Effect<A, QuestionCancelled, Scope.Scope> =>
+): Effect.Effect<A, QuestionCancelled | OutputWriteFailed, Scope.Scope> =>
   Effect.gen(function* () {
     // The queue's one failure is its end, where the terminal stopped sending
     // keys — end of input, or the interrupt it quits on — and an unanswered
@@ -68,7 +69,7 @@ const runKind = <S, A>(
           return { ...controls, question: label };
         }),
       );
-    const loop = (state: S): Effect.Effect<A, QuestionCancelled, Scope.Scope> =>
+    const loop = (state: S): Effect.Effect<A, QuestionCancelled | OutputWriteFailed, Scope.Scope> =>
       Effect.flatMap(nextKey, (key) => {
         const action = kind.reduce(state, key);
         if (action._tag === "Cancel") return cancelled;
@@ -87,7 +88,7 @@ export const runAsk = <A>(
   ask: Ask<A>,
   terminal: Terminal.Terminal,
   surface: AskSurface,
-): Effect.Effect<A, QuestionCancelled> =>
+): Effect.Effect<A, QuestionCancelled | OutputWriteFailed> =>
   Effect.gen(function* () {
     const context: Doc = [
       { _tag: "paragraph", text: ask.question },
@@ -111,4 +112,4 @@ export const runAsk = <A>(
           : Effect.void,
       ),
     );
-  }).pipe(Effect.ensuring(surface.showInteraction(undefined)), Effect.scoped);
+  }).pipe(Effect.ensuring(surface.showInteraction(undefined).pipe(Effect.ignore)), Effect.scoped);

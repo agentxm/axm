@@ -38,9 +38,9 @@ export interface ScriptExecutableObservation {
 export interface StagedExecutable {
   readonly path: string;
   readonly backupPath: string;
-  readonly protectOriginal: Effect.Effect<boolean>;
-  readonly replace: Effect.Effect<boolean>;
-  readonly restore: Effect.Effect<boolean>;
+  readonly protectOriginal: Effect.Effect<void, UpgradeFailed>;
+  readonly replace: Effect.Effect<void, UpgradeFailed>;
+  readonly restore: Effect.Effect<void, UpgradeFailed>;
   readonly accept: Effect.Effect<void>;
 }
 
@@ -48,7 +48,7 @@ export interface ExecutableReplacementLease {
   readonly targetPath: string;
   readonly stage: (
     bytes: Uint8Array,
-  ) => Effect.Effect<StagedExecutable | null, UpgradeFailed, Scope.Scope>;
+  ) => Effect.Effect<StagedExecutable, UpgradeFailed, Scope.Scope>;
 }
 
 /** Lock and staging lifetimes belong to the caller's operation scope. */

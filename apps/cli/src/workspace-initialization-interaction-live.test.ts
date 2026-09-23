@@ -7,7 +7,7 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import { nonInteractiveFlag } from "./cli-flags/index.js";
-import { plain, type Ask } from "./screen/index.js";
+import { plain, Screen, OutputWriteFailed, type Ask } from "./screen/index.js";
 import { TestRenderer } from "./test-support/presenter-test.js";
 import {
   WorkspaceInitializationCancelled,
@@ -85,6 +85,26 @@ const selectSource = Effect.gen(function* () {
 });
 
 describe("WorkspaceInitializationInteractionLive", () => {
+  it.effect("keeps a failed setup prompt distinct from a cancelled prompt", () =>
+    Effect.gen(function* () {
+      const renderer = TestRenderer.make();
+      const screen = yield* Screen.pipe(Effect.provide(renderer.layer));
+      const cause = new OutputWriteFailed({ channel: "stderr", reason: "EPIPE" });
+      const layer = Layer.provide(
+        WorkspaceInitializationInteractionLive,
+        Layer.succeed(Screen, { ...screen, ask: () => Effect.fail(cause) }),
+      );
+      const failure = yield* Effect.gen(function* () {
+        const interaction = yield* WorkspaceInitializationInteraction;
+        return yield* interaction.confirmSetupPlan();
+      }).pipe(Effect.provide(layer), Effect.flip);
+      expect(failure).toMatchObject({
+        _tag: "WorkspaceConfigurationFailed",
+        category: "internal",
+        cause,
+      });
+    }),
+  );
   it.effect("offers every agent with what the scan found, detected agents picked", () =>
     Effect.gen(function* () {
       const harness = yield* makeHarness;

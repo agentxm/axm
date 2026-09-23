@@ -1,3 +1,4 @@
+import { OutputWriteFailed } from "./screen/streams.js";
 /**
  * CLI implementation of the workspace-initialization interaction port.
  *
@@ -159,15 +160,20 @@ const carriedCategory = (
  * byte-identical.
  */
 const toInteractionFailure = (
-  error: AppError | WorkspaceInitializationCancelled,
+  error: AppError | OutputWriteFailed | WorkspaceInitializationCancelled,
 ): WorkspaceConfigurationFailed | WorkspaceInitializationCancelled =>
   error instanceof WorkspaceInitializationCancelled
     ? error
     : new WorkspaceConfigurationFailed({
-        category: carriedCategory(error.code),
-        detail: error.detail,
-        ...(error.suggestions === undefined ? {} : { suggestions: error.suggestions }),
-        ...(error.cause === undefined ? {} : { cause: error.cause }),
+        category: error._tag === "OutputWriteFailed" ? "internal" : carriedCategory(error.code),
+        detail:
+          error._tag === "OutputWriteFailed"
+            ? "The workspace setup interaction could not be displayed."
+            : error.detail,
+        ...("suggestions" in error && error.suggestions !== undefined
+          ? { suggestions: error.suggestions }
+          : {}),
+        cause: error,
       });
 
 export const WorkspaceInitializationInteractionLive = Layer.effect(
@@ -209,8 +215,28 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
             Effect.catchTag("QuestionCancelled", cancelled),
             Effect.mapError(toInteractionFailure),
           ),
-      presentAgentScan: (scan) => screen.note(setupAgentScanDoc(scan)),
-      presentSetupPlan: (rows) => screen.note(setupPlanDoc(rows)),
+      presentAgentScan: (scan) =>
+        screen.note(setupAgentScanDoc(scan)).pipe(
+          Effect.mapError(
+            (cause) =>
+              new WorkspaceConfigurationFailed({
+                category: "internal",
+                detail: "The agent scan could not be displayed.",
+                cause,
+              }),
+          ),
+        ),
+      presentSetupPlan: (rows) =>
+        screen.note(setupPlanDoc(rows)).pipe(
+          Effect.mapError(
+            (cause) =>
+              new WorkspaceConfigurationFailed({
+                category: "internal",
+                detail: "The setup plan could not be displayed.",
+                cause,
+              }),
+          ),
+        ),
     } satisfies WorkspaceInitializationInteractionService;
   }),
 );

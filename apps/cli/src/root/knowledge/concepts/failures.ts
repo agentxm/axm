@@ -1,3 +1,4 @@
+import type { OutputWriteFailed } from "../../../screen/index.js";
 import * as Effect from "effect/Effect";
 
 import {
@@ -7,7 +8,7 @@ import {
 
 import { ExitCode } from "../../../app-error/index.js";
 import { emitResult, type Screen, errorDoc } from "../../../screen/index.js";
-import { effectCliExit } from "../../../cli-runtime/index.js";
+import { type CommandExit, commandExit } from "../../../cli-runtime/index.js";
 
 const failWithConflict = Effect.fn("Knowledge.concepts.failWithConflict")(function* (output: {
   readonly outcome: "failed";
@@ -28,11 +29,17 @@ const failWithConflict = Effect.fn("Knowledge.concepts.failWithConflict")(functi
       ),
     { ok: false },
   );
-  return yield* Effect.die(effectCliExit(ExitCode.Conflict));
+  return yield* Effect.fail(commandExit(ExitCode.Conflict));
 });
 
-export const failKnowledgeCursorExpired = (): Effect.Effect<never, never, Screen> =>
-  failWithConflict({ outcome: "failed", reason: "cursor-expired" });
+export const failKnowledgeCursorExpired = (): Effect.Effect<
+  never,
+  CommandExit | OutputWriteFailed,
+  Screen
+> => failWithConflict({ outcome: "failed", reason: "cursor-expired" });
 
-export const failKnowledgeCorpusChanging = (): Effect.Effect<never, never, Screen> =>
-  failWithConflict({ outcome: "failed", reason: "corpus-changing" });
+export const failKnowledgeCorpusChanging = (): Effect.Effect<
+  never,
+  CommandExit | OutputWriteFailed,
+  Screen
+> => failWithConflict({ outcome: "failed", reason: "corpus-changing" });

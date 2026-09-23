@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import { CliError } from "effect/unstable/cli";
 import { classifyError } from "./handle-error.js";
 import { handleError } from "./handle-error.js";
-import { effectCliExit } from "./effect-cli-exit.js";
+import { commandExit } from "./command-exit.js";
 import { ExitCode, makeAppError } from "../app-error/index.js";
 import { toAppError } from "../app-error/conversions.js";
 import { FqnInvalidError } from "@agentxm/extension-model/unstable/extensions/fqn";
@@ -138,9 +138,9 @@ describe("classifyError — CliError (non-ShowHelp)", () => {
   });
 });
 
-describe("classifyError — EffectCliExit", () => {
+describe("classifyError — CommandExit", () => {
   it("returns the custom exit code with no output", () => {
-    const cliExit = effectCliExit(42);
+    const cliExit = commandExit(42);
 
     const result = classifyError(cliExit, "text");
 

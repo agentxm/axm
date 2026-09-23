@@ -32,7 +32,7 @@ import { initialProgress, reduceProgress, type ProgressState } from "../../scree
 import { progressActivity } from "../../screen/progress-view.js";
 import { paintLivePart } from "../../screen/scene.js";
 import { Screen, ScreenLive } from "../../screen/screen.js";
-import { OutputStreams } from "../../screen/streams.js";
+import { OutputStreams, type OutputWriteFailed } from "../../screen/streams.js";
 import { asciiGlyphs } from "../../screen/glyphs.js";
 import { displayWidth } from "../../screen/width.js";
 import { paintBoxed } from "./alternative-painter.js";
@@ -80,6 +80,7 @@ const CURSOR_HIDE = "\u001b[?25l";
 const makeOrderedStreams = () => {
   const log: Array<{ readonly channel: "stdout" | "stderr"; readonly content: string }> = [];
   const layer = Layer.succeed(OutputStreams, {
+    check: Effect.void,
     stdout: (content) => Effect.sync(() => void log.push({ channel: "stdout", content })),
     stderr: (content) => Effect.sync(() => void log.push({ channel: "stderr", content })),
     credential: (content) => Effect.sync(() => void log.push({ channel: "stdout", content })),
@@ -99,8 +100,8 @@ const makeOrderedStreams = () => {
 const replay = (
   lifecycle: OperationLifecycleService,
   events: ReadonlyArray<OperationEvent>,
-  between?: (event: OperationEvent) => Effect.Effect<void>,
-): Effect.Effect<void> =>
+  between?: (event: OperationEvent) => Effect.Effect<void, OutputWriteFailed>,
+): Effect.Effect<void, OutputWriteFailed> =>
   Effect.forEach(
     events,
     (event) =>

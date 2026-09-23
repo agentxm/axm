@@ -9,13 +9,13 @@ import { afterEach, beforeEach } from "vitest";
 
 import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
+  getAppError,
   expectAppliedPlanResult,
   expectNoOpPlanResult,
   makeWorkspaceHandlerTestContext,
   planResultUnits,
 } from "../../test-support/test-helpers.js";
 import { handleMcpsAdd } from "./add.js";
-import { toAppError } from "../../app-error/conversions.js";
 
 describe("mcps add output", () => {
   let tempDir: string;
@@ -245,7 +245,7 @@ describe("mcps add output", () => {
 
         expect(Result.isFailure(result)).toBe(true);
         if (Result.isFailure(result)) {
-          const failure = toAppError(result.failure);
+          const failure = getAppError(result.failure);
           expect(failure.code).toBe("usage");
           expect(failure.detail).toContain("axm mcps install @acme/mcps/demo");
         }

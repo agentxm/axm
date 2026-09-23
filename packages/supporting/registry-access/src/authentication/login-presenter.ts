@@ -15,7 +15,7 @@ import * as Layer from "effect/Layer";
 import * as ServiceMap from "effect/Context";
 
 import type { DeviceLoginPendingResult } from "./device-login.js";
-import { AuthInteractionAbandoned } from "./errors.js";
+import { AuthInteractionAbandoned, type RegistryAccessFailed } from "./errors.js";
 import type { LoginResult } from "./login-output.js";
 
 export type AuthLoginProgress =
@@ -96,6 +96,9 @@ export const handoffUrl = (handoff: HumanHandoff): string => {
 };
 
 export interface AuthLoginPresenterService {
+  // Guidance, prompts, and result delivery are fallible operations. Callers
+  // preserve delivery failures and interruption instead of claiming completion
+  // or treating a broken output destination as a person's decision to stop.
   /** Progress envelope for one login phase. */
   readonly withProgress: <A, E, R>(
     progress: AuthLoginProgress,
@@ -106,7 +109,9 @@ export interface AuthLoginPresenterService {
    * consumed the result — the caller must then skip browser/clipboard side
    * effects and human presentation.
    */
-  readonly tryEmitPendingDeviceLogin: (result: DeviceLoginPendingResult) => Effect.Effect<boolean>;
+  readonly tryEmitPendingDeviceLogin: (
+    result: DeviceLoginPendingResult,
+  ) => Effect.Effect<boolean, RegistryAccessFailed>;
   /**
    * Park the terminal while a person completes the handoff elsewhere, and
    * answer with what `awaited` settled on. The application owns how the wait
@@ -117,29 +122,35 @@ export interface AuthLoginPresenterService {
   readonly awaitHuman: <A, E, R>(
     handoff: HumanHandoff,
     awaited: Effect.Effect<A, E, R>,
-  ) => Effect.Effect<A, E | AuthInteractionAbandoned, R>;
+  ) => Effect.Effect<A, E | AuthInteractionAbandoned | RegistryAccessFailed, R>;
   /** Human-path tail: sign-in is waiting for approval, with resume guidance. */
-  readonly notePendingApproval: (result: DeviceLoginPendingResult) => Effect.Effect<void>;
+  readonly notePendingApproval: (
+    result: DeviceLoginPendingResult,
+  ) => Effect.Effect<void, RegistryAccessFailed>;
   /** Machine login-document emission with human success fallback. */
-  readonly emitLoginSuccess: (result: LoginResult) => Effect.Effect<void>;
+  readonly emitLoginSuccess: (result: LoginResult) => Effect.Effect<void, RegistryAccessFailed>;
   readonly presentLoopbackStart: (start: {
     readonly redirectUri: string;
     readonly authorizeUrl: string;
-  }) => Effect.Effect<void>;
-  readonly noteLoopbackBrowserOutcome: (opened: boolean) => Effect.Effect<void>;
+  }) => Effect.Effect<void, RegistryAccessFailed>;
+  readonly noteLoopbackBrowserOutcome: (
+    opened: boolean,
+  ) => Effect.Effect<void, RegistryAccessFailed>;
   /** A still-valid session was found for the selected Registry. */
-  readonly noteExistingSession: (handle: string) => Effect.Effect<void>;
+  readonly noteExistingSession: (handle: string) => Effect.Effect<void, RegistryAccessFailed>;
   /** Stored credentials were rejected, so a new sign-in starts. */
-  readonly noteRejectedStoredCredentials: Effect.Effect<void>;
+  readonly noteRejectedStoredCredentials: Effect.Effect<void, RegistryAccessFailed>;
   /** Sign-in fell back to the device-code flow for the carried reason. */
-  readonly noteDeviceCodeFallback: (reason: DeviceCodeFallbackReason) => Effect.Effect<void>;
+  readonly noteDeviceCodeFallback: (
+    reason: DeviceCodeFallbackReason,
+  ) => Effect.Effect<void, RegistryAccessFailed>;
   /**
    * Ask whether to replace a session that is still valid. Abandoning the
    * question fails with `AuthInteractionAbandoned`; declining returns "keep".
    */
   readonly confirmSessionReplacement: () => Effect.Effect<
     SessionReplacementDecision,
-    AuthInteractionAbandoned
+    AuthInteractionAbandoned | RegistryAccessFailed
   >;
 }
 
@@ -164,11 +175,10 @@ export interface AuthLoginPresenterTestState {
 }
 
 export const AuthLoginPresenterTest = (overrides?: {
-  readonly tryEmitPendingDeviceLogin?: (result: DeviceLoginPendingResult) => Effect.Effect<boolean>;
-  readonly confirmSessionReplacement?: () => Effect.Effect<
-    SessionReplacementDecision,
-    AuthInteractionAbandoned
-  >;
+  readonly tryEmitPendingDeviceLogin?: AuthLoginPresenterService["tryEmitPendingDeviceLogin"];
+  readonly confirmSessionReplacement?: AuthLoginPresenterService["confirmSessionReplacement"];
+  readonly emitLoginSuccess?: AuthLoginPresenterService["emitLoginSuccess"];
+  readonly awaitHuman?: AuthLoginPresenterService["awaitHuman"];
   /** Stop every wait, as a person pressing the stop key would. */
   readonly abandonWaits?: boolean;
 }) => {
@@ -198,18 +208,22 @@ export const AuthLoginPresenterTest = (overrides?: {
         return yield* overrides?.tryEmitPendingDeviceLogin?.(result) ?? Effect.succeed(false);
       }),
     awaitHuman: <A, E, R>(handoff: HumanHandoff, awaited: Effect.Effect<A, E, R>) =>
-      Effect.suspend((): Effect.Effect<A, E | AuthInteractionAbandoned, R> => {
-        state.handoffs.push(handoff);
-        return overrides?.abandonWaits === true
-          ? Effect.fail(new AuthInteractionAbandoned({ message: "Stopped waiting." }))
-          : awaited;
-      }),
+      Effect.suspend(
+        (): Effect.Effect<A, E | AuthInteractionAbandoned | RegistryAccessFailed, R> => {
+          state.handoffs.push(handoff);
+          if (overrides?.awaitHuman !== undefined) return overrides.awaitHuman(handoff, awaited);
+          return overrides?.abandonWaits === true
+            ? Effect.fail(new AuthInteractionAbandoned({ message: "Stopped waiting." }))
+            : awaited;
+        },
+      ),
     notePendingApproval: (result) =>
       Effect.sync(() => {
         state.pendingApprovals.push(result);
       }),
     emitLoginSuccess: (result) =>
-      Effect.sync(() => {
+      Effect.gen(function* () {
+        yield* overrides?.emitLoginSuccess?.(result) ?? Effect.void;
         state.loginSuccesses.push(result);
       }),
     presentLoopbackStart: (start) =>

@@ -7,7 +7,7 @@ import { AuthClientTest, DeviceLoginInteractionTest } from "@agentxm/registry-ac
 import {
   CommandSemanticPropertiesLive,
   getCommandSemanticProperties,
-  isEffectCliExit,
+  isCommandExit,
 } from "../../cli-runtime/index.js";
 import {
   StepFailure,
@@ -504,7 +504,7 @@ describe("root publish", () => {
           expect(Exit.isFailure(exit)).toBe(true);
           if (Exit.isFailure(exit)) {
             const squashed = Cause.squash(exit.cause);
-            expect(isEffectCliExit(squashed) ? squashed.exitCode : undefined).toBe(2);
+            expect(isCommandExit(squashed) ? squashed.exitCode : undefined).toBe(2);
           }
           const lines = painted(rendererState);
           expect(lines).toContain(
@@ -878,7 +878,7 @@ describe("root publish", () => {
             expect(Exit.isFailure(exit)).toBe(true);
             if (Exit.isFailure(exit)) {
               const squashed = Cause.squash(exit.cause);
-              expect(isEffectCliExit(squashed) ? squashed.exitCode : undefined).toBe(
+              expect(isCommandExit(squashed) ? squashed.exitCode : undefined).toBe(
                 exitCodeFor("conflict"),
               );
             }
@@ -951,7 +951,7 @@ describe("root publish", () => {
               expect(rendererState.results[index]?.ok).toBe(false);
               expect(Exit.isFailure(exit)).toBe(true);
               if (Exit.isFailure(exit)) {
-                expect(isEffectCliExit(Cause.squash(exit.cause))).toBe(true);
+                expect(isCommandExit(Cause.squash(exit.cause))).toBe(true);
               }
             }
             expect(rendererState.results).toHaveLength(selectors.length);

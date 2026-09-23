@@ -74,6 +74,9 @@ export const InstallSelectionLive = Layer.effect(InstallSelectionInteraction)(
             Effect.catchTag("AppError", (cause) =>
               Effect.fail(new InstallSelectionUnavailable({ cause })),
             ),
+            Effect.catchTag("OutputWriteFailed", (cause) =>
+              Effect.fail(new InstallSelectionUnavailable({ cause })),
+            ),
           ),
     };
   }),
@@ -109,6 +112,9 @@ export const SkillSelectionLive = Layer.effect(SkillSelectionInteraction)(
             Effect.catchTag("AppError", (cause) =>
               Effect.fail(new SkillSelectionUnavailable({ cause })),
             ),
+            Effect.catchTag("OutputWriteFailed", (cause) =>
+              Effect.fail(new SkillSelectionUnavailable({ cause })),
+            ),
           ),
     };
   }),
@@ -142,6 +148,9 @@ export const SubagentSelectionLive = Layer.effect(SubagentSelectionInteraction)(
               Effect.fail(new SubagentSelectionCancelled({ message: error.message })),
             ),
             Effect.catchTag("AppError", (cause) =>
+              Effect.fail(new SubagentSelectionUnavailable({ cause })),
+            ),
+            Effect.catchTag("OutputWriteFailed", (cause) =>
               Effect.fail(new SubagentSelectionUnavailable({ cause })),
             ),
           ),

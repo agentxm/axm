@@ -3,7 +3,7 @@
  *
  * The runtime envelope owns completion telemetry (start time, dedupe, the
  * bounded send). A termination that must bypass the envelope's continuations —
- * an operation boundary dying inside its uninterruptible region while an
+ * an operation boundary completing inside its uninterruptible region while an
  * external interrupt is pending — records completion through this service
  * instead, so the event lands before the process exits on every path.
  *

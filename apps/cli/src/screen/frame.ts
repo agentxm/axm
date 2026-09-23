@@ -9,7 +9,7 @@ import * as Stream from "effect/Stream";
 
 import { unicodeGlyphs, type Glyphs } from "./glyphs.js";
 import { liveColumns, liveRows, paintLivePart, type ScenePart } from "./scene.js";
-import { OutputStreams } from "./streams.js";
+import { OutputStreams, type OutputWriteFailed } from "./streams.js";
 import { CURSOR_SHOW } from "./terminal-style.js";
 
 const ESC = "\u001b[";
@@ -26,22 +26,22 @@ export interface ActiveView {
 export class Frame extends ServiceMap.Service<
   Frame,
   {
-    readonly stdout: (content: string) => Effect.Effect<void>;
-    readonly stderr: (content: string) => Effect.Effect<void>;
+    readonly stdout: (content: string) => Effect.Effect<void, OutputWriteFailed>;
+    readonly stderr: (content: string) => Effect.Effect<void, OutputWriteFailed>;
     /** Append a milestone and replace the foreground under one write permit. */
     readonly updateActive: (
       active: ActiveView | undefined,
       content?: string,
       immediate?: boolean,
-    ) => Effect.Effect<void>;
+    ) => Effect.Effect<void, OutputWriteFailed>;
     /** A stale owner cannot finish or clear a newer interaction. */
     readonly finishActive: (
       owner: symbol,
       content: string,
       next?: ActiveView,
-    ) => Effect.Effect<void>;
+    ) => Effect.Effect<void, OutputWriteFailed>;
     readonly canInteract: Effect.Effect<boolean>;
-    readonly settle: Effect.Effect<void>;
+    readonly settle: Effect.Effect<void, OutputWriteFailed>;
   }
 >()("axm.sh/screen/Frame") {}
 
@@ -178,19 +178,24 @@ export const FrameLive = (options: FrameOptions): Layer.Layer<Frame, never, Outp
           const current = yield* Ref.get(state);
           if (current.cursorHidden) yield* streams.stderr(CURSOR_SHOW);
           yield* Ref.set(state, { ...initialState, freshLine: current.freshLine });
+          yield* streams.check;
         }),
       );
 
       const repaint = permit.withPermit(repaintLocked);
       if (options.animate) {
-        yield* Effect.repeat(repaint, Schedule.spaced("80 millis")).pipe(Effect.forkScoped);
+        yield* Effect.repeat(repaint, Schedule.spaced("80 millis")).pipe(
+          Effect.ignore,
+          Effect.forkScoped,
+        );
       }
       // Questions resize even when progress animation is disabled.
       yield* streams.resize.pipe(
         Stream.runForEach(() => repaint),
+        Effect.ignore,
         Effect.forkScoped,
       );
-      yield* Effect.addFinalizer(() => settle);
+      yield* Effect.addFinalizer(() => settle.pipe(Effect.ignore));
 
       return {
         stdout: (content) => write("stdout", content),

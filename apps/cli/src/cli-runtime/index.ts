@@ -50,7 +50,7 @@ export {
   type MachineOutputDocument,
   type MachineOutputDocumentKind,
 } from "./machine-output-document.js";
-export { EffectCliExit, effectCliExit, isEffectCliExit } from "./effect-cli-exit.js";
+export { CommandExit, commandExit, isCommandExit } from "./command-exit.js";
 export {
   hasExplicitJsonFlag,
   optionArgs,

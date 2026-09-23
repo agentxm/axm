@@ -33,7 +33,6 @@ import {
 } from "@agentxm/registry-client";
 
 import {
-  effectCliExit,
   observeLifecycleForTelemetry,
   recordCommandCompletion,
   requestedInterruptionSignal,
@@ -248,9 +247,9 @@ export const withOperationLifecycle = <A, E, R>(
                   );
                   const { exitCode } = yield* emitOperationResolution(args.command, resolution);
                   // Inside the uninterruptible mask: the completion event must
-                  // land before the die releases the pending interrupt.
+                  // land before the original interruption continues to the process owner.
                   yield* recordCommandCompletion(exitCode);
-                  return yield* Effect.die(effectCliExit(exitCode));
+                  return yield* Effect.failCause(cause);
                 })
               : Effect.failCause(cause),
           ),

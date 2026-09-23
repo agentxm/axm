@@ -1,3 +1,4 @@
+import { OutputWriteFailed } from "../../screen/index.js";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -6,8 +7,10 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { AppError, exitCodeFor } from "../../app-error/index.js";
 import { acceptWarningsFlag, isNonInteractive, jsonFlag } from "../../cli-flags/index.js";
 import {
-  effectCliExit,
+  commandExit,
+  CommandExit,
   recordCommandCompletion,
+  setOperationExitCode,
   withArgvTracking,
 } from "../../cli-runtime/index.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";
@@ -200,13 +203,14 @@ const reportPublishOutcome = Effect.fn("Publish.report")(function* (
     },
   );
   if (outcome.disposition._tag === "Interrupted") {
+    yield* setOperationExitCode(exitCode);
     yield* recordCommandCompletion(exitCode);
-    return yield* Effect.die(effectCliExit(exitCode));
+    return yield* Effect.interrupt;
   }
   if (outcome.disposition._tag === "Failed") {
     // A reported outcome already carries the verdict and its recoveries, so
     // the invocation ends with its exit code rather than a second report.
-    return yield* Effect.die(effectCliExit(exitCode));
+    return yield* Effect.fail(commandExit(exitCode));
   }
 });
 
@@ -268,7 +272,11 @@ export const handleRootPublish = Effect.fn("Publish.handle")(
     );
   },
   Effect.mapError((failure) =>
-    failure instanceof AppError ? failure : publishFailureToAppError(failure),
+    failure instanceof AppError ||
+    failure instanceof CommandExit ||
+    failure instanceof OutputWriteFailed
+      ? failure
+      : publishFailureToAppError(failure),
   ),
   Effect.asVoid,
 );

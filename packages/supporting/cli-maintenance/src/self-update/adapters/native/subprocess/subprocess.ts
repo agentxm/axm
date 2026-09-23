@@ -1,3 +1,4 @@
+import { UpgradeFailed } from "../../../application/errors.js";
 import * as Duration from "effect/Duration";
 import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
@@ -33,7 +34,7 @@ export interface SubprocessService {
     args: ReadonlyArray<string>,
     options?: RunCommandOptions,
   ) => Effect.Effect<CommandResult>;
-  readonly resolveExecutable: (command: string) => Effect.Effect<string | null>;
+  readonly resolveExecutable: (command: string) => Effect.Effect<string | null, UpgradeFailed>;
 }
 
 export class Subprocess extends ServiceMap.Service<Subprocess, SubprocessService>()(
@@ -161,17 +162,12 @@ const makeResolveExecutable =
   (fs: FileSystem.FileSystem, pathService: Path.Path): SubprocessService["resolveExecutable"] =>
   (command) =>
     Effect.gen(function* () {
-      // Both strings have defaults and no decoder constraints. Config errors
-      // here can only indicate a broken provider invariant.
-      // eslint-disable-next-line no-restricted-syntax -- Defaulted string decoding is total, so failure means the Config provider violated its contract.
-      const pathValue = yield* Config.String("PATH").pipe(Config.withDefault(""), Effect.orDie);
+      const pathValue = yield* Config.String("PATH").pipe(Config.withDefault(""));
       const extensions =
         process.platform === "win32"
           ? yield* Config.String("PATHEXT").pipe(
               Config.withDefault(".COM;.EXE;.BAT;.CMD"),
               Config.map((value) => value.split(";")),
-              // eslint-disable-next-line no-restricted-syntax -- Defaulted string decoding is total, so failure means the Config provider violated its contract.
-              Effect.orDie,
             )
           : [""];
       const candidates = pathService.isAbsolute(command)
@@ -193,7 +189,17 @@ const makeResolveExecutable =
         }
       }
       return null;
-    });
+    }).pipe(
+      Effect.mapError(
+        (cause) =>
+          new UpgradeFailed({
+            category: "internal",
+            step: "resolve-command-configuration",
+            detail: "The executable search configuration could not be loaded",
+            cause,
+          }),
+      ),
+    );
 
 export const SubprocessLive = Layer.effect(
   Subprocess,

@@ -1,3 +1,4 @@
+import { ConfigError } from "effect/Config";
 import {
   LifecyclePostconditionViolated,
   ScaffoldedExtensionUnresolved,
@@ -1011,6 +1012,7 @@ export const configuredAgentOutcomesUnavailableToAppError = (
  * directly; the dispatcher is the single conversion seam the CLI uses.
  */
 export type KnownFailure =
+  | ConfigError
   | FqnInvalidError
   | FrontmatterParseFailure
   | SubagentContentError
@@ -1166,6 +1168,7 @@ export type KnownFailure =
   | ExtensionResolutionFailed;
 
 export const isKnownFailure = (error: unknown): error is KnownFailure =>
+  error instanceof ConfigError ||
   error instanceof FqnInvalidError ||
   error instanceof FrontmatterParseFailure ||
   error instanceof SubagentContentError ||
@@ -1327,6 +1330,12 @@ export const isKnownFailure = (error: unknown): error is KnownFailure =>
  * waves.
  */
 export const toAppError = (error: KnownFailure | AppError): AppError => {
+  if (error._tag === "ConfigError")
+    return makeAppError({
+      code: error.cause._tag === "SourceError" ? "unavailable" : "validation",
+      detail: "AXM configuration could not be loaded.",
+      cause: error,
+    });
   switch (error._tag) {
     case "AppError":
       return error;

@@ -1,3 +1,4 @@
+import { OutputWriteFailed } from "../screen/streams.js";
 import { CliError } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import {
@@ -14,7 +15,7 @@ import {
 } from "../app-error/index.js";
 import { isKnownFailure, toAppError } from "../app-error/conversions.js";
 import type { OutputFormat } from "./output-mode.js";
-import { isEffectCliExit } from "./effect-cli-exit.js";
+import { isCommandExit } from "./command-exit.js";
 import { makeJsonErrorEnvelope, makeJsonErrorEnvelopeFromAppError } from "./json-envelope.js";
 import {
   InteractiveScreen,
@@ -97,7 +98,7 @@ export const renderAppErrorChannels = (
  * Exit codes:
  * - ShowHelp (no errors) → 0 (help successfully displayed)
  * - ShowHelp (with errors) → 2 (usage — help shown due to invocation error)
- * - EffectCliExit → custom exit code
+ * - CommandExit → custom exit code
  * - CliError → 2 (usage/validation — bad flags, missing args)
  * - Other → 10 (unexpected internal error)
  */
@@ -109,7 +110,8 @@ export const classifyError = (
     debug: false,
   },
 ): ErrorClassification => {
-  if (isEffectCliExit(error)) {
+  if (error instanceof OutputWriteFailed) return { exitCode: ExitCode.Internal };
+  if (isCommandExit(error)) {
     return { exitCode: error.exitCode };
   }
 
@@ -214,6 +216,7 @@ export const handleError = (error: unknown, format: OutputFormat) => {
   });
   return output.pipe(
     Effect.provide(format === "json" ? MachineScreen() : InteractiveScreen()),
+    Effect.catchTag("OutputWriteFailed", () => Effect.void),
     Effect.andThen(
       Effect.sync(() => {
         process.exit(exitCode);

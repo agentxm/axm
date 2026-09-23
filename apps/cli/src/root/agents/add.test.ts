@@ -11,6 +11,7 @@ import { AgentExecutableResolver } from "@agentxm/workspace/projection/agent-ada
 import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
 import { workspaceInvariantFactsLive } from "../../test-support/workspace-invariant-facts-live.js";
 import {
+  getAppError,
   expectAppliedPlanResult,
   expectNoOpPlanResult,
   expectRecord,
@@ -23,7 +24,6 @@ import {
   writeWorkspaceFiles,
 } from "../../test-support/test-stubs.js";
 import { handleAgentsAdd } from "./add.js";
-import { toAppError } from "../../app-error/conversions.js";
 import {
   HookManager,
   KnowledgeManager,
@@ -288,7 +288,7 @@ describe("agents add.handler", () => {
         }),
       ).pipe(Effect.flip);
 
-      expect(toAppError(error).code).toBe("validation");
+      expect(getAppError(error).code).toBe("validation");
       expect(rendererState.results).toEqual([]);
       expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).toBe(
         "lockfileVersion: 4\nskills: []\n",

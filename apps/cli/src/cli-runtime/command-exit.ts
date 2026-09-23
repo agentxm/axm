@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// EffectCliExit — controlled process termination signal
+// CommandExit — controlled process termination signal
 //
 // Used to exit with a specific code (e.g., 1 after showing help) without
 // triggering error formatting. Not a real error — just a control flow signal.
@@ -7,17 +7,17 @@
 
 import * as Data from "effect/Data";
 
-export class EffectCliExit extends Data.TaggedError("EffectCliExit")<{
+export class CommandExit extends Data.TaggedError("CommandExit")<{
   readonly exitCode: number;
 }> {}
 
-export const effectCliExit = (exitCode: number): EffectCliExit => new EffectCliExit({ exitCode });
+export const commandExit = (exitCode: number): CommandExit => new CommandExit({ exitCode });
 
-// Duck-type check: instanceof may fail for defects extracted via Cause.squash
-export const isEffectCliExit = (error: unknown): error is EffectCliExit =>
+// The process adapter also classifies errors crossing the host Promise boundary.
+export const isCommandExit = (error: unknown): error is CommandExit =>
   typeof error === "object" &&
   error !== null &&
   "_tag" in error &&
-  error._tag === "EffectCliExit" &&
+  error._tag === "CommandExit" &&
   "exitCode" in error &&
   typeof error.exitCode === "number";

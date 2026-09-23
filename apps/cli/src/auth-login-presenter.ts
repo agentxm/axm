@@ -11,6 +11,7 @@ import { observeChildUnit, observeUnit } from "@agentxm/workspace/transitions/pl
 
 import {
   AuthInteractionAbandoned,
+  RegistryAccessFailed,
   AuthLoginPresenter,
   DeviceLoginInteraction,
   DeviceLoginPendingDocumentSchema,
@@ -21,7 +22,13 @@ import {
   type HumanHandoff,
   type SessionReplacementDecision,
 } from "@agentxm/registry-access/authentication";
-import { emitResult, Screen, WaitAbandoned, type ConfirmAsk } from "./screen/index.js";
+import {
+  emitResult,
+  Screen,
+  WaitAbandoned,
+  OutputWriteFailed,
+  type ConfirmAsk,
+} from "./screen/index.js";
 import {
   authProgressLabel,
   authProgressUnitId,
@@ -53,10 +60,24 @@ const sessionReplacementAsk: ConfirmAsk<SessionReplacementDecision> = {
   ],
 };
 
+const outputFailure = (cause: OutputWriteFailed) =>
+  new RegistryAccessFailed({
+    category: "internal",
+    detail: "The authentication output could not be delivered.",
+    cause,
+  });
+
 export const AuthLoginPresenterLive = Layer.effect(
   AuthLoginPresenter,
   Effect.gen(function* () {
     const screen = yield* Screen;
+    const required = <A, E, R>(effect: Effect.Effect<A, E | OutputWriteFailed, R>) =>
+      effect.pipe(
+        Effect.catchIf(
+          (error): error is OutputWriteFailed => error instanceof OutputWriteFailed,
+          (cause) => Effect.fail(outputFailure(cause)),
+        ),
+      );
     const interaction = yield* DeviceLoginInteraction;
     return {
       withProgress: <A, E, R>(progress: AuthLoginProgress, run: () => Effect.Effect<A, E, R>) =>
@@ -66,14 +87,16 @@ export const AuthLoginPresenterLive = Layer.effect(
         ),
       tryEmitPendingDeviceLogin: (result) =>
         Effect.gen(function* () {
-          return yield* screen.document({ result }, DeviceLoginPendingDocumentSchema, {
-            suggestions: pendingDeviceSuggestions(result),
-          });
+          return yield* required(
+            screen.document({ result }, DeviceLoginPendingDocumentSchema, {
+              suggestions: pendingDeviceSuggestions(result),
+            }),
+          );
         }),
       awaitHuman: <A, E, R>(
         handoff: HumanHandoff,
         awaited: Effect.Effect<A, E, R>,
-      ): Effect.Effect<A, E | AuthInteractionAbandoned, R> =>
+      ): Effect.Effect<A, E | AuthInteractionAbandoned | RegistryAccessFailed, R> =>
         Effect.gen(function* () {
           const view = handoffWaitView(handoff);
           // The wait is the unit: its lifecycle remains paused for
@@ -90,33 +113,37 @@ export const AuthLoginPresenterLive = Layer.effect(
                 Effect.fail(new AuthInteractionAbandoned({ message: stopped.message })),
               ),
             );
-        }),
+        }).pipe(required),
       // The guidance is an aside on stderr; the outcome is the result, so a
       // pipe carries the one and a person reads both.
       notePendingApproval: (result) =>
         screen
           .instruction(pendingHandoffBrief(result))
-          .pipe(Effect.andThen(screen.result(pendingApprovalDoc(result)))),
+          .pipe(Effect.andThen(screen.result(pendingApprovalDoc(result))), required),
       emitLoginSuccess: (result) =>
         emitResult({ result }, LoginDocumentSchema, () => loginSuccessDoc(result), {
           suggestions: loginSuccessSuggestions,
-        }).pipe(Effect.provideService(Screen, screen)),
+        }).pipe(Effect.provideService(Screen, screen), required),
       presentLoopbackStart: (start) =>
         Effect.forEach(
           loopbackStartView(start),
           (entry) =>
             entry.instruction === true ? screen.instruction(entry.doc) : screen.note(entry.doc),
           { discard: true },
-        ),
+        ).pipe(required),
       noteLoopbackBrowserOutcome: (opened) => {
         const entry = loopbackBrowserOutcomeView(opened);
-        return entry.instruction === true ? screen.instruction(entry.doc) : screen.note(entry.doc);
+        return required(
+          entry.instruction === true ? screen.instruction(entry.doc) : screen.note(entry.doc),
+        );
       },
-      noteExistingSession: (handle) => screen.note(existingSessionNote(handle).doc),
-      noteRejectedStoredCredentials: screen.note(rejectedStoredCredentialsNote.doc),
+      noteExistingSession: (handle) => required(screen.note(existingSessionNote(handle).doc)),
+      noteRejectedStoredCredentials: required(screen.note(rejectedStoredCredentialsNote.doc)),
       noteDeviceCodeFallback: (reason) => {
         const entry = deviceCodeFallbackNote(reason);
-        return entry.instruction === true ? screen.instruction(entry.doc) : screen.note(entry.doc);
+        return required(
+          entry.instruction === true ? screen.instruction(entry.doc) : screen.note(entry.doc),
+        );
       },
       confirmSessionReplacement: () =>
         screen.ask(sessionReplacementAsk).pipe(
@@ -124,8 +151,11 @@ export const AuthLoginPresenterLive = Layer.effect(
             Effect.fail(new AuthInteractionAbandoned({ message: cancelled.message })),
           ),
           Effect.catchTag("AppError", (error) =>
-            Effect.fail(new AuthInteractionAbandoned({ message: error.detail })),
+            Effect.fail(
+              new RegistryAccessFailed({ category: "usage", detail: error.detail, cause: error }),
+            ),
           ),
+          required,
         ),
     } satisfies AuthLoginPresenterService;
   }),

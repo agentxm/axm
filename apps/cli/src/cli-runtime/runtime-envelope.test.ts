@@ -4,6 +4,8 @@ import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import { ConfigError } from "effect/Config";
+import { SourceError } from "effect/ConfigProvider";
 import { SkillSelectionCancelled } from "@agentxm/workspace/skills/lifecycle/application";
 import { SubagentSelectionCancelled } from "@agentxm/workspace/subagents/lifecycle/application";
 
@@ -11,13 +13,14 @@ import * as Schema from "effect/Schema";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { Screen } from "../screen/index.js";
+import { Screen, OutputStreams, ScreenLoggerLive, QuestionCancelled } from "../screen/index.js";
 import { Verbosity } from "../cli-flags/index.js";
 import { verboseFlag, debugFlag, quietFlag, jsonFlag } from "../cli-flags/index.js";
 import { nonInteractiveFlag } from "../cli-flags/index.js";
 import { ExitCode, makeAppError } from "../app-error/index.js";
 import * as Data from "effect/Data";
-import { isEffectCliExit } from "./effect-cli-exit.js";
+import { commandExit, isCommandExit } from "./command-exit.js";
+import { captureTelemetry } from "../test-support/telemetry-harness.js";
 import {
   exitCodeForSemanticProperties,
   makeFoundationLayer,
@@ -188,12 +191,20 @@ describe("writeDefect", () => {
       .spyOn(process.stdout, "write")
       .mockImplementation((...args: Array<unknown>) => {
         stdoutWrites.push(String(args[0]));
+        const callback = args.find(
+          (arg): arg is (error?: Error | null) => void => typeof arg === "function",
+        );
+        callback?.();
         return true;
       });
     stderrWriteSpy = vi
       .spyOn(process.stderr, "write")
       .mockImplementation((...args: Array<unknown>) => {
         stderrWrites.push(String(args[0]));
+        const callback = args.find(
+          (arg): arg is (error?: Error | null) => void => typeof arg === "function",
+        );
+        callback?.();
         return true;
       });
   });
@@ -282,12 +293,20 @@ describe("writeExpectedCliError", () => {
       .spyOn(process.stdout, "write")
       .mockImplementation((...args: Array<unknown>) => {
         stdoutWrites.push(String(args[0]));
+        const callback = args.find(
+          (arg): arg is (error?: Error | null) => void => typeof arg === "function",
+        );
+        callback?.();
         return true;
       });
     stderrWriteSpy = vi
       .spyOn(process.stderr, "write")
       .mockImplementation((...args: Array<unknown>) => {
         stderrWrites.push(String(args[0]));
+        const callback = args.find(
+          (arg): arg is (error?: Error | null) => void => typeof arg === "function",
+        );
+        callback?.();
         return true;
       });
   });
@@ -405,12 +424,20 @@ describe("withCliErrorHandling cancellation", () => {
       .spyOn(process.stdout, "write")
       .mockImplementation((...args: Array<unknown>) => {
         stdoutWrites.push(String(args[0]));
+        const callback = args.find(
+          (arg): arg is (error?: Error | null) => void => typeof arg === "function",
+        );
+        callback?.();
         return true;
       });
     stderrWriteSpy = vi
       .spyOn(process.stderr, "write")
       .mockImplementation((...args: Array<unknown>) => {
         stderrWrites.push(String(args[0]));
+        const callback = args.find(
+          (arg): arg is (error?: Error | null) => void => typeof arg === "function",
+        );
+        callback?.();
         return true;
       });
   });
@@ -428,6 +455,184 @@ describe("withCliErrorHandling cancellation", () => {
       ),
     ),
   );
+
+  for (const outcome of [
+    { failure: commandExit(0), result: "success", exitCode: 0 },
+    { failure: commandExit(2), result: "error", exitCode: 2 },
+    {
+      failure: new QuestionCancelled({ message: "Operation cancelled." }),
+      result: "cancelled",
+      exitCode: 0,
+    },
+    {
+      failure: new ConfigError(new SourceError({ message: "Configuration source unavailable" })),
+      result: "error",
+      exitCode: ExitCode.Unavailable,
+    },
+  ]) {
+    it.effect(
+      `records ${outcome.failure._tag} (${outcome.exitCode}) as ${outcome.result}, never a defect`,
+      () =>
+        Effect.gen(function* () {
+          const capture = captureTelemetry();
+          const exit = yield* withCliErrorHandling(Effect.fail(outcome.failure), {
+            command: "test",
+            format: "text",
+            telemetryConfig: {
+              mode: "all",
+              client: { name: "cli", version: "1.2.3" },
+              deliverInTest: true,
+              installationId: "00000000-0000-4000-8000-000000000001",
+              eventIdFactory: () => "00000000-0000-4000-8000-000000000002",
+            },
+          }).pipe(Effect.provideService(HttpClient.HttpClient, capture.client), Effect.exit);
+          expect(Exit.isFailure(exit)).toBe(true);
+          if (Exit.isFailure(exit)) {
+            expect(Cause.hasDies(exit.cause)).toBe(false);
+            expect(Option.getOrUndefined(Cause.findErrorOption(exit.cause))).toMatchObject({
+              _tag: "CommandExit",
+              exitCode: outcome.exitCode,
+            });
+          }
+          expect(capture.requests.map((request) => request.body)).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({
+                events: expect.arrayContaining([
+                  expect.objectContaining({
+                    event: "command_completed",
+                    properties: expect.objectContaining({ "cli.result": outcome.result }),
+                  }),
+                ]),
+              }),
+            ]),
+          );
+        }).pipe(
+          Effect.provide(
+            Layer.mergeAll(
+              globalFlagLayer,
+              testLayer("text"),
+              Layer.succeed(jsonFlag, Option.none()),
+              NodeServices.layer,
+            ),
+          ),
+        ),
+    );
+  }
+
+  it.effect("retains an owned delivery failure after its diagnostic reaches stderr", () =>
+    Effect.gen(function* () {
+      stdoutWriteSpy.mockImplementation((...args: Array<unknown>) => {
+        stdoutWrites.push(String(args[0]));
+        const callback = args.find(
+          (arg): arg is (error?: Error | null) => void => typeof arg === "function",
+        );
+        callback?.(Object.assign(new Error("private credential detail"), { code: "EPIPE" }));
+        return true;
+      });
+      const program = Effect.gen(function* () {
+        const streams = yield* OutputStreams;
+        yield* streams.credential("credential\n").pipe(
+          Effect.mapError((cause) =>
+            makeAppError({
+              code: "unavailable",
+              detail: "The created token could not be delivered and was revoked.",
+              cause,
+            }),
+          ),
+        );
+      });
+      const exit = yield* withCliErrorHandling(program, {
+        command: "token create",
+        format: "text",
+        telemetryConfig: { mode: "off", client: { name: "cli", version: "0.0.0" } },
+      }).pipe(Effect.exit);
+      expect(Exit.isFailure(exit)).toBe(true);
+      if (Exit.isFailure(exit)) {
+        expect(Cause.hasDies(exit.cause)).toBe(false);
+        expect(Option.getOrUndefined(Cause.findErrorOption(exit.cause))).toMatchObject({
+          _tag: "CommandExit",
+          exitCode: ExitCode.Unavailable,
+        });
+      }
+      expect(stdoutWrites).toEqual(["credential\n"]);
+      expect(stderrWrites.join("")).toContain("was revoked");
+      expect(stderrWrites.join("")).not.toContain("private credential detail");
+    }).pipe(
+      Effect.provide(
+        Layer.mergeAll(
+          globalFlagLayer,
+          Layer.provideMerge(ScreenLoggerLive("normal"), testLayer("text")),
+          Layer.succeed(jsonFlag, Option.none()),
+          Layer.succeed(HttpClient.HttpClient, stubHttpClient),
+          NodeServices.layer,
+        ),
+      ),
+    ),
+  );
+
+  for (const output of ["result", "observation", "expected-error", "diagnostic"] as const) {
+    it.effect(`fails ${output} delivery without recursively writing to a broken channel`, () =>
+      Effect.gen(function* () {
+        stderrWriteSpy.mockImplementation((...args: Array<unknown>) => {
+          stderrWrites.push(String(args[0]));
+          const callback = args.find(
+            (arg): arg is (error?: Error | null) => void => typeof arg === "function",
+          );
+          callback?.(Object.assign(new Error("sensitive stream detail"), { code: "EPIPE" }));
+          return true;
+        });
+        stdoutWriteSpy.mockImplementation((...args: Array<unknown>) => {
+          stdoutWrites.push(String(args[0]));
+          const callback = args.find(
+            (arg): arg is (error?: Error | null) => void => typeof arg === "function",
+          );
+          callback?.(Object.assign(new Error("sensitive stream detail"), { code: "EPIPE" }));
+          return true;
+        });
+        const program =
+          output === "expected-error"
+            ? Effect.fail(makeAppError({ code: "conflict", detail: "Cannot apply this change" }))
+            : Effect.gen(function* () {
+                if (output === "result") {
+                  const screen = yield* Screen;
+                  yield* screen.result([{ _tag: "raw", content: "required result\n" }]);
+                } else if (output === "diagnostic") {
+                  yield* Effect.logWarning("queued diagnostic");
+                } else {
+                  const streams = yield* OutputStreams;
+                  // Observation-only callers retain output failure for Screen.settle.
+                  yield* streams.stderr("progress\n").pipe(Effect.ignore);
+                  yield* streams.stderr("next progress\n").pipe(Effect.ignore);
+                }
+              });
+        const exit = yield* withCliErrorHandling(program, {
+          command: "test",
+          format: "text",
+          telemetryConfig: { mode: "off", client: { name: "cli", version: "0.0.0" } },
+        }).pipe(Effect.exit);
+        expect(Exit.isFailure(exit)).toBe(true);
+        if (Exit.isFailure(exit)) {
+          expect(Cause.hasDies(exit.cause)).toBe(false);
+          expect(Option.getOrUndefined(Cause.findErrorOption(exit.cause))).toMatchObject({
+            _tag: "CommandExit",
+            exitCode: ExitCode.Internal,
+          });
+        }
+        expect(stdoutWrites.length + stderrWrites.length).toBe(1);
+        expect(stdoutWrites.concat(stderrWrites).join("")).not.toContain("sensitive stream detail");
+      }).pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            globalFlagLayer,
+            Layer.provideMerge(ScreenLoggerLive("normal"), testLayer("text")),
+            Layer.succeed(jsonFlag, Option.none()),
+            Layer.succeed(HttpClient.HttpClient, stubHttpClient),
+            NodeServices.layer,
+          ),
+        ),
+      ),
+    );
+  }
 
   for (const Cancellation of [
     WorkspaceInitializationCancelled,
@@ -447,9 +652,10 @@ describe("withCliErrorHandling cancellation", () => {
 
         expect(Exit.isFailure(exit)).toBe(true);
         if (Exit.isFailure(exit)) {
-          const defect = Cause.squash(exit.cause);
-          expect(isEffectCliExit(defect)).toBe(true);
-          if (isEffectCliExit(defect)) {
+          expect(Cause.hasDies(exit.cause)).toBe(false);
+          const defect = Option.getOrUndefined(Cause.findErrorOption(exit.cause));
+          expect(isCommandExit(defect)).toBe(true);
+          if (isCommandExit(defect)) {
             expect(defect.exitCode).toBe(ExitCode.Success);
           }
         }

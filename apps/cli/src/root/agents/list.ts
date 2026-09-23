@@ -13,7 +13,7 @@ import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command
 import { lifecycleCell } from "./lifecycle-cell.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { SET_UP_AXM_WORKSPACE } from "../suggested-actions.js";
-import { configurationFailureToAppError } from "../../feature-errors.js";
+import { failureToAppError } from "../../app-error/conversions.js";
 
 export interface AgentsListArgs {
   readonly detected: boolean;
@@ -48,7 +48,7 @@ export const handleAgentsList = Effect.fn("Agents.list")(function* (args: Agents
     ConfigureAgents.list({
       detected: args.detected,
       available: args.available,
-    }).pipe(Effect.mapError(configurationFailureToAppError)),
+    }).pipe(Effect.mapError(failureToAppError)),
   );
 
   const suggestions = inventory.items.length === 0 ? [SET_UP_AXM_WORKSPACE] : [];

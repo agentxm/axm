@@ -20,7 +20,7 @@ import {
   isCatalogAgentId,
   validateAgentIds,
 } from "@agentxm/workspace/configuration";
-import { configurationFailureToAppError } from "../../feature-errors.js";
+import { failureToAppError } from "../../app-error/conversions.js";
 
 const NONE = "-";
 
@@ -86,7 +86,7 @@ export const handleAgentsCapabilities = Effect.fn("Agents.capabilities")(functio
 ) {
   // Reuses the shared validator for its "did you mean" suggestions; the guard
   // below is what narrows the id for the catalog lookup.
-  yield* validateAgentIds([agentId]).pipe(Effect.mapError(configurationFailureToAppError));
+  yield* validateAgentIds([agentId]).pipe(Effect.mapError(failureToAppError));
   if (!isCatalogAgentId(agentId)) {
     return yield* makeAppError({
       code: "validation",

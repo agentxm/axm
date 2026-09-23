@@ -105,6 +105,20 @@ People and agents can understand invalid workspace state and recover it through 
 - Additional evidence: process via [`apps/cli-e2e/src/diagnostic-controls-select-the-requested-detail.e2e.test.ts`](../apps/cli-e2e/src/diagnostic-controls-select-the-requested-detail.e2e.test.ts) — Only a real process shows the selected detail reaching rendered stderr: the built CLI parses the global flags itself, reads the environment it was given, and renders cause and stack through the production error screen.
 - Source: [`apps/cli/src/cli-flags/diagnostic-controls-select-the-requested-detail.spec.ts`](../apps/cli/src/cli-flags/diagnostic-controls-select-the-requested-detail.spec.ts)
 
+##### A failure reads the same whether a command or a plan step reports it
+
+- Requirement: `cli/failures-render-identically-on-direct-and-plan-paths`
+- Owner: `cli`
+- Statement: A typed failure shall render with the same category, title, detail, structured problem, recorded evidence, and recoveries, including each recovery's command and the scope that command runs in, whether it surfaces directly at the command boundary or settles a plan step.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Derived from: `apps/cli/src/app-error/conversions.test.ts`, `apps/cli/src/app-error/conversions/extension-materialization.test.ts`
+- Limitation: A selection the terminal could not obtain renders the terminal interaction's own guidance when that interaction supplied it; selection happens before any plan exists, so no plan step carries it. Retires when: Bind a plan-step example here if extension selection ever runs inside a plan.
+- Source: [`apps/cli/src/failures-render-identically-on-direct-and-plan-paths.spec.ts`](../apps/cli/src/failures-render-identically-on-direct-and-plan-paths.spec.ts)
+
 ##### Help lists the available topics and how to read them
 
 - Requirement: `cli/help/lists-available-topics`
@@ -3461,7 +3475,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/invalid-workspace-state-gates-operations`
 - Owner: `workspace`
-- Statement: When a present project or user settings file, or a present workspace lockfile in the selected scope, is malformed, schema-invalid, unreadable, or of an unsupported version, operations that read or change workspace state, including diagnosis and preview, shall stop before workspace work begins with a validation error naming the file, the observed fault, and a non-destructive recovery route, and shall change no workspace state.
+- Statement: When a present project or user settings file, or a present workspace lockfile in the selected scope, is malformed, schema-invalid, unreadable, or of an unsupported version, operations that read or change workspace state, including diagnosis and preview, shall stop before workspace work begins with an error naming the file, the observed fault, and a non-destructive recovery route, classified as a validation error when the content is wrong or of an unsupported version and as an unavailable error when the file cannot be read, and shall change no workspace state.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`, `machine-automation`

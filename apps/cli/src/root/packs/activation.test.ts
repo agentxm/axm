@@ -34,7 +34,7 @@ import {
 } from "../../test-support/test-helpers.js";
 import { handlePackActivation } from "./activation.js";
 import { buildAggregateProjectionStep } from "@agentxm/workspace/lifecycle";
-import { LifecycleStepFailureConversionLive } from "../../feature-errors.js";
+import { LifecycleFailureConversionLive } from "@agentxm/workspace/lifecycle";
 
 const initializePack = (root: string) => {
   const axmDir = path.join(root, ".axm");
@@ -141,7 +141,7 @@ describe("packs activation", () => {
       context.fullLayer,
       sourceProvidersLayer,
       CodingAgentRepositoryLive,
-      LifecycleStepFailureConversionLive,
+      LifecycleFailureConversionLive,
     );
     const managersLayer = Layer.provide(
       Layer.mergeAll(
@@ -173,7 +173,7 @@ describe("packs activation", () => {
           context.fullLayer,
           sourceProvidersLayer,
           CodingAgentRepositoryLive,
-          LifecycleStepFailureConversionLive,
+          LifecycleFailureConversionLive,
           managersLayer,
           packManagerLayer,
           projectionLayer,

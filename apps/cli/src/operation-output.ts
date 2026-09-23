@@ -31,6 +31,7 @@ import {
   PackMembershipDeltaSchema,
   AtomicityClassSchema,
   BlockingClassSchema,
+  FailureProblemSchema,
   OperationOutcomeSchema,
   OperationPhaseSchema,
   OperationPreconditionSchema,
@@ -220,6 +221,7 @@ const ErrorCauseSchema = Schema.Struct({
 const OperationFailureSchema = Schema.Struct({
   code: AppErrorCodeSchema,
   message: Schema.String,
+  problem: Schema.optional(FailureProblemSchema),
   causes: Schema.optional(Schema.Array(ErrorCauseSchema)),
 }).annotate({
   identifier: "OperationFailure",
@@ -602,6 +604,7 @@ const unitForJson = (unit: ResolvedUnit<unknown>, options: PlanResolutionResultO
           error: {
             code: unit.error.category,
             message: redactSensitiveText(unit.error.detail),
+            ...(unit.error.problem === undefined ? {} : { problem: unit.error.problem }),
             ...(causes.length > 0 ? { causes } : {}),
           },
         }
@@ -657,6 +660,9 @@ export const toPlanResolutionResult = (
           failure: {
             code: resolution.failure.category,
             message: redactSensitiveText(resolution.failure.detail),
+            ...(resolution.failure.problem === undefined
+              ? {}
+              : { problem: resolution.failure.problem }),
             ...(options.verbose === true || options.debug === true
               ? {
                   causes: serializeErrorCauseChain(resolution.failure.cause, {

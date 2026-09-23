@@ -5,7 +5,7 @@ import { AdoptExtension, adoptExtensionPlanName } from "@agentxm/workspace/autho
 
 import { isNonInteractiveOptional } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
-import { authoringFailureToAppError } from "../../feature-errors.js";
+import { failureToAppError } from "../../app-error/conversions.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
@@ -34,7 +34,7 @@ export const handleAdopt = (args: AdoptHandlerArgs) =>
 const handleAdoptBody = Effect.fn("Adopt.handle")(function* (args: AdoptHandlerArgs) {
   const nonInteractive = yield* isNonInteractiveOptional;
   const candidate = yield* AdoptExtension.prepare({ fqn: args.fqn, nonInteractive }).pipe(
-    Effect.mapError(authoringFailureToAppError),
+    Effect.mapError(failureToAppError),
   );
   const execution = yield* makePublicPositionalPlanExecution(
     { preview: args.preview },
@@ -42,7 +42,7 @@ const handleAdoptBody = Effect.fn("Adopt.handle")(function* (args: AdoptHandlerA
     [args.fqn],
   );
   const resolution = yield* AdoptExtension.previewOrApply(candidate, execution).pipe(
-    Effect.mapError(authoringFailureToAppError),
+    Effect.mapError(failureToAppError),
   );
   yield* emitOperationResolution("adopt", resolution);
 });

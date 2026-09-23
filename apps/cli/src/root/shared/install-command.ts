@@ -29,7 +29,7 @@ import {
   type SubjectType,
 } from "../../cli-runtime/index.js";
 import { Verbosity } from "../../cli-flags/index.js";
-import { lifecycleFailureToAppError } from "../../feature-errors.js";
+import { failureToAppError } from "../../app-error/conversions.js";
 import {
   emitOperationResolution,
   operationResolutionSummary,
@@ -84,7 +84,7 @@ const showDiagnostics = (candidate: InstallExtensionsCandidate) =>
 const body = (args: InstallCommandArgs) =>
   Effect.gen(function* () {
     const candidate = yield* InstallExtensions.prepare(args.request).pipe(
-      Effect.mapError(lifecycleFailureToAppError),
+      Effect.mapError(failureToAppError),
     );
     yield* showDiagnostics(candidate);
 
@@ -107,7 +107,7 @@ const body = (args: InstallCommandArgs) =>
       args.recoveryArguments ?? [],
     );
     const resolution = yield* InstallExtensions.previewOrApply(candidate, execution).pipe(
-      Effect.mapError(lifecycleFailureToAppError),
+      Effect.mapError(failureToAppError),
     );
 
     // A locator install can settle several types at once; only a single-type

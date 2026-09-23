@@ -11,7 +11,7 @@ import * as Effect from "effect/Effect";
 import { SetActivation, type SetActivationRequest } from "@agentxm/workspace/lifecycle";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
-import { lifecycleFailureToAppError } from "../feature-errors.js";
+import { failureToAppError } from "../app-error/conversions.js";
 import { emitOperationResolution } from "../operation-output.js";
 import { makePublicPositionalPlanExecution } from "./shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "./shared/no-op-output.js";
@@ -52,7 +52,7 @@ const handleSetActivationBody = Effect.fn("SetActivation.handle")(function* (
     type: args.type,
     name: args.name,
     enabled: args.enabled,
-  }).pipe(Effect.mapError(lifecycleFailureToAppError));
+  }).pipe(Effect.mapError(failureToAppError));
 
   if (candidate._tag === "Unchanged") {
     yield* emitNoOpOutcome(presentation.command, {
@@ -67,7 +67,7 @@ const handleSetActivationBody = Effect.fn("SetActivation.handle")(function* (
     candidate.name,
   ]);
   const resolution = yield* SetActivation.previewOrApply(candidate, execution).pipe(
-    Effect.mapError(lifecycleFailureToAppError),
+    Effect.mapError(failureToAppError),
   );
   yield* emitOperationResolution(presentation.command, resolution, {
     suggestions: presentation.suggestions,

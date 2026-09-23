@@ -28,7 +28,7 @@ import {
   type OperationRecoveryContext,
 } from "../../operation-output.js";
 import { INSPECT_INSTALLED } from "../suggested-actions.js";
-import { extensionLifecycleFailedToAppError } from "../../feature-errors.js";
+import { toAppError } from "../../app-error/conversions.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
@@ -157,9 +157,7 @@ export const handleWorkspaceUpdate = (args: WorkspaceUpdateHandlerArgs) =>
       ),
     },
     handleWorkspaceUpdateBody(args).pipe(
-      Effect.catchTag("ExtensionLifecycleFailed", (failure) =>
-        Effect.fail(extensionLifecycleFailedToAppError(failure)),
-      ),
+      Effect.catchTag("ExtensionLifecycleFailed", (failure) => Effect.fail(toAppError(failure))),
     ),
   );
 

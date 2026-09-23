@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect";
 import { PromoteAuthoredPack } from "@agentxm/workspace/lifecycle";
 
 import { emitOperationResolution } from "../../../operation-output.js";
-import { extensionLifecycleFailedToAppError } from "../../../feature-errors.js";
+import { toAppError } from "../../../app-error/conversions.js";
 import { makePublicPositionalPlanExecution } from "../../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../../../operation-lifecycle.js";
 
@@ -24,9 +24,7 @@ export const handleUnpack = (args: UnpackHandlerArgs) =>
       planName: "Unpack pack",
     },
     handleUnpackBody(args).pipe(
-      Effect.catchTag("ExtensionLifecycleFailed", (failure) =>
-        Effect.fail(extensionLifecycleFailedToAppError(failure)),
-      ),
+      Effect.catchTag("ExtensionLifecycleFailed", (failure) => Effect.fail(toAppError(failure))),
     ),
   );
 

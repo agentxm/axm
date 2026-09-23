@@ -6,14 +6,14 @@ import * as Path from "effect/Path";
 import { CodingAgentRepository } from "@agentxm/workspace/projection";
 import {
   reconcileAgentOutputs,
+  workspaceFailureToStepFailure,
   type ReconcileAgentOutputsResult,
 } from "@agentxm/workspace/reconciliation";
 import {
   ConfigureAgents,
   type DepartingAgentReconciliation,
 } from "@agentxm/workspace/configuration";
-import { configurationFailureToAppError, syncFailureToAppError } from "../../feature-errors.js";
-import { syncStepFailureAdapter } from "../../feature-errors.js";
+import { failureToAppError, toAppError } from "../../app-error/conversions.js";
 import { acceptWarningsFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { count } from "../../screen/index.js";
@@ -92,7 +92,7 @@ const cleanupStep = (args: {
   readiness: "ready",
   artifact: cleanupArtifact(args.scope, args.agentIds, args.baseDir, args.path, args.preview),
   run: reconcileAgentOutputs(args.reconciliation).pipe(
-    Effect.mapError(syncStepFailureAdapter.toStepFailure),
+    Effect.mapError(workspaceFailureToStepFailure),
     Effect.map(
       (result) =>
         ({
@@ -119,7 +119,7 @@ const handleAgentsRemoveBody = Effect.fn("Agents.remove")(function* (args: Agent
   const path = yield* Path.Path;
   const candidate = yield* ConfigureAgents.remove
     .prepare({ ids: args.ids })
-    .pipe(Effect.mapError(configurationFailureToAppError));
+    .pipe(Effect.mapError(failureToAppError));
 
   if (candidate._tag === "Unchanged") {
     yield* emitNoOpOutcome("agents.remove", {
@@ -133,7 +133,7 @@ const handleAgentsRemoveBody = Effect.fn("Agents.remove")(function* (args: Agent
   const cleanupPreview = yield* reconcileAgentOutputs({
     ...candidate.reconciliation,
     dryRun: true,
-  }).pipe(Effect.mapError(syncFailureToAppError));
+  }).pipe(Effect.mapError(toAppError));
 
   const execution = yield* makePublicPositionalPlanExecution(
     args,
@@ -154,7 +154,7 @@ const handleAgentsRemoveBody = Effect.fn("Agents.remove")(function* (args: Agent
         }),
       ],
     })
-    .pipe(Effect.mapError(configurationFailureToAppError));
+    .pipe(Effect.mapError(failureToAppError));
 
   yield* emitOperationResolution("agents.remove", resolution, {
     suggestions: [{ description: "Inspect configured agents", cmd: "axm agents list" }],

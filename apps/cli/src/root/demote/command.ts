@@ -11,7 +11,7 @@ import {
 import { ignoreReleaseAgeFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { emitOperationResolution } from "../../operation-output.js";
-import { extensionLifecycleFailedToAppError } from "../../feature-errors.js";
+import { toAppError } from "../../app-error/conversions.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
 import {
   preapprovalCapabilityFlag,
@@ -53,9 +53,7 @@ export const handleDemote = (args: DemoteHandlerArgs) =>
       planName: "Demote workspace extension",
     },
     handleDemoteBody(args).pipe(
-      Effect.catchTag("ExtensionLifecycleFailed", (failure) =>
-        Effect.fail(extensionLifecycleFailedToAppError(failure)),
-      ),
+      Effect.catchTag("ExtensionLifecycleFailed", (failure) => Effect.fail(toAppError(failure))),
     ),
   );
 

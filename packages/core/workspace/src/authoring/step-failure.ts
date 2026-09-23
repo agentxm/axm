@@ -1,52 +1,47 @@
-import {
-  LifecyclePostconditionViolated,
-  ScaffoldedExtensionUnresolved,
-} from "../transitions/planning/index.js";
 /**
- * How an authoring closure serializes a failure into the plan-step vocabulary.
+ * The rendering of the extension-authoring failure family — scaffolding,
+ * fork and native import, owner policy, and Pack membership edits — and how
+ * an authoring closure serializes any failure into the plan-step vocabulary.
  *
- * The feature owns this: an authoring step that failed must report the same
- * category, sentence, and recovery whether the failure came from authoring's
- * own policy, from the canonical-materialization machinery underneath it, or
- * from the workspace transaction around it. Nothing is supplied by the
- * application, so no authoring operation carries a failure adapter in its
- * requirements.
- *
- * Categories and detail sentences are the serialized contract of machine
- * output; they are reproduced here verbatim from the families that construct
- * them.
+ * The authoring family renders here once. Every other family an authoring
+ * step can surface renders through the workspace failure rendering, so an
+ * authoring step reports the same category, sentence, and recovery a command
+ * boundary would print for the same failure.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
-import {
-  OPERATION_ERROR_CATEGORIES,
-  StepFailure,
-  restorationIncompleteToStepFailure,
-  workspaceStateReadFailureToStepFailure,
-  workspaceTransactionFailureToStepFailure,
-  type OperationErrorCategory,
-} from "../transitions/planning/index.js";
-import {
-  ArchiveIntegrityMismatch,
-  CanonicalPackageProbeFailed,
-  CreateDestinationExists,
-  NativeMcpEntryRetirementFailed,
-  PackageCopyFailed,
-  PackageMaterializationFailed,
-  StagedPackageInvalid,
-  type ExtensionManagerFailure,
-} from "../materialization/index.js";
-import {
-  WorkspaceRestorationIncomplete,
-  type WorkspaceTransactionFailure,
-} from "../transitions/settlement/index.js";
+import type { ScaffoldedExtensionUnresolved } from "../transitions/planning/materialization-errors.js";
+import { makeStepFailure, type StepFailure } from "../transitions/planning/plan/errors.js";
+import type { ExtensionManagerFailure } from "../materialization/errors.js";
+import type { NativeMcpEntryRetirementFailed } from "../mcp-connections/native-entry.js";
+import type {
+  PackGraphInvalid,
+  PackManifestUnavailable,
+  PackMemberAmbiguous,
+  PackMemberNotDeclared,
+  PackMemberNotFound,
+  PackMemberUnmanaged,
+  PackNotAuthored,
+  PackNotConfigured,
+  PackOwnerUnconfigured,
+  PackSelectorAmbiguous,
+  PackSelectorNotAPack,
+  PackSourceMissing,
+} from "../packs/authoring/membership-errors.js";
+import { workspaceFailureToStepFailure } from "../reconciliation/failure-rendering.js";
 
-import { AuthoringFailed } from "./errors.js";
-import {
+import type { AuthoringFailed } from "./errors.js";
+import type {
+  AuthoringOwnerMismatch,
+  AuthoringOwnerRequired,
+  AuthoringScopeUnsupported,
+  ScaffoldNameInvalid,
+} from "./create/errors.js";
+import type {
+  AuthoredPackageError,
   CreateDestinationInspectionFailed,
   CreateNameConfigured,
-  type AuthoredPackageError,
   ForkPackageConflict,
   ForkPackageFailed,
   ForkPackageInvalid,
@@ -55,6 +50,242 @@ import {
   NativeImportInvalid,
   NativeImportUnsupported,
 } from "./authored-package-errors.js";
+
+/** Every failure the authoring feature and Pack membership edits construct. */
+export type AuthoringFamilyFailure =
+  | AuthoringFailed
+  | CreateNameConfigured
+  | CreateDestinationInspectionFailed
+  | ForkPackageInvalid
+  | ForkPackageConflict
+  | ForkPackageFailed
+  | NativeImportUnsupported
+  | NativeImportInvalid
+  | NativeImportConflict
+  | NativeImportFailed
+  | AuthoringOwnerRequired
+  | AuthoringOwnerMismatch
+  | ScaffoldNameInvalid
+  | AuthoringScopeUnsupported
+  | PackSelectorNotAPack
+  | PackNotConfigured
+  | PackSelectorAmbiguous
+  | PackSourceMissing
+  | PackNotAuthored
+  | PackOwnerUnconfigured
+  | PackManifestUnavailable
+  | PackGraphInvalid
+  | PackMemberAmbiguous
+  | PackMemberUnmanaged
+  | PackMemberNotFound
+  | PackMemberNotDeclared;
+
+const authoringOwnerRequiredFailure = (error: AuthoringOwnerRequired): StepFailure => {
+  const [candidate] = error.candidates;
+  return makeStepFailure({
+    category: "validation",
+    detail: `No owner configured for ${error.subject} creation`,
+    suggestions: [
+      candidate === undefined
+        ? {
+            description: `Name the owner to create under; it becomes the workspace owner in \`${error.settingsPath}\`.`,
+            cmd: `axm ${error.command} ${error.name} --owner @handle`,
+          }
+        : {
+            description: `Create under ${error.candidates.join(" or ")}, recording it as the workspace owner in \`${error.settingsPath}\`.`,
+            cmd: `axm ${error.command} ${error.name} --owner ${candidate}`,
+          },
+    ],
+  });
+};
+
+const packManifestUnavailableFailure = (error: PackManifestUnavailable): StepFailure => {
+  switch (error.reason) {
+    case "unreadable":
+      return makeStepFailure({
+        category: "not_found",
+        detail: `Pack manifest not found at ${error.path}`,
+        suggestions: [{ description: "Ensure the pack exists on disk" }],
+        cause: error.cause,
+      });
+    case "unparsable":
+      return makeStepFailure({
+        category: "validation",
+        detail: `Failed to parse pack manifest: ${error.path}`,
+        cause: error.cause,
+      });
+    case "invalid":
+      return makeStepFailure({
+        category: "validation",
+        detail: `Invalid pack manifest: ${error.path}`,
+        cause: error.cause,
+      });
+  }
+};
+
+/** Translate one authoring or Pack membership failure. */
+export const authoringFailureToStepFailure = (error: AuthoringFamilyFailure): StepFailure => {
+  switch (error._tag) {
+    case "AuthoringFailed":
+      return makeStepFailure({
+        category: error.category,
+        detail: error.detail,
+        recover: error.recover,
+        suggestions: error.suggestions,
+        cause: error.cause,
+      });
+    case "CreateNameConfigured":
+      return makeStepFailure({
+        category: "conflict",
+        detail: `${error.subject} '${error.name}' already exists in settings`,
+        recover: `Choose a different name or remove the existing ${error.subject.toLowerCase()} first`,
+      });
+    case "CreateDestinationInspectionFailed":
+      return makeStepFailure({
+        category: "internal",
+        detail: `Failed to inspect create destination: ${error.path}`,
+        cause: error.cause,
+      });
+    case "ForkPackageInvalid":
+    case "NativeImportInvalid":
+      return makeStepFailure({ category: "validation", detail: error.detail, cause: error.cause });
+    case "ForkPackageConflict":
+      return makeStepFailure({ category: "conflict", detail: error.detail });
+    case "ForkPackageFailed":
+    case "NativeImportFailed":
+      return makeStepFailure({ category: "internal", detail: error.detail, cause: error.cause });
+    case "NativeImportUnsupported":
+      return makeStepFailure({
+        category: "usage",
+        detail: `Native package import is not supported for ${error.type}`,
+      });
+    case "NativeImportConflict":
+      return makeStepFailure({
+        category: "conflict",
+        detail: `Import target already exists: ${error.targetDir}`,
+      });
+    case "AuthoringOwnerRequired":
+      return authoringOwnerRequiredFailure(error);
+    case "AuthoringOwnerMismatch":
+      return makeStepFailure({
+        category: "conflict",
+        detail: `Package owner ${error.requested} does not match workspace owner ${error.configured}`,
+      });
+    case "ScaffoldNameInvalid":
+      return makeStepFailure({
+        category: "validation",
+        title: `Invalid ${error.subject} name`,
+        detail: `Invalid ${error.subject} name: "${error.name}"`,
+        inputs: [{ label: "Name", value: `"${error.name}"` }],
+        recover: `Choose a name matching /${error.pattern}/ (max ${error.maxLength} chars)`,
+      });
+    case "AuthoringScopeUnsupported":
+      return makeStepFailure({
+        category: "validation",
+        detail: `New ${error.subject}s can only be scaffolded in a project workspace`,
+      });
+    case "PackSelectorNotAPack":
+      return makeStepFailure({
+        category: "validation",
+        detail: `Pack selector '${error.selector}' does not identify a pack`,
+      });
+    case "PackNotConfigured":
+      return makeStepFailure({
+        category: "not_found",
+        detail: `Pack '${error.selector}' not found; it is not configured in this workspace`,
+      });
+    case "PackSelectorAmbiguous":
+      return makeStepFailure({
+        category: "conflict",
+        detail: `Pack selector '${error.selector}' matches multiple configured packs`,
+        suggestions: error.configuredNames.map((name) => ({
+          description: `Use configured pack name ${name}`,
+        })),
+      });
+    case "PackSourceMissing":
+      return makeStepFailure({
+        category: "validation",
+        detail: `Pack "${error.pack}" has no source.`,
+      });
+    case "PackNotAuthored":
+      return makeStepFailure({
+        category: "conflict",
+        detail: `Cannot edit non-workspace pack "${error.pack}"`,
+        recover: "Adopt or copy the pack into workspace authorship before editing its manifest.",
+      });
+    case "PackOwnerUnconfigured":
+      return makeStepFailure({
+        category: "validation",
+        detail: `Pack "${error.pack}" has a workspace source and no workspace owner is configured`,
+        suggestions: [
+          {
+            description: `Set \`owner\` in \`${error.settingsPath}\` before modifying this pack.`,
+            cmd: "axm setup",
+          },
+        ],
+      });
+    case "PackManifestUnavailable":
+      return packManifestUnavailableFailure(error);
+    case "PackGraphInvalid":
+      return makeStepFailure({
+        category: "conflict",
+        detail: `Cannot add dependencies while pack ${error.packFqn} is invalid.`,
+        recover: "Inspect the pack drift, then explicitly accept or restore the current content.",
+        suggestions: [
+          {
+            description: "Preview workspace reconciliation",
+            cmd: `axm sync ${error.packFqn} --preview`,
+          },
+        ],
+      });
+    case "PackMemberAmbiguous":
+      return makeStepFailure({
+        category: "validation",
+        detail: `Extension '${error.selector}' is installed as ${[
+          ...new Set(error.matches.map((match) => match.type)),
+        ].join(", ")}`,
+        recover: "Pass the fully qualified name to choose one.",
+        suggestions: error.matches.map((match) => ({
+          description: `Add the ${match.type}`,
+          cmd: `axm packs add ${error.pack} ${match.fqn}`,
+        })),
+      });
+    case "PackMemberUnmanaged":
+      return makeStepFailure({
+        category: "validation",
+        detail: `Extension '${error.selector}' is not a managed, versioned extension`,
+        suggestions: [
+          { description: "Only managed registry or workspace extensions can be added to packs" },
+        ],
+      });
+    case "PackMemberNotFound":
+      return error.pattern
+        ? makeStepFailure({
+            category: "not_found",
+            detail: `No managed, versioned extensions match '${error.selector}'`,
+            suggestions: [{ description: "Inspect installed extensions", cmd: "axm packs list" }],
+          })
+        : makeStepFailure({
+            category: "not_found",
+            detail: `Extension '${error.selector}' not found in workspace`,
+            suggestions: [
+              { description: "Install the extension first", cmd: "axm install <source>" },
+            ],
+          });
+    case "PackMemberNotDeclared":
+      return error.pattern
+        ? makeStepFailure({
+            category: "not_found",
+            detail: `No extensions in pack match '${error.selector}'`,
+            suggestions: [{ description: "Check pack contents" }],
+          })
+        : makeStepFailure({
+            category: "not_found",
+            detail: `Extension '${error.selector}' is not in the pack`,
+            suggestions: [{ description: "Check the pack manifest for available extensions" }],
+          });
+  }
+};
 
 /** Every failure an authoring closure can settle a plan step with. */
 export type AuthoringStepFailure =
@@ -65,259 +296,9 @@ export type AuthoringStepFailure =
   | NativeMcpEntryRetirementFailed
   | StepFailure;
 
-const CATEGORIES: ReadonlySet<string> = new Set<string>(OPERATION_ERROR_CATEGORIES);
-
-const isCategory = (value: unknown): value is OperationErrorCategory =>
-  typeof value === "string" && CATEGORIES.has(value);
-
-const property = (failure: object, key: string): unknown =>
-  key in failure ? Reflect.get(failure, key) : undefined;
-
 /**
- * A failure family this conversion does not name yet still carries its own
- * decision: producers in the kernel record a category and a fact sentence, so
- * both survive rather than being replaced with a generic sentence, and the
- * failure itself stays in `cause` for the diagnostic chain.
+ * Serialize one authoring-closure failure into the plan-step vocabulary, the
+ * same rendering the command boundary projects for that failure.
  */
-const carriedFailure = (failure: AuthoringStepFailure): StepFailure => {
-  const carriedCategory = property(failure, "category");
-  const carriedDetail = property(failure, "detail");
-  return new StepFailure({
-    category: isCategory(carriedCategory) ? carriedCategory : "internal",
-    detail:
-      typeof carriedDetail === "string"
-        ? carriedDetail
-        : `The authoring step failed with ${failure._tag}`,
-    cause: failure,
-  });
-};
-
-const materializationDetail = (failure: PackageMaterializationFailed): string => {
-  switch (failure.step) {
-    case "recover":
-      return `Failed to recover an interrupted package installation at ${failure.path}`;
-    case "prepare-parent":
-      return `Failed to prepare the package location for ${failure.path}`;
-    case "prepare-staging":
-      return `Failed to prepare temporary package files at ${failure.path}`;
-    case "inspect":
-      return `Failed to inspect the installed package at ${failure.path}`;
-    case "replace":
-      return `Failed to replace the installed package at ${failure.path}`;
-    case "inspect-create-destination":
-      return `Failed to inspect create-only destination: ${failure.path}`;
-  }
-};
-
-const postconditionDetail = (failure: LifecyclePostconditionViolated): string => {
-  switch (failure.postcondition) {
-    case "install-observable":
-      return `Installed ${failure.targetType} "${failure.targetName}" did not satisfy its observable contract`;
-    case "install-declared":
-      return `Installed ${failure.targetType} "${failure.targetName}" has no desired-state declaration`;
-    case "new-observable":
-      return `New ${failure.targetType} "${failure.targetName}" did not satisfy its observable contract`;
-    case "new-declared":
-      return `New ${failure.targetType} "${failure.targetName}" has no desired-state declaration`;
-    case "materialize-observable":
-      return `Reconciled ${failure.targetType} "${failure.targetName}" did not satisfy its observable contract`;
-    case "uninstall-remains-declared":
-      return `Uninstalled ${failure.targetType} "${failure.targetName}" remains declared`;
-    case "uninstall-observed-state":
-      return `Uninstalled ${failure.targetType} "${failure.targetName}" has an invalid observed postcondition`;
-  }
-};
-
-const WORKSPACE_STATE_READ_TAGS: ReadonlySet<string> = new Set([
-  "SettingsDecodeError",
-  "SettingsParseError",
-  "SettingsIoError",
-  "LockfileIoError",
-  "LockfileParseError",
-  "LockfileDecodeError",
-  "LockfileVersionUnsupported",
-  "WorkspaceRootEscape",
-]);
-
-const WORKSPACE_TRANSACTION_TAGS: ReadonlySet<string> = new Set([
-  "WorkspaceSnapshotError",
-  "WorkspaceDirectoryError",
-  "TransitionLockError",
-  "TransitionLockUnavailable",
-  "WorkspaceTransitionCompromised",
-]);
-
-const isWorkspaceStateReadFailure = (
-  failure: AuthoringStepFailure,
-): failure is Extract<
-  ExtensionManagerFailure,
-  { readonly _tag: "SettingsDecodeError" | "WorkspaceRootEscape" }
-> => WORKSPACE_STATE_READ_TAGS.has(failure._tag);
-
-const isWorkspaceTransactionFailure = (
-  failure: AuthoringStepFailure,
-): failure is WorkspaceTransactionFailure => WORKSPACE_TRANSACTION_TAGS.has(failure._tag);
-
-/**
- * Serialize one authoring-closure failure into the plan-step vocabulary.
- *
- * Families this feature or the machinery beneath it constructs are rendered
- * exactly; families the kernel already serializes are delegated to it; and
- * anything else carries its producer's own category and sentence through.
- */
-export const authoringStepFailure = (failure: AuthoringStepFailure): StepFailure => {
-  if (failure instanceof StepFailure) return failure;
-
-  if (failure instanceof AuthoringFailed) {
-    return new StepFailure({
-      category: failure.category,
-      detail: failure.detail,
-      ...(failure.recover === undefined && failure.suggestions === undefined
-        ? {}
-        : {
-            suggestions: [
-              ...(failure.recover === undefined ? [] : [{ description: failure.recover }]),
-              ...(failure.suggestions ?? []),
-            ],
-          }),
-      ...(failure.cause === undefined ? {} : { cause: failure.cause }),
-    });
-  }
-
-  if (failure instanceof CreateNameConfigured) {
-    return new StepFailure({
-      category: "conflict",
-      detail: `${failure.subject} '${failure.name}' already exists in settings`,
-      suggestions: [
-        {
-          description: `Choose a different name or remove the existing ${failure.subject.toLowerCase()} first`,
-        },
-      ],
-    });
-  }
-  if (failure instanceof CreateDestinationExists) {
-    return new StepFailure({
-      category: "conflict",
-      detail: `${failure.subject} destination already exists: ${failure.path}`,
-      suggestions: [
-        { description: "Choose a different name or remove the existing directory first" },
-      ],
-    });
-  }
-  if (failure instanceof CreateDestinationInspectionFailed) {
-    return new StepFailure({
-      category: "internal",
-      detail: `Failed to inspect create destination: ${failure.path}`,
-      cause: failure.cause,
-    });
-  }
-  if (failure instanceof ScaffoldedExtensionUnresolved) {
-    return new StepFailure({
-      category: "not_found",
-      detail: `Newly scaffolded ${failure.targetType} "${failure.targetName}" could not be resolved from its workspace source`,
-    });
-  }
-  if (failure instanceof LifecyclePostconditionViolated) {
-    return new StepFailure({ category: "internal", detail: postconditionDetail(failure) });
-  }
-  if (failure instanceof PackageMaterializationFailed) {
-    return new StepFailure({
-      category: "internal",
-      detail: materializationDetail(failure),
-      cause: failure.cause,
-    });
-  }
-  if (failure instanceof StagedPackageInvalid) {
-    return new StepFailure({
-      category: "validation",
-      detail:
-        failure.kind === "missing"
-          ? `Staged package is missing required file: ${failure.file}`
-          : `Staged package path is not a file: ${failure.file}`,
-      ...(failure.cause === undefined ? {} : { cause: failure.cause }),
-    });
-  }
-  if (failure instanceof CanonicalPackageProbeFailed) {
-    return new StepFailure({
-      category: "internal",
-      detail: failure.detail,
-      cause: failure.cause,
-    });
-  }
-  if (failure instanceof PackageCopyFailed) {
-    return new StepFailure({
-      category: failure.severity,
-      detail: failure.detail,
-      cause: failure.cause,
-    });
-  }
-  if (failure instanceof NativeMcpEntryRetirementFailed) {
-    return new StepFailure({
-      category: failure.category,
-      detail: failure.detail,
-      ...(failure.cause === undefined ? {} : { cause: failure.cause }),
-    });
-  }
-  if (failure instanceof ArchiveIntegrityMismatch) {
-    return new StepFailure({
-      category: "validation",
-      detail: `${failure.subject} — the fetched archive does not match the accepted integrity. Verify the source and rerun, or update to accept a republished version.`,
-    });
-  }
-
-  if (failure instanceof ForkPackageInvalid) {
-    return new StepFailure({
-      category: "validation",
-      detail: failure.detail,
-      ...(failure.cause === undefined ? {} : { cause: failure.cause }),
-    });
-  }
-  if (failure instanceof ForkPackageConflict) {
-    return new StepFailure({ category: "conflict", detail: failure.detail });
-  }
-  if (failure instanceof ForkPackageFailed) {
-    return new StepFailure({
-      category: "internal",
-      detail: failure.detail,
-      cause: failure.cause,
-    });
-  }
-  if (failure instanceof NativeImportUnsupported) {
-    return new StepFailure({
-      category: "usage",
-      detail: `Native package import is not supported for ${failure.type}`,
-    });
-  }
-  if (failure instanceof NativeImportInvalid) {
-    return new StepFailure({
-      category: "validation",
-      detail: failure.detail,
-      ...(failure.cause === undefined ? {} : { cause: failure.cause }),
-    });
-  }
-  if (failure instanceof NativeImportConflict) {
-    return new StepFailure({
-      category: "conflict",
-      detail: `Import target already exists: ${failure.targetDir}`,
-    });
-  }
-  if (failure instanceof NativeImportFailed) {
-    return new StepFailure({
-      category: "internal",
-      detail: failure.detail,
-      cause: failure.cause,
-    });
-  }
-
-  if (failure instanceof WorkspaceRestorationIncomplete) {
-    return restorationIncompleteToStepFailure(failure);
-  }
-  if (isWorkspaceTransactionFailure(failure)) {
-    return workspaceTransactionFailureToStepFailure(failure);
-  }
-  if (isWorkspaceStateReadFailure(failure)) {
-    return workspaceStateReadFailureToStepFailure(failure);
-  }
-
-  return carriedFailure(failure);
-};
+export const authoringStepFailure = (failure: AuthoringStepFailure): StepFailure =>
+  workspaceFailureToStepFailure(failure);

@@ -1,14 +1,12 @@
 /**
- * Conversions from vertical-feature typed failures into the CLI-facing
- * `AppError` envelope. The shared `toAppError` dispatcher lives with the
- * CLI-local app-error module and may not depend on feature packages, so the
- * application boundary owns these conversions directly.
+ * Conversions from the typed failures of features the workspace kernel does
+ * not render — lint staging, publishing, sharing, inspection, and Registry
+ * access — into the CLI-facing `AppError` envelope. Every failure the kernel
+ * renders projects through `app-error/conversions`.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import {
   errSignedOut,
   makeAppError,
@@ -16,14 +14,7 @@ import {
   AppError,
   type AppErrorCode,
 } from "./app-error/index.js";
-import { appErrorToStepFailure, isKnownFailure, toAppError } from "./app-error/conversions.js";
-import {
-  ExtensionLifecycleFailed,
-  StepFailureConversion,
-  type LifecycleFailure,
-  type StepFailureConversionService,
-} from "@agentxm/workspace/lifecycle";
-import { AuthoringFailed } from "@agentxm/workspace/authoring";
+import { failureToAppError, toAppError } from "./app-error/conversions.js";
 import { PublishFailed } from "@agentxm/workspace/publishing";
 import { ShareFailed } from "@agentxm/workspace/sharing";
 import type { ExpectedCliError } from "./cli-runtime/index.js";
@@ -40,19 +31,9 @@ import {
   type RegistryAccessFailure,
   type StepUpRequired,
 } from "@agentxm/registry-access/authentication";
-import type { SyncWorkspaceExecutionFailure } from "@agentxm/workspace/reconciliation/sync";
 import { LintStagingFailed } from "@agentxm/workspace/linting";
-import {
-  WorkspaceConfigurationFailed,
-  WorkspaceInitializationCancelled,
-} from "@agentxm/workspace/configuration";
+import { WorkspaceInitializationCancelled } from "@agentxm/workspace/configuration";
 import { WorkspaceInspectionFailed } from "@agentxm/workspace/inspection";
-import {
-  makeReconciliationLayer,
-  WorkspaceSyncFailed,
-  type SyncFailureAdapter,
-  type SyncPolicyFailure,
-} from "@agentxm/workspace/reconciliation";
 
 /**
  * Translate a lint input-staging failure: the implementation chose the
@@ -72,43 +53,10 @@ export const lintStagingFailedToAppError = (error: LintStagingFailed): AppError 
  * typed refusal, or a known kernel failure it read the workspace through —
  * into the CLI-facing `AppError`.
  */
-export const lintFailureToAppError = (failure: unknown): AppError => {
-  if (failure instanceof LintStagingFailed) return lintStagingFailedToAppError(failure);
-  if (failure instanceof AppError) return failure;
-  if (isKnownFailure(failure)) return toAppError(failure);
-  return makeAppError({ code: "internal", detail: String(failure), cause: failure });
-};
-
-/**
- * Translate a workspace reconciliation policy failure: the implementation chose the
- * category and wording at construction, so the envelope carries them over 1:1.
- */
-export const workspaceSyncFailedToAppError = (error: WorkspaceSyncFailed): AppError =>
-  makeAppError({
-    code: error.category,
-    detail: error.detail,
-    ...(error.suggestions === undefined ? {} : { suggestions: error.suggestions }),
-    ...(error.cause === undefined ? {} : { cause: error.cause }),
-  });
-
-/** Convert any sync-policy failure into the CLI-facing `AppError` envelope. */
-export const syncFailureToAppError = (
-  failure: SyncPolicyFailure | SyncWorkspaceExecutionFailure | AppError,
-): AppError =>
-  failure instanceof WorkspaceSyncFailed
-    ? workspaceSyncFailedToAppError(failure)
-    : toAppError(failure);
-
-/**
- * The sync feature's failure adapter: plan-step categories and details reuse
- * the boundary's own conversions so machine output stays byte-identical.
- */
-export const syncStepFailureAdapter: SyncFailureAdapter = {
-  toStepFailure: (failure) => appErrorToStepFailure(syncFailureToAppError(failure)),
-};
-
-/** Layer wiring the boundary's failure conversions into sync planning. */
-export const SyncStepFailureConversionLive = makeReconciliationLayer(syncStepFailureAdapter);
+export const lintFailureToAppError = (failure: unknown): AppError =>
+  failure instanceof LintStagingFailed
+    ? lintStagingFailedToAppError(failure)
+    : failureToAppError(failure);
 
 /**
  * Translate a publish policy failure: the implementation chose the category
@@ -139,9 +87,7 @@ export const publishFailedToAppError = (error: PublishFailed): AppError =>
 export const publishFailureToAppError = (failure: unknown): AppError => {
   if (failure instanceof PublishFailed) return publishFailedToAppError(failure);
   if (isRegistryAccessFailure(failure)) return registryAccessFailureToAppError(failure);
-  if (failure instanceof AppError) return failure;
-  if (isKnownFailure(failure)) return toAppError(failure);
-  return makeAppError({ code: "internal", detail: String(failure), cause: failure });
+  return failureToAppError(failure);
 };
 
 /** Convert sharing refusals and workspace/Git read failures into the CLI envelope. */
@@ -149,107 +95,8 @@ export const shareFailureToAppError = (failure: unknown): AppError => {
   if (failure instanceof ShareFailed) {
     return makeAppError({ code: failure.category, detail: failure.detail });
   }
-  if (failure instanceof AppError) return failure;
-  if (isKnownFailure(failure)) return toAppError(failure);
-  return makeAppError({ code: "internal", detail: String(failure), cause: failure });
+  return failureToAppError(failure);
 };
-
-/**
- * Translate an authoring policy failure: the implementation chose the
- * category and wording at construction, so the envelope carries them over
- * 1:1 through the same normalization the envelope constructor applies.
- */
-export const authoringFailedToAppError = (error: AuthoringFailed): AppError =>
-  makeAppError({
-    code: error.category,
-    detail: error.detail,
-    ...(error.recover === undefined ? {} : { recover: error.recover }),
-    ...(error.suggestions === undefined ? {} : { suggestions: error.suggestions }),
-    ...(error.cause === undefined ? {} : { cause: error.cause }),
-  });
-
-/**
- * Convert any failure an authoring operation can surface — the feature's own
- * typed failure, a known kernel failure, or an envelope that travelled
- * through a still-coupled channel — into the CLI-facing `AppError`.
- */
-export const authoringFailureToAppError = (failure: unknown): AppError => {
-  if (failure instanceof AuthoringFailed) return authoringFailedToAppError(failure);
-  if (failure instanceof AppError) return failure;
-  if (isKnownFailure(failure)) return toAppError(failure);
-  return makeAppError({ code: "internal", detail: String(failure), cause: failure });
-};
-
-/**
- * Translate a lifecycle policy failure: the implementation chose the
- * category and wording at construction, so the envelope carries them over
- * 1:1 through the same normalization the envelope constructor applies.
- */
-export const extensionLifecycleFailedToAppError = (error: ExtensionLifecycleFailed): AppError =>
-  makeAppError({
-    code: error.category,
-    ...(error.title === undefined ? {} : { title: error.title }),
-    ...(error.detail === undefined ? {} : { detail: error.detail }),
-    ...(error.recover === undefined ? {} : { recover: error.recover }),
-    ...(error.cmd === undefined ? {} : { cmd: error.cmd }),
-    ...(error.suggestions === undefined ? {} : { suggestions: error.suggestions }),
-    ...(error.cause === undefined ? {} : { cause: error.cause }),
-  });
-
-/**
- * Convert any failure a lifecycle use case can surface — the feature's own
- * typed failure, a known kernel or integration failure, or an envelope that
- * travelled through a still-coupled channel — into the CLI-facing `AppError`.
- */
-export const lifecycleFailureToAppError = (failure: unknown): AppError => {
-  if (failure instanceof ExtensionLifecycleFailed) {
-    return extensionLifecycleFailedToAppError(failure);
-  }
-  if (failure instanceof AppError) return failure;
-  if (isKnownFailure(failure)) return toAppError(failure);
-  return makeAppError({ code: "internal", detail: String(failure), cause: failure });
-};
-
-/** Serialize any lifecycle failure into the plan-step vocabulary. */
-export const lifecycleFailureToStepFailure = (failure: LifecycleFailure) =>
-  appErrorToStepFailure(lifecycleFailureToAppError(failure));
-
-/**
- * The lifecycle feature's failure adapter: step categories, details, and
- * message text reuse the boundary's own conversions so plan data and machine
- * output stay byte-identical with rendered errors.
- */
-export const lifecycleStepFailureConversion: StepFailureConversionService = {
-  toStepFailure: lifecycleFailureToStepFailure,
-  describeFailure: (failure: LifecycleFailure) => lifecycleFailureToAppError(failure).detail,
-  describeFailureMessage: (failure: LifecycleFailure) =>
-    lifecycleFailureToAppError(failure).message,
-};
-
-/** Layer wiring the boundary's failure conversions into lifecycle operations. */
-export const LifecycleStepFailureConversionLive = Layer.succeed(
-  StepFailureConversion,
-  lifecycleStepFailureConversion,
-);
-
-/**
- * Supply the boundary's failure adapter to one lifecycle operation invoked
- * outside the shared runtime layer (handlers that build their own local
- * service environment).
- */
-export const provideLifecycleStepFailureConversion = <A, E, R>(
-  effect: Effect.Effect<A, E, R>,
-): Effect.Effect<A, E, Exclude<R, StepFailureConversion>> =>
-  Effect.provideService(effect, StepFailureConversion, lifecycleStepFailureConversion);
-
-/**
- * Convert only the lifecycle feature's own typed failure into the envelope,
- * leaving every other member of the channel untouched.
- */
-export const coerceLifecycleFailure = <E>(failure: E | ExtensionLifecycleFailed): E | AppError =>
-  failure instanceof ExtensionLifecycleFailed
-    ? extensionLifecycleFailedToAppError(failure)
-    : failure;
 
 // The registry-access category vocabulary and the CLI's AppErrorCode must stay
 // the same strings; divergence is a compile error here, at the boundary that
@@ -433,42 +280,7 @@ export const coerceAuthFailure = (
  */
 export const authFailureToAppError = (failure: unknown): AppError => {
   if (isRegistryAccessFailure(failure)) return registryAccessFailureToAppError(failure);
-  if (failure instanceof AppError) return failure;
-  if (isKnownFailure(failure)) return toAppError(failure);
-  return makeAppError({ code: "internal", detail: String(failure), cause: failure });
-};
-
-/**
- * Translate a workspace configuration policy failure: the implementation
- * chose the category and wording at construction, so the envelope carries
- * them over 1:1 through the same normalization the envelope constructor
- * applies.
- */
-export const workspaceConfigurationFailedToAppError = (
-  error: WorkspaceConfigurationFailed,
-): AppError =>
-  makeAppError({
-    code: error.category,
-    detail: error.detail,
-    ...(error.recover === undefined ? {} : { recover: error.recover }),
-    ...(error.cmd === undefined ? {} : { cmd: error.cmd }),
-    ...(error.suggestions === undefined ? {} : { suggestions: error.suggestions }),
-    ...(error.cause === undefined ? {} : { cause: error.cause }),
-  });
-
-/**
- * Convert any failure a workspace configuration flow can surface — the
- * feature's own typed failure, a known kernel or integration failure, or an
- * envelope that travelled through a still-coupled channel — into the
- * CLI-facing `AppError`.
- */
-export const configurationFailureToAppError = (failure: unknown): AppError => {
-  if (failure instanceof WorkspaceConfigurationFailed) {
-    return workspaceConfigurationFailedToAppError(failure);
-  }
-  if (failure instanceof AppError) return failure;
-  if (isKnownFailure(failure)) return toAppError(failure);
-  return makeAppError({ code: "internal", detail: String(failure), cause: failure });
+  return failureToAppError(failure);
 };
 
 /**
@@ -477,13 +289,7 @@ export const configurationFailureToAppError = (failure: unknown): AppError => {
  * success exit.
  */
 export const coerceConfigurationFailure = (failure: unknown): ExpectedCliError =>
-  failure instanceof WorkspaceInitializationCancelled
-    ? failure
-    : configurationFailureToAppError(failure);
-
-/** Serialize any configuration failure into the plan-step vocabulary. */
-export const configurationFailureToStepFailure = (failure: unknown) =>
-  appErrorToStepFailure(configurationFailureToAppError(failure));
+  failure instanceof WorkspaceInitializationCancelled ? failure : failureToAppError(failure);
 
 /**
  * Translate a workspace inspection query failure: the implementation chose
@@ -507,7 +313,5 @@ export const inspectionFailureToAppError = (failure: unknown): AppError => {
   if (failure instanceof WorkspaceInspectionFailed) {
     return workspaceInspectionFailedToAppError(failure);
   }
-  if (failure instanceof AppError) return failure;
-  if (isKnownFailure(failure)) return toAppError(failure);
-  return makeAppError({ code: "internal", detail: String(failure), cause: failure });
+  return failureToAppError(failure);
 };

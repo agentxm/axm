@@ -1,181 +1,114 @@
-import { LifecyclePostconditionViolated } from "../transitions/planning/index.js";
 /**
- * How a lifecycle closure serializes a failure into the plan-step vocabulary.
+ * The rendering of the extension-lifecycle failure family — lifecycle policy
+ * refusals and extension selection — and how a lifecycle closure serializes
+ * any failure into the plan-step vocabulary.
  *
- * The feature owns this: a lifecycle step that failed must report the same
- * category, sentence, and recovery whether the failure came from lifecycle
- * policy, from the materialization machinery underneath it, from workspace
- * state, or from the transaction around it. Nothing is supplied by the
- * application, so a lifecycle use case carries no failure adapter in its
- * requirements.
- *
- * Categories and detail sentences are the serialized contract of machine
- * output; families that already carry their own category and fact sentence
- * keep both rather than being replaced with a generic sentence.
+ * The lifecycle family renders here once. Every other family a lifecycle step
+ * can surface renders through the workspace failure rendering, so a lifecycle
+ * step reports the same category, sentence, and recovery a command boundary
+ * would print for the same failure. The kernel supplies this conversion as a
+ * Layer; the application only provides it.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
-import {
-  OPERATION_ERROR_CATEGORIES,
-  StepFailure,
-  restorationIncompleteToStepFailure,
-  workspaceStateReadFailureToStepFailure,
-  workspaceTransactionFailureToStepFailure,
-  type OperationErrorCategory,
-} from "../transitions/planning/index.js";
-import { projectionErrorToStepFailure } from "../materialization/index.js";
-import { isProjectionError } from "../projection/index.js";
-import {
-  WorkspaceRestorationIncomplete,
-  type WorkspaceTransactionFailure,
-} from "../transitions/settlement/index.js";
-import type { WorkspaceStateReadFailure } from "../desired-state/index.js";
+import * as Layer from "effect/Layer";
 
-import { ExtensionLifecycleFailed } from "./errors.js";
-import type { LifecycleFailure } from "./step-failure-conversion.js";
+import type {
+  SkillSelectionNotFound,
+  SkillSelectionUnavailable,
+} from "../skills/lifecycle/application/index.js";
+import type {
+  SubagentSelectionNotFound,
+  SubagentSelectionUnavailable,
+} from "../subagents/lifecycle/application/index.js";
+import { makeStepFailure, type StepFailure } from "../transitions/planning/plan/errors.js";
+import { workspaceFailureToStepFailure } from "../reconciliation/failure-rendering.js";
+
+import type { ExtensionLifecycleFailed } from "./errors.js";
+import type { InstallSelectionUnavailable } from "./install/selection.js";
+import { StepFailureConversion, type LifecycleFailure } from "./step-failure-conversion.js";
+
+/** Every failure lifecycle policy and extension selection construct. */
+export type LifecycleFamilyFailure =
+  | ExtensionLifecycleFailed
+  | SkillSelectionNotFound
+  | SubagentSelectionNotFound
+  | SkillSelectionUnavailable
+  | SubagentSelectionUnavailable
+  | InstallSelectionUnavailable;
+
+const selectionSubject = (
+  error: SkillSelectionUnavailable | SubagentSelectionUnavailable | InstallSelectionUnavailable,
+) => {
+  switch (error._tag) {
+    case "SkillSelectionUnavailable":
+      return { article: "a", noun: "skill", flags: "skills with --skill" };
+    case "SubagentSelectionUnavailable":
+      return { article: "a", noun: "subagent", flags: "subagents with --subagent" };
+    case "InstallSelectionUnavailable":
+      return {
+        article: "an",
+        noun: "extension",
+        flags: "extensions with their per-type flags",
+      };
+  }
+};
+
+/** Translate one lifecycle policy or selection failure. */
+export const lifecycleFailureToStepFailure = (error: LifecycleFamilyFailure): StepFailure => {
+  switch (error._tag) {
+    case "ExtensionLifecycleFailed":
+      return makeStepFailure({
+        category: error.category,
+        title: error.title,
+        detail: error.detail,
+        recover: error.recover,
+        cmd: error.cmd,
+        suggestions: error.suggestions,
+        cause: error.cause,
+      });
+    case "SkillSelectionNotFound":
+      return makeStepFailure({
+        category: "not_found",
+        detail: `No skills matched: ${error.requested.join(", ")}. Source contains: ${[
+          ...error.available,
+        ]
+          .sort((left, right) => left.localeCompare(right))
+          .join(", ")}`,
+        recover: "Check the skill names or patterns and try again",
+      });
+    case "SubagentSelectionNotFound":
+      return makeStepFailure({
+        category: "internal",
+        detail: `No subagents matched: ${error.requested.join(", ")}`,
+        suggestions: [{ description: "Check the subagent names or patterns and try again." }],
+      });
+    case "SkillSelectionUnavailable":
+    case "SubagentSelectionUnavailable":
+    case "InstallSelectionUnavailable": {
+      const selection = selectionSubject(error);
+      return makeStepFailure({
+        category: "usage",
+        detail: `Unable to obtain ${selection.article} ${selection.noun} selection`,
+        recover: `Name the ${selection.flags}, take them all with --all, or use an interactive terminal.`,
+        cause: error.cause,
+      });
+    }
+  }
+};
 
 /** Every failure a lifecycle closure can settle a plan step with. */
 export type LifecycleStepFailure = LifecycleFailure;
 
-const CATEGORIES: ReadonlySet<string> = new Set<string>(OPERATION_ERROR_CATEGORIES);
-
-const isCategory = (value: unknown): value is OperationErrorCategory =>
-  typeof value === "string" && CATEGORIES.has(value);
-
-const property = (failure: object, key: string): unknown =>
-  key in failure ? Reflect.get(failure, key) : undefined;
-
-const WORKSPACE_STATE_READ_TAGS: ReadonlySet<string> = new Set([
-  "SettingsDecodeError",
-  "SettingsParseError",
-  "SettingsIoError",
-  "LockfileIoError",
-  "LockfileParseError",
-  "LockfileDecodeError",
-  "LockfileVersionUnsupported",
-  "WorkspaceRootEscape",
-]);
-
-const WORKSPACE_TRANSACTION_TAGS: ReadonlySet<string> = new Set([
-  "WorkspaceSnapshotError",
-  "WorkspaceDirectoryError",
-  "TransitionLockError",
-  "TransitionLockUnavailable",
-  "WorkspaceTransitionCompromised",
-]);
-
-const isWorkspaceStateReadFailure = (
-  failure: LifecycleStepFailure,
-): failure is Extract<WorkspaceStateReadFailure, { readonly _tag: string }> =>
-  WORKSPACE_STATE_READ_TAGS.has(failure._tag);
-
-const isWorkspaceTransactionFailure = (
-  failure: LifecycleStepFailure,
-): failure is WorkspaceTransactionFailure => WORKSPACE_TRANSACTION_TAGS.has(failure._tag);
-
-const postconditionDetail = (failure: LifecyclePostconditionViolated): string => {
-  switch (failure.postcondition) {
-    case "install-observable":
-      return `Installed ${failure.targetType} "${failure.targetName}" did not satisfy its observable contract`;
-    case "install-declared":
-      return `Installed ${failure.targetType} "${failure.targetName}" has no desired-state declaration`;
-    case "new-observable":
-      return `New ${failure.targetType} "${failure.targetName}" did not satisfy its observable contract`;
-    case "new-declared":
-      return `New ${failure.targetType} "${failure.targetName}" has no desired-state declaration`;
-    case "materialize-observable":
-      return `Reconciled ${failure.targetType} "${failure.targetName}" did not satisfy its observable contract`;
-    case "uninstall-remains-declared":
-      return `Uninstalled ${failure.targetType} "${failure.targetName}" remains declared`;
-    case "uninstall-observed-state":
-      return `Uninstalled ${failure.targetType} "${failure.targetName}" has an invalid observed postcondition`;
-  }
-};
-
 /**
- * A family this conversion does not name still carries its own decision: the
- * producer recorded a category and a fact sentence, so both survive, and the
- * failure itself stays in `cause` for the diagnostic chain.
+ * Serialize one lifecycle-closure failure into the plan-step vocabulary, the
+ * same rendering the command boundary projects for that failure.
  */
-const carriedFailure = (failure: LifecycleStepFailure): StepFailure => {
-  const carriedCategory = property(failure, "category");
-  const carriedDetail = property(failure, "detail");
-  return new StepFailure({
-    category: isCategory(carriedCategory) ? carriedCategory : "internal",
-    detail:
-      typeof carriedDetail === "string"
-        ? carriedDetail
-        : `The lifecycle step failed with ${failure._tag}`,
-    cause: failure,
-  });
-};
+export const lifecycleStepFailure = (failure: LifecycleStepFailure): StepFailure =>
+  workspaceFailureToStepFailure(failure);
 
-/**
- * Serialize one lifecycle-closure failure into the plan-step vocabulary.
- *
- * Families this feature or the machinery beneath it constructs are rendered
- * exactly; families the kernel already serializes are delegated to it; and
- * anything else carries its producer's own category and sentence through.
- */
-export const lifecycleStepFailure = (failure: LifecycleStepFailure): StepFailure => {
-  if (failure instanceof StepFailure) return failure;
-  if (failure._tag === "McpSharedTargetConflict") {
-    return new StepFailure({
-      category: "conflict",
-      detail: failure.reason,
-      suggestions: [
-        {
-          description:
-            "Use an MCP package whose transport and symbolic inputs are supported by every configured reader of the shared target.",
-        },
-      ],
-      cause: failure,
-    });
-  }
-
-  if (failure instanceof ExtensionLifecycleFailed) {
-    return new StepFailure({
-      category: failure.category,
-      detail: failure.detail ?? `The lifecycle step was refused (${failure.category})`,
-      ...(failure.recover === undefined && failure.suggestions === undefined
-        ? {}
-        : {
-            suggestions: [
-              ...(failure.recover === undefined
-                ? []
-                : [
-                    {
-                      description: failure.recover,
-                      ...(failure.cmd === undefined ? {} : { cmd: failure.cmd }),
-                    },
-                  ]),
-              ...(failure.suggestions ?? []),
-            ],
-          }),
-      ...(failure.cause === undefined ? {} : { cause: failure.cause }),
-    });
-  }
-
-  if (failure instanceof LifecyclePostconditionViolated) {
-    return new StepFailure({ category: "internal", detail: postconditionDetail(failure) });
-  }
-
-  if (failure instanceof WorkspaceRestorationIncomplete) {
-    return restorationIncompleteToStepFailure(failure);
-  }
-  if (isWorkspaceTransactionFailure(failure)) {
-    return workspaceTransactionFailureToStepFailure(failure);
-  }
-  if (isWorkspaceStateReadFailure(failure)) {
-    return workspaceStateReadFailureToStepFailure(failure);
-  }
-  // Shared projection states domain facts and renders nothing, so the
-  // capability that unions it renders it; `carriedFailure` would find no
-  // category and report a projection refusal as an internal defect.
-  if (isProjectionError(failure)) {
-    return projectionErrorToStepFailure(failure);
-  }
-
-  return carriedFailure(failure);
-};
+/** The kernel's lifecycle failure conversion, provided once per invocation. */
+export const LifecycleFailureConversionLive = Layer.succeed(StepFailureConversion, {
+  toStepFailure: (failure) => lifecycleStepFailure(failure),
+});

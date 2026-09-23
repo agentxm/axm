@@ -15,7 +15,7 @@ import {
 } from "@agentxm/workspace/transitions/planning";
 import { errorClassForAppErrorCode } from "../app-error/index.js";
 import type { ExpectedCliError } from "./runtime-envelope.js";
-import { isKnownFailure, toAppError } from "../app-error/conversions.js";
+import { isWorkspaceFailure, toAppError } from "../app-error/conversions.js";
 import { TelemetryClient } from "../telemetry/index.js";
 import type { TelemetryProperties } from "../telemetry/client.js";
 import {
@@ -190,7 +190,7 @@ export const reportCliError = (
   command: string,
 ): Effect.Effect<void, never, TelemetryClient> => {
   const resolved =
-    error._tag === "AppError" ? error : isKnownFailure(error) ? toAppError(error) : undefined;
+    error._tag === "AppError" ? error : isWorkspaceFailure(error) ? toAppError(error) : undefined;
   return resolved === undefined
     ? Effect.void
     : Effect.gen(function* () {

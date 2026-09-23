@@ -19,7 +19,7 @@ import {
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { SyncWorkspace } from "@agentxm/workspace/reconciliation/sync";
 import { buildPermissionSuggestions } from "./permission-suggestions.js";
-import { configurationFailureToAppError, syncFailureToAppError } from "../../feature-errors.js";
+import { failureToAppError, toAppError } from "../../app-error/conversions.js";
 
 export interface AgentsAddArgs {
   readonly ids: ReadonlyArray<string>;
@@ -40,7 +40,7 @@ const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddAr
   const screen = yield* Screen;
   const candidate = yield* ConfigureAgents.add
     .prepare({ ids: args.ids, detected: args.detected, acceptWarnings: args.force })
-    .pipe(Effect.mapError(configurationFailureToAppError));
+    .pipe(Effect.mapError(failureToAppError));
 
   for (const notice of candidate.retiredDetected) {
     yield* screen.note(headlineDoc("warn", notice.detail));
@@ -75,7 +75,7 @@ const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddAr
     SyncWorkspace.planMaterialization({
       selection: { target: Option.none(), type: Option.none() },
       configuredAgents: candidate.configuredAgents,
-    }).pipe(Effect.mapError(syncFailureToAppError)),
+    }).pipe(Effect.mapError(toAppError)),
   );
 
   // Goes through the reconciling resolver rather than the local one: adding an
@@ -88,7 +88,7 @@ const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddAr
   );
   const resolution = yield* ConfigureAgents.add
     .previewOrApply(candidate, execution, { steps: materialize.steps })
-    .pipe(Effect.mapError(configurationFailureToAppError));
+    .pipe(Effect.mapError(failureToAppError));
   const outcome = deriveOperationOutcome(resolution);
   const suggestions =
     outcome === "applied" || outcome === "partial"

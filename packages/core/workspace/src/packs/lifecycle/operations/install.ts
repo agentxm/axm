@@ -304,11 +304,12 @@ const runInstallPack = (op: InstallPackOperation, adapter: StepFailureConversion
           : `Installed pack ${op.args.packName}; ${metadataWarning}`,
     } satisfies JobStepResult;
   }).pipe(
-    Effect.catch((error) =>
-      Effect.succeed({
+    Effect.catch((error) => {
+      const failure = adapter.toStepFailure(error);
+      return Effect.succeed({
         result: "error",
-        message: `Failed to install pack: ${adapter.describeFailureMessage(error)}`,
-        error: adapter.toStepFailure(error),
-      } satisfies JobStepResult),
-    ),
+        message: `Failed to install pack: ${failure.detail}`,
+        error: failure,
+      } satisfies JobStepResult);
+    }),
   );

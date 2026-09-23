@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import type { AppErrorSuggestedAction } from "../../app-error/index.js";
+import type { FailureSuggestedAction } from "@agentxm/workspace/transitions/planning";
 import { WorkspaceLocation } from "@agentxm/workspace/desired-state";
 import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
@@ -11,7 +11,7 @@ export const commandForScope = (command: string, scope: WorkspaceScope): string 
     : command;
 
 export const suggestionsForScope = (
-  suggestions: ReadonlyArray<AppErrorSuggestedAction>,
+  suggestions: ReadonlyArray<FailureSuggestedAction>,
   scope: WorkspaceScope,
 ): ReadonlyArray<SuggestedAction> =>
   suggestions.map((suggestion) => {

@@ -93,7 +93,8 @@ export {
   exclusiveMemberRetentionPolicy,
 } from "./retention-policy.js";
 
-export { makeReconciliationLayer } from "./layer.js";
+export { ReconciliationFailureConversionLive } from "./layer.js";
+export { workspaceFailureToStepFailure, type WorkspaceFailure } from "./failure-rendering.js";
 
 export {
   collectSecretInputNames,

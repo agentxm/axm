@@ -63,11 +63,9 @@ import { ProjectionParticipantsLive } from "@agentxm/workspace/materialization/l
 import { KnowledgeIndexLive } from "@agentxm/workspace/knowledge/query/live";
 import { WorkspaceInvariantFactsLive } from "@agentxm/workspace/projection/live";
 import { AuthLoginPresenterLive } from "./auth-login-presenter.js";
-import {
-  registryAccessFailedToAppError,
-  LifecycleStepFailureConversionLive,
-  SyncStepFailureConversionLive,
-} from "./feature-errors.js";
+import { registryAccessFailedToAppError } from "./feature-errors.js";
+import { LifecycleFailureConversionLive } from "@agentxm/workspace/lifecycle";
+import { ReconciliationFailureConversionLive } from "@agentxm/workspace/reconciliation";
 import { WorkspaceInitializationInteractionLive } from "./workspace-initialization-interaction-live.js";
 import {
   GitDirectoryComparisonLive,
@@ -369,8 +367,8 @@ const makeWorkspaceProgramLayer = (workspace: Omit<WorkspaceStateOptions, "built
     sourceProvidersLayer,
     gitDirectoryComparisonLayer,
     CodingAgentRepositoryLive,
-    LifecycleStepFailureConversionLive,
-    SyncStepFailureConversionLive,
+    LifecycleFailureConversionLive,
+    ReconciliationFailureConversionLive,
     McpSecretStoreLive,
   );
 

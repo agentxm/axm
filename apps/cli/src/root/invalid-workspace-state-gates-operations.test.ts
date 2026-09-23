@@ -65,11 +65,13 @@ const suggestedCommands = (error: GateError): ReadonlyArray<string> | undefined 
 
 /**
  * One row per invalid workspace state: how the fault is arranged and what the
- * validation error must name for it. Every row is crossed with every
- * operation family below.
+ * refusal must name for it. Every row is crossed with every operation family
+ * below.
  */
 interface FaultRow {
   readonly fault: string;
+  /** Wrong content is invalid; a file that cannot be read is unavailable storage. */
+  readonly code: "validation" | "unavailable";
   /** Workspace scope the gated operation runs in. */
   readonly scope: WorkspaceScope;
   /** Writes the fault and returns the path of the faulty file. */
@@ -83,23 +85,27 @@ const settingsFaults = [
     fault: "malformed JSON",
     write: (settingsPath: string) => fs.writeFileSync(settingsPath, "{ not-json"),
     diagnostic: "not valid JSON",
+    code: "validation",
   },
   {
     fault: "schema-invalid values",
     write: (settingsPath: string) =>
       fs.writeFileSync(settingsPath, JSON.stringify({ agents: "claude-code" })),
     diagnostic: "Invalid workspace settings",
+    code: "validation",
   },
   {
     fault: "an unreadable file",
     write: (settingsPath: string) => fs.mkdirSync(settingsPath, { recursive: true }),
     diagnostic: "could not be read",
+    code: "unavailable",
   },
 ] as const;
 
 const settingsRows: ReadonlyArray<FaultRow> = (["project", "user"] as const).flatMap((owner) =>
   settingsFaults.map((entry): FaultRow => ({
     fault: `${owner} settings with ${entry.fault}`,
+    code: entry.code,
     scope: "project",
     arrange: (workspace) =>
       replaceFile(
@@ -119,6 +125,7 @@ const lockfileVersionRows: ReadonlyArray<FaultRow> = (["older", "newer"] as cons
       const observedVersion = direction === "older" ? LOCKFILE_VERSION - 1 : LOCKFILE_VERSION + 1;
       return {
         fault: `an ${direction} ${scope} lockfile version`,
+        code: "validation",
         scope,
         arrange: (workspace) => {
           if (scope === "user") initializeUserSettings();
@@ -155,21 +162,25 @@ const lockfileContentRows: ReadonlyArray<FaultRow> = [
     write: (lockPath: string) => fs.mkdirSync(lockPath),
     diagnostic: "could not be read",
     recovery: /permissions|known-good/i,
+    code: "unavailable" as const,
   },
   {
     fault: "a project lockfile that is not valid YAML",
     write: (lockPath: string) => fs.writeFileSync(lockPath, "lockfileVersion: [\n"),
     diagnostic: "not valid YAML",
     recovery: /YAML syntax|known-good/i,
+    code: "validation" as const,
   },
   {
     fault: "a schema-invalid project lockfile",
     write: (lockPath: string) => fs.writeFileSync(lockPath, 'lockfileVersion: "six"\nskills: {}\n'),
     diagnostic: "Invalid workspace lockfile",
     recovery: /invalid values|supported format/i,
+    code: "validation" as const,
   },
 ].map((entry): FaultRow => ({
   fault: entry.fault,
+  code: entry.code,
   scope: "project",
   arrange: (workspace) => replaceFile(lockPathFor(workspace, "project"), entry.write),
   expectDiagnosis: (error) => {
@@ -303,7 +314,7 @@ describe("Invalid workspace state gates operations", () => {
         const failure = yield* invokeOperation(workspace, row.scope, family, packagePath);
 
         const error = getAppError(failure);
-        expect(error.code).toBe("validation");
+        expect(error.code).toBe(row.code);
         expect(error.detail).toContain(faultPath);
         row.expectDiagnosis(error, faultPath);
         expect(workspace.rendererState.results).toEqual([]);

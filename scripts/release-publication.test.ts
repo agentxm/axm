@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from "@effect/vitest";
+import { spawnSync } from "node:child_process";
+import { resolve } from "node:path";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
@@ -8,6 +10,7 @@ import {
   PublicationHttpError,
   readNpmDistTag,
   readNpmPublication,
+  releaseCohortTarballPath,
   releaseBoundaryError,
   ReleaseBoundaryFailed,
   requireInitializedNpmPackages,
@@ -24,6 +27,45 @@ import { prepareFormula } from "./release-formula.js";
 
 const bytes = new TextEncoder().encode("candidate");
 const integrity = contentIntegrity(bytes);
+
+describe("release tarball paths", () => {
+  it.each(["../outside", "1.2.3/../../outside", "1.2.3-rc.1", "1.2.3+build", "01.2.3"])(
+    "rejects an invalid release version before reading release inputs: %s",
+    (version) => {
+      const result = spawnSync(
+        "bun",
+        ["scripts/distribute-release.ts", version, `cli-v${version}`, "a".repeat(40)],
+        { cwd: process.cwd(), encoding: "utf8" },
+      );
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain(
+        "Expected a stable release version in major.minor.patch form.",
+      );
+    },
+  );
+
+  it("keeps a stable release tarball directly inside its cohort directory", () => {
+    expect(releaseCohortTarballPath("release-npm", "axm.sh-", "1.2.3")).toBe(
+      resolve("release-npm/axm.sh-1.2.3.tgz"),
+    );
+  });
+
+  it.each(["../outside", "../../outside", "/../../outside"])(
+    "rejects a version that is not a stable numeric release: %s",
+    (version) => {
+      expect(() => releaseCohortTarballPath("release-npm", "axm.sh-", version)).toThrow(
+        "Expected a stable release version in major.minor.patch form.",
+      );
+    },
+  );
+
+  it("rejects an invalid tarball prefix even when the version is valid", () => {
+    expect(() => releaseCohortTarballPath("release-npm", "../outside/", "1.2.3")).toThrow(
+      "Release tarball must remain in the cohort directory.",
+    );
+  });
+});
+
 const boundedObservation = (timeoutMs = 10) => {
   let current = 0;
   return {

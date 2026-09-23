@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { dirname, resolve } from "node:path";
 import { setTimeout as sleepFor } from "node:timers/promises";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
@@ -37,6 +38,20 @@ export const guardPublicationVersion = (
   if (observed === null) return;
   if (semver.valid(observed) === null) throw new Error(`${owner} returned an invalid version.`);
   if (semver.gt(observed, candidate)) throw new SupersededRelease(candidate, observed, owner);
+};
+
+export const releaseCohortTarballPath = (
+  directory: string,
+  prefix: string,
+  version: string,
+): string => {
+  if (!/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u.test(version))
+    throw new Error("Expected a stable release version in major.minor.patch form.");
+  const root = resolve(directory);
+  const tarball = resolve(root, `${prefix}${version}.tgz`);
+  if (dirname(tarball) !== root)
+    throw new Error("Release tarball must remain in the cohort directory.");
+  return tarball;
 };
 
 export const contentIntegrity = (bytes: Uint8Array): string =>

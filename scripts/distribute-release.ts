@@ -29,6 +29,7 @@ import {
   publishImmutableCohort,
   publishImmutableInDependencyOrder,
   readNpmPublication,
+  releaseCohortTarballPath,
   releaseBoundaryError,
   reconcileNpmStableTag,
   SupersededRelease,
@@ -37,13 +38,6 @@ import { formulaVersion, prepareFormula } from "./release-formula.js";
 import { decodeGitHubReleaseAssetView } from "./release-github-release-api.js";
 
 import { loadNpmPublicationAuth, npmPublicationProcessEnvironment } from "./release-npm-auth.js";
-
-const npmAuthentication = await Effect.runPromise(
-  loadNpmPublicationAuth(ConfigProvider.fromEnvRecord(process.env)),
-);
-const publicationEnvironment = (name: string, packageExists: boolean): NodeJS.ProcessEnv => {
-  return npmPublicationProcessEnvironment(name, packageExists, npmAuthentication, process.env);
-};
 
 const version = process.argv[2];
 const tag = process.argv[3];
@@ -58,7 +52,17 @@ if (
   !/^[0-9a-f]{40}$/u.test(releaseCommit)
 )
   throw new Error("Expected <version> <cli-vVERSION> <release-commit>.");
+if (!/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u.test(version))
+  throw new Error("Expected a stable release version in major.minor.patch form.");
 guardPublicationVersion(version, null, "candidate");
+
+const npmAuthentication = await Effect.runPromise(
+  loadNpmPublicationAuth(ConfigProvider.fromEnvRecord(process.env)),
+);
+const publicationEnvironment = (name: string, packageExists: boolean): NodeJS.ProcessEnv => {
+  return npmPublicationProcessEnvironment(name, packageExists, npmAuthentication, process.env);
+};
+
 validateReleaseAssets(assets);
 await validateReleaseCohort(npmCohort, version, releaseCommit);
 
@@ -192,7 +196,7 @@ try {
             publish: () =>
               Effect.gen(function* () {
                 const publications = RELEASE_PACKAGES.map((pkg) => {
-                  const tarball = join(npmCohort, `${pkg.tarballPrefix}${version}.tgz`);
+                  const tarball = releaseCohortTarballPath(npmCohort, pkg.tarballPrefix, version);
                   const integrity = contentIntegrity(readFileSync(tarball));
                   return {
                     name: `${pkg.name}@${version}`,

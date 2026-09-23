@@ -16,8 +16,17 @@ const scriptsRoot = fileURLToPath(new URL(".", import.meta.url));
 const repoRoot = path.resolve(scriptsRoot, "..");
 const benchmarksRoot = path.join(repoRoot, "benchmarks");
 const suite = process.env["AXM_BENCHMARK_SUITE"] ?? "all";
-if (suite !== "all" && suite !== "startup" && suite !== "lifecycle") {
-  throw new Error("AXM_BENCHMARK_SUITE must be all, startup, or lifecycle.");
+if (suite !== "all" && suite !== "startup" && suite !== "lifecycle" && suite !== "discovery") {
+  throw new Error("AXM_BENCHMARK_SUITE must be all, startup, lifecycle, or discovery.");
+}
+if (suite === "discovery" || suite === "all") {
+  const discoveryBenchmark = await import("../benchmarks/discovery.js");
+  await discoveryBenchmark.runDiscoveryBenchmark(
+    repoRoot,
+    process.env["AXM_DISCOVERY_BENCHMARK_OUTPUT"] ??
+      path.join(repoRoot, "test-results", "benchmarks", "discovery.json"),
+  );
+  if (suite === "discovery") process.exit(0);
 }
 if (suite !== "lifecycle") {
   const startupBenchmark = await import("../benchmarks/cli-startup.js");

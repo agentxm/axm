@@ -183,12 +183,18 @@ importers:
       '@agentxm/extension-content':
         specifier: workspace:*
         version: link:packages/core/extension-content
+      '@agentxm/extension-model':
+        specifier: workspace:*
+        version: link:packages/core/extension-model
       '@agentxm/registry-client':
         specifier: workspace:*
         version: link:packages/supporting/registry-client
       '@agentxm/specification-metadata':
         specifier: workspace:*
         version: link:tools/specification-metadata
+      '@agentxm/workspace':
+        specifier: workspace:*
+        version: link:packages/core/workspace
       '@boundaries/elements':
         specifier: 'catalog:'
         version: 3.1.0(@typescript-eslint/parser@8.66.0(@typescript/typescript6@6.0.2)(eslint@10.3.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0))(eslint-import-resolver-typescript@4.4.5(eslint@10.3.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0))(eslint@10.3.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)

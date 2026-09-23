@@ -9,6 +9,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import type * as Config from "effect/Config";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -28,7 +29,7 @@ export interface AgentPresenceProbeService {
   readonly detect: (
     root: string,
     scope: WorkspaceScope,
-  ) => Effect.Effect<ReadonlySet<AgentId>, AgentPresenceUnavailable>;
+  ) => Effect.Effect<ReadonlySet<AgentId>, AgentPresenceUnavailable | Config.ConfigError>;
 }
 
 export class AgentPresenceProbe extends ServiceMap.Service<
@@ -48,7 +49,11 @@ export const AgentPresenceProbeLive = Layer.effect(
           Effect.provideService(FileSystem.FileSystem, fs),
           Effect.provideService(Path.Path, path),
           Effect.map((detected) => new Set<AgentId>(detected.map((agent) => agent.id))),
-          Effect.mapError((error) => new AgentPresenceUnavailable({ message: error.message })),
+          Effect.mapError((error) =>
+            error._tag === "ConfigError"
+              ? error
+              : new AgentPresenceUnavailable({ message: error.message }),
+          ),
         ),
     };
   }),

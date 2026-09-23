@@ -12,6 +12,7 @@
  * @packageDocumentation
  */
 
+import type * as Config from "effect/Config";
 import type * as Effect from "effect/Effect";
 import * as Data from "effect/Data";
 import * as ServiceMap from "effect/Context";
@@ -70,18 +71,21 @@ export interface WorkspaceCatalogService {
   readonly workspaceRoot: string;
   readonly configuredSources: Effect.Effect<
     ReadonlyArray<ConfiguredSourceHost>,
-    WorkspaceCatalogUnavailable
+    WorkspaceCatalogUnavailable | Config.ConfigError
   >;
   readonly registrySourceHosts: Effect.Effect<
     ReadonlyArray<RegistrySourceHost>,
-    WorkspaceCatalogUnavailable
+    WorkspaceCatalogUnavailable | Config.ConfigError
   >;
-  readonly defaultRegistry: Effect.Effect<string, WorkspaceCatalogUnavailable>;
+  readonly defaultRegistry: Effect.Effect<string, WorkspaceCatalogUnavailable | Config.ConfigError>;
   readonly desiredExtensionGraph: Effect.Effect<
     DesiredExtensionGraphView,
-    WorkspaceCatalogUnavailable
+    WorkspaceCatalogUnavailable | Config.ConfigError
   >;
-  readonly skillCandidates: Effect.Effect<SkillCandidates, WorkspaceCatalogUnavailable>;
+  readonly skillCandidates: Effect.Effect<
+    SkillCandidates,
+    WorkspaceCatalogUnavailable | Config.ConfigError
+  >;
 }
 
 export class WorkspaceCatalog extends ServiceMap.Service<

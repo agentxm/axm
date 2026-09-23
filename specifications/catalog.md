@@ -4008,6 +4008,18 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Additional evidence: process via [`apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts`](../apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts) — Runs the built CLI against a persisted workspace holding leftover installed packages, an undeclared authored package, an unrecognized install-root entry, and obsolete skill links, proving lint facts, the sync convergence exit status, uninstall refusal, and the files a real sync removes and keeps.
 - Source: [`packages/core/workspace/src/reconciliation/sync/removes-obsolete-storage-root-links.spec.ts`](../packages/core/workspace/src/reconciliation/sync/removes-obsolete-storage-root-links.spec.ts)
 
+##### Unreadable agent configuration prevents reconciliation
+
+- Requirement: `cli/sync/unreadable-agent-configuration-prevents-reconciliation`
+- Owner: `workspace`
+- Statement: When an agent skill-directory configuration source cannot be read, AXM shall report the configuration failure before changing workspace or agent files, without treating the agent's outputs as absent or already reconciled.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Source: [`packages/core/workspace/src/reconciliation/sync/unreadable-agent-configuration-prevents-reconciliation.spec.ts`](../packages/core/workspace/src/reconciliation/sync/unreadable-agent-configuration-prevents-reconciliation.spec.ts)
+
 ##### Agent filters match any selected agent
 
 - Requirement: `cli/type-list-agent-filters-match-any-selected-agent`

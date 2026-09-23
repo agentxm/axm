@@ -168,7 +168,7 @@ const verificationOptions = (credentialOutput: "token" | "human") =>
     const { stepUpRequest, waitForHuman } = yield* HumanVerificationOptions;
     // Raw output never opens a browser: stdout belongs to a consumer, so
     // approval proceeds as an unattended handoff on stderr.
-    const unattended = (yield* isNonInteractive) || credentialOutput === "token";
+    const unattended = credentialOutput === "token" || (yield* isNonInteractive);
     return {
       ...(Option.isNone(stepUpRequest) ? {} : { resumeReference: stepUpRequest.value }),
       ...(Option.isNone(waitForHuman) ? {} : { waitForHumanSeconds: waitForHuman.value }),

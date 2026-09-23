@@ -15,7 +15,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { readEnv } from "../internal/environment.js";
+import { envWithDefault } from "../internal/environment.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import { decodeAgentExtensions, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
@@ -157,8 +157,7 @@ export const cranDetector: PackageDetector = {
  * Resolve the R library path.
  * Checks R_LIBS_USER, then defaults to ~/R/library.
  */
-const resolveRLibPath = () =>
-  Effect.sync(() => readEnv("R_LIBS_USER") ?? `${os.homedir()}/R/library`);
+const resolveRLibPath = () => envWithDefault("R_LIBS_USER", `${os.homedir()}/R/library`);
 
 /**
  * CRAN package reader.

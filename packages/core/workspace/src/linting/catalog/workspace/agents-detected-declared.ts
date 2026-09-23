@@ -1,3 +1,4 @@
+import type * as Config from "effect/Config";
 /**
  * `workspace/agents-detected-declared` — every agent footprint detected on
  * disk appears in `settings.agents[]`.
@@ -28,7 +29,7 @@ import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
 
 const RULE_ID = "workspace/agents-detected-declared";
 
-export const agentsDetectedDeclaredRule: AdvisoryRule<WorkspaceRuleContext> = {
+export const agentsDetectedDeclaredRule: AdvisoryRule<WorkspaceRuleContext, Config.ConfigError> = {
   id: RULE_ID,
   description: "Agents detected on disk are declared in `settings.agents[]`.",
   kind: "advisory",

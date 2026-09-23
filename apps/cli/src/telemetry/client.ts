@@ -168,9 +168,9 @@ export const makeTelemetryClient = (
       ci,
     };
 
+    const baseUrl = yield* readBaseUrl;
     const distinctId = options.installationId ?? (yield* loadOrCreateInstallationId);
     const eventIdFactory = options.eventIdFactory ?? randomUUID;
-    const baseUrl = yield* readBaseUrl;
 
     const client = GeneratedTelemetryClient.make(
       httpClient.pipe(HttpClient.mapRequest(HttpClientRequest.prependUrl(baseUrl))),

@@ -1,3 +1,4 @@
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -251,20 +252,15 @@ const readInTempDenoCache = (
     };
 
     // Override DENO_DIR for this test
-    const origDenoDir = process.env["DENO_DIR"];
-    process.env["DENO_DIR"] = path.join(tmpDir, "deno-cache");
-
-    return yield* denoReader.read(detected).pipe(
-      Effect.ensuring(
-        Effect.sync(() => {
-          if (origDenoDir === undefined) {
-            delete process.env["DENO_DIR"];
-          } else {
-            process.env["DENO_DIR"] = origDenoDir;
-          }
-        }),
-      ),
-    );
+    return yield* denoReader
+      .read(detected)
+      .pipe(
+        Effect.provide(
+          ConfigProvider.layer(
+            ConfigProvider.fromEnv({ env: { DENO_DIR: path.join(tmpDir, "deno-cache") } }),
+          ),
+        ),
+      );
   }).pipe(Effect.scoped);
 
 describe("denoReader", () => {
@@ -396,26 +392,19 @@ describe("denoReader", () => {
           // Override DENO_DIR to a temp dir that exists
           const fs = yield* FileSystem.FileSystem;
           const tmpDir = yield* fs.makeTempDirectoryScoped();
-          const origDenoDir = process.env["DENO_DIR"];
-          process.env["DENO_DIR"] = tmpDir;
-
           const detected = {
             purl,
             type: jsrType,
             source: "/tmp/fake/deno.json",
           };
 
-          const result = yield* denoReader.read(detected).pipe(
-            Effect.ensuring(
-              Effect.sync(() => {
-                if (origDenoDir === undefined) {
-                  delete process.env["DENO_DIR"];
-                } else {
-                  process.env["DENO_DIR"] = origDenoDir;
-                }
-              }),
-            ),
-          );
+          const result = yield* denoReader
+            .read(detected)
+            .pipe(
+              Effect.provide(
+                ConfigProvider.layer(ConfigProvider.fromEnv({ env: { DENO_DIR: tmpDir } })),
+              ),
+            );
           expect(Option.isNone(result)).toBe(true);
         }),
       ),

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as FileSystem from "effect/FileSystem";
@@ -76,6 +77,29 @@ const provide = <A, E>(
   );
 
 describe("authored skill exclusion", () => {
+  it.effect.each(["AXM_CLAUDE_SKILLS_DIR", "AXM_GEMINI_CLI_SKILLS_DIR"])(
+    "preserves %s failure instead of returning an incomplete inventory",
+    (key) =>
+      provide(
+        Effect.gen(function* () {
+          const { args } = yield* fixture();
+          const sourceError = new ConfigProvider.SourceError({ message: "source unavailable" });
+          const failure = yield* observeAgentOutputs(args).pipe(
+            Effect.provide(
+              ConfigProvider.layer(
+                ConfigProvider.make((path) =>
+                  path[0] === key ? Effect.fail(sourceError) : Effect.succeed(undefined),
+                ),
+              ),
+            ),
+            Effect.flip,
+          );
+          expect(failure._tag).toBe("ConfigError");
+          expect(failure.cause).toBe(sourceError);
+        }),
+      ),
+  );
+
   it.effect("excludes declared source independently of a broken pack and a projection banner", () =>
     provide(
       Effect.gen(function* () {

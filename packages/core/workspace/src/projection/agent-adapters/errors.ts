@@ -8,6 +8,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import type * as Config from "effect/Config";
 import * as Data from "effect/Data";
 import { NativeWriteRefused } from "./native-write-authority.js";
 import { TransientBackupFailed } from "./transient-backup.js";
@@ -107,7 +108,7 @@ export type NativeFormatFailure =
   | WriteBackupRetained;
 
 /** Every failure a `CodingAgent` member may surface. */
-export type CodingAgentFailure = NativeFormatFailure;
+export type CodingAgentFailure = NativeFormatFailure | Config.ConfigError;
 
 /** Every typed failure the agent adapter modules construct. */
-export type AgentAdapterError = AgentDetectionFailed | NativeFormatFailure;
+export type AgentAdapterError = AgentDetectionFailed | CodingAgentFailure;

@@ -1,3 +1,4 @@
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -276,19 +277,11 @@ const readInTempGopath = (
     };
 
     // Override GOPATH for this test
-    const origGopath = process.env["GOPATH"];
-    process.env["GOPATH"] = gopath;
-    return yield* golangReader.read(detected).pipe(
-      Effect.ensuring(
-        Effect.sync(() => {
-          if (origGopath === undefined) {
-            delete process.env["GOPATH"];
-          } else {
-            process.env["GOPATH"] = origGopath;
-          }
-        }),
-      ),
-    );
+    return yield* golangReader
+      .read(detected)
+      .pipe(
+        Effect.provide(ConfigProvider.layer(ConfigProvider.fromEnv({ env: { GOPATH: gopath } }))),
+      );
   }).pipe(Effect.scoped);
 
 describe("golangReader", () => {
@@ -467,26 +460,15 @@ describe("golangReader", () => {
           });
 
           // Unset GOPATH to test default
-          const origGopath = process.env["GOPATH"];
-          delete process.env["GOPATH"];
-
           const detected = {
             purl,
             type: golangType,
             source: "/tmp/fake/go.mod",
           };
 
-          const result = yield* golangReader.read(detected).pipe(
-            Effect.ensuring(
-              Effect.sync(() => {
-                if (origGopath === undefined) {
-                  delete process.env["GOPATH"];
-                } else {
-                  process.env["GOPATH"] = origGopath;
-                }
-              }),
-            ),
-          );
+          const result = yield* golangReader
+            .read(detected)
+            .pipe(Effect.provide(ConfigProvider.layer(ConfigProvider.fromEnv({ env: {} }))));
           // Should return none since the module won't exist at ~/go
           expect(Option.isNone(result)).toBe(true);
         }),

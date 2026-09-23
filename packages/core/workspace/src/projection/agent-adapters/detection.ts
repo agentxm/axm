@@ -8,6 +8,7 @@
  * @packageDocumentation
  */
 
+import { ConfigError } from "effect/Config";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
@@ -29,10 +30,12 @@ import type {
 // -----------------------------------------------------------------------------
 
 const wrapDetectionError = (message: string) => (error: unknown) =>
-  new AgentDetectionFailed({ detail: message, cause: error });
+  error instanceof ConfigError
+    ? error
+    : new AgentDetectionFailed({ detail: message, cause: error });
 
 export interface AgentExecutableResolverService {
-  readonly exists: (name: string) => Effect.Effect<boolean>;
+  readonly exists: (name: string) => Effect.Effect<boolean, ConfigError>;
 }
 
 export class AgentExecutableResolver extends ServiceMap.Service<

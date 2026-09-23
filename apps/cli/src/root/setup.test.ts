@@ -8,6 +8,7 @@ import type { Settings } from "@agentxm/workspace/desired-state";
 import { LockfileSchema } from "@agentxm/workspace/desired-state";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
@@ -57,6 +58,7 @@ const projectRerunSuggestions = [
 ];
 
 const makeSetupTestContext = (opts?: {
+  readonly environment?: Readonly<Record<string, string>>;
   readonly flags?: {
     verbose?: boolean;
     debug?: boolean;
@@ -94,6 +96,12 @@ const makeSetupTestContext = (opts?: {
         }),
   });
   const baseLayer = Layer.mergeAll(
+    ConfigProvider.layer(
+      ConfigProvider.fromEnvRecord(
+        { ...process.env, ...opts?.environment },
+        { preserveEmptyStrings: true },
+      ),
+    ),
     NodeServices.layer,
     FetchHttpClient.layer,
     CodingAgentRepositoryLive,
@@ -925,9 +933,8 @@ describe("setup.handler", () => {
       const { handleSetup, provide, rendererState } = makeSetupTestContext({
         flags: { json: true, nonInteractive: true },
         renderer: "machine",
+        environment: { AXM_CLAUDE_SKILLS_DIR: ".custom-claude-skills" },
       });
-      const previous = process.env["AXM_CLAUDE_SKILLS_DIR"];
-      process.env["AXM_CLAUDE_SKILLS_DIR"] = ".custom-claude-skills";
 
       return provide(
         Effect.gen(function* () {
@@ -952,13 +959,6 @@ describe("setup.handler", () => {
             }),
           );
         }),
-      ).pipe(
-        Effect.ensuring(
-          Effect.sync(() => {
-            if (previous === undefined) delete process.env["AXM_CLAUDE_SKILLS_DIR"];
-            else process.env["AXM_CLAUDE_SKILLS_DIR"] = previous;
-          }),
-        ),
       );
     });
 
@@ -1510,26 +1510,14 @@ describe("setup.handler", () => {
     });
 
     it.effect("displays enabled telemetry guidance when AXM_TELEMETRY=1", () => {
-      const previousTelemetry = process.env["AXM_TELEMETRY"];
-      process.env["AXM_TELEMETRY"] = "1";
-      const { handleSetup, provide, rendererState } = makeSetupTestContext();
-
+      const { handleSetup, provide, rendererState } = makeSetupTestContext({
+        environment: { AXM_TELEMETRY: "1" },
+      });
       return provide(
         Effect.gen(function* () {
           yield* handleSetup({ scope: "project" });
-
           expect(rendererState.suggestions).toContainEqual(enabledTelemetrySuggestion);
-        }).pipe(
-          Effect.ensuring(
-            Effect.sync(() => {
-              if (previousTelemetry === undefined) {
-                delete process.env["AXM_TELEMETRY"];
-              } else {
-                process.env["AXM_TELEMETRY"] = previousTelemetry;
-              }
-            }),
-          ),
-        ),
+        }),
       );
     });
   });

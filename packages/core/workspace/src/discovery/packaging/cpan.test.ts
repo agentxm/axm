@@ -1,3 +1,4 @@
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -252,19 +253,13 @@ const readInTempLib = (
       source: path.join(sourceDir, "cpanfile"),
     };
 
-    const origLib = process.env["PERL5LIB"];
-    process.env["PERL5LIB"] = libPath;
-    return yield* cpanReader.read(detected).pipe(
-      Effect.ensuring(
-        Effect.sync(() => {
-          if (origLib === undefined) {
-            delete process.env["PERL5LIB"];
-          } else {
-            process.env["PERL5LIB"] = origLib;
-          }
-        }),
-      ),
-    );
+    return yield* cpanReader
+      .read(detected)
+      .pipe(
+        Effect.provide(
+          ConfigProvider.layer(ConfigProvider.fromEnv({ env: { PERL5LIB: libPath } })),
+        ),
+      );
   }).pipe(Effect.scoped);
 
 describe("cpanReader", () => {

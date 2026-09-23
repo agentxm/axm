@@ -19,7 +19,7 @@ import {
   NativeWriteAuthority,
   syncInlineMcpServerToAgents,
   type McpServerSyncTarget,
-  type NativeFormatFailure,
+  type CodingAgentFailure,
 } from "../../projection/agent-adapters/index.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
@@ -75,8 +75,14 @@ const settingsDisplayPath = (scope: WorkspaceScope): string =>
  * fact that stopped it, so the sentence carries over rather than being
  * replaced by a generic one the person cannot act on.
  */
-const nativeFailureToStepFailure = (failure: NativeFormatFailure): StepFailure => {
+const nativeFailureToStepFailure = (failure: CodingAgentFailure): StepFailure => {
   switch (failure._tag) {
+    case "ConfigError":
+      return new StepFailure({
+        category: "internal",
+        detail: "Agent configuration could not be read",
+        cause: failure,
+      });
     case "McpEntryUnmanaged":
       return new StepFailure({
         category: "conflict",

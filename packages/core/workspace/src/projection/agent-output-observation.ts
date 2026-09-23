@@ -8,6 +8,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import type * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -137,7 +138,7 @@ export const observeAgentOutputs = (
   args: ObserveAgentOutputsArgs,
 ): Effect.Effect<
   AgentOutputInventory,
-  never,
+  Config.ConfigError,
   CodingAgentRepository | FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
@@ -157,7 +158,11 @@ export const observeAgentOutputs = (
             ? [{ path: path.resolve(resolved.dir), agentId: agent.id }]
             : [],
         ),
-        Effect.catch(() => Effect.succeed<ReadonlyArray<ResolvedContainer>>([])),
+        Effect.catch((error) =>
+          error._tag === "ConfigError"
+            ? Effect.fail(error)
+            : Effect.succeed<ReadonlyArray<ResolvedContainer>>([]),
+        ),
       ),
     ).pipe(Effect.map((containers) => containers.flat()));
 
@@ -205,7 +210,11 @@ export const observeAgentOutputs = (
               ? [{ path: path.resolve(resolved.dir), agentId: agent.id }]
               : [],
           ),
-          Effect.catch(() => Effect.succeed<ReadonlyArray<ResolvedContainer>>([])),
+          Effect.catch((error) =>
+            error._tag === "ConfigError"
+              ? Effect.fail(error)
+              : Effect.succeed<ReadonlyArray<ResolvedContainer>>([]),
+          ),
         ),
     ).pipe(Effect.map((containers) => containers.flat()));
 
@@ -352,7 +361,7 @@ export const observeWorkspaceOwnershipIssues = (args: {
   readonly authoredSkills: ObserveAgentOutputsArgs["authoredSkills"];
 }): Effect.Effect<
   ReadonlyArray<WorkspaceOwnershipIssue>,
-  never,
+  Config.ConfigError,
   CodingAgentRepository | FileSystem.FileSystem | Path.Path
 > =>
   observeAgentOutputs({

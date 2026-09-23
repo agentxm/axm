@@ -1,4 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
+import * as Config from "effect/Config";
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import type { LintConfig, LintRuleSeverity } from "./config.js";
 import type { AdvisoryRule } from "./rule.js";
@@ -43,6 +45,24 @@ const expectedSeverity = (
 };
 
 describe("evaluateContexts", () => {
+  it.effect("preserves observation failure even when its findings are disabled", () =>
+    Effect.gen(function* () {
+      const sourceError = new ConfigProvider.SourceError({ message: "source unavailable" });
+      const failing: AdvisoryRule<string, Config.ConfigError> = {
+        ...rule("warning"),
+        check: () => Config.String("AGENT_CONFIG").pipe(Effect.as([])),
+      };
+      const failure = yield* evaluateContexts([failing], ["workspace"], {
+        rules: { [failing.id]: "off" },
+      }).pipe(
+        Effect.provide(ConfigProvider.layer(ConfigProvider.make(() => Effect.fail(sourceError)))),
+        Effect.flip,
+      );
+      expect(failure._tag).toBe("ConfigError");
+      expect(failure.cause).toBe(sourceError);
+    }),
+  );
+
   it.effect.each(matrix)(
     "resolves a $defaultSeverity default with $configured configuration",
     ({ defaultSeverity, override }) =>

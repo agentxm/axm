@@ -17,7 +17,7 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
-import { readEnv } from "../internal/environment.js";
+import { envOption } from "../internal/environment.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import {
   decodeAgentExtensions,
@@ -192,9 +192,9 @@ const decodeAgentExtensionsContainer = Schema.decodeUnknownResult(AgentExtension
  * Uses $DENO_DIR if set, otherwise platform-specific defaults.
  */
 const resolveDenoDir = () =>
-  Effect.sync(() => {
-    const denoDir = readEnv("DENO_DIR");
-    if (denoDir !== undefined && denoDir !== "") return denoDir;
+  Effect.gen(function* () {
+    const denoDir = yield* envOption("DENO_DIR");
+    if (Option.isSome(denoDir) && denoDir.value !== "") return denoDir.value;
 
     // Platform-specific defaults
     if (process.platform === "darwin") {

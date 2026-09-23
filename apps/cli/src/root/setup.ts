@@ -142,7 +142,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: HandleSetu
   const verbosity = yield* Verbosity;
   const json = yield* jsonFlag;
   const machineOutput = Option.getOrElse(json, () => false);
-  const nonInteractive = (yield* isNonInteractive) || machineOutput;
+  const nonInteractive = machineOutput || (yield* isNonInteractive);
   const doNotTrackOpt = yield* envOption("DO_NOT_TRACK");
   const axmTelemetryOpt = yield* envOption("AXM_TELEMETRY");
   const telemetryMode = resolveTelemetryMode({

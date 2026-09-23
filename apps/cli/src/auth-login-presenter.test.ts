@@ -6,6 +6,8 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
+import * as Config from "effect/Config";
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
@@ -162,6 +164,41 @@ describe("AuthLoginPresenterLive", () => {
         return yield* presenter.confirmSessionReplacement();
       }).pipe(Effect.provide(Layer.provide(AuthLoginPresenterLive, dependencies)), Effect.flip);
       expect(failure).toMatchObject({ _tag: "RegistryAccessFailed", category: "internal", cause });
+    }),
+  );
+  it.effect("keeps unavailable interaction configuration distinct from cancellation", () =>
+    Effect.gen(function* () {
+      const renderer = TestRenderer.make();
+      const screen = yield* Screen.pipe(Effect.provide(renderer.layer));
+      const sourceError = new ConfigProvider.SourceError({ message: "private source detail" });
+      const configError = yield* Config.String("CI").pipe(
+        Effect.provide(ConfigProvider.layer(ConfigProvider.make(() => Effect.fail(sourceError)))),
+        Effect.flip,
+      );
+      const dependencies = Layer.merge(
+        Layer.succeed(Screen, {
+          ...screen,
+          ask: () => Effect.fail(configError),
+          wait: () => Effect.fail(configError),
+        }),
+        Layer.succeed(DeviceLoginInteraction, noInteraction),
+      );
+      yield* Effect.gen(function* () {
+        const presenter = yield* AuthLoginPresenter;
+        for (const effect of [
+          presenter.confirmSessionReplacement().pipe(Effect.asVoid),
+          presenter.awaitHuman(deviceHandoff, Effect.void),
+        ]) {
+          const failure = yield* Effect.flip(effect);
+          expect(failure).toMatchObject({
+            _tag: "RegistryAccessFailed",
+            category: "internal",
+            cause: configError,
+          });
+          if (failure._tag === "RegistryAccessFailed")
+            expect(failure.detail).not.toContain(sourceError.message);
+        }
+      }).pipe(Effect.provide(Layer.provide(AuthLoginPresenterLive, dependencies)));
     }),
   );
   it.effect("parks on the device handoff with its code, both links, and its warnings", () => {

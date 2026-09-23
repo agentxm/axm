@@ -13,7 +13,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { readEnv } from "../internal/environment.js";
+import { envWithDefault } from "../internal/environment.js";
 import { makeDetectedPackage } from "./detected-package.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
@@ -250,7 +250,7 @@ export const nugetDetector: PackageDetector = {
  * Resolve the NuGet packages folder path.
  */
 const resolveNugetPackagesFolder = () =>
-  Effect.sync(() => readEnv("NUGET_PACKAGES") ?? `${os.homedir()}/.nuget/packages`);
+  envWithDefault("NUGET_PACKAGES", `${os.homedir()}/.nuget/packages`);
 
 /**
  * NuGet package reader.

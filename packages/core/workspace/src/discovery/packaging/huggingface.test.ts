@@ -1,3 +1,4 @@
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -53,19 +54,13 @@ const readInTempCache = (
       source: "huggingface-cache",
     };
 
-    const origCache = process.env["HUGGINGFACE_HUB_CACHE"];
-    process.env["HUGGINGFACE_HUB_CACHE"] = hfCache;
-    return yield* huggingfaceReader.read(detected).pipe(
-      Effect.ensuring(
-        Effect.sync(() => {
-          if (origCache === undefined) {
-            delete process.env["HUGGINGFACE_HUB_CACHE"];
-          } else {
-            process.env["HUGGINGFACE_HUB_CACHE"] = origCache;
-          }
-        }),
-      ),
-    );
+    return yield* huggingfaceReader
+      .read(detected)
+      .pipe(
+        Effect.provide(
+          ConfigProvider.layer(ConfigProvider.fromEnv({ env: { HUGGINGFACE_HUB_CACHE: hfCache } })),
+        ),
+      );
   }).pipe(Effect.scoped);
 
 describe("huggingfaceReader", () => {

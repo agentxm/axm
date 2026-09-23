@@ -4,6 +4,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import type * as Config from "effect/Config";
 import * as Duration from "effect/Duration";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -136,7 +137,7 @@ const getExecutableCandidates = (command: string, pathExt: string): ReadonlyArra
 
 const checkExecutableAvailable = (
   command: string,
-): Effect.Effect<boolean, never, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<boolean, Config.ConfigError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -889,7 +890,7 @@ export const addMcpServerMixed = (
   args: AddMcpServerArgs,
 ): Effect.Effect<
   McpServerSyncOutcome,
-  McpConfigSyncFailure,
+  McpConfigSyncFailure | Config.ConfigError,
   FileSystem.FileSystem | Path.Path | NativeWriteAuthority | ChildProcessSpawner.ChildProcessSpawner
 > =>
   Effect.gen(function* () {
@@ -949,7 +950,7 @@ export const removeMcpServerMixed = (
   args: RemoveMcpServerArgs,
 ): Effect.Effect<
   McpServerSyncOutcome,
-  McpConfigSyncFailure,
+  McpConfigSyncFailure | Config.ConfigError,
   FileSystem.FileSystem | Path.Path | NativeWriteAuthority | ChildProcessSpawner.ChildProcessSpawner
 > =>
   Effect.gen(function* () {
@@ -1028,17 +1029,17 @@ export interface ConfigFirstStrategy {
   readonly timeoutMs?: number;
 }
 
-const verifyConfigFirst = (
+const prepareConfigFirstVerification = (
   strategy: ConfigFirstStrategy,
   args: AddMcpServerArgs | RemoveMcpServerArgs,
 ): Effect.Effect<
-  McpServerSyncOutcome,
-  McpConfigSyncFailure,
-  FileSystem.FileSystem | Path.Path | NativeWriteAuthority | ChildProcessSpawner.ChildProcessSpawner
+  Effect.Effect<McpServerSyncOutcome, McpConfigIoFailed, ChildProcessSpawner.ChildProcessSpawner>,
+  Config.ConfigError,
+  FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
     if (strategy.verifyCommand === undefined || strategy.verifyCommand.length === 0) {
-      return { _tag: "success" } as const;
+      return Effect.succeed({ _tag: "success" } as const);
     }
 
     const platformOutcome = ensurePlatformSupported(
@@ -1046,31 +1047,34 @@ const verifyConfigFirst = (
       strategy.supportedPlatforms ?? DEFAULT_SUPPORTED_PLATFORMS,
     );
     if (Option.isSome(platformOutcome)) {
-      return { _tag: "success" } as const;
+      return Effect.succeed({ _tag: "success" } as const);
     }
 
     const executableAvailable = yield* checkExecutableAvailable(strategy.verifyCommand[0] ?? "");
     if (!executableAvailable) {
+      return Effect.succeed({ _tag: "success" } as const);
+    }
+
+    const command = strategy.verifyCommand;
+    return Effect.gen(function* () {
+      const invocation = yield* runCliInvocation({
+        command: command[0] ?? "",
+        args: command.slice(1).map((value) => replaceTemplate(value, args)),
+        timeoutMs: strategy.timeoutMs ?? 10_000,
+        cwd: args.workspaceRoot,
+      });
+
+      const outcome = cliResultToOutcome(invocation, {
+        idempotentPatterns: [],
+      });
+      if (outcome._tag === "disabled") {
+        return outcome;
+      }
+      if (outcome._tag === "misconfigured" || outcome._tag === "failed") {
+        return outcome;
+      }
       return { _tag: "success" } as const;
-    }
-
-    const invocation = yield* runCliInvocation({
-      command: strategy.verifyCommand[0] ?? "",
-      args: strategy.verifyCommand.slice(1).map((value) => replaceTemplate(value, args)),
-      timeoutMs: strategy.timeoutMs ?? 10_000,
-      cwd: args.workspaceRoot,
     });
-
-    const outcome = cliResultToOutcome(invocation, {
-      idempotentPatterns: [],
-    });
-    if (outcome._tag === "disabled") {
-      return outcome;
-    }
-    if (outcome._tag === "misconfigured" || outcome._tag === "failed") {
-      return outcome;
-    }
-    return { _tag: "success" } as const;
   });
 
 export const addMcpServerConfigFirst = (
@@ -1078,16 +1082,17 @@ export const addMcpServerConfigFirst = (
   args: AddMcpServerArgs,
 ): Effect.Effect<
   McpServerSyncOutcome,
-  McpConfigSyncFailure,
+  McpConfigSyncFailure | Config.ConfigError,
   FileSystem.FileSystem | Path.Path | NativeWriteAuthority | ChildProcessSpawner.ChildProcessSpawner
 > =>
   Effect.gen(function* () {
+    const verify = yield* prepareConfigFirstVerification(strategy, args);
     yield* upsertJsonConfigServer(
       strategy.configPath.replaceAll("{workspaceRoot}", args.workspaceRoot),
       args.serverName,
       entryFromAddArgs(args),
     );
-    return yield* verifyConfigFirst(strategy, args);
+    return yield* verify;
   });
 
 export const removeMcpServerConfigFirst = (
@@ -1095,15 +1100,16 @@ export const removeMcpServerConfigFirst = (
   args: RemoveMcpServerArgs,
 ): Effect.Effect<
   McpServerSyncOutcome,
-  McpConfigSyncFailure,
+  McpConfigSyncFailure | Config.ConfigError,
   FileSystem.FileSystem | Path.Path | NativeWriteAuthority | ChildProcessSpawner.ChildProcessSpawner
 > =>
   Effect.gen(function* () {
+    const verify = yield* prepareConfigFirstVerification(strategy, args);
     yield* removeJsonConfigServer(
       strategy.configPath.replaceAll("{workspaceRoot}", args.workspaceRoot),
       args.serverName,
     );
-    return yield* verifyConfigFirst(strategy, args);
+    return yield* verify;
   });
 
 export const addMcpServerFromManifest = (

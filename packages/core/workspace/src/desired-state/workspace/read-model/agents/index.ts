@@ -7,6 +7,7 @@
  */
 
 import * as Array from "effect/Array";
+import type * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
@@ -64,14 +65,14 @@ export interface ScopedAgentsApi {
     id: AgentId,
   ) => Effect.Effect<Option.Option<DeclaredAgent>, SettingsReadError>;
   readonly actual: (id: AgentId) => Effect.Effect<Option.Option<ActualAgent>>;
-  readonly detected: Effect.Effect<ReadonlyArray<DetectedAgent>>;
+  readonly detected: Effect.Effect<ReadonlyArray<DetectedAgent>, Config.ConfigError>;
 }
 
 /** Dependency-closed inputs captured by the scoped agent API. */
 export interface ScopedAgentsApiDeps {
   readonly scope: Scope;
   readonly settings: Effect.Effect<Option.Option<DeclaredSettingsShape>, SettingsReadError>;
-  readonly presence: Effect.Effect<ReadonlySet<AgentId>>;
+  readonly presence: Effect.Effect<ReadonlySet<AgentId>, Config.ConfigError>;
   readonly observations: Effect.Effect<AgentScannerObservations>;
 }
 

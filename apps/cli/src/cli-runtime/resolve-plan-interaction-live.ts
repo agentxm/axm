@@ -67,7 +67,16 @@ export const ResolvePlanInteractionLive = Layer.effect(
       // One resolution of effective interactivity feeds planning and the
       // screen alike, so an unavailable confirmation resolves as the
       // operation's own blocked outcome, never as a late prompt failure.
-      isConfirmationAvailable: promptAvailability,
+      isConfirmationAvailable: promptAvailability.pipe(
+        Effect.mapError(
+          (cause) =>
+            new PlanInteractionFailed({
+              category: "internal",
+              detail: "Interaction configuration could not be read.",
+              cause,
+            }),
+        ),
+      ),
       confirmApplyChanges: (recovery) =>
         Effect.gen(function* () {
           const guard = {
@@ -83,11 +92,16 @@ export const ResolvePlanInteractionLive = Layer.effect(
           Effect.mapError(
             (error) =>
               new PlanInteractionFailed({
-                category: error._tag === "OutputWriteFailed" ? "internal" : error.code,
+                category:
+                  error._tag === "OutputWriteFailed" || error._tag === "ConfigError"
+                    ? "internal"
+                    : error.code,
                 detail:
-                  error._tag === "OutputWriteFailed"
-                    ? "The confirmation could not be displayed."
-                    : error.detail,
+                  error._tag === "ConfigError"
+                    ? "Interaction configuration could not be read."
+                    : error._tag === "OutputWriteFailed"
+                      ? "The confirmation could not be displayed."
+                      : error.detail,
                 ...("suggestions" in error && error.suggestions !== undefined
                   ? { suggestions: error.suggestions }
                   : {}),

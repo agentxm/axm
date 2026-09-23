@@ -2,6 +2,7 @@
  * Root CLI application.
  */
 
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Cause from "effect/Cause";
 import * as Console from "effect/Console";
@@ -296,6 +297,11 @@ export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): 
             rendererLayer,
             CliOutput.layer(makeAxmFormatter({ json: isJson, colors: outputPolicy.colors })),
           ),
+        ),
+        // An explicitly empty override remains distinct from an absent key.
+        Effect.provideService(
+          ConfigProvider.ConfigProvider,
+          ConfigProvider.fromEnv({ preserveEmptyStrings: true }),
         ),
       );
     },

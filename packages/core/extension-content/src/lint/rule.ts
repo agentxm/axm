@@ -108,9 +108,9 @@ export interface RuleBase {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export interface AdvisoryRule<C> extends RuleBase {
+export interface AdvisoryRule<C, E = never> extends RuleBase {
   readonly kind: "advisory";
-  readonly check: (context: C) => Effect.Effect<ReadonlyArray<AdvisoryFinding>>;
+  readonly check: (context: C) => Effect.Effect<ReadonlyArray<AdvisoryFinding>, E>;
 }
 
 /**
@@ -118,4 +118,4 @@ export interface AdvisoryRule<C> extends RuleBase {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type LintRule<C> = AdvisoryRule<C>;
+export type LintRule<C, E = never> = AdvisoryRule<C, E>;

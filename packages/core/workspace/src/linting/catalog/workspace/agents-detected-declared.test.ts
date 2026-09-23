@@ -1,4 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
+import * as Config from "effect/Config";
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -37,6 +39,36 @@ const contextFor = (workspace: WorkspaceRuleContext["workspace"]): WorkspaceRule
 });
 
 describe("workspace/agents-detected-declared", () => {
+  it.effect("does not report a clean lint result when presence configuration fails", () => {
+    const sourceError = new ConfigProvider.SourceError({ message: "source unavailable" });
+    return runScenario(
+      {
+        workspaceRoot: SCENARIO_WORKSPACE_ROOT,
+        userHome: SCENARIO_USER_HOME,
+        project: { settings: { _tag: "valid", contents: { agents: [] } } },
+      },
+      (ctx) =>
+        Effect.gen(function* () {
+          const failure = yield* agentsDetectedDeclaredRule
+            .check(contextFor(ctx.scope("project")))
+            .pipe(Effect.flip);
+          expect(failure._tag).toBe("ConfigError");
+          expect(failure.cause).toBe(sourceError);
+        }),
+      {
+        probe: () => ({
+          detect: () =>
+            Config.String("XDG_CONFIG_HOME").pipe(
+              Effect.as(new Set<AgentId>()),
+              Effect.provide(
+                ConfigProvider.layer(ConfigProvider.make(() => Effect.fail(sourceError))),
+              ),
+            ),
+        }),
+      },
+    );
+  });
+
   it.effect("does not infer any reader from a populated shared MCP file", () =>
     runScenario(
       {

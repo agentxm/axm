@@ -6,6 +6,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import type * as Config from "effect/Config";
 import * as Schema from "effect/Schema";
 import type { ExtensionManagerFailure } from "../materialization/index.js";
 import type { McpConfigSyncFailure } from "../projection/agent-adapters/index.js";
@@ -32,4 +33,4 @@ export class WorkspaceSyncFailed extends Schema.TaggedError<WorkspaceSyncFailed>
 
 /** Every failure the rendered-file cleanup sweep surfaces. */
 export type WorkspaceSyncCleanupFailure =
-  WorkspaceSyncFailed | ExtensionManagerFailure | McpConfigSyncFailure;
+  WorkspaceSyncFailed | ExtensionManagerFailure | McpConfigSyncFailure | Config.ConfigError;

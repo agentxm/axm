@@ -1,3 +1,4 @@
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -234,19 +235,13 @@ const readInTempCache = (
       source: path.join(sourceDir, "conanfile.txt"),
     };
 
-    const origCache = process.env["CONAN_USER_HOME"];
-    process.env["CONAN_USER_HOME"] = conanCache;
-    return yield* conanReader.read(detected).pipe(
-      Effect.ensuring(
-        Effect.sync(() => {
-          if (origCache === undefined) {
-            delete process.env["CONAN_USER_HOME"];
-          } else {
-            process.env["CONAN_USER_HOME"] = origCache;
-          }
-        }),
-      ),
-    );
+    return yield* conanReader
+      .read(detected)
+      .pipe(
+        Effect.provide(
+          ConfigProvider.layer(ConfigProvider.fromEnv({ env: { CONAN_USER_HOME: conanCache } })),
+        ),
+      );
   }).pipe(Effect.scoped);
 
 describe("conanReader", () => {

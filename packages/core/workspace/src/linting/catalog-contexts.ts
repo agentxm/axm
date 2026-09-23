@@ -1,3 +1,4 @@
+import type * as Config from "effect/Config";
 /**
  * The lint runner's catalog table — one entry per rule namespace, total by
  * construction over `ExtensionType`.
@@ -76,6 +77,11 @@ export interface CatalogRuleContexts {
  */
 export type CatalogGroup = ExtensionType | "workspace";
 
+/** Configuration reads are owned by the workspace catalog. */
+export type CatalogError<K extends CatalogGroup> = K extends "workspace"
+  ? Config.ConfigError
+  : never;
+
 /** Filesystem identity evaluated by a lint run. */
 export type LintView = "workspace" | "git-index";
 
@@ -92,7 +98,7 @@ export type CatalogContext<K extends CatalogGroup> = CatalogRuleContexts[K][numb
  * @experimental This API is unstable and may change without notice.
  */
 export const REPOSITORY_LINT_CATALOGS: {
-  readonly [K in CatalogGroup]: ReadonlyArray<LintRule<CatalogContext<K>>>;
+  readonly [K in CatalogGroup]: ReadonlyArray<LintRule<CatalogContext<K>, CatalogError<K>>>;
 } = {
   skill: skillRules,
   pack: packRules,
@@ -107,12 +113,16 @@ export const REPOSITORY_LINT_CATALOGS: {
 /** Positive catalog of rules that require live operational state. */
 export const LIVE_ONLY_LINT_CATALOGS = {
   workspace: liveOnlyWorkspaceRules,
-} satisfies { readonly workspace: ReadonlyArray<LintRule<WorkspaceRuleContext>> };
+} satisfies {
+  readonly workspace: ReadonlyArray<LintRule<WorkspaceRuleContext, Config.ConfigError>>;
+};
 
 /** Select positive rule catalogs for a view without an exclusion list. */
 export const lintCatalogsForView = (
   view: LintView,
-): { readonly [K in CatalogGroup]: ReadonlyArray<LintRule<CatalogContext<K>>> } => ({
+): {
+  readonly [K in CatalogGroup]: ReadonlyArray<LintRule<CatalogContext<K>, CatalogError<K>>>;
+} => ({
   ...REPOSITORY_LINT_CATALOGS,
   workspace: view === "workspace" ? workspaceRules : REPOSITORY_LINT_CATALOGS.workspace,
 });

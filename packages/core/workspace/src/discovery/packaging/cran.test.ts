@@ -1,3 +1,4 @@
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -224,19 +225,13 @@ const readInTempLib = (
       source: path.join(sourceDir, "DESCRIPTION"),
     };
 
-    const origLib = process.env["R_LIBS_USER"];
-    process.env["R_LIBS_USER"] = libPath;
-    return yield* cranReader.read(detected).pipe(
-      Effect.ensuring(
-        Effect.sync(() => {
-          if (origLib === undefined) {
-            delete process.env["R_LIBS_USER"];
-          } else {
-            process.env["R_LIBS_USER"] = origLib;
-          }
-        }),
-      ),
-    );
+    return yield* cranReader
+      .read(detected)
+      .pipe(
+        Effect.provide(
+          ConfigProvider.layer(ConfigProvider.fromEnv({ env: { R_LIBS_USER: libPath } })),
+        ),
+      );
   }).pipe(Effect.scoped);
 
 describe("cranReader", () => {

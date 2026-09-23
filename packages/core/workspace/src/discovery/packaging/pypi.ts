@@ -14,7 +14,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { readEnv } from "../internal/environment.js";
+import { envOption } from "../internal/environment.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
 import { parseTomlDocument, tomlTable } from "./toml.js";
@@ -398,7 +398,7 @@ const resolveSitePackages = () =>
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
 
-    const virtualEnv = yield* Effect.sync(() => readEnv("VIRTUAL_ENV"));
+    const virtualEnv = Option.getOrUndefined(yield* envOption("VIRTUAL_ENV"));
     if (virtualEnv) {
       // Scan for python* directories under lib/
       const libDir = path.join(virtualEnv, "lib");

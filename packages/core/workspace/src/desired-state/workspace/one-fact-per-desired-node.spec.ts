@@ -22,12 +22,18 @@ import {
   type SyncFixture,
 } from "../../reconciliation/sync/test-helpers.js";
 import { DesiredStateReader, observeDesiredCanonical } from "../index.js";
+import {
+  DISABLED_MCP,
+  SHARED_MEMBER_PIN,
+  publishSharedMemberScenario,
+  sharedMemberSettings,
+} from "./test-helpers.js";
 
 export const specification = defineSpecification({
   requirement: "workspace/observation/one-fact-per-desired-node",
   title: "A desired extension's missing accepted resolution is one reported fact",
   statement:
-    "When an enabled desired extension has no accepted resolution, lint shall report that fact as exactly one finding and a sync that cannot restore it shall report it as exactly one blocker, both stating the same fact, and when that extension is disabled the state shall be judged not applicable and lint shall report no finding for it before or after sync.",
+    "When a desired extension, enabled or disabled, has no accepted resolution, AXM shall judge that fact once for the extension, lint shall report it as exactly one finding, a sync that cannot restore it shall report it as exactly one blocker stating the same fact, and once sync realizes the extension lint shall report nothing for it.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "workspace-intent-fidelity"],
@@ -180,25 +186,42 @@ describe("One fact per desired node", () => {
       .pipe(Effect.provide(NodeServices.layer));
   });
 
-  it.effect("observes a disabled member without an accepted resolution as not applicable", () => {
-    const { workspace, loseMember } = workspaceMissingMember({ member: { enabled: false } });
+  it.effect("judges a disabled declaration by the same rule until sync realizes it", () => {
+    const registry = makeFileRegistry();
+    cleanups.push(registry.cleanup);
+    publishSharedMemberScenario(registry);
+    const workspace = makeSyncFixture({
+      settings: {
+        owner: "@acme",
+        agents: ["claude-code"],
+        sources: [registry.source],
+        ...sharedMemberSettings(SHARED_MEMBER_PIN.inside),
+      },
+    });
+    cleanups.push(workspace.cleanup);
+    const connectionFindings = Effect.map(lint(workspace), ({ document }) =>
+      document.findings.filter(({ message }) => message.includes(DISABLED_MCP.fqn)),
+    );
     return workspace
       .provide(
         Effect.gen(function* () {
-          yield* loseMember;
           const graph = yield* (yield* DesiredStateReader).graph();
-          const desired = graph.nodes.find((node) => node.type === "skill" && node.name === MEMBER);
-          if (desired === undefined) throw new Error("Expected the member to stay desired");
-          expect(desired.enabled).toBe(false);
-          expect((yield* observeDesiredCanonical(desired)).observation.status).toBe(
-            "not-applicable",
+          const connection = graph.nodes.find(
+            (node) => node.type === "mcp-server" && node.name === DISABLED_MCP.name,
           );
-          expect(yield* memberFindings(workspace)).toEqual([]);
+          if (connection === undefined) throw new Error("Expected the disabled connection");
+          expect(connection.enabled).toBe(false);
+          expect((yield* observeDesiredCanonical(connection)).observation.status).toBe(
+            "missing-resolution",
+          );
+          const findings = yield* connectionFindings;
+          expect(findings).toHaveLength(1);
+          expect(findings[0]?.message).toContain("has no accepted resolution");
 
           yield* applySync();
 
-          expect(yield* memberFindings(workspace)).toEqual([]);
-          expect(workspace.exists(`.claude/skills/${MEMBER}`)).toBe(false);
+          expect((yield* observeDesiredCanonical(connection)).observation.status).toBe("usable");
+          expect(yield* connectionFindings).toEqual([]);
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));

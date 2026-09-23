@@ -490,7 +490,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `workspace/observation/one-fact-per-desired-node`
 - Owner: `workspace`
-- Statement: When an enabled desired extension has no accepted resolution, lint shall report that fact as exactly one finding and a sync that cannot restore it shall report it as exactly one blocker, both stating the same fact, and when that extension is disabled the state shall be judged not applicable and lint shall report no finding for it before or after sync.
+- Statement: When a desired extension, enabled or disabled, has no accepted resolution, AXM shall judge that fact once for the extension, lint shall report it as exactly one finding, a sync that cannot restore it shall report it as exactly one blocker stating the same fact, and once sync realizes the extension lint shall report nothing for it.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`

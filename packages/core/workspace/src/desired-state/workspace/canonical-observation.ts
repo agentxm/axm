@@ -218,11 +218,8 @@ const acceptedOriginMatches = (
  * the desired origin, and whether its version satisfies every desired
  * constraint. `none` means that authority stands and the canonical content
  * decides the rest of the observation. Workspace-authored content has no
- * accepted resolution; its manifest is judged with the content.
- *
- * A disabled node without an accepted resolution is not applicable: it is not
- * a violation, and a node that has one keeps its full observation, so its
- * retained content is still judged.
+ * accepted resolution; its manifest is judged with the content. Activation is
+ * not an input: a disabled node is judged exactly like an enabled one.
  */
 export const observeAcceptedResolution = (
   desired: DesiredExtensionNode,
@@ -234,11 +231,7 @@ export const observeAcceptedResolution = (
   if (desired.identity.startsWith("workspace:")) return Option.none();
   const bundled = desired.identity.startsWith("bundled:");
   if (!bundled && accepted === undefined) {
-    return Option.some({
-      type: desired.type,
-      name: desired.name,
-      status: desired.enabled ? "missing-resolution" : "not-applicable",
-    });
+    return Option.some({ type: desired.type, name: desired.name, status: "missing-resolution" });
   }
   if (!bundled && accepted !== undefined && !acceptedOriginMatches(desired, accepted)) {
     return Option.some({ type: desired.type, name: desired.name, status: "wrong-origin" });

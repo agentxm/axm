@@ -22,6 +22,7 @@ import {
   resolvePackDependenciesWithReleaseAge,
   type PackDependencyRefResolver,
   type PackDependencyResolutionFailure,
+  type PackMemberRangeResolver,
   type ReleaseAgeAwarePackDependencyResolution,
   type SourceAuthorityBlocked,
   type WorkspacePackDependencyResolver,
@@ -52,6 +53,7 @@ export const expandPackInstallRefs = <E = never, R = never>(args: {
   readonly minimumReleaseAge?: Option.Option<Duration.Duration>;
   readonly workspaceResolver?: WorkspacePackDependencyResolver<E, R>;
   readonly dependencyResolver?: PackDependencyRefResolver<E, R>;
+  readonly memberRange?: PackMemberRangeResolver;
 }): Effect.Effect<ReadonlyArray<ExtensionRef>, PackExpansionError | E, R> =>
   Effect.gen(function* () {
     const {
@@ -61,6 +63,7 @@ export const expandPackInstallRefs = <E = never, R = never>(args: {
       minimumReleaseAge,
       workspaceResolver,
       dependencyResolver,
+      memberRange,
     } = args;
     const resolved = yield* resolvePackDependencies(
       pack,
@@ -69,6 +72,7 @@ export const expandPackInstallRefs = <E = never, R = never>(args: {
       undefined,
       workspaceResolver,
       dependencyResolver,
+      memberRange,
     );
 
     const deps = resolved.dependencyRefs.filter((ref) =>
@@ -101,6 +105,7 @@ export const expandPackInstallRefsWithReleaseAge = <E = never, R = never>(args: 
   readonly releaseAgeEvaluation: ReleaseAgeEvaluation;
   readonly workspaceResolver?: WorkspacePackDependencyResolver<E, R>;
   readonly dependencyResolver?: PackDependencyRefResolver<E, R>;
+  readonly memberRange?: PackMemberRangeResolver;
 }): Effect.Effect<ReleaseAgeAwarePackExpansion, PackExpansionError | E, R> =>
   Effect.gen(function* () {
     const resolved = yield* resolvePackDependenciesWithReleaseAge(
@@ -110,6 +115,7 @@ export const expandPackInstallRefsWithReleaseAge = <E = never, R = never>(args: 
       undefined,
       args.workspaceResolver,
       args.dependencyResolver,
+      args.memberRange,
     );
     if (resolved.kind === "policy_held") return resolved;
     const dependencies = resolved.dependencies.dependencyRefs.filter((ref) =>

@@ -337,13 +337,13 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/lockfile-rejections-name-recovery-routes`
 - Owner: `workspace`
-- Statement: When a workspace lockfile is rejected as older than the supported version, following the named recovery route (preserving the file outside its authoritative path, previewing, then applying sync) shall re-accept the desired state into a lockfile at the supported version, and a workspace holding only workspace-authored content shall finish that route without a lockfile.
+- Statement: When a workspace lockfile is rejected as older than the supported version, following the named recovery route (preserving the file outside its authoritative path, previewing, then applying sync) shall re-accept the desired state into a lockfile at the supported version, selecting each re-accepted extension within its effective desired constraint so that a direct pin on a Pack member holds, and a workspace holding only workspace-authored content shall finish that route without a lockfile.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `safe-repetition`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `cli/workspace-lockfile-rejections-name-state-and-recovery`
+- Derived from: `cli/workspace-lockfile-rejections-name-state-and-recovery`, `workspace/desired-state/effective-constraint-has-one-owner`
 - Supersedes: `cli/workspace-lockfile-rejections-name-state-and-recovery`
 - Source: [`packages/core/workspace/src/reconciliation/sync/lockfile-rejections-name-recovery-routes.spec.ts`](../packages/core/workspace/src/reconciliation/sync/lockfile-rejections-name-recovery-routes.spec.ts)
 
@@ -1180,12 +1180,13 @@ People and agents can find, install, update, and remove reusable extensions acro
 
 - Requirement: `cli/update/advances-resolution-within-intent`
 - Owner: `workspace`
-- Statement: Update of a desired Registry extension shall advance its accepted resolution and realized content to the newest version within the durable constraint without changing axm.json or any other extension, and shall be a no-op when already current.
+- Statement: Update of a desired Registry extension shall advance its accepted resolution and realized content to the newest version within its effective constraint — the intersection of its durable direct constraint with the range of every Pack that requires it — without changing axm.json or any other extension, shall be a no-op when already current, and when that intersection admits no version shall change nothing and report a conflict naming every contributor.
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `workspace-intent-fidelity`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example
+- Derived from: `workspace/desired-state/effective-constraint-has-one-owner`
 - Additional evidence: process via [`apps/cli-e2e/src/http-registry.e2e.test.ts`](../apps/cli-e2e/src/http-registry.e2e.test.ts) — Publishes, installs, and updates over a real HTTP registry transport — bearer-token auth headers, PUT uploads, immutable version and holdback semantics, no upload when the authoritative preview is blocked, and registry-form locator resolution with file:// parity — plus release-age-gated advancement, explicit bypass, unchanged settings, and second-run no-op exit codes that the in-memory file-registry harness cannot observe.
 - Additional evidence: process via [`apps/cli-e2e/src/skills.e2e.test.ts`](../apps/cli-e2e/src/skills.e2e.test.ts) — Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects; its imported cli-commands/skills/list/command.e2e.ts scenarios additionally observe inventory before setup, user-scope discovery, malformed settings and lockfiles, and install/uninstall/read journeys. Execution is attributed to this Vitest entrypoint, with imported source bytes included in the repository execution inputs.
 - Source: [`packages/core/workspace/src/lifecycle/update/advances-resolution-within-intent.spec.ts`](../packages/core/workspace/src/lifecycle/update/advances-resolution-within-intent.spec.ts)
@@ -3946,12 +3947,13 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/sync/preserves-configuration-and-resolutions`
 - Owner: `workspace`
-- Statement: Sync shall preserve axm.json and authored manifests byte for byte, preserve satisfying accepted resolutions of still-desired extensions, and restore missing acquired content only from the accepted identity even when newer content exists; an incompatible accepted identity shall block until an explicit resolution transition is authorized, and retiring an unreachable accepted record shall not count as advancing a resolution.
+- Statement: Sync shall preserve axm.json and authored manifests byte for byte, preserve satisfying accepted resolutions of still-desired extensions, restore missing acquired content only from the accepted identity even when newer content exists, and select every member of a configured Pack it recovers within that member's effective desired constraint so that a direct pin on a shared member holds; an incompatible accepted identity shall block until an explicit resolution transition is authorized, and retiring an unreachable accepted record shall not count as advancing a resolution.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example
+- Derived from: `workspace/desired-state/effective-constraint-has-one-owner`
 - Source: [`packages/core/workspace/src/reconciliation/sync/preserves-configuration-and-resolutions.spec.ts`](../packages/core/workspace/src/reconciliation/sync/preserves-configuration-and-resolutions.spec.ts)
 
 ##### Sync leaves undeclared authored packages alone
@@ -4132,13 +4134,13 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/update/plans-coherent-groups-and-explains-blockers`
 - Owner: `workspace`
-- Statement: A workspace update shall plan selected Packs that share a member as one group against the same proposed graph, refuse a group whose constraints cannot be satisfied before it writes anything, and report every selected Pack that refusal prevented together with the constraints that decided it, while a group that shares no member with a refused one remains free to settle and stays committed.
+- Statement: A workspace update shall plan selected Packs that share a member as one group against the same proposed graph, refuse a group whose constraints cannot be satisfied — a direct declaration of a shared member contributing its range like any Pack — before it writes anything, and report every selected Pack and directly declared member that refusal prevented together with every constraint that decided it, while a group that shares no member with a refused one remains free to settle and stays committed.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `cli/update/advances-resolution-within-intent`, `cli/mutations-are-closure-atomic`
+- Derived from: `cli/update/advances-resolution-within-intent`, `cli/mutations-are-closure-atomic`, `workspace/desired-state/effective-constraint-has-one-owner`
 - Open questions: Whether a blocked group should also report the newest Pack version it could have selected, which cli/update/explains-excluded-newer-versions owns separately.
 - Source: [`packages/core/workspace/src/lifecycle/update/plans-coherent-groups-and-explains-blockers.spec.ts`](../packages/core/workspace/src/lifecycle/update/plans-coherent-groups-and-explains-blockers.spec.ts)
 
@@ -5763,6 +5765,19 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example
 - Derived from: `docs/architecture/workspace/execution.md`
 - Source: [`packages/core/workspace/src/transitions/planning/plan/apply-provides-acquisition-boundary.spec.ts`](../packages/core/workspace/src/transitions/planning/plan/apply-provides-acquisition-boundary.spec.ts)
+
+##### One effective constraint decides the version of every desired extension
+
+- Requirement: `workspace/desired-state/effective-constraint-has-one-owner`
+- Owner: `workspace`
+- Statement: The desired state shall give each desired extension one effective constraint that intersects its direct declaration with the range of every Pack that requires it and names every contributor, and when no version satisfies that intersection it shall report one conflict naming every contributor rather than letting any contributor's range win.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `docs/architecture/workspace/invariants.md`
+- Source: [`packages/core/workspace/src/desired-state/workspace/effective-constraint-has-one-owner.spec.ts`](../packages/core/workspace/src/desired-state/workspace/effective-constraint-has-one-owner.spec.ts)
 
 #### Quality
 

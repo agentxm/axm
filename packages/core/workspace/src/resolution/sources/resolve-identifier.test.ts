@@ -145,6 +145,7 @@ describe("resolveIdentifier", () => {
         {
           nodes: {
             complete: true,
+            problems: [],
             nodes: [desiredNode("skill", "localKey", "agentxm:@acme/skills/code-review")],
           },
         },
@@ -167,6 +168,7 @@ describe("resolveIdentifier", () => {
           {
             nodes: {
               complete: true,
+              problems: [],
               nodes: [
                 desiredNode("skill", "acmeReview", "@acme/skills/code-review"),
                 desiredNode("skill", "otherReview", "@other/skills/code-review"),
@@ -202,6 +204,7 @@ describe("resolveIdentifier", () => {
         {
           nodes: {
             complete: true,
+            problems: [],
             nodes: [desiredNode("skill", "codeReview", "@current/skills/code-review")],
           },
         },
@@ -241,6 +244,7 @@ describe("resolveIdentifier", () => {
         {
           nodes: {
             complete: true,
+            problems: [],
             nodes: [desiredNode("skill", "codeReview", "@installed/skills/code-review")],
           },
         },
@@ -277,6 +281,7 @@ describe("resolveIdentifier", () => {
  */
 const desiredGraphFor = (type: CatalogExtensionType) => ({
   complete: true,
+  problems: [],
   nodes: [desiredNode(type, "installed", `@acme/${toExtensionTypePlural(type)}/shared`)],
 });
 

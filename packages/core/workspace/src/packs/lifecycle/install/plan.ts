@@ -20,6 +20,7 @@ import type * as Config from "effect/Config";
 import * as FileSystem from "effect/FileSystem";
 import {
   DesiredStateReader,
+  LockfileReader,
   SettingsReader,
   WorkspaceLocation,
 } from "../../../desired-state/index.js";
@@ -66,6 +67,7 @@ import {
   evaluateSourceAuthority,
   normalizeReleaseAgeRecords,
   parseMinimumReleaseAge,
+  type PackMemberRangeResolver,
   type SourceAuthorityBlockedFact,
   type SourceAuthorityInput,
   type WorkspacePackDependencyResolver,
@@ -85,6 +87,7 @@ import {
 import {
   acceptedLockedCanonicalPath,
   acceptedLockedResolutionRef,
+  effectiveDesiredConstraint,
   isDesiredExtensionActive,
   usableAcceptedCanonical,
   type HookExtensionTarget,
@@ -92,6 +95,7 @@ import {
   type McpServerExtensionTarget,
   type RuleExtensionTarget,
   type SkillExtensionTarget,
+  type DesiredConstraintConflict,
   type DesiredStateGraph,
   type SubagentExtensionTarget,
 } from "../../../desired-state/index.js";
@@ -112,6 +116,7 @@ import {
   type PackInstallIntent,
   type ResolveInstallRequirements,
 } from "../../../lifecycle/install/vocabulary.js";
+import { configuredPackConstraintBlockPlan } from "../constraint-gate.js";
 import { expandPackInstallRefs, expandPackInstallRefsWithReleaseAge } from "../expansion.js";
 import { validatePackGraphPostcondition } from "../graph-transition.js";
 import { buildPackMemberInstallStep } from "../member-install-step.js";
@@ -311,6 +316,21 @@ const resolveMinimumReleaseAge = (
     return minimumAge;
   });
 
+/** The desired state as it would be with these Pack manifests, before anything is written. */
+export const readProposedGraph = (prospectivePacks: ReadonlyArray<PackRef>) =>
+  Effect.flatMap(DesiredStateReader, (desiredState) =>
+    // With no proposed manifest the proposal is the current desired state.
+    desiredState.graph(prospectivePacks.length === 0 ? undefined : { prospectivePacks }).pipe(
+      Effect.mapError((cause) =>
+        installRefused({
+          category: "internal",
+          detail: "Proposed desired state could not be read",
+          cause,
+        }),
+      ),
+    ),
+  );
+
 const readDesiredGraph = Effect.gen(function* () {
   const desiredState = yield* DesiredStateReader;
   return yield* desiredState
@@ -348,19 +368,110 @@ const sourceAuthorityIdentity = (source: Source): string => {
   }
 };
 
-const scanWorkspaceAuthority: (
-  pack: PackRef,
-) => Effect.Effect<WorkspaceAuthorityScan, ExtensionLifecycleFailed, InstallStepRequirements> =
-  Effect.fn("InstallExtensions.scanWorkspaceAuthority")(function* (pack: PackRef) {
-    const graph = yield* readDesiredGraph;
-    const packIdentity = `${pack.owner}/packs/${pack.name}`;
-    const blockers: Array<SourceAuthorityBlockedFact> = [];
-    const workspaceRefs = new Map<string, ExtensionRef>();
+/** What reading workspace source authority and accepted canonical content needs. */
+type WorkspaceAuthorityRequirements =
+  | FileSystem.FileSystem
+  | Path.Path
+  | WorkspaceLocation
+  | SettingsReader
+  | LockfileReader
+  | DesiredStateReader;
 
-    const root = graph.nodes.find(
+export const scanWorkspaceAuthority: (
+  pack: PackRef,
+) => Effect.Effect<
+  WorkspaceAuthorityScan,
+  ExtensionLifecycleFailed,
+  WorkspaceAuthorityRequirements
+> = Effect.fn("InstallExtensions.scanWorkspaceAuthority")(function* (pack: PackRef) {
+  const graph = yield* readDesiredGraph;
+  const packIdentity = `${pack.owner}/packs/${pack.name}`;
+  const blockers: Array<SourceAuthorityBlockedFact> = [];
+  const workspaceRefs = new Map<string, ExtensionRef>();
+
+  const root = graph.nodes.find(
+    (node) =>
+      node.type === "pack" &&
+      node.name === pack.name &&
+      node.origins.some(
+        (origin) =>
+          origin.type === "settings" &&
+          origin.source !== undefined &&
+          isWorkspaceSourceLocator(origin.source),
+      ),
+  );
+  if (root !== undefined) {
+    const decision = evaluateSourceAuthority({
+      target: { type: "pack", name: pack.name, identity: packIdentity },
+      relationship: { kind: "root" },
+      requested: {
+        identity: `${pack.refType}:${packIdentity}`,
+        workspace: pack.refType === "workspace",
+      },
+      configured: {
+        identity: root.identity,
+        workspace: root.identity.startsWith("workspace:"),
+      },
+    });
+    if (decision.kind === "blocked") blockers.push(decision.fact);
+  }
+
+  const dependencies = Object.entries(pack.pack.dependencies).sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
+  for (const [fqn, declaration] of dependencies) {
+    const parsed = parseExtensionFqnParts(fqn);
+    if (parsed === undefined || parsed.type === "pack") continue;
+    const constraint = packMemberVersionRange(declaration);
+    const declaredSource = packMemberRegistrySource(declaration);
+    const existing = graph.nodes.find(
+      (node) => node.type === parsed.type && node.name === parsed.name,
+    );
+    const existingPackOrigins = (existing?.origins ?? []).flatMap((origin) =>
+      origin.type === "pack" && origin.pack.replace(/^workspace:/u, "") !== packIdentity
+        ? [origin]
+        : [],
+    );
+    const requestedAuthority =
+      declaredSource === undefined
+        ? sourceAuthorityIdentity(pack.source)
+        : `registry:${declaredSource.url.href}`;
+    const existingPackDeclarations = existingPackOrigins.map(
+      (origin) => `${origin.pack} declares ${fqn} from ${origin.sourceAuthority ?? origin.source}`,
+    );
+    if (existingPackDeclarations.length > 0) {
+      const heldAuthorities = [
+        ...new Set(existingPackOrigins.map((origin) => origin.sourceAuthority ?? origin.source)),
+      ];
+      if (heldAuthorities.some((authority) => authority !== requestedAuthority)) {
+        const declarations = [
+          ...existingPackDeclarations,
+          `${packIdentity} declares ${fqn} from ${requestedAuthority}`,
+        ];
+        blockers.push({
+          id: `pack-authority:member:${fqn}:source-conflict`,
+          target: { type: parsed.type, name: parsed.name, identity: fqn },
+          relationship: { kind: "member", root: packIdentity },
+          requestedSource: requestedAuthority,
+          configuredSource: heldAuthorities.join(", "),
+          cause: "pack-source-conflict",
+          detail: `Pack member ${fqn} is held by ${heldAuthorities.join(", ")}; conflicting declarations: ${declarations.join(", ")}`,
+          requiredVersionRange: constraint,
+          recovery: [
+            {
+              description:
+                "Remove or transition the conflicting Pack declaration before installing this Pack; Pack member authority has no override flag.",
+            },
+          ],
+        });
+        continue;
+      }
+    }
+
+    const desired = graph.nodes.find(
       (node) =>
-        node.type === "pack" &&
-        node.name === pack.name &&
+        node.type === parsed.type &&
+        node.name === parsed.name &&
         node.origins.some(
           (origin) =>
             origin.type === "settings" &&
@@ -368,172 +479,195 @@ const scanWorkspaceAuthority: (
             isWorkspaceSourceLocator(origin.source),
         ),
     );
-    if (root !== undefined) {
-      const decision = evaluateSourceAuthority({
-        target: { type: "pack", name: pack.name, identity: packIdentity },
-        relationship: { kind: "root" },
-        requested: {
-          identity: `${pack.refType}:${packIdentity}`,
-          workspace: pack.refType === "workspace",
-        },
-        configured: {
-          identity: root.identity,
-          workspace: root.identity.startsWith("workspace:"),
-        },
-      });
-      if (decision.kind === "blocked") blockers.push(decision.fact);
-    }
+    if (desired === undefined) continue;
 
-    const dependencies = Object.entries(pack.pack.dependencies).sort(([left], [right]) =>
-      left.localeCompare(right),
-    );
-    for (const [fqn, declaration] of dependencies) {
-      const parsed = parseExtensionFqnParts(fqn);
-      if (parsed === undefined || parsed.type === "pack") continue;
-      const constraint = packMemberVersionRange(declaration);
-      const declaredSource = packMemberRegistrySource(declaration);
-      const existing = graph.nodes.find(
-        (node) => node.type === parsed.type && node.name === parsed.name,
-      );
-      const existingPackOrigins = (existing?.origins ?? []).flatMap((origin) =>
-        origin.type === "pack" && origin.pack.replace(/^workspace:/u, "") !== packIdentity
-          ? [origin]
-          : [],
-      );
-      const requestedAuthority =
-        declaredSource === undefined
-          ? sourceAuthorityIdentity(pack.source)
-          : `registry:${declaredSource.url.href}`;
-      const existingPackDeclarations = existingPackOrigins.map(
-        (origin) =>
-          `${origin.pack} declares ${fqn} from ${origin.sourceAuthority ?? origin.source}`,
-      );
-      if (existingPackDeclarations.length > 0) {
-        const heldAuthorities = [
-          ...new Set(existingPackOrigins.map((origin) => origin.sourceAuthority ?? origin.source)),
-        ];
-        if (heldAuthorities.some((authority) => authority !== requestedAuthority)) {
-          const declarations = [
-            ...existingPackDeclarations,
-            `${packIdentity} declares ${fqn} from ${requestedAuthority}`,
-          ];
-          blockers.push({
-            id: `pack-authority:member:${fqn}:source-conflict`,
-            target: { type: parsed.type, name: parsed.name, identity: fqn },
-            relationship: { kind: "member", root: packIdentity },
-            requestedSource: requestedAuthority,
-            configuredSource: heldAuthorities.join(", "),
-            cause: "pack-source-conflict",
-            detail: `Pack member ${fqn} is held by ${heldAuthorities.join(", ")}; conflicting declarations: ${declarations.join(", ")}`,
-            requiredVersionRange: constraint,
-            recovery: [
-              {
-                description:
-                  "Remove or transition the conflicting Pack declaration before installing this Pack; Pack member authority has no override flag.",
-              },
-            ],
-          });
-          continue;
-        }
-      }
-
-      const desired = graph.nodes.find(
-        (node) =>
-          node.type === parsed.type &&
-          node.name === parsed.name &&
-          node.origins.some(
-            (origin) =>
-              origin.type === "settings" &&
-              origin.source !== undefined &&
-              isWorkspaceSourceLocator(origin.source),
-          ),
-      );
-      if (desired === undefined) continue;
-
-      const canonical = yield* usableAcceptedCanonical({
-        type: parsed.type,
-        name: parsed.name,
-      }).pipe(
-        Effect.mapError((cause) =>
-          installRefused({
-            category: "internal",
-            detail: `Accepted canonical content for ${parsed.name} could not be inspected`,
-            cause,
-          }),
-        ),
-      );
-      const targetIdentity = `${parsed.owner}/${toExtensionTypePlural(parsed.type)}/${parsed.name}`;
-      const configuredVersion =
-        Option.isSome(canonical) &&
-        (canonical.value.ref.refType === "registry" || canonical.value.ref.refType === "workspace")
-          ? canonical.value.ref.version
-          : undefined;
-      const configured: NonNullable<SourceAuthorityInput["configured"]> = {
-        identity: desired.identity,
-        workspace: desired.identity.startsWith("workspace:"),
-        ...(configuredVersion === undefined ? {} : { version: configuredVersion }),
-        status: Option.isSome(canonical) ? canonical.value.observation.status : "missing",
-      };
-      const input: SourceAuthorityInput = {
-        target: { type: parsed.type, name: parsed.name, identity: targetIdentity },
-        relationship: { kind: "member" as const, root: packIdentity },
-        requested: {
-          identity:
-            declaredSource === undefined
-              ? `registry:${targetIdentity}`
-              : `registry:${declaredSource.url.href}:${targetIdentity}`,
-          workspace: false,
-        },
-        configured,
-        requiredVersionRange: constraint,
-      };
-      const decision = evaluateSourceAuthority(input);
-      if (decision.kind === "blocked") {
-        blockers.push(decision.fact);
-        continue;
-      }
-      if (decision.kind !== "workspace-satisfied") continue;
-
-      if (Option.isNone(canonical)) {
-        const unusable = evaluateSourceAuthority({
-          ...input,
-          configured: { ...configured, status: "wrong-origin" },
-        });
-        if (unusable.kind === "blocked") blockers.push(unusable.fact);
-        continue;
-      }
-      const ref = canonical.value.ref;
-      if (
-        ref.refType !== "workspace" ||
-        ref.type !== parsed.type ||
-        ref.owner !== parsed.owner ||
-        ref.name !== parsed.name
-      ) {
-        const mismatched = evaluateSourceAuthority({
-          ...input,
-          configured: { ...configured, status: "wrong-origin" },
-        });
-        if (mismatched.kind === "blocked") blockers.push(mismatched.fact);
-        continue;
-      }
-      workspaceRefs.set(`${parsed.type}:${parsed.owner}/${parsed.name}`, ref);
-    }
-
-    const workspaceResolver: WorkspacePackDependencyResolver = ({ owner, type, name }) =>
-      Effect.succeed(
-        Option.match(Option.fromUndefinedOr(workspaceRefs.get(`${type}:${owner}/${name}`)), {
-          onNone: () => ({ kind: "absent" as const }),
-          onSome: (ref) => ({ kind: "selected" as const, ref }),
+    const canonical = yield* usableAcceptedCanonical({
+      type: parsed.type,
+      name: parsed.name,
+    }).pipe(
+      Effect.mapError((cause) =>
+        installRefused({
+          category: "internal",
+          detail: `Accepted canonical content for ${parsed.name} could not be inspected`,
+          cause,
         }),
-      );
-    const fingerprint = [...workspaceRefs.entries()]
-      .map(([key, ref]) =>
-        ref.refType === "workspace" ? `${key}:${ref.version}:${ref.sourceHash}` : key,
-      )
-      .sort()
-      .join("|");
-    return { graph, blockers, workspaceResolver, fingerprint };
+      ),
+    );
+    const targetIdentity = `${parsed.owner}/${toExtensionTypePlural(parsed.type)}/${parsed.name}`;
+    const configuredVersion =
+      Option.isSome(canonical) &&
+      (canonical.value.ref.refType === "registry" || canonical.value.ref.refType === "workspace")
+        ? canonical.value.ref.version
+        : undefined;
+    const configured: NonNullable<SourceAuthorityInput["configured"]> = {
+      identity: desired.identity,
+      workspace: desired.identity.startsWith("workspace:"),
+      ...(configuredVersion === undefined ? {} : { version: configuredVersion }),
+      status: Option.isSome(canonical) ? canonical.value.observation.status : "missing",
+    };
+    const input: SourceAuthorityInput = {
+      target: { type: parsed.type, name: parsed.name, identity: targetIdentity },
+      relationship: { kind: "member" as const, root: packIdentity },
+      requested: {
+        identity:
+          declaredSource === undefined
+            ? `registry:${targetIdentity}`
+            : `registry:${declaredSource.url.href}:${targetIdentity}`,
+        workspace: false,
+      },
+      configured,
+      requiredVersionRange: constraint,
+    };
+    const decision = evaluateSourceAuthority(input);
+    if (decision.kind === "blocked") {
+      blockers.push(decision.fact);
+      continue;
+    }
+    if (decision.kind !== "workspace-satisfied") continue;
+
+    if (Option.isNone(canonical)) {
+      const unusable = evaluateSourceAuthority({
+        ...input,
+        configured: { ...configured, status: "wrong-origin" },
+      });
+      if (unusable.kind === "blocked") blockers.push(unusable.fact);
+      continue;
+    }
+    const ref = canonical.value.ref;
+    if (
+      ref.refType !== "workspace" ||
+      ref.type !== parsed.type ||
+      ref.owner !== parsed.owner ||
+      ref.name !== parsed.name
+    ) {
+      const mismatched = evaluateSourceAuthority({
+        ...input,
+        configured: { ...configured, status: "wrong-origin" },
+      });
+      if (mismatched.kind === "blocked") blockers.push(mismatched.fact);
+      continue;
+    }
+    workspaceRefs.set(`${parsed.type}:${parsed.owner}/${parsed.name}`, ref);
+  }
+
+  const workspaceResolver: WorkspacePackDependencyResolver = ({ owner, type, name }) =>
+    Effect.succeed(
+      Option.match(Option.fromUndefinedOr(workspaceRefs.get(`${type}:${owner}/${name}`)), {
+        onNone: () => ({ kind: "absent" as const }),
+        onSome: (ref) => ({ kind: "selected" as const, ref }),
+      }),
+    );
+  const fingerprint = [...workspaceRefs.entries()]
+    .map(([key, ref]) =>
+      ref.refType === "workspace" ? `${key}:${ref.version}:${ref.sourceHash}` : key,
+    )
+    .sort()
+    .join("|");
+  return { graph, blockers, workspaceResolver, fingerprint };
+});
+
+/**
+ * The range each member of this Pack is selected within: the proposed
+ * graph's effective constraint for the member, with this Pack's declared
+ * range standing in for whatever the graph holds for the same Pack. Every
+ * other contributor — the member's direct declaration and every other Pack
+ * that requires it — still applies.
+ */
+export const packMemberRangeResolver =
+  (pack: PackRef, graph: DesiredStateGraph): PackMemberRangeResolver =>
+  ({ type, name, declared }) => {
+    const packIdentity = `${pack.owner}/packs/${pack.pack.name}`;
+    const location =
+      graph.nodes
+        .find((node) => node.type === type && node.name === name)
+        ?.origins.flatMap((origin) =>
+          origin.type === "pack" && origin.pack.replace(/^workspace:/u, "") === packIdentity
+            ? [origin.manifestPath]
+            : [],
+        )
+        .at(0) ?? packIdentity;
+    return Result.map(
+      effectiveDesiredConstraint(graph, { type, name }, [
+        { source: "pack", dependingPack: packIdentity, range: declared, location },
+      ]),
+      (effective) => Option.getOrElse(effective.range, () => declared),
+    );
+  };
+
+/** Every declared member of this Pack whose effective constraint is a conflict. */
+export const packMemberConflicts = (
+  pack: PackRef,
+  graph: DesiredStateGraph,
+): ReadonlyArray<DesiredConstraintConflict> => {
+  const memberRange = packMemberRangeResolver(pack, graph);
+  return Object.entries(pack.pack.dependencies).flatMap(([fqn, declaration]) => {
+    const member = parseExtensionFqnParts(fqn);
+    if (member === undefined || member.type === "pack") return [];
+    const selected = memberRange({
+      type: member.type,
+      owner: member.owner,
+      name: member.name,
+      declared: packMemberVersionRange(declaration),
+    });
+    return Result.isFailure(selected) ? [selected.failure] : [];
   });
+};
+
+/**
+ * Whether a release the minimum release age holds back may preserve the
+ * current Pack graph: only when that graph is complete and the accepted Pack
+ * and every one of its members are still usable. Otherwise there is nothing
+ * to preserve, and a `preserve-or-block` operation blocks.
+ */
+export const heldPackGraphPreservable: (
+  intent: Pick<PackInstallIntent, "packToInstall" | "versionRange">,
+) => Effect.Effect<boolean, ExtensionLifecycleFailed, WorkspaceAuthorityRequirements> = Effect.fn(
+  "InstallExtensions.heldPackGraphPreservable",
+)(function* (intent: Pick<PackInstallIntent, "packToInstall" | "versionRange">) {
+  const packIdentity = `${intent.packToInstall.owner}/packs/${intent.packToInstall.name}`;
+  const graph = yield* readDesiredGraph;
+  if (!graph.complete) return false;
+  const currentPack = yield* usableAcceptedCanonical({
+    type: "pack",
+    name: intent.packToInstall.pack.name,
+  }).pipe(
+    Effect.mapError((cause) =>
+      installRefused({
+        category: "internal",
+        detail: "Accepted pack content could not be inspected",
+        cause,
+      }),
+    ),
+  );
+  if (
+    Option.isNone(currentPack) ||
+    currentPack.value.ref.refType !== "registry" ||
+    currentPack.value.ref.owner !== intent.packToInstall.owner ||
+    currentPack.value.ref.name !== intent.packToInstall.name ||
+    (Option.isSome(intent.versionRange) &&
+      !versionSatisfiesRange(currentPack.value.ref.version, intent.versionRange.value))
+  ) {
+    return false;
+  }
+  const nodes = graph.nodes.filter(
+    (node) =>
+      (node.type === "pack" && node.name === intent.packToInstall.pack.name) ||
+      node.origins.some((origin) => origin.type === "pack" && origin.pack === packIdentity),
+  );
+  const usable = yield* Effect.forEach(nodes, (node) =>
+    usableAcceptedCanonical({ type: node.type, name: node.name }).pipe(
+      Effect.map(Option.isSome),
+      Effect.mapError((cause) =>
+        installRefused({
+          category: "internal",
+          detail: `Accepted content for ${node.name} could not be inspected`,
+          cause,
+        }),
+      ),
+    ),
+  );
+  return usable.every((value) => value);
+});
 
 /** What a pack install command supplies before anything is parsed. */
 export interface PackInstallArgs {
@@ -992,6 +1126,18 @@ export const planPackInstall: (
     } satisfies Plan<InstallStepRequirements>;
   }
 
+  // Members are selected within the proposed graph's effective constraints;
+  // a member no version can satisfy blocks the Pack before anything resolves.
+  const proposedGraph = intent.desiredGraph ?? (yield* readProposedGraph([intent.packToInstall]));
+  const conflicts = packMemberConflicts(intent.packToInstall, proposedGraph);
+  if (conflicts.length > 0) {
+    return configuredPackConstraintBlockPlan({
+      operation: "install",
+      problems: conflicts,
+      blockedPackLabels: [packIdentity],
+    });
+  }
+  const memberRange = packMemberRangeResolver(intent.packToInstall, proposedGraph);
   const minimumReleaseAge = yield* resolveMinimumReleaseAge(intent.unattended ?? false);
   const supportedDependencyTypes = [
     "skill",
@@ -1009,6 +1155,7 @@ export const planPackInstall: (
           sources,
           minimumReleaseAge,
           workspaceResolver: authority.workspaceResolver,
+          memberRange,
           ...(intent.dependencyResolver === undefined
             ? {}
             : { dependencyResolver: intent.dependencyResolver }),
@@ -1026,6 +1173,7 @@ export const planPackInstall: (
           sources,
           releaseAgeEvaluation: intent.releaseAgeEvaluation,
           workspaceResolver: authority.workspaceResolver,
+          memberRange,
           ...(intent.dependencyResolver === undefined
             ? {}
             : { dependencyResolver: intent.dependencyResolver }),
@@ -1050,54 +1198,9 @@ export const planPackInstall: (
         };
 
   if (expansion.kind === "policy_held") {
-    // A held-back release preserves the current graph only when that graph is
-    // complete and every one of its members is still usable; otherwise there
-    // is nothing to preserve and the operation is blocked.
-    let preservable = false;
-    if (intent.releaseAgeHoldbackBehavior === "preserve-or-block") {
-      const graph = yield* readDesiredGraph;
-      if (graph.complete) {
-        const currentPack = yield* usableAcceptedCanonical({
-          type: "pack",
-          name: intent.packToInstall.pack.name,
-        }).pipe(
-          Effect.mapError((cause) =>
-            installRefused({
-              category: "internal",
-              detail: "Accepted pack content could not be inspected",
-              cause,
-            }),
-          ),
-        );
-        if (
-          Option.isSome(currentPack) &&
-          currentPack.value.ref.refType === "registry" &&
-          currentPack.value.ref.owner === intent.packToInstall.owner &&
-          currentPack.value.ref.name === intent.packToInstall.name &&
-          (Option.isNone(intent.versionRange) ||
-            versionSatisfiesRange(currentPack.value.ref.version, intent.versionRange.value))
-        ) {
-          const nodes = graph.nodes.filter(
-            (node) =>
-              (node.type === "pack" && node.name === intent.packToInstall.pack.name) ||
-              node.origins.some((origin) => origin.type === "pack" && origin.pack === packIdentity),
-          );
-          const usable = yield* Effect.forEach(nodes, (node) =>
-            usableAcceptedCanonical({ type: node.type, name: node.name }).pipe(
-              Effect.map(Option.isSome),
-              Effect.mapError((cause) =>
-                installRefused({
-                  category: "internal",
-                  detail: `Accepted content for ${node.name} could not be inspected`,
-                  cause,
-                }),
-              ),
-            ),
-          );
-          preservable = usable.every((value) => value);
-        }
-      }
-    }
+    const preservable =
+      intent.releaseAgeHoldbackBehavior === "preserve-or-block" &&
+      (yield* heldPackGraphPreservable(intent));
     const blocked = intent.releaseAgeHoldbackBehavior === "preserve-or-block" && !preservable;
     return {
       _tag: "Plan",

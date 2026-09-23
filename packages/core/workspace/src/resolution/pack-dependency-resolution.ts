@@ -10,6 +10,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type * as Duration from "effect/Duration";
+import * as Result from "effect/Result";
 import * as semver from "semver";
 
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
@@ -33,6 +34,7 @@ import type {
 import type { RegistrySource, Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import type { SourceHostProvidersService, SourceResolutionFailure } from "./sources/index.js";
+import { desiredStateProblemText, type DesiredConstraintConflict } from "../desired-state/index.js";
 
 import {
   PackConstraintShadowed,
@@ -92,6 +94,40 @@ export type WorkspacePackDependencyResolver<E = never, R = never> = (args: {
   readonly constraint: VersionRange;
   readonly root: string;
 }) => Effect.Effect<WorkspacePackDependencyResolution, E, R>;
+
+/**
+ * The range a declared member is selected within. Planners answer with the
+ * desired-state graph's effective constraint for the member, of which this
+ * Pack's declared range is one contributor, so a Pack never selects a member
+ * version another contributor excludes; a conflict refuses the Pack.
+ */
+export type PackMemberRangeResolver = (member: {
+  readonly type: SupportedPackDependencyType;
+  readonly owner: Handle;
+  readonly name: ExtensionName;
+  readonly declared: VersionRange;
+}) => Result.Result<VersionRange, DesiredConstraintConflict>;
+
+const memberSelectionRange = (
+  memberRange: PackMemberRangeResolver | undefined,
+  fqn: string,
+  declared: VersionRange,
+): Effect.Effect<VersionRange, PackDependencyConflict> => {
+  if (memberRange === undefined) return Effect.succeed(declared);
+  const parsed = parseFqnOrThrow(fqn);
+  if (parsed.type === "pack") return Effect.succeed(declared);
+  const selected = memberRange({
+    type: parsed.type,
+    owner: parsed.owner,
+    name: parsed.name,
+    declared,
+  });
+  return Result.isSuccess(selected)
+    ? Effect.succeed(selected.success)
+    : Effect.fail(
+        new PackDependencyConflict({ detail: desiredStateProblemText(selected.failure) }),
+      );
+};
 
 /** Resolve a Pack member from an already-authorized immutable candidate. */
 export type PackDependencyRefResolver<E = never, R = never> = (args: {
@@ -562,22 +598,27 @@ const resolveDependencyGroup = <E = never, R = never>(
   sourceOverride?: RegistrySource,
   workspaceResolver?: WorkspacePackDependencyResolver<E, R>,
   dependencyResolver?: PackDependencyRefResolver<E, R>,
+  memberRange?: PackMemberRangeResolver,
 ): Effect.Effect<ReadonlyArray<ResolvedDependency>, PackDependencyResolutionError | E, R> =>
   Effect.forEach(
     dependencies,
-    ([fqn, constraint, declaredSource]) =>
-      resolveDependencyRef(
-        pack,
-        expectedType,
-        fqn,
-        constraint,
-        sources,
-        minimumReleaseAge,
-        declaredSource === undefined
-          ? sourceOverride
-          : explicitRegistrySource(declaredSource, parseFqnOrThrow(fqn).owner),
-        workspaceResolver,
-        dependencyResolver,
+    ([fqn, declared, declaredSource]) =>
+      memberSelectionRange(memberRange, fqn, declared).pipe(
+        Effect.flatMap((constraint) =>
+          resolveDependencyRef(
+            pack,
+            expectedType,
+            fqn,
+            constraint,
+            sources,
+            minimumReleaseAge,
+            declaredSource === undefined
+              ? sourceOverride
+              : explicitRegistrySource(declaredSource, parseFqnOrThrow(fqn).owner),
+            workspaceResolver,
+            dependencyResolver,
+          ),
+        ),
       ),
     { concurrency: 16 },
   );
@@ -622,6 +663,7 @@ export const resolvePackDependencies = <E = never, R = never>(
   sourceOverride?: RegistrySource,
   workspaceResolver?: WorkspacePackDependencyResolver<E, R>,
   dependencyResolver?: PackDependencyRefResolver<E, R>,
+  memberRange?: PackMemberRangeResolver,
 ): Effect.Effect<ResolvedPackDependencies, PackDependencyResolutionError | E, R> =>
   Effect.gen(function* () {
     const dependencies = partitionDependencies(pack.pack.dependencies);
@@ -641,6 +683,7 @@ export const resolvePackDependencies = <E = never, R = never>(
         sourceOverride,
         workspaceResolver,
         dependencyResolver,
+        memberRange,
       );
 
     const resolvedSkills = yield* resolveGroup("skill");
@@ -675,6 +718,7 @@ export const resolvePackDependenciesWithReleaseAge = <E = never, R = never>(
   sourceOverride?: RegistrySource,
   workspaceResolver?: WorkspacePackDependencyResolver<E, R>,
   dependencyResolver?: PackDependencyRefResolver<E, R>,
+  memberRange?: PackMemberRangeResolver,
 ): Effect.Effect<ReleaseAgeAwarePackDependencyResolution, PackDependencyResolutionError | E, R> =>
   Effect.gen(function* () {
     const packExemption =
@@ -736,18 +780,22 @@ export const resolvePackDependenciesWithReleaseAge = <E = never, R = never>(
     const resolutions = yield* Effect.forEach(
       entries,
       (entry) =>
-        resolveDependencyRefWithReleaseAge(
-          pack,
-          entry.type,
-          entry.fqn,
-          entry.constraint,
-          sources,
-          dependencyEvaluation,
-          entry.source === undefined
-            ? sourceOverride
-            : explicitRegistrySource(entry.source, parseFqnOrThrow(entry.fqn).owner),
-          workspaceResolver,
-          dependencyResolver,
+        memberSelectionRange(memberRange, entry.fqn, entry.constraint).pipe(
+          Effect.flatMap((constraint) =>
+            resolveDependencyRefWithReleaseAge(
+              pack,
+              entry.type,
+              entry.fqn,
+              constraint,
+              sources,
+              dependencyEvaluation,
+              entry.source === undefined
+                ? sourceOverride
+                : explicitRegistrySource(entry.source, parseFqnOrThrow(entry.fqn).owner),
+              workspaceResolver,
+              dependencyResolver,
+            ),
+          ),
         ),
       { concurrency: 16 },
     );

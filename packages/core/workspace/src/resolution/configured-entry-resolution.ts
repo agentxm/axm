@@ -172,8 +172,15 @@ const prepareConfiguredRegistryRef = (
   source: string,
   expectedType: ExtensionType,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
+  selectionRange: Option.Option<VersionRange> | undefined,
 ) =>
-  prepareConfiguredRegistryEntry(name, source, expectedType, releaseAgeEvaluation).pipe(
+  prepareConfiguredRegistryEntry(
+    name,
+    source,
+    expectedType,
+    releaseAgeEvaluation,
+    selectionRange,
+  ).pipe(
     Effect.map((resolve) =>
       resolve.pipe(
         Effect.flatMap(
@@ -188,12 +195,20 @@ const prepareConfiguredRegistryRef = (
     ),
   );
 
-/** Finish workspace I/O before starting sibling Registry selections. */
+/**
+ * Finish workspace I/O before starting sibling Registry selections.
+ *
+ * `selectionRange` is the desired-state graph's effective constraint for the
+ * entry: the Registry selects within it, while the returned `versionRange`
+ * stays the range the entry itself declares, because that is the intent a
+ * planner records. Omitted, the declared range is the selection range.
+ */
 export const prepareConfiguredRegistryEntry = (
   name: string,
   source: string,
   expectedType: ExtensionType,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
+  selectionRange?: Option.Option<VersionRange>,
 ): Effect.Effect<
   Effect.Effect<
     Option.Option<ConfiguredRegistryResolution>,
@@ -272,7 +287,7 @@ export const prepareConfiguredRegistryEntry = (
         name: registryName,
         type: expectedType,
         owner,
-        versionRange,
+        versionRange: selectionRange ?? versionRange,
         releaseAgeEvaluation,
         ...(Option.isSome(accepted) ? { accepted: accepted.value } : {}),
       });
@@ -349,6 +364,7 @@ const prepareConfiguredEntry = <TType extends ExtensionType>(
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
   refConstructor: ConfiguredRefConstructor<TType>,
+  selectionRange?: Option.Option<VersionRange>,
 ) =>
   Effect.gen(function* () {
     const expectedType = refConstructor.type;
@@ -370,6 +386,7 @@ const prepareConfiguredEntry = <TType extends ExtensionType>(
       source,
       expectedType,
       releaseAgeEvaluation,
+      selectionRange,
     );
     return Effect.gen(function* () {
       const registry = yield* resolveRegistry;
@@ -467,8 +484,11 @@ const resolveConfiguredEntry = <TType extends ExtensionType>(
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
   refConstructor: ConfiguredRefConstructor<TType>,
+  selectionRange?: Option.Option<VersionRange>,
 ) =>
-  prepareConfiguredEntry(name, source, releaseAgeEvaluation, refConstructor).pipe(Effect.flatten);
+  prepareConfiguredEntry(name, source, releaseAgeEvaluation, refConstructor, selectionRange).pipe(
+    Effect.flatten,
+  );
 
 export const prepareConfiguredPack = (
   name: string,
@@ -480,37 +500,65 @@ export const resolveConfiguredSkill = (
   name: string,
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
-) => resolveConfiguredEntry(name, source, releaseAgeEvaluation, skillRefConstructor);
+  selectionRange?: Option.Option<VersionRange>,
+) =>
+  resolveConfiguredEntry(name, source, releaseAgeEvaluation, skillRefConstructor, selectionRange);
 
 export const resolveConfiguredMcpServer = (
   name: string,
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
-) => resolveConfiguredEntry(name, source, releaseAgeEvaluation, mcpServerRefConstructor);
+  selectionRange?: Option.Option<VersionRange>,
+) =>
+  resolveConfiguredEntry(
+    name,
+    source,
+    releaseAgeEvaluation,
+    mcpServerRefConstructor,
+    selectionRange,
+  );
 
 export const resolveConfiguredSubagent = (
   name: string,
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
-) => resolveConfiguredEntry(name, source, releaseAgeEvaluation, subagentRefConstructor);
+  selectionRange?: Option.Option<VersionRange>,
+) =>
+  resolveConfiguredEntry(
+    name,
+    source,
+    releaseAgeEvaluation,
+    subagentRefConstructor,
+    selectionRange,
+  );
 
 export const resolveConfiguredRule = (
   name: string,
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
-) => resolveConfiguredEntry(name, source, releaseAgeEvaluation, ruleRefConstructor);
+  selectionRange?: Option.Option<VersionRange>,
+) => resolveConfiguredEntry(name, source, releaseAgeEvaluation, ruleRefConstructor, selectionRange);
 
 export const resolveConfiguredHook = (
   name: string,
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
-) => resolveConfiguredEntry(name, source, releaseAgeEvaluation, hookRefConstructor);
+  selectionRange?: Option.Option<VersionRange>,
+) => resolveConfiguredEntry(name, source, releaseAgeEvaluation, hookRefConstructor, selectionRange);
 
 export const resolveConfiguredKnowledge = (
   name: string,
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
-) => resolveConfiguredEntry(name, source, releaseAgeEvaluation, knowledgeRefConstructor);
+  selectionRange?: Option.Option<VersionRange>,
+) =>
+  resolveConfiguredEntry(
+    name,
+    source,
+    releaseAgeEvaluation,
+    knowledgeRefConstructor,
+    selectionRange,
+  );
 
 export const resolveConfiguredPack = (
   name: string,

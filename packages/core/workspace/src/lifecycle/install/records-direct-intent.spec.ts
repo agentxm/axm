@@ -7,6 +7,13 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 
 import {
+  SHARED_MEMBER,
+  SHARED_MEMBER_PIN,
+  publishSharedMemberScenario,
+  sharedMemberBody,
+  sharedMemberSettings,
+} from "../../desired-state/workspace/test-helpers.js";
+import {
   writeLocalHookPackage,
   writeLocalKnowledgePackage,
   writeLocalRulePackage,
@@ -96,6 +103,40 @@ describe("Install records direct workspace intent", () => {
       )
       .pipe(Effect.provide(NodeServices.layer));
   });
+
+  it.effect(
+    "keeps a direct pin on a member the configured Packs also require, and realizes that pin",
+    () => {
+      const created = makeInstallWorld({
+        settings: sharedMemberSettings(SHARED_MEMBER_PIN.inside),
+      });
+      cleanups.push(created.cleanup);
+      const { workspace, registry } = created;
+      publishSharedMemberScenario(registry);
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* applyInstall(installRequest({ subject: { kind: "configured" } }));
+
+            // The direct declaration keeps the pin the person recorded, and the
+            // member both Packs require is realized at the version all admit.
+            expect(readSettings(workspace)["skills"]).toEqual({
+              [SHARED_MEMBER.name]: expect.stringContaining(
+                `${SHARED_MEMBER.fqn}@${SHARED_MEMBER_PIN.inside}`,
+              ),
+            });
+            expect(workspace.readFile("axm-lock.yaml")).toContain(
+              `version: ${SHARED_MEMBER_PIN.inside}`,
+            );
+            expect(workspace.readFile("axm-lock.yaml")).not.toContain("version: 1.2.0");
+            expect(workspace.readFile(`.claude/skills/${SHARED_MEMBER.name}/SKILL.md`)).toContain(
+              sharedMemberBody(SHARED_MEMBER_PIN.inside),
+            );
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
 
   it.effect.each(rows)(
     "records direct intent for a local $label",

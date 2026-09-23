@@ -102,7 +102,6 @@ export {
 } from "./install/per-type-install.js";
 export {
   buildConfiguredInstallPlan,
-  buildConfiguredPackInstallPlan,
   type ConfiguredInstallPlanResult,
   type ConfiguredInstallRequirements,
   type ConfiguredInstallableType,
@@ -148,8 +147,6 @@ export {
   configuredPackConstraintBlockPlan,
   PACK_CONSTRAINT_CONFLICT_BLOCKER_ID,
   packUpdateGroups,
-  prospectivePackConstraintProblems,
-  prospectivePackUpdateGroups,
   relevantPackConstraintProblems,
   type PackUpdateGroup,
 } from "../packs/lifecycle/constraint-gate.js";

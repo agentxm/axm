@@ -8,11 +8,16 @@
  * declared members from the source the workspace already configured, so the
  * graph the sweep then reconciles is the graph the workspace declared.
  *
- * It re-acquires the *accepted* resolution, never a newer one: repairing a
- * damaged package is not the moment to advance a version, and the members
- * already resolve through `acceptedPackDependencyResolver`. Only a Pack the
- * workspace configured but never accepted has nothing to restore, and that
- * one resolves through its configured source.
+ * Each Pack's intent comes from the one configured-Pack helper install uses:
+ * an accepted Pack re-acquires its *accepted* resolution and replays its
+ * accepted members, never a newer one, because repairing a damaged package is
+ * not the moment to advance a version; a Pack the workspace configured but
+ * never accepted resolves through its configured source. Either way the
+ * members are selected within the proposed desired-state graph's effective
+ * constraints — so a direct pin on a shared member holds — through the same
+ * workspace source authority install applies. A release the minimum release
+ * age holds back preserves a complete usable graph or blocks this Pack's
+ * closure, as install does.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -40,17 +45,22 @@ import {
 import { installMcpServer, type McpServerInstallRequirements } from "./mcps/install-operation.js";
 import { buildInstallOperation, targetFromRef } from "./extensions/operations.js";
 import {
-  acceptedPackDependencyResolver,
-  hydrateAcceptedPackRef,
   makeConfiguredReleaseAgeEvaluation,
   normalizeReleaseAgeRecords,
-  prepareConfiguredPack,
   resolvePackDependenciesWithReleaseAge,
 } from "../resolution/index.js";
+import { prepareConfiguredPackIntent } from "../lifecycle/install/configured.js";
+import type { ExtensionLifecycleFailed } from "../lifecycle/errors.js";
+import {
+  heldPackGraphPreservable,
+  packMemberConflicts,
+  packMemberRangeResolver,
+  readProposedGraph,
+  scanWorkspaceAuthority,
+} from "../packs/lifecycle/install/plan.js";
 import { SourceHostProviders } from "../resolution/sources/index.js";
 import { withPackRegistryIndexMemo } from "../resolution/sources/providers/registry/index-memo.js";
 import {
-  acceptedResolutionRef,
   acceptedCanonicalObservation,
   acceptedLockedCanonicalPath,
   acceptedLockedResolutionRef,
@@ -144,6 +154,33 @@ const recoveryStep = (args: {
     }
   });
 
+/** A lifecycle refusal carried into sync with its own category and sentence. */
+const recoveryRefused = (failure: ExtensionLifecycleFailed): WorkspaceSyncFailed =>
+  new WorkspaceSyncFailed({
+    category:
+      failure.category === "not_found" ||
+      failure.category === "validation" ||
+      failure.category === "internal"
+        ? failure.category
+        : "conflict",
+    detail: failure.detail ?? failure.title ?? "Configured pack recovery was refused",
+    cause: failure,
+  });
+
+type RecoveryStep = PlannedJobStep<SyncStepRequirements | McpServerInstallRequirements>;
+
+/** A recovery closure refused before any write, naming why. */
+const blockedRecoveryStep = (args: {
+  readonly key: string;
+  readonly label: string;
+  readonly reason: string;
+}): RecoveryStep => ({
+  key: args.key,
+  readiness: "error",
+  label: args.label,
+  errorMessage: args.reason,
+});
+
 /**
  * Plan the recovery of every configured Pack the selection's problems name as
  * recoverable. Returns `undefined` when nothing in scope is recoverable, so
@@ -187,59 +224,48 @@ export const collectConfiguredPackRecovery = (args: {
     const configured = yield* settings.entries("pack");
     const entries = enabledConfiguredEntries(configured).filter(([name]) => packNames.has(name));
 
+    const concurrency = Option.isSome(requestBudget) ? requestBudget.value.capacity : 1;
     const preparedPacks = yield* Effect.forEach(
       entries,
       ([name, entry]) =>
-        Effect.gen(function* () {
-          // A lock row records the accepted version but not the member
-          // constraints its manifest declares, so the accepted reference is
-          // completed from the accepted archive rather than re-resolved.
-          const accepted = yield* acceptedResolutionRef({ type: "pack", name });
-          const acceptedPack =
-            Option.isSome(accepted) && accepted.value.type === "pack" ? accepted.value : undefined;
-          const resolvePack =
-            acceptedPack === undefined
-              ? (yield* prepareConfiguredPack(name, entry.source, releaseAgeEvaluation)).pipe(
-                  Effect.map((resolved) => resolved.ref),
-                )
-              : hydrateAcceptedPackRef(name, acceptedPack);
-          return { name, acceptedPack, resolvePack };
-        }),
-      { concurrency: Option.isSome(requestBudget) ? requestBudget.value.capacity : 1 },
+        prepareConfiguredPackIntent({
+          name,
+          source: entry.source,
+          releaseAgeEvaluation,
+          nonInteractive: true,
+          // The observed tree already diverged from the accepted resolution,
+          // so reusing it would preserve the divergence.
+          forceCanonical: true,
+        }).pipe(
+          Effect.map((resolve) => ({ name, resolve })),
+          Effect.catchTag("ExtensionLifecycleFailed", (failure) =>
+            Effect.fail(recoveryRefused(failure)),
+          ),
+        ),
+      { concurrency },
     );
-    const recovered = yield* Effect.forEach(
+    // Local preparation finishes before Registry requests enter the shared resolver.
+    const resolvedPacks = yield* Effect.forEach(
       preparedPacks,
-      ({ name, acceptedPack, resolvePack }) =>
+      ({ name, resolve }) =>
+        resolve.pipe(
+          Effect.map((prepared) => ({ name, ...prepared })),
+          Effect.catchTag("ExtensionLifecycleFailed", (failure) =>
+            Effect.fail(recoveryRefused(failure)),
+          ),
+        ),
+      { concurrency },
+    );
+    // Every recovered Pack's manifest is proposed at once, so members they
+    // share are selected within one effective constraint.
+    const proposedGraph = yield* readProposedGraph(
+      resolvedPacks.map(({ intent }) => intent.packToInstall),
+    ).pipe(Effect.mapError(recoveryRefused));
+    const recovered = yield* Effect.forEach(
+      resolvedPacks,
+      ({ name, intent, releaseAge: packReleaseAge }) =>
         Effect.gen(function* () {
-          const packRef = yield* resolvePack;
-          if (packRef.type !== "pack") {
-            return yield* new WorkspaceSyncFailed({
-              category: "conflict",
-              detail: `Configured pack "${name}" does not resolve to a pack package`,
-            });
-          }
-          const expansion = yield* resolvePackDependenciesWithReleaseAge(
-            packRef,
-            sources,
-            releaseAgeEvaluation,
-            undefined,
-            undefined,
-            // Members come from the accepted resolution only when the Pack
-            // itself was restored from one. A Pack the workspace configured
-            // but never accepted has no accepted member rows to restore, so
-            // its members resolve through its configured source the same way
-            // a first install resolves them.
-            acceptedPack === undefined ? undefined : acceptedPackDependencyResolver(),
-          );
-          if (expansion.kind === "policy_held") {
-            return yield* new WorkspaceSyncFailed({
-              category: "conflict",
-              detail: `Recovering pack "${name}" is held back by the minimum release age policy`,
-            });
-          }
-          const memberRefs = expansion.dependencies.dependencyRefs.filter((ref) =>
-            RECOVERABLE_DEPENDENCY_TYPES.some((type) => type === ref.type),
-          );
+          const packRef = intent.packToInstall;
           const stepProblems = recoveryProblems.filter(
             (problem) =>
               "pack" in problem &&
@@ -255,9 +281,59 @@ export const collectConfiguredPackRecovery = (args: {
           const label = `Recover ${identity} (${desiredStateProblemsText(
             stepProblems.length === 0 ? recoveryProblems : stepProblems,
           )})`;
+          const key = `${SYNC_RECOVERY_IDS.packManifestDivergence}:${name}`;
+          const packHoldbacks = packReleaseAge?.holdbacks ?? [];
+          const packBypasses = packReleaseAge?.bypasses ?? [];
+          const blocked = (reason: string) => ({
+            steps: [blockedRecoveryStep({ key, label, reason })],
+            holdbacks: packHoldbacks,
+            bypasses: packBypasses,
+          });
+
+          const conflicts = packMemberConflicts(packRef, proposedGraph);
+          if (conflicts.length > 0) {
+            return blocked(
+              `Configured constraints are unsatisfiable: ${desiredStateProblemsText(conflicts)}`,
+            );
+          }
+          const authority = yield* scanWorkspaceAuthority(packRef).pipe(
+            Effect.mapError(recoveryRefused),
+          );
+          if (authority.blockers.length > 0) {
+            return blocked(authority.blockers.map((fact) => fact.detail).join("; "));
+          }
+          const expansion = yield* resolvePackDependenciesWithReleaseAge(
+            packRef,
+            sources,
+            releaseAgeEvaluation,
+            undefined,
+            authority.workspaceResolver,
+            intent.dependencyResolver,
+            packMemberRangeResolver(packRef, proposedGraph),
+          );
+          if (expansion.kind === "policy_held") {
+            const preservable =
+              intent.releaseAgeHoldbackBehavior === "preserve-or-block" &&
+              (yield* heldPackGraphPreservable(intent).pipe(Effect.mapError(recoveryRefused)));
+            const held = {
+              holdbacks: [...packHoldbacks, ...expansion.holdbacks],
+              bypasses: [...packBypasses, ...expansion.bypasses],
+            };
+            return preservable
+              ? { steps: [], ...held }
+              : {
+                  ...blocked(
+                    `Recovering ${identity} requires a release the minimum release age still holds back, and no complete usable accepted resolution can be preserved`,
+                  ),
+                  ...held,
+                };
+          }
+          const memberRefs = expansion.dependencies.dependencyRefs.filter((ref) =>
+            RECOVERABLE_DEPENDENCY_TYPES.some((type) => type === ref.type),
+          );
           const packStep = {
             ...(yield* recoveryStep({ ref: packRef, isPack: true, adapter: args.adapter })),
-            key: `${SYNC_RECOVERY_IDS.packManifestDivergence}:${name}`,
+            key,
             label,
           };
           const memberSteps = yield* Effect.forEach(memberRefs, (ref) =>
@@ -350,14 +426,14 @@ export const collectConfiguredPackRecovery = (args: {
                   }).pipe(Effect.mapError(args.adapter.toStepFailure)),
                 })),
                 acquisitionRefs: [packRef, ...acquisitionRefs.filter((ref) => ref !== undefined)],
-                key: `${SYNC_RECOVERY_IDS.packManifestDivergence}:${name}`,
+                key,
               },
             ],
-            holdbacks: expansion.holdbacks,
-            bypasses: expansion.bypasses,
+            holdbacks: [...packHoldbacks, ...expansion.holdbacks],
+            bypasses: [...packBypasses, ...expansion.bypasses],
           };
         }),
-      { concurrency: Option.isSome(requestBudget) ? requestBudget.value.capacity : 1 },
+      { concurrency },
     );
 
     const holdbacks = normalizeReleaseAgeRecords(recovered.flatMap(({ holdbacks }) => holdbacks));
@@ -372,6 +448,6 @@ export const collectConfiguredPackRecovery = (args: {
               holdbacks,
               bypasses,
             },
-      steps: recovered.flatMap(({ steps }) => steps),
+      steps: recovered.flatMap(({ steps }): ReadonlyArray<RecoveryStep> => steps),
     };
   }).pipe(withPackRegistryIndexMemo);

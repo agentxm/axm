@@ -12,6 +12,13 @@ import YAML from "yaml";
 
 import { deriveOperationOutcome } from "../../transitions/planning/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
+import {
+  SHARED_MEMBER,
+  SHARED_MEMBER_PIN,
+  publishSharedMemberScenario,
+  sharedMemberBody,
+  sharedMemberSettings,
+} from "../../desired-state/workspace/test-helpers.js";
 
 import {
   applySync,
@@ -28,12 +35,12 @@ export const specification = defineSpecification({
   requirement: "cli/sync/preserves-configuration-and-resolutions",
   title: "Sync never changes configuration and never advances a satisfying resolution",
   statement:
-    "Sync shall preserve axm.json and authored manifests byte for byte, preserve satisfying accepted resolutions of still-desired extensions, and restore missing acquired content only from the accepted identity even when newer content exists; an incompatible accepted identity shall block until an explicit resolution transition is authorized, and retiring an unreachable accepted record shall not count as advancing a resolution.",
+    "Sync shall preserve axm.json and authored manifests byte for byte, preserve satisfying accepted resolutions of still-desired extensions, restore missing acquired content only from the accepted identity even when newer content exists, and select every member of a configured Pack it recovers within that member's effective desired constraint so that a direct pin on a shared member holds; an incompatible accepted identity shall block until an explicit resolution transition is authorized, and retiring an unreachable accepted record shall not count as advancing a resolution.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
   methods: ["example"],
-  derivedFrom: [],
+  derivedFrom: ["workspace/desired-state/effective-constraint-has-one-owner"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],
@@ -351,6 +358,41 @@ describe("Sync preserves configuration and accepted resolutions", () => {
           const before = workspace.readFile("axm.json");
           expect(deriveOperationOutcome(expectResolved(yield* applySync()))).toBe("applied");
           expect(workspace.readFile("axm.json")).toBe(before);
+          expect((yield* applySync())._tag).toBe("AlreadyReconciled");
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
+  it.effect("recovers never-accepted Packs within a direct pin on their shared member", () => {
+    const published = registry();
+    publishSharedMemberScenario(published);
+    const workspace = fixture({
+      agents: ["claude-code"],
+      sources: [published.source],
+      ...sharedMemberSettings(SHARED_MEMBER_PIN.inside),
+    });
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          const settingsBefore = workspace.readFile("axm.json");
+
+          expect(deriveOperationOutcome(expectResolved(yield* applySync()))).toBe("applied");
+
+          // Both Packs admit 1.2.0, but the direct pin is a contributor too:
+          // recovery and the direct entry settle on the one version all admit.
+          const lock: unknown = YAML.parse(workspace.readFile("axm-lock.yaml"));
+          if (!isRecord(lock) || !isRecord(lock["skills"])) {
+            throw new Error("Expected skill lock entries");
+          }
+          expect(lock["skills"][SHARED_MEMBER.name]).toMatchObject({
+            resolved: { version: SHARED_MEMBER_PIN.inside },
+          });
+          expect(workspace.readFile(`.claude/skills/${SHARED_MEMBER.name}/SKILL.md`)).toContain(
+            sharedMemberBody(SHARED_MEMBER_PIN.inside),
+          );
+          expect(workspace.readFile("axm.json")).toBe(settingsBefore);
+          // Nothing is left to downgrade: the next run has no work.
           expect((yield* applySync())._tag).toBe("AlreadyReconciled");
         }),
       )

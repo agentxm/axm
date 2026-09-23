@@ -118,6 +118,7 @@ export {
   resolvePackDependencies,
   resolvePackDependenciesWithReleaseAge,
   type PackDependencyRefResolver,
+  type PackMemberRangeResolver,
   type ReleaseAgeAwarePackDependencyResolution,
   type ResolvedPackDependencies,
   type WorkspacePackDependencyResolution,
@@ -154,13 +155,6 @@ export {
   type TargetedUpdateTargetType,
 } from "./update/targeted-update-context.js";
 
-// Which constraint governs an update when a workspace and its Packs each
-// declare one, and which newer releases that precedence holds back.
-export {
-  detectHoldbackWarnings,
-  resolveConstrainedVersion,
-  type ConstraintResolutionResult,
-  type PackConstraint,
-  type UpdateConstraints,
-} from "./update/constraint-precedence.js";
+// Which Packs hold the newest release of an updated extension back.
+export { heldBackReleaseWarnings } from "./update/held-back-releases.js";
 export { hydrateAcceptedPackRef } from "./accepted-pack-hydration.js";

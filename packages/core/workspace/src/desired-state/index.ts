@@ -168,11 +168,14 @@ export {
 
 export {
   buildDesiredStateGraph,
+  effectiveDesiredConstraint,
   isInlineDesiredExtension,
   isSourcedDesiredExtension,
   type DesiredExtensionNode,
   type DesiredExtensionOrigin,
+  type DesiredConstraintConflict,
   type DesiredConstraintContributor,
+  type DesiredEffectiveConstraint,
   type DesiredStateGraph,
   type DesiredStateProblem,
   type ProspectivePackRef,

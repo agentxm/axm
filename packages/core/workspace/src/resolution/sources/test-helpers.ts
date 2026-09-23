@@ -147,7 +147,7 @@ export const makeTestWorkspaceCatalog = (options: TestWorkspaceCatalogOptions = 
     registrySourceHosts: Effect.succeed(registrySources),
     defaultRegistry: Effect.succeed("agentxm"),
     desiredExtensionGraph: Effect.succeed(
-      options.desiredExtensionGraph ?? { complete: true, nodes: [] },
+      options.desiredExtensionGraph ?? { complete: true, nodes: [], problems: [] },
     ),
     skillCandidates: Effect.succeed(
       options.skillCandidates ?? {

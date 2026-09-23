@@ -1,14 +1,14 @@
-import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
+import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import {
-  DesiredStateReader,
   desiredStateProblemsText,
+  type DesiredConstraintConflict,
   type DesiredExtensionOrigin,
   type DesiredStateGraph,
-  type DesiredStateProblem,
 } from "../../desired-state/index.js";
+import { toTypedLabel } from "../../reconciliation/index.js";
 import { operationPresentation, type Plan } from "../../transitions/planning/index.js";
 
 import type { InstallStepRequirements } from "../../lifecycle/install/vocabulary.js";
@@ -98,13 +98,8 @@ export interface PackUpdateGroup {
   /** The selected Pack identities this group would advance. */
   readonly selectedPackIdentities: ReadonlyArray<string>;
   /** Constraint conflicts that block the whole group before any write. */
-  readonly problems: ReadonlyArray<ConstraintConflictProblem>;
+  readonly problems: ReadonlyArray<DesiredConstraintConflict>;
 }
-
-export type ConstraintConflictProblem = Extract<
-  DesiredStateProblem,
-  { readonly type: "constraint-conflict" }
->;
 
 /**
  * Partition the selected Packs into the groups that must settle together and
@@ -125,7 +120,7 @@ export const packUpdateGroups = (args: {
     const packIdentities = reachableFrom([identity], adjacent);
     for (const member of packIdentities) grouped.add(member);
     const problems = args.graph.problems.filter(
-      (problem): problem is ConstraintConflictProblem =>
+      (problem): problem is DesiredConstraintConflict =>
         problem.type === "constraint-conflict" &&
         problem.contributors.some(
           (contributor) =>
@@ -143,31 +138,14 @@ export const packUpdateGroups = (args: {
   return groups;
 };
 
-/** Build the proposed graph once, then partition the selection into groups. */
-export const prospectivePackUpdateGroups = (args: {
-  readonly prospectivePacks: ReadonlyArray<PackRef>;
-  readonly selectedNames?: ReadonlySet<string>;
-}) =>
-  Effect.flatMap(DesiredStateReader, (desiredState) =>
-    desiredState.graph({ prospectivePacks: args.prospectivePacks }).pipe(
-      Effect.map((graph) =>
-        packUpdateGroups({
-          graph,
-          prospectivePacks: args.prospectivePacks,
-          ...(args.selectedNames === undefined ? {} : { selectedNames: args.selectedNames }),
-        }),
-      ),
-    ),
-  );
-
 export const relevantPackConstraintProblems = (args: {
   readonly graph: DesiredStateGraph;
   readonly prospectivePacks: ReadonlyArray<PackRef>;
   readonly selectedNames?: ReadonlySet<string>;
-}): ReadonlyArray<Extract<DesiredStateProblem, { readonly type: "constraint-conflict" }>> => {
+}): ReadonlyArray<DesiredConstraintConflict> => {
   const closure = selectedPackClosure(args.graph, args.prospectivePacks, args.selectedNames);
   return args.graph.problems.filter(
-    (problem): problem is Extract<DesiredStateProblem, { readonly type: "constraint-conflict" }> =>
+    (problem): problem is DesiredConstraintConflict =>
       problem.type === "constraint-conflict" &&
       problem.contributors.some(
         (contributor) =>
@@ -176,22 +154,6 @@ export const relevantPackConstraintProblems = (args: {
       ),
   );
 };
-
-export const prospectivePackConstraintProblems = (args: {
-  readonly prospectivePacks: ReadonlyArray<PackRef>;
-  readonly selectedNames?: ReadonlySet<string>;
-}) =>
-  Effect.flatMap(DesiredStateReader, (desiredState) =>
-    desiredState.graph({ prospectivePacks: args.prospectivePacks }).pipe(
-      Effect.map((graph) =>
-        relevantPackConstraintProblems({
-          graph,
-          prospectivePacks: args.prospectivePacks,
-          ...(args.selectedNames === undefined ? {} : { selectedNames: args.selectedNames }),
-        }),
-      ),
-    ),
-  );
 
 /**
  * The machine-readable reference a constraint refusal carries.
@@ -212,7 +174,7 @@ export const PACK_CONSTRAINT_CONFLICT_BLOCKER_ID = "pack-constraint-conflict";
  */
 export const configuredPackConstraintBlockPlan = (args: {
   readonly operation: "install" | "update";
-  readonly problems: ReadonlyArray<ConstraintConflictProblem>;
+  readonly problems: ReadonlyArray<DesiredConstraintConflict>;
   /**
    * Display labels for the selected Packs the group prevented; omit for an
    * unattributed gate. These are the ledger's own labels, so a blocked row
@@ -256,3 +218,42 @@ export const configuredPackConstraintBlockPlan = (args: {
     jobs: [{ concurrency: 1, steps }],
   };
 };
+
+/**
+ * Refuse one configured entry whose effective constraint is a conflict,
+ * before any write. The entry and every Pack that shares the member settle
+ * together, so the entry is prevented for the same deciding facts that
+ * prevent the Packs, under the same blocker reference.
+ */
+export const configuredEntryConstraintBlockPlan = (args: {
+  readonly operation: "install" | "update";
+  readonly type: Exclude<ExtensionType, "pack">;
+  readonly name: string;
+  readonly conflict: DesiredConstraintConflict;
+}): Plan<InstallStepRequirements> => ({
+  _tag: "Plan",
+  name: `Block configured ${args.type} ${args.operation}`,
+  description: Option.some("Configured constraints cannot be satisfied together"),
+  presentation: operationPresentation(
+    {
+      imperative: args.operation,
+      past: args.operation === "install" ? "Installed" : "Updated",
+      gerund: args.operation === "install" ? "Installing" : "Updating",
+    },
+    args.type,
+  ),
+  jobs: [
+    {
+      concurrency: 1,
+      steps: [
+        {
+          key: `${args.type}:${args.name}`,
+          readiness: "error",
+          label: toTypedLabel(args.type, args.name),
+          errorMessage: `Configured constraints are unsatisfiable: ${desiredStateProblemsText([args.conflict])}`,
+          blockingConditionIds: [PACK_CONSTRAINT_CONFLICT_BLOCKER_ID],
+        },
+      ],
+    },
+  ],
+});

@@ -46,6 +46,7 @@ import type {
   AcceptedCanonicalRefError,
   AcceptedResolutionWriter,
   ConfiguredAgentOutcomesProvider,
+  DesiredStateGraph,
   DesiredStateReader,
   DesiredStateWriter,
   ExtensionPaths,
@@ -249,4 +250,11 @@ export interface PackInstallIntent {
    * the accepted resolution, so reusing it would preserve the divergence.
    */
   readonly forceCanonical?: boolean;
+  /**
+   * The proposed desired-state graph whose effective constraints the members
+   * are selected within. A sweep that advances several Packs builds it once
+   * with every selected Pack's manifest; omitted, this Pack's manifest is the
+   * only proposed change.
+   */
+  readonly desiredGraph?: DesiredStateGraph;
 }

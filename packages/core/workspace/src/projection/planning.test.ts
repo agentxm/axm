@@ -6,6 +6,7 @@ import {
   observeProjectionPlans,
   planAggregateProjection,
   planSingletonProjection,
+  PROJECTION_IO_CONCURRENCY,
   projectionPlanExclusionWarnings,
 } from "./planning.js";
 
@@ -197,6 +198,55 @@ describe("shared projection planning", () => {
       ]);
       expect(maxByTarget.get("shared.json")).toBe(1);
       expect(maxOverall).toBeGreaterThan(1);
+    });
+  });
+
+  it.effect("bounds observation and application across many independent targets", () => {
+    let active = 0;
+    let peak = 0;
+    const probe = () =>
+      Effect.promise(
+        () =>
+          new Promise<void>((resolve) => {
+            active += 1;
+            peak = Math.max(peak, active);
+            setTimeout(() => {
+              active -= 1;
+              resolve();
+            }, 10);
+          }),
+      );
+    const plans = Array.from({ length: PROJECTION_IO_CONCURRENCY * 2 }, (_, index) => {
+      const targetFile = `target-${index}.json`;
+      return planSingletonProjection({
+        unitId: "mcp-server:native-config-entry",
+        targetFile,
+        contributor: targetFile,
+        adapter: {
+          apply: () => probe(),
+          observe: () =>
+            probe().pipe(
+              Effect.as({
+                unitId: "mcp-server:native-config-entry" as const,
+                path: targetFile,
+                present: true,
+                current: true,
+                expectedContributors: [targetFile],
+                observedContributors: [targetFile],
+              }),
+            ),
+        },
+      });
+    });
+
+    return Effect.gen(function* () {
+      yield* observeProjectionPlans(plans);
+      expect(peak).toBe(PROJECTION_IO_CONCURRENCY);
+      expect(active).toBe(0);
+      peak = 0;
+      yield* applyProjectionPlans(plans);
+      expect(peak).toBe(PROJECTION_IO_CONCURRENCY);
+      expect(active).toBe(0);
     });
   });
 });

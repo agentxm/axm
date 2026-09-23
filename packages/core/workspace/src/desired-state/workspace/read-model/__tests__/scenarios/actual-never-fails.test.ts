@@ -43,8 +43,7 @@ describe("actual cells never fail", () => {
     Effect.gen(function* () {
       // Compose the test layer with `wrapFileSystem` to fail `readDirectory`
       // while enumerating one owner's skill packages, leaving the other owner
-      // readable. The first read lets directory classification succeed; the
-      // second exercises the scanner's warning-producing enumeration path.
+      // readable. Directory metadata remains available; enumeration fails.
       const UNREADABLE_TYPE_DIR = `${SCENARIO_WORKSPACE_ROOT}/agent_extensions/registry/@unreadable/skills`;
 
       const spec: FixtureSpec = {
@@ -52,31 +51,29 @@ describe("actual cells never fail", () => {
         userHome: SCENARIO_USER_HOME,
         project: {
           axmExtensions: {
-            "agentxm/@readable/skills/readable-skill/skill.json": JSON.stringify({
+            "registry/@readable/skills/readable-skill/skill.json": JSON.stringify({
               owner: "@readable",
               type: "skill",
               name: "readable-skill",
               version: "1.0.0",
             }),
-            "agentxm/@readable/skills/readable-skill/src/SKILL.md": "# readable\n",
-            "agentxm/@unreadable/skills/unreadable-skill/skill.json": JSON.stringify({
+            "registry/@readable/skills/readable-skill/src/SKILL.md": "# readable\n",
+            "registry/@unreadable/skills/unreadable-skill/skill.json": JSON.stringify({
               owner: "@unreadable",
               type: "skill",
               name: "unreadable-skill",
               version: "1.0.0",
             }),
-            "agentxm/@unreadable/skills/unreadable-skill/src/SKILL.md": "# unreadable\n",
+            "registry/@unreadable/skills/unreadable-skill/src/SKILL.md": "# unreadable\n",
           },
         },
       };
 
       const failingFs = (baseFs: FileSystem.FileSystem): FileSystem.FileSystem => {
-        let unreadableTypeReads = 0;
-        return FileSystem.makeNoop({
-          exists: (path) => baseFs.exists(path),
-          readFileString: (path) => baseFs.readFileString(path),
+        return {
+          ...baseFs,
           readDirectory: (path) => {
-            if (path === UNREADABLE_TYPE_DIR && unreadableTypeReads++ > 0) {
+            if (path === UNREADABLE_TYPE_DIR) {
               return Effect.fail(
                 PlatformError.systemError({
                   _tag: "PermissionDenied",
@@ -89,7 +86,7 @@ describe("actual cells never fail", () => {
             }
             return baseFs.readDirectory(path);
           },
-        });
+        };
       };
 
       const program = Effect.gen(function* () {
@@ -106,9 +103,11 @@ describe("actual cells never fail", () => {
       // a scanner-io warning instead of a hard error.
       const readable = result.actual.filter((a) => a.key.name === "readable-skill");
       expect(readable.length).toBeGreaterThanOrEqual(1);
+      expect(result.actual.some((entry) => entry.key.name === "unreadable-skill")).toBe(false);
 
       const scannerWarnings = result.diagnostics.filter((w) => w.source === "scanner");
       expect(scannerWarnings.length).toBeGreaterThan(0);
+      expect(scannerWarnings.some((warning) => warning.path === UNREADABLE_TYPE_DIR)).toBe(true);
     }),
   );
 });

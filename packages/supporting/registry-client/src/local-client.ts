@@ -486,10 +486,12 @@ const unresolvedExtensionResult = (
 const parseRef = (ref: string): { owner: string; type: ExtensionType; name: string } | undefined =>
   parseExtensionFqnParts(ref);
 
-/**
- * Scan all extensions under the extensions root directory.
- * Returns an array of ExtensionIndex entries.
- */
+// Preserve the existing twenty-read policy, applied once per enumeration phase.
+// Nested traversals multiply that allowance; each phase below completes before
+// the next begins, and each candidate performs its filesystem reads serially.
+const LOCAL_ENUMERATION_CONCURRENCY = 20;
+
+/** Scan all extension indexes in owner/type/name order with one admission bound. */
 const scanAllExtensions = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
@@ -498,45 +500,39 @@ const scanAllExtensions = (
   Effect.gen(function* () {
     const ownerDirs = yield* readRegistryDirectory(fs, extensionsRoot);
 
-    // Cap concurrency at each nesting level to bound resource usage on large registries.
-    const nestedResults = yield* Effect.forEach(
+    const typePaths = yield* Effect.forEach(
       ownerDirs.filter((d) => d.startsWith("@")),
       (ownerDir) =>
         Effect.gen(function* () {
           const ownerPath = path.join(extensionsRoot, ownerDir);
           const typeDirs = yield* readRegistryDirectory(fs, ownerPath);
-
-          const typeResults = yield* Effect.forEach(
-            typeDirs.filter((d) => isExtensionTypePlural(d)),
-            (typeDir) =>
-              Effect.gen(function* () {
-                const typePath = path.join(ownerPath, typeDir);
-                const nameDirs = yield* readRegistryDirectory(fs, typePath);
-
-                return yield* Effect.forEach(
-                  nameDirs,
-                  (nameDir) =>
-                    Effect.gen(function* () {
-                      const idxPath = path.join(typePath, nameDir, "index.json");
-                      const exists = yield* registryPathExists(fs, idxPath);
-                      if (!exists) return Option.none<ExtensionIndex>();
-
-                      const index = yield* readExtensionIndex(fs, idxPath);
-                      if (index.versions.length === 0) return Option.none<ExtensionIndex>();
-                      return Option.some(index);
-                    }),
-                  { concurrency: 20 },
-                ).pipe(Effect.map(Array.getSomes));
-              }),
-            { concurrency: 20 },
-          );
-
-          return Array.flatten(typeResults);
+          return typeDirs
+            .filter((typeDir) => isExtensionTypePlural(typeDir))
+            .map((typeDir) => path.join(ownerPath, typeDir));
         }),
-      { concurrency: 20 },
-    );
+      { concurrency: LOCAL_ENUMERATION_CONCURRENCY },
+    ).pipe(Effect.map(Array.flatten));
 
-    return Array.flatten(nestedResults);
+    const indexPaths = yield* Effect.forEach(
+      typePaths,
+      (typePath) =>
+        readRegistryDirectory(fs, typePath).pipe(
+          Effect.map((names) => names.map((name) => path.join(typePath, name, "index.json"))),
+        ),
+      { concurrency: LOCAL_ENUMERATION_CONCURRENCY },
+    ).pipe(Effect.map(Array.flatten));
+
+    return yield* Effect.forEach(
+      indexPaths,
+      (idxPath) =>
+        Effect.gen(function* () {
+          const exists = yield* registryPathExists(fs, idxPath);
+          if (!exists) return Option.none<ExtensionIndex>();
+          const index = yield* readExtensionIndex(fs, idxPath);
+          return index.versions.length === 0 ? Option.none() : Option.some(index);
+        }),
+      { concurrency: LOCAL_ENUMERATION_CONCURRENCY },
+    ).pipe(Effect.map(Array.getSomes));
   });
 
 // -----------------------------------------------------------------------------
@@ -739,42 +735,35 @@ export const createLocalRegistryClient = (
         } satisfies GetExtensionsByOwnerResponse;
       }
 
-      const findForName = (name: string) =>
-        Effect.gen(function* () {
-          const requestedTypes: ReadonlyArray<ExtensionType> =
-            args.types.length === 0 ? ["skill", "mcp-server", "pack"] : args.types;
-
-          const extensionsDir = path.join(registryRoot, "extensions");
-
-          const nestedResults = yield* Effect.forEach(
-            requestedTypes,
-            (extType) =>
-              Effect.gen(function* () {
-                const typeDir = path.join(extensionsDir, args.owner, pluralizeType(extType));
-                const typeDirExists = yield* registryPathExists(fs, typeDir);
-                if (!typeDirExists) return [];
-
-                const nameDirs = yield* readRegistryDirectory(fs, typeDir);
-                const filtered = name !== "" ? nameDirs.filter((d) => d === name) : nameDirs;
-
-                return yield* Effect.forEach(
-                  filtered,
-                  (nameDir) => processNameDir(fs, path, typeDir, nameDir, Option.none()),
-                  { concurrency: "unbounded" },
-                ).pipe(Effect.map(Array.getSomes));
-              }),
-            { concurrency: "unbounded" },
+      const requestedTypes: ReadonlyArray<ExtensionType> =
+        args.types.length === 0 ? ["skill", "mcp-server", "pack"] : args.types;
+      // Observe each type directory once, even when names or requested types repeat.
+      const directories = yield* Effect.forEach(
+        Array.dedupe(requestedTypes),
+        (type) => {
+          const directory = path.join(registryRoot, "extensions", args.owner, pluralizeType(type));
+          return readRegistryDirectory(fs, directory).pipe(
+            Effect.map((names) => ({ type, directory, names })),
           );
-
-          return Array.flatten(nestedResults);
-        });
-
-      const all: ReadonlyArray<IndexedManifest> =
-        args.names.length > 0
-          ? yield* Effect.forEach(args.names, (name) => findForName(name), {
-              concurrency: "unbounded",
-            }).pipe(Effect.map(Array.flatten))
-          : yield* findForName("");
+        },
+        { concurrency: LOCAL_ENUMERATION_CONCURRENCY },
+      );
+      // Preserve name-major, requested-type, then filesystem order, including
+      // repeated selectors. Completion order must not affect pagination or total.
+      const candidates = (args.names.length === 0 ? [""] : args.names).flatMap((name) =>
+        requestedTypes.flatMap((type) => {
+          const observed = directories.find((entry) => entry.type === type);
+          if (observed === undefined) return [];
+          return observed.names
+            .filter((entry) => name === "" || entry === name)
+            .map((entry) => ({ directory: observed.directory, name: entry }));
+        }),
+      );
+      const all = yield* Effect.forEach(
+        candidates,
+        ({ directory, name }) => processNameDir(fs, path, directory, name, Option.none()),
+        { concurrency: LOCAL_ENUMERATION_CONCURRENCY },
+      ).pipe(Effect.map(Array.getSomes));
 
       const total = all.length;
       const offset = args.offset;

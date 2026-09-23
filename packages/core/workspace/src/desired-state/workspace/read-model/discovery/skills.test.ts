@@ -13,7 +13,10 @@ import * as ConfigProvider from "effect/ConfigProvider";
 import * as Layer from "effect/Layer";
 import * as FileSystem from "effect/FileSystem";
 import * as Effect from "effect/Effect";
+import * as Deferred from "effect/Deferred";
+import * as Fiber from "effect/Fiber";
 import * as Option from "effect/Option";
+import { makeScannerFileSystem, SCANNER_IO_CONCURRENCY } from "../scanners/fs-helpers.js";
 import { at } from "../../../test-helpers.js";
 import { type DiscoveryOptions, getPriorityDirectories, skillsInDir } from "./skills.js";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
@@ -108,6 +111,59 @@ describe("skillsInDir", () => {
     fullDepth: false,
     includeInternal: false,
   };
+
+  it.effect("shares one filesystem allowance across nested scans of different roots", () => {
+    const roots = [path.join(tempDir, "first"), path.join(tempDir, "second")];
+    for (const root of roots) {
+      for (let index = 0; index < 12; index++) {
+        createSkillMd(path.join(root, "skills", `item-${index}`), `item-${index}`, "Test skill");
+      }
+    }
+
+    return withFileSystem(
+      Effect.gen(function* () {
+        const fsService = yield* FileSystem.FileSystem;
+        const reachedCapacity = yield* Deferred.make<void>();
+        const release = yield* Deferred.make<void>();
+        let active = 0;
+        let maximum = 0;
+        const observed: FileSystem.FileSystem = {
+          ...fsService,
+          stat: (location) =>
+            location.includes(`${path.sep}skills${path.sep}item-`)
+              ? Effect.sync(() => {
+                  active++;
+                  maximum = Math.max(maximum, active);
+                }).pipe(
+                  Effect.flatMap(() =>
+                    active === SCANNER_IO_CONCURRENCY
+                      ? Deferred.succeed(reachedCapacity, undefined)
+                      : Effect.void,
+                  ),
+                  Effect.andThen(Deferred.await(release)),
+                  Effect.andThen(fsService.stat(location)),
+                  Effect.ensuring(
+                    Effect.sync(() => {
+                      active--;
+                    }),
+                  ),
+                )
+              : fsService.stat(location),
+        };
+        const bounded = yield* makeScannerFileSystem(observed);
+        const scan = Effect.all(
+          roots.map((root) => skillsInDir(root, Option.none(), defaultOptions)),
+          { concurrency: "unbounded" },
+        ).pipe(Effect.provideService(FileSystem.FileSystem, bounded));
+        const fiber = yield* Effect.forkChild(scan);
+        yield* Deferred.await(reachedCapacity);
+        yield* Deferred.succeed(release, undefined);
+        const discovered = yield* Fiber.join(fiber);
+        expect(discovered.map((skills) => skills.length)).toEqual([12, 12]);
+        expect(maximum).toBe(SCANNER_IO_CONCURRENCY);
+      }),
+    );
+  });
 
   // ===========================================================================
   // Phase 1 — Direct Match

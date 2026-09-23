@@ -80,7 +80,7 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
           owners: parsed.owner,
           excludes: parsed.exclude,
         }).pipe(Effect.mapError(publishFailureToAppError));
-        yield* handleRootPublish({
+        return yield* handleRootPublish({
           ...selection,
           registry: parsed.registry,
           registryUrl: parsed.registryUrl,
@@ -113,7 +113,7 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
         owners: parsed.owner,
         excludes: parsed.exclude,
       }).pipe(Effect.mapError(publishFailureToAppError));
-      yield* handleRootPublish({
+      return yield* handleRootPublish({
         ...selection,
         registry: parsed.registry,
         registryUrl: parsed.registryUrl,

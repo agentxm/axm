@@ -53,6 +53,7 @@ import {
   SettingsReader,
   WorkspaceLocation,
   acceptedCanonicalObservation,
+  settingsEntries,
 } from "../../desired-state/index.js";
 
 import { PublishFailed } from "../errors.js";
@@ -224,18 +225,8 @@ const entryDistribution = (entry: unknown): boolean =>
 /** Every configured extension of a publishable type, with its source string. */
 export const catalogEntries = Effect.fn("Publish.catalogEntries")(function* () {
   const settings = yield* SettingsReader;
-  const [skills, mcps, subagents, rules, hooks, knowledge, packs] = yield* Effect.all(
-    [
-      settings.entries("skill"),
-      settings.entries("mcp-server"),
-      settings.entries("subagent"),
-      settings.entries("rule"),
-      settings.entries("hook"),
-      settings.entries("knowledge"),
-      settings.entries("pack"),
-    ],
-    { concurrency: "unbounded" },
-  );
+  // One document observation keeps all seven publishable types consistent.
+  const snapshot = yield* settings.settings;
 
   const group = (type: PublishableType, entries: Readonly<Record<string, unknown>>) =>
     Object.entries(entries).flatMap(([name, entry]) => {
@@ -246,13 +237,13 @@ export const catalogEntries = Effect.fn("Publish.catalogEntries")(function* () {
     });
 
   return [
-    ...group("skill", skills),
-    ...group("mcp-server", mcps),
-    ...group("subagent", subagents),
-    ...group("rule", rules),
-    ...group("hook", hooks),
-    ...group("knowledge", knowledge),
-    ...group("pack", packs),
+    ...group("skill", settingsEntries.skill.entries(snapshot)),
+    ...group("mcp-server", settingsEntries["mcp-server"].entries(snapshot)),
+    ...group("subagent", settingsEntries.subagent.entries(snapshot)),
+    ...group("rule", settingsEntries.rule.entries(snapshot)),
+    ...group("hook", settingsEntries.hook.entries(snapshot)),
+    ...group("knowledge", settingsEntries.knowledge.entries(snapshot)),
+    ...group("pack", settingsEntries.pack.entries(snapshot)),
   ].sort((left, right) => {
     const typeOrder = extensionTypes.indexOf(left.type) - extensionTypes.indexOf(right.type);
     return typeOrder === 0 ? left.name.localeCompare(right.name) : typeOrder;

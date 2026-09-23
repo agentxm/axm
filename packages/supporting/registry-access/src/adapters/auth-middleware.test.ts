@@ -557,13 +557,15 @@ describe("AuthMiddleware", () => {
           return new Response("ok", { status: 200 });
         }, storedCredentials());
 
-        const client = yield* HttpClient.HttpClient.pipe(Effect.provide(layers));
-        const responses = yield* Effect.all(
-          Array.from({ length: requestCount }, () =>
-            client.execute(HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`)),
-          ),
-          { concurrency: "unbounded" },
-        );
+        const responses = yield* Effect.gen(function* () {
+          const client = yield* HttpClient.HttpClient;
+          return yield* Effect.all(
+            Array.from({ length: requestCount }, () =>
+              client.execute(HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`)),
+            ),
+            { concurrency: "unbounded" },
+          );
+        }).pipe(Effect.provide(layers));
 
         expect(responses.map((response) => response.status)).toEqual(
           Array.from({ length: requestCount }, () => 200),
@@ -667,13 +669,15 @@ describe("AuthMiddleware", () => {
           return new Response("unauthorized", { status: 401 });
         }, storedCredentials());
 
-        const client = yield* HttpClient.HttpClient.pipe(Effect.provide(layers));
-        const responses = yield* Effect.all(
-          Array.from({ length: requestCount }, () =>
-            client.execute(HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`)),
-          ),
-          { concurrency: "unbounded" },
-        );
+        const responses = yield* Effect.gen(function* () {
+          const client = yield* HttpClient.HttpClient;
+          return yield* Effect.all(
+            Array.from({ length: requestCount }, () =>
+              client.execute(HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`)),
+            ),
+            { concurrency: "unbounded" },
+          );
+        }).pipe(Effect.provide(layers));
 
         expect(responses.map((response) => response.status)).toEqual(
           Array.from({ length: requestCount }, () => 401),

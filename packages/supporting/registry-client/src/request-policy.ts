@@ -4,10 +4,12 @@ import * as Clock from "effect/Clock";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as RcMap from "effect/RcMap";
 import * as Ref from "effect/Ref";
 import * as Schedule from "effect/Schedule";
 import * as Semaphore from "effect/Semaphore";
 import * as ServiceMap from "effect/Context";
+import type * as Scope from "effect/Scope";
 
 import {
   isAnyRegistryClientError,
@@ -77,7 +79,7 @@ export class OperationRequestBudget extends ServiceMap.Service<
 export const makeOperationRequestBudget = (limits: {
   readonly invocation: number;
   readonly origin: number;
-}): Effect.Effect<OperationRequestBudgetService> =>
+}): Effect.Effect<OperationRequestBudgetService, never, Scope.Scope> =>
   Effect.gen(function* () {
     if (
       !Number.isSafeInteger(limits.invocation) ||
@@ -88,18 +90,19 @@ export const makeOperationRequestBudget = (limits: {
       return yield* Effect.die(new Error("Request limits must be positive finite integers"));
     }
     const invocation = yield* Semaphore.make(limits.invocation);
-    const origins = new Map<string, Semaphore.Semaphore>();
+    // Borrow before waiting: the last active request cannot retire an origin
+    // while another request for that origin is queued for its permit.
+    const origins = yield* RcMap.make({
+      lookup: (_origin: string) => Semaphore.make(limits.origin),
+    });
     return {
       capacity: limits.invocation,
       withAttempt: (origin, effect) =>
-        Effect.suspend(() => {
-          let originSemaphore = origins.get(origin);
-          if (originSemaphore === undefined) {
-            originSemaphore = Semaphore.makeUnsafe(limits.origin);
-            origins.set(origin, originSemaphore);
-          }
-          return originSemaphore.withPermit(invocation.withPermit(effect));
-        }),
+        Effect.scoped(
+          Effect.flatMap(RcMap.get(origins, origin), (originSemaphore) =>
+            originSemaphore.withPermit(invocation.withPermit(effect)),
+          ),
+        ),
     } satisfies OperationRequestBudgetService;
   });
 

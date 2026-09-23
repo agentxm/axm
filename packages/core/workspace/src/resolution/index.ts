@@ -66,7 +66,6 @@ export {
   type SourceAuthorityInput,
   type SourceAuthorityRelationship,
   type SourceAuthorityTarget,
-  type WorkspaceAuthorityStatus,
 } from "./source-authority.js";
 
 export { type SourceBindingProposal } from "./source-switch.js";

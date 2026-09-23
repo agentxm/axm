@@ -35,12 +35,11 @@ import { installMcpServer, type McpServerInstallRequirements } from "./mcps/inst
 import { buildMaterializeOperation, targetFromRef, toStepKey } from "./extensions/operations.js";
 import { enabledConfiguredEntries, isConfiguredEntryEnabled } from "../desired-state/index.js";
 import {
+  canonicalObservationFactText,
   CodingAgentRepository,
-  extensionConstraintFactText,
   inspectMcpServerAcrossAgents,
   isObservedMaterializationCurrent,
   type ProjectionParticipantRequirements,
-  makeExtensionConstraintInvariantFact,
   type CodingAgentRepositoryService,
 } from "../projection/index.js";
 import {
@@ -62,7 +61,7 @@ import {
   sanitizeName,
   acceptedResolutionRef,
   acceptedCanonicalObservation,
-  lockEntryToSourceParams,
+  observeDesiredCanonical,
   isSourcedDesiredExtension,
   desiredStateProblemsText,
   DesiredStateReader,
@@ -72,13 +71,12 @@ import {
   WorkspaceLocation,
   WorkspaceRecords,
   type WorkspaceLocationService,
-  usableAcceptedCanonical,
-  type CanonicalObservationStatus,
+  usableAcceptedCanonicalFrom,
+  type CanonicalObservation,
   type DesiredExtensionNode,
   type DesiredStateGraph,
   type ExtensionInventory,
 } from "../desired-state/index.js";
-import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { type McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
@@ -370,15 +368,13 @@ const resolutionGuidance = (cause: ConfiguredEntryResolutionFailure): CarriedSug
 
 /**
  * Resolve one desired node's configured entry, annotating the failure with
- * the node and the canonical status that made resolution necessary. A
- * constraint mismatch is reported as a blocked decision rather than as a bare
- * resolution failure, because the operator's next move is different.
+ * the node and the canonical observation that made resolution necessary, so
+ * the blocker states the same fact lint reports for the node.
  */
 const resolveDesiredNodeRef = (
   node: DesiredExtensionNode & { readonly source: string },
-  canonicalStatus: CanonicalObservationStatus,
+  observation: CanonicalObservation,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
-  constraintDetail: string | undefined,
 ): Effect.Effect<
   ResolvedDesiredRef,
   WorkspaceSyncFailed,
@@ -395,11 +391,8 @@ const resolveDesiredNodeRef = (
       Effect.mapError(
         (cause) =>
           new WorkspaceSyncFailed({
-            category: constraintDetail === undefined ? syncCategory(cause) : "conflict",
-            detail:
-              constraintDetail === undefined
-                ? `${node.type} ${node.name}: ${resolutionDetail(cause)} (canonical status: ${canonicalStatus})`
-                : `${constraintDetail}; decision=blocked; reason=no-satisfying-version; ${resolutionDetail(cause)}`,
+            category: syncCategory(cause),
+            detail: `${node.type} ${node.name}: ${resolutionDetail(cause)}; ${canonicalObservationFactText(node, observation)}`,
             ...(resolutionGuidance(cause).length === 0
               ? {}
               : { suggestions: resolutionGuidance(cause) }),
@@ -578,23 +571,14 @@ export const collectMaterializeSteps = (args: {
       selected,
       (node) =>
         Effect.gen(function* () {
-          const canonical = yield* acceptedCanonicalObservation({
-            type: node.type,
-            name: node.name,
-            desired: node,
-          });
-          const observation = Option.isSome(canonical)
-            ? canonical.value.observation
-            : { type: node.type, name: node.name, status: "missing-resolution" as const };
-          const accepted = Option.isSome(canonical) ? canonical.value.accepted : undefined;
-          const constraintFact =
-            observation.status === "constraint-mismatch"
-              ? makeExtensionConstraintInvariantFact(node, observation)
-              : undefined;
-          if (constraintFact !== undefined)
+          // One observation per node judges this phase; the usable ref and
+          // the blocker below both read it rather than observing again.
+          const canonical = yield* observeDesiredCanonical(node);
+          const { observation, accepted } = canonical;
+          if (observation.status === "constraint-mismatch")
             return yield* new WorkspaceSyncFailed({
               category: "conflict",
-              detail: `${extensionConstraintFactText(constraintFact)}; decision=blocked; reason=accepted-resolution-incompatible`,
+              detail: `${canonicalObservationFactText(node, observation)}; decision=blocked; reason=accepted-resolution-incompatible`,
               suggestions: [
                 {
                   description: "Explicitly update the extension to accept a satisfying resolution.",
@@ -609,15 +593,9 @@ export const collectMaterializeSteps = (args: {
             });
           const forceCanonical = observation.status !== "usable";
           const resolved = yield* Effect.gen(function* () {
-            if (observation.status === "usable") {
-              const usable = yield* usableAcceptedCanonical({
-                type: node.type,
-                name: node.name,
-                desired: node,
-              });
-              if (Option.isSome(usable)) {
-                return { ref: usable.value.ref, versionRange: Option.none() };
-              }
+            const usable = yield* usableAcceptedCanonicalFrom(canonical);
+            if (Option.isSome(usable)) {
+              return { ref: usable.value.ref, versionRange: Option.none(), restoresAccepted: true };
             }
             if (accepted !== undefined) {
               const immutable = yield* acceptedResolutionRef({
@@ -626,15 +604,17 @@ export const collectMaterializeSteps = (args: {
                 desired: node,
               });
               if (Option.isSome(immutable)) {
-                return { ref: immutable.value, versionRange: Option.none() };
+                return {
+                  ref: immutable.value,
+                  versionRange: Option.none(),
+                  restoresAccepted: true,
+                };
               }
             }
-            return yield* resolveDesiredNodeRef(
-              node,
-              observation.status,
-              releaseAgeEvaluation,
-              undefined,
-            );
+            return {
+              ...(yield* resolveDesiredNodeRef(node, observation, releaseAgeEvaluation)),
+              restoresAccepted: false,
+            };
           });
           let ref = resolved.ref;
           if (forceCanonical && accepted !== undefined && ref.refType === "git-hosted") {
@@ -681,6 +661,7 @@ export const collectMaterializeSteps = (args: {
           const releaseAge = configuredReleaseAge(resolved);
           return {
             ref,
+            restoresAccepted: resolved.restoresAccepted,
             force: forceCanonical,
             materialize,
             transitionLabel: [
@@ -713,6 +694,13 @@ export const collectMaterializeSteps = (args: {
     ).pipe(Effect.provideService(DesiredStateReader, phaseReader));
     const reconciled = evaluated.flatMap(({ result }) =>
       Result.isSuccess(result) ? [result.success] : [],
+    );
+    // Refs that restore the accepted resolution the planning observation
+    // judged, rather than a first resolution of the configured source.
+    const restoringAccepted = new Set(
+      reconciled.flatMap(({ ref, restoresAccepted }) =>
+        restoresAccepted ? [toStepKey(targetFromRef(ref))] : [],
+      ),
     );
     const failures = evaluated.flatMap(({ node, result }) =>
       Result.isFailure(result) ? [{ node, failure: result.failure }] : [],
@@ -875,6 +863,7 @@ export const collectMaterializeSteps = (args: {
       Effect.gen(function* () {
         if (ref.refType !== "local") return;
         const target = targetFromRef(ref);
+        if (!restoringAccepted.has(toStepKey(target))) return;
         const proposed = desiredState.nodes.find(
           (node) => node.type === target.type && node.name === target.name,
         );
@@ -893,12 +882,8 @@ export const collectMaterializeSteps = (args: {
           ),
         );
         if (Option.isNone(canonical)) return;
-        const accepted = canonical.value.accepted;
-        if (accepted?.source.type !== "path") return;
-        const { desired, observation } = canonical.value;
-        const acceptedSource = printSourceParams(lockEntryToSourceParams(accepted));
-        if (acceptedSource !== desired.source && acceptedSource !== desired.identity) return;
-        if (observation.status !== "usable") {
+        if (canonical.value.accepted?.source.type !== "path") return;
+        if (canonical.value.observation.status !== "usable") {
           return yield* new WorkspaceSyncFailed({
             category: "conflict",
             detail: `Cannot restore ${target.type} ${target.name} from its accepted local package: the available source does not reproduce the accepted content`,

@@ -120,21 +120,23 @@ describe("Selected lint filesystem view", () => {
         return yield* Effect.die(new Error("Expected a Git-index lint result"));
       }
       expect(stagedInput.fingerprint).toMatch(/^sha256:[0-9a-f]{64}$/);
+      // The staged declaration needs accepted-resolution state the workspace
+      // does not have; that one fact is reported against its lockfile path.
       const stagedFinding = staged.document.findings.find(
-        ({ ruleId }) => ruleId === "workspace/configured-but-not-installed",
+        ({ ruleId }) => ruleId === "workspace/lockfile-valid",
       );
       if (stagedFinding === undefined) throw new Error("Expected the staged missing-Skill finding");
       expect(stagedFinding).toMatchObject({
-        authority: "axm.json",
-        location: { file: "axm.json" },
+        authority: "axm-lock.yaml",
+        location: { file: "axm-lock.yaml" },
       });
       // Displayed locations are workspace-relative; every one must resolve to
       // the selected workspace, never to its temporary index copy.
+      const lockPath = nodePath.join(workspace.root, "axm-lock.yaml");
       const displayedRoot = nodePath.resolve(workspace.root, stagedFinding.displayRoot);
       expect(displayedRoot).toBe(workspace.root);
-      expect(nodePath.resolve(displayedRoot, stagedFinding.path)).toBe(settingsPath);
-      expect(nodePath.resolve(displayedRoot, stagedFinding.subject)).toBe(settingsPath);
-      expect(fs.existsSync(settingsPath)).toBe(true);
+      expect(nodePath.resolve(displayedRoot, stagedFinding.path)).toBe(lockPath);
+      expect(nodePath.resolve(displayedRoot, stagedFinding.subject)).toBe(lockPath);
 
       const live = yield* lint("workspace");
 

@@ -5,6 +5,8 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "@agentxm/extension-content/lint";
+import { canonicalObservationFactText } from "../../../projection/index.js";
+import { observationsReportedBy } from "./canonical-observation-findings.js";
 import { canonicalDisplayRoot, settingsDisplayPath } from "./display-paths.js";
 
 const RULE_ID = "workspace/knowledge-state-valid";
@@ -45,32 +47,14 @@ export const knowledgeStateValidRule: AdvisoryRule<WorkspaceRuleContext> = {
                   },
                 ],
           );
-      if (context.health?.canonicalObservations === undefined) return unmanagedFindings;
-      const observations = yield* Effect.result(context.health.canonicalObservations);
-      if (Result.isFailure(observations)) return unmanagedFindings;
-      const observedFindings = observations.success.flatMap(
-        ({ desired, observation }): ReadonlyArray<AdvisoryFinding> => {
-          if (
-            desired.type !== "knowledge" ||
-            observation.status === "usable" ||
-            observation.status === "not-applicable" ||
-            observation.status === "locally-modified"
-          ) {
-            return [];
-          }
-          return [
-            {
-              kind: "advisory",
-              ruleId: RULE_ID,
-              severity: "error",
-              message: `Knowledge bundle '${desired.name}' has canonical state ${observation.status}.`,
-              location: {
-                file: observation.path ?? settingsDisplayPath(context.subject.scope),
-              },
-            },
-          ];
-        },
-      );
+      const observed = yield* observationsReportedBy(context, RULE_ID);
+      const observedFindings = observed.map(({ desired, observation }): AdvisoryFinding => ({
+        kind: "advisory",
+        ruleId: RULE_ID,
+        severity: "error",
+        message: `${canonicalObservationFactText(desired, observation)}.`,
+        location: { file: observation.path ?? settingsDisplayPath(context.subject.scope) },
+      }));
       return [...unmanagedFindings, ...observedFindings];
     }),
 };

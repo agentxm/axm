@@ -486,6 +486,19 @@ People and agents can understand invalid workspace state and recover it through 
 - Methods: example
 - Source: [`apps/cli/src/withheld-releases-name-recovery-from-the-emitting-command.spec.ts`](../apps/cli/src/withheld-releases-name-recovery-from-the-emitting-command.spec.ts)
 
+##### A desired extension's missing accepted resolution is one reported fact
+
+- Requirement: `workspace/observation/one-fact-per-desired-node`
+- Owner: `workspace`
+- Statement: When an enabled desired extension has no accepted resolution, lint shall report that fact as exactly one finding and a sync that cannot restore it shall report it as exactly one blocker, both stating the same fact, and when that extension is disabled the state shall be judged not applicable and lint shall report no finding for it before or after sync.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Boundary rationale: The fact is judged from a real settings file, lockfile, installed Pack, and file Registry on disk, and lint and sync read that one workspace through the production layers.
+- Methods: example
+- Source: [`packages/core/workspace/src/desired-state/workspace/one-fact-per-desired-node.spec.ts`](../packages/core/workspace/src/desired-state/workspace/one-fact-per-desired-node.spec.ts)
+
 #### Quality
 
 ##### Error reports keep credentials out of diagnostic details

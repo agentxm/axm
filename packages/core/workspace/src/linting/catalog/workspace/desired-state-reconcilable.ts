@@ -1,12 +1,13 @@
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import {
-  extensionConstraintFactText,
-  makeExtensionConstraintInvariantFact,
-} from "../../../projection/index.js";
-import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
+  formatConstraintContributors,
+  packManifestContentMismatchText,
+} from "../../../desired-state/index.js";
+import { canonicalObservationFactText } from "../../../projection/index.js";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "@agentxm/extension-content/lint";
+import { observationsReportedBy } from "./canonical-observation-findings.js";
 
 const RULE_ID = "workspace/desired-state-reconcilable";
 
@@ -24,7 +25,7 @@ export const desiredStateReconcilableRule: AdvisoryRule<WorkspaceRuleContext> = 
         if ("pack" in problem) {
           const observed =
             problem.type === "pack-manifest-content-mismatch"
-              ? ` Accepted version=${problem.acceptedVersion} content=${problem.acceptedContentIdentity}; observed status=${problem.status}${problem.observedVersion === undefined ? "" : ` version=${problem.observedVersion} content=${problem.observedContentIdentity}`}.`
+              ? ` ${packManifestContentMismatchText(problem)}.`
               : "";
           return {
             kind: "advisory",
@@ -45,70 +46,21 @@ export const desiredStateReconcilableRule: AdvisoryRule<WorkspaceRuleContext> = 
                 ? `${problem.extensionType} '${problem.name}' is configured in ${problem.location}, but no configured pack supplies it. Remove the entry, or declare a source to install it directly.`
                 : problem.type === "projection-collision"
                   ? `${problem.extensionType} '${problem.name}' has competing desired identities: ${problem.identities.join(", ")}.`
-                  : `${problem.extensionType} '${problem.name}' has incompatible constraints: ${problem.contributors
-                      .map((contributor) =>
-                        contributor.source === "pack"
-                          ? `${contributor.dependingPack ?? "unknown Pack"} range=${contributor.range} location=${contributor.location}`
-                          : `settings range=${contributor.range} location=${contributor.location}`,
-                      )
-                      .join(", ")}. Decision=blocked; reason=no-satisfying-version.`,
+                  : `${problem.extensionType} '${problem.name}' has incompatible constraints: ${formatConstraintContributors(problem.contributors)}. Decision=blocked; reason=no-satisfying-version.`,
           location: { file: "axm.json" },
         };
       });
-      if (context.health.canonicalObservations === undefined) return graphFindings;
-      const observations = yield* Effect.result(context.health.canonicalObservations);
-      if (Result.isFailure(observations)) return graphFindings;
-      const observationFindings = observations.success.flatMap(
-        ({ desired, observation }): ReadonlyArray<AdvisoryFinding> => {
-          if (
-            observation.status === "usable" ||
-            observation.status === "not-applicable" ||
-            observation.status === "missing"
-          ) {
-            return [];
-          }
-          const identity = desired.identity.replace(/^workspace:/, "");
-          const label = `${observation.type} '${identity}'`;
-          if (observation.status === "constraint-mismatch") {
-            const blockedByConflict = graph.success.problems.some(
-              (problem) =>
-                problem.type === "constraint-conflict" &&
-                problem.extensionType === desired.type &&
-                problem.name === desired.name,
-            );
-            if (blockedByConflict) return [];
-            const fact = makeExtensionConstraintInvariantFact(desired, observation);
-            return [
-              {
-                kind: "advisory",
-                ruleId: RULE_ID,
-                severity: "error",
-                message: `${extensionConstraintFactText(fact)}; decision=reconcilable.`,
-                location: { file: observation.path ?? "axm.json" },
-              },
-            ];
-          }
-          if (
-            observation.status === "locally-modified" &&
-            desired.source !== undefined &&
-            isWorkspaceSourceLocator(desired.source)
-          ) {
-            return [];
-          }
-          return [
-            {
-              kind: "advisory",
-              ruleId: RULE_ID,
-              severity: "error",
-              message:
-                observation.status === "materialization-mismatch"
-                  ? `${label} differs from its accepted materialized package-tree integrity.`
-                  : `${label} has canonical state ${observation.status}.`,
-              location: { file: observation.path ?? "axm.json" },
-            },
-          ];
-        },
-      );
+      const observed = yield* observationsReportedBy(context, RULE_ID);
+      const observationFindings = observed.map(({ desired, observation }): AdvisoryFinding => ({
+        kind: "advisory",
+        ruleId: RULE_ID,
+        severity: "error",
+        message:
+          observation.status === "constraint-mismatch"
+            ? `${canonicalObservationFactText(desired, observation)}; decision=reconcilable.`
+            : `${canonicalObservationFactText(desired, observation)}.`,
+        location: { file: observation.path ?? "axm.json" },
+      }));
       return [...graphFindings, ...observationFindings];
     }),
 };

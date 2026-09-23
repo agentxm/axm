@@ -66,6 +66,32 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
     }),
   );
 
+  it.effect("observes a disabled node without an accepted resolution as not applicable", () =>
+    Effect.gen(function* () {
+      const layout = yield* projectLayout(root);
+      const observed = yield* observeCanonicalExtension({
+        layout,
+        desired: { ...desiredSkill(), enabled: false },
+        accepted: undefined,
+      });
+      expect(observed.status).toBe("not-applicable");
+    }),
+  );
+
+  it.effect(
+    "still judges the retained content of a disabled node with an accepted resolution",
+    () =>
+      Effect.gen(function* () {
+        const layout = yield* projectLayout(root);
+        const observed = yield* observeCanonicalExtension({
+          layout,
+          desired: { ...desiredSkill(), enabled: false },
+          accepted: acceptedGit(),
+        });
+        expect(observed.status).toBe("missing");
+      }),
+  );
+
   it.effect(
     "accepts present external canonical bytes without treating local drift as authority",
     () =>

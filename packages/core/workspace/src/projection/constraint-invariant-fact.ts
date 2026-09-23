@@ -17,7 +17,7 @@ import type {
   CanonicalConstraintContributor,
   CanonicalConstraintMismatchObservation,
 } from "../desired-state/index.js";
-import type { DesiredExtensionNode } from "../desired-state/index.js";
+import { formatConstraintContributors, type DesiredExtensionNode } from "../desired-state/index.js";
 
 export const EXTENSION_CONSTRAINT_INVARIANT_PREDICATE =
   "workspace/extension-constraints-satisfied" as const;
@@ -157,18 +157,6 @@ export const makeProspectiveExtensionConstraintFacts = (args: {
     .sort((left, right) => left.subject.identity.localeCompare(right.subject.identity));
 };
 
-export type ExtensionConstraintPlanningDecision =
-  | {
-      readonly readiness: "ready";
-      readonly reason: "satisfying-version-resolved";
-      readonly version: string;
-    }
-  | {
-      readonly readiness: "blocked";
-      readonly reason: "no-satisfying-version" | "candidate-violates-constraints";
-      readonly candidateVersion?: string;
-    };
-
 export const makeExtensionConstraintInvariantFact = (
   desired: DesiredExtensionNode,
   observation: CanonicalConstraintMismatchObservation,
@@ -200,37 +188,9 @@ export const makeExtensionConstraintInvariantFact = (
   },
 });
 
-export const planExtensionConstraintFact = (
-  fact: ExtensionConstraintInvariantFact,
-  candidateVersion: string | undefined,
-): ExtensionConstraintPlanningDecision => {
-  if (candidateVersion === undefined) {
-    return { readiness: "blocked", reason: "no-satisfying-version" };
-  }
-  if (
-    fact.expectation.ranges.every((constraint) => semver.satisfies(candidateVersion, constraint))
-  ) {
-    return {
-      readiness: "ready",
-      reason: "satisfying-version-resolved",
-      version: candidateVersion,
-    };
-  }
-  return {
-    readiness: "blocked",
-    reason: "candidate-violates-constraints",
-    candidateVersion,
-  };
-};
-
-const contributorText = (contributor: ExtensionConstraintFactContributor): string =>
-  contributor.source === "pack"
-    ? `${contributor.dependingPack ?? "unknown Pack"} range=${contributor.range} location=${contributor.location}`
-    : `settings range=${contributor.range} location=${contributor.location}`;
-
 /** Stable human and machine-display detail shared by lint and sync. */
 export const extensionConstraintFactText = (fact: ExtensionConstraintInvariantFact): string => {
-  const constraints = fact.authority.constraints.map(contributorText).join(", ");
+  const constraints = formatConstraintContributors(fact.authority.constraints);
   const versions = [
     fact.observation.acceptedVersion === undefined
       ? undefined

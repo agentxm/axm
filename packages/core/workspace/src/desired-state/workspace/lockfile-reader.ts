@@ -1,7 +1,7 @@
 /**
  * Lockfile reader: the selected scope's accepted resolutions — the lockfile
- * health probe, the per-type entry maps, one entry by name, and the shared
- * MCP resolution a local connection name accepts.
+ * health probe, the per-type entry maps, one entry by lock key, and the
+ * accepted resolution a desired extension's type and name resolve to.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -13,7 +13,7 @@ import * as Option from "effect/Option";
 
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type { LockfileValidationError } from "../lockfile/errors.js";
-import type { Lockfile, McpServerLockEntry } from "../lockfile/schema.js";
+import type { Lockfile } from "../lockfile/schema.js";
 import { DesiredStateReader, type DesiredStateReaderService } from "./desired-state-reader.js";
 import { lockEntries, type LockEntriesOf, type LockEntryByType } from "./entry-accessors.js";
 import { WorkspaceDocuments, type WorkspaceDocumentsService } from "./documents.js";
@@ -38,10 +38,16 @@ export interface LockfileReaderService {
     type: T,
     name: string,
   ) => Read<Option.Option<LockEntryByType[T]>>;
-  /** Resolve a local MCP connection name to its shared accepted resolution. */
-  readonly mcpServerForConnection: (
-    localName: string,
-  ) => Effect.Effect<Option.Option<McpServerLockEntry>, WorkspaceStateReadFailure>;
+  /**
+   * The accepted resolution one desired extension resolves to by its type and
+   * workspace name. Every type keys its row by that name except an MCP
+   * connection, whose local name resolves to the shared resolution of its
+   * source; an inline or undesired connection has none.
+   */
+  readonly acceptedEntry: <T extends InstallableExtensionType>(
+    type: T,
+    name: string,
+  ) => Effect.Effect<Option.Option<LockEntryByType[T]>, WorkspaceStateReadFailure>;
 }
 
 export class LockfileReader extends ServiceMap.Service<LockfileReader, LockfileReaderService>()(
@@ -53,20 +59,26 @@ export const makeLockfileReader = (
   desiredState: DesiredStateReaderService,
 ): LockfileReaderService => {
   const lockfile = documents.acceptedResolutions;
+  const mcpConnectionKey = (localName: string) =>
+    Effect.map(desiredState.graph(), (graph) => {
+      const node = graph.nodes.find(
+        (candidate) => candidate.type === "mcp-server" && candidate.name === localName,
+      );
+      return node === undefined || node.authority === "inline"
+        ? Option.none()
+        : Option.some(node.identity);
+    });
   return {
     lockfile,
     state: documents.acceptedResolutionState.pipe(Effect.withSpan("LockfileReader.state")),
     entries: (type) => lockfile.pipe(Effect.map((value) => lockEntries[type].entries(value))),
     entry: (type, name) =>
       lockfile.pipe(Effect.map((value) => lockEntries[type].entry(value, name))),
-    mcpServerForConnection: (localName) =>
+    acceptedEntry: (type, name) =>
       Effect.gen(function* () {
-        const graph = yield* desiredState.graph();
-        const node = graph.nodes.find(
-          (candidate) => candidate.type === "mcp-server" && candidate.name === localName,
-        );
-        if (node === undefined || node.authority === "inline") return Option.none();
-        return lockEntries["mcp-server"].entry(yield* lockfile, node.identity);
+        const key = type === "mcp-server" ? yield* mcpConnectionKey(name) : Option.some(name);
+        if (Option.isNone(key)) return Option.none();
+        return lockEntries[type].entry(yield* lockfile, key.value);
       }),
   };
 };

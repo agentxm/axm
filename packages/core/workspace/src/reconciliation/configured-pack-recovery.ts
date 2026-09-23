@@ -24,11 +24,9 @@
 
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
 import * as Ref from "effect/Ref";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as Result from "effect/Result";
 
 import { OperationRequestBudget } from "@agentxm/registry-client";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
@@ -62,13 +60,10 @@ import { SourceHostProviders } from "../resolution/sources/index.js";
 import { withPackRegistryIndexMemo } from "../resolution/sources/providers/registry/index-memo.js";
 import {
   acceptedCanonicalObservation,
-  acceptedLockedCanonicalPath,
   acceptedLockedResolutionRef,
-  computeMaterializedTreeIntegrity,
   computeExtensionPathsForLayout,
   desiredStateProblemsText,
   enabledConfiguredEntries,
-  LockfileReader,
   SettingsReader,
   WorkspaceLocation,
   type DesiredStateGraph,
@@ -349,23 +344,19 @@ export const collectConfiguredPackRecovery = (args: {
                 sourceRefContentKey(accepted.value) !== sourceRefContentKey(ref)
               )
                 return ref;
-              const canonicalPath = yield* acceptedLockedCanonicalPath({
+              // The recovered graph is the authority the member is judged
+              // against; the current one lost this Pack's routes when its
+              // manifest diverged.
+              const desired = proposedGraph.nodes.find(
+                (node) => node.type === ref.type && node.name === target,
+              );
+              if (desired === undefined) return ref;
+              const canonical = yield* acceptedCanonicalObservation({
                 type: ref.type,
                 name: target,
+                desired,
               });
-              if (Option.isNone(canonicalPath)) return ref;
-              const lockfile = yield* LockfileReader;
-              const entry = yield* ref.type === "mcp-server"
-                ? lockfile.mcpServerForConnection(target)
-                : lockfile.entry(ref.type, target);
-              if (Option.isNone(entry)) return ref;
-              const fs = yield* FileSystem.FileSystem;
-              const exists = yield* fs.exists(canonicalPath.value);
-              if (!exists) return ref;
-              const integrity = yield* Effect.result(
-                computeMaterializedTreeIntegrity(canonicalPath.value),
-              );
-              return Result.isSuccess(integrity) && integrity.success === entry.value.treeIntegrity
+              return Option.isSome(canonical) && canonical.value.observation.status === "usable"
                 ? undefined
                 : ref;
             }),

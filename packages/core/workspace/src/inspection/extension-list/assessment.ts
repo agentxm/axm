@@ -19,23 +19,10 @@ import { resolveSource, SourceHostProviders } from "../../resolution/sources/ind
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import { lockEntryToSourceParams } from "../../desired-state/index.js";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
-import type {
-  HookLockEntry,
-  KnowledgeLockEntry,
-  McpServerLockEntry,
-  PackLockEntry,
-  RuleLockEntry,
-  SkillLockEntry,
-  SubagentLockEntry,
-} from "../../desired-state/index.js";
+import type { AcceptedExtensionResolution } from "../../desired-state/index.js";
 import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
 import type { ExtensionInventoryLifecycle, ReadModelRecordRow } from "../../desired-state/index.js";
-import {
-  LockfileReader,
-  type LockfileReaderService,
-  WorkspaceRecords,
-  type WorkspaceStateReadFailure,
-} from "../../desired-state/index.js";
+import { LockfileReader, WorkspaceRecords } from "../../desired-state/index.js";
 import { checkCurrency } from "../version-currency/index.js";
 import { WorkspaceInspectionFailed } from "../errors.js";
 import { describeInspectionFailure } from "../describe-failure.js";
@@ -76,14 +63,7 @@ export interface ExtensionListItem {
   readonly assessment: ExtensionAssessment;
 }
 
-type AcceptedEntry =
-  | SkillLockEntry
-  | McpServerLockEntry
-  | SubagentLockEntry
-  | RuleLockEntry
-  | HookLockEntry
-  | KnowledgeLockEntry
-  | PackLockEntry;
+type AcceptedEntry = AcceptedExtensionResolution;
 
 type RegistryAcceptedEntry = Extract<
   AcceptedEntry,
@@ -95,29 +75,6 @@ const isRegistryAcceptedEntry = (entry: AcceptedEntry): entry is RegistryAccepte
   entry.source.type === "registry";
 const isGitAcceptedEntry = (entry: AcceptedEntry): entry is GitAcceptedEntry =>
   entry.source.type === "git";
-
-const getAcceptedEntry = (
-  lockfile: LockfileReaderService,
-  type: InstallableExtensionType,
-  name: string,
-): Effect.Effect<Option.Option<AcceptedEntry>, WorkspaceStateReadFailure> => {
-  switch (type) {
-    case "skill":
-      return lockfile.entry("skill", name);
-    case "mcp-server":
-      return lockfile.mcpServerForConnection(name);
-    case "subagent":
-      return lockfile.entry("subagent", name);
-    case "rule":
-      return lockfile.entry("rule", name);
-    case "hook":
-      return lockfile.entry("hook", name);
-    case "knowledge":
-      return lockfile.entry("knowledge", name);
-    case "pack":
-      return lockfile.entry("pack", name);
-  }
-};
 
 const recordSource = (row: ReadModelRecordRow | undefined): string | undefined => {
   if (row === undefined) return undefined;
@@ -160,39 +117,12 @@ export const collectExtensionListItems = Effect.fn("Workspace.collectExtensionLi
     for (const row of rowsByType.flat()) {
       rowsByKey.set(inventoryKey(row.type, row.name), row);
     }
-    const [skills, mcps, subagents, rules, hooks, knowledge, packs] = yield* Effect.all([
-      lockfile.entries("skill"),
-      lockfile.entries("mcp-server"),
-      lockfile.entries("subagent"),
-      lockfile.entries("rule"),
-      lockfile.entries("hook"),
-      lockfile.entries("knowledge"),
-      lockfile.entries("pack"),
-    ]);
-    const accepted = (
-      itemType: InstallableExtensionType,
-      name: string,
-    ): AcceptedEntry | undefined => {
-      switch (itemType) {
-        case "skill":
-          return skills[name];
-        case "mcp-server":
-          return mcps[name];
-        case "subagent":
-          return subagents[name];
-        case "rule":
-          return rules[name];
-        case "hook":
-          return hooks[name];
-        case "knowledge":
-          return knowledge[name];
-        case "pack":
-          return packs[name];
-      }
-    };
+    const acceptedByRow = yield* Effect.forEach(inventory.items, (row) =>
+      lockfile.acceptedEntry(row.type, row.name).pipe(Effect.map(Option.getOrUndefined)),
+    );
 
-    return inventory.items.map((row): ExtensionListItem => {
-      const locked = accepted(row.type, row.name);
+    return inventory.items.map((row, index): ExtensionListItem => {
+      const locked = acceptedByRow[index];
       const configuredSource = recordSource(rowsByKey.get(inventoryKey(row.type, row.name)));
       const lockedSource =
         locked === undefined ? undefined : printSourceParams(lockEntryToSourceParams(locked));
@@ -378,7 +308,7 @@ export const assessExtensionListItems = Effect.fn("Workspace.assessExtensionList
   return yield* Effect.forEach(
     items,
     (item) => {
-      return getAcceptedEntry(lockfile, item.type, item.name).pipe(
+      return lockfile.acceptedEntry(item.type, item.name).pipe(
         Effect.flatMap((accepted) => assessItem(item, filter, Option.getOrUndefined(accepted))),
         Effect.map((assessment): ExtensionListItem => ({ ...item, assessment })),
       );

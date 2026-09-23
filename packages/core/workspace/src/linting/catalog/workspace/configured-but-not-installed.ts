@@ -9,6 +9,7 @@ import type { WorkspaceReadModel } from "../../../desired-state/index.js";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "@agentxm/extension-content/lint";
 import { canonicalDisplayRoot, settingsDisplayPath } from "./display-paths.js";
+import { missingResolutionNodes } from "./canonical-observation-findings.js";
 import { categorizeEntry } from "./helpers/source-categorize.js";
 
 const RULE_ID = "workspace/configured-but-not-installed";
@@ -120,9 +121,13 @@ const hasLintableInstallSource = (row: InstalledRow): boolean => {
 const checkRows = (
   rows: ReadonlyArray<InstalledRow>,
   scope: WorkspaceRuleContext["subject"]["scope"],
+  unresolved: ReadonlySet<string>,
 ): ReadonlyArray<AdvisoryFinding> =>
   rows.flatMap((row) => {
     if (row.activation === "disabled") return [];
+    // Content cannot be acquired without an accepted resolution; the rule
+    // that reports the absent resolution owns this node.
+    if (unresolved.has(`${row.key.type}:${row.key.name}`)) return [];
     if (row.installationOrigin._tag !== "direct" && row.installationOrigin._tag !== "pack-member") {
       return [];
     }
@@ -146,12 +151,15 @@ export const configuredButNotInstalledRule: AdvisoryRule<WorkspaceRuleContext> =
   kind: "advisory",
   severity: "error",
   check: (context) =>
-    Effect.map(
-      Effect.forEach(
-        READ_ORDER,
-        (type) => readRows(INSTALLED_ROWS_BY_TYPE[type](context.workspace)),
-        { concurrency: "unbounded" },
+    Effect.flatMap(missingResolutionNodes(context), (unresolved) =>
+      Effect.map(
+        Effect.forEach(
+          READ_ORDER,
+          (type) => readRows(INSTALLED_ROWS_BY_TYPE[type](context.workspace)),
+          { concurrency: "unbounded" },
+        ),
+        (families) =>
+          families.flatMap((rows) => checkRows(rows, context.subject.scope, unresolved)),
       ),
-      (families) => families.flatMap((rows) => checkRows(rows, context.subject.scope)),
     ),
 };

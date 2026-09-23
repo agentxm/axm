@@ -1,9 +1,11 @@
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import * as semver from "semver";
 import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
 import type { Lockfile } from "../lockfile/schema.js";
+import { observeAcceptedResolution } from "./canonical-observation.js";
+import { lockEntries } from "./entry-accessors.js";
 import { computePackManifestContentIdentity } from "./pack-manifest-content-identity.js";
 import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import {
@@ -108,16 +110,15 @@ export const validateDesiredPackLock = ({
       }
 
       const identity = parseExtensionFqnParts(node.identity);
-      const entry = lockfile.packs?.[node.name];
-      const lockedOwner = entry?.identity.owner;
-      const lockedName = entry?.identity.name;
+      const entry = Option.getOrUndefined(lockEntries.pack.entry(lockfile, node.name));
+      // The canonical observation's own judgment: a missing, foreign-origin, or
+      // constraint-violating accepted resolution cannot authorize the manifest.
+      const unusable = observeAcceptedResolution(node, entry);
       if (
-        identity === undefined ||
-        identity.type !== "pack" ||
+        Option.isSome(unusable) ||
         entry === undefined ||
-        lockedOwner !== identity.owner ||
-        lockedName !== identity.name ||
-        !node.constraints.every((constraint) => semver.satisfies(entry.manifestVersion, constraint))
+        identity === undefined ||
+        identity.type !== "pack"
       ) {
         problems.push({
           type: "pack-resolution-unavailable",

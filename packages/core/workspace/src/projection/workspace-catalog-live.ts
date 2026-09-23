@@ -22,6 +22,8 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Ref from "effect/Ref";
+import type * as PlatformError from "effect/PlatformError";
 import type { CodingAgentFailure } from "./agent-adapters/index.js";
 import {
   fileUrlToPath,
@@ -29,7 +31,11 @@ import {
   WorkspaceCatalogUnavailable,
   type SkillCandidates,
 } from "../resolution/sources/index.js";
-import { skillsInDir, type DiscoveredSkill } from "../desired-state/index.js";
+import {
+  makeScannerFileSystem,
+  skillsInDir,
+  type DiscoveredSkill,
+} from "../desired-state/index.js";
 import {
   configuredRowsByName,
   installedRowsByName,
@@ -94,6 +100,9 @@ export const WorkspaceCatalogLive = Layer.effect(
     const desiredState = yield* DesiredStateReader;
     const records = yield* WorkspaceRecords;
     const fs = yield* FileSystem.FileSystem;
+    // One measured filesystem allowance covers every agent root and its nested
+    // priority/category scans for the lifetime of this catalog layer.
+    const discoveryFs = yield* makeScannerFileSystem(fs);
     const path = yield* Path.Path;
     const agentRepo = yield* CodingAgentRepository;
 
@@ -140,6 +149,35 @@ export const WorkspaceCatalogLive = Layer.effect(
         ),
       );
 
+      const unreadable = yield* Ref.make<
+        Option.Option<{
+          readonly path: string;
+          readonly operation: string;
+          readonly cause: unknown;
+        }>
+      >(Option.none());
+      const observe = (path: string, operation: string, error: PlatformError.PlatformError) =>
+        error.reason._tag === "NotFound"
+          ? Effect.void
+          : Ref.update(unreadable, (current) =>
+              Option.isSome(current) ? current : Option.some({ path, operation, cause: error }),
+            );
+      const observedFs: FileSystem.FileSystem = {
+        ...discoveryFs,
+        stat: (...args) =>
+          discoveryFs
+            .stat(...args)
+            .pipe(Effect.tapError((error) => observe(args[0], "stat", error))),
+        readDirectory: (...args) =>
+          discoveryFs
+            .readDirectory(...args)
+            .pipe(Effect.tapError((error) => observe(args[0], "readDirectory", error))),
+        readFileString: (...args) =>
+          discoveryFs
+            .readFileString(...args)
+            .pipe(Effect.tapError((error) => observe(args[0], "readFileString", error))),
+      };
+
       const onDiskRefs = yield* Effect.forEach(
         agentRoots,
         (agentRoot) =>
@@ -152,7 +190,16 @@ export const WorkspaceCatalogLive = Layer.effect(
             ),
           ),
         { concurrency: "unbounded" },
-      ).pipe(Effect.map(Array.flatten));
+      ).pipe(Effect.provideService(FileSystem.FileSystem, observedFs), Effect.map(Array.flatten));
+
+      const failedRead = yield* Ref.get(unreadable);
+      if (Option.isSome(failedRead)) {
+        return yield* new WorkspaceCatalogUnavailable({
+          category: "unavailable",
+          detail: `Skill discovery could not ${failedRead.value.operation} ${failedRead.value.path}.`,
+          cause: failedRead.value.cause,
+        });
+      }
 
       const refsSortedByLocation = [...onDiskRefs].sort((a, b) =>
         a.location.localeCompare(b.location),
@@ -175,7 +222,7 @@ export const WorkspaceCatalogLive = Layer.effect(
 
       return { names, configuredSkills, onDiskByName } as const;
     }).pipe(
-      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(FileSystem.FileSystem, discoveryFs),
       Effect.provideService(Path.Path, path),
     );
 

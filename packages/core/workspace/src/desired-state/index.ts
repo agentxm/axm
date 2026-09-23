@@ -260,6 +260,7 @@ export {
   type WorkspaceReadModel,
   type WorkspaceReadModelConfigService,
 } from "./workspace/read-model/service.js";
+export { makeScannerFileSystem } from "./workspace/read-model/scanners/fs-helpers.js";
 export {
   AgentRootResolver,
   AgentRootResolverLive,

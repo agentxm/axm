@@ -23,6 +23,7 @@ import {
 } from "./test-support/presenter-test.js";
 import { withLiveOperation } from "./operation-lifecycle.js";
 import { AuthLoginPresenterLive } from "./auth-login-presenter.js";
+import { OutputWriteFailed, Screen } from "./screen/index.js";
 
 const pendingResult: DeviceLoginPendingResult = {
   status: "pending-human",
@@ -130,6 +131,39 @@ const makeMachine = () => {
 };
 
 describe("AuthLoginPresenterLive", () => {
+  it.effect("propagates a failed pending document as a registry-access failure", () =>
+    Effect.gen(function* () {
+      const renderer = TestMachineRenderer.make();
+      const screen = yield* Screen.pipe(Effect.provide(renderer.layer));
+      const cause = new OutputWriteFailed({ channel: "stdout", reason: "EPIPE" });
+      const dependencies = Layer.merge(
+        Layer.succeed(Screen, { ...screen, document: () => Effect.fail(cause) }),
+        Layer.succeed(DeviceLoginInteraction, noInteraction),
+      );
+      const failure = yield* Effect.gen(function* () {
+        const presenter = yield* AuthLoginPresenter;
+        return yield* presenter.tryEmitPendingDeviceLogin(pendingResult);
+      }).pipe(Effect.provide(Layer.provide(AuthLoginPresenterLive, dependencies)), Effect.flip);
+      expect(failure).toMatchObject({ _tag: "RegistryAccessFailed", category: "internal", cause });
+    }),
+  );
+
+  it.effect("distinguishes failed session-replacement output from prompt cancellation", () =>
+    Effect.gen(function* () {
+      const renderer = TestRenderer.make();
+      const screen = yield* Screen.pipe(Effect.provide(renderer.layer));
+      const cause = new OutputWriteFailed({ channel: "stderr", reason: "EPIPE" });
+      const dependencies = Layer.merge(
+        Layer.succeed(Screen, { ...screen, ask: () => Effect.fail(cause) }),
+        Layer.succeed(DeviceLoginInteraction, noInteraction),
+      );
+      const failure = yield* Effect.gen(function* () {
+        const presenter = yield* AuthLoginPresenter;
+        return yield* presenter.confirmSessionReplacement();
+      }).pipe(Effect.provide(Layer.provide(AuthLoginPresenterLive, dependencies)), Effect.flip);
+      expect(failure).toMatchObject({ _tag: "RegistryAccessFailed", category: "internal", cause });
+    }),
+  );
   it.effect("parks on the device handoff with its code, both links, and its warnings", () => {
     const { layer, state, logs } = makeHuman();
 

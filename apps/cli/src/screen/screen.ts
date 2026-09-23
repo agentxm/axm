@@ -40,7 +40,7 @@ import { paintText } from "./paint-text.js";
 import type { Glyphs } from "./glyphs.js";
 import { initialProgress, reduceProgress } from "./progress.js";
 import { OutputStreams } from "./streams.js";
-import type { CredentialDeliveryFailed } from "./streams.js";
+import { CredentialDeliveryFailed, type OutputWriteFailed } from "./streams.js";
 import type { ResultOptions } from "./output.js";
 import { ensureNewline, streamPaintWidth } from "./presenter-helpers.js";
 
@@ -73,21 +73,21 @@ export const CurrentScreenOperationId = ServiceMap.Reference<string | undefined>
 export class Screen extends ServiceMap.Service<
   Screen,
   {
-    readonly result: (doc: Doc) => Effect.Effect<void>;
+    readonly result: (doc: Doc) => Effect.Effect<void, OutputWriteFailed>;
     /** Deliver one credential to stdout and succeed only after the stream acknowledges it. */
     readonly credential: (content: string) => Effect.Effect<void, CredentialDeliveryFailed>;
-    readonly note: (doc: Doc) => Effect.Effect<void>;
+    readonly note: (doc: Doc) => Effect.Effect<void, OutputWriteFailed>;
     /** Required handoff guidance, also emitted as a machine instruction. */
-    readonly instruction: (doc: Doc) => Effect.Effect<void>;
+    readonly instruction: (doc: Doc) => Effect.Effect<void, OutputWriteFailed>;
     readonly document: <S extends Schema.Top>(
       data: Schema.Schema.Type<S>,
       schema: S,
       options?: ResultOptions,
-    ) => Effect.Effect<boolean, never, S["EncodingServices"]>;
+    ) => Effect.Effect<boolean, OutputWriteFailed, S["EncodingServices"]>;
     readonly observe: (
       lifecycle: OperationLifecycleService,
-    ) => Effect.Effect<void, never, Scope.Scope>;
-    readonly log: (record: ScreenLogRecord) => Effect.Effect<void>;
+    ) => Effect.Effect<void, OutputWriteFailed, Scope.Scope>;
+    readonly log: (record: ScreenLogRecord) => Effect.Effect<void, OutputWriteFailed>;
     /**
      * Put a question to the person and answer with what they chose. The guard
      * decides whether a question may open at all: where it may not, and in
@@ -97,7 +97,7 @@ export class Screen extends ServiceMap.Service<
     readonly ask: <A>(
       ask: Ask<A>,
       guard?: InteractiveGuard,
-    ) => Effect.Effect<A, QuestionCancelled | AppError>;
+    ) => Effect.Effect<A, QuestionCancelled | AppError | OutputWriteFailed>;
     /**
      * Park the terminal while a person acts somewhere else, and answer with
      * what the awaited effect settled on. The wait's brief prints once, its
@@ -110,9 +110,9 @@ export class Screen extends ServiceMap.Service<
       view: WaitView,
       awaited: Effect.Effect<A, E, R>,
       actions?: WaitActions,
-    ) => Effect.Effect<A, E | WaitAbandoned, R>;
+    ) => Effect.Effect<A, E | WaitAbandoned | OutputWriteFailed, R>;
     readonly facts: Effect.Effect<ScreenFacts>;
-    readonly settle: Effect.Effect<void>;
+    readonly settle: Effect.Effect<void, OutputWriteFailed>;
   }
 >()("axm.sh/screen/Screen") {}
 
@@ -194,7 +194,7 @@ export const ScreenLive = (
               yield* frame.updateActive(yield* foreground);
             }),
           );
-        yield* Effect.addFinalizer(() => showInteraction(undefined));
+        yield* Effect.addFinalizer(() => showInteraction(undefined).pipe(Effect.ignore));
         const finish = (doc: Doc) =>
           presentationPermit.withPermit(
             Effect.gen(function* () {
@@ -222,7 +222,11 @@ export const ScreenLive = (
             ? Effect.flatMap(render(doc, "stdout"), frame.stdout)
             : frame.stdout(literal);
         },
-        credential: (content) => frame.settle.pipe(Effect.andThen(streams.credential(content))),
+        credential: (content) =>
+          frame.settle.pipe(
+            Effect.mapError((cause) => new CredentialDeliveryFailed({ cause })),
+            Effect.andThen(streams.credential(content)),
+          ),
         note,
         instruction: note,
         document: () => Effect.succeed(false),
@@ -243,7 +247,7 @@ export const ScreenLive = (
                       next.delete(lifecycle.operationId);
                     return next;
                   });
-                  yield* frame.updateActive(yield* foreground);
+                  yield* frame.updateActive(yield* foreground).pipe(Effect.ignore);
                 }),
               ),
             );
@@ -270,11 +274,13 @@ export const ScreenLive = (
                       });
                     return updated;
                   });
-                  yield* frame.updateActive(
-                    yield* foreground,
-                    doc.length === 0 ? "" : yield* render(doc, "stderr"),
-                    event._tag !== "UnitProgress",
-                  );
+                  yield* frame
+                    .updateActive(
+                      yield* foreground,
+                      doc.length === 0 ? "" : yield* render(doc, "stderr"),
+                      event._tag !== "UnitProgress",
+                    )
+                    .pipe(Effect.ignore);
                 }),
               ),
             );
@@ -377,7 +383,7 @@ export const ScreenMachine = (options?: {
           ),
         );
 
-      const nodeEvents = (node: DocNode): Effect.Effect<void> => {
+      const nodeEvents = (node: DocNode): Effect.Effect<void, OutputWriteFailed> => {
         if (node._tag === "next") {
           return Effect.forEach(node.actions, (action) => emit(suggestionEvent(action)), {
             discard: true,
@@ -421,7 +427,7 @@ export const ScreenMachine = (options?: {
         return Effect.void;
       };
 
-      const note = (doc: Doc): Effect.Effect<void> => {
+      const note = (doc: Doc): Effect.Effect<void, OutputWriteFailed> => {
         const literal = doc
           .filter((node) => node._tag === "raw" || node._tag === "markdown")
           .map((node) => node.content)
@@ -471,11 +477,12 @@ export const ScreenMachine = (options?: {
             Effect.as(true),
           ),
         // The machine writer is lossless: every lifecycle event lands on
-        // stderr, in order, before the result document. Quiet suppresses only
+        // stderr, in order, before the result document. A failed channel is
+        // retained by OutputStreams and fails settle; observation keeps draining. Quiet suppresses only
         // progress; the subscription still drains so ordering holds.
         observe: (lifecycle) =>
           subscribeLossless(lifecycle, (event) =>
-            quiet ? Effect.void : emit(progressEvent(event)),
+            quiet ? Effect.void : emit(progressEvent(event)).pipe(Effect.ignore),
           ),
         log: (record) => emit(logEvent(logLevel(record.level), record.message)),
         // Machine output never prompts: asking is the usage error by
@@ -491,7 +498,7 @@ export const ScreenMachine = (options?: {
           stdoutIsTTY: false,
           colors: false,
         }),
-        settle: Effect.void,
+        settle: streams.check,
       };
     }),
   );
@@ -499,7 +506,7 @@ export const ScreenMachine = (options?: {
 export const emitSuggestionEvents = (
   screen: typeof OutputStreams.Service,
   suggestions: ReadonlyArray<SuggestedAction>,
-): Effect.Effect<void> =>
+): Effect.Effect<void, OutputWriteFailed> =>
   Effect.forEach(
     suggestions,
     (suggestion) => screen.stderr(encodeMachineEvent(suggestionEvent(suggestion))),
@@ -512,7 +519,7 @@ export const emitResult = <S extends Schema.Top>(
   schema: S,
   human: () => Doc,
   options?: ResultOptions,
-): Effect.Effect<void, never, Screen | S["EncodingServices"]> =>
+): Effect.Effect<void, OutputWriteFailed, Screen | S["EncodingServices"]> =>
   Effect.gen(function* () {
     const screen = yield* Screen;
     if (!(yield* screen.document(data, schema, options))) yield* screen.result(human());

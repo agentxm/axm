@@ -32,9 +32,9 @@ export interface WorkspaceInitializationCancelled {
   readonly message: string;
 }
 import { renderAppErrorChannels } from "./handle-error.js";
-import { effectCliExit, isEffectCliExit } from "./effect-cli-exit.js";
+import { CommandExit, commandExit, isCommandExit } from "./command-exit.js";
 import { resolveFormat } from "./resolve-format.js";
-import { OperationExitLive, getOperationExitCode } from "./operation-exit.js";
+import { OperationExit, getOperationExitCode } from "./operation-exit.js";
 import { CommandCompletion } from "./command-completion.js";
 import {
   readGlobalFlagProperties,
@@ -59,6 +59,7 @@ import {
   errorEvent,
   resolveCliOutputPolicy,
   type QuestionCancelled,
+  OutputWriteFailed,
 } from "../screen/index.js";
 import {
   makeVerbosityLayer,
@@ -68,6 +69,7 @@ import {
 } from "../cli-flags/index.js";
 import { makeJsonErrorEnvelope } from "./json-envelope.js";
 import { Screen } from "../screen/index.js";
+import { ScreenLogDrain } from "../screen/logger.js";
 
 export interface CliTelemetryConfig {
   readonly mode: TelemetryClientOptions["mode"];
@@ -124,6 +126,8 @@ export const writeDefect = (cause: Cause.Cause<unknown>, format: OutputFormat) =
   });
 
 export type ExpectedCliError =
+  | CommandExit
+  | OutputWriteFailed
   | AppError
   | KnownFailure
   | QuestionCancelled
@@ -334,7 +338,7 @@ export const withCliErrorHandling = <A, R>(
       const code = semanticProperties["cli.error_code"];
       return typeof code === "string" ? code : undefined;
     };
-    // Operation boundaries that die inside an uninterruptible region record
+    // Operation boundaries that finish inside an uninterruptible region record
     // completion through this hook, before the pending interrupt can fire at
     // the envelope's own continuation boundary.
     const recordForExit = (exitCode: number) =>
@@ -359,8 +363,16 @@ export const withCliErrorHandling = <A, R>(
         });
       });
 
+    const settleOutput = Effect.gen(function* () {
+      const logDrain = yield* Effect.serviceOption(ScreenLogDrain);
+      if (Option.isSome(logDrain)) yield* logDrain.value.drain;
+      const screen = yield* Screen;
+      yield* screen.settle;
+    });
+
     return yield* program.pipe(
       Effect.provideService(CommandCompletion, { record: recordForExit }),
+      Effect.tap(() => settleOutput),
       Effect.tap(() =>
         Effect.gen(function* () {
           const semanticProperties = yield* getCommandSemanticProperties;
@@ -386,15 +398,31 @@ export const withCliErrorHandling = <A, R>(
             semanticProperties,
           });
           if (semanticExitCode !== undefined) {
-            return yield* Effect.die(effectCliExit(semanticExitCode));
+            return yield* Effect.fail(commandExit(semanticExitCode));
           }
         }),
       ),
       Effect.catch((error: ExpectedCliError) => {
+        if (isCommandExit(error)) return settleOutput.pipe(Effect.andThen(Effect.fail(error)));
+        if (error instanceof OutputWriteFailed)
+          return recordForExit(ExitCode.Internal).pipe(
+            Effect.andThen(Effect.fail(commandExit(ExitCode.Internal))),
+          );
         const exitCode = defaultExitCodeForExpectedError(error);
-        const result = error._tag === "AppError" ? "error" : "cancelled";
+        const resolved = expectedErrorToAppError(error);
+        const result = resolved === undefined ? "cancelled" : "error";
 
         return writeExpectedCliError(error, options.format).pipe(
+          // An owned failure may already include an output failure and its
+          // compensation (for example, revoking an undelivered token). Once
+          // its diagnostic is delivered, retain that failure's exit code when
+          // settlement sees the cached channel failure again. Success and
+          // cancellation must still fail if their output was not delivered.
+          Effect.andThen(
+            exitCode === ExitCode.Success
+              ? settleOutput
+              : settleOutput.pipe(Effect.catchTag("OutputWriteFailed", () => Effect.void)),
+          ),
           Effect.andThen(reportCliError(error, command)),
           Effect.andThen(
             Effect.gen(function* () {
@@ -404,20 +432,30 @@ export const withCliErrorHandling = <A, R>(
                 command,
                 result,
                 durationMs: elapsedMilliseconds(startTime, yield* Clock.monotonicTimeNanos),
-                ...(error._tag === "AppError" && {
-                  errorCode: error.code,
-                  errorCategory: error.code,
+                ...(resolved !== undefined && {
+                  errorCode: resolved.code,
+                  errorCategory: resolved.code,
                 }),
                 semanticProperties,
               });
             }),
           ),
-          Effect.andThen(Effect.die(effectCliExit(exitCode))),
+          Effect.andThen(Effect.fail(commandExit(exitCode))),
         );
       }),
       Effect.catchCause((cause) => {
-        const defect = Cause.squash(cause);
-        if (isEffectCliExit(defect)) {
+        const failure = Cause.findErrorOption(cause);
+        if (
+          !Cause.hasDies(cause) &&
+          Option.isSome(failure) &&
+          failure.value instanceof OutputWriteFailed
+        ) {
+          return recordForExit(ExitCode.Internal).pipe(
+            Effect.andThen(Effect.fail(commandExit(ExitCode.Internal))),
+          );
+        }
+        if (!Cause.hasDies(cause) && Option.isSome(failure) && isCommandExit(failure.value)) {
+          const controlled = failure.value;
           // An operation boundary terminated with its own exit (blocked,
           // interrupted, contention). It already emitted its document; the
           // completion event is still owed here, once — uninterruptibly, since
@@ -431,7 +469,11 @@ export const withCliErrorHandling = <A, R>(
                 yield* trackCliCommandCompleted({
                   command,
                   result:
-                    defect.exitCode === 130 || defect.exitCode === 143 ? "cancelled" : "error",
+                    controlled.exitCode === 130 || controlled.exitCode === 143
+                      ? "cancelled"
+                      : controlled.exitCode === 0
+                        ? "success"
+                        : "error",
                   durationMs: elapsedMilliseconds(startTime, yield* Clock.monotonicTimeNanos),
                   ...(causeClass === undefined
                     ? {}
@@ -448,6 +490,7 @@ export const withCliErrorHandling = <A, R>(
         }
 
         return writeDefect(cause, options.format).pipe(
+          Effect.andThen(settleOutput),
           Effect.andThen(reportCliDefect(cause, command)),
           Effect.andThen(
             Effect.gen(function* () {
@@ -460,22 +503,24 @@ export const withCliErrorHandling = <A, R>(
               });
             }),
           ),
-          Effect.andThen(Effect.die(effectCliExit(ExitCode.Internal))),
+          Effect.andThen(Effect.fail(commandExit(ExitCode.Internal))),
         );
       }),
     );
   });
 
-  return enrichedProgram.pipe(
-    Effect.provide(
-      Layer.mergeAll(
-        telemetryLayer,
-        CommandSemanticPropertiesLive,
-        ProductActivityLive,
-        OperationExitLive,
+  return Effect.gen(function* () {
+    const inherited = yield* Effect.serviceOption(OperationExit);
+    const operationExit = Option.isSome(inherited)
+      ? inherited.value
+      : { ref: yield* Ref.make(Option.none<number>()) };
+    return yield* enrichedProgram.pipe(
+      Effect.provide(
+        Layer.mergeAll(telemetryLayer, CommandSemanticPropertiesLive, ProductActivityLive),
       ),
-    ),
-  );
+      Effect.provideService(OperationExit, operationExit),
+    );
+  });
 };
 
 // ---------------------------------------------------------------------------

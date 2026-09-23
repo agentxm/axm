@@ -15,6 +15,7 @@ import {
   InteractiveScreen,
   MachineScreen,
   Screen,
+  type OutputWriteFailed,
   resolveCliOutputPolicy,
   stderrIsTTY,
 } from "./screen/index.js";
@@ -25,6 +26,7 @@ import {
   outputSelectorsFromArgv,
   resolveFormatFromArgv,
   runCliMain,
+  type CommandExit,
 } from "./cli-runtime/index.js";
 
 import { LearnMore, formatLearnMore, makeAxmFormatter } from "./formatter.js";
@@ -71,7 +73,7 @@ import {
 
 const ROOT_COMMAND = "axm";
 const version = loadVersion();
-type CommandProgramError = AppError | CliError.CliError;
+type CommandProgramError = AppError | CliError.CliError | CommandExit | OutputWriteFailed;
 
 const helpCommand = makeHelpCommand(() => rootCommand);
 

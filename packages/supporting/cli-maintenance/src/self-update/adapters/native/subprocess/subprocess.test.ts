@@ -1,6 +1,7 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as Layer from "effect/Layer";
 
 import { sanitizeExternalOutput, Subprocess, SubprocessLive } from "./subprocess.js";
@@ -66,5 +67,22 @@ describe("sanitizeExternalOutput", () => {
       const subprocess = yield* Subprocess;
       expect(yield* subprocess.resolveExecutable(process.execPath)).toBe(process.execPath);
     }).pipe(Effect.provide(testLayer)),
+  );
+
+  it.effect("preserves a failed configuration source when resolving an executable", () =>
+    Effect.gen(function* () {
+      const subprocess = yield* Subprocess;
+      const failure = yield* Effect.flip(subprocess.resolveExecutable("axm"));
+      expect(failure.step).toBe("resolve-command-configuration");
+      expect(failure.cause).toMatchObject({ _tag: "ConfigError", cause: { _tag: "SourceError" } });
+    }).pipe(
+      Effect.provide(testLayer),
+      Effect.provideService(
+        ConfigProvider.ConfigProvider,
+        ConfigProvider.make(() =>
+          Effect.fail(new ConfigProvider.SourceError({ message: "source unavailable" })),
+        ),
+      ),
+    ),
   );
 });

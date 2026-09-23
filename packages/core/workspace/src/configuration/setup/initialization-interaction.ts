@@ -73,9 +73,13 @@ export interface WorkspaceInitializationInteractionService {
     WorkspaceInitializationCancelled | WorkspaceConfigurationFailed
   >;
   /** Present the agent scan summary. The implementation owns all wording. */
-  readonly presentAgentScan: (scan: SetupAgentScan) => Effect.Effect<void>;
+  readonly presentAgentScan: (
+    scan: SetupAgentScan,
+  ) => Effect.Effect<void, WorkspaceConfigurationFailed>;
   /** Present the setup plan rows before confirmation. */
-  readonly presentSetupPlan: (rows: ReadonlyArray<SetupPlanRow>) => Effect.Effect<void>;
+  readonly presentSetupPlan: (
+    rows: ReadonlyArray<SetupPlanRow>,
+  ) => Effect.Effect<void, WorkspaceConfigurationFailed>;
 }
 
 export class WorkspaceInitializationInteraction extends ServiceMap.Service<

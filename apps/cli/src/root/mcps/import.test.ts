@@ -362,8 +362,8 @@ describe("mcps import output", () => {
         const failure = yield* Effect.flip(handleMcpsImport({ preview: false, enable: true }));
 
         expect(failure).toMatchObject({ code: "usage" });
-        expect(String(failure.detail)).toContain("--enable");
-        expect(String(failure.detail)).toContain("--as");
+        expect(failure).toMatchObject({ detail: expect.stringContaining("--enable") });
+        expect(failure).toMatchObject({ detail: expect.stringContaining("--as") });
         expect(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8")).toBe(originalConfig);
       }),
     );

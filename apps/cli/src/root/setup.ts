@@ -5,7 +5,7 @@ import {
 } from "@agentxm/workspace/configuration";
 import { agentFlag, isNonInteractive, jsonFlag, Verbosity } from "../cli-flags/index.js";
 import { emitResult, Screen, errorDoc } from "../screen/index.js";
-import { effectCliExit, withArgvTracking } from "../cli-runtime/index.js";
+import { commandExit, withArgvTracking } from "../cli-runtime/index.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { resolveTelemetryMode } from "../telemetry/index.js";
 import { envOption } from "../utils/index.js";
@@ -178,7 +178,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: HandleSetu
         ok: false,
       },
     );
-    return yield* Effect.die(effectCliExit(ExitCode.Usage));
+    return yield* Effect.fail(commandExit(ExitCode.Usage));
   }
 
   // A scope that is already set up changes nothing, so its verdict stands

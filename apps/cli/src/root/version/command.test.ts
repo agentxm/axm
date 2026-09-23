@@ -73,7 +73,7 @@ describe("version argument grammar", () => {
           );
 
           expect(failure).toMatchObject({ code: row.code });
-          expect(String(failure.detail)).toContain(row.contains);
+          expect(failure).toMatchObject({ detail: expect.stringContaining(row.contains) });
         }),
       );
     });

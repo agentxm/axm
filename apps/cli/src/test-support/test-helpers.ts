@@ -1,3 +1,4 @@
+import { PlanInteractionFailed } from "@agentxm/workspace/transitions/planning";
 /**
  * Shared test helpers for CLI package tests.
  *
@@ -530,7 +531,17 @@ export const makeCliTestContext = (opts?: {
     // Render plan candidates like the CLI Live so output assertions keep
     // observing the real display wording.
     presentPlan: (plan, options) =>
-      presentPlan(plan, options).pipe(Effect.provide(Layer.mergeAll(rendererLayer, flagsLayer))),
+      presentPlan(plan, options).pipe(
+        Effect.provide(Layer.mergeAll(rendererLayer, flagsLayer)),
+        Effect.mapError(
+          (cause) =>
+            new PlanInteractionFailed({
+              category: "internal",
+              detail: "The plan could not be displayed.",
+              cause,
+            }),
+        ),
+      ),
   });
   const workspaceInitializationLayer = WorkspaceInitializationInteractionLive.pipe(
     Layer.provide(rendererLayer),

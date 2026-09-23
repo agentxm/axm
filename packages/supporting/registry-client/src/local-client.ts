@@ -12,12 +12,9 @@ import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import { createHash } from "node:crypto";
 import * as Array from "effect/Array";
-import * as DateTime from "effect/DateTime";
-import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import * as Semaphore from "effect/Semaphore";
 
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { RegistryOperationFailed, type RegistryClientFailure } from "./errors.js";
@@ -53,6 +50,7 @@ import {
   type AgentExtensionSource,
 } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
 import { writeFileAtomic } from "./atomic-write.js";
+import { withLocalPublicationLock } from "./local-publication-lock.js";
 import {
   packagesToPackageUrlParts,
   ExtensionIndexSchema,
@@ -129,11 +127,6 @@ const encodeExtensionIndexToJsonString = Schema.encodeSync(
   Schema.fromJsonString(ExtensionIndexSchema),
 );
 const encodePackageUrl = Schema.encodeSync(PackageUrlSchema);
-const PUBLISH_LOCK_RETRY_DELAY = Duration.millis(25);
-const PUBLISH_LOCK_STALE_TIMEOUT = Duration.minutes(5);
-// eslint-disable-next-line no-restricted-syntax -- Process-owned keys are bounded by packages published during this one CLI invocation.
-const publishLockSemaphores = new Map<string, Semaphore.Semaphore>();
-
 const localVisibilityRevision = (index: ExtensionIndex): string =>
   `local-${createHash("sha256")
     .update(
@@ -315,69 +308,6 @@ const readExtensionIndex = (
       ),
     );
   });
-
-const removeBestEffort = (fs: FileSystem.FileSystem, filePath: string) =>
-  fs.remove(filePath).pipe(Effect.ignore);
-
-const inProcessPublishSemaphoreFor = (lockPath: string): Semaphore.Semaphore => {
-  const existing = publishLockSemaphores.get(lockPath);
-  if (existing !== undefined) return existing;
-  const created = Semaphore.makeUnsafe(1);
-  publishLockSemaphores.set(lockPath, created);
-  return created;
-};
-
-const acquirePublishLock = (
-  fs: FileSystem.FileSystem,
-  lockPath: string,
-): Effect.Effect<void, RegistryClientFailure> =>
-  Effect.gen(function* () {
-    const acquiredAt = DateTime.formatIso(yield* DateTime.now);
-    const result = yield* fs
-      .writeFileString(lockPath, `${acquiredAt}\n`, { flag: "wx" })
-      .pipe(Effect.result);
-    if (result._tag === "Success") return;
-    if (result.failure.reason._tag !== "AlreadyExists") {
-      return yield* new RegistryOperationFailed({
-        category: "internal",
-        detail: `Failed to acquire local registry publish lock: ${lockPath}`,
-        cause: result.failure,
-      });
-    }
-
-    const info = yield* fs.stat(lockPath).pipe(Effect.option);
-    const staleLock =
-      Option.isSome(info) && Option.isSome(info.value.mtime)
-        ? yield* DateTime.isPast(
-            DateTime.addDuration(
-              DateTime.makeUnsafe(info.value.mtime.value),
-              PUBLISH_LOCK_STALE_TIMEOUT,
-            ),
-          )
-        : false;
-    if (staleLock) {
-      yield* removeBestEffort(fs, lockPath);
-    } else {
-      yield* Effect.sleep(PUBLISH_LOCK_RETRY_DELAY);
-    }
-    return yield* acquirePublishLock(fs, lockPath);
-  });
-
-const withPublishLock = <A, E, R>(
-  fs: FileSystem.FileSystem,
-  lockPath: string,
-  effect: Effect.Effect<A, E, R>,
-): Effect.Effect<A, E | RegistryClientFailure, R> =>
-  inProcessPublishSemaphoreFor(lockPath).withPermits(1)(
-    Effect.scoped(
-      Effect.gen(function* () {
-        yield* Effect.acquireRelease(acquirePublishLock(fs, lockPath), () =>
-          removeBestEffort(fs, lockPath),
-        );
-        return yield* effect;
-      }),
-    ),
-  );
 
 const indexToManifest = (
   index: ExtensionIndex,
@@ -1000,8 +930,9 @@ export const createLocalRegistryClient = (
       const archivePath = path.join(dir, `${args.version}.zip`);
       const lockPath = path.join(dir, ".publish.lock");
 
-      return yield* withPublishLock(
+      return yield* withLocalPublicationLock(
         fs,
+        path,
         lockPath,
         Effect.gen(function* () {
           const indexExists = yield* registryPathExists(fs, indexPath);

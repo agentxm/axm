@@ -10,7 +10,7 @@ import {
 
 import { ExitCode } from "../../../app-error/index.js";
 import { emitResult, errorDoc, rawDoc } from "../../../screen/index.js";
-import { effectCliExit, withArgvTracking } from "../../../cli-runtime/index.js";
+import { commandExit, withArgvTracking } from "../../../cli-runtime/index.js";
 import {
   readOnlyCapabilities,
   withCommandCapabilities,
@@ -47,7 +47,7 @@ export const handleKnowledgeConceptGet = Effect.fn("Knowledge.concepts.get")(fun
         ok: false,
       },
     );
-    return yield* Effect.die(effectCliExit(ExitCode.Conflict));
+    return yield* Effect.fail(commandExit(ExitCode.Conflict));
   }
   yield* emitResult(result.document, KnowledgeConceptGetOutputSchema, () => {
     const concept = result.document.concept;

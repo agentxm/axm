@@ -39,7 +39,7 @@ export interface ResolvePlanInteractionService {
   readonly presentPlan: (
     plan: Plan<unknown, unknown>,
     options: { readonly mode: "preview" | "apply" },
-  ) => Effect.Effect<void>;
+  ) => Effect.Effect<void, PlanInteractionFailed>;
 }
 
 export class ResolvePlanInteraction extends ServiceMap.Service<
@@ -65,7 +65,7 @@ export const ResolvePlanInteractionTest = (overrides?: {
   readonly presentPlan?: (
     plan: Plan<unknown, unknown>,
     options: { readonly mode: "preview" | "apply" },
-  ) => Effect.Effect<void>;
+  ) => Effect.Effect<void, PlanInteractionFailed>;
 }) => {
   const state: ResolvePlanInteractionTestState = {
     confirmApplyChangesCalls: [],

@@ -5,6 +5,7 @@ import * as MutableRef from "effect/MutableRef";
 import * as Queue from "effect/Queue";
 import * as References from "effect/References";
 import * as Stream from "effect/Stream";
+import * as Context from "effect/Context";
 
 import { redactSensitiveValue } from "../app-error/secret-redaction.js";
 import { verbosityToLogLevel, type VerbosityLevel } from "../cli-flags/index.js";
@@ -41,43 +42,54 @@ const level = (value: Logger.Options<unknown>["logLevel"]): ScreenLogRecord["lev
   }
 };
 
+/** Wait for diagnostics already accepted by this invocation's logger. */
+export class ScreenLogDrain extends Context.Service<
+  ScreenLogDrain,
+  {
+    readonly drain: Effect.Effect<void>;
+  }
+>()("axm.sh/screen/ScreenLogDrain") {}
+
 /** Install the Effect logger as a serialized producer into the Screen transcript. */
-export const ScreenLoggerLive = (verbosity: VerbosityLevel): Layer.Layer<never, never, Screen> =>
-  Layer.mergeAll(
-    Logger.layer(
-      [
-        Effect.gen(function* () {
-          const screen = yield* Screen;
-          const queue = yield* Queue.unbounded<ScreenLogRecord>();
-          const pending = MutableRef.make(0);
-          yield* Stream.fromQueue(queue).pipe(
-            Stream.runForEach((record) =>
-              screen
-                .log(record)
-                .pipe(Effect.ensuring(Effect.sync(() => void MutableRef.decrementAndGet(pending)))),
-            ),
-            Effect.forkScoped,
-          );
-          const awaitDrained: Effect.Effect<void> = Effect.suspend(() =>
-            MutableRef.get(pending) === 0
-              ? Effect.void
-              : Effect.yieldNow.pipe(Effect.andThen(awaitDrained)),
-          );
-          yield* Effect.addFinalizer(() =>
-            awaitDrained.pipe(Effect.andThen(Queue.shutdown(queue)), Effect.asVoid),
-          );
-          return Logger.make<unknown, void>((options) => {
-            MutableRef.incrementAndGet(pending);
-            const offered = Queue.offerUnsafe(queue, {
-              level: level(options.logLevel),
-              message: messageText(options.message),
-            });
-            if (!offered) MutableRef.decrementAndGet(pending);
-          });
-        }),
-      ],
-      { mergeWithExisting: false },
-    ),
-    Layer.succeed(References.LogToStderr, true),
-    Layer.succeed(References.MinimumLogLevel, verbosityToLogLevel(verbosity)),
+export const ScreenLoggerLive = (
+  verbosity: VerbosityLevel,
+): Layer.Layer<ScreenLogDrain, never, Screen> =>
+  Layer.unwrap(
+    Effect.gen(function* () {
+      const screen = yield* Screen;
+      const queue = yield* Queue.unbounded<ScreenLogRecord>();
+      const pending = MutableRef.make(0);
+      yield* Stream.fromQueue(queue).pipe(
+        Stream.runForEach((record) =>
+          screen.log(record).pipe(
+            // Delivery failure is retained by OutputStreams and checked after drain.
+            Effect.ignore,
+            Effect.ensuring(Effect.sync(() => void MutableRef.decrementAndGet(pending))),
+          ),
+        ),
+        Effect.forkScoped,
+      );
+      const awaitDrained: Effect.Effect<void> = Effect.suspend(() =>
+        MutableRef.get(pending) === 0
+          ? Effect.void
+          : Effect.yieldNow.pipe(Effect.andThen(awaitDrained)),
+      );
+      yield* Effect.addFinalizer(() =>
+        awaitDrained.pipe(Effect.andThen(Queue.shutdown(queue)), Effect.asVoid),
+      );
+      const logger = Logger.make<unknown, void>((options) => {
+        MutableRef.incrementAndGet(pending);
+        const offered = Queue.offerUnsafe(queue, {
+          level: level(options.logLevel),
+          message: messageText(options.message),
+        });
+        if (!offered) MutableRef.decrementAndGet(pending);
+      });
+      return Layer.mergeAll(
+        Logger.layer([logger], { mergeWithExisting: false }),
+        Layer.succeed(ScreenLogDrain, { drain: awaitDrained }),
+        Layer.succeed(References.LogToStderr, true),
+        Layer.succeed(References.MinimumLogLevel, verbosityToLogLevel(verbosity)),
+      );
+    }),
   );

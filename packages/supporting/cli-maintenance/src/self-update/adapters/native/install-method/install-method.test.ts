@@ -12,10 +12,12 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, afterEach, beforeEach, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as ConfigProvider from "effect/ConfigProvider";
 
 import {
   type InstallMethodInputs,
   InstallMethod,
+  InstallMethodLive,
   InstallMethodTest,
   detectFromInputs,
 } from "./install-method.js";
@@ -36,6 +38,20 @@ const baseInputs: InstallMethodInputs = {
 // -----------------------------------------------------------------------------
 
 layer(NodeServices.layer, { excludeTestServices: true })("InstallMethod", (it) => {
+  it.effect("keeps an unavailable configuration source typed during layer construction", () =>
+    Effect.gen(function* () {
+      const failure = yield* Effect.flip(InstallMethod.pipe(Effect.provide(InstallMethodLive)));
+      expect(failure._tag).toBe("ConfigError");
+      expect(failure.cause._tag).toBe("SourceError");
+    }).pipe(
+      Effect.provideService(
+        ConfigProvider.ConfigProvider,
+        ConfigProvider.make(() =>
+          Effect.fail(new ConfigProvider.SourceError({ message: "source unavailable" })),
+        ),
+      ),
+    ),
+  );
   describe("Priority 1: Script install", () => {
     it.effect("detects script install when execPath is in ~/.axm/bin/", () =>
       Effect.gen(function* () {

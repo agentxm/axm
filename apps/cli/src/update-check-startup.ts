@@ -1,3 +1,4 @@
+import type { OutputWriteFailed } from "./screen/streams.js";
 /**
  * Startup update check integration.
  *
@@ -101,7 +102,7 @@ export const withUpdateCheck = <A, E, R>(
     readonly inputs: UpdateCheckContextInputs;
     readonly printNotification?: NotificationPrinter | undefined;
   },
-): Effect.Effect<A, E, R | UpdateCheckCache | LatestReleaseCheck | Screen> =>
+): Effect.Effect<A, E | OutputWriteFailed, R | UpdateCheckCache | LatestReleaseCheck | Screen> =>
   Effect.scoped(
     Effect.gen(function* () {
       const context = skipContext(options.inputs);

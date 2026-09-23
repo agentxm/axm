@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as Effect from "effect/Effect";
 
 import { ExitCode, makeAppError } from "../app-error/index.js";
-import { effectCliExit } from "./effect-cli-exit.js";
+import { commandExit } from "./command-exit.js";
 import { runCliMain } from "./run-cli-main.js";
 
 class ExitCalled extends Error {
@@ -100,7 +100,7 @@ describe("runCliMain", () => {
 
   it("preserves a semantic exit without adding output", async () => {
     await expect(
-      runCliMain(() => Effect.die(effectCliExit(ExitCode.Issues)), {
+      runCliMain(() => Effect.fail(commandExit(ExitCode.Issues)), {
         args: ["lint", "--json"],
       }),
     ).rejects.toMatchObject({ code: ExitCode.Issues });

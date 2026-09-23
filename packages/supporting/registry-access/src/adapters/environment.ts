@@ -11,6 +11,7 @@ import * as ServiceMap from "effect/Context";
 import * as FileSystem from "effect/FileSystem";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { RegistryAccessFailed } from "../authentication/errors.js";
 
 /**
  * Reads the live process environment on every lookup. Effect's own
@@ -49,15 +50,26 @@ const nodeValue = (node: ConfigProvider.Node | undefined): Option.Option<string>
  * Read an optional environment value. The single access point: every auth
  * environment decision resolves through the ambient `ConfigProvider`.
  */
-export const envOption = (name: string): Effect.Effect<Option.Option<string>> =>
+export const envOption = (
+  name: string,
+): Effect.Effect<Option.Option<string>, RegistryAccessFailed> =>
   Effect.gen(function* () {
     const provider = yield* AuthEnvironment;
-    const node = yield* provider.load([name]).pipe(Effect.orElseSucceed(() => undefined));
+    const node = yield* provider.load([name]).pipe(
+      Effect.mapError(
+        (cause) =>
+          new RegistryAccessFailed({
+            category: "auth",
+            detail: `Could not read authentication configuration: ${name}`,
+            cause,
+          }),
+      ),
+    );
     return nodeValue(node);
   });
 
 /** Returns true if SSH_CLIENT or SSH_TTY is set. */
-export const isSSH: Effect.Effect<boolean> = Effect.map(
+export const isSSH: Effect.Effect<boolean, RegistryAccessFailed> = Effect.map(
   Effect.all([envOption("SSH_CLIENT"), envOption("SSH_TTY")]),
   ([client, tty]) => Option.isSome(client) || Option.isSome(tty),
 );
@@ -90,8 +102,10 @@ export const isWSL = Effect.gen(function* () {
 });
 
 /** Returns true if CI env var is set. */
-export const isCI: Effect.Effect<boolean> = Effect.map(envOption("CI"), (value) =>
-  Option.exists(value, (raw) => raw.length > 0 && raw !== "0" && raw.toLowerCase() !== "false"),
+export const isCI: Effect.Effect<boolean, RegistryAccessFailed> = Effect.map(
+  envOption("CI"),
+  (value) =>
+    Option.exists(value, (raw) => raw.length > 0 && raw !== "0" && raw.toLowerCase() !== "false"),
 );
 
 /**

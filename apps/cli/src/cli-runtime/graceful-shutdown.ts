@@ -3,16 +3,21 @@ import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Cause from "effect/Cause";
 import * as Fiber from "effect/Fiber";
+import * as Option from "effect/Option";
+import * as Ref from "effect/Ref";
+import * as Deferred from "effect/Deferred";
 import { writeSync } from "node:fs";
 
-import { isEffectCliExit } from "./effect-cli-exit.js";
+import { type CommandExit, commandExit } from "./command-exit.js";
+import { OperationExit } from "./operation-exit.js";
 import { recordInterruptionSignal } from "./interruption.js";
 import { interruptionFallback } from "../screen/index.js";
 
 const resolvedItself = (exit: Exit.Exit<unknown, unknown> | undefined): boolean => {
   if (exit === undefined) return false;
   if (Exit.isSuccess(exit)) return true;
-  return isEffectCliExit(Cause.squash(exit.cause));
+  // Expected failures and defects still belong to the process error boundary.
+  return !Cause.hasInterruptsOnly(exit.cause);
 };
 
 const fallbackTermination = (exitCode: number, signal: "SIGINT" | "SIGTERM"): void => {
@@ -42,6 +47,8 @@ export const makeSignalShutdown = <A, E>(args: {
   readonly fiber: Fiber.Fiber<A, E>;
   readonly runFork: (effect: Effect.Effect<void>) => unknown;
   readonly terminate?: (exitCode: number, signal: "SIGINT" | "SIGTERM") => void;
+  readonly reportedExitCode?: Effect.Effect<Option.Option<number>>;
+  readonly finalized?: Effect.Effect<void>;
 }): ((exitCode: number, signal: "SIGINT" | "SIGTERM") => void) => {
   const terminate = args.terminate ?? fallbackTermination;
   let shuttingDown = false;
@@ -56,14 +63,17 @@ export const makeSignalShutdown = <A, E>(args: {
     args.runFork(
       Fiber.interrupt(args.fiber).pipe(
         Effect.andThen(
-          Effect.sync(() => {
+          Effect.gen(function* () {
             // A fiber that terminated itself (an operation boundary resolved
             // the interruption, or the program finished first) owns its own
             // output and exit; write nothing over it.
             if (resolvedItself(args.fiber.pollUnsafe())) return;
+            const reported = yield* args.reportedExitCode ?? Effect.succeed(Option.none<number>());
+            if (Option.isSome(reported) && reported.value === exitCode) return;
             terminate(exitCode, signal);
           }),
         ),
+        Effect.ensuring(args.finalized ?? Effect.void),
       ),
     );
   };
@@ -77,22 +87,43 @@ export const makeSignalShutdown = <A, E>(args: {
  * convention (128 + signum): SIGINT=130, SIGTERM=143. Uses Effect.forkChild
  * (supervised) so the fiber dies with parent.
  */
-export const withGracefulShutdown = <A, E, R>(
-  program: Effect.Effect<A, E, R>,
-): Effect.Effect<A, E, R> =>
+export const withGracefulShutdown = <A, E, R>(program: Effect.Effect<A, E, R>) =>
   Effect.gen(function* () {
     const services = yield* Effect.context<R>();
-    const fiber = yield* Effect.forkChild(program);
+    const reportedExit = yield* Ref.make(Option.none<number>());
+    const signalFinalized = yield* Deferred.make<void>();
+    const fiber = yield* Effect.forkChild(
+      program.pipe(Effect.provideService(OperationExit, { ref: reportedExit })),
+    );
     // eslint-disable-next-line no-restricted-syntax -- Signal callbacks are a sanctioned process-entry adapter.
     const runFork = Effect.runForkWith(services);
-    const onSignal = makeSignalShutdown({ fiber, runFork });
+    const onSignal = makeSignalShutdown({
+      fiber,
+      runFork,
+      reportedExitCode: Ref.get(reportedExit),
+      finalized: Deferred.succeed(signalFinalized, undefined).pipe(Effect.asVoid),
+    });
+    let requestedExitCode: number | undefined;
 
-    const onSigterm = () => onSignal(143, "SIGTERM");
-    const onSigint = () => onSignal(130, "SIGINT");
+    const onSigterm = () => {
+      requestedExitCode ??= 143;
+      onSignal(143, "SIGTERM");
+    };
+    const onSigint = () => {
+      requestedExitCode ??= 130;
+      onSignal(130, "SIGINT");
+    };
     process.on("SIGTERM", onSigterm);
     process.on("SIGINT", onSigint);
 
     return yield* Fiber.join(fiber).pipe(
+      Effect.catchCause((cause): Effect.Effect<never, E | CommandExit> =>
+        Cause.hasInterruptsOnly(cause) && requestedExitCode !== undefined
+          ? Deferred.await(signalFinalized).pipe(
+              Effect.andThen(Effect.fail(commandExit(requestedExitCode))),
+            )
+          : Effect.failCause(cause),
+      ),
       Effect.ensuring(
         Effect.sync(() => {
           process.off("SIGTERM", onSigterm);

@@ -1,6 +1,8 @@
 import * as Effect from "effect/Effect";
 import * as Data from "effect/Data";
 import * as Layer from "effect/Layer";
+import * as Ref from "effect/Ref";
+import * as Option from "effect/Option";
 import * as Queue from "effect/Queue";
 import * as ServiceMap from "effect/Context";
 import * as Stream from "effect/Stream";
@@ -14,56 +16,75 @@ export class CredentialDeliveryFailed extends Data.TaggedError("CredentialDelive
   readonly cause: unknown;
 }> {}
 
-const write = (stream: NodeJS.WriteStream, content: string): Effect.Effect<void> =>
-  Effect.callback<void>((resume) => {
-    let resumed = false;
-    const complete = (error?: Error | null) => {
-      if (resumed) return;
-      resumed = true;
-      resume(error === undefined || error === null ? Effect.void : Effect.die(error));
-    };
-    const accepted = stream.write(content, complete);
-    if (accepted) complete();
-  });
+export class OutputWriteFailed extends Data.TaggedError("OutputWriteFailed")<{
+  readonly channel: "stdout" | "stderr";
+  readonly reason: string;
+}> {}
 
-/**
- * Write a credential and succeed only when the stream reports it written.
- *
- * `write()` returning true is backpressure advice, not delivery, so only the
- * callback settles. A synchronous throw, an `error` event, or a callback error
- * fails typed; the error value never carries the content.
- *
- * Node reports a failed write to the callback first and emits `error` a tick
- * later, so a failed write keeps its listener: releasing it would turn that
- * event into an uncaught exception before the caller can compensate.
- */
-const writeCredential = (
-  stream: NodeJS.WriteStream,
+interface WritableOutput {
+  readonly write: (content: string, callback: (error?: Error | null) => void) => boolean;
+  readonly on: (event: "error", listener: (cause: unknown) => void) => unknown;
+  readonly off: (event: "error", listener: (cause: unknown) => void) => unknown;
+  readonly once: (event: "error", listener: (cause: unknown) => void) => unknown;
+  readonly destroyed: boolean;
+  readonly writableEnded: boolean;
+}
+
+const writeFailure = (channel: "stdout" | "stderr", cause: unknown) => {
+  const code =
+    typeof cause === "object" && cause !== null && "code" in cause ? cause.code : undefined;
+  const reason =
+    typeof code === "string" &&
+    ["EPIPE", "EIO", "EBADF", "ERR_STREAM_DESTROYED", "ERR_STREAM_WRITE_AFTER_END"].includes(code)
+      ? code
+      : "Unknown";
+  return new OutputWriteFailed({ channel, reason });
+};
+
+/** Node's write return value controls backpressure; its callback acknowledges delivery. */
+export const writeOutput = (
+  stream: WritableOutput,
+  channel: "stdout" | "stderr",
   content: string,
-): Effect.Effect<void, CredentialDeliveryFailed> =>
-  Effect.callback<void, CredentialDeliveryFailed>((resume) => {
+): Effect.Effect<void, OutputWriteFailed> =>
+  Effect.callback<void, OutputWriteFailed>((resume) => {
     let settled = false;
-    const settle = (cause?: unknown) => {
+    const cleanup = () => stream.off("error", onError);
+    const complete = (cause?: unknown) => {
       if (settled) return;
       settled = true;
-      if (cause === undefined || cause === null) {
-        stream.off("error", settle);
-        resume(Effect.void);
-        return;
-      }
-      resume(Effect.fail(new CredentialDeliveryFailed({ cause })));
+      cleanup();
+      resume(
+        cause === undefined || cause === null
+          ? Effect.void
+          : Effect.fail(writeFailure(channel, cause)),
+      );
     };
-    stream.on("error", settle);
+    const onError = (cause: unknown) => complete(cause);
+    stream.on("error", onError);
     if (stream.destroyed || stream.writableEnded) {
-      settle(new Error("stdout is closed"));
+      complete({ code: "ERR_STREAM_DESTROYED" });
       return;
     }
     try {
-      stream.write(content, (error) => settle(error ?? undefined));
+      stream.write(content, (error) => {
+        if (error !== undefined && error !== null) {
+          // Node calls the write callback before emitting its corresponding error.
+          // Own that trailing event even after cancellation. The guard is
+          // removed after this turn if no error event consumes it first.
+          const trailingError = () => undefined;
+          stream.once("error", trailingError);
+          setImmediate(() => stream.off("error", trailingError));
+        }
+        complete(error);
+      });
     } catch (cause) {
-      settle(cause);
+      complete(cause);
     }
-    return Effect.sync(() => stream.off("error", settle));
+    return Effect.sync(() => {
+      settled = true;
+      cleanup();
+    });
   });
 
 export interface OutputStreamFacts extends TerminalSize {
@@ -76,11 +97,13 @@ export interface OutputStreamFacts extends TerminalSize {
 export class OutputStreams extends ServiceMap.Service<
   OutputStreams,
   {
-    readonly stdout: (content: string) => Effect.Effect<void>;
-    readonly stderr: (content: string) => Effect.Effect<void>;
+    readonly stdout: (content: string) => Effect.Effect<void, OutputWriteFailed>;
+    readonly stderr: (content: string) => Effect.Effect<void, OutputWriteFailed>;
     /** Write a credential and acknowledge the stream callback before succeeding. */
     readonly credential: (content: string) => Effect.Effect<void, CredentialDeliveryFailed>;
     readonly facts: Effect.Effect<OutputStreamFacts>;
+    /** Re-raise a failed channel before the invocation reports completion. */
+    readonly check: Effect.Effect<void, OutputWriteFailed>;
     readonly resize: Stream.Stream<number>;
   }
 >()("axm.sh/screen/OutputStreams") {}
@@ -106,19 +129,49 @@ const resizeStream = Stream.callback<number>((queue) =>
   ),
 );
 
-export const OutputStreamsLive: Layer.Layer<OutputStreams> = Layer.succeed(OutputStreams, {
-  stdout: (content) => write(process.stdout, content),
-  stderr: (content) => write(process.stderr, content),
-  credential: (content) => writeCredential(process.stdout, content),
-  facts: Effect.sync(() => ({
-    stdoutColumns: Math.max(1, process.stdout.columns ?? DEFAULT_COLUMNS),
-    stdoutIsTTY: process.stdout.isTTY === true,
-    stderrIsTTY: process.stderr.isTTY === true,
-    columns: currentColumns(),
-    rows: currentRows(),
-  })),
-  resize: resizeStream,
-});
+export const OutputStreamsLive: Layer.Layer<OutputStreams> = Layer.effect(
+  OutputStreams,
+  Effect.gen(function* () {
+    const stdoutFailure = yield* Ref.make(Option.none<OutputWriteFailed>());
+    const stderrFailure = yield* Ref.make(Option.none<OutputWriteFailed>());
+    const writer =
+      (
+        stream: WritableOutput,
+        channel: "stdout" | "stderr",
+        failure: Ref.Ref<Option.Option<OutputWriteFailed>>,
+      ) =>
+      (content: string) =>
+        Effect.gen(function* () {
+          const failed = yield* Ref.get(failure);
+          if (Option.isSome(failed)) return yield* failed.value;
+          return yield* writeOutput(stream, channel, content).pipe(
+            Effect.tapError((error) => Ref.set(failure, Option.some(error))),
+          );
+        });
+    const stdout = writer(process.stdout, "stdout", stdoutFailure);
+    const stderr = writer(process.stderr, "stderr", stderrFailure);
+    return {
+      stdout,
+      stderr,
+      credential: (content) =>
+        stdout(content).pipe(Effect.mapError((cause) => new CredentialDeliveryFailed({ cause }))),
+      check: Effect.gen(function* () {
+        const failed = yield* Ref.get(stdoutFailure);
+        if (Option.isSome(failed)) return yield* failed.value;
+        const diagnosticFailure = yield* Ref.get(stderrFailure);
+        if (Option.isSome(diagnosticFailure)) return yield* diagnosticFailure.value;
+      }),
+      facts: Effect.sync(() => ({
+        stdoutColumns: Math.max(1, process.stdout.columns ?? DEFAULT_COLUMNS),
+        stdoutIsTTY: process.stdout.isTTY === true,
+        stderrIsTTY: process.stderr.isTTY === true,
+        columns: currentColumns(),
+        rows: currentRows(),
+      })),
+      resize: resizeStream,
+    };
+  }),
+);
 
 /** Pre-runtime TTY fact for startup policy without exposing Node streams. */
 export const stderrIsTTY = (): boolean => process.stderr.isTTY === true;
@@ -149,6 +202,7 @@ export const makeTestOutputStreams = (options?: {
       stdout: (content) => Effect.sync(() => void state.stdout.push(content)),
       stderr: (content) => Effect.sync(() => void state.stderr.push(content)),
       credential: (content) => Effect.sync(() => void state.stdout.push(content)),
+      check: Effect.void,
       facts: Effect.sync(() => ({
         stdoutColumns: options?.stdoutColumns ?? state.size.columns,
         stdoutIsTTY: options?.stdoutIsTTY ?? false,

@@ -83,10 +83,15 @@ export const ResolvePlanInteractionLive = Layer.effect(
           Effect.mapError(
             (error) =>
               new PlanInteractionFailed({
-                category: error.code,
-                detail: error.detail,
-                ...(error.suggestions === undefined ? {} : { suggestions: error.suggestions }),
-                ...(error.cause === undefined ? {} : { cause: error.cause }),
+                category: error._tag === "OutputWriteFailed" ? "internal" : error.code,
+                detail:
+                  error._tag === "OutputWriteFailed"
+                    ? "The confirmation could not be displayed."
+                    : error.detail,
+                ...("suggestions" in error && error.suggestions !== undefined
+                  ? { suggestions: error.suggestions }
+                  : {}),
+                cause: error,
               }),
           ),
         ),
@@ -106,7 +111,16 @@ export const ResolvePlanInteractionLive = Layer.effect(
           if (!hasConfirmableRisk && verbosity.level !== "verbose" && verbosity.level !== "debug")
             return;
           yield* screen.note(planDoc(plan, { mode: "apply", verbosity: verbosity.level }));
-        }),
+        }).pipe(
+          Effect.mapError(
+            (cause) =>
+              new PlanInteractionFailed({
+                category: "internal",
+                detail: "The plan could not be displayed.",
+                cause,
+              }),
+          ),
+        ),
     } satisfies ResolvePlanInteractionService;
   }),
 );

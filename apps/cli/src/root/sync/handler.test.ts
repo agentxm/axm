@@ -8,7 +8,6 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Cause from "effect/Cause";
 import * as Deferred from "effect/Deferred";
 import * as Fiber from "effect/Fiber";
-import { isEffectCliExit } from "../../cli-runtime/index.js";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -24,7 +23,6 @@ import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { RuleManagerLive } from "@agentxm/workspace/materialization/live";
 import { WorkspaceInvariantFactsLive } from "@agentxm/workspace/projection/live";
-import { toAppError } from "../../app-error/conversions.js";
 import { SkillManagerLive } from "@agentxm/workspace/materialization/live";
 import {
   SourceHostProviders,
@@ -862,7 +860,7 @@ describe("root sync handler", { timeout: 15_000 }, () => {
         Effect.map(getAppError),
       );
 
-      expect(toAppError(error).code).toBe("validation");
+      expect(getAppError(error).code).toBe("validation");
       expect(rendererState.results).toEqual([]);
       expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).toBe(
         "lockfileVersion: 4\nskills: []\n",
@@ -882,7 +880,7 @@ describe("root sync handler", { timeout: 15_000 }, () => {
         Effect.flip,
       );
 
-      expect(toAppError(error).code).toBe("validation");
+      expect(getAppError(error).code).toBe("validation");
       expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).toBe(corrupt);
     }),
   );
@@ -1113,16 +1111,11 @@ describe("root sync handler", { timeout: 15_000 }, () => {
         yield* Fiber.interrupt(running);
         const exit = yield* Fiber.await(running);
 
-        // The interruption resolves through the operation lifecycle: the
-        // invocation terminates with the signal's exit code instead of an
-        // unresolved interrupt cause.
+        // Restoration and reporting finish before the original interruption
+        // reaches the process owner, which alone chooses the signal exit code.
         expect(exit._tag).toBe("Failure");
         if (exit._tag === "Failure") {
-          const squashed = Cause.squash(exit.cause);
-          expect(isEffectCliExit(squashed)).toBe(true);
-          if (isEffectCliExit(squashed)) {
-            expect(squashed.exitCode).toBe(130);
-          }
+          expect(Cause.hasInterruptsOnly(exit.cause)).toBe(true);
         }
         expectPackRollbackPreimages(fixture.paths, before);
       }),

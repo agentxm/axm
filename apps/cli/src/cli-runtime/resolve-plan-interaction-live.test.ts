@@ -8,6 +8,7 @@ import { ResolvePlanInteraction, type Plan } from "@agentxm/workspace/transition
 import { TestFlagsLayer } from "../cli-flags/index.js";
 import { TestRenderer } from "../test-support/presenter-test.js";
 import { ResolvePlanInteractionLive } from "./resolve-plan-interaction-live.js";
+import { Screen, OutputWriteFailed } from "../screen/index.js";
 
 const plan: Plan = {
   _tag: "Plan",
@@ -45,6 +46,38 @@ const harness = () => {
 };
 
 describe("ResolvePlanInteractionLive", () => {
+  it.effect("propagates failed plan and confirmation delivery as typed interaction failures", () =>
+    Effect.gen(function* () {
+      const renderer = TestRenderer.make();
+      const screen = yield* Screen.pipe(Effect.provide(renderer.layer));
+      const cause = new OutputWriteFailed({ channel: "stderr", reason: "EPIPE" });
+      const dependencies = Layer.merge(
+        Layer.succeed(Screen, {
+          ...screen,
+          note: () => Effect.fail(cause),
+          ask: () => Effect.fail(cause),
+        }),
+        TestFlagsLayer({ nonInteractive: false }),
+      );
+      yield* Effect.gen(function* () {
+        const interaction = yield* ResolvePlanInteraction;
+        const presented = yield* Effect.flip(interaction.presentPlan(plan, { mode: "apply" }));
+        const confirmed = yield* Effect.flip(
+          interaction.confirmApplyChanges({ command: ["sync"], arguments: [] }),
+        );
+        expect(presented).toMatchObject({
+          _tag: "PlanInteractionFailed",
+          category: "internal",
+          cause,
+        });
+        expect(confirmed).toMatchObject({
+          _tag: "PlanInteractionFailed",
+          category: "internal",
+          cause,
+        });
+      }).pipe(Effect.provide(Layer.provide(ResolvePlanInteractionLive, dependencies)));
+    }),
+  );
   it.effect("reopens the presented plan for details, then honors the guarded answer", () => {
     const test = harness();
     test.state.script.answers.push({ _tag: "Confirm", key: "d" }, { _tag: "Confirm", key: "y" });

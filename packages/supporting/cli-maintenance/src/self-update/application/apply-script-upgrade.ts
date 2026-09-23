@@ -67,23 +67,6 @@ export const applyScriptUpgrade = Effect.fn("cliMaintenance.applyScriptUpgrade")
             });
           }
           const staged = yield* lease.stage(downloaded.bytes);
-          const incomplete = (detail: string): UpgradeCoreResult => ({
-            ...base,
-            resultStatus: "upgrade-incomplete",
-            reportedVersion: input.localVersion,
-            verification: "not-attempted",
-            mutationState: "not-attempted",
-            verificationExecutables: [],
-            executedCommands: input.detectionCommands,
-            recommendedCommand: input.recoveryCommand,
-            details: [detail],
-            backupPath: null,
-          });
-          if (staged === null) {
-            return incomplete(
-              "The downloaded binary could not be prepared in the install directory.",
-            );
-          }
           const temporary = yield* installer.inspect(
             staged.path,
             "verification",
@@ -101,34 +84,21 @@ export const applyScriptUpgrade = Effect.fn("cliMaintenance.applyScriptUpgrade")
             });
           }
           const preparedCommands = [...input.detectionCommands, temporary.command];
-          if (!(yield* staged.protectOriginal)) {
-            return {
-              ...incomplete(
-                "AXM could not create a restorable backup; no replacement was attempted.",
-              ),
-              executedCommands: preparedCommands,
-            };
-          }
-          if (!(yield* staged.replace)) {
-            if (!(yield* staged.restore)) {
-              return yield* new UpgradeFailed({
-                category: "internal",
-                detail: `AXM replacement and rollback failed; recoverable backup: ${staged.backupPath}`,
-              });
-            }
-            return {
-              ...base,
-              resultStatus: "rolled-back",
-              reportedVersion: input.localVersion,
-              verification: "not-attempted",
-              mutationState: "rolled-back",
-              verificationExecutables: [],
-              executedCommands: preparedCommands,
-              recommendedCommand: input.recoveryCommand,
-              details: ["Replacement failed and the original executable was restored."],
-              backupPath: null,
-            } satisfies UpgradeCoreResult;
-          }
+          yield* staged.protectOriginal;
+          yield* staged.replace.pipe(
+            Effect.catch((failure) =>
+              Effect.gen(function* () {
+                yield* staged.restore;
+                return yield* new UpgradeFailed({
+                  category: failure.category,
+                  step: failure.step,
+                  detail: `${failure.detail} The original executable was restored.`,
+                  cause: failure.cause,
+                  suggestions: failure.suggestions,
+                });
+              }),
+            ),
+          );
           const installed = yield* installer.inspect(
             lease.targetPath,
             "verification",
@@ -149,12 +119,7 @@ export const applyScriptUpgrade = Effect.fn("cliMaintenance.applyScriptUpgrade")
               input.targetVersion,
             )
           ) {
-            if (!(yield* staged.restore)) {
-              return yield* new UpgradeFailed({
-                category: "internal",
-                detail: `AXM verification and rollback failed; recoverable backup: ${staged.backupPath}`,
-              });
-            }
+            yield* staged.restore;
             const restored = yield* installer.inspect(
               lease.targetPath,
               "rollback",

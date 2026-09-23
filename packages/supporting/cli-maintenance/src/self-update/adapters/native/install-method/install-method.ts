@@ -327,8 +327,7 @@ export const InstallMethodLive = Layer.effect(
     const fs = yield* FileSystem.FileSystem;
     const pathService = yield* Path.Path;
     const platform = yield* Effect.sync(() => process.platform);
-    // eslint-disable-next-line no-restricted-syntax -- Every field is an optional string, so failure would mean the Config provider violated its contract.
-    const environment = yield* Effect.orDie(detectionEnvironmentConfig);
+    const environment = yield* detectionEnvironmentConfig;
     const { axmUserHome, home, userProfile, homePath, userAgent } = environment;
     const argvExecutable = process.argv[0];
     const inputs: InstallMethodInputs = {

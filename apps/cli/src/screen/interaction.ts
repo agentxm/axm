@@ -1,3 +1,4 @@
+import type { OutputWriteFailed } from "./streams.js";
 import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
 import * as Queue from "effect/Queue";
@@ -9,10 +10,10 @@ import type { ScenePart } from "./scene.js";
 
 /** The one scene/transcript surface shared by questions and waits. */
 export interface InteractionSurface {
-  readonly showInteraction: (part: ScenePart | undefined) => Effect.Effect<void>;
-  readonly transcript: (doc: Doc) => Effect.Effect<void>;
+  readonly showInteraction: (part: ScenePart | undefined) => Effect.Effect<void, OutputWriteFailed>;
+  readonly transcript: (doc: Doc) => Effect.Effect<void, OutputWriteFailed>;
   /** Atomically replace controls with their durable disposition. */
-  readonly finish: (doc: Doc) => Effect.Effect<void>;
+  readonly finish: (doc: Doc) => Effect.Effect<void, OutputWriteFailed>;
 }
 
 /** One terminal key after platform input has been normalized. */

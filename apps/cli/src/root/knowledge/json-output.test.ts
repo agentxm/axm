@@ -10,7 +10,7 @@ import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 
-import { isEffectCliExit } from "../../cli-runtime/index.js";
+import { isCommandExit } from "../../cli-runtime/index.js";
 
 import {
   managerLifecycleStubs,
@@ -128,14 +128,14 @@ describe("knowledge JSON output", () => {
         const exit = yield* handleKnowledgeLint(undefined, "pkg").pipe(Effect.exit);
 
         // Exactly one rendered document, and the non-zero exit travels as an
-        // EffectCliExit defect, which withCliErrorHandling passes through
+        // CommandExit defect, which withCliErrorHandling passes through
         // instead of writing a second JSON error envelope.
         expect(rendererState.results).toHaveLength(1);
         expect(rendererState.results[0]?.data).toMatchObject({ valid: false });
         expect(rendererState.results[0]?.ok).toBe(false);
         expect(Exit.isFailure(exit)).toBe(true);
         if (Exit.isFailure(exit)) {
-          expect(isEffectCliExit(Cause.squash(exit.cause))).toBe(true);
+          expect(isCommandExit(Cause.squash(exit.cause))).toBe(true);
         }
       }),
     );

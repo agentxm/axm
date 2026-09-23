@@ -67,6 +67,7 @@ export const makeRecordingStreams = (options?: RecordingStreamOptions): Recordin
       return content.length === 0 ? [] : content.replace(/\n$/u, "").split("\n");
     },
     layer: Layer.succeed(OutputStreams, {
+      check: Effect.void,
       stdout: record("stdout"),
       stderr: record("stderr"),
       credential: record("stdout"),

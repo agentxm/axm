@@ -1,3 +1,4 @@
+import type { OutputWriteFailed } from "../streams.js";
 /**
  * Running a wait against a real terminal.
  *
@@ -83,7 +84,7 @@ export const runStaticWait = <A, E, R>(
   view: WaitView,
   awaited: Effect.Effect<A, E, R>,
   surface: WaitSurface,
-): Effect.Effect<A, E, R> =>
+): Effect.Effect<A, E | OutputWriteFailed, R> =>
   Effect.gen(function* () {
     yield* surface.transcript(view.brief);
     const startedAtMs = yield* Clock.currentTimeMillis;
@@ -99,7 +100,7 @@ export const runWait = <A, E, R>(
   actions: WaitActions,
   terminal: Terminal.Terminal,
   surface: WaitSurface,
-): Effect.Effect<A, E | WaitAbandoned, R> =>
+): Effect.Effect<A, E | WaitAbandoned | OutputWriteFailed, R> =>
   Effect.gen(function* () {
     const keys = waitKeys(actions);
     // A terminal that stopped sending keys cannot stop the wait either, so the
@@ -112,7 +113,7 @@ export const runWait = <A, E, R>(
           readKeys(),
         ),
       );
-    const readKeys = (): Effect.Effect<never, WaitAbandoned, Scope.Scope> =>
+    const readKeys = (): Effect.Effect<never, WaitAbandoned | OutputWriteFailed, Scope.Scope> =>
       Effect.flatMap(nextKey, (key) => {
         switch (reduceWaitKey(key, keys)) {
           case "stop":
@@ -141,6 +142,6 @@ export const runWait = <A, E, R>(
     // However it ends — settled, stopped, or interrupted — nothing of the wait
     // is left standing in the live region.
     Effect.onExit((exit) => failedWait(view, surface, exit)),
-    Effect.ensuring(surface.showInteraction(undefined)),
+    Effect.ensuring(surface.showInteraction(undefined).pipe(Effect.ignore)),
     Effect.scoped,
   );

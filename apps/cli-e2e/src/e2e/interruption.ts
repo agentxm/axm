@@ -11,10 +11,8 @@ import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as http from "node:http";
 import * as path from "node:path";
-import { fileURLToPath } from "node:url";
+import { cliArtifact } from "../cli-artifact.js";
 import { writeDefaultRegistrySettings } from "./utils.js";
-
-const cliPath = fileURLToPath(new URL("../../../cli/dist/src/main.js", import.meta.url));
 
 export interface SpawnResult {
   readonly code: number | null;
@@ -38,31 +36,91 @@ export const runCliUntil = async (
 ): Promise<SpawnResult> => {
   const { FORCE_COLOR: _forceColor, ...parentEnv } = process.env;
   return await new Promise<SpawnResult>((resolve, reject) => {
-    const child = spawn("bun", ["run", cliPath, ...args], {
-      cwd: options.cwd,
-      env: {
-        ...parentEnv,
-        AXM_TELEMETRY: "0",
-        AXM_USER_HOME: options.userHome,
-        HOME: options.userHome,
-        NO_COLOR: "1",
-        ...options.env,
+    const child = spawn(
+      cliArtifact.runtime === "binary" ? cliArtifact.path : "bun",
+      cliArtifact.runtime === "binary" ? [...args] : ["run", cliArtifact.path, ...args],
+      {
+        cwd: options.cwd,
+        env: {
+          ...parentEnv,
+          AXM_TELEMETRY: "0",
+          AXM_USER_HOME: options.userHome,
+          HOME: options.userHome,
+          NO_COLOR: "1",
+          ...options.env,
+        },
+        stdio: ["ignore", "pipe", "pipe"],
       },
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    );
     let stdout = "";
     let stderr = "";
+    let failure: Error | undefined;
+    const stop = (reason: Error) => {
+      failure = reason;
+      child.kill("SIGKILL");
+    };
+    let deadline = setTimeout(
+      () => stop(new Error("CLI did not reach the interruption boundary within 30 seconds")),
+      30_000,
+    );
     child.stdout.on("data", (chunk: Buffer | string) => {
       stdout += chunk.toString();
     });
     child.stderr.on("data", (chunk: Buffer | string) => {
       stderr += chunk.toString();
     });
-    child.on("error", reject);
-    child.on("close", (code) => resolve({ code, stdout, stderr }));
-    void options.signalWhen.then(() => child.kill(options.signal));
+    child.on("error", (error) => {
+      clearTimeout(deadline);
+      reject(error);
+    });
+    child.on("close", (code) => {
+      clearTimeout(deadline);
+      if (failure !== undefined)
+        reject(new Error(`${failure.message}\n${stdout}\n${stderr}`, { cause: failure }));
+      else resolve({ code, stdout, stderr });
+    });
+    void options.signalWhen.then(
+      () => {
+        if (child.exitCode !== null || child.signalCode !== null) return;
+        clearTimeout(deadline);
+        deadline = setTimeout(
+          () => stop(new Error("CLI did not finish interruption cleanup within 5 seconds")),
+          5_000,
+        );
+        child.kill(options.signal);
+      },
+      (cause: unknown) => stop(new Error("Could not observe the interruption boundary", { cause })),
+    );
   });
 };
+
+/** Observe the waiting publisher's prepared owner before signalling it. */
+export const waitForPublicationWaiter = (directory: string): Promise<void> =>
+  new Promise((resolve, reject) => {
+    const deadline = setTimeout(() => {
+      clearInterval(poll);
+      reject(new Error("Publisher did not prepare its lock owner within 10 seconds"));
+    }, 10_000);
+    const poll = setInterval(() => {
+      try {
+        const staged = fs
+          .readdirSync(directory)
+          .some(
+            (name) =>
+              name.startsWith(".publication-") &&
+              fs.existsSync(path.join(directory, name, "owner.json")),
+          );
+        if (!staged) return;
+        clearTimeout(deadline);
+        clearInterval(poll);
+        resolve();
+      } catch (cause) {
+        clearTimeout(deadline);
+        clearInterval(poll);
+        reject(cause);
+      }
+    }, 10);
+  });
 
 /**
  * Run the built CLI against an HTTP registry that accepts the first request

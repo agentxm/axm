@@ -61,6 +61,7 @@ import { KnowledgeIndexLive } from "@agentxm/workspace/knowledge/query/live";
 import { WorkspaceInvariantFactsLive } from "@agentxm/workspace/projection/live";
 import { AuthLoginPresenterLive } from "./auth-login-presenter.js";
 import {
+  registryAccessFailedToAppError,
   LifecycleStepFailureConversionLive,
   SyncStepFailureConversionLive,
 } from "./feature-errors.js";
@@ -532,6 +533,9 @@ export const withRuntime =
           Effect.provideService(ExecutionDirectory, executionDirectory),
           Effect.provideService(DefaultRegistryTarget, defaultRegistry),
           Effect.provide(makeAuthLayer(defaultRegistry.url)),
+          Effect.catchTag("RegistryAccessFailed", (error) =>
+            Effect.fail(registryAccessFailedToAppError(error)),
+          ),
         ),
         {
           command,
@@ -547,6 +551,9 @@ export const withRuntime =
           ),
         ),
         Effect.scoped,
+        Effect.catchTag("RegistryAccessFailed", (error) =>
+          Effect.fail(registryAccessFailedToAppError(error)),
+        ),
       );
     });
 

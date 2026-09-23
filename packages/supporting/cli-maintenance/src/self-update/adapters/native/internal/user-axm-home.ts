@@ -26,11 +26,10 @@ export const resolveUserAxmHomePure = (
 ): string => pathJoin(homeDir, AXM_DIR_NAME);
 
 /** Resolve `~/.axm`, honouring an `AXM_USER_HOME` override. */
-export const resolveUserAxmHome = (): Effect.Effect<string, never, Path.Path> =>
+export const resolveUserAxmHome = (): Effect.Effect<string, Config.ConfigError, Path.Path> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    // eslint-disable-next-line no-restricted-syntax -- Optional string decoding is total, so failure would mean the Config provider violated its contract.
-    const configuredHome = yield* Effect.orDie(axmUserHomeConfig);
+    const configuredHome = yield* axmUserHomeConfig;
     return resolveUserAxmHomePure(
       path.join,
       Option.getOrElse(configuredHome, () => os.homedir()),

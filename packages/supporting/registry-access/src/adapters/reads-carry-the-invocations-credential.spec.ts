@@ -8,6 +8,9 @@ import type * as HttpClientError from "effect/unstable/http/HttpClientError";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as Layer from "effect/Layer";
+import * as FileSystem from "effect/FileSystem";
+import * as PlatformError from "effect/PlatformError";
+import { credentialFileFixture } from "../credentials/test-helpers.js";
 import { RegistryRequestFailed, RegistryUrl } from "@agentxm/registry-client";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { defineSpecification } from "@agentxm/specification-metadata";
@@ -27,10 +30,13 @@ export const specification = defineSpecification({
   requirement: "cli/reads-carry-the-invocations-credential",
   title: "A read carries the credential the invocation holds",
   statement:
-    "When an invocation reads from a Registry, AXM shall present the credential it holds — so a signed-in person sees what their permissions allow, including their own private extensions — shall read anonymously when it holds none rather than refusing, shall fail the read with the reason, sending nothing, when a credential source it was pointed at — a token file or the credential store — cannot be read, shall treat a read the Registry rejects for its credential exactly as a rejected write — renewing a stored session once and retrying, and otherwise keeping the rejection rather than reading anonymously — and shall leave a credential the caller set on the request exactly as the caller set it.",
+    "When an invocation reads from a Registry, AXM shall present the credential it holds — so a signed-in person sees what their permissions allow, including their own private extensions — shall read anonymously when it holds none rather than refusing, shall fail the read with the reason, sending nothing, when a credential source it was pointed at — configuration, a token file, or the credential store — cannot be read or decoded, shall treat a read the Registry rejects for its credential exactly as a rejected write — renewing a stored session once and retrying, and otherwise keeping the rejection rather than reading anonymously — and shall leave a credential the caller set on the request exactly as the caller set it.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics"],
+  boundary: "platform",
+  boundaryRationale:
+    "The live credential adapter reads real isolated files so malformed and unreadable persisted credentials cannot become anonymous requests.",
   methods: ["example"],
   derivedFrom: ["packages/supporting/registry-access/src/adapters/auth-middleware.ts"],
   supersedes: [],
@@ -89,6 +95,7 @@ const rejectingReadsOf = (options: {
   readonly presented: Array<string | undefined>;
   readonly credentials?: typeof signedIn;
   readonly environment?: Record<string, string>;
+  readonly provider?: ConfigProvider.ConfigProvider;
   /** Replaces the credential store's read. */
   readonly load?: CredentialStore["Service"]["load"];
 }) => {
@@ -136,13 +143,18 @@ const rejectingReadsOf = (options: {
         NodeServices.layer,
       ),
     ),
-    Layer.succeed(AuthEnvironment, ConfigProvider.fromEnvRecord(options.environment ?? {})),
+    Layer.succeed(
+      AuthEnvironment,
+      options.provider ?? ConfigProvider.fromEnvRecord(options.environment ?? {}),
+    ),
   );
 };
 
 /** The typed failure a transport failure carries, or undefined. */
-const carriedBy = (failure: HttpClientError.HttpClientError) =>
-  failure.reason._tag === "TransportError" && failure.reason.cause instanceof RegistryRequestFailed
+const carriedBy = (failure: HttpClientError.HttpClientError | RegistryAccessFailed) =>
+  failure._tag === "HttpClientError" &&
+  failure.reason._tag === "TransportError" &&
+  failure.reason.cause instanceof RegistryRequestFailed
     ? failure.reason.cause
     : undefined;
 
@@ -156,6 +168,131 @@ const get = (
   });
 
 describe("Reads carry the invocation's credential", () => {
+  for (const content of ["{", '{"version":1,"registries":false}']) {
+    it.live("sends nothing for an invalid persisted credential: " + content, () =>
+      Effect.gen(function* () {
+        const fixture = yield* credentialFileFixture;
+        yield* fixture.fs.writeFileString(fixture.file, content, { mode: 0o600 });
+        const presented: string[] = [];
+        const transport = HttpClient.make((request) =>
+          Effect.sync(() => {
+            presented.push(request.url);
+            return HttpClientResponse.fromWeb(request, new Response("{}"));
+          }),
+        );
+        const store = fixture.layer;
+        const layer = AuthMiddlewareLive.pipe(
+          Layer.provide(
+            Layer.mergeAll(
+              Layer.succeed(HttpClient.HttpClient, transport),
+              store,
+              SessionRefresherLive.pipe(Layer.provide(Layer.merge(TokenExchangeTest(), store))),
+              Layer.succeed(RegistryUrl, registry),
+            ),
+          ),
+        );
+        const failure = yield* get().pipe(
+          Effect.provide(layer),
+          Effect.provideService(AuthEnvironment, fixture.environment),
+          Effect.flip,
+        );
+        expect(carriedBy(failure)).toMatchObject({
+          category: "auth",
+          detail: "Failed to parse credential file",
+        });
+        expect(presented).toEqual([]);
+        expect(yield* fixture.fs.readFileString(fixture.file)).toBe(content);
+      }).pipe(Effect.provide(NodeServices.layer)),
+    );
+  }
+
+  for (const source of ["AXM_TOKEN", "AXM_TOKEN_FILE"]) {
+    it.effect("sends nothing when the configured " + source + " source fails", () =>
+      Effect.gen(function* () {
+        const presented: Array<string | undefined> = [];
+        const layer = rejectingReadsOf({
+          accepted: "Bearer stored-access",
+          presented,
+          credentials: signedIn,
+          provider: ConfigProvider.make((path) =>
+            path[0] === source
+              ? Effect.fail(new ConfigProvider.SourceError({ message: "source unavailable" }))
+              : Effect.succeed(undefined),
+          ),
+        });
+        const failure = yield* get().pipe(Effect.provide(layer), Effect.flip);
+        expect(carriedBy(failure)).toMatchObject({
+          category: "auth",
+          detail: `Could not read authentication configuration: ${source}`,
+        });
+        expect(presented).toEqual([]);
+      }),
+    );
+  }
+
+  for (const operation of ["readFileString", "stat", "missing"] as const) {
+    it.live("distinguishes a missing live credential file from " + operation, () =>
+      Effect.gen(function* () {
+        const fixture = yield* credentialFileFixture;
+        if (operation !== "missing")
+          yield* fixture.fs.writeFileString(fixture.file, '{"version":1,"registries":{}}', {
+            mode: 0o600,
+          });
+        const denied = PlatformError.systemError({
+          _tag: "PermissionDenied",
+          module: "FileSystem",
+          method: operation,
+          pathOrDescriptor: fixture.file,
+        });
+        const failedFs: FileSystem.FileSystem = {
+          ...fixture.fs,
+          readFileString: (path, ...options) =>
+            operation === "readFileString" && path === fixture.file
+              ? Effect.fail(denied)
+              : fixture.fs.readFileString(path, ...options),
+          stat: (path) =>
+            operation === "stat" && path === fixture.file
+              ? Effect.fail(denied)
+              : fixture.fs.stat(path),
+        };
+        const presented: Array<string | undefined> = [];
+        const transport = HttpClient.make((request) =>
+          Effect.sync(() => {
+            presented.push(request.headers["authorization"]);
+            return HttpClientResponse.fromWeb(request, new Response("{}"));
+          }),
+        );
+        const store = fixture.layer.pipe(
+          Layer.provide(Layer.succeed(FileSystem.FileSystem, failedFs)),
+        );
+        const layer = AuthMiddlewareLive.pipe(
+          Layer.provide(
+            Layer.mergeAll(
+              Layer.succeed(HttpClient.HttpClient, transport),
+              store,
+              SessionRefresherLive.pipe(Layer.provide(Layer.merge(TokenExchangeTest(), store))),
+              Layer.succeed(RegistryUrl, registry),
+            ),
+          ),
+        );
+        const request = get().pipe(
+          Effect.provide(layer),
+          Effect.provideService(AuthEnvironment, fixture.environment),
+        );
+        if (operation === "missing") {
+          expect((yield* request).status).toBe(200);
+          expect(presented).toEqual([undefined]);
+        } else {
+          expect(carriedBy(yield* Effect.flip(request))).toMatchObject({
+            category: "auth",
+            cause: { cause: denied },
+          });
+          expect(presented).toEqual([]);
+        }
+      }).pipe(Effect.provide(NodeServices.layer)),
+    );
+  }
+
   it.effect("presents the stored session on an ordinary read", () =>
     Effect.gen(function* () {
       const { layer, read } = readWith(signedIn);

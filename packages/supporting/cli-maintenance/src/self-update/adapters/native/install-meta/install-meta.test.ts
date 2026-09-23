@@ -37,6 +37,21 @@ const withContext = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 // -----------------------------------------------------------------------------
 
 describe("InstallMeta", () => {
+  it.effect("keeps an unavailable home configuration source typed during layer construction", () =>
+    Effect.gen(function* () {
+      const failure = yield* Effect.flip(InstallMeta.pipe(Effect.provide(InstallMetaLive)));
+      expect(failure._tag).toBe("ConfigError");
+      expect(failure.cause._tag).toBe("SourceError");
+    }).pipe(
+      Effect.provide(NodeServices.layer),
+      Effect.provideService(
+        ConfigProvider.ConfigProvider,
+        ConfigProvider.make(() =>
+          Effect.fail(new ConfigProvider.SourceError({ message: "source unavailable" })),
+        ),
+      ),
+    ),
+  );
   let tempDir: string;
   let dataDir: string;
 

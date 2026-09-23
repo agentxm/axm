@@ -73,12 +73,12 @@ const makeAgentExecutableResolver = Effect.gen(function* () {
         const candidates = getExecutableCandidates(command, pathExt);
 
         if (p.isAbsolute(command) || hasPathSeparator(command)) {
-          const checks = yield* Effect.forEach(
-            candidates,
-            (candidate) => fs.exists(candidate).pipe(Effect.catch(() => Effect.succeed(false))),
-            { concurrency: "unbounded" },
-          );
-          return checks.some(Boolean);
+          for (const candidate of candidates) {
+            if (yield* fs.exists(candidate).pipe(Effect.catch(() => Effect.succeed(false)))) {
+              return true;
+            }
+          }
+          return false;
         }
 
         const rawPathOpt = yield* envOption("PATH");
@@ -91,19 +91,20 @@ const makeAgentExecutableResolver = Effect.gen(function* () {
           .map((segment) => segment.trim())
           .filter((segment) => segment.length > 0);
 
-        const checks = yield* Effect.forEach(
-          dirs,
-          (dir) =>
-            Effect.forEach(
-              candidates,
-              (candidate) =>
-                fs.exists(p.join(dir, candidate)).pipe(Effect.catch(() => Effect.succeed(false))),
-              { concurrency: "unbounded" },
-            ).pipe(Effect.map((results) => results.some(Boolean))),
-          { concurrency: "unbounded" },
-        );
-
-        return checks.some(Boolean);
+        // PATH is ordered. Stop after the first matching executable instead of
+        // multiplying filesystem probes across every directory and variant.
+        for (const dir of dirs) {
+          for (const candidate of candidates) {
+            if (
+              yield* fs
+                .exists(p.join(dir, candidate))
+                .pipe(Effect.catch(() => Effect.succeed(false)))
+            ) {
+              return true;
+            }
+          }
+        }
+        return false;
       }),
   } satisfies AgentExecutableResolverService;
 });

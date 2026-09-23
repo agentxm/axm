@@ -16,6 +16,7 @@ import { buildReconciliationClosure } from "../../../reconciliation/index.js";
 import * as DateTime from "effect/DateTime";
 import type * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
+import type * as Config from "effect/Config";
 import * as FileSystem from "effect/FileSystem";
 import {
   DesiredStateReader,
@@ -151,31 +152,36 @@ export interface PackDiscovery {
 /** Discover every pack a locator exposes so the shared install selector can decide among them. */
 export const discoverPackRefs: (
   request: PackSourceRequest,
-) => Effect.Effect<ReadonlyArray<PackRef>, ExtensionLifecycleFailed, ResolveInstallRequirements> =
-  Effect.fn("InstallExtensions.discoverPackRefs")(function* (request: PackSourceRequest) {
-    if (request.source.type === "registry") {
-      return [(yield* discoverPackRef(request)).ref];
-    }
-    const sources = yield* SourceHostProviders;
-    const refs = yield* sources
-      .find(request.source, {
-        names: Option.toArray(request.packName),
-        type: "pack",
-        owner: request.owner,
-        versionRange: request.versionRange,
-      })
-      .pipe(
-        Effect.mapError((cause) =>
-          installRefused({
-            category:
-              sourceResolutionFailureCategory(cause) === "not_found" ? "not_found" : "network",
-            detail: "Pack source could not be read",
-            cause,
-          }),
-        ),
-      );
-    return refs.filter((ref): ref is PackRef => ref.type === "pack");
-  });
+) => Effect.Effect<
+  ReadonlyArray<PackRef>,
+  ExtensionLifecycleFailed | Config.ConfigError,
+  ResolveInstallRequirements
+> = Effect.fn("InstallExtensions.discoverPackRefs")(function* (request: PackSourceRequest) {
+  if (request.source.type === "registry") {
+    return [(yield* discoverPackRef(request)).ref];
+  }
+  const sources = yield* SourceHostProviders;
+  const refs = yield* sources
+    .find(request.source, {
+      names: Option.toArray(request.packName),
+      type: "pack",
+      owner: request.owner,
+      versionRange: request.versionRange,
+    })
+    .pipe(
+      Effect.mapError((cause) =>
+        cause._tag === "ConfigError"
+          ? cause
+          : installRefused({
+              category:
+                sourceResolutionFailureCategory(cause) === "not_found" ? "not_found" : "network",
+              detail: "Pack source could not be read",
+              cause,
+            }),
+      ),
+    );
+  return refs.filter((ref): ref is PackRef => ref.type === "pack");
+});
 
 const isRemoteReadNotImplemented = (error: SourceResolutionFailure): boolean => {
   const detail = sourceFailureDetail(error);
@@ -684,9 +690,11 @@ export const resolvePackSourceRequest: (
  */
 export const discoverPackRef: (
   request: PackSourceRequest,
-) => Effect.Effect<PackDiscovery, ExtensionLifecycleFailed, ResolveInstallRequirements> = Effect.fn(
-  "InstallExtensions.discoverPack",
-)(function* (request: PackSourceRequest) {
+) => Effect.Effect<
+  PackDiscovery,
+  ExtensionLifecycleFailed | Config.ConfigError,
+  ResolveInstallRequirements
+> = Effect.fn("InstallExtensions.discoverPack")(function* (request: PackSourceRequest) {
   const settings = yield* SettingsReader;
   const sources = yield* SourceHostProviders;
   if (request.source.type !== "registry") {
@@ -699,12 +707,14 @@ export const discoverPackRef: (
       })
       .pipe(
         Effect.mapError((cause) =>
-          installRefused({
-            category:
-              sourceResolutionFailureCategory(cause) === "not_found" ? "not_found" : "network",
-            detail: "Pack source could not be read",
-            cause,
-          }),
+          cause._tag === "ConfigError"
+            ? cause
+            : installRefused({
+                category:
+                  sourceResolutionFailureCategory(cause) === "not_found" ? "not_found" : "network",
+                detail: "Pack source could not be read",
+                cause,
+              }),
         ),
       );
     const packs = refs.filter((ref): ref is PackRef => ref.type === "pack");
@@ -748,6 +758,9 @@ export const discoverPackRef: (
   const probes: Array<RegistryLookupProbe> = [];
 
   const initialResult = yield* findWith(request.source).pipe(Effect.result);
+  if (initialResult._tag === "Failure" && initialResult.failure._tag === "ConfigError") {
+    return yield* Effect.fail(initialResult.failure);
+  }
   probes.push(
     initialResult._tag === "Success"
       ? {

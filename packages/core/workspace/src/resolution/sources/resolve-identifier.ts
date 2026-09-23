@@ -269,6 +269,11 @@ const registryCandidates = (
       { concurrency: "unbounded" },
     );
 
+    for (const result of results) {
+      if (Result.isFailure(result) && result.failure._tag === "ConfigError") {
+        return yield* Effect.fail(result.failure);
+      }
+    }
     return dedupeCandidates(
       Array.flatten(
         Array.getSuccesses(results).map((result) =>
@@ -433,7 +438,7 @@ export const resolveInstalledIdentifierNameOrInput = (args: {
     const result = yield* Effect.result(resolveInstalledIdentifier(args));
     if (Result.isFailure(result)) {
       if (sourceResolutionFailureCategory(result.failure) === "not_found") return trimmed;
-      return yield* result.failure;
+      return yield* Effect.fail(result.failure);
     }
     return Option.getOrElse(result.success.installedName, () => result.success.name);
   });

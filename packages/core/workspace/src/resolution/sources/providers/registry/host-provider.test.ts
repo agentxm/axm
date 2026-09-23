@@ -1034,7 +1034,9 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
         expect(result._tag).toBe("Failure");
         if (result._tag === "Failure") {
           expect(sourceResolutionFailureCategory(result.failure)).toBe("network");
-          expect(result.failure.detail).toContain("Integrity mismatch");
+          expect(result.failure).toMatchObject({
+            detail: expect.stringContaining("Integrity mismatch"),
+          });
         }
         expect(yield* fs.readFileString(nodePath.join(accepted.directory, "src/SKILL.md"))).toBe(
           "Original accepted guidance.\n",

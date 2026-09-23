@@ -10,6 +10,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import type * as Config from "effect/Config";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
@@ -64,6 +65,8 @@ export interface RegistryResolutionOptions {
 /** The sentence a source-resolution failure carries, for probe evidence. */
 export const sourceFailureDetail = (error: SourceResolutionFailure): string => {
   switch (error._tag) {
+    case "ConfigError":
+      return "Registry cache configuration could not be read.";
     case "SourceSyntaxInvalid":
     case "SourceHostNotConfigured":
     case "SourceNotResolvable":
@@ -120,113 +123,108 @@ export interface ConfiguredRegistryLookup {
 /** Probe every host configured under `sourceName` for the named extension. */
 export const resolveConfiguredRegistrySource: (
   args: ConfiguredRegistryLookup,
-) => Effect.Effect<RegistrySource, ExtensionLifecycleFailed, RegistrySourceProbeRequirements> =
-  Effect.fn("InstallExtensions.resolveConfiguredRegistrySource")(function* (
-    args: ConfiguredRegistryLookup,
-  ) {
-    const settings = yield* SettingsReader;
-    const sourceName = args.useDefaultRegistry
-      ? yield* settings.defaultRegistry.pipe(
-          Effect.mapError((cause) =>
-            installRefused({
-              category: "internal",
-              detail: "The default registry could not be read",
-              cause,
-            }),
-          ),
-        )
-      : args.sourceName;
-    const registrySources = (yield* settings.registrySourceHosts.pipe(
-      Effect.mapError((cause) =>
-        installRefused({
-          category: "internal",
-          detail: `Failed to read configured registry sources for owner "${args.owner}"`,
-          recover: "Check that your workspace settings file is valid and accessible",
-          cause,
-        }),
-      ),
-    )).filter((source) => source.name === sourceName);
-
-    if (registrySources.length === 0) {
-      return yield* installRefused({
-        category: "not_found",
-        detail: `No registry source is configured for owner "${args.owner}"`,
-        recover: `Add a registry source for owner "${args.owner}"`,
-        ...(ADD_REGISTRY_SOURCE.cmd === undefined ? {} : { cmd: ADD_REGISTRY_SOURCE.cmd }),
-      });
-    }
-
-    for (const registrySource of registrySources) {
-      const client = yield* createRegistryClient(registrySource.location.href).pipe(
+) => Effect.Effect<
+  RegistrySource,
+  ExtensionLifecycleFailed | Config.ConfigError,
+  RegistrySourceProbeRequirements
+> = Effect.fn("InstallExtensions.resolveConfiguredRegistrySource")(function* (
+  args: ConfiguredRegistryLookup,
+) {
+  const settings = yield* SettingsReader;
+  const sourceName = args.useDefaultRegistry
+    ? yield* settings.defaultRegistry.pipe(
         Effect.mapError((cause) =>
           installRefused({
-            category: "network",
-            detail: `Registry ${registrySource.location.href} could not be reached`,
+            category: "internal",
+            detail: "The default registry could not be read",
             cause,
           }),
         ),
-      );
-      const matchResult = yield* Option.match(args.extensionName, {
-        onNone: () => client.ownerExists(args.owner),
-        onSome: (name) =>
-          client.extensionExists({ owner: args.owner, type: args.extensionType, name }),
-      }).pipe(Effect.result);
+      )
+    : args.sourceName;
+  const registrySources = (yield* settings.registrySourceHosts.pipe(
+    Effect.mapError((cause) =>
+      installRefused({
+        category: "internal",
+        detail: `Failed to read configured registry sources for owner "${args.owner}"`,
+        recover: "Check that your workspace settings file is valid and accessible",
+        cause,
+      }),
+    ),
+  )).filter((source) => source.name === sourceName);
 
-      if (matchResult._tag === "Failure") {
-        if (Option.isSome(args.options)) {
-          args.options.value.onRegistryProbe({
-            location: registrySource.location.href,
-            outcome: "error",
-            reason: Option.some(summarizeLookupFailure(matchResult.failure)),
-          });
-        }
-        continue;
-      }
+  if (registrySources.length === 0) {
+    return yield* installRefused({
+      category: "not_found",
+      detail: `No registry source is configured for owner "${args.owner}"`,
+      recover: `Add a registry source for owner "${args.owner}"`,
+      ...(ADD_REGISTRY_SOURCE.cmd === undefined ? {} : { cmd: ADD_REGISTRY_SOURCE.cmd }),
+    });
+  }
 
-      if (matchResult.success.exists) {
-        if (Option.isSome(args.options)) {
-          args.options.value.onRegistryProbe({
-            location: registrySource.location.href,
-            outcome: "matched",
-            reason: Option.none<string>(),
-          });
-        }
-        return {
-          type: "registry" as const,
-          name: registrySource.name,
-          location: registrySource.location,
-          owner: Option.some(args.owner),
-        } satisfies RegistrySource;
-      }
+  for (const registrySource of registrySources) {
+    const client = yield* createRegistryClient(registrySource.location.href);
+    const matchResult = yield* Option.match(args.extensionName, {
+      onNone: () => client.ownerExists(args.owner),
+      onSome: (name) =>
+        client.extensionExists({ owner: args.owner, type: args.extensionType, name }),
+    }).pipe(Effect.result);
 
+    if (matchResult._tag === "Failure") {
       if (Option.isSome(args.options)) {
         args.options.value.onRegistryProbe({
           location: registrySource.location.href,
-          outcome: "not-found",
+          outcome: "error",
+          reason: Option.some(summarizeLookupFailure(matchResult.failure)),
+        });
+      }
+      continue;
+    }
+
+    if (matchResult.success.exists) {
+      if (Option.isSome(args.options)) {
+        args.options.value.onRegistryProbe({
+          location: registrySource.location.href,
+          outcome: "matched",
           reason: Option.none<string>(),
         });
       }
+      return {
+        type: "registry" as const,
+        name: registrySource.name,
+        location: registrySource.location,
+        owner: Option.some(args.owner),
+      } satisfies RegistrySource;
     }
 
-    const loginSuggestions = yield* registryLoginSuggestions(
-      registrySources.map((source) => source.location.href),
-    );
-    if (Option.isSome(args.extensionName)) {
-      return yield* installRefused({
-        category: "not_found",
-        detail: `${extensionLabel(args.extensionType)} "${qualifiedExtension(args.extensionType, args.owner, args.extensionName.value)}" was not found in configured registries`,
-        recover: explicitSourceSuggestion(args.extensionType),
-        suggestions: loginSuggestions,
+    if (Option.isSome(args.options)) {
+      args.options.value.onRegistryProbe({
+        location: registrySource.location.href,
+        outcome: "not-found",
+        reason: Option.none<string>(),
       });
     }
+  }
 
+  const loginSuggestions = yield* registryLoginSuggestions(
+    registrySources.map((source) => source.location.href),
+  );
+  if (Option.isSome(args.extensionName)) {
     return yield* installRefused({
       category: "not_found",
-      detail: `None of the configured registry sources contain owner "${args.owner}"`,
-      recover: `Verify the owner name is correct, or add a registry that hosts "${args.owner}"`,
+      detail: `${extensionLabel(args.extensionType)} "${qualifiedExtension(args.extensionType, args.owner, args.extensionName.value)}" was not found in configured registries`,
+      recover: explicitSourceSuggestion(args.extensionType),
       suggestions: loginSuggestions,
     });
+  }
+
+  return yield* installRefused({
+    category: "not_found",
+    detail: `None of the configured registry sources contain owner "${args.owner}"`,
+    recover: `Verify the owner name is correct, or add a registry that hosts "${args.owner}"`,
+    suggestions: loginSuggestions,
   });
+});
 
 /** Which bare name to resolve against the default registry. */
 export interface DefaultRegistryLookup {
@@ -239,7 +237,7 @@ type ConfiguredDefaultRegistrySourceByNameResolver = (
   args: DefaultRegistryLookup,
 ) => Effect.Effect<
   RegistrySource,
-  ExtensionLifecycleFailed,
+  ExtensionLifecycleFailed | Config.ConfigError,
   DefaultRegistrySourceResolutionRequirements
 >;
 
@@ -298,6 +296,7 @@ export const resolveDefaultRegistrySourceByName: ConfiguredDefaultRegistrySource
       }),
     ).pipe(
       Effect.mapError((failure) => {
+        if (failure._tag === "ConfigError") return failure;
         if (sourceResolutionFailureCategory(failure) !== "not_found") {
           return installRefused({
             category: "network",

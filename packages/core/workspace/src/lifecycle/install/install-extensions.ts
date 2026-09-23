@@ -17,6 +17,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import type * as Config from "effect/Config";
 import * as Option from "effect/Option";
 
 import {
@@ -201,6 +202,7 @@ export interface InstallExtensionsCandidate {
  * sentence rather than as this feature's generic refusal.
  */
 export type InstallExtensionsFailure =
+  | Config.ConfigError
   | ExtensionLifecycleFailed
   | ExtensionResolutionFailed
   | SkillSelectionFailure
@@ -282,7 +284,7 @@ const planForType = (
           nonInteractive: request.nonInteractive,
         }).pipe(
           Effect.mapError((cause) =>
-            cause._tag === "ExtensionLifecycleFailed"
+            cause._tag === "ExtensionLifecycleFailed" || cause._tag === "ConfigError"
               ? cause
               : installRefused({
                   category: "validation",
@@ -345,7 +347,7 @@ const planForType = (
           nonInteractive: request.nonInteractive,
         }).pipe(
           Effect.mapError((cause) =>
-            cause._tag === "ExtensionLifecycleFailed"
+            cause._tag === "ExtensionLifecycleFailed" || cause._tag === "ConfigError"
               ? cause
               : installRefused({
                   category: "validation",

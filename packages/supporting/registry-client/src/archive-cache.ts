@@ -7,6 +7,7 @@
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Cause from "effect/Cause";
+import type * as Config from "effect/Config";
 import * as Deferred from "effect/Deferred";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -394,7 +395,7 @@ export const makeArchiveCache = (
 
 export const makeUserArchiveCache = (): Effect.Effect<
   ArchiveCache,
-  never,
+  Config.ConfigError,
   FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {

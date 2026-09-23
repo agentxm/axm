@@ -359,7 +359,9 @@ describe("SourceHostProviders dispatch", () => {
         // Git provider attempts a shallow clone and reports the clone failure.
         expect(result._tag).toBe("Failure");
         if (result._tag === "Failure") {
-          expect(result.failure.detail).toContain("Failed to shallow clone");
+          expect(result.failure).toMatchObject({
+            detail: expect.stringContaining("Failed to shallow clone"),
+          });
         }
       }),
     ),

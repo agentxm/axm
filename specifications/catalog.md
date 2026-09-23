@@ -5003,6 +5003,24 @@ Observation of product use stays within the documented data boundary and under t
 - Methods: example
 - Source: [`apps/cli/src/telemetry/telemetry-uses-anonymous-installation-identity.spec.ts`](../apps/cli/src/telemetry/telemetry-uses-anonymous-installation-identity.spec.ts)
 
+### Goal: safe-repetition
+
+Every operation is safe to repeat and safe to interrupt: reruns are no-ops, failures roll back their closure, and surviving authority converges.
+
+#### Functional
+
+##### Unreadable cache configuration prevents cache and registry work
+
+- Requirement: `cli/cache/configuration-failure-prevents-work`
+- Owner: `registry-client`
+- Statement: When a source for AXM's user cache placement cannot be read, cache operations and remote Registry client creation shall return the configuration failure without substituting a default cache path, modifying cached files, or sending Registry requests.
+- Class: functional
+- Role: interface
+- Product goals: `safe-repetition`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Source: [`packages/supporting/registry-client/src/cache-configuration-failure-prevents-work.spec.ts`](../packages/supporting/registry-client/src/cache-configuration-failure-prevents-work.spec.ts)
+
 ### Goal: trustworthy-distribution
 
 Publishing and acquiring extensions preserves integrity, provenance, and immutable accepted resolutions.
@@ -5195,6 +5213,18 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: decision-table, contract
 - Derived from: `apps/cli/src/root/visibility/handler.ts`, `packages/core/registry-protocol/src/unstable/publish/visibility.ts`
 - Source: [`packages/core/workspace/src/publishing/visibility/status-reports-repository-intent-and-registry-evaluation.spec.ts`](../packages/core/workspace/src/publishing/visibility/status-reports-repository-intent-and-registry-evaluation.spec.ts)
+
+##### Unreadable user-home configuration blocks workspace work
+
+- Requirement: `cli/workspace/unreadable-user-home-prevents-work`
+- Owner: `workspace`
+- Statement: When AXM's user-home configuration source cannot be read, workspace location and setup preparation shall return the configuration failure before inspecting or modifying workspace files, without falling back to a different user home.
+- Class: functional
+- Role: interface
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Source: [`packages/core/workspace/src/desired-state/workspace/unreadable-user-home-prevents-work.spec.ts`](../packages/core/workspace/src/desired-state/workspace/unreadable-user-home-prevents-work.spec.ts)
 
 ##### A malformed extension name is rejected with a typed failure naming the input
 

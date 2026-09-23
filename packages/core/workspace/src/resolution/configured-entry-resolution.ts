@@ -8,6 +8,7 @@
  */
 
 import type * as FileSystem from "effect/FileSystem";
+import type * as Config from "effect/Config";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 import type * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
@@ -199,7 +200,7 @@ export const prepareConfiguredRegistryEntry = (
     SourceResolutionFailure,
     SourceHostProviders | Scope.Scope
   >,
-  ExtensionResolutionFailed | AcceptedCanonicalRefError,
+  ExtensionResolutionFailed | AcceptedCanonicalRefError | Config.ConfigError,
   | WorkspaceCatalog
   | WorkspaceLocation
   | SettingsReader
@@ -213,13 +214,14 @@ export const prepareConfiguredRegistryEntry = (
     if (isWorkspaceSourceLocator(source)) return Effect.succeed(Option.none());
 
     const resolvedSource = yield* resolveSource(source, { expectedType }).pipe(
-      Effect.mapError(
-        (failure) =>
-          new ExtensionResolutionFailed({
-            category: "validation",
-            detail: `Invalid ${expectedType} source for ${name}: ${failure.detail}`,
-            cause: failure,
-          }),
+      Effect.mapError((failure) =>
+        failure._tag === "ConfigError"
+          ? failure
+          : new ExtensionResolutionFailed({
+              category: "validation",
+              detail: `Invalid ${expectedType} source for ${name}: ${failure.detail}`,
+              cause: failure,
+            }),
       ),
     );
     if (resolvedSource.type !== "registry") return Effect.succeed(Option.none());
@@ -384,13 +386,14 @@ const prepareConfiguredEntry = <TType extends ExtensionType>(
 
       const providers = yield* SourceHostProviders;
       const resolvedSource = yield* resolveSource(source, { expectedType }).pipe(
-        Effect.mapError(
-          (cause) =>
-            new ExtensionResolutionFailed({
-              category: "validation",
-              detail: `Invalid ${typeLabel} source for ${name}: ${cause.detail}`,
-              cause,
-            }),
+        Effect.mapError((cause) =>
+          cause._tag === "ConfigError"
+            ? cause
+            : new ExtensionResolutionFailed({
+                category: "validation",
+                detail: `Invalid ${typeLabel} source for ${name}: ${cause.detail}`,
+                cause,
+              }),
         ),
       );
 
@@ -415,22 +418,23 @@ const prepareConfiguredEntry = <TType extends ExtensionType>(
         })
         .pipe(
           Effect.map((entries) => entries.filter(refConstructor.isRef)),
-          Effect.mapError(
-            (cause) =>
-              new ExtensionResolutionFailed({
-                category: "internal",
-                detail: `Failed to resolve configured ${typeLabel} "${name}"`,
-                ...(expectedType === "knowledge"
-                  ? {}
-                  : {
-                      suggestions: [
-                        {
-                          description: `Verify the configured source is reachable and still contains the ${typeLabel}.`,
-                        },
-                      ],
-                    }),
-                cause,
-              }),
+          Effect.mapError((cause) =>
+            cause._tag === "ConfigError"
+              ? cause
+              : new ExtensionResolutionFailed({
+                  category: "internal",
+                  detail: `Failed to resolve configured ${typeLabel} "${name}"`,
+                  ...(expectedType === "knowledge"
+                    ? {}
+                    : {
+                        suggestions: [
+                          {
+                            description: `Verify the configured source is reachable and still contains the ${typeLabel}.`,
+                          },
+                        ],
+                      }),
+                  cause,
+                }),
           ),
         );
 

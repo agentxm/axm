@@ -1,6 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
+import * as ConfigProvider from "effect/ConfigProvider";
+import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
@@ -75,6 +77,47 @@ const writeRegistrySkill = (registryDir: string, ownerValue: string, nameValue: 
 };
 
 describe("resolveIdentifier", () => {
+  it.effect(
+    "preserves failed cache configuration instead of reporting a missing registry name",
+    () =>
+      Effect.gen(function* () {
+        const sourceError = new ConfigProvider.SourceError({ message: "source unavailable" });
+        let requests = 0;
+        const failure = yield* resolveTestIdentifier({
+          input: "code-review",
+          resourceType: "skill",
+          scope: "registry",
+        }).pipe(
+          Effect.provide(
+            Layer.mergeAll(
+              NodeServices.layer,
+              makeTestWorkspaceCatalog({
+                registrySources: [
+                  {
+                    name: "agentxm",
+                    type: "registry",
+                    location: new URL("https://registry.example.test"),
+                  },
+                ],
+              }),
+              ConfigProvider.layer(ConfigProvider.make(() => Effect.fail(sourceError))),
+              Layer.succeed(
+                HttpClient.HttpClient,
+                HttpClient.make(() =>
+                  Effect.sync(() => {
+                    requests += 1;
+                  }).pipe(Effect.andThen(Effect.die("Unexpected request"))),
+                ),
+              ),
+            ),
+          ),
+          Effect.flip,
+        );
+        expect(failure).toMatchObject({ _tag: "ConfigError", cause: sourceError });
+        expect(requests).toBe(0);
+      }),
+  );
+
   it.effect("passes through fully-qualified identifiers", () =>
     Effect.gen(function* () {
       const resolved = yield* provide(
@@ -136,8 +179,12 @@ describe("resolveIdentifier", () => {
       expect(result._tag).toBe("Failure");
       if (result._tag === "Failure") {
         expect(sourceResolutionFailureCategory(result.failure)).toBe("internal");
-        expect(result.failure.detail).toContain("@acme/skills/code-review");
-        expect(result.failure.detail).toContain("@other/skills/code-review");
+        expect(result.failure).toMatchObject({
+          detail: expect.stringContaining("@acme/skills/code-review"),
+        });
+        expect(result.failure).toMatchObject({
+          detail: expect.stringContaining("@other/skills/code-review"),
+        });
       }
     }),
   );

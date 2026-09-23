@@ -1,6 +1,7 @@
 /** Shared workspace-state operation types and failure unions. */
 
 import type * as Effect from "effect/Effect";
+import type * as Config from "effect/Config";
 import type * as Option from "effect/Option";
 
 import type { WorkspaceSnapshotError } from "../../transitions/settlement/index.js";
@@ -266,6 +267,7 @@ export interface WorkspaceStateOptions {
 
 /** Errors locating a workspace and reading its authoritative state. */
 export type WorkspaceStateError =
+  | Config.ConfigError
   | WorkspaceSettingsReadFailure
   | WorkspaceLockfileReadFailure
   | WorkspaceLayoutError

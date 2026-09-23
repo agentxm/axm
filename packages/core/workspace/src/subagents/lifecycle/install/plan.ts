@@ -10,6 +10,7 @@
 
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
+import type * as Config from "effect/Config";
 import * as Option from "effect/Option";
 
 import {
@@ -175,7 +176,7 @@ export const discoverSubagentRefs: (
   request: ParsedSubagentInstallRequest,
 ) => Effect.Effect<
   ReadonlyArray<SubagentExtensionRef>,
-  ExtensionLifecycleFailed,
+  ExtensionLifecycleFailed | Config.ConfigError,
   ResolveInstallRequirements
 > = Effect.fn("InstallExtensions.discoverSubagents")(function* (
   request: ParsedSubagentInstallRequest,
@@ -191,12 +192,15 @@ export const discoverSubagentRefs: (
     .pipe(
       Effect.map(Array.filter((ref): ref is SubagentExtensionRef => ref.type === "subagent")),
       Effect.mapError((cause) =>
-        installRefused({
-          category: sourceResolutionFailureCategory(cause) === "not_found" ? "not_found" : "usage",
-          detail: "Failed to discover subagents from source",
-          suggestions: [{ description: discoverHowToFix(request.source, cause) }],
-          cause,
-        }),
+        cause._tag === "ConfigError"
+          ? cause
+          : installRefused({
+              category:
+                sourceResolutionFailureCategory(cause) === "not_found" ? "not_found" : "usage",
+              detail: "Failed to discover subagents from source",
+              suggestions: [{ description: discoverHowToFix(request.source, cause) }],
+              cause,
+            }),
       ),
     );
   if (Array.isReadonlyArrayEmpty(discovered)) {

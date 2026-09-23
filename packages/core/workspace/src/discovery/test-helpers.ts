@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as nodePath from "node:path";
 
 import * as Deferred from "effect/Deferred";
+import type * as Config from "effect/Config";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
@@ -54,7 +55,11 @@ export const makeRecordedRegistryPort = (
   respond: (request: ObservedRegistryRequest) => RegistryResponseFixture,
 ): {
   readonly requests: ReadonlyArray<ObservedRegistryRequest>;
-  readonly client: Effect.Effect<RegistryClient, never, FileSystem.FileSystem | Path.Path>;
+  readonly client: Effect.Effect<
+    RegistryClient,
+    Config.ConfigError,
+    FileSystem.FileSystem | Path.Path
+  >;
   /** Resolves as soon as the pipeline issues its first Registry request. */
   readonly firstRequest: Effect.Effect<void>;
 } => {

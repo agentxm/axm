@@ -12,6 +12,7 @@
 
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
+import type * as Config from "effect/Config";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -240,7 +241,7 @@ export const discoverSkillRefs: (
   request: ParsedSkillInstallRequest,
 ) => Effect.Effect<
   ReadonlyArray<SkillExtensionRef>,
-  ExtensionLifecycleFailed,
+  ExtensionLifecycleFailed | Config.ConfigError,
   ResolveInstallRequirements
 > = Effect.fn("InstallExtensions.discoverSkills")(function* (request: ParsedSkillInstallRequest) {
   const sources = yield* SourceHostProviders;
@@ -253,11 +254,13 @@ export const discoverSkillRefs: (
     })
     .pipe(
       Effect.mapError((cause) =>
-        installRefused({
-          category: "network",
-          detail: "Skills could not be discovered from the source",
-          cause,
-        }),
+        cause._tag === "ConfigError"
+          ? cause
+          : installRefused({
+              category: "network",
+              detail: "Skills could not be discovered from the source",
+              cause,
+            }),
       ),
       Effect.map(Array.filter((ref): ref is SkillExtensionRef => ref.type === "skill")),
     );
@@ -327,12 +330,16 @@ export const planSkillInstallationStep = (
   input: SkillInstallationStepInput,
 ): Effect.Effect<
   PlannedJobStep<InstallStepRequirements>,
-  ExtensionLifecycleFailed,
+  ExtensionLifecycleFailed | Config.ConfigError,
   InstallStepRequirements | SkillManager | FileSystem.FileSystem | Path.Path | HttpClient.HttpClient
 > =>
   Effect.gen(function* () {
     const skillManager = yield* SkillManager;
-    const prepared = yield* prepareSkillInstallation(skillInstallationFacts, input);
+    const prepared = yield* prepareSkillInstallation<
+      ExtensionLifecycleFailed | Config.ConfigError,
+      InstallStepRequirements | SkillManager,
+      InstallStepRequirements
+    >(skillInstallationFacts, input);
     let step = buildInstallOperation(skillManager, {
       toStepFailure: lifecycleStepFailure,
       ref: input.ref,
@@ -353,7 +360,7 @@ export const planSkillInstall: (
   options?: { readonly installedBefore?: ReadonlyMap<string, boolean> },
 ) => Effect.Effect<
   Plan<InstallStepRequirements>,
-  ExtensionLifecycleFailed,
+  ExtensionLifecycleFailed | Config.ConfigError,
   InstallStepRequirements | SkillManager | FileSystem.FileSystem | Path.Path | HttpClient.HttpClient
 > = Effect.fn("InstallExtensions.planSkills")(function* (
   intent: SkillInstallIntent,

@@ -359,7 +359,7 @@ export const publicationSetResult = (options: {
               severity: "error",
               reason: "authoritative_preflight_failed",
               message: publishCause(options.blocked).message,
-              suggestions: options.blocked.suggestions ?? [],
+              suggestions: publishFailureSuggestions(options.blocked),
             },
           ],
   };

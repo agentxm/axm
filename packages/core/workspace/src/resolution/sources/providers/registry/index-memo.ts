@@ -1,4 +1,5 @@
 import * as Cache from "effect/Cache";
+import type * as Config from "effect/Config";
 import * as ServiceMap from "effect/Context";
 import * as Data from "effect/Data";
 import * as Duration from "effect/Duration";
@@ -33,7 +34,7 @@ class RegistryIndexKey extends Data.Class<
 
 interface RegistryIndexRequest extends Request.Request<
   Option.Option<ExtensionIndex>,
-  RegistryClientFailure
+  RegistryClientFailure | Config.ConfigError
 > {
   readonly _tag: "RegistryIndexRequest";
   readonly key: RegistryIndexKey;
@@ -74,7 +75,7 @@ export interface RegistryIndexMemoService {
     location: string,
     sourceName: string,
     args: GetExtensionIndexArgs,
-  ) => Effect.Effect<Option.Option<ExtensionIndex>, RegistryClientFailure>;
+  ) => Effect.Effect<Option.Option<ExtensionIndex>, RegistryClientFailure | Config.ConfigError>;
 }
 
 /** Provided for one pack-planning phase; no result survives that phase. */
@@ -86,7 +87,7 @@ export class RegistryIndexMemo extends ServiceMap.Service<
 export const makeRegistryIndexMemo = <R>(
   lookup: (
     key: RegistryIndexKey,
-  ) => Effect.Effect<Option.Option<ExtensionIndex>, RegistryClientFailure, R>,
+  ) => Effect.Effect<Option.Option<ExtensionIndex>, RegistryClientFailure | Config.ConfigError, R>,
 ): Effect.Effect<RegistryIndexMemoService, never, R> =>
   Cache.makeWith(lookup, {
     capacity: MAX_PACK_INDEX_MEMO_ENTRIES,

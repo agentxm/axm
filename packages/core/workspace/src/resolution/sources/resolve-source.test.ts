@@ -75,7 +75,7 @@ describe("resolveSource", () => {
     Effect.gen(function* () {
       const failure = yield* resolve("missing", "mcp-server").pipe(Effect.flip);
       expect(failure._tag).toBe("SourceNotResolvable");
-      expect(failure.detail).toContain("MCP server");
+      expect(failure).toMatchObject({ detail: expect.stringContaining("MCP server") });
     }),
   );
 

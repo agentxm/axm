@@ -42,22 +42,25 @@ export const resolveUserWorkspaceRootPure = (
   homeDir: string,
 ): string => pathJoin(resolveUserAxmHomePure(pathJoin, homeDir), USER_WORKSPACE_DIRECTORY);
 
-export const resolveUserHome = (): Effect.Effect<AbsolutePath, never, Path.Path> =>
+export const resolveUserHome = (): Effect.Effect<AbsolutePath, Config.ConfigError, Path.Path> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    // eslint-disable-next-line no-restricted-syntax -- Optional string decoding is total, so failure means the Config provider violated its contract.
-    const configuredHome = yield* Effect.orDie(axmUserHomeConfig);
+    const configuredHome = yield* axmUserHomeConfig;
     return makeAbsolutePath(path, resolveUserHomePure(Option.getOrUndefined(configuredHome)));
   });
 
-export const resolveUserAxmHome = (): Effect.Effect<AbsolutePath, never, Path.Path> =>
+export const resolveUserAxmHome = (): Effect.Effect<AbsolutePath, Config.ConfigError, Path.Path> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const home = yield* resolveUserHome();
     return makeAbsolutePath(path, resolveUserAxmHomePure(path.join, home));
   });
 
-export const resolveUserWorkspaceRoot = (): Effect.Effect<AbsolutePath, never, Path.Path> =>
+export const resolveUserWorkspaceRoot = (): Effect.Effect<
+  AbsolutePath,
+  Config.ConfigError,
+  Path.Path
+> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const home = yield* resolveUserHome();
@@ -75,7 +78,7 @@ export const getProjectRuntimeDir = (
 export const locateWorkspace = (
   scope: WorkspaceScope,
   projectRoot: AbsolutePath,
-): Effect.Effect<LocatedWorkspace, never, Path.Path> =>
+): Effect.Effect<LocatedWorkspace, Config.ConfigError, Path.Path> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const baseDir = scope === "user" ? yield* resolveUserHome() : projectRoot;

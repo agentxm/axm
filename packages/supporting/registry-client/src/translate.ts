@@ -1,5 +1,4 @@
 import type * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
-import * as DateTime from "effect/DateTime";
 import * as Schema from "effect/Schema";
 
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
@@ -83,12 +82,13 @@ const retryAfterSuggestedAction = (
   status: number,
   body: unknown,
   response: HttpClientResponse.HttpClientResponse,
+  nowMillis?: number,
 ): SuggestedAction | undefined => {
   const retryAfterSeconds = registryRetryAfterSeconds({
     status,
     body,
     response,
-    nowMillis: DateTime.toEpochMillis(DateTime.nowUnsafe()),
+    ...(nowMillis === undefined ? {} : { nowMillis }),
   });
 
   return retryAfterSeconds === undefined
@@ -260,9 +260,10 @@ const problemSuggestions = (
   status: number,
   problem: ProblemDetails,
   response: HttpClientResponse.HttpClientResponse,
+  nowMillis?: number,
 ): ReadonlyArray<SuggestedAction> => {
   const body = problem;
-  const retry = retryAfterSuggestedAction(status, body, response);
+  const retry = retryAfterSuggestedAction(status, body, response, nowMillis);
   const forbidden = status === 403 ? forbiddenSuggestedAction(body) : undefined;
   const lifecycle = lifecycleSuggestedAction(body);
   const serverError = serverErrorSuggestedAction(status);
@@ -286,13 +287,14 @@ export const registryErrorToProblem = (
   ctx?: {
     readonly suggestions?: ReadonlyArray<SuggestedAction>;
     readonly cause?: unknown;
+    readonly nowMillis?: number;
   },
 ): RegistryProblem => {
   const problem = isProblemDetails(body) ? body : EmptyProblem;
   const status = response.status;
   const category = httpStatusToCategory(status, problem.code);
   const suggestions = [
-    ...problemSuggestions(status, problem, response),
+    ...problemSuggestions(status, problem, response, ctx?.nowMillis),
     ...(ctx?.suggestions ?? []),
   ];
   const requestId = getStringField(problem, "requestId") ?? getStringField(problem, "request_id");
@@ -323,6 +325,7 @@ export const registryClientErrorToProblem = (
   error: RegistryClientError<string, unknown>,
   ctx?: {
     readonly suggestions?: ReadonlyArray<SuggestedAction>;
+    readonly nowMillis?: number;
   },
 ): RegistryProblem =>
   registryErrorToProblem(
@@ -330,6 +333,7 @@ export const registryClientErrorToProblem = (
     error.response,
     {
       ...(ctx?.suggestions === undefined ? {} : { suggestions: ctx.suggestions }),
+      ...(ctx?.nowMillis === undefined ? {} : { nowMillis: ctx.nowMillis }),
       cause: error,
     },
   );

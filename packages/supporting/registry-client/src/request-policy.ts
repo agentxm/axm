@@ -316,7 +316,7 @@ export const executeRegistryRequest = <A, E, R>(
     readonly operation: string;
     readonly request: RegistryRequestMetadata;
     readonly replaySafety: RegistryRequestReplaySafety;
-    readonly mapError: (error: E) => RegistryClientFailure;
+    readonly mapError: (error: E, nowMillis: number) => RegistryClientFailure;
     readonly policy?: RegistryRequestPolicy;
   },
   // The policy owns the attempt, so it satisfies the service the governed work
@@ -391,27 +391,31 @@ export const executeRegistryRequest = <A, E, R>(
                 : { requestId: requestIdFromError(error) }),
             }),
           ),
-          Effect.flatMap((attemptCount) => {
-            const deadlineExpired = Cause.isTimeoutError(error);
-            const mapped = deadlineExpired
-              ? new RegistryRequestFailed({
-                  category: "timeout",
-                  detail: "Registry request did not complete within the configured deadline.",
-                  metadata: { request: args.request },
-                  cause: error,
-                })
-              : args.mapError(error);
-            return Effect.fail(
-              withRequestPolicyMetadata(mapped, {
-                request: args.request,
-                replaySafety: args.replaySafety,
-                attemptCount,
-                maxAttempts,
-                retryable: deadlineExpired || isRetryableRegistryError(error),
-                deadlineExpired,
+          Effect.flatMap((attemptCount) =>
+            Clock.currentTimeMillis.pipe(
+              Effect.flatMap((nowMillis) => {
+                const deadlineExpired = Cause.isTimeoutError(error);
+                const mapped = deadlineExpired
+                  ? new RegistryRequestFailed({
+                      category: "timeout",
+                      detail: "Registry request did not complete within the configured deadline.",
+                      metadata: { request: args.request },
+                      cause: error,
+                    })
+                  : args.mapError(error, nowMillis);
+                return Effect.fail(
+                  withRequestPolicyMetadata(mapped, {
+                    request: args.request,
+                    replaySafety: args.replaySafety,
+                    attemptCount,
+                    maxAttempts,
+                    retryable: deadlineExpired || isRetryableRegistryError(error),
+                    deadlineExpired,
+                  }),
+                );
               }),
-            );
-          }),
+            ),
+          ),
         ),
       ),
     );

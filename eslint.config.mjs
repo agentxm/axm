@@ -702,6 +702,11 @@ export default [
           selector: "CallExpression[callee.object.name='Date'][callee.property.name='now']",
           message: "Use DateTime.now or Clock.currentTimeMillis instead of Date.now().",
         },
+        {
+          selector:
+            "CallExpression[callee.object.name='DateTime'][callee.property.name='nowUnsafe']",
+          message: "Use DateTime.now or Clock.currentTimeMillis from the active Effect clock.",
+        },
       ],
     },
   },
@@ -765,6 +770,11 @@ export default [
         {
           selector: "CallExpression[callee.object.name='Date'][callee.property.name='now']",
           message: "Use DateTime.now or Clock.currentTimeMillis instead of Date.now().",
+        },
+        {
+          selector:
+            "CallExpression[callee.object.name='DateTime'][callee.property.name='nowUnsafe']",
+          message: "Use DateTime.now or Clock.currentTimeMillis from the active Effect clock.",
         },
         {
           selector: "MemberExpression[object.name='Effect'][property.name='orDie']",

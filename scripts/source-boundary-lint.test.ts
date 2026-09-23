@@ -182,6 +182,19 @@ describe("production source boundary lint rules", () => {
     expect(reported).toContain("axm-policy/no-direct-process-output");
     expect(reported).toContain("no-restricted-syntax");
   });
+
+  it("rejects ambient Effect clock reads in production source", async () => {
+    const eslint = new ESLint({ cwd: repoRoot });
+    const [result] = await eslint.lintText("DateTime.nowUnsafe();", {
+      filePath: PRODUCTION_SOURCE,
+    });
+    expect(result?.messages).toContainEqual(
+      expect.objectContaining({
+        ruleId: "no-restricted-syntax",
+        message: "Use DateTime.now or Clock.currentTimeMillis from the active Effect clock.",
+      }),
+    );
+  });
 });
 
 /**

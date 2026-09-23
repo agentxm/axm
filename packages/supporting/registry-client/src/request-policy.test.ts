@@ -1,4 +1,5 @@
 import * as Deferred from "effect/Deferred";
+import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Ref from "effect/Ref";
@@ -58,6 +59,25 @@ const execute = <A, E, R>(
     mapError,
     policy: options?.policy ?? policy(),
   });
+
+it.effect("supplies the active clock to registry error translation", () =>
+  Effect.gen(function* () {
+    const expected = yield* Clock.currentTimeMillis;
+    const result = yield* executeRegistryRequest(Effect.fail("unavailable"), {
+      operation: "clocked failure",
+      request: requestMetadata,
+      replaySafety: { kind: "mutation" },
+      mapError: (_error, nowMillis) =>
+        new RegistryRequestFailed({
+          category: "unavailable",
+          detail: String(nowMillis),
+        }),
+      policy: policy(),
+    }).pipe(Effect.flip);
+
+    expect(result.detail).toBe(String(expected));
+  }),
+);
 
 const transportError = () =>
   new HttpClientError.HttpClientError({

@@ -94,7 +94,7 @@
     "@types/semver": "catalog:",
     "@typescript-eslint/parser": "catalog:",
     "@typescript/native": "catalog:",
-    "@vitest/coverage-v8": "5.0.0",
+    "@vitest/coverage-v8": "5.0.1",
     "allure": "catalog:",
     "allure-js-commons": "catalog:",
     "allure-vitest": "catalog:",

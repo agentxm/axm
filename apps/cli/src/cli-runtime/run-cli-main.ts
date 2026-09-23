@@ -2,6 +2,7 @@
 import * as Effect from "effect/Effect";
 
 import { handleError } from "./handle-error.js";
+import { isProcessOutcome } from "./process-outcome.js";
 import { withGracefulShutdown } from "./graceful-shutdown.js";
 import { resolveFormatFromArgv } from "./resolve-format.js";
 import { resolveVerbosityFromArgv } from "../cli-flags/resolve-verbosity.js";
@@ -21,17 +22,21 @@ export const resolveCliContext = (args: ReadonlyArray<string>): CliMainContext =
  * adapter only selects the fallback Screen used when bootstrap itself fails.
  */
 export const runCliMain = async (
-  execute: (args: ReadonlyArray<string>) => Effect.Effect<void, unknown, never>,
+  execute: (args: ReadonlyArray<string>) => Effect.Effect<unknown, unknown, never>,
   options?: { readonly args?: ReadonlyArray<string> | undefined },
 ): Promise<void> => {
   const args = options?.args ?? process.argv.slice(2);
   const format = resolveFormatFromArgv(args);
+  let outcome: unknown;
 
   try {
     // eslint-disable-next-line no-restricted-syntax -- runCliMain is the sanctioned CLI process-entry adapter.
-    await Effect.runPromise(withGracefulShutdown(execute(args)));
+    outcome = await Effect.runPromise(withGracefulShutdown(execute(args)));
   } catch (error) {
     // eslint-disable-next-line no-restricted-syntax -- runCliMain is the sanctioned CLI process-entry adapter.
     await Effect.runPromise(handleError(error, format));
+  }
+  if (isProcessOutcome(outcome) && outcome.exitCode !== 0) {
+    process.exit(outcome.exitCode);
   }
 };

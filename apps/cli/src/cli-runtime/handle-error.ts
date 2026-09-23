@@ -15,7 +15,6 @@ import {
 } from "../app-error/index.js";
 import { isKnownFailure, toAppError } from "../app-error/conversions.js";
 import type { OutputFormat } from "./output-mode.js";
-import { isCommandExit } from "./command-exit.js";
 import { makeJsonErrorEnvelope, makeJsonErrorEnvelopeFromAppError } from "./json-envelope.js";
 import {
   InteractiveScreen,
@@ -98,7 +97,6 @@ export const renderAppErrorChannels = (
  * Exit codes:
  * - ShowHelp (no errors) → 0 (help successfully displayed)
  * - ShowHelp (with errors) → 2 (usage — help shown due to invocation error)
- * - CommandExit → custom exit code
  * - CliError → 2 (usage/validation — bad flags, missing args)
  * - Other → 10 (unexpected internal error)
  */
@@ -111,10 +109,6 @@ export const classifyError = (
   },
 ): ErrorClassification => {
   if (error instanceof OutputWriteFailed) return { exitCode: ExitCode.Internal };
-  if (isCommandExit(error)) {
-    return { exitCode: error.exitCode };
-  }
-
   if (error instanceof AppError) {
     return {
       exitCode: exitCodeFor(error.code),

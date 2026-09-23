@@ -32,7 +32,7 @@ export interface WorkspaceInitializationCancelled {
   readonly message: string;
 }
 import { renderAppErrorChannels } from "./handle-error.js";
-import { CommandExit, commandExit, isCommandExit } from "./command-exit.js";
+import { processOutcome, isProcessOutcome } from "./process-outcome.js";
 import { resolveFormat } from "./resolve-format.js";
 import { OperationExit, getOperationExitCode } from "./operation-exit.js";
 import { CommandCompletion } from "./command-completion.js";
@@ -126,7 +126,6 @@ export const writeDefect = (cause: Cause.Cause<unknown>, format: OutputFormat) =
   });
 
 export type ExpectedCliError =
-  | CommandExit
   | OutputWriteFailed
   | AppError
   | KnownFailure
@@ -373,40 +372,36 @@ export const withCliErrorHandling = <A, R>(
     return yield* program.pipe(
       Effect.provideService(CommandCompletion, { record: recordForExit }),
       Effect.tap(() => settleOutput),
-      Effect.tap(() =>
+      Effect.flatMap((value) =>
         Effect.gen(function* () {
           const semanticProperties = yield* getCommandSemanticProperties;
           // An operation resolution's own exit mapping wins verbatim; the
           // semantic-property derivation serves only commands without one.
           const operationExit = Option.getOrUndefined(yield* getOperationExitCode);
-          const semanticExitCode =
-            operationExit !== undefined
-              ? operationExit === 0
-                ? undefined
-                : operationExit
-              : exitCodeForSemanticProperties(semanticProperties);
+          const semanticExitCode = isProcessOutcome(value)
+            ? value.exitCode
+            : (operationExit ??
+              exitCodeForSemanticProperties(semanticProperties) ??
+              ExitCode.Success);
           const causeClass = semanticCause(semanticProperties);
           yield* Ref.set(completionRecorded, true);
           yield* trackCliCommandCompleted({
             command,
-            result: semanticExitCode === undefined ? "success" : "error",
+            result: semanticExitCode === ExitCode.Success ? "success" : "error",
             durationMs: elapsedMilliseconds(startTime, yield* Clock.monotonicTimeNanos),
-            ...(semanticExitCode !== undefined && {
+            ...(semanticExitCode !== ExitCode.Success && {
               errorCode: causeClass ?? "issues",
               errorCategory: causeClass ?? "issues",
             }),
             semanticProperties,
           });
-          if (semanticExitCode !== undefined) {
-            return yield* Effect.fail(commandExit(semanticExitCode));
-          }
+          return processOutcome(semanticExitCode);
         }),
       ),
       Effect.catch((error: ExpectedCliError) => {
-        if (isCommandExit(error)) return settleOutput.pipe(Effect.andThen(Effect.fail(error)));
         if (error instanceof OutputWriteFailed)
           return recordForExit(ExitCode.Internal).pipe(
-            Effect.andThen(Effect.fail(commandExit(ExitCode.Internal))),
+            Effect.as(processOutcome(ExitCode.Internal)),
           );
         const exitCode = defaultExitCodeForExpectedError(error);
         const resolved = expectedErrorToAppError(error);
@@ -440,7 +435,7 @@ export const withCliErrorHandling = <A, R>(
               });
             }),
           ),
-          Effect.andThen(Effect.fail(commandExit(exitCode))),
+          Effect.as(processOutcome(exitCode)),
         );
       }),
       Effect.catchCause((cause) => {
@@ -451,38 +446,7 @@ export const withCliErrorHandling = <A, R>(
           failure.value instanceof OutputWriteFailed
         ) {
           return recordForExit(ExitCode.Internal).pipe(
-            Effect.andThen(Effect.fail(commandExit(ExitCode.Internal))),
-          );
-        }
-        if (!Cause.hasDies(cause) && Option.isSome(failure) && isCommandExit(failure.value)) {
-          const controlled = failure.value;
-          // An operation boundary terminated with its own exit (blocked,
-          // interrupted, contention). It already emitted its document; the
-          // completion event is still owed here, once — uninterruptibly, since
-          // a signal-delivered interrupt is still pending on this fiber.
-          return Effect.uninterruptible(
-            Effect.gen(function* () {
-              if (!(yield* Ref.get(completionRecorded))) {
-                const semanticProperties = yield* getCommandSemanticProperties;
-                const causeClass = semanticCause(semanticProperties);
-                yield* Ref.set(completionRecorded, true);
-                yield* trackCliCommandCompleted({
-                  command,
-                  result:
-                    controlled.exitCode === 130 || controlled.exitCode === 143
-                      ? "cancelled"
-                      : controlled.exitCode === 0
-                        ? "success"
-                        : "error",
-                  durationMs: elapsedMilliseconds(startTime, yield* Clock.monotonicTimeNanos),
-                  ...(causeClass === undefined
-                    ? {}
-                    : { errorCode: causeClass, errorCategory: causeClass }),
-                  semanticProperties,
-                });
-              }
-              return yield* Effect.failCause(cause);
-            }),
+            Effect.as(processOutcome(ExitCode.Internal)),
           );
         }
         if (Cause.hasInterruptsOnly(cause)) {
@@ -503,7 +467,7 @@ export const withCliErrorHandling = <A, R>(
               });
             }),
           ),
-          Effect.andThen(Effect.fail(commandExit(ExitCode.Internal))),
+          Effect.as(processOutcome(ExitCode.Internal)),
         );
       }),
     );
@@ -514,12 +478,14 @@ export const withCliErrorHandling = <A, R>(
     const operationExit = Option.isSome(inherited)
       ? inherited.value
       : { ref: yield* Ref.make(Option.none<number>()) };
-    return yield* enrichedProgram.pipe(
+    const outcome = yield* enrichedProgram.pipe(
       Effect.provide(
         Layer.mergeAll(telemetryLayer, CommandSemanticPropertiesLive, ProductActivityLive),
       ),
       Effect.provideService(OperationExit, operationExit),
     );
+    yield* Ref.set(operationExit.ref, Option.some(outcome.exitCode));
+    return outcome;
   });
 };
 

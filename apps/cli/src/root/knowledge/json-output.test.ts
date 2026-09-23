@@ -3,14 +3,11 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
-import * as Cause from "effect/Cause";
 import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
-
-import { isCommandExit } from "../../cli-runtime/index.js";
 
 import {
   managerLifecycleStubs,
@@ -127,16 +124,11 @@ describe("knowledge JSON output", () => {
       Effect.gen(function* () {
         const exit = yield* handleKnowledgeLint(undefined, "pkg").pipe(Effect.exit);
 
-        // Exactly one rendered document, and the non-zero exit travels as an
-        // CommandExit defect, which withCliErrorHandling passes through
-        // instead of writing a second JSON error envelope.
+        // The non-zero verdict is returned with the one rendered document.
         expect(rendererState.results).toHaveLength(1);
         expect(rendererState.results[0]?.data).toMatchObject({ valid: false });
         expect(rendererState.results[0]?.ok).toBe(false);
-        expect(Exit.isFailure(exit)).toBe(true);
-        if (Exit.isFailure(exit)) {
-          expect(isCommandExit(Cause.squash(exit.cause))).toBe(true);
-        }
+        expect(exit).toEqual(Exit.succeed({ _tag: "ProcessOutcome", exitCode: 1 }));
       }),
     );
   });
@@ -156,7 +148,7 @@ describe("knowledge JSON output", () => {
       return provide(
         Effect.gen(function* () {
           const malformed = yield* handleKnowledgeLint(undefined, "pkg").pipe(Effect.exit);
-          expect(Exit.isFailure(malformed)).toBe(true);
+          expect(malformed).toEqual(Exit.succeed({ _tag: "ProcessOutcome", exitCode: 1 }));
           expect(rendererState.results[0]?.data).toMatchObject({ valid: false });
           expect(rendererState.results[0]?.data).toMatchObject({
             diagnostics: expect.arrayContaining([
@@ -292,7 +284,7 @@ describe("knowledge JSON output", () => {
           "---\ntype: policy\ndescription: Auth policy\ntags: [auth]\nresource: ../outside.md\n---\n# Auth\n",
         );
         const errorExit = yield* handleKnowledgeLint(undefined, "pkg").pipe(Effect.exit);
-        expect(Exit.isFailure(errorExit)).toBe(true);
+        expect(errorExit).toEqual(Exit.succeed({ _tag: "ProcessOutcome", exitCode: 1 }));
         expect(rendererState.results[1]?.data).toMatchObject({
           valid: false,
           diagnostics: [expect.objectContaining({ code: "escaping-resource", severity: "error" })],

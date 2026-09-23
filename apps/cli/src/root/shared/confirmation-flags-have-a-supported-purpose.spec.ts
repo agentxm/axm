@@ -189,7 +189,7 @@ describe("Advance approval", () => {
             agents: ["claude-code"],
           }).pipe(Effect.provide(context.layer), Effect.exit);
 
-          expect(Exit.isFailure(exit)).toBe(true);
+          expect(exit).toEqual(Exit.succeed({ _tag: "ProcessOutcome", exitCode: 2 }));
           const entry = context.rendererState.results.at(-1);
           expect(entry?.ok).toBe(false);
           expect(entry?.data).toMatchObject({

@@ -7,8 +7,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { AppError, exitCodeFor } from "../../app-error/index.js";
 import { acceptWarningsFlag, isNonInteractive, jsonFlag } from "../../cli-flags/index.js";
 import {
-  commandExit,
-  CommandExit,
+  processOutcome,
   recordCommandCompletion,
   setOperationExitCode,
   withArgvTracking,
@@ -207,11 +206,8 @@ const reportPublishOutcome = Effect.fn("Publish.report")(function* (
     yield* recordCommandCompletion(exitCode);
     return yield* Effect.interrupt;
   }
-  if (outcome.disposition._tag === "Failed") {
-    // A reported outcome already carries the verdict and its recoveries, so
-    // the invocation ends with its exit code rather than a second report.
-    return yield* Effect.fail(commandExit(exitCode));
-  }
+  // The rendered outcome already carries the verdict and recoveries.
+  return processOutcome(exitCode);
 });
 
 /**
@@ -233,7 +229,7 @@ export const handleRootPublish = Effect.fn("Publish.handle")(
   function* (args: RootPublishHandlerArgs) {
     const startedAtMs = yield* Clock.currentTimeMillis;
     const unattended = Option.getOrElse(yield* jsonFlag, () => false) || (yield* isNonInteractive);
-    yield* withLiveOperation(
+    return yield* withLiveOperation(
       {
         command: "publish",
         name: "Publish extensions",
@@ -272,13 +268,10 @@ export const handleRootPublish = Effect.fn("Publish.handle")(
     );
   },
   Effect.mapError((failure) =>
-    failure instanceof AppError ||
-    failure instanceof CommandExit ||
-    failure instanceof OutputWriteFailed
+    failure instanceof AppError || failure instanceof OutputWriteFailed
       ? failure
       : publishFailureToAppError(failure),
   ),
-  Effect.asVoid,
 );
 
 const publishConfig = {

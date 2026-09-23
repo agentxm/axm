@@ -91,7 +91,7 @@ describe("Safe human Knowledge output", () => {
     return workspace.provide(
       Effect.gen(function* () {
         const exit = yield* Effect.exit(handleKnowledgeConceptResolve("Session", true));
-        expect(Exit.isFailure(exit)).toBe(true);
+        expect(exit).toEqual(Exit.succeed({ _tag: "ProcessOutcome", exitCode: 6 }));
         const output = workspace.streams?.lines("stdout").join("\n");
         expect(output).toContain("Café one");
         expect(output).toContain("Café two");

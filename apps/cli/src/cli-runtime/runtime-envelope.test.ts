@@ -19,7 +19,7 @@ import { verboseFlag, debugFlag, quietFlag, jsonFlag } from "../cli-flags/index.
 import { nonInteractiveFlag } from "../cli-flags/index.js";
 import { ExitCode, makeAppError } from "../app-error/index.js";
 import * as Data from "effect/Data";
-import { commandExit, isCommandExit } from "./command-exit.js";
+import { processOutcome } from "./process-outcome.js";
 import { captureTelemetry } from "../test-support/telemetry-harness.js";
 import {
   exitCodeForSemanticProperties,
@@ -457,25 +457,39 @@ describe("withCliErrorHandling cancellation", () => {
   );
 
   for (const outcome of [
-    { failure: commandExit(0), result: "success", exitCode: 0 },
-    { failure: commandExit(2), result: "error", exitCode: 2 },
     {
-      failure: new QuestionCancelled({ message: "Operation cancelled." }),
+      program: Effect.succeed(processOutcome(0)),
+      tag: "ProcessOutcome",
+      result: "success",
+      exitCode: 0,
+    },
+    {
+      program: Effect.succeed(processOutcome(2)),
+      tag: "ProcessOutcome",
+      result: "error",
+      exitCode: 2,
+    },
+    {
+      program: Effect.fail(new QuestionCancelled({ message: "Operation cancelled." })),
+      tag: "QuestionCancelled",
       result: "cancelled",
       exitCode: 0,
     },
     {
-      failure: new ConfigError(new SourceError({ message: "Configuration source unavailable" })),
+      program: Effect.fail(
+        new ConfigError(new SourceError({ message: "Configuration source unavailable" })),
+      ),
+      tag: "ConfigError",
       result: "error",
       exitCode: ExitCode.Unavailable,
     },
   ]) {
     it.effect(
-      `records ${outcome.failure._tag} (${outcome.exitCode}) as ${outcome.result}, never a defect`,
+      `records ${outcome.tag} (${outcome.exitCode}) as ${outcome.result}, never a defect`,
       () =>
         Effect.gen(function* () {
           const capture = captureTelemetry();
-          const exit = yield* withCliErrorHandling(Effect.fail(outcome.failure), {
+          const exit = yield* withCliErrorHandling(outcome.program, {
             command: "test",
             format: "text",
             telemetryConfig: {
@@ -486,14 +500,7 @@ describe("withCliErrorHandling cancellation", () => {
               eventIdFactory: () => "00000000-0000-4000-8000-000000000002",
             },
           }).pipe(Effect.provideService(HttpClient.HttpClient, capture.client), Effect.exit);
-          expect(Exit.isFailure(exit)).toBe(true);
-          if (Exit.isFailure(exit)) {
-            expect(Cause.hasDies(exit.cause)).toBe(false);
-            expect(Option.getOrUndefined(Cause.findErrorOption(exit.cause))).toMatchObject({
-              _tag: "CommandExit",
-              exitCode: outcome.exitCode,
-            });
-          }
+          expect(exit).toEqual(Exit.succeed(processOutcome(outcome.exitCode)));
           expect(capture.requests.map((request) => request.body)).toEqual(
             expect.arrayContaining([
               expect.objectContaining({
@@ -546,14 +553,7 @@ describe("withCliErrorHandling cancellation", () => {
         format: "text",
         telemetryConfig: { mode: "off", client: { name: "cli", version: "0.0.0" } },
       }).pipe(Effect.exit);
-      expect(Exit.isFailure(exit)).toBe(true);
-      if (Exit.isFailure(exit)) {
-        expect(Cause.hasDies(exit.cause)).toBe(false);
-        expect(Option.getOrUndefined(Cause.findErrorOption(exit.cause))).toMatchObject({
-          _tag: "CommandExit",
-          exitCode: ExitCode.Unavailable,
-        });
-      }
+      expect(exit).toEqual(Exit.succeed(processOutcome(ExitCode.Unavailable)));
       expect(stdoutWrites).toEqual(["credential\n"]);
       expect(stderrWrites.join("")).toContain("was revoked");
       expect(stderrWrites.join("")).not.toContain("private credential detail");
@@ -610,14 +610,7 @@ describe("withCliErrorHandling cancellation", () => {
           format: "text",
           telemetryConfig: { mode: "off", client: { name: "cli", version: "0.0.0" } },
         }).pipe(Effect.exit);
-        expect(Exit.isFailure(exit)).toBe(true);
-        if (Exit.isFailure(exit)) {
-          expect(Cause.hasDies(exit.cause)).toBe(false);
-          expect(Option.getOrUndefined(Cause.findErrorOption(exit.cause))).toMatchObject({
-            _tag: "CommandExit",
-            exitCode: ExitCode.Internal,
-          });
-        }
+        expect(exit).toEqual(Exit.succeed(processOutcome(ExitCode.Internal)));
         expect(stdoutWrites.length + stderrWrites.length).toBe(1);
         expect(stdoutWrites.concat(stderrWrites).join("")).not.toContain("sensitive stream detail");
       }).pipe(
@@ -650,15 +643,7 @@ describe("withCliErrorHandling cancellation", () => {
           },
         ).pipe(Effect.exit);
 
-        expect(Exit.isFailure(exit)).toBe(true);
-        if (Exit.isFailure(exit)) {
-          expect(Cause.hasDies(exit.cause)).toBe(false);
-          const defect = Option.getOrUndefined(Cause.findErrorOption(exit.cause));
-          expect(isCommandExit(defect)).toBe(true);
-          if (isCommandExit(defect)) {
-            expect(defect.exitCode).toBe(ExitCode.Success);
-          }
-        }
+        expect(exit).toEqual(Exit.succeed(processOutcome(ExitCode.Success)));
         expect(stdoutWrites).toEqual([]);
         expect(stderrWrites).toEqual([]);
       }).pipe(

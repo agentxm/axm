@@ -8,6 +8,7 @@ import * as Cause from "effect/Cause";
 import * as Console from "effect/Console";
 import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import { CliError, CliOutput, Command } from "effect/unstable/cli";
 import { format as formatConsoleArgs } from "node:util";
 
@@ -27,7 +28,8 @@ import {
   outputSelectorsFromArgv,
   resolveFormatFromArgv,
   runCliMain,
-  type CommandExit,
+  processOutcome,
+  getOperationExitCode,
 } from "./cli-runtime/index.js";
 
 import { LearnMore, formatLearnMore, makeAxmFormatter } from "./formatter.js";
@@ -74,7 +76,7 @@ import {
 
 const ROOT_COMMAND = "axm";
 const version = loadVersion();
-type CommandProgramError = AppError | CliError.CliError | CommandExit | OutputWriteFailed;
+type CommandProgramError = AppError | CliError.CliError | OutputWriteFailed;
 
 const helpCommand = makeHelpCommand(() => rootCommand);
 
@@ -234,6 +236,8 @@ const runCommand = (argv: ReadonlyArray<string>, isJson: boolean) =>
     }
 
     if (Exit.isFailure(exit)) return yield* Effect.failCause(exit.cause);
+    const exitCode = yield* getOperationExitCode;
+    return processOutcome(Option.getOrElse(exitCode, () => 0));
   });
 
 /**

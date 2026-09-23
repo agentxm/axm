@@ -10,7 +10,7 @@ import { observeUnit } from "@agentxm/workspace/transitions/planning";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 import { emitResult, inventoryDoc, type ViewColumn } from "../../../screen/index.js";
-import { withArgvTracking } from "../../../cli-runtime/index.js";
+import { processOutcome, withArgvTracking } from "../../../cli-runtime/index.js";
 import {
   readOnlyCapabilities,
   withCommandCapabilities,
@@ -73,6 +73,7 @@ export const handleKnowledgeConceptSearch = Effect.fn("Knowledge.concepts.search
       empty: "No installed knowledge concepts matched",
     });
   });
+  return processOutcome(0);
 });
 
 const searchConfig = {

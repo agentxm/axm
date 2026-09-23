@@ -274,6 +274,17 @@ reuse for the nested invocation and check that the prepared runtime file keeps
 its inode and modification time. The standalone targets declare `^build`;
 `axm:test` satisfies those prerequisites before the command tests execute.
 
+Separate Nx invocations do not share a task graph. Library `build` targets
+compile with `@nx/js:tsc` and `clean: true`, so every run deletes its `dist`
+before writing it. Two overlapping invocations that both schedule the same
+build — a focused test and a typecheck that each need `workspace:build`, for
+example — race on that directory: one fails with `ENOTEMPTY` while removing it,
+or a dependent typecheck reports `TS6305` for declarations that are briefly
+absent. Run such invocations one after another, or submit their targets in one
+invocation (`pnpm exec nx run-many -t typecheck test -p cli workspace`) so Nx
+builds the shared prerequisite once. Output cleaning stays on because it keeps
+deleted sources from surviving in `dist`.
+
 Cached test outputs are evidence from the execution that originally produced
 their task hash. A cache replay is the same input-bound verdict, not a new
 execution on the restoring host. Broad verification submits lint, typecheck,

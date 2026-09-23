@@ -89,6 +89,40 @@ and need not equal the squash commit.
   replacement merge-group SHA as the authoritative integration candidate. No
   author-managed refresh is required unless GitHub reports an actual conflict.
 
+## Recover a locked or missing entry
+
+Read the pull request's queue state before acting:
+
+```bash
+gh api graphql \
+  -f query='query($owner: String!, $repo: String!, $number: Int!) { repository(owner: $owner, name: $repo) { pullRequest(number: $number) { mergeStateStatus autoMergeRequest { enabledAt } mergeQueueEntry { position state } } } }' \
+  -f owner=agentxm -f repo=axm -F number=<number>
+```
+
+- A queued source branch rejects pushes with `GH006` until its entry leaves
+  the queue. To change it, dequeue the pull request, push, let the ordinary
+  pull-request `Required CI` pass on the new head, and enqueue it again:
+
+  ```bash
+  gh api graphql \
+    -f query='mutation($id: ID!) { dequeuePullRequest(input: { id: $id }) { clientMutationId } }' \
+    -f id="$(gh pr view <number> --repo agentxm/axm --json id --jq .id)"
+  ```
+
+- Auto-merge can stay enabled on a pull request whose required checks passed
+  and whose `mergeStateStatus` is `CLEAN` without GitHub creating an entry
+  (`mergeQueueEntry` is `null`). Submitting it again while auto-merge is
+  enabled does not enqueue it. Disable auto-merge, then submit the pull request
+  without a merge strategy; with required checks passed, GitHub adds it to the
+  queue, which applies the queue's squash method:
+
+  ```bash
+  gh pr merge <number> --repo agentxm/axm --disable-auto
+  gh pr merge <number> --repo agentxm/axm --match-head-commit <accepted-head-sha>
+  ```
+
+  Read the queue state again and confirm `mergeQueueEntry` reports a position.
+
 ## Controlled verification and rollback
 
 After initial activation or a material workflow/settings change, enqueue two

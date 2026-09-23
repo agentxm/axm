@@ -96,6 +96,7 @@ import { planSubagentInstall } from "../../subagents/lifecycle/install/plan.js";
 import { buildAggregateProjectionStep } from "./aggregate-projection-step.js";
 import { inlineMcpNotApplicablePlan } from "./inline-mcp-operation.js";
 import {
+  INSTALL_HELD_RELEASE_POLICY,
   installRefused,
   type InstallStepRequirements,
   type PackInstallIntent,
@@ -258,9 +259,10 @@ interface ConfiguredPackIntentArgs {
 /**
  * The intent one configured Pack settles to: an accepted Pack is restored
  * from its accepted archive and replays its accepted members, and any other
- * configured Pack resolves through its configured source. A held-back
- * release preserves a complete usable graph or blocks. Install and sync
- * recovery both take their Pack intent from here.
+ * configured Pack resolves through its configured source. The intent
+ * carries the install's declared held-release policy, so a held-back release
+ * preserves a complete usable graph or blocks. Install and sync recovery both
+ * take their Pack intent from here.
  */
 export const prepareConfiguredPackIntent: (args: ConfiguredPackIntentArgs) => Effect.Effect<
   Effect.Effect<
@@ -287,10 +289,9 @@ export const prepareConfiguredPackIntent: (args: ConfiguredPackIntentArgs) => Ef
   }).pipe(Effect.mapError(resolutionFailed(args.name)));
 
   const shared = {
-    unattended: true,
     nonInteractive: args.nonInteractive,
     releaseAgeEvaluation: args.releaseAgeEvaluation,
-    releaseAgeHoldbackBehavior: "preserve-or-block" as const,
+    heldRelease: INSTALL_HELD_RELEASE_POLICY,
     ...(args.forceCanonical === true ? { forceCanonical: true } : {}),
     ...(args.deferProjections === true ? { deferProjections: true } : {}),
   };
@@ -800,13 +801,17 @@ export const buildConfiguredInstallPlan: (
 > = Effect.fn("InstallExtensions.buildConfiguredInstallPlan")(function* (
   args: ConfiguredInstallRequest,
 ) {
+  // An unreadable window is the setting's own validation refusal; it travels
+  // unchanged so every path reports the same fact.
   const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation().pipe(
     Effect.mapError((cause) =>
-      installRefused({
-        category: "internal",
-        detail: "Release-age policy could not be evaluated",
-        cause,
-      }),
+      cause._tag === "ExtensionResolutionFailed"
+        ? cause
+        : installRefused({
+            category: "internal",
+            detail: "Release-age policy could not be evaluated",
+            cause,
+          }),
     ),
   );
   const selectedTypes = installableExtensionTypes.filter((type) =>

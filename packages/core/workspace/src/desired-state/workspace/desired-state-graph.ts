@@ -398,7 +398,7 @@ export const collectDesiredConstraintContributors = (
       return [
         {
           source: "pack",
-          dependingPack: origin.pack.replace(/^workspace:/, ""),
+          dependingPack: packageIdentity(origin.pack),
           range: origin.constraint,
           location: origin.manifestPath,
         },
@@ -408,7 +408,7 @@ export const collectDesiredConstraintContributors = (
 
 const contributorOwner = (contributor: DesiredConstraintContributor): string =>
   contributor.source === "pack"
-    ? `pack:${(contributor.dependingPack ?? "").replace(/^workspace:/u, "")}`
+    ? `pack:${packageIdentity(contributor.dependingPack ?? "")}`
     : `settings:${contributor.localName ?? ""}`;
 
 const decodeRange = Schema.decodeUnknownOption(VersionRangeSchema);
@@ -482,6 +482,32 @@ export const effectiveDesiredConstraint = (
     sortConstraintContributors([...current, ...proposed]),
   );
 };
+
+/**
+ * A node's origins apart from the excluded Packs. Pack identities compare
+ * without the `workspace:` prefix, so an authored Pack and the identity a
+ * caller names for it are one Pack.
+ */
+export const originsOutsidePacks = (
+  node: Pick<DesiredExtensionNode, "origins">,
+  excluding: Iterable<string>,
+): ReadonlyArray<DesiredExtensionOrigin> => {
+  const excluded = new Set([...excluding].map(packageIdentity));
+  return node.origins.filter(
+    (origin) => origin.type !== "pack" || !excluded.has(packageIdentity(origin.pack)),
+  );
+};
+
+/**
+ * Whether something other than the excluded Packs still requires this node:
+ * its direct declaration or another Pack. Removing, replacing, or disabling
+ * the excluded Packs leaves such a node desired, so it is retained rather
+ * than retired.
+ */
+export const isRequiredByAnotherOrigin = (
+  node: Pick<DesiredExtensionNode, "origins">,
+  excluding: Iterable<string>,
+): boolean => originsOutsidePacks(node, excluding).length > 0;
 
 const parsePackManifest = (raw: string) => {
   let parsed: unknown;

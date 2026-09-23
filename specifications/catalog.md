@@ -761,7 +761,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 
 - Requirement: `cli/demote/replaces-workspace-source-with-selected-source`
 - Owner: `workspace`
-- Statement: When a person demotes a workspace-authored extension to a valid external source, AXM shall replace workspace source authority with that source and its content while preserving the configured activation state, and shall refuse a workspace replacement source or a target that is not workspace authored.
+- Statement: When a person demotes a workspace-authored extension to a valid external source, AXM shall replace workspace source authority with that source and its content, selecting within the effective constraint the replacement's range and every Pack that requires the extension intersect, while preserving the configured activation state, and shall refuse a workspace replacement source, a target that is not workspace authored, or a replacement whose effective constraint admits no version.
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
@@ -3196,7 +3196,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/activation-follows-desired-state`
 - Owner: `workspace`
-- Statement: When a desired leaf extension is disabled or enabled, including one reached only through a Pack, AXM shall record an activation preference that takes precedence over inherited activation, realize its resulting agent surfaces, and preserve its canonical content and accepted resolution; Pack activation shall preserve the Pack itself while realizing or withdrawing its dependency route, retiring exclusively unreachable acquired members, and retaining members reached elsewhere; re-enabling a Skill shall restore its entry document byte for byte for every agent surface, whichever entry-document format the Skill was authored in.
+- Statement: When a desired leaf extension is disabled or enabled, including one reached only through a Pack, AXM shall record an activation preference that takes precedence over inherited activation, realize its resulting agent surfaces, and preserve its canonical content and accepted resolution; Pack activation shall preserve the Pack itself while realizing or withdrawing its dependency route, retiring exclusively unreachable acquired members, and retaining members reached elsewhere, and enabling a Pack whose member would have an effective constraint no version satisfies shall change nothing and report that conflict; re-enabling a Skill shall restore its entry document byte for byte for every agent surface, whichever entry-document format the Skill was authored in.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `agent-interoperability`

@@ -24,11 +24,13 @@ export {
 } from "./errors.js";
 
 export {
+  type HeldReleasePolicy,
   type ReleaseAgeBypassRecord,
   type ReleaseAgeHoldbackRecord,
   type ReleaseAgeOperationEvidence,
   type ReleaseAgeRecord,
   type ReleaseAgeRecordBase,
+  type ReleaseAgeRecordSubject,
   filterMatureVersions,
   formatMinimumReleaseAgeSeconds,
   isVersionEntryEligibleAt,
@@ -38,6 +40,8 @@ export {
   releaseAgeEvidence,
   releaseAgeExemptionForIdentity,
   releaseAgeHoldbackWarning,
+  releaseAgeRecord,
+  releaseAgeRecords,
 } from "./release-age-policy.js";
 export {
   type ReleaseAgeVersionResolution,
@@ -115,7 +119,6 @@ export {
   type ResolvedPackDependencyMap,
 } from "./resolved-pack-dependency.js";
 export {
-  resolvePackDependencies,
   resolvePackDependenciesWithReleaseAge,
   type PackDependencyRefResolver,
   type PackMemberRangeResolver,

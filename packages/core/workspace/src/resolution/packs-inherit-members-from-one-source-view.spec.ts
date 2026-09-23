@@ -7,6 +7,8 @@ import { pathToFileURL } from "node:url";
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, describe, expect, it } from "@effect/vitest";
+import * as DateTime from "effect/DateTime";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -18,7 +20,7 @@ import type { FindOptions } from "@agentxm/extension-model/unstable/sources/sour
 import type { GitSource, LocalSource } from "@agentxm/extension-model/unstable/sources/types";
 
 import { PackLockEntrySchema } from "../desired-state/lockfile/schema.js";
-import { resolvePackDependencies } from "./pack-dependency-resolution.js";
+import { resolvePackDependenciesWithReleaseAge } from "./pack-dependency-resolution.js";
 import {
   createGitSourceHostProvider,
   createLocalSourceHostProvider,
@@ -89,6 +91,13 @@ const noReacquisition: SourceHostProvidersService = {
   origin: () => "fixture",
 };
 
+/** Captured source members carry no release dates, so the evaluation decides nothing. */
+const releaseAgeEvaluation = {
+  minimumReleaseAge: Duration.hours(24),
+  evaluatedAt: DateTime.makeUnsafe("2026-08-12T00:00:00Z"),
+  mode: "enforce" as const,
+};
+
 const onePack = (refs: ReadonlyArray<PackRef>): PackRef => {
   const pack = refs[0];
   if (pack === undefined) throw new Error("Expected one discovered Pack");
@@ -156,9 +165,17 @@ describe("source-inherited Pack members", () => {
           .find(localSource, findOptions)
           .pipe(Effect.provide(NodeServices.layer));
         const localPack = onePack(localRefs.filter((ref): ref is PackRef => ref.type === "pack"));
-        const resolved = yield* resolvePackDependencies(localPack, noReacquisition);
-        expect(resolved.resolvedSkills["@acme/skills/review"]).toEqual({ source: "local" });
-        expect(resolved.dependencyRefs).toHaveLength(1);
+        const resolved = yield* resolvePackDependenciesWithReleaseAge(
+          localPack,
+          noReacquisition,
+          releaseAgeEvaluation,
+        );
+        expect(resolved).toMatchObject({ kind: "selected", holdbacks: [], bypasses: [] });
+        if (resolved.kind !== "selected") return;
+        expect(resolved.dependencies.resolvedSkills["@acme/skills/review"]).toEqual({
+          source: "local",
+        });
+        expect(resolved.dependencies.dependencyRefs).toHaveLength(1);
       }),
   );
 });

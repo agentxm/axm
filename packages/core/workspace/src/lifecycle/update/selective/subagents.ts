@@ -26,7 +26,6 @@ import {
   parseSourceQualifiedRegistrySourcePatternParts,
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
-import type { ReleaseAgeEvidence } from "@agentxm/extension-model/unstable/extensions/release-age";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -38,6 +37,8 @@ import {
   normalizeReleaseAgeRecords,
   publisherTransitionWarning,
   registryBindingProposal,
+  releaseAgeRecord,
+  releaseAgeRecords,
   type PublisherBindingTransition,
   type ReleaseAgeBypassRecord,
   type ReleaseAgeRecord,
@@ -51,7 +52,11 @@ import {
   type Plan,
   type PlannedJobStep,
 } from "../../../transitions/planning/index.js";
-import { acceptedResolutionRef, configuredRowsByName } from "../../../desired-state/index.js";
+import {
+  acceptedResolutionRef,
+  acquisitionConfiguredEntries,
+  configuredRowsByName,
+} from "../../../desired-state/index.js";
 
 import { ExtensionLifecycleFailed } from "../../errors.js";
 import { withPublisherTrustConditions } from "../../publisher-binding.js";
@@ -142,23 +147,6 @@ const toRegistrySubagentPattern = (source: string) => {
   return Option.some(parsed);
 };
 
-const releaseAgeRecord = (args: {
-  readonly target: string;
-  readonly requestedRange?: string;
-  readonly selectedVersion?: string;
-  readonly evidence: ReleaseAgeEvidence;
-}): ReleaseAgeRecord => ({
-  reason: "minimum-release-age",
-  target: args.target,
-  dependencyPath: [args.target],
-  ...(args.requestedRange === undefined ? {} : { requestedRange: args.requestedRange }),
-  ...(args.selectedVersion === undefined ? {} : { selectedVersion: args.selectedVersion }),
-  candidateVersion: args.evidence.version,
-  publishedAt: args.evidence.publishedAt,
-  eligibleAt: args.evidence.eligibleAt,
-  minimumReleaseAgeSeconds: args.evidence.minimumReleaseAgeSeconds,
-});
-
 /** Settle a `subagents update` request: decide everything, write nothing. */
 export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate.prepare")(
   function* (request: SelectiveSubagentUpdateRequest) {
@@ -171,11 +159,9 @@ export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate
     const allSubagents = yield* records.rows("subagent").pipe(Effect.map(configuredRowsByName));
     const lockedSubagents = yield* lockfile.entries("subagent");
 
-    const subagentEntries: ReadonlyArray<SelectiveUpdateEntry> = Object.entries(
+    const subagentEntries: ReadonlyArray<SelectiveUpdateEntry> = acquisitionConfiguredEntries(
       allSubagents,
-    ).flatMap(([name, entry]) =>
-      entry.enabled && entry.source !== undefined ? [[name, entry.source]] : [],
-    );
+    ).flatMap(([name, entry]) => (entry.source === undefined ? [] : [[name, entry.source]]));
 
     if (subagentEntries.length === 0) {
       return {
@@ -266,43 +252,21 @@ export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate
               return {
                 type: "match",
                 ref: registryResolution.ref,
-                holdbacks:
-                  registryResolution.kind === "exempted" ||
-                  registryResolution.newerHeld === undefined
-                    ? []
-                    : [
-                        releaseAgeRecord({
-                          target: registryResolution.target,
-                          ...(requestedRange === undefined ? {} : { requestedRange }),
-                          selectedVersion: registryResolution.ref.version,
-                          evidence: registryResolution.newerHeld,
-                        }),
-                      ],
-                ...(registryResolution.kind === "selected"
-                  ? {}
-                  : {
-                      bypasses: [
-                        {
-                          ...releaseAgeRecord({
-                            target: registryResolution.target,
-                            ...(requestedRange === undefined ? {} : { requestedRange }),
-                            selectedVersion: registryResolution.ref.version,
-                            evidence: registryResolution.bypassed,
-                          }),
-                          ...registryResolution.exemption,
-                        },
-                      ],
-                    }),
+                ...releaseAgeRecords(
+                  { target: registryResolution.target, requestedRange },
+                  registryResolution,
+                  registryResolution.ref.version,
+                ),
               } satisfies ResolveResult;
             }
             if (registryResolution.kind === "policy_held") {
-              const holdback = releaseAgeRecord({
-                target: registryResolution.target,
-                ...(registryResolution.requestedRange === undefined
-                  ? {}
-                  : { requestedRange: registryResolution.requestedRange }),
-                evidence: registryResolution.candidate,
-              });
+              const holdback = releaseAgeRecord(
+                {
+                  target: registryResolution.target,
+                  requestedRange: registryResolution.requestedRange,
+                },
+                registryResolution.candidate,
+              );
               return {
                 type: "skip",
                 name,

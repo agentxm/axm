@@ -47,18 +47,10 @@ import { buildInstallOperation, targetFromRef } from "./extensions/operations.js
 import {
   makeConfiguredReleaseAgeEvaluation,
   normalizeReleaseAgeRecords,
-  resolvePackDependenciesWithReleaseAge,
 } from "../resolution/index.js";
 import { prepareConfiguredPackIntent } from "../lifecycle/install/configured.js";
 import type { ExtensionLifecycleFailed } from "../lifecycle/errors.js";
-import {
-  heldPackGraphPreservable,
-  packMemberConflicts,
-  packMemberRangeResolver,
-  readProposedGraph,
-  scanWorkspaceAuthority,
-} from "../packs/lifecycle/install/plan.js";
-import { SourceHostProviders } from "../resolution/sources/index.js";
+import { readProposedGraph, selectPackGraph } from "../packs/lifecycle/install/plan.js";
 import { withPackRegistryIndexMemo } from "../resolution/sources/providers/registry/index-memo.js";
 import {
   acceptedCanonicalObservation,
@@ -67,7 +59,7 @@ import {
   computeMaterializedTreeIntegrity,
   computeExtensionPathsForLayout,
   desiredStateProblemsText,
-  enabledConfiguredEntries,
+  acquisitionConfiguredEntries,
   LockfileReader,
   SettingsReader,
   WorkspaceLocation,
@@ -93,16 +85,6 @@ import {
   type SyncSelection,
 } from "./materialize.js";
 import { SYNC_RECOVERY_IDS, type SyncStepRequirements } from "./plan.js";
-
-/** Members a Pack may contribute; a Pack never depends on another Pack. */
-const RECOVERABLE_DEPENDENCY_TYPES = [
-  "skill",
-  "subagent",
-  "mcp-server",
-  "rule",
-  "hook",
-  "knowledge",
-] as const;
 
 const recoveryStep = (args: {
   readonly ref: ExtensionRef;
@@ -218,11 +200,12 @@ export const collectConfiguredPackRecovery = (args: {
     );
     if (packNames.size === 0) return undefined;
 
-    const sources = yield* SourceHostProviders;
     const requestBudget = yield* Effect.serviceOption(OperationRequestBudget);
     const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation();
     const configured = yield* settings.entries("pack");
-    const entries = enabledConfiguredEntries(configured).filter(([name]) => packNames.has(name));
+    const entries = acquisitionConfiguredEntries(configured).filter(([name]) =>
+      packNames.has(name),
+    );
 
     const concurrency = Option.isSome(requestBudget) ? requestBudget.value.capacity : 1;
     const preparedPacks = yield* Effect.forEach(
@@ -290,36 +273,28 @@ export const collectConfiguredPackRecovery = (args: {
             bypasses: packBypasses,
           });
 
-          const conflicts = packMemberConflicts(packRef, proposedGraph);
-          if (conflicts.length > 0) {
+          // The one Pack graph selection install and update also render: the
+          // same authority, constraint gate, member resolver, and the
+          // install's declared held-release policy.
+          const selection = yield* selectPackGraph({ ...intent, desiredGraph: proposedGraph }).pipe(
+            Effect.catchTag("ExtensionLifecycleFailed", (failure) =>
+              Effect.fail(recoveryRefused(failure)),
+            ),
+          );
+          if (selection.kind === "authority-blocked") {
+            return blocked(selection.blockers.map((fact) => fact.detail).join("; "));
+          }
+          if (selection.kind === "constraint-blocked") {
             return blocked(
-              `Configured constraints are unsatisfiable: ${desiredStateProblemsText(conflicts)}`,
+              `Configured constraints are unsatisfiable: ${desiredStateProblemsText(selection.conflicts)}`,
             );
           }
-          const authority = yield* scanWorkspaceAuthority(packRef).pipe(
-            Effect.mapError(recoveryRefused),
-          );
-          if (authority.blockers.length > 0) {
-            return blocked(authority.blockers.map((fact) => fact.detail).join("; "));
-          }
-          const expansion = yield* resolvePackDependenciesWithReleaseAge(
-            packRef,
-            sources,
-            releaseAgeEvaluation,
-            undefined,
-            authority.workspaceResolver,
-            intent.dependencyResolver,
-            packMemberRangeResolver(packRef, proposedGraph),
-          );
-          if (expansion.kind === "policy_held") {
-            const preservable =
-              intent.releaseAgeHoldbackBehavior === "preserve-or-block" &&
-              (yield* heldPackGraphPreservable(intent).pipe(Effect.mapError(recoveryRefused)));
-            const held = {
-              holdbacks: [...packHoldbacks, ...expansion.holdbacks],
-              bypasses: [...packBypasses, ...expansion.bypasses],
-            };
-            return preservable
+          const held = {
+            holdbacks: [...packHoldbacks, ...selection.holdbacks],
+            bypasses: [...packBypasses, ...selection.bypasses],
+          };
+          if (selection.kind === "held") {
+            return selection.preserved
               ? { steps: [], ...held }
               : {
                   ...blocked(
@@ -328,9 +303,7 @@ export const collectConfiguredPackRecovery = (args: {
                   ...held,
                 };
           }
-          const memberRefs = expansion.dependencies.dependencyRefs.filter((ref) =>
-            RECOVERABLE_DEPENDENCY_TYPES.some((type) => type === ref.type),
-          );
+          const memberRefs = selection.refs.filter((ref) => ref.type !== "pack");
           const packStep = {
             ...(yield* recoveryStep({ ref: packRef, isPack: true, adapter: args.adapter })),
             key,
@@ -429,8 +402,7 @@ export const collectConfiguredPackRecovery = (args: {
                 key,
               },
             ],
-            holdbacks: [...packHoldbacks, ...expansion.holdbacks],
-            bypasses: [...packBypasses, ...expansion.bypasses],
+            ...held,
           };
         }),
       { concurrency },

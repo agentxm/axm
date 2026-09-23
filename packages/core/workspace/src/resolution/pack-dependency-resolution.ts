@@ -9,7 +9,6 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type * as Duration from "effect/Duration";
 import * as Result from "effect/Result";
 import * as semver from "semver";
 
@@ -27,10 +26,7 @@ import {
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
-import type {
-  ReleaseAgeEvaluation,
-  ReleaseAgeEvidence,
-} from "@agentxm/extension-model/unstable/extensions/release-age";
+import type { ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import type { RegistrySource, Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import type { SourceHostProvidersService, SourceResolutionFailure } from "./sources/index.js";
@@ -45,8 +41,13 @@ import {
   SourceAuthorityBlocked,
   type PackDependencyResolutionFailure,
 } from "./errors.js";
-import { releaseAgeExemptionForIdentity } from "./release-age-policy.js";
-import type { ReleaseAgeBypassRecord, ReleaseAgeHoldbackRecord } from "./release-age-policy.js";
+import {
+  releaseAgeExemptionForIdentity,
+  releaseAgeRecord,
+  releaseAgeRecords,
+  type ReleaseAgeBypassRecord,
+  type ReleaseAgeHoldbackRecord,
+} from "./release-age-policy.js";
 import type { ResolvedPackDependencyMap } from "./resolved-pack-dependency.js";
 import type { SourceAuthorityBlockedFact } from "./source-authority.js";
 
@@ -227,17 +228,42 @@ const workspaceConstraintConflict = (
     workspaceVersion,
   });
 
-const resolveDependencyRef = <E = never, R = never>(
+type ReleaseAgeAwareDependencyResolution =
+  | {
+      readonly kind: "selected";
+      readonly dependency: ResolvedDependency;
+      readonly holdbacks: ReadonlyArray<ReleaseAgeHoldbackRecord>;
+      readonly bypasses: ReadonlyArray<ReleaseAgeBypassRecord>;
+    }
+  | { readonly kind: "policy_held"; readonly holdback: ReleaseAgeHoldbackRecord };
+
+const selectedWithoutReleaseAge = (
+  dependency: ResolvedDependency,
+): ReleaseAgeAwareDependencyResolution => ({
+  kind: "selected",
+  dependency,
+  holdbacks: [],
+  bypasses: [],
+});
+
+/**
+ * Resolve one declared member: configured workspace authority first, then an
+ * already-authorized candidate, then the member the Pack's own Git or local
+ * source carries, and otherwise the member's Registry under the operation's
+ * release-age evaluation. This is the only member resolver; a source without
+ * release dates contributes no release-age evidence.
+ */
+const resolveDependencyRefWithReleaseAge = <E = never, R = never>(
   pack: PackRef,
   expectedType: SupportedPackDependencyType,
   fqn: string,
   constraint: VersionRange,
   sources: SourceHostProvidersService,
-  minimumReleaseAge?: Option.Option<Duration.Duration>,
+  evaluation: ReleaseAgeEvaluation,
   sourceOverride?: RegistrySource,
   workspaceResolver?: WorkspacePackDependencyResolver<E, R>,
   dependencyResolver?: PackDependencyRefResolver<E, R>,
-): Effect.Effect<ResolvedDependency, PackDependencyResolutionError | E, R> =>
+): Effect.Effect<ReleaseAgeAwareDependencyResolution, PackDependencyResolutionError | E, R> =>
   Effect.gen(function* () {
     const parsed = parseFqnOrThrow(fqn);
     if (parsed.type !== expectedType) {
@@ -245,14 +271,14 @@ const resolveDependencyRef = <E = never, R = never>(
         detail: `Pack dependency type mismatch for expected ${expectedType}`,
       });
     }
-
+    const root = formatFqn({ owner: pack.owner, type: "pack", name: pack.pack.name });
     if (workspaceResolver !== undefined) {
       const workspace = yield* workspaceResolver({
         owner: parsed.owner,
         type: expectedType,
         name: parsed.name,
         constraint,
-        root: formatFqn({ owner: pack.owner, type: "pack", name: pack.pack.name }),
+        root,
       });
       if (workspace.kind === "blocked") {
         return yield* new SourceAuthorityBlocked({
@@ -275,12 +301,12 @@ const resolveDependencyRef = <E = never, R = never>(
         if (!semver.satisfies(candidate.version, constraint)) {
           return yield* workspaceConstraintConflict(pack, fqn, candidate.version, constraint);
         }
-        return {
+        return selectedWithoutReleaseAge({
           owner: parsed.owner,
           type: expectedType,
           name: parsed.name,
           ref: candidate,
-        };
+        });
       }
     }
 
@@ -290,9 +316,11 @@ const resolveDependencyRef = <E = never, R = never>(
         type: expectedType,
         name: parsed.name,
         constraint,
-        root: formatFqn({ owner: pack.owner, type: "pack", name: pack.pack.name }),
+        root,
       });
-      return yield* validateSelectedDependency(candidate, expectedType, parsed, fqn, constraint);
+      return selectedWithoutReleaseAge(
+        yield* validateSelectedDependency(candidate, expectedType, parsed, fqn, constraint),
+      );
     }
 
     if (
@@ -314,173 +342,38 @@ const resolveDependencyRef = <E = never, R = never>(
               : `Pack dependency ${fqn} is ambiguous in the Pack source`,
         });
       }
-      return yield* validateSelectedDependency(candidate, expectedType, parsed, fqn, constraint);
-    }
-
-    const source = yield* sourceForDependency(pack, parsed.owner, sourceOverride);
-    const matches = yield* Effect.scoped(
-      sources.find(source, {
-        names: [parsed.name],
-        type: expectedType,
-        owner: Option.some(parsed.owner),
-        versionRange:
-          source.type === "registry" ? Option.some<string>(constraint) : Option.none<string>(),
-        ...(source.type === "registry" && minimumReleaseAge !== undefined
-          ? { minimumReleaseAge }
-          : {}),
-      }),
-    );
-
-    const matchingRef = matches.find(
-      (candidate): candidate is PackDependencyRef =>
-        candidate.type === expectedType &&
-        candidate.owner === parsed.owner &&
-        candidate.name === parsed.name,
-    );
-
-    if (matchingRef === undefined) {
-      return yield* new PackDependencyInvalid({
-        detail: `Unable to resolve pack dependency ${fqn}@${constraint}`,
-      });
-    }
-
-    return {
-      owner: parsed.owner,
-      type: expectedType,
-      name: parsed.name,
-      ref: matchingRef,
-    };
-  });
-
-type ReleaseAgeAwareDependencyResolution =
-  | {
-      readonly kind: "selected";
-      readonly dependency: ResolvedDependency;
-      readonly holdbacks: ReadonlyArray<ReleaseAgeHoldbackRecord>;
-      readonly bypasses: ReadonlyArray<ReleaseAgeBypassRecord>;
-    }
-  | { readonly kind: "policy_held"; readonly holdback: ReleaseAgeHoldbackRecord };
-
-const dependencyReleaseAgeRecord = (args: {
-  readonly packTarget: string;
-  readonly dependencyTarget: string;
-  readonly constraint: VersionRange;
-  readonly evidence: ReleaseAgeEvidence;
-  readonly selectedVersion?: string;
-}): ReleaseAgeHoldbackRecord => ({
-  reason: "minimum-release-age",
-  target: args.dependencyTarget,
-  dependencyPath: [args.packTarget, args.dependencyTarget],
-  requestedRange: args.constraint,
-  ...(args.selectedVersion === undefined ? {} : { selectedVersion: args.selectedVersion }),
-  candidateVersion: args.evidence.version,
-  publishedAt: args.evidence.publishedAt,
-  eligibleAt: args.evidence.eligibleAt,
-  minimumReleaseAgeSeconds: args.evidence.minimumReleaseAgeSeconds,
-});
-
-const resolveDependencyRefWithReleaseAge = <E = never, R = never>(
-  pack: PackRef,
-  expectedType: SupportedPackDependencyType,
-  fqn: string,
-  constraint: VersionRange,
-  sources: SourceHostProvidersService,
-  evaluation: ReleaseAgeEvaluation,
-  sourceOverride?: RegistrySource,
-  workspaceResolver?: WorkspacePackDependencyResolver<E, R>,
-  dependencyResolver?: PackDependencyRefResolver<E, R>,
-): Effect.Effect<ReleaseAgeAwareDependencyResolution, PackDependencyResolutionError | E, R> =>
-  Effect.gen(function* () {
-    const parsed = parseFqnOrThrow(fqn);
-    if (parsed.type !== expectedType) {
-      return yield* new PackDependencyInvalid({
-        detail: `Pack dependency type mismatch for expected ${expectedType}`,
-      });
-    }
-    if (workspaceResolver !== undefined) {
-      const workspace = yield* workspaceResolver({
-        owner: parsed.owner,
-        type: expectedType,
-        name: parsed.name,
-        constraint,
-        root: formatFqn({ owner: pack.owner, type: "pack", name: pack.pack.name }),
-      });
-      if (workspace.kind === "blocked") {
-        return yield* new SourceAuthorityBlocked({
-          detail: workspace.fact.detail,
-          recovery: workspace.fact.recovery,
-        });
-      }
-      if (workspace.kind === "selected") {
-        const candidate = workspace.ref;
-        if (
-          candidate.type !== expectedType ||
-          candidate.refType !== "workspace" ||
-          candidate.owner !== parsed.owner ||
-          candidate.name !== parsed.name
-        ) {
-          return yield* new PackDependencyConflict({
-            detail: `Configured workspace authority does not match pack dependency ${fqn}`,
-          });
-        }
-        if (!semver.satisfies(candidate.version, constraint)) {
-          return yield* workspaceConstraintConflict(pack, fqn, candidate.version, constraint);
-        }
-        return {
-          kind: "selected",
-          dependency: {
-            owner: parsed.owner,
-            type: expectedType,
-            name: parsed.name,
-            ref: candidate,
-          },
-          holdbacks: [],
-          bypasses: [],
-        };
-      }
-    }
-
-    if (dependencyResolver !== undefined) {
-      const candidate = yield* dependencyResolver({
-        owner: parsed.owner,
-        type: expectedType,
-        name: parsed.name,
-        constraint,
-        root: formatFqn({ owner: pack.owner, type: "pack", name: pack.pack.name }),
-      });
-      return {
-        kind: "selected",
-        dependency: yield* validateSelectedDependency(
-          candidate,
-          expectedType,
-          parsed,
-          fqn,
-          constraint,
-        ),
-        holdbacks: [],
-        bypasses: [],
-      };
+      return selectedWithoutReleaseAge(
+        yield* validateSelectedDependency(candidate, expectedType, parsed, fqn, constraint),
+      );
     }
 
     const source = yield* sourceForDependency(pack, parsed.owner, sourceOverride);
     if (source.type !== "registry") {
-      const dependency = yield* resolveDependencyRef(
-        pack,
-        expectedType,
-        fqn,
-        constraint,
-        sources,
-        undefined,
-        sourceOverride,
-        undefined,
-        undefined,
+      const matches = yield* Effect.scoped(
+        sources.find(source, {
+          names: [parsed.name],
+          type: expectedType,
+          owner: Option.some(parsed.owner),
+          versionRange: Option.none<string>(),
+        }),
       );
-      return {
-        kind: "selected",
-        dependency,
-        holdbacks: [],
-        bypasses: [],
-      };
+      const matchingRef = matches.find(
+        (candidate): candidate is PackDependencyRef =>
+          candidate.type === expectedType &&
+          candidate.owner === parsed.owner &&
+          candidate.name === parsed.name,
+      );
+      if (matchingRef === undefined) {
+        return yield* new PackDependencyInvalid({
+          detail: `Unable to resolve pack dependency ${fqn}@${constraint}`,
+        });
+      }
+      return selectedWithoutReleaseAge({
+        owner: parsed.owner,
+        type: expectedType,
+        name: parsed.name,
+        ref: matchingRef,
+      });
     }
     const resolution = yield* Effect.scoped(
       sources.resolveNamedRegistry(source, {
@@ -491,8 +384,12 @@ const resolveDependencyRefWithReleaseAge = <E = never, R = never>(
         releaseAgeEvaluation: evaluation,
       }),
     );
-    const packTarget = formatFqn({ owner: pack.owner, type: "pack", name: pack.pack.name });
     const dependencyTarget = formatFqn(parsed);
+    const subject = {
+      target: dependencyTarget,
+      dependencyPath: [root, dependencyTarget],
+      requestedRange: constraint,
+    };
     if (resolution.kind === "not_found") {
       return yield* new PackDependencyMissing({ dependencyTarget });
     }
@@ -500,19 +397,10 @@ const resolveDependencyRefWithReleaseAge = <E = never, R = never>(
       return yield* new PackDependencyUnsatisfied({ dependencyTarget, constraint });
     }
     if (resolution.kind === "policy_held") {
-      return {
-        kind: "policy_held",
-        holdback: dependencyReleaseAgeRecord({
-          packTarget,
-          dependencyTarget,
-          constraint,
-          evidence: resolution.candidate,
-        }),
-      };
+      return { kind: "policy_held", holdback: releaseAgeRecord(subject, resolution.candidate) };
     }
-    const ref = resolution.ref;
     const dependency = yield* validateSelectedDependency(
-      ref,
+      resolution.ref,
       expectedType,
       parsed,
       fqn,
@@ -521,33 +409,7 @@ const resolveDependencyRefWithReleaseAge = <E = never, R = never>(
     return {
       kind: "selected",
       dependency,
-      holdbacks:
-        resolution.kind === "exempted" || resolution.newerHeld === undefined
-          ? []
-          : [
-              dependencyReleaseAgeRecord({
-                packTarget,
-                dependencyTarget,
-                constraint,
-                evidence: resolution.newerHeld,
-                selectedVersion: ref.version,
-              }),
-            ],
-      bypasses:
-        resolution.kind === "selected"
-          ? []
-          : [
-              {
-                ...dependencyReleaseAgeRecord({
-                  packTarget,
-                  dependencyTarget,
-                  constraint,
-                  evidence: resolution.bypassed,
-                  selectedVersion: ref.version,
-                }),
-                ...resolution.exemption,
-              },
-            ],
+      ...releaseAgeRecords(subject, resolution, resolution.ref.version),
     };
   });
 
@@ -589,40 +451,6 @@ const toResolvedMap = (
     }),
   );
 
-const resolveDependencyGroup = <E = never, R = never>(
-  pack: PackRef,
-  dependencies: ReadonlyArray<PartitionedDependency>,
-  expectedType: SupportedPackDependencyType,
-  sources: SourceHostProvidersService,
-  minimumReleaseAge?: Option.Option<Duration.Duration>,
-  sourceOverride?: RegistrySource,
-  workspaceResolver?: WorkspacePackDependencyResolver<E, R>,
-  dependencyResolver?: PackDependencyRefResolver<E, R>,
-  memberRange?: PackMemberRangeResolver,
-): Effect.Effect<ReadonlyArray<ResolvedDependency>, PackDependencyResolutionError | E, R> =>
-  Effect.forEach(
-    dependencies,
-    ([fqn, declared, declaredSource]) =>
-      memberSelectionRange(memberRange, fqn, declared).pipe(
-        Effect.flatMap((constraint) =>
-          resolveDependencyRef(
-            pack,
-            expectedType,
-            fqn,
-            constraint,
-            sources,
-            minimumReleaseAge,
-            declaredSource === undefined
-              ? sourceOverride
-              : explicitRegistrySource(declaredSource, parseFqnOrThrow(fqn).owner),
-            workspaceResolver,
-            dependencyResolver,
-          ),
-        ),
-      ),
-    { concurrency: 16 },
-  );
-
 /**
  * Group dependency FQNs by extension type.
  *
@@ -655,61 +483,6 @@ const partitionDependencies = (dependencies: PackMemberConstraintMap) => {
 
   return { groups, unsupported };
 };
-
-export const resolvePackDependencies = <E = never, R = never>(
-  pack: PackRef,
-  sources: SourceHostProvidersService,
-  minimumReleaseAge?: Option.Option<Duration.Duration>,
-  sourceOverride?: RegistrySource,
-  workspaceResolver?: WorkspacePackDependencyResolver<E, R>,
-  dependencyResolver?: PackDependencyRefResolver<E, R>,
-  memberRange?: PackMemberRangeResolver,
-): Effect.Effect<ResolvedPackDependencies, PackDependencyResolutionError | E, R> =>
-  Effect.gen(function* () {
-    const dependencies = partitionDependencies(pack.pack.dependencies);
-    if (dependencies.unsupported.length > 0) {
-      return yield* new PackDependencyInvalid({
-        detail: `Pack declares ${dependencies.unsupported.length} unsupported dependency type${dependencies.unsupported.length === 1 ? "" : "s"}: ${dependencies.unsupported.join(", ")}`,
-      });
-    }
-
-    const resolveGroup = <T extends SupportedPackDependencyType>(type: T) =>
-      resolveDependencyGroup(
-        pack,
-        dependencies.groups[type],
-        type,
-        sources,
-        minimumReleaseAge,
-        sourceOverride,
-        workspaceResolver,
-        dependencyResolver,
-        memberRange,
-      );
-
-    const resolvedSkills = yield* resolveGroup("skill");
-    const resolvedMcpServers = yield* resolveGroup("mcp-server");
-    const resolvedSubagents = yield* resolveGroup("subagent");
-    const resolvedRules = yield* resolveGroup("rule");
-    const resolvedHooks = yield* resolveGroup("hook");
-    const resolvedKnowledge = yield* resolveGroup("knowledge");
-
-    return {
-      resolvedSkills: toResolvedMap(resolvedSkills),
-      resolvedMcpServers: toResolvedMap(resolvedMcpServers),
-      resolvedSubagents: toResolvedMap(resolvedSubagents),
-      resolvedRules: toResolvedMap(resolvedRules),
-      resolvedHooks: toResolvedMap(resolvedHooks),
-      resolvedKnowledge: toResolvedMap(resolvedKnowledge),
-      dependencyRefs: [
-        ...resolvedSkills,
-        ...resolvedMcpServers,
-        ...resolvedSubagents,
-        ...resolvedRules,
-        ...resolvedHooks,
-        ...resolvedKnowledge,
-      ].map((dependency) => dependency.ref),
-    };
-  });
 
 export const resolvePackDependenciesWithReleaseAge = <E = never, R = never>(
   pack: PackRef,

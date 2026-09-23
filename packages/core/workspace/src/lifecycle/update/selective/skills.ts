@@ -54,6 +54,8 @@ import {
   registryBindingProposal,
   releaseAgeEvidence,
   releaseAgeHoldbackWarning,
+  releaseAgeRecord,
+  releaseAgeRecords,
   type PublisherBindingTransition,
   type ReleaseAgeBypassRecord,
   type ReleaseAgeRecord,
@@ -70,6 +72,7 @@ import {
 } from "../../../transitions/planning/index.js";
 import {
   acceptedResolutionRef,
+  acquisitionConfiguredEntries,
   configuredRowsByName,
   type SkillsLockMap,
 } from "../../../desired-state/index.js";
@@ -242,9 +245,9 @@ export const prepareSelectiveSkillUpdate = Effect.fn("SelectiveSkillUpdate.prepa
           ]
         : [],
     );
-  const skillEntries: ReadonlyArray<SelectiveUpdateEntry> = Object.entries(allSkills).flatMap(
-    ([name, entry]) => (entry.enabled && entry.source !== undefined ? [[name, entry.source]] : []),
-  );
+  const skillEntries: ReadonlyArray<SelectiveUpdateEntry> = acquisitionConfiguredEntries(
+    allSkills,
+  ).flatMap(([name, entry]) => (entry.source === undefined ? [] : [[name, entry.source]]));
 
   if (skillEntries.length === 0) {
     return {
@@ -320,6 +323,10 @@ export const prepareSelectiveSkillUpdate = Effect.fn("SelectiveSkillUpdate.prepa
   }) =>
     Effect.gen(function* () {
       const skillFqn = `${owner}/skills/${lookupName}`;
+      const subject = {
+        target: skillFqn,
+        requestedRange: Option.getOrUndefined(userConstraint),
+      };
       const packRequired = effective.contributors.some(
         (contributor) => contributor.source === "pack",
       );
@@ -348,16 +355,7 @@ export const prepareSelectiveSkillUpdate = Effect.fn("SelectiveSkillUpdate.prepa
         if (compatible.kind === "policy_held") {
           return Option.some<RegistrySkillConstraintResolution>({
             kind: "policy_held",
-            record: {
-              reason: "minimum-release-age",
-              target: skillFqn,
-              dependencyPath: [skillFqn],
-              ...(Option.isSome(userConstraint) ? { requestedRange: userConstraint.value } : {}),
-              candidateVersion: compatible.candidate.version,
-              publishedAt: compatible.candidate.publishedAt,
-              eligibleAt: compatible.candidate.eligibleAt,
-              minimumReleaseAgeSeconds: compatible.candidate.minimumReleaseAgeSeconds,
-            },
+            record: releaseAgeRecord(subject, compatible.candidate),
           });
         }
         if (compatible.ref.type !== "skill") {
@@ -366,43 +364,11 @@ export const prepareSelectiveSkillUpdate = Effect.fn("SelectiveSkillUpdate.prepa
             detail: `Registry resolved "${skillFqn}" as a non-skill extension`,
           });
         }
-        const holdbacks =
-          compatible.kind === "exempted" || compatible.newerHeld === undefined
-            ? []
-            : [
-                {
-                  reason: "minimum-release-age" as const,
-                  target: skillFqn,
-                  dependencyPath: [skillFqn],
-                  ...(Option.isSome(userConstraint)
-                    ? { requestedRange: userConstraint.value }
-                    : {}),
-                  selectedVersion: compatible.ref.version,
-                  candidateVersion: compatible.newerHeld.version,
-                  publishedAt: compatible.newerHeld.publishedAt,
-                  eligibleAt: compatible.newerHeld.eligibleAt,
-                  minimumReleaseAgeSeconds: compatible.newerHeld.minimumReleaseAgeSeconds,
-                },
-              ];
-        const bypasses: ReadonlyArray<ReleaseAgeBypassRecord> =
-          compatible.kind === "selected"
-            ? []
-            : [
-                {
-                  reason: "minimum-release-age",
-                  target: skillFqn,
-                  dependencyPath: [skillFqn],
-                  ...(Option.isSome(userConstraint)
-                    ? { requestedRange: userConstraint.value }
-                    : {}),
-                  selectedVersion: compatible.ref.version,
-                  candidateVersion: compatible.bypassed.version,
-                  publishedAt: compatible.bypassed.publishedAt,
-                  eligibleAt: compatible.bypassed.eligibleAt,
-                  minimumReleaseAgeSeconds: compatible.bypassed.minimumReleaseAgeSeconds,
-                  ...compatible.exemption,
-                },
-              ];
+        const { holdbacks, bypasses } = releaseAgeRecords(
+          subject,
+          compatible,
+          compatible.ref.version,
+        );
         return Option.some<RegistrySkillConstraintResolution>({
           kind: "selected",
           ref: compatible.ref,
@@ -469,19 +435,9 @@ export const prepareSelectiveSkillUpdate = Effect.fn("SelectiveSkillUpdate.prepa
         resolvedVersion: entry.version,
       }));
       if (Option.isNone(resolvedVersion)) {
-        const evidence = releaseAgeEvidence(desiredEntry, evaluation);
         return Option.some<RegistrySkillConstraintResolution>({
           kind: "policy_held" as const,
-          record: {
-            reason: "minimum-release-age" as const,
-            target: skillFqn,
-            dependencyPath: [skillFqn],
-            ...(Option.isSome(userConstraint) ? { requestedRange: userConstraint.value } : {}),
-            candidateVersion: evidence.version,
-            publishedAt: evidence.publishedAt,
-            eligibleAt: evidence.eligibleAt,
-            minimumReleaseAgeSeconds: evidence.minimumReleaseAgeSeconds,
-          },
+          record: releaseAgeRecord(subject, releaseAgeEvidence(desiredEntry, evaluation)),
         });
       }
 
@@ -510,24 +466,13 @@ export const prepareSelectiveSkillUpdate = Effect.fn("SelectiveSkillUpdate.prepa
         desiredEntry.version === resolvedVersion.value.resolvedVersion ||
         isVersionEntryEligibleAt(desiredEntry, evaluation)
           ? []
-          : (() => {
-              const evidence = releaseAgeEvidence(desiredEntry, evaluation);
-              return [
-                {
-                  reason: "minimum-release-age" as const,
-                  target: skillFqn,
-                  dependencyPath: [skillFqn],
-                  ...(Option.isSome(userConstraint)
-                    ? { requestedRange: userConstraint.value }
-                    : {}),
-                  selectedVersion: resolvedVersion.value.resolvedVersion,
-                  candidateVersion: evidence.version,
-                  publishedAt: evidence.publishedAt,
-                  eligibleAt: evidence.eligibleAt,
-                  minimumReleaseAgeSeconds: evidence.minimumReleaseAgeSeconds,
-                },
-              ];
-            })();
+          : [
+              releaseAgeRecord(
+                subject,
+                releaseAgeEvidence(desiredEntry, evaluation),
+                resolvedVersion.value.resolvedVersion,
+              ),
+            ];
       return Option.some<RegistrySkillConstraintResolution>({
         kind: "selected" as const,
         ref: exactRef,

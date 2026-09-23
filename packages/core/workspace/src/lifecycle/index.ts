@@ -230,7 +230,6 @@ export {
 
 // Pack lifecycle operations
 export {
-  expandPackInstallRefs,
   expandPackInstallRefsWithReleaseAge,
   type ReleaseAgeAwarePackExpansion,
 } from "../packs/lifecycle/expansion.js";

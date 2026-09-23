@@ -12,6 +12,18 @@ import type {
 } from "@agentxm/extension-model/unstable/extensions/release-age";
 import type { VersionEntry } from "@agentxm/registry-protocol/unstable/registry/schema";
 
+import { ExtensionResolutionFailed } from "./errors.js";
+
+/**
+ * What an operation does when the minimum release age holds back every
+ * release its constraint admits. `preserve-or-block` keeps a complete, usable
+ * accepted resolution unchanged or refuses the unit before any write;
+ * `continue` leaves the unit unchanged and lets a sweep advance its other
+ * units. Each operation declares its policy once, where it classifies its
+ * intent, and the shared realization step applies it.
+ */
+export type HeldReleasePolicy = "preserve-or-block" | "continue";
+
 export const releaseAgeExemptionForIdentity = (
   evaluation: ReleaseAgeEvaluation,
   identity: ExtensionFqnParts,
@@ -53,6 +65,73 @@ export type ReleaseAgeBypassRecord = ReleaseAgeRecordBase &
   );
 
 export type ReleaseAgeRecord = ReleaseAgeHoldbackRecord | ReleaseAgeBypassRecord;
+
+/** Who a release-age record is about, and the ranges and versions the operation read. */
+export interface ReleaseAgeRecordSubject {
+  readonly target: string;
+  /** The route to the target, root first; the target alone when omitted. */
+  readonly dependencyPath?: ReadonlyArray<string>;
+  readonly requestedRange?: string | undefined;
+  readonly currentVersion?: string | undefined;
+}
+
+/** The one constructor every minimum-release-age record comes from. */
+export const releaseAgeRecord = (
+  subject: ReleaseAgeRecordSubject,
+  evidence: ReleaseAgeEvidence,
+  selectedVersion?: string,
+): ReleaseAgeHoldbackRecord => ({
+  reason: "minimum-release-age",
+  target: subject.target,
+  dependencyPath: subject.dependencyPath ?? [subject.target],
+  ...(subject.requestedRange === undefined ? {} : { requestedRange: subject.requestedRange }),
+  ...(subject.currentVersion === undefined ? {} : { currentVersion: subject.currentVersion }),
+  ...(selectedVersion === undefined ? {} : { selectedVersion }),
+  candidateVersion: evidence.version,
+  publishedAt: evidence.publishedAt,
+  eligibleAt: evidence.eligibleAt,
+  minimumReleaseAgeSeconds: evidence.minimumReleaseAgeSeconds,
+});
+
+/** A release selection the minimum release age evaluated: taken normally, or taken early. */
+export type ReleaseAgeSelection =
+  | { readonly kind: "selected"; readonly newerHeld?: ReleaseAgeEvidence | undefined }
+  | {
+      readonly kind: "exempted";
+      readonly bypassed: ReleaseAgeEvidence;
+      readonly exemption: ReleaseAgeExemption;
+    };
+
+/**
+ * The holdback and bypass records one selection carries: a newer release
+ * the policy held back while an eligible one was selected, or the unaged
+ * release an exemption let in.
+ */
+export const releaseAgeRecords = (
+  subject: ReleaseAgeRecordSubject,
+  selection: ReleaseAgeSelection,
+  selectedVersion: string,
+): {
+  readonly holdbacks: ReadonlyArray<ReleaseAgeHoldbackRecord>;
+  readonly bypasses: ReadonlyArray<ReleaseAgeBypassRecord>;
+} =>
+  selection.kind === "exempted"
+    ? {
+        holdbacks: [],
+        bypasses: [
+          {
+            ...releaseAgeRecord(subject, selection.bypassed, selectedVersion),
+            ...selection.exemption,
+          },
+        ],
+      }
+    : {
+        holdbacks:
+          selection.newerHeld === undefined
+            ? []
+            : [releaseAgeRecord(subject, selection.newerHeld, selectedVersion)],
+        bypasses: [],
+      };
 
 export interface ReleaseAgeOperationEvidence {
   readonly evaluatedAt: string;
@@ -101,9 +180,8 @@ export const normalizeReleaseAgeRecords = <Record extends ReleaseAgeRecord>(
  */
 const durationPattern = /^(\d+)(ms|s|m|h|d)$/;
 
-export const parseMinimumReleaseAge = (value: string): Option.Option<Duration.Duration> => {
-  const trimmed = value.trim();
-  const match = durationPattern.exec(trimmed);
+const parseDuration = (value: string): Option.Option<Duration.Duration> => {
+  const match = durationPattern.exec(value.trim());
   if (match === null) return Option.none();
 
   const amountText = match[1];
@@ -131,6 +209,26 @@ export const parseMinimumReleaseAge = (value: string): Option.Option<Duration.Du
   // requires this ending return.
   return Option.none();
 };
+
+/**
+ * The configured minimum release age, or the refusal every reader of the
+ * setting reports for a value it cannot parse. There is no fallback: an
+ * unreadable window never widens to "no minimum".
+ */
+export const parseMinimumReleaseAge = (
+  value: string,
+): Effect.Effect<Duration.Duration, ExtensionResolutionFailed> =>
+  Option.match(parseDuration(value), {
+    onNone: () =>
+      Effect.fail(
+        new ExtensionResolutionFailed({
+          category: "validation",
+          detail: `Invalid minimumReleaseAge "${value}"`,
+          recover: "Use a duration such as 24h, 1440m, or 0s.",
+        }),
+      ),
+    onSome: Effect.succeed,
+  });
 
 /**
  * Render a release-age window in the compact grammar the setting accepts, so

@@ -29,8 +29,8 @@ import type {
   WorkspacePackRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import {
-  resolvePackDependencies,
   resolvePackDependenciesWithReleaseAge,
+  type ReleaseAgeAwarePackDependencyResolution,
 } from "./pack-dependency-resolution.js";
 
 const localPackRefFromConstraints = (dependencies: PackMemberConstraintMap): LocalPackRef => {
@@ -163,23 +163,39 @@ const registrySkill = (
   };
 };
 
-const providers = (find: SourceHostProvidersService["find"]): SourceHostProvidersService => ({
-  resolveNamedRegistry: () => Effect.die("not used"),
-  find,
+const providers = (overrides: {
+  readonly find?: SourceHostProvidersService["find"];
+  readonly resolveNamedRegistry?: SourceHostProvidersService["resolveNamedRegistry"];
+}): SourceHostProvidersService => ({
+  resolveNamedRegistry: overrides.resolveNamedRegistry ?? (() => Effect.die("not used")),
+  find: overrides.find ?? (() => Effect.die("not used")),
   fetch: () => Effect.die("unused"),
   acquireForTransition: () => Effect.die("unused"),
   cloneUrl: () => Option.none(),
   origin: () => "registry",
 });
 
-describe("resolvePackDependencies", () => {
+const agedEvaluation = {
+  minimumReleaseAge: Duration.hours(24),
+  evaluatedAt: DateTime.makeUnsafe("2026-08-12T00:00:00Z"),
+  mode: "enforce" as const,
+};
+
+/** The dependencies a selected resolution carries; a held one fails the test. */
+const selectedDependencies = (resolution: ReleaseAgeAwarePackDependencyResolution) =>
+  resolution.kind === "selected"
+    ? Effect.succeed(resolution.dependencies)
+    : Effect.die(`expected a selected resolution, got ${resolution.kind}`);
+
+describe("Pack member resolution without Registry release dates", () => {
   it.effect("resolves sourceless members from the Pack's local repository", () =>
     Effect.gen(function* () {
       const find = vi.fn(() => Effect.die("The Pack source must not be reacquired"));
-      const resolved = yield* resolvePackDependencies(
+      const resolved = yield* resolvePackDependenciesWithReleaseAge(
         localPackRef({ "@acme/skills/review": "^1.0.0" }),
-        providers(find),
-      );
+        providers({ find }),
+        agedEvaluation,
+      ).pipe(Effect.flatMap(selectedDependencies));
 
       expect(resolved.resolvedSkills["@acme/skills/review"]).toEqual({ source: "local" });
       expect(resolved.dependencyRefs).toEqual([localSkill()]);
@@ -190,8 +206,15 @@ describe("resolvePackDependencies", () => {
   it.effect("resolves an explicit Registry member outside the Pack's local repository", () =>
     Effect.gen(function* () {
       const registryMember = registrySkill(handle("@agentxm"), extensionName("axm"));
-      const find = vi.fn(() => Effect.succeed([registryMember]));
-      const resolved = yield* resolvePackDependencies(
+      const resolveNamedRegistry = vi.fn<SourceHostProvidersService["resolveNamedRegistry"]>(
+        (_source, options) =>
+          Effect.succeed({
+            kind: "selected",
+            target: `${options.owner}/skills/${options.name}`,
+            ref: registryMember,
+          }),
+      );
+      const resolved = yield* resolvePackDependenciesWithReleaseAge(
         localPackRefFromConstraints({
           "@agentxm/skills/axm": {
             source: {
@@ -201,20 +224,25 @@ describe("resolvePackDependencies", () => {
             versionRange: versionRange("^2.0.0"),
           },
         }),
-        providers(find),
-      );
+        providers({ resolveNamedRegistry }),
+        agedEvaluation,
+      ).pipe(Effect.flatMap(selectedDependencies));
 
       expect(resolved.dependencyRefs).toEqual([registryMember]);
       expect(resolved.resolvedSkills["@agentxm/skills/axm"]).toMatchObject({
         source: "registry",
         version: "2.1.0",
       });
-      expect(find).toHaveBeenCalledWith(
+      expect(resolveNamedRegistry).toHaveBeenCalledWith(
         expect.objectContaining({
           type: "registry",
           location: new URL("https://registry.agentxm.ai"),
         }),
-        expect.objectContaining({ names: ["axm"], type: "skill" }),
+        expect.objectContaining({
+          name: "axm",
+          type: "skill",
+          releaseAgeEvaluation: agedEvaluation,
+        }),
       );
     }),
   );
@@ -223,14 +251,21 @@ describe("resolvePackDependencies", () => {
     "resolves a mixed workspace and Registry pack without replacing workspace authority",
     () =>
       Effect.gen(function* () {
-        const find = vi.fn(() => Effect.succeed([registrySkill()]));
-        const resolved = yield* resolvePackDependencies(
+        const resolveNamedRegistry = vi.fn<SourceHostProvidersService["resolveNamedRegistry"]>(
+          (_source, options) =>
+            Effect.succeed({
+              kind: "selected",
+              target: `${options.owner}/skills/${options.name}`,
+              ref: registrySkill(),
+            }),
+        );
+        const resolved = yield* resolvePackDependenciesWithReleaseAge(
           packRef({
             "@acme/skills/review": "^1.0.0",
             "@acme/skills/release": "^2.0.0",
           }),
-          providers(find),
-          undefined,
+          providers({ resolveNamedRegistry }),
+          agedEvaluation,
           undefined,
           ({ type, name }) =>
             Effect.succeed(
@@ -238,7 +273,7 @@ describe("resolvePackDependencies", () => {
                 ? { kind: "selected", ref: workspaceSkill("1.4.0") }
                 : { kind: "absent" },
             ),
-        );
+        ).pipe(Effect.flatMap(selectedDependencies));
 
         expect(resolved.resolvedSkills["@acme/skills/review"]).toMatchObject({
           source: "workspace",
@@ -251,7 +286,7 @@ describe("resolvePackDependencies", () => {
           publisherBindingId: "hbnd_release",
           integrity: "sha512-release",
         });
-        expect(find).toHaveBeenCalledTimes(1);
+        expect(resolveNamedRegistry).toHaveBeenCalledTimes(1);
       }),
   );
 
@@ -259,11 +294,11 @@ describe("resolvePackDependencies", () => {
     "fails on an incompatible workspace-authoritative version without Registry fallback",
     () =>
       Effect.gen(function* () {
-        const find = vi.fn(() => Effect.succeed([registrySkill()]));
-        const error = yield* resolvePackDependencies(
+        const resolveNamedRegistry = vi.fn(() => Effect.die("Registry fallback must not run"));
+        const error = yield* resolvePackDependenciesWithReleaseAge(
           packRef({ "@acme/skills/review": "^2.0.0" }),
-          providers(find),
-          undefined,
+          providers({ resolveNamedRegistry }),
+          agedEvaluation,
           undefined,
           () => Effect.succeed({ kind: "selected", ref: workspaceSkill("1.4.0") }),
         ).pipe(Effect.flip);
@@ -276,16 +311,16 @@ describe("resolvePackDependencies", () => {
           constraint: "^2.0.0",
           workspaceVersion: "1.4.0",
         });
-        expect(find).not.toHaveBeenCalled();
+        expect(resolveNamedRegistry).not.toHaveBeenCalled();
       }),
   );
 
   it.effect("points an authored pack at its runnable constraint repair", () =>
     Effect.gen(function* () {
-      const error = yield* resolvePackDependencies(
+      const error = yield* resolvePackDependenciesWithReleaseAge(
         workspacePackRef({ "@acme/skills/review": "^2.0.0" }),
-        providers(() => Effect.die("Registry fallback must not run")),
-        undefined,
+        providers({}),
+        agedEvaluation,
         undefined,
         () => Effect.succeed({ kind: "selected", ref: workspaceSkill("1.4.0") }),
       ).pipe(Effect.flip);
@@ -303,11 +338,11 @@ describe("resolvePackDependencies", () => {
 
   it.effect("propagates a workspace authority blocker without Registry fallback", () =>
     Effect.gen(function* () {
-      const find = vi.fn(() => Effect.succeed([registrySkill()]));
-      const error = yield* resolvePackDependencies(
+      const resolveNamedRegistry = vi.fn(() => Effect.die("Registry fallback must not run"));
+      const error = yield* resolvePackDependenciesWithReleaseAge(
         packRef({ "@acme/skills/review": "^1.0.0" }),
-        providers(find),
-        undefined,
+        providers({ resolveNamedRegistry }),
+        agedEvaluation,
         undefined,
         () => {
           const decision = evaluateSourceAuthority({
@@ -345,44 +380,16 @@ describe("resolvePackDependencies", () => {
           },
         ],
       });
-      expect(find).not.toHaveBeenCalled();
-    }),
-  );
-
-  it.effect("uses an authorized immutable dependency without Registry selection", () =>
-    Effect.gen(function* () {
-      const find = vi.fn(() => Effect.die("Registry selection must not run"));
-      const resolver = vi.fn(() => Effect.succeed(registrySkill()));
-      const resolved = yield* resolvePackDependencies(
-        packRef({ "@acme/skills/release": "^2.0.0" }),
-        providers(find),
-        undefined,
-        undefined,
-        undefined,
-        resolver,
-      );
-
-      expect(resolved.resolvedSkills["@acme/skills/release"]).toMatchObject({
-        source: "registry",
-        version: "2.1.0",
-      });
-      expect(resolver).toHaveBeenCalledWith({
-        owner: "@acme",
-        type: "skill",
-        name: "release",
-        constraint: "^2.0.0",
-        root: "@acme/packs/toolkit",
-      });
-      expect(find).not.toHaveBeenCalled();
+      expect(resolveNamedRegistry).not.toHaveBeenCalled();
     }),
   );
 
   it.effect("rejects an authorized immutable dependency outside the Pack constraint", () =>
     Effect.gen(function* () {
-      const error = yield* resolvePackDependencies(
+      const error = yield* resolvePackDependenciesWithReleaseAge(
         packRef({ "@acme/skills/release": "^3.0.0" }),
-        providers(() => Effect.die("Registry selection must not run")),
-        undefined,
+        providers({}),
+        agedEvaluation,
         undefined,
         undefined,
         () => Effect.succeed(registrySkill()),
@@ -394,12 +401,8 @@ describe("resolvePackDependencies", () => {
   );
 });
 
-describe("resolvePackDependenciesWithReleaseAge", () => {
-  const evaluation = {
-    minimumReleaseAge: Duration.hours(24),
-    evaluatedAt: DateTime.makeUnsafe("2026-08-12T00:00:00Z"),
-    mode: "enforce" as const,
-  };
+describe("Pack member resolution under the minimum release age", () => {
+  const evaluation = agedEvaluation;
 
   const namedProviders = (
     resolveNamedRegistry: SourceHostProvidersService["resolveNamedRegistry"],
@@ -446,24 +449,6 @@ describe("resolvePackDependenciesWithReleaseAge", () => {
     }),
   );
 
-  it.effect("preserves the same authority-correct conflict in the release-age path", () =>
-    Effect.gen(function* () {
-      const error = yield* resolvePackDependenciesWithReleaseAge(
-        workspacePackRef({ "@acme/skills/review": "^2.0.0" }),
-        namedProviders(() => Effect.die("Registry fallback must not run")),
-        evaluation,
-        undefined,
-        () => Effect.succeed({ kind: "selected", ref: workspaceSkill("1.4.0") }),
-      ).pipe(Effect.flip);
-
-      expect(error).toMatchObject({
-        _tag: "PackConstraintShadowed",
-        packSource: "workspace",
-        memberFqn: "@acme/skills/review",
-      });
-    }),
-  );
-
   it.effect(
     "bypasses Registry and release-age selection for an accepted immutable dependency",
     () =>
@@ -488,7 +473,13 @@ describe("resolvePackDependenciesWithReleaseAge", () => {
             },
           },
         });
-        expect(resolver).toHaveBeenCalledOnce();
+        expect(resolver).toHaveBeenCalledExactlyOnceWith({
+          owner: "@acme",
+          type: "skill",
+          name: "release",
+          constraint: "^2.0.0",
+          root: "@acme/packs/toolkit",
+        });
       }),
   );
 

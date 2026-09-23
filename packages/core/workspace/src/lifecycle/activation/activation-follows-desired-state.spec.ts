@@ -28,7 +28,7 @@ export const specification = defineSpecification({
   requirement: "cli/activation-follows-desired-state",
   title: "Activation preserves leaf content and realizes Pack dependency routes",
   statement:
-    "When a desired leaf extension is disabled or enabled, including one reached only through a Pack, AXM shall record an activation preference that takes precedence over inherited activation, realize its resulting agent surfaces, and preserve its canonical content and accepted resolution; Pack activation shall preserve the Pack itself while realizing or withdrawing its dependency route, retiring exclusively unreachable acquired members, and retaining members reached elsewhere; re-enabling a Skill shall restore its entry document byte for byte for every agent surface, whichever entry-document format the Skill was authored in.",
+    "When a desired leaf extension is disabled or enabled, including one reached only through a Pack, AXM shall record an activation preference that takes precedence over inherited activation, realize its resulting agent surfaces, and preserve its canonical content and accepted resolution; Pack activation shall preserve the Pack itself while realizing or withdrawing its dependency route, retiring exclusively unreachable acquired members, and retaining members reached elsewhere, and enabling a Pack whose member would have an effective constraint no version satisfies shall change nothing and report that conflict; re-enabling a Skill shall restore its entry document byte for byte for every agent surface, whichever entry-document format the Skill was authored in.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "agent-interoperability"],
@@ -262,6 +262,63 @@ describe("Activation follows desired state", () => {
         .pipe(Effect.provide(NodeServices.layer));
     },
   );
+
+  it.effect("refuses to enable a Pack whose member range excludes a direct pin", () => {
+    const world = makeInstallWorld({
+      settings: { packs: { reviews: { source: "workspace", enabled: false } } },
+    });
+    cleanups.push(world.cleanup);
+    const { workspace, registry } = world;
+    registry.writeSkill("review", [
+      { version: "1.0.0", body: "First review." },
+      { version: "2.0.0", body: "Pinned review." },
+    ]);
+    workspace.writeFile(
+      "packs/reviews/pack.json",
+      JSON.stringify({
+        owner: "@acme",
+        type: "pack",
+        name: "reviews",
+        version: "1.0.0",
+        description: "Review tools",
+        dependencies: { "@acme/skills/review": "^1.0.0" },
+      }),
+    );
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          yield* applyInstall(
+            installRequest({
+              type: "skill",
+              subject: { kind: "source", source: "@acme/skills/review@2.0.0" },
+            }),
+          );
+          const settings = workspace.readFile("axm.json");
+          const accepted = workspace.readFile("axm-lock.yaml");
+          const content = contentUnder(workspace, "agent_extensions");
+
+          const result = yield* applyActivation({
+            type: "pack",
+            name: "reviews",
+            enabled: true,
+          }).pipe(Effect.result);
+
+          // The pin and the Pack range admit no common version: the enable is
+          // refused on that conflict, naming both contributors, before a write.
+          expect(Result.isFailure(result)).toBe(true);
+          if (Result.isFailure(result)) {
+            expect(result.failure).toMatchObject({ category: "conflict" });
+            expect(JSON.stringify(result.failure)).toContain("unsatisfiable");
+            expect(JSON.stringify(result.failure)).toContain("^1.0.0");
+            expect(JSON.stringify(result.failure)).toContain("2.0.0");
+          }
+          expect(workspace.readFile("axm.json")).toBe(settings);
+          expect(workspace.readFile("axm-lock.yaml")).toBe(accepted);
+          expect(contentUnder(workspace, "agent_extensions")).toEqual(content);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
 
   /** Every authored file the workspace holds for the extension, as bytes. */
   const authoredContent = (fixture: LifecycleFixture, relative: string) =>

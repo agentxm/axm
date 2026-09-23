@@ -8,7 +8,10 @@
  * confirmable risk rather than an ordinary install, the replacement is refused
  * unless the target really is workspace-sourced and the replacement source
  * really is external, and an entry that was disabled stays disabled once the
- * external package is in place.
+ * external package is in place. The replacement changes the constraint its
+ * desired node is selected within, so it selects inside the effective
+ * constraint every contributor intersects and passes the same constraint
+ * gate as any other change to a desired member.
  *
  * `prepare` settles all of that and writes nothing. `previewOrApply` resolves
  * the same candidate, so the preview a person reads and the apply that follows
@@ -35,11 +38,15 @@ import {
   PackManager,
 } from "../../materialization/index.js";
 import { buildInstallOperation } from "../../reconciliation/index.js";
+import * as Result from "effect/Result";
+
 import {
   formatFqn,
   parseFqn,
+  parseSourceQualifiedRegistrySourcePatternParts,
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
+import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import {
   makeConfiguredReleaseAgeEvaluation,
@@ -61,12 +68,17 @@ import {
   type PlannedJobStep,
 } from "../../transitions/planning/index.js";
 import {
+  DesiredStateReader,
+  desiredStateProblemsText,
+  effectiveDesiredConstraint,
   SettingsReader,
+  type DesiredConstraintConflict,
   type SettingsReaderService,
   SettingsWriter,
   type SettingsWriterService,
   type WorkspaceSettingsReadFailure,
 } from "../../desired-state/index.js";
+import { packMemberConflicts, readProposedGraph } from "../../packs/lifecycle/install/plan.js";
 
 import { ExtensionLifecycleFailed } from "../errors.js";
 import { lifecycleStepFailure } from "../step-failure.js";
@@ -155,7 +167,7 @@ const entryDisabled = (entry: unknown): boolean =>
 /**
  * Re-disable the replaced entry. The install writes an enabled declaration
  * because that is what installing means; a package the workspace had turned
- * off must not come back on because its source changed.
+ * off, a Pack included, must not come back on because its source changed.
  */
 type RestoreDisabledStateFailure = Effect.Error<ReturnType<SettingsWriterService["updateEntry"]>>;
 
@@ -181,11 +193,18 @@ const restoreDisabledState = (
       return settings.updateEntry("hook", name, disable);
     case "knowledge":
       return settings.updateEntry("knowledge", name, disable);
-    // A Pack declaration carries no activation of its own; its members do.
     case "pack":
-      return Effect.void;
+      return settings.updateEntry("pack", name, disable);
   }
 };
+
+/** A replacement no version can satisfy together with the rest of desired state. */
+const constraintRefusal = (subject: string, conflicts: ReadonlyArray<DesiredConstraintConflict>) =>
+  new ExtensionLifecycleFailed({
+    category: "conflict",
+    detail: `Cannot demote ${subject} because configured constraints are unsatisfiable: ${desiredStateProblemsText(conflicts)}`,
+    recover: "Choose a replacement source whose range every Pack that requires it admits",
+  });
 
 // -----------------------------------------------------------------------------
 // The replacement step
@@ -198,11 +217,35 @@ const restoreDisabledState = (
  * no other route can reach it by accident.
  */
 const replacementStep = Effect.fn("Demote.replacementStep")(function* (
+  subject: string,
   type: ExtensionType,
   name: string,
   source: string,
 ) {
   const evaluation = yield* makeConfiguredReleaseAgeEvaluation();
+  const desiredState = yield* DesiredStateReader;
+  const graph = yield* desiredState.graph();
+  // The replacement's own range stands in for the authored declaration; every
+  // Pack that requires the node still contributes its range.
+  const declaredRange = parseSourceQualifiedRegistrySourcePatternParts(source)?.versionRange;
+  const effective = effectiveDesiredConstraint(
+    graph,
+    { type, name },
+    declaredRange === undefined
+      ? []
+      : [
+          {
+            source: "settings",
+            localName: name,
+            range: declaredRange,
+            location: SETTINGS_FILENAME,
+          },
+        ],
+  );
+  if (Result.isFailure(effective)) {
+    return yield* constraintRefusal(subject, [effective.failure]);
+  }
+  const selectionRange = effective.success.range;
   // The one place source authority is deliberately overridden.
   const common = {
     toStepFailure: lifecycleStepFailure,
@@ -212,7 +255,7 @@ const replacementStep = Effect.fn("Demote.replacementStep")(function* (
   switch (type) {
     case "skill":
       return yield* Effect.gen(function* () {
-        const resolved = yield* resolveConfiguredSkill(name, source, evaluation);
+        const resolved = yield* resolveConfiguredSkill(name, source, evaluation, selectionRange);
         return buildInstallOperation(yield* SkillManager, {
           ...common,
           ...resolved,
@@ -221,7 +264,12 @@ const replacementStep = Effect.fn("Demote.replacementStep")(function* (
       });
     case "mcp-server":
       return yield* Effect.gen(function* () {
-        const resolved = yield* resolveConfiguredMcpServer(name, source, evaluation);
+        const resolved = yield* resolveConfiguredMcpServer(
+          name,
+          source,
+          evaluation,
+          selectionRange,
+        );
         return buildInstallOperation(yield* McpServerManager, {
           ...common,
           ...resolved,
@@ -230,7 +278,7 @@ const replacementStep = Effect.fn("Demote.replacementStep")(function* (
       });
     case "subagent":
       return yield* Effect.gen(function* () {
-        const resolved = yield* resolveConfiguredSubagent(name, source, evaluation);
+        const resolved = yield* resolveConfiguredSubagent(name, source, evaluation, selectionRange);
         return buildInstallOperation(yield* SubagentManager, {
           ...common,
           ...resolved,
@@ -239,7 +287,7 @@ const replacementStep = Effect.fn("Demote.replacementStep")(function* (
       });
     case "rule":
       return yield* Effect.gen(function* () {
-        const resolved = yield* resolveConfiguredRule(name, source, evaluation);
+        const resolved = yield* resolveConfiguredRule(name, source, evaluation, selectionRange);
         return buildInstallOperation(yield* RuleManager, {
           ...common,
           ...resolved,
@@ -248,7 +296,7 @@ const replacementStep = Effect.fn("Demote.replacementStep")(function* (
       });
     case "hook":
       return yield* Effect.gen(function* () {
-        const resolved = yield* resolveConfiguredHook(name, source, evaluation);
+        const resolved = yield* resolveConfiguredHook(name, source, evaluation, selectionRange);
         return buildInstallOperation(yield* HookManager, {
           ...common,
           ...resolved,
@@ -257,7 +305,12 @@ const replacementStep = Effect.fn("Demote.replacementStep")(function* (
       });
     case "knowledge":
       return yield* Effect.gen(function* () {
-        const resolved = yield* resolveConfiguredKnowledge(name, source, evaluation);
+        const resolved = yield* resolveConfiguredKnowledge(
+          name,
+          source,
+          evaluation,
+          selectionRange,
+        );
         return buildInstallOperation(yield* KnowledgeManager, {
           ...common,
           ...resolved,
@@ -267,6 +320,15 @@ const replacementStep = Effect.fn("Demote.replacementStep")(function* (
     case "pack":
       return yield* Effect.gen(function* () {
         const resolved = yield* resolveConfiguredPack(name, source, evaluation);
+        // The external Pack's manifest replaces the authored one, so its
+        // members are gated within the graph that manifest proposes.
+        const conflicts = packMemberConflicts(
+          resolved.ref,
+          yield* readProposedGraph([resolved.ref]),
+        );
+        if (conflicts.length > 0) {
+          return yield* constraintRefusal(subject, conflicts);
+        }
         return buildInstallOperation(yield* PackManager, {
           ...common,
           ...resolved,
@@ -318,7 +380,12 @@ const settleDemotion = Effect.fn("Demote.prepare")(function* (request: DemoteReq
   }
 
   const authoredDir = path.join(layout.authoredRoot(parsed.type), parsed.name);
-  const operation = yield* replacementStep(parsed.type, parsed.name, request.source);
+  const operation = yield* replacementStep(
+    formatFqn(parsed),
+    parsed.type,
+    parsed.name,
+    request.source,
+  );
   const wasDisabled = entryDisabled(current);
 
   const step: PlannedJobStep<DemoteRequirements> =

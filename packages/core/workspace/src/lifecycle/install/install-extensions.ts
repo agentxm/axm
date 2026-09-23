@@ -36,7 +36,10 @@ import {
   type PlannedJobStep,
 } from "../../transitions/planning/index.js";
 
-import type { ExtensionResolutionFailed } from "../../resolution/index.js";
+import {
+  makeConfiguredReleaseAgeEvaluation,
+  type ExtensionResolutionFailed,
+} from "../../resolution/index.js";
 
 import type { ExtensionLifecycleFailed } from "../errors.js";
 import { withPublisherTrust } from "../publisher-binding.js";
@@ -103,6 +106,7 @@ import {
   type SubagentSelectionFailure,
 } from "../../subagents/lifecycle/application/index.js";
 import {
+  INSTALL_HELD_RELEASE_POLICY,
   installRefused,
   type InstallExecutionFailure,
   type InstallStepRequirements,
@@ -639,10 +643,16 @@ const planForType = (
           all: request.all,
           nonInteractive: request.nonInteractive,
         });
+        // The named Pack is the requested release; its members are selected
+        // without an explicit version, so the minimum release age decides them.
+        const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation();
         const plans = yield* Effect.forEach(selected, (selectedRef) =>
           Effect.gen(function* () {
             const discovery = { ref: selectedRef, probes: [], sourceLabel: source };
-            const intent = finalizePackInstallIntent(parsed, discovery);
+            const intent = finalizePackInstallIntent(parsed, discovery, {
+              releaseAgeEvaluation,
+              heldRelease: INSTALL_HELD_RELEASE_POLICY,
+            });
             const ref =
               request.reinstall && acceptedPacks.length === 0
                 ? yield* pinGitReinstallRef(intent.packToInstall)

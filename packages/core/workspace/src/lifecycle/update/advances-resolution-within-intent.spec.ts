@@ -110,6 +110,64 @@ it.effect(
   },
 );
 
+/** A declaration that states its source and leaves activation to its default. */
+const omittedActivationRows = [
+  {
+    kind: "selective-skills",
+    type: "skill",
+    name: REVIEW,
+    settingsKey: "skills",
+    fqn: FQN,
+    publish: (registry: LifecycleRegistry, versions: ReadonlyArray<RegistrySkillVersion>) =>
+      registry.writeSkill(REVIEW, versions),
+  },
+  {
+    kind: "selective-subagents",
+    type: "subagent",
+    name: "reviewer",
+    settingsKey: "subagents",
+    fqn: "@acme/subagents/reviewer",
+    publish: (registry: LifecycleRegistry, versions: ReadonlyArray<RegistrySkillVersion>) =>
+      registry.writeSubagent("reviewer", versions),
+  },
+] as const;
+
+it.effect.each(omittedActivationRows)(
+  "selective $type update advances a declaration that omits its activation",
+  ({ kind, name, settingsKey, fqn, publish }) => {
+    const { workspace, registry, cleanup } = makeInstallWorld({
+      settings: { [settingsKey]: { [name]: { source: fqn } } },
+    });
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          publish(registry, [firstVersion]);
+          yield* applyInstall(installRequest({ subject: { kind: "configured" } }));
+          expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.0.0");
+          publish(registry, [firstVersion, { version: "2.0.0", body: "Second guidance." }]);
+
+          // An omitted `enabled` is an enabled declaration, not a disabled one.
+          const candidate = yield* SelectiveUpdate.prepare({
+            kind,
+            source: Option.none(),
+            nameFilters: [name],
+            nameFilterFlag: "--name",
+            ignoreVersionConstraints: false,
+          });
+          if (candidate.outcome !== "planned") throw new Error(candidate.message);
+          const resolution = yield* SelectiveUpdate.previewOrApply(
+            candidate,
+            preapprovedPlanExecution,
+          );
+
+          expect(deriveOperationOutcome(resolution)).toBe("applied");
+          expect(workspace.readFile("axm-lock.yaml")).toContain("version: 2.0.0");
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(cleanup)));
+  },
+);
+
 describe.each(["targeted", "selective"] as const)(
   "%s update of a desired Registry extension",
   (route) => {

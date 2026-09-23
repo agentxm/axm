@@ -36,6 +36,8 @@ import {
   makeConfiguredReleaseAgeEvaluation,
   normalizeReleaseAgeRecords,
   ReleaseAgePosture,
+  releaseAgeRecord,
+  releaseAgeRecords,
   type ReleaseAgeBypassRecord,
   type ReleaseAgeRecord,
   resolveConfiguredHook,
@@ -126,7 +128,10 @@ import {
   configuredPackConstraintBlockPlan,
   packUpdateGroups,
 } from "../../packs/lifecycle/constraint-gate.js";
-import { WORKSPACE_UPDATE_EXECUTION_CAPABILITIES } from "./atomicity.js";
+import {
+  WORKSPACE_UPDATE_EXECUTION_CAPABILITIES,
+  WORKSPACE_UPDATE_HELD_RELEASE_POLICY,
+} from "./atomicity.js";
 import { assessGitSelector } from "./git-selector.js";
 import { withPackRegistryIndexMemo } from "../../resolution/sources/providers/registry/index-memo.js";
 
@@ -346,30 +351,6 @@ interface SelectedPackAdvance {
   readonly intent: PackInstallIntent;
 }
 
-const releaseAgeRecord = (args: {
-  readonly target: string;
-  readonly versionRange: Option.Option<string>;
-  readonly evidence: {
-    readonly version: string;
-    readonly publishedAt: string;
-    readonly eligibleAt: string;
-    readonly minimumReleaseAgeSeconds: number;
-  };
-  readonly selectedVersion?: string;
-  readonly currentVersion?: string;
-}): ReleaseAgeRecord => ({
-  reason: "minimum-release-age",
-  target: args.target,
-  dependencyPath: [args.target],
-  ...(Option.isSome(args.versionRange) ? { requestedRange: args.versionRange.value } : {}),
-  ...(args.selectedVersion === undefined ? {} : { selectedVersion: args.selectedVersion }),
-  ...(args.currentVersion === undefined ? {} : { currentVersion: args.currentVersion }),
-  candidateVersion: args.evidence.version,
-  publishedAt: args.evidence.publishedAt,
-  eligibleAt: args.evidence.eligibleAt,
-  minimumReleaseAgeSeconds: args.evidence.minimumReleaseAgeSeconds,
-});
-
 const matchesRequestedType = (
   requestedType: Option.Option<WorkspaceUpdatableType>,
   candidate: WorkspaceUpdatableType,
@@ -499,16 +480,15 @@ const prepareUpdateIntent = <TIntent, R>(
             detail: `${resolution.target} has no visible version satisfying ${resolution.requestedRange}`,
           });
         }
+        const subject = {
+          target: resolution.target,
+          requestedRange: Option.getOrUndefined(resolution.versionRange),
+          currentVersion: resolution.acceptedVersion,
+        };
         if (resolution.kind === "policy_held") {
           return {
             kind: "policy_held",
-            holdbacks: [
-              releaseAgeRecord({
-                target: resolution.target,
-                versionRange: resolution.versionRange,
-                evidence: resolution.candidate,
-              }),
-            ],
+            holdbacks: [releaseAgeRecord(subject, resolution.candidate)],
           } as const;
         }
         const intent = args.makeIntent(resolution.ref, resolution.versionRange);
@@ -521,34 +501,7 @@ const prepareUpdateIntent = <TIntent, R>(
         return {
           kind: "selected",
           intent,
-          holdbacks:
-            resolution.kind === "exempted" || resolution.newerHeld === undefined
-              ? []
-              : [
-                  releaseAgeRecord({
-                    target: resolution.target,
-                    versionRange: resolution.versionRange,
-                    evidence: resolution.newerHeld,
-                    selectedVersion: resolution.ref.version,
-                    ...(resolution.acceptedVersion === undefined
-                      ? {}
-                      : { currentVersion: resolution.acceptedVersion }),
-                  }),
-                ],
-          bypasses:
-            resolution.kind === "selected"
-              ? []
-              : [
-                  {
-                    ...releaseAgeRecord({
-                      target: resolution.target,
-                      versionRange: resolution.versionRange,
-                      evidence: resolution.bypassed,
-                      selectedVersion: resolution.ref.version,
-                    }),
-                    ...resolution.exemption,
-                  },
-                ],
+          ...releaseAgeRecords(subject, resolution, resolution.ref.version),
         } as const;
       }
       const resolved = yield* args.fallback;
@@ -711,10 +664,9 @@ const preparePackRef = (
         ? ({
             packToInstall: ref,
             versionRange,
-            unattended: true,
             nonInteractive,
             releaseAgeEvaluation,
-            releaseAgeHoldbackBehavior: "continue",
+            heldRelease: WORKSPACE_UPDATE_HELD_RELEASE_POLICY,
           } satisfies PackInstallIntent)
         : undefined,
   });
@@ -1091,7 +1043,7 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
     const settings = yield* SettingsReader;
     const location = yield* WorkspaceLocation;
     const configured = yield* settings.entries("pack");
-    const entries = selectedEntries(Object.entries(configured), selection).filter(
+    const entries = selectedEntries(acquisitionConfiguredEntries(configured), selection).filter(
       hasConfiguredSource,
     );
 
@@ -1220,8 +1172,16 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
           ...blockPlans,
           ...selectedPlans,
         ],
-        holdbacks: resolvedHoldbacks,
-        bypasses: resolvedBypasses,
+        // A Pack that stays unchanged while a member ages has no step to
+        // carry its evidence, so the sweep reports the member records here.
+        holdbacks: [
+          ...resolvedHoldbacks,
+          ...selectedPlans.flatMap((plan) => plan.releaseAge?.holdbacks ?? []),
+        ],
+        bypasses: [
+          ...resolvedBypasses,
+          ...selectedPlans.flatMap((plan) => plan.releaseAge?.bypasses ?? []),
+        ],
       }),
     };
   }).pipe(withPackRegistryIndexMemo);

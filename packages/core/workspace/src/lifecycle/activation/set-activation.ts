@@ -47,6 +47,7 @@ import {
   type ManagerRequirements,
 } from "../../materialization/index.js";
 import { type McpServerInstallRequirements } from "../../reconciliation/index.js";
+import { relevantPackConstraintProblems } from "../../packs/lifecycle/constraint-gate.js";
 import {
   collectMaterializeSteps,
   collectUnreachableRetirement,
@@ -96,6 +97,9 @@ import {
 } from "../../transitions/planning/index.js";
 import {
   acceptedCanonicalObservation,
+  decodeDesiredExtensionIdentity,
+  desiredStateProblemsText,
+  originsOutsidePacks,
   usableAcceptedCanonical,
   DesiredStateReader,
   LockfileReader,
@@ -299,20 +303,11 @@ const settingsArtifact = (scope: WorkspaceScope): JobStepArtifact => ({
   targets: [{ path: settingsDisplayPath(scope), change: "updated" }],
 });
 
-const normalizedPackIdentity = (identity: string): string =>
-  identity.startsWith("workspace:") ? identity.slice("workspace:".length) : identity;
-
 const packContributesTo = (node: DesiredExtensionNode, packIdentity: string): boolean =>
-  node.origins.some(
-    (origin) => origin.type === "pack" && normalizedPackIdentity(origin.pack) === packIdentity,
-  );
+  originsOutsidePacks(node, [packIdentity]).length < node.origins.length;
 
 const remainsActiveWithoutPack = (node: DesiredExtensionNode, packIdentity: string): boolean =>
-  isDesiredExtensionActive(
-    node.origins.filter(
-      (origin) => origin.type !== "pack" || normalizedPackIdentity(origin.pack) !== packIdentity,
-    ),
-  );
+  isDesiredExtensionActive(originsOutsidePacks(node, [packIdentity]));
 
 // -----------------------------------------------------------------------------
 // prepare
@@ -594,7 +589,24 @@ const settleActivation = (
             detail: `Pack "${request.name}" was not found`,
           });
         }
-        const identity = normalizedPackIdentity(packNode.identity);
+        // Enabling a Pack adds its members to desired state, so it passes the
+        // same constraint gate every other change to a desired member passes.
+        const conflicts = request.enabled
+          ? relevantPackConstraintProblems({
+              graph: proposal.after,
+              prospectivePacks: [],
+              selectedNames: new Set([request.name]),
+            })
+          : [];
+        if (conflicts.length > 0) {
+          return yield* new ExtensionLifecycleFailed({
+            category: "conflict",
+            detail: `Cannot enable the pack: configured constraints are unsatisfiable: ${desiredStateProblemsText(conflicts)}`,
+            recover: "Change the direct declaration or the Pack that requires a version outside it",
+          });
+        }
+        const identity =
+          decodeDesiredExtensionIdentity(packNode.identity)?.fqn ?? packNode.identity;
         // Disabling moves only the members that lose their last active origin;
         // enabling moves every member the Pack contributes.
         const affected = graph.nodes.filter(

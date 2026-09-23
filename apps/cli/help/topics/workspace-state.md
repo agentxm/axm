@@ -18,7 +18,11 @@ outputs never reconstruct missing settings or lock authority.
 to limit reconciliation by directly materialized extension type. Pack is
 intentionally absent from `--type` because it coordinates member extensions
 instead of materializing directly; pass the pack's fully qualified
-`<extension>` to sync that pack and its complete member closure. Run `axm sync
+`<extension>` to sync that pack and its complete member closure. A selection
+that includes a Rule or Knowledge bundle also reconciles the shared instruction
+region those bundles contribute to, regenerating the whole region from every
+contributor; while another contributor lacks accepted state, that region stays
+blocked and unchanged. Run `axm sync
 --preview` to inspect the same semantic candidate that apply will execute. In CI, run `axm sync
 --preview --fail-on-change`; it exits 1 with a `reconciliation-required`
 result when that candidate contains changes and exits 0 when the workspace is

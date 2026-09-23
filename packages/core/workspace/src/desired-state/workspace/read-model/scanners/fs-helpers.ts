@@ -27,7 +27,27 @@ import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
+import * as Semaphore from "effect/Semaphore";
 import type { Diagnostics } from "../diagnostics.js";
+
+// Wide/deep Node and Bun discovery measurements support the existing local
+// filesystem allowance of sixteen. Scanners share this owner, so fixed outer
+// catalogs cannot multiply the number of filesystem operations in flight.
+export const SCANNER_IO_CONCURRENCY = 16;
+
+export const makeScannerFileSystem = (fs: FileSystem.FileSystem) =>
+  Effect.gen(function* () {
+    const permits = yield* Semaphore.make(SCANNER_IO_CONCURRENCY);
+    const bounded: FileSystem.FileSystem = {
+      ...fs,
+      exists: (...args) => permits.withPermit(fs.exists(...args)),
+      stat: (...args) => permits.withPermit(fs.stat(...args)),
+      readDirectory: (...args) => permits.withPermit(fs.readDirectory(...args)),
+      readFile: (...args) => permits.withPermit(fs.readFile(...args)),
+      readFileString: (...args) => permits.withPermit(fs.readFileString(...args)),
+    };
+    return bounded;
+  });
 
 /**
  * Probe a path with `fs.exists`. Returns `true` when the file exists,
@@ -70,20 +90,9 @@ export const childEntries = (
   parent: string,
 ): Effect.Effect<ReadonlyArray<string>> =>
   Effect.gen(function* () {
-    const exists = yield* Effect.result(fs.exists(parent));
-    if (exists._tag === "Failure") {
-      yield* diagnostics.append({
-        source: "scanner",
-        message: `${scannerName}: cannot stat ${parent}`,
-        path: parent,
-        code: "scanner-io",
-      });
-      return [];
-    }
-    if (!exists.success) return [];
-
     const entries = yield* Effect.result(fs.readDirectory(parent));
     if (entries._tag === "Failure") {
+      if (entries.failure.reason._tag === "NotFound") return [];
       yield* diagnostics.append({
         source: "scanner",
         message: `${scannerName}: cannot read directory ${parent}`,
@@ -95,31 +104,66 @@ export const childEntries = (
     return entries.success.map((entry) => path.join(parent, entry));
   });
 
-/**
- * Filter `candidates` down to entries that are directories. Directory
- * detection uses a successful `readDirectory` call so the helper stays
- * compatible with the v1 fixture builder's in-memory `FileSystem`, which
- * does not implement `fs.stat`.
- *
- * Failures (file or unreadable directory) are silently dropped: an explicit
- * warning here would fire on every regular file inside a scanned tree
- * (`README.md`, `SKILL.md`, etc.). The shared scanner test still asserts
- * that failing-fs cases surface warnings via the parent `readDirectory`.
- */
-export const filterDirectories = (
+/** Classify directories without enumerating their contents a second time. */
+export const directoryExists = (
+  scannerName: string,
   fs: FileSystem.FileSystem,
+  diagnostics: Diagnostics,
+  directory: string,
+): Effect.Effect<boolean> =>
+  Effect.gen(function* () {
+    const result = yield* Effect.result(fs.stat(directory));
+    if (result._tag === "Success") return result.success.type === "Directory";
+    if (result.failure.reason._tag !== "NotFound") {
+      yield* diagnostics.append({
+        source: "scanner",
+        message: `${scannerName}: cannot stat ${directory}`,
+        path: directory,
+        code: "scanner-io",
+      });
+    }
+    return false;
+  });
+
+/** Optional content is absent only when missing; other read failures are diagnostic. */
+export const readTextFile = (
+  scannerName: string,
+  fs: FileSystem.FileSystem,
+  diagnostics: Diagnostics,
+  filePath: string,
+): Effect.Effect<Option.Option<string>> =>
+  Effect.gen(function* () {
+    const result = yield* Effect.result(fs.readFileString(filePath));
+    if (result._tag === "Success") return Option.some(result.success);
+    if (result.failure.reason._tag !== "NotFound") {
+      yield* diagnostics.append({
+        source: "scanner",
+        message: `${scannerName}: cannot read ${filePath}`,
+        path: filePath,
+        code: "scanner-io",
+      });
+    }
+    return Option.none();
+  });
+
+/** Missing paths and regular files are normal; failed metadata reads are diagnostic. */
+export const filterDirectories = (
+  scannerName: string,
+  fs: FileSystem.FileSystem,
+  diagnostics: Diagnostics,
   candidates: ReadonlyArray<string>,
+  concurrency = SCANNER_IO_CONCURRENCY,
 ): Effect.Effect<ReadonlyArray<string>> =>
   Effect.gen(function* () {
     const checks = yield* Effect.forEach(
       candidates,
       (candidate) =>
         Effect.gen(function* () {
-          const result = yield* Effect.result(fs.readDirectory(candidate));
-          if (result._tag === "Failure") return Option.none<string>();
-          return Option.some(candidate);
+          return (yield* directoryExists(scannerName, fs, diagnostics, candidate))
+            ? Option.some(candidate)
+            : Option.none<string>();
         }),
-      { concurrency: "unbounded" },
+      { concurrency },
     );
     return Array.getSomes(checks);
   });

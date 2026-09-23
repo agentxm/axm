@@ -24,11 +24,11 @@
  * carries no `FileSystem | Path` requirement; per-file partial failures
  * publish diagnostic warnings rather than failing the cell.
  *
- * The scanner avoids `fs.stat` and uses only `fs.exists` / `fs.readDirectory`
- * so it remains compatible with the fixture builder's in-memory `FileSystem`.
+ * Shared physical read paths are observed once and projected to each agent.
  */
 
 import * as Effect from "effect/Effect";
+import * as Array from "effect/Array";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
@@ -41,6 +41,7 @@ import {
   childEntries,
   fileExists,
   filterDirectories,
+  SCANNER_IO_CONCURRENCY,
   splitAbsolutePathSegments,
 } from "./fs-helpers.js";
 import type { AgentDirOccurrence, AgentDirSubjectType } from "./types.js";
@@ -123,6 +124,8 @@ const subjectsForAgent = (descriptor: AgentDescriptor): ReadonlyArray<SubjectDir
  */
 const subjectFileNameFor = (): string => "SKILL.md";
 
+type PhysicalOccurrence = Omit<AgentDirOccurrence, "agentId" | "readPathStatus">;
+
 /**
  * Skills use one subdirectory per subject. Subagents use the flat files AXM's
  * agent renderers produce.
@@ -133,9 +136,8 @@ const subjectFileNameFor = (): string => "SKILL.md";
  */
 const scanSubjectDirectory = (
   deps: AgentDirScannerDeps,
-  agentId: AgentId,
   subject: SubjectDir,
-): Effect.Effect<ReadonlyArray<AgentDirOccurrence>> =>
+): Effect.Effect<ReadonlyArray<PhysicalOccurrence>> =>
   Effect.gen(function* () {
     const { fs, path, scope, workspaceRoot, diagnostics } = deps;
     const subjectAbsolute = path.join(workspaceRoot, subject.relativeDir);
@@ -144,12 +146,10 @@ const scanSubjectDirectory = (
       const present = yield* fileExists(SCANNER_NAME, fs, diagnostics, subjectAbsolute);
       if (!present) return [];
       const contentLocation = makeAbsolutePath(path, subjectAbsolute);
-      const occurrence: AgentDirOccurrence = {
+      const occurrence: PhysicalOccurrence = {
         _tag: "agent-dir",
         scope,
         type: subject.type,
-        agentId,
-        ...(subject.readPathStatus === undefined ? {} : { readPathStatus: subject.readPathStatus }),
         name: normalizeFileBackedName(path.basename(subjectAbsolute)),
         contentLocation,
         pathSegments: splitAbsolutePathSegments(path, subjectAbsolute),
@@ -162,7 +162,7 @@ const scanSubjectDirectory = (
     }
 
     const candidates = yield* childEntries(SCANNER_NAME, fs, diagnostics, path, subjectAbsolute);
-    const nameDirs = yield* filterDirectories(fs, candidates);
+    const nameDirs = yield* filterDirectories(SCANNER_NAME, fs, diagnostics, candidates);
     if (subject.type === "skill") {
       return yield* Effect.forEach(
         nameDirs,
@@ -181,18 +181,14 @@ const scanSubjectDirectory = (
               _tag: "agent-dir",
               scope,
               type: subject.type,
-              agentId,
-              ...(subject.readPathStatus === undefined
-                ? {}
-                : { readPathStatus: subject.readPathStatus }),
               name,
               contentLocation,
               pathSegments: splitAbsolutePathSegments(path, nameDir),
               subjectFile: Option.some(makeAbsolutePath(path, subjectFilePath)),
               subjectFileExists,
-            } satisfies AgentDirOccurrence;
+            } satisfies PhysicalOccurrence;
           }),
-        { concurrency: "unbounded" },
+        { concurrency: SCANNER_IO_CONCURRENCY },
       );
     }
 
@@ -202,13 +198,23 @@ const scanSubjectDirectory = (
       candidates,
       (candidate) =>
         Effect.gen(function* () {
-          if (directorySet.has(candidate)) return Option.none<AgentDirOccurrence>();
+          if (directorySet.has(candidate)) return Option.none<PhysicalOccurrence>();
           const extension = path.extname(candidate).toLowerCase();
           if (!supportedExtensions.includes(extension)) {
-            return Option.none<AgentDirOccurrence>();
+            return Option.none<PhysicalOccurrence>();
           }
           const readable = yield* Effect.result(fs.readFile(candidate));
-          if (readable._tag === "Failure") return Option.none<AgentDirOccurrence>();
+          if (readable._tag === "Failure") {
+            if (readable.failure.reason._tag !== "NotFound") {
+              yield* diagnostics.append({
+                source: "scanner",
+                message: `${SCANNER_NAME}: cannot read ${candidate}`,
+                path: candidate,
+                code: "scanner-io",
+              });
+            }
+            return Option.none<PhysicalOccurrence>();
+          }
           const fileName = path.basename(candidate);
           const name = normalizeFileBackedName(fileName.slice(0, -extension.length));
           const contentLocation = makeAbsolutePath(path, candidate);
@@ -216,18 +222,14 @@ const scanSubjectDirectory = (
             _tag: "agent-dir",
             scope,
             type: subject.type,
-            agentId,
-            ...(subject.readPathStatus === undefined
-              ? {}
-              : { readPathStatus: subject.readPathStatus }),
             name,
             contentLocation,
             pathSegments: splitAbsolutePathSegments(path, candidate),
             subjectFile: Option.some(contentLocation),
             subjectFileExists: true,
-          } satisfies AgentDirOccurrence);
+          } satisfies PhysicalOccurrence);
         }),
-      { concurrency: "unbounded" },
+      { concurrency: SCANNER_IO_CONCURRENCY },
     );
     return fileOccurrences.flatMap(Option.toArray);
   });
@@ -241,18 +243,41 @@ const scanAgentDirs = Effect.fn("workspace.read-model.scanner.agent-dir")(functi
 ) {
   const registry = deps.agentRegistry ?? AGENTS;
 
-  const occurrences = yield* Effect.forEach(
-    Object.values(registry),
-    (descriptor) => {
-      const subjects = subjectsForAgent(descriptor);
-      return Effect.forEach(
-        subjects,
-        (subject) => scanSubjectDirectory(deps, descriptor.id, subject),
-        { concurrency: "unbounded" },
-      ).pipe(Effect.map((results) => results.flat()));
-    },
-    { concurrency: "unbounded" },
+  const requests = Object.values(registry).flatMap((descriptor) =>
+    subjectsForAgent(descriptor).map((subject) => ({ agentId: descriptor.id, subject })),
   );
-
-  return occurrences.flat();
+  const samePhysicalSubject = (left: SubjectDir, right: SubjectDir) =>
+    left.type === right.type &&
+    left.relativeDir === right.relativeDir &&
+    left.isFile === right.isFile;
+  const subjects = Array.dedupeWith(
+    requests.map(({ subject }) => subject),
+    samePhysicalSubject,
+  );
+  const observations = yield* Effect.forEach(subjects, (subject) =>
+    scanSubjectDirectory(deps, subject).pipe(
+      Effect.map((facts) =>
+        requests.flatMap((request, index) =>
+          samePhysicalSubject(request.subject, subject)
+            ? [
+                {
+                  index,
+                  occurrences: facts.map((fact): AgentDirOccurrence => ({
+                    ...fact,
+                    agentId: request.agentId,
+                    ...(request.subject.readPathStatus === undefined
+                      ? {}
+                      : { readPathStatus: request.subject.readPathStatus }),
+                  })),
+                },
+              ]
+            : [],
+        ),
+      ),
+    ),
+  );
+  return observations
+    .flat()
+    .sort((left, right) => left.index - right.index)
+    .flatMap(({ occurrences }) => occurrences);
 });

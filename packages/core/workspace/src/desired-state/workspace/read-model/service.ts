@@ -76,6 +76,7 @@ import {
   type CanonicalExtensionOccurrence,
 } from "./scanners/index.js";
 import { makeScopedStateApi, type RawSourceBytes, type ScopedStateLoaders } from "./state.js";
+import { makeScannerFileSystem } from "./scanners/fs-helpers.js";
 import type { Scope } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -284,11 +285,12 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
   }
 
   // Scanner cells — eagerly enumerate the closed scanner key set.
+  const scannerFs = yield* makeScannerFileSystem(fs);
   const canonicalScanner = yield* Effect.cached(
     Result.isFailure(layoutResult)
       ? Effect.succeed<ReadonlyArray<CanonicalExtensionOccurrence>>([])
       : makeCanonicalExtensionsScanner({
-          fs,
+          fs: scannerFs,
           path,
           workspaceRoot,
           diagnostics,
@@ -297,7 +299,7 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
   );
   const agentDirScanner = yield* Effect.cached(
     makeAgentDirScanner({
-      fs,
+      fs: scannerFs,
       path,
       workspaceRoot,
       scope,
@@ -307,7 +309,7 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
   );
   const mcpConfigScanner = yield* Effect.cached(
     makeMcpConfigScanner({
-      fs,
+      fs: scannerFs,
       path,
       workspaceRoot,
       scope,
@@ -317,7 +319,7 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
   );
   const agentSettingsScanner = yield* Effect.cached(
     makeAgentSettingsScanner({
-      fs,
+      fs: scannerFs,
       path,
       workspaceRoot,
       scope,

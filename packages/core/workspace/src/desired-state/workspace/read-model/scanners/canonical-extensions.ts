@@ -23,10 +23,7 @@
  * - workspace-root path-escape is checked at provider construction (Phase 9),
  *   not inside the scanner.
  *
- * The scanner avoids `fs.stat` and uses only `fs.exists` / `fs.readDirectory`
- * so it remains compatible with the fixture builder's in-memory `FileSystem`.
- * "Is this a directory" is decided by whether `readDirectory` returns
- * successfully; non-directory entries are silently ignored.
+ * Directory metadata classifies candidates without enumerating them twice.
  */
 
 import * as Effect from "effect/Effect";
@@ -50,8 +47,11 @@ import { isInstallRootStagingName } from "../../install-root.js";
 import type { WorkspaceLayout } from "../../layout.js";
 import {
   childEntries,
+  directoryExists,
   fileExists,
   filterDirectories,
+  readTextFile,
+  SCANNER_IO_CONCURRENCY,
   splitAbsolutePathSegments,
 } from "./fs-helpers.js";
 import type { CanonicalExtensionOccurrence } from "./types.js";
@@ -190,7 +190,12 @@ const readNativeIdentity = (
     if (filename === undefined) return Option.none();
     const filenameType = extensionTypeForManifest(filename);
     if (filenameType === undefined) return Option.none();
-    const raw = yield* deps.fs.readFileString(deps.path.join(dir, filename)).pipe(Effect.option);
+    const raw = yield* readTextFile(
+      SCANNER_NAME,
+      deps.fs,
+      deps.diagnostics,
+      deps.path.join(dir, filename),
+    );
     if (Option.isNone(raw)) {
       return Option.some({
         type: filenameType,
@@ -211,10 +216,13 @@ const readNativeIdentity = (
     return identity;
   });
 
-const scanAcquiredDirectory = (
+const inspectAcquiredDirectory = (
   deps: CanonicalExtensionsScannerDeps,
   dir: string,
-): Effect.Effect<ReadonlyArray<CanonicalExtensionOccurrence>> =>
+): Effect.Effect<{
+  readonly occurrences: ReadonlyArray<CanonicalExtensionOccurrence>;
+  readonly children: ReadonlyArray<string>;
+}> =>
   Effect.gen(function* () {
     const childPaths = yield* childEntries(SCANNER_NAME, deps.fs, deps.diagnostics, deps.path, dir);
     const entries = childPaths.map((childPath) => deps.path.basename(childPath));
@@ -226,39 +234,50 @@ const scanAcquiredDirectory = (
         identity.type === "pack" || identity.type === "mcp-server"
           ? dir
           : deps.path.join(dir, "src");
-      const contentDirExists = yield* deps.fs.readDirectory(contentDir).pipe(
-        Effect.as(true),
-        Effect.catch(() => Effect.succeed(false)),
+      const contentDirExists = yield* directoryExists(
+        SCANNER_NAME,
+        deps.fs,
+        deps.diagnostics,
+        contentDir,
       );
-      if (!contentDirExists) return [];
-      return [
-        yield* buildOccurrence(deps, {
-          extensionType: identity.type,
-          origin: "canonical-axm",
-          nameDir: contentDir,
-          name: identity.name,
-          owner: identity.owner,
-        }),
-      ];
+      if (!contentDirExists) return { occurrences: [], children: [] };
+      return {
+        children: [],
+        occurrences: [
+          yield* buildOccurrence(deps, {
+            extensionType: identity.type,
+            origin: "canonical-axm",
+            nameDir: contentDir,
+            name: identity.name,
+            owner: identity.owner,
+          }),
+        ],
+      };
     }
 
     if (entries.includes("SKILL.md")) {
-      const raw = yield* deps.fs
-        .readFileString(deps.path.join(dir, "SKILL.md"))
-        .pipe(Effect.option);
+      const raw = yield* readTextFile(
+        SCANNER_NAME,
+        deps.fs,
+        deps.diagnostics,
+        deps.path.join(dir, "SKILL.md"),
+      );
       const parsed = Option.flatMap(raw, (content) =>
         parseSkillMd(content, deps.path.basename(dir)),
       );
       if (Option.isSome(parsed)) {
-        return [
-          yield* buildOccurrence(deps, {
-            extensionType: "skill",
-            origin: "external-axm",
-            nameDir: dir,
-            name: parsed.value.name,
-            owner: null,
-          }),
-        ];
+        return {
+          children: [],
+          occurrences: [
+            yield* buildOccurrence(deps, {
+              extensionType: "skill",
+              origin: "external-axm",
+              nameDir: dir,
+              name: parsed.value.name,
+              owner: null,
+            }),
+          ],
+        };
       }
     }
 
@@ -267,13 +286,53 @@ const scanAcquiredDirectory = (
         (entry) => !DISCOVERY_SKIPPED_DIRECTORIES.has(entry) && !isInstallRootStagingName(entry),
       )
       .map((entry) => deps.path.join(dir, entry));
-    const childDirs = yield* filterDirectories(deps.fs, childCandidates);
-    const nested = yield* Effect.forEach(
-      childDirs,
-      (childDir) => scanAcquiredDirectory(deps, childDir),
-      { concurrency: "unbounded" },
+    // A frontier already admits sixteen directories; classification within
+    // one directory stays serial instead of opening another fan-out level.
+    const children = yield* filterDirectories(
+      SCANNER_NAME,
+      deps.fs,
+      deps.diagnostics,
+      childCandidates,
+      1,
     );
-    return nested.flat();
+    return { children, occurrences: [] };
+  });
+
+const scanAcquiredDirectory = (
+  deps: CanonicalExtensionsScannerDeps,
+  root: string,
+): Effect.Effect<ReadonlyArray<CanonicalExtensionOccurrence>> =>
+  Effect.gen(function* () {
+    type Visit = { readonly directory: string; readonly position: ReadonlyArray<number> };
+    let frontier: ReadonlyArray<Visit> = [{ directory: root, position: [] }];
+    const found: Array<{
+      readonly position: ReadonlyArray<number>;
+      readonly occurrence: CanonicalExtensionOccurrence;
+    }> = [];
+    while (frontier.length > 0) {
+      const observations = yield* Effect.forEach(
+        frontier,
+        ({ directory, position }) =>
+          inspectAcquiredDirectory(deps, directory).pipe(
+            Effect.map((observed) => ({ ...observed, position })),
+          ),
+        { concurrency: SCANNER_IO_CONCURRENCY },
+      );
+      frontier = observations.flatMap(({ children, occurrences, position }) => {
+        for (const occurrence of occurrences) found.push({ position, occurrence });
+        return children.map((directory, index) => ({ directory, position: [...position, index] }));
+      });
+    }
+    // Frontier admission changes execution order, not the existing depth-first
+    // observation order. Positions retain the filesystem's own sibling order.
+    found.sort((left, right) => {
+      for (let index = 0; index < Math.min(left.position.length, right.position.length); index++) {
+        const difference = (left.position[index] ?? 0) - (right.position[index] ?? 0);
+        if (difference !== 0) return difference;
+      }
+      return left.position.length - right.position.length;
+    });
+    return found.map(({ occurrence }) => occurrence);
   });
 
 const authoredTypeDirectories: ReadonlyArray<{
@@ -303,29 +362,33 @@ const scanAuthoredType = (
       deps.path,
       root,
     );
-    const packageDirs = yield* filterDirectories(deps.fs, packageCandidates);
+    const packageDirs = yield* filterDirectories(
+      SCANNER_NAME,
+      deps.fs,
+      deps.diagnostics,
+      packageCandidates,
+    );
     const occurrences = yield* Effect.forEach(
       packageDirs,
-      (packageDir) => {
-        const nameDir =
-          extensionType === "pack" || extensionType === "mcp-server"
-            ? packageDir
-            : deps.path.join(packageDir, "src");
-        return deps.fs.readDirectory(nameDir).pipe(
-          Effect.flatMap(() =>
-            buildOccurrence(deps, {
+      (packageDir) =>
+        Effect.gen(function* () {
+          const nameDir =
+            extensionType === "pack" || extensionType === "mcp-server"
+              ? packageDir
+              : deps.path.join(packageDir, "src");
+          const present = yield* directoryExists(SCANNER_NAME, deps.fs, deps.diagnostics, nameDir);
+          if (!present) return [];
+          return [
+            yield* buildOccurrence(deps, {
               extensionType,
               origin: "canonical-axm",
               nameDir,
               name: deps.path.basename(packageDir),
               owner: deps.layout.scope === "project" ? (deps.layout.owner ?? null) : null,
             }),
-          ),
-          Effect.map((occurrence): ReadonlyArray<CanonicalExtensionOccurrence> => [occurrence]),
-          Effect.catch(() => Effect.succeed([])),
-        );
-      },
-      { concurrency: "unbounded" },
+          ];
+        }),
+      { concurrency: SCANNER_IO_CONCURRENCY },
     );
     return occurrences.flat();
   });
@@ -341,10 +404,8 @@ const scanCanonicalExtensions = Effect.fn("workspace.read-model.scanner.canonica
 
     const acquired = yield* scanAcquiredDirectory(deps, extensionsRoot);
     if (layout.scope !== "project") return acquired;
-    const authored = yield* Effect.forEach(
-      authoredTypeDirectories,
-      ({ type }) => scanAuthoredType(deps, type),
-      { concurrency: "unbounded" },
+    const authored = yield* Effect.forEach(authoredTypeDirectories, ({ type }) =>
+      scanAuthoredType(deps, type),
     );
     return [...acquired, ...authored.flat()];
   },

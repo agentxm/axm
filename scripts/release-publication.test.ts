@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "@effect/vitest";
 import { spawnSync } from "node:child_process";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
@@ -34,7 +34,7 @@ describe("release tarball paths", () => {
     (version) => {
       const result = spawnSync(
         "bun",
-        ["scripts/distribute-release.ts", version, `cli-v${version}`, "a".repeat(40)],
+        [join("scripts", "distribute-release.ts"), version, `cli-v${version}`, "a".repeat(40)],
         { cwd: process.cwd(), encoding: "utf8" },
       );
       expect(result.status).not.toBe(0);

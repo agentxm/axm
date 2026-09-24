@@ -83,7 +83,6 @@ export {
   INCOMPLETE_DESIRED_STATE_BLOCKER_ID,
   requireCompleteGraph,
   type AggregateContributor,
-  type SourceLockEntryLike,
 } from "./contributors.js";
 export {
   formatProjectionExclusion,
@@ -141,8 +140,6 @@ export {
 export { canonicalObservationFactText } from "./canonical-observation-fact.js";
 export {
   buildPackDependencyReachability,
-  classifyPackDependencyReachability,
-  packDependencyReachabilityByMember,
   type PackDependencyAuthority,
   type PackDependencyDeclaration,
   type PackDependencyMemberObservation,

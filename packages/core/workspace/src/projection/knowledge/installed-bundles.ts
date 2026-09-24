@@ -14,18 +14,13 @@ import * as Effect from "effect/Effect";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 
+import { KNOWLEDGE_SOURCE_DIR } from "@agentxm/extension-model/unstable/knowledge";
 import {
-  KNOWLEDGE_EXTENSION_DIR,
-  KNOWLEDGE_SOURCE_DIR,
-} from "@agentxm/extension-model/unstable/knowledge";
-import {
-  computeExtensionPathsForLayout,
   DesiredStateReader,
-  extensionPathSourceFromLockEntry,
   LockfileReader,
+  observeCanonicalExtension,
   WorkspaceLocation,
-  type KnowledgeLockEntry,
-  type WorkspaceLayout,
+  type CanonicalObservationStatus,
 } from "../../desired-state/index.js";
 
 /** One installed, enabled Knowledge bundle in the selected workspace. */
@@ -35,6 +30,8 @@ export interface InstalledKnowledgeBundle {
   readonly packageRoot: string;
   /** The bundle's authored source root inside the package. */
   readonly sourceRoot: string;
+  /** What the canonical observation found at that root. */
+  readonly status: CanonicalObservationStatus;
 }
 
 /** The desired Knowledge state could not be read, or a named bundle is absent. */
@@ -45,30 +42,6 @@ export class InstalledKnowledgeUnavailable extends Data.TaggedError(
   readonly detail: string;
   readonly bundle?: string;
 }> {}
-
-const bundleSourceRoot = (
-  layout: WorkspaceLayout,
-  node: { readonly name: string; readonly identity: string },
-  entry: KnowledgeLockEntry | undefined,
-  path: Path.Path,
-): string | undefined => {
-  if (node.identity.startsWith("workspace:")) {
-    return layout.scope !== "project"
-      ? undefined
-      : path.join(layout.authoredRoot("knowledge"), node.name, KNOWLEDGE_SOURCE_DIR);
-  }
-  if (entry === undefined) return undefined;
-  return path.join(
-    computeExtensionPathsForLayout(
-      path.join,
-      layout,
-      extensionPathSourceFromLockEntry(entry),
-      KNOWLEDGE_EXTENSION_DIR,
-      node.name,
-    ).canonicalPath,
-    KNOWLEDGE_SOURCE_DIR,
-  );
-};
 
 /**
  * The enabled Knowledge bundles of the selected workspace, ordered by name.
@@ -93,20 +66,35 @@ export const selectInstalledKnowledgeBundles = Effect.fn(
     });
   }
   const locked = yield* lockfile.entries("knowledge");
-  const selected = graph.nodes
-    .filter(
-      (node) =>
-        node.type === "knowledge" &&
-        node.enabled &&
-        (options?.name === undefined || node.name === options.name),
-    )
-    .sort((left, right) => left.name.localeCompare(right.name))
-    .flatMap((node): ReadonlyArray<InstalledKnowledgeBundle> => {
-      const sourceRoot = bundleSourceRoot(layout, node, locked[node.name], path);
-      return sourceRoot === undefined
-        ? []
-        : [{ name: node.name, packageRoot: path.dirname(sourceRoot), sourceRoot }];
-    });
+  // The canonical observation places every desired bundle; a bundle it
+  // cannot place (no accepted resolution, foreign origin) is left out, and
+  // the status it found travels with the root for the reader to report.
+  const selected = yield* Effect.forEach(
+    graph.nodes
+      .filter(
+        (node) =>
+          node.type === "knowledge" &&
+          node.enabled &&
+          (options?.name === undefined || node.name === options.name),
+      )
+      .sort((left, right) => left.name.localeCompare(right.name)),
+    (node) =>
+      Effect.map(
+        observeCanonicalExtension({ layout, desired: node, accepted: locked[node.name] }),
+        (observation): ReadonlyArray<InstalledKnowledgeBundle> =>
+          observation.path === undefined
+            ? []
+            : [
+                {
+                  name: node.name,
+                  packageRoot: observation.path,
+                  sourceRoot: path.join(observation.path, KNOWLEDGE_SOURCE_DIR),
+                  status: observation.status,
+                },
+              ],
+      ),
+    { concurrency: 1 },
+  ).pipe(Effect.map((bundles) => bundles.flat()));
   if (options?.name !== undefined && selected.length === 0) {
     return yield* new InstalledKnowledgeUnavailable({
       reason: "bundle-not-installed",

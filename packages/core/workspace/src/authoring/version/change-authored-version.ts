@@ -51,7 +51,9 @@ import {
   AcceptedResolutionWriter,
   DesiredStateWriter,
   SettingsWriter,
+  acceptedCanonicalObservation,
   type ConfiguredAgentOutcomesProvider,
+  type DesiredStateReader,
   type LockfileReader,
   type LockfileValidationError,
   SettingsReader,
@@ -134,14 +136,13 @@ export type PrepareChangeAuthoredVersionRequirements =
   | FileSystem.FileSystem
   | Path.Path
   | AcceptedResolutionWriter
+  | DesiredStateReader
   | DesiredStateWriter
   | SettingsReader
   | SettingsWriter
   | WorkspaceLocation
   | ConfiguredAgentOutcomesProvider
   | LockfileReader
-  | SettingsReader
-  | WorkspaceLocation
   | WorkspaceRecords;
 
 // -----------------------------------------------------------------------------
@@ -303,10 +304,25 @@ export const prepareChangeAuthoredVersion: (
   const createCommand = `axm ${extensionTypeToPlural[parsed.type]} new`;
   const { manifest } = yield* readManifest({ absolutePath, manifestPath, createCommand });
 
+  // Whether the authored manifest is this workspace's package is the canonical
+  // observation's judgment, made once for every command that asks.
+  const observed = yield* acceptedCanonicalObservation({
+    type: parsed.type,
+    name: parsed.name,
+  }).pipe(
+    Effect.mapError(
+      () =>
+        new VersionTargetInvalid({
+          detail: `Unable to observe the authored package for ${fqn}`,
+        }),
+    ),
+  );
   if (
-    manifest["owner"] !== parsed.owner ||
-    manifest["type"] !== parsed.type ||
-    manifest["name"] !== parsed.name
+    Option.exists(
+      observed,
+      ({ desired, observation }) =>
+        observation.status === "wrong-origin" || desired.identity !== `workspace:${fqn}`,
+    )
   ) {
     return yield* new VersionTargetIdentityMismatch({ fqn, manifestPath });
   }

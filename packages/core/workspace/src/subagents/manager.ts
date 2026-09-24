@@ -72,12 +72,9 @@ import { removeIfExists } from "../desired-state/index.js";
 import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "../desired-state/index.js";
 import { parseSubagentMd } from "@agentxm/extension-content";
 import { configuredSubagentsToDiskRefs } from "../acquisition/materializable-from-disk.js";
+import { validateExactResolvedVersion } from "../desired-state/index.js";
 import {
-  acceptedRegistryVersionForRef,
-  validateExactResolvedVersion,
-} from "../desired-state/index.js";
-import {
-  canReuseInstalledPackage,
+  reusableCanonicalTree,
   materializeExternalPackageWithTreeIntegrity,
 } from "../acquisition/canonical-directory.js";
 import { materializeRegistryPackageWithTreeIntegrity } from "../materialization/registry-materialization.js";
@@ -343,23 +340,19 @@ export const SubagentManagerLive = Layer.effect(
       force: boolean,
     ) =>
       Effect.gen(function* () {
-        const lockedEntry = yield* lockfile.entry("subagent", ref.subagent.name);
-        const lockedVersion = acceptedRegistryVersionForRef(lockedEntry, ref);
-        const useExisting = yield* canReuseInstalledPackage({
-          installedPath: canonicalPath,
+        const reusable = yield* reusableCanonicalTree({
+          canonicalPath,
+          requested: {
+            refType: "registry",
+            owner: ref.owner,
+            name: ref.name,
+            version: ref.version,
+            publisherBindingId: ref.publisherBindingId,
+          },
+          accepted: yield* lockfile.entry("subagent", ref.subagent.name),
           force,
-          refVersion: ref.version,
-          hasIntegrity: Option.isSome(ref.integrity),
-          ...(lockedVersion === undefined ? {} : { lockedVersion }),
-          existsFailureDetail: (target) => `Failed to check if canonical path exists: ${target}`,
         });
-
-        if (useExisting && Option.isSome(lockedEntry)) {
-          const observedTree = yield* computeMaterializedTreeIntegrity(canonicalPath);
-          if (observedTree === lockedEntry.value.treeIntegrity) {
-            return lockedEntry.value.treeIntegrity;
-          }
-        }
+        if (Option.isSome(reusable)) return reusable.value;
         const materialized = yield* materializeRegistryPackageWithTreeIntegrity({
           baseDir,
           destinationPath: canonicalPath,

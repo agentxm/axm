@@ -518,4 +518,5 @@ export const resolveConfiguredPack = (
   name: string,
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
-) => resolveConfiguredEntry(name, source, releaseAgeEvaluation, packRefConstructor);
+  selectionRange?: Option.Option<VersionRange>,
+) => resolveConfiguredEntry(name, source, releaseAgeEvaluation, packRefConstructor, selectionRange);

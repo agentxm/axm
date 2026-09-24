@@ -7,6 +7,7 @@
  * hooks that never appear in settings.
  */
 
+import { desiredConstraintOf } from "../desired-state/testing.js";
 import * as nodeFs from "node:fs";
 import * as nodeOs from "node:os";
 import * as nodePath from "node:path";
@@ -66,7 +67,7 @@ const packHookNode = (name: string, pack: string): DesiredExtensionNode => ({
   identity: `${OWNER}/hooks/${name}`,
   source: `${OWNER}/hooks/${name}@^1.0.0`,
   enabled: true,
-  constraints: ["^1.0.0"],
+  constraint: desiredConstraintOf("^1.0.0"),
   origins: [
     {
       type: "pack",

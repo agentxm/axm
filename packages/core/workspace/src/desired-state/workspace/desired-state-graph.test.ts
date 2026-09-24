@@ -1,4 +1,5 @@
 import * as Layer from "effect/Layer";
+import { desiredConstraintContributors } from "./canonical-observation.js";
 import { PackManifests } from "./pack-manifests.js";
 import { FilesystemPackManifests } from "./adapters/filesystem/pack-manifests.js";
 import * as nodeFs from "node:fs";
@@ -7,6 +8,7 @@ import * as nodePath from "node:path";
 import { expect, layer } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
 import * as Effect from "effect/Effect";
+import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { handle } from "../test-helpers.js";
@@ -147,7 +149,11 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
       });
 
       const review = graph.nodes.find((node) => node.type === "skill" && node.name === "review");
-      expect(review?.constraints).toEqual(["^1.0.0", "^2.0.0"]);
+      expect(review && Result.isFailure(review.constraint)).toBe(true);
+      expect(review && desiredConstraintContributors(review).map(({ range }) => range)).toEqual([
+        "^1.0.0",
+        "^2.0.0",
+      ]);
       expect(graph.complete).toBe(false);
       expect(graph.problems).toEqual(
         expect.arrayContaining([
@@ -339,7 +345,9 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
           (node) => node.type === "knowledge" && node.name === "handbook",
         );
         expect(withPackNode?.origins.map((origin) => origin.type)).toEqual(["settings", "pack"]);
-        expect(withPackNode?.constraints).toEqual(["^1.1.0", "^1.0.0"]);
+        expect(
+          withPackNode && desiredConstraintContributors(withPackNode).map(({ range }) => range),
+        ).toEqual(["^1.1.0", "^1.0.0"]);
         for (const node of [withPackNode, directOnlyNode]) {
           expect(node).toMatchObject({ identity: "@acme/knowledge/handbook", enabled: true });
           if (node?.source === undefined)
@@ -486,7 +494,9 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
       const review = graph.nodes.find((node) => node.type === "skill" && node.name === "review");
       expect(graph.complete).toBe(true);
       expect(review?.identity).toBe("workspace:@acme/skills/review");
-      expect(review?.constraints).toEqual(["^1.0.0"]);
+      expect(review && desiredConstraintContributors(review).map(({ range }) => range)).toEqual([
+        "^1.0.0",
+      ]);
       expect(review?.origins.map((origin) => origin.type)).toEqual(["settings", "pack"]);
     }),
   );

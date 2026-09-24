@@ -12,6 +12,7 @@ import { renderAxmSkillRecovery } from "@agentxm/cli-maintenance/official-skill/
  * @experimental This API is unstable and may change without notice.
  */
 
+import { bundledSkillCanonicalRoot } from "../../../desired-state/index.js";
 import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
@@ -98,7 +99,7 @@ export type BundledAxmSkillReadiness =
 
 /** Where the bundled skill's canonical package sits. */
 export const bundledAxmSkillCanonicalPath = (layout: WorkspaceLayout, path: Path.Path): string =>
-  path.join(layout.acquiredRoot, "registry", "@agentxm", "skills", "axm");
+  bundledSkillCanonicalRoot(path.join, layout, BUNDLED_AXM_SKILL_NAME);
 
 /** Whether bundled recovery may write, or must preserve an authored copy. */
 export const inspectBundledAxmSkillReadiness = Effect.gen(function* () {

@@ -2226,13 +2226,13 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 
 - Requirement: `cli/install/reinstall-is-idempotent`
 - Owner: `workspace`
-- Statement: When a person reinstalls an extension the workspace already desires at the same constraint, the install shall succeed with a no-op outcome and shall not change settings, the lockfile, canonical content, or agent projections.
+- Statement: When a person reinstalls an extension the workspace already desires at the same constraint, the install shall succeed with a no-op outcome and shall not change settings, the lockfile, canonical content, or agent projections; when the installed files differ from the accepted content, the repeated install shall restore the accepted content without changing the accepted resolution.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Open questions: When installed files differ from the accepted content, should a repeated install restore that content and report a repair, or refuse until the user explicitly chooses recovery? The unchanged-state example does not decide this case.; Applying a satisfied install reports `no-op` while previewing the same request reports `previewed`, because the outcome follows planned units and only execution observes that a unit changes nothing. Should a preview that would change nothing report `no-op`, and if so must every planner decide the satisfied case before planning?
+- Open questions: Applying a satisfied install reports `no-op` while previewing the same request reports `previewed`, because the outcome follows planned units and only execution observes that a unit changes nothing. Should a preview that would change nothing report `no-op`, and if so must every planner decide the satisfied case before planning?
 - Additional evidence: process via [`apps/cli-e2e/src/projection-currency.e2e.test.ts`](../apps/cli-e2e/src/projection-currency.e2e.test.ts) — Runs a real Markdown formatter between projection and the packaged CLI, then proves both lint views, preview, sync, and reinstall preserve the formatted bytes.
 - Source: [`packages/core/workspace/src/lifecycle/install/reinstall-is-idempotent.spec.ts`](../packages/core/workspace/src/lifecycle/install/reinstall-is-idempotent.spec.ts)
 
@@ -3556,7 +3556,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/list/assesses-updates-through-recorded-registry`
 - Owner: `workspace`
-- Statement: When listing outdated extensions, AXM shall assess installed extensions, including disabled installations, against their recorded Registry source and return those with a newer version that satisfies the recorded version constraint.
+- Statement: When listing outdated extensions, AXM shall assess installed extensions, including disabled installations, against their recorded Registry source and return those with a newer version that satisfies the extension’s effective constraint: the intersection of its direct declaration and every Pack that requires it.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
@@ -3807,14 +3807,13 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/packs/show/reports-authored-membership-and-observed-state`
 - Owner: `workspace`
-- Statement: When inspecting a configured pack, AXM shall report the pack’s source authority, canonical manifest, declared member constraints, and desired dependency reachability.
+- Statement: When inspecting a configured pack, AXM shall report the pack’s source authority, canonical manifest, declared member constraints, and each declared member’s desired reachability, judged from the canonical observation of the member: satisfying when the member is desired and its accepted or authored version is inside this pack’s range, excluded when that version is outside it, and missing when no desired route reaches it.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `packages/core/workspace/src/inspection/packs/show-pack.ts`, `apps/cli-e2e/src/scope-consistency.e2e.test.ts`
-- Open questions: The current pack result reports member version as null and derives reachability from desired graph presence. Should future inspection distinguish desired membership from verified installed member resolution and exclusions?
 - Source: [`packages/core/workspace/src/inspection/packs/show-reports-authored-membership-and-observed-state.spec.ts`](../packages/core/workspace/src/inspection/packs/show-reports-authored-membership-and-observed-state.spec.ts)
 
 ##### The one-shot release-age override reaches every command the gate can block
@@ -4122,7 +4121,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/unreadable-knowledge-is-left-out-and-reported`
 - Owner: `workspace`
-- Statement: When a desired Knowledge bundle's package cannot be read, AXM shall leave that bundle out of the generated instructions file, shall report the omission with its reason and remedy on every command that writes or inspects that file, and shall not fail another extension's operation because of it.
+- Statement: When a desired Knowledge bundle's package cannot be read, or its acquired content differs from the accepted resolution, AXM shall leave that bundle out of the generated instructions file, shall report the omission with its reason and remedy on every command that writes or inspects that file, and shall not fail another extension's operation because of it.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`

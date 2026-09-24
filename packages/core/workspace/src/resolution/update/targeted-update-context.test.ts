@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { UNCONSTRAINED_DESIRED_NODE } from "../../desired-state/index.js";
+import { desiredConstraintOf } from "../../desired-state/testing.js";
 import type {
   ConfiguredRecordRow,
   DesiredExtensionNode,
@@ -49,8 +51,8 @@ const node = (origins: ReadonlyArray<TestOrigin>): DesiredExtensionNode => ({
   identity: target.fqn,
   source: origins[0]?.source ?? target.fqn,
   enabled: origins.some((origin) => origin.enabled),
-  constraints: origins.flatMap((origin) =>
-    origin.constraint === undefined ? [] : [origin.constraint],
+  constraint: desiredConstraintOf(
+    ...origins.flatMap((origin) => (origin.constraint === undefined ? [] : [origin.constraint])),
   ),
   origins: origins.map((origin) =>
     origin.type === "pack" && !("manifestPath" in origin)
@@ -92,7 +94,7 @@ describe("classifyTargetedUpdate", () => {
           identity: inlineTarget.fqn,
           authority: "inline",
           enabled: true,
-          constraints: [],
+          constraint: UNCONSTRAINED_DESIRED_NODE,
           origins: [{ type: "settings", authority: "inline", enabled: true }],
         },
       ]),
@@ -165,7 +167,7 @@ describe("classifyTargetedUpdate", () => {
           authority: "sourced",
           source: "workspace",
           enabled: true,
-          constraints: [],
+          constraint: UNCONSTRAINED_DESIRED_NODE,
           origins: [
             {
               type: "settings",

@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { UNCONSTRAINED_DESIRED_NODE } from "../desired-state/index.js";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import { pathToFileURL } from "node:url";
@@ -143,7 +144,7 @@ const desiredHandbookReadFacts = (
         identity: "./source",
         source: "./source",
         enabled: true,
-        constraints: [],
+        constraint: UNCONSTRAINED_DESIRED_NODE,
         origins: [{ type: "settings", source: "./source", enabled: true }],
       },
     ],
@@ -234,7 +235,7 @@ describe("KnowledgeManager", () => {
                       identity: "workspace:@acme/knowledge/handbook",
                       source: "workspace",
                       enabled: true,
-                      constraints: [],
+                      constraint: UNCONSTRAINED_DESIRED_NODE,
                       origins: [{ type: "settings", source: "workspace", enabled: true }],
                     },
                   ],
@@ -476,7 +477,7 @@ describe("KnowledgeManager", () => {
                         identity: "./source",
                         source: "./source",
                         enabled: true,
-                        constraints: [],
+                        constraint: UNCONSTRAINED_DESIRED_NODE,
                         origins: [
                           {
                             type: "settings",
@@ -491,7 +492,7 @@ describe("KnowledgeManager", () => {
                         identity: "@acme/knowledge/unresolved",
                         source: "@acme/knowledge/unresolved",
                         enabled: true,
-                        constraints: [],
+                        constraint: UNCONSTRAINED_DESIRED_NODE,
                         origins: [
                           {
                             type: "settings",
@@ -731,7 +732,7 @@ describe("KnowledgeManager", () => {
                   identity: `./sources/${name}`,
                   source: `./sources/${name}`,
                   enabled: true,
-                  constraints: [],
+                  constraint: UNCONSTRAINED_DESIRED_NODE,
                   origins: [
                     { type: "settings" as const, source: `./sources/${name}`, enabled: true },
                   ],

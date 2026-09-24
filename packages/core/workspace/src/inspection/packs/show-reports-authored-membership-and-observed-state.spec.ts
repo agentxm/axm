@@ -4,13 +4,17 @@ import * as Effect from "effect/Effect";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { ShowPack } from "./show-pack.js";
-import { makeAcceptedPackFixture, makeAuthoredPackFixture } from "../testing.js";
+import {
+  makeAcceptedPackFixture,
+  makeAuthoredPackFixture,
+  makeInspectionFixture,
+} from "../testing.js";
 
 export const specification = defineSpecification({
   requirement: "cli/packs/show/reports-authored-membership-and-observed-state",
   title: "Pack inspection reports declared members and observed state",
   statement:
-    "When inspecting a configured pack, AXM shall report the pack\u2019s source authority, canonical manifest, declared member constraints, and desired dependency reachability.",
+    "When inspecting a configured pack, AXM shall report the pack\u2019s source authority, canonical manifest, declared member constraints, and each declared member\u2019s desired reachability, judged from the canonical observation of the member: satisfying when the member is desired and its accepted or authored version is inside this pack\u2019s range, excluded when that version is outside it, and missing when no desired route reaches it.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "machine-automation", "actionable-diagnostics"],
@@ -21,9 +25,7 @@ export const specification = defineSpecification({
   ],
   supersedes: [],
   assumptions: [],
-  openQuestions: [
-    "The current pack result reports member version as null and derives reachability from desired graph presence. Should future inspection distinguish desired membership from verified installed member resolution and exclusions?",
-  ],
+  openQuestions: [],
 });
 
 describe("Pack state inspection", () => {
@@ -65,6 +67,49 @@ describe("Pack state inspection", () => {
         )
         .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));
     });
+
+  it.effect("reports a member the pack's own range excludes, with the version it judged", () => {
+    const fixture = makeInspectionFixture({
+      settings: {
+        agents: [],
+        owner: "@acme",
+        packs: { toolkit: { source: "workspace", enabled: true } },
+        skills: { review: { source: "workspace", enabled: true } },
+      },
+      files: {
+        "packs/toolkit/pack.json": JSON.stringify({
+          owner: "@acme",
+          type: "pack",
+          name: "toolkit",
+          version: "0.0.1",
+          dependencies: { "@acme/skills/review": ">=2.0.0" },
+        }),
+        "skills/review/skill.json": JSON.stringify({
+          owner: "@acme",
+          type: "skill",
+          name: "review",
+          version: "1.5.0",
+        }),
+        "skills/review/src/SKILL.md": "---\nname: review\ndescription: Review\n---\n# review\n",
+      },
+    });
+    return fixture
+      .provide(
+        Effect.gen(function* () {
+          const result = yield* ShowPack.query({ target: "toolkit" });
+          expect(result.desiredDependencies).toEqual([
+            {
+              fqn: "@acme/skills/review",
+              constraint: ">=2.0.0",
+              version: "1.5.0",
+              source: "workspace",
+              reachability: "excluded",
+            },
+          ]);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));
+  });
 
   it.effect("reports a Registry pack's accepted resolution", () => {
     const fixture = makeAcceptedPackFixture();

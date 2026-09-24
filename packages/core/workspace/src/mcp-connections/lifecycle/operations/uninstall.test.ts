@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import { UNCONSTRAINED_DESIRED_NODE } from "../../../desired-state/index.js";
 import { NativeWriteAuthorityPermissive } from "../../../projection/agent-adapters/testing.js";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -76,7 +77,7 @@ const makeServices = (
       authority: "sourced" as const,
       source: identity,
       enabled: true,
-      constraints: [],
+      constraint: UNCONSTRAINED_DESIRED_NODE,
       origins: [{ type: "settings" as const, localName: name, source: identity, enabled: true }],
     };
   });

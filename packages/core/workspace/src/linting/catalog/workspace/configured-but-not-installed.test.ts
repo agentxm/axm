@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import { UNCONSTRAINED_DESIRED_NODE } from "../../../desired-state/index.js";
 import * as Layer from "effect/Layer";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
@@ -48,7 +49,7 @@ const desiredNode = (args: {
     identity: `@acme/${PLURALS[args.type]}/${args.name}`,
     source,
     enabled,
-    constraints: [],
+    constraint: UNCONSTRAINED_DESIRED_NODE,
     origins: [
       args.origin === "pack-member"
         ? {

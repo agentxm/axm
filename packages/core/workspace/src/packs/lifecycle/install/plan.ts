@@ -405,7 +405,6 @@ export const scanWorkspaceAuthority: (
   for (const [fqn, declaration] of dependencies) {
     const parsed = parseExtensionFqnParts(fqn);
     if (parsed === undefined || parsed.type === "pack") continue;
-    const constraint = packMemberVersionRange(declaration);
     const declaredSource = packMemberRegistrySource(declaration);
     const existing = graph.nodes.find(
       (node) => node.type === parsed.type && node.name === parsed.name,
@@ -439,7 +438,6 @@ export const scanWorkspaceAuthority: (
           configuredSource: heldAuthorities.join(", "),
           cause: "pack-source-conflict",
           detail: `Pack member ${fqn} is held by ${heldAuthorities.join(", ")}; conflicting declarations: ${declarations.join(", ")}`,
-          requiredVersionRange: constraint,
           recovery: [
             {
               description:
@@ -482,11 +480,6 @@ export const scanWorkspaceAuthority: (
       ),
     );
     const targetIdentity = `${parsed.owner}/${toExtensionTypePlural(parsed.type)}/${parsed.name}`;
-    const configuredVersion = Option.match(canonical.usable, {
-      onNone: () => undefined,
-      onSome: ({ ref }) =>
-        ref.refType === "registry" || ref.refType === "workspace" ? ref.version : undefined,
-    });
     const decision = evaluateSourceAuthority({
       target: { type: parsed.type, name: parsed.name, identity: targetIdentity },
       relationship: { kind: "member" as const, root: packIdentity },
@@ -500,10 +493,8 @@ export const scanWorkspaceAuthority: (
       configured: {
         identity: desired.identity,
         workspace: desired.identity.startsWith("workspace:"),
-        ...(configuredVersion === undefined ? {} : { version: configuredVersion }),
         status: canonical.status,
       },
-      requiredVersionRange: constraint,
     });
     if (decision.kind === "blocked") {
       blockers.push(decision.fact);
@@ -743,7 +734,6 @@ export const selectPackGraph = Effect.fn("InstallExtensions.selectPackGraph")(fu
         type: mismatch.type,
         name: mismatch.name,
         identity: mismatch.dependencyTarget,
-        constraints: [mismatch.constraint],
       },
       {
         type: mismatch.type,

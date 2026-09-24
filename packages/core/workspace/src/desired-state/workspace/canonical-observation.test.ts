@@ -1,4 +1,6 @@
 import * as nodeFs from "node:fs";
+import { UNCONSTRAINED_DESIRED_NODE } from "./desired-state-graph.js";
+import { desiredConstraintOf } from "./test-stubs.js";
 import * as nodeOs from "node:os";
 import * as nodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -11,7 +13,7 @@ import { computeMaterializedTreeIntegrity, TreeIntegritySchema } from "./materia
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { observeCanonicalExtension } from "./canonical-observation.js";
-import type { DesiredExtensionNode } from "./desired-state-graph.js";
+import { settleDesiredNodeConstraint, type DesiredExtensionNode } from "./desired-state-graph.js";
 import { resolveProjectWorkspaceLayout } from "./layout.js";
 
 const desiredSkill = (source = "github:acme/tools//skills/review@main"): DesiredExtensionNode => ({
@@ -20,7 +22,7 @@ const desiredSkill = (source = "github:acme/tools//skills/review@main"): Desired
   identity: source,
   source,
   enabled: true,
-  constraints: [],
+  constraint: UNCONSTRAINED_DESIRED_NODE,
   origins: [{ type: "settings", source, enabled: true }],
 });
 const placeholderTreeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
@@ -141,13 +143,9 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
     Effect.gen(function* () {
       const layout = yield* projectLayout(root);
       const source = "@acme/rules/release@^2.0.0";
-      const desired: DesiredExtensionNode = {
+      const routes = {
         type: "rule",
         name: "release",
-        identity: "@acme/rules/release",
-        source,
-        enabled: true,
-        constraints: ["^2.0.0"],
         origins: [
           { type: "settings", source, constraint: "^2.0.0", enabled: true },
           {
@@ -159,6 +157,13 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
             enabled: true,
           },
         ],
+      } satisfies Pick<DesiredExtensionNode, "type" | "name" | "origins">;
+      const desired: DesiredExtensionNode = {
+        ...routes,
+        identity: "@acme/rules/release",
+        source,
+        enabled: true,
+        constraint: settleDesiredNodeConstraint(routes),
       };
       const observed = yield* observeCanonicalExtension({
         layout,
@@ -230,7 +235,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
         identity: source,
         source,
         enabled: true,
-        constraints: ["^2.0.0"],
+        constraint: desiredConstraintOf("^2.0.0"),
         origins: [
           { type: "settings", source, enabled: true },
           {

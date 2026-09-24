@@ -15,6 +15,9 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import { WorkspaceStateLive } from "../live.js";
 import { DesiredStateReader } from "./desired-state-reader.js";
 import { WorkspaceRecords } from "./workspace-records.js";
+import { deriveOperationOutcome } from "../../transitions/planning/index.js";
+import { makeLifecycleFixture } from "../../lifecycle/testing.js";
+import { applyUninstall, uninstallRequest } from "../../lifecycle/uninstall/test-helpers.js";
 
 export const specification = defineSpecification({
   requirement: "cli/lock-state-never-creates-reachability",
@@ -114,6 +117,26 @@ describe("Lock state and desired-state reachability", () => {
       // Nothing desires it, so no node carries it and nothing downstream can
       // reach it to acquire or realize it.
       expect(desired.nodes.map((node) => node.name)).not.toContain(row.name);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("a lock-only Knowledge row is not a removal target", () =>
+    Effect.gen(function* () {
+      const workspace = makeLifecycleFixture({
+        settings: { owner: "@acme", agents: [] },
+        lockfile: { knowledge: { "phantom-notes": acceptedRegistryRow("phantom-notes", "skill") } },
+      });
+      cleanups.push(workspace.cleanup);
+      const lockBefore = workspace.readFile("axm-lock.yaml");
+
+      const resolution = yield* workspace.provide(
+        applyUninstall(uninstallRequest({ type: "knowledge", selector: "phantom-notes" })),
+      );
+
+      // Nothing desires or holds the bundle, so there is nothing to remove;
+      // the stale row is sync's leftover to retire, not a removal's authority.
+      expect(deriveOperationOutcome(resolution)).toBe("no-op");
+      expect(workspace.readFile("axm-lock.yaml")).toBe(lockBefore);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 

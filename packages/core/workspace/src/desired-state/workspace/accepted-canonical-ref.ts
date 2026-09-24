@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import { BUNDLED_SKILL_OWNER, bundledSkillCanonicalRoot } from "./extension-paths.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -267,9 +268,9 @@ const refForDesired = (
         layout,
         scope: location.scope,
         staticPackage: {
-          owner: decodeHandleSync("@agentxm"),
+          owner: decodeHandleSync(BUNDLED_SKILL_OWNER),
           name: decodeExtensionNameSync(desired.name),
-          root: path.join(layout.acquiredRoot, "registry", "@agentxm", "skills", desired.name),
+          root: bundledSkillCanonicalRoot(path.join, layout, desired.name),
         },
       });
     }

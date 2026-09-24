@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+import { UNCONSTRAINED_DESIRED_NODE } from "../desired-state/index.js";
 import type { DesiredExtensionNode, DesiredStateGraph } from "../desired-state/index.js";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import { expectedProjectionNames, expectedProjectionNamesOf } from "./expected-names.js";
@@ -8,7 +9,7 @@ const node = (type: ExtensionType, name: string, enabled: boolean): DesiredExten
   name,
   identity: `@acme/${type}/${name}`,
   enabled,
-  constraints: [],
+  constraint: UNCONSTRAINED_DESIRED_NODE,
   origins: [],
   source: "agentxm",
 });

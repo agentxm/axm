@@ -48,10 +48,7 @@ import {
   planSingletonProjection,
 } from "../projection/index.js";
 import { type AgentId } from "@agentxm/extension-model/unstable/agents/types";
-import {
-  acceptedRegistryVersionForRef,
-  validateExactResolvedVersion,
-} from "../desired-state/index.js";
+import { validateExactResolvedVersion } from "../desired-state/index.js";
 import { computeSkillSourceHash } from "./source-hash.js";
 import {
   ensureSkillAgentArtifact,
@@ -108,21 +105,13 @@ export const SkillManagerLive = Layer.effect(
       const sanitized = sanitizeName(ref.skill.name);
 
       const lockedEntry = yield* lockfile.entry("skill", ref.skill.name);
-      const lockedVersion =
-        ref.refType === "registry" ? acceptedRegistryVersionForRef(lockedEntry, ref) : undefined;
 
       const materialized = yield* materializeSkillCanonical({
         ref,
         sanitizedName: sanitized,
         baseDir,
         layout: currentLayout(),
-        reuse: {
-          force: force === true,
-          lockedVersion,
-          lockedTreeIntegrity: Option.isSome(lockedEntry)
-            ? lockedEntry.value.treeIntegrity
-            : undefined,
-        },
+        reuse: { force: force === true, accepted: lockedEntry },
       });
       const skillSrcPath = materialized.skillSrcPath;
 
@@ -322,12 +311,7 @@ export const SkillManagerLive = Layer.effect(
             sanitizedName: sanitizeName(ref.skill.name),
             baseDir,
             layout: currentLayout(),
-            reuse: {
-              force: force === true,
-              lockedVersion:
-                ref.refType === "registry" ? acceptedRegistryVersionForRef(locked, ref) : undefined,
-              lockedTreeIntegrity: Option.isSome(locked) ? locked.value.treeIntegrity : undefined,
-            },
+            reuse: { force: force === true, accepted: locked },
           });
           const sourceHash =
             ref.refType === "workspace"

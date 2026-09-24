@@ -6,23 +6,48 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import {
-  canReuseExternalPackage,
-  canReuseInstalledPackage,
   canonicalMaterializationPaths,
   createCanonicalDirectory,
   materializeExternalPackage,
   replaceCanonicalDirectory,
+  reusableCanonicalTree,
 } from "./canonical-directory.js";
 import * as Data from "effect/Data";
+import * as Schema from "effect/Schema";
+import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
+import {
+  computeMaterializedTreeIntegrity,
+  type AcceptedExtensionResolution,
+  type TreeIntegrity,
+} from "../desired-state/index.js";
+import { exactVersion, extensionName, handle } from "../desired-state/test-helpers.js";
 
 class InjectedFailure extends Data.TaggedError("InjectedFailure")<{
   readonly detail: string;
 }> {}
 
-const existsFailureDetail = (installedPath: string) => `failed to check ${installedPath}`;
+const requestedReview = {
+  refType: "registry",
+  owner: "@acme",
+  name: "review",
+  version: "1.0.0",
+  publisherBindingId: "binding-1",
+} as const;
 
-const pinnedRef = { refVersion: "1.0.0", hasIntegrity: true };
+/** The accepted Registry row for `@acme/hooks/review` at the given version and tree. */
+const acceptedReview = (version: string, treeIntegrity: TreeIntegrity) =>
+  Option.some<AcceptedExtensionResolution>({
+    source: { type: "registry", url: new URL("https://registry.agentxm.ai") },
+    identity: { owner: handle("@acme"), name: extensionName("review") },
+    resolved: {
+      version: exactVersion(version),
+      integrity: "sha512-archive",
+      publisherBindingId: "binding-1",
+    },
+    treeIntegrity,
+  });
 
 describe("package materialization helpers", () => {
   let tempDir: string;
@@ -40,35 +65,6 @@ describe("package materialization helpers", () => {
 
   const run = <A, E>(effect: Effect.Effect<A, E, NodeServices.NodeServices>) =>
     effect.pipe(Effect.provide(NodeServices.layer));
-
-  it.effect("reuses an existing tree for a ref without pinned integrity", () =>
-    run(
-      Effect.gen(function* () {
-        // Synthetic refs from publish carry no integrity, so an existing tree
-        // is accepted as-is rather than re-materialized.
-        const installedPath = nodePath.join(
-          workspaceRoot,
-          ".axm",
-          "extensions",
-          "@acme",
-          "hooks",
-          "review",
-        );
-        nodeFs.mkdirSync(installedPath, { recursive: true });
-        nodeFs.writeFileSync(nodePath.join(installedPath, "review.md"), "existing");
-
-        const reuse = yield* canReuseInstalledPackage({
-          installedPath,
-          force: false,
-          refVersion: "1.0.0",
-          hasIntegrity: false,
-          existsFailureDetail,
-        });
-
-        expect(reuse).toBe(true);
-      }),
-    ),
-  );
 
   it.effect(
     "reuses a complete canonical directory when the lockfile pins the requested version",
@@ -93,57 +89,48 @@ describe("package materialization helpers", () => {
               }),
           });
 
-          const reuse = yield* canReuseInstalledPackage({
-            installedPath,
+          const accepted = yield* computeMaterializedTreeIntegrity(installedPath);
+          const reuse = yield* reusableCanonicalTree({
+            canonicalPath: installedPath,
+            requested: requestedReview,
+            accepted: acceptedReview("1.0.0", accepted),
             force: false,
-            ...pinnedRef,
-            lockedVersion: "1.0.0",
-            existsFailureDetail,
           });
 
-          expect(reuse).toBe(true);
+          expect(reuse).toEqual(Option.some(accepted));
         }),
       ),
   );
 
-  it.effect("decides reuse from the installed tree, not the staging destination", () =>
+  it.effect("re-acquires an edited tree instead of accepting its drift", () =>
     run(
       Effect.gen(function* () {
-        // Regression: knowledge installs extract into a temporary staging
-        // directory and swap it into place. When the reuse decision was made
-        // against that staging path it was always absent, so every update
-        // re-extracted and reverted workspace-owned edits.
         const installedPath = nodePath.join(
           workspaceRoot,
           ".axm",
           "extensions",
           "@acme",
-          "knowledge",
-          "handbook",
+          "hooks",
+          "review",
         );
         nodeFs.mkdirSync(installedPath, { recursive: true });
-        nodeFs.writeFileSync(nodePath.join(installedPath, "index.md"), "locally formatted");
-        const stagingDestination = nodePath.join(tempDir, "staging", "staged");
+        nodeFs.writeFileSync(nodePath.join(installedPath, "review.md"), "accepted");
+        const accepted = yield* computeMaterializedTreeIntegrity(installedPath);
+        nodeFs.writeFileSync(nodePath.join(installedPath, "review.md"), "edited");
 
-        const reuse = yield* canReuseInstalledPackage({
-          installedPath,
+        const reuse = yield* reusableCanonicalTree({
+          canonicalPath: installedPath,
+          requested: requestedReview,
+          accepted: acceptedReview("1.0.0", accepted),
           force: false,
-          refVersion: "0.3.0",
-          hasIntegrity: true,
-          lockedVersion: "0.3.0",
-          existsFailureDetail,
         });
 
-        expect(reuse).toBe(true);
-        expect(nodeFs.existsSync(stagingDestination)).toBe(false);
-        expect(nodeFs.readFileSync(nodePath.join(installedPath, "index.md"), "utf8")).toBe(
-          "locally formatted",
-        );
+        expect(reuse).toEqual(Option.none());
       }),
     ),
   );
 
-  it.effect("re-materializes when the installed tree is behind the requested version", () =>
+  it.effect("re-materializes when the accepted version is not the requested one", () =>
     run(
       Effect.gen(function* () {
         const installedPath = nodePath.join(
@@ -151,21 +138,48 @@ describe("package materialization helpers", () => {
           ".axm",
           "extensions",
           "@acme",
-          "knowledge",
-          "handbook",
+          "hooks",
+          "review",
         );
         nodeFs.mkdirSync(installedPath, { recursive: true });
+        nodeFs.writeFileSync(nodePath.join(installedPath, "review.md"), "accepted");
+        const accepted = yield* computeMaterializedTreeIntegrity(installedPath);
 
-        const reuse = yield* canReuseInstalledPackage({
-          installedPath,
+        const reuse = yield* reusableCanonicalTree({
+          canonicalPath: installedPath,
+          requested: requestedReview,
+          accepted: acceptedReview("0.9.0", accepted),
           force: false,
-          refVersion: "0.4.0",
-          hasIntegrity: true,
-          lockedVersion: "0.3.0",
-          existsFailureDetail,
         });
 
-        expect(reuse).toBe(false);
+        expect(reuse).toEqual(Option.none());
+      }),
+    ),
+  );
+
+  it.effect("never reuses a tree when re-materialization is forced", () =>
+    run(
+      Effect.gen(function* () {
+        const installedPath = nodePath.join(
+          workspaceRoot,
+          ".axm",
+          "extensions",
+          "@acme",
+          "hooks",
+          "review",
+        );
+        nodeFs.mkdirSync(installedPath, { recursive: true });
+        nodeFs.writeFileSync(nodePath.join(installedPath, "review.md"), "accepted");
+        const accepted = yield* computeMaterializedTreeIntegrity(installedPath);
+
+        const reuse = yield* reusableCanonicalTree({
+          canonicalPath: installedPath,
+          requested: requestedReview,
+          accepted: acceptedReview("1.0.0", accepted),
+          force: true,
+        });
+
+        expect(reuse).toEqual(Option.none());
       }),
     ),
   );
@@ -341,15 +355,15 @@ describe("package materialization helpers", () => {
         nodeFs.mkdirSync(paths.stagingPath, { recursive: true });
         nodeFs.writeFileSync(nodePath.join(paths.stagingPath, "partial.txt"), "partial");
 
-        const reuse = yield* canReuseInstalledPackage({
-          installedPath: canonicalPath,
+        const prior = yield* computeMaterializedTreeIntegrity(paths.backupPath);
+        const reuse = yield* reusableCanonicalTree({
+          canonicalPath,
+          requested: requestedReview,
+          accepted: acceptedReview("1.0.0", prior),
           force: false,
-          ...pinnedRef,
-          lockedVersion: "1.0.0",
-          existsFailureDetail,
         });
 
-        expect(reuse).toBe(true);
+        expect(reuse).toEqual(Option.some(prior));
         expect(nodeFs.readFileSync(nodePath.join(canonicalPath, "review.md"), "utf8")).toBe(
           "prior",
         );
@@ -589,7 +603,7 @@ describe("package materialization helpers", () => {
     ),
   );
 
-  it.effect("reuses completed external canonical content until refresh is forced", () =>
+  it.effect("reuses accepted external canonical content until refresh is forced", () =>
     run(
       Effect.gen(function* () {
         const sourcePath = nodePath.join(tempDir, "source");
@@ -611,21 +625,21 @@ describe("package materialization helpers", () => {
           copyFailureDetail: (target) => `failed to copy to ${target}`,
         });
         nodeFs.writeFileSync(nodePath.join(sourcePath, "SKILL.md"), "changed source");
+        const acceptedTree = yield* computeMaterializedTreeIntegrity(canonicalPath);
+        const accepted = Option.some<AcceptedExtensionResolution>({
+          source: { type: "path", path: sourcePath },
+          identity: { name: extensionName("review") },
+          resolved: { tree: Schema.decodeUnknownSync(SourceHashSchema)("sha256-source") },
+          treeIntegrity: acceptedTree,
+        });
+        const requested = { refType: "local", name: "review" } as const;
 
         expect(
-          yield* canReuseExternalPackage({
-            installedPath: canonicalPath,
-            force: false,
-            existsFailureDetail,
-          }),
-        ).toBe(true);
+          yield* reusableCanonicalTree({ canonicalPath, requested, accepted, force: false }),
+        ).toEqual(Option.some(acceptedTree));
         expect(
-          yield* canReuseExternalPackage({
-            installedPath: canonicalPath,
-            force: true,
-            existsFailureDetail,
-          }),
-        ).toBe(false);
+          yield* reusableCanonicalTree({ canonicalPath, requested, accepted, force: true }),
+        ).toEqual(Option.none());
         expect(nodeFs.readFileSync(nodePath.join(canonicalPath, "SKILL.md"), "utf8")).toBe(
           "source",
         );

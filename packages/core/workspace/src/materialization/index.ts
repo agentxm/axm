@@ -163,7 +163,6 @@ export {
   type CopyExtensionDirectoryFailureDetails,
   type CopyExtensionDirectoryOptions,
 } from "../acquisition/copy-directory.js";
-export { shouldReuseCanonicalInstall } from "../acquisition/canonical-reuse.js";
 export {
   configuredMcpServersToDiskRefs,
   configuredPacksToDiskRefs,
@@ -171,8 +170,6 @@ export {
   configuredSubagentsToDiskRefs,
 } from "../acquisition/materializable-from-disk.js";
 export {
-  canReuseExternalPackage,
-  canReuseInstalledPackage,
   canonicalMaterializationPaths,
   createCanonicalDirectory,
   materializeExternalPackage,
@@ -180,8 +177,7 @@ export {
   recoverCanonicalDirectory,
   replaceCanonicalDirectory,
   replaceCanonicalDirectoryWithInspection,
-  type CanReuseExternalPackageArgs,
-  type CanReuseInstalledPackageArgs,
+  reusableCanonicalTree,
   type CanonicalDirectoryInspection,
   type CanonicalDirectoryReplacementError,
   type CreateCanonicalDirectoryArgs,

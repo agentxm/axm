@@ -1,4 +1,6 @@
 import * as Effect from "effect/Effect";
+import { UNCONSTRAINED_DESIRED_NODE } from "../../../../../desired-state/index.js";
+import { desiredConstraintOf } from "../../../../../desired-state/testing.js";
 import * as Option from "effect/Option";
 
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
@@ -28,7 +30,7 @@ const desiredSubagent = {
   identity: "@acme/subagents/reviewer",
   source: "@acme/subagents/reviewer",
   enabled: true,
-  constraints: [],
+  constraint: UNCONSTRAINED_DESIRED_NODE,
   origins: [
     {
       type: "settings",
@@ -90,7 +92,7 @@ const desiredReviewer = {
   identity: "@acme/skills/reviewer",
   source: "@acme/skills/reviewer@^1.0.0",
   enabled: true,
-  constraints: ["^1.0.0"],
+  constraint: desiredConstraintOf("^1.0.0"),
   origins: [
     {
       type: "settings",
@@ -280,7 +282,7 @@ const packDeclaredReviewer = {
   identity: "@acme/skills/reviewer",
   source: "@acme/skills/reviewer@^1.0.0",
   enabled: true,
-  constraints: ["^1.0.0"],
+  constraint: desiredConstraintOf("^1.0.0"),
   origins: [
     {
       type: "pack",

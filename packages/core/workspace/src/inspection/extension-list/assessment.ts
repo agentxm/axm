@@ -3,10 +3,10 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as semver from "semver";
 
+import * as Result from "effect/Result";
 import {
   extensionTypeToPlural,
   parseExtensionFqnParts,
-  parseSourceQualifiedRegistrySourcePatternParts,
 } from "@agentxm/extension-model/unstable/extensions";
 import {
   installableExtensionTypes,
@@ -22,7 +22,14 @@ import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sour
 import type { AcceptedExtensionResolution } from "../../desired-state/index.js";
 import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
 import type { ExtensionInventoryLifecycle, ReadModelRecordRow } from "../../desired-state/index.js";
-import { LockfileReader, WorkspaceRecords } from "../../desired-state/index.js";
+import {
+  DesiredStateReader,
+  desiredStateProblemText,
+  effectiveDesiredConstraint,
+  LockfileReader,
+  WorkspaceRecords,
+  type DesiredStateGraph,
+} from "../../desired-state/index.js";
 import { checkCurrency } from "../version-currency/check-currency.js";
 import { WorkspaceInspectionFailed } from "../errors.js";
 import { workspaceFailureToStepFailure } from "../../reconciliation/failure-rendering.js";
@@ -168,16 +175,11 @@ const decodeInstalledVersion = (value: string, ref: string) =>
     ),
   );
 
-const constraintFromSource = (source: string | undefined) => {
-  if (source === undefined) return Option.none<string>();
-  const parsed = parseSourceQualifiedRegistrySourcePatternParts(source);
-  return Option.fromUndefinedOr(parsed?.versionRange);
-};
-
 const registryAssessment = Effect.fn("Workspace.registryExtensionAssessment")(function* (
   item: ExtensionListItem,
   filter: Exclude<ExtensionListFilter, "all">,
   record: RegistryAcceptedEntry,
+  graph: DesiredStateGraph,
 ) {
   const identity = { owner: record.identity.owner, type: item.type, name: record.identity.name };
   const factory = yield* RegistryClientFactory;
@@ -202,7 +204,18 @@ const registryAssessment = Effect.fn("Workspace.registryExtensionAssessment")(fu
         } satisfies ExtensionAssessment);
   }
   const installedVersion = yield* decodeInstalledVersion(record.resolved.version, item.ref);
-  const constraint = constraintFromSource(item.source);
+  // Currency is judged within the range the desired-state graph owns for the
+  // extension: every direct declaration and Pack that constrains it, never
+  // the range one declaring route happens to carry.
+  const effective = effectiveDesiredConstraint(graph, { type: item.type, name: item.name });
+  if (Result.isFailure(effective)) {
+    return {
+      state: "unknown",
+      reason: desiredStateProblemText(effective.failure),
+      installedVersion,
+    } satisfies ExtensionAssessment;
+  }
+  const constraint = effective.success.range;
   const currency = checkCurrency(installedVersion, constraint, index.value);
   const updateAvailable = Option.exists(currency.latestMatching, (latestMatching) =>
     semver.gt(latestMatching, installedVersion),
@@ -271,6 +284,7 @@ const assessItem = (
   item: ExtensionListItem,
   filter: Exclude<ExtensionListFilter, "all">,
   record: AcceptedEntry | undefined,
+  graph: DesiredStateGraph,
 ) =>
   Effect.gen(function* () {
     if (!item.installed) return { state: "not-applicable" } satisfies ExtensionAssessment;
@@ -293,7 +307,9 @@ const assessItem = (
         reason: "Installed extension has no accepted external resolution",
       } satisfies ExtensionAssessment;
     }
-    if (isRegistryAcceptedEntry(record)) return yield* registryAssessment(item, filter, record);
+    if (isRegistryAcceptedEntry(record)) {
+      return yield* registryAssessment(item, filter, record, graph);
+    }
     if (filter === "outdated" && isGitAcceptedEntry(record)) {
       return yield* gitAssessment(item, record);
     }
@@ -305,11 +321,14 @@ export const assessExtensionListItems = Effect.fn("Workspace.assessExtensionList
   filter: Exclude<ExtensionListFilter, "all">,
 ) {
   const lockfile = yield* LockfileReader;
+  const graph = yield* (yield* DesiredStateReader).graph();
   return yield* Effect.forEach(
     items,
     (item) => {
       return lockfile.acceptedEntry(item.type, item.name).pipe(
-        Effect.flatMap((accepted) => assessItem(item, filter, Option.getOrUndefined(accepted))),
+        Effect.flatMap((accepted) =>
+          assessItem(item, filter, Option.getOrUndefined(accepted), graph),
+        ),
         Effect.map((assessment): ExtensionListItem => ({ ...item, assessment })),
       );
     },

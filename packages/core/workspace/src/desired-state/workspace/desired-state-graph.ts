@@ -76,13 +76,16 @@ interface DesiredExtensionNodeCommon {
   readonly name: string;
   readonly identity: string;
   readonly enabled: boolean;
-  readonly constraints: ReadonlyArray<string>;
   readonly origins: ReadonlyArray<DesiredExtensionOrigin>;
   /** Present when a source-less settings entry configures this member. */
   readonly preference?: DesiredMemberPreference;
 }
 
-export type DesiredExtensionNode = DesiredExtensionNodeCommon &
+/**
+ * A node before its effective constraint is settled: what the builder merges
+ * candidates into, and what `effectiveDesiredConstraint` reads.
+ */
+type SettledExtensionNode = DesiredExtensionNodeCommon &
   (
     | { readonly authority?: "sourced"; readonly source: string }
     | {
@@ -92,13 +95,29 @@ export type DesiredExtensionNode = DesiredExtensionNodeCommon &
       }
   );
 
-export const isInlineDesiredExtension = (
-  node: DesiredExtensionNode,
-): node is DesiredExtensionNode & { readonly authority: "inline" } => node.authority === "inline";
+/**
+ * A desired node. `source` is the locator the workspace declared for it (the
+ * first declaring route, for a member several routes reach); the range it is
+ * selected within is `constraint`, the effective constraint the graph owns,
+ * or the conflict that names every contributor.
+ */
+export type DesiredExtensionNode = SettledExtensionNode & {
+  readonly constraint: Result.Result<DesiredEffectiveConstraint, DesiredConstraintConflict>;
+};
 
-export const isSourcedDesiredExtension = (
-  node: DesiredExtensionNode,
-): node is DesiredExtensionNode & { readonly source: string } => node.authority !== "inline";
+/** The effective constraint of a node nothing constrains. */
+export const UNCONSTRAINED_DESIRED_NODE: DesiredExtensionNode["constraint"] = Result.succeed({
+  range: Option.none(),
+  contributors: [],
+});
+
+export const isInlineDesiredExtension = <N extends SettledExtensionNode>(
+  node: N,
+): node is N & { readonly authority: "inline" } => node.authority === "inline";
+
+export const isSourcedDesiredExtension = <N extends SettledExtensionNode>(
+  node: N,
+): node is N & { readonly source: string } => node.authority !== "inline";
 
 export interface DesiredConstraintContributor {
   readonly source: "settings" | "pack";
@@ -193,7 +212,6 @@ export interface DesiredStateGraph {
 export interface DesiredMcpSourceClosure {
   readonly identity: string;
   readonly localNames: ReadonlyArray<string>;
-  readonly constraints: ReadonlyArray<string>;
   readonly origins: ReadonlyArray<DesiredExtensionOrigin>;
 }
 
@@ -210,6 +228,13 @@ interface DesiredStateGraphArgs {
   readonly registryAccessorities?: Readonly<Record<string, URL | string>>;
   /** Accepted external pack identities keyed by settings name. */
   readonly acceptedPacks?: Readonly<Record<string, PackLockEntry>>;
+  /**
+   * Pack identities (without the `workspace:` prefix) whose accepted lock
+   * state failed validation. The Pack stays desired and its membership stays
+   * proven, but it contributes no member route and no constraint until its
+   * resolution is repaired.
+   */
+  readonly excludedPacks?: ReadonlySet<string>;
 }
 
 interface CandidateCommon {
@@ -279,15 +304,6 @@ const registryLocator = (
   if (separator <= 0) return undefined;
   const ref = source.slice(separator + 1);
   return ref.startsWith("@") ? { sourceName: source.slice(0, separator), ref } : undefined;
-};
-
-const withVersionConstraint = (source: string, constraint: string): string => {
-  const locator = registryLocator(source);
-  if (locator === undefined) return source;
-  const parsed = parseRegistrySourceRef(locator.ref);
-  if (parsed === undefined) return source;
-  const prefix = source.startsWith("@") ? "" : `${locator.sourceName}:`;
-  return `${prefix}${parsed.owner}/${parsed.type}/${parsed.name}@${constraint}`;
 };
 
 const sourceIdentity = (
@@ -456,6 +472,30 @@ const combineConstraintContributors = (
 };
 
 /**
+ * Settle the effective constraint for one subject from contributors stated
+ * directly: the same intersection the graph applies to a node's routes, for
+ * callers that assemble a node without building a graph.
+ */
+export const settleDesiredConstraint = (
+  subject: { readonly extensionType: ExtensionType; readonly name: string },
+  contributors: ReadonlyArray<DesiredConstraintContributor>,
+): Result.Result<DesiredEffectiveConstraint, DesiredConstraintConflict> =>
+  combineConstraintContributors(subject, sortConstraintContributors(contributors));
+
+/**
+ * The effective constraint a node's own routes settle to, for a node
+ * assembled outside the builder (a sourced MCP node settles through its
+ * closure only inside a graph).
+ */
+export const settleDesiredNodeConstraint = (
+  node: Pick<SettledExtensionNode, "type" | "name" | "origins">,
+): Result.Result<DesiredEffectiveConstraint, DesiredConstraintConflict> =>
+  settleDesiredConstraint(
+    { extensionType: node.type, name: node.name },
+    collectDesiredConstraintContributors(node.origins),
+  );
+
+/**
  * The effective constraint for one desired node: the intersection of every
  * contributor — its direct declaration and every Pack that requires it — or
  * the conflict that names them all. This is the only place direct and Pack
@@ -474,7 +514,10 @@ const combineConstraintContributors = (
  * joins that source's closure and is constrained by it as well.
  */
 export const effectiveDesiredConstraint = (
-  graph: Pick<DesiredStateGraph, "nodes" | "mcpSourceClosures">,
+  graph: {
+    readonly nodes: ReadonlyArray<SettledExtensionNode>;
+    readonly mcpSourceClosures: ReadonlyArray<DesiredMcpSourceClosure>;
+  },
   target: { readonly type: ExtensionType; readonly name: string; readonly identity?: string },
   proposed: ReadonlyArray<DesiredConstraintProposal> = [],
 ): Result.Result<DesiredEffectiveConstraint, DesiredConstraintConflict> => {
@@ -554,6 +597,7 @@ export const buildDesiredStateGraph = ({
   prospectivePacks = [],
   registryAccessorities = {},
   acceptedPacks = {},
+  excludedPacks = new Set<string>(),
 }: DesiredStateGraphArgs): Effect.Effect<DesiredStateGraph, never> =>
   Effect.gen(function* () {
     const candidates: Candidate[] = [];
@@ -748,6 +792,9 @@ export const buildDesiredStateGraph = ({
       });
 
       const packEnabled = entry.enabled !== false;
+      // An excluded Pack proves membership like a disabled one and, like a
+      // disabled one, routes nothing.
+      const routesMembers = packEnabled && !excludedPacks.has(identity.fqn);
       const workspacePack = isWorkspaceSourceLocator(entry.source);
       const inheritedMemberAuthority = packAuthorityIdentity(
         entry.source,
@@ -833,7 +880,7 @@ export const buildDesiredStateGraph = ({
         // Membership is proven by the manifest, not by the Pack being active:
         // a disabled Pack still supplies the identity its members configure.
         provenMembership.add(nodeKey(parsed.type, parsed.name));
-        if (!packEnabled) continue;
+        if (!routesMembers) continue;
         const constraint = packMemberVersionRange(declaration);
         const declaredSource = packMemberRegistrySource(declaration);
         const dependencyIdentity =
@@ -874,7 +921,7 @@ export const buildDesiredStateGraph = ({
       }
     }
 
-    const nodes = new Map<string, DesiredExtensionNode>();
+    const nodes = new Map<string, SettledExtensionNode>();
     for (const candidate of candidates) {
       const key = nodeKey(candidate.type, candidate.name);
       const existing = nodes.get(key);
@@ -889,7 +936,6 @@ export const buildDesiredStateGraph = ({
                 authority: "sourced",
                 source: candidate.source,
                 enabled: candidate.enabled,
-                constraints: candidate.constraint === undefined ? [] : [candidate.constraint],
                 origins: [candidate.origin],
               }
             : {
@@ -898,7 +944,6 @@ export const buildDesiredStateGraph = ({
                 identity: candidate.identity,
                 authority: "inline",
                 enabled: candidate.enabled,
-                constraints: [],
                 origins: [candidate.origin],
               },
         );
@@ -925,6 +970,8 @@ export const buildDesiredStateGraph = ({
         continue;
       }
 
+      // The declared source is the direct declaration's when there is one,
+      // else the first Pack route's; the range is never folded into it.
       const origins = [...existing.origins, candidate.origin];
       nodes.set(key, {
         ...existing,
@@ -932,10 +979,6 @@ export const buildDesiredStateGraph = ({
           ? existing.source
           : candidate.source,
         enabled: isDesiredExtensionActive(origins),
-        constraints:
-          candidate.constraint === undefined || existing.constraints.includes(candidate.constraint)
-            ? existing.constraints
-            : [...existing.constraints, candidate.constraint],
         origins,
       });
     }
@@ -971,12 +1014,6 @@ export const buildDesiredStateGraph = ({
         mcpClosuresByIdentity.set(node.identity, {
           identity: node.identity,
           localNames: [...(existing?.localNames ?? []), node.name].sort(),
-          constraints: [
-            ...(existing?.constraints ?? []),
-            ...node.constraints.filter(
-              (constraint) => !(existing?.constraints ?? []).includes(constraint),
-            ),
-          ],
           origins: [...(existing?.origins ?? []), ...node.origins],
         });
       }
@@ -1005,30 +1042,11 @@ export const buildDesiredStateGraph = ({
 
     const typeOrder = new Map(extensionTypes.map((type, index) => [type, index]));
     const orderedNodes = settled.nodes
-      .map((node) => {
-        if (isInlineDesiredExtension(node)) return node;
-        const constraints =
-          node.type === "mcp-server"
-            ? (mcpClosuresByIdentity.get(node.identity)?.constraints ?? node.constraints)
-            : node.constraints;
-        const effective = effectiveByNode.get(nodeKey(node.type, node.name));
-        const constraint =
-          effective === undefined || Result.isFailure(effective)
-            ? undefined
-            : Option.getOrUndefined(effective.success.range);
-        return {
-          ...node,
-          constraints,
-          source:
-            constraint === undefined
-              ? node.source
-              : node.type === "mcp-server"
-                ? withVersionConstraint(node.source, constraint)
-                : node.identity.startsWith("@")
-                  ? `${node.identity}@${constraint}`
-                  : node.source,
-        };
-      })
+      .map((node): DesiredExtensionNode => ({
+        ...node,
+        constraint:
+          effectiveByNode.get(nodeKey(node.type, node.name)) ?? UNCONSTRAINED_DESIRED_NODE,
+      }))
       .sort((left, right) => {
         const leftOrder = typeOrder.get(left.type) ?? Number.MAX_SAFE_INTEGER;
         const rightOrder = typeOrder.get(right.type) ?? Number.MAX_SAFE_INTEGER;

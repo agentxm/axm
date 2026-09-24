@@ -6,6 +6,7 @@
  * that never appear in settings.
  */
 
+import { desiredConstraintOf } from "../desired-state/testing.js";
 import * as nodeFs from "node:fs";
 import * as nodeOs from "node:os";
 import * as nodePath from "node:path";
@@ -20,18 +21,14 @@ import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { KnowledgeManager } from "../materialization/managers.js";
 import { applyPlannedProjections, observeProjectionPlans } from "../projection/index.js";
 import { SourceHostProviders, SourceNotResolvable } from "../resolution/sources/index.js";
-import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import {
   DesiredStateWriter,
   SettingsWriter,
   type DesiredExtensionNode,
   type DesiredStateGraph,
 } from "../desired-state/index.js";
-import {
-  WorkspaceReadTest,
-  MockWorkspaceTransactionScope,
-  TEST_CONTENT_IDENTITY,
-} from "../desired-state/testing.js";
+import { WorkspaceReadTest, MockWorkspaceTransactionScope } from "../desired-state/testing.js";
+import { exactVersion } from "../desired-state/test-helpers.js";
 import { CodingAgentRepositoryLive, NativeWriteAuthorityLive } from "../projection/live.js";
 import {
   WorkspaceCatalogTestLive,
@@ -50,7 +47,7 @@ const packKnowledgeNode = (name: string, pack: string): DesiredExtensionNode => 
   identity: `${OWNER}/knowledge/${name}`,
   source: `${OWNER}/knowledge/${name}@^1.0.0`,
   enabled: true,
-  constraints: ["^1.0.0"],
+  constraint: desiredConstraintOf("^1.0.0"),
   origins: [
     {
       type: "pack",
@@ -71,11 +68,15 @@ const completeGraph = (nodes: ReadonlyArray<DesiredExtensionNode>): DesiredState
 });
 
 const localLock = (baseDir: string, name: string) => ({
-  source: { type: "path" as const, path: decodeRelativePathSync(`sources/${name}`) },
+  source: { type: "registry" as const, url: new URL("https://registry.agentxm.ai") },
   identity: { owner: handle(OWNER), name: extensionName(name) },
-  resolved: { tree: TEST_CONTENT_IDENTITY },
+  resolved: {
+    version: exactVersion("1.0.0"),
+    integrity: "sha512-stub",
+    publisherBindingId: "hbnd_test",
+  },
   treeIntegrity: computeMaterializedTreeIntegritySync(
-    nodePath.join(baseDir, "agent_extensions", "path", OWNER, "knowledge", name),
+    nodePath.join(baseDir, "agent_extensions", "registry", OWNER, "knowledge", name),
   ),
 });
 
@@ -91,7 +92,7 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
   });
 
   const writeBundle = (name: string, instructionEntry?: boolean) => {
-    const root = nodePath.join(baseDir, "agent_extensions", "path", OWNER, "knowledge", name);
+    const root = nodePath.join(baseDir, "agent_extensions", "registry", OWNER, "knowledge", name);
     nodeFs.mkdirSync(nodePath.join(root, "src"), { recursive: true });
     nodeFs.writeFileSync(
       nodePath.join(root, "knowledge.json"),

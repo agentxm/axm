@@ -61,7 +61,7 @@ import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "../desired
 import { type SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import {
-  canReuseInstalledPackage,
+  reusableCanonicalTree,
   materializeExternalPackageWithTreeIntegrity,
 } from "../acquisition/canonical-directory.js";
 import { enabledConfiguredEntries } from "../desired-state/index.js";
@@ -71,10 +71,7 @@ import { computeExtensionPathsForLayout } from "../desired-state/index.js";
 import type { DesiredStateGraph, ConfiguredAgentOutcome } from "../desired-state/index.js";
 import type { ProjectionUnitObservation } from "../projection/index.js";
 import { validatePathSafety } from "../desired-state/index.js";
-import {
-  acceptedRegistryVersionForRef,
-  validateExactResolvedVersion,
-} from "../desired-state/index.js";
+import { validateExactResolvedVersion } from "../desired-state/index.js";
 import type { HookLockEntry } from "../desired-state/index.js";
 import { MaterializedFileTargetSchema } from "../desired-state/index.js";
 import {
@@ -453,24 +450,22 @@ export const HookManagerLive = Layer.effect(
           HOOK_EXTENSION_DIR,
           ref.name,
         ).canonicalPath;
-        const lockedEntry = yield* lockfile.entry("hook", ref.hook.name);
-        const lockedVersion = acceptedRegistryVersionForRef(lockedEntry, ref);
-        const reuse = yield* provide(
-          canReuseInstalledPackage({
-            installedPath: canonicalPath,
+        const reusable = yield* provide(
+          reusableCanonicalTree({
+            canonicalPath,
+            requested: {
+              refType: "registry",
+              owner: ref.owner,
+              name: ref.name,
+              version: ref.version,
+              publisherBindingId: ref.publisherBindingId,
+            },
+            accepted: yield* lockfile.entry("hook", ref.hook.name),
             force: false,
-            refVersion: ref.version,
-            hasIntegrity: Option.isSome(ref.integrity),
-            ...(lockedVersion === undefined ? {} : { lockedVersion }),
-            existsFailureDetail: (target) =>
-              `Failed to check if canonical hook package path exists: ${target}`,
           }),
         );
-        if (reuse && Option.isSome(lockedEntry)) {
-          const observedTree = yield* provide(computeMaterializedTreeIntegrity(canonicalPath));
-          if (observedTree === lockedEntry.value.treeIntegrity) {
-            return { packageRoot: canonicalPath, treeIntegrity: lockedEntry.value.treeIntegrity };
-          }
+        if (Option.isSome(reusable)) {
+          return { packageRoot: canonicalPath, treeIntegrity: reusable.value };
         }
         const materialized = yield* provide(
           materializeRegistryPackageWithTreeIntegrity({
@@ -609,16 +604,14 @@ export const HookManagerLive = Layer.effect(
 
     const selectHookContributors = (args: {
       readonly graph: Parameters<typeof activeContributors>[0]["graph"];
-      readonly locked: Parameters<typeof activeContributors>[0]["locked"];
+      readonly locked: Parameters<typeof activeContributors>[0]["accepted"];
     }) =>
       provide(
         activeContributors({
           layout: currentLayout(),
-          path,
           type: "hook",
-          extensionDir: HOOK_EXTENSION_DIR,
           graph: args.graph,
-          locked: args.locked,
+          accepted: args.locked,
         }),
       ).pipe(
         Effect.flatMap((contributors) =>

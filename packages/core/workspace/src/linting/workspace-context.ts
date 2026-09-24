@@ -15,7 +15,6 @@ import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 
 import type {
-  PackDependencyReachability,
   AgentOutputInventory,
   WorkspaceOwnershipIssue,
   InstructionProjectionSnapshot,
@@ -77,8 +76,6 @@ export interface WorkspaceRuleContext {
    * when it is absent.
    */
   readonly installedExtensions?: WorkspaceInstalledExtensionAccessor;
-  /** Pre-joined, offline pack/member version reachability for workspace rules. */
-  readonly packDependencyReachability?: Effect.Effect<ReadonlyArray<PackDependencyReachability>>;
   /** Effective configured owner (project, then user scope), when available. */
   readonly owner?: Effect.Effect<Option.Option<Handle>>;
   /** One caller-built evaluation over the authoritative installed AXM skill. */

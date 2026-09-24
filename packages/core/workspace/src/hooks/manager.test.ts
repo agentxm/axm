@@ -4,6 +4,7 @@
  * Tests cover Claude Code hooks config materialization behavior.
  */
 
+import { UNCONSTRAINED_DESIRED_NODE } from "../desired-state/index.js";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
@@ -142,7 +143,7 @@ const makeHookManagerLayer = (
             identity: "./source-hook",
             source: "./source-hook",
             enabled: true,
-            constraints: [],
+            constraint: UNCONSTRAINED_DESIRED_NODE,
             origins: [{ type: "settings" as const, source: "./source-hook", enabled: true }],
           })),
           mcpSourceClosures: [],

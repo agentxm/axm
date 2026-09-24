@@ -34,7 +34,7 @@ export interface PackDependencyReachability {
   readonly classification: PackDependencyReachabilityClassification;
 }
 
-export const classifyPackDependencyReachability = (args: {
+const classifyPackDependencyReachability = (args: {
   readonly constraint: string;
   readonly member?: PackDependencyMemberObservation;
 }): PackDependencyReachabilityClassification => {
@@ -79,21 +79,4 @@ export const buildPackDependencyReachability = (args: {
           ];
         }),
     );
-};
-
-export const packDependencyReachabilityByMember = (
-  records: ReadonlyArray<PackDependencyReachability>,
-): ReadonlyMap<string, ReadonlyArray<PackDependencyReachability>> => {
-  const mutable = new Map<string, Array<PackDependencyReachability>>();
-  for (const record of records) {
-    const existing = mutable.get(record.memberFqn);
-    if (existing === undefined) mutable.set(record.memberFqn, [record]);
-    else existing.push(record);
-  }
-  return new Map(
-    [...mutable.entries()].map(([member, values]) => [
-      member,
-      [...values].sort((left, right) => left.packFqn.localeCompare(right.packFqn)),
-    ]),
-  );
 };

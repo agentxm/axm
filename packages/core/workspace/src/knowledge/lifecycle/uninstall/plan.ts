@@ -13,7 +13,6 @@ import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 import {
   DesiredStateReader,
-  LockfileReader,
   SettingsReader,
   WorkspaceLocation,
   WorkspaceRecords,
@@ -23,18 +22,14 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
-import { KnowledgeManager, KnowledgeUnavailable } from "../../../materialization/index.js";
+import { KnowledgeManager } from "../../../materialization/index.js";
 import { buildUninstallOperation } from "../../../reconciliation/index.js";
 import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
 import type { Plan, PlannedJobStep } from "../../../transitions/planning/index.js";
 import { resolveInstructionsConfig } from "../../../projection/index.js";
 import {
   acceptedCanonicalObservation,
-  computeExtensionPathsForLayout,
-  extensionPathSourceFromLockEntry,
   type KnowledgeExtensionTarget,
-  type KnowledgeLockEntry,
-  type WorkspaceLayout,
 } from "../../../desired-state/index.js";
 
 import { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
@@ -52,19 +47,6 @@ interface KnowledgeUninstallOwnership {
   readonly blocker?: string;
 }
 
-const lockCanonicalRoot = (
-  path: Path.Path,
-  layout: WorkspaceLayout,
-  locked: KnowledgeLockEntry,
-): string =>
-  computeExtensionPathsForLayout(
-    path.join,
-    layout,
-    extensionPathSourceFromLockEntry(locked),
-    "knowledge",
-    locked.identity.name,
-  ).canonicalPath;
-
 /** Settle whether this Knowledge bundle has anything to remove. */
 export const parseKnowledgeUninstallRequest: (
   selector: string,
@@ -75,26 +57,23 @@ export const parseKnowledgeUninstallRequest: (
 > = Effect.fn("UninstallExtensions.parseKnowledgeRequest")(function* (selector: string) {
   const location = yield* WorkspaceLocation;
   const layout = yield* Ref.get(location.layout);
-  const lockfile = yield* LockfileReader;
   const manager = yield* KnowledgeManager;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const target: KnowledgeExtensionTarget = { type: "knowledge", name: selector.trim() };
 
+  // A declaration or observed content makes the bundle a removal target; a
+  // lock row alone never does, because lock state creates no reachability.
   return yield* Effect.gen(function* () {
     const configured =
       manager.getConfiguredSource === undefined
         ? Option.none<string>()
         : yield* manager.getConfiguredSource({ target });
     const installed = yield* manager.isInstalled({ target });
-    const locked = yield* lockfile.entry("knowledge", target.name);
     const authoredPackagePresent =
       layout.scope === "project" &&
       (yield* fs.exists(path.join(layout.authoredRoot("knowledge"), target.name)));
-    if (Option.isNone(configured) && Option.isNone(locked) && authoredPackagePresent) {
-      return { targets: [] } satisfies KnowledgeUninstallIntent;
-    }
-    if (Option.isNone(configured) && Option.isNone(locked) && !installed) {
+    if (Option.isNone(configured) && (authoredPackagePresent || !installed)) {
       return { targets: [] } satisfies KnowledgeUninstallIntent;
     }
     return { targets: [target] } satisfies KnowledgeUninstallIntent;
@@ -124,39 +103,33 @@ const inspectOwnership: (
   target: KnowledgeExtensionTarget,
 ) {
   const location = yield* WorkspaceLocation;
-  const layout = yield* Ref.get(location.layout);
   const settings = yield* SettingsReader;
-  const lockfile = yield* LockfileReader;
-  const desiredState = yield* DesiredStateReader;
   const records = yield* WorkspaceRecords;
   const path = yield* Path.Path;
   return yield* Effect.gen(function* () {
     const configured = yield* settings.entries("knowledge");
-    const locked = yield* lockfile.entry("knowledge", target.name);
-    const graph = yield* desiredState.graph();
-    const desired = graph.nodes.find(
-      (node) => node.type === "knowledge" && node.name === target.name,
-    );
-    const acceptedObservation =
-      desired === undefined
-        ? Option.none()
-        : yield* acceptedCanonicalObservation({
-            type: "knowledge",
-            name: target.name,
-          });
-    const expectedCanonicalPath = Option.match(acceptedObservation, {
-      onNone: () =>
-        Option.isSome(locked) ? lockCanonicalRoot(path, layout, locked.value) : undefined,
-      onSome: (accepted) => accepted.observation.path,
+    // The canonical observation is the one ownership fact: it ties desired
+    // state, the accepted resolution, and the content on disk together.
+    const acceptedObservation = yield* acceptedCanonicalObservation({
+      type: "knowledge",
+      name: target.name,
     });
+    const desired = Option.map(acceptedObservation, (accepted) => accepted.desired);
+    const expectedCanonicalPath = Option.getOrUndefined(
+      Option.flatMap(acceptedObservation, (accepted) =>
+        Option.fromUndefinedOr(accepted.observation.path),
+      ),
+    );
     const inventory = yield* records.getExtensionInventory("knowledge", {});
     const actualPaths = inventory.items
       .filter((item) => item.name === target.name)
       .flatMap((item) => item.paths.map((itemPath) => path.resolve(location.baseDir, itemPath)));
     const normalizedExpected =
       expectedCanonicalPath === undefined ? undefined : path.resolve(expectedCanonicalPath);
-    const workspaceOwned = desired?.identity.startsWith("workspace:") === true;
-    const hasAcceptedOwnership = workspaceOwned || Option.isSome(locked);
+    const workspaceOwned = Option.exists(desired, (node) => node.identity.startsWith("workspace:"));
+    const hasAcceptedOwnership =
+      workspaceOwned ||
+      Option.exists(acceptedObservation, (accepted) => accepted.accepted !== undefined);
     const settingsPresent = configured[target.name] !== undefined;
     const instructionsConfig = yield* settings.instructionsConfig;
     const resolvedInstructions = resolveInstructionsConfig(
@@ -201,29 +174,9 @@ export const planKnowledgeUninstall: (
   ExtensionLifecycleFailed,
   InstallStepRequirements | KnowledgeManager | FileSystem.FileSystem | Path.Path
 > = Effect.fn("UninstallExtensions.planKnowledge")(function* (intent: KnowledgeUninstallIntent) {
-  const lockfile = yield* LockfileReader;
   const desiredState = yield* DesiredStateReader;
   const manager = yield* KnowledgeManager;
   const retentionPolicy = makeWorkspaceRetentionPolicy(desiredState, lifecycleStepFailure);
-
-  /** The accepted ownership fact, not on-disk presence, decides removability. */
-  const isAcceptedTargetPresent = (target: KnowledgeExtensionTarget) =>
-    Effect.gen(function* () {
-      const graph = yield* desiredState.graph();
-      const desired = graph.nodes.find(
-        (node) => node.type === "knowledge" && node.name === target.name,
-      );
-      const locked = yield* lockfile.entry("knowledge", target.name);
-      return desired?.identity.startsWith("workspace:") === true || Option.isSome(locked);
-    }).pipe(
-      Effect.mapError(
-        (cause) =>
-          new KnowledgeUnavailable({
-            detail: `Accepted ownership for Knowledge bundle "${target.name}" could not be read`,
-            cause,
-          }),
-      ),
-    );
 
   const ownership = yield* Effect.forEach(intent.targets, inspectOwnership);
   const steps = ownership.map((entry): PlannedJobStep<InstallStepRequirements> => {
@@ -235,11 +188,10 @@ export const planKnowledgeUninstall: (
         errorMessage: entry.blocker,
       };
     }
-    return buildUninstallOperation(
-      { ...manager, isInstalled: () => isAcceptedTargetPresent(entry.target) },
-      retentionPolicy,
-      { target: entry.target, toStepFailure: lifecycleStepFailure },
-    );
+    return buildUninstallOperation(manager, retentionPolicy, {
+      target: entry.target,
+      toStepFailure: lifecycleStepFailure,
+    });
   });
 
   return {

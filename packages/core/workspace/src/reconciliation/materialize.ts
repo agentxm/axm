@@ -16,6 +16,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
+import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import type * as Scope from "effect/Scope";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 import { SourceHostProviders, WorkspaceCatalog } from "../resolution/sources/index.js";
@@ -403,21 +404,32 @@ const resolveDesiredNodeRef = (
         });
       }),
     );
+  // The node is selected within the graph's effective constraint, never
+  // within the range one declaring route happens to carry.
+  const range = Result.isSuccess(node.constraint)
+    ? node.constraint.success.range
+    : Option.none<VersionRange>();
   switch (node.type) {
     case "skill":
-      return annotate(resolveConfiguredSkill(node.name, node.source, releaseAgeEvaluation));
+      return annotate(resolveConfiguredSkill(node.name, node.source, releaseAgeEvaluation, range));
     case "mcp-server":
-      return annotate(resolveConfiguredMcpServer(node.name, node.source, releaseAgeEvaluation));
+      return annotate(
+        resolveConfiguredMcpServer(node.name, node.source, releaseAgeEvaluation, range),
+      );
     case "subagent":
-      return annotate(resolveConfiguredSubagent(node.name, node.source, releaseAgeEvaluation));
+      return annotate(
+        resolveConfiguredSubagent(node.name, node.source, releaseAgeEvaluation, range),
+      );
     case "rule":
-      return annotate(resolveConfiguredRule(node.name, node.source, releaseAgeEvaluation));
+      return annotate(resolveConfiguredRule(node.name, node.source, releaseAgeEvaluation, range));
     case "hook":
-      return annotate(resolveConfiguredHook(node.name, node.source, releaseAgeEvaluation));
+      return annotate(resolveConfiguredHook(node.name, node.source, releaseAgeEvaluation, range));
     case "knowledge":
-      return annotate(resolveConfiguredKnowledge(node.name, node.source, releaseAgeEvaluation));
+      return annotate(
+        resolveConfiguredKnowledge(node.name, node.source, releaseAgeEvaluation, range),
+      );
     case "pack":
-      return annotate(resolveConfiguredPack(node.name, node.source, releaseAgeEvaluation));
+      return annotate(resolveConfiguredPack(node.name, node.source, releaseAgeEvaluation, range));
   }
 };
 

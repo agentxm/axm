@@ -48,22 +48,21 @@ import {
   resolveInstructionsConfig,
 } from "../projection/index.js";
 import {
-  canReuseInstalledPackage,
+  reusableCanonicalTree,
   materializeExternalPackage,
 } from "../acquisition/canonical-directory.js";
 import { materializeRegistryPackage } from "../materialization/registry-materialization.js";
 import {
   computeExtensionPathsForLayout,
-  extensionPathSourceFromLockEntry,
+  observeCanonicalExtension,
+  type DesiredExtensionNode,
 } from "../desired-state/index.js";
+import { canonicalObservationFactText } from "../projection/canonical-observation-fact.js";
 import { computePackageContentHash } from "../desired-state/index.js";
 import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "../desired-state/index.js";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import type { KnowledgeLockEntry } from "../desired-state/index.js";
-import {
-  acceptedRegistryVersionForRef,
-  validateExactResolvedVersion,
-} from "../desired-state/index.js";
+import { validateExactResolvedVersion } from "../desired-state/index.js";
 import {
   gitSourceLockFields,
   pathSourceLockFields,
@@ -377,33 +376,28 @@ export const KnowledgeManagerLive = Layer.effect(
         // never exists, so a decision made there would re-extract every time
         // and revert workspace-owned content on a no-op install.
         if (ref.refType === "registry") {
-          const lockedEntry = yield* lockfile.entry("knowledge", ref.knowledge.name);
-          const lockedVersion = acceptedRegistryVersionForRef(lockedEntry, ref);
-          const reuse = yield* provide(
-            canReuseInstalledPackage({
-              installedPath: canonicalPath,
+          const reusable = yield* provide(
+            reusableCanonicalTree({
+              canonicalPath,
+              requested: {
+                refType: "registry",
+                owner: ref.owner,
+                name: ref.name,
+                version: ref.version,
+                publisherBindingId: ref.publisherBindingId,
+              },
+              accepted: yield* lockfile.entry("knowledge", ref.knowledge.name),
               force,
-              refVersion: ref.version,
-              hasIntegrity: Option.isSome(ref.integrity),
-              ...(lockedVersion === undefined ? {} : { lockedVersion }),
-              existsFailureDetail: (target) => `Failed to inspect knowledge path: ${target}`,
             }),
           );
-          if (reuse && Option.isSome(lockedEntry)) {
-            const observedTree = yield* provide(computeMaterializedTreeIntegrity(canonicalPath));
-            if (observedTree !== lockedEntry.value.treeIntegrity) {
-              yield* Effect.logWarning(
-                `Knowledge package ${ref.knowledge.name} differs from its accepted tree; rematerializing`,
-              );
-            } else {
-              return {
-                root: canonicalPath,
-                sourceHash: yield* provide(computePackageContentHash(canonicalPath)),
-                treeIntegrity: lockedEntry.value.treeIntegrity,
-                commit: Effect.void,
-                rollback: Effect.void,
-              };
-            }
+          if (Option.isSome(reusable)) {
+            return {
+              root: canonicalPath,
+              sourceHash: yield* provide(computePackageContentHash(canonicalPath)),
+              treeIntegrity: reusable.value,
+              commit: Effect.void,
+              rollback: Effect.void,
+            };
           }
         }
         const tempDir = yield* fs.makeTempDirectoryScoped({ prefix: "axm-knowledge-package-" });
@@ -523,33 +517,17 @@ export const KnowledgeManagerLive = Layer.effect(
         };
       });
 
-    const canonicalRoot = (name: string, locked: KnowledgeLockEntry): string =>
-      computeExtensionPathsForLayout(
-        path.join,
-        currentLayout(),
-        extensionPathSourceFromLockEntry(locked),
-        KNOWLEDGE_EXTENSION_DIR,
-        name,
-      ).canonicalPath;
-
-    const desiredCanonicalRoot = (
-      node: { readonly name: string; readonly identity: string },
+    /**
+     * The canonical observation of one desired Knowledge node: the only
+     * judge of whether its accepted content may serve as discovery input.
+     */
+    const observeDesiredKnowledge = (
+      node: DesiredExtensionNode,
       locked: KnowledgeLockEntry | undefined,
-    ) => {
-      if (node.identity.startsWith("workspace:")) {
-        const layout = currentLayout();
-        return layout.scope === "project"
-          ? Effect.succeed(path.join(layout.authoredRoot("knowledge"), node.name))
-          : Effect.fail(
-              new KnowledgeDefinitionInvalid({
-                detail: "User workspaces do not support workspace-authored Knowledge bundles",
-              }),
-            );
-      }
-      return locked === undefined
-        ? Effect.fail(new KnowledgeResolutionMissing({ name: node.name }))
-        : Effect.succeed(canonicalRoot(node.name, locked));
-    };
+    ) =>
+      provide(
+        observeCanonicalExtension({ layout: currentLayout(), desired: node, accepted: locked }),
+      );
 
     const toProjectionBundle = (
       root: string,
@@ -629,7 +607,7 @@ export const KnowledgeManagerLive = Layer.effect(
         graph.nodes.filter((node) => node.type === "knowledge" && node.enabled),
         (node) =>
           Effect.gen(function* () {
-            const root = yield* desiredCanonicalRoot(node, locked[node.name]);
+            const observation = yield* observeDesiredKnowledge(node, locked[node.name]);
             const workspaceInstructionEntry = configured[node.name]?.instructionEntry;
             const resolveInclusion = (manifestInstructionEntry?: boolean) =>
               resolveKnowledgeInstructionEntry({
@@ -639,16 +617,37 @@ export const KnowledgeManagerLive = Layer.effect(
                 ...(workspaceInstructionEntry === undefined ? {} : { workspaceInstructionEntry }),
                 ...(manifestInstructionEntry === undefined ? {} : { manifestInstructionEntry }),
               });
+            // Resolution facts stay fail-closed: they are AXM state problems,
+            // not bundle content problems.
+            if (observation.status === "missing-resolution") {
+              return yield* new KnowledgeResolutionMissing({ name: node.name });
+            }
+            if (observation.path === undefined) {
+              return yield* new KnowledgeDefinitionInvalid({
+                detail: node.identity.startsWith("workspace:")
+                  ? "User workspaces do not support workspace-authored Knowledge bundles"
+                  : canonicalObservationFactText(node, observation),
+              });
+            }
+            const root = observation.path;
+            // A bundle the observation does not find usable, or whose package
+            // cannot be inspected, is left out of the region and reported. A
+            // bundle the workspace would not publish anyway is simply absent;
+            // reporting it would be noise.
+            const excluded = (exclusion: ProjectionContributorExclusion) =>
+              resolveInclusion().included
+                ? { contributors: [], exclusions: [exclusion] }
+                : { contributors: [], exclusions: [] };
+            if (observation.status !== "usable") {
+              return excluded({
+                contributor: node.name,
+                reason: observation.status === "missing" ? "package-missing" : "package-invalid",
+                detail: canonicalObservationFactText(node, observation),
+              });
+            }
             const inspection = yield* Effect.result(inspectPackage(root));
             if (Result.isFailure(inspection)) {
-              // A bundle the workspace would not publish anyway is simply
-              // absent from the region; reporting it would be noise.
-              return resolveInclusion().included
-                ? {
-                    contributors: [],
-                    exclusions: [yield* excludedContributor(node.name, root, inspection.failure)],
-                  }
-                : { contributors: [], exclusions: [] };
+              return excluded(yield* excludedContributor(node.name, root, inspection.failure));
             }
             const inspected = inspection.success;
             const resolution = resolveInclusion(inspected.manifest.instructionEntry);
@@ -889,13 +888,11 @@ export const KnowledgeManagerLive = Layer.effect(
         for (const node of desired) {
           const { name } = node;
           const entry = locked[name];
-          const root = yield* desiredCanonicalRoot(node, entry);
-          const inspection = yield* Effect.result(inspectPackage(root));
-          if (Result.isSuccess(inspection)) continue;
+          const observation = yield* observeDesiredKnowledge(node, entry);
+          if (observation.status === "usable") continue;
           if (node.identity.startsWith("workspace:")) {
             return yield* new KnowledgeDefinitionInvalid({
-              detail: `Active workspace-authored Knowledge bundle is missing or invalid: ${name}`,
-              cause: inspection.failure,
+              detail: `Active workspace-authored Knowledge bundle is missing or invalid: ${name}. ${canonicalObservationFactText(node, observation)}`,
             });
           }
           if (entry === undefined) {
@@ -1011,11 +1008,9 @@ export const KnowledgeManagerLive = Layer.effect(
           name: target.name,
         }),
       );
-      const root = removableAcceptedCanonicalPath(canonical);
-      const locked = yield* lockfile.entry("knowledge", target.name);
-      const ownedRoot = Option.orElse(root, () =>
-        Option.map(locked, (entry) => canonicalRoot(target.name, entry)),
-      );
+      // Only content the canonical observation ties to accepted ownership is
+      // removed; a lock row alone owns nothing on disk.
+      const ownedRoot = removableAcceptedCanonicalPath(canonical);
       if (Option.isSome(ownedRoot)) {
         yield* protectWorkspacePath(ownedRoot.value);
         yield* fs.remove(ownedRoot.value, { recursive: true, force: true }).pipe(

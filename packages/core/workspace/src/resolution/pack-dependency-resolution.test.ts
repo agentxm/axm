@@ -359,10 +359,8 @@ describe("Pack member resolution without Registry release dates", () => {
             configured: {
               identity: "workspace:@acme/skills/review",
               workspace: true,
-              version: "1.4.0",
               status: "corrupt",
             },
-            requiredVersionRange: "^1.0.0",
           });
           return decision.kind === "blocked"
             ? Effect.succeed(decision)

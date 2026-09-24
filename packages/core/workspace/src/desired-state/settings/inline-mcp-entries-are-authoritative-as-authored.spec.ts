@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import { UNCONSTRAINED_DESIRED_NODE } from "../index.js";
 import * as os from "node:os";
 import * as path from "node:path";
 
@@ -147,7 +148,7 @@ describe("Inline MCP entries are authoritative as authored", () => {
           // An inline entry names no source and declares no constraint, so
           // nothing about it can be resolved against a registry.
           expect(node?.source, name).toBeUndefined();
-          expect(node?.constraints, name).toEqual([]);
+          expect(node?.constraint, name).toEqual(UNCONSTRAINED_DESIRED_NODE);
         }
         expect(graph.nodes.find((candidate) => candidate.name === "muted-tool")?.enabled).toBe(
           false,

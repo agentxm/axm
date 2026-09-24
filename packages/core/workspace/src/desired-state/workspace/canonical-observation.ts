@@ -32,17 +32,16 @@ import {
   lockEntryMatchesSourceLocator,
   lockEntryToSourceParams,
 } from "./lock-entry-to-source-params.js";
-import {
-  collectDesiredConstraintContributors,
-  type DesiredConstraintContributor,
-  type DesiredExtensionNode,
-} from "./desired-state-graph.js";
+import type { DesiredConstraintContributor, DesiredExtensionNode } from "./desired-state-graph.js";
 import type { WorkspaceLayout } from "./layout.js";
 import {
+  bundledSkillCanonicalRoot,
   computeExtensionPathsForLayout,
   extensionPathSourceFromLockEntry,
 } from "./extension-paths.js";
 import { mcpResolutionKey } from "./mcp-source-identity.js";
+import { acceptedRegistryVersionForRef } from "../lockfile/accepted-registry-version.js";
+import type { TreeIntegrity } from "./materialized-tree.js";
 
 export type CanonicalObservationStatus =
   | "not-applicable"
@@ -125,7 +124,7 @@ export const canonicalPathForAcceptedExtension = (
 ): string | undefined => {
   if (desired.source === undefined) return undefined;
   if (desired.identity.startsWith("bundled:")) {
-    return path.join(layout.acquiredRoot, "registry", "@agentxm", "skills", desired.name);
+    return bundledSkillCanonicalRoot(path.join, layout, desired.name);
   }
   if (desired.identity.startsWith("workspace:")) {
     if (layout.scope === "project")
@@ -175,6 +174,32 @@ const parseJson = (raw: string): unknown | undefined => {
   }
 };
 
+/** Every contributor the graph's effective constraint for the node names. */
+export const desiredConstraintContributors = (
+  desired: Pick<DesiredExtensionNode, "constraint">,
+): ReadonlyArray<DesiredConstraintContributor> =>
+  Result.isSuccess(desired.constraint)
+    ? desired.constraint.success.contributors
+    : desired.constraint.failure.contributors;
+
+/**
+ * Whether a version satisfies the node's effective constraint. A conflict
+ * admits no version; an unconstrained node admits every version.
+ */
+const satisfiesDesiredConstraint = (
+  desired: Pick<DesiredExtensionNode, "constraint">,
+  version: string | undefined,
+): boolean =>
+  Result.isSuccess(desired.constraint) &&
+  Option.match(desired.constraint.success.range, {
+    onNone: () => true,
+    onSome: (range) => version !== undefined && semver.satisfies(version, range),
+  });
+
+/** Whether anything constrains the node at all. */
+const isConstrained = (desired: Pick<DesiredExtensionNode, "constraint">): boolean =>
+  Result.isFailure(desired.constraint) || Option.isSome(desired.constraint.success.range);
+
 const constraintMismatchObservation = (args: {
   readonly desired: DesiredExtensionNode & { readonly source: string };
   readonly canonicalPath?: string;
@@ -189,11 +214,71 @@ const constraintMismatchObservation = (args: {
     source: "desired-state-graph",
     identity: args.desired.identity,
     locator: args.desired.source,
-    constraints: collectDesiredConstraintContributors(args.desired.origins),
+    constraints: desiredConstraintContributors(args.desired),
   },
   ...(args.acceptedVersion === undefined ? {} : { acceptedVersion: args.acceptedVersion }),
   ...(args.observedVersion === undefined ? {} : { observedVersion: args.observedVersion }),
 });
+
+/** Whether the canonical tree at `root` is byte-for-byte the accepted one. */
+const observedTreeMatchesAccepted = (
+  root: string,
+  accepted: Pick<AcceptedExtensionResolution, "treeIntegrity">,
+): Effect.Effect<boolean, never, FileSystem.FileSystem | Path.Path> =>
+  Effect.map(
+    Effect.result(computeMaterializedTreeIntegrity(root)),
+    (observed) => Result.isSuccess(observed) && observed.success === accepted.treeIntegrity,
+  );
+
+/** The ref an acquisition is about to materialize, as far as reuse judges it. */
+export type RequestedCanonicalRef =
+  | {
+      readonly refType: "registry";
+      readonly owner: string;
+      readonly name: string;
+      readonly version: string;
+      readonly publisherBindingId: string;
+    }
+  | {
+      readonly refType: "git-hosted" | "local";
+      readonly owner?: string | undefined;
+      readonly name: string;
+    };
+
+/**
+ * Whether an acquisition may keep the accepted canonical tree instead of
+ * materializing the requested ref again. This is the only place that
+ * decision is made: the tree is reused exactly when the accepted resolution
+ * names the requested ref (for a Registry ref, the same identity, publisher
+ * binding, and exact version) and the tree on disk is still the accepted
+ * one. Edited, partial, or absent trees are re-acquired, so drift never
+ * becomes accepted authority; `force` is the one bypass and always
+ * re-materializes.
+ */
+export const observeAcceptedCanonicalReuse = (args: {
+  readonly canonicalPath: string;
+  readonly requested: RequestedCanonicalRef;
+  readonly accepted: Option.Option<AcceptedExtensionResolution>;
+  readonly force: boolean;
+}): Effect.Effect<Option.Option<TreeIntegrity>, never, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    if (args.force || Option.isNone(args.accepted)) return Option.none();
+    const accepted = args.accepted.value;
+    if (args.requested.refType === "registry") {
+      if (acceptedRegistryVersionForRef(args.accepted, args.requested) !== args.requested.version) {
+        return Option.none();
+      }
+    } else if (
+      isRegistryResolution(accepted) ||
+      accepted.identity.name !== args.requested.name ||
+      (args.requested.owner !== undefined && accepted.identity.owner !== args.requested.owner)
+    ) {
+      return Option.none();
+    }
+    return (yield* observedTreeMatchesAccepted(args.canonicalPath, accepted))
+      ? Option.some(accepted.treeIntegrity)
+      : Option.none();
+  });
 
 const acceptedOriginMatches = (
   desired: DesiredExtensionNode & { readonly source: string },
@@ -237,12 +322,12 @@ export const observeAcceptedResolution = (
     return Option.some({ type: desired.type, name: desired.name, status: "wrong-origin" });
   }
   if (
-    desired.constraints.length > 0 &&
-    (accepted === undefined ||
-      !isRegistryResolution(accepted) ||
-      desired.constraints.some(
-        (constraint) => !semver.satisfies(accepted.resolved.version, constraint),
-      ))
+    isConstrained(desired) &&
+    !(
+      accepted !== undefined &&
+      isRegistryResolution(accepted) &&
+      satisfiesDesiredConstraint(desired, accepted.resolved.version)
+    )
   ) {
     return Option.some(
       constraintMismatchObservation({
@@ -307,11 +392,7 @@ export const observeCanonicalExtension = ({
         return { type: desired.type, name: desired.name, status: "corrupt", path: root };
       }
 
-      const observedIntegrity = yield* Effect.result(computeMaterializedTreeIntegrity(root));
-      if (
-        Result.isFailure(observedIntegrity) ||
-        observedIntegrity.success !== accepted.treeIntegrity
-      ) {
+      if (!(yield* observedTreeMatchesAccepted(root, accepted))) {
         return {
           type: desired.type,
           name: desired.name,
@@ -371,9 +452,8 @@ export const observeCanonicalExtension = ({
     // desired constraints judge.
     if (
       workspaceAuthored &&
-      desired.constraints.length > 0 &&
-      (manifestVersion === undefined ||
-        desired.constraints.some((constraint) => !semver.satisfies(manifestVersion, constraint)))
+      isConstrained(desired) &&
+      !satisfiesDesiredConstraint(desired, manifestVersion)
     ) {
       return constraintMismatchObservation({
         desired,
@@ -393,19 +473,17 @@ export const observeCanonicalExtension = ({
       return { type: desired.type, name: desired.name, status: "incomplete", path: root };
     }
 
-    if (!workspaceAuthored && accepted !== undefined) {
-      const observedIntegrity = yield* Effect.result(computeMaterializedTreeIntegrity(root));
-      if (
-        Result.isFailure(observedIntegrity) ||
-        observedIntegrity.success !== accepted.treeIntegrity
-      ) {
-        return {
-          type: desired.type,
-          name: desired.name,
-          status: "materialization-mismatch",
-          path: root,
-        };
-      }
+    if (
+      !workspaceAuthored &&
+      accepted !== undefined &&
+      !(yield* observedTreeMatchesAccepted(root, accepted))
+    ) {
+      return {
+        type: desired.type,
+        name: desired.name,
+        status: "materialization-mismatch",
+        path: root,
+      };
     }
 
     return {

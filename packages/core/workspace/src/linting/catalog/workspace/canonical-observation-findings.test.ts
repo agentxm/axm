@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import { UNCONSTRAINED_DESIRED_NODE } from "../../../desired-state/index.js";
 import * as nodePath from "node:path";
 
 import * as Effect from "effect/Effect";
@@ -26,7 +27,7 @@ const desired = {
   identity: "@acme/skills/review",
   source: "@acme/skills/review",
   enabled: true,
-  constraints: [],
+  constraint: UNCONSTRAINED_DESIRED_NODE,
   origins: [
     {
       type: "settings",

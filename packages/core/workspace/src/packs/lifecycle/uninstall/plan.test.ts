@@ -8,6 +8,7 @@
  * business.
  */
 
+import { UNCONSTRAINED_DESIRED_NODE } from "../../../desired-state/index.js";
 import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
@@ -64,7 +65,7 @@ const packNode = (identity: string, name = "toolkit"): DesiredExtensionNode => (
   identity,
   source: identity,
   enabled: true,
-  constraints: [],
+  constraint: UNCONSTRAINED_DESIRED_NODE,
   origins: [{ type: "settings", source: identity, enabled: true }],
 });
 
@@ -98,7 +99,7 @@ describe("pack uninstall target precondition", () => {
           identity: "@other/skills/unrelated",
           source: "@other/skills/unrelated",
           enabled: true,
-          constraints: [],
+          constraint: UNCONSTRAINED_DESIRED_NODE,
           origins: [{ type: "settings", source: "@other/skills/unrelated", enabled: true }],
         },
       ]),

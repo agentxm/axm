@@ -96,6 +96,23 @@ describe("The effective constraint has one owner", () => {
       }),
   );
 
+  it.effect(
+    "a desired node carries the effective constraint and keeps the locator it declared",
+    () =>
+      Effect.gen(function* () {
+        const graph = yield* sharedMemberGraph(SHARED_MEMBER_PIN.inside);
+        const node = graph.nodes.find(
+          (candidate) => candidate.type === member.type && candidate.name === member.name,
+        );
+        if (node === undefined) throw new Error("Expected the shared member to be desired");
+
+        // The graph publishes the one answer on the node; no reader re-derives
+        // a range from the declared locator or from one Pack's declaration.
+        expect(node.constraint).toEqual(effectiveDesiredConstraint(graph, member));
+        expect(node.source).toBe(`${SHARED_MEMBER.fqn}@${SHARED_MEMBER_PIN.inside}`);
+      }),
+  );
+
   it.effect("a disabled declaration contributes to no other extension's constraint", () =>
     Effect.gen(function* () {
       const graph = yield* sharedMemberGraph(SHARED_MEMBER_PIN.inside);

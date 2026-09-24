@@ -22,8 +22,6 @@ import { resolveWorkspaceExtensionRef } from "../desired-state/index.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { WorkspaceLayout } from "../desired-state/index.js";
 import { enabledConfiguredEntries } from "../desired-state/index.js";
-import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
-import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
 import { SCANNER_IO_CONCURRENCY } from "../desired-state/workspace/read-model/scanners/fs-helpers.js";
 
 type DiskRefError =
@@ -82,35 +80,6 @@ export const configuredSkillsToDiskRefs = (
   Effect.forEach(
     enabledConfiguredEntries(configured),
     ([settingsName, entry]): Effect.Effect<Option.Option<SkillExtensionRef>, DiskRefError> => {
-      if (entry.origin === "bundled") {
-        const owner = decodeHandleSync("@agentxm");
-        const packageName = decodeExtensionNameSync(settingsName);
-        const packageRoot = env.path.join(
-          env.layout.acquiredRoot,
-          "registry",
-          owner,
-          "skills",
-          settingsName,
-        );
-        return resolveWorkspaceExtensionRef({
-          settingsName,
-          source: "workspace",
-          expectedType: "skill",
-          layout: env.layout,
-          scope: env.scope,
-          staticPackage: {
-            owner,
-            name: packageName,
-            root: packageRoot,
-          },
-        }).pipe(
-          Effect.provideService(FileSystem.FileSystem, env.fs),
-          Effect.provideService(Path.Path, env.path),
-          Effect.map((ref) =>
-            ref.type === "skill" ? Option.some(ref) : Option.none<SkillExtensionRef>(),
-          ),
-        );
-      }
       if (entry.source !== undefined && isWorkspaceSourceLocator(entry.source)) {
         return resolveWorkspaceFromDisk(env, settingsName, entry.source, "skill").pipe(
           Effect.map((ref) =>

@@ -8,14 +8,12 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Ref from "effect/Ref";
 import { decodedSettings } from "../../__fixtures__/decoders.js";
 import {
   makeAgentMcpConfigOccurrence,
   makeCanonicalOccurrence,
   makeWorkspaceMcpConfigOccurrence,
 } from "../../__fixtures__/occurrences.js";
-import { makeDiagnostics, type Warning } from "../../diagnostics.js";
 import { makeMcpServerExtensionsApi } from "../../extensions/mcp-server.js";
 import type { CanonicalExtensionOccurrence, McpConfigOccurrence } from "../../scanners/types.js";
 import type { Settings } from "../../../../settings/schema.js";
@@ -30,8 +28,6 @@ const harness = (params: {
   readonly mcpConfigOccurrences?: ReadonlyArray<McpConfigOccurrence>;
 }) =>
   Effect.gen(function* () {
-    const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);
-    const diagnostics = makeDiagnostics(ref);
     return yield* makeMcpServerExtensionsApi({
       scope: "project",
       loaders: {
@@ -42,8 +38,6 @@ const harness = (params: {
         canonical: Effect.succeed(params.canonicalOccurrences ?? []),
         mcpConfig: Effect.succeed(params.mcpConfigOccurrences ?? []),
       },
-      installedPacks: Effect.succeed([]),
-      diagnostics,
     });
   });
 
@@ -100,10 +94,8 @@ describe("makeMcpServerExtensionsApi", () => {
       const settings = yield* settingsWithMcpServers({ tools: { source: "github:owner/tools" } });
       const api = yield* harness({ settings });
       const installed = yield* api.installed;
-      const active = yield* api.active;
       expect(installed).toHaveLength(1);
       expect(installed[0]?.activation).toBe("enabled");
-      expect(active).toHaveLength(1);
     }),
   );
 

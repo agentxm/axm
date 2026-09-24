@@ -235,7 +235,6 @@ const installedReviewer = (projected: boolean): InstalledSkill => ({
         },
       ]
     : [],
-  providingPacks: [],
 });
 
 const skillArtifactsContext = (projected: boolean) =>

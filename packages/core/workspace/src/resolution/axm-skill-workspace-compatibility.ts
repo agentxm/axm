@@ -2,7 +2,11 @@ import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
-import type { InstalledSkill, WorkspaceReadModel } from "../desired-state/index.js";
+import type {
+  InstalledSkill,
+  PackMemberBinding,
+  WorkspaceReadModel,
+} from "../desired-state/index.js";
 import {
   printSkillLockSourceLocator,
   type LockfileReadError,
@@ -65,6 +69,8 @@ export interface ReadAxmSkillWorkspaceCompatibilityArgs {
     readonly path: Path.Path;
   };
   readonly workspace: Pick<WorkspaceReadModel, "scope" | "skills">;
+  /** The skills the desired-state graph binds to installed Packs. */
+  readonly packMembers: ReadonlyArray<PackMemberBinding>;
   readonly policy: AxmSkillCompatibilityPolicyService;
 }
 
@@ -74,7 +80,14 @@ export const readAxmSkillWorkspaceCompatibility = (
 ): Effect.Effect<Option.Option<AxmSkillCompatibility>, SettingsReadError | LockfileReadError> =>
   Effect.gen(function* () {
     const declared = yield* args.workspace.skills.declaredByName("axm");
-    const installed = yield* args.workspace.skills.byName("axm");
+    const direct = yield* args.workspace.skills.byName("axm");
+    const installed = Option.isSome(direct)
+      ? direct
+      : Option.fromUndefinedOr(
+          (yield* args.workspace.skills.packMemberRows(args.packMembers)).find(
+            (row) => row.key.name === "axm",
+          ),
+        );
     // A configuration-only entry declares no source of its own.
     const declaredSource = Option.match(declared, {
       onNone: () => null,

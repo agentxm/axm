@@ -5,10 +5,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Ref from "effect/Ref";
 import { decodedSettings } from "../../__fixtures__/decoders.js";
 import { makeAgentDirOccurrence } from "../../__fixtures__/occurrences.js";
-import { makeDiagnostics, type Warning } from "../../diagnostics.js";
 import { makeSubagentExtensionsApi } from "../../extensions/subagent.js";
 import type { AgentDirOccurrence, CanonicalExtensionOccurrence } from "../../scanners/types.js";
 import type { Settings } from "../../../../settings/schema.js";
@@ -23,8 +21,6 @@ const harness = (params: {
   readonly agentDirOccurrences?: ReadonlyArray<AgentDirOccurrence>;
 }) =>
   Effect.gen(function* () {
-    const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);
-    const diagnostics = makeDiagnostics(ref);
     return yield* makeSubagentExtensionsApi({
       scope: "project",
       loaders: {
@@ -35,8 +31,6 @@ const harness = (params: {
         canonical: Effect.succeed(params.canonicalOccurrences ?? []),
         agentDir: Effect.succeed(params.agentDirOccurrences ?? []),
       },
-      installedPacks: Effect.succeed([]),
-      diagnostics,
     });
   });
 
@@ -80,7 +74,7 @@ describe("makeSubagentExtensionsApi", () => {
     }),
   );
 
-  it.effect("disabled-direct still claims actual and excludes from active", () =>
+  it.effect("disabled-direct still claims actual", () =>
     Effect.gen(function* () {
       const settings = yield* settingsWithSubagents({
         "code-reviewer": { source: "github:owner/cr", enabled: false },
@@ -98,12 +92,10 @@ describe("makeSubagentExtensionsApi", () => {
         ],
       });
       const installed = yield* api.installed;
-      const active = yield* api.active;
       const unmanaged = yield* api.unmanaged;
       expect(installed).toHaveLength(1);
       expect(installed[0]?.activation).toBe("disabled");
       expect(installed[0]?.actual).toHaveLength(1);
-      expect(active).toHaveLength(0);
       expect(unmanaged).toHaveLength(0);
     }),
   );

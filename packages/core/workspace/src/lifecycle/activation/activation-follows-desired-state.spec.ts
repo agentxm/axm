@@ -16,7 +16,7 @@ import {
   localLifecycleRows,
   makeInstallWorld,
 } from "../install/test-helpers.js";
-import { DesiredStateReader } from "../../desired-state/index.js";
+import { DesiredStateReader, WorkspaceRecords } from "../../desired-state/index.js";
 import {
   makeLifecycleFixture,
   writeAgentSkillDirectory,
@@ -502,6 +502,130 @@ describe("Activation follows desired state", () => {
             expect(fixture.readFile(`.agents/skills/${FORMAT_NAME}/SKILL.md`)).toBe(instructions);
             expect(contentUnder(fixture, contentRoot)).toEqual(contentBefore);
             expect(fixture.readFile("axm-lock.yaml")).toBe(lockBefore);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
+
+  for (const type of ["skill", "subagent"] as const) {
+    it.effect(`re-enables a Pack-only ${type} after an explicit disable`, () => {
+      const world = makeInstallWorld();
+      cleanups.push(world.cleanup);
+      const { workspace, registry } = world;
+      const name = "review";
+      if (type === "skill") registry.writeSkill(name, [{ version: "1.0.0", body: "Review." }]);
+      else registry.writeSubagent(name, [{ version: "1.0.0", body: "Review." }]);
+      registry.writePack("reviews", [
+        { version: "1.0.0", dependencies: { [`@acme/${type}s/${name}`]: "^1.0.0" } },
+      ]);
+      const surface =
+        type === "skill" ? `.claude/skills/${name}/SKILL.md` : `.claude/agents/${name}.md`;
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* applyInstall(
+              installRequest({
+                type: "pack",
+                subject: { kind: "source", source: "@acme/packs/reviews" },
+              }),
+            );
+            expect(workspace.exists(surface)).toBe(true);
+            const accepted = workspace.readFile("axm-lock.yaml");
+            const records = yield* WorkspaceRecords;
+
+            const disabled = yield* applyActivation({ type, name, enabled: false });
+            expect(disabled._tag === "Resolved" ? disabled.outcome : disabled._tag).toBe("applied");
+            expect(workspace.exists(surface)).toBe(false);
+            // The graph, the records, and the command agree the member is off,
+            // so enabling it is a change rather than something already true.
+            expect((yield* records.rows(type)).find((row) => row.name === name)).toMatchObject({
+              lifecycle: "implicit",
+              enabled: false,
+            });
+
+            const enabled = yield* applyActivation({ type, name, enabled: true });
+            expect(enabled._tag === "Resolved" ? enabled.outcome : enabled._tag).toBe("applied");
+            const graph = yield* (yield* DesiredStateReader).graph();
+            expect(
+              graph.nodes.find((node) => node.type === type && node.name === name)?.enabled,
+            ).toBe(true);
+            expect((yield* records.rows(type)).find((row) => row.name === name)).toMatchObject({
+              lifecycle: "implicit",
+              enabled: true,
+            });
+            expect(workspace.exists(surface)).toBe(true);
+            expect(workspace.readFile("axm-lock.yaml")).toBe(accepted);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    });
+  }
+
+  it.effect("enabling a subagent restores the role-skill fallback that disabling withdrew", () => {
+    // Cline has no native subagent surface, so a subagent reaches it as an
+    // advisory role skill; activation realizes that surface the way install does.
+    const world = makeInstallWorld({ settings: { agents: ["cline"] } });
+    cleanups.push(world.cleanup);
+    const { workspace, registry } = world;
+    registry.writeSubagent("review", [{ version: "1.0.0", body: "Review." }]);
+    const fallback = ".cline/skills/review/SKILL.md";
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          yield* applyInstall(
+            installRequest({
+              type: "subagent",
+              subject: { kind: "source", source: "@acme/subagents/review" },
+            }),
+          );
+          const projected = workspace.readFile(fallback);
+          expect(projected).toContain("advisory role-skill fallback");
+
+          yield* applyActivation({ type: "subagent", name: "review", enabled: false });
+          expect(workspace.exists(fallback)).toBe(false);
+
+          yield* applyActivation({ type: "subagent", name: "review", enabled: true });
+          expect(workspace.readFile(fallback)).toBe(projected);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
+  it.effect(
+    "disabling an MCP server fails when a configured agent refuses the manifest write",
+    () => {
+      const world = makeInstallWorld();
+      cleanups.push(world.cleanup);
+      const { workspace, registry } = world;
+      registry.writeMcp("context", [{ version: "1.0.0" }]);
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* applyInstall(
+              installRequest({
+                type: "mcp-server",
+                subject: { kind: "source", source: "@acme/mcps/context" },
+              }),
+            );
+            const settingsBefore = workspace.readFile("axm.json");
+            // The agent's native manifest can no longer be written back.
+            const manifest = nodePath.join(workspace.root, ".mcp.json");
+            fs.rmSync(manifest);
+            fs.mkdirSync(manifest);
+
+            const result = yield* applyActivation({
+              type: "mcp-server",
+              name: "context",
+              enabled: false,
+            }).pipe(Effect.result);
+
+            const applied =
+              Result.isSuccess(result) &&
+              result.success._tag === "Resolved" &&
+              result.success.outcome === "applied";
+            expect(applied).toBe(false);
+            expect(workspace.readFile("axm.json")).toBe(settingsBefore);
           }),
         )
         .pipe(Effect.provide(NodeServices.layer));

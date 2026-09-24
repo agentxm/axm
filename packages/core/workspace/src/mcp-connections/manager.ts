@@ -24,7 +24,7 @@ import {
 
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { McpInstallStateMissing } from "./errors.js";
+import { McpAgentSyncRefused, McpInstallStateMissing } from "./errors.js";
 import {
   applyProjectionPlans,
   inspectMcpServerAcrossAgents,
@@ -300,12 +300,29 @@ export const McpServerManagerLive = Layer.effect(
                     expectedContributors: [],
                     observedContributors: [target.name],
                   }),
+                // A configured agent that cannot withdraw the entry fails the
+                // change rather than leaving desired state ahead of its agents.
                 apply: () =>
                   removeMcpServerFromManifest(agentId, {
                     workspaceRoot: baseDir,
                     scope: location.scope,
                     serverName: target.name,
-                  }).pipe(Effect.asVoid),
+                  }).pipe(
+                    Effect.flatMap((outcome) =>
+                      outcome._tag === "success" || outcome._tag === "unsupported"
+                        ? Effect.void
+                        : new McpAgentSyncRefused({
+                            serverName: target.name,
+                            fault:
+                              outcome._tag === "disabled"
+                                ? "disabled"
+                                : outcome._tag === "misconfigured"
+                                  ? "misconfigured"
+                                  : "failed",
+                            agentIds: [agentId],
+                          }),
+                    ),
+                  ),
               },
             }),
           ),

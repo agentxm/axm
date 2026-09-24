@@ -25,7 +25,6 @@ import {
 } from "@agentxm/extension-model/unstable/extensions/common";
 import type { PackLockEntry, Lockfile } from "../../../lockfile/schema.js";
 import type { PackEntry, Settings } from "../../../settings/schema.js";
-import type { Diagnostics, Warning } from "../diagnostics.js";
 import type { LockfileReadError, SettingsReadError } from "../errors.js";
 import type { CanonicalExtensionOccurrence } from "../scanners/types.js";
 import type {
@@ -77,12 +76,13 @@ export interface ActualPack {
 export type ActualPacks = ReadonlyArray<ActualPack>;
 
 /**
- * Pack member entry carrying enough info to identify the source pack. Pack
- * subjects do not produce member rows (packs are not pack members), but the
- * shared projection helper still type-parameters its pack-member type, so we
- * supply a never-instantiated placeholder.
+ * The member shape the shared projection helper type-parameters. Packs are
+ * never members of other Packs, so no row ever carries one.
  */
-export type PackPackMember = never;
+export interface PackPackMember {
+  readonly name: ExtensionName;
+  readonly providingPack: InstalledPackRef;
+}
 
 /**
  * Installed pack row. The installation origin union is widened only to
@@ -95,7 +95,6 @@ export interface InstalledPack {
   readonly activation: ActivationState;
   readonly resolved: Option.Option<ResolvedPack>;
   readonly actual: ReadonlyArray<ActualPack>;
-  readonly providingPacks: ReadonlyArray<InstalledPackRef>;
 }
 
 export interface UnmanagedPack {
@@ -155,7 +154,6 @@ export interface PackExtensionsApiDeps {
   readonly scope: Scope;
   readonly loaders: PackScopedLoaders;
   readonly scanners: PackScanners;
-  readonly diagnostics: Diagnostics;
 }
 
 export interface PackExtensionsApi {
@@ -172,21 +170,11 @@ export interface PackExtensionsApi {
   readonly declaredByName: (
     name: string,
   ) => Effect.Effect<Option.Option<DeclaredPack>, SettingsReadError>;
-  readonly active: Effect.Effect<
-    ReadonlyArray<InstalledPack>,
-    SettingsReadError | LockfileReadError
-  >;
   readonly unmanaged: Effect.Effect<
     ReadonlyArray<UnmanagedPack>,
     SettingsReadError | LockfileReadError
   >;
 }
-
-const orphanResolvedWarning = (name: string): Warning => ({
-  source: "lockfile",
-  message: `pack: lockfile entry "${name}" has no matching declared pack`,
-  code: "orphan-resolved",
-});
 
 const packPolicy = (
   scope: Scope,
@@ -207,11 +195,8 @@ const packPolicy = (
   resolvedName: (e) => e.name,
   actualEntries: (a) => a,
   actualName: (e) => e.key.name,
-  // Pack-member callbacks are unreachable: the subject passes an empty
-  // installed-pack set into the projection helper, so the helper never
-  // invokes these. The functions still need to satisfy the types.
-  packMemberName: (member) => member,
-  packMemberActivation: () => "enabled",
+  // A Pack is never another Pack's member, so no binding ever reaches this.
+  packMember: ({ name, pack }) => ({ name, providingPack: pack }),
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
   buildInstalledRow: (input) => ({
@@ -220,13 +205,11 @@ const packPolicy = (
     activation: input.activation,
     resolved: input.resolved,
     actual: input.actual,
-    providingPacks: input.providingPacks,
   }),
   buildUnmanagedRow: (entry) => ({
     key: { scope, type: "pack", name: entry.key.name },
     actual: entry,
   }),
-  resolvedOrphanWarning: orphanResolvedWarning,
 });
 
 /**
@@ -238,7 +221,7 @@ export const makePackExtensionsApi = (
   deps: PackExtensionsApiDeps,
 ): Effect.Effect<PackExtensionsApi> =>
   Effect.gen(function* () {
-    const { scope, loaders, scanners, diagnostics } = deps;
+    const { scope, loaders, scanners } = deps;
 
     const declared: PackExtensionsApi["declared"] = loaders.settings.pipe(
       Effect.map((opt) => Option.map(opt, declaredFromSettings)),
@@ -251,24 +234,12 @@ export const makePackExtensionsApi = (
       return filterMapOccurrences(canonical, "pack", (occ) => canonicalToActual(occ, scope));
     });
 
-    // Packs can't be pack members — pass an empty installed-pack set.
-    const installedPacks: Effect.Effect<
-      ReadonlyArray<{
-        readonly ref: InstalledPackRef;
-        readonly members: ReadonlyArray<PackPackMember>;
-      }>
-    > = Effect.succeed([]);
-
     const project = yield* Effect.cached(
       projectInstalledExtensions({
         declared,
         resolved,
         actual,
-        installedPacks,
-        packMembers: (pack) => pack.members,
-        packRef: (pack) => pack.ref,
         policy: packPolicy(scope),
-        diagnostics,
       }),
     );
 

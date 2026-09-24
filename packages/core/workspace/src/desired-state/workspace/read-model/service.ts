@@ -8,21 +8,12 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Result from "effect/Result";
-import * as Schema from "effect/Schema";
 import type { WorkspaceLayoutError } from "../errors.js";
 import { AgentPresenceProbe } from "../../../projection/agent-adapters/index.js";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import type { CatalogExtensionType } from "@agentxm/extension-model/unstable/extension-types/schema";
-import {
-  parseExtensionFqnParts,
-  type ExtensionName,
-} from "@agentxm/extension-model/unstable/extensions/common";
 import { type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import {
-  PACK_MANIFEST_FILENAME,
-  PackManifestSchema,
-} from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import type { Settings, SourceHostConfig } from "../../settings/schema.js";
 import { makeAbsolutePath, type AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import {
@@ -38,7 +29,6 @@ import { makeDiagnostics, type Diagnostics, type Warning } from "./diagnostics.j
 import {
   WorkspaceRootEscape,
   type LockfileIoError,
-  type LockfileReadError,
   type SettingsIoError,
   type SettingsReadError,
 } from "./errors.js";
@@ -51,12 +41,6 @@ import {
   makeSkillExtensionsApi,
   makeSubagentExtensionsApi,
   type HookExtensionsApi,
-  type InstalledPackForKnowledge,
-  type InstalledPackForHooks,
-  type InstalledPackForMcpServers,
-  type InstalledPackForRules,
-  type InstalledPackForSkills,
-  type InstalledPackForSubagents,
   type KnowledgeExtensionsApi,
   type McpServerExtensionsApi,
   type PackExtensionsApi,
@@ -202,22 +186,6 @@ const validateRoot = (
     return ResolvedWorkspaceRoot(resolved);
   });
 
-// ---------------------------------------------------------------------------
-// Pack-member maps for cross-subject implicit installation
-// ---------------------------------------------------------------------------
-
-/** Pack ref + resolved member names per cross-subject namespace. */
-interface PackMemberSets {
-  readonly key: { readonly scope: Scope; readonly type: "pack"; readonly name: string };
-  readonly skills: ReadonlyArray<ExtensionName>;
-  readonly mcpServers: ReadonlyArray<ExtensionName>;
-  readonly subagents: ReadonlyArray<ExtensionName>;
-  readonly rules: ReadonlyArray<ExtensionName>;
-  readonly hooks: ReadonlyArray<ExtensionName>;
-  readonly knowledge: ReadonlyArray<ExtensionName>;
-}
-
-// ---------------------------------------------------------------------------
 // Per-scope wiring
 // ---------------------------------------------------------------------------
 
@@ -329,227 +297,48 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
     }),
   );
 
-  // Build the pack subject first; per-subject pack-member input derives from it.
+  // Membership is a reachability fact the desired-state graph owns; every
+  // subject below shapes only the direct rows its own sources declare.
   const packsApi = yield* makePackExtensionsApi({
     scope,
     loaders,
     scanners: { canonical: canonicalScanner },
-    diagnostics,
   });
-
-  // Cache the authored-manifest membership rollup once per scope; shared
-  // across subjects. Lock rows authorize external Pack resolution but never
-  // provide membership.
-  const installedPackMembers: Effect.Effect<
-    ReadonlyArray<PackMemberSets>,
-    SettingsReadError | LockfileReadError
-  > = yield* Effect.cached(
-    Effect.gen(function* () {
-      const active = yield* packsApi.active;
-      return yield* Effect.forEach(active, (row): Effect.Effect<PackMemberSets> => {
-        const packageRoot = row.actual.flatMap((actual) =>
-          actual.packageRoot === null ? [] : [actual.packageRoot],
-        )[0];
-        const empty: PackMemberSets = {
-          key: row.key,
-          skills: [],
-          mcpServers: [],
-          subagents: [],
-          rules: [],
-          hooks: [],
-          knowledge: [],
-        };
-        if (packageRoot === undefined) return Effect.succeed(empty);
-
-        const manifestPath = path.join(packageRoot, PACK_MANIFEST_FILENAME);
-        return Effect.gen(function* () {
-          const contents = yield* fs.readFileString(manifestPath);
-          const parsedResult = Result.try({
-            try: (): unknown => JSON.parse(contents),
-            catch: (): "invalid-pack-manifest-json" => "invalid-pack-manifest-json",
-          });
-          if (Result.isFailure(parsedResult)) {
-            return yield* Effect.fail(parsedResult.failure);
-          }
-          const manifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(
-            parsedResult.success,
-          );
-          const members: Record<Exclude<CatalogExtensionType, never>, ExtensionName[]> = {
-            skill: [],
-            "mcp-server": [],
-            subagent: [],
-            rule: [],
-            hook: [],
-            knowledge: [],
-          };
-          for (const fqn of Object.keys(manifest.dependencies)) {
-            const member = parseExtensionFqnParts(fqn);
-            if (member !== undefined && member.type !== "pack") {
-              members[member.type].push(member.name);
-            }
-          }
-          return {
-            key: row.key,
-            skills: members.skill,
-            mcpServers: members["mcp-server"],
-            subagents: members.subagent,
-            rules: members.rule,
-            hooks: members.hook,
-            knowledge: members.knowledge,
-          };
-        }).pipe(
-          Effect.result,
-          Effect.flatMap((result) =>
-            Result.isSuccess(result)
-              ? Effect.succeed(result.success)
-              : diagnostics
-                  .append({
-                    source: "scanner",
-                    path: manifestPath,
-                    code: "pack-manifest-invalid",
-                    message: `pack: unable to read authored membership from ${manifestPath}`,
-                  })
-                  .pipe(Effect.as(empty)),
-          ),
-        );
-      });
-    }),
-  );
-
-  const skillsInstalledPacks: Effect.Effect<
-    ReadonlyArray<InstalledPackForSkills>,
-    SettingsReadError | LockfileReadError
-  > = installedPackMembers.pipe(
-    Effect.map((packs) =>
-      packs.map((p) => ({
-        ref: { key: p.key },
-        skills: p.skills.map((name) => ({
-          name,
-          providingPack: { key: p.key },
-        })),
-      })),
-    ),
-  );
-
-  const mcpServersInstalledPacks: Effect.Effect<
-    ReadonlyArray<InstalledPackForMcpServers>,
-    SettingsReadError | LockfileReadError
-  > = installedPackMembers.pipe(
-    Effect.map((packs) =>
-      packs.map((p) => ({
-        ref: { key: p.key },
-        mcpServers: p.mcpServers.map((name) => ({
-          name,
-          providingPack: { key: p.key },
-        })),
-      })),
-    ),
-  );
-
-  const subagentsInstalledPacks: Effect.Effect<
-    ReadonlyArray<InstalledPackForSubagents>,
-    SettingsReadError | LockfileReadError
-  > = installedPackMembers.pipe(
-    Effect.map((packs) =>
-      packs.map((p) => ({
-        ref: { key: p.key },
-        subagents: p.subagents.map((name) => ({
-          name,
-          providingPack: { key: p.key },
-        })),
-      })),
-    ),
-  );
-
-  const rulesInstalledPacks: Effect.Effect<
-    ReadonlyArray<InstalledPackForRules>,
-    SettingsReadError | LockfileReadError
-  > = installedPackMembers.pipe(
-    Effect.map((packs) =>
-      packs.map((p) => ({
-        ref: { key: p.key },
-        rules: p.rules.map((name) => ({
-          name,
-          providingPack: { key: p.key },
-        })),
-      })),
-    ),
-  );
-  const hooksInstalledPacks: Effect.Effect<
-    ReadonlyArray<InstalledPackForHooks>,
-    SettingsReadError | LockfileReadError
-  > = installedPackMembers.pipe(
-    Effect.map((packs) =>
-      packs.map((p) => ({
-        ref: { key: p.key },
-        hooks: p.hooks.map((name) => ({
-          name,
-          providingPack: { key: p.key },
-        })),
-      })),
-    ),
-  );
-  const knowledgeInstalledPacks: Effect.Effect<
-    ReadonlyArray<InstalledPackForKnowledge>,
-    SettingsReadError | LockfileReadError
-  > = installedPackMembers.pipe(
-    Effect.map((packs) =>
-      packs.map((p) => ({
-        ref: { key: p.key },
-        knowledge: p.knowledge.map((name) => ({
-          name,
-          providingPack: { key: p.key },
-        })),
-      })),
-    ),
-  );
 
   const skills = yield* makeSkillExtensionsApi({
     scope,
     loaders,
     scanners: { canonical: canonicalScanner, agentDir: agentDirScanner },
-    installedPacks: skillsInstalledPacks,
-    diagnostics,
   });
 
   const mcpServers = yield* makeMcpServerExtensionsApi({
     scope,
     loaders,
     scanners: { canonical: canonicalScanner, mcpConfig: mcpConfigScanner },
-    installedPacks: mcpServersInstalledPacks,
-    diagnostics,
   });
 
   const subagents = yield* makeSubagentExtensionsApi({
     scope,
     loaders,
     scanners: { canonical: canonicalScanner, agentDir: agentDirScanner },
-    installedPacks: subagentsInstalledPacks,
-    diagnostics,
   });
 
   const rules = yield* makeRuleExtensionsApi({
     scope,
     loaders,
     scanners: { canonical: canonicalScanner },
-    installedPacks: rulesInstalledPacks,
-    diagnostics,
   });
 
   const hooks = yield* makeHookExtensionsApi({
     scope,
     loaders,
     scanners: { canonical: canonicalScanner },
-    installedPacks: hooksInstalledPacks,
-    diagnostics,
   });
 
   const knowledge = yield* makeKnowledgeExtensionsApi({
     scope,
     loaders,
     scanners: { canonical: canonicalScanner },
-    installedPacks: knowledgeInstalledPacks,
-    diagnostics,
   });
 
   // Cached fold of the three scanner cells into the shape agents expects.

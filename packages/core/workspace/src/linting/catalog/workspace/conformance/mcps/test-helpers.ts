@@ -53,7 +53,6 @@ const installedDemo = (args: {
   activation: args.activation ?? "enabled",
   resolved: Option.none(),
   actual: [args.actual],
-  providingPacks: [],
 });
 
 export const mcpAgentDriftContext = (

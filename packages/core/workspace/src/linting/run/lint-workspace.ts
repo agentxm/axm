@@ -78,7 +78,6 @@ import { LintStagingFailed } from "./errors.js";
 import {
   applyDeterminedRepairs,
   lintConfigFromSettings,
-  loadSettingsDocument,
   remapLintSummaryPaths,
   resolveLintRoot,
 } from "./settings.js";
@@ -216,8 +215,6 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
     const agentRepository = yield* CodingAgentRepository;
     const axmSkillCompatibilityPolicy = yield* AxmSkillCompatibilityPolicy;
     const invariantFacts = yield* WorkspaceInvariantFacts;
-    const settings = yield* loadSettingsDocument(selection.workspaceRoot, selection.scope);
-    const config = lintConfigFromSettings(settings);
     const userHome = selection.scope === "user" ? selection.workspaceRoot : selection.userHome;
     // Every rule that reports a canonical observation reads this one
     // observation of each desired node for the run.
@@ -264,17 +261,23 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
       ? new Set<string>()
       : nodesDeferringToObservation(observed.success);
 
+    const desiredGraph = yield* desiredState.graph();
     const { rule: workspaceContext, view } = yield* buildLintWorkspace({
       platform: { fs: fileSystem, path },
       workspaceRoot: selection.workspaceRoot,
       userHome,
       scope: selection.scope,
+      desiredState: desiredGraph,
       gitIndexView: selection.input.view === "git-index",
       axmSkillCompatibilityPolicy,
       owner: settingsReader.owner.pipe(Effect.catch(() => Effect.succeed(Option.none()))),
       projections: { facts: invariantFacts.projectionFacts },
       defersExtensionRules: (type, name) => deferred.has(`${type}:${name}`),
     });
+    // The settings document lint decides against is the one strict read the
+    // workspace read model already made; lint keeps no decoder of its own.
+    const settings = yield* workspaceContext.workspace.state.settings;
+    const config = lintConfigFromSettings(settings);
 
     // Reconciliation facts: what AXM owns, and what it realized for the agents
     // this workspace configures. Both come from the shared projection
@@ -295,7 +298,6 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
       skillOwnershipRoots,
       authoredSkills,
     });
-    const desiredGraph = yield* desiredState.graph();
     const materializationAgentIds = new Set(
       (yield* agentRepository.getMaterializationAgents()).map(({ id }) => id),
     );
@@ -390,16 +392,19 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
     const exitCategory = summary.exitCategory;
     const outcome = resolveLintExitCategory({ category: exitCategory, strict: options.strict });
     return {
-      document: toLintJsonDocument({
+      result: {
+        document: toLintJsonDocument({
+          summary,
+          input: selection.input,
+          ...(axmSkillCompatibility === undefined ? {} : { axmSkillCompatibility }),
+        }),
         summary,
-        input: selection.input,
-        ...(axmSkillCompatibility === undefined ? {} : { axmSkillCompatibility }),
-      }),
-      summary,
-      exitCategory,
-      outcome,
-      repaired: [],
-    } satisfies LintWorkspaceResult;
+        exitCategory,
+        outcome,
+        repaired: [],
+      } satisfies LintWorkspaceResult,
+      settings,
+    };
   });
 
 /** Report the workspace's facts without changing it. */
@@ -407,7 +412,7 @@ export const queryLintWorkspace = (
   selection: LintSelection,
   options: { readonly strict: boolean },
 ): Effect.Effect<LintWorkspaceResult, LintWorkspaceFailure, LintWorkspaceRequirements> =>
-  runLint(selection, options);
+  runLint(selection, options).pipe(Effect.map(({ result }) => result));
 
 /**
  * Repair the state whose desired value the workspace already determines, then
@@ -423,12 +428,12 @@ export const fixLintWorkspace = (
     // The reconciliation pass proves every determined instruction target
     // current after it writes. Reuse that proof instead of gathering every
     // lint catalog a second time.
-    const before = yield* runLint(selection, options);
+    const { result: before, settings } = yield* runLint(selection, options);
     const repairedRuleIds = new Set(
       yield* applyDeterminedRepairs({
         workspaceRoot: selection.workspaceRoot,
         scope: selection.scope,
-        settings: yield* loadSettingsDocument(selection.workspaceRoot, selection.scope),
+        settings,
       }),
     );
     const repaired = before.summary.findings.filter((finding) =>

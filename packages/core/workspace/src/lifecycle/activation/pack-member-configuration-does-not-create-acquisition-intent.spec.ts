@@ -331,4 +331,37 @@ describe("Pack-member configuration does not create acquisition intent", () => {
       )
       .pipe(Effect.provide(NodeServices.layer));
   });
+
+  it.effect("a Pack advance preserves the member's disabled preference", () => {
+    const { workspace, registry } = world();
+    publishFirstPackMajor(registry);
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          yield* applyInstall(
+            installRequest({
+              type: "pack",
+              subject: { kind: "source", source: `@acme/packs/${PACK}` },
+            }),
+          );
+          yield* applyActivation({ type: "rule", name: RULE, enabled: false });
+
+          publishTwoPackMajors(registry);
+          const resolution = expectResolved(
+            yield* applyUpdate(configuredUpdateRequest({ type: "pack" })),
+          );
+
+          // The advance is free to happen, and the preference still decides
+          // the member: the graph settles it, and nothing recomputes it.
+          expect(deriveOperationOutcome(resolution)).toBe("applied");
+          expect(workspace.readFile("axm-lock.yaml")).toContain("version: 2.0.0");
+          expect(ruleEntry(workspace)).toEqual({ enabled: false });
+          const graph = yield* (yield* DesiredStateReader).graph();
+          expect(
+            graph.nodes.find((node) => node.type === "rule" && node.name === RULE)?.enabled,
+          ).toBe(false);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
 });

@@ -8,22 +8,13 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as Result from "effect/Result";
-import * as Schema from "effect/Schema";
 import { reconcileInstructionTargets, resolveInstructionsConfig } from "../../projection/index.js";
 import type { LintConfig } from "@agentxm/extension-content/lint";
 import { composePath } from "@agentxm/extension-content/lint";
-import {
-  AXM_DIR_NAME,
-  SettingsSchema,
-  USER_WORKSPACE_DIRECTORY,
-  type Settings,
-} from "../../desired-state/index.js";
+import type { Settings } from "../../desired-state/index.js";
 import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { LintSummary } from "../runner.js";
 
@@ -97,56 +88,6 @@ export const resolveLintRoot = (args: {
     onSome: (p) => p,
   });
 };
-
-const decodeSettings = (input: unknown): Option.Option<Settings> => {
-  const result = Schema.decodeUnknownResult(SettingsSchema)(input, {
-    onExcessProperty: "ignore",
-    errors: "all",
-  });
-  return Result.isSuccess(result) ? Option.some(result.success) : Option.none();
-};
-
-class SettingsUnreadable extends Data.TaggedError("SettingsUnreadable") {}
-
-/**
- * Decode the authoritative settings document. Returns `None` when the file is missing, empty,
- * or unparseable, so lint still runs — the relevant
- * `workspace/settings-schema-valid` rule produces the user-facing finding for a
- * bad settings file. Callers derive `lint.rules` and the `--fix` inputs from
- * the one decode.
- */
-export const loadSettingsDocument = (
-  workspaceRoot: string,
-  scope: WorkspaceScope,
-): Effect.Effect<Option.Option<Settings>, never, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const settingsPath =
-      scope === "user"
-        ? path.join(workspaceRoot, AXM_DIR_NAME, USER_WORKSPACE_DIRECTORY, "axm.json")
-        : path.join(workspaceRoot, "axm.json");
-    const exists = yield* fs.exists(settingsPath).pipe(Effect.catch(() => Effect.succeed(false)));
-    if (!exists) {
-      return Option.none();
-    }
-    const raw = yield* fs.readFileString(settingsPath).pipe(Effect.catch(() => Effect.succeed("")));
-    if (raw.length === 0) {
-      return Option.none();
-    }
-    const parsed = Effect.try({
-      try: (): unknown => JSON.parse(raw),
-      catch: () => new SettingsUnreadable(),
-    });
-    const parsedOpt = yield* parsed.pipe(
-      Effect.map(Option.some),
-      Effect.catch(() => Effect.succeed(Option.none<unknown>())),
-    );
-    if (Option.isNone(parsedOpt)) {
-      return Option.none();
-    }
-    return decodeSettings(parsedOpt.value);
-  });
 
 export const lintConfigFromSettings = (settings: Option.Option<Settings>): LintConfig =>
   Option.match(settings, {

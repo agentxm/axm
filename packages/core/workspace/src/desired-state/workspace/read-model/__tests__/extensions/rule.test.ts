@@ -10,9 +10,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Ref from "effect/Ref";
 import { makeCanonicalOccurrence } from "../../__fixtures__/occurrences.js";
-import { makeDiagnostics, type Warning } from "../../diagnostics.js";
 import { makeRuleExtensionsApi } from "../../extensions/rule.js";
 import type { CanonicalExtensionOccurrence } from "../../scanners/types.js";
 
@@ -20,8 +18,6 @@ const harness = (params: {
   readonly canonicalOccurrences?: ReadonlyArray<CanonicalExtensionOccurrence>;
 }) =>
   Effect.gen(function* () {
-    const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);
-    const diagnostics = makeDiagnostics(ref);
     return yield* makeRuleExtensionsApi({
       scope: "project",
       loaders: {
@@ -31,8 +27,6 @@ const harness = (params: {
       scanners: {
         canonical: Effect.succeed(params.canonicalOccurrences ?? []),
       },
-      installedPacks: Effect.succeed([]),
-      diagnostics,
     });
   });
 

@@ -81,7 +81,6 @@ export {
 export {
   applyDeterminedRepairs,
   lintConfigFromSettings,
-  loadSettingsDocument,
   remapLintSummaryPaths,
   resolveLintRoot,
   type PathRemapper,

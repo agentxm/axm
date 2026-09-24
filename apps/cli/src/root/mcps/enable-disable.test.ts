@@ -112,7 +112,7 @@ describe("mcps enable/disable output", () => {
               label: "context",
               state: "committed",
               artifact: {
-                path: "axm.json / axm-lock.yaml",
+                path: "axm.json",
                 scope: "project",
                 change: "updated",
               },
@@ -187,7 +187,7 @@ describe("mcps enable/disable output", () => {
               label: "context",
               state: "committed",
               artifact: {
-                path: "axm.json / axm-lock.yaml",
+                path: "axm.json",
                 scope: "project",
                 change: "updated",
               },

@@ -19,7 +19,6 @@ import {
 } from "@agentxm/extension-model/unstable/extensions/common";
 import type { Lockfile, RuleLockEntry } from "../../../lockfile/schema.js";
 import type { RuleEntry, Settings } from "../../../settings/schema.js";
-import type { Diagnostics, Warning } from "../diagnostics.js";
 import type { LockfileReadError, SettingsReadError } from "../errors.js";
 import type { CanonicalExtensionOccurrence } from "../scanners/types.js";
 import type {
@@ -34,6 +33,8 @@ import { canonicalAxmPackageRoot } from "./package-root.js";
 import {
   makeProjectedSubjectCells,
   projectInstalledExtensions,
+  projectPackMemberRows,
+  type PackMemberBinding,
   type SubjectPolicy,
 } from "./projection.js";
 
@@ -81,7 +82,6 @@ export interface InstalledRule {
   readonly activation: ActivationState;
   readonly resolved: Option.Option<ResolvedRule>;
   readonly actual: ReadonlyArray<ActualRule>;
-  readonly providingPacks: ReadonlyArray<InstalledPackRef>;
 }
 
 export interface UnmanagedRule {
@@ -140,20 +140,10 @@ export interface RuleScopedLoaders {
   readonly lockfile: Effect.Effect<Option.Option<Lockfile>, LockfileReadError>;
 }
 
-export interface InstalledPackForRules {
-  readonly ref: InstalledPackRef;
-  readonly rules: ReadonlyArray<RulePackMember>;
-}
-
 export interface RuleExtensionsApiDeps {
   readonly scope: Scope;
   readonly loaders: RuleScopedLoaders;
   readonly scanners: RuleScanners;
-  readonly installedPacks: Effect.Effect<
-    ReadonlyArray<InstalledPackForRules>,
-    SettingsReadError | LockfileReadError
-  >;
-  readonly diagnostics: Diagnostics;
 }
 
 export interface RuleExtensionsApi {
@@ -170,21 +160,15 @@ export interface RuleExtensionsApi {
   readonly declaredByName: (
     name: string,
   ) => Effect.Effect<Option.Option<DeclaredRule>, SettingsReadError>;
-  readonly active: Effect.Effect<
-    ReadonlyArray<InstalledRule>,
-    SettingsReadError | LockfileReadError
-  >;
+  /** Rows for the Pack-supplied members the desired-state graph bound to this subject. */
+  readonly packMemberRows: (
+    bindings: ReadonlyArray<PackMemberBinding>,
+  ) => Effect.Effect<ReadonlyArray<InstalledRule>, SettingsReadError | LockfileReadError>;
   readonly unmanaged: Effect.Effect<
     ReadonlyArray<UnmanagedRule>,
     SettingsReadError | LockfileReadError
   >;
 }
-
-const orphanResolvedWarning = (name: string): Warning => ({
-  source: "lockfile",
-  message: `rule: lockfile entry "${name}" has no matching declared or pack-member home`,
-  code: "orphan-resolved",
-});
 
 const rulePolicy = (
   scope: Scope,
@@ -204,8 +188,7 @@ const rulePolicy = (
   resolvedName: (entry) => entry.name,
   actualEntries: (a) => a,
   actualName: (e) => e.key.name,
-  packMemberName: (m) => m.name,
-  packMemberActivation: () => "enabled",
+  packMember: ({ name, pack }) => ({ name, providingPack: pack }),
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
   buildInstalledRow: (input) => ({
@@ -214,13 +197,11 @@ const rulePolicy = (
     activation: input.activation,
     resolved: input.resolved,
     actual: input.actual,
-    providingPacks: input.providingPacks,
   }),
   buildUnmanagedRow: (entry) => ({
     key: { scope, type: "rule", name: entry.key.name },
     actual: entry,
   }),
-  resolvedOrphanWarning: orphanResolvedWarning,
 });
 
 /**
@@ -232,7 +213,7 @@ export const makeRuleExtensionsApi = (
   deps: RuleExtensionsApiDeps,
 ): Effect.Effect<RuleExtensionsApi> =>
   Effect.gen(function* () {
-    const { scope, scanners, diagnostics } = deps;
+    const { scope, scanners } = deps;
 
     const declared: RuleExtensionsApi["declared"] = deps.loaders.settings.pipe(
       Effect.map((opt) => Option.map(opt, declaredFromSettings)),
@@ -245,18 +226,13 @@ export const makeRuleExtensionsApi = (
       return filterMapOccurrences(canonical, "rule", (occ) => canonicalToActual(occ, scope));
     });
 
+    const policy = rulePolicy(scope);
     const project = yield* Effect.cached(
       projectInstalledExtensions({
         declared,
         resolved,
         actual,
-        installedPacks: deps.installedPacks,
-        packMembers: (pack: {
-          readonly rules: ReadonlyArray<RulePackMember>;
-        }): ReadonlyArray<RulePackMember> => pack.rules,
-        packRef: (pack) => pack.ref,
-        policy: rulePolicy(scope),
-        diagnostics,
+        policy,
       }),
     );
 
@@ -267,8 +243,7 @@ export const makeRuleExtensionsApi = (
         actual,
         project,
       }),
-      declared,
-      resolved,
-      actual,
+      packMemberRows: (bindings) =>
+        projectPackMemberRows({ bindings, declared, resolved, actual, policy }),
     } satisfies RuleExtensionsApi;
   });

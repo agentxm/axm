@@ -12,15 +12,11 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Ref from "effect/Ref";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
 import { decodedLockfile, decodedSettings } from "../../__fixtures__/decoders.js";
 import { makeCanonicalOccurrence } from "../../__fixtures__/occurrences.js";
-import { makeDiagnostics, type Warning } from "../../diagnostics.js";
-import {
-  makeKnowledgeExtensionsApi,
-  type KnowledgePackMember,
-} from "../../extensions/knowledge.js";
+import { makeKnowledgeExtensionsApi } from "../../extensions/knowledge.js";
+import type { PackMemberBinding } from "../../extensions/projection.js";
 import type { CanonicalExtensionOccurrence } from "../../scanners/types.js";
 import type { InstalledPackRef } from "../../types.js";
 import type { Settings } from "../../../../settings/schema.js";
@@ -55,20 +51,18 @@ const packRef: InstalledPackRef = {
   key: { scope: "project", type: "pack", name: "team-pack" },
 };
 
-const packMember = (name: string): KnowledgePackMember => ({
+const packMember = (name: string, enabled = true): PackMemberBinding => ({
   name: decodeExtensionNameSync(name),
-  providingPack: packRef,
+  pack: packRef,
+  enabled,
 });
 
 const harness = (params: {
   readonly settings?: Settings;
   readonly lockfile?: Lockfile;
   readonly canonicalOccurrences?: ReadonlyArray<CanonicalExtensionOccurrence>;
-  readonly packMembers?: ReadonlyArray<KnowledgePackMember>;
 }) =>
   Effect.gen(function* () {
-    const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);
-    const diagnostics = makeDiagnostics(ref);
     const api = yield* makeKnowledgeExtensionsApi({
       scope: "project",
       loaders: {
@@ -76,12 +70,8 @@ const harness = (params: {
         lockfile: Effect.succeed(Option.fromUndefinedOr(params.lockfile)),
       },
       scanners: { canonical: Effect.succeed(params.canonicalOccurrences ?? []) },
-      installedPacks: Effect.succeed(
-        params.packMembers === undefined ? [] : [{ ref: packRef, knowledge: params.packMembers }],
-      ),
-      diagnostics,
     });
-    return { api, ref };
+    return { api };
   });
 
 const canonicalBundle = (name: string): CanonicalExtensionOccurrence =>
@@ -188,27 +178,28 @@ describe("makeKnowledgeExtensionsApi", () => {
         payments: { source: "@acme/knowledge/payments@^1.0.0", enabled: false },
       });
       const { api } = yield* harness({ settings });
-      expect(yield* api.installed).toHaveLength(1);
-      expect(yield* api.active).toHaveLength(0);
+      const installed = yield* api.installed;
+      expect(installed).toHaveLength(1);
+      expect(installed[0]?.activation).toBe("disabled");
     }),
   );
 
-  it.effect("pack members install implicitly and direct declarations win", () =>
+  it.effect("packMemberRows shapes bound members and lets direct declarations win", () =>
     Effect.gen(function* () {
       const settings = yield* settingsWithKnowledge({
         payments: "@acme/knowledge/payments@^1.0.0",
       });
-      const { api } = yield* harness({
-        settings,
-        packMembers: [packMember("payments"), packMember("architecture")],
-      });
+      const { api } = yield* harness({ settings });
+      const members = yield* api.packMemberRows([
+        packMember("payments"),
+        packMember("architecture", false),
+      ]);
+      expect(members.map((row) => row.key.name)).toEqual(["architecture"]);
+      expect(members[0]?.installationOrigin._tag).toBe("pack-member");
+      expect(members[0]?.activation).toBe("disabled");
       const installed = yield* api.installed;
-      expect(installed.map((row) => row.key.name)).toEqual(["architecture", "payments"]);
-      const direct = installed.find((row) => row.key.name === "payments");
-      expect(direct?.installationOrigin._tag).toBe("direct");
-      expect(direct?.providingPacks).toHaveLength(1);
-      const implicit = installed.find((row) => row.key.name === "architecture");
-      expect(implicit?.installationOrigin._tag).toBe("pack-member");
+      expect(installed.map((row) => row.key.name)).toEqual(["payments"]);
+      expect(installed[0]?.installationOrigin._tag).toBe("direct");
     }),
   );
 
@@ -218,16 +209,6 @@ describe("makeKnowledgeExtensionsApi", () => {
       const unmanaged = yield* api.unmanaged;
       expect(unmanaged).toHaveLength(1);
       expect(unmanaged[0]?.key.name).toBe("stray");
-    }),
-  );
-
-  it.effect("an orphan lockfile entry publishes a diagnostic warning", () =>
-    Effect.gen(function* () {
-      const lockfile = yield* lockfileWithKnowledge(["ghost"]);
-      const { api, ref } = yield* harness({ lockfile });
-      yield* api.installed;
-      const warnings = yield* Ref.get(ref);
-      expect(warnings.some((w) => w.code === "orphan-resolved")).toBe(true);
     }),
   );
 });

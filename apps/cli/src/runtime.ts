@@ -429,7 +429,11 @@ export const withWorkspace =
           Effect.flatMap((workspaceContext) => Effect.provide(program, workspaceContext)),
         ),
       ).pipe(
-        Effect.mapError((error) => failureForWorkspaceScope(error, resolved.scope)),
+        // Naming the channel keeps the emitted declaration on the alias
+        // rather than on every workspace failure it spans.
+        Effect.mapError((error): ExpectedCliError =>
+          failureForWorkspaceScope(error, resolved.scope),
+        ),
         Effect.ensuring(
           Effect.gen(function* () {
             const semanticProperties = yield* getCommandSemanticProperties;

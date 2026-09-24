@@ -99,6 +99,7 @@ const settingsFaults = [
     write: (settingsPath: string) => fs.mkdirSync(settingsPath, { recursive: true }),
     diagnostic: "could not be read",
     code: "unavailable",
+    title: "Workspace settings unreadable",
   },
 ] as const;
 
@@ -115,6 +116,10 @@ const settingsRows: ReadonlyArray<FaultRow> = (["project", "user"] as const).fla
     expectDiagnosis: (error) => {
       expect(error.detail).toContain(entry.diagnostic);
       expect(error.suggestions?.[0]?.description).toMatch(/fix|repair|edit|restore/i);
+      if ("title" in entry) {
+        expect(error.title).toBe(entry.title);
+        expect(error.retryable).toBe(false);
+      }
     },
   })),
 );
@@ -163,6 +168,7 @@ const lockfileContentRows: ReadonlyArray<FaultRow> = [
     diagnostic: "could not be read",
     recovery: /permissions|known-good/i,
     code: "unavailable" as const,
+    title: "Workspace lockfile unreadable",
   },
   {
     fault: "a project lockfile that is not valid YAML",
@@ -186,6 +192,10 @@ const lockfileContentRows: ReadonlyArray<FaultRow> = [
   expectDiagnosis: (error) => {
     expect(error.detail).toContain(entry.diagnostic);
     expect(error.suggestions?.[0]?.description).toMatch(entry.recovery);
+    if (entry.title !== undefined) {
+      expect(error.title).toBe(entry.title);
+      expect(error.retryable).toBe(false);
+    }
   },
 }));
 

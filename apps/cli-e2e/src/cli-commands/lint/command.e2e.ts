@@ -225,10 +225,9 @@ describe("axm lint (e2e, Phase 7)", () => {
         );
         expect(init.exitCode).toBe(0);
 
-        // Declare a skill whose source points at a non-existent local path
-        // so `workspace/skills-lockfile-aligned` (missing-arm, error) and
-        // `workspace/skills-artifacts-correct` (enabled-but-not-linked,
-        // error) both fire.
+        // Declare a skill that has no accepted resolution. That one fact is
+        // reported once, by `workspace/skills-lockfile-aligned` (error); the
+        // artifact rules defer because there is no canonical content to inspect.
         const settingsPath = path.join(temp.path, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         settings.skills = { demo: "@acme/skills/demo" };
@@ -244,15 +243,14 @@ describe("axm lint (e2e, Phase 7)", () => {
         const findings = doc?.result?.findings ?? [];
         const ruleIds: Array<string> = findings.map((f: { ruleId: string }) => f.ruleId);
         expect(ruleIds).toContain("workspace/skills-lockfile-aligned");
-        expect(ruleIds).toContain("workspace/skills-artifacts-correct");
+        expect(ruleIds).not.toContain("workspace/skills-artifacts-correct");
 
-        // Error severity pins: both findings above are `error` per the
+        // Error severity pin: the lockfile finding is `error` per the
         // platform-canonical config.
         const severities: Record<string, string> = Object.fromEntries(
           findings.map((f: { ruleId: string; severity: string }) => [f.ruleId, f.severity]),
         );
         expect(severities["workspace/skills-lockfile-aligned"]).toBe("error");
-        expect(severities["workspace/skills-artifacts-correct"]).toBe("error");
       } finally {
         temp.cleanup();
       }

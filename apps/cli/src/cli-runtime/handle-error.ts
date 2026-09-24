@@ -13,7 +13,8 @@ import {
   redactSuggestedAction,
   renderAppError,
 } from "../app-error/index.js";
-import { isKnownFailure, toAppError } from "../app-error/conversions.js";
+import { isWorkspaceFailure } from "@agentxm/workspace/reconciliation";
+import { toAppError } from "../app-error/conversions.js";
 import type { OutputFormat } from "./output-mode.js";
 import { makeJsonErrorEnvelope, makeJsonErrorEnvelopeFromAppError } from "./json-envelope.js";
 import {
@@ -116,7 +117,7 @@ export const classifyError = (
     };
   }
 
-  if (isKnownFailure(error)) {
+  if (isWorkspaceFailure(error)) {
     const appError = toAppError(error);
     return {
       exitCode: exitCodeFor(appError.code),

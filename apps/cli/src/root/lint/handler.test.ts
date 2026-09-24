@@ -50,7 +50,7 @@ import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-t
 import { ExecutionDirectory } from "../../execution-directory.js";
 import { handleLint } from "./handler.js";
 import { remapLintSummaryPaths, resolveLintRoot } from "@agentxm/workspace/linting";
-import { LifecycleStepFailureConversionLive } from "../../feature-errors.js";
+import { LifecycleFailureConversionLive } from "@agentxm/workspace/lifecycle";
 import { AxmSkillCompatibilityPolicy } from "@agentxm/cli-maintenance/official-skill/application";
 
 describe("axm lint handler", () => {
@@ -163,7 +163,7 @@ describe("axm lint handler", () => {
       sourceProvidersLayer,
       CodingAgentRepositoryLive,
       Layer.provide(NativeWriteAuthorityLive, baseLayer),
-      LifecycleStepFailureConversionLive,
+      LifecycleFailureConversionLive,
     );
     const mcpServersLayer = McpServerManagerLive;
     const hooksLayer = HookManagerLive;

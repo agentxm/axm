@@ -69,7 +69,6 @@
   },
   "dependencies": {
     "@agentxm/cli-maintenance": "workspace:^",
-    "@agentxm/extension-content": "workspace:^",
     "@agentxm/extension-model": "workspace:^",
     "@agentxm/registry-access": "workspace:^",
     "@agentxm/registry-client": "workspace:^",
@@ -80,6 +79,7 @@
     "effect": "catalog:"
   },
   "devDependencies": {
+    "@agentxm/extension-content": "workspace:^",
     "@agentxm/extension-type-parity": "workspace:*",
     "@agentxm/test-support": "workspace:^",
     "@effect/openapi-generator": "catalog:",

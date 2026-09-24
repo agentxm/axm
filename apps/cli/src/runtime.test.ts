@@ -154,9 +154,10 @@ describe("withWorkspace settings gate", () => {
           }),
         ).pipe(Effect.provide(testContext.baseLayer), Effect.flip);
 
-        // The settings gate now fails with the typed parse error; the CLI
-        // boundary converts it to the same `validation` envelope on exit.
-        expect(error).toMatchObject({ _tag: "SettingsParseError" });
+        // The settings gate fails with the typed parse error, which the
+        // workspace boundary reports as its envelope for the workspace's scope.
+        expect(error).toMatchObject({ _tag: "AppError", code: "validation" });
+        expect(error).toMatchObject({ detail: expect.stringContaining("not valid JSON") });
         expect(commandEvaluated).toBe(false);
       }),
     );

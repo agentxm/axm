@@ -1,705 +1,56 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
 
 import * as Cause from "effect/Cause";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
+import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
+
+import { RegistryRequestFailed, registryErrorToProblem } from "@agentxm/registry-client";
 import { StepFailure } from "@agentxm/workspace/transitions/planning";
+import { SettingsWriteError } from "@agentxm/workspace/desired-state";
+import {
+  LifecycleFailureConversionLive,
+  StepFailureConversion,
+} from "@agentxm/workspace/lifecycle";
 import { WorkspaceRestorationIncomplete } from "@agentxm/workspace/transitions/settlement";
 import {
-  AppError,
-  makeAppError,
-  type AppErrorCode,
-  type AppErrorProblem,
-  type AppErrorSuggestedAction,
-} from "./app-error.js";
+  AxmSkillGateUnavailable,
+  GitOperationFailed,
+  SourceHostNotConfigured,
+  SourceNetworkFailure,
+  SourceNotResolvable,
+  SourceSyntaxInvalid,
+  WorkspaceCatalogUnavailable,
+} from "@agentxm/workspace/resolution/sources";
 import {
-  isKnownFailure,
-  restorationIncompleteToAppError,
-  toAppError,
-  type KnownFailure,
-} from "./conversions.js";
-import { SettingsWriteError } from "@agentxm/workspace/desired-state";
-import { LockfileValidationError, LockfileWriteError } from "@agentxm/workspace/desired-state";
+  SkillSelectionNotFound,
+  SkillSelectionUnavailable,
+} from "@agentxm/workspace/skills/lifecycle/application";
 import {
-  CanonicalPathRemovalError,
-  DesiredPackGraphIncomplete,
-  InvalidAgentId,
-  LockedSkillMissing,
-  SettingsEntryMissing,
-  SymlinkCreationError,
-  WorkspaceLayoutError,
-  WorkspaceNotInitialized,
-} from "@agentxm/workspace/desired-state";
+  SubagentSelectionNotFound,
+  SubagentSelectionUnavailable,
+} from "@agentxm/workspace/subagents/lifecycle/application";
+
+import { makeJsonErrorEnvelopeFromAppError } from "../cli-runtime/index.js";
+import { makeAppError } from "./app-error.js";
 import {
-  LockfileDecodeError,
-  LockfileIoError,
-  LockfileParseError,
-  LockfileVersionUnsupported,
-  SettingsDecodeError,
-  SettingsIoError,
-  SettingsParseError,
-  WorkspaceRootEscape,
-} from "@agentxm/workspace/desired-state";
-import {
-  TransitionLockError,
-  TransitionLockUnavailable,
-  WorkspaceDirectoryError,
-  WorkspaceRestorationError,
-  WorkspaceSnapshotError,
-  WorkspaceTransitionCompromised,
-} from "@agentxm/workspace/transitions/settlement";
+  ReconciliationFailureConversionLive,
+  SyncStepFailureConversion,
+  isWorkspaceFailure,
+} from "@agentxm/workspace/reconciliation";
+import { failureToAppError, toAppError } from "./conversions.js";
+import { renderAppError } from "./index.js";
 
-const ioCause = new Error("EACCES");
-
-interface ConversionCase {
-  readonly name: string;
-  readonly failure: KnownFailure;
-  readonly code: AppErrorCode;
-  readonly detail: string;
-  readonly title?: string;
-  readonly problem?: AppErrorProblem;
-  readonly suggestions?: ReadonlyArray<AppErrorSuggestedAction>;
-  /** Expected `cause`; "self" pins the typed failure itself as the cause. */
-  readonly cause?: unknown | "self";
-}
-
-const lockfileWriteSuffix =
-  ". Fix the path's permissions or remove whatever occupies it, then rerun.";
-const lockfileCheckSuffix =
-  ". Fix the file's permissions or restore it from version control, then rerun.";
-
-// One row per distinct code/detail template; the byte-for-byte contract for
-// the workspace-state families lives here, not in the producing modules.
-const cases: ReadonlyArray<ConversionCase> = [
-  {
-    name: "SettingsIoError",
-    failure: new SettingsIoError({ path: "/w/axm.json", cause: ioCause }),
-    code: "validation",
-    detail: "Workspace settings at /w/axm.json could not be read",
-    suggestions: [
-      { description: "Repair the settings file permissions or restore the file, then re-run." },
-    ],
-    cause: "self",
-  },
-  {
-    name: "SettingsParseError",
-    failure: new SettingsParseError({ path: "/w/axm.json", raw: "{", cause: ioCause }),
-    code: "validation",
-    detail: "Workspace settings at /w/axm.json are not valid JSON",
-    suggestions: [{ description: "Fix the JSON syntax in the settings file, then re-run." }],
-    cause: "self",
-  },
-  {
-    name: "SettingsDecodeError",
-    failure: new SettingsDecodeError({
-      path: "/w/axm.json",
-      issues: ["agents must be an array", "owner is invalid"],
-      raw: {},
-    }),
-    code: "validation",
-    detail: "Invalid workspace settings at /w/axm.json: agents must be an array; owner is invalid",
-    suggestions: [{ description: "Edit the settings file to fix the invalid value, then re-run." }],
-    cause: "self",
-  },
-  {
-    name: "LockfileIoError",
-    failure: new LockfileIoError({ path: "/w/axm-lock.yaml", cause: ioCause }),
-    code: "validation",
-    detail: "Workspace lockfile at /w/axm-lock.yaml could not be read",
-    suggestions: [
-      {
-        description: "Repair the lockfile permissions or restore a known-good copy, then re-run.",
-      },
-    ],
-    cause: "self",
-  },
-  {
-    name: "LockfileParseError",
-    failure: new LockfileParseError({ path: "/w/axm-lock.yaml", raw: ":", cause: ioCause }),
-    code: "validation",
-    detail: "Workspace lockfile at /w/axm-lock.yaml is not valid YAML",
-    suggestions: [
-      { description: "Fix the YAML syntax or restore a known-good lockfile, then re-run." },
-    ],
-    cause: "self",
-  },
-  {
-    name: "LockfileDecodeError",
-    failure: new LockfileDecodeError({ path: "/w/axm-lock.yaml", issues: ["bad"], raw: {} }),
-    code: "validation",
-    detail: "Invalid workspace lockfile at /w/axm-lock.yaml: bad",
-    suggestions: [
-      {
-        description:
-          "Correct the invalid values or restore a lockfile written in the supported format, then re-run.",
-      },
-    ],
-    cause: "self",
-  },
-  {
-    name: "LockfileVersionUnsupported older",
-    failure: new LockfileVersionUnsupported({
-      path: "/w/axm-lock.yaml",
-      observedVersion: 5,
-      supportedVersion: 7,
-    }),
-    code: "validation",
-    title: "Unsupported workspace lockfile version",
-    detail:
-      "Workspace lockfile at /w/axm-lock.yaml uses version 5, but this AXM uses version 7. Back up and regenerate the lockfile before continuing.",
-    problem: {
-      code: "workspace-lockfile-version-unsupported",
-      path: "/w/axm-lock.yaml",
-      observedVersion: 5,
-      supportedVersion: 7,
-      direction: "older",
-    },
-    suggestions: [
-      {
-        description:
-          "Back up the incompatible lockfile outside the workspace, review axm.json, then remove the incompatible file.",
-      },
-      {
-        description: "Preview a new lockfile in the supported format.",
-        cmd: "axm sync --preview",
-        commandScope: "workspace",
-      },
-      {
-        description: "Apply the previewed workspace changes.",
-        cmd: "axm sync",
-        commandScope: "workspace",
-      },
-      {
-        description:
-          "A workspace containing only workspace-authored content may correctly finish without a lockfile.",
-      },
-    ],
-    cause: "self",
-  },
-  {
-    name: "LockfileVersionUnsupported newer",
-    failure: new LockfileVersionUnsupported({
-      path: "/w/axm-lock.yaml",
-      observedVersion: 8,
-      supportedVersion: 7,
-    }),
-    code: "validation",
-    title: "Unsupported workspace lockfile version",
-    detail:
-      "Workspace lockfile at /w/axm-lock.yaml declares version 8, but this AXM supports version 7. This workspace requires a newer AXM.",
-    problem: {
-      code: "workspace-lockfile-version-unsupported",
-      path: "/w/axm-lock.yaml",
-      observedVersion: 8,
-      supportedVersion: 7,
-      direction: "newer",
-    },
-    suggestions: [
-      {
-        description: "Upgrade AXM before accessing this workspace.",
-        cmd: "axm upgrade",
-        commandScope: "global",
-      },
-    ],
-    cause: "self",
-  },
-  {
-    name: "WorkspaceRootEscape",
-    failure: new WorkspaceRootEscape({ workspaceRoot: "/outside", allowedRoot: "/w" }),
-    code: "internal",
-    detail: "Failed to read the workspace because its root escaped the allowed directory",
-    cause: "self",
-  },
-  {
-    name: "SettingsWriteError mkdir",
-    failure: new SettingsWriteError({ path: "/w/.axm", step: "mkdir", cause: ioCause }),
-    code: "internal",
-    detail: "Failed to create directory: /w/.axm",
-    cause: ioCause,
-  },
-  {
-    name: "SettingsWriteError encode",
-    failure: new SettingsWriteError({
-      path: "/w/axm.json",
-      step: "encode",
-      cause: new Error("bad settings"),
-    }),
-    code: "internal",
-    detail: "Failed to encode settings: bad settings",
-    cause: new Error("bad settings"),
-  },
-  {
-    name: "SettingsWriteError write-temp",
-    failure: new SettingsWriteError({
-      path: "/w/axm.json.tmp.1",
-      step: "write-temp",
-      cause: ioCause,
-    }),
-    code: "internal",
-    detail: "Failed to write settings temp file: /w/axm.json.tmp.1",
-    cause: ioCause,
-  },
-  {
-    name: "SettingsWriteError rename",
-    failure: new SettingsWriteError({ path: "/w/axm.json", step: "rename", cause: ioCause }),
-    code: "internal",
-    detail: "Failed to atomically replace settings file: /w/axm.json",
-    cause: ioCause,
-  },
-  {
-    name: "LockfileWriteError mkdir",
-    failure: new LockfileWriteError({ path: "/w", step: "mkdir", cause: ioCause }),
-    code: "internal",
-    detail: "Failed to create directory /w",
-    cause: ioCause,
-  },
-  {
-    name: "LockfileWriteError encode",
-    failure: new LockfileWriteError({ path: "/w/axm-lock.yaml", step: "encode", cause: ioCause }),
-    code: "internal",
-    detail: "Failed to encode lockfile",
-    cause: ioCause,
-  },
-  {
-    name: "LockfileWriteError serialize",
-    failure: new LockfileWriteError({
-      path: "/w/axm-lock.yaml",
-      step: "serialize",
-      cause: ioCause,
-    }),
-    code: "internal",
-    detail: "Failed to serialize lockfile to YAML",
-    cause: ioCause,
-  },
-  {
-    name: "LockfileWriteError check-target",
-    failure: new LockfileWriteError({
-      path: "/w/axm-lock.yaml",
-      step: "check-target",
-      cause: ioCause,
-    }),
-    code: "validation",
-    detail: `Failed to check lockfile at /w/axm-lock.yaml${lockfileWriteSuffix}`,
-    cause: ioCause,
-  },
-  {
-    name: "LockfileWriteError read-target",
-    failure: new LockfileWriteError({
-      path: "/w/axm-lock.yaml",
-      step: "read-target",
-      cause: ioCause,
-    }),
-    code: "validation",
-    detail: `Failed to read lockfile at /w/axm-lock.yaml${lockfileWriteSuffix}`,
-    cause: ioCause,
-  },
-  {
-    name: "LockfileWriteError write-temp",
-    failure: new LockfileWriteError({
-      path: "/w/axm-lock.yaml.tmp.1",
-      step: "write-temp",
-      cause: ioCause,
-    }),
-    code: "validation",
-    detail: `Failed to write lockfile temp file at /w/axm-lock.yaml.tmp.1${lockfileWriteSuffix}`,
-    cause: ioCause,
-  },
-  {
-    name: "LockfileWriteError rename",
-    failure: new LockfileWriteError({ path: "/w/axm-lock.yaml", step: "rename", cause: ioCause }),
-    code: "validation",
-    detail: `Failed to atomically replace lockfile at /w/axm-lock.yaml${lockfileWriteSuffix}`,
-    cause: ioCause,
-  },
-  {
-    name: "LockfileValidationError probe",
-    failure: new LockfileValidationError({
-      path: "/w/axm-lock.yaml",
-      step: "probe",
-      cause: ioCause,
-    }),
-    code: "validation",
-    detail: "Failed to check if lockfile exists at /w/axm-lock.yaml",
-    cause: ioCause,
-  },
-  {
-    name: "LockfileValidationError check",
-    failure: new LockfileValidationError({
-      path: "/w/axm-lock.yaml",
-      step: "check",
-      cause: ioCause,
-    }),
-    code: "validation",
-    detail: `Failed to check the lockfile at /w/axm-lock.yaml${lockfileCheckSuffix}`,
-    cause: ioCause,
-  },
-  {
-    name: "LockfileValidationError read",
-    failure: new LockfileValidationError({
-      path: "/w/axm-lock.yaml",
-      step: "read",
-      cause: ioCause,
-    }),
-    code: "validation",
-    detail: `Failed to read the lockfile at /w/axm-lock.yaml${lockfileCheckSuffix}`,
-    cause: ioCause,
-  },
-  {
-    name: "LockfileValidationError parse",
-    failure: new LockfileValidationError({
-      path: "/w/axm-lock.yaml",
-      step: "parse",
-      cause: ioCause,
-    }),
-    code: "validation",
-    detail: "Failed to parse lockfile at /w/axm-lock.yaml",
-    cause: ioCause,
-  },
-  {
-    name: "LockfileValidationError decode",
-    failure: new LockfileValidationError({
-      path: "/w/axm-lock.yaml",
-      step: "decode",
-      cause: ioCause,
-    }),
-    code: "validation",
-    detail: "Failed to decode lockfile at /w/axm-lock.yaml",
-    cause: ioCause,
-  },
-  {
-    name: "WorkspaceLayoutError with cause",
-    failure: new WorkspaceLayoutError({
-      detail: 'Invalid skill authored directory "../out": path escapes the workspace',
-      cause: ioCause,
-    }),
-    code: "validation",
-    detail: 'Invalid skill authored directory "../out": path escapes the workspace',
-    cause: ioCause,
-  },
-  {
-    name: "WorkspaceLayoutError without cause",
-    failure: new WorkspaceLayoutError({
-      detail: "Invalid rule authored root /w/rules: expected a directory",
-    }),
-    code: "validation",
-    detail: "Invalid rule authored root /w/rules: expected a directory",
-  },
-  {
-    name: "WorkspaceNotInitialized",
-    failure: new WorkspaceNotInitialized({ settingsPath: "/w/axm.json" }),
-    code: "internal",
-    detail: "Workspace settings not found: /w/axm.json",
-    suggestions: [{ description: "Create the workspace.", cmd: "axm setup" }],
-  },
-  {
-    name: "LockedSkillMissing",
-    failure: new LockedSkillMissing({ name: "review" }),
-    code: "conflict",
-    detail: 'Skill "review" has no entry in axm-lock.yaml',
-    suggestions: [{ description: "Install the skill first.", cmd: "axm skills install <source>" }],
-  },
-  {
-    name: "SettingsEntryMissing skill",
-    failure: new SettingsEntryMissing({ entryType: "skill", name: "review" }),
-    code: "not_found",
-    detail: 'Skill "review" not found in settings',
-  },
-  {
-    name: "SettingsEntryMissing mcp-server",
-    failure: new SettingsEntryMissing({ entryType: "mcp-server", name: "srv" }),
-    code: "not_found",
-    detail: 'MCP server "srv" not found in settings',
-  },
-  {
-    name: "InvalidAgentId",
-    failure: new InvalidAgentId({ agentId: "universal", cause: ioCause }),
-    code: "validation",
-    detail: "Invalid agent ID: universal",
-    cause: ioCause,
-  },
-  {
-    name: "DesiredPackGraphIncomplete",
-    failure: new DesiredPackGraphIncomplete(),
-    code: "conflict",
-    detail:
-      "AXM cannot decide whether to keep this pack because some pack manifests are missing or invalid.",
-    suggestions: [{ description: "Restore or reinstall configured pack manifests, then retry." }],
-  },
-  {
-    name: "CanonicalPathRemovalError inspect",
-    failure: new CanonicalPathRemovalError({ path: "/w/ext", step: "inspect", cause: ioCause }),
-    code: "internal",
-    detail: "Failed to inspect the installed extension at /w/ext",
-    cause: ioCause,
-  },
-  {
-    name: "CanonicalPathRemovalError remove",
-    failure: new CanonicalPathRemovalError({ path: "/w/ext", step: "remove", cause: ioCause }),
-    code: "internal",
-    detail: "Failed to remove the installed extension at /w/ext",
-    cause: ioCause,
-  },
-  {
-    name: "SymlinkCreationError resolve-target",
-    failure: new SymlinkCreationError({ path: "/w/src", step: "resolve-target", cause: ioCause }),
-    code: "internal",
-    detail: "Failed to resolve target path",
-    cause: ioCause,
-  },
-  {
-    name: "SymlinkCreationError remove-existing",
-    failure: new SymlinkCreationError({ path: "/w/link", step: "remove-existing", cause: ioCause }),
-    code: "internal",
-    detail: "Failed to remove existing path at /w/link",
-    cause: ioCause,
-  },
-  {
-    name: "SymlinkCreationError mkdir-parent",
-    failure: new SymlinkCreationError({ path: "/w/parent", step: "mkdir-parent", cause: ioCause }),
-    code: "internal",
-    detail: "Failed to create parent directory /w/parent",
-    cause: ioCause,
-  },
-  {
-    name: "SymlinkCreationError symlink",
-    failure: new SymlinkCreationError({ path: "/w/link", step: "symlink", cause: ioCause }),
-    code: "internal",
-    detail: "Failed to create symlink at /w/link",
-    cause: ioCause,
-  },
-  {
-    name: "WorkspaceSnapshotError inspect-target",
-    failure: new WorkspaceSnapshotError({
-      target: "/w/axm.json",
-      step: "inspect-target",
-      cause: ioCause,
-    }),
-    code: "internal",
-    detail: "Failed to inspect transaction target /w/axm.json",
-    cause: ioCause,
-  },
-  {
-    name: "WorkspaceSnapshotError create-store",
-    failure: new WorkspaceSnapshotError({
-      target: "/w/axm.json",
-      step: "create-store",
-      cause: ioCause,
-    }),
-    code: "internal",
-    detail: "Failed to create the rollback snapshot directory",
-    cause: ioCause,
-  },
-  {
-    name: "WorkspaceSnapshotError copy",
-    failure: new WorkspaceSnapshotError({ target: "/w/axm.json", step: "copy", cause: ioCause }),
-    code: "internal",
-    detail: "Failed to snapshot transaction target /w/axm.json",
-    cause: ioCause,
-  },
-  {
-    name: "WorkspaceSnapshotError inspect-ancestor",
-    failure: new WorkspaceSnapshotError({
-      target: "/w/agent_extensions",
-      step: "inspect-ancestor",
-      cause: ioCause,
-    }),
-    code: "internal",
-    detail: "Failed to inspect transaction ancestor /w/agent_extensions",
-    cause: ioCause,
-  },
-  {
-    name: "WorkspaceDirectoryError inspect",
-    failure: new WorkspaceDirectoryError({ path: "/w/.axm", step: "inspect", cause: ioCause }),
-    code: "internal",
-    detail: "Failed to inspect workspace state directory /w/.axm",
-    cause: ioCause,
-  },
-  {
-    name: "WorkspaceDirectoryError create",
-    failure: new WorkspaceDirectoryError({ path: "/w/.axm", step: "create", cause: ioCause }),
-    code: "internal",
-    detail: "Failed to create workspace state directory /w/.axm",
-    cause: ioCause,
-  },
-  {
-    name: "TransitionLockError create-scratch",
-    failure: new TransitionLockError({
-      path: "/w/.axm/tmp",
-      step: "create-scratch",
-      cause: ioCause,
-    }),
-    code: "internal",
-    detail: "Failed to create workspace scratch directory /w/.axm/tmp",
-    cause: ioCause,
-  },
-  {
-    name: "TransitionLockError acquire",
-    failure: new TransitionLockError({
-      path: "/w/.axm/tmp/workspace-transition.lock",
-      step: "acquire",
-      cause: ioCause,
-    }),
-    code: "internal",
-    detail:
-      "Failed to acquire the workspace transition lock at /w/.axm/tmp/workspace-transition.lock",
-    cause: ioCause,
-  },
-  {
-    name: "TransitionLockError record-holder",
-    failure: new TransitionLockError({
-      path: "/w/.axm/tmp/workspace-transition.lock",
-      step: "record-holder",
-      cause: ioCause,
-    }),
-    code: "internal",
-    detail:
-      "Failed to record the workspace transition holder at /w/.axm/tmp/workspace-transition.lock",
-    cause: ioCause,
-  },
-  {
-    name: "TransitionLockError inspect-timestamp",
-    failure: new TransitionLockError({
-      path: "/w/.axm/tmp/workspace-transition.lock",
-      step: "inspect-timestamp",
-      cause: ioCause,
-    }),
-    code: "internal",
-    detail:
-      "Failed to inspect the workspace transition lock timestamp at /w/.axm/tmp/workspace-transition.lock",
-    cause: ioCause,
-  },
-  {
-    name: "TransitionLockError missing-timestamp",
-    failure: new TransitionLockError({
-      path: "/w/.axm/tmp/workspace-transition.lock",
-      step: "missing-timestamp",
-    }),
-    code: "internal",
-    detail:
-      "Workspace transition lock at /w/.axm/tmp/workspace-transition.lock has no modification time",
-  },
-  {
-    name: "TransitionLockError preserve-timestamp",
-    failure: new TransitionLockError({
-      path: "/w/.axm/tmp/workspace-transition.lock",
-      step: "preserve-timestamp",
-      cause: ioCause,
-    }),
-    code: "internal",
-    detail:
-      "Failed to preserve the workspace transition lock timestamp at /w/.axm/tmp/workspace-transition.lock",
-    cause: ioCause,
-  },
-  {
-    name: "TransitionLockError release",
-    failure: new TransitionLockError({
-      path: "/w/.axm/tmp/workspace-transition.lock",
-      step: "release",
-      cause: ioCause,
-    }),
-    code: "internal",
-    detail: "Failed to release workspace transition lock at /w/.axm/tmp/workspace-transition.lock",
-    cause: ioCause,
-  },
-  {
-    name: "TransitionLockUnavailable with holder",
-    failure: new TransitionLockUnavailable({
-      holder: { command: "install", pid: 123 },
-      waitedMillis: 60_000,
-    }),
-    code: "conflict",
-    detail: "another operation holds the workspace transition (install (pid 123)); waited 60s",
-  },
-  {
-    name: "TransitionLockUnavailable without holder",
-    failure: new TransitionLockUnavailable({ holder: undefined, waitedMillis: 1_499 }),
-    code: "conflict",
-    detail: "another operation holds the workspace transition; waited 1s",
-  },
-  {
-    name: "WorkspaceTransitionCompromised",
-    failure: new WorkspaceTransitionCompromised({
-      workspaceDir: "/w/.axm",
-      lockPath: "/w/.axm/tmp/workspace-transition.lock",
-      cause: ioCause,
-    }),
-    code: "conflict",
-    detail:
-      "The workspace transition at /w/.axm/tmp/workspace-transition.lock was compromised; the operation stopped.",
-    cause: ioCause,
-  },
-  {
-    name: "WorkspaceRestorationError stage",
-    failure: new WorkspaceRestorationError({
-      target: "/w/axm.json",
-      step: "stage",
-      cause: { stagedHash: "a", backupHash: "b" },
-    }),
-    code: "internal",
-    detail: "Staged restoration did not validate for /w/axm.json",
-    cause: { stagedHash: "a", backupHash: "b" },
-  },
-  {
-    name: "WorkspaceRestorationError stopped",
-    failure: new WorkspaceRestorationError({
-      target: "/w/axm.json",
-      step: "stopped",
-      cause: undefined,
-    }),
-    code: "internal",
-    detail:
-      "Workspace restoration stopped before /w/axm.json: the workspace transition was compromised",
-  },
-  {
-    name: "WorkspaceRestorationError verify",
-    failure: new WorkspaceRestorationError({
-      target: "/w/axm.json",
-      step: "verify",
-      cause: { state: "copied" },
-    }),
-    code: "internal",
-    detail: "Workspace restoration did not verify for /w/axm.json",
-    cause: { state: "copied" },
-  },
-];
-
-describe("workspace-state conversions", () => {
-  it.each(cases.map((entry) => [entry.name, entry] as const))(
-    "converts %s byte-identically",
-    (_name, entry) => {
-      const converted = toAppError(entry.failure);
-      expect(converted).toBeInstanceOf(AppError);
-      expect(converted.code).toBe(entry.code);
-      expect(converted.detail).toBe(entry.detail);
-      if (entry.title !== undefined) {
-        expect(converted.title).toBe(entry.title);
-      }
-      expect(converted.problem).toEqual(entry.problem);
-      if (entry.suggestions === undefined) {
-        expect(converted.suggestions).toBeUndefined();
-      } else {
-        expect(converted.suggestions).toEqual(entry.suggestions);
-      }
-      if (entry.cause === "self") {
-        expect(converted.cause).toBe(entry.failure);
-      } else {
-        expect(converted.cause).toEqual(entry.cause);
-      }
-    },
-  );
-
-  it("registers every table row as a known failure", () => {
-    for (const entry of cases) {
-      expect(isKnownFailure(entry.failure)).toBe(true);
-    }
-  });
-
+describe("the application boundary projection", () => {
   it("passes an AppError through unchanged", () => {
     const original = makeAppError({ code: "conflict", detail: "already handled" });
     expect(toAppError(original)).toBe(original);
-    expect(isKnownFailure(original)).toBe(false);
+    expect(isWorkspaceFailure(original)).toBe(false);
   });
 
   it("summarizes an untyped transition defect without exposing its stack", () => {
-    const error = restorationIncompleteToAppError(
+    const error = toAppError(
       new WorkspaceRestorationIncomplete({
         terminationCause: "failure",
         transitionCause: Cause.die(new Error("injected transition defect")),
@@ -716,7 +67,7 @@ describe("workspace-state conversions", () => {
   });
 
   it("renders the deciding typed failure inside a restoration-incomplete transition", () => {
-    const error = restorationIncompleteToAppError(
+    const error = toAppError(
       new WorkspaceRestorationIncomplete({
         terminationCause: "failure",
         transitionCause: Cause.fail(
@@ -731,5 +82,404 @@ describe("workspace-state conversions", () => {
     expect(error.detail).toMatch(
       /^Transition failed: injected transition failure\. Workspace restoration did not complete;/,
     );
+  });
+
+  it.effect("names a deciding workspace failure as it renders elsewhere on every path", () =>
+    Effect.gen(function* () {
+      const deciding = new SettingsWriteError({
+        path: "/w/axm.json",
+        step: "write-temp",
+        cause: new Error("EACCES"),
+      });
+      const restoration = new WorkspaceRestorationIncomplete({
+        terminationCause: "failure",
+        transitionCause: Cause.fail(deciding),
+        restorationCause: new Error("injected restoration defect"),
+        snapshotDir: undefined,
+        retained: ["axm.json"],
+      });
+      const expected = `Transition failed: ${toAppError(deciding).detail}. Workspace restoration did not complete;`;
+      const lifecycle = yield* StepFailureConversion;
+      const reconciliation = yield* SyncStepFailureConversion;
+
+      expect(toAppError(restoration).detail.startsWith(expected)).toBe(true);
+      expect(lifecycle.toStepFailure(restoration).detail.startsWith(expected)).toBe(true);
+      expect(reconciliation.toStepFailure(restoration).detail.startsWith(expected)).toBe(true);
+    }).pipe(
+      Effect.provide(
+        Layer.mergeAll(LifecycleFailureConversionLive, ReconciliationFailureConversionLive),
+      ),
+    ),
+  );
+
+  it("reports an unrecognized value as an internal error", () => {
+    const converted = failureToAppError("unexpected");
+    expect(converted.code).toBe("internal");
+    expect(converted.detail).toBe("unexpected");
+  });
+});
+
+describe("CLI selection failure rendering", () => {
+  it("renders skill facts with the existing error category and recovery", () => {
+    const failure = new SkillSelectionNotFound({
+      requested: ["missing"],
+      available: ["z-last", "a-first"],
+    });
+    expect(isWorkspaceFailure(failure)).toBe(true);
+    expect(toAppError(failure)).toMatchObject({
+      code: "not_found",
+      detail: "No skills matched: missing. Source contains: a-first, z-last",
+      suggestions: [{ description: "Check the skill names or patterns and try again" }],
+    });
+  });
+  it("preserves subagent rendering while its policy reports only facts", () => {
+    const failure = new SubagentSelectionNotFound({
+      requested: ["missing"],
+      available: ["review"],
+    });
+    expect(isWorkspaceFailure(failure)).toBe(true);
+    expect(toAppError(failure)).toMatchObject({
+      code: "internal",
+      detail: "No subagents matched: missing",
+      suggestions: [{ description: "Check the subagent names or patterns and try again." }],
+    });
+  });
+  for (const Unavailable of [SkillSelectionUnavailable, SubagentSelectionUnavailable]) {
+    it(`keeps terminal guidance through ${Unavailable.name}`, () => {
+      const cause = makeAppError({
+        code: "usage",
+        detail: "Terminal unavailable",
+        recover: "Pass an explicit name",
+      });
+      const failure = new Unavailable({ cause });
+      expect(isWorkspaceFailure(failure)).toBe(true);
+      expect(toAppError(failure)).toBe(cause);
+    });
+    it(`renders ${Unavailable.name} from another interface without requiring CLI errors`, () => {
+      const failure = new Unavailable({ cause: new Error("Connection closed") });
+      expect(toAppError(failure)).toMatchObject({ code: "usage" });
+      expect(toAppError(failure).suggestions).toHaveLength(1);
+    });
+  }
+});
+
+const responseFor = (status: number, headers?: Readonly<Record<string, string>>) =>
+  HttpClientResponse.fromWeb(
+    HttpClientRequest.get("https://registry.agentxm.ai/test"),
+    new Response("", { status, ...(headers === undefined ? {} : { headers }) }),
+  );
+
+describe("registry-client failure conversion (golden pairs)", () => {
+  it("preserves problem-supplied title/detail and full metadata for a 503", () => {
+    const body = {
+      title: "Advisory title",
+      status: 400,
+      detail: "The service is unavailable.",
+      code: "service_unavailable",
+      request_id: "req_mismatch",
+    };
+    const cause = new Error("generated failure");
+
+    const error = toAppError(registryErrorToProblem(body, responseFor(503), { cause }));
+
+    expect(error.code).toBe("unavailable");
+    expect(error.title).toBe("Advisory title");
+    expect(error.detail).toBe("The service is unavailable.");
+    expect(error.metadata).toEqual({
+      request: {
+        service: "registry",
+        method: "GET",
+        url: "https://registry.agentxm.ai/test",
+      },
+      response: {
+        status: 503,
+        requestId: "req_mismatch",
+        problemCode: "service_unavailable",
+        body,
+      },
+    });
+    expect(error.cause).toBe(cause);
+  });
+
+  it("applies the per-code default title and detail when the body is not a problem document", () => {
+    const cause = new Error("response failure");
+    const error = toAppError(
+      registryErrorToProblem("gateway unavailable", responseFor(502), { cause }),
+    );
+
+    expect(error.code).toBe("internal");
+    expect(error.title).toBe("Internal Error");
+    expect(error.detail).toBe("An internal error occurred.");
+    expect(error.metadata?.response).toEqual({ status: 502, body: "gateway unavailable" });
+    expect(error.cause).toBe(cause);
+  });
+
+  it("carries retry-after suggestions from the header for a 429", () => {
+    const error = toAppError(
+      registryErrorToProblem(
+        {
+          kind: "TooManyRequestsError",
+          type: "about:blank",
+          title: "Too Many Requests",
+          status: 429,
+          detail: "Rate limited",
+          code: "publish/throttled",
+          details: { retryable: true, retryAfterSeconds: 60 },
+        },
+        responseFor(429, { "retry-after": "30" }),
+      ),
+    );
+
+    expect(error.code).toBe("rate_limit");
+    expect(error.title).toBe("Too Many Requests");
+    expect(error.detail).toBe("Rate limited");
+    expect(error.suggestions?.[0]?.description).toBe("Retry after 30s.");
+  });
+
+  it("carries the narrowed-credential recovery for insufficient-scope 403 responses", () => {
+    const error = toAppError(
+      registryErrorToProblem(
+        {
+          kind: "ForbiddenError",
+          type: "about:blank",
+          title: "Forbidden",
+          status: 403,
+          detail: "Token lacks required scope",
+          code: "insufficient_scope",
+          details: {
+            requiredScope: "extensions:publish:version",
+            grantedScopes: ["extensions:read"],
+          },
+        },
+        responseFor(403),
+      ),
+    );
+
+    expect(error.code).toBe("forbidden");
+    expect(error.suggestions).toContainEqual({
+      description: "This credential is narrower than your account. Use your signed-in session.",
+    });
+    // A 403 reaches someone who is signed in; signing in again is never it.
+    expect(JSON.stringify(error.suggestions)).not.toContain("axm login");
+  });
+
+  it("carries lint finding suggestions for publish lint responses", () => {
+    const error = toAppError(
+      registryErrorToProblem(
+        {
+          kind: "ExtensionLintFailedError",
+          type: "about:blank",
+          title: "Extension lint failed",
+          status: 422,
+          detail: "Lint failed",
+          code: "extension_lint_failed",
+          error: "extension_lint_failed",
+          identity: {
+            owner: "@acme",
+            type: "skill",
+            name: "review",
+            version: "1.0.0",
+          },
+          displayRoot: ".",
+          findings: [
+            {
+              kind: "advisory",
+              ruleId: "skill/manifest-schema-valid",
+              severity: "error",
+              message: "Manifest is invalid",
+              path: "skill.json",
+              suggestions: [],
+            },
+          ],
+        },
+        responseFor(422),
+      ),
+    );
+
+    expect(error.code).toBe("validation");
+    expect(error.suggestions?.map((suggestion) => suggestion.description)).toContain(
+      "Publish lint failed with 1 finding.",
+    );
+    expect(error.suggestions?.map((suggestion) => suggestion.description)).toContain(
+      "error: skill/manifest-schema-valid - Manifest is invalid (skill.json)",
+    );
+  });
+
+  it("renders the request-policy timeout failure through the typed error view", () => {
+    const requestMetadata = {
+      service: "registry",
+      method: "GET",
+      url: "https://registry.agentxm.ai/v1/extensions",
+    } as const;
+    const error = toAppError(
+      new RegistryRequestFailed({
+        category: "timeout",
+        detail: "Registry request did not complete within the configured deadline.",
+        metadata: {
+          request: requestMetadata,
+          requestPolicy: {
+            retryable: true,
+            attemptCount: 1,
+            maxAttempts: 1,
+            exhausted: true,
+            stoppedBy: "replay-unsafe",
+            replaySafety: "mutation",
+          },
+        },
+        cause: new Error("timeout"),
+      }),
+    );
+
+    expect(error.code).toBe("timeout");
+    expect(error.title).toBe("Timed Out");
+    expect(renderAppError(error)).toBe(
+      [
+        " ✖   Timed Out                     timeout, exit 16",
+        "     Registry request did not complete within the configured deadline.",
+        "     Registry                      https://registry.agentxm.ai",
+        "     --debug shows the cause.",
+      ].join("\n"),
+    );
+    expect(makeJsonErrorEnvelopeFromAppError(error)).toMatchObject({
+      ok: false,
+      code: "timeout",
+      title: "Timed Out",
+      detail: "Registry request did not complete within the configured deadline.",
+      metadata: { request: requestMetadata },
+    });
+  });
+});
+
+describe("extension-sources failure conversion (golden pairs)", () => {
+  it("renders a syntax failure as a validation envelope with the carried sentence", () => {
+    const cause = new Error("decode failure");
+    const error = toAppError(
+      new SourceSyntaxInvalid({ detail: 'Invalid provider shorthand "github:x"', cause }),
+    );
+
+    expect(error.code).toBe("validation");
+    expect(error.title).toBe("Invalid Request");
+    expect(error.detail).toBe('Invalid provider shorthand "github:x"');
+    expect(error.suggestions).toBeUndefined();
+    expect(error.cause).toBe(cause);
+  });
+
+  it("renders an unmatched host as a validation envelope", () => {
+    const error = toAppError(
+      new SourceHostNotConfigured({
+        detail: 'No configured source matches URL "https://example.com/a/b"',
+      }),
+    );
+
+    expect(error.code).toBe("validation");
+    expect(error.detail).toBe('No configured source matches URL "https://example.com/a/b"');
+    expect(error.cause).toBeUndefined();
+  });
+
+  it("carries the resolution site's category, sentence, and suggestions verbatim", () => {
+    const error = toAppError(
+      new SourceNotResolvable({
+        category: "not_found",
+        detail: '"missing" did not match any skills in installed scope',
+        suggestions: [{ description: "Check the name, or re-run with a fully-qualified name." }],
+      }),
+    );
+
+    expect(error.code).toBe("not_found");
+    expect(error.detail).toBe('"missing" did not match any skills in installed scope');
+    expect(error.suggestions).toEqual([
+      { description: "Check the name, or re-run with a fully-qualified name." },
+    ]);
+  });
+
+  it("folds recover/cmd sugar exactly as the former envelope construction did", () => {
+    const error = toAppError(
+      new SourceNotResolvable({
+        category: "conflict",
+        detail: "The official AXM skill release 2.0.0 is incompatible with this AXM CLI.",
+        recover: "Converge to AXM CLI 2.0.0 + official AXM skill 2.0.0",
+        cmd: "axm upgrade",
+      }),
+    );
+
+    expect(error.code).toBe("conflict");
+    expect(error.suggestions).toEqual([
+      {
+        description: "Converge to AXM CLI 2.0.0 + official AXM skill 2.0.0",
+        cmd: "axm upgrade",
+      },
+    ]);
+  });
+
+  it("renders a network acquisition failure with the network code", () => {
+    const cause = new Error("mkdtemp failure");
+    const error = toAppError(
+      new SourceNetworkFailure({
+        detail: "Temporary source directory could not be created",
+        cause,
+      }),
+    );
+
+    expect(error.code).toBe("network");
+    expect(error.detail).toBe("Temporary source directory could not be created");
+    expect(error.retryable).toBeUndefined();
+    expect(error.cause).toBe(cause);
+  });
+
+  it("maps git clones to network and SHA reads to validation", () => {
+    const cause = new Error("git exited 128");
+    const clone = toAppError(
+      new GitOperationFailed({
+        operation: "clone",
+        detail: "Failed to shallow clone https://example.com/repo.git",
+        cause,
+      }),
+    );
+    expect(clone.code).toBe("network");
+    expect(clone.detail).toBe("Failed to shallow clone https://example.com/repo.git");
+    expect(clone.cause).toBe(cause);
+
+    const treeSha = toAppError(
+      new GitOperationFailed({
+        operation: "get-tree-sha",
+        detail: "Failed to get tree SHA for 'subdir'",
+        cause,
+      }),
+    );
+    expect(treeSha.code).toBe("validation");
+    expect(treeSha.detail).toBe("Failed to get tree SHA for 'subdir'");
+  });
+
+  it("restores a workspace catalog port failure one-to-one", () => {
+    const cause = new Error("settings unreadable");
+    const error = toAppError(
+      new WorkspaceCatalogUnavailable({
+        category: "validation",
+        detail: "Workspace settings at /tmp/axm.json are not valid JSON",
+        suggestions: [{ description: "Fix the JSON syntax in the settings file, then re-run." }],
+        cause,
+      }),
+    );
+
+    expect(error.code).toBe("validation");
+    expect(error.detail).toBe("Workspace settings at /tmp/axm.json are not valid JSON");
+    expect(error.suggestions).toEqual([
+      { description: "Fix the JSON syntax in the settings file, then re-run." },
+    ]);
+    expect(error.cause).toBe(cause);
+  });
+
+  it("restores an AXM skill gate port failure one-to-one", () => {
+    const error = toAppError(
+      new AxmSkillGateUnavailable({
+        category: "internal",
+        detail: "AXM compatibility policy did not evaluate the official AXM skill",
+        cause: undefined,
+      }),
+    );
+
+    expect(error.code).toBe("internal");
+    expect(error.detail).toBe("AXM compatibility policy did not evaluate the official AXM skill");
+    expect(error.suggestions).toBeUndefined();
   });
 });

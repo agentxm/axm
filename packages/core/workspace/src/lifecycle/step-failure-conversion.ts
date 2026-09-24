@@ -1,13 +1,12 @@
 /**
- * The application-supplied conversion from a lifecycle operation's typed
- * failure union into the plan-step vocabulary and into display text.
+ * The conversion from a lifecycle operation's typed failure union into the
+ * plan-step vocabulary, as a service lifecycle operations keep in `R`.
  *
- * Error rendering is application-owned: the CLI implements this with the same
- * dispatcher it uses at its output boundary, so step categories and details
- * inside lifecycle plans stay byte-identical with rendered errors. Nothing in
- * the channel is `unknown` — the port names the exact union a lifecycle
- * operation can surface, so a new failure family is a compile error here
- * rather than a silently mis-rendered step.
+ * The kernel owns the rendering and supplies the implementation as
+ * `LifecycleFailureConversionLive`; the application provides that Layer once
+ * per invocation. Nothing in the channel is `unknown` — the port names the
+ * exact union a lifecycle operation can surface, so a new failure family is a
+ * compile error here rather than a silently mis-rendered step.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -31,10 +30,6 @@ export type LifecycleFailure =
 export interface StepFailureConversionService {
   /** Serialize one lifecycle failure into the plan-step vocabulary. */
   readonly toStepFailure: (failure: LifecycleFailure) => StepFailure;
-  /** Render one failure as the detail sentence the boundary would print. */
-  readonly describeFailure: (failure: LifecycleFailure) => string;
-  /** Render one failure as the boundary envelope's `message` property. */
-  readonly describeFailureMessage: (failure: LifecycleFailure) => string;
 }
 
 export class StepFailureConversion extends ServiceMap.Service<
@@ -44,7 +39,7 @@ export class StepFailureConversion extends ServiceMap.Service<
 
 /**
  * Serialize every failure of one lifecycle operation into the plan-step
- * vocabulary through the application-supplied conversion.
+ * vocabulary through the provided conversion.
  */
 export const withAdaptedStepFailures = <A, E extends LifecycleFailure, R>(
   effect: Effect.Effect<A, E, R>,

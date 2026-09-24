@@ -32,6 +32,7 @@ import {
   STALE_CANDIDATE_DETAIL,
   StaleExecutionCandidate,
   StepFailure,
+  makeStepFailure,
 } from "./errors.js";
 import { applyPlan } from "./apply-plan.js";
 import {
@@ -1206,16 +1207,23 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
   const firstFailed = restoringPlan
     ? executedResolved.find((unit) => unit.state === "failed")
     : undefined;
+  // The operation-level failure names the unit's settled message and keeps
+  // everything else the unit's rendered failure states, so the operation
+  // reports the same title, problem, evidence, and recoveries a command
+  // boundary would print for that failure.
   const failure =
     firstFailed?.error === undefined
       ? undefined
-      : new StepFailure({
+      : makeStepFailure({
           category: firstFailed.error.category,
+          title: firstFailed.error.title,
           detail: firstFailed.message ?? firstFailed.error.detail,
+          problem: firstFailed.error.problem,
+          metadata: firstFailed.error.metadata,
+          retryable: firstFailed.error.retryable,
+          inputs: firstFailed.error.inputs,
+          suggestions: firstFailed.error.suggestions,
           cause: firstFailed.error,
-          ...(firstFailed.error.suggestions === undefined
-            ? {}
-            : { suggestions: firstFailed.error.suggestions }),
         });
   return makeOperationResolution<Output>({
     ...resolutionBase,

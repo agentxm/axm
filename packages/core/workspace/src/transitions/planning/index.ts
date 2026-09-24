@@ -149,12 +149,20 @@ export {
 export {
   ApprovalRecoveryMissing,
   CandidateFingerprintFailed,
+  FailureMetadataSchema,
+  FailureProblemSchema,
   OPERATION_ERROR_CATEGORIES,
   OperationErrorCategorySchema,
   PlanInteractionFailed,
   STALE_CANDIDATE_DETAIL,
   StaleExecutionCandidate,
   StepFailure,
+  defaultFailureDetail,
+  makeStepFailure,
+  type FailureInput,
+  type FailureMetadata,
+  type FailureProblem,
+  type FailureSuggestedAction,
   type OperationErrorCategory,
 } from "./plan/errors.js";
 

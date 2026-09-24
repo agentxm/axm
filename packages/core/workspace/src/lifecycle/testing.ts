@@ -111,10 +111,9 @@ export const bundledAxmSkillAsset = (
 };
 
 /**
- * Render a failure as the sentence a structural fixture reports. Assertions in
- * this package bind to this mapping, not to the application boundary's
- * wording: a fixture that borrowed the application's renderer would be
- * asserting the application's words from inside the feature.
+ * Render a failure as the sentence a structural fixture reports. Examples that
+ * use this fixture assert on the producer's own sentence, not on the kernel's
+ * rendering of it.
  */
 const describeFailure = (failure: unknown): string => {
   if (failure instanceof ExtensionLifecycleFailed) return failure.detail ?? failure.category;
@@ -133,7 +132,7 @@ const describeFailure = (failure: unknown): string => {
 };
 
 /**
- * Structural stand-in for the application's failure adapter: the feature's own
+ * Structural stand-in for the kernel's failure conversion: the feature's own
  * failure maps 1:1; anything else keeps its detail sentence under an
  * `internal` category.
  */
@@ -147,8 +146,6 @@ const TestStepFailureConversion = Layer.succeed(StepFailureConversion, {
           ...(failure.cause === undefined ? {} : { cause: failure.cause }),
         })
       : new StepFailure({ category: "internal", detail: describeFailure(failure), cause: failure }),
-  describeFailure,
-  describeFailureMessage: describeFailure,
 });
 
 export interface LifecycleFixtureOptions {

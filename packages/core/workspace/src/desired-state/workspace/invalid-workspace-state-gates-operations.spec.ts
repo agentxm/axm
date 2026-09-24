@@ -13,6 +13,7 @@ import { afterEach } from "vitest";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
+import { workspaceFailureToStepFailure } from "../../reconciliation/index.js";
 import { LOCKFILE_VERSION } from "../lockfile/schema.js";
 import { WorkspaceStateLive } from "../live.js";
 import { WorkspaceRecords } from "./workspace-records.js";
@@ -21,7 +22,7 @@ export const specification = defineSpecification({
   requirement: "cli/invalid-workspace-state-gates-operations",
   title: "Invalid workspace settings or lockfiles block workspace operations",
   statement:
-    "When a present project or user settings file, or a present workspace lockfile in the selected scope, is malformed, schema-invalid, unreadable, or of an unsupported version, operations that read or change workspace state, including diagnosis and preview, shall stop before workspace work begins with a validation error naming the file, the observed fault, and a non-destructive recovery route, and shall change no workspace state.",
+    "When a present project or user settings file, or a present workspace lockfile in the selected scope, is malformed, schema-invalid, unreadable, or of an unsupported version, operations that read or change workspace state, including diagnosis and preview, shall stop before workspace work begins with an error naming the file, the observed fault, and a non-destructive recovery route, classified as a validation error when the content is wrong or of an unsupported version and as an unavailable error when the file cannot be read, and shall change no workspace state.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics", "machine-automation"],
@@ -47,6 +48,9 @@ export const specification = defineSpecification({
 /** A recovery classification an operator can act on without losing state. */
 type Recovery = "repair" | "resync" | "upgrade";
 
+/** How the refusal is classified: wrong content, or storage that cannot be read. */
+type Category = "validation" | "unavailable";
+
 interface FaultRow {
   readonly fault: string;
   /** Which file carries the fault. */
@@ -56,6 +60,7 @@ interface FaultRow {
   /** The tagged failure the reader must raise. */
   readonly tag: string;
   readonly recovery: Recovery;
+  readonly category: Category;
   /** Row-specific facts the failure must carry beyond its path. */
   readonly expect?: (failure: Readonly<Record<string, unknown>>) => void;
 }
@@ -87,6 +92,7 @@ const settingsRows: ReadonlyArray<FaultRow> = (["project", "user"] as const).fla
     // Nothing about a malformed settings file is recoverable by advancing
     // state: the file itself is what must be corrected.
     recovery: "repair",
+    category: entry.tag === "SettingsIoError" ? "unavailable" : "validation",
   })),
 );
 
@@ -103,6 +109,7 @@ const lockfileVersionRows: ReadonlyArray<FaultRow> = (["older", "newer"] as cons
         // An older lockfile is re-accepted by reconciling desired state; a
         // newer one needs a newer product, never a rewrite of the file.
         recovery: direction === "older" ? "resync" : "upgrade",
+        category: "validation",
         expect: (failure) => {
           expect(failure["observedVersion"]).toBe(observedVersion);
           expect(failure["supportedVersion"]).toBe(LOCKFILE_VERSION);
@@ -133,6 +140,7 @@ const lockfileContentRows: ReadonlyArray<FaultRow> = [
   write: entry.write,
   tag: entry.tag,
   recovery: "repair",
+  category: entry.tag === "LockfileIoError" ? "unavailable" : "validation",
 }));
 
 const faultRows: ReadonlyArray<FaultRow> = [
@@ -249,6 +257,7 @@ describe("Invalid workspace state gates operations", () => {
 
         const record = failureRecord(failure);
         expect(record["_tag"]).toBe(row.tag);
+        expect(workspaceFailureToStepFailure(failure).category).toBe(row.category);
         expect(record["path"]).toBe(faultPath);
         expect(recoveryFor(row.tag, record)).toBe(row.recovery);
         row.expect?.(record);

@@ -1,6 +1,6 @@
 import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace/transitions/settlement/live";
 import * as fs from "node:fs";
-import { LifecycleStepFailureConversionLive } from "../../feature-errors.js";
+import { LifecycleFailureConversionLive } from "@agentxm/workspace/lifecycle";
 import { MockWorkspaceTransactionScope } from "@agentxm/workspace/desired-state/testing";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { NativeWriteAuthorityPermissive } from "@agentxm/workspace/projection/agent-adapters/testing";
@@ -103,7 +103,7 @@ describe("agents remove.handler", () => {
       Layer.succeed(CodingAgentRepository, agentRepo),
       ConfiguredAgentOutcomesProviderTest,
       MockWorkspaceTransactionScope(path.join(tempDir, ".axm")),
-      LifecycleStepFailureConversionLive,
+      LifecycleFailureConversionLive,
     ).pipe(Layer.provideMerge(baseLayer));
 
     return {

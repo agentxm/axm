@@ -28,6 +28,7 @@ import {
   type RecordingStreams,
 } from "./screen-harness.js";
 
+import { LifecycleFailureConversionLive } from "@agentxm/workspace/lifecycle";
 import {
   KnowledgeIndexLive,
   makeWorkspaceHandlerTestContext,
@@ -38,7 +39,6 @@ import {
   SourceHostProvidersLive,
   HookManagerLive,
   KnowledgeManagerLive,
-  LifecycleStepFailureConversionLive,
   McpServerManagerLive,
   PackManagerLive,
   RuleManagerLive,
@@ -251,7 +251,7 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
       SourceHostProvidersLive,
       CodingAgentRepositoryLive,
       NativeWriteAuthorityLive,
-      LifecycleStepFailureConversionLive,
+      LifecycleFailureConversionLive,
       makeAxmSkillCompatibilityPolicyLayer("0.0.0-spec"),
     ),
     context.fullLayer,

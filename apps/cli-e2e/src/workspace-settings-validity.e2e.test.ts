@@ -43,6 +43,7 @@ const expectMachineError = (
   stdout: string,
   stderr: string,
   settingsPath: string,
+  code: "validation" | "unavailable",
   fault: string,
   correction: string,
 ): void => {
@@ -50,7 +51,7 @@ const expectMachineError = (
   expect(isRecord(document)).toBe(true);
   if (!isRecord(document)) return;
   expect(document["ok"]).toBe(false);
-  expect(document["code"]).toBe("validation");
+  expect(document["code"]).toBe(code);
   const serialized = JSON.stringify(document);
   expect(serialized).toContain(settingsPath);
   expect(serialized).toContain(fault);
@@ -89,6 +90,7 @@ describe("project workspace settings validity prerequisite", () => {
           invalid: "{ not-json",
           args: ["skills", "list"],
           machine: false,
+          code: "validation",
           fault: "not valid JSON",
           correction: "Fix the JSON syntax",
         },
@@ -98,6 +100,7 @@ describe("project workspace settings validity prerequisite", () => {
           invalid: JSON.stringify({ agents: "claude-code" }),
           args: ["lint", "--json"],
           machine: true,
+          code: "validation",
           fault: "Invalid workspace settings",
           correction: "Edit the settings file",
         },
@@ -107,6 +110,7 @@ describe("project workspace settings validity prerequisite", () => {
           invalid: "directory",
           args: ["sync", "--preview", "--non-interactive", "--json"],
           machine: true,
+          code: "unavailable",
           fault: "could not be read",
           correction: "Repair the settings file permissions",
         },
@@ -116,6 +120,7 @@ describe("project workspace settings validity prerequisite", () => {
           invalid: "{ not-json",
           args: ["agents", "add", "opencode", "--non-interactive", "--json"],
           machine: true,
+          code: "validation",
           fault: "not valid JSON",
           correction: "Fix the JSON syntax",
         },
@@ -125,6 +130,7 @@ describe("project workspace settings validity prerequisite", () => {
           invalid: JSON.stringify({ agents: "claude-code" }),
           args: ["agents", "add", "opencode", "--accept-warnings", "--non-interactive", "--json"],
           machine: true,
+          code: "validation",
           fault: "Invalid workspace settings",
           correction: "Edit the settings file",
         },
@@ -143,6 +149,7 @@ describe("project workspace settings validity prerequisite", () => {
             "--json",
           ],
           machine: true,
+          code: "validation",
           fault: "not valid JSON",
           correction: "Fix the JSON syntax",
         },
@@ -173,6 +180,7 @@ describe("project workspace settings validity prerequisite", () => {
             result.stdout,
             result.stderr,
             testCase.settingsPath,
+            testCase.code,
             testCase.fault,
             testCase.correction,
           );

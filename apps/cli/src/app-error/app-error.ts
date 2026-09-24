@@ -3,6 +3,13 @@ import * as Data from "effect/Data";
 import * as Schema from "effect/Schema";
 
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+import {
+  defaultFailureDetail,
+  type FailureInput,
+  type FailureMetadata,
+  type FailureProblem,
+  type FailureSuggestedAction,
+} from "@agentxm/workspace/transitions/planning";
 
 /**
  * Named exit codes for the CLI. `Success` is the only exit code without an
@@ -221,28 +228,6 @@ const ExitCodeByAppErrorCode: Readonly<Record<AppErrorCode, ExitCode>> = {
 
 export const exitCodeFor = (code: AppErrorCode): ExitCode => ExitCodeByAppErrorCode[code];
 
-export type AppErrorMetadata = {
-  readonly request?: {
-    readonly service: string;
-    readonly method?: string;
-    readonly url: string;
-  };
-  readonly response?: {
-    readonly status: number;
-    readonly requestId?: string;
-    readonly problemCode?: string;
-    readonly body?: unknown;
-  };
-  readonly requestPolicy?: {
-    readonly retryable: boolean;
-    readonly attemptCount: number;
-    readonly maxAttempts: number;
-    readonly exhausted: boolean;
-    readonly stoppedBy?: "attempt-limit" | "deadline" | "replay-unsafe";
-    readonly replaySafety: "safe" | "mutation" | "idempotency-keyed";
-  };
-};
-
 export type AppErrorAction =
   | HumanHandoffAction
   | {
@@ -253,53 +238,6 @@ export type AppErrorAction =
       readonly expiresAt?: string;
       readonly resume?: string;
     };
-
-const LockfileVersionNumberSchema = Schema.Int.pipe(
-  Schema.check(
-    Schema.makeFilter((value) =>
-      Number.isSafeInteger(value) && value > 0
-        ? undefined
-        : "lockfile versions must be positive safe integers",
-    ),
-  ),
-);
-
-export const WorkspaceLockfileVersionUnsupportedProblemSchema = Schema.Struct({
-  code: Schema.Literal("workspace-lockfile-version-unsupported"),
-  path: Schema.String,
-  observedVersion: LockfileVersionNumberSchema,
-  supportedVersion: LockfileVersionNumberSchema,
-  direction: Schema.Literals(["older", "newer"] as const),
-}).annotate({
-  identifier: "WorkspaceLockfileVersionUnsupportedProblem",
-  title: "Unsupported Workspace Lockfile Version",
-  description: "Identifies an unsupported workspace lockfile version and its direction.",
-});
-
-export const AppErrorProblemSchema = Schema.Union([
-  WorkspaceLockfileVersionUnsupportedProblemSchema,
-]).annotate({
-  identifier: "AppErrorProblem",
-  title: "App Error Problem",
-  description: "Structured details for a recognized CLI problem.",
-});
-
-export type AppErrorProblem = typeof AppErrorProblemSchema.Type;
-
-/**
- * One input a failure is about, such as the name a validation rejected. Human
- * output lists inputs as fields under the reason. They restate what the
- * detail already names, so the machine envelope does not carry them.
- */
-export interface AppErrorInput {
-  readonly label: string;
-  readonly value: string;
-}
-
-/** CLI-only suggestion metadata is removed before public rendering or serialization. */
-export type AppErrorSuggestedAction = SuggestedAction & {
-  readonly commandScope?: "workspace" | "global";
-};
 
 const DefaultTitleByAppErrorCode: Readonly<Record<AppErrorCode, string>> = {
   auth: "Unauthorized",
@@ -320,28 +258,7 @@ const DefaultTitleByAppErrorCode: Readonly<Record<AppErrorCode, string>> = {
   timeout: "Timed Out",
 };
 
-const DefaultDetailByAppErrorCode: Readonly<Record<AppErrorCode, string>> = {
-  auth: "Credentials were rejected, are invalid, or expired.",
-  forbidden: "You do not have permission to perform this operation.",
-  not_found: "The requested resource was not found.",
-  conflict: "The request conflicts with the current state.",
-  rate_limit: "The request was rate limited.",
-  validation: "The request is invalid.",
-  network: "The remote service could not be reached.",
-  unavailable: "The service is temporarily unavailable.",
-  quota: "A quota, storage, or plan limit has been exhausted.",
-  internal: "An internal error occurred.",
-  usage: "The command invocation is invalid.",
-  issues: "The command found issues.",
-  auth_required: "Authentication requires approval from a person.",
-  auth_expired: "The pending authentication flow expired.",
-  auth_denied: "The pending authentication flow was denied or cancelled.",
-  timeout: "The operation did not complete before the deadline.",
-};
-
 export const defaultTitleFor = (code: AppErrorCode): string => DefaultTitleByAppErrorCode[code];
-
-export const defaultDetailFor = (code: AppErrorCode): string => DefaultDetailByAppErrorCode[code];
 
 /**
  * Baseline suggested next actions per error category, used when a caller
@@ -416,14 +333,14 @@ export class AppError extends Data.TaggedError("AppError")<{
   readonly code: AppErrorCode;
   readonly title: string;
   readonly detail: string;
-  readonly metadata?: AppErrorMetadata;
+  readonly metadata?: FailureMetadata;
   readonly status?: "pending-human";
   readonly retryable?: boolean;
   readonly blockedOn?: "human";
   readonly action?: AppErrorAction;
-  readonly problem?: AppErrorProblem;
-  readonly inputs?: ReadonlyArray<AppErrorInput>;
-  readonly suggestions?: ReadonlyArray<AppErrorSuggestedAction>;
+  readonly problem?: FailureProblem;
+  readonly inputs?: ReadonlyArray<FailureInput>;
+  readonly suggestions?: ReadonlyArray<FailureSuggestedAction>;
   readonly cause: unknown;
 }> {}
 
@@ -431,16 +348,16 @@ export const makeAppError = (args: {
   readonly code: AppErrorCode;
   readonly title?: string;
   readonly detail?: string;
-  readonly metadata?: AppErrorMetadata;
+  readonly metadata?: FailureMetadata;
   readonly status?: "pending-human";
   readonly retryable?: boolean;
   readonly blockedOn?: "human";
   readonly action?: AppErrorAction;
-  readonly problem?: AppErrorProblem;
-  readonly inputs?: ReadonlyArray<AppErrorInput>;
+  readonly problem?: FailureProblem;
+  readonly inputs?: ReadonlyArray<FailureInput>;
   readonly recover?: string;
   readonly cmd?: string;
-  readonly suggestions?: ReadonlyArray<AppErrorSuggestedAction>;
+  readonly suggestions?: ReadonlyArray<FailureSuggestedAction>;
   readonly cause?: unknown;
 }): AppError => {
   const recover =
@@ -457,7 +374,7 @@ export const makeAppError = (args: {
   return new AppError({
     code: args.code,
     title: args.title ?? defaultTitleFor(args.code),
-    detail: args.detail ?? defaultDetailFor(args.code),
+    detail: args.detail ?? defaultFailureDetail(args.code),
     ...(args.metadata !== undefined ? { metadata: args.metadata } : {}),
     ...(args.status !== undefined ? { status: args.status } : {}),
     ...(args.retryable !== undefined ? { retryable: args.retryable } : {}),

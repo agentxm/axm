@@ -199,5 +199,3 @@ export {
   type MaterializeRegistryPackageArgs,
   type RegistryPackageMaterializationMessages,
 } from "./registry-materialization.js";
-
-export { projectionErrorToStepFailure } from "./projection-step-failure.js";

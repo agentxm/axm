@@ -1,17 +1,22 @@
 /**
- * Error category vocabulary for serialized plan and step data.
+ * Error category vocabulary and the rendered failure shape for serialized
+ * plan and step data.
  *
  * The categories are the same strings as the CLI's `AppErrorCode` so machine
  * output stays byte-identical across the package boundary; the conversion
  * boundary beside the CLI error vocabulary asserts the parity at compile
- * time. The kernel owns the vocabulary because plans, journals, and machine
- * output serialize it; it never owns titles, exit codes, or rendering.
+ * time. The kernel owns the vocabulary and the rendered failure because
+ * plans, journals, and machine output serialize them, and because a failure
+ * must read the same whether it surfaces directly at a command boundary or
+ * settles a plan step. The application owns only exit codes and the envelope
+ * it prints.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import * as Schema from "effect/Schema";
 
+import type { RegistryErrorMetadata } from "@agentxm/registry-client";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 /** Every category a plan, step result, or risk condition may serialize. */
@@ -40,39 +45,200 @@ export const OperationErrorCategorySchema = Schema.Literals(OPERATION_ERROR_CATE
 
 export type OperationErrorCategory = (typeof OPERATION_ERROR_CATEGORIES)[number];
 
+const DefaultDetailByCategory: Readonly<Record<OperationErrorCategory, string>> = {
+  auth: "Credentials were rejected, are invalid, or expired.",
+  forbidden: "You do not have permission to perform this operation.",
+  not_found: "The requested resource was not found.",
+  conflict: "The request conflicts with the current state.",
+  rate_limit: "The request was rate limited.",
+  validation: "The request is invalid.",
+  network: "The remote service could not be reached.",
+  unavailable: "The service is temporarily unavailable.",
+  quota: "A quota, storage, or plan limit has been exhausted.",
+  internal: "An internal error occurred.",
+  usage: "The command invocation is invalid.",
+  issues: "The command found issues.",
+  auth_required: "Authentication requires approval from a person.",
+  auth_expired: "The pending authentication flow expired.",
+  auth_denied: "The pending authentication flow was denied or cancelled.",
+  timeout: "The operation did not complete before the deadline.",
+};
+
+/** The sentence a failure reads when its producer supplied none. */
+export const defaultFailureDetail = (category: OperationErrorCategory): string =>
+  DefaultDetailByCategory[category];
+
 /**
  * The `SuggestedAction` contract shape, without the safe-command runtime
- * filter: a step failure carries whatever suggestion its producer chose, and
- * the CLI boundary sanitizes suggested commands before rendering them.
+ * filter, plus where its command runs: a step failure carries whatever
+ * suggestion its producer chose, and the application boundary sanitizes
+ * suggested commands and applies `commandScope` before rendering them. A
+ * `global` command is never narrowed to the current workspace scope.
  */
-const CarriedSuggestedActionSchema = Schema.Struct({
+const FailureSuggestedActionSchema = Schema.Struct({
   description: Schema.String,
   cmd: Schema.optional(Schema.String),
   url: Schema.optional(Schema.String),
+  commandScope: Schema.optional(Schema.Literals(["workspace", "global"] as const)),
 });
 
-// The carried shape and the contract type must stay the same type.
-type CarriedSuggestedAction = typeof CarriedSuggestedActionSchema.Type;
-const _suggestedActionParity = (value: CarriedSuggestedAction): SuggestedAction => value;
+export type FailureSuggestedAction = typeof FailureSuggestedActionSchema.Type;
+
+// Every contract suggestion is a carried suggestion, and a carried suggestion
+// without its scope is a contract suggestion.
+const _suggestedActionParity = (
+  value: SuggestedAction,
+  carried: Omit<FailureSuggestedAction, "commandScope">,
+): readonly [FailureSuggestedAction, SuggestedAction] => [value, carried];
 void _suggestedActionParity;
 
+const LockfileVersionNumberSchema = Schema.Int.pipe(
+  Schema.check(
+    Schema.makeFilter((value) =>
+      Number.isSafeInteger(value) && value > 0
+        ? undefined
+        : "lockfile versions must be positive safe integers",
+    ),
+  ),
+);
+
+const WorkspaceLockfileVersionUnsupportedProblemSchema = Schema.Struct({
+  code: Schema.Literal("workspace-lockfile-version-unsupported"),
+  path: Schema.String,
+  observedVersion: LockfileVersionNumberSchema,
+  supportedVersion: LockfileVersionNumberSchema,
+  direction: Schema.Literals(["older", "newer"] as const),
+}).annotate({
+  identifier: "WorkspaceLockfileVersionUnsupportedProblem",
+  title: "Unsupported Workspace Lockfile Version",
+  description: "Identifies an unsupported workspace lockfile version and its direction.",
+});
+
+/** Structured details for a recognized failure, keyed by a stable problem code. */
+export const FailureProblemSchema = Schema.Union([
+  WorkspaceLockfileVersionUnsupportedProblemSchema,
+]).annotate({
+  identifier: "FailureProblem",
+  title: "Failure Problem",
+  description: "Structured details for a recognized failure.",
+});
+
+export type FailureProblem = typeof FailureProblemSchema.Type;
+
 /**
- * The one serializable failure a plan step settles with. Step authors own the
- * category choice and the user-facing detail sentence; `suggestions` carries
- * only display data the boundary cannot reconstruct from fields, and `cause`
- * carries the typed feature error or raw cause for diagnostic chains. The CLI
- * boundary owns rendering, exit codes, and the AppError envelope.
+ * Request, response, and request-policy evidence a remote failure carries.
+ * The shape is the one the registry client records, so a registry failure
+ * keeps its evidence on every path.
+ */
+export const FailureMetadataSchema = Schema.Struct({
+  request: Schema.optional(
+    Schema.Struct({
+      service: Schema.String,
+      method: Schema.optional(Schema.String),
+      url: Schema.String,
+    }),
+  ),
+  response: Schema.optional(
+    Schema.Struct({
+      status: Schema.Number,
+      requestId: Schema.optional(Schema.String),
+      problemCode: Schema.optional(Schema.String),
+      body: Schema.optional(Schema.Unknown),
+    }),
+  ),
+  requestPolicy: Schema.optional(
+    Schema.Struct({
+      retryable: Schema.Boolean,
+      attemptCount: Schema.Number,
+      maxAttempts: Schema.Number,
+      exhausted: Schema.Boolean,
+      stoppedBy: Schema.optional(
+        Schema.Literals(["attempt-limit", "deadline", "replay-unsafe"] as const),
+      ),
+      replaySafety: Schema.Literals(["safe", "mutation", "idempotency-keyed"] as const),
+    }),
+  ),
+});
+
+export type FailureMetadata = typeof FailureMetadataSchema.Type;
+
+// Registry evidence travels as failure metadata without translation.
+const _registryMetadataParity = (value: RegistryErrorMetadata): FailureMetadata => value;
+void _registryMetadataParity;
+
+/**
+ * One input a failure is about, such as the name a validation rejected.
+ * Human output lists inputs as fields under the reason. They restate what the
+ * detail already names, so machine output does not carry them.
+ */
+const FailureInputSchema = Schema.Struct({
+  label: Schema.String,
+  value: Schema.String,
+});
+
+export type FailureInput = typeof FailureInputSchema.Type;
+
+/**
+ * The one rendered, serializable failure. A plan step settles with it, and
+ * the application boundary projects it into its envelope, so a typed failure
+ * reads the same on both paths. `title` is absent when the category's own
+ * title fits; `problem` identifies a recognized failure for machines;
+ * `metadata`, `retryable`, and `inputs` carry what the producer recorded;
+ * `suggestions` carry the producer's recoveries; and `cause` carries the
+ * typed feature error or raw cause for diagnostic chains.
  */
 export class StepFailure extends Schema.TaggedError<StepFailure>()("StepFailure", {
   category: OperationErrorCategorySchema,
+  title: Schema.optional(Schema.String),
   detail: Schema.String,
-  suggestions: Schema.optional(Schema.Array(CarriedSuggestedActionSchema)),
+  problem: Schema.optional(FailureProblemSchema),
+  metadata: Schema.optional(FailureMetadataSchema),
+  retryable: Schema.optional(Schema.Boolean),
+  inputs: Schema.optional(Schema.Array(FailureInputSchema)),
+  suggestions: Schema.optional(Schema.Array(FailureSuggestedActionSchema)),
   cause: Schema.optional(Schema.Unknown),
 }) {}
 
 /**
- * Detail sentence for a stale execution candidate; the CLI conversion emits
- * it verbatim so blocked output stays byte-identical.
+ * Construct a rendered failure the way a producer states it: the category's
+ * default sentence when none is given, and a `recover` sentence (with its
+ * optional command) as the first suggestion, ahead of any others.
+ */
+export const makeStepFailure = (args: {
+  readonly category: OperationErrorCategory;
+  readonly title?: string | undefined;
+  readonly detail?: string | undefined;
+  readonly problem?: FailureProblem | undefined;
+  readonly metadata?: FailureMetadata | undefined;
+  readonly retryable?: boolean | undefined;
+  readonly inputs?: ReadonlyArray<FailureInput> | undefined;
+  readonly recover?: string | undefined;
+  readonly cmd?: string | undefined;
+  readonly suggestions?: ReadonlyArray<FailureSuggestedAction> | undefined;
+  readonly cause?: unknown;
+}): StepFailure => {
+  const suggestions = [
+    ...(args.recover === undefined
+      ? []
+      : [{ description: args.recover, ...(args.cmd === undefined ? {} : { cmd: args.cmd }) }]),
+    ...(args.suggestions ?? []),
+  ];
+  return new StepFailure({
+    category: args.category,
+    ...(args.title === undefined ? {} : { title: args.title }),
+    detail: args.detail ?? defaultFailureDetail(args.category),
+    ...(args.problem === undefined ? {} : { problem: args.problem }),
+    ...(args.metadata === undefined ? {} : { metadata: args.metadata }),
+    ...(args.retryable === undefined ? {} : { retryable: args.retryable }),
+    ...(args.inputs === undefined || args.inputs.length === 0 ? {} : { inputs: args.inputs }),
+    ...(suggestions.length === 0 ? {} : { suggestions }),
+    ...(args.cause === undefined ? {} : { cause: args.cause }),
+  });
+};
+
+/**
+ * Detail sentence for a stale execution candidate; every rendering of the
+ * failure reads it verbatim.
  */
 export const STALE_CANDIDATE_DETAIL = "The execution candidate became stale before apply.";
 
@@ -100,8 +266,7 @@ export class CandidateFingerprintFailed extends Schema.TaggedError<CandidateFing
 
 /**
  * An apply-mode execution reached the plan pipeline without approval
- * recovery metadata: a caller violated the `PlanExecution` contract. The CLI
- * boundary owns the rendering.
+ * recovery metadata: a caller violated the `PlanExecution` contract.
  */
 export class ApprovalRecoveryMissing extends Schema.TaggedError<ApprovalRecoveryMissing>()(
   "ApprovalRecoveryMissing",
@@ -118,7 +283,7 @@ export class PlanInteractionFailed extends Schema.TaggedError<PlanInteractionFai
   {
     category: OperationErrorCategorySchema,
     detail: Schema.String,
-    suggestions: Schema.optional(Schema.Array(CarriedSuggestedActionSchema)),
+    suggestions: Schema.optional(Schema.Array(FailureSuggestedActionSchema)),
     cause: Schema.optional(Schema.Unknown),
   },
 ) {}

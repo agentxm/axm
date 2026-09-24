@@ -55,10 +55,8 @@ import {
 import { handleListMcpServers } from "../mcps/list.js";
 import { injectWriteFaults } from "@agentxm/workspace/transitions/settlement/testing";
 import { handleSync } from "./handler.js";
-import {
-  LifecycleStepFailureConversionLive,
-  SyncStepFailureConversionLive,
-} from "../../feature-errors.js";
+import { LifecycleFailureConversionLive } from "@agentxm/workspace/lifecycle";
+import { ReconciliationFailureConversionLive } from "@agentxm/workspace/reconciliation";
 
 const writeJson = (filePath: string, value: unknown) => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -651,8 +649,8 @@ describe("root sync handler", { timeout: 15_000 }, () => {
       ctx.wsLayer,
       sourceProvidersLayer,
       CodingAgentRepositoryLive,
-      LifecycleStepFailureConversionLive,
-      SyncStepFailureConversionLive,
+      LifecycleFailureConversionLive,
+      ReconciliationFailureConversionLive,
     );
     const managersLayer = Layer.provide(
       Layer.mergeAll(
@@ -680,8 +678,8 @@ describe("root sync handler", { timeout: 15_000 }, () => {
           ctx.wsLayer,
           sourceProvidersLayer,
           CodingAgentRepositoryLive,
-          LifecycleStepFailureConversionLive,
-          SyncStepFailureConversionLive,
+          LifecycleFailureConversionLive,
+          ReconciliationFailureConversionLive,
           McpSecretStoreLive,
           managersLayer,
           packManagerLayer,

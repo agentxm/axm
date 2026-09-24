@@ -11,10 +11,13 @@ import {
   type ResolvedUnit,
 } from "@agentxm/workspace/transitions/planning";
 
+import { LockfileVersionUnsupported } from "@agentxm/workspace/desired-state";
+import { workspaceFailureToStepFailure } from "@agentxm/workspace/reconciliation";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { operationDoc, unsettledUnits } from "./operation-view.js";
 import { RETRYABLE_FAILURE_CATEGORIES, retryCanHelp } from "./operation-output.js";
+import { suggestionsForScope } from "./root/shared/scoped-command.js";
 import { paintText } from "./screen/paint-text.js";
 
 export const specification = defineSpecification({
@@ -71,6 +74,17 @@ const failedUnit = (
     detail: `${id} did not update.`,
     ...(suggestions === undefined ? {} : { suggestions }),
   }),
+  artifact: artifact("1.0.0"),
+});
+
+/** A unit whose step settled with the kernel's rendering of a typed failure. */
+const unitFailedWith = (id: string, error: StepFailure): ResolvedUnit<unknown> => ({
+  id,
+  label: `skills/${id}`,
+  state: "failed",
+  disposition: "restored",
+  message: error.detail,
+  error,
   artifact: artifact("1.0.0"),
 });
 
@@ -161,6 +175,24 @@ describe("A non-success result names a fitting recovery", () => {
     const painted = nextLines(resolution, []).join("\n");
     expect(painted).toContain("axm update skills/research --refresh");
     expect(painted).toContain("axm update skills/okf --refresh");
+  });
+
+  it("names the recovery a typed failure states when it settles a plan step", () => {
+    const error = workspaceFailureToStepFailure(
+      new LockfileVersionUnsupported({
+        path: "/w/axm-lock.yaml",
+        observedVersion: 9,
+        supportedVersion: 8,
+      }),
+    );
+    const resolution = resolutionOf([unitFailedWith("research", error)]);
+    // A newer lockfile needs a newer AXM; rerunning this one cannot help.
+    expect(retryCanHelp(unsettledUnits(resolution))).toBe(false);
+    expect(nextLines(resolution, []).join("\n")).toContain("axm upgrade");
+    // The upgrade runs for the whole installation, never narrowed to a scope.
+    expect(suggestionsForScope(error.suggestions ?? [], "user")).toEqual([
+      { description: "Upgrade AXM before accessing this workspace.", cmd: "axm upgrade" },
+    ]);
   });
 
   it("keeps the inventory suggestion where every unit settled as planned", () => {

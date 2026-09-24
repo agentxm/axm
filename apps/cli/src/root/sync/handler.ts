@@ -19,7 +19,7 @@ import { SyncWorkspace } from "@agentxm/workspace/reconciliation/sync";
 import { SYNC_PRESENTATION } from "@agentxm/workspace/reconciliation";
 
 import { makeAppError } from "../../app-error/index.js";
-import { syncFailureToAppError } from "../../feature-errors.js";
+import { toAppError } from "../../app-error/conversions.js";
 import {
   emitOperationResolution,
   retryCanHelp,
@@ -65,7 +65,7 @@ const handleSyncBody = Effect.fn("Sync.handle")(function* (args: HandleSyncArgs)
   const target = args.target ?? Option.none<string>();
   const type = args.type ?? Option.none<Exclude<ExtensionType, "pack">>();
   const candidate = yield* SyncWorkspace.prepare({ target, type }).pipe(
-    Effect.mapError(syncFailureToAppError),
+    Effect.mapError(toAppError),
   );
 
   if (candidate._tag === "AlreadyReconciled") {

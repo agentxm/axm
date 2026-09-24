@@ -341,10 +341,12 @@ describe("toPlanResolutionResult", () => {
 
     expect(toPlanResolutionResult(value).failure).toEqual({
       code: "conflict",
+      title: "Conflict",
       message: "integrity mismatch",
     });
     expect(toPlanResolutionResult(value, { verbose: true }).failure).toEqual({
       code: "conflict",
+      title: "Conflict",
       message: "integrity mismatch",
       causes: [{ _tag: "Error", message: "lock drift" }],
     });
@@ -591,6 +593,7 @@ describe("toPlanResolutionResult", () => {
         code: "internal",
         error: {
           code: "internal",
+          title: "Internal Error",
           message: "copy failed",
           causes: [{ _tag: "Error", message: "source missing" }],
         },
@@ -619,6 +622,7 @@ describe("toPlanResolutionResult", () => {
         code: "internal",
         error: {
           code: "internal",
+          title: "Internal Error",
           message: "copy failed",
           causes: [
             {

@@ -26,7 +26,7 @@ import {
   operationResolutionSummary,
   retryCanHelp,
 } from "../../operation-output.js";
-import { extensionLifecycleFailedToAppError } from "../../feature-errors.js";
+import { toAppError } from "../../app-error/conversions.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
@@ -211,7 +211,7 @@ export const handleUpdate = (args: RootUpdateHandlerArgs) =>
         },
         handleTargetedUpdateBody(args, source).pipe(
           Effect.catchTag("ExtensionLifecycleFailed", (failure) =>
-            Effect.fail(extensionLifecycleFailedToAppError(failure)),
+            Effect.fail(toAppError(failure)),
           ),
         ),
       ),

@@ -229,17 +229,7 @@ export const collectUnreachableRetirement = (
             }
           }),
       }).pipe(
-        Effect.mapError((cause) =>
-          adapter.toStepFailure(
-            cause instanceof WorkspaceSyncFailed
-              ? cause
-              : new WorkspaceSyncFailed({
-                  category: "internal",
-                  detail: "Acquired-state retirement failed",
-                  cause,
-                }),
-          ),
-        ),
+        Effect.mapError(adapter.toStepFailure),
         Effect.as({
           result: "success" as const,
           message: `Retired ${retired.length} unreachable accepted extensions`,
@@ -369,17 +359,7 @@ export const collectLeftoverRetirement = (
                 ),
               ),
           }).pipe(
-            Effect.mapError((cause) =>
-              adapter.toStepFailure(
-                cause instanceof WorkspaceSyncFailed
-                  ? cause
-                  : new WorkspaceSyncFailed({
-                      category: "internal",
-                      detail: `Removing installed package ${identity} failed`,
-                      cause,
-                    }),
-              ),
-            ),
+            Effect.mapError(adapter.toStepFailure),
             Effect.as({
               result: "success" as const,
               message: `Removed ${leftover.type} ${identity}: installed but not desired`,

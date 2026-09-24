@@ -119,7 +119,7 @@ export {
   projectionFactHasInvalidOwnership,
   projectionFactIsViolation,
   projectionFactRequiresReconciliation,
-  projectionUnavailability,
+  projectionUnavailabilityReason,
   WorkspaceInvariantFacts,
   type ProjectionInvariantFact,
   type ProjectionObservationStatus,

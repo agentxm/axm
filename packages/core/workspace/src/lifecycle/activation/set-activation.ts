@@ -54,6 +54,7 @@ import {
   realizeActivation,
   type ActivationRealization,
   type ActivationRealized,
+  syncFailureRendering,
   type SyncFailureAdapter,
   type SyncPolicyFailure,
   type RecipeRequirements,
@@ -441,17 +442,6 @@ const instructionGate = (): Effect.Effect<
 const conflictFrom = (detail: string) => (cause: SyncPolicyFailure) =>
   new ExtensionLifecycleFailed({ category: "conflict", detail, cause });
 
-const failureAdapter = (conversion: StepFailureConversion["Service"]): SyncFailureAdapter => ({
-  toStepFailure: (cause) =>
-    conversion.toStepFailure(
-      new ExtensionLifecycleFailed({
-        category: "conflict",
-        detail: "detail" in cause ? cause.detail : cause._tag,
-        cause,
-      }),
-    ),
-});
-
 /**
  * Settle a leaf activation: the graph decides whether the request changes
  * anything, and the recipe decides how the resulting graph is realized.
@@ -710,7 +700,7 @@ const settlePack = (request: SetActivationRequest, adapter: SyncFailureAdapter) 
  */
 const settleActivation = (request: SetActivationRequest) =>
   Effect.gen(function* () {
-    const adapter = failureAdapter(yield* StepFailureConversion);
+    const adapter = syncFailureRendering;
     return request.type === "pack"
       ? yield* settlePack(request, adapter)
       : yield* settleLeaf(request, adapter);

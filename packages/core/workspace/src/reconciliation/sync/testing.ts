@@ -2,16 +2,15 @@
  * @agentxm/workspace/reconciliation/sync deterministic test ports.
  *
  * A reconciliation runs over a real workspace and the real per-type managers,
- * so this module does not answer for those. What it supplies is the part the
- * application owns and a specification therefore cannot borrow from the
- * feature: the conversion from sync's typed failures into the kernel's
- * `StepFailure`, the plan-invocation services every sync plan opens once per
- * run, and the request a sweep is admitted with.
+ * so this module does not answer for those. What it supplies is a structural
+ * conversion from sync's typed failures into the kernel's `StepFailure`, the
+ * plan-invocation services every sync plan opens once per run, and the
+ * request a sweep is admitted with.
  *
  * The conversion here preserves the failure's own category and detail rather
- * than inventing wording, so an example asserting on a refused step reads the
- * feature's sentence and not a rehearsal of the CLI's renderer. Production
- * source never imports this module.
+ * than rendering it, so an example asserting on a refused step reads the
+ * feature's sentence and not the kernel's rendering of it. Production source
+ * never imports this module.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -71,7 +70,7 @@ export const structuralSyncStepFailure = (failure: SyncPolicyFailure): StepFailu
   });
 };
 
-/** The application-owned conversion, bound to {@link structuralSyncStepFailure}. */
+/** The sync failure conversion, bound to {@link structuralSyncStepFailure}. */
 export const SyncStepFailureConversionTest: Layer.Layer<SyncStepFailureConversion> = Layer.succeed(
   SyncStepFailureConversion,
   { toStepFailure: structuralSyncStepFailure },

@@ -127,16 +127,18 @@ export {
   type WorkspaceInvariantFactsService,
 } from "./invariant-facts.js";
 export {
+  ACCEPTED_RESOLUTION_INCOMPATIBLE_BLOCKER_ID,
   EXTENSION_CONSTRAINT_INVARIANT_PREDICATE,
+  acceptedResolutionIncompatibleRecovery,
+  acceptedResolutionIncompatibleText,
   extensionConstraintFactText,
   makeExtensionConstraintInvariantFact,
   makeProspectiveExtensionConstraintFacts,
-  planExtensionConstraintFact,
   type ExtensionConstraintFactContributor,
   type ExtensionConstraintInvariantFact,
-  type ExtensionConstraintPlanningDecision,
   type ProspectiveExtensionConstraintCandidate,
 } from "./constraint-invariant-fact.js";
+export { canonicalObservationFactText } from "./canonical-observation-fact.js";
 export {
   buildPackDependencyReachability,
   classifyPackDependencyReachability,

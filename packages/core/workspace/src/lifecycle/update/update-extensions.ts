@@ -57,9 +57,11 @@ import {
   ReleaseAgePosture,
   makeConfiguredReleaseAgeEvaluation,
   normalizeReleaseAgeRecords,
+  releaseAgeRecord,
+  releaseAgeRecords,
   resolveTargetedUpdateContext,
   type ExtensionResolutionFailed,
-  type ReleaseAgeHoldbackRecord,
+  type HeldReleasePolicy,
   type ReleaseAgeOperationEvidence,
   type TargetedUpdateContext,
   type TargetedUpdatePublicContext,
@@ -273,26 +275,19 @@ export type PrepareUpdateRequirements =
 const updatePresentation = (type: WorkspaceUpdatableType) =>
   operationPresentation({ imperative: "update", past: "Updated", gerund: "Updating" }, type);
 
-const releaseAgeRecord = (args: {
-  readonly intent: RootUpdateIntent;
-  readonly evidence: ReleaseAgeEvidence;
-  readonly currentVersion?: string;
-  readonly selectedVersion?: string;
-}): ReleaseAgeHoldbackRecord => ({
-  reason: "minimum-release-age",
-  target: args.intent.target,
-  dependencyPath: [args.intent.target],
-  ...Option.match(args.intent.versionRange, {
-    onNone: () => ({}),
-    onSome: (requestedRange) => ({ requestedRange }),
-  }),
-  ...(args.currentVersion === undefined ? {} : { currentVersion: args.currentVersion }),
-  ...(args.selectedVersion === undefined ? {} : { selectedVersion: args.selectedVersion }),
-  candidateVersion: args.evidence.version,
-  publishedAt: args.evidence.publishedAt,
-  eligibleAt: args.evidence.eligibleAt,
-  minimumReleaseAgeSeconds: args.evidence.minimumReleaseAgeSeconds,
+/** The subject every release-age record about one targeted update names. */
+const releaseAgeSubject = (intent: RootUpdateIntent, currentVersion?: string) => ({
+  target: intent.target,
+  requestedRange: Option.getOrUndefined(intent.versionRange),
+  currentVersion,
 });
+
+/**
+ * A targeted update preserves already accepted, usable desired state when
+ * the minimum release age holds back every eligible release, and otherwise
+ * stops without writing.
+ */
+const TARGETED_UPDATE_HELD_RELEASE_POLICY: HeldReleasePolicy = "preserve-or-block";
 
 // -----------------------------------------------------------------------------
 // Desired-state facts a targeted update is decided against
@@ -448,10 +443,9 @@ const planResolvedTarget = Effect.fn("UpdateExtensions.planResolvedTarget")(func
         : yield* planPackInstall({
             packToInstall: ref,
             versionRange,
-            unattended: true,
             nonInteractive: args.nonInteractive,
             releaseAgeEvaluation: args.releaseAgeEvaluation,
-            releaseAgeHoldbackBehavior: "preserve-or-block",
+            heldRelease: TARGETED_UPDATE_HELD_RELEASE_POLICY,
           });
   }
 });
@@ -495,13 +489,11 @@ const heldCandidate = Effect.fn("UpdateExtensions.heldCandidate")(function* (arg
   readonly context?: TargetedUpdatePublicContext;
 }) {
   const currentVersion = yield* preservableRegistryVersion(args.intent);
-  const record = releaseAgeRecord({
-    intent: args.intent,
-    evidence: args.evidence,
-    ...(Option.isNone(currentVersion)
-      ? {}
-      : { currentVersion: currentVersion.value, selectedVersion: currentVersion.value }),
-  });
+  const record = releaseAgeRecord(
+    releaseAgeSubject(args.intent, Option.getOrUndefined(currentVersion)),
+    args.evidence,
+    Option.getOrUndefined(currentVersion),
+  );
   const releaseAge: ReleaseAgeOperationEvidence = {
     evaluatedAt: args.evaluatedAt,
     holdbacks: [record],
@@ -631,32 +623,16 @@ const prepareTargeted = Effect.fn("UpdateExtensions.prepareTargeted")(function* 
           ...(targetedContext === undefined ? {} : { context: targetedContext }),
         });
 
-  const holdbacks =
-    selected.kind === "exempted" || selected.newerHeld === undefined
-      ? []
-      : [
-          releaseAgeRecord({
-            intent,
-            evidence: selected.newerHeld,
-            selectedVersion: selected.ref.version,
-            ...(Option.isSome(accepted) && accepted.value.version === selected.ref.version
-              ? { currentVersion: accepted.value.version }
-              : {}),
-          }),
-        ];
-  const bypasses =
-    selected.kind === "selected"
-      ? []
-      : [
-          {
-            ...releaseAgeRecord({
-              intent,
-              evidence: selected.bypassed,
-              selectedVersion: selected.ref.version,
-            }),
-            ...selected.exemption,
-          },
-        ];
+  const { holdbacks, bypasses } = releaseAgeRecords(
+    releaseAgeSubject(
+      intent,
+      Option.isSome(accepted) && accepted.value.version === selected.ref.version
+        ? accepted.value.version
+        : undefined,
+    ),
+    selected,
+    selected.ref.version,
+  );
 
   return {
     outcome: "planned",

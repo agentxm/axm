@@ -341,10 +341,12 @@ describe("toPlanResolutionResult", () => {
 
     expect(toPlanResolutionResult(value).failure).toEqual({
       code: "conflict",
+      title: "Conflict",
       message: "integrity mismatch",
     });
     expect(toPlanResolutionResult(value, { verbose: true }).failure).toEqual({
       code: "conflict",
+      title: "Conflict",
       message: "integrity mismatch",
       causes: [{ _tag: "Error", message: "lock drift" }],
     });
@@ -591,6 +593,7 @@ describe("toPlanResolutionResult", () => {
         code: "internal",
         error: {
           code: "internal",
+          title: "Internal Error",
           message: "copy failed",
           causes: [{ _tag: "Error", message: "source missing" }],
         },
@@ -619,6 +622,7 @@ describe("toPlanResolutionResult", () => {
         code: "internal",
         error: {
           code: "internal",
+          title: "Internal Error",
           message: "copy failed",
           causes: [
             {
@@ -815,7 +819,7 @@ describe("toPlanResolutionResult", () => {
     ]);
   });
 
-  it("redacts credential material in blocking detail and failure messages", () => {
+  it("redacts credential material in blocking detail and failure messages and titles", () => {
     const blocked = resolution({
       blocking: {
         class: "external-blocked",
@@ -828,6 +832,7 @@ describe("toPlanResolutionResult", () => {
       units: [unit("a", "failed")],
       failure: new StepFailure({
         category: "internal",
+        title: "Registry refused api_key=abc12345",
         detail: "upload failed with api_key=abc12345",
       }),
     });
@@ -835,9 +840,10 @@ describe("toPlanResolutionResult", () => {
     expect(toPlanResolutionResult(blocked).blocking?.detail).toBe(
       "registry refused Bearer [REDACTED]",
     );
-    expect(toPlanResolutionResult(failed).failure?.message).toBe(
-      "upload failed with api_key=[REDACTED]",
-    );
+    expect(toPlanResolutionResult(failed).failure).toMatchObject({
+      title: "Registry refused api_key=[REDACTED]",
+      message: "upload failed with api_key=[REDACTED]",
+    });
   });
 });
 

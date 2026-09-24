@@ -1,7 +1,7 @@
 ---
 status: active
-last-reviewed: 2026-08-18
-version: 0.4.0
+last-reviewed: 2026-09-23
+version: 0.5.0
 description: Consult when an AXM service or command can fail. Defines the AXM-only AppError, registry translation, cancellation, and runtime-boundary policy.
 depends-on:
   - ./effect.md
@@ -28,6 +28,13 @@ violated internal invariants that callers cannot recover from.
 service errors -> command translation -> AppError | PromptCancelled -> runtime
 ```
 
+The workspace kernel renders every typed failure it constructs or carries
+once, into a `StepFailure`, through `workspaceFailureToStepFailure`. Plan steps
+settle with that value, and `app-error/conversions` projects it into
+`AppError`, so a failure reads the same on the direct and plan paths. Put a
+family's wording beside its owner in the kernel; never add a CLI-side
+rendering for a kernel failure.
+
 `AppError` is AXM's single CLI-facing failure. Use `makeAppError`, preserve the
 original `cause`, and choose one closed category: `issues`, `usage`,
 `not_found`, `auth`, `forbidden`, `conflict`, `rate_limit`, `network`,
@@ -51,9 +58,10 @@ pure mapping owned by
 
 Translate generated Registry client failures with
 `registryClientErrorToProblem` or `registryErrorToProblem` from
-`packages/supporting/registry-client/src/translate.ts`; the application boundary converts
-the typed registry failures to `AppError` through the registered
-`app-error/conversions` dispatcher. Do not add operation-local HTTP status
+`packages/supporting/registry-client/src/translate.ts`; the workspace kernel
+renders the typed registry failures with their metadata, and the application
+boundary projects them to `AppError` through `app-error/conversions`. Do not
+add operation-local HTTP status
 switches. Keep RFC 9457 response bodies opaque in `metadata.response`; decode a
 focused schema next to a use case that needs a specific field. Configure transport, transient retry, and client provision at
 the shared boundary described by the Effect v4

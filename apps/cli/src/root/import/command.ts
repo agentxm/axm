@@ -11,7 +11,7 @@ import {
 } from "@agentxm/workspace/transitions/planning";
 
 import { withArgvTracking } from "../../cli-runtime/index.js";
-import { authoringFailureToAppError } from "../../feature-errors.js";
+import { failureToAppError } from "../../app-error/conversions.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
@@ -50,7 +50,7 @@ const handleImportBody = Effect.fn("Import.handle")(function* (args: ImportHandl
     source: args.source,
     target: args.target,
     enable: args.enable,
-  }).pipe(Effect.mapError(authoringFailureToAppError));
+  }).pipe(Effect.mapError(failureToAppError));
 
   const execution = yield* makePlanExecution(
     { preview: args.preview },
@@ -64,7 +64,7 @@ const handleImportBody = Effect.fn("Import.handle")(function* (args: ImportHandl
     ),
   );
   const resolution = yield* ImportNativeExtension.previewOrApply(candidate, execution).pipe(
-    Effect.mapError(authoringFailureToAppError),
+    Effect.mapError(failureToAppError),
   );
   yield* emitOperationResolution(`${group} import`, resolution);
 });

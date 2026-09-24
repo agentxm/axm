@@ -90,7 +90,7 @@ export const planMcpServerUninstall: (
         );
         const lockEntry = Option.getOrUndefined(
           yield* lockfile
-            .mcpServerForConnection(target.name)
+            .acceptedEntry("mcp-server", target.name)
             .pipe(Effect.catch(() => Effect.succeed(Option.none()))),
         );
         const canonicalPath = yield* acceptedLockedCanonicalPath({

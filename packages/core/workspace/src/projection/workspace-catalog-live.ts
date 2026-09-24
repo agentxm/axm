@@ -8,9 +8,9 @@
  * application composition root.
  *
  * The port's failure carrier wants a category and a sentence at construction.
- * This module classifies the workspace failure structurally and carries the
- * typed failure itself in `cause`, so an application boundary that recognises
- * it renders its own envelope instead of re-reading these words.
+ * This module takes both from the kernel's rendering of the workspace failure
+ * and carries the typed failure itself in `cause`, so every path renders it
+ * the same way.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -48,6 +48,7 @@ import {
   WorkspaceRecords,
   type WorkspaceStateReadFailure,
 } from "../desired-state/index.js";
+import { workspaceStateReadFailureToStepFailure } from "../transitions/planning/plan/step-failure-conversions.js";
 import { CodingAgentRepository } from "./agents/coding-agent-repository.js";
 
 const sortNames = (names: ReadonlyArray<string>): ReadonlyArray<string> =>
@@ -57,32 +58,35 @@ const sortNames = (names: ReadonlyArray<string>): ReadonlyArray<string> =>
 type CatalogFailure = WorkspaceStateReadFailure | CodingAgentFailure;
 
 /**
- * Classify a workspace failure into the port's carried vocabulary. Source
- * resolution keys fallback decisions on the category, so the classification is
- * structural: invalid stored state is a validation failure, an escaped
- * workspace root is a workspace issue, and everything else is unavailability.
+ * Carry a workspace failure through the port. Source resolution keys fallback
+ * decisions on the category, so the category is the one the workspace-state
+ * rendering chose; the sentence and recovery are that rendering's too, and
+ * the typed failure itself stays in `cause` so the boundary renders it
+ * exactly as it does wherever else it surfaces. An agent probe failure is
+ * unavailability.
  */
 const catalogUnavailable = (
   failure: CatalogFailure,
 ): WorkspaceCatalogUnavailable | Config.ConfigError => {
-  if (failure._tag === "ConfigError") return failure;
   switch (failure._tag) {
+    case "ConfigError":
+      return failure;
+    case "SettingsIoError":
     case "SettingsParseError":
     case "SettingsDecodeError":
+    case "LockfileIoError":
     case "LockfileParseError":
     case "LockfileDecodeError":
     case "LockfileVersionUnsupported":
+    case "WorkspaceRootEscape": {
+      const rendered = workspaceStateReadFailureToStepFailure(failure);
       return new WorkspaceCatalogUnavailable({
-        category: "validation",
-        detail: `Workspace state is invalid (${failure._tag}).`,
+        category: rendered.category,
+        detail: rendered.detail,
+        ...(rendered.suggestions === undefined ? {} : { suggestions: rendered.suggestions }),
         cause: failure,
       });
-    case "WorkspaceRootEscape":
-      return new WorkspaceCatalogUnavailable({
-        category: "issues",
-        detail: `Workspace root ${failure.workspaceRoot} escapes ${failure.allowedRoot}.`,
-        cause: failure,
-      });
+    }
     default:
       return new WorkspaceCatalogUnavailable({
         category: "unavailable",

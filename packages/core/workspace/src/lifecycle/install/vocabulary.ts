@@ -31,6 +31,7 @@ import type { ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/ext
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import type {
   ExtensionResolutionFailed,
+  HeldReleasePolicy,
   PackDependencyRefResolver,
 } from "../../resolution/index.js";
 import type { SourceHostProviders, WorkspaceCatalog } from "../../resolution/sources/index.js";
@@ -46,6 +47,7 @@ import type {
   AcceptedCanonicalRefError,
   AcceptedResolutionWriter,
   ConfiguredAgentOutcomesProvider,
+  DesiredStateGraph,
   DesiredStateReader,
   DesiredStateWriter,
   ExtensionPaths,
@@ -231,14 +233,23 @@ export type PackRecoveryDependencyResolver = PackDependencyRefResolver<
   WorkspaceLocation | SettingsReader | LockfileReader | FileSystem.FileSystem | Path.Path
 >;
 
+/**
+ * What an install does when the minimum release age holds back every release
+ * a constraint admits: keep a complete, usable accepted resolution, or refuse
+ * before any write. Targeted and configured installs, and the sync recovery
+ * that replays a configured install, all take their policy from here.
+ */
+export const INSTALL_HELD_RELEASE_POLICY: HeldReleasePolicy = "preserve-or-block";
+
 /** One pack graph transition and the policy that governs it. */
 export interface PackInstallIntent {
   readonly packToInstall: PackRef;
   readonly versionRange: Option.Option<VersionRange>;
-  readonly unattended?: boolean;
   readonly nonInteractive: boolean;
-  readonly releaseAgeEvaluation?: ReleaseAgeEvaluation;
-  readonly releaseAgeHoldbackBehavior?: "continue" | "preserve-or-block";
+  /** The one evaluation every member is selected under. */
+  readonly releaseAgeEvaluation: ReleaseAgeEvaluation;
+  /** The policy the operation that classified this intent declared. */
+  readonly heldRelease: HeldReleasePolicy;
   /** Immutable dependency authority a deterministic recovery workflow supplies. */
   readonly dependencyResolver?: PackRecoveryDependencyResolver;
   /** Render shared aggregate projections after a larger enclosing transition. */
@@ -249,4 +260,11 @@ export interface PackInstallIntent {
    * the accepted resolution, so reusing it would preserve the divergence.
    */
   readonly forceCanonical?: boolean;
+  /**
+   * The proposed desired-state graph whose effective constraints the members
+   * are selected within. A sweep that advances several Packs builds it once
+   * with every selected Pack's manifest; omitted, this Pack's manifest is the
+   * only proposed change.
+   */
+  readonly desiredGraph?: DesiredStateGraph;
 }

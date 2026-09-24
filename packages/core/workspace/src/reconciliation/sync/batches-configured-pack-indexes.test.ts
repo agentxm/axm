@@ -33,6 +33,14 @@ it.effect("batches configured Pack indexes despite uneven workspace read complet
         const secondReady = yield* Deferred.make<void>();
         const batches: string[][] = [];
         let secondReads = 0;
+        // Hold the first Pack's accepted-resolution read, and note when the
+        // second Pack's has been read twice, whichever accessor reads it.
+        const gate = (type: string, name: string) =>
+          Effect.gen(function* () {
+            if (type === "pack" && name === "first") yield* Deferred.await(releaseFirst);
+            if (type === "pack" && name === "second" && ++secondReads === 2)
+              yield* Deferred.succeed(secondReady, undefined);
+          });
         const http = HttpClient.make((request) =>
           Effect.sync(() => {
             if (request.body._tag !== "Uint8Array") throw new Error("Expected JSON request bytes.");
@@ -58,14 +66,9 @@ it.effect("batches configured Pack indexes despite uneven workspace read complet
         const planning = yield* SyncWorkspace.prepare(syncRequest()).pipe(
           Effect.provideService(LockfileReader, {
             ...lockfile,
-            entry: (type, name) =>
-              Effect.gen(function* () {
-                const entry = yield* lockfile.entry(type, name);
-                if (type === "pack" && name === "first") yield* Deferred.await(releaseFirst);
-                if (type === "pack" && name === "second" && ++secondReads === 2)
-                  yield* Deferred.succeed(secondReady, undefined);
-                return entry;
-              }),
+            entry: (type, name) => Effect.tap(lockfile.entry(type, name), () => gate(type, name)),
+            acceptedEntry: (type, name) =>
+              Effect.tap(lockfile.acceptedEntry(type, name), () => gate(type, name)),
           }),
           Effect.provideService(HttpClient.HttpClient, http),
           Effect.provideService(OperationRequestBudget, budget),

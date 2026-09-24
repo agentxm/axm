@@ -53,6 +53,8 @@ export interface DesiredExtensionNodeView {
 export interface DesiredExtensionGraphView {
   readonly complete: boolean;
   readonly nodes: ReadonlyArray<DesiredExtensionNodeView>;
+  /** The kind of every fact that leaves the graph incomplete. */
+  readonly problems: ReadonlyArray<{ readonly type: string }>;
 }
 
 /**

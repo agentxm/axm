@@ -17,7 +17,7 @@ import type {
   CanonicalConstraintContributor,
   CanonicalConstraintMismatchObservation,
 } from "../desired-state/index.js";
-import type { DesiredExtensionNode } from "../desired-state/index.js";
+import { formatConstraintContributors, type DesiredExtensionNode } from "../desired-state/index.js";
 
 export const EXTENSION_CONSTRAINT_INVARIANT_PREDICATE =
   "workspace/extension-constraints-satisfied" as const;
@@ -157,20 +157,8 @@ export const makeProspectiveExtensionConstraintFacts = (args: {
     .sort((left, right) => left.subject.identity.localeCompare(right.subject.identity));
 };
 
-export type ExtensionConstraintPlanningDecision =
-  | {
-      readonly readiness: "ready";
-      readonly reason: "satisfying-version-resolved";
-      readonly version: string;
-    }
-  | {
-      readonly readiness: "blocked";
-      readonly reason: "no-satisfying-version" | "candidate-violates-constraints";
-      readonly candidateVersion?: string;
-    };
-
 export const makeExtensionConstraintInvariantFact = (
-  desired: DesiredExtensionNode,
+  desired: Pick<DesiredExtensionNode, "type" | "name" | "identity" | "constraints">,
   observation: CanonicalConstraintMismatchObservation,
 ): ExtensionConstraintInvariantFact => ({
   predicate: EXTENSION_CONSTRAINT_INVARIANT_PREDICATE,
@@ -200,37 +188,9 @@ export const makeExtensionConstraintInvariantFact = (
   },
 });
 
-export const planExtensionConstraintFact = (
-  fact: ExtensionConstraintInvariantFact,
-  candidateVersion: string | undefined,
-): ExtensionConstraintPlanningDecision => {
-  if (candidateVersion === undefined) {
-    return { readiness: "blocked", reason: "no-satisfying-version" };
-  }
-  if (
-    fact.expectation.ranges.every((constraint) => semver.satisfies(candidateVersion, constraint))
-  ) {
-    return {
-      readiness: "ready",
-      reason: "satisfying-version-resolved",
-      version: candidateVersion,
-    };
-  }
-  return {
-    readiness: "blocked",
-    reason: "candidate-violates-constraints",
-    candidateVersion,
-  };
-};
-
-const contributorText = (contributor: ExtensionConstraintFactContributor): string =>
-  contributor.source === "pack"
-    ? `${contributor.dependingPack ?? "unknown Pack"} range=${contributor.range} location=${contributor.location}`
-    : `settings range=${contributor.range} location=${contributor.location}`;
-
 /** Stable human and machine-display detail shared by lint and sync. */
 export const extensionConstraintFactText = (fact: ExtensionConstraintInvariantFact): string => {
-  const constraints = fact.authority.constraints.map(contributorText).join(", ");
+  const constraints = formatConstraintContributors(fact.authority.constraints);
   const versions = [
     fact.observation.acceptedVersion === undefined
       ? undefined
@@ -250,3 +210,30 @@ export const extensionConstraintFactText = (fact: ExtensionConstraintInvariantFa
     ...versions,
   ].join("; ");
 };
+
+/**
+ * The machine-readable reference a refusal carries when an accepted
+ * resolution no longer satisfies its effective constraint. Sync and a Pack
+ * operation refuse the same fact for the same reason.
+ */
+export const ACCEPTED_RESOLUTION_INCOMPATIBLE_BLOCKER_ID = "accepted-resolution-incompatible";
+
+/**
+ * The one text for an accepted resolution its effective constraint excludes:
+ * the constraint fact and the blocking decision. Sync's blocker and a Pack
+ * operation's refusal both state it here.
+ */
+export const acceptedResolutionIncompatibleText = (
+  fact: ExtensionConstraintInvariantFact,
+): string =>
+  `${extensionConstraintFactText(fact)}; decision=blocked; reason=${ACCEPTED_RESOLUTION_INCOMPATIBLE_BLOCKER_ID}`;
+
+/**
+ * The one route every refusal of that fact names: explicitly update the
+ * affected extension, by its FQN, to accept a resolution its effective
+ * constraint admits.
+ */
+export const acceptedResolutionIncompatibleRecovery = (fqn: string) => ({
+  description: "Explicitly update the extension to accept a satisfying resolution.",
+  cmd: `axm update ${fqn}`,
+});

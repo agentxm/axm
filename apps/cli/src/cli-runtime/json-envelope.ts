@@ -2,11 +2,14 @@ import { HumanHandoffActionSchema } from "@agentxm/registry-protocol/unstable/hu
 import * as Schema from "effect/Schema";
 
 import {
+  FailureMetadataSchema,
+  FailureProblemSchema,
+  type FailureMetadata,
+} from "@agentxm/workspace/transitions/planning";
+import {
   AppErrorCodeSchema,
-  AppErrorProblemSchema,
   type AppError,
   type AppErrorCode,
-  type AppErrorMetadata,
   type SerializedErrorCause,
   serializeErrorCauseChain,
   effectiveSuggestionsFor,
@@ -25,7 +28,7 @@ export const JsonErrorEnvelopeSchema = Schema.Struct({
   code: AppErrorCodeSchema,
   title: Schema.String,
   detail: Schema.String,
-  problem: Schema.optional(AppErrorProblemSchema),
+  problem: Schema.optional(FailureProblemSchema),
   cause: Schema.optional(
     Schema.Array(
       Schema.Struct({
@@ -36,37 +39,7 @@ export const JsonErrorEnvelopeSchema = Schema.Struct({
       }),
     ),
   ),
-  metadata: Schema.optional(
-    Schema.Struct({
-      request: Schema.optional(
-        Schema.Struct({
-          service: Schema.String,
-          method: Schema.optional(Schema.String),
-          url: Schema.String,
-        }),
-      ),
-      response: Schema.optional(
-        Schema.Struct({
-          status: Schema.Number,
-          requestId: Schema.optional(Schema.String),
-          problemCode: Schema.optional(Schema.String),
-          body: Schema.optional(Schema.Unknown),
-        }),
-      ),
-      requestPolicy: Schema.optional(
-        Schema.Struct({
-          retryable: Schema.Boolean,
-          attemptCount: Schema.Number,
-          maxAttempts: Schema.Number,
-          exhausted: Schema.Boolean,
-          stoppedBy: Schema.optional(
-            Schema.Literals(["attempt-limit", "deadline", "replay-unsafe"] as const),
-          ),
-          replaySafety: Schema.Literals(["safe", "mutation", "idempotency-keyed"] as const),
-        }),
-      ),
-    }),
-  ),
+  metadata: Schema.optional(FailureMetadataSchema),
   status: Schema.optional(Schema.Literal("pending-human")),
   retryable: Schema.optional(Schema.Boolean),
   blockedOn: Schema.optional(Schema.Literal("human")),
@@ -159,7 +132,7 @@ export const makeJsonErrorEnvelope = (args: {
   readonly title: string;
   readonly detail: string;
   readonly cause?: ReadonlyArray<SerializedErrorCause>;
-  readonly metadata?: AppErrorMetadata;
+  readonly metadata?: FailureMetadata;
   readonly status?: "pending-human";
   readonly retryable?: boolean;
   readonly blockedOn?: "human";

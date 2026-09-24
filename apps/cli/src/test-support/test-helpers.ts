@@ -16,7 +16,7 @@ import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
 import { ensureWorkspaceFiles } from "./test-stubs.js";
 import { AppError } from "../app-error/index.js";
-import { isKnownFailure, toAppError } from "../app-error/conversions.js";
+import { toAppError } from "../app-error/conversions.js";
 import { KnowledgeIndexLive } from "@agentxm/workspace/knowledge/query/live";
 import { AuthLoginPresenterTest, CredentialStoreTest } from "@agentxm/registry-access/testing";
 import { RegistryClientFactoryLive, RegistryUrl } from "@agentxm/registry-client";
@@ -79,11 +79,11 @@ export {
   SkillManagerLive,
   SubagentManagerLive,
 };
+import { LifecycleFailureConversionLive } from "@agentxm/workspace/lifecycle";
 import {
-  LifecycleStepFailureConversionLive,
-  SyncStepFailureConversionLive,
-} from "../feature-errors.js";
-export { LifecycleStepFailureConversionLive };
+  isWorkspaceFailure,
+  ReconciliationFailureConversionLive,
+} from "@agentxm/workspace/reconciliation";
 import { ExecutionDirectory } from "../execution-directory.js";
 import { ReleaseAgePosture } from "@agentxm/workspace/resolution";
 import { WorkspaceInitializationInteractionLive } from "../workspace-initialization-interaction-live.js";
@@ -454,9 +454,8 @@ export const getAppError = (error: unknown): AppError => {
   if (error instanceof AppError) {
     return error;
   }
-  // Typed workspace failures assert through their boundary rendering; the
-  // byte-for-byte contract for each tag is pinned by the conversion tests.
-  if (isKnownFailure(error)) {
+  // Typed workspace failures assert through their boundary rendering.
+  if (isWorkspaceFailure(error)) {
     return toAppError(error);
   }
   throw new Error("Expected AppError", { cause: error });
@@ -702,8 +701,8 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
     wsLayer,
     Layer.provide(SourceHostProvidersLive, Layer.merge(cliTestContext.baseLayer, wsLayer)),
     KnowledgeIndexLive,
-    LifecycleStepFailureConversionLive,
-    SyncStepFailureConversionLive,
+    LifecycleFailureConversionLive,
+    ReconciliationFailureConversionLive,
     // The official skill the executable carries, and the terminal selection
     // port, exactly as the runtime composes them: a test drives the product's
     // own layers rather than a rehearsal of them. The flags layer's

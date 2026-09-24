@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as semver from "semver";
@@ -21,7 +22,11 @@ import type { WorkspaceLayout } from "./layout.js";
 import type { PackLockEntry } from "../lockfile/schema.js";
 import type { PackManifestsPort } from "./pack-manifests.js";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
-import { intersectVersionConstraints } from "@agentxm/extension-model/unstable/version-constraints";
+import {
+  intersectVersionConstraints,
+  VersionRangeSchema,
+  type VersionRange,
+} from "@agentxm/extension-model/unstable/version-constraints";
 import { mcpRegistryResolutionKey } from "./mcp-source-identity.js";
 
 export type DesiredExtensionOrigin =
@@ -164,6 +169,19 @@ export type DesiredStateProblem =
       readonly name: string;
       readonly location: string;
     };
+
+/** Contributors whose ranges share no version: a blocker every planner reports unchanged. */
+export type DesiredConstraintConflict = Extract<
+  DesiredStateProblem,
+  { readonly type: "constraint-conflict" }
+>;
+
+/** The one range a desired node is selected within, and every contributor that decided it. */
+export interface DesiredEffectiveConstraint {
+  /** The intersection of every contributor's range; none when nothing constrains the node. */
+  readonly range: Option.Option<VersionRange>;
+  readonly contributors: ReadonlyArray<DesiredConstraintContributor>;
+}
 
 export interface DesiredStateGraph {
   readonly complete: boolean;
@@ -350,11 +368,21 @@ const packIdentity = (
   return undefined;
 };
 
+const sortConstraintContributors = (
+  contributors: ReadonlyArray<DesiredConstraintContributor>,
+): ReadonlyArray<DesiredConstraintContributor> =>
+  [...contributors].sort((left, right) => {
+    const byPack = (left.dependingPack ?? "").localeCompare(right.dependingPack ?? "");
+    if (byPack !== 0) return byPack;
+    const byRange = left.range.localeCompare(right.range);
+    return byRange === 0 ? left.location.localeCompare(right.location) : byRange;
+  });
+
 export const collectDesiredConstraintContributors = (
   origins: ReadonlyArray<DesiredExtensionOrigin>,
 ): ReadonlyArray<DesiredConstraintContributor> =>
-  origins
-    .flatMap((origin): ReadonlyArray<DesiredConstraintContributor> => {
+  sortConstraintContributors(
+    origins.flatMap((origin): ReadonlyArray<DesiredConstraintContributor> => {
       if (origin.type === "settings" && origin.authority === "inline") return [];
       if (origin.constraint === undefined) return [];
       if (origin.type === "settings") {
@@ -370,18 +398,142 @@ export const collectDesiredConstraintContributors = (
       return [
         {
           source: "pack",
-          dependingPack: origin.pack.replace(/^workspace:/, ""),
+          dependingPack: packageIdentity(origin.pack),
           range: origin.constraint,
           location: origin.manifestPath,
         },
       ];
-    })
-    .sort((left, right) => {
-      const byPack = (left.dependingPack ?? "").localeCompare(right.dependingPack ?? "");
-      if (byPack !== 0) return byPack;
-      const byRange = left.range.localeCompare(right.range);
-      return byRange === 0 ? left.location.localeCompare(right.location) : byRange;
+    }),
+  );
+
+/**
+ * One owner's contribution after a change a planner is about to make: the
+ * direct declaration for a local name, or a Pack. A direct declaration the
+ * change rewrites without a range contributes nothing afterwards.
+ */
+export type DesiredConstraintProposal =
+  | DesiredConstraintContributor
+  | { readonly source: "settings"; readonly localName: string; readonly range?: undefined };
+
+const contributorOwner = (contributor: DesiredConstraintProposal): string =>
+  contributor.source === "pack"
+    ? `pack:${packageIdentity(contributor.dependingPack ?? "")}`
+    : `settings:${contributor.localName ?? ""}`;
+
+const isContributor = (
+  proposal: DesiredConstraintProposal,
+): proposal is DesiredConstraintContributor => proposal.range !== undefined;
+
+const decodeRange = Schema.decodeUnknownOption(VersionRangeSchema);
+
+/** Intersect every contributor for one subject; the only combination rule the graph applies. */
+const combineConstraintContributors = (
+  subject: { readonly extensionType: ExtensionType; readonly name: string },
+  contributors: ReadonlyArray<DesiredConstraintContributor>,
+): Result.Result<DesiredEffectiveConstraint, DesiredConstraintConflict> => {
+  const constraints = [...new Set(contributors.map((contributor) => contributor.range))];
+  const intersection = intersectVersionConstraints(constraints);
+  // One distinct range is its own intersection, and reads as it was declared.
+  const range =
+    intersection === undefined
+      ? Option.none()
+      : Option.orElse(constraints.length === 1 ? decodeRange(constraints[0]) : Option.none(), () =>
+          decodeRange(intersection),
+        );
+  if (Option.isNone(range)) {
+    return Result.fail({
+      type: "constraint-conflict",
+      extensionType: subject.extensionType,
+      name: subject.name,
+      constraints,
+      contributors,
     });
+  }
+  return Result.succeed({
+    range: contributors.length === 0 ? Option.none() : range,
+    contributors,
+  });
+};
+
+/**
+ * The effective constraint for one desired node: the intersection of every
+ * contributor — its direct declaration and every Pack that requires it — or
+ * the conflict that names them all. This is the only place direct and Pack
+ * contributors combine; planners select within the range it returns and
+ * block on the conflict it reports.
+ *
+ * A sourced MCP server's contributors are its whole source-resolution
+ * closure, because every local connection to one source shares a resolution.
+ *
+ * `proposed` contributions describe a change a planner is about to make: each
+ * one replaces the graph's contributors with the same owner — the direct
+ * declaration for that local name, or that Pack — so a planner asks what the
+ * constraint becomes after its own change without publishing it. A target
+ * the graph does not desire is constrained by its proposed contributors
+ * only, except that a prospective MCP connection naming a source `identity`
+ * joins that source's closure and is constrained by it as well.
+ */
+export const effectiveDesiredConstraint = (
+  graph: Pick<DesiredStateGraph, "nodes" | "mcpSourceClosures">,
+  target: { readonly type: ExtensionType; readonly name: string; readonly identity?: string },
+  proposed: ReadonlyArray<DesiredConstraintProposal> = [],
+): Result.Result<DesiredEffectiveConstraint, DesiredConstraintConflict> => {
+  const node = graph.nodes.find(
+    (candidate) => candidate.type === target.type && candidate.name === target.name,
+  );
+  const closureIdentity =
+    target.type !== "mcp-server"
+      ? undefined
+      : node === undefined
+        ? target.identity
+        : isSourcedDesiredExtension(node)
+          ? node.identity
+          : undefined;
+  const closure =
+    closureIdentity === undefined
+      ? undefined
+      : graph.mcpSourceClosures.find((candidate) => candidate.identity === closureIdentity);
+  const replaced = new Set(proposed.map(contributorOwner));
+  const current = collectDesiredConstraintContributors(
+    closure?.origins ?? node?.origins ?? [],
+  ).filter((contributor) => !replaced.has(contributorOwner(contributor)));
+  return combineConstraintContributors(
+    {
+      extensionType: target.type,
+      name:
+        closure === undefined
+          ? target.name
+          : [...new Set([...closure.localNames, target.name])].sort().join(", "),
+    },
+    sortConstraintContributors([...current, ...proposed.filter(isContributor)]),
+  );
+};
+
+/**
+ * A node's origins apart from the excluded Packs. Pack identities compare
+ * without the `workspace:` prefix, so an authored Pack and the identity a
+ * caller names for it are one Pack.
+ */
+export const originsOutsidePacks = (
+  node: Pick<DesiredExtensionNode, "origins">,
+  excluding: Iterable<string>,
+): ReadonlyArray<DesiredExtensionOrigin> => {
+  const excluded = new Set([...excluding].map(packageIdentity));
+  return node.origins.filter(
+    (origin) => origin.type !== "pack" || !excluded.has(packageIdentity(origin.pack)),
+  );
+};
+
+/**
+ * Whether something other than the excluded Packs still requires this node:
+ * its direct declaration or another Pack. Removing, replacing, or disabling
+ * the excluded Packs leaves such a node desired, so it is retained rather
+ * than retired.
+ */
+export const isRequiredByAnotherOrigin = (
+  node: Pick<DesiredExtensionNode, "origins">,
+  excluding: Iterable<string>,
+): boolean => originsOutsidePacks(node, excluding).length > 0;
 
 const parsePackManifest = (raw: string) => {
   let parsed: unknown;
@@ -827,54 +979,54 @@ export const buildDesiredStateGraph = ({
           ],
           origins: [...(existing?.origins ?? []), ...node.origins],
         });
-        continue;
-      }
-      if (intersectVersionConstraints(node.constraints) === undefined) {
-        problems.push({
-          type: "constraint-conflict",
-          extensionType: node.type,
-          name: node.name,
-          constraints: node.constraints,
-          contributors: collectDesiredConstraintContributors(node.origins),
-        });
       }
     }
 
     const mcpSourceClosures = [...mcpClosuresByIdentity.values()].sort((left, right) =>
       left.identity.localeCompare(right.identity),
     );
-    for (const closure of mcpSourceClosures) {
-      if (intersectVersionConstraints(closure.constraints) === undefined) {
-        problems.push({
-          type: "constraint-conflict",
-          extensionType: "mcp-server",
-          name: closure.localNames.join(", "),
-          constraints: closure.constraints,
-          contributors: collectDesiredConstraintContributors(closure.origins),
-        });
-      }
+    const settled = { nodes: [...nodes.values()], mcpSourceClosures };
+    const effectiveByNode = new Map(
+      settled.nodes.map((node) => [
+        nodeKey(node.type, node.name),
+        effectiveDesiredConstraint(settled, node),
+      ]),
+    );
+    const reportedConflicts = new Set<string>();
+    for (const node of settled.nodes) {
+      const effective = effectiveByNode.get(nodeKey(node.type, node.name));
+      if (effective === undefined || Result.isSuccess(effective)) continue;
+      // Every local connection of one MCP source closure shares its conflict.
+      const conflictKey = `${effective.failure.extensionType}:${effective.failure.name}`;
+      if (reportedConflicts.has(conflictKey)) continue;
+      reportedConflicts.add(conflictKey);
+      problems.push(effective.failure);
     }
 
     const typeOrder = new Map(extensionTypes.map((type, index) => [type, index]));
-    const orderedNodes = [...nodes.values()]
+    const orderedNodes = settled.nodes
       .map((node) => {
         if (isInlineDesiredExtension(node)) return node;
         const constraints =
           node.type === "mcp-server"
             ? (mcpClosuresByIdentity.get(node.identity)?.constraints ?? node.constraints)
             : node.constraints;
-        const constraint = intersectVersionConstraints(constraints);
+        const effective = effectiveByNode.get(nodeKey(node.type, node.name));
+        const constraint =
+          effective === undefined || Result.isFailure(effective)
+            ? undefined
+            : Option.getOrUndefined(effective.success.range);
         return {
           ...node,
           constraints,
           source:
-            constraints.length > 0 && constraint !== undefined
-              ? node.type === "mcp-server"
+            constraint === undefined
+              ? node.source
+              : node.type === "mcp-server"
                 ? withVersionConstraint(node.source, constraint)
                 : node.identity.startsWith("@")
                   ? `${node.identity}@${constraint}`
-                  : node.source
-              : node.source,
+                  : node.source,
         };
       })
       .sort((left, right) => {

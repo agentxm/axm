@@ -1,14 +1,25 @@
-import type { DesiredStateProblem } from "./desired-state-graph.js";
+import type { DesiredConstraintContributor, DesiredStateProblem } from "./desired-state-graph.js";
 
-const constraintContributorText = (
-  contributor: Extract<
-    DesiredStateProblem,
-    { readonly type: "constraint-conflict" }
-  >["contributors"][number],
+/** Stable text naming every contributor to a desired constraint, shared by lint and sync. */
+export const formatConstraintContributors = (
+  contributors: ReadonlyArray<DesiredConstraintContributor>,
 ): string =>
-  contributor.source === "pack"
-    ? `${contributor.dependingPack ?? "unknown Pack"} range=${contributor.range} location=${contributor.location}`
-    : `settings range=${contributor.range} location=${contributor.location}`;
+  contributors
+    .map((contributor) =>
+      contributor.source === "pack"
+        ? `${contributor.dependingPack ?? "unknown Pack"} range=${contributor.range} location=${contributor.location}`
+        : `settings range=${contributor.range} location=${contributor.location}`,
+    )
+    .join(", ");
+
+type PackManifestContentMismatch = Extract<
+  DesiredStateProblem,
+  { readonly type: "pack-manifest-content-mismatch" }
+>;
+
+/** Stable text for an accepted Pack manifest that differs from the observed one. */
+export const packManifestContentMismatchText = (problem: PackManifestContentMismatch): string =>
+  `accepted version=${problem.acceptedVersion} content=${problem.acceptedContentIdentity}; observed status=${problem.status}${problem.observedVersion === undefined ? "" : ` version=${problem.observedVersion} content=${problem.observedContentIdentity}`}`;
 
 /** Sanitized terminal text for one desired-state problem. */
 export const desiredStateProblemText = (problem: DesiredStateProblem): string => {
@@ -22,11 +33,11 @@ export const desiredStateProblemText = (problem: DesiredStateProblem): string =>
     case "pack-resolution-unavailable":
       return `${problem.pack}: ${problem.detail}`;
     case "pack-manifest-content-mismatch":
-      return `${problem.pack}: accepted version=${problem.acceptedVersion} content=${problem.acceptedContentIdentity}; observed status=${problem.status}${problem.observedVersion === undefined ? "" : ` version=${problem.observedVersion} content=${problem.observedContentIdentity}`}`;
+      return `${problem.pack}: ${packManifestContentMismatchText(problem)}`;
     case "projection-collision":
       return `${problem.extensionType} ${problem.name}: competing identities ${problem.identities.join(", ")}`;
     case "constraint-conflict":
-      return `${problem.extensionType} ${problem.name}: incompatible constraints ${problem.contributors.map(constraintContributorText).join(", ")}; decision=blocked; reason=no-satisfying-version`;
+      return `${problem.extensionType} ${problem.name}: incompatible constraints ${formatConstraintContributors(problem.contributors)}; decision=blocked; reason=no-satisfying-version`;
     case "workspace-owner-missing":
       return `${problem.extensionType} ${problem.name}: workspace owner is missing`;
     case "member-configuration-unbound":

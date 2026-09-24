@@ -104,6 +104,7 @@ import {
   ExtensionNameSchema,
   ExtensionTypeSchema,
   toExtensionTypePlural,
+  type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import { type AxmSkillCompatibilityPolicyService } from "@agentxm/cli-maintenance/official-skill/application";
 import { readAxmSkillWorkspaceCompatibility } from "../../../resolution/index.js";
@@ -172,6 +173,13 @@ export interface BuildLintWorkspaceArgs {
     unknown,
     FileSystem.FileSystem | Path.Path
   >;
+  /**
+   * Whether an extension's own artifact and content rules defer, because its
+   * canonical tree is absent and a workspace rule already reports that
+   * absence. A deferred extension gets no per-extension rule context;
+   * workspace rules still see its manifest.
+   */
+  readonly defersExtensionRules?: (type: ExtensionType, name: string) => boolean;
 }
 
 /**
@@ -230,6 +238,7 @@ export const buildLintWorkspace = (
       readModel,
       scope: args.scope,
       inspectKnowledge: args.inspectKnowledge ?? inspectKnowledgePackage,
+      defersExtensionRules: args.defersExtensionRules ?? (() => false),
     });
     const rule: WorkspaceRuleContext = {
       subject: { root: args.workspaceRoot, scope: args.scope },
@@ -324,6 +333,7 @@ interface BuildLintWorkspaceViewArgs {
     unknown,
     FileSystem.FileSystem | Path.Path
   >;
+  readonly defersExtensionRules: (type: ExtensionType, name: string) => boolean;
 }
 
 /**
@@ -468,15 +478,29 @@ const buildLintWorkspaceView = (
         entry.manifestJson,
       ]),
     );
+    // Only per-extension rule contexts defer; the manifests and Pack
+    // reachability above still cover every installed extension.
+    const inspected =
+      (type: ExtensionType) =>
+      (entry: { readonly name: string }): boolean =>
+        !args.defersExtensionRules(type, entry.name);
     return {
       view: {
-        installedSkills: skillsWithJson.map((entry) => entry.info),
-        installedPacks: installedPacksWithJson.map((entry) => entry.info),
-        subagentContexts: subagentsWithJson.map((entry) => entry.context),
-        mcpServerContexts: mcpServersWithJson.map((entry) => entry.context),
-        hookContexts: hooksWithJson.map((entry) => entry.context),
-        ruleContexts: rulesWithJson.map((entry) => entry.context),
-        knowledgeContexts: knowledgeWithJson.map((entry) => entry.context),
+        installedSkills: skillsWithJson.filter(inspected("skill")).map((entry) => entry.info),
+        installedPacks: installedPacksWithJson
+          .filter((entry) => !args.defersExtensionRules("pack", entry.installed.key.name))
+          .map((entry) => entry.info),
+        subagentContexts: subagentsWithJson
+          .filter(inspected("subagent"))
+          .map((entry) => entry.context),
+        mcpServerContexts: mcpServersWithJson
+          .filter(inspected("mcp-server"))
+          .map((entry) => entry.context),
+        hookContexts: hooksWithJson.filter(inspected("hook")).map((entry) => entry.context),
+        ruleContexts: rulesWithJson.filter(inspected("rule")).map((entry) => entry.context),
+        knowledgeContexts: knowledgeWithJson
+          .filter(inspected("knowledge"))
+          .map((entry) => entry.context),
       },
       installedManifests,
       packDependencyReachability: buildPackDependencyReachability({

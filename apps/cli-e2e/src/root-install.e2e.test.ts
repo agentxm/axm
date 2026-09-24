@@ -87,6 +87,7 @@ interface PlanResult {
   readonly counts: PlanResultCounts;
   readonly units: ReadonlyArray<PlanResultUnit>;
   readonly footprint?: ReadonlyArray<{ readonly path: string; readonly change: string }>;
+  readonly evaluatedAt?: string;
 }
 
 interface JsonCommandResult {
@@ -491,6 +492,13 @@ const publisherFor = (row: ExtensionTypeMatrixRow): Publisher => {
   return publish;
 };
 
+// A release-age evaluation reports the wall-clock instant it was made; parity
+// between two invocations is over every other field and whether both report one.
+const comparableResult = ({ evaluatedAt, ...result }: PlanResult) => ({
+  ...result,
+  evaluated: evaluatedAt !== undefined,
+});
+
 // Progress events carry a wall-clock `atMs` by design; parity between two
 // invocations is over the event sequence with that free field folded out.
 const comparableStderr = (stderr: string): string => {
@@ -749,7 +757,9 @@ describe("axm install", () => {
         // Candidate id and footprint compare too: identity is content-addressed
         // relative to the workspace base, and every mutating surface runs
         // under the operation lifecycle that records the footprint.
-        expect(rootResult.stdout.result).toEqual(surfaceResult.stdout.result);
+        expect(comparableResult(rootResult.stdout.result)).toEqual(
+          comparableResult(surfaceResult.stdout.result),
+        );
         expect(comparableStderr(rootResult.stderr)).toBe(comparableStderr(surfaceResult.stderr));
 
         const rootFootprint = (rootResult.stdout.result.footprint ?? []).map(

@@ -19,7 +19,7 @@ import {
 import { withLiveOperation, withOperationLifecycle } from "../operation-lifecycle.js";
 import { emitNoOpOutcome } from "./shared/no-op-output.js";
 import { makePlanExecution } from "./shared/confirmation-recovery.js";
-import { configurationFailureToAppError } from "../feature-errors.js";
+import { failureToAppError } from "../app-error/conversions.js";
 
 /**
  * The name this command's machine document is registered under in
@@ -46,7 +46,7 @@ const InstructionsColumns = [
 export const handleInstructionsStatus = Effect.fn("Instructions.inspect")(function* () {
   const status = yield* withLiveOperation(
     { command: "instructions", name: "Inspect instruction-file management", mode: "preview" },
-    ManageInstructions.status().pipe(Effect.mapError(configurationFailureToAppError)),
+    ManageInstructions.status().pipe(Effect.mapError(failureToAppError)),
   );
 
   yield* emitResult(status, InstructionsStatusSchema, () => {
@@ -113,7 +113,7 @@ const runInstructions = (
 ) =>
   Effect.gen(function* () {
     const candidate = yield* ManageInstructions.prepare(request).pipe(
-      Effect.mapError(configurationFailureToAppError),
+      Effect.mapError(failureToAppError),
     );
     if (candidate._tag === "Unchanged") {
       yield* emitNoOpOutcome(command, {
@@ -125,7 +125,7 @@ const runInstructions = (
     }
     const execution = yield* makePlanExecution({ preview }, { command: [], arguments: [] }, []);
     const resolution = yield* ManageInstructions.previewOrApply(candidate, execution).pipe(
-      Effect.mapError(configurationFailureToAppError),
+      Effect.mapError(failureToAppError),
     );
     yield* emitOperationResolution(command, resolution);
   });

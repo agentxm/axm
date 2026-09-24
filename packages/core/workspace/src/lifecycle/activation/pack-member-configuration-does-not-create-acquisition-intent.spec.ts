@@ -270,6 +270,39 @@ describe("Pack-member configuration does not create acquisition intent", () => {
       .pipe(Effect.provide(NodeServices.layer));
   });
 
+  it.effect("an enabling preference on a disabled Pack's member stays dormant and valid", () => {
+    const { workspace, registry } = world();
+    publishFirstPackMajor(registry);
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          yield* applyInstall(
+            installRequest({
+              type: "pack",
+              subject: { kind: "source", source: `@acme/packs/${PACK}` },
+            }),
+          );
+          yield* applyActivation({ type: "pack", name: PACK, enabled: false });
+          const settings = readSettings(workspace);
+          workspace.writeFile(
+            "axm.json",
+            `${JSON.stringify({ ...settings, rules: { [RULE]: { enabled: true } } }, null, 2)}\n`,
+          );
+
+          const graph = yield* (yield* DesiredStateReader).graph();
+
+          // The disabled Pack still supplies the member, so the preference is
+          // bound and valid; it enables nothing the Pack no longer routes.
+          expect(graph.problems).toEqual([]);
+          expect(graph.complete).toBe(true);
+          expect(graph.nodes.some((node) => node.type === "rule" && node.name === RULE)).toBe(
+            false,
+          );
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
   it.effect("a configuration entry no configured Pack supplies is reported", () => {
     const { workspace, registry } = world();
     publishFirstPackMajor(registry);

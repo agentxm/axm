@@ -102,7 +102,6 @@ export {
 } from "./install/per-type-install.js";
 export {
   buildConfiguredInstallPlan,
-  buildConfiguredPackInstallPlan,
   type ConfiguredInstallPlanResult,
   type ConfiguredInstallRequirements,
   type ConfiguredInstallableType,
@@ -148,8 +147,6 @@ export {
   configuredPackConstraintBlockPlan,
   PACK_CONSTRAINT_CONFLICT_BLOCKER_ID,
   packUpdateGroups,
-  prospectivePackConstraintProblems,
-  prospectivePackUpdateGroups,
   relevantPackConstraintProblems,
   type PackUpdateGroup,
 } from "../packs/lifecycle/constraint-gate.js";
@@ -233,7 +230,6 @@ export {
 
 // Pack lifecycle operations
 export {
-  expandPackInstallRefs,
   expandPackInstallRefsWithReleaseAge,
   type ReleaseAgeAwarePackExpansion,
 } from "../packs/lifecycle/expansion.js";
@@ -245,7 +241,11 @@ export {
 } from "../packs/lifecycle/operations/install.js";
 
 // How a lifecycle closure serializes its own failures into a plan step.
-export { lifecycleStepFailure, type LifecycleStepFailure } from "./step-failure.js";
+export {
+  LifecycleFailureConversionLive,
+  lifecycleStepFailure,
+  type LifecycleStepFailure,
+} from "./step-failure.js";
 
 // Update: advancing what the workspace already accepted, for a named
 // extension or for the configured entries as a whole.

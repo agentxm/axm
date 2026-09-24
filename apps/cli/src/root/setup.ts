@@ -17,10 +17,8 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 
-import {
-  coerceConfigurationFailure,
-  extensionLifecycleFailedToAppError,
-} from "../feature-errors.js";
+import { toAppError } from "../app-error/conversions.js";
+import { coerceConfigurationFailure } from "../feature-errors.js";
 import { LearnMore, formatLearnMore } from "../formatter.js";
 import { ExecutionDirectory } from "../execution-directory.js";
 import { withRuntime, withWorkspace } from "../runtime.js";
@@ -200,7 +198,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: HandleSetu
   // half-initialized workspace behind.
   const transition = yield* SetupWorkspace.previewOrApply(prepared, {
     bundledSkill: installBundledAxmSkill.pipe(
-      Effect.mapError(extensionLifecycleFailedToAppError),
+      Effect.mapError(toAppError),
       withWorkspace(args.scope),
     ),
   }).pipe(Effect.mapError(coerceConfigurationFailure));

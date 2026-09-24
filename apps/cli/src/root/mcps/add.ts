@@ -15,7 +15,7 @@ import { withRuntime, withWorkspace } from "../../runtime.js";
 import { makePlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
-import { configurationFailureToAppError } from "../../feature-errors.js";
+import { failureToAppError } from "../../app-error/conversions.js";
 
 export interface McpsAddArgs {
   readonly name: string;
@@ -42,7 +42,7 @@ const handleMcpsAddBody = Effect.fn("Mcps.add")(function* (args: McpsAddArgs) {
     ...(Option.isSome(args.url) ? { url: args.url.value } : {}),
     env: args.env,
     headers: args.header,
-  }).pipe(Effect.mapError(configurationFailureToAppError));
+  }).pipe(Effect.mapError(failureToAppError));
 
   if (candidate._tag === "Unchanged") {
     yield* emitNoOpOutcome("mcps.add", {
@@ -59,7 +59,7 @@ const handleMcpsAddBody = Effect.fn("Mcps.add")(function* (args: McpsAddArgs) {
     args.force ? ["accept-warnings"] : [],
   );
   const resolution = yield* AddInlineMcpServer.previewOrApply(candidate, execution).pipe(
-    Effect.mapError(configurationFailureToAppError),
+    Effect.mapError(failureToAppError),
   );
   yield* emitOperationResolution("mcps.add", resolution);
 });

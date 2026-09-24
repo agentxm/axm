@@ -24,12 +24,16 @@ export const specification = defineSpecification({
   title:
     "A workspace update settles related Pack changes together and names what a refusal prevented",
   statement:
-    "A workspace update shall plan selected Packs that share a member as one group against the same proposed graph, refuse a group whose constraints cannot be satisfied before it writes anything, and report every selected Pack that refusal prevented together with the constraints that decided it, while a group that shares no member with a refused one remains free to settle and stays committed.",
+    "A workspace update shall plan selected Packs that share a member as one group against the same proposed graph, refuse a group whose constraints cannot be satisfied — a direct declaration of a shared member contributing its range like any Pack — before it writes anything, and report every selected Pack and directly declared member that refusal prevented together with every constraint that decided it, while a group that shares no member with a refused one remains free to settle and stays committed.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics", "safe-repetition"],
   methods: ["example"],
-  derivedFrom: ["cli/update/advances-resolution-within-intent", "cli/mutations-are-closure-atomic"],
+  derivedFrom: [
+    "cli/update/advances-resolution-within-intent",
+    "cli/mutations-are-closure-atomic",
+    "workspace/desired-state/effective-constraint-has-one-owner",
+  ],
   supersedes: [],
   assumptions: [],
   openQuestions: [
@@ -182,6 +186,54 @@ describe("A workspace update plans coherent groups", () => {
       .pipe(Effect.provide(NodeServices.layer));
   });
 
+  it.effect("a refused group prevents the directly declared member it shares", () => {
+    const { workspace, registry } = world();
+    registry.writeRule("alpha", [{ version: "1.0.0", body: "Alpha one." }]);
+    publishPack(registry, {
+      pack: "alpha-pack",
+      rule: "alpha",
+      packVersion: "1.0.0",
+      memberRange: "^1.0.0",
+    });
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          yield* installPack("alpha-pack");
+          yield* applyInstall(
+            installRequest({
+              type: "rule",
+              subject: { kind: "source", source: "@acme/rules/alpha@^2.0.0 || ^1.0.0" },
+            }),
+          );
+          // The person now pins the member outside the range the Pack requires.
+          workspace.writeFile(
+            "axm.json",
+            workspace.readFile("axm.json").replace("@^2.0.0 || ^1.0.0", "@^2.0.0"),
+          );
+          registry.writeRule("alpha", [
+            { version: "1.0.0", body: "Alpha one." },
+            { version: "2.0.0", body: "Alpha two." },
+          ]);
+          const lockBefore = workspace.readFile("axm-lock.yaml");
+
+          const resolution = expectResolved(yield* applyUpdate(configuredUpdateRequest({})));
+
+          const blocked = resolution.units.filter((unit) => unit.state === "blocked");
+          expect(blocked.map((unit) => unit.label)).toEqual(
+            expect.arrayContaining(["rules/alpha", "@acme/packs/alpha-pack"]),
+          );
+          for (const unit of blocked) {
+            expect(unit.blocking?.reference).toBe("pack-constraint-conflict");
+            expect(unit.message).toContain("settings range=^2.0.0");
+            expect(unit.message).toContain("@acme/packs/alpha-pack range=^1.0.0");
+          }
+          expect(countUnitStates(resolution.units).committed).toBe(0);
+          expect(workspace.readFile("axm-lock.yaml")).toBe(lockBefore);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
   it.effect("a refusal names the selected Pack it prevented and the deciding constraints", () => {
     const { workspace, registry } = world();
     registry.writeRule("alpha", [{ version: "1.0.0", body: "Alpha one." }]);
@@ -228,8 +280,10 @@ describe("A workspace update plans coherent groups", () => {
             );
             const reason = blocked.map((unit) => unit.message ?? "").join(" ");
             expect(reason).toContain("prevented=@acme/packs/alpha-pack");
-            expect(reason).toContain("^1.0.0");
-            expect(reason).toContain("^2.0.0");
+            // Every contributor is named: the direct declaration and the Pack.
+            expect(reason).toContain("settings range=^1.0.0");
+            expect(reason).toContain("@acme/packs/alpha-pack range=^2.0.0");
+            expect(lockContains(workspace, "version: 2.0.0")).toBe(false);
           }
         }),
       )

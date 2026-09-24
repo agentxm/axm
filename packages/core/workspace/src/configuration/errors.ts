@@ -1,23 +1,20 @@
 /**
  * Typed failures for workspace configuration flows. The producer owns the
- * category choice and user-facing wording; the application boundary converts
- * the carried fields into its error envelope verbatim. The CLI's interaction
- * implementation also maps prompt-guard failures into this family, so setup
- * prompts surface through the same conversion.
+ * category choice and user-facing wording, and the kernel renders the carried
+ * fields once for every path. The CLI's interaction implementation also maps
+ * prompt-guard failures into this family, so setup prompts surface through
+ * the same rendering.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import * as Schema from "effect/Schema";
-import {
-  StepFailure,
-  type ApprovalRecoveryMissing,
-  type CandidateFingerprintFailed,
-  type PlanInteractionFailed,
-  restorationIncompleteToStepFailure,
-  workspaceStateReadFailureToStepFailure,
-  workspaceTransactionFailureToStepFailure,
+import type {
+  ApprovalRecoveryMissing,
+  CandidateFingerprintFailed,
+  PlanInteractionFailed,
 } from "../transitions/planning/index.js";
+import { makeStepFailure, type StepFailure } from "../transitions/planning/plan/errors.js";
 import type {
   InvalidAgentId,
   LockfileValidationError,
@@ -29,6 +26,7 @@ import type {
   WorkspaceTransactionFailure,
   WorkspaceTransitionAcquireFailure,
 } from "../transitions/settlement/index.js";
+import { workspaceFailureToStepFailure } from "../reconciliation/failure-rendering.js";
 
 /**
  * Every failure resolving a prepared change through the plan pipeline can
@@ -67,19 +65,21 @@ export class WorkspaceConfigurationFailed extends Schema.TaggedError<WorkspaceCo
 ) {}
 
 /**
- * Serialize a workspace configuration failure into the plan-step vocabulary.
- * The producer already chose the category and the sentence, so both carry
- * over unchanged and the boundary renders the same words whether the failure
+ * Render a workspace configuration failure. The producer already chose the
+ * category and the sentence, so both carry over unchanged, `recover` and
+ * `cmd` lead the suggestions, and the failure reads the same whether it
  * surfaced from a step or from `prepare`.
  */
 export const configurationFailedToStepFailure = (
   failure: WorkspaceConfigurationFailed,
 ): StepFailure =>
-  new StepFailure({
+  makeStepFailure({
     category: failure.category,
     detail: failure.detail,
-    ...(failure.suggestions === undefined ? {} : { suggestions: failure.suggestions }),
-    ...(failure.cause === undefined ? {} : { cause: failure.cause }),
+    recover: failure.recover,
+    cmd: failure.cmd,
+    suggestions: failure.suggestions,
+    cause: failure.cause,
   });
 
 /**
@@ -95,59 +95,8 @@ export type WorkspaceChangeFailure =
   | WorkspaceTransactionFailure;
 
 /**
- * Serialize a workspace change failure into the plan-step vocabulary. Read
- * and transaction failures keep the sentences the capability already chose,
- * so a failure reads the same wherever it was produced.
+ * Serialize a workspace change failure into the plan-step vocabulary: the
+ * same rendering the command boundary projects for that failure.
  */
-export const workspaceChangeFailedToStepFailure = (
-  failure: WorkspaceChangeFailure,
-): StepFailure => {
-  switch (failure._tag) {
-    case "StepFailure":
-      return failure;
-    case "SettingsDecodeError":
-    case "SettingsIoError":
-    case "SettingsParseError":
-    case "LockfileDecodeError":
-    case "LockfileIoError":
-    case "LockfileParseError":
-    case "LockfileVersionUnsupported":
-    case "WorkspaceRootEscape":
-      return workspaceStateReadFailureToStepFailure(failure);
-    case "TransitionLockError":
-    case "TransitionLockUnavailable":
-    case "WorkspaceDirectoryError":
-    case "WorkspaceSnapshotError":
-    case "WorkspaceTransitionCompromised":
-      return workspaceTransactionFailureToStepFailure(failure);
-    case "WorkspaceRestorationIncomplete":
-      return restorationIncompleteToStepFailure(failure);
-    case "InvalidAgentId":
-      return new StepFailure({
-        category: "validation",
-        detail: `Unknown agent ID: ${failure.agentId}`,
-        suggestions: [
-          { description: "Inspect supported agent IDs.", cmd: "axm agents list --available" },
-        ],
-        cause: failure.cause,
-      });
-    case "SettingsWriteError":
-      return new StepFailure({
-        category: "internal",
-        detail: `Workspace settings at ${failure.path} could not be written`,
-        cause: failure.cause,
-      });
-    case "LockfileWriteError":
-      return new StepFailure({
-        category: "internal",
-        detail: `Workspace lockfile at ${failure.path} could not be written`,
-        cause: failure.cause,
-      });
-    case "LockfileValidationError":
-      return new StepFailure({
-        category: "validation",
-        detail: `Workspace lockfile at ${failure.path} could not be validated`,
-        cause: failure.cause,
-      });
-  }
-};
+export const workspaceChangeFailedToStepFailure = (failure: WorkspaceChangeFailure): StepFailure =>
+  workspaceFailureToStepFailure(failure);

@@ -13,9 +13,8 @@ import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/works
 import { operationPresentation } from "@agentxm/workspace/transitions/planning";
 
 import { makeAppError } from "../../app-error/index.js";
-import { fqnInvalidErrorToAppError } from "../../app-error/conversions.js";
+import { failureToAppError, toAppError } from "../../app-error/conversions.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
-import { authoringFailureToAppError } from "../../feature-errors.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
@@ -103,14 +102,14 @@ const handleVersionBody = Effect.fn("Version.handle")(function* (args: VersionHa
   const candidate = yield* ChangeAuthoredVersion.prepare({
     fqn: args.handle,
     change,
-  }).pipe(Effect.mapError(authoringFailureToAppError));
+  }).pipe(Effect.mapError(failureToAppError));
 
   const execution = yield* makePlanExecution(
     { preview: args.preview },
     { command: [], arguments: [] },
   );
   const resolution = yield* ChangeAuthoredVersion.previewOrApply(candidate, execution).pipe(
-    Effect.mapError(authoringFailureToAppError),
+    Effect.mapError(failureToAppError),
   );
   yield* emitOperationResolution("version", resolution);
 });
@@ -128,9 +127,7 @@ const supportedHandleHints = versionableTypes
 
 const inferVersionableType = (handle: string) =>
   Effect.gen(function* () {
-    const fqn = yield* Effect.fromResult(
-      Result.mapError(parseFqn(handle), fqnInvalidErrorToAppError),
-    );
+    const fqn = yield* Effect.fromResult(Result.mapError(parseFqn(handle), toAppError));
     if (!isVersionableType(fqn.type)) {
       return yield* makeAppError({
         code: "validation",

@@ -19,7 +19,7 @@ import {
   recoverySwitch,
 } from "@agentxm/workspace/transitions/planning";
 
-import { extensionLifecycleFailedToAppError } from "../../../feature-errors.js";
+import { toAppError } from "../../../app-error/conversions.js";
 import { emitOperationResolution, retryCanHelp } from "../../../operation-output.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
@@ -58,9 +58,7 @@ export const handleUpdate = (args: UpdateHandlerArgs) =>
       ),
     },
     handleUpdateBody(args).pipe(
-      Effect.catchTag("ExtensionLifecycleFailed", (failure) =>
-        Effect.fail(extensionLifecycleFailedToAppError(failure)),
-      ),
+      Effect.catchTag("ExtensionLifecycleFailed", (failure) => Effect.fail(toAppError(failure))),
     ),
   );
 

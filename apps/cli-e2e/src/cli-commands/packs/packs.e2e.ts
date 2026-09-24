@@ -44,12 +44,17 @@ function setupWorkspaceWithRegistry() {
 
 /**
  * Set up registry source and owner in an already-initialized workspace.
+ *
+ * Every release in the fixture Registry is published moments before it is
+ * installed, and a Pack install holds each member it selects by range until
+ * the minimum release age passes, so these workspaces declare no window.
  */
 function configureRegistrySource(settingsPath: string, registryUrl: string, owner = "@test") {
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
   settings.defaultRegistry = "test";
   settings.sources = [{ name: "test", type: "registry", location: registryUrl }];
   settings.owner = owner;
+  settings.minimumReleaseAge = "0s";
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 }
 
@@ -940,7 +945,7 @@ describe("axm packs install", () => {
       desired.packs = { "recoverable-pack": "@test/packs/recoverable-pack" };
       fs.writeFileSync(settingsPath, JSON.stringify(desired, null, 2));
 
-      const preview = await runCli(["sync", "--preview", "--ignore-release-age", "--json"], {
+      const preview = await runCli(["sync", "--preview", "--json"], {
         cwd: temp.path,
       });
       expect(preview.exitCode, preview.stdout + preview.stderr).toBe(0);
@@ -954,7 +959,7 @@ describe("axm packs install", () => {
       });
       expect(readLock().packs?.["recoverable-pack"]).toBeUndefined();
 
-      const applied = await runCli(["sync", "--ignore-release-age", "--json"], {
+      const applied = await runCli(["sync", "--json"], {
         cwd: temp.path,
       });
       expect(applied.exitCode, applied.stdout + applied.stderr).toBe(0);

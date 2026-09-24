@@ -149,12 +149,20 @@ export {
 export {
   ApprovalRecoveryMissing,
   CandidateFingerprintFailed,
+  FailureMetadataSchema,
+  FailureProblemSchema,
   OPERATION_ERROR_CATEGORIES,
   OperationErrorCategorySchema,
   PlanInteractionFailed,
   STALE_CANDIDATE_DETAIL,
   StaleExecutionCandidate,
   StepFailure,
+  defaultFailureDetail,
+  makeStepFailure,
+  type FailureInput,
+  type FailureMetadata,
+  type FailureProblem,
+  type FailureSuggestedAction,
   type OperationErrorCategory,
 } from "./plan/errors.js";
 
@@ -174,9 +182,7 @@ export {
 export {
   candidateFingerprintFailedToStepFailure,
   configuredAgentOutcomesUnavailableToStepFailure,
-  restorationIncompleteToStepFailure,
   workspaceStateReadFailureToStepFailure,
-  workspaceTransactionFailureToStepFailure,
 } from "./plan/step-failure-conversions.js";
 
 // Interaction port for preview/apply presentation, progress, and confirmation.

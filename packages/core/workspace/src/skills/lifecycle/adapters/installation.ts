@@ -99,55 +99,80 @@ const previousSourceHash = (entry: unknown): string | undefined => {
   return entry.sourceHash;
 };
 
+interface ReleaseAgeFact {
+  readonly minimumAge: string;
+  readonly mature: boolean;
+}
+
+/**
+ * Whether an explicitly requested release is younger than the configured
+ * minimum age. The setting parses under the one release-age policy, so an
+ * unreadable value refuses the install rather than reading as "no minimum";
+ * only the Registry lookup that dates the release is best-effort.
+ */
 const releaseAge = (ref: Extract<SkillExtensionRef, { readonly refType: "registry" }>) =>
   Effect.gen(function* () {
     const settings = yield* SettingsReader;
+    const unreadable = (cause: unknown) =>
+      installRefused({
+        category: "internal",
+        detail: "The minimum release age settings could not be read",
+        cause,
+      });
 
-    const excluded = (yield* settings.minimumReleaseAgeExclude).some(({ pattern }) =>
+    const excluded = (yield* settings.minimumReleaseAgeExclude.pipe(
+      Effect.mapError(unreadable),
+    )).some(({ pattern }) =>
       matchesReleaseAgeExcludePattern(pattern, {
         owner: ref.owner,
         type: "skill",
         name: ref.name,
       }),
     );
-    if (excluded) return Option.none<{ readonly minimumAge: string; readonly mature: boolean }>();
+    if (excluded) return Option.none<ReleaseAgeFact>();
 
-    const minimumReleaseAge = yield* settings.minimumReleaseAge;
-    const minimumAge = parseMinimumReleaseAge(minimumReleaseAge);
-    if (
-      Option.isNone(minimumAge) ||
-      Duration.isLessThanOrEqualTo(minimumAge.value, Duration.zero)
-    ) {
-      return Option.none<{ readonly minimumAge: string; readonly mature: boolean }>();
+    const configured = yield* settings.minimumReleaseAge.pipe(Effect.mapError(unreadable));
+    const minimumAge = yield* parseMinimumReleaseAge(configured).pipe(
+      Effect.mapError((cause) =>
+        installRefused({
+          category: cause.category,
+          detail: cause.detail ?? `Invalid minimumReleaseAge "${configured}"`,
+          ...(cause.recover === undefined ? {} : { recover: cause.recover }),
+          cause,
+        }),
+      ),
+    );
+    if (Duration.isLessThanOrEqualTo(minimumAge, Duration.zero)) {
+      return Option.none<ReleaseAgeFact>();
     }
 
-    const location =
-      ref.source.location.protocol === "file:"
-        ? ref.source.location.pathname
-        : ref.source.location.href;
-    const client = yield* createRegistryClient(location);
-    const index = yield* client.getExtensionIndex({
-      owner: ref.owner,
-      type: "skill",
-      name: ref.name,
-    });
-    if (Option.isNone(index))
-      return Option.none<{ readonly minimumAge: string; readonly mature: boolean }>();
+    return yield* Effect.gen(function* () {
+      const location =
+        ref.source.location.protocol === "file:"
+          ? ref.source.location.pathname
+          : ref.source.location.href;
+      const client = yield* createRegistryClient(location);
+      const index = yield* client.getExtensionIndex({
+        owner: ref.owner,
+        type: "skill",
+        name: ref.name,
+      });
+      if (Option.isNone(index)) return Option.none<ReleaseAgeFact>();
 
-    const versionEntry = index.value.versions.find((entry) => entry.version === ref.version);
-    if (versionEntry === undefined)
-      return Option.none<{ readonly minimumAge: string; readonly mature: boolean }>();
-    return Option.some({
-      minimumAge: minimumReleaseAge,
-      mature: yield* isVersionEntryMature(versionEntry, minimumAge.value),
-    });
-  }).pipe(
-    Effect.catch((error) =>
-      error._tag === "ConfigError"
-        ? Effect.fail(error)
-        : Effect.succeed(Option.none<{ readonly minimumAge: string; readonly mature: boolean }>()),
-    ),
-  );
+      const versionEntry = index.value.versions.find((entry) => entry.version === ref.version);
+      if (versionEntry === undefined) return Option.none<ReleaseAgeFact>();
+      return Option.some({
+        minimumAge: configured,
+        mature: yield* isVersionEntryMature(versionEntry, minimumAge),
+      });
+    }).pipe(
+      Effect.catch((error) =>
+        error._tag === "ConfigError"
+          ? Effect.fail(error)
+          : Effect.succeed(Option.none<ReleaseAgeFact>()),
+      ),
+    );
+  });
 
 const targetState = (args: { readonly linkPath: string; readonly canonicalSkillSrcPath: string }) =>
   Effect.gen(function* () {

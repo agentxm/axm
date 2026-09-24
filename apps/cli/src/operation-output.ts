@@ -31,6 +31,8 @@ import {
   PackMembershipDeltaSchema,
   AtomicityClassSchema,
   BlockingClassSchema,
+  FailureMetadataSchema,
+  FailureProblemSchema,
   OperationOutcomeSchema,
   OperationPhaseSchema,
   OperationPreconditionSchema,
@@ -48,6 +50,7 @@ import {
   type OperationOutcome,
   type OperationResolution,
   type ResolvedUnit,
+  type StepFailure,
 } from "@agentxm/workspace/transitions/planning";
 import { operationExitCode, operationOk } from "./operation-exit-code.js";
 import {
@@ -56,6 +59,8 @@ import {
 } from "@agentxm/workspace/desired-state";
 import {
   AppErrorCodeSchema,
+  defaultTitleFor,
+  redactAppErrorMetadata,
   redactCredentialBearingLocator,
   redactSensitiveText,
   serializeErrorCauseChain,
@@ -219,7 +224,11 @@ const ErrorCauseSchema = Schema.Struct({
 
 const OperationFailureSchema = Schema.Struct({
   code: AppErrorCodeSchema,
+  title: Schema.optional(Schema.String),
   message: Schema.String,
+  problem: Schema.optional(FailureProblemSchema),
+  metadata: Schema.optional(FailureMetadataSchema),
+  retryable: Schema.optional(Schema.Boolean),
   causes: Schema.optional(Schema.Array(ErrorCauseSchema)),
 }).annotate({
   identifier: "OperationFailure",
@@ -571,6 +580,18 @@ const artifactForJson = (
       };
 };
 
+/**
+ * What a failure states beside its code and sentence, as machine output
+ * carries it: the redacted title the command boundary would print, the
+ * structured problem, redacted request evidence, and retryability.
+ */
+const renderedFailureFields = (failure: StepFailure) => ({
+  title: redactSensitiveText(failure.title ?? defaultTitleFor(failure.category)),
+  ...(failure.problem === undefined ? {} : { problem: failure.problem }),
+  ...(failure.metadata === undefined ? {} : { metadata: redactAppErrorMetadata(failure.metadata) }),
+  ...(failure.retryable === undefined ? {} : { retryable: failure.retryable }),
+});
+
 const unitForJson = (unit: ResolvedUnit<unknown>, options: PlanResolutionResultOptions): Unit => {
   const includeErrorDetails = options.verbose === true || options.debug === true;
   const causes =
@@ -602,6 +623,7 @@ const unitForJson = (unit: ResolvedUnit<unknown>, options: PlanResolutionResultO
           error: {
             code: unit.error.category,
             message: redactSensitiveText(unit.error.detail),
+            ...renderedFailureFields(unit.error),
             ...(causes.length > 0 ? { causes } : {}),
           },
         }
@@ -657,6 +679,7 @@ export const toPlanResolutionResult = (
           failure: {
             code: resolution.failure.category,
             message: redactSensitiveText(resolution.failure.detail),
+            ...renderedFailureFields(resolution.failure),
             ...(options.verbose === true || options.debug === true
               ? {
                   causes: serializeErrorCauseChain(resolution.failure.cause, {

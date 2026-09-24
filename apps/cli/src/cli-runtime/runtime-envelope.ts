@@ -16,7 +16,8 @@ import {
   exitCodeFor,
   redactSensitiveText,
 } from "../app-error/index.js";
-import { isKnownFailure, toAppError, type KnownFailure } from "../app-error/conversions.js";
+import { isWorkspaceFailure, type WorkspaceFailure } from "@agentxm/workspace/reconciliation";
+import { toAppError } from "../app-error/conversions.js";
 import type { SkillSelectionCancelled } from "@agentxm/workspace/skills/lifecycle/application";
 import type { SubagentSelectionCancelled } from "@agentxm/workspace/subagents/lifecycle/application";
 import type { InstallSelectionCancelled } from "@agentxm/workspace/lifecycle";
@@ -128,7 +129,7 @@ export const writeDefect = (cause: Cause.Cause<unknown>, format: OutputFormat) =
 export type ExpectedCliError =
   | OutputWriteFailed
   | AppError
-  | KnownFailure
+  | WorkspaceFailure
   | QuestionCancelled
   | WorkspaceInitializationCancelled
   | SkillSelectionCancelled
@@ -143,7 +144,7 @@ export type CliRuntimeFoundation = Screen | Verbosity;
  * SkillSelectionCancelled, SubagentSelectionCancelled) resolve to none and exit successfully.
  */
 const expectedErrorToAppError = (error: ExpectedCliError): AppError | undefined =>
-  error._tag === "AppError" ? error : isKnownFailure(error) ? toAppError(error) : undefined;
+  error._tag === "AppError" ? error : isWorkspaceFailure(error) ? toAppError(error) : undefined;
 
 const defaultExitCodeForExpectedError = (error: ExpectedCliError): number => {
   const resolved = expectedErrorToAppError(error);

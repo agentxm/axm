@@ -1,7 +1,10 @@
 /** Deterministic reconciliation failure conversion for consumer specifications. */
+import * as Layer from "effect/Layer";
+
 import { StepFailure } from "../transitions/planning/index.js";
-import { makeReconciliationLayer } from "./layer.js";
-export const ReconciliationFailureConversionTest = makeReconciliationLayer({
+import { SyncStepFailureConversion } from "./failure-adapter.js";
+
+export const ReconciliationFailureConversionTest = Layer.succeed(SyncStepFailureConversion, {
   toStepFailure: (cause) =>
     new StepFailure({
       category: "internal",

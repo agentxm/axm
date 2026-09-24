@@ -13,9 +13,11 @@
  *
  * Each entry is planned through the same per-type install planner the install
  * routes use, because advancing an accepted resolution is installing the
- * version the source now offers. Where a direct declaration and a Pack-owned
- * dependency both plan the same target, the direct one wins: the workspace's
- * own declaration outranks a dependency the closure derived.
+ * version the source now offers. Pack advances resolve first, so every entry
+ * is planned against one proposed desired-state graph: a target that a
+ * direct declaration and a Pack both require advances within the one
+ * effective constraint that graph intersects from every contributor, and a
+ * conflict blocks the entry and the Packs that share it.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -23,6 +25,7 @@
 import * as Effect from "effect/Effect";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
 import { OperationRequestBudget } from "@agentxm/registry-client";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
@@ -33,6 +36,8 @@ import {
   makeConfiguredReleaseAgeEvaluation,
   normalizeReleaseAgeRecords,
   ReleaseAgePosture,
+  releaseAgeRecord,
+  releaseAgeRecords,
   type ReleaseAgeBypassRecord,
   type ReleaseAgeRecord,
   resolveConfiguredHook,
@@ -58,7 +63,9 @@ import {
   WorkspaceLocation,
   acceptedResolutionRef,
   acquisitionConfiguredEntries,
+  effectiveDesiredConstraint,
   isSourcedDesiredExtension,
+  type DesiredStateGraph,
   type WorkspaceSettingsReadFailure,
   type WorkspaceStateReadFailure,
 } from "../../desired-state/index.js";
@@ -110,16 +117,21 @@ import { planKnowledgeInstall } from "../../knowledge/lifecycle/install/plan.js"
 import { planMcpServerInstall } from "../../mcp-connections/lifecycle/install/plan.js";
 import {
   planPackInstall,
+  readProposedGraph,
   type PackInstallRequirements,
 } from "../../packs/lifecycle/install/plan.js";
 import { planRuleInstall } from "../../instructions/lifecycle/install/plan.js";
 import { planSkillInstall } from "../../skills/lifecycle/install/plan.js";
 import { planSubagentInstall } from "../../subagents/lifecycle/install/plan.js";
 import {
+  configuredEntryConstraintBlockPlan,
   configuredPackConstraintBlockPlan,
-  prospectivePackUpdateGroups,
+  packUpdateGroups,
 } from "../../packs/lifecycle/constraint-gate.js";
-import { WORKSPACE_UPDATE_EXECUTION_CAPABILITIES } from "./atomicity.js";
+import {
+  WORKSPACE_UPDATE_EXECUTION_CAPABILITIES,
+  WORKSPACE_UPDATE_HELD_RELEASE_POLICY,
+} from "./atomicity.js";
 import { assessGitSelector } from "./git-selector.js";
 import { withPackRegistryIndexMemo } from "../../resolution/sources/providers/registry/index-memo.js";
 
@@ -136,11 +148,8 @@ export type ConfiguredUpdateFailure =
   | WorkspaceStateReadFailure
   | WorkspaceSettingsReadFailure;
 
-type StepOrigin = "direct" | "dependency";
-
 interface StepFragment {
   readonly key: string;
-  readonly origin: StepOrigin;
   readonly step: PlannedJobStep<InstallStepRequirements>;
 }
 
@@ -189,10 +198,14 @@ export interface WorkspaceUpdateNameSelection {
   readonly names: ReadonlySet<string> | undefined;
 }
 
+/** Every type a configured sweep advances entry by entry; Packs advance as groups. */
+type WorkspaceEntryUpdatableType = Exclude<WorkspaceUpdatableType, "pack">;
+
 interface WorkspaceUpdateCollector {
-  readonly type: WorkspaceUpdatableType;
+  readonly type: WorkspaceEntryUpdatableType;
   readonly collect: (
     selection: WorkspaceUpdateCollectionRequest,
+    graph: DesiredStateGraph,
   ) => Effect.Effect<
     CollectedWorkspaceUpdatePlans,
     ConfiguredUpdateFailure,
@@ -297,22 +310,16 @@ const toCollectedWorkspaceUpdatePlans = ({
   plans,
   holdbacks = [],
   bypasses = [],
-  originForStep = () => "direct" as const,
 }: {
   readonly plans: ReadonlyArray<Plan<InstallStepRequirements>>;
   readonly holdbacks?: ReadonlyArray<ReleaseAgeRecord>;
   readonly bypasses?: ReadonlyArray<ReleaseAgeBypassRecord>;
-  readonly originForStep?: (index: number) => StepOrigin;
 }): CollectedWorkspaceUpdatePlans => ({
   plans,
   holdbacks,
   bypasses,
   fragments: plans.flatMap((plan) =>
-    flattenPlanSteps(plan).map((step, index) => ({
-      key: step.key ?? step.label,
-      origin: originForStep(index),
-      step,
-    })),
+    flattenPlanSteps(plan).map((step) => ({ key: step.key ?? step.label, step })),
   ),
 });
 
@@ -344,30 +351,6 @@ interface SelectedPackAdvance {
   readonly intent: PackInstallIntent;
 }
 
-const releaseAgeRecord = (args: {
-  readonly target: string;
-  readonly versionRange: Option.Option<string>;
-  readonly evidence: {
-    readonly version: string;
-    readonly publishedAt: string;
-    readonly eligibleAt: string;
-    readonly minimumReleaseAgeSeconds: number;
-  };
-  readonly selectedVersion?: string;
-  readonly currentVersion?: string;
-}): ReleaseAgeRecord => ({
-  reason: "minimum-release-age",
-  target: args.target,
-  dependencyPath: [args.target],
-  ...(Option.isSome(args.versionRange) ? { requestedRange: args.versionRange.value } : {}),
-  ...(args.selectedVersion === undefined ? {} : { selectedVersion: args.selectedVersion }),
-  ...(args.currentVersion === undefined ? {} : { currentVersion: args.currentVersion }),
-  candidateVersion: args.evidence.version,
-  publishedAt: args.evidence.publishedAt,
-  eligibleAt: args.evidence.eligibleAt,
-  minimumReleaseAgeSeconds: args.evidence.minimumReleaseAgeSeconds,
-});
-
 const matchesRequestedType = (
   requestedType: Option.Option<WorkspaceUpdatableType>,
   candidate: WorkspaceUpdatableType,
@@ -376,26 +359,6 @@ const matchesRequestedType = (
     onNone: () => true,
     onSome: (value) => value === candidate,
   });
-
-const mergeFragments = (
-  collections: ReadonlyArray<CollectedWorkspaceUpdatePlans>,
-): ReadonlyArray<StepFragment> => {
-  const byKey = new Map<string, StepFragment>();
-
-  for (const fragment of collections.flatMap((collection) => collection.fragments)) {
-    const existing = byKey.get(fragment.key);
-    if (existing === undefined) {
-      byKey.set(fragment.key, fragment);
-      continue;
-    }
-
-    if (existing.origin === "dependency" && fragment.origin === "direct") {
-      byKey.set(fragment.key, fragment);
-    }
-  }
-
-  return [...byKey.values()];
-};
 
 const selectorHeldPlan = (label: string, message: string): Plan<InstallStepRequirements> => ({
   _tag: "Plan",
@@ -432,6 +395,8 @@ interface ConfiguredUpdateIntentArgs<TIntent, R> {
   readonly name: string;
   readonly source: string;
   readonly releaseAgeEvaluation: ReleaseAgeEvaluation;
+  /** The effective constraint the Registry selects within; the declared range is recorded. */
+  readonly selectionRange: Option.Option<VersionRange>;
   readonly fallback: Effect.Effect<
     {
       readonly ref: ExtensionRef;
@@ -495,6 +460,7 @@ const prepareUpdateIntent = <TIntent, R>(
       args.source,
       args.type,
       args.releaseAgeEvaluation,
+      args.selectionRange,
     );
     return Effect.gen(function* () {
       const registryResolution = yield* resolveRegistry;
@@ -514,16 +480,15 @@ const prepareUpdateIntent = <TIntent, R>(
             detail: `${resolution.target} has no visible version satisfying ${resolution.requestedRange}`,
           });
         }
+        const subject = {
+          target: resolution.target,
+          requestedRange: Option.getOrUndefined(resolution.versionRange),
+          currentVersion: resolution.acceptedVersion,
+        };
         if (resolution.kind === "policy_held") {
           return {
             kind: "policy_held",
-            holdbacks: [
-              releaseAgeRecord({
-                target: resolution.target,
-                versionRange: resolution.versionRange,
-                evidence: resolution.candidate,
-              }),
-            ],
+            holdbacks: [releaseAgeRecord(subject, resolution.candidate)],
           } as const;
         }
         const intent = args.makeIntent(resolution.ref, resolution.versionRange);
@@ -536,34 +501,7 @@ const prepareUpdateIntent = <TIntent, R>(
         return {
           kind: "selected",
           intent,
-          holdbacks:
-            resolution.kind === "exempted" || resolution.newerHeld === undefined
-              ? []
-              : [
-                  releaseAgeRecord({
-                    target: resolution.target,
-                    versionRange: resolution.versionRange,
-                    evidence: resolution.newerHeld,
-                    selectedVersion: resolution.ref.version,
-                    ...(resolution.acceptedVersion === undefined
-                      ? {}
-                      : { currentVersion: resolution.acceptedVersion }),
-                  }),
-                ],
-          bypasses:
-            resolution.kind === "selected"
-              ? []
-              : [
-                  {
-                    ...releaseAgeRecord({
-                      target: resolution.target,
-                      versionRange: resolution.versionRange,
-                      evidence: resolution.bypassed,
-                      selectedVersion: resolution.ref.version,
-                    }),
-                    ...resolution.exemption,
-                  },
-                ],
+          ...releaseAgeRecords(subject, resolution, resolution.ref.version),
         } as const;
       }
       const resolved = yield* args.fallback;
@@ -590,13 +528,15 @@ const resolveSkillIntent = (
   name: string,
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
+  selectionRange: Option.Option<VersionRange>,
 ) =>
   resolveUpdateIntent({
     type: "skill",
     name,
     source,
     releaseAgeEvaluation,
-    fallback: resolveConfiguredSkill(name, source, releaseAgeEvaluation),
+    selectionRange,
+    fallback: resolveConfiguredSkill(name, source, releaseAgeEvaluation, selectionRange),
     makeIntent: (ref, versionRange) =>
       ref.type === "skill"
         ? ({ skillsToInstall: [{ ref, versionRange }] } satisfies SkillInstallIntent)
@@ -607,13 +547,15 @@ const resolveSubagentIntent = (
   name: string,
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
+  selectionRange: Option.Option<VersionRange>,
 ) =>
   resolveUpdateIntent({
     type: "subagent",
     name,
     source,
     releaseAgeEvaluation,
-    fallback: resolveConfiguredSubagent(name, source, releaseAgeEvaluation),
+    selectionRange,
+    fallback: resolveConfiguredSubagent(name, source, releaseAgeEvaluation, selectionRange),
     makeIntent: (ref, versionRange) =>
       ref.type === "subagent"
         ? ({ subagentsToInstall: [{ ref, versionRange }] } satisfies SubagentInstallIntent)
@@ -624,13 +566,15 @@ const resolveRuleIntent = (
   name: string,
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
+  selectionRange: Option.Option<VersionRange>,
 ) =>
   resolveUpdateIntent({
     type: "rule",
     name,
     source,
     releaseAgeEvaluation,
-    fallback: resolveConfiguredRule(name, source, releaseAgeEvaluation),
+    selectionRange,
+    fallback: resolveConfiguredRule(name, source, releaseAgeEvaluation, selectionRange),
     makeIntent: (ref, versionRange) =>
       ref.type === "rule"
         ? ({ refs: [{ ref, versionRange }] } satisfies RuleInstallIntent)
@@ -641,13 +585,15 @@ const resolveHookIntent = (
   name: string,
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
+  selectionRange: Option.Option<VersionRange>,
 ) =>
   resolveUpdateIntent({
     type: "hook",
     name,
     source,
     releaseAgeEvaluation,
-    fallback: resolveConfiguredHook(name, source, releaseAgeEvaluation),
+    selectionRange,
+    fallback: resolveConfiguredHook(name, source, releaseAgeEvaluation, selectionRange),
     makeIntent: (ref, versionRange) =>
       ref.type === "hook"
         ? ({ refs: [{ ref, versionRange }] } satisfies HookInstallIntent)
@@ -658,13 +604,15 @@ const resolveKnowledgeIntent = (
   name: string,
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
+  selectionRange: Option.Option<VersionRange>,
 ) =>
   resolveUpdateIntent({
     type: "knowledge",
     name,
     source,
     releaseAgeEvaluation,
-    fallback: resolveConfiguredKnowledge(name, source, releaseAgeEvaluation),
+    selectionRange,
+    fallback: resolveConfiguredKnowledge(name, source, releaseAgeEvaluation, selectionRange),
     makeIntent: (ref, versionRange) =>
       ref.type === "knowledge"
         ? ({ refs: [{ ref, versionRange }] } satisfies KnowledgeInstallIntent)
@@ -675,6 +623,7 @@ const resolveMcpServerIntent = (
   name: string,
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
+  selectionRange: Option.Option<VersionRange>,
   nonInteractive: boolean,
 ) =>
   resolveUpdateIntent({
@@ -682,7 +631,8 @@ const resolveMcpServerIntent = (
     name,
     source,
     releaseAgeEvaluation,
-    fallback: resolveConfiguredMcpServer(name, source, releaseAgeEvaluation),
+    selectionRange,
+    fallback: resolveConfiguredMcpServer(name, source, releaseAgeEvaluation, selectionRange),
     makeIntent: (ref, versionRange) =>
       ref.type === "mcp-server"
         ? ({
@@ -706,16 +656,17 @@ const preparePackRef = (
     name,
     source,
     releaseAgeEvaluation,
+    // A Pack is never another Pack's member: its own declaration is its only contributor.
+    selectionRange: Option.none(),
     fallback: resolveConfiguredPack(name, source, releaseAgeEvaluation),
     makeIntent: (ref, versionRange) =>
       ref.type === "pack"
         ? ({
             packToInstall: ref,
             versionRange,
-            unattended: true,
             nonInteractive,
             releaseAgeEvaluation,
-            releaseAgeHoldbackBehavior: "continue",
+            heldRelease: WORKSPACE_UPDATE_HELD_RELEASE_POLICY,
           } satisfies PackInstallIntent)
         : undefined,
   });
@@ -779,7 +730,35 @@ const collectedWorkspaceSourcePlan = (
   bypasses: [],
 });
 
-const collectSkillPlans = (selection: WorkspaceUpdateCollectionRequest) =>
+/**
+ * Plan one configured entry within the effective constraint the graph
+ * intersects from every contributor to it, or block the entry on the
+ * conflict that constraint reports.
+ */
+const withinEffectiveConstraint = <R>(
+  graph: DesiredStateGraph,
+  type: WorkspaceEntryUpdatableType,
+  name: string,
+  plan: (
+    selectionRange: Option.Option<VersionRange>,
+  ) => Effect.Effect<ResolvedPlanCollection, never, R>,
+): Effect.Effect<ResolvedPlanCollection, never, R> => {
+  const effective = effectiveDesiredConstraint(graph, { type, name });
+  return Result.isFailure(effective)
+    ? Effect.succeed(
+        collectedWorkspaceSourcePlan(
+          configuredEntryConstraintBlockPlan({
+            operation: "update",
+            type,
+            name,
+            conflict: effective.failure,
+          }),
+        ),
+      )
+    : plan(effective.success.range);
+};
+
+const collectSkillPlans = (selection: WorkspaceUpdateCollectionRequest, graph: DesiredStateGraph) =>
   Effect.gen(function* () {
     const settings = yield* SettingsReader;
     const location = yield* WorkspaceLocation;
@@ -806,11 +785,18 @@ const collectSkillPlans = (selection: WorkspaceUpdateCollectionRequest) =>
                 workspaceSourceUnchangedPlan("skill", name, entry.source, location.scope),
               ),
             )
-          : collectResolvedPlan(
-              resolveSkillIntent(name, entry.source, selection.releaseAgeEvaluation),
-              (intent) => planSkillInstall(intent, { installedBefore }),
-              (error) => workspacePlanningErrorPlan("skill", name, error),
-              toTypedLabel("skill", name),
+          : withinEffectiveConstraint(graph, "skill", name, (selectionRange) =>
+              collectResolvedPlan(
+                resolveSkillIntent(
+                  name,
+                  entry.source,
+                  selection.releaseAgeEvaluation,
+                  selectionRange,
+                ),
+                (intent) => planSkillInstall(intent, { installedBefore }),
+                (error) => workspacePlanningErrorPlan("skill", name, error),
+                toTypedLabel("skill", name),
+              ),
             ),
       { concurrency: 16 },
     );
@@ -822,7 +808,7 @@ const collectSkillPlans = (selection: WorkspaceUpdateCollectionRequest) =>
     });
   });
 
-const collectRulePlans = (selection: WorkspaceUpdateCollectionRequest) =>
+const collectRulePlans = (selection: WorkspaceUpdateCollectionRequest, graph: DesiredStateGraph) =>
   Effect.gen(function* () {
     const settings = yield* SettingsReader;
     const location = yield* WorkspaceLocation;
@@ -838,11 +824,18 @@ const collectRulePlans = (selection: WorkspaceUpdateCollectionRequest) =>
                 workspaceSourceUnchangedPlan("rule", name, entry.source, location.scope),
               ),
             )
-          : collectResolvedPlan(
-              resolveRuleIntent(name, entry.source, selection.releaseAgeEvaluation),
-              (intent) => planRuleInstall(intent),
-              (error) => workspacePlanningErrorPlan("rule", name, error),
-              toTypedLabel("rule", name),
+          : withinEffectiveConstraint(graph, "rule", name, (selectionRange) =>
+              collectResolvedPlan(
+                resolveRuleIntent(
+                  name,
+                  entry.source,
+                  selection.releaseAgeEvaluation,
+                  selectionRange,
+                ),
+                (intent) => planRuleInstall(intent),
+                (error) => workspacePlanningErrorPlan("rule", name, error),
+                toTypedLabel("rule", name),
+              ),
             ),
       { concurrency: 16 },
     );
@@ -854,7 +847,7 @@ const collectRulePlans = (selection: WorkspaceUpdateCollectionRequest) =>
     });
   });
 
-const collectHookPlans = (selection: WorkspaceUpdateCollectionRequest) =>
+const collectHookPlans = (selection: WorkspaceUpdateCollectionRequest, graph: DesiredStateGraph) =>
   Effect.gen(function* () {
     const settings = yield* SettingsReader;
     const location = yield* WorkspaceLocation;
@@ -870,11 +863,18 @@ const collectHookPlans = (selection: WorkspaceUpdateCollectionRequest) =>
                 workspaceSourceUnchangedPlan("hook", name, entry.source, location.scope),
               ),
             )
-          : collectResolvedPlan(
-              resolveHookIntent(name, entry.source, selection.releaseAgeEvaluation),
-              (intent) => planHookInstall(intent),
-              (error) => workspacePlanningErrorPlan("hook", name, error),
-              toTypedLabel("hook", name),
+          : withinEffectiveConstraint(graph, "hook", name, (selectionRange) =>
+              collectResolvedPlan(
+                resolveHookIntent(
+                  name,
+                  entry.source,
+                  selection.releaseAgeEvaluation,
+                  selectionRange,
+                ),
+                (intent) => planHookInstall(intent),
+                (error) => workspacePlanningErrorPlan("hook", name, error),
+                toTypedLabel("hook", name),
+              ),
             ),
       { concurrency: 16 },
     );
@@ -886,7 +886,10 @@ const collectHookPlans = (selection: WorkspaceUpdateCollectionRequest) =>
     });
   });
 
-const collectKnowledgePlans = (selection: WorkspaceUpdateCollectionRequest) =>
+const collectKnowledgePlans = (
+  selection: WorkspaceUpdateCollectionRequest,
+  graph: DesiredStateGraph,
+) =>
   Effect.gen(function* () {
     const settings = yield* SettingsReader;
     const location = yield* WorkspaceLocation;
@@ -902,11 +905,18 @@ const collectKnowledgePlans = (selection: WorkspaceUpdateCollectionRequest) =>
                 workspaceSourceUnchangedPlan("knowledge", name, entry.source, location.scope),
               ),
             )
-          : collectResolvedPlan(
-              resolveKnowledgeIntent(name, entry.source, selection.releaseAgeEvaluation),
-              (intent) => planKnowledgeInstall(intent),
-              (error) => workspacePlanningErrorPlan("knowledge", name, error),
-              toTypedLabel("knowledge", name),
+          : withinEffectiveConstraint(graph, "knowledge", name, (selectionRange) =>
+              collectResolvedPlan(
+                resolveKnowledgeIntent(
+                  name,
+                  entry.source,
+                  selection.releaseAgeEvaluation,
+                  selectionRange,
+                ),
+                (intent) => planKnowledgeInstall(intent),
+                (error) => workspacePlanningErrorPlan("knowledge", name, error),
+                toTypedLabel("knowledge", name),
+              ),
             ),
       { concurrency: 16 },
     );
@@ -918,7 +928,10 @@ const collectKnowledgePlans = (selection: WorkspaceUpdateCollectionRequest) =>
     });
   });
 
-const collectSubagentPlans = (selection: WorkspaceUpdateCollectionRequest) =>
+const collectSubagentPlans = (
+  selection: WorkspaceUpdateCollectionRequest,
+  graph: DesiredStateGraph,
+) =>
   Effect.gen(function* () {
     const settings = yield* SettingsReader;
     const location = yield* WorkspaceLocation;
@@ -936,11 +949,18 @@ const collectSubagentPlans = (selection: WorkspaceUpdateCollectionRequest) =>
                 workspaceSourceUnchangedPlan("subagent", name, entry.source, location.scope),
               ),
             )
-          : collectResolvedPlan(
-              resolveSubagentIntent(name, entry.source, selection.releaseAgeEvaluation),
-              (intent) => planSubagentInstall(intent),
-              (error) => workspacePlanningErrorPlan("subagent", name, error),
-              toTypedLabel("subagent", name),
+          : withinEffectiveConstraint(graph, "subagent", name, (selectionRange) =>
+              collectResolvedPlan(
+                resolveSubagentIntent(
+                  name,
+                  entry.source,
+                  selection.releaseAgeEvaluation,
+                  selectionRange,
+                ),
+                (intent) => planSubagentInstall(intent),
+                (error) => workspacePlanningErrorPlan("subagent", name, error),
+                toTypedLabel("subagent", name),
+              ),
             ),
       { concurrency: 16 },
     );
@@ -952,13 +972,14 @@ const collectSubagentPlans = (selection: WorkspaceUpdateCollectionRequest) =>
     });
   });
 
-const collectMcpServerPlans = (selection: WorkspaceUpdateCollectionRequest) =>
+const collectMcpServerPlans = (
+  selection: WorkspaceUpdateCollectionRequest,
+  graph: DesiredStateGraph,
+) =>
   Effect.gen(function* () {
-    const desiredState = yield* DesiredStateReader;
     const settings = yield* SettingsReader;
     const location = yield* WorkspaceLocation;
     const configured = yield* settings.entries("mcp-server");
-    const graph = yield* desiredState.graph();
     const seenSourceClosures = new Set<string>();
     const entries = selectedEntries(acquisitionConfiguredEntries(configured), selection).flatMap(
       (entry): ReadonlyArray<typeof entry> => {
@@ -974,10 +995,11 @@ const collectMcpServerPlans = (selection: WorkspaceUpdateCollectionRequest) =>
         ) {
           return [entry];
         }
+        // Every local connection to one source shares one resolution, so the
+        // closure advances once, through its first connection.
         if (seenSourceClosures.has(desired.identity)) return [];
         seenSourceClosures.add(desired.identity);
-        const representative: typeof entry = [name, { ...configuredEntry, source: desired.source }];
-        return [representative];
+        return [entry];
       },
     );
 
@@ -992,16 +1014,19 @@ const collectMcpServerPlans = (selection: WorkspaceUpdateCollectionRequest) =>
                   workspaceSourceUnchangedPlan("mcp-server", name, entry.source, location.scope),
                 ),
               )
-            : collectResolvedPlan(
-                resolveMcpServerIntent(
+            : withinEffectiveConstraint(graph, "mcp-server", name, (selectionRange) =>
+                collectResolvedPlan(
+                  resolveMcpServerIntent(
+                    name,
+                    entry.source,
+                    selection.releaseAgeEvaluation,
+                    selectionRange,
+                    selection.nonInteractive,
+                  ),
+                  (intent) => planMcpServerInstall(intent),
+                  (error) => workspacePlanningErrorPlan("mcp-server", name, error),
                   name,
-                  entry.source,
-                  selection.releaseAgeEvaluation,
-                  selection.nonInteractive,
                 ),
-                (intent) => planMcpServerInstall(intent),
-                (error) => workspacePlanningErrorPlan("mcp-server", name, error),
-                name,
               ),
       { concurrency: 16 },
     );
@@ -1018,7 +1043,7 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
     const settings = yield* SettingsReader;
     const location = yield* WorkspaceLocation;
     const configured = yield* settings.entries("pack");
-    const entries = selectedEntries(Object.entries(configured), selection).filter(
+    const entries = selectedEntries(acquisitionConfiguredEntries(configured), selection).filter(
       hasConfiguredSource,
     );
 
@@ -1094,9 +1119,11 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
         : [],
     );
     const prospectivePacks = selected.map(({ intent }) => intent.packToInstall);
+    const graph = yield* readProposedGraph(prospectivePacks);
     // Packs that share a member settle together; packs that share none are
     // independent, so one group's refusal leaves the others free to commit.
-    const groups = yield* prospectivePackUpdateGroups({
+    const groups = packUpdateGroups({
+      graph,
       prospectivePacks,
       ...(selection.names === undefined ? {} : { selectedNames: selection.names }),
     });
@@ -1131,26 +1158,36 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
     const readyAdvances = selected.filter((advance) => !blockedIdentities.has(advance.identity));
     const selectedPlans = yield* Effect.forEach(
       readyAdvances,
-      ({ intent }) => planPackInstall(intent),
+      ({ intent }) => planPackInstall({ ...intent, desiredGraph: graph }),
       { concurrency: 16 },
     );
     const plannedCollections = resolved.flatMap((item) =>
       item.kind === "planned" ? [item.collection] : [],
     );
-    return toCollectedWorkspaceUpdatePlans({
-      plans: [
-        ...plannedCollections.flatMap((collection) => collection.plans),
-        ...blockPlans,
-        ...selectedPlans,
-      ],
-      holdbacks: resolvedHoldbacks,
-      bypasses: resolvedBypasses,
-      originForStep: (index) => (index === 0 ? "direct" : "dependency"),
-    });
+    return {
+      graph,
+      collection: toCollectedWorkspaceUpdatePlans({
+        plans: [
+          ...plannedCollections.flatMap((collection) => collection.plans),
+          ...blockPlans,
+          ...selectedPlans,
+        ],
+        // A Pack that stays unchanged while a member ages has no step to
+        // carry its evidence, so the sweep reports the member records here.
+        holdbacks: [
+          ...resolvedHoldbacks,
+          ...selectedPlans.flatMap((plan) => plan.releaseAge?.holdbacks ?? []),
+        ],
+        bypasses: [
+          ...resolvedBypasses,
+          ...selectedPlans.flatMap((plan) => plan.releaseAge?.bypasses ?? []),
+        ],
+      }),
+    };
   }).pipe(withPackRegistryIndexMemo);
 
-// Total over InstallableExtensionType: a missing key is a compile error, so a
-// type can never again be silently dropped from workspace update.
+// Total over every entry type: a missing key is a compile error, so a type can
+// never again be silently dropped from workspace update.
 const makeWorkspaceUpdateCollectors = (): ReadonlyArray<WorkspaceUpdateCollector> => {
   const collectorsByType = {
     skill: collectSkillPlans,
@@ -1159,14 +1196,17 @@ const makeWorkspaceUpdateCollectors = (): ReadonlyArray<WorkspaceUpdateCollector
     knowledge: collectKnowledgePlans,
     subagent: collectSubagentPlans,
     "mcp-server": collectMcpServerPlans,
-    pack: collectPackPlans,
-  } satisfies Record<InstallableExtensionType, WorkspaceUpdateCollector["collect"]>;
+  } satisfies Record<WorkspaceEntryUpdatableType, WorkspaceUpdateCollector["collect"]>;
 
-  return installableExtensionTypes.map((type) => ({
-    type,
-    collect: collectorsByType[type],
-  }));
+  return installableExtensionTypes.flatMap((type) =>
+    type === "pack" ? [] : [{ type, collect: collectorsByType[type] }],
+  );
 };
+
+const collectorUnit = (type: WorkspaceUpdatableType) => ({
+  id: `configured-update:${type}`,
+  label: `configured ${extensionTypePluralSentenceLabels[toInstallableExtensionTypePlural(type)]}`,
+});
 
 export const makeWorkspaceUpdatePlan = (
   name: string,
@@ -1216,22 +1256,22 @@ export const buildWorkspaceUpdatePlan: (
     releaseAgeEvaluation,
     nonInteractive: args.nonInteractive,
   };
-  const selectedCollectors = makeWorkspaceUpdateCollectors().filter(({ type }) =>
-    matchesRequestedType(args.type, type),
-  );
-  const collections = yield* Effect.forEach(
-    selectedCollectors,
-    ({ type, collect }) =>
-      observeUnit(
-        {
-          id: `configured-update:${type}`,
-          label: `configured ${extensionTypePluralSentenceLabels[toInstallableExtensionTypePlural(type)]}`,
-        },
-        collect(selection),
-      ),
-    { concurrency: 1 },
-  );
-  const fragments = mergeFragments(collections);
+  // Pack advances resolve first: their proposed manifests are part of the one
+  // graph every configured entry advances within.
+  const packs = matchesRequestedType(args.type, "pack")
+    ? yield* observeUnit(collectorUnit("pack"), collectPackPlans(selection))
+    : undefined;
+  const graph = packs?.graph ?? (yield* readProposedGraph([]));
+  const entryCollections = new Map<WorkspaceUpdatableType, CollectedWorkspaceUpdatePlans>();
+  for (const { type, collect } of makeWorkspaceUpdateCollectors()) {
+    if (!matchesRequestedType(args.type, type)) continue;
+    entryCollections.set(type, yield* observeUnit(collectorUnit(type), collect(selection, graph)));
+  }
+  const collections = installableExtensionTypes.flatMap((type) => {
+    const collection = type === "pack" ? packs?.collection : entryCollections.get(type);
+    return collection === undefined ? [] : [collection];
+  });
+  const fragments = collections.flatMap((collection) => collection.fragments);
   const holdbacks = normalizeReleaseAgeRecords(
     collections.flatMap((collection) => collection.holdbacks),
   );

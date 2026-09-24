@@ -17,6 +17,7 @@ export {
   PackConstraintShadowed,
   PackDependencyConflict,
   PackDependencyInvalid,
+  AcceptedPackMemberIncompatible,
   PackDependencyMissing,
   PackDependencyUnsatisfied,
   SourceAuthorityBlocked,
@@ -24,11 +25,13 @@ export {
 } from "./errors.js";
 
 export {
+  type HeldReleasePolicy,
   type ReleaseAgeBypassRecord,
   type ReleaseAgeHoldbackRecord,
   type ReleaseAgeOperationEvidence,
   type ReleaseAgeRecord,
   type ReleaseAgeRecordBase,
+  type ReleaseAgeRecordSubject,
   filterMatureVersions,
   formatMinimumReleaseAgeSeconds,
   isVersionEntryEligibleAt,
@@ -38,6 +41,8 @@ export {
   releaseAgeEvidence,
   releaseAgeExemptionForIdentity,
   releaseAgeHoldbackWarning,
+  releaseAgeRecord,
+  releaseAgeRecords,
 } from "./release-age-policy.js";
 export {
   type ReleaseAgeVersionResolution,
@@ -66,7 +71,6 @@ export {
   type SourceAuthorityInput,
   type SourceAuthorityRelationship,
   type SourceAuthorityTarget,
-  type WorkspaceAuthorityStatus,
 } from "./source-authority.js";
 
 export { type SourceBindingProposal } from "./source-switch.js";
@@ -115,9 +119,9 @@ export {
   type ResolvedPackDependencyMap,
 } from "./resolved-pack-dependency.js";
 export {
-  resolvePackDependencies,
   resolvePackDependenciesWithReleaseAge,
   type PackDependencyRefResolver,
+  type PackMemberRangeResolver,
   type ReleaseAgeAwarePackDependencyResolution,
   type ResolvedPackDependencies,
   type WorkspacePackDependencyResolution,
@@ -154,13 +158,6 @@ export {
   type TargetedUpdateTargetType,
 } from "./update/targeted-update-context.js";
 
-// Which constraint governs an update when a workspace and its Packs each
-// declare one, and which newer releases that precedence holds back.
-export {
-  detectHoldbackWarnings,
-  resolveConstrainedVersion,
-  type ConstraintResolutionResult,
-  type PackConstraint,
-  type UpdateConstraints,
-} from "./update/constraint-precedence.js";
+// Which Packs hold the newest release of an updated extension back.
+export { heldBackReleaseWarnings } from "./update/held-back-releases.js";
 export { hydrateAcceptedPackRef } from "./accepted-pack-hydration.js";

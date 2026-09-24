@@ -48,6 +48,7 @@ import {
 } from "../../../transitions/planning/index.js";
 import {
   decodeDesiredExtensionIdentity,
+  isRequiredByAnotherOrigin,
   type DesiredPackageAuthority,
   type DesiredStateGraph,
   type ExtensionTarget,
@@ -381,13 +382,7 @@ export const planPackUninstall: (
     const removedOrigin = node.origins.some(
       (origin) => origin.type === "pack" && removingPackIdentities.has(origin.pack),
     );
-    if (!removedOrigin) continue;
-    const retainedOrigin = node.origins.some(
-      (origin) =>
-        origin.type === "settings" ||
-        (origin.type === "pack" && !removingPackIdentities.has(origin.pack)),
-    );
-    if (retainedOrigin) continue;
+    if (!removedOrigin || isRequiredByAnotherOrigin(node, removingPackIdentities)) continue;
     allTargets.set(`${node.type}:${node.name}`, { type: node.type, name: node.name });
   }
 

@@ -32,7 +32,7 @@ export const specification = defineSpecification({
   requirement: "cli/demote/replaces-workspace-source-with-selected-source",
   title: "Demote returns an authored package to the selected external source",
   statement:
-    "When a person demotes a workspace-authored extension to a valid external source, AXM shall replace workspace source authority with that source and its content while preserving the configured activation state, and shall refuse a workspace replacement source or a target that is not workspace authored.",
+    "When a person demotes a workspace-authored extension to a valid external source, AXM shall replace workspace source authority with that source and its content, selecting within the effective constraint the replacement's range and every Pack that requires the extension intersect, while preserving the configured activation state, and shall refuse a workspace replacement source, a target that is not workspace authored, or a replacement whose effective constraint admits no version.",
   class: "functional",
   role: "experience",
   goals: ["authoring-and-creation", "workspace-intent-fidelity"],
@@ -224,6 +224,91 @@ describe("Demoting workspace authorship", () => {
             .pipe(Effect.provide(NodeServices.layer));
         },
       );
+
+  describe("an authored skill a Pack also requires", () => {
+    /**
+     * The Pack accepted its member at 1.1.0 from the Registry; the workspace
+     * then authored the member itself, and the Registry published a later
+     * minor inside the Pack range and a major outside it.
+     */
+    const authoredPackMember = (registry: LifecycleRegistry, workspace: LifecycleFixture) =>
+      Effect.gen(function* () {
+        registry.writeSkill(REVIEW, [
+          { version: "1.0.0", body: "First." },
+          { version: "1.1.0", body: "Accepted." },
+        ]);
+        registry.writePack("tools", [
+          { version: "1.0.0", dependencies: { [`@acme/skills/${REVIEW}`]: "^1.0.0" } },
+        ]);
+        yield* applyInstall(installRequest({ subject: { kind: "configured" } }));
+        registry.writeSkill(REVIEW, [
+          { version: "1.0.0", body: "First." },
+          { version: "1.1.0", body: "Accepted." },
+          { version: "1.2.0", body: "Within the Pack." },
+          { version: "2.0.0", body: "Outside the Pack." },
+        ]);
+        writeAuthoringPackage(workspace.root, authoringTypes[0], REVIEW, { parent: "skills" });
+        const settings = readSettings(workspace);
+        workspace.writeFile(
+          "axm.json",
+          `${JSON.stringify({ ...settings, skills: { [REVIEW]: "workspace" } }, null, 2)}\n`,
+        );
+      });
+
+    const packWorkspace = () => {
+      const registry = makeLifecycleRegistry();
+      cleanups.push(registry.cleanup);
+      return {
+        registry,
+        workspace: workspaceFor({ agents: [], packs: { tools: "@acme/packs/tools" } }, registry),
+      };
+    };
+
+    it.effect("selects the replacement within the Pack's range", () => {
+      const { registry, workspace } = packWorkspace();
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* authoredPackMember(registry, workspace);
+
+            const resolution = yield* applyDemote({
+              fqn: `@acme/skills/${REVIEW}`,
+              source: `@acme/skills/${REVIEW}`,
+            });
+
+            expect(deriveOperationOutcome(resolution)).toBe("applied");
+            const lockfile = workspace.readFile("axm-lock.yaml");
+            expect(lockfile).toContain("version: 1.2.0");
+            expect(lockfile).not.toContain("version: 2.0.0");
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    });
+
+    it.effect("refuses a replacement range the Pack's range excludes", () => {
+      const { registry, workspace } = packWorkspace();
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* authoredPackMember(registry, workspace);
+            const before = snapshotContent(workspace.root);
+
+            const failure = yield* applyDemote({
+              fqn: `@acme/skills/${REVIEW}`,
+              source: `@acme/skills/${REVIEW}@^2.0.0`,
+            }).pipe(Effect.flip);
+
+            expect(failure).toBeInstanceOf(ExtensionLifecycleFailed);
+            if (failure instanceof ExtensionLifecycleFailed) {
+              expect(failure.category).toBe("conflict");
+              expect(failure.detail).toContain("unsatisfiable");
+            }
+            expect(snapshotContent(workspace.root)).toEqual(before);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    });
+  });
 
   for (const fault of ["workspace-source", "external-target"] as const)
     it.effect(`refuses ${fault} without changing authority or content`, () => {

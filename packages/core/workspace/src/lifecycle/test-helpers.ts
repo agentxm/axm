@@ -160,10 +160,10 @@ export const describeTestFailure = (failure: unknown): string => {
 };
 
 /**
- * Structural stand-in for the application's failure adapter: the feature's
- * own failure maps 1:1; anything else keeps its detail sentence under an
- * `internal` category. Assertions in this package bind to this mapping, not
- * to the application boundary's wording.
+ * Structural stand-in for the kernel's failure conversion: the feature's own
+ * failure maps 1:1; anything else keeps its detail sentence under an
+ * `internal` category. Tests that use it assert on the producer's own
+ * sentence, not on the kernel's rendering of it.
  */
 export const testFailureToStepFailure = (failure: unknown): StepFailure =>
   failure instanceof ExtensionLifecycleFailed
@@ -181,8 +181,6 @@ export const testFailureToStepFailure = (failure: unknown): StepFailure =>
 
 export const TestStepFailureConversion = Layer.succeed(StepFailureConversion, {
   toStepFailure: testFailureToStepFailure,
-  describeFailure: describeTestFailure,
-  describeFailureMessage: describeTestFailure,
 });
 
 const sortNames = (names: ReadonlyArray<string>): ReadonlyArray<string> => {

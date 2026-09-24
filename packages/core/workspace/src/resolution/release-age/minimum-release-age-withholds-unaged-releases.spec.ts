@@ -289,6 +289,21 @@ describe("Minimum release age", () => {
     }),
   );
 
+  it.effect("refuses a configured window it cannot read rather than withholding nothing", () =>
+    Effect.gen(function* () {
+      // The setting's grammar admits the value, but no duration can hold it.
+      const failure = yield* evaluationFor({
+        settings: { minimumReleaseAge: "99999999999999999999d" },
+      }).pipe(Effect.flip);
+
+      expect(failure).toMatchObject({
+        _tag: "ExtensionResolutionFailed",
+        category: "validation",
+        detail: 'Invalid minimumReleaseAge "99999999999999999999d"',
+      });
+    }),
+  );
+
   it.effect("does not exempt an identity no declared pattern matches", () =>
     Effect.gen(function* () {
       const { decision } = yield* decide(justPublished, {

@@ -79,8 +79,10 @@ matching configured workspace authority.
 
 Minimum release age applies to the pack and every Registry-resolved member as
 one atomic graph. A held member holds the complete pack graph: workspace-wide
-update leaves that graph unchanged and continues, while a targeted update
-preserves the complete accepted, usable graph or stops without writing. A
+update leaves that graph unchanged and continues, while an install, `axm sync`,
+and a targeted update preserve the complete accepted, usable graph or stop
+without writing. A named `axm install @owner/packs/name` selects the pack
+release it names, and still holds each member it selects by range. A
 targeted `axm update @owner/packs/name --ignore-release-age` bypasses the policy
 for the pack and all of its Registry dependencies for that invocation, and the
 result identifies each bypass by dependency path.

@@ -168,11 +168,17 @@ export {
 
 export {
   buildDesiredStateGraph,
+  effectiveDesiredConstraint,
   isInlineDesiredExtension,
+  isRequiredByAnotherOrigin,
   isSourcedDesiredExtension,
+  originsOutsidePacks,
   type DesiredExtensionNode,
   type DesiredExtensionOrigin,
+  type DesiredConstraintConflict,
   type DesiredConstraintContributor,
+  type DesiredConstraintProposal,
+  type DesiredEffectiveConstraint,
   type DesiredStateGraph,
   type DesiredStateProblem,
   type ProspectivePackRef,
@@ -186,6 +192,8 @@ export {
 export {
   desiredStateProblemText,
   desiredStateProblemsText,
+  formatConstraintContributors,
+  packManifestContentMismatchText,
 } from "./workspace/desired-state-problem-text.js";
 export {
   effectiveExtensionActivation,
@@ -208,8 +216,10 @@ export {
   acceptedLockedCanonicalPath,
   prepareAcceptedCanonicalTransition,
   acceptedCanonicalObservation,
+  observeDesiredCanonical,
   removableAcceptedCanonicalPath,
   usableAcceptedCanonical,
+  usableAcceptedCanonicalFrom,
   usableAcceptedCanonicalObservation,
   usableAcceptedCanonicalRef,
   type AcceptedCanonicalObservation,

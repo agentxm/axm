@@ -5,12 +5,20 @@ import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
+import YAML from "yaml";
 
 import { LOCKFILE_VERSION } from "../../desired-state/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import {
+  SHARED_MEMBER,
+  SHARED_MEMBER_PIN,
+  publishSharedMemberScenario,
+  sharedMemberSettings,
+} from "../../desired-state/workspace/test-helpers.js";
+import {
   applySync,
+  makeFileRegistry,
   makeSyncFixture,
   previewSync,
   writeLocalSkillPackage,
@@ -21,12 +29,15 @@ export const specification = defineSpecification({
   requirement: "cli/lockfile-rejections-name-recovery-routes",
   title: "The recovery route for a rejected lockfile re-accepts the desired state",
   statement:
-    "When a workspace lockfile is rejected as older than the supported version, following the named recovery route (preserving the file outside its authoritative path, previewing, then applying sync) shall re-accept the desired state into a lockfile at the supported version, and a workspace holding only workspace-authored content shall finish that route without a lockfile.",
+    "When a workspace lockfile is rejected as older than the supported version, following the named recovery route (preserving the file outside its authoritative path, previewing, then applying sync) shall re-accept the desired state into a lockfile at the supported version, selecting each re-accepted extension within its effective desired constraint so that a direct pin on a Pack member holds, and a workspace holding only workspace-authored content shall finish that route without a lockfile.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "safe-repetition", "workspace-intent-fidelity"],
   methods: ["example"],
-  derivedFrom: ["cli/workspace-lockfile-rejections-name-state-and-recovery"],
+  derivedFrom: [
+    "cli/workspace-lockfile-rejections-name-state-and-recovery",
+    "workspace/desired-state/effective-constraint-has-one-owner",
+  ],
   supersedes: ["cli/workspace-lockfile-rejections-name-state-and-recovery"],
   assumptions: [],
   openQuestions: [],
@@ -98,6 +109,35 @@ describe("Lockfile rejection recovery routes", () => {
       });
     },
   );
+
+  it.effect("re-accepts a shared Pack member at the direct pin every Pack admits", () => {
+    const registry = makeFileRegistry();
+    cleanups.push(registry.cleanup);
+    publishSharedMemberScenario(registry);
+    const workspace = fixture({
+      sources: [registry.source],
+      ...sharedMemberSettings(SHARED_MEMBER_PIN.inside),
+    });
+    const lockPath = writeOlderLockfile(workspace);
+    const run = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+      workspace.provide(effect).pipe(Effect.provide(NodeServices.layer));
+    return Effect.gen(function* () {
+      expect(yield* Effect.flip(run(previewSync()))).toMatchObject({
+        _tag: "LockfileVersionUnsupported",
+      });
+      fs.renameSync(lockPath, nodePath.join(workspace.root, "axm-lock.previous.yaml"));
+
+      yield* run(previewSync());
+      yield* run(applySync());
+
+      const lockfile = fs.readFileSync(lockPath, "utf8");
+      expect(lockfile).toContain(`lockfileVersion: ${LOCKFILE_VERSION}`);
+      // Both Packs admit 1.2.0; the direct pin is a contributor too.
+      expect(YAML.parse(lockfile)).toMatchObject({
+        skills: { [SHARED_MEMBER.name]: { resolved: { version: SHARED_MEMBER_PIN.inside } } },
+      });
+    });
+  });
 
   it.effect("allows an authored-only workspace to finish recovery without a lockfile", () => {
     const workspace = fixture();

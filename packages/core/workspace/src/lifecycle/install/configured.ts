@@ -3,11 +3,14 @@
  *
  * `axm install` with no source, and every `<type> install` with no source, ask
  * the same question: bring the workspace to the state its settings describe.
- * Each enabled configured entry resolves to the version its declared source
+ * Each enabled configured entry resolves to a version its declared source
  * and the release-age policy allow, becomes its own closure, and the shared
  * aggregate projections are rendered once at the end from the complete
- * contributor set. A member reached twice — declared directly and required by
- * a pack — is installed once, from the direct declaration.
+ * contributor set. Configured Packs resolve first, so every entry is planned
+ * against one proposed desired-state graph: a member reached twice — declared
+ * directly and required by a Pack — selects within that graph's effective
+ * constraint wherever it is resolved, and a conflict blocks the entry and the
+ * Packs together.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -38,6 +41,7 @@ import {
   type InstallableExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type { ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
+import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import {
@@ -64,10 +68,13 @@ import {
   type Plan,
   type PlannedJobStep,
 } from "../../transitions/planning/index.js";
+import * as Result from "effect/Result";
 import {
   SettingsReader,
   acceptedResolutionRef,
   acquisitionConfiguredEntries,
+  effectiveDesiredConstraint,
+  type DesiredStateGraph,
 } from "../../desired-state/index.js";
 
 import type { ExtensionLifecycleFailed } from "../errors.js";
@@ -76,11 +83,13 @@ import { planKnowledgeInstall } from "../../knowledge/lifecycle/install/plan.js"
 import { planMcpServerInstall } from "../../mcp-connections/lifecycle/install/plan.js";
 import {
   planPackInstall,
+  readProposedGraph,
   type PackInstallRequirements,
 } from "../../packs/lifecycle/install/plan.js";
 import {
+  configuredEntryConstraintBlockPlan,
   configuredPackConstraintBlockPlan,
-  prospectivePackConstraintProblems,
+  relevantPackConstraintProblems,
 } from "../../packs/lifecycle/constraint-gate.js";
 import { planRuleInstall } from "../../instructions/lifecycle/install/plan.js";
 import { planSkillInstall } from "../../skills/lifecycle/install/plan.js";
@@ -88,6 +97,7 @@ import { planSubagentInstall } from "../../subagents/lifecycle/install/plan.js";
 import { buildAggregateProjectionStep } from "./aggregate-projection-step.js";
 import { inlineMcpNotApplicablePlan } from "./inline-mcp-operation.js";
 import {
+  INSTALL_HELD_RELEASE_POLICY,
   installRefused,
   type InstallStepRequirements,
   type PackInstallIntent,
@@ -100,17 +110,16 @@ import { withPackRegistryIndexMemo } from "../../resolution/sources/providers/re
 /** Which extension types a configured-entry sweep covers. */
 export type ConfiguredInstallableType = InstallableExtensionType;
 
-type StepOrigin = "direct" | "dependency";
-
 interface StepFragment {
   readonly key: string;
-  readonly origin: StepOrigin;
   readonly step: PlannedJobStep<InstallStepRequirements>;
 }
 
 interface CollectedConfiguredPlans {
   readonly plans: ReadonlyArray<Plan<InstallStepRequirements>>;
   readonly fragments: ReadonlyArray<StepFragment>;
+  /** The recovery routes a refused unit named, kept when its steps join the sweep. */
+  readonly failureSuggestions: ReadonlyArray<SuggestedAction>;
   readonly holdbacks: ReadonlyArray<ReleaseAgeHoldbackRecord>;
   readonly bypasses: ReadonlyArray<ReleaseAgeBypassRecord>;
 }
@@ -175,23 +184,18 @@ const toCollectedPlans = ({
   plans,
   holdbacks = [],
   bypasses = [],
-  originForStep = () => "direct" as const,
 }: {
   readonly plans: ReadonlyArray<Plan<InstallStepRequirements>>;
   readonly holdbacks?: ReadonlyArray<ReleaseAgeHoldbackRecord>;
   readonly bypasses?: ReadonlyArray<ReleaseAgeBypassRecord>;
-  readonly originForStep?: (index: number) => StepOrigin;
 }): CollectedConfiguredPlans => ({
   plans,
   holdbacks: [...holdbacks, ...plans.flatMap((plan) => plan.releaseAge?.holdbacks ?? [])],
   bypasses: [...bypasses, ...plans.flatMap((plan) => plan.releaseAge?.bypasses ?? [])],
   fragments: plans.flatMap((plan) =>
-    flattenPlanSteps(plan).map((step, index) => ({
-      key: step.key ?? step.label,
-      origin: originForStep(index),
-      step,
-    })),
+    flattenPlanSteps(plan).map((step) => ({ key: step.key ?? step.label, step })),
   ),
+  failureSuggestions: plans.flatMap((plan) => plan.failureSuggestions ?? []),
 });
 
 const attachConfiguredReleaseAge = (
@@ -220,27 +224,6 @@ const attachConfiguredReleaseAge = (
           ]),
         },
       };
-
-/**
- * One member declared directly and also required by a pack is installed from
- * the direct declaration: the person who wrote it down chose that version.
- */
-const mergeFragments = (
-  collections: ReadonlyArray<CollectedConfiguredPlans>,
-): ReadonlyArray<StepFragment> => {
-  const byKey = new Map<string, StepFragment>();
-  for (const fragment of collections.flatMap((collection) => collection.fragments)) {
-    const existing = byKey.get(fragment.key);
-    if (existing === undefined) {
-      byKey.set(fragment.key, fragment);
-      continue;
-    }
-    if (existing.origin === "dependency" && fragment.origin === "direct") {
-      byKey.set(fragment.key, fragment);
-    }
-  }
-  return [...byKey.values()];
-};
 
 /**
  * Every failure settling the configured closure can surface: this feature's
@@ -277,7 +260,15 @@ interface ConfiguredPackIntentArgs {
   readonly deferProjections?: boolean;
 }
 
-const preparePackIntent: (args: ConfiguredPackIntentArgs) => Effect.Effect<
+/**
+ * The intent one configured Pack settles to: an accepted Pack is restored
+ * from its accepted archive and replays its accepted members, and any other
+ * configured Pack resolves through its configured source. The intent
+ * carries the install's declared held-release policy, so a held-back release
+ * preserves a complete usable graph or blocks. Install and sync recovery both
+ * take their Pack intent from here.
+ */
+export const prepareConfiguredPackIntent: (args: ConfiguredPackIntentArgs) => Effect.Effect<
   Effect.Effect<
     {
       readonly intent: PackInstallIntent;
@@ -302,10 +293,9 @@ const preparePackIntent: (args: ConfiguredPackIntentArgs) => Effect.Effect<
   }).pipe(Effect.mapError(resolutionFailed(args.name)));
 
   const shared = {
-    unattended: true,
     nonInteractive: args.nonInteractive,
     releaseAgeEvaluation: args.releaseAgeEvaluation,
-    releaseAgeHoldbackBehavior: "preserve-or-block" as const,
+    heldRelease: INSTALL_HELD_RELEASE_POLICY,
     ...(args.forceCanonical === true ? { forceCanonical: true } : {}),
     ...(args.deferProjections === true ? { deferProjections: true } : {}),
   };
@@ -350,91 +340,91 @@ interface CollectPackPlansArgs {
   readonly deferProjections?: boolean;
 }
 
+/** The configured Packs' plans, and the proposed graph every other entry plans against. */
+interface CollectedPackPlans {
+  readonly collection: CollectedConfiguredPlans;
+  readonly graph: DesiredStateGraph;
+}
+
 const collectPackPlansInPhase: (
   args: CollectPackPlansArgs,
-) => Effect.Effect<
-  CollectedConfiguredPlans,
-  ConfiguredInstallFailure,
-  ConfiguredInstallRequirements
-> = Effect.fn("InstallExtensions.collectConfiguredPacks")(function* (args: CollectPackPlansArgs) {
-  const settings = yield* SettingsReader;
-  const configured = yield* settings.entries("pack").pipe(
-    Effect.mapError((cause) =>
-      installRefused({
-        category: "internal",
-        detail: "Configured packs could not be read",
-        cause,
-      }),
-    ),
-  );
-  const entries = acquisitionConfiguredEntries(configured).filter(
-    ([name]) => args.selectedNames === undefined || args.selectedNames.has(name),
-  );
-
-  const requestBudget = yield* Effect.serviceOption(OperationRequestBudget);
-  const preparedPacks = yield* Effect.forEach(
-    entries,
-    ([name, entry]) =>
-      preparePackIntent({
-        name,
-        source: entry.source,
-        releaseAgeEvaluation: args.releaseAgeEvaluation,
-        nonInteractive: args.nonInteractive,
-        ...(args.forceCanonical === undefined ? {} : { forceCanonical: args.forceCanonical }),
-        ...(args.deferProjections === undefined ? {} : { deferProjections: args.deferProjections }),
-      }),
-    { concurrency: Option.isSome(requestBudget) ? requestBudget.value.capacity : 1 },
-  );
-  // Local preparation finishes before Registry requests enter the shared resolver.
-  // The operation's request budget bounds transport while selections run together.
-  const resolvedPacks = yield* Effect.all(preparedPacks, {
-    concurrency: Option.isSome(requestBudget) ? requestBudget.value.capacity : 1,
-  });
-
-  const prospectivePacks = resolvedPacks.map(({ intent }) => intent.packToInstall);
-  const constraintProblems = yield* prospectivePackConstraintProblems({
-    prospectivePacks,
-    ...(args.selectedNames === undefined ? {} : { selectedNames: args.selectedNames }),
-  }).pipe(
-    Effect.mapError((cause) =>
-      installRefused({
-        category: "internal",
-        detail: "Prospective pack constraints could not be evaluated",
-        cause,
-      }),
-    ),
-  );
-  const releaseAge = resolvedPacks.flatMap(({ releaseAge }) =>
-    releaseAge === undefined ? [] : [releaseAge],
-  );
-  if (constraintProblems.length > 0) {
-    return toCollectedPlans({
-      plans: [
-        configuredPackConstraintBlockPlan({ operation: "install", problems: constraintProblems }),
-      ],
-      holdbacks: releaseAge.flatMap((record) => record.holdbacks),
-      bypasses: releaseAge.flatMap((record) => record.bypasses),
-    });
-  }
-
-  const plans = yield* Effect.forEach(
-    resolvedPacks,
-    ({ intent, releaseAge }) =>
-      planPackInstall(intent).pipe(
-        Effect.map((plan) =>
-          attachConfiguredReleaseAge(plan, args.releaseAgeEvaluation, releaseAge),
-        ),
+) => Effect.Effect<CollectedPackPlans, ConfiguredInstallFailure, ConfiguredInstallRequirements> =
+  Effect.fn("InstallExtensions.collectConfiguredPacks")(function* (args: CollectPackPlansArgs) {
+    const settings = yield* SettingsReader;
+    const configured = yield* settings.entries("pack").pipe(
+      Effect.mapError((cause) =>
+        installRefused({
+          category: "internal",
+          detail: "Configured packs could not be read",
+          cause,
+        }),
       ),
-    { concurrency: 16 },
-  );
+    );
+    const entries = acquisitionConfiguredEntries(configured).filter(
+      ([name]) => args.selectedNames === undefined || args.selectedNames.has(name),
+    );
 
-  // A pack's own step comes first; everything after it is a member the pack
-  // brought in, and a direct declaration of that member wins over it.
-  return toCollectedPlans({
-    plans,
-    originForStep: (index) => (index === 0 ? "direct" : "dependency"),
+    const requestBudget = yield* Effect.serviceOption(OperationRequestBudget);
+    const preparedPacks = yield* Effect.forEach(
+      entries,
+      ([name, entry]) =>
+        prepareConfiguredPackIntent({
+          name,
+          source: entry.source,
+          releaseAgeEvaluation: args.releaseAgeEvaluation,
+          nonInteractive: args.nonInteractive,
+          ...(args.forceCanonical === undefined ? {} : { forceCanonical: args.forceCanonical }),
+          ...(args.deferProjections === undefined
+            ? {}
+            : { deferProjections: args.deferProjections }),
+        }),
+      { concurrency: Option.isSome(requestBudget) ? requestBudget.value.capacity : 1 },
+    );
+    // Local preparation finishes before Registry requests enter the shared resolver.
+    // The operation's request budget bounds transport while selections run together.
+    const resolvedPacks = yield* Effect.all(preparedPacks, {
+      concurrency: Option.isSome(requestBudget) ? requestBudget.value.capacity : 1,
+    });
+
+    const prospectivePacks = resolvedPacks.map(({ intent }) => intent.packToInstall);
+    const graph = yield* readProposedGraph(prospectivePacks);
+    const constraintProblems = relevantPackConstraintProblems({
+      graph,
+      prospectivePacks,
+      ...(args.selectedNames === undefined ? {} : { selectedNames: args.selectedNames }),
+    });
+    const releaseAge = resolvedPacks.flatMap(({ releaseAge }) =>
+      releaseAge === undefined ? [] : [releaseAge],
+    );
+    if (constraintProblems.length > 0) {
+      return {
+        graph,
+        collection: toCollectedPlans({
+          plans: [
+            configuredPackConstraintBlockPlan({
+              operation: "install",
+              problems: constraintProblems,
+            }),
+          ],
+          holdbacks: releaseAge.flatMap((record) => record.holdbacks),
+          bypasses: releaseAge.flatMap((record) => record.bypasses),
+        }),
+      };
+    }
+
+    const plans = yield* Effect.forEach(
+      resolvedPacks,
+      ({ intent, releaseAge }) =>
+        planPackInstall({ ...intent, desiredGraph: graph }).pipe(
+          Effect.map((plan) =>
+            attachConfiguredReleaseAge(plan, args.releaseAgeEvaluation, releaseAge),
+          ),
+        ),
+      { concurrency: 16 },
+    );
+
+    return { graph, collection: toCollectedPlans({ plans }) };
   });
-});
 
 const collectPackPlans = (args: CollectPackPlansArgs) =>
   withPackRegistryIndexMemo(collectPackPlansInPhase(args));
@@ -444,6 +434,7 @@ const collectSimpleTypePlans = (
   releaseAgeEvaluation: ReleaseAgeEvaluation,
   nonInteractive: boolean,
   force: boolean,
+  graph: DesiredStateGraph,
 ): Effect.Effect<
   CollectedConfiguredPlans,
   ConfiguredInstallFailure,
@@ -506,13 +497,27 @@ const collectSimpleTypePlans = (
       ConfiguredInstallFailure,
       ConfiguredInstallRequirements
     > => {
+      // The entry selects within the one constraint every contributor to it
+      // intersects; a conflict blocks it before anything is resolved.
+      const effective = effectiveDesiredConstraint(graph, { type, name });
+      if (Result.isFailure(effective)) {
+        return Effect.succeed(
+          configuredEntryConstraintBlockPlan({
+            operation: "install",
+            type,
+            name,
+            conflict: effective.failure,
+          }),
+        );
+      }
+      const selectionRange = effective.success.range;
       switch (type) {
         case "skill":
           return resolveConfiguredOrAccepted(
             "skill",
             name,
             source,
-            resolveConfiguredSkill(name, source, releaseAgeEvaluation),
+            resolveConfiguredSkill(name, source, releaseAgeEvaluation, selectionRange),
           ).pipe(
             Effect.mapError(resolutionFailed(name)),
             Effect.flatMap((resolved) =>
@@ -545,7 +550,7 @@ const collectSimpleTypePlans = (
             "subagent",
             name,
             source,
-            resolveConfiguredSubagent(name, source, releaseAgeEvaluation),
+            resolveConfiguredSubagent(name, source, releaseAgeEvaluation, selectionRange),
           ).pipe(
             Effect.mapError(resolutionFailed(name)),
             Effect.flatMap((resolved) =>
@@ -577,7 +582,7 @@ const collectSimpleTypePlans = (
             "rule",
             name,
             source,
-            resolveConfiguredRule(name, source, releaseAgeEvaluation),
+            resolveConfiguredRule(name, source, releaseAgeEvaluation, selectionRange),
           ).pipe(
             Effect.mapError(resolutionFailed(name)),
             Effect.flatMap((resolved) =>
@@ -610,7 +615,7 @@ const collectSimpleTypePlans = (
             "hook",
             name,
             source,
-            resolveConfiguredHook(name, source, releaseAgeEvaluation),
+            resolveConfiguredHook(name, source, releaseAgeEvaluation, selectionRange),
           ).pipe(
             Effect.mapError(resolutionFailed(name)),
             Effect.flatMap((resolved) =>
@@ -643,7 +648,7 @@ const collectSimpleTypePlans = (
             "knowledge",
             name,
             source,
-            resolveConfiguredKnowledge(name, source, releaseAgeEvaluation),
+            resolveConfiguredKnowledge(name, source, releaseAgeEvaluation, selectionRange),
           ).pipe(
             Effect.mapError(resolutionFailed(name)),
             Effect.flatMap((resolved) =>
@@ -676,7 +681,7 @@ const collectSimpleTypePlans = (
             "mcp-server",
             name,
             source,
-            resolveConfiguredMcpServer(name, source, releaseAgeEvaluation),
+            resolveConfiguredMcpServer(name, source, releaseAgeEvaluation, selectionRange),
           ).pipe(
             Effect.mapError(resolutionFailed(name)),
             Effect.flatMap((resolved) =>
@@ -781,85 +786,6 @@ const collectSimpleTypePlans = (
     }
   });
 
-/**
- * Build the configured Pack graph as one recovery candidate.
- *
- * Recovery only runs for Packs whose observed tree already diverged from the
- * accepted resolution, so the installed tree is never reused.
- */
-/** Which configured packs a recovery rebuilds, and what to call the operation. */
-export interface ConfiguredPackRecoveryRequest {
-  readonly planName: string;
-  readonly planDescription: Option.Option<string>;
-  readonly packNames: ReadonlySet<string>;
-  readonly nonInteractive: boolean;
-}
-
-export const buildConfiguredPackInstallPlan: (
-  args: ConfiguredPackRecoveryRequest,
-) => Effect.Effect<
-  ConfiguredInstallPlanResult,
-  ConfiguredInstallFailure,
-  ConfiguredInstallRequirements
-> = Effect.fn("InstallExtensions.buildConfiguredPackInstallPlan")(function* (
-  args: ConfiguredPackRecoveryRequest,
-) {
-  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation().pipe(
-    Effect.mapError((cause) =>
-      installRefused({
-        category: "internal",
-        detail: "Release-age policy could not be evaluated",
-        cause,
-      }),
-    ),
-  );
-  const collection = yield* collectPackPlans({
-    releaseAgeEvaluation,
-    nonInteractive: args.nonInteractive,
-    selectedNames: args.packNames,
-    forceCanonical: true,
-  });
-  const fragments = mergeFragments([collection]);
-  if (fragments.length === 0) {
-    const nothingConfigured: ConfiguredInstallPlanResult = {
-      _tag: "NoConfiguredExtensions",
-      message: noConfiguredMessage(Option.some("pack")),
-    };
-    return nothingConfigured;
-  }
-
-  const holdbacks = normalizeReleaseAgeRecords(collection.holdbacks);
-  const bypasses = normalizeReleaseAgeRecords(collection.bypasses);
-  const settled: ConfiguredInstallPlanResult = {
-    _tag: "ConfiguredInstallPlan",
-    plan: {
-      _tag: "Plan",
-      name: args.planName,
-      description: args.planDescription,
-      presentation: operationPresentation(
-        { imperative: "install", past: "Installed", gerund: "Installing" },
-        "pack",
-      ),
-      jobs: [{ concurrency: 1, steps: fragments.map((fragment) => fragment.step) }],
-      ...(holdbacks.length === 0 && bypasses.length === 0
-        ? {}
-        : {
-            releaseAge: {
-              evaluatedAt: DateTime.formatIso(releaseAgeEvaluation.evaluatedAt),
-              holdbacks,
-              bypasses,
-            },
-          }),
-    },
-    configuredAgentOperations: [...args.packNames].map((name) => ({
-      extensionType: "pack",
-      name,
-      plannedState: "enabled",
-    })),
-  };
-  return settled;
-});
-
 /** Plan the install of every enabled configured entry, or of one type's. */
 /** Which configured entries a sweep covers, and what to call the operation. */
 export interface ConfiguredInstallRequest {
@@ -879,33 +805,43 @@ export const buildConfiguredInstallPlan: (
 > = Effect.fn("InstallExtensions.buildConfiguredInstallPlan")(function* (
   args: ConfiguredInstallRequest,
 ) {
+  // An unreadable window is the setting's own validation refusal; it travels
+  // unchanged so every path reports the same fact.
   const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation().pipe(
     Effect.mapError((cause) =>
-      installRefused({
-        category: "internal",
-        detail: "Release-age policy could not be evaluated",
-        cause,
-      }),
+      cause._tag === "ExtensionResolutionFailed"
+        ? cause
+        : installRefused({
+            category: "internal",
+            detail: "Release-age policy could not be evaluated",
+            cause,
+          }),
     ),
   );
   const selectedTypes = installableExtensionTypes.filter((type) =>
     Option.match(args.type, { onNone: () => true, onSome: (value) => value === type }),
   );
+  // Packs resolve first: their proposed manifests are part of the one graph
+  // every configured entry selects within.
+  const packs = selectedTypes.includes("pack")
+    ? yield* collectPackPlans({
+        releaseAgeEvaluation,
+        nonInteractive: args.nonInteractive,
+        deferProjections: true,
+        forceCanonical: args.force,
+      })
+    : undefined;
+  const graph = packs?.graph ?? (yield* readProposedGraph([]));
   const collections = yield* Effect.forEach(
     selectedTypes,
     (type) =>
       (type === "pack"
-        ? collectPackPlans({
-            releaseAgeEvaluation,
-            nonInteractive: args.nonInteractive,
-            deferProjections: true,
-            forceCanonical: args.force,
-          })
-        : collectSimpleTypePlans(type, releaseAgeEvaluation, args.nonInteractive, args.force)
+        ? Effect.succeed(packs?.collection ?? toCollectedPlans({ plans: [] }))
+        : collectSimpleTypePlans(type, releaseAgeEvaluation, args.nonInteractive, args.force, graph)
       ).pipe(Effect.map((collection) => ({ type, collection }))),
     { concurrency: 1 },
   );
-  const fragments = mergeFragments(collections.map(({ collection }) => collection));
+  const fragments = collections.flatMap(({ collection }) => collection.fragments);
 
   if (fragments.length === 0) {
     const nothingConfigured: ConfiguredInstallPlanResult = {
@@ -936,6 +872,15 @@ export const buildConfiguredInstallPlan: (
   const bypasses = normalizeReleaseAgeRecords(
     collections.flatMap(({ collection }) => collection.bypasses),
   );
+  const failureSuggestions = collections
+    .flatMap(({ collection }) => collection.failureSuggestions)
+    .filter(
+      (suggestion, index, all) =>
+        all.findIndex(
+          (candidate) =>
+            candidate.description === suggestion.description && candidate.cmd === suggestion.cmd,
+        ) === index,
+    );
 
   const settled: ConfiguredInstallPlanResult = {
     _tag: "ConfiguredInstallPlan",
@@ -962,6 +907,7 @@ export const buildConfiguredInstallPlan: (
               bypasses,
             },
           }),
+      ...(failureSuggestions.length === 0 ? {} : { failureSuggestions }),
     },
     configuredAgentOperations: configuredAgentOperationsFrom(collections),
   };

@@ -19,7 +19,7 @@ import {
 } from "@agentxm/workspace/transitions/planning";
 
 import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";
-import { lifecycleFailureToAppError } from "../../feature-errors.js";
+import { failureToAppError } from "../../app-error/conversions.js";
 import {
   emitOperationResolution,
   operationResolutionSummary,
@@ -71,7 +71,7 @@ export interface UninstallCommandArgs {
 const body = (args: UninstallCommandArgs) =>
   Effect.gen(function* () {
     const candidate = yield* UninstallExtensions.prepare(args.request).pipe(
-      Effect.mapError(lifecycleFailureToAppError),
+      Effect.mapError(failureToAppError),
     );
 
     const execution = yield* makeUninstallPlanExecution(
@@ -80,7 +80,7 @@ const body = (args: UninstallCommandArgs) =>
       args.recoveryPositionals,
     );
     const resolution = yield* UninstallExtensions.previewOrApply(candidate, execution).pipe(
-      Effect.mapError(lifecycleFailureToAppError),
+      Effect.mapError(failureToAppError),
     );
 
     yield* setCommandSemanticProperties(

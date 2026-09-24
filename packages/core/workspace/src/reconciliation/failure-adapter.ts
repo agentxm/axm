@@ -1,14 +1,13 @@
 /**
- * The application-supplied conversion from this feature's typed failures to
- * the kernel's `StepFailure`.
+ * The conversion from reconciliation's typed failures to the kernel's
+ * `StepFailure`, as a service reconciliation planners keep in `R`.
  *
- * Error rendering is application-owned: the CLI implements this with the same
- * dispatcher it uses at its output boundary, so step categories and details
- * inside sync plans stay byte-identical with rendered errors. The feature
- * keeps only the requirement, never the mapping, and it keeps it as a service
- * in `R` rather than as an argument threaded through every planner — a
- * conversion is a capability the application provides once, not a decision
- * each call site makes.
+ * The kernel owns the rendering and supplies the implementation as
+ * `ReconciliationFailureConversionLive`, so step categories and details
+ * inside sync plans read the same as the command boundary's rendering of the
+ * same failure. Planners keep the requirement as a service in `R` rather than
+ * as an argument threaded through every call — a conversion is a capability
+ * provided once per invocation, not a decision each call site makes.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -32,7 +31,7 @@ import type {
 import type { StepFailure } from "../transitions/planning/index.js";
 import type { WorkspaceSyncCleanupFailure } from "./errors.js";
 
-/** Every typed failure the sync policy hands to the application's converter. */
+/** Every typed failure the sync policy hands to the conversion. */
 export type SyncPolicyFailure =
   | WorkspaceTransactionFailure
   | WorkspaceRestorationIncomplete
@@ -50,7 +49,7 @@ export interface SyncFailureAdapter {
   readonly toStepFailure: (failure: SyncPolicyFailure) => StepFailure;
 }
 
-/** The conversion, as the application provides it once per invocation. */
+/** The conversion, provided once per invocation. */
 export class SyncStepFailureConversion extends ServiceMap.Service<
   SyncStepFailureConversion,
   SyncFailureAdapter

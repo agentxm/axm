@@ -171,7 +171,9 @@ const installedCandidates = (
     const candidates: IdentifierCandidate[] = [];
 
     const graph = yield* catalog.desiredExtensionGraph;
-    if (!graph.complete) {
+    // A constraint conflict leaves membership intact, so identifiers still
+    // resolve safely; the planner that selects a version reports the conflict.
+    if (graph.problems.some((problem) => problem.type !== "constraint-conflict")) {
       return yield* new SourceNotResolvable({
         category: "conflict",
         detail:

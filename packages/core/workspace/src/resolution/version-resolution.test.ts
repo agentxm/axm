@@ -17,6 +17,7 @@ import {
   isVersionEntryMature,
   normalizeReleaseAgeRecords,
   parseMinimumReleaseAge,
+  releaseAgeRecords,
 } from "./release-age-policy.js";
 import {
   resolveVersionEntryForReleaseAge,
@@ -43,11 +44,80 @@ describe("minimum release age", () => {
   });
   const mixedMaturityVersions = [heldVersion, matureVersion];
 
-  it("parses duration strings", () => {
-    expect(Duration.toMillis(Option.getOrThrow(parseMinimumReleaseAge("24h")))).toBe(86_400_000);
-    expect(Duration.toMillis(Option.getOrThrow(parseMinimumReleaseAge("1440m")))).toBe(86_400_000);
-    expect(Duration.toMillis(Option.getOrThrow(parseMinimumReleaseAge("0s")))).toBe(0);
-    expect(Option.isNone(parseMinimumReleaseAge("tomorrow"))).toBe(true);
+  it.effect("parses duration strings", () =>
+    Effect.gen(function* () {
+      expect(Duration.toMillis(yield* parseMinimumReleaseAge("24h"))).toBe(86_400_000);
+      expect(Duration.toMillis(yield* parseMinimumReleaseAge("1440m"))).toBe(86_400_000);
+      expect(Duration.toMillis(yield* parseMinimumReleaseAge("0s"))).toBe(0);
+    }),
+  );
+
+  it.effect("refuses a value that is not a duration instead of reading it as no minimum", () =>
+    Effect.gen(function* () {
+      const failure = yield* parseMinimumReleaseAge("tomorrow").pipe(Effect.flip);
+      expect(failure).toMatchObject({
+        _tag: "ExtensionResolutionFailed",
+        category: "validation",
+        detail: 'Invalid minimumReleaseAge "tomorrow"',
+      });
+    }),
+  );
+
+  it("builds holdback and bypass records from one subject", () => {
+    const evidence = {
+      version: "1.3.0",
+      publishedAt: "2025-01-02T23:00:00.000Z",
+      eligibleAt: "2025-01-03T23:00:00.000Z",
+      minimumReleaseAgeSeconds: 86_400,
+    };
+    const subject = {
+      target: "@acme/skills/review",
+      dependencyPath: ["@acme/packs/tools", "@acme/skills/review"],
+      requestedRange: "^1.0.0",
+    };
+
+    expect(releaseAgeRecords(subject, { kind: "selected", newerHeld: evidence }, "1.2.0")).toEqual({
+      holdbacks: [
+        {
+          reason: "minimum-release-age",
+          target: "@acme/skills/review",
+          dependencyPath: ["@acme/packs/tools", "@acme/skills/review"],
+          requestedRange: "^1.0.0",
+          selectedVersion: "1.2.0",
+          candidateVersion: "1.3.0",
+          publishedAt: evidence.publishedAt,
+          eligibleAt: evidence.eligibleAt,
+          minimumReleaseAgeSeconds: 86_400,
+        },
+      ],
+      bypasses: [],
+    });
+    expect(
+      releaseAgeRecords(
+        { target: "@acme/skills/review" },
+        { kind: "exempted", bypassed: evidence, exemption: { bypassCause: "ignore-flag" } },
+        "1.3.0",
+      ),
+    ).toEqual({
+      holdbacks: [],
+      bypasses: [
+        {
+          reason: "minimum-release-age",
+          target: "@acme/skills/review",
+          dependencyPath: ["@acme/skills/review"],
+          selectedVersion: "1.3.0",
+          candidateVersion: "1.3.0",
+          publishedAt: evidence.publishedAt,
+          eligibleAt: evidence.eligibleAt,
+          minimumReleaseAgeSeconds: 86_400,
+          bypassCause: "ignore-flag",
+        },
+      ],
+    });
+    expect(releaseAgeRecords(subject, { kind: "selected" }, "1.2.0")).toEqual({
+      holdbacks: [],
+      bypasses: [],
+    });
   });
 
   it("renders release-age windows in the units the setting accepts", () => {

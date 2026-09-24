@@ -55,10 +55,8 @@ import {
 import { handleListMcpServers } from "../mcps/list.js";
 import { injectWriteFaults } from "@agentxm/workspace/transitions/settlement/testing";
 import { handleSync } from "./handler.js";
-import {
-  LifecycleStepFailureConversionLive,
-  SyncStepFailureConversionLive,
-} from "../../feature-errors.js";
+import { LifecycleFailureConversionLive } from "@agentxm/workspace/lifecycle";
+import { ReconciliationFailureConversionLive } from "@agentxm/workspace/reconciliation";
 
 const writeJson = (filePath: string, value: unknown) => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -651,8 +649,8 @@ describe("root sync handler", { timeout: 15_000 }, () => {
       ctx.wsLayer,
       sourceProvidersLayer,
       CodingAgentRepositoryLive,
-      LifecycleStepFailureConversionLive,
-      SyncStepFailureConversionLive,
+      LifecycleFailureConversionLive,
+      ReconciliationFailureConversionLive,
     );
     const managersLayer = Layer.provide(
       Layer.mergeAll(
@@ -680,8 +678,8 @@ describe("root sync handler", { timeout: 15_000 }, () => {
           ctx.wsLayer,
           sourceProvidersLayer,
           CodingAgentRepositoryLive,
-          LifecycleStepFailureConversionLive,
-          SyncStepFailureConversionLive,
+          LifecycleFailureConversionLive,
+          ReconciliationFailureConversionLive,
           McpSecretStoreLive,
           managersLayer,
           packManagerLayer,
@@ -1084,6 +1082,58 @@ describe("root sync handler", { timeout: 15_000 }, () => {
       expect(fixture.fetchedRefs).not.toContain("pack:toolkit:2.0.0");
       expect(fixture.fetchedRefs).not.toContain("skill:review:2.0.0");
     }),
+  );
+
+  it.effect(
+    "reports a failed recovery restoration by its deciding failure and retained state",
+    () =>
+      Effect.gen(function* () {
+        const fixture = makePackRollbackFixture(tempDir, {
+          canonicalPackState: "changed",
+          withMemberDependency: false,
+        });
+        // Publishing the re-acquired Pack over its protected canonical tree
+        // fails, and so does the copy back out of the snapshot store, so the
+        // recovery settles without a complete restoration.
+        const canonicalPack = fixture.paths.canonicalPack;
+        const faults = injectWriteFaults(
+          (operation) =>
+            operation.kind === "rename"
+              ? operation.path === canonicalPack
+              : operation.kind === "copy" && operation.source.includes("axm-rollback-"),
+          "Injected recovery write failure",
+        );
+        const { provide, rendererState } = makeLayers(
+          { machine: true, fileSystemLayer: faults },
+          fixture.sources,
+        );
+
+        yield* provide(handleSync({ preview: false }));
+
+        const payload = expectRecord(rendererState.results[0]?.data);
+        const result = expectRecord(property(payload, "result"));
+        const recovery = expectRecord(property(result, "recovery"));
+        const snapshotDir = property(recovery, "snapshotDir");
+        if (typeof snapshotDir === "string")
+          fs.rmSync(snapshotDir, { recursive: true, force: true });
+        const failure = expectRecord(property(result, "failure"));
+        const [unit] = planResultUnits(result);
+        // The unit and the plan both name the Pack's own failure as the
+        // kernel renders it, never a bare failure tag.
+        expect(property(failure, "message")).toBe(
+          `Failed to replace the installed package at ${canonicalPack} (internal)`,
+        );
+        expect(unit).toMatchObject({
+          label: expect.stringContaining("Recover @acme/packs/toolkit"),
+          state: "failed",
+          disposition: "retained",
+          message: property(failure, "message"),
+        });
+        expect(property(recovery, "retained")).toContain(
+          "agent_extensions/registry/@acme/packs/toolkit",
+        );
+        expect(typeof snapshotDir).toBe("string");
+      }),
   );
 
   it.effect(
@@ -1767,7 +1817,7 @@ describe("root sync handler", { timeout: 15_000 }, () => {
       );
 
       expect(error.detail).toContain("skill review");
-      expect(error.detail).toContain("canonical status");
+      expect(error.detail).toContain("has no accepted resolution");
       expect(rendererState.results).toEqual([]);
     }),
   );

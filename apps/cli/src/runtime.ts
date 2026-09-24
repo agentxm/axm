@@ -63,11 +63,9 @@ import { ProjectionParticipantsLive } from "@agentxm/workspace/materialization/l
 import { KnowledgeIndexLive } from "@agentxm/workspace/knowledge/query/live";
 import { WorkspaceInvariantFactsLive } from "@agentxm/workspace/projection/live";
 import { AuthLoginPresenterLive } from "./auth-login-presenter.js";
-import {
-  registryAccessFailedToAppError,
-  LifecycleStepFailureConversionLive,
-  SyncStepFailureConversionLive,
-} from "./feature-errors.js";
+import { registryAccessFailedToAppError } from "./feature-errors.js";
+import { LifecycleFailureConversionLive } from "@agentxm/workspace/lifecycle";
+import { ReconciliationFailureConversionLive } from "@agentxm/workspace/reconciliation";
 import { WorkspaceInitializationInteractionLive } from "./workspace-initialization-interaction-live.js";
 import {
   GitDirectoryComparisonLive,
@@ -113,7 +111,7 @@ import {
 import { LatestReleaseCheckLive } from "@agentxm/cli-maintenance/self-update/composition";
 
 import { loadVersion } from "./version.js";
-import { suggestionsForScope } from "./root/shared/scoped-command.js";
+import { failureForWorkspaceScope } from "./root/shared/scoped-command.js";
 import { ScreenLoggerLive } from "./screen/index.js";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
 import { ReleaseAgePosture } from "@agentxm/workspace/resolution";
@@ -369,8 +367,8 @@ const makeWorkspaceProgramLayer = (workspace: Omit<WorkspaceStateOptions, "built
     sourceProvidersLayer,
     gitDirectoryComparisonLayer,
     CodingAgentRepositoryLive,
-    LifecycleStepFailureConversionLive,
-    SyncStepFailureConversionLive,
+    LifecycleFailureConversionLive,
+    ReconciliationFailureConversionLive,
     McpSecretStoreLive,
   );
 
@@ -431,22 +429,11 @@ export const withWorkspace =
           Effect.flatMap((workspaceContext) => Effect.provide(program, workspaceContext)),
         ),
       ).pipe(
-        Effect.mapError((error) => {
-          if (error._tag !== "AppError" || error.suggestions === undefined) return error;
-          return new AppError({
-            code: error.code,
-            title: error.title,
-            detail: error.detail,
-            ...(error.metadata === undefined ? {} : { metadata: error.metadata }),
-            ...(error.status === undefined ? {} : { status: error.status }),
-            ...(error.retryable === undefined ? {} : { retryable: error.retryable }),
-            ...(error.blockedOn === undefined ? {} : { blockedOn: error.blockedOn }),
-            ...(error.action === undefined ? {} : { action: error.action }),
-            ...(error.problem === undefined ? {} : { problem: error.problem }),
-            suggestions: suggestionsForScope(error.suggestions, resolved.scope),
-            cause: error.cause,
-          });
-        }),
+        // Naming the channel keeps the emitted declaration on the alias
+        // rather than on every workspace failure it spans.
+        Effect.mapError((error): ExpectedCliError =>
+          failureForWorkspaceScope(error, resolved.scope),
+        ),
         Effect.ensuring(
           Effect.gen(function* () {
             const semanticProperties = yield* getCommandSemanticProperties;

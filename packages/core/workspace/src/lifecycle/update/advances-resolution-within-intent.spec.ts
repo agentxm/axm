@@ -24,7 +24,24 @@ import {
   makeInstallWorld,
   readSettings,
 } from "../install/test-helpers.js";
-import { applyUpdate, expectResolved, targetedUpdateRequest } from "./test-helpers.js";
+import {
+  SHARED_MEMBER,
+  SHARED_MEMBER_PACKS,
+  SHARED_MEMBER_PIN,
+  SHARED_SUBAGENT,
+  SHARED_SUBAGENT_PACKS,
+  publishSharedMemberScenario,
+  publishSharedSubagentScenario,
+  sharedMemberBody,
+  sharedMemberSettings,
+  sharedSubagentSettings,
+} from "../../desired-state/workspace/test-helpers.js";
+import {
+  applyUpdate,
+  configuredUpdateRequest,
+  expectResolved,
+  targetedUpdateRequest,
+} from "./test-helpers.js";
 
 const lockSkill = (raw: string, name: string): unknown => {
   const parsed: unknown = YAML.parse(raw);
@@ -37,12 +54,12 @@ export const specification = defineSpecification({
   requirement: "cli/update/advances-resolution-within-intent",
   title: "Update advances the accepted resolution within durable intent",
   statement:
-    "Update of a desired Registry extension shall advance its accepted resolution and realized content to the newest version within the durable constraint without changing axm.json or any other extension, and shall be a no-op when already current.",
+    "Update of a desired Registry extension shall advance its accepted resolution and realized content to the newest version within its effective constraint — the intersection of its durable direct constraint with the range of every Pack that requires it — without changing axm.json or any other extension, shall be a no-op when already current, and when that intersection admits no version shall change nothing and report a conflict naming every contributor.",
   class: "functional",
   role: "experience",
   goals: ["extension-adoption", "workspace-intent-fidelity", "safe-repetition"],
   methods: ["example"],
-  derivedFrom: [],
+  derivedFrom: ["workspace/desired-state/effective-constraint-has-one-owner"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],
@@ -91,6 +108,186 @@ it.effect(
           expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.1.0");
           expect(workspace.readFile(`.claude/agents/${name}.md`)).toContain("Compatible reviewer.");
           expect(workspace.readFile("axm.json")).toBe(before);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(cleanup)));
+  },
+);
+
+describe("selective subagent update of a member a direct pin and Packs share", () => {
+  const cleanups: Array<() => void> = [];
+  afterEach(() => {
+    for (const cleanup of cleanups.splice(0)) cleanup();
+  });
+
+  /**
+   * The shared-subagent scenario accepted at 1.0.0, after which the person
+   * re-declares the subagent in the form install recorded, with `pin` as its
+   * range or with no range at all.
+   */
+  const acceptedThenRedeclared = (pin: string | undefined) =>
+    Effect.gen(function* () {
+      const created = makeInstallWorld({ settings: sharedSubagentSettings("1.0.0") });
+      cleanups.push(created.cleanup);
+      publishSharedSubagentScenario(created.registry);
+      yield* created.workspace.provide(
+        applyInstall(installRequest({ subject: { kind: "configured" } })),
+      );
+      const settings = readSettings(created.workspace);
+      const subagents = settings["subagents"];
+      const declared =
+        typeof subagents === "object" && subagents !== null && SHARED_SUBAGENT.name in subagents
+          ? Reflect.get(subagents, SHARED_SUBAGENT.name)
+          : undefined;
+      if (typeof declared !== "string") throw new Error("Expected the recorded direct pin");
+      created.workspace.writeFile(
+        "axm.json",
+        `${JSON.stringify(
+          {
+            ...settings,
+            subagents: {
+              [SHARED_SUBAGENT.name]: declared.replace(
+                /@1\.0\.0$/u,
+                pin === undefined ? "" : `@${pin}`,
+              ),
+            },
+          },
+          null,
+          2,
+        )}\n`,
+      );
+      return created.workspace;
+    });
+
+  const selectiveUpdate = SelectiveUpdate.prepare({
+    kind: "selective-subagents",
+    source: Option.none(),
+    nameFilters: [SHARED_SUBAGENT.name],
+    nameFilterFlag: "--name",
+    ignoreVersionConstraints: false,
+  });
+
+  const applySelectiveUpdate = Effect.gen(function* () {
+    const candidate = yield* selectiveUpdate;
+    if (candidate.outcome !== "planned") throw new Error(candidate.message);
+    return yield* SelectiveUpdate.previewOrApply(candidate, preapprovedPlanExecution);
+  });
+
+  const lockedVersion = (workspace: LifecycleFixture): unknown => {
+    const parsed: unknown = YAML.parse(workspace.readFile("axm-lock.yaml"));
+    if (typeof parsed !== "object" || parsed === null || !("subagents" in parsed)) return undefined;
+    const locked = parsed.subagents;
+    if (typeof locked !== "object" || locked === null) return undefined;
+    const entry: unknown = Reflect.get(locked, SHARED_SUBAGENT.name);
+    return typeof entry === "object" && entry !== null && "resolved" in entry
+      ? entry.resolved
+      : undefined;
+  };
+
+  it.effect(
+    "advances to the direct pin, not the newest version every Pack admits, and names the Packs that hold it back",
+    () =>
+      Effect.gen(function* () {
+        const workspace = yield* acceptedThenRedeclared(SHARED_MEMBER_PIN.inside);
+
+        const resolution = yield* workspace.provide(applySelectiveUpdate);
+
+        expect(deriveOperationOutcome(resolution)).toBe("applied");
+        expect(lockedVersion(workspace)).toMatchObject({ version: SHARED_MEMBER_PIN.inside });
+        const message = resolution.units.map((unit) => unit.message ?? "").join("\n");
+        for (const pack of SHARED_SUBAGENT_PACKS) {
+          expect(message).toContain(
+            `${SHARED_SUBAGENT.fqn} held at ${SHARED_MEMBER_PIN.inside} by pack "${pack.fqn}" (${pack.range}), latest is 2.0.0`,
+          );
+        }
+      }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect(
+    "a direct pin outside every Pack range changes nothing and names all three contributors",
+    () =>
+      Effect.gen(function* () {
+        const workspace = yield* acceptedThenRedeclared(SHARED_MEMBER_PIN.outside);
+        const lockBefore = workspace.readFile("axm-lock.yaml");
+
+        const failure = yield* workspace.provide(selectiveUpdate.pipe(Effect.flip));
+
+        expect(failure).toMatchObject({ category: "conflict" });
+        const detail = JSON.stringify(failure);
+        expect(detail).toContain(`settings range=${SHARED_MEMBER_PIN.outside}`);
+        for (const pack of SHARED_SUBAGENT_PACKS) {
+          expect(detail).toContain(`${pack.fqn} range=${pack.range}`);
+        }
+        expect(workspace.readFile("axm-lock.yaml")).toBe(lockBefore);
+      }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect(
+    "without a direct range, advances within the Packs' ranges, not to the newest release",
+    () =>
+      Effect.gen(function* () {
+        const workspace = yield* acceptedThenRedeclared(undefined);
+
+        const resolution = yield* workspace.provide(applySelectiveUpdate);
+
+        expect(deriveOperationOutcome(resolution)).toBe("applied");
+        expect(lockedVersion(workspace)).toMatchObject({ version: "1.2.0" });
+      }).pipe(Effect.provide(NodeServices.layer)),
+  );
+});
+
+/** A declaration that states its source and leaves activation to its default. */
+const omittedActivationRows = [
+  {
+    kind: "selective-skills",
+    type: "skill",
+    name: REVIEW,
+    settingsKey: "skills",
+    fqn: FQN,
+    publish: (registry: LifecycleRegistry, versions: ReadonlyArray<RegistrySkillVersion>) =>
+      registry.writeSkill(REVIEW, versions),
+  },
+  {
+    kind: "selective-subagents",
+    type: "subagent",
+    name: "reviewer",
+    settingsKey: "subagents",
+    fqn: "@acme/subagents/reviewer",
+    publish: (registry: LifecycleRegistry, versions: ReadonlyArray<RegistrySkillVersion>) =>
+      registry.writeSubagent("reviewer", versions),
+  },
+] as const;
+
+it.effect.each(omittedActivationRows)(
+  "selective $type update advances a declaration that omits its activation",
+  ({ kind, name, settingsKey, fqn, publish }) => {
+    const { workspace, registry, cleanup } = makeInstallWorld({
+      settings: { [settingsKey]: { [name]: { source: fqn } } },
+    });
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          publish(registry, [firstVersion]);
+          yield* applyInstall(installRequest({ subject: { kind: "configured" } }));
+          expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.0.0");
+          publish(registry, [firstVersion, { version: "2.0.0", body: "Second guidance." }]);
+
+          // An omitted `enabled` is an enabled declaration, not a disabled one.
+          const candidate = yield* SelectiveUpdate.prepare({
+            kind,
+            source: Option.none(),
+            nameFilters: [name],
+            nameFilterFlag: "--name",
+            ignoreVersionConstraints: false,
+          });
+          if (candidate.outcome !== "planned") throw new Error(candidate.message);
+          const resolution = yield* SelectiveUpdate.previewOrApply(
+            candidate,
+            preapprovedPlanExecution,
+          );
+
+          expect(deriveOperationOutcome(resolution)).toBe("applied");
+          expect(workspace.readFile("axm-lock.yaml")).toContain("version: 2.0.0");
         }),
       )
       .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(cleanup)));
@@ -268,5 +465,120 @@ describe.each(["targeted", "selective"] as const)(
         )
         .pipe(Effect.provide(NodeServices.layer));
     });
+  },
+);
+
+describe.each(["configured", "targeted", "selective"] as const)(
+  "%s update of a member a direct pin and Packs share",
+  (route) => {
+    const cleanups: Array<() => void> = [];
+    afterEach(() => {
+      for (const cleanup of cleanups.splice(0)) {
+        cleanup();
+      }
+    });
+
+    /**
+     * The shared-member scenario accepted at 1.0.0, after which the person
+     * re-pins the direct declaration.
+     */
+    const acceptedThenRepinned = (pin: string) =>
+      Effect.gen(function* () {
+        const created = makeInstallWorld({ settings: sharedMemberSettings("1.0.0") });
+        cleanups.push(created.cleanup);
+        publishSharedMemberScenario(created.registry);
+        yield* created.workspace.provide(
+          applyInstall(installRequest({ subject: { kind: "configured" } })),
+        );
+        // Re-pin in the form install recorded, so only the pin changes.
+        const settings = readSettings(created.workspace);
+        const skills = settings["skills"];
+        const declared =
+          typeof skills === "object" && skills !== null && SHARED_MEMBER.name in skills
+            ? Reflect.get(skills, SHARED_MEMBER.name)
+            : undefined;
+        if (typeof declared !== "string") throw new Error("Expected the recorded direct pin");
+        created.workspace.writeFile(
+          "axm.json",
+          `${JSON.stringify(
+            {
+              ...settings,
+              skills: { [SHARED_MEMBER.name]: declared.replace(/@1\.0\.0$/u, `@${pin}`) },
+            },
+            null,
+            2,
+          )}\n`,
+        );
+        return created.workspace;
+      });
+
+    const update = () =>
+      Effect.gen(function* () {
+        if (route === "configured") return yield* applyUpdate(configuredUpdateRequest({}));
+        if (route === "targeted") {
+          return yield* applyUpdate(targetedUpdateRequest({ source: SHARED_MEMBER.fqn }));
+        }
+        const candidate = yield* SelectiveUpdate.prepare({
+          kind: "selective-skills",
+          source: Option.none(),
+          nameFilters: [SHARED_MEMBER.name],
+          nameFilterFlag: "--name",
+          ignoreVersionConstraints: false,
+        });
+        if (candidate.outcome !== "planned") throw new Error(candidate.message);
+        return {
+          _tag: "Resolved" as const,
+          resolution: yield* SelectiveUpdate.previewOrApply(candidate, preapprovedPlanExecution),
+        };
+      });
+
+    it.effect("advances to the direct pin, not the newest version every Pack admits", () =>
+      Effect.gen(function* () {
+        const workspace = yield* acceptedThenRepinned(SHARED_MEMBER_PIN.inside);
+        const settingsBefore = workspace.readFile("axm.json");
+
+        const resolution = expectResolved(yield* workspace.provide(update()));
+
+        expect(deriveOperationOutcome(resolution)).toBe("applied");
+        expect(lockSkill(workspace.readFile("axm-lock.yaml"), SHARED_MEMBER.name)).toMatchObject({
+          resolved: { version: SHARED_MEMBER_PIN.inside },
+        });
+        expect(workspace.readFile(`.claude/skills/${SHARED_MEMBER.name}/SKILL.md`)).toContain(
+          sharedMemberBody(SHARED_MEMBER_PIN.inside),
+        );
+        expect(workspace.readFile("axm.json")).toBe(settingsBefore);
+      }).pipe(Effect.provide(NodeServices.layer)),
+    );
+
+    it.effect(
+      "a direct pin outside every Pack range changes nothing and names all three contributors",
+      () =>
+        Effect.gen(function* () {
+          const workspace = yield* acceptedThenRepinned(SHARED_MEMBER_PIN.outside);
+          const before = workspace.snapshot();
+
+          const refusal = yield* workspace.provide(
+            update().pipe(
+              Effect.map((outcome) => {
+                const resolution = expectResolved(outcome);
+                expect(countUnitStates(resolution.units).committed).toBe(0);
+                return [
+                  resolution.blocking?.detail ?? "",
+                  ...resolution.units.map((unit) => unit.message ?? ""),
+                ].join(" ");
+              }),
+              Effect.catchTag("ExtensionLifecycleFailed", (failure) =>
+                Effect.succeed(failure.detail ?? ""),
+              ),
+            ),
+          );
+
+          expect(refusal).toContain(`settings range=${SHARED_MEMBER_PIN.outside}`);
+          for (const pack of SHARED_MEMBER_PACKS) {
+            expect(refusal).toContain(`${pack.fqn} range=${pack.range}`);
+          }
+          expect(workspace.snapshot()).toEqual(before);
+        }).pipe(Effect.provide(NodeServices.layer)),
+    );
   },
 );

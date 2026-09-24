@@ -1,6 +1,6 @@
 import { redactRegistryText } from "@agentxm/registry-client";
 
-import type { AppErrorMetadata } from "./app-error.js";
+import type { FailureMetadata } from "@agentxm/workspace/transitions/planning";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 const REDACTED = "[REDACTED]";
@@ -130,9 +130,9 @@ export const redactSensitiveValue = (
 ): unknown => redactValue(value, options.secrets ?? collectSensitiveStrings(value), new WeakSet());
 
 export const redactAppErrorMetadata = (
-  metadata: AppErrorMetadata,
+  metadata: FailureMetadata,
   secrets: ReadonlyArray<string> = collectSensitiveStrings(metadata),
-): AppErrorMetadata => ({
+): FailureMetadata => ({
   ...(metadata.request === undefined
     ? {}
     : {

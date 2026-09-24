@@ -124,7 +124,7 @@ describe("evaluateSourceAuthority", () => {
           configured: {
             identity: "workspace:@test/skills/guide",
             workspace: true,
-            status: "locally-modified",
+            status: "corrupt",
           },
         }),
         target: { type: "skill", name: "guide", identity: "@test/skills/guide" },
@@ -133,7 +133,7 @@ describe("evaluateSourceAuthority", () => {
       }),
     ).toMatchObject({
       kind: "blocked",
-      fact: { cause: "workspace-unusable", detail: expect.stringContaining("locally-modified") },
+      fact: { cause: "workspace-unusable", detail: expect.stringContaining("corrupt") },
     });
   });
 });

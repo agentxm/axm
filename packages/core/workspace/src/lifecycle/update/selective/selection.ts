@@ -13,8 +13,15 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
 
-import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/extension-model/unstable/extensions";
+import {
+  parseSourceQualifiedRegistrySourcePatternParts,
+  type ExtensionName,
+  type Handle,
+} from "@agentxm/extension-model/unstable/extensions";
+import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
+import { createRegistryClient } from "@agentxm/registry-client";
 import {
   resolveInstalledIdentifierNameOrInput,
   resolveSource,
@@ -23,9 +30,87 @@ import {
 } from "../../../resolution/sources/index.js";
 
 import { expandGlobs } from "@agentxm/extension-model/unstable/extensions/name-patterns";
+import {
+  DesiredStateReader,
+  desiredStateProblemsText,
+  effectiveDesiredConstraint,
+  type DesiredConstraintConflict,
+  type DesiredEffectiveConstraint,
+} from "../../../desired-state/index.js";
+
+import { ExtensionLifecycleFailed } from "../../errors.js";
 
 /** One configured entry a selective update may advance. */
 export type SelectiveUpdateEntry = readonly [name: string, source: string];
+
+/** One selected entry and the effective constraint it is selected within. */
+export type ConstrainedSelectiveUpdateEntry = readonly [
+  name: string,
+  source: string,
+  effective: DesiredEffectiveConstraint,
+];
+
+const SELECTIVE_TYPE_PLURALS = { skill: "skills", subagent: "subagents" } as const;
+
+/**
+ * The effective constraint of every selected entry, read from the
+ * authoritative desired graph, so a selective update selects within the
+ * range its direct declaration and every Pack that requires it intersect.
+ * An incomplete graph is refused rather than guessed at: a missing Pack
+ * manifest would silently drop the constraint it declares. A conflict among
+ * a selected entry's contributors refuses the update and names every
+ * contributor.
+ */
+export const constrainSelectedEntries = Effect.fn("SelectiveUpdate.effectiveConstraints")(
+  function* (type: "skill" | "subagent", entries: ReadonlyArray<SelectiveUpdateEntry>) {
+    const plural = SELECTIVE_TYPE_PLURALS[type];
+    const desiredState = yield* DesiredStateReader;
+    const graph = yield* desiredState.graph();
+    if (graph.problems.some((problem) => problem.type !== "constraint-conflict")) {
+      return yield* new ExtensionLifecycleFailed({
+        category: "validation",
+        detail: `Cannot update ${plural} because some pack manifests are missing or invalid`,
+      });
+    }
+    const constrained: Array<ConstrainedSelectiveUpdateEntry> = [];
+    const conflicts: Array<DesiredConstraintConflict> = [];
+    for (const [name, source] of entries) {
+      const constraint = effectiveDesiredConstraint(graph, { type, name });
+      if (Result.isFailure(constraint)) conflicts.push(constraint.failure);
+      else constrained.push([name, source, constraint.success]);
+    }
+    if (conflicts.length > 0) {
+      return yield* new ExtensionLifecycleFailed({
+        category: "conflict",
+        detail: `Cannot update ${plural} because their constraints are unsatisfiable: ${desiredStateProblemsText(conflicts)}`,
+        recover: "Change the direct declaration or the Pack that requires a version outside it",
+      });
+    }
+    return constrained;
+  },
+);
+
+/**
+ * Every release a selected entry's Registry index lists, newest first, or
+ * none when the Registry does not list the entry. The index is the one
+ * listing that includes releases the effective constraint or the minimum
+ * release age excludes, so it names the newest release a Pack range holds
+ * the entry below.
+ */
+export const publishedReleases = Effect.fn("SelectiveUpdate.publishedReleases")(function* (
+  source: RegistrySource,
+  target: {
+    readonly owner: Handle;
+    readonly type: "skill" | "subagent";
+    readonly name: ExtensionName;
+  },
+) {
+  const location =
+    source.location.protocol === "file:" ? source.location.pathname : source.location.href;
+  const client = yield* createRegistryClient(location);
+  const index = yield* client.getExtensionIndex(target);
+  return Option.map(index, (value) => value.versions);
+});
 
 /** Why a selective update settled without a plan. */
 export type SelectiveUpdateNothingReason = "none-installed" | "no-source-match" | "no-name-match";

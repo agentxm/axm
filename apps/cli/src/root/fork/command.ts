@@ -13,7 +13,7 @@ import {
 
 import { isNonInteractiveOptional } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
-import { authoringFailureToAppError } from "../../feature-errors.js";
+import { failureToAppError } from "../../app-error/conversions.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
@@ -50,7 +50,7 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: ForkHandlerArgs
     from: args.from,
     enable: args.enable,
     nonInteractive,
-  }).pipe(Effect.mapError(authoringFailureToAppError));
+  }).pipe(Effect.mapError(failureToAppError));
 
   const execution = yield* makePlanExecution(
     { preview: args.preview },
@@ -68,7 +68,7 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: ForkHandlerArgs
     ),
   );
   const resolution = yield* ForkExtension.previewOrApply(candidate, execution).pipe(
-    Effect.mapError(authoringFailureToAppError),
+    Effect.mapError(failureToAppError),
   );
   yield* emitOperationResolution("fork", resolution);
 });

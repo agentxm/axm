@@ -24,10 +24,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
-import type {
-  ReleaseAgeEvaluation,
-  ReleaseAgeEvidence,
-} from "@agentxm/extension-model/unstable/extensions/release-age";
+import type { ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "./sources/index.js";
@@ -44,49 +41,23 @@ import type { AcceptedCanonicalRefError } from "../desired-state/index.js";
 
 import type { ConfiguredRegistryResolution, ResolvedConfiguredEntry } from "./configured-entry.js";
 import { ExtensionResolutionFailed } from "./errors.js";
-import { parseMinimumReleaseAge } from "./release-age-policy.js";
-import type { ReleaseAgeBypassRecord, ReleaseAgeHoldbackRecord } from "./release-age-policy.js";
+import { parseMinimumReleaseAge, releaseAgeRecords } from "./release-age-policy.js";
 import { ReleaseAgePosture } from "./release-age-posture.js";
 
 export const makeConfiguredReleaseAgeEvaluation = () =>
   Effect.gen(function* () {
     const mode = yield* ReleaseAgePosture;
     const settings = yield* SettingsReader;
-    const configured = yield* settings.minimumReleaseAge;
-    const minimumReleaseAge = parseMinimumReleaseAge(configured);
-    if (Option.isNone(minimumReleaseAge)) {
-      return yield* new ExtensionResolutionFailed({
-        category: "validation",
-        detail: `Invalid minimumReleaseAge "${configured}"`,
-        recover: "Use a duration such as 24h, 1440m, or 0s.",
-      });
-    }
+    const minimumReleaseAge = yield* parseMinimumReleaseAge(yield* settings.minimumReleaseAge);
     const evaluatedAt = yield* DateTime.now;
     const exclude = yield* settings.minimumReleaseAgeExclude;
     return {
-      minimumReleaseAge: minimumReleaseAge.value,
+      minimumReleaseAge,
       evaluatedAt,
       mode,
       exclude,
     } satisfies ReleaseAgeEvaluation;
   });
-
-const releaseAgeRecord = (args: {
-  readonly target: string;
-  readonly versionRange: Option.Option<string>;
-  readonly evidence: ReleaseAgeEvidence;
-  readonly selectedVersion?: string;
-}): ReleaseAgeHoldbackRecord => ({
-  reason: "minimum-release-age",
-  target: args.target,
-  dependencyPath: [args.target],
-  ...(Option.isSome(args.versionRange) ? { requestedRange: args.versionRange.value } : {}),
-  ...(args.selectedVersion === undefined ? {} : { selectedVersion: args.selectedVersion }),
-  candidateVersion: args.evidence.version,
-  publishedAt: args.evidence.publishedAt,
-  eligibleAt: args.evidence.eligibleAt,
-  minimumReleaseAgeSeconds: args.evidence.minimumReleaseAgeSeconds,
-});
 
 type ConfiguredRegistryRef = Extract<
   ConfiguredRegistryResolution,
@@ -133,31 +104,14 @@ const configuredRegistryResolution = (resolution: ConfiguredRegistryResolution) 
       });
     }
 
-    const holdbacks =
-      resolution.kind === "exempted" || resolution.newerHeld === undefined
-        ? []
-        : [
-            releaseAgeRecord({
-              target: resolution.target,
-              versionRange: resolution.versionRange,
-              evidence: resolution.newerHeld,
-              selectedVersion: resolution.ref.version,
-            }),
-          ];
-    const bypasses: ReadonlyArray<ReleaseAgeBypassRecord> =
-      resolution.kind === "selected"
-        ? []
-        : [
-            {
-              ...releaseAgeRecord({
-                target: resolution.target,
-                versionRange: resolution.versionRange,
-                evidence: resolution.bypassed,
-                selectedVersion: resolution.ref.version,
-              }),
-              ...resolution.exemption,
-            },
-          ];
+    const { holdbacks, bypasses } = releaseAgeRecords(
+      {
+        target: resolution.target,
+        requestedRange: Option.getOrUndefined(resolution.versionRange),
+      },
+      resolution,
+      resolution.ref.version,
+    );
     return {
       ref: resolution.ref,
       versionRange: resolution.versionRange,
@@ -172,8 +126,15 @@ const prepareConfiguredRegistryRef = (
   source: string,
   expectedType: ExtensionType,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
+  selectionRange: Option.Option<VersionRange> | undefined,
 ) =>
-  prepareConfiguredRegistryEntry(name, source, expectedType, releaseAgeEvaluation).pipe(
+  prepareConfiguredRegistryEntry(
+    name,
+    source,
+    expectedType,
+    releaseAgeEvaluation,
+    selectionRange,
+  ).pipe(
     Effect.map((resolve) =>
       resolve.pipe(
         Effect.flatMap(
@@ -188,12 +149,20 @@ const prepareConfiguredRegistryRef = (
     ),
   );
 
-/** Finish workspace I/O before starting sibling Registry selections. */
+/**
+ * Finish workspace I/O before starting sibling Registry selections.
+ *
+ * `selectionRange` is the desired-state graph's effective constraint for the
+ * entry: the Registry selects within it, while the returned `versionRange`
+ * stays the range the entry itself declares, because that is the intent a
+ * planner records. Omitted, the declared range is the selection range.
+ */
 export const prepareConfiguredRegistryEntry = (
   name: string,
   source: string,
   expectedType: ExtensionType,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
+  selectionRange?: Option.Option<VersionRange>,
 ): Effect.Effect<
   Effect.Effect<
     Option.Option<ConfiguredRegistryResolution>,
@@ -272,7 +241,7 @@ export const prepareConfiguredRegistryEntry = (
         name: registryName,
         type: expectedType,
         owner,
-        versionRange,
+        versionRange: selectionRange ?? versionRange,
         releaseAgeEvaluation,
         ...(Option.isSome(accepted) ? { accepted: accepted.value } : {}),
       });
@@ -349,6 +318,7 @@ const prepareConfiguredEntry = <TType extends ExtensionType>(
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
   refConstructor: ConfiguredRefConstructor<TType>,
+  selectionRange?: Option.Option<VersionRange>,
 ) =>
   Effect.gen(function* () {
     const expectedType = refConstructor.type;
@@ -370,6 +340,7 @@ const prepareConfiguredEntry = <TType extends ExtensionType>(
       source,
       expectedType,
       releaseAgeEvaluation,
+      selectionRange,
     );
     return Effect.gen(function* () {
       const registry = yield* resolveRegistry;
@@ -467,8 +438,11 @@ const resolveConfiguredEntry = <TType extends ExtensionType>(
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
   refConstructor: ConfiguredRefConstructor<TType>,
+  selectionRange?: Option.Option<VersionRange>,
 ) =>
-  prepareConfiguredEntry(name, source, releaseAgeEvaluation, refConstructor).pipe(Effect.flatten);
+  prepareConfiguredEntry(name, source, releaseAgeEvaluation, refConstructor, selectionRange).pipe(
+    Effect.flatten,
+  );
 
 export const prepareConfiguredPack = (
   name: string,
@@ -480,37 +454,65 @@ export const resolveConfiguredSkill = (
   name: string,
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
-) => resolveConfiguredEntry(name, source, releaseAgeEvaluation, skillRefConstructor);
+  selectionRange?: Option.Option<VersionRange>,
+) =>
+  resolveConfiguredEntry(name, source, releaseAgeEvaluation, skillRefConstructor, selectionRange);
 
 export const resolveConfiguredMcpServer = (
   name: string,
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
-) => resolveConfiguredEntry(name, source, releaseAgeEvaluation, mcpServerRefConstructor);
+  selectionRange?: Option.Option<VersionRange>,
+) =>
+  resolveConfiguredEntry(
+    name,
+    source,
+    releaseAgeEvaluation,
+    mcpServerRefConstructor,
+    selectionRange,
+  );
 
 export const resolveConfiguredSubagent = (
   name: string,
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
-) => resolveConfiguredEntry(name, source, releaseAgeEvaluation, subagentRefConstructor);
+  selectionRange?: Option.Option<VersionRange>,
+) =>
+  resolveConfiguredEntry(
+    name,
+    source,
+    releaseAgeEvaluation,
+    subagentRefConstructor,
+    selectionRange,
+  );
 
 export const resolveConfiguredRule = (
   name: string,
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
-) => resolveConfiguredEntry(name, source, releaseAgeEvaluation, ruleRefConstructor);
+  selectionRange?: Option.Option<VersionRange>,
+) => resolveConfiguredEntry(name, source, releaseAgeEvaluation, ruleRefConstructor, selectionRange);
 
 export const resolveConfiguredHook = (
   name: string,
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
-) => resolveConfiguredEntry(name, source, releaseAgeEvaluation, hookRefConstructor);
+  selectionRange?: Option.Option<VersionRange>,
+) => resolveConfiguredEntry(name, source, releaseAgeEvaluation, hookRefConstructor, selectionRange);
 
 export const resolveConfiguredKnowledge = (
   name: string,
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
-) => resolveConfiguredEntry(name, source, releaseAgeEvaluation, knowledgeRefConstructor);
+  selectionRange?: Option.Option<VersionRange>,
+) =>
+  resolveConfiguredEntry(
+    name,
+    source,
+    releaseAgeEvaluation,
+    knowledgeRefConstructor,
+    selectionRange,
+  );
 
 export const resolveConfiguredPack = (
   name: string,

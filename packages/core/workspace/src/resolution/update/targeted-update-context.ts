@@ -5,8 +5,9 @@
  * before any Registry is contacted: does this workspace desire the extension
  * at all, who owns the declaration that would move (a direct entry, an owning
  * Pack, or both), is the entry active, which version constraint actually
- * governs it once every declared constraint is intersected, and is there a
- * reason the advance may not be made — an authored or bundled source, an
+ * governs it — the desired-state graph's effective constraint, with a range
+ * the request names standing in for the direct declaration's — and is there a
+ * reason the advance may not be made: an authored or bundled source, an
  * incomplete Pack graph, a constraint with no compatible intersection, or a
  * Pack-owned member the request would fork into direct intent.
  *
@@ -25,11 +26,12 @@ import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
+import * as Result from "effect/Result";
 
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/extension-model/unstable/extensions";
-import { intersectVersionConstraints } from "@agentxm/extension-model/unstable/version-constraints";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
+import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 import type {
   ConfiguredRecordRow,
   DesiredExtensionOrigin,
@@ -45,6 +47,7 @@ import {
   WorkspaceRecords,
   configuredRowsByName,
   desiredStateProblemText,
+  effectiveDesiredConstraint,
 } from "../../desired-state/index.js";
 
 export type TargetedUpdateBlocker =
@@ -156,9 +159,6 @@ const configuredPackFqn = (
     : undefined;
 };
 
-const originConstraint = (origin: DesiredExtensionOrigin): string | undefined =>
-  origin.type === "settings" && origin.authority === "inline" ? undefined : origin.constraint;
-
 const blockedEffects = {
   settings: "unchanged",
   acceptedResolution: "unchanged",
@@ -249,15 +249,25 @@ export const classifyTargetedUpdate = (args: ClassifyTargetedUpdateArgs): Target
           enabled: directOrigin.enabled,
           ...(directOrigin.constraint === undefined ? {} : { constraint: directOrigin.constraint }),
         };
-  const constraints = [
-    ...(directOrigin === undefined
+  // A range the request names replaces the direct declaration's contribution;
+  // every Pack that requires the target still contributes its own.
+  const effective = effectiveDesiredConstraint(
+    args.graph,
+    { type: args.target.type, name: node?.name ?? args.target.name },
+    directOrigin === undefined || args.explicitRange === undefined
       ? []
-      : [args.explicitRange ?? originConstraint(directOrigin)].filter(
-          (constraint): constraint is string => constraint !== undefined,
-        )),
-    ...packOrigins.map((origin) => origin.constraint),
-  ];
-  const intersection = intersectVersionConstraints(constraints);
+      : [
+          {
+            source: "settings",
+            range: args.explicitRange,
+            location: SETTINGS_FILENAME,
+            ...(directOrigin.localName === undefined ? {} : { localName: directOrigin.localName }),
+          },
+        ],
+  );
+  const intersection = Result.isSuccess(effective)
+    ? Option.getOrUndefined(effective.success.range)
+    : undefined;
   const activation = node?.enabled === true ? "enabled" : "disabled";
   let blocker: TargetedUpdateBlocker | undefined;
   if (relevantProblems.length > 0) {
@@ -278,7 +288,7 @@ export const classifyTargetedUpdate = (args: ClassifyTargetedUpdateArgs): Target
     blocker = "source-authority";
   } else if (ownership === "pack-only" && args.explicitRange !== undefined) {
     blocker = "pack-owned-constraint";
-  } else if (intersection === undefined) {
+  } else if (Result.isFailure(effective)) {
     blocker = "constraint-conflict";
   }
 
@@ -291,9 +301,7 @@ export const classifyTargetedUpdate = (args: ClassifyTargetedUpdateArgs): Target
     authority,
     ...(direct === undefined ? {} : { direct }),
     packs,
-    ...(intersection === undefined || intersection.length === 0
-      ? {}
-      : { effectiveConstraint: intersection }),
+    ...(intersection === undefined ? {} : { effectiveConstraint: intersection }),
     memberClosure: node === undefined ? [] : [args.target],
     effects:
       authority === "blocked" ? blockedEffects : plannedEffects(authority, args.explicitRange),

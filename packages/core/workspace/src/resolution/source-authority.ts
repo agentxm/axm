@@ -1,18 +1,9 @@
 import * as semver from "semver";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
+import type { CanonicalObservationStatus } from "../desired-state/index.js";
 
 export type SourceAuthorityRelationship =
   { readonly kind: "root" } | { readonly kind: "member"; readonly root: string };
-
-export type WorkspaceAuthorityStatus =
-  | "usable"
-  | "missing"
-  | "constraint-mismatch"
-  | "wrong-origin"
-  | "corrupt"
-  | "incomplete"
-  | "locally-modified"
-  | "not-applicable";
 
 export interface SourceAuthorityTarget {
   readonly type: ExtensionType;
@@ -31,7 +22,8 @@ export interface SourceAuthorityInput {
     readonly identity: string;
     readonly workspace: boolean;
     readonly version?: string;
-    readonly status?: WorkspaceAuthorityStatus;
+    /** The configured workspace package's canonical observation. */
+    readonly status?: CanonicalObservationStatus;
   };
   readonly requiredVersionRange?: string;
   readonly allowWorkspaceReplacement?: boolean;
@@ -136,11 +128,7 @@ export const evaluateSourceAuthority = (input: SourceAuthorityInput): SourceAuth
     );
   }
 
-  if (
-    configured.status !== undefined &&
-    configured.status !== "usable" &&
-    configured.status !== "constraint-mismatch"
-  ) {
+  if (configured.status !== undefined && configured.status !== "usable") {
     return blocked(
       input,
       configured,

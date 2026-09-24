@@ -15,10 +15,7 @@ import { makeAppError } from "../../app-error/index.js";
 import { isNonInteractiveOptional } from "../../cli-flags/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
-import {
-  authoringFailureToAppError,
-  configurationFailureToAppError,
-} from "../../feature-errors.js";
+import { failureToAppError } from "../../app-error/conversions.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
@@ -91,9 +88,7 @@ const handleMcpsImportBody = Effect.fn("Mcps.import")(function* (args: McpsImpor
       detail: "--enable requires --as <extension>",
     });
   }
-  const candidate = yield* ImportMcpServers.prepare().pipe(
-    Effect.mapError(configurationFailureToAppError),
-  );
+  const candidate = yield* ImportMcpServers.prepare().pipe(Effect.mapError(failureToAppError));
   const preflight = candidate.preflight;
 
   if (Option.isSome(packageTarget)) {
@@ -113,7 +108,7 @@ const handleMcpsImportBody = Effect.fn("Mcps.import")(function* (args: McpsImpor
       enable: enablePackage,
       nonInteractive,
       discovery: discoveryFrom(preflight),
-    }).pipe(Effect.mapError(authoringFailureToAppError));
+    }).pipe(Effect.mapError(failureToAppError));
     const packageExecution = yield* makePlanExecution(
       { preview: args.preview },
       makeConfirmationRecovery(["mcps", "import"], []),
@@ -121,7 +116,7 @@ const handleMcpsImportBody = Effect.fn("Mcps.import")(function* (args: McpsImpor
     const packageResolution = yield* ImportNativeExtension.previewOrApply(
       conversion,
       packageExecution,
-    ).pipe(Effect.mapError(authoringFailureToAppError));
+    ).pipe(Effect.mapError(failureToAppError));
     yield* emitOperationResolution("mcps.import", packageResolution);
     return;
   }
@@ -132,7 +127,7 @@ const handleMcpsImportBody = Effect.fn("Mcps.import")(function* (args: McpsImpor
     [],
   );
   const resolution = yield* ImportMcpServers.previewOrApply(candidate, execution).pipe(
-    Effect.mapError(configurationFailureToAppError),
+    Effect.mapError(failureToAppError),
   );
   const appliedCount = importedCount(resolution, preflight.candidates.length);
   const suggestions = [

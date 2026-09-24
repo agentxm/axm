@@ -3,7 +3,6 @@ import {
   extensionConstraintFactText,
   makeExtensionConstraintInvariantFact,
   makeProspectiveExtensionConstraintFacts,
-  planExtensionConstraintFact,
 } from "./constraint-invariant-fact.js";
 import type { CanonicalConstraintMismatchObservation } from "../desired-state/index.js";
 import type { DesiredExtensionNode } from "../desired-state/index.js";
@@ -47,7 +46,7 @@ const observation = {
 } satisfies CanonicalConstraintMismatchObservation;
 
 describe("extension constraint invariant facts", () => {
-  it("preserves every constraint and classifies a satisfying closure-local transition", () => {
+  it("preserves every constraint and names each contributor", () => {
     const fact = makeExtensionConstraintInvariantFact(desired, observation);
 
     expect(fact).toMatchObject({
@@ -55,11 +54,6 @@ describe("extension constraint invariant facts", () => {
       subject: { identity: "@acme/skills/review" },
       observation: { acceptedVersion: "1.9.0", observedVersion: "1.9.0" },
       expectation: { ranges: ["^2.1.0", ">=2.0.0 <3.0.0"] },
-    });
-    expect(planExtensionConstraintFact(fact, "2.2.0")).toEqual({
-      readiness: "ready",
-      reason: "satisfying-version-resolved",
-      version: "2.2.0",
     });
     expect(extensionConstraintFactText(fact)).toContain("@acme/packs/alpha range=>=2.0.0 <3.0.0");
     expect(extensionConstraintFactText(fact)).toContain("@acme/packs/beta range=^2.1.0");
@@ -166,19 +160,5 @@ describe("extension constraint invariant facts", () => {
         reachability,
       }),
     ).toHaveLength(1);
-  });
-
-  it("returns a stable blocker when no satisfying candidate exists", () => {
-    const fact = makeExtensionConstraintInvariantFact(desired, observation);
-
-    expect(planExtensionConstraintFact(fact, undefined)).toEqual({
-      readiness: "blocked",
-      reason: "no-satisfying-version",
-    });
-    expect(planExtensionConstraintFact(fact, "3.0.0")).toEqual({
-      readiness: "blocked",
-      reason: "candidate-violates-constraints",
-      candidateVersion: "3.0.0",
-    });
   });
 });

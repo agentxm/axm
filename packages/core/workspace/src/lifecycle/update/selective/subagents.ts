@@ -26,7 +26,6 @@ import {
   parseSourceQualifiedRegistrySourcePatternParts,
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
-import type { ReleaseAgeEvidence } from "@agentxm/extension-model/unstable/extensions/release-age";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -34,10 +33,13 @@ import { SubagentManager } from "../../../materialization/index.js";
 import { buildInstallOperation } from "../../../reconciliation/index.js";
 import {
   classifyPublisherBindingTransition,
+  heldBackReleaseWarnings,
   makeConfiguredReleaseAgeEvaluation,
   normalizeReleaseAgeRecords,
   publisherTransitionWarning,
   registryBindingProposal,
+  releaseAgeRecord,
+  releaseAgeRecords,
   type PublisherBindingTransition,
   type ReleaseAgeBypassRecord,
   type ReleaseAgeRecord,
@@ -51,7 +53,11 @@ import {
   type Plan,
   type PlannedJobStep,
 } from "../../../transitions/planning/index.js";
-import { acceptedResolutionRef, configuredRowsByName } from "../../../desired-state/index.js";
+import {
+  acceptedResolutionRef,
+  acquisitionConfiguredEntries,
+  configuredRowsByName,
+} from "../../../desired-state/index.js";
 
 import { ExtensionLifecycleFailed } from "../../errors.js";
 import { withPublisherTrustConditions } from "../../publisher-binding.js";
@@ -59,6 +65,8 @@ import { StepFailureConversion } from "../../step-failure-conversion.js";
 import { buildSelectiveUpdatePlan, type SelectiveUpdateUnit } from "./plan.js";
 import type { SelectiveUpdateStepRequirements } from "./requirements.js";
 import {
+  constrainSelectedEntries,
+  publishedReleases,
   selectUpdateTargets,
   type SelectiveUpdateEntry,
   type SelectiveUpdateSelectors,
@@ -97,6 +105,8 @@ type ResolveResult =
       readonly ref: SubagentExtensionRef;
       readonly holdbacks: ReadonlyArray<ReleaseAgeRecord>;
       readonly bypasses?: ReadonlyArray<ReleaseAgeBypassRecord>;
+      /** Packs whose range holds the subagent below its newest release. */
+      readonly warnings: ReadonlyArray<string>;
     }
   | {
       readonly type: "skip";
@@ -106,15 +116,16 @@ type ResolveResult =
       readonly holdback?: ReleaseAgeRecord;
     };
 
-const appendWarning =
-  (warning: string | undefined) =>
-  (result: JobStepResult): JobStepResult =>
-    warning === undefined || result.result === "error"
-      ? result
-      : {
-          ...result,
-          message: result.message.length === 0 ? warning : `${result.message}; ${warning}`,
-        };
+const appendWarnings =
+  (warnings: ReadonlyArray<string>) =>
+  (result: JobStepResult): JobStepResult => {
+    if (warnings.length === 0 || result.result === "error") return result;
+    const warning = warnings.join("; ");
+    return {
+      ...result,
+      message: result.message.length === 0 ? warning : `${result.message}; ${warning}`,
+    };
+  };
 
 const skippedSubagentStep = (
   scope: WorkspaceScope,
@@ -142,23 +153,6 @@ const toRegistrySubagentPattern = (source: string) => {
   return Option.some(parsed);
 };
 
-const releaseAgeRecord = (args: {
-  readonly target: string;
-  readonly requestedRange?: string;
-  readonly selectedVersion?: string;
-  readonly evidence: ReleaseAgeEvidence;
-}): ReleaseAgeRecord => ({
-  reason: "minimum-release-age",
-  target: args.target,
-  dependencyPath: [args.target],
-  ...(args.requestedRange === undefined ? {} : { requestedRange: args.requestedRange }),
-  ...(args.selectedVersion === undefined ? {} : { selectedVersion: args.selectedVersion }),
-  candidateVersion: args.evidence.version,
-  publishedAt: args.evidence.publishedAt,
-  eligibleAt: args.evidence.eligibleAt,
-  minimumReleaseAgeSeconds: args.evidence.minimumReleaseAgeSeconds,
-});
-
 /** Settle a `subagents update` request: decide everything, write nothing. */
 export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate.prepare")(
   function* (request: SelectiveSubagentUpdateRequest) {
@@ -171,11 +165,9 @@ export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate
     const allSubagents = yield* records.rows("subagent").pipe(Effect.map(configuredRowsByName));
     const lockedSubagents = yield* lockfile.entries("subagent");
 
-    const subagentEntries: ReadonlyArray<SelectiveUpdateEntry> = Object.entries(
+    const subagentEntries: ReadonlyArray<SelectiveUpdateEntry> = acquisitionConfiguredEntries(
       allSubagents,
-    ).flatMap(([name, entry]) =>
-      entry.enabled && entry.source !== undefined ? [[name, entry.source]] : [],
-    );
+    ).flatMap(([name, entry]) => (entry.source === undefined ? [] : [[name, entry.source]]));
 
     if (subagentEntries.length === 0) {
       return {
@@ -207,7 +199,7 @@ export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate
         planDescription: PLAN_DESCRIPTION,
       } satisfies SelectiveUpdateCandidate;
     }
-    const filteredEntries = selection.entries;
+    const constrainedEntries = yield* constrainSelectedEntries("subagent", selection.entries);
 
     const findSubagentRefs = (
       source: SubagentExtensionRef["source"],
@@ -231,8 +223,8 @@ export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate
         );
 
     const results: ReadonlyArray<ResolveResult> = yield* Effect.forEach(
-      filteredEntries,
-      ([name, sourceStr]) =>
+      constrainedEntries,
+      ([name, sourceStr, effective]) =>
         Effect.gen(function* () {
           if (isWorkspaceSourceLocator(sourceStr)) {
             return {
@@ -252,8 +244,9 @@ export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate
               owner: registryPattern.value.owner,
               type: "subagent",
               name: lookupName,
-              versionRange:
-                requestedRange === undefined ? Option.none() : Option.some(requestedRange),
+              // Selected within every contributor's range; the records keep
+              // the range the declaration itself requested.
+              versionRange: effective.range,
               releaseAgeEvaluation,
             });
             if (registryResolution.kind === "selected" || registryResolution.kind === "exempted") {
@@ -263,46 +256,48 @@ export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate
                   detail: `Registry resolved ${registryResolution.target} as ${registryResolution.ref.type}, expected subagent`,
                 });
               }
+              // A Pack that holds the subagent below its newest release is
+              // reported the way selective skill update reports it.
+              const latest = effective.contributors.some(
+                (contributor) => contributor.source === "pack",
+              )
+                ? Option.flatMap(
+                    yield* publishedReleases(source, {
+                      owner: registryPattern.value.owner,
+                      type: "subagent",
+                      name: lookupName,
+                    }),
+                    (releases) => Option.fromUndefinedOr(releases[0]?.version),
+                  )
+                : Option.none<string>();
               return {
                 type: "match",
                 ref: registryResolution.ref,
-                holdbacks:
-                  registryResolution.kind === "exempted" ||
-                  registryResolution.newerHeld === undefined
-                    ? []
-                    : [
-                        releaseAgeRecord({
-                          target: registryResolution.target,
-                          ...(requestedRange === undefined ? {} : { requestedRange }),
-                          selectedVersion: registryResolution.ref.version,
-                          evidence: registryResolution.newerHeld,
-                        }),
-                      ],
-                ...(registryResolution.kind === "selected"
-                  ? {}
-                  : {
-                      bypasses: [
-                        {
-                          ...releaseAgeRecord({
-                            target: registryResolution.target,
-                            ...(requestedRange === undefined ? {} : { requestedRange }),
-                            selectedVersion: registryResolution.ref.version,
-                            evidence: registryResolution.bypassed,
-                          }),
-                          ...registryResolution.exemption,
-                        },
-                      ],
+                ...releaseAgeRecords(
+                  { target: registryResolution.target, requestedRange },
+                  registryResolution,
+                  registryResolution.ref.version,
+                ),
+                warnings: Option.match(latest, {
+                  onNone: () => [],
+                  onSome: (latestVersion) =>
+                    heldBackReleaseWarnings({
+                      subject: registryResolution.target,
+                      latestVersion,
+                      selectedVersion: registryResolution.ref.version,
+                      contributors: effective.contributors,
                     }),
+                }),
               } satisfies ResolveResult;
             }
             if (registryResolution.kind === "policy_held") {
-              const holdback = releaseAgeRecord({
-                target: registryResolution.target,
-                ...(registryResolution.requestedRange === undefined
-                  ? {}
-                  : { requestedRange: registryResolution.requestedRange }),
-                evidence: registryResolution.candidate,
-              });
+              const holdback = releaseAgeRecord(
+                {
+                  target: registryResolution.target,
+                  requestedRange: registryResolution.requestedRange,
+                },
+                registryResolution.candidate,
+              );
               return {
                 type: "skip",
                 name,
@@ -335,7 +330,12 @@ export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate
           const subagentRef = namedRefs.find((r) => r.subagent.name === name);
 
           if (subagentRef) {
-            return { type: "match", ref: subagentRef, holdbacks: [] } satisfies ResolveResult;
+            return {
+              type: "match",
+              ref: subagentRef,
+              holdbacks: [],
+              warnings: [],
+            } satisfies ResolveResult;
           }
 
           return {
@@ -377,7 +377,9 @@ export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate
     // Classify every proposed Registry acceptance against the accepted
     // resolution. A replaced publisher binding is a trust decision a person
     // makes at a prompt; the plan carries it as an interactive-only condition.
-    const warningsBySubagent = new Map<string, string>();
+    const warningsBySubagent = new Map<string, ReadonlyArray<string>>(
+      resolved.map((item) => [item.ref.subagent.name, item.warnings]),
+    );
     const publisherTransitions: Array<PublisherBindingTransition> = [];
     for (const item of resolved) {
       const proposed = registryBindingProposal(item.ref);
@@ -401,10 +403,10 @@ export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate
       });
       if (Option.isSome(transition)) {
         publisherTransitions.push(transition.value);
-        warningsBySubagent.set(
-          item.ref.subagent.name,
+        warningsBySubagent.set(item.ref.subagent.name, [
           publisherTransitionWarning(transition.value),
-        );
+          ...item.warnings,
+        ]);
       }
     }
 
@@ -418,7 +420,9 @@ export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate
       if (step.readiness === "error") return step;
       return {
         ...step,
-        run: step.run.pipe(Effect.map(appendWarning(warningsBySubagent.get(ref.subagent.name)))),
+        run: step.run.pipe(
+          Effect.map(appendWarnings(warningsBySubagent.get(ref.subagent.name) ?? [])),
+        ),
       };
     };
 

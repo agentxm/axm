@@ -283,24 +283,6 @@ export {
 } from "./update/root-request.js";
 export { TARGETED_UPDATE_STALE_DETAIL } from "./update/targeted-plan.js";
 
-// Update: advancing the entries a person selected by name or by source.
-export {
-  SelectiveUpdate,
-  prepareSelectiveUpdate,
-  type SelectiveUpdateRequest,
-} from "./update/selective/use-case.js";
-export {
-  previewOrApplySelectiveUpdate,
-  selectiveUpdatePlanName,
-  type NothingSelectiveUpdateCandidate,
-  type PlannedSelectiveUpdateCandidate,
-  type SelectiveUpdateCandidate,
-  type SelectiveUpdateSubjectType,
-} from "./update/selective/vocabulary.js";
-export type { SelectiveUpdateNothingReason } from "./update/selective/selection.js";
-export type { SelectiveSkillUpdateRequest } from "./update/selective/skills.js";
-export type { SelectiveSubagentUpdateRequest } from "./update/selective/subagents.js";
-export type { SelectiveUpdateStepRequirements } from "./update/selective/requirements.js";
 export {
   makeWorkspaceUpdatePlan,
   type ConfiguredUpdateFailure,

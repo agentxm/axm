@@ -8,7 +8,6 @@
  * @packageDocumentation
  */
 
-import type * as Duration from "effect/Duration";
 import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 
@@ -40,11 +39,6 @@ export interface FindOptions {
   /** Registry owner filter (e.g. "@acme"). */
   readonly owner: Option.Option<Handle>;
   readonly versionRange: Option.Option<string>;
-  /**
-   * Optional minimum age a registry release must have before it is selectable.
-   * Omitted for explicit attended installs.
-   */
-  readonly minimumReleaseAge?: Option.Option<Duration.Duration>;
 }
 
 export interface NamedRegistryFindOptions {
@@ -66,6 +60,8 @@ export type NamedRegistryResolution =
       readonly target: string;
       readonly ref: Extract<ExtensionRef, { readonly refType: "registry" }>;
       readonly newerHeld?: ReleaseAgeEvidence;
+      /** The newest release a range could select, whatever range was requested. */
+      readonly newestVisible?: string;
     }
   | {
       readonly kind: "exempted";
@@ -73,6 +69,7 @@ export type NamedRegistryResolution =
       readonly ref: Extract<ExtensionRef, { readonly refType: "registry" }>;
       readonly bypassed: ReleaseAgeEvidence;
       readonly exemption: ReleaseAgeExemption;
+      readonly newestVisible?: string;
     }
   | { readonly kind: "not_found"; readonly target: string }
   | {
@@ -100,12 +97,19 @@ export type NamedRegistryVersionDecision =
       readonly kind: "selected";
       readonly version: string;
       readonly newerHeld?: ReleaseAgeEvidence;
+      /**
+       * The newest release the index lists that a range could select — not
+       * yanked, whatever range was requested — so a caller can say what its
+       * constraint held the selection below.
+       */
+      readonly newestVisible?: string;
     }
   | {
       readonly kind: "exempted";
       readonly version: string;
       readonly bypassed: ReleaseAgeEvidence;
       readonly exemption: ReleaseAgeExemption;
+      readonly newestVisible?: string;
     }
   | { readonly kind: "not_found" }
   | { readonly kind: "version_unsatisfied"; readonly requestedRange: string }

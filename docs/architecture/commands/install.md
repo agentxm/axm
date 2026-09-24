@@ -50,12 +50,13 @@ The root command is the normal fully qualified extension surface. A type
 command group may accept additional type-specific inputs, but both forms
 express the same durable intent and produce the same underlying plan and result.
 
-Skill installation and selective skill update share the skill application's
-planning and the same transactional materialization path. The application owns
-skill selection, recipient diagnostics, and artifact meaning. Install declares
-direct intent; update advances its accepted resolution while preserving the
-existing declaration. The shared transaction machinery owns settlement and
-restoration, without deciding whether a skill declaration should change.
+Skill installation and the configured update sweep share the skill
+application's planning and the same transactional materialization path. The
+application owns skill selection, recipient diagnostics, and artifact meaning.
+Install declares direct intent; update re-declares the intent the workspace
+already recorded and advances its accepted resolution. The shared transaction
+machinery owns settlement and restoration, without deciding whether a skill
+declaration should change.
 
 ## Specifications
 

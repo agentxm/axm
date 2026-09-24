@@ -61,6 +61,8 @@ export const decideNamedRegistryVersion = (
     exemption,
     acceptedVersionFor(index, options),
   );
+  const newestVisible = versionsMatchingRequest(index.versions, Option.none())[0]?.version;
+  const visible = newestVisible === undefined ? {} : { newestVisible };
   switch (resolution.kind) {
     case "version_unsatisfied":
       return isExactRequest(options.versionRange)
@@ -83,12 +85,14 @@ export const decideNamedRegistryVersion = (
         version: resolution.version.version,
         bypassed: resolution.bypassed,
         exemption: resolution.exemption,
+        ...visible,
       };
     case "selected":
       return {
         kind: "selected",
         version: resolution.version.version,
         ...(resolution.newerHeld === undefined ? {} : { newerHeld: resolution.newerHeld }),
+        ...visible,
       };
   }
 };

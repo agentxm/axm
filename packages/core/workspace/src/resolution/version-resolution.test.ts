@@ -7,22 +7,17 @@ import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as TestClock from "effect/testing/TestClock";
 
 import type { VersionEntry } from "@agentxm/registry-protocol/unstable/registry/schema";
 import { exactVersion } from "./test-helpers.js";
 import {
-  filterMatureVersions,
   formatMinimumReleaseAgeSeconds,
-  isVersionEntryMature,
+  isVersionEntryEligibleAt,
   normalizeReleaseAgeRecords,
   parseMinimumReleaseAge,
   releaseAgeRecords,
 } from "./release-age-policy.js";
-import {
-  resolveVersionEntryForReleaseAge,
-  resolveVersionEntryWithReleaseAge,
-} from "./version-resolution.js";
+import { resolveVersionEntryForReleaseAge } from "./version-resolution.js";
 
 const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
   version: exactVersion("1.0.0"),
@@ -130,51 +125,19 @@ describe("minimum release age", () => {
     expect(formatMinimumReleaseAgeSeconds(0)).toBe("0s");
   });
 
-  it.effect("filters versions newer than the configured age", () =>
-    Effect.gen(function* () {
-      yield* TestClock.setTime(DateTime.toEpochMillis(now));
+  it("treats a version published exactly the minimum age before the evaluation as eligible", () => {
+    const evaluation = { minimumReleaseAge: oneDay, evaluatedAt: now, mode: "enforce" } as const;
+    const boundary = makeVersionEntry({
+      version: exactVersion("1.4.0"),
+      published: DateTime.makeUnsafe("2025-01-02T00:00:00Z"),
+    });
 
-      const mature = yield* filterMatureVersions(mixedMaturityVersions, oneDay);
-
-      expect(mature.map((entry) => entry.version)).toEqual(["1.2.0"]);
-    }),
-  );
-
-  it.effect("treats a version published exactly minimumAge ago as mature", () =>
-    Effect.gen(function* () {
-      yield* TestClock.setTime(DateTime.toEpochMillis(now));
-      const entry = makeVersionEntry({
-        version: exactVersion("1.4.0"),
-        published: DateTime.makeUnsafe("2025-01-02T00:00:00Z"),
-      });
-
-      expect(yield* isVersionEntryMature(entry, oneDay)).toBe(true);
-    }),
-  );
-
-  it.effect("treats every version as mature when minimumAge is zero", () =>
-    Effect.gen(function* () {
-      yield* TestClock.setTime(DateTime.toEpochMillis(now));
-
-      const mature = yield* filterMatureVersions(mixedMaturityVersions, Duration.zero);
-
-      expect(mature.map((entry) => entry.version)).toEqual(["1.3.0", "1.2.0"]);
-    }),
-  );
-
-  it.effect("resolves the newest mature version when release age is enforced", () =>
-    Effect.gen(function* () {
-      yield* TestClock.setTime(DateTime.toEpochMillis(now));
-
-      const result = yield* resolveVersionEntryWithReleaseAge(
-        mixedMaturityVersions,
-        Option.none(),
-        Option.some(oneDay),
-      );
-
-      expect(Option.getOrThrow(result).version).toBe("1.2.0");
-    }),
-  );
+    expect(isVersionEntryEligibleAt(boundary, evaluation)).toBe(true);
+    expect(isVersionEntryEligibleAt(heldVersion, evaluation)).toBe(false);
+    expect(
+      isVersionEntryEligibleAt(heldVersion, { ...evaluation, minimumReleaseAge: Duration.zero }),
+    ).toBe(true);
+  });
 
   it("classifies a newer held version while selecting the newest eligible version", () => {
     const result = resolveVersionEntryForReleaseAge(mixedMaturityVersions, Option.none(), {

@@ -60,7 +60,7 @@ it.effect(
           ),
       };
 
-      const prepared = yield* prepareSkillInstallation(facts, { ref, operation: "install" });
+      const prepared = yield* prepareSkillInstallation(facts, { ref });
       expect(prepared.warnings).toEqual([
         "@example/skills/review@1.2.0 was published less than 24h ago — installing it because you requested this version explicitly",
         "Skipping unknown configured agents: unknown-recipient",

@@ -174,7 +174,7 @@ approval: `--preview` with `--yes` inspects the candidate and confirms nothing.
 Replacing an accepted publisher with a different one during install or update
 is a trust decision approved only at an interactive prompt; no flag approves it
 in advance. Named policy overrides remain independent of consent: `--yes`
-never substitutes for `--ignore-version-constraints` or `--accept-warnings`.
+never substitutes for `--accept-warnings`.
 
 In non-interactive and JSON contexts, AXM never opens a prompt: it either
 applies an eligible candidate or returns a structured `approval-required`

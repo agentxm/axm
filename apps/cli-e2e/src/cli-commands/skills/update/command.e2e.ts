@@ -47,7 +47,7 @@ describe("axm skills update", () => {
         });
 
         expect(result.exitCode).toBe(0);
-        expect(getOutput(result)).toMatch(/no skills installed/i);
+        expect(getOutput(result)).toMatch(/no configured skills/i);
       } finally {
         temp.cleanup();
       }

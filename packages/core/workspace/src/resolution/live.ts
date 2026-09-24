@@ -1,12 +1,14 @@
 import { renderAxmSkillRecovery } from "@agentxm/cli-maintenance/official-skill/adapters/cli";
 /**
- * Implementation of the source-resolution composition port this package owns
- * the policy for.
+ * Implementations of the source-resolution composition ports this package
+ * owns the policy for.
  *
- * `@agentxm/workspace/resolution/sources` declares the official AXM skill candidate gate
- * as a port because a supporting integration may not own AXM trust policy.
- * Resolution owns that policy, so the Live is composed here rather than at
- * the application boundary; the composition root only composes Layers.
+ * `@agentxm/workspace/resolution/sources` declares the official AXM skill
+ * candidate gate and the Registry resolution policy as ports because a
+ * supporting integration may not own AXM trust policy or release-age
+ * admission. Resolution owns both policies, so their Lives are composed here
+ * rather than at the application boundary; the composition root and every
+ * fixture that composes the production managers only compose Layers.
  *
  * The catalog port's Live belongs to `@agentxm/workspace/projection`, which
  * owns the agent-selection facts it reads.
@@ -21,10 +23,15 @@ import * as Layer from "effect/Layer";
 import {
   AxmSkillCandidateGate,
   AxmSkillGateUnavailable,
+  RegistryResolutionPolicy,
   type AxmSkillCandidateVerdict,
 } from "./sources/index.js";
 
 import { evaluateAxmSkillCandidate } from "./axm-skill-candidate.js";
+import {
+  decideNamedRegistryVersion,
+  namedRegistryCandidates,
+} from "./named-registry-resolution.js";
 import {
   AXM_SKILL_BUNDLED_PREVIEW_COMMAND,
   formatAxmSkillCompatibilityTarget,
@@ -66,4 +73,14 @@ export const AxmSkillCandidateGateLive = Layer.succeed(AxmSkillCandidateGate, {
           }),
       ),
     ),
+});
+
+/**
+ * Which version a named Registry request selects under the minimum-release-age
+ * policy, and the candidates a provider verifies in turn when selection
+ * depends on archive content. One binding, so no fixture restates it.
+ */
+export const RegistryResolutionPolicyLive = Layer.succeed(RegistryResolutionPolicy, {
+  decideNamedVersion: decideNamedRegistryVersion,
+  namedCandidates: namedRegistryCandidates,
 });

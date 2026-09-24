@@ -23,7 +23,7 @@ import type { AcceptedExtensionResolution } from "../../desired-state/index.js";
 import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
 import type { ExtensionInventoryLifecycle, ReadModelRecordRow } from "../../desired-state/index.js";
 import { LockfileReader, WorkspaceRecords } from "../../desired-state/index.js";
-import { checkCurrency } from "../version-currency/index.js";
+import { checkCurrency } from "../version-currency/check-currency.js";
 import { WorkspaceInspectionFailed } from "../errors.js";
 import { describeInspectionFailure } from "../describe-failure.js";
 

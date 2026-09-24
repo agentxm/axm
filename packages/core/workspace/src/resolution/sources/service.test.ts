@@ -30,9 +30,9 @@ import {
   extensionName,
   handle,
   makeTestAxmSkillGate,
-  makeTestRegistryResolutionPolicy,
   makeTestWorkspaceCatalog,
 } from "./test-helpers.js";
+import { RegistryResolutionPolicyTest } from "./testing.js";
 import { SourceHostProvidersLive } from "./live.js";
 import { SourceHostProviders } from "./service.js";
 
@@ -99,7 +99,7 @@ const runWithService = <A, E>(
       Layer.mergeAll(
         makeTestWorkspaceCatalog({ sources, workspaceRoot }),
         makeTestAxmSkillGate(),
-        makeTestRegistryResolutionPolicy(),
+        RegistryResolutionPolicyTest,
       ),
     ),
     Layer.provide(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),

@@ -30,6 +30,8 @@ export interface RegistrySkillVersion {
    * age; pass a recent instant to model a release the age policy still holds.
    */
   readonly published?: string;
+  /** The instant the release was yanked; a range never selects a yanked release. */
+  readonly yankedAt?: string;
 }
 
 export interface RegistrySubagentVersion {
@@ -156,7 +158,9 @@ export const makeLifecycleRegistry = (): LifecycleRegistry => {
   const extensionDirectory = (plural: string, name: string): string =>
     nodePath.join(root, "extensions", OWNER, plural, name);
 
-  const publish = <T extends { readonly version: string; readonly published?: string }>(args: {
+  const publish = <
+    T extends { readonly version: string; readonly published?: string; readonly yankedAt?: string },
+  >(args: {
     readonly plural: string;
     readonly type: string;
     readonly name: string;
@@ -168,6 +172,7 @@ export const makeLifecycleRegistry = (): LifecycleRegistry => {
     const entries = args.versions.map((entry) => ({
       version: entry.version,
       published: entry.published ?? PUBLISHED_AT,
+      ...(entry.yankedAt === undefined ? {} : { yankedAt: entry.yankedAt }),
       integrity: integrity(writeArchive(directory, entry.version, args.archive(entry))),
       ...(args.extra === undefined ? {} : args.extra(entry)),
     }));

@@ -27,12 +27,14 @@ import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { OperationRequestBudget } from "@agentxm/registry-client";
+import type * as Config from "effect/Config";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 
 import {
+  heldBackReleaseWarnings,
   makeConfiguredReleaseAgeEvaluation,
   normalizeReleaseAgeRecords,
   ReleaseAgePosture,
@@ -65,6 +67,7 @@ import {
   acquisitionConfiguredEntries,
   effectiveDesiredConstraint,
   isSourcedDesiredExtension,
+  type DesiredEffectiveConstraint,
   type DesiredStateGraph,
   type WorkspaceSettingsReadFailure,
   type WorkspaceStateReadFailure,
@@ -134,6 +137,8 @@ import {
 } from "./atomicity.js";
 import { assessGitSelector } from "./git-selector.js";
 import { withPackRegistryIndexMemo } from "../../resolution/sources/providers/registry/index-memo.js";
+import { AXM_SKILL_BUNDLED_APPLY_COMMAND } from "@agentxm/cli-maintenance/official-skill/adapters/cli";
+import { AXM_SKILL_FQN } from "@agentxm/cli-maintenance/official-skill/domain";
 
 export type WorkspaceUpdatableType = InstallableExtensionType;
 
@@ -329,6 +334,8 @@ type ConfiguredUpdateResolution<TIntent> =
       readonly intent: TIntent;
       readonly holdbacks: ReadonlyArray<ReleaseAgeRecord>;
       readonly bypasses: ReadonlyArray<ReleaseAgeBypassRecord>;
+      /** What held the selection below the newest release, one line per Pack. */
+      readonly warnings: ReadonlyArray<string>;
     }
   | { readonly kind: "policy_held"; readonly holdbacks: ReadonlyArray<ReleaseAgeRecord> }
   | { readonly kind: "selector_held"; readonly message: string };
@@ -382,21 +389,79 @@ const selectorHeldPlan = (label: string, message: string): Plan<InstallStepRequi
   ],
 });
 
-const sameGitSource = (
-  left: Extract<ExtensionRef, { readonly refType: "git-hosted" }>["source"],
-  right: Extract<ExtensionRef, { readonly refType: "git-hosted" }>["source"],
-): boolean =>
-  left.url.href === right.url.href &&
-  Option.getOrUndefined(left.ref) === Option.getOrUndefined(right.ref) &&
-  Option.getOrUndefined(left.subPath) === Option.getOrUndefined(right.subPath);
+/**
+ * What a configured entry its source no longer offers can do next. The
+ * official AXM skill has a recovery no other extension has: the compatible
+ * copy embedded in this executable.
+ */
+const configuredNotFoundSuggestions = (target: string) =>
+  target === AXM_SKILL_FQN
+    ? [{ description: "Recover with the bundled AXM skill", cmd: AXM_SKILL_BUNDLED_APPLY_COMMAND }]
+    : [{ description: "Verify the configured source or update axm.json." }];
+
+type GitSourceRef = Extract<ExtensionRef, { readonly refType: "git-hosted" }>["source"];
+
+/**
+ * Whether the accepted Git resolution came from the declared source: the same
+ * repository at the same selector. The accepted resolution records the path
+ * discovery found the package under, so a declaration that names no path
+ * still matches it; a declaration that names one must name that path.
+ */
+const acceptedFromDeclaredGitSource = (accepted: GitSourceRef, declared: GitSourceRef): boolean =>
+  accepted.url.href === declared.url.href &&
+  Option.getOrUndefined(accepted.ref) === Option.getOrUndefined(declared.ref) &&
+  (Option.isNone(declared.subPath) ||
+    Option.getOrUndefined(accepted.subPath) === declared.subPath.value);
+
+/**
+ * Append warnings to every step a plan will run, so the unit that advances
+ * says what held it below the newest release.
+ */
+const withStepWarnings = (
+  plan: Plan<InstallStepRequirements>,
+  warnings: ReadonlyArray<string>,
+): Plan<InstallStepRequirements> => {
+  if (warnings.length === 0) return plan;
+  const joined = warnings.join("; ");
+  return {
+    ...plan,
+    jobs: plan.jobs.map((job) => ({
+      ...job,
+      steps: job.steps.map((step): PlannedJobStep<InstallStepRequirements> => {
+        if (step.readiness === "error") return step;
+        const run = step.run.pipe(
+          Effect.map((result): JobStepResult =>
+            result.result === "error"
+              ? result
+              : {
+                  ...result,
+                  warnings: [...(result.warnings ?? []), ...warnings],
+                  message: result.message.length === 0 ? joined : `${result.message}; ${joined}`,
+                },
+          ),
+        );
+        return step.readiness === "warn"
+          ? { ...step, run }
+          : {
+              ...step,
+              run,
+              message: step.message === undefined ? joined : `${step.message}; ${joined}`,
+            };
+      }),
+    })),
+  };
+};
 
 interface ConfiguredUpdateIntentArgs<TIntent, R> {
   readonly type: InstallableExtensionType;
   readonly name: string;
   readonly source: string;
   readonly releaseAgeEvaluation: ReleaseAgeEvaluation;
-  /** The effective constraint the Registry selects within; the declared range is recorded. */
-  readonly selectionRange: Option.Option<VersionRange>;
+  /**
+   * The effective constraint the Registry selects within, with the
+   * contributors that intersect to it; the declared range is what is recorded.
+   */
+  readonly effective: DesiredEffectiveConstraint;
   readonly fallback: Effect.Effect<
     {
       readonly ref: ExtensionRef;
@@ -440,7 +505,7 @@ const prepareUpdateIntent = <TIntent, R>(
             Option.isSome(accepted) &&
             accepted.value.refType === "git-hosted" &&
             accepted.value.type === args.type &&
-            sameGitSource(accepted.value.source, gitSource)
+            acceptedFromDeclaredGitSource(accepted.value.source, gitSource)
           ) {
             const newer = assessment.kind === "tag" ? assessment.newerTag : undefined;
             return Effect.succeed({
@@ -460,7 +525,7 @@ const prepareUpdateIntent = <TIntent, R>(
       args.source,
       args.type,
       args.releaseAgeEvaluation,
-      args.selectionRange,
+      args.effective.range,
     );
     return Effect.gen(function* () {
       const registryResolution = yield* resolveRegistry;
@@ -470,7 +535,7 @@ const prepareUpdateIntent = <TIntent, R>(
           return yield* new ExtensionLifecycleFailed({
             category: "not_found",
             detail: `Configured extension "${resolution.target}" could not be found in its source`,
-            suggestions: [{ description: "Verify the configured source or update axm.json." }],
+            suggestions: configuredNotFoundSuggestions(resolution.target),
           });
         }
         if (resolution.kind === "version_unsatisfied") {
@@ -502,6 +567,15 @@ const prepareUpdateIntent = <TIntent, R>(
           kind: "selected",
           intent,
           ...releaseAgeRecords(subject, resolution, resolution.ref.version),
+          warnings:
+            resolution.newestVisible === undefined
+              ? []
+              : heldBackReleaseWarnings({
+                  subject: resolution.target,
+                  latestVersion: resolution.newestVisible,
+                  selectedVersion: resolution.ref.version,
+                  contributors: args.effective.contributors,
+                }),
         } as const;
       }
       const resolved = yield* args.fallback;
@@ -517,6 +591,7 @@ const prepareUpdateIntent = <TIntent, R>(
         intent,
         holdbacks: resolved.releaseAge?.holdbacks ?? [],
         bypasses: resolved.releaseAge?.bypasses ?? [],
+        warnings: [],
       } as const;
     });
   });
@@ -524,22 +599,31 @@ const prepareUpdateIntent = <TIntent, R>(
 const resolveUpdateIntent = <TIntent, R>(args: ConfiguredUpdateIntentArgs<TIntent, R>) =>
   prepareUpdateIntent(args).pipe(Effect.flatten);
 
+/**
+ * A path or Git source names content, not a version: what it offers now is
+ * reacquired, and the realized artifact says whether anything changed.
+ */
+const reacquiresContent = (ref: ExtensionRef): boolean => ref.refType !== "registry";
+
 const resolveSkillIntent = (
   name: string,
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
-  selectionRange: Option.Option<VersionRange>,
+  effective: DesiredEffectiveConstraint,
 ) =>
   resolveUpdateIntent({
     type: "skill",
     name,
     source,
     releaseAgeEvaluation,
-    selectionRange,
-    fallback: resolveConfiguredSkill(name, source, releaseAgeEvaluation, selectionRange),
+    effective,
+    fallback: resolveConfiguredSkill(name, source, releaseAgeEvaluation, effective.range),
     makeIntent: (ref, versionRange) =>
       ref.type === "skill"
-        ? ({ skillsToInstall: [{ ref, versionRange }] } satisfies SkillInstallIntent)
+        ? ({
+            skillsToInstall: [{ ref, versionRange }],
+            force: reacquiresContent(ref),
+          } satisfies SkillInstallIntent)
         : undefined,
   });
 
@@ -547,18 +631,21 @@ const resolveSubagentIntent = (
   name: string,
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
-  selectionRange: Option.Option<VersionRange>,
+  effective: DesiredEffectiveConstraint,
 ) =>
   resolveUpdateIntent({
     type: "subagent",
     name,
     source,
     releaseAgeEvaluation,
-    selectionRange,
-    fallback: resolveConfiguredSubagent(name, source, releaseAgeEvaluation, selectionRange),
+    effective,
+    fallback: resolveConfiguredSubagent(name, source, releaseAgeEvaluation, effective.range),
     makeIntent: (ref, versionRange) =>
       ref.type === "subagent"
-        ? ({ subagentsToInstall: [{ ref, versionRange }] } satisfies SubagentInstallIntent)
+        ? ({
+            subagentsToInstall: [{ ref, versionRange }],
+            force: reacquiresContent(ref),
+          } satisfies SubagentInstallIntent)
         : undefined,
   });
 
@@ -566,15 +653,15 @@ const resolveRuleIntent = (
   name: string,
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
-  selectionRange: Option.Option<VersionRange>,
+  effective: DesiredEffectiveConstraint,
 ) =>
   resolveUpdateIntent({
     type: "rule",
     name,
     source,
     releaseAgeEvaluation,
-    selectionRange,
-    fallback: resolveConfiguredRule(name, source, releaseAgeEvaluation, selectionRange),
+    effective,
+    fallback: resolveConfiguredRule(name, source, releaseAgeEvaluation, effective.range),
     makeIntent: (ref, versionRange) =>
       ref.type === "rule"
         ? ({ refs: [{ ref, versionRange }] } satisfies RuleInstallIntent)
@@ -585,15 +672,15 @@ const resolveHookIntent = (
   name: string,
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
-  selectionRange: Option.Option<VersionRange>,
+  effective: DesiredEffectiveConstraint,
 ) =>
   resolveUpdateIntent({
     type: "hook",
     name,
     source,
     releaseAgeEvaluation,
-    selectionRange,
-    fallback: resolveConfiguredHook(name, source, releaseAgeEvaluation, selectionRange),
+    effective,
+    fallback: resolveConfiguredHook(name, source, releaseAgeEvaluation, effective.range),
     makeIntent: (ref, versionRange) =>
       ref.type === "hook"
         ? ({ refs: [{ ref, versionRange }] } satisfies HookInstallIntent)
@@ -604,15 +691,15 @@ const resolveKnowledgeIntent = (
   name: string,
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
-  selectionRange: Option.Option<VersionRange>,
+  effective: DesiredEffectiveConstraint,
 ) =>
   resolveUpdateIntent({
     type: "knowledge",
     name,
     source,
     releaseAgeEvaluation,
-    selectionRange,
-    fallback: resolveConfiguredKnowledge(name, source, releaseAgeEvaluation, selectionRange),
+    effective,
+    fallback: resolveConfiguredKnowledge(name, source, releaseAgeEvaluation, effective.range),
     makeIntent: (ref, versionRange) =>
       ref.type === "knowledge"
         ? ({ refs: [{ ref, versionRange }] } satisfies KnowledgeInstallIntent)
@@ -623,7 +710,7 @@ const resolveMcpServerIntent = (
   name: string,
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
-  selectionRange: Option.Option<VersionRange>,
+  effective: DesiredEffectiveConstraint,
   nonInteractive: boolean,
 ) =>
   resolveUpdateIntent({
@@ -631,8 +718,8 @@ const resolveMcpServerIntent = (
     name,
     source,
     releaseAgeEvaluation,
-    selectionRange,
-    fallback: resolveConfiguredMcpServer(name, source, releaseAgeEvaluation, selectionRange),
+    effective,
+    fallback: resolveConfiguredMcpServer(name, source, releaseAgeEvaluation, effective.range),
     makeIntent: (ref, versionRange) =>
       ref.type === "mcp-server"
         ? ({
@@ -657,7 +744,7 @@ const preparePackRef = (
     source,
     releaseAgeEvaluation,
     // A Pack is never another Pack's member: its own declaration is its only contributor.
-    selectionRange: Option.none(),
+    effective: { range: Option.none(), contributors: [] },
     fallback: resolveConfiguredPack(name, source, releaseAgeEvaluation),
     makeIntent: (ref, versionRange) =>
       ref.type === "pack"
@@ -705,20 +792,24 @@ const collectResolvedPlan = <TIntent, RResolution, RPlan>(
             })
           : buildPlan(resolved.intent).pipe(
               Effect.map((plan): ResolvedPlanCollection => ({
-                plans: [plan],
+                plans: [withStepWarnings(plan, resolved.warnings)],
                 holdbacks: [...resolved.holdbacks, ...(plan.releaseAge?.holdbacks ?? [])],
                 bypasses: [...resolved.bypasses, ...(plan.releaseAge?.bypasses ?? [])],
               })),
             ),
     ),
     // One entry that cannot be planned is a blocked unit, not a failed sweep:
-    // the other configured entries still have an advance to report.
+    // the other configured entries still have an advance to report. A
+    // configuration that cannot be read is not one entry's condition, so it
+    // stops the sweep instead of blocking every unit in turn.
     Effect.catch((error) =>
-      Effect.succeed<ResolvedPlanCollection>({
-        plans: [onError(error)],
-        holdbacks: [],
-        bypasses: [],
-      }),
+      error._tag === "ConfigError"
+        ? Effect.fail(error)
+        : Effect.succeed<ResolvedPlanCollection>({
+            plans: [onError(error)],
+            holdbacks: [],
+            bypasses: [],
+          }),
     ),
   );
 
@@ -735,14 +826,12 @@ const collectedWorkspaceSourcePlan = (
  * intersects from every contributor to it, or block the entry on the
  * conflict that constraint reports.
  */
-const withinEffectiveConstraint = <R>(
+const withinEffectiveConstraint = <E, R>(
   graph: DesiredStateGraph,
   type: WorkspaceEntryUpdatableType,
   name: string,
-  plan: (
-    selectionRange: Option.Option<VersionRange>,
-  ) => Effect.Effect<ResolvedPlanCollection, never, R>,
-): Effect.Effect<ResolvedPlanCollection, never, R> => {
+  plan: (effective: DesiredEffectiveConstraint) => Effect.Effect<ResolvedPlanCollection, E, R>,
+): Effect.Effect<ResolvedPlanCollection, E, R> => {
   const effective = effectiveDesiredConstraint(graph, { type, name });
   return Result.isFailure(effective)
     ? Effect.succeed(
@@ -755,7 +844,7 @@ const withinEffectiveConstraint = <R>(
           }),
         ),
       )
-    : plan(effective.success.range);
+    : plan(effective.success);
 };
 
 const collectSkillPlans = (selection: WorkspaceUpdateCollectionRequest, graph: DesiredStateGraph) =>
@@ -785,14 +874,9 @@ const collectSkillPlans = (selection: WorkspaceUpdateCollectionRequest, graph: D
                 workspaceSourceUnchangedPlan("skill", name, entry.source, location.scope),
               ),
             )
-          : withinEffectiveConstraint(graph, "skill", name, (selectionRange) =>
+          : withinEffectiveConstraint(graph, "skill", name, (effective) =>
               collectResolvedPlan(
-                resolveSkillIntent(
-                  name,
-                  entry.source,
-                  selection.releaseAgeEvaluation,
-                  selectionRange,
-                ),
+                resolveSkillIntent(name, entry.source, selection.releaseAgeEvaluation, effective),
                 (intent) => planSkillInstall(intent, { installedBefore }),
                 (error) => workspacePlanningErrorPlan("skill", name, error),
                 toTypedLabel("skill", name),
@@ -824,14 +908,9 @@ const collectRulePlans = (selection: WorkspaceUpdateCollectionRequest, graph: De
                 workspaceSourceUnchangedPlan("rule", name, entry.source, location.scope),
               ),
             )
-          : withinEffectiveConstraint(graph, "rule", name, (selectionRange) =>
+          : withinEffectiveConstraint(graph, "rule", name, (effective) =>
               collectResolvedPlan(
-                resolveRuleIntent(
-                  name,
-                  entry.source,
-                  selection.releaseAgeEvaluation,
-                  selectionRange,
-                ),
+                resolveRuleIntent(name, entry.source, selection.releaseAgeEvaluation, effective),
                 (intent) => planRuleInstall(intent),
                 (error) => workspacePlanningErrorPlan("rule", name, error),
                 toTypedLabel("rule", name),
@@ -863,14 +942,9 @@ const collectHookPlans = (selection: WorkspaceUpdateCollectionRequest, graph: De
                 workspaceSourceUnchangedPlan("hook", name, entry.source, location.scope),
               ),
             )
-          : withinEffectiveConstraint(graph, "hook", name, (selectionRange) =>
+          : withinEffectiveConstraint(graph, "hook", name, (effective) =>
               collectResolvedPlan(
-                resolveHookIntent(
-                  name,
-                  entry.source,
-                  selection.releaseAgeEvaluation,
-                  selectionRange,
-                ),
+                resolveHookIntent(name, entry.source, selection.releaseAgeEvaluation, effective),
                 (intent) => planHookInstall(intent),
                 (error) => workspacePlanningErrorPlan("hook", name, error),
                 toTypedLabel("hook", name),
@@ -905,13 +979,13 @@ const collectKnowledgePlans = (
                 workspaceSourceUnchangedPlan("knowledge", name, entry.source, location.scope),
               ),
             )
-          : withinEffectiveConstraint(graph, "knowledge", name, (selectionRange) =>
+          : withinEffectiveConstraint(graph, "knowledge", name, (effective) =>
               collectResolvedPlan(
                 resolveKnowledgeIntent(
                   name,
                   entry.source,
                   selection.releaseAgeEvaluation,
-                  selectionRange,
+                  effective,
                 ),
                 (intent) => planKnowledgeInstall(intent),
                 (error) => workspacePlanningErrorPlan("knowledge", name, error),
@@ -949,13 +1023,13 @@ const collectSubagentPlans = (
                 workspaceSourceUnchangedPlan("subagent", name, entry.source, location.scope),
               ),
             )
-          : withinEffectiveConstraint(graph, "subagent", name, (selectionRange) =>
+          : withinEffectiveConstraint(graph, "subagent", name, (effective) =>
               collectResolvedPlan(
                 resolveSubagentIntent(
                   name,
                   entry.source,
                   selection.releaseAgeEvaluation,
-                  selectionRange,
+                  effective,
                 ),
                 (intent) => planSubagentInstall(intent),
                 (error) => workspacePlanningErrorPlan("subagent", name, error),
@@ -1014,13 +1088,13 @@ const collectMcpServerPlans = (
                   workspaceSourceUnchangedPlan("mcp-server", name, entry.source, location.scope),
                 ),
               )
-            : withinEffectiveConstraint(graph, "mcp-server", name, (selectionRange) =>
+            : withinEffectiveConstraint(graph, "mcp-server", name, (effective) =>
                 collectResolvedPlan(
                   resolveMcpServerIntent(
                     name,
                     entry.source,
                     selection.releaseAgeEvaluation,
-                    selectionRange,
+                    effective,
                     selection.nonInteractive,
                   ),
                   (intent) => planMcpServerInstall(intent),
@@ -1051,7 +1125,7 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
     const prepared = yield* Effect.forEach(
       entries,
       ([name, entry]): Effect.Effect<
-        Effect.Effect<CollectedPackResolution, never, WorkspaceUpdateCollectorContext>,
+        Effect.Effect<CollectedPackResolution, Config.ConfigError, WorkspaceUpdateCollectorContext>,
         never,
         WorkspaceUpdateCollectorContext
       > =>
@@ -1091,12 +1165,14 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
                         } satisfies CollectedPackResolution),
                   ),
                   Effect.catch((error) =>
-                    Effect.succeed({
-                      kind: "planned",
-                      collection: toCollectedWorkspaceUpdatePlans({
-                        plans: [workspacePlanningErrorPlan("pack", name, error)],
-                      }),
-                    } satisfies CollectedPackResolution),
+                    error._tag === "ConfigError"
+                      ? Effect.fail(error)
+                      : Effect.succeed({
+                          kind: "planned",
+                          collection: toCollectedWorkspaceUpdatePlans({
+                            plans: [workspacePlanningErrorPlan("pack", name, error)],
+                          }),
+                        } satisfies CollectedPackResolution),
                   ),
                 ),
               ),

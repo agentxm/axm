@@ -12,19 +12,13 @@
  */
 
 import * as ServiceMap from "effect/Context";
-import type * as Duration from "effect/Duration";
-import type * as Effect from "effect/Effect";
-import type * as Option from "effect/Option";
 
 import type {
   NamedRegistryCandidate,
   NamedRegistryFindOptions,
   NamedRegistryVersionDecision,
 } from "@agentxm/extension-model/unstable/sources/source-host-provider";
-import type {
-  ExtensionIndex,
-  VersionEntry,
-} from "@agentxm/registry-protocol/unstable/registry/schema";
+import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry/schema";
 
 /**
  * Decisions the registry provider delegates to the resolution policy.
@@ -32,12 +26,6 @@ import type {
  * @experimental This API is unstable and may change without notice.
  */
 export interface RegistryResolutionPolicyService {
-  /** Select the version an index-backed find returns for a range and optional minimum release age. */
-  readonly selectVersion: (
-    versions: ReadonlyArray<VersionEntry>,
-    versionRange: Option.Option<string>,
-    minimumReleaseAge: Option.Option<Duration.Duration>,
-  ) => Effect.Effect<Option.Option<VersionEntry>>;
   /** Decide which version of a visible index a named request selects. */
   readonly decideNamedVersion: (
     index: ExtensionIndex,

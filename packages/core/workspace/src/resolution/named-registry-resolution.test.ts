@@ -105,6 +105,7 @@ describe("decideNamedRegistryVersion", () => {
       version: "2.0.0",
       bypassed: heldEvidence,
       exemption: { bypassCause: "exclude", exemptionScope: "project" },
+      newestVisible: "2.0.0",
     });
   });
 
@@ -116,7 +117,7 @@ describe("decideNamedRegistryVersion", () => {
         exclude: [{ pattern: excludePattern("@test/*"), scope: "user" }],
       },
     });
-    expect(decision).toEqual({ kind: "selected", version: "1.0.0" });
+    expect(decision).toEqual({ kind: "selected", version: "1.0.0", newestVisible: "1.0.0" });
   });
 
   it("selects the newest eligible version and discloses a newer held candidate", () => {
@@ -127,7 +128,12 @@ describe("decideNamedRegistryVersion", () => {
       ]),
       options,
     );
-    expect(decision).toEqual({ kind: "selected", version: "1.0.0", newerHeld: heldEvidence });
+    expect(decision).toEqual({
+      kind: "selected",
+      version: "1.0.0",
+      newerHeld: heldEvidence,
+      newestVisible: "2.0.0",
+    });
   });
 
   it("preserves an accepted under-age version from the same publisher", () => {

@@ -40,12 +40,11 @@ import type {
   WorkspaceFileWriteLocks,
 } from "@agentxm/workspace/transitions/settlement";
 import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace/transitions/settlement/live";
+import { BundledAxmSkillAssetLive, ExtensionSelectionLive } from "../cli-runtime/index.js";
 import {
-  BundledAxmSkillAssetLive,
-  ExtensionSelectionLive,
+  AxmSkillCandidateGateLive,
   RegistryResolutionPolicyLive,
-} from "../cli-runtime/index.js";
-import { AxmSkillCandidateGateLive } from "@agentxm/workspace/resolution/live";
+} from "@agentxm/workspace/resolution/live";
 import { WorkspaceCatalogLive } from "@agentxm/workspace/projection/live";
 import {
   CodingAgentRepositoryLive,

@@ -38,7 +38,6 @@ import {
   RegistryResolutionPolicy,
   createRemoteRegistrySourceHostProvider,
 } from "@agentxm/workspace/resolution/sources";
-import { RegistryResolutionPolicyLive } from "./registry-resolution-policy-live.js";
 import { toAppError } from "../app-error/conversions.js";
 import {
   dependencyConstraintMap,
@@ -47,7 +46,10 @@ import {
   handle,
 } from "../test-support/test-stubs.js";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
-import { AxmSkillCandidateGateLive } from "@agentxm/workspace/resolution/live";
+import {
+  AxmSkillCandidateGateLive,
+  RegistryResolutionPolicyLive,
+} from "@agentxm/workspace/resolution/live";
 
 const runEffect = <A, E>(
   effect: Effect.Effect<

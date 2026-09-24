@@ -225,9 +225,6 @@
     "bundled-skill-inputs": {
       "topic": "Bundled Skill input constraints and combinations with source, --all and --skill"
     },
-    "constraint-override-intent": {
-      "topic": "Durable settings effects of an explicit version-constraint override"
-    },
     "sync-type-selection": {
       "topic": "Sync filtering domain and combined --type/target precedence"
     },
@@ -7328,14 +7325,6 @@
           }
         },
         {
-          "name": "ignore-version-constraints",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
           "name": "preview",
           "rawHelp": {
             "aliases": [],
@@ -7372,12 +7361,6 @@
           "parameters": ["flag:name"],
           "requirements": ["cli/update/advances-resolution-within-intent"],
           "openTopics": ["typed-update-name-selection"]
-        },
-        {
-          "parameters": ["flag:ignore-version-constraints"],
-          "requirements": ["cli/force-bypasses-only-named-policies"],
-          "when": "The selected update would otherwise be excluded by the configured constraint.",
-          "openTopics": ["constraint-override-intent"]
         },
         {
           "parameters": ["flag:preview"],
@@ -8146,14 +8129,6 @@
           }
         },
         {
-          "name": "ignore-version-constraints",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
           "name": "preview",
           "rawHelp": {
             "aliases": [],
@@ -8190,12 +8165,6 @@
           "parameters": ["flag:name"],
           "requirements": ["cli/update/advances-resolution-within-intent"],
           "openTopics": ["typed-update-name-selection"]
-        },
-        {
-          "parameters": ["flag:ignore-version-constraints"],
-          "requirements": ["cli/force-bypasses-only-named-policies"],
-          "when": "The selected update would otherwise be excluded by the configured constraint.",
-          "openTopics": ["constraint-override-intent"]
         },
         {
           "parameters": ["flag:preview"],

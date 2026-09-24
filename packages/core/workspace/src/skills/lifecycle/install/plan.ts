@@ -311,21 +311,19 @@ export const finalizeSkillInstallIntent: (
 });
 
 /**
- * Warn when a registry version this install accepts is younger than the
- * workspace's minimum release age. The version was requested explicitly, so
- * the policy does not hold it back — it only says so.
+ * One skill the planner realizes: the ref, the range its declaration keeps,
+ * and whether already acquired content is reacquired. Installing declares the
+ * intent; an update through the configured sweep re-declares the intent the
+ * workspace already recorded, so both are one step shape.
  */
-/** Installing declares intent; an update advances the resolution of existing intent. */
-export type SkillInstallationStepInput = {
+export interface SkillInstallationStepInput {
   readonly ref: SkillExtensionRef;
+  readonly versionRange: Option.Option<VersionRange>;
   readonly force: boolean;
   readonly installedBefore?: boolean;
-} & (
-  | { readonly operation: "install"; readonly versionRange: Option.Option<VersionRange> }
-  | { readonly operation: "update" }
-);
+}
 
-/** One skill-owned application step, shared by install and selective update. */
+/** One skill-owned application step, shared by every install and update route. */
 export const planSkillInstallationStep = (
   input: SkillInstallationStepInput,
 ): Effect.Effect<
@@ -343,9 +341,7 @@ export const planSkillInstallationStep = (
     let step = buildInstallOperation(skillManager, {
       toStepFailure: lifecycleStepFailure,
       ref: input.ref,
-      ...(input.operation === "install"
-        ? { declaration: { name: input.ref.skill.name, versionRange: input.versionRange } }
-        : {}),
+      declaration: { name: input.ref.skill.name, versionRange: input.versionRange },
       force: input.force,
       installedBefore: Effect.succeed(prepared.installedBefore),
       buildArtifact: prepared.buildArtifact,
@@ -371,7 +367,6 @@ export const planSkillInstall: (
     (entry) =>
       planSkillInstallationStep({
         ...entry,
-        operation: "install",
         force: intent.force === true,
         ...(options?.installedBefore === undefined
           ? {}

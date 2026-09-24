@@ -20,8 +20,10 @@ import { CliConfig, CliOutput, Flag, GlobalFlag } from "effect/unstable/cli";
 import { AppError, makeAppError } from "./app-error/index.js";
 
 import { AgentPresenceProbeLive } from "@agentxm/workspace/projection/agent-adapters/live";
-import { RegistryResolutionPolicyLive } from "./cli-runtime/index.js";
-import { AxmSkillCandidateGateLive } from "@agentxm/workspace/resolution/live";
+import {
+  AxmSkillCandidateGateLive,
+  RegistryResolutionPolicyLive,
+} from "@agentxm/workspace/resolution/live";
 import { WorkspaceCatalogLive } from "@agentxm/workspace/projection/live";
 import {
   BundledAxmSkillAssetLive,

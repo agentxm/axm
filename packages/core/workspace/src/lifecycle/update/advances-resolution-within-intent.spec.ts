@@ -1,5 +1,5 @@
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
@@ -7,10 +7,10 @@ import YAML from "yaml";
 
 import { countUnitStates, deriveOperationOutcome } from "../../transitions/planning/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { preapprovedPlanExecution } from "../../transitions/planning/testing.js";
-import { SelectiveUpdate } from "./selective/use-case.js";
+import { ReleaseAgePosture } from "../../resolution/index.js";
 
 import {
+  makeGitSkillRepository,
   makeLifecycleFixture,
   makeLifecycleRegistry,
   writeLocalSkillPackage,
@@ -54,7 +54,7 @@ export const specification = defineSpecification({
   requirement: "cli/update/advances-resolution-within-intent",
   title: "Update advances the accepted resolution within durable intent",
   statement:
-    "Update of a desired Registry extension shall advance its accepted resolution and realized content to the newest version within its effective constraint — the intersection of its durable direct constraint with the range of every Pack that requires it — without changing axm.json or any other extension, shall be a no-op when already current, and when that intersection admits no version shall change nothing and report a conflict naming every contributor.",
+    "Update of a desired Registry extension shall advance its accepted resolution and realized content to the newest version within its effective constraint — the intersection of its durable direct constraint with the range of every Pack that requires it — without changing axm.json or any other extension, shall be a no-op when already current, and when that intersection admits no version shall change nothing and report a conflict naming every contributor. Every type-group spelling of update shall be the root sweep narrowed to one type, so a range never selects a yanked release, a release under the minimum age is taken only under a declared exemption or the one-shot override and is otherwise reported as held, an edited or missing canonical tree is reacquired and reported as updated, and an entry pinned to a Git tag or commit is held unchanged while a newer tag is reported.",
   class: "functional",
   role: "experience",
   goals: ["extension-adoption", "workspace-intent-fidelity", "safe-repetition"],
@@ -68,11 +68,20 @@ export const specification = defineSpecification({
 const REVIEW = "code-review";
 const FQN = `@acme/skills/${REVIEW}`;
 const UNRELATED = "release-notes";
+const CANONICAL_SKILL_DOCUMENT = `agent_extensions/registry/@acme/skills/${REVIEW}/src/SKILL.md`;
 
 const firstVersion: RegistrySkillVersion = { version: "1.0.0", body: "First guidance." };
 
+/** `axm skills update --name <name>`: the configured sweep narrowed to one skill. */
+const typeGroupSkillUpdate = (name: string) =>
+  applyUpdate(configuredUpdateRequest({ type: "skill", nameFilters: [name] }));
+
+/** `axm subagents update --name <name>`: the configured sweep narrowed to one subagent. */
+const typeGroupSubagentUpdate = (name: string) =>
+  applyUpdate(configuredUpdateRequest({ type: "subagent", nameFilters: [name] }));
+
 it.effect(
-  "selective subagent update preserves the declared range while advancing within it",
+  "a type-group subagent update preserves the declared range while advancing within it",
   () => {
     const { workspace, registry, cleanup } = makeInstallWorld();
     const name = "reviewer";
@@ -92,18 +101,7 @@ it.effect(
             { version: "1.1.0", body: "Compatible reviewer." },
             { version: "2.0.0", body: "Different reviewer." },
           ]);
-          const candidate = yield* SelectiveUpdate.prepare({
-            kind: "selective-subagents",
-            source: Option.none(),
-            nameFilters: [name],
-            nameFilterFlag: "--name",
-            ignoreVersionConstraints: false,
-          });
-          if (candidate.outcome !== "planned") throw new Error(candidate.message);
-          const resolution = yield* SelectiveUpdate.previewOrApply(
-            candidate,
-            preapprovedPlanExecution,
-          );
+          const resolution = expectResolved(yield* typeGroupSubagentUpdate(name));
           expect(deriveOperationOutcome(resolution)).toBe("applied");
           expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.1.0");
           expect(workspace.readFile(`.claude/agents/${name}.md`)).toContain("Compatible reviewer.");
@@ -114,7 +112,7 @@ it.effect(
   },
 );
 
-describe("selective subagent update of a member a direct pin and Packs share", () => {
+describe("type-group subagent update of a member a direct pin and Packs share", () => {
   const cleanups: Array<() => void> = [];
   afterEach(() => {
     for (const cleanup of cleanups.splice(0)) cleanup();
@@ -159,20 +157,6 @@ describe("selective subagent update of a member a direct pin and Packs share", (
       return created.workspace;
     });
 
-  const selectiveUpdate = SelectiveUpdate.prepare({
-    kind: "selective-subagents",
-    source: Option.none(),
-    nameFilters: [SHARED_SUBAGENT.name],
-    nameFilterFlag: "--name",
-    ignoreVersionConstraints: false,
-  });
-
-  const applySelectiveUpdate = Effect.gen(function* () {
-    const candidate = yield* selectiveUpdate;
-    if (candidate.outcome !== "planned") throw new Error(candidate.message);
-    return yield* SelectiveUpdate.previewOrApply(candidate, preapprovedPlanExecution);
-  });
-
   const lockedVersion = (workspace: LifecycleFixture): unknown => {
     const parsed: unknown = YAML.parse(workspace.readFile("axm-lock.yaml"));
     if (typeof parsed !== "object" || parsed === null || !("subagents" in parsed)) return undefined;
@@ -190,7 +174,9 @@ describe("selective subagent update of a member a direct pin and Packs share", (
       Effect.gen(function* () {
         const workspace = yield* acceptedThenRedeclared(SHARED_MEMBER_PIN.inside);
 
-        const resolution = yield* workspace.provide(applySelectiveUpdate);
+        const resolution = expectResolved(
+          yield* workspace.provide(typeGroupSubagentUpdate(SHARED_SUBAGENT.name)),
+        );
 
         expect(deriveOperationOutcome(resolution)).toBe("applied");
         expect(lockedVersion(workspace)).toMatchObject({ version: SHARED_MEMBER_PIN.inside });
@@ -210,13 +196,18 @@ describe("selective subagent update of a member a direct pin and Packs share", (
         const workspace = yield* acceptedThenRedeclared(SHARED_MEMBER_PIN.outside);
         const lockBefore = workspace.readFile("axm-lock.yaml");
 
-        const failure = yield* workspace.provide(selectiveUpdate.pipe(Effect.flip));
+        const resolution = expectResolved(
+          yield* workspace.provide(typeGroupSubagentUpdate(SHARED_SUBAGENT.name)),
+        );
 
-        expect(failure).toMatchObject({ category: "conflict" });
-        const detail = JSON.stringify(failure);
-        expect(detail).toContain(`settings range=${SHARED_MEMBER_PIN.outside}`);
+        expect(countUnitStates(resolution.units).committed).toBe(0);
+        const refusal = [
+          resolution.blocking?.detail ?? "",
+          ...resolution.units.map((unit) => unit.message ?? ""),
+        ].join(" ");
+        expect(refusal).toContain(`settings range=${SHARED_MEMBER_PIN.outside}`);
         for (const pack of SHARED_SUBAGENT_PACKS) {
-          expect(detail).toContain(`${pack.fqn} range=${pack.range}`);
+          expect(refusal).toContain(`${pack.fqn} range=${pack.range}`);
         }
         expect(workspace.readFile("axm-lock.yaml")).toBe(lockBefore);
       }).pipe(Effect.provide(NodeServices.layer)),
@@ -228,7 +219,9 @@ describe("selective subagent update of a member a direct pin and Packs share", (
       Effect.gen(function* () {
         const workspace = yield* acceptedThenRedeclared(undefined);
 
-        const resolution = yield* workspace.provide(applySelectiveUpdate);
+        const resolution = expectResolved(
+          yield* workspace.provide(typeGroupSubagentUpdate(SHARED_SUBAGENT.name)),
+        );
 
         expect(deriveOperationOutcome(resolution)).toBe("applied");
         expect(lockedVersion(workspace)).toMatchObject({ version: "1.2.0" });
@@ -239,7 +232,6 @@ describe("selective subagent update of a member a direct pin and Packs share", (
 /** A declaration that states its source and leaves activation to its default. */
 const omittedActivationRows = [
   {
-    kind: "selective-skills",
     type: "skill",
     name: REVIEW,
     settingsKey: "skills",
@@ -248,7 +240,6 @@ const omittedActivationRows = [
       registry.writeSkill(REVIEW, versions),
   },
   {
-    kind: "selective-subagents",
     type: "subagent",
     name: "reviewer",
     settingsKey: "subagents",
@@ -259,8 +250,8 @@ const omittedActivationRows = [
 ] as const;
 
 it.effect.each(omittedActivationRows)(
-  "selective $type update advances a declaration that omits its activation",
-  ({ kind, name, settingsKey, fqn, publish }) => {
+  "a type-group $type update advances a declaration that omits its activation",
+  ({ type, name, settingsKey, fqn, publish }) => {
     const { workspace, registry, cleanup } = makeInstallWorld({
       settings: { [settingsKey]: { [name]: { source: fqn } } },
     });
@@ -273,17 +264,8 @@ it.effect.each(omittedActivationRows)(
           publish(registry, [firstVersion, { version: "2.0.0", body: "Second guidance." }]);
 
           // An omitted `enabled` is an enabled declaration, not a disabled one.
-          const candidate = yield* SelectiveUpdate.prepare({
-            kind,
-            source: Option.none(),
-            nameFilters: [name],
-            nameFilterFlag: "--name",
-            ignoreVersionConstraints: false,
-          });
-          if (candidate.outcome !== "planned") throw new Error(candidate.message);
-          const resolution = yield* SelectiveUpdate.previewOrApply(
-            candidate,
-            preapprovedPlanExecution,
+          const resolution = expectResolved(
+            yield* applyUpdate(configuredUpdateRequest({ type, nameFilters: [name] })),
           );
 
           expect(deriveOperationOutcome(resolution)).toBe("applied");
@@ -294,7 +276,7 @@ it.effect.each(omittedActivationRows)(
   },
 );
 
-describe.each(["targeted", "selective"] as const)(
+describe.each(["targeted", "type-group"] as const)(
   "%s update of a desired Registry extension",
   (route) => {
     const cleanups: Array<() => void> = [];
@@ -344,23 +326,7 @@ describe.each(["targeted", "selective"] as const)(
     const update = () =>
       route === "targeted"
         ? applyUpdate(targetedUpdateRequest({ source: FQN }))
-        : Effect.gen(function* () {
-            const candidate = yield* SelectiveUpdate.prepare({
-              kind: "selective-skills",
-              source: Option.none(),
-              nameFilters: [REVIEW],
-              nameFilterFlag: "--name",
-              ignoreVersionConstraints: false,
-            });
-            if (candidate.outcome !== "planned") throw new Error(candidate.message);
-            return {
-              _tag: "Resolved" as const,
-              resolution: yield* SelectiveUpdate.previewOrApply(
-                candidate,
-                preapprovedPlanExecution,
-              ),
-            };
-          });
+        : typeGroupSkillUpdate(REVIEW);
 
     it.effect(
       "advances the accepted resolution and realized content to a later published version",
@@ -420,6 +386,95 @@ describe.each(["targeted", "selective"] as const)(
         .pipe(Effect.provide(NodeServices.layer));
     });
 
+    it.effect("never selects a yanked release, however new", () => {
+      const { workspace, registry } = world();
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* acceptedThenPublished(registry, workspace, {
+              later: [
+                { version: "1.5.0", body: "Fifth guidance." },
+                {
+                  version: "2.0.0",
+                  body: "Yanked guidance.",
+                  yankedAt: "2026-01-01T00:00:00.000Z",
+                },
+              ],
+            });
+
+            const resolution = expectResolved(yield* update());
+
+            expect(deriveOperationOutcome(resolution)).toBe("applied");
+            expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.5.0");
+            expect(workspace.readFile(`.claude/skills/${REVIEW}/SKILL.md`)).toContain(
+              "Fifth guidance.",
+            );
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    });
+
+    it.effect(
+      "holds a release under the minimum age, and takes it only under the one-shot override",
+      () => {
+        const { workspace, registry } = world();
+        return workspace
+          .provide(
+            Effect.gen(function* () {
+              const publishedAt = DateTime.formatIso(yield* DateTime.now);
+              yield* acceptedThenPublished(registry, workspace, {
+                later: [{ version: "2.0.0", body: "Fresh guidance.", published: publishedAt }],
+              });
+
+              const held = expectResolved(yield* update());
+              expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.0.0");
+              expect(workspace.readFile("axm-lock.yaml")).not.toContain("version: 2.0.0");
+              expect(held.releaseAge?.holdbacks).toEqual([
+                expect.objectContaining({ target: FQN, candidateVersion: "2.0.0" }),
+              ]);
+              expect(held.releaseAge?.bypasses).toEqual([]);
+
+              const taken = expectResolved(
+                yield* update().pipe(Effect.provideService(ReleaseAgePosture, "ignore")),
+              );
+              expect(deriveOperationOutcome(taken)).toBe("applied");
+              expect(workspace.readFile("axm-lock.yaml")).toContain("version: 2.0.0");
+              expect(taken.releaseAge?.bypasses).toEqual([
+                expect.objectContaining({
+                  target: FQN,
+                  candidateVersion: "2.0.0",
+                  bypassCause: "ignore-flag",
+                }),
+              ]);
+            }),
+          )
+          .pipe(Effect.provide(NodeServices.layer));
+      },
+    );
+
+    it.effect("reacquires a canonical tree that was edited after acceptance", () => {
+      const { workspace, registry } = world();
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* acceptedThenPublished(registry, workspace, { later: [] });
+            expect(workspace.readFile(CANONICAL_SKILL_DOCUMENT)).toContain("First guidance.");
+            workspace.writeFile(CANONICAL_SKILL_DOCUMENT, "# code-review\n\nTampered.\n");
+
+            const resolution = expectResolved(yield* update());
+
+            expect(deriveOperationOutcome(resolution)).toBe("applied");
+            expect(countUnitStates(resolution.units)).toMatchObject({ committed: 1, failed: 0 });
+            expect(workspace.readFile(CANONICAL_SKILL_DOCUMENT)).toContain("First guidance.");
+            expect(workspace.readFile(`.claude/skills/${REVIEW}/SKILL.md`)).toContain(
+              "First guidance.",
+            );
+            expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.0.0");
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    });
+
     it.effect("changes no workspace configuration and no unrelated extension", () => {
       const { workspace, registry } = world();
       return workspace
@@ -468,7 +523,54 @@ describe.each(["targeted", "selective"] as const)(
   },
 );
 
-describe.each(["configured", "targeted", "selective"] as const)(
+describe.each(["root", "type-group"] as const)(
+  "%s update of a skill pinned to a Git tag",
+  (route) => {
+    const cleanups: Array<() => void> = [];
+    afterEach(() => {
+      for (const cleanup of cleanups.splice(0)) cleanup();
+    });
+
+    const update = () =>
+      route === "root" ? applyUpdate(configuredUpdateRequest({})) : typeGroupSkillUpdate(REVIEW);
+
+    it.effect("holds the pinned tag unchanged and reports the newer tag", () =>
+      Effect.gen(function* () {
+        const remote = yield* makeGitSkillRepository({ name: REVIEW });
+        cleanups.push(remote.cleanup);
+        remote.tag("v1.0.0");
+        const workspace = makeLifecycleFixture({
+          sources: "live",
+          settings: { owner: "@acme", agents: ["claude-code"] },
+        });
+        cleanups.push(workspace.cleanup);
+
+        yield* workspace.provide(
+          applyInstall(
+            installRequest({ subject: { kind: "source", source: `${remote.url}#v1.0.0` } }),
+          ),
+        );
+        const lockBefore = workspace.readFile("axm-lock.yaml");
+        expect(lockBefore).toContain(remote.acceptedCommit);
+        remote.advance();
+        remote.tag("v2.0.0");
+
+        const resolution = expectResolved(yield* workspace.provide(update()));
+
+        expect(deriveOperationOutcome(resolution)).toBe("no-op");
+        expect(resolution.units.map((unit) => unit.message)).toEqual([
+          `${REVIEW} is pinned to Git tag v1.0.0; newer tag v2.0.0 is available`,
+        ]);
+        expect(workspace.readFile("axm-lock.yaml")).toBe(lockBefore);
+        expect(workspace.readFile(`.claude/skills/${REVIEW}/SKILL.md`)).not.toContain(
+          "New guidance.",
+        );
+      }).pipe(Effect.provide(NodeServices.layer)),
+    );
+  },
+);
+
+describe.each(["configured", "targeted", "type-group"] as const)(
   "%s update of a member a direct pin and Packs share",
   (route) => {
     const cleanups: Array<() => void> = [];
@@ -512,25 +614,16 @@ describe.each(["configured", "targeted", "selective"] as const)(
         return created.workspace;
       });
 
-    const update = () =>
-      Effect.gen(function* () {
-        if (route === "configured") return yield* applyUpdate(configuredUpdateRequest({}));
-        if (route === "targeted") {
-          return yield* applyUpdate(targetedUpdateRequest({ source: SHARED_MEMBER.fqn }));
-        }
-        const candidate = yield* SelectiveUpdate.prepare({
-          kind: "selective-skills",
-          source: Option.none(),
-          nameFilters: [SHARED_MEMBER.name],
-          nameFilterFlag: "--name",
-          ignoreVersionConstraints: false,
-        });
-        if (candidate.outcome !== "planned") throw new Error(candidate.message);
-        return {
-          _tag: "Resolved" as const,
-          resolution: yield* SelectiveUpdate.previewOrApply(candidate, preapprovedPlanExecution),
-        };
-      });
+    const update = () => {
+      switch (route) {
+        case "configured":
+          return applyUpdate(configuredUpdateRequest({}));
+        case "targeted":
+          return applyUpdate(targetedUpdateRequest({ source: SHARED_MEMBER.fqn }));
+        case "type-group":
+          return typeGroupSkillUpdate(SHARED_MEMBER.name);
+      }
+    };
 
     it.effect("advances to the direct pin, not the newest version every Pack admits", () =>
       Effect.gen(function* () {

@@ -188,9 +188,10 @@ export interface SkillInstallIntent {
   readonly force?: boolean;
 }
 
-/** Subagents the request selected. */
+/** Subagents the request selected, and whether to re-materialize regardless. */
 export interface SubagentInstallIntent {
   readonly subagentsToInstall: ReadonlyArray<ResolvedInstallRef<SubagentExtensionRef>>;
+  readonly force?: boolean;
 }
 
 /** Rules the request selected. */

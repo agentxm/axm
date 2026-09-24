@@ -53,6 +53,19 @@ because the command explicitly requests replacement. AXM discloses that
 replacement; it does not require `--force` for the routine operation the user
 selected.
 
+Every type-group spelling — `skills update`, `subagents update`, `rules
+update`, and the rest — is the root sweep narrowed to one type, and a
+positional or `--name` selector narrows it further to the configured entries it
+names. One planner decides every spelling, so the same entry settles the same
+way whichever command names it: a Registry entry advances within its effective
+constraint, an entry pinned to a Git tag or commit is held unchanged while a
+newer tag is reported, an unreachable source blocks that one unit, a release
+under the minimum age is held unless an exemption or the one-shot override
+admits it, a range never selects a yanked release, and a canonical tree that
+is missing or edited is reacquired and reported as updated. Whether an entry is
+already current is decided once, by observing the accepted resolution and its
+canonical content, never by comparing lock rows.
+
 A workspace sweep plans selected packs that share a member as one group,
 against the same proposed graph, because one member resolution has to satisfy
 every constraint on it. A group whose constraints cannot be satisfied together

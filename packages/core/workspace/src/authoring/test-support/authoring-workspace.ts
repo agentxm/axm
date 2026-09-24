@@ -24,13 +24,7 @@ import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { AgentPresenceProbeLive } from "../../projection/agent-adapters/live.js";
 import { CredentialStoreTest } from "@agentxm/registry-access/testing";
 import { RegistryUrl } from "@agentxm/registry-client";
-import { AxmSkillCandidateGateLive } from "../../resolution/live.js";
-import {
-  decideNamedRegistryVersion,
-  namedRegistryCandidates,
-  resolveVersionEntryWithReleaseAge,
-} from "../../resolution/index.js";
-import { RegistryResolutionPolicy } from "../../resolution/sources/index.js";
+import { AxmSkillCandidateGateLive, RegistryResolutionPolicyLive } from "../../resolution/live.js";
 import { SourceHostProvidersLive } from "../../resolution/sources/live.js";
 import { makeMemoryMcpSecretStore } from "../../materialization/testing.js";
 import {
@@ -88,13 +82,6 @@ export interface AuthoringWorkspace {
   readonly snapshot: (relativePath?: string) => Readonly<Record<string, string>>;
   readonly cleanup: () => void;
 }
-
-/** Resolution policy the real managers carry; a creation never consults it. */
-const RegistryResolutionPolicyTest = Layer.succeed(RegistryResolutionPolicy, {
-  selectVersion: resolveVersionEntryWithReleaseAge,
-  decideNamedVersion: decideNamedRegistryVersion,
-  namedCandidates: namedRegistryCandidates,
-});
 
 const walk = (root: string, directory: string): ReadonlyArray<string> => {
   const entries = fs.existsSync(directory)
@@ -222,7 +209,7 @@ export const authoringWorkspaceEnvironment = (workspace: AuthoringWorkspace) => 
     agents,
   );
   const policy = Layer.provideMerge(
-    Layer.mergeAll(AxmSkillCandidateGateLive, RegistryResolutionPolicyTest),
+    Layer.mergeAll(AxmSkillCandidateGateLive, RegistryResolutionPolicyLive),
     projection,
   );
   const sources = Layer.provideMerge(SourceHostProvidersLive, policy);

@@ -89,8 +89,6 @@ describe("root command help", () => {
         ["axm rules install", "reinstall"],
         ["axm update", "refresh"],
         ["axm mcps update", "refresh"],
-        ["axm skills update", "ignore-version-constraints"],
-        ["axm subagents update", "ignore-version-constraints"],
         ["axm agents add", "accept-warnings"],
         ["axm agents remove", "accept-warnings"],
         ["axm mcps add", "accept-warnings"],

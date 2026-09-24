@@ -96,8 +96,6 @@ export const AxmSkillCandidateGateTest = (
 export const RegistryResolutionPolicyTest: Layer.Layer<RegistryResolutionPolicy> = Layer.succeed(
   RegistryResolutionPolicy,
   {
-    selectVersion: (versions, versionRange) =>
-      Effect.succeed(resolveVersionEntry(versions, versionRange)),
     decideNamedVersion: (index, options) => {
       const selected = resolveVersionEntry(index.versions, options.versionRange);
       if (Option.isSome(selected)) {

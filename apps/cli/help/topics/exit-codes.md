@@ -4,7 +4,7 @@
 | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 0    | Success. Also used for help output and cancelled prompts.                                                                                                                               |
 | 1    | Command ran successfully but reported problems requiring attention (e.g., `axm lint` findings, doctor-style checks). Not lint-only — any "ran but found problems" outcome belongs here. |
-| 2    | Invalid invocation, confirmable approval required in non-interactive mode, or a named policy override is required. Fix the invocation or use the reported recovery action.              |
+| 2    | Invalid invocation, confirmable approval required when no prompt can open, or a named policy override is required. Fix the invocation or use the reported recovery action.              |
 | 3    | Resource doesn't exist or isn't visible.                                                                                                                                                |
 | 4    | Credentials were rejected, are invalid, or expired. Sign in again.                                                                                                                      |
 | 5    | Signed in, but not authorized for this action.                                                                                                                                          |

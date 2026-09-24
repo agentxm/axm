@@ -13,7 +13,7 @@ import { Flag, GlobalFlag } from "effect/unstable/cli";
 // Global flag definitions (parsed by Effect CLI at the root command level)
 // ---------------------------------------------------------------------------
 
-export { isNonInteractiveOptional, nonInteractiveFlag } from "./non-interactive.js";
+export { isNonInteractive, nonInteractiveFlag } from "./non-interactive.js";
 import { nonInteractiveFlag } from "./non-interactive.js";
 
 export { jsonFlag } from "./json-flag.js";

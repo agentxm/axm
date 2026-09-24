@@ -6,7 +6,7 @@ import {
   debugFlag,
   jsonFlag,
   quietFlag,
-  isNonInteractiveOptional,
+  isNonInteractive,
   nonInteractiveFlag,
   verboseFlag,
   TestFlagsLayer,
@@ -26,11 +26,11 @@ const getFlags = (flags: { nonInteractive: Option.Option<boolean> }) => {
   );
 
   return Effect.all({
-    nonInteractive: isNonInteractiveOptional.pipe(Effect.provide(globalFlagsLayer)),
+    nonInteractive: isNonInteractive.pipe(Effect.provide(globalFlagsLayer)),
   });
 };
 
-describe("isNonInteractiveOptional resolution chain", () => {
+describe("isNonInteractive resolution chain", () => {
   it.effect("explicit Option.some(true) resolves to true", () =>
     Effect.gen(function* () {
       const { nonInteractive } = yield* getFlags({
@@ -92,7 +92,7 @@ describe("TestFlagsLayer helper", () => {
   it.effect("defaults to nonInteractive: true, verbosity: normal", () =>
     Effect.gen(function* () {
       const v = yield* Verbosity.pipe(Effect.provide(TestFlagsLayer()));
-      const nonInteractive = yield* isNonInteractiveOptional.pipe(Effect.provide(TestFlagsLayer()));
+      const nonInteractive = yield* isNonInteractive.pipe(Effect.provide(TestFlagsLayer()));
       expect(nonInteractive).toBe(true);
       expect(v.level).toBe("normal");
       expect(v.isAtLeast("verbose")).toBe(false);
@@ -130,7 +130,7 @@ describe("TestFlagsLayer helper", () => {
 
   it.effect("accepts nonInteractive override", () =>
     Effect.gen(function* () {
-      const nonInteractive = yield* isNonInteractiveOptional.pipe(
+      const nonInteractive = yield* isNonInteractive.pipe(
         Effect.provide(TestFlagsLayer({ nonInteractive: false })),
       );
       expect(nonInteractive).toBe(false);

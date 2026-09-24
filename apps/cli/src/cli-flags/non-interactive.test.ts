@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, describe, expect, it } from "@effect/vitest";
-import { isNonInteractiveOptional, nonInteractiveFlag } from "./non-interactive.js";
+import { isNonInteractive, nonInteractiveFlag } from "./non-interactive.js";
 import { isAgentSession, promptAvailability } from "./interactivity.js";
 import { jsonFlag } from "./json-flag.js";
 
@@ -16,7 +16,7 @@ describe("interaction configuration precedence", () => {
 
   it.effect.each([true, false])("explicit flag %s bypasses unreadable CI configuration", (value) =>
     Effect.gen(function* () {
-      expect(yield* isNonInteractiveOptional).toBe(value);
+      expect(yield* isNonInteractive).toBe(value);
       expect(yield* promptAvailability).toBe(!value);
     }).pipe(
       Effect.provide(
@@ -52,7 +52,7 @@ describe("interaction configuration precedence", () => {
   ])("resolves injected CI=$ci and stdin tty=$tty", ({ ci, tty, expected }) =>
     Effect.gen(function* () {
       Object.defineProperty(process, "stdin", { value: { isTTY: tty }, configurable: true });
-      expect(yield* isNonInteractiveOptional).toBe(expected);
+      expect(yield* isNonInteractive).toBe(expected);
       expect(yield* promptAvailability).toBe(!expected);
     }).pipe(
       Effect.provide(
@@ -66,7 +66,7 @@ describe("interaction configuration precedence", () => {
 
   it.effect("keeps CI source failure typed when the fallback is required", () =>
     Effect.gen(function* () {
-      for (const read of [isNonInteractiveOptional, promptAvailability]) {
+      for (const read of [isNonInteractive, promptAvailability]) {
         const failure = yield* Effect.flip(read);
         expect(failure._tag).toBe("ConfigError");
         expect(failure.cause).toBe(sourceError);

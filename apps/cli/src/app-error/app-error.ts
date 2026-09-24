@@ -87,7 +87,7 @@ export const ExitCodeDefinitions = [
   {
     code: ExitCode.Usage,
     meaning:
-      "Invalid invocation, confirmable approval required in non-interactive mode, or a named policy override is required. Fix the invocation or use the reported recovery action.",
+      "Invalid invocation, confirmable approval required when no prompt can open, or a named policy override is required. Fix the invocation or use the reported recovery action.",
   },
   { code: ExitCode.NotFound, meaning: "Resource doesn't exist or isn't visible." },
   {

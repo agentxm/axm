@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 
 import { envOption } from "../utils/environment.js";
 import { jsonFlag } from "./json-flag.js";
-import { isNonInteractiveOptional } from "./non-interactive.js";
+import { isNonInteractive } from "./non-interactive.js";
 
 export const isMachineOutput: Effect.Effect<boolean> = Effect.map(
   Effect.serviceOption(jsonFlag),
@@ -28,7 +28,7 @@ export const promptAvailability: Effect.Effect<boolean, Config.ConfigError> = Ef
   function* () {
     const machine = yield* isMachineOutput;
     if (machine) return false;
-    return !(yield* isNonInteractiveOptional);
+    return !(yield* isNonInteractive);
   },
 );
 

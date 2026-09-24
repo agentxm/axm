@@ -13,7 +13,7 @@ import * as Option from "effect/Option";
 import { Flag, GlobalFlag } from "effect/unstable/cli";
 import { isCI } from "../utils/environment.js";
 
-/** Raw --non-interactive global flag; {@link isNonInteractiveOptional} resolves it with the environment. */
+/** Raw --non-interactive global flag; {@link isNonInteractive} resolves it with the environment. */
 export const nonInteractiveFlag = GlobalFlag.Setting("axm-non-interactive")({
   flag: Flag.Boolean("non-interactive").pipe(
     Flag.optional,
@@ -28,7 +28,7 @@ export const nonInteractiveFlag = GlobalFlag.Setting("axm-non-interactive")({
  * requirement: an absent flag falls back to environment detection exactly as
  * an unset flag would.
  */
-export const isNonInteractiveOptional: Effect.Effect<boolean, Config.ConfigError> = Effect.gen(
+export const isNonInteractive: Effect.Effect<boolean, Config.ConfigError> = Effect.gen(
   function* () {
     const explicit = Option.flatten(yield* Effect.serviceOption(nonInteractiveFlag));
     if (Option.isSome(explicit)) return explicit.value;

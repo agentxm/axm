@@ -17,10 +17,7 @@ export const handleUninstallRule = (
   runUninstallCommand({
     command: "rules.uninstall",
     preview: flags.preview,
-    liveName: "Uninstall rule",
     request: { type: Option.some("rule"), selector: args.name },
     recoveryCommand: ["rules", "uninstall"],
     recoveryPositionals: [args.name],
-    suggestions: () => [{ description: "Inspect installed rules", cmd: "axm rules list" }],
-    noOpMessage: () => "No rules uninstalled.",
   });

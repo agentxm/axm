@@ -17,6 +17,7 @@ import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { failureToAppError } from "../../app-error/conversions.js";
 import { emitOperationResolution } from "../../operation-output.js";
+import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
   previewCapabilityFlag,
@@ -131,7 +132,7 @@ const handleMcpsImportBody = Effect.fn("Mcps.import")(function* (args: McpsImpor
   );
   const appliedCount = importedCount(resolution, preflight.candidates.length);
   const suggestions = [
-    { description: "Inspect MCP servers", cmd: "axm mcps list" },
+    EXTENSION_TYPE_PRESENTATION["mcp-server"].inspect,
     ...(appliedCount === 1
       ? [{ description: "Undo", cmd: `axm mcps uninstall ${preflight.candidates[0]?.name ?? ""}` }]
       : []),

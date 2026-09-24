@@ -8,7 +8,7 @@ import {
 } from "@agentxm/workspace/knowledge/query";
 
 import { ExitCode, makeAppError } from "../../../app-error/index.js";
-import { emitResult, rawDoc, tableDoc, type ViewColumn } from "../../../screen/index.js";
+import { ABSENT, emitResult, rawDoc, tableDoc, type ViewColumn } from "../../../screen/index.js";
 import { processOutcome, withArgvTracking } from "../../../cli-runtime/index.js";
 import {
   readOnlyCapabilities,
@@ -66,7 +66,7 @@ export const handleKnowledgeConceptResolve = Effect.fn("Knowledge.concepts.resol
         return tableDoc(
           output.candidates.map(({ ref, title, reason }) => ({
             concept: sanitizeKnowledgeTerminalText(`${ref.bundle}#${ref.conceptId}`),
-            title: sanitizeKnowledgeTerminalText(title ?? "—"),
+            title: sanitizeKnowledgeTerminalText(title ?? ABSENT),
             reason,
           })),
           candidateColumns,

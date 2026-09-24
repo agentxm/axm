@@ -36,7 +36,7 @@ installed, 1 found outside AXM
 
      Name           local-notes
      State          outside AXM
-     Activation     not applicable
+     Activation     -
      Type           detected
      Agents         none
      Agent outcomes

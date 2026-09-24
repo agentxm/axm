@@ -35,6 +35,7 @@ import {
   type SyncPolicyFailure,
   proposeDesiredState,
 } from "../../../reconciliation/index.js";
+import { expectedProjectionNamesOf } from "../../../projection/index.js";
 import {
   parseExtensionFqnParts,
   type ExtensionFqnParts,
@@ -487,10 +488,12 @@ export const planPackUninstall: (
     plannedRetirements.length > 0
       ? Option.none()
       : yield* collectCleanupStep({
-          expectedSkillNames: activeNames("skill"),
-          expectedSubagentNames: activeNames("subagent"),
-          expectedMcpServerNames: activeNames("mcp-server"),
-          expectedHookNames: activeNames("hook"),
+          expectedNames: expectedProjectionNamesOf({
+            skill: activeNames("skill"),
+            subagent: activeNames("subagent"),
+            mcpServer: activeNames("mcp-server"),
+            hook: activeNames("hook"),
+          }),
           subjects: orderedTargets,
           adapter: {
             toStepFailure: (cause: SyncPolicyFailure) =>

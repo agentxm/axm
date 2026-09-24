@@ -226,7 +226,7 @@ describe("mcps import output", () => {
           "Import 1 MCP server   -   updated   2 files, axm.json, .mcp.json",
         ]);
         expect(rendererState.suggestions).toEqual([
-          { description: "Inspect MCP servers", cmd: "axm mcps list" },
+          { description: "Inspect installed MCP servers", cmd: "axm mcps list" },
           { description: "Undo", cmd: "axm mcps uninstall demo" },
         ]);
       }),

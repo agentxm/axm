@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
-import { Screen } from "./index.js";
+import { ABSENT, Screen } from "./index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { humanScreenLayer, makeRecordingStreams } from "../test-support/screen-harness.js";
 
@@ -26,7 +26,7 @@ export const specification = defineSpecification({
   limitations: [
     {
       limitation:
-        "Examples drive production policy, Screen, and painter over recording streams with supplied terminal facts. They cover status, change, live-progress, prompt, wait, answer, tree, separator, truncation, and content examples, not an actual terminal font, locale installation, or every authored document.",
+        "Examples drive production policy, Screen, and painter over recording streams with supplied terminal facts. They cover status, change, live-progress, prompt, wait, answer, tree, separator, truncation, content, and absent-value examples, not an actual terminal font, locale installation, or every authored document.",
       retirementCondition:
         "Add platform, progress, prompt, or new document evidence when its distinct display-symbol obligation is allocated.",
     },
@@ -66,13 +66,21 @@ const document = [
     title: "attention",
     children: [{ _tag: "paragraph", text: content }],
   },
+  // An absent value prints AXM's own marker, which must survive ASCII mode
+  // unchanged: the inventory cell, the detail field, and the ledger version.
   {
     _tag: "table",
-    columns: [{ header: "Name" }],
-    rows: [{ cells: [content] }],
+    columns: [{ header: "Name" }, { header: "Activation" }],
+    rows: [{ cells: [content, ABSENT] }],
     caption: "inventory",
   },
-  { _tag: "fields", fields: [{ label: "Name", value: content }] },
+  {
+    _tag: "fields",
+    fields: [
+      { label: "Name", value: content },
+      { label: "Latest", value: ABSENT },
+    ],
+  },
   {
     _tag: "prompt",
     question: "Continue?",
@@ -163,6 +171,8 @@ describe("Human display symbols", () => {
             "Inspect",
             "finished",
             "section",
+            "Latest",
+            ABSENT,
           ]) {
             expect(output, `${channel}: ${label}`).toContain(label);
           }

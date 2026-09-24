@@ -21,10 +21,7 @@ export const handleDisableMcpServer = (args: {
       command: "mcps.disable",
       commandPath: ["mcps", "disable"],
       planName: "Disable MCP server",
-      suggestions: [
-        { description: "Inspect MCP servers", cmd: "axm mcps list" },
-        { description: "Undo", cmd: `axm mcps enable ${args.name}` },
-      ],
+      suggestions: [{ description: "Undo", cmd: `axm mcps enable ${args.name}` }],
     },
   );
 

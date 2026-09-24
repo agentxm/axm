@@ -25,7 +25,6 @@ export const handlePackActivation = (args: PackActivationArgs) =>
       commandPath: ["packs", args.enabled ? "enable" : "disable"],
       planName: args.enabled ? "Enable pack" : "Disable pack",
       suggestions: [
-        { description: "Inspect installed packs", cmd: "axm packs list" },
         {
           description: "Undo",
           cmd: `axm packs ${args.enabled ? "disable" : "enable"} ${args.name}`,

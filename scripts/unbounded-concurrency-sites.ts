@@ -19,7 +19,6 @@ export const existingUnboundedConcurrencySites: ReadonlyArray<string> = [
   '["packages/core/workspace/src/lifecycle/test-helpers.ts","),","{ concurrency: \\"unbounded\\" },",");"]',
   '["packages/core/workspace/src/lifecycle/test-helpers.ts","}).pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<DiscoveredSkill>>([]))),","{ concurrency: \\"unbounded\\" },",").pipe(Effect.map(Array.flatten));"]',
   '["packages/core/workspace/src/linting/catalog/workspace-read-model/lint-workspace.ts","],","{ concurrency: \\"unbounded\\" },",");"]',
-  '["packages/core/workspace/src/linting/catalog/workspace/configured-but-not-installed.ts","(type) => readRows(INSTALLED_ROWS_BY_TYPE[type](context.workspace)),","{ concurrency: \\"unbounded\\" },","),"]',
   '["packages/core/workspace/src/linting/catalog/workspace/packs-shared-members-distributable.ts","],","{ concurrency: \\"unbounded\\" },",");"]',
   '["packages/core/workspace/src/linting/run/staged-workspace.ts","},","{ concurrency: \\"unbounded\\" },",");"]',
   '["packages/core/workspace/src/linting/run/staged-workspace.ts","},","{ concurrency: \\"unbounded\\" },",");"]',

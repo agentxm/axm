@@ -15,13 +15,17 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { SkillMaterializationFailed } from "./errors.js";
 import {
-  canReuseExternalPackage,
-  canReuseInstalledPackage,
   materializeExternalPackageWithTreeIntegrity,
+  reusableCanonicalTree,
 } from "../acquisition/canonical-directory.js";
 import { materializeRegistryPackageWithTreeIntegrity } from "../materialization/registry-materialization.js";
 import { validatePathSafety } from "../desired-state/index.js";
-import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "../desired-state/index.js";
+import {
+  computeMaterializedTreeIntegrity,
+  type RequestedCanonicalRef,
+  type SkillLockEntry,
+  type TreeIntegrity,
+} from "../desired-state/index.js";
 import { copyExtensionDirectory } from "../acquisition/copy-directory.js";
 import { acquiredDirectoryForRef } from "../acquisition/acquired-content.js";
 import type {
@@ -38,18 +42,17 @@ import { validateAxmSkillCandidate } from "../resolution/index.js";
 const replaceExternalCanonical = (
   baseDir: string,
   copyTarget: string,
+  requested: RequestedCanonicalRef,
   reuse: CanonicalReuseContext,
 ) =>
   Effect.gen(function* () {
-    const useExisting = yield* canReuseExternalPackage({
-      installedPath: copyTarget,
+    const reusable = yield* reusableCanonicalTree({
+      canonicalPath: copyTarget,
+      requested,
+      accepted: reuse.accepted,
       force: reuse.force,
-      existsFailureDetail: (target) => `Failed to check if canonical path exists: ${target}`,
     });
-    if (useExisting && reuse.lockedTreeIntegrity !== undefined) {
-      const observedTree = yield* computeMaterializedTreeIntegrity(copyTarget);
-      if (observedTree === reuse.lockedTreeIntegrity) return reuse.lockedTreeIntegrity;
-    }
+    if (Option.isSome(reusable)) return reusable.value;
     const materialized = yield* materializeExternalPackageWithTreeIntegrity({
       baseDir,
       canonicalPath: copyTarget,
@@ -91,10 +94,12 @@ const materializeFromDisk = (
     const isSelfCopy = pathService.resolve(packageRoot) === pathService.resolve(canonicalPath);
     const treeIntegrity = isSelfCopy
       ? yield* computeMaterializedTreeIntegrity(canonicalPath)
-      : yield* replaceExternalCanonical(baseDir, canonicalPath, {
-          ...reuse,
-          sourcePath: packageRoot,
-        });
+      : yield* replaceExternalCanonical(
+          baseDir,
+          canonicalPath,
+          { refType: ref.refType, name: ref.skill.name },
+          { ...reuse, sourcePath: packageRoot },
+        );
     return { skillSrcPath, treeIntegrity };
   });
 
@@ -117,25 +122,25 @@ const materializeRegistry = (
       );
       yield* validatePathSafety(pathService, baseDir, canonicalPath);
 
-      const useExisting = yield* canReuseInstalledPackage({
-        installedPath: canonicalPath,
+      const reusable = yield* reusableCanonicalTree({
+        canonicalPath,
+        requested: {
+          refType: "registry",
+          owner: ref.owner,
+          name: ref.name,
+          version: ref.version,
+          publisherBindingId: ref.publisherBindingId,
+        },
+        accepted: reuse.accepted,
         force: reuse.force,
-        refVersion: ref.version,
-        hasIntegrity: Option.isSome(ref.integrity),
-        ...(reuse.lockedVersion === undefined ? {} : { lockedVersion: reuse.lockedVersion }),
-        existsFailureDetail: (target) => `Failed to check if canonical path exists: ${target}`,
       });
-
-      if (useExisting && reuse.lockedTreeIntegrity !== undefined) {
-        const observedTree = yield* computeMaterializedTreeIntegrity(canonicalPath);
-        if (observedTree === reuse.lockedTreeIntegrity) {
-          yield* validateAxmSkillCandidate({
-            ref,
-            packageRoot: canonicalPath,
-            skillSourcePath: skillSrcPath,
-          });
-          return { skillSrcPath, treeIntegrity: reuse.lockedTreeIntegrity };
-        }
+      if (Option.isSome(reusable)) {
+        yield* validateAxmSkillCandidate({
+          ref,
+          packageRoot: canonicalPath,
+          skillSourcePath: skillSrcPath,
+        });
+        return { skillSrcPath, treeIntegrity: reusable.value };
       }
       const materialized = yield* materializeRegistryPackageWithTreeIntegrity({
         baseDir,
@@ -181,8 +186,8 @@ const materializeWorkspace = (ref: WorkspaceSkillRef, baseDir: string) =>
 /** Reuse inputs sourced from the caller's operation context and lockfile. */
 export type CanonicalReuseContext = {
   readonly force: boolean;
-  readonly lockedVersion: string | undefined;
-  readonly lockedTreeIntegrity: TreeIntegrity | undefined;
+  /** The accepted resolution the canonical tree may be kept for. */
+  readonly accepted: Option.Option<SkillLockEntry>;
   /** Where the already-on-disk package to copy lives. */
   readonly sourcePath: string;
 };
@@ -192,11 +197,7 @@ export interface MaterializedSkillCanonical {
   readonly treeIntegrity?: TreeIntegrity;
 }
 
-const defaultReuse = {
-  force: false,
-  lockedVersion: undefined,
-  lockedTreeIntegrity: undefined,
-} as const;
+const defaultReuse = { force: false, accepted: Option.none<SkillLockEntry>() };
 
 export const materializeSkillCanonical = (args: {
   readonly ref: SkillExtensionRef;

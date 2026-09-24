@@ -24,31 +24,16 @@ import {
 import {
   parseExtensionFqnParts,
   type ExtensionType,
-  type ExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
-import {
-  computeExtensionPathsForLayout,
-  extensionPathSourceFromLockEntry,
-  type ExtensionPathLockEntry,
-} from "../desired-state/index.js";
-import {
-  computeMaterializedTreeIntegrity,
-  type MaterializedTreeInvalid,
-  type TreeIntegrity,
-} from "../desired-state/index.js";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import type { DesiredExtensionNode, DesiredStateGraph } from "../desired-state/index.js";
-import { desiredStateProblemsText } from "../desired-state/index.js";
-import type { WorkspaceLayout } from "../desired-state/index.js";
-
-/**
- * Minimal structural view of a per-extension source lock entry. Registry
- * entries locate a canonical package under the registry extensions tree;
- * every other source class materializes under the external extensions tree.
- */
-export type SourceLockEntryLike = ExtensionPathLockEntry & {
-  readonly treeIntegrity: TreeIntegrity;
-};
+import {
+  desiredStateProblemsText,
+  observeCanonicalExtension,
+  type AcceptedExtensionResolution,
+  type DesiredExtensionNode,
+  type DesiredStateGraph,
+  type WorkspaceLayout,
+} from "../desired-state/index.js";
 
 /** One member of an aggregate unit's contributor set, resolved to content. */
 export interface AggregateContributor {
@@ -84,63 +69,54 @@ export const activeNodesOfType = (
   graph.nodes.filter((node) => node.type === type && node.enabled);
 
 /**
- * Resolve the canonical package root for one contributor from its node
- * identity and accepted lock entry. Never reads settings, never resolves
- * sources, and never touches the network.
+ * Resolve one contributor to its canonical package root. The canonical
+ * observation is the only judge of whether accepted content may serve as
+ * projection input: an aggregate unit renders a contributor exactly when
+ * that observation finds it usable, and refuses the whole unit otherwise.
+ * Never reads settings, never resolves sources, and never touches the
+ * network.
  */
 export const contributorForNode = (args: {
   readonly layout: WorkspaceLayout;
-  readonly path: Path.Path;
   readonly node: DesiredExtensionNode;
-  /** Type-specific segment under the extensions trees, e.g. `rules`. */
-  readonly extensionDir: ExtensionTypePlural;
-  readonly locked: SourceLockEntryLike | undefined;
+  readonly accepted: AcceptedExtensionResolution | undefined;
 }): Effect.Effect<
   AggregateContributor,
   | AuthoredContributorUnsupported
   | ContributorIdentityInvalid
   | ContributorUnresolved
-  | ContributorTreeMismatch
-  | MaterializedTreeInvalid,
+  | ContributorTreeMismatch,
   FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
-    const { extensionDir, layout, locked, node, path } = args;
-    if (node.identity.startsWith("workspace:")) {
-      if (layout.scope === "user") {
-        return yield* new AuthoredContributorUnsupported({ type: node.type });
-      }
-      const identity = parseExtensionFqnParts(node.identity.slice("workspace:".length));
-      if (identity === undefined || identity.type !== node.type) {
-        return yield* new ContributorIdentityInvalid({
-          type: node.type,
-          identity: node.identity,
-        });
-      }
-      return {
-        node,
-        packageRoot: path.join(layout.authoredRoot(node.type), identity.name),
-        identityOwner: Option.some(identity.owner),
-      };
+    const { accepted, layout, node } = args;
+    const workspaceAuthored = node.identity.startsWith("workspace:");
+    if (workspaceAuthored && layout.scope === "user") {
+      return yield* new AuthoredContributorUnsupported({ type: node.type });
     }
-    if (locked === undefined) {
+    const authoredIdentity = workspaceAuthored
+      ? parseExtensionFqnParts(node.identity.slice("workspace:".length))
+      : undefined;
+    if (
+      workspaceAuthored &&
+      (authoredIdentity === undefined || authoredIdentity.type !== node.type)
+    ) {
+      return yield* new ContributorIdentityInvalid({ type: node.type, identity: node.identity });
+    }
+    const observation = yield* observeCanonicalExtension({ layout, desired: node, accepted });
+    if (observation.status === "missing-resolution") {
       return yield* new ContributorUnresolved({ type: node.type, name: node.name });
     }
-    const packageRoot = computeExtensionPathsForLayout(
-      path.join,
-      layout,
-      extensionPathSourceFromLockEntry(locked),
-      extensionDir,
-      node.name,
-    ).canonicalPath;
-    const observedTree = yield* computeMaterializedTreeIntegrity(packageRoot);
-    if (observedTree !== locked.treeIntegrity) {
-      return yield* new ContributorTreeMismatch({ packageRoot });
+    if (observation.status !== "usable" || observation.path === undefined) {
+      return yield* new ContributorTreeMismatch({ packageRoot: observation.path ?? node.name });
     }
     return {
       node,
-      packageRoot,
-      identityOwner: Option.fromUndefinedOr(locked.identity.owner),
+      packageRoot: observation.path,
+      identityOwner:
+        authoredIdentity === undefined
+          ? Option.fromUndefinedOr(accepted?.identity.owner)
+          : Option.some(authoredIdentity.owner),
     };
   });
 
@@ -151,31 +127,22 @@ export const contributorForNode = (args: {
  */
 export const activeContributors = (args: {
   readonly layout: WorkspaceLayout;
-  readonly path: Path.Path;
   readonly type: ExtensionType;
-  readonly extensionDir: ExtensionTypePlural;
   readonly graph: DesiredStateGraph;
-  readonly locked: Readonly<Record<string, SourceLockEntryLike>>;
+  readonly accepted: Readonly<Record<string, AcceptedExtensionResolution>>;
 }): Effect.Effect<
   ReadonlyArray<AggregateContributor>,
   | DesiredStateIncomplete
   | AuthoredContributorUnsupported
   | ContributorIdentityInvalid
   | ContributorUnresolved
-  | ContributorTreeMismatch
-  | MaterializedTreeInvalid,
+  | ContributorTreeMismatch,
   FileSystem.FileSystem | Path.Path
 > =>
   requireCompleteGraph(args.graph).pipe(
     Effect.flatMap((graph) =>
       Effect.forEach(activeNodesOfType(graph, args.type), (node) =>
-        contributorForNode({
-          layout: args.layout,
-          path: args.path,
-          node,
-          extensionDir: args.extensionDir,
-          locked: args.locked[node.name],
-        }),
+        contributorForNode({ layout: args.layout, node, accepted: args.accepted[node.name] }),
       ),
     ),
   );

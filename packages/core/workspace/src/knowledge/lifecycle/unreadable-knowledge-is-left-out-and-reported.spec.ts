@@ -24,7 +24,7 @@ export const specification = defineSpecification({
   requirement: "cli/unreadable-knowledge-is-left-out-and-reported",
   title: "A Knowledge bundle AXM cannot read is left out of the instructions file and reported",
   statement:
-    "When a desired Knowledge bundle's package cannot be read, AXM shall leave that bundle out of the generated instructions file, shall report the omission with its reason and remedy on every command that writes or inspects that file, and shall not fail another extension's operation because of it.",
+    "When a desired Knowledge bundle's package cannot be read, or its acquired content differs from the accepted resolution, AXM shall leave that bundle out of the generated instructions file, shall report the omission with its reason and remedy on every command that writes or inspects that file, and shall not fail another extension's operation because of it.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
@@ -101,6 +101,11 @@ describe("An unreadable Knowledge bundle", () => {
     );
   };
 
+  const makeEdited = (workspace: LifecycleFixture, name: string): void => {
+    const document = nodePath.join(canonicalRoot(workspace, name), "src", "index.md");
+    fs.appendFileSync(document, "\nA local edit the accepted resolution does not cover.\n");
+  };
+
   const makeMissing = (workspace: LifecycleFixture, name: string): void => {
     fs.rmSync(canonicalRoot(workspace, name), { recursive: true, force: true });
   };
@@ -123,6 +128,27 @@ describe("An unreadable Knowledge bundle", () => {
       expect(workspace.readFile("AGENTS.md")).not.toContain("alpha-notes");
       expect(workspace.readFile("AGENTS.md")).not.toContain("other-notes");
       expect(workspace.readFile("AGENTS.md")).toContain("# Authored instructions");
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("leaves out a bundle whose acquired content differs from its accepted tree", () =>
+    Effect.gen(function* () {
+      const workspace = yield* workspaceWithTwoBundles();
+      makeEdited(workspace, "other-notes");
+
+      const resolution = yield* uninstall(workspace, "alpha-notes");
+
+      // Rules and Hooks refuse the whole operation on such drift; Knowledge
+      // leaves the bundle out and reports it, so the unrelated removal lands.
+      expect(deriveOperationOutcome(resolution)).toBe("applied");
+      const report = stepWarnings(resolution).join("\n");
+      expect(report).toContain(
+        "other-notes was left out of AGENTS.md because its package is invalid: knowledge '",
+      );
+      expect(report).toContain(
+        "differs from its accepted materialized package-tree integrity. Fix the file and run `axm sync`.",
+      );
+      expect(workspace.readFile("AGENTS.md")).not.toContain("other-notes");
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 

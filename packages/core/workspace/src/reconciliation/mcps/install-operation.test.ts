@@ -38,6 +38,11 @@ import type {
 import { SourceHostProviders } from "../../resolution/sources/index.js";
 import type { SourceHostProvidersService } from "../../resolution/sources/index.js";
 import { WorkspaceReadTest } from "../../desired-state/testing.js";
+import {
+  computeMaterializedTreeIntegrity,
+  mcpRegistryResolutionKey,
+  type McpServerLockEntry,
+} from "../../desired-state/index.js";
 import { makeCodingAgentStub } from "./test-helpers.js";
 import type { McpSecretStoreService } from "../../materialization/index.js";
 import { McpSecretStore, mcpSecretAccount } from "../../materialization/index.js";
@@ -86,6 +91,46 @@ const defaultAgentRepo: CodingAgentRepositoryService = {
   getUnknownConfiguredAgentIds: () => Effect.succeed([]),
 };
 
+const DEFAULT_REGISTRY_LOCATION = "file:///tmp/reg";
+
+type AcceptedResolutions = NonNullable<Parameters<typeof WorkspaceReadTest>[0]["lockfile"]>;
+
+/**
+ * The accepted resolutions a test workspace holds: one Registry row per
+ * canonical MCP tree present under the install root, at the tree's current
+ * integrity, so a test that lays a canonical tree down starts from accepted
+ * state rather than from drift.
+ */
+const acceptedCanonicalTrees = (
+  base: string,
+  authority = DEFAULT_REGISTRY_LOCATION,
+): Effect.Effect<AcceptedResolutions> =>
+  Effect.gen(function* () {
+    const root = path.join(base, "agent_extensions", "registry");
+    const mcpServers: Record<string, McpServerLockEntry> = {};
+    const owners = fs.existsSync(root) ? fs.readdirSync(root) : [];
+    for (const owner of owners) {
+      const mcpsRoot = path.join(root, owner, "mcps");
+      const names = fs.existsSync(mcpsRoot) ? fs.readdirSync(mcpsRoot) : [];
+      for (const name of names) {
+        const treeIntegrity = yield* computeMaterializedTreeIntegrity(
+          path.join(mcpsRoot, name),
+        ).pipe(Effect.orDie);
+        mcpServers[mcpRegistryResolutionKey({ authority, owner, name })] = {
+          source: { type: "registry", url: new URL(authority) },
+          identity: { owner: handle(owner), name: extensionName(name) },
+          resolved: {
+            version: exactVersion("1.0.0"),
+            integrity: "sha512-stub",
+            publisherBindingId: "hbnd_test",
+          },
+          treeIntegrity,
+        };
+      }
+    }
+    return { lockfileVersion: 8, skills: {}, mcpServers } as const satisfies AcceptedResolutions;
+  }).pipe(Effect.provide(NodeServices.layer));
+
 const withServices = (
   axmDir: string,
   wsOverrides?: {
@@ -95,7 +140,8 @@ const withServices = (
     ) => Effect.Effect<void, WorkspaceLockfileMutationFailure>;
   },
   agentRepo?: CodingAgentRepositoryService,
-) => makeServices(axmDir, wsOverrides, agentRepo).layer;
+  lockfile?: AcceptedResolutions,
+) => makeServices(axmDir, wsOverrides, agentRepo, lockfile).layer;
 
 const makeServices = (
   axmDir: string,
@@ -106,6 +152,7 @@ const makeServices = (
     ) => Effect.Effect<void, WorkspaceLockfileMutationFailure>;
   },
   agentRepo?: CodingAgentRepositoryService,
+  lockfile?: AcceptedResolutions,
 ) => {
   const setMcpServer = wsOverrides?.setMcpServerFn;
   const setAcceptedMcpServer = wsOverrides?.setAcceptedMcpServerFn;
@@ -140,6 +187,9 @@ const makeServices = (
         baseDir: path.dirname(axmDir),
         runtimeDir: axmDir,
         settings: { agents: [] },
+        ...(lockfile === undefined
+          ? { acceptedResolutions: acceptedCanonicalTrees(path.dirname(axmDir)) }
+          : { lockfile }),
       }),
       Layer.mock(SettingsWriter, {}),
       Layer.mock(DesiredStateWriter, {
@@ -356,11 +406,13 @@ describe("installMcpServer", () => {
   };
 
   describe("registry install — empty integrity with existing canonical", () => {
-    it.effect("skips fetch and reuses existing canonical directory", () =>
+    it.effect("skips fetch and reuses the accepted canonical tree", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@community");
 
+        // No Registry is reachable at the ref's location: success proves the
+        // accepted tree was kept rather than acquired again.
         const result = yield* installMcpServer(
           makeOp({ ref: makeRegistryRef({ integrity: "" }) }),
         ).pipe(Effect.provide(withServices(axmDir)));
@@ -377,6 +429,47 @@ describe("installMcpServer", () => {
           "my-server",
         );
         expect(fs.existsSync(path.join(canonicalPath, "mcp.json"))).toBe(true);
+      }),
+    );
+
+    it.effect("re-acquires an edited canonical tree instead of accepting its drift", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        const { registryRoot } = setupLocalRegistry();
+        const location = `file://${registryRoot}`;
+        const canonicalPath = setupRegistryCanonical(base, "@community");
+        const accepted = yield* acceptedCanonicalTrees(base, location);
+        fs.writeFileSync(path.join(canonicalPath, "mcp.json"), '{ "edited": true }');
+        const drifted = yield* computeMaterializedTreeIntegrity(canonicalPath).pipe(
+          Effect.provide(NodeServices.layer),
+        );
+        let persisted: McpServerLockEntry | undefined;
+
+        const result = yield* installMcpServer(
+          makeOp({ ref: makeRegistryRef({ integrity: "", location }) }),
+        ).pipe(
+          Effect.provide(
+            withServices(
+              axmDir,
+              {
+                setMcpServerFn: (args) =>
+                  Effect.sync(() => {
+                    persisted = args.lockEntry;
+                  }),
+              },
+              undefined,
+              accepted,
+            ),
+          ),
+        );
+
+        // The tree on disk is no longer the accepted one, so the install
+        // acquires the ref again; the drifted integrity never reaches the lock.
+        expect(result.result).toBe("success");
+        expect(fs.existsSync(path.join(canonicalPath, "server.js"))).toBe(true);
+        expect(fs.existsSync(path.join(canonicalPath, "mcp.json"))).toBe(false);
+        expect(persisted?.treeIntegrity).toBeDefined();
+        expect(persisted?.treeIntegrity).not.toBe(drifted);
       }),
     );
 
@@ -638,12 +731,18 @@ describe("installMcpServer", () => {
 
     it.effect("accepts exact registry resolvedVersion for lockfile persistence", () =>
       Effect.gen(function* () {
-        const { axmDir, base } = setupBase();
-        setupRegistryCanonical(base, "@community", "my-server", true);
+        const { axmDir } = setupBase();
+        const { registryRoot } = setupLocalRegistry({ version: "1.2.3" });
         const setMcpServerFn = vi.fn((_args: SetMcpServerArgs) => Effect.void);
 
         const result = yield* installMcpServer(
-          makeOp({ ref: makeRegistryRef({ integrity: "", version: "1.2.3" }) }),
+          makeOp({
+            ref: makeRegistryRef({
+              integrity: "",
+              version: "1.2.3",
+              location: `file://${registryRoot}`,
+            }),
+          }),
         ).pipe(Effect.provide(withServices(axmDir, { setMcpServerFn })));
 
         expect(result.result).toBe("success");

@@ -48,13 +48,10 @@ import type {
 import type { ConfiguredAgentOutcome, McpServerLockEntry } from "../desired-state/index.js";
 import type { ExtensionTarget, McpServerExtensionTarget } from "../desired-state/index.js";
 import { mcpRegistryResolutionKey } from "../desired-state/index.js";
-import { canReuseInstalledPackage } from "../acquisition/canonical-directory.js";
+import { reusableCanonicalTree } from "../acquisition/canonical-directory.js";
 import { materializeRegistryPackageWithTreeIntegrity } from "../materialization/registry-materialization.js";
 import { computeExtensionPathsForLayout } from "../desired-state/index.js";
-import {
-  acceptedRegistryVersionForRef,
-  validateExactResolvedVersion,
-} from "../desired-state/index.js";
+import { validateExactResolvedVersion } from "../desired-state/index.js";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { configuredRowsByName } from "../desired-state/index.js";
 import { isObservedInstalled } from "../desired-state/index.js";
@@ -218,22 +215,19 @@ export const McpServerManagerLive = Layer.effect(
           name: registryRef.server.name,
         }),
       );
-      const lockedVersion = acceptedRegistryVersionForRef(lockedEntry, registryRef);
-      const useExisting = yield* canReuseInstalledPackage({
-        installedPath: canonicalPath,
+      const reusable = yield* reusableCanonicalTree({
+        canonicalPath,
+        requested: {
+          refType: "registry",
+          owner: registryRef.owner,
+          name: registryRef.name,
+          version: registryRef.version,
+          publisherBindingId: registryRef.publisherBindingId,
+        },
+        accepted: lockedEntry,
         force: force === true,
-        refVersion: registryRef.version,
-        hasIntegrity: Option.isSome(registryRef.integrity),
-        ...(lockedVersion === undefined ? {} : { lockedVersion }),
-        existsFailureDetail: (target) => `Failed to check if canonical path exists: ${target}`,
       });
-
-      if (useExisting && Option.isSome(lockedEntry)) {
-        const observedTree = yield* computeMaterializedTreeIntegrity(canonicalPath);
-        if (observedTree === lockedEntry.value.treeIntegrity) {
-          return acquired(Option.some(lockedEntry.value.treeIntegrity));
-        }
-      }
+      if (Option.isSome(reusable)) return acquired(Option.some(reusable.value));
       const materialized = yield* materializeRegistryPackageWithTreeIntegrity({
         baseDir,
         destinationPath: canonicalPath,

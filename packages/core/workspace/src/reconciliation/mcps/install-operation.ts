@@ -50,7 +50,7 @@ import {
   SettingsWriter,
   WorkspaceLocation,
 } from "../../desired-state/index.js";
-import { canReuseInstalledPackage } from "../../materialization/index.js";
+import { reusableCanonicalTree } from "../../materialization/index.js";
 import { materializeRegistryPackage } from "../../materialization/index.js";
 import { copyExtensionDirectory } from "../../acquisition/copy-directory.js";
 import { replaceCanonicalDirectoryWithInspection } from "../../acquisition/canonical-directory.js";
@@ -224,7 +224,7 @@ export const collectSecretInputNames = (manifest: McpServerManifest): ReadonlySe
 
 const installFromRegistry = (
   ref: RegistryMcpServerRef,
-  reuse: { readonly force: boolean; readonly lockedVersion: string | undefined },
+  reuse: { readonly force: boolean; readonly accepted: Option.Option<McpServerLockEntry> },
 ) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
@@ -243,16 +243,22 @@ const installFromRegistry = (
       return yield* new McpCanonicalPathUnsafe({ serverName: ref.name, canonicalPath });
     }
 
-    const useExisting = yield* canReuseInstalledPackage({
-      installedPath: canonicalPath,
+    // Canonical observation decides whether the accepted tree is kept; an
+    // edited tree is re-acquired so its drift never becomes accepted.
+    const reusable = yield* reusableCanonicalTree({
+      canonicalPath,
+      requested: {
+        refType: "registry",
+        owner: ref.owner,
+        name: ref.name,
+        version: ref.version,
+        publisherBindingId: ref.publisherBindingId,
+      },
+      accepted: reuse.accepted,
       force: reuse.force,
-      refVersion: ref.version,
-      hasIntegrity: Option.isSome(ref.integrity),
-      ...(reuse.lockedVersion === undefined ? {} : { lockedVersion: reuse.lockedVersion }),
-      existsFailureDetail: (target) => `Failed to check if canonical path exists: ${target}`,
     });
 
-    if (!useExisting) {
+    if (Option.isNone(reusable)) {
       yield* materializeRegistryPackage({
         baseDir: location.baseDir,
         destinationPath: canonicalPath,
@@ -629,6 +635,14 @@ export const installMcpServer: (
 
     const strictAgentSync = Option.getOrElse(op.args.strictAgentSync ?? Option.none(), () => false);
     const env = Option.getOrElse(op.args.env ?? Option.none(), () => ({}));
+    // A Registry ref that names no exact version can never be accepted, so it
+    // is refused before anything is acquired or reused.
+    if (ref.refType === "registry") {
+      yield* validateExactResolvedVersion(
+        `mcpServers.${ref.server.name}.resolvedVersion`,
+        ref.version,
+      );
+    }
     const resolutionKey =
       ref.refType === "registry"
         ? mcpRegistryResolutionKey({
@@ -676,16 +690,15 @@ export const installMcpServer: (
     const existingClosure = desiredGraph.mcpSourceClosures.find(
       (closure) => closure.identity === sourceIdentity,
     );
-    const lockedVersion =
+    const acceptedEntry =
       ref.refType === "registry"
-        ? acceptedRegistryVersionForRef(
-            yield* lockfile.entry("mcp-server", resolutionKey ?? ""),
-            ref,
-          )
-        : undefined;
+        ? yield* lockfile.entry("mcp-server", resolutionKey ?? "")
+        : Option.none<McpServerLockEntry>();
+    const lockedVersion =
+      ref.refType === "registry" ? acceptedRegistryVersionForRef(acceptedEntry, ref) : undefined;
     const canonicalPath =
       ref.refType === "registry"
-        ? yield* installFromRegistry(ref, { force: op.args.force, lockedVersion })
+        ? yield* installFromRegistry(ref, { force: op.args.force, accepted: acceptedEntry })
         : ref.refType === "workspace"
           ? yield* Effect.gen(function* () {
               const fs = yield* FileSystem.FileSystem;
@@ -769,13 +782,6 @@ export const installMcpServer: (
       onNone: () => new Set<string>(),
       onSome: collectSecretInputNames,
     });
-
-    if (ref.refType === "registry") {
-      yield* validateExactResolvedVersion(
-        `mcpServers.${ref.server.name}.resolvedVersion`,
-        ref.version,
-      );
-    }
 
     const treeIntegrity = yield* computeMaterializedTreeIntegrity(canonicalPath);
     const lockEntry =

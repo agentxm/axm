@@ -32,7 +32,7 @@ import {
   PackStagingFailed,
 } from "./errors.js";
 import {
-  canReuseInstalledPackage,
+  reusableCanonicalTree,
   replaceCanonicalDirectoryWithInspection,
 } from "../acquisition/canonical-directory.js";
 import { configuredPacksToDiskRefs } from "../acquisition/materializable-from-disk.js";
@@ -47,10 +47,7 @@ import { type SetPackArgs } from "../desired-state/index.js";
 import { copyExtensionDirectory } from "../acquisition/copy-directory.js";
 import { computePackPathsForLayout } from "../desired-state/index.js";
 import { removeIfExists } from "../desired-state/index.js";
-import {
-  acceptedRegistryVersionForRef,
-  validateExactResolvedVersion,
-} from "../desired-state/index.js";
+import { validateExactResolvedVersion } from "../desired-state/index.js";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { configuredRowsByName } from "../desired-state/index.js";
 import { isObservedInstalled } from "../desired-state/index.js";
@@ -222,27 +219,22 @@ export const PackManagerLive = Layer.effect(
         }
         return noContent;
       }
-      const lockedEntry = yield* lockfile.entry("pack", ref.pack.name);
-      const lockedVersion =
-        ref.refType === "registry" ? acceptedRegistryVersionForRef(lockedEntry, ref) : undefined;
-      if (
-        yield* canReuseInstalledPackage({
-          installedPath: packDir,
-          force: force === true,
-          refVersion: ref.version,
-          hasIntegrity: ref.refType === "registry" && Option.isSome(ref.integrity),
-          ...(lockedVersion === undefined ? {} : { lockedVersion }),
-          existsFailureDetail: (target) =>
-            `Failed to check if canonical pack path exists: ${target}`,
-        })
-      ) {
-        if (Option.isSome(lockedEntry)) {
-          const observedTree = yield* computeMaterializedTreeIntegrity(packDir);
-          if (observedTree === lockedEntry.value.treeIntegrity) {
-            return acquired(lockedEntry.value.treeIntegrity);
-          }
-        }
-      }
+      const reusable = yield* reusableCanonicalTree({
+        canonicalPath: packDir,
+        requested:
+          ref.refType === "registry"
+            ? {
+                refType: "registry",
+                owner: ref.owner,
+                name: ref.pack.name,
+                version: ref.version,
+                publisherBindingId: ref.publisherBindingId,
+              }
+            : { refType: ref.refType, name: ref.pack.name },
+        accepted: yield* lockfile.entry("pack", ref.pack.name),
+        force: force === true,
+      });
+      if (Option.isSome(reusable)) return acquired(reusable.value);
 
       return yield* Effect.scoped(
         Effect.gen(function* () {

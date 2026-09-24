@@ -7,6 +7,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { stripFileProtocol } from "@agentxm/registry-client";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -16,11 +17,9 @@ import {
   type WorkspaceSnapshotError,
 } from "../transitions/settlement/index.js";
 import { recordFootprint } from "../transitions/settlement/index.js";
-import { shouldReuseCanonicalInstall } from "./canonical-reuse.js";
 import { DirectoryCopyLimitExceeded, copyExtensionDirectory } from "./copy-directory.js";
 import { validatePathSafety } from "../desired-state/index.js";
 import {
-  CanonicalPackageProbeFailed,
   CreateDestinationExists,
   PackageCopyFailed,
   PackageMaterializationFailed,
@@ -29,7 +28,10 @@ import {
 import { PathTraversalDetected } from "../desired-state/index.js";
 import {
   computeMaterializedTreeIntegrity,
+  observeAcceptedCanonicalReuse,
+  type AcceptedExtensionResolution,
   type MaterializedTreeInvalid,
+  type RequestedCanonicalRef,
   type TreeIntegrity,
 } from "../desired-state/index.js";
 
@@ -282,75 +284,26 @@ export const createCanonicalDirectory = <E, R>(
     });
   });
 
-export interface CanReuseInstalledPackageArgs {
-  /**
-   * Canonical installed tree for this extension. Always the workspace location
-   * the extension is installed to — never a staging destination, whose absence
-   * would make every install look like a first install.
-   */
-  readonly installedPath: string;
-  /** Caller demanded an unconditional re-materialization. */
-  readonly force: boolean;
-  /** Exact version requested by the ref being installed. */
-  readonly refVersion: string;
-  /** The ref carries a pinned archive integrity (registry-resolved). */
-  readonly hasIntegrity: boolean;
-  /** Resolved version recorded in the current lockfile entry, when any. */
-  readonly lockedVersion?: string;
-  readonly existsFailureDetail: (installedPath: string) => string;
-}
-
-export interface CanReuseExternalPackageArgs {
-  readonly installedPath: string;
-  readonly force: boolean;
-  readonly existsFailureDetail: (installedPath: string) => string;
-}
-
-/** Preserve an existing external canonical tree unless refresh was explicitly requested. */
-export const canReuseExternalPackage = (args: CanReuseExternalPackageArgs) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    yield* recoverInterruptedReplacement(args.installedPath, fs);
-    const canonicalExists = yield* fs.exists(args.installedPath).pipe(
-      Effect.mapError(
-        (cause) =>
-          new CanonicalPackageProbeFailed({
-            detail: args.existsFailureDetail(args.installedPath),
-            cause,
-          }),
-      ),
-    );
-    return canonicalExists && !args.force;
-  });
-
 /**
- * Decide whether the installed tree already satisfies the requested ref, so no
- * archive needs to be fetched or written.
- *
- * Callers that stage into a temporary directory must call this against the
- * canonical installed path before staging: the decision is about the installed
- * tree, while the registry materialization only answers where bytes go.
+ * The accepted canonical tree an acquisition may keep instead of
+ * materializing the requested ref again, after any interrupted replacement
+ * at the path is resolved. Canonical observation owns the decision; this
+ * only readies the directory it judges.
  */
-export const canReuseInstalledPackage = (args: CanReuseInstalledPackageArgs) =>
+export const reusableCanonicalTree = (args: {
+  readonly canonicalPath: string;
+  readonly requested: RequestedCanonicalRef;
+  readonly accepted: Option.Option<AcceptedExtensionResolution>;
+  readonly force: boolean;
+}): Effect.Effect<
+  Option.Option<TreeIntegrity>,
+  PackageMaterializationFailed,
+  FileSystem.FileSystem | Path.Path
+> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    yield* recoverInterruptedReplacement(args.installedPath, fs);
-    const canonicalExists = yield* fs.exists(args.installedPath).pipe(
-      Effect.mapError(
-        (cause) =>
-          new CanonicalPackageProbeFailed({
-            detail: args.existsFailureDetail(args.installedPath),
-            cause,
-          }),
-      ),
-    );
-    return shouldReuseCanonicalInstall({
-      canonicalExists,
-      force: args.force,
-      hasIntegrity: args.hasIntegrity,
-      refVersion: args.refVersion,
-      lockedVersion: args.lockedVersion,
-    });
+    yield* recoverInterruptedReplacement(args.canonicalPath, fs);
+    return yield* observeAcceptedCanonicalReuse(args);
   });
 
 export interface MaterializedPackage {

@@ -39,8 +39,10 @@ import { WorkspaceInvariantFactsLive } from "@agentxm/workspace/projection/live"
 import { SkillManagerLive } from "@agentxm/workspace/materialization/live";
 
 import { SourceHostProvidersLive } from "@agentxm/workspace/resolution/sources/live";
-import { RegistryResolutionPolicyLive } from "../../cli-runtime/index.js";
-import { AxmSkillCandidateGateLive } from "@agentxm/workspace/resolution/live";
+import {
+  AxmSkillCandidateGateLive,
+  RegistryResolutionPolicyLive,
+} from "@agentxm/workspace/resolution/live";
 import { WorkspaceCatalogLive } from "@agentxm/workspace/projection/live";
 import { SubagentManagerLive } from "@agentxm/workspace/materialization/live";
 import type { WorkspaceStateOptions } from "@agentxm/workspace/desired-state";

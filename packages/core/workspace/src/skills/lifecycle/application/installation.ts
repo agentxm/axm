@@ -49,7 +49,6 @@ export const prepareSkillInstallation = <E, Preparation, Execution>(
   facts: SkillInstallationFacts<E, Preparation, Execution>,
   input: {
     readonly ref: SkillExtensionRef;
-    readonly operation: "install" | "update";
     readonly installedBefore?: boolean;
   },
 ) =>
@@ -64,7 +63,10 @@ export const prepareSkillInstallation = <E, Preparation, Execution>(
         }) as const,
     );
     const warnings: Array<string> = [];
-    if (input.operation === "install" && !before.installed && ref.refType === "registry") {
+    // A first acquisition of an explicitly requested release says how young
+    // it is; an already installed skill advancing through update was judged
+    // by resolution, which held or exempted it before this step existed.
+    if (!before.installed && ref.refType === "registry") {
       const age = yield* facts.releaseAge(ref);
       if (Option.isSome(age) && !age.value.mature) {
         warnings.push(

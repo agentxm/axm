@@ -36,15 +36,10 @@ import {
   SkillManagerLive,
   SubagentManagerLive,
 } from "../materialization/live.js";
-import {
-  ReleaseAgePosture,
-  decideNamedRegistryVersion,
-  namedRegistryCandidates,
-  resolveVersionEntryWithReleaseAge,
-} from "../resolution/index.js";
+import { ReleaseAgePosture } from "../resolution/index.js";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
-import { AxmSkillCandidateGateLive } from "../resolution/live.js";
-import { RegistryResolutionPolicy, SourceHostProviders } from "../resolution/sources/index.js";
+import { AxmSkillCandidateGateLive, RegistryResolutionPolicyLive } from "../resolution/live.js";
+import { SourceHostProviders } from "../resolution/sources/index.js";
 import { SourceHostProvidersLive } from "../resolution/sources/live.js";
 import { StepFailure } from "../transitions/planning/index.js";
 import {
@@ -342,11 +337,7 @@ export const makeLifecycleFixture = (options: LifecycleFixtureOptions = {}) => {
         AxmSkillCandidateGateLive,
         makeAxmSkillCompatibilityPolicyLayer(options.cliVersion ?? "0.0.0-fixture"),
       ),
-      Layer.succeed(RegistryResolutionPolicy, {
-        selectVersion: resolveVersionEntryWithReleaseAge,
-        decideNamedVersion: decideNamedRegistryVersion,
-        namedCandidates: namedRegistryCandidates,
-      }),
+      RegistryResolutionPolicyLive,
     ),
   );
   const resolvedSources =
@@ -410,6 +401,7 @@ export {
   writeLocalSubagentPackage,
   type LocalPackageFixture,
 } from "./test-packages.js";
+export { makeGitSkillRepository, type GitSkillRepository } from "./test-git.js";
 export {
   makeLifecycleRegistry,
   type LifecycleRegistry,

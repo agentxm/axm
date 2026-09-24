@@ -13,7 +13,7 @@ still means that scope has not expressed a choice.
 
 An unreadable or invalid settings file stops the command without changing
 workspace or user state. Force-like controls such as `--accept-warnings`,
-`--reinstall`, `--refresh`, and `--ignore-version-constraints` do not bypass
+`--reinstall`, and `--refresh` do not bypass
 this prerequisite. AXM does not rewrite, migrate, or degrade invalid settings;
 repair or restore the reported file directly, then run the command again.
 

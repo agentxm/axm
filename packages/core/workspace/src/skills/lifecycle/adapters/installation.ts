@@ -1,3 +1,4 @@
+import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import type * as Config from "effect/Config";
@@ -19,9 +20,12 @@ import {
   groupInstallTargetsByDirectory,
   type InstallableSkillTarget,
 } from "../../../materialization/index.js";
-import { matchesReleaseAgeExcludePattern } from "@agentxm/extension-model/unstable/extensions";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import { isVersionEntryMature, parseMinimumReleaseAge } from "../../../resolution/index.js";
+import {
+  isVersionEntryEligibleAt,
+  parseMinimumReleaseAge,
+  releaseAgeExemptionForIdentity,
+} from "../../../resolution/index.js";
 import { createRegistryClient } from "@agentxm/registry-client";
 import { CodingAgentRepository } from "../../../projection/index.js";
 import { sanitizeName, type SkillPathSource } from "../../../desired-state/index.js";
@@ -106,9 +110,12 @@ interface ReleaseAgeFact {
 
 /**
  * Whether an explicitly requested release is younger than the configured
- * minimum age. The setting parses under the one release-age policy, so an
- * unreadable value refuses the install rather than reading as "no minimum";
- * only the Registry lookup that dates the release is best-effort.
+ * minimum age. An attended install enforces nothing — it only says so — but
+ * the age is judged by the one eligibility rule every unattended selection
+ * uses, under the same identity exemptions. The setting parses under that
+ * policy too, so an unreadable value refuses the install rather than reading
+ * as "no minimum"; only the Registry lookup that dates the release is
+ * best-effort.
  */
 const releaseAge = (ref: Extract<SkillExtensionRef, { readonly refType: "registry" }>) =>
   Effect.gen(function* () {
@@ -120,19 +127,8 @@ const releaseAge = (ref: Extract<SkillExtensionRef, { readonly refType: "registr
         cause,
       });
 
-    const excluded = (yield* settings.minimumReleaseAgeExclude.pipe(
-      Effect.mapError(unreadable),
-    )).some(({ pattern }) =>
-      matchesReleaseAgeExcludePattern(pattern, {
-        owner: ref.owner,
-        type: "skill",
-        name: ref.name,
-      }),
-    );
-    if (excluded) return Option.none<ReleaseAgeFact>();
-
     const configured = yield* settings.minimumReleaseAge.pipe(Effect.mapError(unreadable));
-    const minimumAge = yield* parseMinimumReleaseAge(configured).pipe(
+    const minimumReleaseAge = yield* parseMinimumReleaseAge(configured).pipe(
       Effect.mapError((cause) =>
         installRefused({
           category: cause.category,
@@ -142,9 +138,21 @@ const releaseAge = (ref: Extract<SkillExtensionRef, { readonly refType: "registr
         }),
       ),
     );
-    if (Duration.isLessThanOrEqualTo(minimumAge, Duration.zero)) {
+    if (Duration.isLessThanOrEqualTo(minimumReleaseAge, Duration.zero)) {
       return Option.none<ReleaseAgeFact>();
     }
+    const evaluation = {
+      minimumReleaseAge,
+      evaluatedAt: yield* DateTime.now,
+      mode: "enforce",
+      exclude: yield* settings.minimumReleaseAgeExclude.pipe(Effect.mapError(unreadable)),
+    } as const;
+    const exemption = releaseAgeExemptionForIdentity(evaluation, {
+      owner: ref.owner,
+      type: "skill",
+      name: ref.name,
+    });
+    if (exemption !== undefined) return Option.none<ReleaseAgeFact>();
 
     return yield* Effect.gen(function* () {
       const location =
@@ -163,7 +171,7 @@ const releaseAge = (ref: Extract<SkillExtensionRef, { readonly refType: "registr
       if (versionEntry === undefined) return Option.none<ReleaseAgeFact>();
       return Option.some({
         minimumAge: configured,
-        mature: yield* isVersionEntryMature(versionEntry, minimumAge),
+        mature: isVersionEntryEligibleAt(versionEntry, evaluation),
       });
     }).pipe(
       Effect.catch((error) =>

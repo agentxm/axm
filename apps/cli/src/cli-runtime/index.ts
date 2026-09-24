@@ -123,4 +123,3 @@ export {
   type SubjectType,
   type SourceKind,
 } from "./command-summary.js";
-export { RegistryResolutionPolicyLive } from "./registry-resolution-policy-live.js";

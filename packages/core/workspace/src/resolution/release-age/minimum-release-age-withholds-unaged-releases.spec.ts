@@ -230,7 +230,7 @@ describe("Minimum release age", () => {
     Effect.gen(function* () {
       const { decision } = yield* decide(publishedDaysAgo(3));
 
-      expect(decision).toEqual({ kind: "selected", version: "1.0.0" });
+      expect(decision).toEqual({ kind: "selected", version: "1.0.0", newestVisible: "1.0.0" });
     }),
   );
 
@@ -240,7 +240,7 @@ describe("Minimum release age", () => {
         settings: { minimumReleaseAge: "0s" },
       });
 
-      expect(decision).toEqual({ kind: "selected", version: "1.0.0" });
+      expect(decision).toEqual({ kind: "selected", version: "1.0.0", newestVisible: "1.0.0" });
     }),
   );
 

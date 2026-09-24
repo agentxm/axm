@@ -36,7 +36,7 @@ import type {
 } from "../../../resolution/index.js";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
-export const PlanPolicyIds = ["ignore-version-constraints", "accept-warnings"] as const;
+export const PlanPolicyIds = ["accept-warnings"] as const;
 
 export const PlanPolicyIdSchema = Schema.Literals(PlanPolicyIds);
 export type PlanPolicyId = typeof PlanPolicyIdSchema.Type;

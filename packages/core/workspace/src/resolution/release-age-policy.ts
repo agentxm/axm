@@ -247,20 +247,11 @@ export const formatMinimumReleaseAgeSeconds = (seconds: number): string => {
   return `${whole}s`;
 };
 
-export const isVersionEntryMature = (
-  entry: VersionEntry,
-  minimumAge: Duration.Duration,
-): Effect.Effect<boolean> =>
-  Duration.isLessThanOrEqualTo(minimumAge, Duration.zero)
-    ? Effect.succeed(true)
-    : DateTime.now.pipe(
-        Effect.map((now) =>
-          // Inclusive at the boundary: a release published exactly `minimumAge`
-          // ago is mature, matching the original `now - published >= minimumAge`.
-          DateTime.isLessThanOrEqualTo(DateTime.addDuration(entry.published, minimumAge), now),
-        ),
-      );
-
+/**
+ * Whether a release has reached the minimum age at the supplied instant.
+ * Inclusive at the boundary: a release published exactly the minimum age ago
+ * is eligible.
+ */
 export const isVersionEntryEligibleAt = (
   entry: VersionEntry,
   evaluation: ReleaseAgeEvaluation,
@@ -282,17 +273,3 @@ export const releaseAgeEvidence = (
   ),
   minimumReleaseAgeSeconds: Math.max(0, Duration.toMillis(evaluation.minimumReleaseAge) / 1_000),
 });
-
-export const filterMatureVersions = (
-  versions: ReadonlyArray<VersionEntry>,
-  minimumAge: Duration.Duration,
-): Effect.Effect<ReadonlyArray<VersionEntry>> =>
-  Effect.filter(versions, (entry) => isVersionEntryMature(entry, minimumAge));
-
-export const releaseAgeHoldbackWarning = (args: {
-  readonly fqn: string;
-  readonly selectedVersion: string;
-  readonly heldVersion: string;
-  readonly minimumReleaseAge: string;
-}): string =>
-  `${args.fqn} held at ${args.selectedVersion} — ${args.heldVersion} has not reached the ${args.minimumReleaseAge} minimum release age`;

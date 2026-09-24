@@ -43,17 +43,13 @@ import {
 import { buildInstallOperation } from "../../reconciliation/index.js";
 import { PackManagerLive, SkillManagerLive } from "../../materialization/live.js";
 import {
-  decideNamedRegistryVersion,
   makeConfiguredReleaseAgeEvaluation,
-  namedRegistryCandidates,
   ReleaseAgePosture,
   resolveConfiguredPack,
   resolveConfiguredSkill,
-  resolveVersionEntryWithReleaseAge,
 } from "../../resolution/index.js";
-import { AxmSkillCandidateGateLive } from "../../resolution/live.js";
+import { AxmSkillCandidateGateLive, RegistryResolutionPolicyLive } from "../../resolution/live.js";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
-import { RegistryResolutionPolicy } from "../../resolution/sources/index.js";
 import { SourceHostProvidersLive } from "../../resolution/sources/live.js";
 import { CredentialStore } from "@agentxm/registry-access/credentials";
 import { CredentialStoreTest } from "@agentxm/registry-access/testing";
@@ -245,13 +241,6 @@ export const makeFileRegistry = (sourceName = "test"): FileRegistry => {
   };
 };
 
-/** Registry version policy the production managers carry. */
-const RegistryResolutionPolicyTest = Layer.succeed(RegistryResolutionPolicy, {
-  selectVersion: resolveVersionEntryWithReleaseAge,
-  decideNamedVersion: decideNamedRegistryVersion,
-  namedCandidates: namedRegistryCandidates,
-});
-
 export interface InstalledWorkspaceOptions {
   readonly agents?: ReadonlyArray<string>;
   readonly sources?: ReadonlyArray<FileRegistry["source"]>;
@@ -304,7 +293,7 @@ export const makeInstalledWorkspace = (options: InstalledWorkspaceOptions = {}) 
     agents,
   );
   const policy = Layer.provideMerge(
-    Layer.mergeAll(AxmSkillCandidateGateLive, RegistryResolutionPolicyTest),
+    Layer.mergeAll(AxmSkillCandidateGateLive, RegistryResolutionPolicyLive),
     projection,
   );
   const sources = Layer.provideMerge(SourceHostProvidersLive, policy);

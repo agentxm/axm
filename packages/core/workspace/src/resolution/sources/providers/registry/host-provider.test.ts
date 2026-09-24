@@ -54,8 +54,8 @@ import {
   exactVersion,
   handle,
   makeTestAxmSkillGate,
-  makeTestRegistryResolutionPolicy,
 } from "../../test-helpers.js";
+import { RegistryResolutionPolicyTest } from "../../testing.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -75,11 +75,7 @@ const runEffect = <A, E>(
   effect.pipe(
     Effect.scoped,
     Effect.provide(
-      Layer.mergeAll(
-        NodeServices.layer,
-        makeTestAxmSkillGate(),
-        makeTestRegistryResolutionPolicy(),
-      ),
+      Layer.mergeAll(NodeServices.layer, makeTestAxmSkillGate(), RegistryResolutionPolicyTest),
     ),
   );
 
@@ -486,7 +482,6 @@ describe("RegistrySourceHostProvider.resolveNamed", () => {
       createMockClient({ getExtensionIndex: () => Effect.succeed(Option.some(visibleIndex)) }),
     );
     const heldPolicy = Layer.succeed(RegistryResolutionPolicy, {
-      selectVersion: () => Effect.succeed(Option.none()),
       decideNamedVersion: () => ({
         kind: "policy_held",
         requestedRange: "2.0.0",
@@ -517,7 +512,6 @@ describe("RegistrySourceHostProvider.resolveNamed", () => {
     );
     const exemption = { bypassCause: "exclude" as const, exemptionScope: "project" as const };
     const exemptedPolicy = Layer.succeed(RegistryResolutionPolicy, {
-      selectVersion: () => Effect.succeed(Option.none()),
       decideNamedVersion: () => ({
         kind: "exempted",
         version: "2.0.0",
@@ -544,7 +538,6 @@ describe("RegistrySourceHostProvider.resolveNamed", () => {
       createMockClient({ getExtensionIndex: () => Effect.succeed(Option.some(visibleIndex)) }),
     );
     const selectedPolicy = Layer.succeed(RegistryResolutionPolicy, {
-      selectVersion: () => Effect.succeed(Option.none()),
       decideNamedVersion: () => ({ kind: "selected", version: "1.0.0", newerHeld: heldEvidence }),
       namedCandidates: () => [],
     });

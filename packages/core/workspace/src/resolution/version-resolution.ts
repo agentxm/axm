@@ -5,8 +5,6 @@
  * @packageDocumentation
  */
 
-import * as Duration from "effect/Duration";
-import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as semver from "semver";
 
@@ -17,29 +15,7 @@ import type {
 } from "@agentxm/extension-model/unstable/extensions/release-age";
 import type { VersionEntry } from "@agentxm/registry-protocol/unstable/registry/schema";
 import { resolveVersionEntry } from "@agentxm/extension-model/unstable/version-constraints/version-selection";
-import {
-  filterMatureVersions,
-  isVersionEntryEligibleAt,
-  releaseAgeEvidence,
-} from "./release-age-policy.js";
-
-/**
- * Resolve a version request against the versions that have reached the
- * minimum release age, reading the clock through the Effect environment.
- */
-export const resolveVersionEntryWithReleaseAge = (
-  versions: ReadonlyArray<VersionEntry>,
-  versionRange: Option.Option<string>,
-  minimumReleaseAge: Option.Option<Duration.Duration>,
-): Effect.Effect<Option.Option<VersionEntry>> => {
-  if (Option.isNone(minimumReleaseAge)) {
-    return Effect.succeed(resolveVersionEntry(versions, versionRange));
-  }
-
-  return filterMatureVersions(versions, minimumReleaseAge.value).pipe(
-    Effect.map((mature) => resolveVersionEntry(mature, versionRange)),
-  );
-};
+import { isVersionEntryEligibleAt, releaseAgeEvidence } from "./release-age-policy.js";
 
 export type ReleaseAgeVersionResolution =
   | {
@@ -57,10 +33,11 @@ export type ReleaseAgeVersionResolution =
   | { readonly kind: "policy_held"; readonly candidate: ReleaseAgeEvidence };
 
 /**
- * Resolve one visible Registry index under one caller-supplied release-age
- * evaluation. The supplied timestamp makes a complete operation deterministic.
- * An accepted version that satisfies the requested range is a lower bound for
- * unattended selection, even while that version is itself under age.
+ * The one release-age selection algorithm: resolve one visible Registry index
+ * under one caller-supplied release-age evaluation. The supplied timestamp
+ * makes a complete operation deterministic. An accepted version that
+ * satisfies the requested range is a lower bound for unattended selection,
+ * even while that version is itself under age.
  */
 export const resolveVersionEntryForReleaseAge = (
   versions: ReadonlyArray<VersionEntry>,

@@ -207,7 +207,9 @@ it. `workspace/resolution/sources` owns locator routing, host providers,
 convention and manifest discovery, identifier resolution, and shallow Git
 acquisition. Those adapters consume workspace policy only through the
 `RegistryResolutionPolicy`, `AxmSkillCandidateGate`, and `WorkspaceCatalog`
-ports bound at composition.
+ports. `workspace/resolution/live` binds the first two, because resolution owns
+release-age admission and official-skill trust; the composition root only
+composes those Layers.
 
 Self-update is strategically supporting. Its installation facts, platform
 support, version comparison, reinstall policy, downgrade refusal, and automatic
@@ -311,7 +313,7 @@ their public service APIs, and never on another feature module.
 | `@agentxm/workspace/publishing`          | `role:feature` | Publish selection, publication validation, archive planning, authentication requirements, upload settlement, recovery, visibility, yank, and deprecation |
 | `@agentxm/workspace/discovery`           | `role:feature` | Project package detectors, local extension declarations, Registry recommendations, and discovery results                                                 |
 | `@agentxm/workspace/configuration`       | `role:feature` | Setup, configured-agent membership, instruction management, and inline workspace capabilities such as MCP servers                                        |
-| `@agentxm/workspace/inspection`          | `role:feature` | List, view, show, Pack inventory, and version-currency queries                                                                                           |
+| `@agentxm/workspace/inspection`          | `role:feature` | List, view, show, Pack inventory, and update-availability assessment                                                                                     |
 | `@agentxm/workspace/knowledge/query`     | `role:feature` | Knowledge concept resolution, retrieval, search, related concepts, and status                                                                            |
 
 Each exposes an application API of the shape `prepare(request) → Candidate` and

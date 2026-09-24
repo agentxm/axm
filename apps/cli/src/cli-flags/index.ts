@@ -112,10 +112,6 @@ const OVERRIDE_FLAG_DECLARATIONS = {
     policy: "current",
     description: "Run update even when the installed version is already current",
   },
-  "ignore-version-constraints": {
-    policy: "constraint",
-    description: "Update even when the configured version constraint excludes the result",
-  },
   "accept-warnings": {
     policy: "warning",
     description: "Apply the plan even when preflight reports unresolved warnings",
@@ -146,8 +142,6 @@ const makeOverrideFlag = (name: OverrideFlagName) =>
 export const reinstallFlag = makeOverrideFlag("reinstall");
 
 export const refreshFlag = makeOverrideFlag("refresh");
-
-export const ignoreVersionConstraintsFlag = makeOverrideFlag("ignore-version-constraints");
 
 /**
  * The one-shot minimum-release-age override. Every command whose outcome the

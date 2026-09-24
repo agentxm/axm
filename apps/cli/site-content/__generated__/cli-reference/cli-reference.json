@@ -538,14 +538,14 @@
           {
             "name": "update",
             "aliases": [],
-            "description": "Update installed skills to latest versions",
+            "description": "Update configured skills to the newest versions their sources offer",
             "arguments": [
               {
                 "name": "source",
                 "aliases": [],
                 "type": "string",
                 "required": false,
-                "description": "Filter to skills from a specific source (owner/repo, path, or URL)"
+                "description": "Filter to skills matching a name or source (owner/repo, path, or URL)"
               }
             ],
             "options": [
@@ -566,13 +566,6 @@
                 "variadic": { "min": 0 }
               },
               {
-                "name": "ignore-version-constraints",
-                "aliases": [],
-                "type": "boolean",
-                "required": false,
-                "description": "Update even when the configured version constraint excludes the result"
-              },
-              {
                 "name": "preview",
                 "aliases": [],
                 "type": "boolean",
@@ -589,17 +582,14 @@
             ],
             "globalOptions": [],
             "examples": [
-              {
-                "command": "axm skills update",
-                "description": "Update all skills to their latest versions"
-              },
+              { "command": "axm skills update", "description": "Update every configured skill" },
               {
                 "command": "axm skills update --name code-review",
-                "description": "Update a specific skill"
+                "description": "Update one skill by name"
               },
               {
                 "command": "axm skills update owner/repo",
-                "description": "Update only skills from a specific source"
+                "description": "Update only skills from one source"
               },
               {
                 "command": "axm skills update --preview",
@@ -1813,14 +1803,14 @@
           {
             "name": "update",
             "aliases": [],
-            "description": "Update installed subagents to latest versions",
+            "description": "Update configured subagents to the newest versions their sources offer",
             "arguments": [
               {
                 "name": "source",
                 "aliases": [],
                 "type": "string",
                 "required": false,
-                "description": "Filter to subagents from a specific source (owner/repo, path, or URL)"
+                "description": "Filter to subagents matching a name or source (owner/repo, path, or URL)"
               }
             ],
             "options": [
@@ -1841,13 +1831,6 @@
                 "variadic": { "min": 0 }
               },
               {
-                "name": "ignore-version-constraints",
-                "aliases": [],
-                "type": "boolean",
-                "required": false,
-                "description": "Update even when the configured version constraint excludes the result"
-              },
-              {
                 "name": "preview",
                 "aliases": [],
                 "type": "boolean",
@@ -1866,15 +1849,15 @@
             "examples": [
               {
                 "command": "axm subagents update",
-                "description": "Update all subagents to their latest versions"
+                "description": "Update every configured subagent"
               },
               {
                 "command": "axm subagents update --name researcher",
-                "description": "Update a specific subagent"
+                "description": "Update one subagent by name"
               },
               {
                 "command": "axm subagents update owner/repo",
-                "description": "Update only subagents from a specific source"
+                "description": "Update only subagents from one source"
               },
               {
                 "command": "axm subagents update --preview",

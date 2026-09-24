@@ -271,6 +271,7 @@ export const planSubagentInstall: (
       toStepFailure: lifecycleStepFailure,
       ref: entry.ref,
       declaration: { name: entry.ref.subagent.name, versionRange: entry.versionRange },
+      force: intent.force === true,
       installedBefore: entry.installedBefore,
       buildArtifact: ({
         installedBefore,

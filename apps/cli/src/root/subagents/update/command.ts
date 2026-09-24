@@ -1,6 +1,13 @@
-import { Argument, Command, Flag } from "effect/unstable/cli";
+/**
+ * `axm subagents update` — `axm update` narrowed to subagents. The route parses
+ * its selectors and hands them to the same configured sweep the root spelling
+ * runs; nothing about which entries advance, or how, is decided here.
+ */
 
-import { ignoreReleaseAgeFlag, ignoreVersionConstraintsFlag } from "../../../cli-flags/index.js";
+import { Argument, Command, Flag } from "effect/unstable/cli";
+import * as Option from "effect/Option";
+
+import { ignoreReleaseAgeFlag } from "../../../cli-flags/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
 import { scopeFlag } from "../../../cli-flags/scope-flag.js";
 import {
@@ -9,13 +16,17 @@ import {
   withCommandCapabilities,
 } from "../../shared/command-capabilities.js";
 import { updateNameFilterFlag } from "../../shared/update-targets.js";
-import { handleUpdate } from "./handler.js";
+import { handleWorkspaceUpdate } from "../../update/workspace-update-handler.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../../runtime.js";
+
+const COMMAND = "subagents.update";
+const PLAN_NAME = "Update subagents";
+const PLAN_DESCRIPTION = "Update configured subagents";
 
 const updateConfig = {
   source: Argument.String("source").pipe(
     Argument.withDescription(
-      "Filter to subagents from a specific source (owner/repo, path, or URL)",
+      "Filter to subagents matching a name or source (owner/repo, path, or URL)",
     ),
     Argument.optional,
   ),
@@ -25,7 +36,6 @@ const updateConfig = {
   name: updateNameFilterFlag.pipe(
     Flag.withDescription("Update only specific subagents by name or glob pattern"),
   ),
-  force: ignoreVersionConstraintsFlag,
   preview: previewCapabilityFlag("Show available updates without applying them"),
   ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
@@ -33,12 +43,18 @@ const updateConfig = {
 export const updateCommand = Command.make(
   "update",
   updateConfig,
-  ({ source, scope, name, force, preview, ignoreReleaseAge }) =>
-    handleUpdate({
-      source,
-      subagents: name,
-      force,
-      preview,
+  ({ source, scope, name, preview, ignoreReleaseAge }) =>
+    handleWorkspaceUpdate({
+      command: COMMAND,
+      type: Option.some("subagent"),
+      planName: PLAN_NAME,
+      planDescription: Option.some(PLAN_DESCRIPTION),
+      flags: { preview },
+      selector: {
+        resourceType: "subagent",
+        source,
+        nameFilters: name,
+      },
     }).pipe(
       withReleaseAgePosture(ignoreReleaseAge),
       withWorkspace(scope),
@@ -47,19 +63,19 @@ export const updateCommand = Command.make(
 ).pipe(
   withArgvTracking(updateConfig),
   withCommandCapabilities(previewableCapabilities("workspace", { trust: ["publisher-change"] })),
-  Command.withDescription("Update installed subagents to latest versions"),
+  Command.withDescription("Update configured subagents to the newest versions their sources offer"),
   Command.withExamples([
     {
       command: "axm subagents update",
-      description: "Update all subagents to their latest versions",
+      description: "Update every configured subagent",
     },
     {
       command: "axm subagents update --name researcher",
-      description: "Update a specific subagent",
+      description: "Update one subagent by name",
     },
     {
       command: "axm subagents update owner/repo",
-      description: "Update only subagents from a specific source",
+      description: "Update only subagents from one source",
     },
     {
       command: "axm subagents update --preview",

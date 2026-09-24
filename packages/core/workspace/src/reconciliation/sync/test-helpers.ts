@@ -36,15 +36,9 @@ import {
   SkillManagerLive,
   SubagentManagerLive,
 } from "../../materialization/live.js";
-import {
-  ReleaseAgePosture,
-  decideNamedRegistryVersion,
-  namedRegistryCandidates,
-  resolveVersionEntryWithReleaseAge,
-} from "../../resolution/index.js";
+import { ReleaseAgePosture } from "../../resolution/index.js";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
-import { AxmSkillCandidateGateLive } from "../../resolution/live.js";
-import { RegistryResolutionPolicy } from "../../resolution/sources/index.js";
+import { AxmSkillCandidateGateLive, RegistryResolutionPolicyLive } from "../../resolution/live.js";
 import { SourceHostProvidersLive } from "../../resolution/sources/live.js";
 import { previewPlanExecution, type PlanExecution } from "../../transitions/planning/index.js";
 import {
@@ -196,11 +190,7 @@ export const makeSyncFixture = (options: SyncFixtureOptions = {}) => {
         AxmSkillCandidateGateLive,
         makeAxmSkillCompatibilityPolicyLayer("0.0.0-fixture"),
       ),
-      Layer.succeed(RegistryResolutionPolicy, {
-        selectVersion: resolveVersionEntryWithReleaseAge,
-        decideNamedVersion: decideNamedRegistryVersion,
-        namedCandidates: namedRegistryCandidates,
-      }),
+      RegistryResolutionPolicyLive,
     ),
   );
   const withSources = Layer.provideMerge(liveSourceProviders, withProjection);

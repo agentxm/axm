@@ -1,7 +1,4 @@
 import * as fs from "node:fs";
-import { execFileSync, spawn, type ChildProcess } from "node:child_process";
-import * as net from "node:net";
-import * as os from "node:os";
 import * as nodePath from "node:path";
 
 import * as Effect from "effect/Effect";
@@ -22,6 +19,7 @@ import {
   sharedMemberSettings,
 } from "../../desired-state/workspace/test-helpers.js";
 
+import { makeGitSkillRepository } from "../../lifecycle/test-git.js";
 import {
   applySync,
   expectResolved,
@@ -54,104 +52,7 @@ const CANONICAL = `agent_extensions/path/@acme/skills/${SKILL}`;
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-const availablePort = (): Promise<number> =>
-  new Promise((resolve, reject) => {
-    const server = net.createServer();
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      if (address === null || typeof address === "string") {
-        server.close();
-        reject(new Error("Expected an allocated TCP port"));
-        return;
-      }
-      server.close((error) => (error === undefined ? resolve(address.port) : reject(error)));
-    });
-  });
-
-const awaitGitDaemon = (process: ChildProcess): Promise<void> =>
-  new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error("Git fixture did not become ready")), 5_000);
-    const ready = (chunk: Buffer) => {
-      if (!chunk.toString().includes("Ready to rumble")) return;
-      clearTimeout(timeout);
-      resolve();
-    };
-    process.stderr?.on("data", ready);
-    process.once("exit", (code) => {
-      clearTimeout(timeout);
-      reject(new Error(`Git fixture exited before readiness with status ${String(code)}`));
-    });
-  });
-
-const gitRepository = () =>
-  Effect.promise(async () => {
-    const root = fs.mkdtempSync(nodePath.join(os.tmpdir(), "axm-sync-git-"));
-    const source = nodePath.join(root, "source");
-    const repository = nodePath.join(root, "review.git");
-    fs.mkdirSync(source);
-    writeLocalSkillPackage(source, { name: SKILL, description: "Accepted guidance." });
-    const git = (args: ReadonlyArray<string>, cwd = source): string =>
-      execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
-    git(["init", "--quiet", "--initial-branch=main"]);
-    git(["config", "user.email", "test@example.com"]);
-    git(["config", "user.name", "Test"]);
-    git(["add", "."]);
-    git(["commit", "--quiet", "-m", "accepted"]);
-    const acceptedCommit = git(["rev-parse", "HEAD"]);
-    git(["clone", "--quiet", "--bare", source, repository], root);
-    const port = await availablePort();
-    const daemon = spawn(
-      "git",
-      [
-        "daemon",
-        "--verbose",
-        "--reuseaddr",
-        "--export-all",
-        `--base-path=${root}`,
-        "--listen=127.0.0.1",
-        `--port=${String(port)}`,
-        root,
-      ],
-      { stdio: ["ignore", "ignore", "pipe"] },
-    );
-    try {
-      await awaitGitDaemon(daemon);
-    } catch (error) {
-      daemon.kill();
-      fs.rmSync(root, { recursive: true, force: true });
-      throw error;
-    }
-    return {
-      url: `git://127.0.0.1:${String(port)}/review.git`,
-      acceptedCommit,
-      advance: () => {
-        fs.appendFileSync(
-          nodePath.join(source, "vendor", SKILL, "src", "SKILL.md"),
-          "\nNew guidance.\n",
-        );
-        git(["add", "."]);
-        git(["commit", "--quiet", "-m", "newer"]);
-        git(["push", repository, "main"]);
-      },
-      replaceHistory: () => {
-        git(["checkout", "--quiet", "--orphan", "replacement"]);
-        fs.appendFileSync(
-          nodePath.join(source, "vendor", SKILL, "src", "SKILL.md"),
-          "\nUnrelated history.\n",
-        );
-        git(["add", "."]);
-        git(["commit", "--quiet", "-m", "replacement"]);
-        git(["push", "--force", repository, "HEAD:main"]);
-        git(["reflog", "expire", "--expire=now", "--all"], repository);
-        git(["gc", "--prune=now"], repository);
-      },
-      cleanup: () => {
-        daemon.kill();
-        fs.rmSync(root, { recursive: true, force: true });
-      },
-    };
-  });
+const gitRepository = () => makeGitSkillRepository({ name: SKILL });
 
 describe("Sync preserves configuration and accepted resolutions", () => {
   const cleanups: Array<() => void> = [];

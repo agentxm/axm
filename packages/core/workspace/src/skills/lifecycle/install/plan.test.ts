@@ -29,24 +29,22 @@ import {
 } from "../../../lifecycle/install/test-helpers.js";
 import { writeLocalSkillPackage } from "../../../lifecycle/testing.js";
 import { exactVersion, extensionName, handle } from "../../../lifecycle/test-helpers.js";
-import { SelectiveUpdate } from "../../../lifecycle/update/selective/use-case.js";
+import { configuredUpdateRequest } from "../../../lifecycle/update/test-helpers.js";
+import { UpdateExtensions } from "../../../lifecycle/update/update-extensions.js";
 import { planSkillInstallationStep } from "./plan.js";
 
 const NAME = "code-review";
 const canonical = `agent_extensions/path/@acme/skills/${NAME}/src`;
 
-const selectiveRequest = {
-  kind: "selective-skills",
-  source: Option.none<string>(),
-  nameFilters: [NAME],
-  nameFilterFlag: "--name",
-  ignoreVersionConstraints: false,
-} as const;
-
+/** `axm skills update --name code-review`: the configured sweep narrowed to one skill. */
 const prepareUpdate = () =>
   Effect.gen(function* () {
-    const candidate = yield* SelectiveUpdate.prepare(selectiveRequest);
-    if (candidate.outcome !== "planned") throw new Error(candidate.message);
+    const candidate = yield* UpdateExtensions.prepare(
+      configuredUpdateRequest({ type: "skill", nameFilters: [NAME] }),
+    );
+    if (candidate.outcome !== "planned") {
+      throw new Error(`Expected a planned update, got ${candidate.outcome}`);
+    }
     return candidate;
   });
 
@@ -211,7 +209,6 @@ describe("skill installation application", () => {
             });
             const before = workspace.snapshot();
             const step = yield* planSkillInstallationStep({
-              operation: "install",
               force: false,
               versionRange: Option.none(),
               ref: {
@@ -247,7 +244,7 @@ describe("skill installation application", () => {
   );
 
   it.effect(
-    "selective update previews without writes, preserves intent, and reports the updated artifact",
+    "a type-group update previews without writes, preserves intent, and reports the updated artifact",
     () => {
       const { workspace } = world();
       const source = writeLocalSkillPackage(workspace.root, { name: NAME });
@@ -260,12 +257,12 @@ describe("skill installation application", () => {
             workspace.writeFile(`vendor/${NAME}/src/SKILL.md`, changed);
             const before = workspace.snapshot();
             const candidate = yield* prepareUpdate();
-            const preview = yield* SelectiveUpdate.previewOrApply(candidate, previewPlanExecution);
+            const preview = yield* UpdateExtensions.previewOrApply(candidate, previewPlanExecution);
             expect(deriveOperationOutcome(preview)).toBe("previewed");
             expect(workspace.snapshot()).toEqual(before);
 
             const result = artifact(
-              yield* SelectiveUpdate.previewOrApply(candidate, preapprovedPlanExecution),
+              yield* UpdateExtensions.previewOrApply(candidate, preapprovedPlanExecution),
             );
             expect(result.change).toBe("updated");
             expect(result.agents).toEqual(["claude-code"]);
@@ -299,7 +296,7 @@ describe("skill installation application", () => {
             const candidate = yield* prepareUpdate();
             const writer = yield* AcceptedResolutionWriter;
             let attempted = false;
-            const failed = yield* SelectiveUpdate.previewOrApply(
+            const failed = yield* UpdateExtensions.previewOrApply(
               candidate,
               preapprovedPlanExecution,
             ).pipe(

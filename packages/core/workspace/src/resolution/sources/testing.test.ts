@@ -2,6 +2,7 @@ import { describe, expect } from "vitest";
 import { it } from "@effect/vitest";
 
 import * as DateTime from "effect/DateTime";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -14,7 +15,7 @@ import { AxmSkillCandidateGate } from "./axm-skill-gate.js";
 import { GitDirectoryComparison } from "./git/directory-comparison.js";
 import { RegistryResolutionPolicy } from "./registry-resolution-policy.js";
 import { SourceHostProviders } from "./service.js";
-import { exactVersion } from "./test-helpers.js";
+import { exactVersion, extensionName, handle } from "./test-helpers.js";
 import { WorkspaceCatalog } from "./workspace-catalog.js";
 import {
   AxmSkillCandidateGateTest,
@@ -46,12 +47,29 @@ describe("./testing.js", () => {
       expect(yield* catalog.registrySourceHosts).toEqual([registrySource]);
 
       const policy = yield* RegistryResolutionPolicy;
-      const selected = yield* policy.selectVersion(
-        [versionEntry("1.0.0"), versionEntry("1.1.0")],
-        Option.some("^1.0.0"),
-        Option.none(),
+      const decision = policy.decideNamedVersion(
+        {
+          owner: handle("@acme"),
+          type: "skill",
+          name: extensionName("review"),
+          publisherBindingId: "hbnd_test",
+          archival: null,
+          deprecation: null,
+          versions: [versionEntry("1.0.0"), versionEntry("1.1.0")],
+        },
+        {
+          owner: handle("@acme"),
+          type: "skill",
+          name: extensionName("review"),
+          versionRange: Option.some("^1.0.0"),
+          releaseAgeEvaluation: {
+            minimumReleaseAge: Duration.hours(24),
+            evaluatedAt: DateTime.makeUnsafe("2026-01-01T00:00:00Z"),
+            mode: "enforce",
+          },
+        },
       );
-      expect(Option.getOrThrow(selected).version).toBe("1.1.0");
+      expect(decision).toEqual({ kind: "selected", version: "1.1.0" });
 
       const comparison = yield* GitDirectoryComparison;
       expect(

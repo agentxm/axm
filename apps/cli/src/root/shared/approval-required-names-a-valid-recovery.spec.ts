@@ -9,7 +9,7 @@ import { afterEach } from "vitest";
 
 import { handleDemote } from "../demote/command.js";
 import { handleInstall } from "../install/handler.js";
-import { handleUpdate as handleSkillsUpdate } from "../skills/update/handler.js";
+import { handleWorkspaceUpdate } from "../update/workspace-update-handler.js";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../../test-support/install-harness.js";
@@ -170,11 +170,13 @@ describe("Approval-required recovery", () => {
         republishUnderBinding(registry, SKILL, "hbnd_other");
         workspace.rendererState.results.splice(0);
 
-        yield* handleSkillsUpdate({
-          source: Option.none(),
-          skills: [],
-          force: false,
-          preview: false,
+        yield* handleWorkspaceUpdate({
+          command: "skills.update",
+          type: Option.some("skill"),
+          planName: "Update skills",
+          planDescription: Option.some("Update configured skills"),
+          flags: { preview: false },
+          selector: { resourceType: "skill", source: Option.none(), nameFilters: [] },
         }).pipe(Effect.provide(workspace.layer));
 
         const [entry] = workspace.rendererState.results;

@@ -33,6 +33,7 @@ import {
 import { packagesToPackageUrlParts } from "@agentxm/registry-protocol/unstable/registry";
 import { AxmSkillCandidateGate } from "../../axm-skill-gate.js";
 import { RegistryResolutionPolicy } from "../../registry-resolution-policy.js";
+import { resolveVersionEntry } from "@agentxm/extension-model/unstable/version-constraints/version-selection";
 import {
   SourceNetworkFailure,
   SourceNotResolvable,
@@ -122,22 +123,20 @@ const getSupportedExtensionRefs = (
   Array.getSomes(entries.map((entry) => toExtensionRef(entry, source)));
 
 const needsIndexBackedResolution = (options: FindOptions): boolean =>
-  Option.isSome(options.versionRange) || Option.isSome(options.minimumReleaseAge ?? Option.none());
+  Option.isSome(options.versionRange);
 
+/**
+ * An index-backed find is an attended request for whatever the range names:
+ * release-age admission belongs to named resolution, which every unattended
+ * route reaches through `resolveNamedRegistry`.
+ */
 const manifestFromIndex = (
   index: ExtensionIndex,
   versionRange: Option.Option<string>,
-  minimumReleaseAge: FindOptions["minimumReleaseAge"],
-): Effect.Effect<Option.Option<RegistryExtensionManifest>, never, RegistryResolutionPolicy> =>
-  Effect.gen(function* () {
-    const policy = yield* RegistryResolutionPolicy;
-    const selectedVersion = yield* policy.selectVersion(
-      index.versions,
-      versionRange,
-      minimumReleaseAge ?? Option.none(),
-    );
-    return Option.map(selectedVersion, (version) => manifestForVersion(index, version));
-  });
+): Option.Option<RegistryExtensionManifest> =>
+  Option.map(resolveVersionEntry(index.versions, versionRange), (version) =>
+    manifestForVersion(index, version),
+  );
 
 const namedTarget = (options: NamedRegistryFindOptions): string =>
   `${options.owner}/${toExtensionTypePlural(options.type)}/${options.name}`;
@@ -393,6 +392,8 @@ const resolveNamedFromClient = (
         detail: `Registry returned unsupported extension type for ${target}`,
       });
     }
+    const visible =
+      decision.newestVisible === undefined ? {} : { newestVisible: decision.newestVisible };
     return decision.kind === "exempted"
       ? ({
           kind: "exempted",
@@ -400,12 +401,14 @@ const resolveNamedFromClient = (
           ref: ref.value,
           bypassed: decision.bypassed,
           exemption: decision.exemption,
+          ...visible,
         } as const)
       : ({
           kind: "selected",
           target,
           ref: ref.value,
           ...(decision.newerHeld === undefined ? {} : { newerHeld: decision.newerHeld }),
+          ...visible,
         } as const);
   });
 
@@ -431,10 +434,7 @@ const findOfficialAxmSkill = (
       name: "axm",
       versionRange: options.versionRange,
       releaseAgeEvaluation: {
-        minimumReleaseAge: Option.getOrElse(
-          options.minimumReleaseAge ?? Option.none(),
-          () => Duration.zero,
-        ),
+        minimumReleaseAge: Duration.zero,
         evaluatedAt,
         mode: "enforce",
       },
@@ -460,10 +460,8 @@ const findWithVersionRange = (
           const result = yield* client.getExtensionsByScope(
             toRegistrySearchOptions(owner, options),
           );
-          const resolved = yield* Effect.forEach(
-            result.indexes,
-            (index) => manifestFromIndex(index, options.versionRange, options.minimumReleaseAge),
-            { concurrency: 20 },
+          const resolved = result.indexes.map((index) =>
+            manifestFromIndex(index, options.versionRange),
           );
 
           return getSupportedExtensionRefs(Array.getSomes(resolved), source);
@@ -491,11 +489,7 @@ const findWithVersionRange = (
                               onNone: () =>
                                 Effect.succeed(Option.none<RegistryExtensionManifest>()),
                               onSome: (index) =>
-                                manifestFromIndex(
-                                  index,
-                                  options.versionRange,
-                                  options.minimumReleaseAge,
-                                ),
+                                Effect.succeed(manifestFromIndex(index, options.versionRange)),
                             }),
                           ),
                         ),

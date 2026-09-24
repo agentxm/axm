@@ -1210,7 +1210,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 
 - Requirement: `cli/update/advances-resolution-within-intent`
 - Owner: `workspace`
-- Statement: Update of a desired Registry extension shall advance its accepted resolution and realized content to the newest version within its effective constraint — the intersection of its durable direct constraint with the range of every Pack that requires it — without changing axm.json or any other extension, shall be a no-op when already current, and when that intersection admits no version shall change nothing and report a conflict naming every contributor.
+- Statement: Update of a desired Registry extension shall advance its accepted resolution and realized content to the newest version within its effective constraint — the intersection of its durable direct constraint with the range of every Pack that requires it — without changing axm.json or any other extension, shall be a no-op when already current, and when that intersection admits no version shall change nothing and report a conflict naming every contributor. Every type-group spelling of update shall be the root sweep narrowed to one type, so a range never selects a yanked release, a release under the minimum age is taken only under a declared exemption or the one-shot override and is otherwise reported as held, an edited or missing canonical tree is reacquired and reported as updated, and an entry pinned to a Git tag or commit is held unchanged while a newer tag is reported.
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `workspace-intent-fidelity`, `safe-repetition`

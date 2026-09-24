@@ -15,13 +15,8 @@ import { createLocalRegistryClient, RegistryOperationFailed } from "@agentxm/reg
 import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 
-import {
-  extensionName,
-  exactVersion,
-  handle,
-  makeTestAxmSkillGate,
-  makeTestRegistryResolutionPolicy,
-} from "../../test-helpers.js";
+import { extensionName, exactVersion, handle, makeTestAxmSkillGate } from "../../test-helpers.js";
+import { RegistryResolutionPolicyTest } from "../../testing.js";
 import { createRemoteRegistrySourceHostProvider } from "./host-provider.js";
 import { RegistryIndexMemo, makeRegistryIndexMemo } from "./index-memo.js";
 
@@ -121,11 +116,7 @@ describe("Shared Registry index for pack planning", () => {
     }).pipe(
       Effect.scoped,
       Effect.provide(
-        Layer.mergeAll(
-          NodeServices.layer,
-          makeTestAxmSkillGate(),
-          makeTestRegistryResolutionPolicy(),
-        ),
+        Layer.mergeAll(NodeServices.layer, makeTestAxmSkillGate(), RegistryResolutionPolicyTest),
       ),
     ),
   );

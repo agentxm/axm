@@ -32,22 +32,18 @@ export {
   type ReleaseAgeRecord,
   type ReleaseAgeRecordBase,
   type ReleaseAgeRecordSubject,
-  filterMatureVersions,
   formatMinimumReleaseAgeSeconds,
   isVersionEntryEligibleAt,
-  isVersionEntryMature,
   normalizeReleaseAgeRecords,
   parseMinimumReleaseAge,
   releaseAgeEvidence,
   releaseAgeExemptionForIdentity,
-  releaseAgeHoldbackWarning,
   releaseAgeRecord,
   releaseAgeRecords,
 } from "./release-age-policy.js";
 export {
   type ReleaseAgeVersionResolution,
   resolveVersionEntryForReleaseAge,
-  resolveVersionEntryWithReleaseAge,
 } from "./version-resolution.js";
 export {
   decideNamedRegistryVersion,

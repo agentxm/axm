@@ -582,11 +582,11 @@ const artifactForJson = (
 
 /**
  * What a failure states beside its code and sentence, as machine output
- * carries it: the title the command boundary would print, the structured
- * problem, redacted request evidence, and retryability.
+ * carries it: the redacted title the command boundary would print, the
+ * structured problem, redacted request evidence, and retryability.
  */
 const renderedFailureFields = (failure: StepFailure) => ({
-  title: failure.title ?? defaultTitleFor(failure.category),
+  title: redactSensitiveText(failure.title ?? defaultTitleFor(failure.category)),
   ...(failure.problem === undefined ? {} : { problem: failure.problem }),
   ...(failure.metadata === undefined ? {} : { metadata: redactAppErrorMetadata(failure.metadata) }),
   ...(failure.retryable === undefined ? {} : { retryable: failure.retryable }),

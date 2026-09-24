@@ -27,6 +27,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
+import * as Result from "effect/Result";
 
 import { buildPackRuleContexts, buildSkillRuleContexts } from "@agentxm/extension-content/lint";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
@@ -51,6 +52,7 @@ import {
 } from "../../desired-state/index.js";
 
 import { buildLintWorkspace } from "../catalog/index.js";
+import { nodesDeferringToObservation } from "../catalog/workspace/canonical-observation-findings.js";
 import type { WorkspaceHealthFailure } from "../workspace-context.js";
 import type { LintView } from "../catalog-contexts.js";
 import {
@@ -217,6 +219,51 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
     const settings = yield* loadSettingsDocument(selection.workspaceRoot, selection.scope);
     const config = lintConfigFromSettings(settings);
     const userHome = selection.scope === "user" ? selection.workspaceRoot : selection.userHome;
+    // Every rule that reports a canonical observation reads this one
+    // observation of each desired node for the run.
+    const canonicalObservations: Effect.Effect<
+      ReadonlyArray<{
+        readonly desired: DesiredExtensionNode;
+        readonly observation: CanonicalObservation;
+      }>,
+      WorkspaceHealthFailure
+    > = yield* Effect.cached(
+      Effect.gen(function* () {
+        const graph = yield* desiredState.graph();
+        return yield* Effect.forEach(
+          graph.nodes,
+          (node) =>
+            acceptedCanonicalObservation({
+              type: node.type,
+              name: node.name,
+            }).pipe(
+              Effect.flatMap((accepted) =>
+                Option.isNone(accepted)
+                  ? new LintStagingFailed({
+                      category: "internal",
+                      detail: `Desired extension disappeared while linting: ${node.type}:${node.name}`,
+                    })
+                  : Effect.succeed({ desired: node, observation: accepted.value.observation }),
+              ),
+            ),
+          { concurrency: 16 },
+        );
+      }).pipe(
+        Effect.provideService(FileSystem.FileSystem, fileSystem),
+        Effect.provideService(Path.Path, path),
+        Effect.provideService(WorkspaceLocation, location),
+        Effect.provideService(LockfileReader, lockfile),
+        Effect.provideService(DesiredStateReader, desiredState),
+      ),
+    );
+    // A node whose observation a workspace rule reports has no canonical tree
+    // fit to inspect, so its own artifact and content rules defer to that one
+    // finding. Unavailable observations defer nothing.
+    const observed = yield* Effect.result(canonicalObservations);
+    const deferred = Result.isFailure(observed)
+      ? new Set<string>()
+      : nodesDeferringToObservation(observed.success);
+
     const { rule: workspaceContext, view } = yield* buildLintWorkspace({
       platform: { fs: fileSystem, path },
       workspaceRoot: selection.workspaceRoot,
@@ -226,6 +273,7 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
       axmSkillCompatibilityPolicy,
       owner: settingsReader.owner.pipe(Effect.catch(() => Effect.succeed(Option.none()))),
       projections: { facts: invariantFacts.projectionFacts },
+      defersExtensionRules: (type, name) => deferred.has(`${type}:${name}`),
     });
 
     // Reconciliation facts: what AXM owns, and what it realized for the agents
@@ -291,44 +339,6 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
     const authoredPackages = Option.isSome(settings)
       ? yield* observeAuthoredPackages({ layout, settings: settings.value })
       : [];
-    // Every rule that reports a canonical observation reads this one
-    // observation of each desired node for the run.
-    const canonicalObservations: Effect.Effect<
-      ReadonlyArray<{
-        readonly desired: DesiredExtensionNode;
-        readonly observation: CanonicalObservation;
-      }>,
-      WorkspaceHealthFailure
-    > = yield* Effect.cached(
-      Effect.gen(function* () {
-        const graph = yield* desiredState.graph();
-        return yield* Effect.forEach(
-          graph.nodes,
-          (node) =>
-            acceptedCanonicalObservation({
-              type: node.type,
-              name: node.name,
-            }).pipe(
-              Effect.flatMap((accepted) =>
-                Option.isNone(accepted)
-                  ? new LintStagingFailed({
-                      category: "internal",
-                      detail: `Desired extension disappeared while linting: ${node.type}:${node.name}`,
-                    })
-                  : Effect.succeed({ desired: node, observation: accepted.value.observation }),
-              ),
-            ),
-          { concurrency: 16 },
-        );
-      }).pipe(
-        Effect.provideService(FileSystem.FileSystem, fileSystem),
-        Effect.provideService(Path.Path, path),
-        Effect.provideService(WorkspaceLocation, location),
-        Effect.provideService(LockfileReader, lockfile),
-        Effect.provideService(DesiredStateReader, desiredState),
-      ),
-    );
-
     const evaluations = yield* evaluateAllCatalogs({
       view: selection.input.view,
       contexts: {

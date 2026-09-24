@@ -95,3 +95,31 @@ export const observationsReportedBy = (
       (observed) => observationRule(graph.success, observed) === ruleId,
     );
   });
+
+/**
+ * Desired nodes, keyed by type and name, whose artifact and content rules
+ * defer to their observation. Every observation that is neither usable nor
+ * not applicable is reported once, by a workspace rule or by the graph
+ * problem behind it, and states the one fact about the node's canonical
+ * tree; a rule that inspects that tree or its projections would restate it.
+ */
+export const nodesDeferringToObservation = (
+  observed: ReadonlyArray<ObservedDesiredNode>,
+): ReadonlySet<string> =>
+  new Set(
+    observed.flatMap(({ desired, observation }) =>
+      observation.status === "usable" || observation.status === "not-applicable"
+        ? []
+        : [`${desired.type}:${desired.name}`],
+    ),
+  );
+
+/** The nodes that defer to their observation in this run; none when health facts are unavailable. */
+export const deferringNodes = (context: WorkspaceRuleContext): Effect.Effect<ReadonlySet<string>> =>
+  Effect.gen(function* () {
+    if (context.health?.canonicalObservations === undefined) return new Set();
+    const observations = yield* Effect.result(context.health.canonicalObservations);
+    return Result.isFailure(observations)
+      ? new Set()
+      : nodesDeferringToObservation(observations.success);
+  });

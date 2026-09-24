@@ -31,6 +31,7 @@ import type { AdvisoryFinding, AdvisoryRule, LintFinding } from "@agentxm/extens
 import { type SkillLockEntry } from "../../../desired-state/index.js";
 import { EMPTY_LINT_FINDINGS } from "./helpers/empty.js";
 import { lockfileDisplayPath } from "./display-paths.js";
+import { deferringNodes } from "./canonical-observation-findings.js";
 
 const RULE_ID = "workspace/skills-integrity-valid";
 
@@ -122,8 +123,13 @@ export const skillsIntegrityValidRule: AdvisoryRule<WorkspaceRuleContext> = {
         entry,
         exists: hasSourceActual(actual, name),
       }));
+      // A skill whose canonical observation a workspace rule reports is
+      // stated there once; an absent package is that observation's fact.
+      const deferred = yield* deferringNodes(context);
       const desiredNames = new Set(
-        graphResult.success.nodes.filter((node) => node.type === "skill").map((node) => node.name),
+        graphResult.success.nodes
+          .filter((node) => node.type === "skill" && !deferred.has(`skill:${node.name}`))
+          .map((node) => node.name),
       );
       return collectIntegrityFindings(
         desiredNames,

@@ -3,6 +3,7 @@ import * as nodePath from "node:path";
 
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Result from "effect/Result";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
@@ -96,6 +97,12 @@ const forgetMember = (workspace: SyncFixture): void => {
   workspace.remove(`.agents/skills/${MEMBER}`);
 };
 
+/** Every lint finding, as rule and message, whatever it names. */
+const allFindings = (workspace: SyncFixture) =>
+  Effect.map(lint(workspace), ({ document }) =>
+    document.findings.map(({ ruleId, message }) => ({ ruleId, message })),
+  );
+
 /** Lint findings that name the member, by its local name or its identity. */
 const memberFindings = (workspace: SyncFixture) =>
   Effect.map(lint(workspace), ({ document }) =>
@@ -112,12 +119,15 @@ describe("One fact per desired node", () => {
   });
 
   /**
-   * A workspace that realizes one Pack of two members; `loseMember` then
-   * removes one member's resolution and, optionally, disables the member or
-   * stops the Registry publishing it so sync cannot restore it.
+   * A workspace that realizes the member, as one of a Pack's two members or
+   * declared directly; `loseMember` then removes the member's resolution and,
+   * optionally, disables the member or stops the Registry publishing it so
+   * sync cannot restore it. It yields every lint finding the realized
+   * workspace reported before the member was lost.
    */
   const workspaceMissingMember = (
     options: {
+      readonly declaredBy?: "pack" | "direct";
       readonly member?: Readonly<Record<string, unknown>>;
       readonly unpublished?: boolean;
     } = {},
@@ -136,41 +146,72 @@ describe("One fact per desired node", () => {
       owner: "@acme",
       agents: ["claude-code"],
       sources: [registry.source],
-      packs: { [PACK]: `test:@acme/packs/${PACK}@^1.0.0` },
+      ...(options.declaredBy === "direct"
+        ? { skills: { [MEMBER]: `test:@acme/skills/${MEMBER}@^1.0.0` } }
+        : { packs: { [PACK]: `test:@acme/packs/${PACK}@^1.0.0` } }),
     };
     const workspace = makeSyncFixture({ settings });
     cleanups.push(workspace.cleanup);
     const loseMember = Effect.gen(function* () {
       yield* applySync();
+      const realized = yield* allFindings(workspace);
       forgetMember(workspace);
       if (options.member !== undefined) {
         workspace.writeSettings({ ...settings, skills: { [MEMBER]: options.member } });
       }
       if (options.unpublished === true) registry.writeSkill(MEMBER, []);
+      return realized;
     });
     return { workspace, loseMember };
   };
 
-  it.effect("reports a missing Pack member once in lint and once as a sync blocker", () => {
-    const { workspace, loseMember } = workspaceMissingMember({ unpublished: true });
-    return workspace
-      .provide(
-        Effect.gen(function* () {
-          yield* loseMember;
-          const findings = yield* memberFindings(workspace);
-          expect(findings).toHaveLength(1);
-          expect(findings[0]?.message).toContain(FACT);
-
-          const blocked = expectResolved(yield* applySync()).units.filter(
-            ({ state }) => state === "blocked",
-          );
-          expect(blocked).toHaveLength(1);
-          expect(blocked[0]?.message).toContain(FACT);
-          expect(workspace.exists(`agent_extensions/registry/@acme/skills/${MEMBER}`)).toBe(false);
-        }),
-      )
-      .pipe(Effect.provide(NodeServices.layer));
+  /** The one report a sync that cannot restore the member makes, as an operator reads it. */
+  const syncReports = Effect.gen(function* () {
+    const settled = yield* Effect.result(applySync());
+    if (Result.isFailure(settled)) {
+      const failure = settled.failure;
+      return ["detail" in failure && typeof failure.detail === "string" ? failure.detail : ""];
+    }
+    return expectResolved(settled.success)
+      .units.filter(({ state }) => state === "blocked")
+      .map(({ message }) => message ?? "");
   });
+
+  it.effect.each([
+    { label: "a Pack member", declaredBy: "pack", ruleId: "workspace/packs-dependencies-resolved" },
+    { label: "a direct Skill", declaredBy: "direct", ruleId: "workspace/skills-lockfile-aligned" },
+  ] as const)(
+    "reports $label without an accepted resolution once in lint and once from sync",
+    ({ declaredBy, ruleId }) => {
+      const { workspace, loseMember } = workspaceMissingMember({ declaredBy, unpublished: true });
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            const realized = yield* loseMember;
+            // The whole lint run adds exactly one finding: no artifact or
+            // content rule restates the member's absent canonical tree.
+            const findings = yield* allFindings(workspace);
+            expect(findings).toHaveLength(realized.length + 1);
+            expect(findings).toEqual(
+              expect.arrayContaining([
+                ...realized,
+                { ruleId, message: expect.stringContaining(FACT) },
+              ]),
+            );
+
+            // A Pack member blocks its one unit; a direct declaration refuses
+            // the sync. Either way the fact is stated once.
+            const reports = yield* syncReports;
+            expect(reports).toHaveLength(1);
+            expect(reports[0]?.split(FACT)).toHaveLength(2);
+            expect(workspace.exists(`agent_extensions/registry/@acme/skills/${MEMBER}`)).toBe(
+              false,
+            );
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
 
   it.effect("clears the one finding once sync restores the member", () => {
     const { workspace, loseMember } = workspaceMissingMember();

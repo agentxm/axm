@@ -87,6 +87,9 @@ const configureWorkspaceRegistry = (
   settings.defaultRegistry = "test";
   settings.sources = [{ name: "test", type: "registry", location: `file://${registryPath}` }];
   settings.owner = OWNER;
+  // Fixture releases are published moments before a Pack install selects its
+  // members by range, which the minimum release age would otherwise hold.
+  settings.minimumReleaseAge = "0s";
 
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 };

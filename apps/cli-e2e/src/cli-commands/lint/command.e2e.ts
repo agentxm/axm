@@ -608,9 +608,13 @@ describe("axm lint (e2e, Phase 7)", () => {
         expect(document.result.input).toMatchObject({ view: "git-index" });
         expect(document.result.input.fingerprint).toMatch(/^sha256:[0-9a-f]{64}$/);
         expect(document.result.input.fingerprint).not.toContain(temp.path);
-        const findings: Array<{ ruleId: string }> = document.result.findings;
-        expect(findings.map((finding) => finding.ruleId)).toContain(
-          "workspace/configured-but-not-installed",
+        // Only the staged settings declare the Skill, and it has no accepted
+        // resolution; that one fact is reported against the lockfile.
+        expect(document.result.findings).toContainEqual(
+          expect.objectContaining({
+            ruleId: "workspace/skills-lockfile-aligned",
+            message: expect.stringContaining("@acme/skills/demo"),
+          }),
         );
         expect(git(temp.path, ["status", "--porcelain=v2", "-z"])).toBe(statusBefore);
         expect(git(temp.path, ["ls-files", "--stage", "-z"])).toBe(indexBefore);

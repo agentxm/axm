@@ -227,3 +227,13 @@ export const acceptedResolutionIncompatibleText = (
   fact: ExtensionConstraintInvariantFact,
 ): string =>
   `${extensionConstraintFactText(fact)}; decision=blocked; reason=${ACCEPTED_RESOLUTION_INCOMPATIBLE_BLOCKER_ID}`;
+
+/**
+ * The one route every refusal of that fact names: explicitly update the
+ * affected extension, by its FQN, to accept a resolution its effective
+ * constraint admits.
+ */
+export const acceptedResolutionIncompatibleRecovery = (fqn: string) => ({
+  description: "Explicitly update the extension to accept a satisfying resolution.",
+  cmd: `axm update ${fqn}`,
+});

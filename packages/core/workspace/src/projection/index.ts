@@ -129,6 +129,7 @@ export {
 export {
   ACCEPTED_RESOLUTION_INCOMPATIBLE_BLOCKER_ID,
   EXTENSION_CONSTRAINT_INVARIANT_PREDICATE,
+  acceptedResolutionIncompatibleRecovery,
   acceptedResolutionIncompatibleText,
   extensionConstraintFactText,
   makeExtensionConstraintInvariantFact,

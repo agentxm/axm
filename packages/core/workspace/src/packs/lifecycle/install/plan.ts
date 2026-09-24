@@ -122,12 +122,12 @@ import {
   type ResolveInstallRequirements,
 } from "../../../lifecycle/install/vocabulary.js";
 import {
-  acceptedMemberMismatchRecovery,
   configuredPackConstraintBlockPlan,
   type AcceptedMemberMismatch,
 } from "../constraint-gate.js";
 import {
   ACCEPTED_RESOLUTION_INCOMPATIBLE_BLOCKER_ID,
+  acceptedResolutionIncompatibleRecovery,
   acceptedResolutionIncompatibleText,
   makeExtensionConstraintInvariantFact,
 } from "../../../projection/index.js";
@@ -1284,7 +1284,7 @@ export const planPackInstall: (
           errorCode: "conflict" as const,
         },
       ],
-      failureSuggestions: [acceptedMemberMismatchRecovery(selection.mismatch)],
+      failureSuggestions: [acceptedResolutionIncompatibleRecovery(selection.mismatch.fqn)],
     } satisfies Plan<InstallStepRequirements>;
   }
   const releaseAge = {

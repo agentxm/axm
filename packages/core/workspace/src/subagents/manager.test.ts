@@ -5,6 +5,7 @@
  * uninstall removing rendered files, and settings/lockfile CRUD.
  */
 
+import { UNCONSTRAINED_DESIRED_NODE } from "../desired-state/index.js";
 import { NativeWriteAuthorityPermissive } from "../projection/agent-adapters/testing.js";
 import * as nodeFs from "node:fs";
 import * as nodeOs from "node:os";
@@ -130,7 +131,7 @@ const makeTestLayer = (overrides?: {
           identity: source,
           source,
           enabled,
-          constraints: [],
+          constraint: UNCONSTRAINED_DESIRED_NODE,
           origins: [{ type: "settings" as const, source, enabled }],
         },
       ];

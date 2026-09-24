@@ -1,4 +1,5 @@
 import * as nodeFs from "node:fs";
+import { UNCONSTRAINED_DESIRED_NODE } from "./desired-state-graph.js";
 import * as nodeOs from "node:os";
 import * as nodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -24,7 +25,7 @@ const node = (
   identity: `agentxm:@acme/skills/${name}`,
   source: `agentxm:@acme/skills/${name}@^1.0.0`,
   enabled: true,
-  constraints: [],
+  constraint: UNCONSTRAINED_DESIRED_NODE,
   origins: [{ type: "settings", source: `agentxm:@acme/skills/${name}@^1.0.0`, enabled: true }],
 });
 

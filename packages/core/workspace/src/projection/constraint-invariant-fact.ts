@@ -158,7 +158,7 @@ export const makeProspectiveExtensionConstraintFacts = (args: {
 };
 
 export const makeExtensionConstraintInvariantFact = (
-  desired: Pick<DesiredExtensionNode, "type" | "name" | "identity" | "constraints">,
+  desired: Pick<DesiredExtensionNode, "type" | "name" | "identity">,
   observation: CanonicalConstraintMismatchObservation,
 ): ExtensionConstraintInvariantFact => ({
   predicate: EXTENSION_CONSTRAINT_INVARIANT_PREDICATE,
@@ -184,7 +184,9 @@ export const makeExtensionConstraintInvariantFact = (
   },
   expectation: {
     status: "satisfied",
-    ranges: [...desired.constraints].sort((left, right) => left.localeCompare(right)),
+    ranges: [...new Set(observation.authority.constraints.map(({ range }) => range))].sort(
+      (left, right) => left.localeCompare(right),
+    ),
   },
 });
 

@@ -1,5 +1,6 @@
 import * as Effect from "effect/Effect";
 
+import { desiredConstraintOf } from "../../../../../desired-state/testing.js";
 import type {
   CanonicalObservation,
   DesiredExtensionNode,
@@ -63,7 +64,7 @@ const desiredSkill = {
   identity: "@test/skills/installed-skill",
   source: "@test/skills/installed-skill@1.0.0",
   enabled: true,
-  constraints: ["1.0.0"],
+  constraint: desiredConstraintOf("1.0.0"),
   origins: [],
 } satisfies DesiredExtensionNode;
 

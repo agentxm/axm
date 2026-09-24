@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+import { desiredConstraintOf } from "../../../desired-state/testing.js";
 import * as Effect from "effect/Effect";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import { makeWorkspaceReadModel } from "../../../desired-state/index.js";
@@ -19,7 +20,7 @@ const desiredSkill = (
   identity: "@acme/skills/reviewer",
   source,
   enabled: true,
-  constraints,
+  constraint: desiredConstraintOf(...constraints),
   origins: [{ type: "settings", source, enabled: true }],
 });
 

@@ -8,13 +8,11 @@ import { observeAcceptedResolution } from "./canonical-observation.js";
 import { lockEntries } from "./entry-accessors.js";
 import { computePackManifestContentIdentity } from "./pack-manifest-content-identity.js";
 import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
-import {
-  isInlineDesiredExtension,
-  type DesiredStateGraph,
-  type DesiredStateProblem,
-  type ProspectivePackRef,
+import type {
+  DesiredStateGraph,
+  DesiredStateProblem,
+  ProspectivePackRef,
 } from "./desired-state-graph.js";
-import { effectiveExtensionActivation } from "./desired-state-enabled.js";
 import type { WorkspaceLayout } from "./layout.js";
 import type { PackManifestsPort } from "./pack-manifests.js";
 
@@ -29,65 +27,22 @@ interface ValidateDesiredPackLockArgs {
 const normalizedPackIdentity = (identity: string): string =>
   identity.startsWith("workspace:") ? identity.slice("workspace:".length) : identity;
 
-const isPackProblem = (
-  problem: DesiredStateProblem,
-): problem is Extract<DesiredStateProblem, { readonly pack: string }> =>
-  problem.type.startsWith("pack-");
-
-const withoutInvalidPackOrigins = (
-  graph: DesiredStateGraph,
-  invalidPacks: ReadonlySet<string>,
-): DesiredStateGraph["nodes"] =>
-  graph.nodes.flatMap((node): ReadonlyArray<DesiredStateGraph["nodes"][number]> => {
-    if (isInlineDesiredExtension(node)) return [node];
-    if (node.type === "pack") return [node];
-    const origins = node.origins.filter(
-      (origin) => origin.type !== "pack" || !invalidPacks.has(normalizedPackIdentity(origin.pack)),
-    );
-    if (origins.length === 0) return [];
-    const settingsOrigin = origins.find((origin) => origin.type === "settings");
-    const packOrigin = origins.find((origin) => origin.type === "pack");
-    const constraints = origins.flatMap((origin) =>
-      origin.type === "settings" && origin.authority === "inline"
-        ? []
-        : origin.constraint === undefined
-          ? []
-          : [origin.constraint],
-    );
-    if (settingsOrigin?.type === "settings" && settingsOrigin.authority === "inline") {
-      return [
-        {
-          ...node,
-          enabled: effectiveExtensionActivation(origins, node.preference),
-          constraints,
-          origins,
-        },
-      ];
-    }
-    return [
-      {
-        ...node,
-        source:
-          (settingsOrigin !== undefined && "source" in settingsOrigin
-            ? settingsOrigin.source
-            : undefined) ??
-          (packOrigin === undefined
-            ? node.source
-            : `${packOrigin.source}@${packOrigin.constraint}`),
-        enabled: effectiveExtensionActivation(origins, node.preference),
-        constraints,
-        origins,
-      },
-    ];
-  });
-
 const decodeManifest = Schema.decodeUnknownSync(PackManifestSchema, {
   onExcessProperty: "error",
 });
 
+/** What validating the accepted Pack state found. */
+export interface DesiredPackLockValidation {
+  readonly problems: ReadonlyArray<DesiredStateProblem>;
+  /** Pack identities (without the `workspace:` prefix) whose accepted state cannot authorize their manifest. */
+  readonly invalidPacks: ReadonlySet<string>;
+}
+
 /**
  * Authorize enabled external Pack manifests against their accepted lock row.
- * Workspace-authored Pack manifests are desired authority and need no lock row.
+ * Workspace-authored Pack manifests are desired authority and need no lock
+ * row. The result names the Packs the builder must exclude; the builder, not
+ * this validation, derives the graph without their routes.
  */
 export const validateDesiredPackLock = ({
   manifests,
@@ -95,21 +50,28 @@ export const validateDesiredPackLock = ({
   lockfile,
   layout,
   prospectivePacks = [],
-}: ValidateDesiredPackLockArgs): Effect.Effect<DesiredStateGraph, never> =>
+}: ValidateDesiredPackLockArgs): Effect.Effect<DesiredPackLockValidation, never> =>
   Effect.gen(function* () {
     const problems: DesiredStateProblem[] = [];
-    const invalidPacks = new Set(
-      graph.problems.flatMap((problem) =>
-        isPackProblem(problem) ? [normalizedPackIdentity(problem.pack)] : [],
-      ),
-    );
+    const invalidPacks = new Set<string>();
 
     for (const node of graph.nodes) {
       if (node.type !== "pack" || !node.enabled || node.identity.startsWith("workspace:")) {
         continue;
       }
-
       const identity = parseExtensionFqnParts(node.identity);
+      // A prospective Pack is the proposal a planner evaluates: its manifest
+      // supersedes whatever is accepted today, so the accepted row does not
+      // judge it and its routes count in the proposed graph.
+      if (
+        identity !== undefined &&
+        prospectivePacks.some(
+          (ref) => ref.owner === identity.owner && ref.pack.name === identity.name,
+        )
+      ) {
+        continue;
+      }
+
       const entry = Option.getOrUndefined(lockEntries.pack.entry(lockfile, node.name));
       // The canonical observation's own judgment: a missing, foreign-origin, or
       // constraint-violating accepted resolution cannot authorize the manifest.
@@ -142,27 +104,15 @@ export const validateDesiredPackLock = ({
         workspace: { layout },
       });
       const manifestPath = document.path;
-      const prospective = prospectivePacks.find(
-        (ref) => ref.owner === identity.owner && ref.pack.name === identity.name,
-      );
-      const observedManifest =
-        prospective === undefined
-          ? yield* Effect.gen(function* () {
-              const contents = yield* document.contents;
-              if (contents === undefined) return undefined;
-              const decoded = Result.try({
-                try: () => decodeManifest(JSON.parse(contents)),
-                catch: () => undefined,
-              });
-              return Result.isSuccess(decoded) ? decoded.success : undefined;
-            })
-          : {
-              owner: prospective.owner,
-              type: "pack" as const,
-              name: prospective.pack.name,
-              version: prospective.version,
-              dependencies: prospective.pack.dependencies,
-            };
+      const observedManifest = yield* Effect.gen(function* () {
+        const contents = yield* document.contents;
+        if (contents === undefined) return undefined;
+        const decoded = Result.try({
+          try: () => decodeManifest(JSON.parse(contents)),
+          catch: () => undefined,
+        });
+        return Result.isSuccess(decoded) ? decoded.success : undefined;
+      });
       const observedContentIdentity =
         observedManifest === undefined
           ? undefined
@@ -189,10 +139,5 @@ export const validateDesiredPackLock = ({
       }
     }
 
-    return {
-      ...graph,
-      complete: graph.complete && problems.length === 0,
-      nodes: withoutInvalidPackOrigins(graph, invalidPacks),
-      problems: [...graph.problems, ...problems],
-    };
+    return { problems, invalidPacks };
   });

@@ -1,4 +1,5 @@
 import * as Layer from "effect/Layer";
+import { UNCONSTRAINED_DESIRED_NODE } from "./desired-state-graph.js";
 import { PackManifests } from "./pack-manifests.js";
 import { FilesystemPackManifests } from "./adapters/filesystem/pack-manifests.js";
 import * as fs from "node:fs";
@@ -44,7 +45,7 @@ const externalPackGraph = {
       identity: "@acme/packs/toolkit",
       source: "@acme/packs/toolkit",
       enabled: true,
-      constraints: [],
+      constraint: UNCONSTRAINED_DESIRED_NODE,
       origins: [{ type: "settings", source: "@acme/packs/toolkit", enabled: true }],
     },
   ],
@@ -108,7 +109,7 @@ describe("validateDesiredPackLock", () => {
         lockfile: { lockfileVersion: 8, skills: {} },
       });
 
-      expect(validated.complete).toBe(false);
+      expect(validated.invalidPacks.size).toBeGreaterThan(0);
       expect(validated.problems).toContainEqual(
         expect.objectContaining({ type: "pack-resolution-unavailable" }),
       );
@@ -134,7 +135,7 @@ describe("validateDesiredPackLock", () => {
         graph: externalPackGraph,
         lockfile: lockfile(),
       });
-      expect(validated.complete).toBe(true);
+      expect(validated.problems).toEqual([]);
     }).pipe(Effect.provide(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer))),
   );
 
@@ -151,7 +152,7 @@ describe("validateDesiredPackLock", () => {
           graph: externalPackGraph,
           lockfile: lockfile(),
         });
-        expect(withOtherDrift.complete).toBe(true);
+        expect(withOtherDrift.problems).toEqual([]);
 
         fs.writeFileSync(
           path.join(canonical, "pack.json"),
@@ -163,7 +164,7 @@ describe("validateDesiredPackLock", () => {
           graph: externalPackGraph,
           lockfile: lockfile(),
         });
-        expect(changed.complete).toBe(false);
+        expect(changed.invalidPacks.size).toBeGreaterThan(0);
         expect(changed.problems).toContainEqual(
           expect.objectContaining({ type: "pack-manifest-content-mismatch", status: "changed" }),
         );
@@ -188,7 +189,7 @@ describe("validateDesiredPackLock", () => {
         graph,
         lockfile: { lockfileVersion: 8, skills: {} },
       });
-      expect(validated.complete).toBe(true);
+      expect(validated.problems).toEqual([]);
     }).pipe(Effect.provide(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer))),
   );
 });

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+import { desiredConstraintOf } from "../../../desired-state/testing.js";
 import * as Effect from "effect/Effect";
 
 import type { DesiredExtensionNode } from "../../../desired-state/index.js";
@@ -12,7 +13,7 @@ const desiredReviewer = {
   identity: "@acme/skills/reviewer",
   source: "@acme/skills/reviewer@^1.0.0",
   enabled: true,
-  constraints: ["^1.0.0"],
+  constraint: desiredConstraintOf("^1.0.0"),
   origins: [
     {
       type: "settings",

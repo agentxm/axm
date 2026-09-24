@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+import { desiredConstraintOf } from "../desired-state/testing.js";
 import {
   extensionConstraintFactText,
   makeExtensionConstraintInvariantFact,
@@ -13,7 +14,7 @@ const desired = {
   identity: "@acme/skills/review",
   source: "@acme/skills/review@>=2.0.0 <3.0.0",
   enabled: true,
-  constraints: [">=2.0.0 <3.0.0", "^2.1.0"],
+  constraint: desiredConstraintOf(">=2.0.0 <3.0.0", "^2.1.0"),
   origins: [],
 } satisfies DesiredExtensionNode;
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+import { desiredConstraintOf } from "../../../desired-state/testing.js";
 import * as Effect from "effect/Effect";
 
 import { WorkspaceReadModelTest } from "../../../desired-state/testing.js";
@@ -61,7 +62,7 @@ describe("workspace/desired-state-reconcilable canonical modifications", () => {
       identity: "@test/skills/installed-skill",
       source: "@test/skills/installed-skill@1.0.0",
       enabled: true,
-      constraints: ["1.0.0"],
+      constraint: desiredConstraintOf("1.0.0"),
       origins: [],
     } satisfies DesiredExtensionNode;
     const observation = {
@@ -90,7 +91,7 @@ describe("workspace/desired-state-reconcilable canonical modifications", () => {
       identity: "@test/skills/review",
       source: "@test/skills/review@^2.0.0",
       enabled: true,
-      constraints: ["^2.0.0"],
+      constraint: desiredConstraintOf("^2.0.0"),
       origins: [],
     } satisfies DesiredExtensionNode;
     const observation = {

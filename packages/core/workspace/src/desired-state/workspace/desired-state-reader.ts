@@ -70,26 +70,38 @@ export const makeDesiredStateReader = (
         ),
       );
       const lockfile = options?.acceptedResolutions ?? (yield* documents.acceptedResolutions);
-      const built = yield* buildDesiredStateGraph({
-        manifests,
-        baseDir: location.baseDir,
-        settings: current,
-        layout,
-        registryAccessorities,
-        acceptedPacks: lockfile.packs ?? {},
-        ...(options?.prospectivePacks === undefined
+      const prospective =
+        options?.prospectivePacks === undefined
           ? {}
-          : { prospectivePacks: options.prospectivePacks }),
-      });
-      return yield* validateDesiredPackLock({
+          : { prospectivePacks: options.prospectivePacks };
+      const build = (excludedPacks: ReadonlySet<string>) =>
+        buildDesiredStateGraph({
+          manifests,
+          baseDir: location.baseDir,
+          settings: current,
+          layout,
+          registryAccessorities,
+          acceptedPacks: lockfile.packs ?? {},
+          excludedPacks,
+          ...prospective,
+        });
+      const built = yield* build(new Set());
+      const validation = yield* validateDesiredPackLock({
         manifests,
         graph: built,
         lockfile,
         layout,
-        ...(options?.prospectivePacks === undefined
-          ? {}
-          : { prospectivePacks: options.prospectivePacks }),
+        ...prospective,
       });
+      // A Pack whose accepted state cannot authorize its manifest routes no
+      // members; the builder derives that graph so one rule settles nodes.
+      const graph =
+        validation.invalidPacks.size === 0 ? built : yield* build(validation.invalidPacks);
+      return {
+        ...graph,
+        complete: graph.complete && validation.problems.length === 0,
+        problems: [...graph.problems, ...validation.problems],
+      };
     }).pipe(Effect.withSpan("DesiredStateReader.graph"));
   return {
     graph,

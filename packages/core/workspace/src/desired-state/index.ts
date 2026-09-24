@@ -50,6 +50,8 @@ export {
 export {
   acquiredExtensionDisplayPath,
   acquiredExtensionDisplayPathFromLockEntry,
+  BUNDLED_SKILL_OWNER,
+  bundledSkillCanonicalRoot,
   computeExtensionPathsForLayout,
   extensionPathSourceFromLockEntry,
   extensionContentFilename,
@@ -169,6 +171,9 @@ export {
 export {
   buildDesiredStateGraph,
   effectiveDesiredConstraint,
+  settleDesiredConstraint,
+  settleDesiredNodeConstraint,
+  UNCONSTRAINED_DESIRED_NODE,
   isInlineDesiredExtension,
   isRequiredByAnotherOrigin,
   isSourcedDesiredExtension,
@@ -195,10 +200,16 @@ export {
   formatConstraintContributors,
   packManifestContentMismatchText,
 } from "./workspace/desired-state-problem-text.js";
-export { validateDesiredPackLock } from "./workspace/desired-pack-lock.js";
+export {
+  validateDesiredPackLock,
+  type DesiredPackLockValidation,
+} from "./workspace/desired-pack-lock.js";
 export {
   observeCanonicalExtension,
+  observeAcceptedCanonicalReuse,
   canonicalPathForAcceptedExtension,
+  desiredConstraintContributors,
+  type RequestedCanonicalRef,
   type AcceptedExtensionResolution,
   type CanonicalConstraintContributor,
   type CanonicalConstraintMismatchObservation,

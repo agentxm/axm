@@ -13,7 +13,23 @@ import { WorkspaceLocation, type WorkspaceLocationService } from "./location.js"
 import { WorkspaceRecords, type WorkspaceRecordsService } from "./workspace-records.js";
 import type { WorkspaceDocumentsService } from "./documents.js";
 import type { WorkspaceLayout } from "./layout.js";
-import type { DesiredStateGraph } from "./desired-state-graph.js";
+import {
+  settleDesiredConstraint,
+  type DesiredExtensionNode,
+  type DesiredStateGraph,
+} from "./desired-state-graph.js";
+
+/**
+ * The constraint a hand-built node settles to from ranges stated as direct
+ * settings contributors; no ranges means the node is unconstrained.
+ */
+export const desiredConstraintOf = (
+  ...ranges: ReadonlyArray<string>
+): DesiredExtensionNode["constraint"] =>
+  settleDesiredConstraint(
+    { extensionType: "skill", name: "test" },
+    ranges.map((range) => ({ source: "settings", range, location: "axm.json" })),
+  );
 import type { ReadModelRecordRow, PackagingKind } from "./read-model-record-types.js";
 import type {
   WorkspaceLockfileReadFailure,
@@ -190,6 +206,7 @@ export const WorkspaceReadTest = (
           decodeAbsolutePathSync(
             path.resolve(facts.baseDir, type === "mcp-server" ? "mcps" : `${type}s`),
           ),
+        ...(facts.settings?.owner === undefined ? {} : { owner: facts.settings.owner }),
       };
       const selectedLayout = facts.layout ?? defaultLayout;
       const location: WorkspaceLocationService = {

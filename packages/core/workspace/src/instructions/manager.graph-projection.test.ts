@@ -8,6 +8,9 @@
  * incomplete-graph cases behind the last-writer-wins projection defect.
  */
 
+import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
+import { UNCONSTRAINED_DESIRED_NODE } from "../desired-state/index.js";
+import { desiredConstraintOf } from "../desired-state/testing.js";
 import * as nodeFs from "node:fs";
 import * as nodeOs from "node:os";
 import * as nodePath from "node:path";
@@ -66,7 +69,7 @@ const settingsRuleNode = (name: string): DesiredExtensionNode => ({
   identity: `${OWNER}/rules/${name}`,
   source: `agentxm:${OWNER}/rules/${name}`,
   enabled: true,
-  constraints: [],
+  constraint: UNCONSTRAINED_DESIRED_NODE,
   origins: [{ type: "settings", source: `agentxm:${OWNER}/rules/${name}`, enabled: true }],
 });
 
@@ -76,7 +79,7 @@ const workspaceRuleNode = (name: string): DesiredExtensionNode => ({
   identity: `workspace:${OWNER}/rules/${name}`,
   source: "workspace",
   enabled: true,
-  constraints: [],
+  constraint: UNCONSTRAINED_DESIRED_NODE,
   origins: [{ type: "settings", source: "workspace", enabled: true }],
 });
 
@@ -86,7 +89,7 @@ const packRuleNode = (name: string, pack: string): DesiredExtensionNode => ({
   identity: `${OWNER}/rules/${name}`,
   source: `${OWNER}/rules/${name}@^1.0.0`,
   enabled: true,
-  constraints: ["^1.0.0"],
+  constraint: desiredConstraintOf("^1.0.0"),
   origins: [
     {
       type: "pack",
@@ -179,7 +182,7 @@ describe("RuleManager graph-derived region projection", () => {
         WorkspaceReadTest({
           baseDir,
           runtimeDir: axmDir,
-          settings: { agents: [], instructionFiles: {} },
+          settings: { owner: decodeHandleSync(OWNER), agents: [], instructionFiles: {} },
           lockfile: { lockfileVersion: 8, skills: {}, rules: args.locked },
           graph: args.graph,
         }),
@@ -345,7 +348,7 @@ describe("RuleManager graph-derived region projection", () => {
       graph: completeGraph([
         {
           ...direct,
-          constraints: viaPack.constraints,
+          constraint: viaPack.constraint,
           origins: [...direct.origins, ...viaPack.origins],
         },
       ]),

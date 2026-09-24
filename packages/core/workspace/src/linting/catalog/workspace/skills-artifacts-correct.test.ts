@@ -26,7 +26,9 @@ const desiredReviewer = {
 } satisfies DesiredExtensionNode;
 
 /** The unprojected reviewer, observed with the given canonical state. */
-const observedUnprojectedReviewer = (status: "missing-resolution" | "missing" | "usable") =>
+const observedUnprojectedReviewer = (
+  status: "missing-resolution" | "missing" | "usable" | "incomplete" | "corrupt",
+) =>
   Effect.map(
     skillsArtifactsCorrectConformance.violated(),
     (context) =>
@@ -60,15 +62,17 @@ describe("workspace/skills-artifacts-correct", () => {
       }),
   );
 
-  it.effect("reports absent artifacts of a skill whose canonical content is usable", () =>
-    Effect.gen(function* () {
-      const context = yield* observedUnprojectedReviewer("usable");
+  it.effect.each(["usable", "incomplete", "corrupt"] as const)(
+    "reports absent artifacts of a skill whose canonical content is present and %s",
+    (status) =>
+      Effect.gen(function* () {
+        const context = yield* observedUnprojectedReviewer(status);
 
-      expect(
-        (yield* skillsArtifactsCorrectRule.check(context)).map((finding) => finding.message),
-      ).toEqual([
-        "Skill 'reviewer' is enabled, but it is missing from declared agents: claude-code.",
-      ]);
-    }),
+        expect(
+          (yield* skillsArtifactsCorrectRule.check(context)).map((finding) => finding.message),
+        ).toEqual([
+          "Skill 'reviewer' is enabled, but it is missing from declared agents: claude-code.",
+        ]);
+      }),
   );
 });

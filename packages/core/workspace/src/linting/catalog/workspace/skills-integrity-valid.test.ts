@@ -108,6 +108,28 @@ describe("workspace/skills-integrity-valid", () => {
     }),
   );
 
+  it.effect("keeps reporting an absent package when the observation is not absent content", () =>
+    Effect.gen(function* () {
+      const findings = yield* runCheck(
+        stateWithDesiredSkill(),
+        [desiredSkill],
+        [
+          {
+            desired: desiredSkill,
+            observation: {
+              type: "skill",
+              name: "my-skill",
+              status: "incomplete",
+              path: "/tmp/ws/agent_extensions/registry/@examples/skills/my-skill",
+            },
+          },
+        ],
+      );
+
+      expect(findings).toHaveLength(1);
+    }),
+  );
+
   it.effect("defers to the missing observation that states the absent package once", () =>
     Effect.gen(function* () {
       const findings = yield* runCheck(

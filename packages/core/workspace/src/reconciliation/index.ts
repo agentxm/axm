@@ -77,6 +77,12 @@ export {
   type DesiredStateChange,
   type DesiredStateProposal,
 } from "./proposed-state.js";
+export {
+  prepareActivationRealization,
+  realizeActivation,
+  type ActivationRealization,
+  type ActivationRealized,
+} from "./activation.js";
 
 export { collectLeftoverRetirement, collectUnreachableRetirement } from "./retirement.js";
 

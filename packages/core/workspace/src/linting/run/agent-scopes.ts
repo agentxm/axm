@@ -23,9 +23,15 @@ import {
   observeAgentOutputs,
   type AgentOutputObservation,
 } from "../../projection/index.js";
-import { resolveUserWorkspaceLayout } from "../../desired-state/index.js";
-
-import { loadSettingsDocument } from "./settings.js";
+import * as Layer from "effect/Layer";
+import * as Result from "effect/Result";
+import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
+import {
+  AgentRootResolverLive,
+  WorkspaceReadModelConfig,
+  makeWorkspaceReadModel,
+  resolveUserWorkspaceLayout,
+} from "../../desired-state/index.js";
 
 /** The user scope as a project-scope run's agents also see it. */
 export interface UserScopeObservation {
@@ -66,8 +72,30 @@ export const observeUserScope = (
   CodingAgentRepository | FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
     const layout = yield* resolveUserWorkspaceLayout(decodeAbsolutePathSync(userHome));
-    const settings = yield* loadSettingsDocument(userHome, "user");
+    // Readable means the same strict decode every other reader makes.
+    const platformLayer = Layer.mergeAll(
+      Layer.succeed(FileSystem.FileSystem, fs),
+      Layer.succeed(Path.Path, path),
+    );
+    const settings = yield* Effect.result(
+      makeWorkspaceReadModel("user").pipe(
+        Effect.flatMap((model) => model.state.settings),
+        Effect.provide(
+          Layer.mergeAll(
+            platformLayer,
+            Layer.succeed(WorkspaceReadModelConfig, {
+              projectRoot: makeAbsolutePath(path, userHome),
+              userHome: makeAbsolutePath(path, userHome),
+              allowedRoot: makeAbsolutePath(path, "/"),
+            }),
+            AgentRootResolverLive.pipe(Layer.provide(platformLayer)),
+          ),
+        ),
+      ),
+    );
     const inventory = yield* observeAgentOutputs({
       workspaceRoot: userHome,
       scope: "project",
@@ -79,7 +107,7 @@ export const observeUserScope = (
     return {
       home: userHome,
       settingsPath: layout.settingsPath,
-      settingsReadable: Option.isSome(settings),
+      settingsReadable: Result.isSuccess(settings) && Option.isSome(settings.success),
       outputs: inventory.outputs,
     };
   });

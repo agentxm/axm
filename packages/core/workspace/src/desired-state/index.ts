@@ -195,11 +195,6 @@ export {
   formatConstraintContributors,
   packManifestContentMismatchText,
 } from "./workspace/desired-state-problem-text.js";
-export {
-  effectiveExtensionActivation,
-  isDesiredExtensionActive,
-  type DesiredStateEnabledOrigin,
-} from "./workspace/desired-state-enabled.js";
 export { validateDesiredPackLock } from "./workspace/desired-pack-lock.js";
 export {
   observeCanonicalExtension,
@@ -313,7 +308,9 @@ export type {
   InstalledSkill,
   InstalledSubagent,
   UnmanagedMcpServer,
+  PackMemberBinding,
 } from "./workspace/read-model/extensions/index.js";
+export { packMemberBindings } from "./workspace/desired-pack-members.js";
 
 // Fixture-spec data shapes: declarative workspace-tree descriptions shared by
 // the read-model fixtures and lint's workspace fixture interpreter. The

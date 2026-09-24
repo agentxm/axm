@@ -13,10 +13,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Ref from "effect/Ref";
 import { decodedLockfile, decodedSettings } from "../../__fixtures__/decoders.js";
 import { makeCanonicalOccurrence } from "../../__fixtures__/occurrences.js";
-import { makeDiagnostics, type Warning } from "../../diagnostics.js";
 import { makePackExtensionsApi } from "../../extensions/pack.js";
 import type { CanonicalExtensionOccurrence } from "../../scanners/types.js";
 import type { Settings } from "../../../../settings/schema.js";
@@ -32,8 +30,6 @@ const harness = (params: {
   readonly canonicalOccurrences?: ReadonlyArray<CanonicalExtensionOccurrence>;
 }) =>
   Effect.gen(function* () {
-    const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);
-    const diagnostics = makeDiagnostics(ref);
     const api = yield* makePackExtensionsApi({
       scope: "project",
       loaders: {
@@ -41,9 +37,8 @@ const harness = (params: {
         lockfile: Effect.succeed(Option.fromUndefinedOr(params.lockfile)),
       },
       scanners: { canonical: Effect.succeed(params.canonicalOccurrences ?? []) },
-      diagnostics,
     });
-    return { api, ref };
+    return { api };
   });
 
 const validPackLockfile = (packName: string): Effect.Effect<Lockfile, never> =>

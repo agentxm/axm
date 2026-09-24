@@ -89,7 +89,6 @@ describe("aggregate ownership unit conformance", () => {
     }
     const sharedMcpParticipants = [
       [nodePath.join(workspaceSrc, "reconciliation"), "mcps/install-operation.ts"],
-      [workspaceSrc, "mcp-connections/lifecycle/operations/enable.ts"],
     ] as const;
     for (const [root, relativePath] of sharedMcpParticipants) {
       expect(nodeFs.readFileSync(nodePath.join(root, relativePath), "utf8")).toContain(

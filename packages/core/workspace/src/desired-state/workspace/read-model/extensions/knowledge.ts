@@ -26,7 +26,6 @@ import {
 } from "@agentxm/extension-model/unstable/extensions/common";
 import type { KnowledgeLockEntry, Lockfile } from "../../../lockfile/schema.js";
 import type { KnowledgeEntry, Settings } from "../../../settings/schema.js";
-import type { Diagnostics, Warning } from "../diagnostics.js";
 import type { LockfileReadError, SettingsReadError } from "../errors.js";
 import type { CanonicalExtensionOccurrence } from "../scanners/types.js";
 import type {
@@ -41,6 +40,8 @@ import { canonicalAxmPackageRoot } from "./package-root.js";
 import {
   makeProjectedSubjectCells,
   projectInstalledExtensions,
+  projectPackMemberRows,
+  type PackMemberBinding,
   type SubjectPolicy,
 } from "./projection.js";
 
@@ -86,7 +87,6 @@ export interface InstalledKnowledgeBundle {
   readonly activation: ActivationState;
   readonly resolved: Option.Option<ResolvedKnowledgeBundle>;
   readonly actual: ReadonlyArray<ActualKnowledgeBundle>;
-  readonly providingPacks: ReadonlyArray<InstalledPackRef>;
 }
 
 export interface UnmanagedKnowledgeBundle {
@@ -145,16 +145,6 @@ export interface KnowledgeExtensionsApiDeps {
   readonly scope: Scope;
   readonly loaders: KnowledgeScopedLoaders;
   readonly scanners: KnowledgeScanners;
-  readonly installedPacks: Effect.Effect<
-    ReadonlyArray<InstalledPackForKnowledge>,
-    SettingsReadError | LockfileReadError
-  >;
-  readonly diagnostics: Diagnostics;
-}
-
-export interface InstalledPackForKnowledge {
-  readonly ref: InstalledPackRef;
-  readonly knowledge: ReadonlyArray<KnowledgePackMember>;
 }
 
 export interface KnowledgeExtensionsApi {
@@ -174,7 +164,10 @@ export interface KnowledgeExtensionsApi {
   readonly declaredByName: (
     name: string,
   ) => Effect.Effect<Option.Option<DeclaredKnowledgeBundle>, SettingsReadError>;
-  readonly active: Effect.Effect<
+  /** Rows for the Pack-supplied members the desired-state graph bound to this subject. */
+  readonly packMemberRows: (
+    bindings: ReadonlyArray<PackMemberBinding>,
+  ) => Effect.Effect<
     ReadonlyArray<InstalledKnowledgeBundle>,
     SettingsReadError | LockfileReadError
   >;
@@ -183,12 +176,6 @@ export interface KnowledgeExtensionsApi {
     SettingsReadError | LockfileReadError
   >;
 }
-
-const orphanResolvedWarning = (name: string): Warning => ({
-  source: "lockfile",
-  message: `knowledge: lockfile entry "${name}" has no matching declared or pack-member home`,
-  code: "orphan-resolved",
-});
 
 const knowledgePolicy = (
   scope: Scope,
@@ -208,8 +195,7 @@ const knowledgePolicy = (
   resolvedName: (entry) => entry.name,
   actualEntries: (a) => a,
   actualName: (e) => e.key.name,
-  packMemberName: (member) => member.name,
-  packMemberActivation: () => "enabled",
+  packMember: ({ name, pack }) => ({ name, providingPack: pack }),
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
   buildInstalledRow: (input) => ({
@@ -218,13 +204,11 @@ const knowledgePolicy = (
     activation: input.activation,
     resolved: input.resolved,
     actual: input.actual,
-    providingPacks: input.providingPacks,
   }),
   buildUnmanagedRow: (entry) => ({
     key: { scope, type: "knowledge", name: entry.key.name },
     actual: entry,
   }),
-  resolvedOrphanWarning: orphanResolvedWarning,
 });
 
 /**
@@ -236,7 +220,7 @@ export const makeKnowledgeExtensionsApi = (
   deps: KnowledgeExtensionsApiDeps,
 ): Effect.Effect<KnowledgeExtensionsApi> =>
   Effect.gen(function* () {
-    const { scope, scanners, diagnostics } = deps;
+    const { scope, scanners } = deps;
 
     const declared: KnowledgeExtensionsApi["declared"] = deps.loaders.settings.pipe(
       Effect.map((opt) => Option.map(opt, declaredFromSettings)),
@@ -249,18 +233,13 @@ export const makeKnowledgeExtensionsApi = (
       return filterMapOccurrences(canonical, "knowledge", (occ) => canonicalToActual(occ, scope));
     });
 
+    const policy = knowledgePolicy(scope);
     const project = yield* Effect.cached(
       projectInstalledExtensions({
         declared,
         resolved,
         actual,
-        installedPacks: deps.installedPacks,
-        packMembers: (pack: {
-          readonly knowledge: ReadonlyArray<KnowledgePackMember>;
-        }): ReadonlyArray<KnowledgePackMember> => pack.knowledge,
-        packRef: (pack) => pack.ref,
-        policy: knowledgePolicy(scope),
-        diagnostics,
+        policy,
       }),
     );
 
@@ -271,8 +250,7 @@ export const makeKnowledgeExtensionsApi = (
         actual,
         project,
       }),
-      declared,
-      resolved,
-      actual,
+      packMemberRows: (bindings) =>
+        projectPackMemberRows({ bindings, declared, resolved, actual, policy }),
     } satisfies KnowledgeExtensionsApi;
   });

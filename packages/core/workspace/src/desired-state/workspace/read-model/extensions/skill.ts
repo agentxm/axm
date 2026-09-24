@@ -31,7 +31,6 @@ import {
 } from "@agentxm/extension-model/unstable/extensions/common";
 import type { Lockfile, SkillLockEntry } from "../../../lockfile/schema.js";
 import type { Settings, SkillEntry } from "../../../settings/schema.js";
-import type { Diagnostics, Warning } from "../diagnostics.js";
 import type { LockfileReadError, SettingsReadError } from "../errors.js";
 import type { AgentDirOccurrence, CanonicalExtensionOccurrence } from "../scanners/types.js";
 import type {
@@ -46,6 +45,8 @@ import { canonicalAxmPackageRoot } from "./package-root.js";
 import {
   makeProjectedSubjectCells,
   projectInstalledExtensions,
+  projectPackMemberRows,
+  type PackMemberBinding,
   type SubjectPolicy,
 } from "./projection.js";
 
@@ -133,7 +134,6 @@ export interface InstalledSkill {
   readonly activation: ActivationState;
   readonly resolved: Option.Option<ResolvedSkill>;
   readonly actual: ReadonlyArray<ActualSkill>;
-  readonly providingPacks: ReadonlyArray<InstalledPackRef>;
 }
 
 /** Unmanaged skill row — one actual occurrence not attached to an installed row. */
@@ -217,27 +217,12 @@ export interface SkillScanners {
 }
 
 /**
- * One installed-pack entry consumed by the projection. Pack-resolved member
- * groups are read from the **installed pack manifest** in Phase 9; for unit
- * tests the caller passes a synthetic shape.
- */
-export interface InstalledPackForSkills {
-  readonly ref: InstalledPackRef;
-  readonly skills: ReadonlyArray<SkillPackMember>;
-}
-
-/**
  * Inputs `makeSkillExtensionsApi` captures.
  */
 export interface SkillExtensionsApiDeps {
   readonly scope: Scope;
   readonly loaders: SkillScopedLoaders;
   readonly scanners: SkillScanners;
-  readonly installedPacks: Effect.Effect<
-    ReadonlyArray<InstalledPackForSkills>,
-    SettingsReadError | LockfileReadError
-  >;
-  readonly diagnostics: Diagnostics;
 }
 
 /**
@@ -258,10 +243,10 @@ export interface SkillExtensionsApi {
   readonly declaredByName: (
     name: string,
   ) => Effect.Effect<Option.Option<DeclaredSkill>, SettingsReadError>;
-  readonly active: Effect.Effect<
-    ReadonlyArray<InstalledSkill>,
-    SettingsReadError | LockfileReadError
-  >;
+  /** Rows for the Pack-supplied members the desired-state graph bound to this subject. */
+  readonly packMemberRows: (
+    bindings: ReadonlyArray<PackMemberBinding>,
+  ) => Effect.Effect<ReadonlyArray<InstalledSkill>, SettingsReadError | LockfileReadError>;
   readonly unmanaged: Effect.Effect<
     ReadonlyArray<UnmanagedSkill>,
     SettingsReadError | LockfileReadError
@@ -269,12 +254,6 @@ export interface SkillExtensionsApi {
 }
 
 const simpleName = (name: ExtensionName): ExtensionName => name;
-
-const orphanResolvedWarning = (name: string): Warning => ({
-  source: "lockfile",
-  message: `skill: lockfile entry "${name}" has no matching declared or pack-member home`,
-  code: "orphan-resolved",
-});
 
 const skillPolicy = (
   scope: Scope,
@@ -294,8 +273,7 @@ const skillPolicy = (
   resolvedName: (entry) => simpleName(entry.name),
   actualEntries: (actual) => actual,
   actualName: (entry) => entry.key.name,
-  packMemberName: (member) => simpleName(member.name),
-  packMemberActivation: () => "enabled",
+  packMember: ({ name, pack }) => ({ name, providingPack: pack }),
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
   buildInstalledRow: (input) => ({
@@ -304,13 +282,11 @@ const skillPolicy = (
     activation: input.activation,
     resolved: input.resolved,
     actual: input.actual,
-    providingPacks: input.providingPacks,
   }),
   buildUnmanagedRow: (entry) => ({
     key: { scope, type: "skill", name: entry.key.name },
     actual: entry,
   }),
-  resolvedOrphanWarning: orphanResolvedWarning,
 });
 
 /**
@@ -327,7 +303,7 @@ export const makeSkillExtensionsApi = (
   deps: SkillExtensionsApiDeps,
 ): Effect.Effect<SkillExtensionsApi> =>
   Effect.gen(function* () {
-    const { scope, loaders, scanners, installedPacks, diagnostics } = deps;
+    const { scope, loaders, scanners } = deps;
 
     const declared: SkillExtensionsApi["declared"] = loaders.settings.pipe(
       Effect.map((opt) => Option.map(opt, (settings) => declaredFromSettings(settings))),
@@ -349,28 +325,24 @@ export const makeSkillExtensionsApi = (
       return [...fromCanonical, ...fromAgentDir];
     });
 
+    const policy = skillPolicy(scope);
     const project = yield* Effect.cached(
       projectInstalledExtensions({
         declared,
         resolved,
         actual,
-        installedPacks: installedPacks.pipe(
-          Effect.map((packs) => packs.map((p) => ({ ref: p.ref, members: p.skills }))),
-        ),
-        packMembers: (pack: {
-          readonly ref: InstalledPackRef;
-          readonly members: ReadonlyArray<SkillPackMember>;
-        }) => pack.members,
-        packRef: (pack) => pack.ref,
-        policy: skillPolicy(scope),
-        diagnostics,
+        policy,
       }),
     );
 
-    return makeProjectedSubjectCells({
-      declared,
-      resolved,
-      actual,
-      project,
-    }) satisfies SkillExtensionsApi;
+    return {
+      ...makeProjectedSubjectCells({
+        declared,
+        resolved,
+        actual,
+        project,
+      }),
+      packMemberRows: (bindings) =>
+        projectPackMemberRows({ bindings, declared, resolved, actual, policy }),
+    } satisfies SkillExtensionsApi;
   });

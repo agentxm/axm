@@ -58,6 +58,7 @@ describe("readAxmSkillWorkspaceCompatibility", () => {
       const result = yield* readAxmSkillWorkspaceCompatibility({
         platform: { fs, path },
         workspace,
+        packMembers: [],
         policy,
       });
       expect(result).toEqual(
@@ -96,6 +97,7 @@ describe("readAxmSkillWorkspaceCompatibility", () => {
             byName: () => Effect.succeed(Option.none()),
           },
         },
+        packMembers: [],
         policy,
       });
       expect(result).toEqual(Option.none());
@@ -140,6 +142,7 @@ describe("readAxmSkillWorkspaceCompatibility", () => {
               ),
           },
         },
+        packMembers: [],
         policy,
       });
       expect(result).toEqual(Option.none());
@@ -162,6 +165,7 @@ describe("readAxmSkillWorkspaceCompatibility", () => {
             byName: () => Effect.succeed(Option.map(installed, (row) => ({ ...row, actual: [] }))),
           },
         },
+        packMembers: [],
         policy,
       });
       expect(Option.map(result, ({ reasonCode }) => reasonCode)).toEqual(
@@ -191,30 +195,31 @@ describe("readAxmSkillWorkspaceCompatibility", () => {
           skills: {
             ...workspace.skills,
             declaredByName: () => Effect.succeed(Option.none()),
-            byName: () =>
+            byName: () => Effect.succeed(Option.none()),
+            packMemberRows: (bindings) =>
               Effect.succeed(
-                Option.map(installed, (row) => ({
-                  ...row,
-                  installationOrigin: {
-                    _tag: "pack-member" as const,
-                    member: {
-                      name: decodeExtensionNameSync("axm"),
-                      providingPack: pack,
+                Option.toArray(installed).flatMap((row) =>
+                  bindings.map((binding) => ({
+                    ...row,
+                    installationOrigin: {
+                      _tag: "pack-member" as const,
+                      member: { name: binding.name, providingPack: binding.pack },
+                      pack: binding.pack,
                     },
-                    pack,
-                  },
-                  resolved: Option.some({
-                    name: decodeExtensionNameSync("axm"),
-                    lockEntry: makeRegistrySkillLockEntry({
-                      owner: decodeHandleSync("@agentxm"),
-                      name: "axm",
-                      resolvedVersion: decodeVersionSync(VERSION),
+                    resolved: Option.some({
+                      name: decodeExtensionNameSync("axm"),
+                      lockEntry: makeRegistrySkillLockEntry({
+                        owner: decodeHandleSync("@agentxm"),
+                        name: "axm",
+                        resolvedVersion: decodeVersionSync(VERSION),
+                      }),
                     }),
-                  }),
-                })),
+                  })),
+                ),
               ),
           },
         },
+        packMembers: [{ name: decodeExtensionNameSync("axm"), pack, enabled: true }],
         policy,
       });
       expect(Option.map(result, ({ status }) => status)).toEqual(Option.some("compatible"));
@@ -256,6 +261,7 @@ describe("readAxmSkillWorkspaceCompatibility", () => {
               ),
           },
         },
+        packMembers: [],
         policy,
       });
 

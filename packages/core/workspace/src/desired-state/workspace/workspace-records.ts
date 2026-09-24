@@ -67,6 +67,7 @@ export const makeWorkspaceRecords = (
         );
       const readers = makeReadModelRecordReaders({
         baseDir: location.baseDir,
+        scope: location.scope,
         path,
         readScopedContext: (f) => provide(readScopedModel(location, location.runtimeDir, f)),
         getDesiredStateGraph: () => provide(desiredState.graph()),

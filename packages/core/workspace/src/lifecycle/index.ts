@@ -22,7 +22,6 @@ export {
   prepareSetActivation,
   previewOrApplySetActivation,
   SetActivation,
-  type ActivationTransition,
   type ActivationUnchanged,
   type SetActivationCandidate,
   type SetActivationFailure,
@@ -183,11 +182,6 @@ export {
 
 // Skill lifecycle operations
 export { getSkillDisplayName } from "../skills/lifecycle/utils.js";
-export { enableSkill, type EnableSkillOperation } from "../skills/lifecycle/operations/enable.js";
-export {
-  disableSkill,
-  type DisableSkillOperation,
-} from "../skills/lifecycle/operations/disable.js";
 
 // MCP server lifecycle operations. Installation itself is a materialization
 // capability (`@agentxm/workspace/materialization`) because the authoring
@@ -197,30 +191,6 @@ export {
   type UninstallMcpServerOperation,
   type UninstallMcpServerOperationArgs,
 } from "../mcp-connections/lifecycle/operations/uninstall.js";
-export {
-  enableMcpServer,
-  type EnableMcpServerOperation,
-} from "../mcp-connections/lifecycle/operations/enable.js";
-export {
-  disableMcpServer,
-  type DisableMcpServerOperation,
-} from "../mcp-connections/lifecycle/operations/disable.js";
-
-// Subagent lifecycle operations
-export {
-  SUBAGENT_CONFIG_SURFACE,
-  renderedSubagentTargets,
-  subagentConfigTarget,
-  subagentLifecycleArtifact,
-} from "../subagents/lifecycle/operations/artifact.js";
-export {
-  enableSubagent,
-  type EnableSubagentOperation,
-} from "../subagents/lifecycle/operations/enable.js";
-export {
-  disableSubagent,
-  type DisableSubagentOperation,
-} from "../subagents/lifecycle/operations/disable.js";
 
 // Update: the atomicity a workspace-wide sweep declares.
 export {

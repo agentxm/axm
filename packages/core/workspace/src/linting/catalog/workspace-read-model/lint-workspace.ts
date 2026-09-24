@@ -34,7 +34,12 @@ import {
   WorkspaceReadModelConfig,
   type WorkspaceReadModel,
 } from "../../../desired-state/index.js";
-import { AXM_DIR_NAME, USER_WORKSPACE_DIRECTORY } from "../../../desired-state/index.js";
+import {
+  AXM_DIR_NAME,
+  USER_WORKSPACE_DIRECTORY,
+  packMemberBindings,
+  type DesiredStateGraph,
+} from "../../../desired-state/index.js";
 import type {
   LockfileReadError,
   SettingsReadError,
@@ -52,6 +57,7 @@ import type {
   InstalledRule,
   InstalledSkill,
   InstalledSubagent,
+  PackMemberBinding,
 } from "../../../desired-state/index.js";
 import type {
   HookRuleContext,
@@ -159,6 +165,11 @@ export interface BuildLintWorkspaceArgs {
    * to `""` (accessor-relative paths render under the workspace root).
    */
   readonly displayRoot?: string;
+  /**
+   * The desired-state graph, which alone decides Pack membership and member
+   * activation. Without it the view holds only directly declared rows.
+   */
+  readonly desiredState?: DesiredStateGraph;
   /** Runtime-pinned evaluator used by status and the compatibility lint rule. */
   readonly axmSkillCompatibilityPolicy?: AxmSkillCompatibilityPolicyService;
   /** Caller-bound effective workspace owner accessor. */
@@ -232,10 +243,15 @@ export const buildLintWorkspace = (
             AXM_DIR_NAME,
           )
         : args.platform.path.join(args.workspaceRoot, AXM_DIR_NAME);
+    const members = (type: Parameters<typeof packMemberBindings>[2]) =>
+      args.desiredState === undefined
+        ? []
+        : packMemberBindings(args.desiredState, args.scope, type);
     const projection = yield* buildLintWorkspaceView({
       platform: args.platform,
       workspaceRoot: args.workspaceRoot,
       readModel,
+      members,
       scope: args.scope,
       inspectKnowledge: args.inspectKnowledge ?? inspectKnowledgePackage,
       defersExtensionRules: args.defersExtensionRules ?? (() => false),
@@ -263,6 +279,7 @@ export const buildLintWorkspace = (
             axmSkillCompatibility: readAxmSkillWorkspaceCompatibility({
               platform: args.platform,
               workspace: readModel,
+              packMembers: members("skill"),
               policy: args.axmSkillCompatibilityPolicy,
             }),
           }),
@@ -325,6 +342,10 @@ interface BuildLintWorkspaceViewArgs {
   };
   readonly workspaceRoot: string;
   readonly readModel: WorkspaceReadModel;
+  /** The graph-bound Pack members of one type, for the read model to shape. */
+  readonly members: (
+    type: Parameters<typeof packMemberBindings>[2],
+  ) => ReadonlyArray<PackMemberBinding>;
   readonly scope: "project" | "user";
   readonly inspectKnowledge: (
     packageRoot: string,
@@ -377,17 +398,31 @@ const buildLintWorkspaceView = (
   FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
+    const withMembers = <Row>(
+      installed: Effect.Effect<ReadonlyArray<Row>, SettingsReadError | LockfileReadError>,
+      members: Effect.Effect<ReadonlyArray<Row>, SettingsReadError | LockfileReadError>,
+    ) => Effect.all([installed, members]).pipe(Effect.map((rows) => rows.flat()));
+    const model = args.readModel;
     const [skills, packs, subagents, mcpServers, hooks, rules, knowledge, workspaceOwner] =
       yield* Effect.all(
         [
-          args.readModel.skills.installed,
-          args.readModel.packs.installed,
-          args.readModel.subagents.installed,
-          args.readModel.mcpServers.installed,
-          args.readModel.hooks.installed,
-          args.readModel.rules.installed,
-          args.readModel.knowledge.installed,
-          args.readModel.owner,
+          withMembers(model.skills.installed, model.skills.packMemberRows(args.members("skill"))),
+          model.packs.installed,
+          withMembers(
+            model.subagents.installed,
+            model.subagents.packMemberRows(args.members("subagent")),
+          ),
+          withMembers(
+            model.mcpServers.installed,
+            model.mcpServers.packMemberRows(args.members("mcp-server")),
+          ),
+          withMembers(model.hooks.installed, model.hooks.packMemberRows(args.members("hook"))),
+          withMembers(model.rules.installed, model.rules.packMemberRows(args.members("rule"))),
+          withMembers(
+            model.knowledge.installed,
+            model.knowledge.packMemberRows(args.members("knowledge")),
+          ),
+          model.owner,
         ],
         { concurrency: "unbounded" },
       );

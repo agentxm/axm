@@ -14,13 +14,16 @@
  * - subject-lockfile-entry-alone-does-not-create-implicit-inventory
  * - packs-are-not-installed-as-pack-members
  *
- * Pack membership comes only from the authored manifest. Accepted-resolution
- * rows never supply membership or create desired inventory.
+ * Pack membership and member activation are decided by the desired-state
+ * graph; the read model shapes the member rows it is handed. Accepted-
+ * resolution rows never supply membership or create desired inventory.
  */
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
 import type { FixtureSpec } from "../../__fixtures__/builder.js";
+import type { PackMemberBinding } from "../../extensions/projection.js";
 import {
   expectFirst,
   runScenario,
@@ -71,6 +74,13 @@ const authoredPackFiles = (
     version: "1.0.0",
     dependencies,
   }),
+});
+
+/** A member as the desired-state graph would bind it to an installed pack. */
+const packMemberBinding = (name: string, pack: string, enabled = true): PackMemberBinding => ({
+  name: decodeExtensionNameSync(name),
+  pack: { key: { scope: "project", type: "pack", name: decodeExtensionNameSync(pack) } },
+  enabled,
 });
 
 const lockfileWithSkill = (skillName: string): object => ({
@@ -146,7 +156,7 @@ describe("projection: actual-only skills remain visible outside installed", () =
 });
 
 describe("projection: pack-provided skill is implicit installed inventory", () => {
-  it.effect("authored pack membership produces an implicit pack-member skill row", () =>
+  it.effect("a bound pack member produces a pack-member skill row, never a direct one", () =>
     runScenario(
       projectSpec({
         settings: {
@@ -161,11 +171,15 @@ describe("projection: pack-provided skill is implicit installed inventory", () =
       }),
       (ctx) =>
         Effect.gen(function* () {
-          const installed = yield* ctx.scope("project").skills.installed;
-          const memberRows = installed.filter((r) => r.installationOrigin._tag === "pack-member");
+          const project = ctx.scope("project");
+          expect(yield* project.skills.installed).toHaveLength(0);
+          const memberRows = yield* project.skills.packMemberRows([
+            packMemberBinding("review-tool", "team-pack"),
+          ]);
           expect(memberRows).toHaveLength(1);
           const row = expectFirst(memberRows);
           expect(row.key.name).toBe("review-tool");
+          expect(row.installationOrigin._tag).toBe("pack-member");
           expect(row.activation).toBe("enabled");
         }),
     ),
@@ -189,12 +203,16 @@ describe("projection: direct skill declaration wins over pack membership", () =>
       }),
       (ctx) =>
         Effect.gen(function* () {
-          const installed = yield* ctx.scope("project").skills.installed;
+          const project = ctx.scope("project");
+          const installed = yield* project.skills.installed;
           const rows = installed.filter((r) => r.key.name === "review-tool");
           const row = expectFirst(rows);
           expect(rows).toHaveLength(1);
           expect(row.installationOrigin._tag).toBe("direct");
-          expect(row.providingPacks).toHaveLength(1);
+          const memberRows = yield* project.skills.packMemberRows([
+            packMemberBinding("review-tool", "team-pack"),
+          ]);
+          expect(memberRows).toHaveLength(0);
         }),
     ),
   );
@@ -243,10 +261,12 @@ describe("projection: pack-provided subagent is implicit installed inventory", (
       }),
       (ctx) =>
         Effect.gen(function* () {
-          const installed = yield* ctx.scope("project").subagents.installed;
-          const memberRows = installed.filter((r) => r.installationOrigin._tag === "pack-member");
+          const memberRows = yield* ctx
+            .scope("project")
+            .subagents.packMemberRows([packMemberBinding("code-reviewer", "team-pack")]);
           expect(memberRows).toHaveLength(1);
           expect(memberRows[0]?.key.name).toBe("code-reviewer");
+          expect(memberRows[0]?.installationOrigin._tag).toBe("pack-member");
         }),
     ),
   );
@@ -259,89 +279,81 @@ describe("projection: direct subagent declaration wins (disabled) over pack memb
   // direct-over-pack precedence is unit-tested in
   // `__tests__/projection.test.ts`. Here we assert what the live
   // composition exposes: the disabled direct subagent appears as a
-  // `direct` row with `disabled` activation, excluded from active.
-  it.effect(
-    "disabled direct subagent: installed `direct` + activation `disabled`, excluded from active",
-    () =>
-      runScenario(
-        projectSpec({
-          settings: {
-            _tag: "valid",
-            contents: settingsJson({
-              packs: { "team-pack": "workspace" },
-              subagents: {
-                "code-reviewer": {
-                  source: "github:owner/code-reviewer",
-                  enabled: false,
-                },
+  // `direct` row with `disabled` activation.
+  it.effect("disabled direct subagent: installed `direct` + activation `disabled`", () =>
+    runScenario(
+      projectSpec({
+        settings: {
+          _tag: "valid",
+          contents: settingsJson({
+            packs: { "team-pack": "workspace" },
+            subagents: {
+              "code-reviewer": {
+                source: "github:owner/code-reviewer",
+                enabled: false,
               },
-            }),
-          },
-          axmExtensions: authoredPackFiles("team-pack", {
-            "@team/subagents/other-reviewer": "1.0.0",
+            },
           }),
+        },
+        axmExtensions: authoredPackFiles("team-pack", {
+          "@team/subagents/other-reviewer": "1.0.0",
         }),
-        (ctx) =>
-          Effect.gen(function* () {
-            const project = ctx.scope("project");
-            const installed = yield* project.subagents.installed;
-            const active = yield* project.subagents.active;
-            const reviewer = expectFirst(
-              installed.filter((r) => r.key.name === "code-reviewer"),
-              "expected installed row for code-reviewer",
-            );
-            expect(reviewer.installationOrigin._tag).toBe("direct");
-            expect(reviewer.activation).toBe("disabled");
-            expect(active.some((a) => a.key.name === "code-reviewer")).toBe(false);
-          }),
-      ),
+      }),
+      (ctx) =>
+        Effect.gen(function* () {
+          const project = ctx.scope("project");
+          const installed = yield* project.subagents.installed;
+          const reviewer = expectFirst(
+            installed.filter((r) => r.key.name === "code-reviewer"),
+            "expected installed row for code-reviewer",
+          );
+          expect(reviewer.installationOrigin._tag).toBe("direct");
+          expect(reviewer.activation).toBe("disabled");
+        }),
+    ),
   );
 });
 
 describe("projection: disabled direct skill still claims actual materialization", () => {
-  it.effect(
-    "disabled direct skill is installed (disabled), excluded from active and from unmanaged",
-    () =>
-      runScenario(
-        projectSpec({
-          settings: {
-            _tag: "valid",
-            contents: settingsJson({
-              skills: {
-                "review-tool": {
-                  source: "github:owner/review-tool",
-                  enabled: false,
-                },
+  it.effect("disabled direct skill is installed (disabled) and excluded from unmanaged", () =>
+    runScenario(
+      projectSpec({
+        settings: {
+          _tag: "valid",
+          contents: settingsJson({
+            skills: {
+              "review-tool": {
+                source: "github:owner/review-tool",
+                enabled: false,
               },
-            }),
-          },
-          agentDirs: {
-            "claude-code": {
-              "skills/review-tool/SKILL.md": "# review\n",
             },
-          },
-        }),
-        (ctx) =>
-          Effect.gen(function* () {
-            const project = ctx.scope("project");
-            const installed = yield* project.skills.installed;
-            const active = yield* project.skills.active;
-            const unmanaged = yield* project.skills.unmanaged;
-
-            const row = expectFirst(
-              installed.filter((r) => r.key.name === "review-tool"),
-              "expected installed row for review-tool",
-            );
-            expect(row.activation).toBe("disabled");
-            expect(active.some((a) => a.key.name === "review-tool")).toBe(false);
-            expect(unmanaged.some((u) => u.key.name === "review-tool")).toBe(false);
           }),
-      ),
+        },
+        agentDirs: {
+          "claude-code": {
+            "skills/review-tool/SKILL.md": "# review\n",
+          },
+        },
+      }),
+      (ctx) =>
+        Effect.gen(function* () {
+          const project = ctx.scope("project");
+          const installed = yield* project.skills.installed;
+          const unmanaged = yield* project.skills.unmanaged;
+
+          const row = expectFirst(
+            installed.filter((r) => r.key.name === "review-tool"),
+            "expected installed row for review-tool",
+          );
+          expect(row.activation).toBe("disabled");
+          expect(unmanaged.some((u) => u.key.name === "review-tool")).toBe(false);
+        }),
+    ),
   );
 });
 
 describe("projection: subject lockfile entry alone does not create implicit inventory", () => {
-  it.effect("lockfile-only skill is not installed and is reported as an orphan fact", () =>
+  it.effect("lockfile-only skill is not installed", () =>
     runScenario(
       projectSpec({
         settings: {
@@ -358,10 +370,7 @@ describe("projection: subject lockfile entry alone does not create implicit inve
           const project = ctx.scope("project");
           const installed = yield* project.skills.installed;
           expect(installed.some((r) => r.key.name === "review-tool")).toBe(false);
-          const warnings = yield* project.diagnostics;
-          const warning = warnings.find((item) => item.message.includes("review-tool"));
-          expect(warning).toMatchObject({ source: "lockfile", code: "orphan-resolved" });
-          expect(warning?.message).not.toContain("axm ");
+          expect(yield* project.skills.packMemberRows([])).toHaveLength(0);
         }),
     ),
   );
@@ -371,10 +380,9 @@ describe("projection: packs are not installed as pack members", () => {
   it.effect(
     "platform-pack declared, lockfile mentions nested-pack-like reference → nested-pack is not installed via pack-member",
     () =>
-      // The pack subject's own `installed` projection passes an empty
-      // installed-pack set into the projection helper, so a pack can never
-      // appear in `packs.installed` via a pack-member origin. Verified by
-      // construction; we exercise it here via a real lockfile with two packs.
+      // The pack subject shapes no member rows, so a pack can never appear in
+      // `packs.installed` via a pack-member origin. Verified by construction;
+      // we exercise it here via a real lockfile with two packs.
       runScenario(
         projectSpec({
           settings: {

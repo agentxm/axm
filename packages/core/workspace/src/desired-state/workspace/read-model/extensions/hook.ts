@@ -24,7 +24,6 @@ import {
 } from "@agentxm/extension-model/unstable/extensions/common";
 import type { HookLockEntry, Lockfile } from "../../../lockfile/schema.js";
 import type { HookEntry, Settings } from "../../../settings/schema.js";
-import type { Diagnostics, Warning } from "../diagnostics.js";
 import type { LockfileReadError, SettingsReadError } from "../errors.js";
 import type { CanonicalExtensionOccurrence } from "../scanners/types.js";
 import type {
@@ -39,6 +38,8 @@ import { canonicalAxmPackageRoot } from "./package-root.js";
 import {
   makeProjectedSubjectCells,
   projectInstalledExtensions,
+  projectPackMemberRows,
+  type PackMemberBinding,
   type SubjectPolicy,
 } from "./projection.js";
 
@@ -84,7 +85,6 @@ export interface InstalledHook {
   readonly activation: ActivationState;
   readonly resolved: Option.Option<ResolvedHook>;
   readonly actual: ReadonlyArray<ActualHook>;
-  readonly providingPacks: ReadonlyArray<InstalledPackRef>;
 }
 
 export interface UnmanagedHook {
@@ -141,20 +141,10 @@ export interface HookScopedLoaders {
   readonly lockfile: Effect.Effect<Option.Option<Lockfile>, LockfileReadError>;
 }
 
-export interface InstalledPackForHooks {
-  readonly ref: InstalledPackRef;
-  readonly hooks: ReadonlyArray<HookPackMember>;
-}
-
 export interface HookExtensionsApiDeps {
   readonly scope: Scope;
   readonly loaders: HookScopedLoaders;
   readonly scanners: HookScanners;
-  readonly installedPacks: Effect.Effect<
-    ReadonlyArray<InstalledPackForHooks>,
-    SettingsReadError | LockfileReadError
-  >;
-  readonly diagnostics: Diagnostics;
 }
 
 export interface HookExtensionsApi {
@@ -171,21 +161,15 @@ export interface HookExtensionsApi {
   readonly declaredByName: (
     name: string,
   ) => Effect.Effect<Option.Option<DeclaredHook>, SettingsReadError>;
-  readonly active: Effect.Effect<
-    ReadonlyArray<InstalledHook>,
-    SettingsReadError | LockfileReadError
-  >;
+  /** Rows for the Pack-supplied members the desired-state graph bound to this subject. */
+  readonly packMemberRows: (
+    bindings: ReadonlyArray<PackMemberBinding>,
+  ) => Effect.Effect<ReadonlyArray<InstalledHook>, SettingsReadError | LockfileReadError>;
   readonly unmanaged: Effect.Effect<
     ReadonlyArray<UnmanagedHook>,
     SettingsReadError | LockfileReadError
   >;
 }
-
-const orphanResolvedWarning = (name: string): Warning => ({
-  source: "lockfile",
-  message: `hook: lockfile entry "${name}" has no matching declared or pack-member home`,
-  code: "orphan-resolved",
-});
 
 const hookPolicy = (
   scope: Scope,
@@ -205,8 +189,7 @@ const hookPolicy = (
   resolvedName: (entry) => entry.name,
   actualEntries: (a) => a,
   actualName: (e) => e.key.name,
-  packMemberName: (m) => m.name,
-  packMemberActivation: () => "enabled",
+  packMember: ({ name, pack }) => ({ name, providingPack: pack }),
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
   buildInstalledRow: (input) => ({
@@ -215,13 +198,11 @@ const hookPolicy = (
     activation: input.activation,
     resolved: input.resolved,
     actual: input.actual,
-    providingPacks: input.providingPacks,
   }),
   buildUnmanagedRow: (entry) => ({
     key: { scope, type: "hook", name: entry.key.name },
     actual: entry,
   }),
-  resolvedOrphanWarning: orphanResolvedWarning,
 });
 
 /**
@@ -233,7 +214,7 @@ export const makeHookExtensionsApi = (
   deps: HookExtensionsApiDeps,
 ): Effect.Effect<HookExtensionsApi> =>
   Effect.gen(function* () {
-    const { scope, scanners, diagnostics } = deps;
+    const { scope, scanners } = deps;
 
     const declared: HookExtensionsApi["declared"] = deps.loaders.settings.pipe(
       Effect.map((opt) => Option.map(opt, declaredFromSettings)),
@@ -246,18 +227,13 @@ export const makeHookExtensionsApi = (
       return filterMapOccurrences(canonical, "hook", (occ) => canonicalToActual(occ, scope));
     });
 
+    const policy = hookPolicy(scope);
     const project = yield* Effect.cached(
       projectInstalledExtensions({
         declared,
         resolved,
         actual,
-        installedPacks: deps.installedPacks,
-        packMembers: (pack: {
-          readonly hooks: ReadonlyArray<HookPackMember>;
-        }): ReadonlyArray<HookPackMember> => pack.hooks,
-        packRef: (pack) => pack.ref,
-        policy: hookPolicy(scope),
-        diagnostics,
+        policy,
       }),
     );
 
@@ -268,8 +244,7 @@ export const makeHookExtensionsApi = (
         actual,
         project,
       }),
-      declared,
-      resolved,
-      actual,
+      packMemberRows: (bindings) =>
+        projectPackMemberRows({ bindings, declared, resolved, actual, policy }),
     } satisfies HookExtensionsApi;
   });

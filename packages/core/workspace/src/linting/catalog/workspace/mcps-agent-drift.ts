@@ -20,6 +20,7 @@ import type { McpServerEntry } from "../../../desired-state/index.js";
 import type { ActualMcpServer, InstalledMcpServer } from "../../../desired-state/index.js";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryFinding, AdvisoryRule, LintFinding } from "@agentxm/extension-content/lint";
+import { desiredPackMemberBindings } from "./helpers/pack-members.js";
 
 const RULE_ID = "workspace/mcps-agent-drift";
 
@@ -209,9 +210,15 @@ export const mcpServerAgentDriftRule: AdvisoryRule<WorkspaceRuleContext> = {
   severity: "warning",
   check: (context) =>
     Effect.gen(function* () {
-      const rows = yield* Effect.result(context.workspace.mcpServers.installed);
+      const members = yield* desiredPackMemberBindings(context, "mcp-server");
+      const rows = yield* Effect.result(
+        Effect.all([
+          context.workspace.mcpServers.installed,
+          context.workspace.mcpServers.packMemberRows(members),
+        ]),
+      );
       if (Result.isFailure(rows)) return [];
       const agents = yield* configuredAgentIds(context);
-      return findingsForRows(rows.success, agents, context.subject.root);
+      return findingsForRows(rows.success.flat(), agents, context.subject.root);
     }),
 };

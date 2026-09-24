@@ -30,7 +30,8 @@ export type ReadModelRecordRow =
       readonly type: string;
       readonly name: string;
       readonly source: Option.Option<string>;
-      readonly enabled: true;
+      /** The activation the desired-state graph settled for the Pack-supplied member. */
+      readonly enabled: boolean;
       readonly packagingKind: PackagingKind;
       readonly lifecycle: "implicit";
     }

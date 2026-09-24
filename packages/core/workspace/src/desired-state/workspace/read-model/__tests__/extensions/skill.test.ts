@@ -7,10 +7,9 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Ref from "effect/Ref";
+import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
 import { decodedSettings } from "../../__fixtures__/decoders.js";
 import { makeAgentDirOccurrence, makeCanonicalOccurrence } from "../../__fixtures__/occurrences.js";
-import { makeDiagnostics, type Warning } from "../../diagnostics.js";
 import { makeSkillExtensionsApi, type ActualSkill } from "../../extensions/skill.js";
 import type { CanonicalExtensionOccurrence, AgentDirOccurrence } from "../../scanners/types.js";
 import type { Settings } from "../../../../settings/schema.js";
@@ -27,8 +26,6 @@ const harness = (params: {
   readonly agentDirOccurrences?: ReadonlyArray<AgentDirOccurrence>;
 }) =>
   Effect.gen(function* () {
-    const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);
-    const diagnostics = makeDiagnostics(ref);
     const api = yield* makeSkillExtensionsApi({
       scope: "project",
       loaders: {
@@ -39,10 +36,8 @@ const harness = (params: {
         canonical: Effect.succeed(params.canonicalOccurrences ?? []),
         agentDir: Effect.succeed(params.agentDirOccurrences ?? []),
       },
-      installedPacks: Effect.succeed([]),
-      diagnostics,
     });
-    return { api, ref };
+    return { api };
   });
 
 describe("makeSkillExtensionsApi", () => {
@@ -143,17 +138,46 @@ describe("makeSkillExtensionsApi", () => {
     }),
   );
 
-  it.effect("active excludes disabled-direct rows", () =>
+  it.effect("a disabled declared skill is installed with disabled activation", () =>
     Effect.gen(function* () {
       const settings = yield* settingsWithSkills({
         alpha: { source: "github:owner/alpha", enabled: false },
       });
       const { api } = yield* harness({ settings });
-      const active = yield* api.active;
       const installed = yield* api.installed;
       expect(installed).toHaveLength(1);
       expect(installed[0]?.activation).toBe("disabled");
-      expect(active).toHaveLength(0);
+    }),
+  );
+
+  it.effect("packMemberRows shapes the members the graph bound with their activation", () =>
+    Effect.gen(function* () {
+      const settings = yield* settingsWithSkills({
+        alpha: { source: "github:owner/alpha", enabled: true },
+      });
+      const { api } = yield* harness({
+        settings,
+        agentDirOccurrences: [
+          makeAgentDirOccurrence({
+            scope: "project",
+            type: "skill",
+            agentId: "claude-code",
+            name: "review",
+            contentLocation: "/ws/.claude/skills/review",
+          }),
+        ],
+      });
+      const pack = { key: { scope: "project", type: "pack", name: "team-pack" } } as const;
+      const rows = yield* api.packMemberRows([
+        { name: decodeExtensionNameSync("review"), pack, enabled: false },
+        // A member a declared entry also acquires has a direct row already.
+        { name: decodeExtensionNameSync("alpha"), pack, enabled: true },
+      ]);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.key.name).toBe("review");
+      expect(rows[0]?.installationOrigin._tag).toBe("pack-member");
+      expect(rows[0]?.activation).toBe("disabled");
+      expect(rows[0]?.actual).toHaveLength(1);
     }),
   );
 

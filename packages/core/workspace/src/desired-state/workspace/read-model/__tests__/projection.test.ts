@@ -1,26 +1,30 @@
 /**
  * Shared projection helper tests.
  *
- * `projectInstalledExtensions(...)` composes installed/active/unmanaged
- * from declared/resolved/actual plus the installed-pack set. The helper owns:
- *   - source-tolerance via `Effect.result` + `Effect.catchTags`
- *   - diagnostics publication for degraded sources and orphaned resolved entries
+ * `projectInstalledExtensions(...)` composes installed/unmanaged from
+ * declared/resolved/actual, and `projectPackMemberRows(...)` shapes the
+ * Pack-supplied members the desired-state graph bound. The helpers own:
+ *   - only acquiring declarations produce direct rows
  *   - direct-over-pack precedence
  *   - disabled-direct still claims actual occurrences
+ *   - member activation comes from the binding, never from the read model
  *   - deterministic name-sorted ordering
  *
- * The helper MUST NOT carry subject row shape or subject policy; both come in
- * as parameters. This test exercises the helper with placeholder declared /
+ * The helpers MUST NOT carry subject row shape or subject policy; both come in
+ * as parameters. This test exercises them with placeholder declared /
  * resolved / actual / pack-member shapes that mirror what real subjects supply.
  */
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Ref from "effect/Ref";
-import { makeDiagnostics, type Warning } from "../diagnostics.js";
 import type { LockfileReadError, SettingsReadError } from "../errors.js";
-import { projectInstalledExtensions, type SubjectPolicy } from "../extensions/projection.js";
+import {
+  projectInstalledExtensions,
+  projectPackMemberRows,
+  type PackMemberBinding,
+  type SubjectPolicy,
+} from "../extensions/projection.js";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
 import type { InstalledPackRef } from "../types.js";
 
@@ -50,12 +54,7 @@ type TestActual = ReadonlyArray<TestActualEntry>;
 
 interface TestPackMember {
   readonly name: string;
-  readonly version: string;
-}
-
-interface TestInstalledPack {
-  readonly ref: InstalledPackRef;
-  readonly members: ReadonlyArray<TestPackMember>;
+  readonly pack: InstalledPackRef;
 }
 
 interface TestInstalledRow {
@@ -93,8 +92,7 @@ const policy: SubjectPolicy<
   resolvedName: (entry) => entry.name,
   actualEntries: (actual) => actual,
   actualName: (entry) => entry.name,
-  packMemberName: (member) => member.name,
-  packMemberActivation: () => "enabled",
+  packMember: ({ name, pack }) => ({ name, pack }),
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.name === name),
   notClaimedBySubjectPolicy: () => true,
   buildInstalledRow: (input) => ({
@@ -105,34 +103,19 @@ const policy: SubjectPolicy<
     actual: input.actual,
   }),
   buildUnmanagedRow: (entry) => ({ name: entry.name, actual: entry }),
-  resolvedOrphanWarning: (name) => ({
-    source: "lockfile",
-    message: `orphan resolved: ${name}`,
-    code: "orphan-resolved",
-  }),
 };
 
-const harness = (params: {
+interface HarnessInput {
   readonly declared: Effect.Effect<Option.Option<TestDeclared>, SettingsReadError>;
   readonly resolved: Effect.Effect<Option.Option<TestResolved>, LockfileReadError>;
   readonly actual: Effect.Effect<TestActual>;
-  readonly installedPacks: Effect.Effect<ReadonlyArray<TestInstalledPack>>;
-}) =>
-  Effect.gen(function* () {
-    const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);
-    const diagnostics = makeDiagnostics(ref);
-    const out = yield* projectInstalledExtensions({
-      declared: params.declared,
-      resolved: params.resolved,
-      actual: params.actual,
-      installedPacks: params.installedPacks,
-      packMembers: (pack) => pack.members,
-      packRef: (pack) => pack.ref,
-      policy,
-      diagnostics,
-    });
-    return { out, warnings: yield* Ref.get(ref) };
-  });
+}
+
+const harness = (params: HarnessInput) => projectInstalledExtensions({ ...params, policy });
+
+const memberHarness = (
+  params: HarnessInput & { readonly bindings: ReadonlyArray<PackMemberBinding> },
+) => projectPackMemberRows({ ...params, policy });
 
 const DECLARED_ENABLED = (name: string): TestDeclaredEntry => ({
   name,
@@ -161,119 +144,56 @@ const PACK_REF = (name: string): InstalledPackRef => ({
   key: { scope: "project", type: "pack", name: decodeExtensionNameSync(name) },
 });
 
+const BOUND = (name: string, pack: string, enabled = true): PackMemberBinding => ({
+  name: decodeExtensionNameSync(name),
+  pack: PACK_REF(pack),
+  enabled,
+});
+
 describe("projectInstalledExtensions", () => {
   it.effect("direct-from-declared: included declared rows install", () =>
     Effect.gen(function* () {
-      const { out } = yield* harness({
+      const out = yield* harness({
         declared: Effect.succeed(Option.some([DECLARED_ENABLED("alpha")])),
         resolved: Effect.succeed(Option.none()),
         actual: Effect.succeed([]),
-        installedPacks: Effect.succeed([]),
       });
       expect(out.installed).toHaveLength(1);
       expect(out.installed[0]?.name).toBe("alpha");
       expect(out.installed[0]?.installationOrigin._tag).toBe("direct");
-      expect(out.active).toHaveLength(1);
-      expect(out.unmanaged).toHaveLength(0);
-    }),
-  );
-
-  it.effect("implicit-from-installed-pack-members", () =>
-    Effect.gen(function* () {
-      const packRef = PACK_REF("team-pack");
-      const { out } = yield* harness({
-        declared: Effect.succeed(Option.none()),
-        resolved: Effect.succeed(Option.none()),
-        actual: Effect.succeed([]),
-        installedPacks: Effect.succeed([
-          { ref: packRef, members: [{ name: "review-tool", version: "1.0.0" }] },
-        ]),
-      });
-      expect(out.installed).toHaveLength(1);
-      expect(out.installed[0]?.installationOrigin._tag).toBe("pack-member");
       expect(out.installed[0]?.activation).toBe("enabled");
-    }),
-  );
-
-  it.effect("direct-wins-over-pack-membership", () =>
-    Effect.gen(function* () {
-      const packRef = PACK_REF("team-pack");
-      const { out } = yield* harness({
-        declared: Effect.succeed(Option.some([DECLARED_ENABLED("review-tool")])),
-        resolved: Effect.succeed(Option.none()),
-        actual: Effect.succeed([]),
-        installedPacks: Effect.succeed([
-          { ref: packRef, members: [{ name: "review-tool", version: "1.0.0" }] },
-        ]),
-      });
-      expect(out.installed).toHaveLength(1);
-      expect(out.installed[0]?.installationOrigin._tag).toBe("direct");
-    }),
-  );
-
-  it.effect("direct-disabled-still-wins-over-pack-membership and excludes from active", () =>
-    Effect.gen(function* () {
-      const packRef = PACK_REF("team-pack");
-      const { out } = yield* harness({
-        declared: Effect.succeed(Option.some([DECLARED_DISABLED("review-tool")])),
-        resolved: Effect.succeed(Option.none()),
-        actual: Effect.succeed([ACTUAL("review-tool")]),
-        installedPacks: Effect.succeed([
-          { ref: packRef, members: [{ name: "review-tool", version: "1.0.0" }] },
-        ]),
-      });
-      expect(out.installed).toHaveLength(1);
-      expect(out.installed[0]?.installationOrigin._tag).toBe("direct");
-      expect(out.installed[0]?.activation).toBe("disabled");
-      expect(out.active).toHaveLength(0);
       expect(out.unmanaged).toHaveLength(0);
     }),
   );
 
   it.effect("disabled-direct-still-claims-actual: actual entry attached, not unmanaged", () =>
     Effect.gen(function* () {
-      const { out } = yield* harness({
+      const out = yield* harness({
         declared: Effect.succeed(Option.some([DECLARED_DISABLED("alpha")])),
         resolved: Effect.succeed(Option.none()),
         actual: Effect.succeed([ACTUAL("alpha")]),
-        installedPacks: Effect.succeed([]),
       });
       expect(out.installed).toHaveLength(1);
+      expect(out.installed[0]?.activation).toBe("disabled");
       expect(out.installed[0]?.actual).toHaveLength(1);
       expect(out.unmanaged).toHaveLength(0);
     }),
   );
 
-  it.effect("orphaned-resolved-becomes-diagnostic but does not install", () =>
+  it.effect("resolved-only entries never install", () =>
     Effect.gen(function* () {
-      const { out, warnings } = yield* harness({
+      const out = yield* harness({
         declared: Effect.succeed(Option.none()),
         resolved: Effect.succeed(Option.some([RESOLVED("orphan-tool")])),
         actual: Effect.succeed([]),
-        installedPacks: Effect.succeed([]),
       });
       expect(out.installed).toHaveLength(0);
-      expect(warnings.some((w) => w.code === "orphan-resolved")).toBe(true);
-    }),
-  );
-
-  it.effect("packs-not-installed-as-pack-members guard via empty pack set", () =>
-    Effect.gen(function* () {
-      // The pack subject passes installedPacks: Effect.succeed([]).
-      const { out } = yield* harness({
-        declared: Effect.succeed(Option.some([DECLARED_ENABLED("nested-pack")])),
-        resolved: Effect.succeed(Option.none()),
-        actual: Effect.succeed([]),
-        installedPacks: Effect.succeed([]),
-      });
-      expect(out.installed).toHaveLength(1);
-      expect(out.installed[0]?.installationOrigin._tag).toBe("direct");
     }),
   );
 
   it.effect("deterministic ordering: installed sorted by name", () =>
     Effect.gen(function* () {
-      const { out } = yield* harness({
+      const out = yield* harness({
         declared: Effect.succeed(
           Option.some([
             DECLARED_ENABLED("zeta"),
@@ -283,7 +203,6 @@ describe("projectInstalledExtensions", () => {
         ),
         resolved: Effect.succeed(Option.none()),
         actual: Effect.succeed([]),
-        installedPacks: Effect.succeed([]),
       });
       expect(out.installed.map((r) => r.name)).toEqual(["alpha", "mu", "zeta"]);
     }),
@@ -291,28 +210,68 @@ describe("projectInstalledExtensions", () => {
 
   it.effect("intermediate facts (actualOnly, claimed) not in public output", () =>
     Effect.gen(function* () {
-      const { out } = yield* harness({
+      const out = yield* harness({
         declared: Effect.succeed(Option.some([DECLARED_ENABLED("alpha")])),
         resolved: Effect.succeed(Option.none()),
         actual: Effect.succeed([ACTUAL("alpha"), ACTUAL("legacy")]),
-        installedPacks: Effect.succeed([]),
       });
-      // Public surface exposes only installed, active, and unmanaged rows.
+      // Public surface exposes only installed and unmanaged rows.
       const keys = Object.keys(out).sort();
-      expect(keys).toEqual(["active", "installed", "unmanaged"]);
+      expect(keys).toEqual(["installed", "unmanaged"]);
     }),
   );
 
-  it.effect("actual-only stays unmanaged when not declared or packed", () =>
+  it.effect("actual-only stays unmanaged when not declared", () =>
     Effect.gen(function* () {
-      const { out } = yield* harness({
+      const out = yield* harness({
         declared: Effect.succeed(Option.none()),
         resolved: Effect.succeed(Option.none()),
         actual: Effect.succeed([ACTUAL("legacy")]),
-        installedPacks: Effect.succeed([]),
       });
       expect(out.unmanaged).toHaveLength(1);
       expect(out.unmanaged[0]?.name).toBe("legacy");
+    }),
+  );
+});
+
+describe("projectPackMemberRows", () => {
+  it.effect("a bound member becomes a pack-member row carrying the bound activation", () =>
+    Effect.gen(function* () {
+      const rows = yield* memberHarness({
+        declared: Effect.succeed(Option.none()),
+        resolved: Effect.succeed(Option.some([RESOLVED("review-tool")])),
+        actual: Effect.succeed([ACTUAL("review-tool")]),
+        bindings: [BOUND("review-tool", "team-pack", false)],
+      });
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.installationOrigin._tag).toBe("pack-member");
+      expect(rows[0]?.activation).toBe("disabled");
+      expect(Option.isSome(rows[0]?.resolved ?? Option.none())).toBe(true);
+      expect(rows[0]?.actual).toHaveLength(1);
+    }),
+  );
+
+  it.effect("direct-wins-over-pack-membership, even when the declaration is disabled", () =>
+    Effect.gen(function* () {
+      const rows = yield* memberHarness({
+        declared: Effect.succeed(Option.some([DECLARED_DISABLED("review-tool")])),
+        resolved: Effect.succeed(Option.none()),
+        actual: Effect.succeed([]),
+        bindings: [BOUND("review-tool", "team-pack")],
+      });
+      expect(rows).toHaveLength(0);
+    }),
+  );
+
+  it.effect("deterministic ordering: member rows sorted by name, one per member", () =>
+    Effect.gen(function* () {
+      const rows = yield* memberHarness({
+        declared: Effect.succeed(Option.none()),
+        resolved: Effect.succeed(Option.none()),
+        actual: Effect.succeed([]),
+        bindings: [BOUND("zeta", "a-pack"), BOUND("alpha", "b-pack"), BOUND("zeta", "b-pack")],
+      });
+      expect(rows.map((r) => r.name)).toEqual(["alpha", "zeta"]);
     }),
   );
 });

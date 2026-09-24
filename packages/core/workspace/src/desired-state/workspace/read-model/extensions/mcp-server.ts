@@ -21,7 +21,6 @@ import { lockEntryToSourceParams } from "../../lock-entry-to-source-params.js";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import { isSourcedMcpServerEntry } from "../../../settings/schema.js";
 import type { McpServerEntry, Settings } from "../../../settings/schema.js";
-import type { Diagnostics, Warning } from "../diagnostics.js";
 import type { LockfileReadError, SettingsReadError } from "../errors.js";
 import type { CanonicalExtensionOccurrence, McpConfigOccurrence } from "../scanners/types.js";
 import type {
@@ -36,6 +35,8 @@ import { canonicalAxmPackageRoot } from "./package-root.js";
 import {
   makeProjectedSubjectCells,
   projectInstalledExtensions,
+  projectPackMemberRows,
+  type PackMemberBinding,
   type SubjectPolicy,
 } from "./projection.js";
 
@@ -92,7 +93,6 @@ export interface InstalledMcpServer {
   readonly activation: ActivationState;
   readonly resolved: Option.Option<ResolvedMcpServer>;
   readonly actual: ReadonlyArray<ActualMcpServer>;
-  readonly providingPacks: ReadonlyArray<InstalledPackRef>;
 }
 
 export interface UnmanagedMcpServer {
@@ -112,11 +112,7 @@ const declaredFromSettings = (settings: Settings): DeclaredMcpServers => {
   }));
 };
 
-const resolvedFromState = (
-  settings: Settings,
-  lockfile: Lockfile,
-  packs: ReadonlyArray<InstalledPackForMcpServers>,
-): ResolvedMcpServers => {
+const resolvedFromState = (settings: Settings, lockfile: Lockfile): ResolvedMcpServers => {
   const locked = Object.values(lockfile.mcpServers ?? {});
   const resolved: ResolvedMcpServer[] = [];
   const names = new Set<string>();
@@ -142,13 +138,6 @@ const resolvedFromState = (
     if (lockEntry === undefined) continue;
     names.add(localName);
     resolved.push({ name: decodeExtensionNameSync(localName), lockEntry });
-  }
-  for (const member of packs.flatMap((pack) => pack.mcpServers)) {
-    if (names.has(member.name)) continue;
-    const lockEntry = locked.find((candidate) => candidate.identity.name === member.name);
-    if (lockEntry === undefined) continue;
-    names.add(member.name);
-    resolved.push({ name: member.name, lockEntry });
   }
   return resolved;
 };
@@ -198,20 +187,10 @@ export interface McpServerScanners {
   readonly mcpConfig: Effect.Effect<ReadonlyArray<McpConfigOccurrence>>;
 }
 
-export interface InstalledPackForMcpServers {
-  readonly ref: InstalledPackRef;
-  readonly mcpServers: ReadonlyArray<McpServerPackMember>;
-}
-
 export interface McpServerExtensionsApiDeps {
   readonly scope: Scope;
   readonly loaders: McpServerScopedLoaders;
   readonly scanners: McpServerScanners;
-  readonly installedPacks: Effect.Effect<
-    ReadonlyArray<InstalledPackForMcpServers>,
-    SettingsReadError | LockfileReadError
-  >;
-  readonly diagnostics: Diagnostics;
 }
 
 export interface McpServerExtensionsApi {
@@ -228,21 +207,15 @@ export interface McpServerExtensionsApi {
   readonly declaredByName: (
     name: string,
   ) => Effect.Effect<Option.Option<DeclaredMcpServer>, SettingsReadError>;
-  readonly active: Effect.Effect<
-    ReadonlyArray<InstalledMcpServer>,
-    SettingsReadError | LockfileReadError
-  >;
+  /** Rows for the Pack-supplied members the desired-state graph bound to this subject. */
+  readonly packMemberRows: (
+    bindings: ReadonlyArray<PackMemberBinding>,
+  ) => Effect.Effect<ReadonlyArray<InstalledMcpServer>, SettingsReadError | LockfileReadError>;
   readonly unmanaged: Effect.Effect<
     ReadonlyArray<UnmanagedMcpServer>,
     SettingsReadError | LockfileReadError
   >;
 }
-
-const orphanResolvedWarning = (name: string): Warning => ({
-  source: "lockfile",
-  message: `mcp-server: lockfile entry "${name}" has no matching declared or pack-member home`,
-  code: "orphan-resolved",
-});
 
 const mcpServerPolicy = (
   scope: Scope,
@@ -264,8 +237,7 @@ const mcpServerPolicy = (
   resolvedName: (e) => e.name,
   actualEntries: (a) => a,
   actualName: (e) => e.key.name,
-  packMemberName: (m) => m.name,
-  packMemberActivation: () => "enabled",
+  packMember: ({ name, pack }) => ({ name, providingPack: pack }),
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
   buildInstalledRow: (input) => ({
@@ -274,13 +246,11 @@ const mcpServerPolicy = (
     activation: input.activation,
     resolved: input.resolved,
     actual: input.actual,
-    providingPacks: input.providingPacks,
   }),
   buildUnmanagedRow: (entry) => ({
     key: { scope, type: "mcp-server", name: entry.key.name },
     actual: entry,
   }),
-  resolvedOrphanWarning: orphanResolvedWarning,
 });
 
 /**
@@ -292,7 +262,7 @@ export const makeMcpServerExtensionsApi = (
   deps: McpServerExtensionsApiDeps,
 ): Effect.Effect<McpServerExtensionsApi> =>
   Effect.gen(function* () {
-    const { scope, loaders, scanners, installedPacks, diagnostics } = deps;
+    const { scope, loaders, scanners } = deps;
 
     const declared: McpServerExtensionsApi["declared"] = loaders.settings.pipe(
       Effect.map((opt) => Option.map(opt, declaredFromSettings)),
@@ -300,13 +270,24 @@ export const makeMcpServerExtensionsApi = (
     const resolved: McpServerExtensionsApi["resolved"] = Effect.all({
       settings: loaders.settings.pipe(Effect.catch(() => Effect.succeed(Option.none()))),
       lockfile: loaders.lockfile,
-      packs: installedPacks.pipe(Effect.catch(() => Effect.succeed([]))),
     }).pipe(
-      Effect.map(({ settings, lockfile, packs }) =>
+      Effect.map(({ settings, lockfile }) =>
         Option.all({ settings, lockfile }).pipe(
           Option.map(({ settings: decodedSettings, lockfile: decodedLockfile }) =>
-            resolvedFromState(decodedSettings, decodedLockfile, packs),
+            resolvedFromState(decodedSettings, decodedLockfile),
           ),
+        ),
+      ),
+    );
+    // A Pack-supplied server has no settings source to resolve through; its
+    // accepted lock row is the one whose identity carries the member's name.
+    const memberResolved: McpServerExtensionsApi["resolved"] = loaders.lockfile.pipe(
+      Effect.map((opt) =>
+        Option.map(opt, (lockfile) =>
+          Object.values(lockfile.mcpServers ?? {}).map((lockEntry) => ({
+            name: lockEntry.identity.name,
+            lockEntry,
+          })),
         ),
       ),
     );
@@ -333,28 +314,24 @@ export const makeMcpServerExtensionsApi = (
       return [...fromCanonical, ...fromMcpConfig];
     });
 
+    const policy = mcpServerPolicy(scope);
     const project = yield* Effect.cached(
       projectInstalledExtensions({
         declared,
         resolved,
         actual,
-        installedPacks: installedPacks.pipe(
-          Effect.map((packs) => packs.map((p) => ({ ref: p.ref, members: p.mcpServers }))),
-        ),
-        packMembers: (pack: {
-          readonly ref: InstalledPackRef;
-          readonly members: ReadonlyArray<McpServerPackMember>;
-        }) => pack.members,
-        packRef: (pack) => pack.ref,
-        policy: mcpServerPolicy(scope),
-        diagnostics,
+        policy,
       }),
     );
 
-    return makeProjectedSubjectCells({
-      declared,
-      resolved,
-      actual,
-      project,
-    }) satisfies McpServerExtensionsApi;
+    return {
+      ...makeProjectedSubjectCells({
+        declared,
+        resolved,
+        actual,
+        project,
+      }),
+      packMemberRows: (bindings) =>
+        projectPackMemberRows({ bindings, declared, resolved: memberResolved, actual, policy }),
+    } satisfies McpServerExtensionsApi;
   });

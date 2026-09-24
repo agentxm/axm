@@ -88,10 +88,8 @@ import {
   acceptedLockedCanonicalPath,
   acceptedLockedResolutionRef,
   effectiveDesiredConstraint,
-  isDesiredExtensionActive,
   isRequiredByAnotherOrigin,
   observeDesiredCanonical,
-  originsOutsidePacks,
   usableAcceptedCanonical,
   usableAcceptedCanonicalFrom,
   type HookExtensionTarget,
@@ -682,6 +680,8 @@ export type PackGraphSelection =
   | {
       readonly kind: "selected";
       readonly authority: WorkspaceAuthorityScan;
+      /** The desired state as it will be with this Pack's manifest in place. */
+      readonly proposedGraph: DesiredStateGraph;
       /** The Pack first, then every member it resolves to. */
       readonly refs: ReadonlyArray<ExtensionRef>;
       readonly holdbacks: ReadonlyArray<ReleaseAgeHoldbackRecord>;
@@ -783,6 +783,7 @@ export const selectPackGraph = Effect.fn("InstallExtensions.selectPackGraph")(fu
   return {
     kind: "selected",
     authority,
+    proposedGraph,
     refs: expansion.refs,
     holdbacks: expansion.holdbacks,
     bypasses: expansion.bypasses,
@@ -1350,7 +1351,7 @@ export const planPackInstall: (
     } satisfies Plan<InstallStepRequirements>;
   }
 
-  const { authority, refs } = selection;
+  const { authority, proposedGraph, refs } = selection;
   const graph = authority.graph;
   const currentPackNode = graph.nodes.find(
     (node) => node.type === "pack" && node.name === intent.packToInstall.pack.name,
@@ -1579,17 +1580,14 @@ export const planPackInstall: (
   );
 
   const resolvedTargets = refs.map(targetFromRef);
-  // A member's activation survives a pack replacement: what the incoming pack
-  // decides is combined with every origin the member still has.
-  const expectedMemberActivation = (target: PackDependencyTarget): boolean => {
-    const currentNode = graph.nodes.find(
-      (node) => node.type === target.type && node.name === target.name,
-    );
-    return isDesiredExtensionActive([
-      ...(currentNode === undefined ? [] : originsOutsidePacks(currentNode, [packIdentity])),
-      { type: "pack", enabled: preservedPackActivation },
-    ]);
-  };
+  // The desired-state graph alone decides a member's activation, so the
+  // postcondition expects what the proposed graph already settled: an
+  // activation preference survives a Pack replacement because the graph binds
+  // it, not because this planner recomputes it. A member the proposed graph
+  // does not hold yet — a fresh install — gets no activation expectation.
+  const expectedMemberActivation = (target: PackDependencyTarget): boolean | undefined =>
+    proposedGraph.nodes.find((node) => node.type === target.type && node.name === target.name)
+      ?.enabled;
   const artifactTargets: ReadonlyArray<JobStepArtifactTarget> = [
     ...refs.map((ref): JobStepArtifactTarget => {
       const target = targetFromRef(ref);
@@ -1689,18 +1687,13 @@ export const planPackInstall: (
           enabled: preservedPackActivation,
         },
       ],
-      requiredMembers: resolvedTargets.flatMap((target) =>
-        target.type === "pack"
-          ? []
-          : [
-              {
-                type: target.type,
-                name: target.name,
-                packIdentity,
-                enabled: expectedMemberActivation(target),
-              },
-            ],
-      ),
+      requiredMembers: resolvedTargets.flatMap((target) => {
+        if (target.type === "pack") return [];
+        const enabled = expectedMemberActivation(target);
+        return enabled === undefined
+          ? [{ type: target.type, name: target.name, packIdentity }]
+          : [{ type: target.type, name: target.name, packIdentity, enabled }];
+      }),
       absent: droppedTargets.map(({ target }) => target),
     }),
   });

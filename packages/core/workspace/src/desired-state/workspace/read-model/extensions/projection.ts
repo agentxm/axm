@@ -1,30 +1,24 @@
 /**
- * Shared projection helper: composes installed/active/unmanaged from
- * declared/resolved/actual plus the installed-pack set.
- *
- * Per the projection invariant in the workspace read-model design (Decision 7):
+ * Shared projection helper: composes installed/unmanaged from
+ * declared/resolved/actual, and shapes Pack-member rows from the bindings
+ * the desired-state graph decided.
  *
  * ```ts
- * direct = declared.map(withInstallationOrigin("direct"));
- * implicit = installedPacks
- *   .flatMap(p => p.members)
- *   .filter(notDeclaredByName) // direct (incl. disabled) wins
- *   .map(withInstallationOrigin("pack-member"));
- * installed = direct + implicit;
- * active = installed.filter(activation === "enabled");
+ * direct = declared.filter(declaresAcquisition).map(withInstallationOrigin("direct"));
+ * installed = direct;
  * unmanaged = actual
  *   .filter(notClaimedByInstalled)
  *   .filter(notClaimedBySubjectPolicy);
+ * members = bindings
+ *   .filter(notDeclaredByName) // direct (incl. disabled) wins
+ *   .map(withInstallationOrigin("pack-member"));
  * ```
  *
- * The helper owns:
- * - direct-over-pack precedence;
- * - disabled-direct still claims actual occurrences (excluded from active and
- *   from unmanaged);
- * - actual-occurrence attachment via `policy.attachActualToInstalled`;
- * - orphaned-resolved diagnostics — resolved entries with no direct or
- *   pack-member home publish a warning;
- * - deterministic name-sorted ordering.
+ * The read model never decides Pack membership or a member's activation:
+ * both are reachability facts the desired-state graph owns. A caller that
+ * holds the graph passes each member's binding in, and the subject shapes the
+ * row — attaching the member's accepted resolution and observed occurrences —
+ * without judging it.
  *
  * The helper does NOT own subject row shape or subject policy. Both come in as
  * parameters via `SubjectPolicy<...>`.
@@ -33,7 +27,7 @@
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { Diagnostics, Warning } from "../diagnostics.js";
+import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions/common";
 import type { LockfileReadError, SettingsReadError } from "../errors.js";
 import type { ActivationState, InstallationOrigin, InstalledPackRef } from "../types.js";
 import { findByName, type RowWithKey } from "./indexByName.js";
@@ -53,6 +47,21 @@ export type TResolvedEntry<TResolved> = TResolved extends ReadonlyArray<infer E>
 
 /** One actual occurrence within a subject's `actual` payload. */
 export type TActualEntry<TActual> = TActual extends ReadonlyArray<infer E> ? E : TActual;
+
+// ---------------------------------------------------------------------------
+// Pack-member bindings
+// ---------------------------------------------------------------------------
+
+/**
+ * One Pack-supplied member as the desired-state graph decided it: the Pack
+ * that supplies it and whether it is active once every origin and preference
+ * has had its say.
+ */
+export interface PackMemberBinding {
+  readonly name: ExtensionName;
+  readonly pack: InstalledPackRef;
+  readonly enabled: boolean;
+}
 
 // ---------------------------------------------------------------------------
 // Subject policy contract
@@ -94,11 +103,8 @@ export interface SubjectPolicy<TDeclared, TResolved, TActual, TPackMember, TInst
   /** Extract the subject name from an actual occurrence. */
   readonly actualName: (entry: TActualEntry<TActual>) => string;
 
-  /** Extract the subject name from a pack-member entry. */
-  readonly packMemberName: (member: TPackMember) => string;
-
-  /** Activation state for a pack-member installed row. */
-  readonly packMemberActivation: (member: TPackMember) => ActivationState;
+  /** The member entry a Pack-supplied row carries, from the binding the graph decided. */
+  readonly packMember: (binding: PackMemberBinding) => TPackMember;
 
   /** Filter actual occurrences to those that match a given installed name. */
   readonly attachActualToInstalled: (
@@ -119,9 +125,6 @@ export interface SubjectPolicy<TDeclared, TResolved, TActual, TPackMember, TInst
 
   /** Build a subject unmanaged row from one actual occurrence. */
   readonly buildUnmanagedRow: (entry: TActualEntry<TActual>) => TUnmanaged;
-
-  /** Build the orphan-resolved warning published when a resolved entry has no home. */
-  readonly resolvedOrphanWarning: (name: string) => Warning;
 }
 
 /**
@@ -134,18 +137,17 @@ export interface BuildInstalledRowInput<TDeclared, TResolved, TActual, TPackMemb
   readonly activation: ActivationState;
   readonly resolved: Option.Option<TResolvedEntry<TResolved>>;
   readonly actual: ReadonlyArray<TActualEntry<TActual>>;
-  readonly providingPacks: ReadonlyArray<InstalledPackRef>;
 }
 
 // ---------------------------------------------------------------------------
 // Helper input / output
 // ---------------------------------------------------------------------------
 
-export interface ProjectInstalledExtensionsInput<
+/** The three source layers one subject reads, and the policy that names them. */
+export interface SubjectProjectionInput<
   TDeclared,
   TResolved,
   TActual,
-  TPack,
   TPackMember,
   TInstalled,
   TUnmanaged,
@@ -153,12 +155,6 @@ export interface ProjectInstalledExtensionsInput<
   readonly declared: Effect.Effect<Option.Option<TDeclared>, SettingsReadError>;
   readonly resolved: Effect.Effect<Option.Option<TResolved>, LockfileReadError>;
   readonly actual: Effect.Effect<TActual>;
-  readonly installedPacks: Effect.Effect<
-    ReadonlyArray<TPack>,
-    SettingsReadError | LockfileReadError
-  >;
-  readonly packMembers: (pack: TPack) => ReadonlyArray<TPackMember>;
-  readonly packRef: (pack: TPack) => InstalledPackRef;
   readonly policy: SubjectPolicy<
     TDeclared,
     TResolved,
@@ -167,12 +163,10 @@ export interface ProjectInstalledExtensionsInput<
     TInstalled,
     TUnmanaged
   >;
-  readonly diagnostics: Diagnostics;
 }
 
 export interface ProjectInstalledExtensionsOutput<TInstalled, TUnmanaged> {
   readonly installed: ReadonlyArray<TInstalled>;
-  readonly active: ReadonlyArray<TInstalled>;
   readonly unmanaged: ReadonlyArray<TUnmanaged>;
 }
 
@@ -205,66 +199,26 @@ export const makeProjectedSubjectCells = <
         ),
       ),
     ),
-  active: args.project.pipe(Effect.map((out) => out.active)),
   unmanaged: args.project.pipe(Effect.map((out) => out.unmanaged)),
 });
 
 // ---------------------------------------------------------------------------
-// Public helper
+// Source layers
 // ---------------------------------------------------------------------------
 
 /**
- * Compose installed, active, and unmanaged rows from declared/resolved/actual
- * plus the installed-pack set, per the projection invariant.
- *
- * Source-read failures propagate so invalid persisted authority is never
- * treated as absent.
+ * Read the three layers into per-name lookups. Invalid persisted authority
+ * fails the read instead of being treated as absent, and first-wins
+ * deduplication keeps the projection deterministic.
  */
-export const projectInstalledExtensions = <
-  TDeclared,
-  TResolved,
-  TActual,
-  TPack,
-  TPackMember,
-  TInstalled,
-  TUnmanaged,
->(
-  input: ProjectInstalledExtensionsInput<
-    TDeclared,
-    TResolved,
-    TActual,
-    TPack,
-    TPackMember,
-    TInstalled,
-    TUnmanaged
-  >,
-): Effect.Effect<
-  ProjectInstalledExtensionsOutput<TInstalled, TUnmanaged>,
-  SettingsReadError | LockfileReadError
-> =>
+const readSubjectLayers = <TDeclared, TResolved, TActual, TPackMember, TInstalled, TUnmanaged>(
+  input: SubjectProjectionInput<TDeclared, TResolved, TActual, TPackMember, TInstalled, TUnmanaged>,
+) =>
   Effect.gen(function* () {
-    const {
-      declared,
-      resolved,
-      actual,
-      installedPacks,
-      packMembers,
-      packRef,
-      policy,
-      diagnostics,
-    } = input;
-
-    // 1. Read the three layers + installed packs. Invalid persisted authority
-    //    fails the projection instead of being treated as absent.
-    const declaredOpt = yield* declared;
-    const resolvedOpt = yield* resolved;
-    const actualPayload = yield* actual;
-    const packs = yield* installedPacks;
-
-    // 2. Iterate raw evidence into per-name lookups using first-wins
-    //    deduplication. `dedupeFirstByName` builds an immutable Map keyed by
-    //    the policy-derived name; subsequent entries with the same name are
-    //    dropped, so the projection stays deterministic.
+    const { policy } = input;
+    const declaredOpt = yield* input.declared;
+    const resolvedOpt = yield* input.resolved;
+    const actualPayload = yield* input.actual;
     const emptyDeclared: ReadonlyArray<TDeclaredEntry<TDeclared>> = [];
     const emptyResolved: ReadonlyArray<TResolvedEntry<TResolved>> = [];
     const declaredEntries = Option.match(declaredOpt, {
@@ -275,135 +229,62 @@ export const projectInstalledExtensions = <
       onNone: () => emptyResolved,
       onSome: (r) => policy.resolvedEntries(r),
     });
-    const actualEntries = policy.actualEntries(actualPayload);
+    return {
+      declaredByName: dedupeFirstByName(declaredEntries, policy.declaredName),
+      resolvedByName: dedupeFirstByName(resolvedEntries, policy.resolvedName),
+      actualEntries: policy.actualEntries(actualPayload),
+    };
+  });
 
-    const declaredByName: ReadonlyMap<string, TDeclaredEntry<TDeclared>> = dedupeFirstByName(
-      declaredEntries,
-      policy.declaredName,
-    );
-    const resolvedByName: ReadonlyMap<string, TResolvedEntry<TResolved>> = dedupeFirstByName(
-      resolvedEntries,
-      policy.resolvedName,
-    );
+// ---------------------------------------------------------------------------
+// Public helpers
+// ---------------------------------------------------------------------------
 
-    // 3. Pack-member rollup. First pack to provide a member name wins for
-    //    placement; subsequent providers extend the `providingPacks` list. The
-    //    accumulator builds an immutable Map keyed by member name with
-    //    concat-on-add provider lists.
-    interface MemberState {
-      readonly member: TPackMember;
-      readonly pack: InstalledPackRef;
-      readonly providingPacks: ReadonlyArray<InstalledPackRef>;
-    }
-    const packMemberPairs: ReadonlyArray<readonly [TPackMember, InstalledPackRef]> = packs.flatMap(
-      (pack) => {
-        const ref = packRef(pack);
-        return packMembers(pack).map((member) => [member, ref] as const);
-      },
-    );
-    const memberByName: ReadonlyMap<string, MemberState> = packMemberPairs.reduce<
-      Map<string, MemberState>
-    >((acc, [member, ref]) => {
-      const name = policy.packMemberName(member);
-      const existing = acc.get(name);
-      const next = new Map(acc);
-      if (existing === undefined) {
-        next.set(name, { member, pack: ref, providingPacks: [ref] });
-      } else {
-        next.set(name, {
-          member: existing.member,
-          pack: existing.pack,
-          providingPacks: [...existing.providingPacks, ref],
-        });
-      }
-      return next;
-    }, new Map<string, MemberState>());
+/**
+ * Compose installed and unmanaged rows from declared/resolved/actual.
+ *
+ * Only a declared entry that acquires produces an installed row. A disabled
+ * direct row still claims its actual occurrences, so they are never reported
+ * as unmanaged.
+ */
+export const projectInstalledExtensions = <
+  TDeclared,
+  TResolved,
+  TActual,
+  TPackMember,
+  TInstalled,
+  TUnmanaged,
+>(
+  input: SubjectProjectionInput<TDeclared, TResolved, TActual, TPackMember, TInstalled, TUnmanaged>,
+): Effect.Effect<
+  ProjectInstalledExtensionsOutput<TInstalled, TUnmanaged>,
+  SettingsReadError | LockfileReadError
+> =>
+  Effect.gen(function* () {
+    const { policy } = input;
+    const { declaredByName, resolvedByName, actualEntries } = yield* readSubjectLayers(input);
 
-    // 4. Build direct + implicit rows. Track names alongside rows so we can
-    //    sort and derive activation without inspecting the opaque `TInstalled`
-    //    shape.
     interface NamedRow {
       readonly name: string;
       readonly row: TInstalled;
-      readonly activation: ActivationState;
     }
     const direct: ReadonlyArray<NamedRow> = Array.getSomes(
       Array.fromIterable(declaredByName.entries()).map(([name, entry]) => {
         // A configuration-only entry acquires nothing, so it is not a route.
         if (!policy.declaresAcquisition(entry)) return Option.none<NamedRow>();
-        const activation = policy.declaredActivation(entry);
-        const memberState = memberByName.get(name);
-        const providingPacks: ReadonlyArray<InstalledPackRef> =
-          memberState === undefined ? [] : memberState.providingPacks;
-        const attached = policy.attachActualToInstalled(name, actualEntries);
         const row = policy.buildInstalledRow({
           name,
           installationOrigin: { _tag: "direct", declared: entry },
-          activation,
+          activation: policy.declaredActivation(entry),
           resolved: Option.fromUndefinedOr(resolvedByName.get(name)),
-          actual: attached,
-          providingPacks,
+          actual: policy.attachActualToInstalled(name, actualEntries),
         });
-        return Option.some({ name, row, activation });
+        return Option.some({ name, row });
       }),
     );
-
-    // 5. Implicit pack-member rows: skip names already declared (direct wins,
-    //    including disabled).
-    const implicit: ReadonlyArray<NamedRow> = Array.getSomes(
-      Array.fromIterable(memberByName.entries()).map(([name, state]) => {
-        const declaredEntry = declaredByName.get(name);
-        if (declaredEntry !== undefined && policy.declaresAcquisition(declaredEntry)) {
-          return Option.none<NamedRow>(); // direct wins
-        }
-        // An explicit disable in a configuration-only entry overrides the
-        // member; anything else inherits whatever the Pack supplies.
-        const activation =
-          declaredEntry !== undefined && policy.declaredActivation(declaredEntry) === "disabled"
-            ? "disabled"
-            : policy.packMemberActivation(state.member);
-        const attached = policy.attachActualToInstalled(name, actualEntries);
-        const row = policy.buildInstalledRow({
-          name,
-          installationOrigin: {
-            _tag: "pack-member",
-            member: state.member,
-            pack: state.pack,
-          },
-          activation,
-          resolved: Option.fromUndefinedOr(resolvedByName.get(name)),
-          actual: attached,
-          providingPacks: state.providingPacks,
-        });
-        return Option.some({ name, row, activation });
-      }),
-    );
-
-    // 6. Sort by name for deterministic ordering.
-    const installedNamed: ReadonlyArray<NamedRow> = [...direct, ...implicit].sort((a, b) =>
-      a.name.localeCompare(b.name),
-    );
+    const installedNamed = [...direct].sort((a, b) => a.name.localeCompare(b.name));
     const installedNames: ReadonlySet<string> = new Set(installedNamed.map((r) => r.name));
-    const installed: ReadonlyArray<TInstalled> = installedNamed.map((r) => r.row);
-    const active: ReadonlyArray<TInstalled> = installedNamed
-      .filter((r) => r.activation === "enabled")
-      .map((r) => r.row);
 
-    // 7. Orphaned-resolved diagnostics: any resolved entry whose name is
-    //    neither declared nor present as a pack-member. Collect orphan names
-    //    first, then publish sequentially via Effect.forEach to keep the
-    //    diagnostics buffer in deterministic order.
-    const orphanNames: ReadonlyArray<string> = Array.fromIterable(resolvedByName.keys()).filter(
-      (name) => !declaredByName.has(name) && !memberByName.has(name),
-    );
-    yield* Effect.forEach(
-      orphanNames,
-      (name) => diagnostics.append(policy.resolvedOrphanWarning(name)),
-      { discard: true },
-    );
-
-    // 8. Unmanaged: actual occurrences not claimed by an installed row and
-    //    passing subject policy.
     const unmanaged: ReadonlyArray<TUnmanaged> = Array.getSomes(
       actualEntries.map((entry) => {
         const name = policy.actualName(entry);
@@ -414,10 +295,60 @@ export const projectInstalledExtensions = <
     );
 
     return {
-      installed,
-      active,
+      installed: installedNamed.map((r) => r.row),
       unmanaged,
     } satisfies ProjectInstalledExtensionsOutput<TInstalled, TUnmanaged>;
+  });
+
+/**
+ * Shape the rows of the Pack-supplied members the graph bound for this
+ * subject. A member a declared entry also acquires has a direct row already,
+ * so it produces no member row; every other binding becomes one row carrying
+ * the activation the graph decided.
+ */
+export const projectPackMemberRows = <
+  TDeclared,
+  TResolved,
+  TActual,
+  TPackMember,
+  TInstalled,
+  TUnmanaged,
+>(
+  input: SubjectProjectionInput<
+    TDeclared,
+    TResolved,
+    TActual,
+    TPackMember,
+    TInstalled,
+    TUnmanaged
+  > & { readonly bindings: ReadonlyArray<PackMemberBinding> },
+): Effect.Effect<ReadonlyArray<TInstalled>, SettingsReadError | LockfileReadError> =>
+  Effect.gen(function* () {
+    const { policy } = input;
+    const { declaredByName, resolvedByName, actualEntries } = yield* readSubjectLayers(input);
+    const seen = new Set<string>();
+    return [...input.bindings]
+      .sort((left, right) => left.name.localeCompare(right.name))
+      .flatMap((binding) => {
+        const name = binding.name;
+        if (seen.has(name)) return [];
+        seen.add(name);
+        const declaredEntry = declaredByName.get(name);
+        if (declaredEntry !== undefined && policy.declaresAcquisition(declaredEntry)) return [];
+        return [
+          policy.buildInstalledRow({
+            name,
+            installationOrigin: {
+              _tag: "pack-member",
+              member: policy.packMember(binding),
+              pack: binding.pack,
+            },
+            activation: binding.enabled ? "enabled" : "disabled",
+            resolved: Option.fromUndefinedOr(resolvedByName.get(name)),
+            actual: policy.attachActualToInstalled(name, actualEntries),
+          }),
+        ];
+      });
   });
 
 /**

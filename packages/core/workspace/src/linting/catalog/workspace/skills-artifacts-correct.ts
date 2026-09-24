@@ -36,6 +36,7 @@ import {
 import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agents/types";
 import { deferringNodes } from "./canonical-observation-findings.js";
 import { settingsDisplayPath } from "./display-paths.js";
+import { desiredPackMemberBindings } from "./helpers/pack-members.js";
 
 const RULE_ID = "workspace/skills-artifacts-correct";
 const enableFinding = (name: string, reason: string, path: string): AdvisoryFinding => ({
@@ -155,11 +156,14 @@ export const skillsArtifactsCorrectRule: AdvisoryRule<WorkspaceRuleContext> = {
           )
           .map((agent) => agent.id),
       );
-      const installedResult = yield* Effect.result(scoped.skills.installed);
+      const members = yield* desiredPackMemberBindings(context, "skill");
+      const installedResult = yield* Effect.result(
+        Effect.all([scoped.skills.installed, scoped.skills.packMemberRows(members)]),
+      );
       // The lockfile/readability rules own this failure; avoid turning it into
       // a defect or duplicating a less precise finding here.
       if (Result.isFailure(installedResult)) return EMPTY_LINT_FINDINGS;
-      const installed = installedResult.success;
+      const installed = installedResult.success.flat();
       // A skill whose canonical tree is absent has no content to project; the
       // one finding for that absence covers its absent artifacts.
       const deferred = yield* deferringNodes(context);

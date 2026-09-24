@@ -33,7 +33,12 @@ import {
 } from "../materialization/index.js";
 import { installMcpServer, type McpServerInstallRequirements } from "./mcps/install-operation.js";
 import { buildMaterializeOperation, targetFromRef, toStepKey } from "./extensions/operations.js";
-import { enabledConfiguredEntries, isConfiguredEntryEnabled } from "../desired-state/index.js";
+import {
+  enabledConfiguredEntries,
+  isConfiguredEntryEnabled,
+  settingsEntries,
+  type Settings,
+} from "../desired-state/index.js";
 import {
   acceptedResolutionIncompatibleRecovery,
   acceptedResolutionIncompatibleText,
@@ -110,7 +115,21 @@ import type { SyncFailureAdapter, SyncPolicyFailure } from "./failure-adapter.js
 export interface SyncSelection {
   readonly target: Option.Option<string>;
   readonly type: Option.Option<Exclude<ExtensionType, "pack">>;
+  /**
+   * The exact desired nodes an activation change moves. Narrower than a
+   * target or a type: an identity is not always a parseable name, and a type
+   * would sweep every sibling into the change.
+   */
+  readonly subjects?: ReadonlyArray<{ readonly type: ExtensionType; readonly name: string }>;
 }
+
+const isSubject = (
+  selection: SyncSelection,
+  node: { readonly type: ExtensionType; readonly name: string },
+): boolean =>
+  selection.subjects?.some(
+    (subject) => subject.type === node.type && subject.name === node.name,
+  ) === true;
 
 export const normalizedIdentity = (identity: string): string =>
   identity.startsWith("workspace:") ? identity.slice("workspace:".length) : identity;
@@ -126,6 +145,9 @@ export const selectedDesiredNodes = (
   graph: DesiredStateGraph,
   selection: SyncSelection,
 ): ReadonlyArray<DesiredExtensionNode> => {
+  if (selection.subjects !== undefined) {
+    return graph.nodes.filter((node) => isSubject(selection, node));
+  }
   if (Option.isSome(selection.target)) {
     const target = selection.target.value;
     const parsed = parseExtensionFqnParts(target);
@@ -154,6 +176,13 @@ export const scopedProblems = (
   graph: DesiredStateGraph,
   selection: SyncSelection,
 ): DesiredStateGraph["problems"] => {
+  if (selection.subjects !== undefined) {
+    return graph.problems.filter(
+      (problem) =>
+        "extensionType" in problem &&
+        isSubject(selection, { type: problem.extensionType, name: problem.name }),
+    );
+  }
   if (Option.isNone(selection.target) && Option.isNone(selection.type)) return graph.problems;
   if (Option.isSome(selection.type)) {
     const type = selection.type.value;
@@ -467,6 +496,8 @@ export interface CollectedMaterializeSteps {
 export const collectMaterializeSteps = (args: {
   readonly selection?: SyncSelection;
   readonly desiredState?: DesiredStateGraph;
+  /** The settings document `desiredState` was derived from, when it is a proposal. */
+  readonly settings?: Settings;
   /** Desired agent set for membership preflight before settings are committed. */
   readonly configuredAgents?: ReadonlyArray<string>;
   readonly packRecovery?: ConfiguredPackRecovery;
@@ -510,7 +541,10 @@ export const collectMaterializeSteps = (args: {
     const path = yield* Path.Path;
     const providers = yield* SourceHostProviders;
     const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation();
-    const configuredMcpServerEntries = yield* settings.entries("mcp-server");
+    const configuredMcpServerEntries =
+      args.settings === undefined
+        ? yield* settings.entries("mcp-server")
+        : settingsEntries["mcp-server"].entries(args.settings);
     const configuredAgents = args.configuredAgents ?? (yield* settings.configuredAgents);
     const desiredState = args.desiredState ?? (yield* desiredStateReader.graph());
     const desiredActivation = (ref: ExtensionRef): boolean =>
@@ -821,6 +855,8 @@ export const collectMaterializeSteps = (args: {
         ([name, entry]) =>
           isConfiguredEntryEnabled(entry) &&
           isInlineMcpServerEntry(entry) &&
+          (selection.subjects === undefined ||
+            isSubject(selection, { type: "mcp-server", name })) &&
           (Option.isNone(selection.type) || selection.type.value === "mcp-server") &&
           (Option.isNone(selection.target) ||
             (parseExtensionFqnParts(selection.target.value)?.type === "mcp-server" &&

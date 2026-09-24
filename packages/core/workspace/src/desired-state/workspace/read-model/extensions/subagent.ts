@@ -17,7 +17,6 @@ import {
 } from "@agentxm/extension-model/unstable/extensions/common";
 import type { Lockfile, SubagentLockEntry } from "../../../lockfile/schema.js";
 import type { Settings, SubagentEntry } from "../../../settings/schema.js";
-import type { Diagnostics, Warning } from "../diagnostics.js";
 import type { LockfileReadError, SettingsReadError } from "../errors.js";
 import type { AgentDirOccurrence, CanonicalExtensionOccurrence } from "../scanners/types.js";
 import type {
@@ -32,6 +31,8 @@ import { canonicalAxmPackageRoot } from "./package-root.js";
 import {
   makeProjectedSubjectCells,
   projectInstalledExtensions,
+  projectPackMemberRows,
+  type PackMemberBinding,
   type SubjectPolicy,
 } from "./projection.js";
 
@@ -80,7 +81,6 @@ export interface InstalledSubagent {
   readonly activation: ActivationState;
   readonly resolved: Option.Option<ResolvedSubagent>;
   readonly actual: ReadonlyArray<ActualSubagent>;
-  readonly providingPacks: ReadonlyArray<InstalledPackRef>;
 }
 
 export interface UnmanagedSubagent {
@@ -145,20 +145,10 @@ export interface SubagentScanners {
   readonly agentDir: Effect.Effect<ReadonlyArray<AgentDirOccurrence>>;
 }
 
-export interface InstalledPackForSubagents {
-  readonly ref: InstalledPackRef;
-  readonly subagents: ReadonlyArray<SubagentPackMember>;
-}
-
 export interface SubagentExtensionsApiDeps {
   readonly scope: Scope;
   readonly loaders: SubagentScopedLoaders;
   readonly scanners: SubagentScanners;
-  readonly installedPacks: Effect.Effect<
-    ReadonlyArray<InstalledPackForSubagents>,
-    SettingsReadError | LockfileReadError
-  >;
-  readonly diagnostics: Diagnostics;
 }
 
 export interface SubagentExtensionsApi {
@@ -175,21 +165,15 @@ export interface SubagentExtensionsApi {
   readonly declaredByName: (
     name: string,
   ) => Effect.Effect<Option.Option<DeclaredSubagent>, SettingsReadError>;
-  readonly active: Effect.Effect<
-    ReadonlyArray<InstalledSubagent>,
-    SettingsReadError | LockfileReadError
-  >;
+  /** Rows for the Pack-supplied members the desired-state graph bound to this subject. */
+  readonly packMemberRows: (
+    bindings: ReadonlyArray<PackMemberBinding>,
+  ) => Effect.Effect<ReadonlyArray<InstalledSubagent>, SettingsReadError | LockfileReadError>;
   readonly unmanaged: Effect.Effect<
     ReadonlyArray<UnmanagedSubagent>,
     SettingsReadError | LockfileReadError
   >;
 }
-
-const orphanResolvedWarning = (name: string): Warning => ({
-  source: "lockfile",
-  message: `subagent: lockfile entry "${name}" has no matching declared or pack-member home`,
-  code: "orphan-resolved",
-});
 
 const subagentPolicy = (
   scope: Scope,
@@ -209,8 +193,7 @@ const subagentPolicy = (
   resolvedName: (e) => e.name,
   actualEntries: (a) => a,
   actualName: (e) => e.key.name,
-  packMemberName: (m) => m.name,
-  packMemberActivation: () => "enabled",
+  packMember: ({ name, pack }) => ({ name, providingPack: pack }),
   attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
   notClaimedBySubjectPolicy: () => true,
   buildInstalledRow: (input) => ({
@@ -219,13 +202,11 @@ const subagentPolicy = (
     activation: input.activation,
     resolved: input.resolved,
     actual: input.actual,
-    providingPacks: input.providingPacks,
   }),
   buildUnmanagedRow: (entry) => ({
     key: { scope, type: "subagent", name: entry.key.name },
     actual: entry,
   }),
-  resolvedOrphanWarning: orphanResolvedWarning,
 });
 
 /**
@@ -237,7 +218,7 @@ export const makeSubagentExtensionsApi = (
   deps: SubagentExtensionsApiDeps,
 ): Effect.Effect<SubagentExtensionsApi> =>
   Effect.gen(function* () {
-    const { scope, loaders, scanners, installedPacks, diagnostics } = deps;
+    const { scope, loaders, scanners } = deps;
 
     const declared: SubagentExtensionsApi["declared"] = loaders.settings.pipe(
       Effect.map((opt) => Option.map(opt, declaredFromSettings)),
@@ -257,28 +238,24 @@ export const makeSubagentExtensionsApi = (
       return [...fromCanonical, ...fromAgentDir];
     });
 
+    const policy = subagentPolicy(scope);
     const project = yield* Effect.cached(
       projectInstalledExtensions({
         declared,
         resolved,
         actual,
-        installedPacks: installedPacks.pipe(
-          Effect.map((packs) => packs.map((p) => ({ ref: p.ref, members: p.subagents }))),
-        ),
-        packMembers: (pack: {
-          readonly ref: InstalledPackRef;
-          readonly members: ReadonlyArray<SubagentPackMember>;
-        }) => pack.members,
-        packRef: (pack) => pack.ref,
-        policy: subagentPolicy(scope),
-        diagnostics,
+        policy,
       }),
     );
 
-    return makeProjectedSubjectCells({
-      declared,
-      resolved,
-      actual,
-      project,
-    }) satisfies SubagentExtensionsApi;
+    return {
+      ...makeProjectedSubjectCells({
+        declared,
+        resolved,
+        actual,
+        project,
+      }),
+      packMemberRows: (bindings) =>
+        projectPackMemberRows({ bindings, declared, resolved, actual, policy }),
+    } satisfies SubagentExtensionsApi;
   });

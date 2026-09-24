@@ -111,7 +111,7 @@ export const selectInstallRefs = <Ref extends ExtensionRef>(
     if (request.nonInteractive) {
       return yield* installRefused({
         category: "usage",
-        detail: `A ${request.type} selector or --all is required in non-interactive mode`,
+        detail: `A ${request.type} selector or --all is required when no prompt can open`,
         recover: `Repeat --${request.type === "mcp-server" ? "mcp" : request.type} for selected names, or pass --all`,
       });
     }

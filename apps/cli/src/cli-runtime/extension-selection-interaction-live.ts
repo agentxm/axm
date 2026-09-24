@@ -31,7 +31,34 @@ import {
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 
-import { Screen, pickAsk, type PickOption } from "../screen/index.js";
+import { makeAppError } from "../app-error/index.js";
+import {
+  Screen,
+  askFailureFields,
+  pickAsk,
+  type AskFailure,
+  type AskFailureWording,
+  type PickOption,
+} from "../screen/index.js";
+
+const selectionWording: AskFailureWording = {
+  configuration: "Interaction configuration could not be read.",
+  output: "The selection could not be displayed.",
+};
+
+/**
+ * The guidance an unobtainable selection carries to the boundary, which
+ * prints an `AppError` cause as the failure itself.
+ */
+const selectionUnavailable = (error: AskFailure) => {
+  const fields = askFailureFields(error, selectionWording);
+  return makeAppError({
+    code: fields.category,
+    detail: fields.detail,
+    ...(fields.suggestions === undefined ? {} : { suggestions: fields.suggestions }),
+    cause: fields.cause,
+  });
+};
 
 /** One candidate as the list offers it: its name, and what it does when it says. */
 const candidateOption = <T>(
@@ -68,17 +95,10 @@ export const InstallSelectionLive = Layer.effect(InstallSelectionInteraction)(
             },
           )
           .pipe(
-            Effect.catchTag("QuestionCancelled", (error) =>
-              Effect.fail(new InstallSelectionCancelled({ message: error.message })),
-            ),
-            Effect.catchTag("AppError", (cause) =>
-              Effect.fail(new InstallSelectionUnavailable({ cause })),
-            ),
-            Effect.catchTag("OutputWriteFailed", (cause) =>
-              Effect.fail(new InstallSelectionUnavailable({ cause })),
-            ),
-            Effect.catchTag("ConfigError", (cause) =>
-              Effect.fail(new InstallSelectionUnavailable({ cause })),
+            Effect.mapError((error) =>
+              error._tag === "QuestionCancelled"
+                ? new InstallSelectionCancelled({ message: error.message })
+                : new InstallSelectionUnavailable({ cause: selectionUnavailable(error) }),
             ),
           ),
     };
@@ -109,17 +129,10 @@ export const SkillSelectionLive = Layer.effect(SkillSelectionInteraction)(
             },
           )
           .pipe(
-            Effect.catchTag("QuestionCancelled", (error) =>
-              Effect.fail(new SkillSelectionCancelled({ message: error.message })),
-            ),
-            Effect.catchTag("AppError", (cause) =>
-              Effect.fail(new SkillSelectionUnavailable({ cause })),
-            ),
-            Effect.catchTag("OutputWriteFailed", (cause) =>
-              Effect.fail(new SkillSelectionUnavailable({ cause })),
-            ),
-            Effect.catchTag("ConfigError", (cause) =>
-              Effect.fail(new SkillSelectionUnavailable({ cause })),
+            Effect.mapError((error) =>
+              error._tag === "QuestionCancelled"
+                ? new SkillSelectionCancelled({ message: error.message })
+                : new SkillSelectionUnavailable({ cause: selectionUnavailable(error) }),
             ),
           ),
     };
@@ -150,17 +163,10 @@ export const SubagentSelectionLive = Layer.effect(SubagentSelectionInteraction)(
             },
           )
           .pipe(
-            Effect.catchTag("QuestionCancelled", (error) =>
-              Effect.fail(new SubagentSelectionCancelled({ message: error.message })),
-            ),
-            Effect.catchTag("AppError", (cause) =>
-              Effect.fail(new SubagentSelectionUnavailable({ cause })),
-            ),
-            Effect.catchTag("OutputWriteFailed", (cause) =>
-              Effect.fail(new SubagentSelectionUnavailable({ cause })),
-            ),
-            Effect.catchTag("ConfigError", (cause) =>
-              Effect.fail(new SubagentSelectionUnavailable({ cause })),
+            Effect.mapError((error) =>
+              error._tag === "QuestionCancelled"
+                ? new SubagentSelectionCancelled({ message: error.message })
+                : new SubagentSelectionUnavailable({ cause: selectionUnavailable(error) }),
             ),
           ),
     };

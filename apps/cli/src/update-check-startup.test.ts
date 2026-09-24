@@ -17,6 +17,7 @@ import { TestRenderer } from "./test-support/presenter-test.js";
 import {
   isUpgradeCommand,
   notificationMessage,
+  resolveNonInteractiveFromArgv,
   withUpdateCheck,
   type NotificationPrinter,
   type UpdateCheckContextInputs,
@@ -36,6 +37,24 @@ describe("startup update-check routing", () => {
     expect(isUpgradeCommand(["--json", "upgrade"])).toBe(true);
     expect(isUpgradeCommand(["search", "--", "upgrade"])).toBe(false);
   });
+
+  // The raw-argv read applies the same CI truth table as prompt availability:
+  // any non-empty value except the conventional false spellings.
+  it.each([
+    { args: ["list", "--non-interactive"], ci: undefined, stdinIsTTY: true, expected: true },
+    { args: ["list"], ci: "true", stdinIsTTY: true, expected: true },
+    { args: ["list"], ci: "1", stdinIsTTY: true, expected: true },
+    { args: ["list"], ci: "yes", stdinIsTTY: true, expected: true },
+    { args: ["list"], ci: "false", stdinIsTTY: true, expected: false },
+    { args: ["list"], ci: "0", stdinIsTTY: true, expected: false },
+    { args: ["list"], ci: undefined, stdinIsTTY: false, expected: true },
+    { args: ["list"], ci: undefined, stdinIsTTY: true, expected: false },
+  ])(
+    "resolves $args with CI=$ci and stdin tty=$stdinIsTTY as non-interactive $expected",
+    ({ args, ci, stdinIsTTY, expected }) => {
+      expect(resolveNonInteractiveFromArgv(args, { ci, stdinIsTTY })).toBe(expected);
+    },
+  );
 });
 
 describe("startup notification printing", () => {

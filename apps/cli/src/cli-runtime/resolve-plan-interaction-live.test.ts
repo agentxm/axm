@@ -1,4 +1,4 @@
-import { describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -6,7 +6,12 @@ import * as Option from "effect/Option";
 import { ResolvePlanInteraction, type Plan } from "@agentxm/workspace/transitions/planning";
 
 import { TestFlagsLayer } from "../cli-flags/index.js";
+import { handleDemote } from "../root/demote/command.js";
+import { makeSpecWorkspace, writeLocalSkillPackage } from "../test-support/install-harness.js";
 import { TestRenderer } from "../test-support/presenter-test.js";
+import { writeAuthoredSkill } from "../test-support/publish-harness.js";
+import { humanScreenLayer, makeRecordingStreams } from "../test-support/screen-harness.js";
+import { snapshotWorkspaceContent } from "../test-support/workspace-fixtures.js";
 import { ResolvePlanInteractionLive } from "./resolve-plan-interaction-live.js";
 import { Screen, OutputWriteFailed } from "../screen/index.js";
 
@@ -46,6 +51,83 @@ const harness = () => {
 };
 
 describe("ResolvePlanInteractionLive", () => {
+  const cleanups: Array<() => void> = [];
+  afterEach(() => {
+    for (const cleanup of cleanups.splice(0)) {
+      cleanup();
+    }
+  });
+
+  // Planning reads the screen's one decision, so a terminal that cannot paint
+  // a prompt closes the confirmation before any question is raised.
+  it.effect.each([
+    { stderrIsTTY: true, expected: true },
+    { stderrIsTTY: false, expected: false },
+  ])(
+    "answers isConfirmationAvailable $expected when stderr is a tty: $stderrIsTTY",
+    ({ stderrIsTTY, expected }) =>
+      Effect.gen(function* () {
+        const interaction = yield* ResolvePlanInteraction;
+        expect(yield* interaction.isConfirmationAvailable).toBe(expected);
+      }).pipe(
+        Effect.provide(
+          ResolvePlanInteractionLive.pipe(
+            Layer.provideMerge(
+              Layer.merge(
+                humanScreenLayer(makeRecordingStreams({ stdoutIsTTY: true, stderrIsTTY })),
+                TestFlagsLayer({ nonInteractive: false }),
+              ),
+            ),
+          ),
+        ),
+      ),
+  );
+
+  it.effect(
+    "blocks an apply at planning with the interactive recovery when stderr cannot paint a prompt",
+    () =>
+      Effect.gen(function* () {
+        // Stdin is a terminal and no non-interactive flag is given, so the
+        // flags alone would let a prompt open; only stderr, redirected to a
+        // file, cannot paint one. The block names the interactive rerun and
+        // no question reaches the screen.
+        const workspace = makeSpecWorkspace({
+          screen: { kind: "human", stdoutIsTTY: true, stderrIsTTY: false },
+          flags: { nonInteractive: false },
+          settings: { owner: "@acme", skills: { review: "workspace" } },
+        });
+        cleanups.push(workspace.cleanup);
+        writeAuthoredSkill(workspace.root, { name: "review" });
+        const replacement = writeLocalSkillPackage(workspace.root, {
+          name: "review",
+          body: "Replacement guidance.",
+        });
+        const before = snapshotWorkspaceContent(workspace.root);
+
+        yield* handleDemote({
+          fqn: "@acme/skills/review",
+          source: replacement,
+          yes: false,
+          preview: false,
+        }).pipe(Effect.provide(Layer.provideMerge(ResolvePlanInteractionLive, workspace.layer)));
+
+        // Stdout is a styled terminal, so the words are read without their styling.
+        const output = [
+          ...(workspace.streams?.lines("stdout") ?? []),
+          ...(workspace.streams?.lines("stderr") ?? []),
+        ]
+          .join("\n")
+          .replace(new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "gu"), "");
+        // The block is planning's own outcome with the route's recovery — the
+        // same one a non-interactive invocation gets — not a late prompt failure.
+        expect(output).toContain("approval is required");
+        expect(output).toContain("axm demote --yes @acme/skills/review");
+        expect(output).not.toContain("Interactive prompt required");
+        expect(output).not.toContain("Apply changes?");
+        expect(snapshotWorkspaceContent(workspace.root)).toEqual(before);
+      }),
+  );
+
   it.effect("propagates failed plan and confirmation delivery as typed interaction failures", () =>
     Effect.gen(function* () {
       const renderer = TestRenderer.make();

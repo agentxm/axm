@@ -1,3 +1,5 @@
+import { ciEnabled } from "../utils/environment.js";
+
 export interface CliOutputEnvironment {
   readonly stdoutIsTTY: boolean | undefined;
   readonly stderrIsTTY: boolean | undefined;
@@ -22,7 +24,7 @@ const hasNonEmptyEnv = (env: NodeJS.ProcessEnv, name: string): boolean => {
   return value !== undefined && value !== "";
 };
 
-const hasCi = (env: NodeJS.ProcessEnv): boolean => hasNonEmptyEnv(env, "CI");
+const hasCi = (env: NodeJS.ProcessEnv): boolean => ciEnabled(env["CI"]);
 
 const hasNoColor = (env: NodeJS.ProcessEnv): boolean => hasNonEmptyEnv(env, "NO_COLOR");
 

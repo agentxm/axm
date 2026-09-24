@@ -12,6 +12,7 @@
  */
 
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+import type * as Config from "effect/Config";
 import type * as Result from "effect/Result";
 import type * as Array from "effect/Array";
 
@@ -19,6 +20,7 @@ import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { Doc, PromptNode, Text } from "../doc.js";
 import type { SceneFacts } from "../scene.js";
 import { isQuitKey, isSubmitKey, type InteractionKey } from "../interaction.js";
+import type { OutputWriteFailed } from "../streams.js";
 
 export type AskKey = InteractionKey;
 export { isQuitKey, isSubmitKey };
@@ -207,6 +209,49 @@ export const promptRequired = (message: string, guard: InteractiveGuard = {}): A
     detail: `Interactive prompt required: ${guard.message ?? message}`,
     suggestions: guard.suggestions ?? [{ description: guard.guidance ?? DEFAULT_GUIDANCE }],
   });
+
+/** The failures `Screen.ask` raises short of a cancellation. */
+export type AskFailure = AppError | OutputWriteFailed | Config.ConfigError;
+
+/** The detail each port gives the two failures that carry no wording of their own. */
+export interface AskFailureWording {
+  /** Interaction configuration could not be read. */
+  readonly configuration: string;
+  /** The question could not reach the terminal. */
+  readonly output: string;
+}
+
+/** What a port's own failure carries for a question that did not settle. */
+export interface AskFailureFields {
+  readonly category: "usage" | "internal";
+  readonly detail: string;
+  readonly suggestions?: NonNullable<AppError["suggestions"]>;
+  readonly cause: AskFailure;
+}
+
+/**
+ * The one translation of a `Screen.ask` failure into a port's failure. A
+ * closed prompt carries its own usage detail and recovery; unreadable
+ * configuration and a failed write are internal and take the port's wording.
+ * A cancellation is never a failure and does not pass through here.
+ */
+export const askFailureFields = (
+  error: AskFailure,
+  wording: AskFailureWording,
+): AskFailureFields => {
+  if (error._tag === "ConfigError") {
+    return { category: "internal", detail: wording.configuration, cause: error };
+  }
+  if (error._tag === "OutputWriteFailed") {
+    return { category: "internal", detail: wording.output, cause: error };
+  }
+  return {
+    category: error.code === "usage" ? "usage" : "internal",
+    detail: error.detail,
+    ...(error.suggestions === undefined ? {} : { suggestions: error.suggestions }),
+    cause: error,
+  };
+};
 
 /** The ordinary yes/no choices with the safe default first. */
 export const yesNo = (

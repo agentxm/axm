@@ -9,6 +9,7 @@ import * as Effect from "effect/Effect";
 import {
   emitResult,
   paragraphDoc,
+  Screen,
   successDoc,
   tableDoc,
   type ViewColumn,
@@ -20,7 +21,7 @@ import {
 import { ManagePublishedVisibility } from "@agentxm/workspace/publishing";
 import type { ExtensionVisibility } from "@agentxm/extension-model/unstable/extensions";
 import { failureToAppError } from "../../app-error/conversions.js";
-import { HumanVerificationOptions, isNonInteractive, jsonFlag } from "../../cli-flags/index.js";
+import { HumanVerificationOptions } from "../../cli-flags/index.js";
 import * as Option from "effect/Option";
 import { withLiveOperation } from "../../operation-lifecycle.js";
 
@@ -37,7 +38,7 @@ const visibilityColumns: ReadonlyArray<ViewColumn<VisibilityRow>> = [
 /** The invocation's human-verification inputs, as the capability reads them. */
 const verificationOptions = Effect.gen(function* () {
   const { stepUpRequest, waitForHuman } = yield* HumanVerificationOptions;
-  const unattended = Option.getOrElse(yield* jsonFlag, () => false) || (yield* isNonInteractive);
+  const unattended = !(yield* (yield* Screen).canAsk);
   return {
     ...(Option.isNone(stepUpRequest) ? {} : { resumeReference: stepUpRequest.value }),
     ...(Option.isNone(waitForHuman) ? {} : { waitForHumanSeconds: waitForHuman.value }),

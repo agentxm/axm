@@ -12,7 +12,7 @@ import { ImportMcpServers, type McpImportPreflight } from "@agentxm/workspace/co
 import type { OperationResolution } from "@agentxm/workspace/transitions/planning";
 
 import { makeAppError } from "../../app-error/index.js";
-import { isNonInteractiveOptional } from "../../cli-flags/index.js";
+import { Screen } from "../../screen/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { failureToAppError } from "../../app-error/conversions.js";
@@ -101,7 +101,7 @@ const handleMcpsImportBody = Effect.fn("Mcps.import")(function* (args: McpsImpor
         detail: "MCP package import is project-workspace only; omit --scope user",
       });
     }
-    const nonInteractive = yield* isNonInteractiveOptional;
+    const nonInteractive = !(yield* (yield* Screen).canAsk);
     const conversion = yield* ImportNativeExtension.prepare({
       type: "mcp-server",
       target: packageTarget.value,

@@ -4,8 +4,8 @@ import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { login, selectedRegistry } from "@agentxm/registry-access/authentication";
-import { emitResult, successDoc } from "../../screen/index.js";
-import { isNonInteractive, jsonFlag, waitForHumanOption } from "../../cli-flags/index.js";
+import { emitResult, Screen, successDoc } from "../../screen/index.js";
+import { jsonFlag, waitForHumanOption } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
   preapprovalCapabilityFlag,
@@ -60,7 +60,7 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
   }) {
     const registry = yield* selectedRegistry;
     const machineOutput = Option.getOrElse(yield* jsonFlag, () => false);
-    const nonInteractive = yield* isNonInteractive;
+    const nonInteractive = !(yield* (yield* Screen).canAsk);
 
     const outcome = yield* withLiveOperation(
       { command: "auth.login", name: `Sign in to ${registry.host}`, mode: "apply" },

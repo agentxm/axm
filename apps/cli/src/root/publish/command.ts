@@ -1,11 +1,11 @@
-import { OutputWriteFailed } from "../../screen/index.js";
+import { OutputWriteFailed, Screen } from "../../screen/index.js";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { AppError, exitCodeFor } from "../../app-error/index.js";
-import { acceptWarningsFlag, isNonInteractive, jsonFlag } from "../../cli-flags/index.js";
+import { acceptWarningsFlag } from "../../cli-flags/index.js";
 import {
   processOutcome,
   recordCommandCompletion,
@@ -228,7 +228,7 @@ const withPublishPreviewOwnedByView = Effect.updateService(
 export const handleRootPublish = Effect.fn("Publish.handle")(
   function* (args: RootPublishHandlerArgs) {
     const startedAtMs = yield* Clock.currentTimeMillis;
-    const unattended = Option.getOrElse(yield* jsonFlag, () => false) || (yield* isNonInteractive);
+    const unattended = !(yield* (yield* Screen).canAsk);
     return yield* withLiveOperation(
       {
         command: "publish",

@@ -90,6 +90,14 @@ export class Screen extends ServiceMap.Service<
     ) => Effect.Effect<void, OutputWriteFailed, Scope.Scope>;
     readonly log: (record: ScreenLogRecord) => Effect.Effect<void, OutputWriteFailed>;
     /**
+     * Whether a question can open in this invocation: the flags and
+     * environment allow a prompt, and the terminal can paint one. Planning,
+     * command handlers, and `ask` itself read this one decision, so an
+     * invocation that cannot ask is blocked with its recovery before any
+     * question is raised. Machine output can never ask.
+     */
+    readonly canAsk: Effect.Effect<boolean, Config.ConfigError>;
+    /**
      * Put a question to the person and answer with what they chose. The guard
      * decides whether a question may open at all: where it may not, and in
      * machine mode always, this fails with the usage error and its recovery
@@ -212,8 +220,13 @@ export const ScreenLive = (
           );
         return { showInteraction, transcript: note, finish } satisfies InteractionSurface;
       });
+      const canAsk = Effect.gen(function* () {
+        if (!(yield* promptAvailability)) return false;
+        return yield* frame.canInteract;
+      });
 
       return {
+        canAsk,
         result: (doc) => {
           const literal =
             doc.length === 1 && (doc[0]?._tag === "raw" || doc[0]?._tag === "markdown")
@@ -293,9 +306,7 @@ export const ScreenLive = (
           ),
         ask: <A>(ask: Ask<A>, guard?: InteractiveGuard) =>
           Effect.gen(function* () {
-            if (!(yield* promptAvailability) || !(yield* frame.canInteract)) {
-              return yield* promptRequired(plain(ask.question), guard);
-            }
+            if (!(yield* canAsk)) return yield* promptRequired(plain(ask.question), guard);
             return yield* Option.match(terminal, {
               onNone: () => Effect.fail(promptRequired(plain(ask.question), guard)),
               onSome: (service) =>
@@ -326,7 +337,7 @@ export const ScreenLive = (
           return inputPermit.withPermit(
             Effect.gen(function* () {
               const surface: WaitSurface = yield* interactionSurface;
-              const interactive = (yield* promptAvailability) && (yield* frame.canInteract);
+              const interactive = yield* canAsk;
               // A terminal that cannot animate, a non-interactive invocation,
               // and a quiet invocation get the static block: the same brief, no
               // countdown, and no keys to press.
@@ -488,6 +499,7 @@ export const ScreenMachine = (options?: {
         log: (record) => emit(logEvent(logLevel(record.level), record.message)),
         // Machine output never prompts: asking is the usage error by
         // construction, whatever the terminal on the other end can do.
+        canAsk: Effect.succeed(false),
         ask: (ask, guard) => Effect.fail(promptRequired(plain(ask.question), guard)),
         // Machine output has no terminal to park and no keys to offer, but the
         // brief is what a person or an agent needs to finish elsewhere, so it

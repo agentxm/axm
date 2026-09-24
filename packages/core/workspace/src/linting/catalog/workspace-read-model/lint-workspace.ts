@@ -174,10 +174,10 @@ export interface BuildLintWorkspaceArgs {
     FileSystem.FileSystem | Path.Path
   >;
   /**
-   * Whether an extension's own artifact and content rules defer, because a
-   * workspace rule already reports the canonical observation that makes its
-   * canonical tree unfit to inspect. A deferred extension gets no
-   * per-extension rule context; workspace rules still see its manifest.
+   * Whether an extension's own artifact and content rules defer, because its
+   * canonical tree is absent and a workspace rule already reports that
+   * absence. A deferred extension gets no per-extension rule context;
+   * workspace rules still see its manifest.
    */
   readonly defersExtensionRules?: (type: ExtensionType, name: string) => boolean;
 }

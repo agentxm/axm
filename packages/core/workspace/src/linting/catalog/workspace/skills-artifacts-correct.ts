@@ -160,8 +160,8 @@ export const skillsArtifactsCorrectRule: AdvisoryRule<WorkspaceRuleContext> = {
       // a defect or duplicating a less precise finding here.
       if (Result.isFailure(installedResult)) return EMPTY_LINT_FINDINGS;
       const installed = installedResult.success;
-      // A skill whose canonical observation a workspace rule reports has no
-      // content to project; that one finding covers its absent artifacts.
+      // A skill whose canonical tree is absent has no content to project; the
+      // one finding for that absence covers its absent artifacts.
       const deferred = yield* deferringNodes(context);
       const existenceBySkill = installed.flatMap((row) => {
         if (deferred.has(`skill:${row.key.name}`)) return [];

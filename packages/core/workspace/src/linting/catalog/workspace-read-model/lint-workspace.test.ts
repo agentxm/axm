@@ -167,7 +167,10 @@ const expectRecord = (value: unknown): Readonly<Record<string, unknown>> => {
   return Object.fromEntries(Object.entries(value));
 };
 
-const buildAndEvaluate = (spec: FixtureSpec) =>
+const buildAndEvaluate = (
+  spec: FixtureSpec,
+  defersExtensionRules?: (type: string, name: string) => boolean,
+) =>
   Effect.gen(function* () {
     const deps = yield* buildFixture(spec);
     const lintWorkspace = yield* buildLintWorkspace({
@@ -175,6 +178,7 @@ const buildAndEvaluate = (spec: FixtureSpec) =>
       workspaceRoot: deps.workspaceRoot,
       userHome: deps.userHome,
       scope: "project",
+      ...(defersExtensionRules === undefined ? {} : { defersExtensionRules }),
     });
     const evaluations = yield* evaluateAllCatalogs({
       view: "workspace",
@@ -193,6 +197,7 @@ const buildAndEvaluate = (spec: FixtureSpec) =>
     });
     return {
       view: lintWorkspace.view,
+      manifests: yield* lintWorkspace.rule.installedExtensions?.manifests ?? Effect.succeed([]),
       rendered: collectRenderedFindings(evaluations),
     };
   });
@@ -215,6 +220,24 @@ describe("buildLintWorkspace manifest JSON population", () => {
       const packJson = expectRecord(view.installedPacks[0]?.packJson);
       expect(packJson["packs"]).toEqual({});
     }),
+  );
+
+  it.effect(
+    "withholds per-extension rule contexts from a deferred extension, not its manifest",
+    () =>
+      Effect.gen(function* () {
+        const { rendered, manifests } = yield* buildAndEvaluate(
+          fixture(manifestFixtures.pack),
+          (type, name) => type === "skill" && name === "bad-skill",
+        );
+        const ruleIds = rendered.map((finding) => finding.finding.ruleId);
+
+        expect(ruleIds.filter((ruleId) => ruleId.startsWith("skill/"))).toEqual([]);
+        expect(ruleIds).toContain("subagent/manifest-schema-valid");
+        expect(manifests).toContainEqual(
+          expect.objectContaining({ extensionType: "skill", name: "bad-skill" }),
+        );
+      }),
   );
 
   it.effect("reports malformed installed manifest JSON through schema-valid rules", () =>

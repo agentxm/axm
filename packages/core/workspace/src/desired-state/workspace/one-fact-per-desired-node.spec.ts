@@ -25,6 +25,7 @@ import {
 import { DesiredStateReader, observeDesiredCanonical } from "../index.js";
 import {
   DISABLED_MCP,
+  SHARED_MEMBER,
   SHARED_MEMBER_PIN,
   publishSharedMemberScenario,
   sharedMemberSettings,
@@ -49,7 +50,8 @@ export const specification = defineSpecification({
 });
 
 const PACK = "reviews";
-const MEMBER = "review";
+/** The member every scenario loses: the shared fixture's Skill, under the same name. */
+const MEMBER = SHARED_MEMBER.name;
 const FACT = `skill '@acme/skills/${MEMBER}' has no accepted resolution`;
 
 /** Lint the sync fixture's project, reporting only its facts. */
@@ -119,36 +121,45 @@ describe("One fact per desired node", () => {
   });
 
   /**
-   * A workspace that realizes the member, as one of a Pack's two members or
-   * declared directly; `loseMember` then removes the member's resolution and,
-   * optionally, disables the member or stops the Registry publishing it so
-   * sync cannot restore it. It yields every lint finding the realized
+   * A workspace that realizes the member: as one of a Pack's two members,
+   * declared directly, or as the shared member two Packs require and the
+   * workspace also pins. `loseMember` then removes the member's resolution
+   * and, optionally, disables the member or stops the Registry publishing it
+   * so sync cannot restore it. It yields every lint finding the realized
    * workspace reported before the member was lost.
    */
   const workspaceMissingMember = (
     options: {
-      readonly declaredBy?: "pack" | "direct";
+      readonly declaredBy?: "pack" | "direct" | "shared";
       readonly member?: Readonly<Record<string, unknown>>;
       readonly unpublished?: boolean;
     } = {},
   ) => {
     const registry = makeFileRegistry();
     cleanups.push(registry.cleanup);
-    registry.writeSkill(MEMBER, [{ version: "1.0.0", body: "Review." }]);
-    registry.writeRule("guide", [{ version: "1.0.0", body: "Guide." }]);
-    registry.writePack(PACK, [
-      {
-        version: "1.0.0",
-        dependencies: { [`@acme/skills/${MEMBER}`]: "^1.0.0", "@acme/rules/guide": "^1.0.0" },
-      },
-    ]);
+    if (options.declaredBy === "shared") {
+      publishSharedMemberScenario(registry);
+    } else {
+      registry.writeSkill(MEMBER, [{ version: "1.0.0", body: "Review." }]);
+      registry.writeRule("guide", [{ version: "1.0.0", body: "Guide." }]);
+      registry.writePack(PACK, [
+        {
+          version: "1.0.0",
+          dependencies: { [`@acme/skills/${MEMBER}`]: "^1.0.0", "@acme/rules/guide": "^1.0.0" },
+        },
+      ]);
+    }
+    const declarations =
+      options.declaredBy === "shared"
+        ? sharedMemberSettings(SHARED_MEMBER_PIN.inside)
+        : options.declaredBy === "direct"
+          ? { skills: { [MEMBER]: `test:@acme/skills/${MEMBER}@^1.0.0` } }
+          : { packs: { [PACK]: `test:@acme/packs/${PACK}@^1.0.0` } };
     const settings = {
       owner: "@acme",
       agents: ["claude-code"],
       sources: [registry.source],
-      ...(options.declaredBy === "direct"
-        ? { skills: { [MEMBER]: `test:@acme/skills/${MEMBER}@^1.0.0` } }
-        : { packs: { [PACK]: `test:@acme/packs/${PACK}@^1.0.0` } }),
+      ...declarations,
     };
     const workspace = makeSyncFixture({ settings });
     cleanups.push(workspace.cleanup);
@@ -180,6 +191,11 @@ describe("One fact per desired node", () => {
   it.effect.each([
     { label: "a Pack member", declaredBy: "pack", ruleId: "workspace/packs-dependencies-resolved" },
     { label: "a direct Skill", declaredBy: "direct", ruleId: "workspace/skills-lockfile-aligned" },
+    {
+      label: "a pinned Skill two Packs require",
+      declaredBy: "shared",
+      ruleId: "workspace/packs-dependencies-resolved",
+    },
   ] as const)(
     "reports $label without an accepted resolution once in lint and once from sync",
     ({ declaredBy, ruleId }) => {

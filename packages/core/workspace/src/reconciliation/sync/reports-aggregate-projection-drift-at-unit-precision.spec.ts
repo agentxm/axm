@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
@@ -11,6 +12,7 @@ import {
   expectResolved,
   makeSyncFixture,
   previewSync,
+  syncRequest,
   writeAuthoredKnowledge,
   writeAuthoredRule,
   type SyncFixture,
@@ -20,7 +22,7 @@ export const specification = defineSpecification({
   requirement: "cli/sync/reports-aggregate-projection-drift-at-unit-precision",
   title: "Sync identifies the shared output that needs updating",
   statement:
-    "When an aggregate projection like an instruction file's rules or knowledge region drifts, a sync preview shall report it as stale or missing at the owning managed unit and region, and shall not attribute the cause to any individual contributing extension.",
+    "When an aggregate projection like an instruction file's rules or knowledge region drifts, a sync preview for the whole workspace, for one contributing extension, or for the contributors' type shall report it as stale or missing at the owning managed unit and region, and shall not attribute the cause to any individual contributing extension; applying that selection shall regenerate the whole region from every contributor, and when another contributor lacks accepted state the region shall stay blocked and unchanged.",
   class: "functional",
   role: "interface",
   goals: ["actionable-diagnostics", "machine-automation", "workspace-intent-fidelity"],
@@ -138,4 +140,110 @@ describe("Aggregate projection drift diagnostics", () => {
       )
       .pipe(Effect.provide(NodeServices.layer));
   });
+
+  const aggregates = [
+    {
+      type: "rule",
+      settingsKey: "rules",
+      alpha: "@acme/rules/alpha",
+      beta: "@acme/rules/beta",
+      unitId: "instruction:reconcile",
+      label: "instruction files (stale)",
+      write: writeAuthoredRule,
+    },
+    {
+      type: "knowledge",
+      settingsKey: "knowledge",
+      alpha: "@acme/knowledge/alpha",
+      beta: "@acme/knowledge/beta",
+      unitId: "knowledge:discovery",
+      label: "Knowledge discovery (stale)",
+      write: writeAuthoredKnowledge,
+    },
+  ] as const;
+
+  for (const aggregate of aggregates) {
+    const contributors = [aggregate.alpha, aggregate.beta];
+    const selections = [
+      { name: "one contributor", request: syncRequest({ target: Option.some(aggregate.alpha) }) },
+      {
+        name: "the contributors' type",
+        request: syncRequest({ type: Option.some(aggregate.type) }),
+      },
+    ];
+    for (const selection of selections) {
+      it.effect(
+        `reconciles the whole ${aggregate.type} region when sync selects ${selection.name}`,
+        () => {
+          const workspace = fixture({
+            [aggregate.settingsKey]: { alpha: "workspace", beta: "workspace" },
+          });
+          aggregate.write(workspace.root, "alpha", "Initial alpha content.");
+          aggregate.write(workspace.root, "beta", "Stable beta content.");
+          return workspace
+            .provide(
+              Effect.gen(function* () {
+                yield* applySync();
+                const unchanged = yield* previewSync(selection.request);
+                expect(unchanged._tag).toBe("AlreadyReconciled");
+
+                aggregate.write(workspace.root, "alpha", "Changed alpha content.");
+                const before = workspace.readFile("AGENTS.md");
+                const resolution = expectResolved(yield* previewSync(selection.request));
+                const unit = requireUnit(resolution.units, aggregate.unitId);
+                expect(unit).toMatchObject({
+                  label: aggregate.label,
+                  state: "ready",
+                  artifact: { path: "AGENTS.md", change: "updated" },
+                });
+                expectNoContributorAttribution(unit, contributors);
+                expect(workspace.readFile("AGENTS.md")).toBe(before);
+
+                yield* applySync(selection.request);
+                const after = workspace.readFile("AGENTS.md");
+                expect(after).toContain("Changed alpha content.");
+                expect(after).toContain("Stable beta content.");
+                expect((yield* previewSync(selection.request))._tag).toBe("AlreadyReconciled");
+                expect((yield* previewSync())._tag).toBe("AlreadyReconciled");
+              }),
+            )
+            .pipe(Effect.provide(NodeServices.layer));
+        },
+      );
+    }
+  }
+
+  it.effect(
+    "keeps Knowledge discovery blocked while another contributor lacks accepted state",
+    () => {
+      const workspace = fixture({ knowledge: { alpha: "workspace", beta: "workspace" } });
+      writeAuthoredKnowledge(workspace.root, "alpha", "Initial alpha knowledge.");
+      writeAuthoredKnowledge(workspace.root, "beta", "Stable beta knowledge.");
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* applySync();
+            workspace.writeFile(
+              "axm.json",
+              `${JSON.stringify({
+                owner: "@acme",
+                agents: [],
+                instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
+                knowledge: { alpha: "workspace", beta: "./missing-beta" },
+              })}\n`,
+            );
+            writeAuthoredKnowledge(workspace.root, "alpha", "Changed alpha knowledge.");
+            const before = workspace.readFile("AGENTS.md");
+            const request = syncRequest({ target: Option.some("@acme/knowledge/alpha") });
+
+            const preview = expectResolved(yield* previewSync(request));
+            expect(requireUnit(preview.units, "knowledge:discovery").state).toBe("blocked");
+            const applied = expectResolved(yield* applySync(request));
+            expect(requireUnit(applied.units, "knowledge:discovery").state).toBe("blocked");
+            expect(workspace.readFile("AGENTS.md")).toBe(before);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
 });

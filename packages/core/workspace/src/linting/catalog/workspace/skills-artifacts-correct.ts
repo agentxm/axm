@@ -34,6 +34,7 @@ import {
   resolveUniversalDirPresence,
 } from "@agentxm/extension-model/unstable/extensions/universal-skills-dir";
 import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agents/types";
+import { deferringNodes } from "./canonical-observation-findings.js";
 import { settingsDisplayPath } from "./display-paths.js";
 
 const RULE_ID = "workspace/skills-artifacts-correct";
@@ -159,11 +160,12 @@ export const skillsArtifactsCorrectRule: AdvisoryRule<WorkspaceRuleContext> = {
       // a defect or duplicating a less precise finding here.
       if (Result.isFailure(installedResult)) return EMPTY_LINT_FINDINGS;
       const installed = installedResult.success;
+      // A skill whose canonical observation a workspace rule reports has no
+      // content to project; that one finding covers its absent artifacts.
+      const deferred = yield* deferringNodes(context);
       const existenceBySkill = installed.flatMap((row) => {
+        if (deferred.has(`skill:${row.key.name}`)) return [];
         const implicit = row.installationOrigin._tag === "pack-member";
-        if (implicit && Option.isNone(row.resolved)) {
-          return [];
-        }
         const present = new Set(
           row.actual.flatMap((actual) =>
             actual.origin._tag === "agent-skill-dir" ? [actual.origin.agentId] : [],

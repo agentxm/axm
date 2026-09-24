@@ -182,8 +182,8 @@ describe("workspace/configured-but-not-installed in a real workspace", () => {
     for (const cleanup of cleanups.splice(0)) cleanup();
   });
 
-  /** This rule's findings for the fixture's project. */
-  const ruleFindings = (workspace: SyncFixture) =>
+  /** Every finding for the fixture's project, as rule and message. */
+  const allFindings = (workspace: SyncFixture) =>
     queryLintWorkspace(
       {
         workspaceRoot: workspace.root,
@@ -203,8 +203,14 @@ describe("workspace/configured-but-not-installed in a real workspace", () => {
         ),
       ),
       Effect.map(({ document }) =>
-        document.findings.filter((finding) => finding.ruleId === RULE_ID),
+        document.findings.map(({ ruleId, message }) => ({ ruleId, message })),
       ),
+    );
+
+  /** This rule's findings for the fixture's project. */
+  const ruleFindings = (workspace: SyncFixture) =>
+    Effect.map(allFindings(workspace), (findings) =>
+      findings.filter((finding) => finding.ruleId === RULE_ID),
     );
 
   it.effect(
@@ -245,6 +251,44 @@ describe("workspace/configured-but-not-installed in a real workspace", () => {
         .pipe(Effect.provide(NodeServices.layer));
     },
   );
+
+  it.effect("states a Skill's missing accepted content once across the whole lint run", () => {
+    const registry = makeFileRegistry();
+    cleanups.push(registry.cleanup);
+    registry.writeSkill("review", [{ version: "1.0.0", body: "Review." }]);
+    const workspace = makeSyncFixture({
+      settings: {
+        owner: "@acme",
+        agents: ["claude-code"],
+        sources: [registry.source],
+        skills: { review: "test:@acme/skills/review@^1.0.0" },
+      },
+    });
+    cleanups.push(workspace.cleanup);
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          yield* applySync();
+          const realized = yield* allFindings(workspace);
+          workspace.remove("agent_extensions/registry/@acme/skills/review");
+
+          // No artifact, content, or integrity rule restates the absent tree.
+          const findings = yield* allFindings(workspace);
+          expect(findings).toHaveLength(realized.length + 1);
+          expect(findings).toEqual(
+            expect.arrayContaining([
+              ...realized,
+              {
+                ruleId: RULE_ID,
+                message:
+                  "skill 'review' is desired, but its canonical content is missing from agent_extensions.",
+              },
+            ]),
+          );
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
 
   it.effect("does not report a member of a disabled Pack, which is not desired", () => {
     const registry = makeFileRegistry();

@@ -325,7 +325,9 @@ describe("axm lint handler", () => {
         expect(stdout).toContain("Linting");
         expect(stdout).toMatch(/Finding\s+Location\s+Fix/);
         expect(stdout).toContain("workspace/lockfile-valid");
-        expect(stdout).toContain("workspace/skills-artifacts-correct");
+        // The skill's missing resolution is one fact; its absent agent
+        // artifacts are not reported again.
+        expect(stdout).not.toContain("workspace/skills-artifacts-correct");
         expect(stdout).toContain("./axm-lock.yaml");
         expect(stdout).toContain("./axm.json");
         expect(stdout).toContain("exit 1");

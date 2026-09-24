@@ -256,9 +256,9 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
         Effect.provideService(DesiredStateReader, desiredState),
       ),
     );
-    // A node whose observation a workspace rule reports has no canonical tree
-    // fit to inspect, so its own artifact and content rules defer to that one
-    // finding. Unavailable observations defer nothing.
+    // A node whose canonical tree is absent has nothing for its own artifact
+    // and content rules to inspect, so they defer to the one finding the
+    // observation router names. Unavailable observations defer nothing.
     const observed = yield* Effect.result(canonicalObservations);
     const deferred = Result.isFailure(observed)
       ? new Set<string>()

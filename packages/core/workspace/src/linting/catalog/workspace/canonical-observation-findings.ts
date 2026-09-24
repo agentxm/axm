@@ -98,19 +98,19 @@ export const observationsReportedBy = (
 
 /**
  * Desired nodes, keyed by type and name, whose artifact and content rules
- * defer to their observation. Every observation that is neither usable nor
- * not applicable is reported once, by a workspace rule or by the graph
- * problem behind it, and states the one fact about the node's canonical
- * tree; a rule that inspects that tree or its projections would restate it.
+ * defer to their observation: those observed `missing` or
+ * `missing-resolution`, whose canonical tree is absent. The rule the router
+ * names reports that absence once; a rule that inspects the absent tree or
+ * its projections would restate it.
  */
 export const nodesDeferringToObservation = (
   observed: ReadonlyArray<ObservedDesiredNode>,
 ): ReadonlySet<string> =>
   new Set(
     observed.flatMap(({ desired, observation }) =>
-      observation.status === "usable" || observation.status === "not-applicable"
-        ? []
-        : [`${desired.type}:${desired.name}`],
+      observation.status === "missing" || observation.status === "missing-resolution"
+        ? [`${desired.type}:${desired.name}`]
+        : [],
     ),
   );
 

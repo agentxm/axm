@@ -123,8 +123,8 @@ export const skillsIntegrityValidRule: AdvisoryRule<WorkspaceRuleContext> = {
         entry,
         exists: hasSourceActual(actual, name),
       }));
-      // A skill whose canonical observation a workspace rule reports is
-      // stated there once; an absent package is that observation's fact.
+      // An absent package is the skill's `missing` observation, stated once
+      // by the rule the observation router names.
       const deferred = yield* deferringNodes(context);
       const desiredNames = new Set(
         graphResult.success.nodes

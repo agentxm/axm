@@ -8,6 +8,8 @@
 import * as Data from "effect/Data";
 import * as Schema from "effect/Schema";
 
+import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
+
 const CarriedSuggestedActionSchema = Schema.Struct({
   description: Schema.String,
   cmd: Schema.optional(Schema.String),
@@ -79,6 +81,21 @@ export class PackDependencyMissing extends Data.TaggedError("PackDependencyMissi
 /** No visible dependency version satisfies the pack's constraint. */
 export class PackDependencyUnsatisfied extends Data.TaggedError("PackDependencyUnsatisfied")<{
   readonly dependencyTarget: string;
+  readonly constraint: string;
+}> {}
+
+/**
+ * A Pack member's accepted resolution, replayed as its authority, falls
+ * outside the member's effective constraint. Replay never selects a new
+ * resolution, so the member has to advance through an explicit update.
+ */
+export class AcceptedPackMemberIncompatible extends Data.TaggedError(
+  "AcceptedPackMemberIncompatible",
+)<{
+  readonly type: Exclude<ExtensionType, "pack">;
+  readonly name: string;
+  readonly dependencyTarget: string;
+  readonly acceptedVersion: string;
   readonly constraint: string;
 }> {}
 

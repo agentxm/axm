@@ -64,6 +64,7 @@ import { StepFailureConversion } from "../../step-failure-conversion.js";
 import { buildSelectiveUpdatePlan, type SelectiveUpdateUnit } from "./plan.js";
 import type { SelectiveUpdateStepRequirements } from "./requirements.js";
 import {
+  constrainSelectedEntries,
   selectUpdateTargets,
   type SelectiveUpdateEntry,
   type SelectiveUpdateSelectors,
@@ -193,7 +194,7 @@ export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate
         planDescription: PLAN_DESCRIPTION,
       } satisfies SelectiveUpdateCandidate;
     }
-    const filteredEntries = selection.entries;
+    const constrainedEntries = yield* constrainSelectedEntries("subagent", selection.entries);
 
     const findSubagentRefs = (
       source: SubagentExtensionRef["source"],
@@ -217,8 +218,8 @@ export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate
         );
 
     const results: ReadonlyArray<ResolveResult> = yield* Effect.forEach(
-      filteredEntries,
-      ([name, sourceStr]) =>
+      constrainedEntries,
+      ([name, sourceStr, effective]) =>
         Effect.gen(function* () {
           if (isWorkspaceSourceLocator(sourceStr)) {
             return {
@@ -238,8 +239,9 @@ export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate
               owner: registryPattern.value.owner,
               type: "subagent",
               name: lookupName,
-              versionRange:
-                requestedRange === undefined ? Option.none() : Option.some(requestedRange),
+              // Selected within every contributor's range; the records keep
+              // the range the declaration itself requested.
+              versionRange: effective.range,
               releaseAgeEvaluation,
             });
             if (registryResolution.kind === "selected" || registryResolution.kind === "exempted") {

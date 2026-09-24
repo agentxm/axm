@@ -384,7 +384,7 @@ describe("Pack member resolution without Registry release dates", () => {
     }),
   );
 
-  it.effect("rejects an authorized immutable dependency outside the Pack constraint", () =>
+  it.effect("reports an accepted dependency outside the Pack constraint as a mismatch", () =>
     Effect.gen(function* () {
       const error = yield* resolvePackDependenciesWithReleaseAge(
         packRef({ "@acme/skills/release": "^3.0.0" }),
@@ -395,8 +395,14 @@ describe("Pack member resolution without Registry release dates", () => {
         () => Effect.succeed(registrySkill()),
       ).pipe(Effect.flip);
 
-      expect(describeTestFailure(error)).toContain("@acme/skills/release@2.1.0");
-      expect(describeTestFailure(error)).toContain("^3.0.0");
+      expect(error).toMatchObject({
+        _tag: "AcceptedPackMemberIncompatible",
+        type: "skill",
+        name: "release",
+        dependencyTarget: "@acme/skills/release",
+        acceptedVersion: "2.1.0",
+        constraint: "^3.0.0",
+      });
     }),
   );
 });

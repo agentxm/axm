@@ -51,6 +51,7 @@ import {
 import { prepareConfiguredPackIntent } from "../lifecycle/install/configured.js";
 import type { ExtensionLifecycleFailed } from "../lifecycle/errors.js";
 import { readProposedGraph, selectPackGraph } from "../packs/lifecycle/install/plan.js";
+import { acceptedMemberMismatchText } from "../packs/lifecycle/constraint-gate.js";
 import { withPackRegistryIndexMemo } from "../resolution/sources/providers/registry/index-memo.js";
 import {
   acceptedCanonicalObservation,
@@ -288,6 +289,9 @@ export const collectConfiguredPackRecovery = (args: {
             return blocked(
               `Configured constraints are unsatisfiable: ${desiredStateProblemsText(selection.conflicts)}`,
             );
+          }
+          if (selection.kind === "accepted-incompatible") {
+            return blocked(acceptedMemberMismatchText(selection.mismatch));
           }
           const held = {
             holdbacks: [...packHoldbacks, ...selection.holdbacks],

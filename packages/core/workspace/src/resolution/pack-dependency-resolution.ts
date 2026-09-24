@@ -33,6 +33,7 @@ import type { SourceHostProvidersService, SourceResolutionFailure } from "./sour
 import { desiredStateProblemText, type DesiredConstraintConflict } from "../desired-state/index.js";
 
 import {
+  AcceptedPackMemberIncompatible,
   PackConstraintShadowed,
   PackDependencyConflict,
   PackDependencyInvalid,
@@ -53,7 +54,10 @@ import type { SourceAuthorityBlockedFact } from "./source-authority.js";
 
 /** Failures pack dependency resolution can surface. */
 type PackDependencyResolutionError =
-  SourceResolutionFailure | PackDependencyResolutionFailure | SourceAuthorityBlocked;
+  | SourceResolutionFailure
+  | PackDependencyResolutionFailure
+  | SourceAuthorityBlocked
+  | AcceptedPackMemberIncompatible;
 
 /** Every extension type a pack can depend on — packs cannot nest. */
 type SupportedPackDependencyType = Exclude<ExtensionType, "pack">;
@@ -318,6 +322,23 @@ const resolveDependencyRefWithReleaseAge = <E = never, R = never>(
         constraint,
         root,
       });
+      // The accepted resolution is the member's authority, so one outside the
+      // range it is selected within is a decision for an explicit update.
+      if (
+        (candidate.refType === "registry" || candidate.refType === "workspace") &&
+        candidate.type === expectedType &&
+        candidate.owner === parsed.owner &&
+        candidate.name === parsed.name &&
+        !semver.satisfies(candidate.version, constraint)
+      ) {
+        return yield* new AcceptedPackMemberIncompatible({
+          type: expectedType,
+          name: parsed.name,
+          dependencyTarget: formatFqn(parsed),
+          acceptedVersion: candidate.version,
+          constraint,
+        });
+      }
       return selectedWithoutReleaseAge(
         yield* validateSelectedDependency(candidate, expectedType, parsed, fqn, constraint),
       );

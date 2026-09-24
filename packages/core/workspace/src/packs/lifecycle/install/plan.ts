@@ -99,6 +99,7 @@ import {
   type RuleExtensionTarget,
   type SkillExtensionTarget,
   type DesiredConstraintConflict,
+  type DesiredExtensionNode,
   type DesiredStateGraph,
   type SubagentExtensionTarget,
 } from "../../../desired-state/index.js";
@@ -119,7 +120,13 @@ import {
   type PackInstallIntent,
   type ResolveInstallRequirements,
 } from "../../../lifecycle/install/vocabulary.js";
-import { configuredPackConstraintBlockPlan } from "../constraint-gate.js";
+import {
+  ACCEPTED_RESOLUTION_INCOMPATIBLE_BLOCKER_ID,
+  acceptedMemberMismatchRecovery,
+  acceptedMemberMismatchText,
+  configuredPackConstraintBlockPlan,
+  type AcceptedMemberMismatch,
+} from "../constraint-gate.js";
 import { expandPackInstallRefsWithReleaseAge } from "../expansion.js";
 import { validatePackGraphPostcondition } from "../graph-transition.js";
 import { buildPackMemberInstallStep } from "../member-install-step.js";
@@ -553,26 +560,36 @@ export const scanWorkspaceAuthority: (
  * other contributor — the member's direct declaration and every other Pack
  * that requires it — still applies.
  */
+const packMemberEffectiveConstraint = (
+  pack: PackRef,
+  graph: DesiredStateGraph,
+  member: {
+    readonly type: Exclude<DesiredExtensionNode["type"], "pack">;
+    readonly name: string;
+    readonly declared: VersionRange;
+  },
+) => {
+  const packIdentity = `${pack.owner}/packs/${pack.pack.name}`;
+  const location =
+    graph.nodes
+      .find((node) => node.type === member.type && node.name === member.name)
+      ?.origins.flatMap((origin) =>
+        origin.type === "pack" && origin.pack.replace(/^workspace:/u, "") === packIdentity
+          ? [origin.manifestPath]
+          : [],
+      )
+      .at(0) ?? packIdentity;
+  return effectiveDesiredConstraint(graph, { type: member.type, name: member.name }, [
+    { source: "pack", dependingPack: packIdentity, range: member.declared, location },
+  ]);
+};
+
 export const packMemberRangeResolver =
   (pack: PackRef, graph: DesiredStateGraph): PackMemberRangeResolver =>
-  ({ type, name, declared }) => {
-    const packIdentity = `${pack.owner}/packs/${pack.pack.name}`;
-    const location =
-      graph.nodes
-        .find((node) => node.type === type && node.name === name)
-        ?.origins.flatMap((origin) =>
-          origin.type === "pack" && origin.pack.replace(/^workspace:/u, "") === packIdentity
-            ? [origin.manifestPath]
-            : [],
-        )
-        .at(0) ?? packIdentity;
-    return Result.map(
-      effectiveDesiredConstraint(graph, { type, name }, [
-        { source: "pack", dependingPack: packIdentity, range: declared, location },
-      ]),
-      (effective) => Option.getOrElse(effective.range, () => declared),
+  ({ type, name, declared }) =>
+    Result.map(packMemberEffectiveConstraint(pack, graph, { type, name, declared }), (effective) =>
+      Option.getOrElse(effective.range, () => declared),
     );
-  };
 
 /** Every declared member of this Pack whose effective constraint is a conflict. */
 export const packMemberConflicts = (
@@ -666,6 +683,11 @@ export type PackGraphSelection =
       readonly conflicts: ReadonlyArray<DesiredConstraintConflict>;
     }
   | {
+      /** A member's accepted resolution, replayed as its authority, falls outside its range. */
+      readonly kind: "accepted-incompatible";
+      readonly mismatch: AcceptedMemberMismatch;
+    }
+  | {
       readonly kind: "held";
       /** Whether the operation's held-release policy leaves the current graph standing. */
       readonly preserved: boolean;
@@ -714,7 +736,38 @@ export const selectPackGraph = Effect.fn("InstallExtensions.selectPackGraph")(fu
     ...(intent.dependencyResolver === undefined
       ? {}
       : { dependencyResolver: intent.dependencyResolver }),
-  });
+  }).pipe(
+    Effect.catchTag("AcceptedPackMemberIncompatible", (mismatch) =>
+      Effect.succeed({ kind: "accepted-incompatible", mismatch } as const),
+    ),
+  );
+  if (expansion.kind === "accepted-incompatible") {
+    const { mismatch } = expansion;
+    const declaration = Object.entries(intent.packToInstall.pack.dependencies).find(
+      ([fqn]) => fqn === mismatch.dependencyTarget,
+    )?.[1];
+    const effective =
+      declaration === undefined
+        ? undefined
+        : packMemberEffectiveConstraint(intent.packToInstall, proposedGraph, {
+            type: mismatch.type,
+            name: mismatch.name,
+            declared: packMemberVersionRange(declaration),
+          });
+    return {
+      kind: "accepted-incompatible",
+      mismatch: {
+        type: mismatch.type,
+        fqn: mismatch.dependencyTarget,
+        acceptedVersion: mismatch.acceptedVersion,
+        contributors:
+          effective === undefined || Result.isFailure(effective)
+            ? []
+            : effective.success.contributors,
+        constraint: mismatch.constraint,
+      },
+    } satisfies PackGraphSelection;
+  }
   if (expansion.kind === "policy_held") {
     return {
       kind: "held",
@@ -1187,6 +1240,48 @@ export const planPackInstall: (
       problems: selection.conflicts,
       blockedPackLabels: [packIdentity],
     });
+  }
+  if (selection.kind === "accepted-incompatible") {
+    const detail = acceptedMemberMismatchText(selection.mismatch);
+    return {
+      _tag: "Plan",
+      name: "Install pack",
+      description: Option.some(
+        "A member's accepted resolution no longer satisfies its effective constraint",
+      ),
+      presentation: operationPresentation(
+        { imperative: "install", past: "Installed", gerund: "Installing" },
+        "pack",
+      ),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [
+            {
+              readiness: "error",
+              label: packIdentity,
+              errorMessage: detail,
+              blockingConditionIds: [ACCEPTED_RESOLUTION_INCOMPATIBLE_BLOCKER_ID],
+              artifact: {
+                path: "pack graph",
+                scope: location.scope,
+                change: "unchanged",
+                fileCount: 0,
+              },
+            },
+          ],
+        },
+      ],
+      riskConditions: [
+        {
+          level: "blocked" as const,
+          id: ACCEPTED_RESOLUTION_INCOMPATIBLE_BLOCKER_ID,
+          detail,
+          errorCode: "conflict" as const,
+        },
+      ],
+      failureSuggestions: [acceptedMemberMismatchRecovery(selection.mismatch)],
+    } satisfies Plan<InstallStepRequirements>;
   }
   const releaseAge = {
     evaluatedAt: DateTime.formatIso(intent.releaseAgeEvaluation.evaluatedAt),

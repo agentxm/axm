@@ -6,8 +6,11 @@ import { afterEach } from "vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 
+import { deriveOperationOutcome } from "../../transitions/planning/index.js";
+import { applyUpdate, targetedUpdateRequest } from "../update/test-helpers.js";
 import {
   SHARED_MEMBER,
+  SHARED_MEMBER_PACKS,
   SHARED_MEMBER_PIN,
   publishSharedMemberScenario,
   sharedMemberBody,
@@ -32,7 +35,7 @@ export const specification = defineSpecification({
   requirement: "cli/install/records-direct-intent",
   title: "Install records the extension as directly desired workspace configuration",
   statement:
-    "When a person installs an acquirable extension, the install shall record it in workspace settings as directly desired configuration.",
+    "When a person installs an acquirable extension, the install shall record it in workspace settings as directly desired configuration; when a configured Pack's accepted member resolution no longer satisfies that member's effective constraint, the install shall change nothing and report the mismatch with every contributor and the update route that accepts a satisfying resolution.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity"],
@@ -132,6 +135,75 @@ describe("Install records direct workspace intent", () => {
             expect(workspace.readFile(`.claude/skills/${SHARED_MEMBER.name}/SKILL.md`)).toContain(
               sharedMemberBody(SHARED_MEMBER_PIN.inside),
             );
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
+
+  it.effect(
+    "refuses to replay an accepted Pack member a later direct pin excludes, naming the update route",
+    () => {
+      const created = makeInstallWorld({
+        settings: {
+          packs: Object.fromEntries(SHARED_MEMBER_PACKS.map((pack) => [pack.name, pack.fqn])),
+        },
+      });
+      cleanups.push(created.cleanup);
+      const { workspace, registry } = created;
+      publishSharedMemberScenario(registry);
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            // Both Packs accept the newest member version they admit, then the
+            // person pins the member directly to an older one.
+            yield* applyInstall(installRequest({ subject: { kind: "configured" } }));
+            expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.2.0");
+            workspace.writeFile(
+              "axm.json",
+              `${JSON.stringify(
+                {
+                  ...readSettings(workspace),
+                  // The form install records, so only the declaration is new.
+                  skills: {
+                    [SHARED_MEMBER.name]: `${registry.source.name}:${SHARED_MEMBER.fqn}@${SHARED_MEMBER_PIN.inside}`,
+                  },
+                },
+                null,
+                2,
+              )}\n`,
+            );
+            const before = workspace.snapshot();
+
+            const refused = yield* applyInstall(
+              installRequest({ subject: { kind: "configured" } }),
+            );
+
+            // Replaying the accepted member would break the pin, and replay never
+            // selects: the install changes nothing and names the decision.
+            expect(deriveOperationOutcome(refused)).toBe("blocked");
+            expect(workspace.snapshot()).toEqual(before);
+            const mismatch = refused.units.find((unit) => unit.state === "blocked")?.message;
+            expect(mismatch).toContain(`'${SHARED_MEMBER.fqn}' has constraint mismatch`);
+            expect(mismatch).toContain(`settings range=${SHARED_MEMBER_PIN.inside}`);
+            for (const pack of SHARED_MEMBER_PACKS) expect(mismatch).toContain(pack.fqn);
+            expect(mismatch).toContain("accepted version=1.2.0");
+            expect(mismatch).toContain("reason=accepted-resolution-incompatible");
+            expect(refused.suggestions).toContainEqual({
+              description: "Explicitly update the extension to accept a satisfying resolution.",
+              cmd: `axm update ${SHARED_MEMBER.fqn}`,
+            });
+
+            // The named route accepts the pinned version, after which the
+            // configured Packs replay it.
+            yield* applyUpdate(targetedUpdateRequest({ source: SHARED_MEMBER.fqn }));
+            expect(workspace.readFile("axm-lock.yaml")).toContain(
+              `version: ${SHARED_MEMBER_PIN.inside}`,
+            );
+            const replayed = yield* applyInstall(
+              installRequest({ subject: { kind: "configured" } }),
+            );
+            expect(deriveOperationOutcome(replayed)).not.toBe("blocked");
           }),
         )
         .pipe(Effect.provide(NodeServices.layer));

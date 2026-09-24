@@ -17,6 +17,7 @@ export {
   PackConstraintShadowed,
   PackDependencyConflict,
   PackDependencyInvalid,
+  AcceptedPackMemberIncompatible,
   PackDependencyMissing,
   PackDependencyUnsatisfied,
   SourceAuthorityBlocked,

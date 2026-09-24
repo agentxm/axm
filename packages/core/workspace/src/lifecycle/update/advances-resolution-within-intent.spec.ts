@@ -110,6 +110,93 @@ it.effect(
   },
 );
 
+describe("selective subagent update of a member a Pack also requires", () => {
+  const name = "reviewer";
+  const fqn = `@acme/subagents/${name}`;
+
+  /** The subagent is declared directly without a range and required by a Pack. */
+  const acceptedWithinPack = () =>
+    Effect.gen(function* () {
+      const created = makeInstallWorld({
+        settings: {
+          subagents: { [name]: `test:${fqn}` },
+          packs: { agents: "@acme/packs/agents" },
+        },
+      });
+      created.registry.writeSubagent(name, [
+        { version: "1.0.0", body: "First reviewer." },
+        { version: "1.1.0", body: "Accepted reviewer." },
+      ]);
+      created.registry.writePack("agents", [
+        { version: "1.0.0", dependencies: { [fqn]: "^1.0.0" } },
+      ]);
+      yield* created.workspace.provide(
+        applyInstall(installRequest({ subject: { kind: "configured" } })),
+      );
+      created.registry.writeSubagent(name, [
+        { version: "1.0.0", body: "First reviewer." },
+        { version: "1.1.0", body: "Accepted reviewer." },
+        { version: "1.2.0", body: "Compatible reviewer." },
+        { version: "2.0.0", body: "Different reviewer." },
+      ]);
+      return created;
+    });
+
+  const selectiveUpdate = SelectiveUpdate.prepare({
+    kind: "selective-subagents",
+    source: Option.none(),
+    nameFilters: [name],
+    nameFilterFlag: "--name",
+    ignoreVersionConstraints: false,
+  });
+
+  it.effect("advances within the range the Pack declares, not to the newest release", () =>
+    Effect.gen(function* () {
+      const { workspace, cleanup } = yield* acceptedWithinPack();
+      yield* workspace
+        .provide(
+          Effect.gen(function* () {
+            const candidate = yield* selectiveUpdate;
+            if (candidate.outcome !== "planned") throw new Error(candidate.message);
+            const resolution = yield* SelectiveUpdate.previewOrApply(
+              candidate,
+              preapprovedPlanExecution,
+            );
+
+            expect(deriveOperationOutcome(resolution)).toBe("applied");
+            expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.2.0");
+            expect(workspace.readFile("axm-lock.yaml")).not.toContain("version: 2.0.0");
+          }),
+        )
+        .pipe(Effect.ensuring(Effect.sync(cleanup)));
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("refuses a direct pin the Pack's range excludes, naming both contributors", () =>
+    Effect.gen(function* () {
+      const { workspace, cleanup } = yield* acceptedWithinPack();
+      const settings = readSettings(workspace);
+      workspace.writeFile(
+        "axm.json",
+        `${JSON.stringify({ ...settings, subagents: { [name]: `test:${fqn}@2.0.0` } }, null, 2)}\n`,
+      );
+      const lockBefore = workspace.readFile("axm-lock.yaml");
+      yield* workspace
+        .provide(
+          Effect.gen(function* () {
+            const failure = yield* selectiveUpdate.pipe(Effect.flip);
+
+            expect(failure).toMatchObject({ category: "conflict" });
+            expect(JSON.stringify(failure)).toContain("settings range=2.0.0");
+            expect(JSON.stringify(failure)).toContain("@acme/packs/agents range=^1.0.0");
+            expect(workspace.readFile("axm-lock.yaml")).toBe(lockBefore);
+          }),
+        )
+        .pipe(Effect.ensuring(Effect.sync(cleanup)));
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+});
+
 /** A declaration that states its source and leaves activation to its default. */
 const omittedActivationRows = [
   {

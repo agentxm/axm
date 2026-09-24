@@ -41,6 +41,7 @@ import {
   type InstallableExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type { ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
+import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import {
@@ -117,6 +118,8 @@ interface StepFragment {
 interface CollectedConfiguredPlans {
   readonly plans: ReadonlyArray<Plan<InstallStepRequirements>>;
   readonly fragments: ReadonlyArray<StepFragment>;
+  /** The recovery routes a refused unit named, kept when its steps join the sweep. */
+  readonly failureSuggestions: ReadonlyArray<SuggestedAction>;
   readonly holdbacks: ReadonlyArray<ReleaseAgeHoldbackRecord>;
   readonly bypasses: ReadonlyArray<ReleaseAgeBypassRecord>;
 }
@@ -192,6 +195,7 @@ const toCollectedPlans = ({
   fragments: plans.flatMap((plan) =>
     flattenPlanSteps(plan).map((step) => ({ key: step.key ?? step.label, step })),
   ),
+  failureSuggestions: plans.flatMap((plan) => plan.failureSuggestions ?? []),
 });
 
 const attachConfiguredReleaseAge = (
@@ -868,6 +872,15 @@ export const buildConfiguredInstallPlan: (
   const bypasses = normalizeReleaseAgeRecords(
     collections.flatMap(({ collection }) => collection.bypasses),
   );
+  const failureSuggestions = collections
+    .flatMap(({ collection }) => collection.failureSuggestions)
+    .filter(
+      (suggestion, index, all) =>
+        all.findIndex(
+          (candidate) =>
+            candidate.description === suggestion.description && candidate.cmd === suggestion.cmd,
+        ) === index,
+    );
 
   const settled: ConfiguredInstallPlanResult = {
     _tag: "ConfiguredInstallPlan",
@@ -894,6 +907,7 @@ export const buildConfiguredInstallPlan: (
               bypasses,
             },
           }),
+      ...(failureSuggestions.length === 0 ? {} : { failureSuggestions }),
     },
     configuredAgentOperations: configuredAgentOperationsFrom(collections),
   };

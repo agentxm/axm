@@ -16,6 +16,7 @@ import type {
 } from "../../resolution/sources/index.js";
 import {
   resolvePackDependenciesWithReleaseAge,
+  type AcceptedPackMemberIncompatible,
   type PackDependencyRefResolver,
   type PackDependencyResolutionFailure,
   type PackMemberRangeResolver,
@@ -26,7 +27,10 @@ import {
 
 /** Failures pack expansion can surface. */
 type PackExpansionError =
-  SourceResolutionFailure | PackDependencyResolutionFailure | SourceAuthorityBlocked;
+  | SourceResolutionFailure
+  | PackDependencyResolutionFailure
+  | SourceAuthorityBlocked
+  | AcceptedPackMemberIncompatible;
 
 export type ReleaseAgeAwarePackExpansion =
   | {

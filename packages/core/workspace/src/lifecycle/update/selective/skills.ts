@@ -20,18 +20,13 @@ import * as DateTime from "effect/DateTime";
 import type * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import {
-  DesiredStateReader,
   LockfileReader,
   SettingsReader,
   WorkspaceRecords,
-  desiredStateProblemsText,
-  effectiveDesiredConstraint,
-  type DesiredConstraintConflict,
   type DesiredEffectiveConstraint,
 } from "../../../desired-state/index.js";
 
 import * as Option from "effect/Option";
-import * as Result from "effect/Result";
 import { resolveVersionInRange } from "@agentxm/extension-model/unstable/version-constraints";
 
 import {
@@ -83,6 +78,7 @@ import { planSkillInstallationStep } from "../../../skills/lifecycle/install/pla
 import { buildSelectiveUpdatePlan, type SelectiveUpdateUnit } from "./plan.js";
 import type { SelectiveUpdateStepRequirements } from "./requirements.js";
 import {
+  constrainSelectedEntries,
   selectUpdateTargets,
   type SelectiveUpdateEntry,
   type SelectiveUpdateSelectors,
@@ -181,41 +177,6 @@ const toRegistrySkillPattern = (source: string) => {
   return Option.some(parsed);
 };
 
-/**
- * The effective constraint of every selected skill, read from the
- * authoritative desired graph. An incomplete graph is refused rather than
- * guessed at: a missing Pack member would silently drop the constraint it
- * declares. A conflict among a selected skill's contributors refuses the
- * update and names every contributor.
- */
-const collectEffectiveConstraints = Effect.fn("SelectiveSkillUpdate.effectiveConstraints")(
-  function* (entries: ReadonlyArray<SelectiveUpdateEntry>) {
-    const desiredState = yield* DesiredStateReader;
-    const graph = yield* desiredState.graph();
-    if (graph.problems.some((problem) => problem.type !== "constraint-conflict")) {
-      return yield* new ExtensionLifecycleFailed({
-        category: "validation",
-        detail: "Cannot update skills because some pack manifests are missing or invalid",
-      });
-    }
-    const constrained: Array<readonly [string, string, DesiredEffectiveConstraint]> = [];
-    const conflicts: Array<DesiredConstraintConflict> = [];
-    for (const [name, source] of entries) {
-      const constraint = effectiveDesiredConstraint(graph, { type: "skill", name });
-      if (Result.isFailure(constraint)) conflicts.push(constraint.failure);
-      else constrained.push([name, source, constraint.success]);
-    }
-    if (conflicts.length > 0) {
-      return yield* new ExtensionLifecycleFailed({
-        category: "conflict",
-        detail: `Cannot update skills because their constraints are unsatisfiable: ${desiredStateProblemsText(conflicts)}`,
-        recover: "Change the direct declaration or the Pack that requires a version outside it",
-      });
-    }
-    return constrained;
-  },
-);
-
 /** Settle a `skills update` request: decide everything, write nothing. */
 export const prepareSelectiveSkillUpdate = Effect.fn("SelectiveSkillUpdate.prepare")(function* (
   request: SelectiveSkillUpdateRequest,
@@ -279,7 +240,7 @@ export const prepareSelectiveSkillUpdate = Effect.fn("SelectiveSkillUpdate.prepa
       planDescription: PLAN_DESCRIPTION,
     } satisfies SelectiveUpdateCandidate;
   }
-  const constrainedEntries = yield* collectEffectiveConstraints(selection.entries);
+  const constrainedEntries = yield* constrainSelectedEntries("skill", selection.entries);
 
   const findSkillRefs = (
     source: RegistrySource | SkillExtensionRef["source"],

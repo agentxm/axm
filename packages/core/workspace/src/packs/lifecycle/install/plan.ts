@@ -110,11 +110,12 @@ import { parseRegistryInstallTarget } from "../../../lifecycle/install/registry-
 import { registryLoginSuggestions } from "../../../lifecycle/install/registry-login-suggestion.js";
 import {
   formatRegistryProbe,
-  sourceFailureDetail,
   type RegistryLookupProbe,
 } from "../../../lifecycle/install/registry-source-resolution.js";
 import {
   installRefused,
+  sourceResolutionFailureDetail,
+  sourceResolutionRefused,
   type InstallStepRequirements,
   type PackInstallIntent,
   type ResolveInstallRequirements,
@@ -184,26 +185,19 @@ export const discoverPackRefs: (
     })
     .pipe(
       Effect.mapError((cause) =>
-        cause._tag === "ConfigError"
-          ? cause
-          : installRefused({
-              category:
-                sourceResolutionFailureCategory(cause) === "not_found" ? "not_found" : "network",
-              detail: "Pack source could not be read",
-              cause,
-            }),
+        cause._tag === "ConfigError" ? cause : sourceResolutionRefused(cause),
       ),
     );
   return refs.filter((ref): ref is PackRef => ref.type === "pack");
 });
 
 const isRemoteReadNotImplemented = (error: SourceResolutionFailure): boolean => {
-  const detail = sourceFailureDetail(error);
+  const detail = sourceResolutionFailureDetail(error);
   return detail.includes("not implemented") || detail.includes("not yet supported");
 };
 
 const summarizeLookupFailure = (error: SourceResolutionFailure): string =>
-  `${sourceFailureDetail(error)} (${sourceResolutionFailureCategory(error)})`;
+  `${sourceResolutionFailureDetail(error)} (${sourceResolutionFailureCategory(error)})`;
 
 type PackDependencyNameSets = {
   readonly skill: Set<string>;
@@ -950,14 +944,7 @@ export const discoverPackRef: (
       })
       .pipe(
         Effect.mapError((cause) =>
-          cause._tag === "ConfigError"
-            ? cause
-            : installRefused({
-                category:
-                  sourceResolutionFailureCategory(cause) === "not_found" ? "not_found" : "network",
-                detail: "Pack source could not be read",
-                cause,
-              }),
+          cause._tag === "ConfigError" ? cause : sourceResolutionRefused(cause),
         ),
       );
     const packs = refs.filter((ref): ref is PackRef => ref.type === "pack");
@@ -1084,12 +1071,9 @@ export const discoverPackRef: (
       });
     }
   } else if (initialResult._tag === "Failure") {
-    return yield* installRefused({
-      category: "network",
-      detail: "Pack could not be fetched from registry",
-      suggestions: [{ description: "Verify the pack name and registry configuration." }],
-      cause: initialResult.failure,
-    });
+    return yield* sourceResolutionRefused(initialResult.failure, [
+      { description: "Verify the pack name and registry configuration." },
+    ]);
   }
 
   const registryHosts = yield* settings.registrySourceHosts.pipe(

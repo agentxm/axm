@@ -29,19 +29,17 @@ import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   SourceHostProviders,
-  sourceResolutionFailureCategory,
   type SourceResolutionFailure,
 } from "../../../resolution/sources/index.js";
 import { operationPresentation, type Plan } from "../../../transitions/planning/index.js";
 
 import type { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
 import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
-import {
-  sourceFailureDetail,
-  type RegistryLookupProbe,
-} from "../../../lifecycle/install/registry-source-resolution.js";
+import type { RegistryLookupProbe } from "../../../lifecycle/install/registry-source-resolution.js";
 import {
   installRefused,
+  sourceResolutionFailureDetail,
+  sourceResolutionRefused,
   type InstallStepRequirements,
   type ResolveInstallRequirements,
   type SubagentInstallIntent,
@@ -68,7 +66,7 @@ export interface ParsedSubagentInstallRequest {
 }
 
 const isRemoteReadNotImplemented = (error: SourceResolutionFailure): boolean =>
-  sourceFailureDetail(error).includes("not implemented");
+  sourceResolutionFailureDetail(error).includes("not implemented");
 
 const discoverHowToFix = (source: Source, error: SourceResolutionFailure): string => {
   if (source.type === "registry") {
@@ -194,13 +192,9 @@ export const discoverSubagentRefs: (
       Effect.mapError((cause) =>
         cause._tag === "ConfigError"
           ? cause
-          : installRefused({
-              category:
-                sourceResolutionFailureCategory(cause) === "not_found" ? "not_found" : "usage",
-              detail: "Failed to discover subagents from source",
-              suggestions: [{ description: discoverHowToFix(request.source, cause) }],
-              cause,
-            }),
+          : sourceResolutionRefused(cause, [
+              { description: discoverHowToFix(request.source, cause) },
+            ]),
       ),
     );
   if (Array.isReadonlyArrayEmpty(discovered)) {

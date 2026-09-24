@@ -25,7 +25,7 @@ import type { ExtensionInventoryLifecycle, ReadModelRecordRow } from "../../desi
 import { LockfileReader, WorkspaceRecords } from "../../desired-state/index.js";
 import { checkCurrency } from "../version-currency/check-currency.js";
 import { WorkspaceInspectionFailed } from "../errors.js";
-import { describeInspectionFailure } from "../describe-failure.js";
+import { workspaceFailureToStepFailure } from "../../reconciliation/failure-rendering.js";
 
 export type ExtensionListFilter = "all" | "outdated" | "deprecated";
 
@@ -233,7 +233,7 @@ const gitAssessment = Effect.fn("Workspace.gitExtensionAssessment")(function* (
   if (source._tag === "Failure") {
     return {
       state: "unknown",
-      reason: describeInspectionFailure(source.failure),
+      reason: workspaceFailureToStepFailure(source.failure).detail,
     } satisfies ExtensionAssessment;
   }
   const refs = yield* providers
@@ -247,7 +247,7 @@ const gitAssessment = Effect.fn("Workspace.gitExtensionAssessment")(function* (
   if (refs._tag === "Failure") {
     return {
       state: "unknown",
-      reason: describeInspectionFailure(refs.failure),
+      reason: workspaceFailureToStepFailure(refs.failure).detail,
     } satisfies ExtensionAssessment;
   }
   const match = refs.success.find((ref) => ref.type === item.type && refName(ref) === item.name);

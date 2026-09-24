@@ -15,7 +15,7 @@ import type { GitSource } from "@agentxm/extension-model/unstable/sources/types"
 import { DesiredStateReader, acceptedLockedResolutionRef } from "../../desired-state/index.js";
 import { hydrateAcceptedPackRef } from "../../resolution/index.js";
 import { SourceHostProviders } from "../../resolution/sources/index.js";
-import { installRefused } from "./vocabulary.js";
+import { installRefused, sourceResolutionRefused } from "./vocabulary.js";
 
 const sameGitLocator = (left: GitSource, right: GitSource): boolean =>
   left.url.href === right.url.href &&
@@ -55,15 +55,9 @@ const reacquireAcceptedGitRef = (
         detail: `Accepted Git resolution for ${configuredName} changed source family`,
       });
     }
-    const fetched = yield* sources.fetch(lockedCandidate).pipe(
-      Effect.mapError((cause) =>
-        installRefused({
-          category: "network",
-          detail: `Failed to reacquire ${lockedCandidate.source.url.href} at recorded commit ${lockedCandidate.gitCommitSha}`,
-          cause,
-        }),
-      ),
-    );
+    const fetched = yield* sources
+      .fetch(lockedCandidate)
+      .pipe(Effect.mapError((cause) => sourceResolutionRefused(cause)));
     return {
       ...lockedCandidate,
       location: pathToFileURL(fetched.directory).href,

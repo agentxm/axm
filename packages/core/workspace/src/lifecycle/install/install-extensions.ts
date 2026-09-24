@@ -108,6 +108,7 @@ import {
 import {
   INSTALL_HELD_RELEASE_POLICY,
   installRefused,
+  sourceResolutionRefused,
   type InstallExecutionFailure,
   type InstallStepRequirements,
   type PrepareInstallRequirements,
@@ -290,11 +291,7 @@ const planForType = (
           Effect.mapError((cause) =>
             cause._tag === "ExtensionLifecycleFailed" || cause._tag === "ConfigError"
               ? cause
-              : installRefused({
-                  category: "validation",
-                  detail: `Skill source "${source}" could not be resolved`,
-                  cause,
-                }),
+              : sourceResolutionRefused(cause),
           ),
         );
         const accepted =
@@ -353,11 +350,7 @@ const planForType = (
           Effect.mapError((cause) =>
             cause._tag === "ExtensionLifecycleFailed" || cause._tag === "ConfigError"
               ? cause
-              : installRefused({
-                  category: "validation",
-                  detail: `Subagent source "${source}" could not be resolved`,
-                  cause,
-                }),
+              : sourceResolutionRefused(cause),
           ),
         );
         const accepted =

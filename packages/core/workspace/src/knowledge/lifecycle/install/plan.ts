@@ -40,6 +40,7 @@ import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
 import { registryLoginSuggestions } from "../../../lifecycle/install/registry-login-suggestion.js";
 import {
   installRefused,
+  sourceResolutionRefused,
   type InstallStepRequirements,
   type KnowledgeInstallIntent,
   type ResolveInstallRequirements,
@@ -107,13 +108,7 @@ export const discoverKnowledgeRefs: (
       versionRange: request.versionRange,
     })
     .pipe(
-      Effect.mapError((cause) =>
-        installRefused({
-          category: "network",
-          detail: "Knowledge bundles could not be discovered from the source",
-          cause,
-        }),
-      ),
+      Effect.mapError((cause) => sourceResolutionRefused(cause)),
       Effect.map((refs) =>
         refs.filter((ref): ref is KnowledgeExtensionRef => ref.type === "knowledge"),
       ),

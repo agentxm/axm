@@ -38,12 +38,13 @@ import type {
   SourceAuthorityBlocked,
 } from "../resolution/errors.js";
 import type { AxmSkillGateUnavailable } from "../resolution/sources/axm-skill-gate.js";
-import type {
-  GitOperationFailed,
-  SourceHostNotConfigured,
-  SourceNetworkFailure,
-  SourceNotResolvable,
-  SourceSyntaxInvalid,
+import {
+  sourceResolutionFailureCategory,
+  type GitOperationFailed,
+  type SourceHostNotConfigured,
+  type SourceNetworkFailure,
+  type SourceNotResolvable,
+  type SourceSyntaxInvalid,
 } from "../resolution/sources/errors.js";
 import type { WorkspaceCatalogUnavailable } from "../resolution/sources/workspace-catalog.js";
 import { workspaceStateReadFailureToStepFailure } from "../transitions/planning/plan/step-failure-conversions.js";
@@ -112,14 +113,14 @@ export const resolutionFailureToStepFailure = (error: ResolutionFamilyFailure): 
     case "SourceSyntaxInvalid":
     case "SourceHostNotConfigured":
       return makeStepFailure({
-        category: "validation",
+        category: sourceResolutionFailureCategory(error),
         detail: error.detail,
         suggestions: error.suggestions,
         cause: error.cause,
       });
     case "SourceNotResolvable":
       return makeStepFailure({
-        category: error.category,
+        category: sourceResolutionFailureCategory(error),
         detail: error.detail,
         recover: error.recover,
         cmd: error.cmd,
@@ -128,14 +129,14 @@ export const resolutionFailureToStepFailure = (error: ResolutionFamilyFailure): 
       });
     case "SourceNetworkFailure":
       return makeStepFailure({
-        category: "network",
+        category: sourceResolutionFailureCategory(error),
         detail: error.detail,
         retryable: error.retryable,
         cause: error.cause,
       });
     case "GitOperationFailed":
       return makeStepFailure({
-        category: error.operation === "clone" ? "network" : "validation",
+        category: sourceResolutionFailureCategory(error),
         detail: error.detail,
         cause: error.cause,
       });
@@ -145,21 +146,21 @@ export const resolutionFailureToStepFailure = (error: ResolutionFamilyFailure): 
       return isWorkspaceStateReadFailure(error.cause)
         ? workspaceStateReadFailureToStepFailure(error.cause)
         : makeStepFailure({
-            category: error.category,
+            category: sourceResolutionFailureCategory(error),
             detail: error.detail,
             suggestions: error.suggestions,
             cause: error.cause,
           });
     case "AxmSkillGateUnavailable":
       return makeStepFailure({
-        category: error.category,
+        category: sourceResolutionFailureCategory(error),
         detail: error.detail,
         suggestions: error.suggestions,
         cause: error.cause,
       });
     case "RegistryProblem":
       return makeStepFailure({
-        category: error.category,
+        category: sourceResolutionFailureCategory(error),
         title: error.title,
         detail: error.detail,
         metadata: error.metadata,
@@ -169,7 +170,7 @@ export const resolutionFailureToStepFailure = (error: ResolutionFamilyFailure): 
     case "RegistryRequestFailed":
     case "RegistryOperationFailed":
       return makeStepFailure({
-        category: error.category,
+        category: sourceResolutionFailureCategory(error),
         detail: error.detail,
         metadata: error.metadata,
         suggestions: error.suggestions,

@@ -28,7 +28,6 @@ import * as Result from "effect/Result";
 import * as Scope from "effect/Scope";
 import {
   ApprovalRecoveryMissing,
-  OPERATION_ERROR_CATEGORIES,
   STALE_CANDIDATE_DETAIL,
   StaleExecutionCandidate,
   StepFailure,
@@ -76,10 +75,8 @@ import {
   measureAcquiredTree,
 } from "../../../acquisition/measure-acquired-tree.js";
 import { SourceHostProviders } from "../../../resolution/sources/service.js";
-import {
-  isSourceResolutionFailure,
-  sourceResolutionFailureCategory,
-} from "../../../resolution/sources/errors.js";
+import { resolutionFailureToStepFailure } from "../../../materialization/resolution-step-failure.js";
+import { isSourceResolutionFailure } from "../../../resolution/sources/errors.js";
 
 import {
   CurrentOperationUnit,
@@ -122,6 +119,7 @@ import {
 } from "./plan-execution.js";
 import {
   candidateFingerprintFailedToStepFailure,
+  configErrorToStepFailure,
   configuredAgentOutcomesUnavailableToStepFailure,
   restorationIncompleteToStepFailure,
   workspaceStateReadFailureToStepFailure,
@@ -593,35 +591,32 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
 
               yield* Scope.close(childScope, Exit.fail(attempted.failure));
               const cause = attempted.failure;
-              const failureCategory =
-                cause instanceof OperationScratchLimitExceeded ||
-                cause instanceof AcquiredTreeLimitExceeded
-                  ? "quota"
-                  : isSourceResolutionFailure(cause)
-                    ? sourceResolutionFailureCategory(cause)
-                    : "network";
-              const category = OPERATION_ERROR_CATEGORIES.find(
-                (candidate) => candidate === failureCategory,
-              );
-              const detail =
+              // The scratch and tree budgets are this pipeline's own limits;
+              // a source-resolution failure reads as the kernel renders it
+              // wherever else it surfaces.
+              const failure =
                 cause instanceof OperationScratchLimitExceeded
-                  ? `Source acquisition exceeds the ${cause.capacity} byte operation scratch limit`
+                  ? new StepFailure({
+                      category: "quota",
+                      detail: `Source acquisition exceeds the ${cause.capacity} byte operation scratch limit`,
+                      cause,
+                    })
                   : cause instanceof AcquiredTreeLimitExceeded
-                    ? `Acquired source exceeds the ${cause.limit} ${cause.resource} tree limit`
-                    : isSourceResolutionFailure(cause) &&
-                        "detail" in cause &&
-                        typeof cause.detail === "string"
-                      ? redactRegistryText(cause.detail)
-                      : `Could not acquire ${ref.type} ${ref.name} before applying the workspace transition`;
-              return {
-                ref,
-                key,
-                failure: new StepFailure({
-                  category: category ?? "network",
-                  detail,
-                  cause,
-                }),
-              };
+                    ? new StepFailure({
+                        category: "quota",
+                        detail: `Acquired source exceeds the ${cause.limit} ${cause.resource} tree limit`,
+                        cause,
+                      })
+                    : !isSourceResolutionFailure(cause)
+                      ? new StepFailure({
+                          category: "network",
+                          detail: `Could not acquire ${ref.type} ${ref.name} before applying the workspace transition`,
+                          cause,
+                        })
+                      : cause._tag === "ConfigError"
+                        ? configErrorToStepFailure(cause)
+                        : resolutionFailureToStepFailure(cause);
+              return { ref, key, failure };
             }),
           {
             concurrency: Option.isSome(scratchBudget)

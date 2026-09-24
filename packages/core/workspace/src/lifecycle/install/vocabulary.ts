@@ -34,7 +34,12 @@ import type {
   HeldReleasePolicy,
   PackDependencyRefResolver,
 } from "../../resolution/index.js";
-import type { SourceHostProviders, WorkspaceCatalog } from "../../resolution/sources/index.js";
+import type {
+  SourceHostProviders,
+  SourceResolutionFailure,
+  WorkspaceCatalog,
+} from "../../resolution/sources/index.js";
+import { workspaceFailureToStepFailure } from "../../reconciliation/failure-rendering.js";
 import type {
   ApprovalRecoveryMissing,
   CandidateFingerprintFailed,
@@ -171,6 +176,34 @@ export const installRefused = (fields: {
     ...(fields.suggestions === undefined ? {} : { suggestions: fields.suggestions }),
     ...(fields.cause === undefined ? {} : { cause: fields.cause }),
   });
+
+/**
+ * Refuse an install because a source could not be resolved or read. The
+ * kernel's rendering of the resolution failure decides the category, title,
+ * sentence, evidence, and recoveries — the same ones the failure reads with
+ * wherever else it surfaces — and the feature adds only the recoveries of
+ * its own that follow them.
+ */
+export const sourceResolutionRefused = (
+  cause: SourceResolutionFailure,
+  suggestions: NonNullable<ExtensionLifecycleFailed["suggestions"]> = [],
+): ExtensionLifecycleFailed => {
+  const rendered = workspaceFailureToStepFailure(cause);
+  const carried = [...(rendered.suggestions ?? []), ...suggestions];
+  return new ExtensionLifecycleFailed({
+    category: rendered.category,
+    ...(rendered.title === undefined ? {} : { title: rendered.title }),
+    detail: rendered.detail,
+    ...(rendered.metadata === undefined ? {} : { metadata: rendered.metadata }),
+    ...(rendered.retryable === undefined ? {} : { retryable: rendered.retryable }),
+    ...(carried.length === 0 ? {} : { suggestions: carried }),
+    cause,
+  });
+};
+
+/** The sentence a source-resolution failure reads with, for probe evidence. */
+export const sourceResolutionFailureDetail = (cause: SourceResolutionFailure): string =>
+  workspaceFailureToStepFailure(cause).detail;
 
 // -----------------------------------------------------------------------------
 // Per-type resolved intents

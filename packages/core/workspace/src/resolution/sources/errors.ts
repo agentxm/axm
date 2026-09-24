@@ -17,6 +17,7 @@ import * as Data from "effect/Data";
 import { ConfigError } from "effect/Config";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { isRegistryClientFailure, type RegistryClientFailure } from "@agentxm/registry-client";
+import type { OperationErrorCategory } from "../../transitions/planning/plan/errors.js";
 import { AxmSkillGateUnavailable } from "./axm-skill-gate.js";
 import { WorkspaceCatalogUnavailable } from "./workspace-catalog.js";
 
@@ -93,8 +94,9 @@ export type GitOperation =
   | "compare-directory-to-head";
 
 /**
- * A git subprocess operation failed. Clones are network failures; SHA reads
- * over an existing checkout are validation failures.
+ * A git subprocess operation failed. Operations that reach the remote —
+ * clones, commit fetches, and remote ref listings — are network failures;
+ * SHA reads over an existing checkout are validation failures.
  */
 export class GitOperationFailed extends Data.TaggedError("GitOperationFailed")<{
   readonly operation: GitOperation;
@@ -137,11 +139,14 @@ export const isSourceResolutionFailure = (error: unknown): error is SourceResolu
   isRegistryClientFailure(error);
 
 /**
- * The category a source-resolution failure resolves to at the application
- * boundary. Fallback branches key typed decisions on this instead of
- * sniffing the rendered envelope.
+ * The one category a source-resolution failure carries. The kernel's
+ * rendering of the family reads it, and fallback branches key typed decisions
+ * on it instead of sniffing the rendered envelope, so a failure never reads
+ * as one category on a plan path and another on a direct path.
  */
-export const sourceResolutionFailureCategory = (error: SourceResolutionFailure): string => {
+export const sourceResolutionFailureCategory = (
+  error: SourceResolutionFailure,
+): OperationErrorCategory => {
   switch (error._tag) {
     case "ConfigError":
       return error.cause._tag === "SourceError" ? "unavailable" : "validation";

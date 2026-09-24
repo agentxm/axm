@@ -53,6 +53,7 @@ import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
 import type { RegistryLookupProbe } from "../../../lifecycle/install/registry-source-resolution.js";
 import {
   installRefused,
+  sourceResolutionRefused,
   type InstallStepRequirements,
   type ResolveInstallRequirements,
   type SkillInstallIntent,
@@ -254,13 +255,7 @@ export const discoverSkillRefs: (
     })
     .pipe(
       Effect.mapError((cause) =>
-        cause._tag === "ConfigError"
-          ? cause
-          : installRefused({
-              category: "network",
-              detail: "Skills could not be discovered from the source",
-              cause,
-            }),
+        cause._tag === "ConfigError" ? cause : sourceResolutionRefused(cause),
       ),
       Effect.map(Array.filter((ref): ref is SkillExtensionRef => ref.type === "skill")),
     );

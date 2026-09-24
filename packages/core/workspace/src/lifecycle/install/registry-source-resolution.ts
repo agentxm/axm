@@ -34,7 +34,11 @@ import { SettingsReader } from "../../desired-state/index.js";
 
 import type { ExtensionLifecycleFailed } from "../errors.js";
 import { registryLoginSuggestions } from "./registry-login-suggestion.js";
-import { installRefused } from "./vocabulary.js";
+import {
+  installRefused,
+  sourceResolutionFailureDetail,
+  sourceResolutionRefused,
+} from "./vocabulary.js";
 
 type RegistrySourceProbeRequirements =
   SettingsReader | FileSystem.FileSystem | HttpClient.HttpClient | Path.Path;
@@ -62,29 +66,8 @@ export interface RegistryResolutionOptions {
   readonly onRegistryProbe: (probe: RegistryLookupProbe) => void;
 }
 
-/** The sentence a source-resolution failure carries, for probe evidence. */
-export const sourceFailureDetail = (error: SourceResolutionFailure): string => {
-  switch (error._tag) {
-    case "ConfigError":
-      return "Registry cache configuration could not be read.";
-    case "SourceSyntaxInvalid":
-    case "SourceHostNotConfigured":
-    case "SourceNotResolvable":
-    case "SourceNetworkFailure":
-    case "GitOperationFailed":
-    case "WorkspaceCatalogUnavailable":
-    case "AxmSkillGateUnavailable":
-      return error.detail;
-    case "RegistryProblem":
-      return error.detail ?? error.title ?? error.category;
-    case "RegistryRequestFailed":
-    case "RegistryOperationFailed":
-      return error.detail;
-  }
-};
-
 const summarizeLookupFailure = (error: SourceResolutionFailure): string =>
-  `${sourceFailureDetail(error)} (${sourceResolutionFailureCategory(error)})`;
+  `${sourceResolutionFailureDetail(error)} (${sourceResolutionFailureCategory(error)})`;
 
 const extensionLabel = (type: InstallableRegistryType): string =>
   type === "skill" ? "Skill" : "Subagent";
@@ -298,11 +281,7 @@ export const resolveDefaultRegistrySourceByName: ConfiguredDefaultRegistrySource
       Effect.mapError((failure) => {
         if (failure._tag === "ConfigError") return failure;
         if (sourceResolutionFailureCategory(failure) !== "not_found") {
-          return installRefused({
-            category: "network",
-            detail: sourceFailureDetail(failure),
-            cause: failure,
-          });
+          return sourceResolutionRefused(failure);
         }
         const detail = Option.match(maybeOwner, {
           onNone: () => `${label} "${args.name}" could not be looked up (no default owner)`,

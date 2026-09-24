@@ -9,9 +9,15 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Ref from "effect/Ref";
-import { promptAvailability, Verbosity } from "../cli-flags/index.js";
+import { Verbosity } from "../cli-flags/index.js";
 import { planDoc } from "../operation-view.js";
-import { Screen, type ConfirmAsk, type ConfirmChoice } from "../screen/index.js";
+import {
+  Screen,
+  askFailureFields,
+  type AskFailureWording,
+  type ConfirmAsk,
+  type ConfirmChoice,
+} from "../screen/index.js";
 import { PlanInteractionFailed } from "@agentxm/workspace/transitions/planning";
 import { confirmationRecoverySuggestions } from "@agentxm/workspace/transitions/planning";
 import {
@@ -22,6 +28,11 @@ import {
 } from "@agentxm/workspace/transitions/planning";
 
 const confirmApplyChangesMessage = "Apply changes?";
+
+const confirmationWording: AskFailureWording = {
+  configuration: "Interaction configuration could not be read.",
+  output: "The confirmation could not be displayed.",
+};
 
 /**
  * The gate. Every plan that reaches it carries a confirmable condition, so the
@@ -64,15 +75,16 @@ export const ResolvePlanInteractionLive = Layer.effect(
     );
 
     return {
-      // One resolution of effective interactivity feeds planning and the
-      // screen alike, so an unavailable confirmation resolves as the
-      // operation's own blocked outcome, never as a late prompt failure.
-      isConfirmationAvailable: promptAvailability.pipe(
+      // The screen's one decision feeds planning, so an unavailable
+      // confirmation — machine output, a non-interactive invocation, or a
+      // terminal that cannot paint a prompt — resolves as the operation's own
+      // blocked outcome, never as a late prompt failure.
+      isConfirmationAvailable: screen.canAsk.pipe(
         Effect.mapError(
           (cause) =>
             new PlanInteractionFailed({
               category: "internal",
-              detail: "Interaction configuration could not be read.",
+              detail: confirmationWording.configuration,
               cause,
             }),
         ),
@@ -90,23 +102,7 @@ export const ResolvePlanInteractionLive = Layer.effect(
         }).pipe(
           Effect.catchTag("QuestionCancelled", () => Effect.succeed("cancelled" as const)),
           Effect.mapError(
-            (error) =>
-              new PlanInteractionFailed({
-                category:
-                  error._tag === "OutputWriteFailed" || error._tag === "ConfigError"
-                    ? "internal"
-                    : error.code,
-                detail:
-                  error._tag === "ConfigError"
-                    ? "Interaction configuration could not be read."
-                    : error._tag === "OutputWriteFailed"
-                      ? "The confirmation could not be displayed."
-                      : error.detail,
-                ...("suggestions" in error && error.suggestions !== undefined
-                  ? { suggestions: error.suggestions }
-                  : {}),
-                cause: error,
-              }),
+            (error) => new PlanInteractionFailed(askFailureFields(error, confirmationWording)),
           ),
         ),
       // Review is durable context, independent of terminal animation. Routine

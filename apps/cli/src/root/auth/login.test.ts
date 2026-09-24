@@ -365,20 +365,21 @@ describe("auth login handler", () => {
           Effect.provideService(AuthEnvironment, ConfigProvider.fromEnvRecord({ CI: "1" })),
         );
 
+        // Machine output cannot ask, so the sign-in is handed to a person
+        // without blocking on the poll, and the document carries the resume.
         const instructions = rendererState.logs
           .filter((log) => log._tag === "info")
           .map((log) => log.message);
-        expect(instructions).toContain("Sign in to AgentXM.ai with a one-time code.");
         expect(instructions).toContain(
           "This environment appears to be remote or headless; using device-code sign-in.",
         );
         const result = expectRecord(
           property(expectRecord(rendererState.results[0]?.data), "result"),
         );
-        expect(result).toEqual({
-          status: "logged-in",
-          registryHost: "registry.agentxm.ai",
-          handle: ALICE,
+        expect(result).toMatchObject({
+          status: "pending-human",
+          userCode: "ABCD-1234",
+          resume: "axm login --device-code --wait-for-human 300 --json",
         });
       }),
     );

@@ -95,7 +95,7 @@ describe("root locator install selection", () => {
     for (const cleanup of cleanups.splice(0)) cleanup();
   });
 
-  it.effect("requires a per-type selector or --all in non-interactive mode", () => {
+  it.effect("requires a per-type selector or --all when no prompt can open", () => {
     const world = makeInstallWorld();
     cleanups.push(world.cleanup);
     const source = writeLocalSkillPackage(world.workspace.root, { name: "code-review" });
@@ -117,7 +117,7 @@ describe("root locator install selection", () => {
       expect(failure).toBeInstanceOf(ExtensionLifecycleFailed);
       expect(failure).toMatchObject({
         category: "usage",
-        detail: "A per-type selector or --all is required in non-interactive mode",
+        detail: "A per-type selector or --all is required when no prompt can open",
       });
     });
   });

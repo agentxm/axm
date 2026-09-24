@@ -58,7 +58,9 @@ const makeLayer = (
         FrameLive({ animate: true, quiet: false, colors: false }),
         streams.layer,
       );
-      return Layer.provide(
+      // The screen reads the flags in the caller's context when asked, as the
+      // runtime provides them, so they are merged alongside it.
+      return Layer.provideMerge(
         ScreenLive({
           colors: { stdout: false, stderr: false },
           animate: true,
@@ -74,6 +76,24 @@ const makeLayer = (
   );
 
 describe("Screen interaction availability", () => {
+  // The one decision planning and handlers read: the flags allow a prompt and
+  // the frame can paint one.
+  it.effect.each([
+    { stderrIsTTY: true, nonInteractive: false, expected: true },
+    { stderrIsTTY: false, nonInteractive: false, expected: false },
+    { stderrIsTTY: true, nonInteractive: true, expected: false },
+  ])(
+    "answers canAsk $expected with stderr tty=$stderrIsTTY and non-interactive=$nonInteractive",
+    ({ stderrIsTTY, nonInteractive, expected }) =>
+      Effect.gen(function* () {
+        const screen = yield* Screen;
+        expect(yield* screen.canAsk).toBe(expected);
+      }).pipe(
+        Effect.provide(makeLayer({ stderrIsTTY, nonInteractive }, () => undefined)),
+        Effect.scoped,
+      ),
+  );
+
   it.effect("fails unreadable CI configuration before opening a prompt", () => {
     let reads = 0;
     const sourceError = new ConfigProvider.SourceError({ message: "source unavailable" });

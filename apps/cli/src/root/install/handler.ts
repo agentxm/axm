@@ -15,7 +15,7 @@ import {
 } from "@agentxm/workspace/transitions/planning";
 
 import { makeAppError } from "../../app-error/index.js";
-import { isNonInteractiveOptional } from "../../cli-flags/index.js";
+import { Screen } from "../../screen/index.js";
 import { runInstallCommand } from "../shared/install-command.js";
 import { handleWorkspaceInstall } from "./workspace-install-handler.js";
 
@@ -101,7 +101,7 @@ export const handleInstall = (args: InstallHandlerArgs) =>
       });
     }
 
-    const nonInteractive = yield* isNonInteractiveOptional;
+    const nonInteractive = !(yield* (yield* Screen).canAsk);
     const ignoreReleaseAge = (yield* ReleaseAgePosture) === "ignore";
     const source = Option.getOrElse(args.source, () => "@agentxm/skills/axm");
     const command = commandSegments(args.type);

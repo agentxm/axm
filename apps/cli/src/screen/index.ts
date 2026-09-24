@@ -48,7 +48,10 @@ export {
 export {
   promptRequired,
   yesNo,
+  askFailureFields,
   type Ask,
+  type AskFailure,
+  type AskFailureWording,
   type ChooseAsk,
   type ChooseOption,
   type ConfirmAsk,

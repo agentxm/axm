@@ -28,6 +28,9 @@ import {
   Screen,
   WaitAbandoned,
   OutputWriteFailed,
+  askFailureFields,
+  type AskFailure,
+  type AskFailureWording,
   type ConfirmAsk,
 } from "./screen/index.js";
 import {
@@ -61,15 +64,14 @@ const sessionReplacementAsk: ConfirmAsk<SessionReplacementDecision> = {
   ],
 };
 
-const outputFailure = (cause: OutputWriteFailed | ConfigError) =>
-  new RegistryAccessFailed({
-    category: "internal",
-    detail:
-      cause._tag === "ConfigError"
-        ? "Authentication interaction configuration could not be read."
-        : "The authentication output could not be delivered.",
-    cause,
-  });
+const authWording: AskFailureWording = {
+  configuration: "Authentication interaction configuration could not be read.",
+  output: "The authentication output could not be delivered.",
+};
+
+/** A question or an output that did not reach the person, as the capability reports it. */
+const deliveryFailure = (cause: AskFailure) =>
+  new RegistryAccessFailed(askFailureFields(cause, authWording));
 
 export const AuthLoginPresenterLive = Layer.effect(
   AuthLoginPresenter,
@@ -80,7 +82,7 @@ export const AuthLoginPresenterLive = Layer.effect(
         Effect.catchIf(
           (error): error is OutputWriteFailed | ConfigError =>
             error instanceof OutputWriteFailed || error instanceof ConfigError,
-          (cause) => Effect.fail(outputFailure(cause)),
+          (cause) => Effect.fail(deliveryFailure(cause)),
         ),
       );
     const interaction = yield* DeviceLoginInteraction;
@@ -150,18 +152,17 @@ export const AuthLoginPresenterLive = Layer.effect(
           entry.instruction === true ? screen.instruction(entry.doc) : screen.note(entry.doc),
         );
       },
+      // A cancellation is the person's own abandonment, never a failure.
       confirmSessionReplacement: () =>
-        screen.ask(sessionReplacementAsk).pipe(
-          Effect.catchTag("QuestionCancelled", (cancelled) =>
-            Effect.fail(new AuthInteractionAbandoned({ message: cancelled.message })),
-          ),
-          Effect.catchTag("AppError", (error) =>
-            Effect.fail(
-              new RegistryAccessFailed({ category: "usage", detail: error.detail, cause: error }),
+        screen
+          .ask(sessionReplacementAsk)
+          .pipe(
+            Effect.mapError((error) =>
+              error._tag === "QuestionCancelled"
+                ? new AuthInteractionAbandoned({ message: error.message })
+                : deliveryFailure(error),
             ),
           ),
-          required,
-        ),
     } satisfies AuthLoginPresenterService;
   }),
 );

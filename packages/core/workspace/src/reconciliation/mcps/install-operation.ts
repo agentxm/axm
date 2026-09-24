@@ -812,9 +812,10 @@ export const installMcpServer: (
     const storedSecrets = yield* loadStoredMcpSecrets(secretIdentity, secretNames);
     const mergedEnv = { ...storedSecrets, ...(currentEntry?.env ?? {}), ...env };
 
-    // Under --non-interactive there is nobody to prompt, so a required input
-    // that nothing supplied would otherwise install a server that cannot start.
-    // Fail with the exact recipe instead.
+    // Where no prompt can open — machine output, --non-interactive, CI, or a
+    // terminal that cannot paint one — nobody can supply a required input, so
+    // a server that could not start must not be installed. Fail with the exact
+    // recipe instead.
     const requiredInputNames = Option.match(manifest, {
       onNone: () => new Set<string>(),
       onSome: collectRequiredInputNames,

@@ -14,7 +14,7 @@ import { ReleaseAgePosture } from "@agentxm/workspace/resolution";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { recoverySwitch } from "@agentxm/workspace/transitions/planning";
 
-import { isNonInteractiveOptional } from "../../cli-flags/index.js";
+import { Screen } from "../../screen/index.js";
 import { runInstallCommand } from "../shared/install-command.js";
 
 export type WorkspaceInstallableType = InstallableExtensionType;
@@ -60,7 +60,7 @@ export interface WorkspaceInstallHandlerArgs {
 /** Install every enabled configured entry, or every one of a single type. */
 export const handleWorkspaceInstall = (args: WorkspaceInstallHandlerArgs) =>
   Effect.gen(function* () {
-    const nonInteractive = yield* isNonInteractiveOptional;
+    const nonInteractive = !(yield* (yield* Screen).canAsk);
     const ignoreReleaseAge = (yield* ReleaseAgePosture) === "ignore";
     return yield* runInstallCommand({
       command: args.command,

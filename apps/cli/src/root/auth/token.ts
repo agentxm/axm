@@ -21,7 +21,7 @@ import {
   type CreateTokenRequest,
   type TokenPermissionLevel,
 } from "@agentxm/registry-access/authentication";
-import { HumanVerificationOptions, isNonInteractive, jsonFlag } from "../../cli-flags/index.js";
+import { HumanVerificationOptions, jsonFlag } from "../../cli-flags/index.js";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
 import {
   emitResult,
@@ -140,7 +140,7 @@ const resolveCredentialOutput = (requested: "token" | "human" | undefined) =>
     const screen = yield* Screen;
     const facts = yield* screen.facts;
     const json = Option.getOrElse(yield* jsonFlag, () => false);
-    const nonInteractive = yield* isNonInteractive;
+    const nonInteractive = !(yield* screen.canAsk);
 
     if (json) {
       return yield* makeAppError({
@@ -168,7 +168,7 @@ const verificationOptions = (credentialOutput: "token" | "human") =>
     const { stepUpRequest, waitForHuman } = yield* HumanVerificationOptions;
     // Raw output never opens a browser: stdout belongs to a consumer, so
     // approval proceeds as an unattended handoff on stderr.
-    const unattended = credentialOutput === "token" || (yield* isNonInteractive);
+    const unattended = credentialOutput === "token" || !(yield* (yield* Screen).canAsk);
     return {
       ...(Option.isNone(stepUpRequest) ? {} : { resumeReference: stepUpRequest.value }),
       ...(Option.isNone(waitForHuman) ? {} : { waitForHumanSeconds: waitForHuman.value }),

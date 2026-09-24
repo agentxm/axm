@@ -705,7 +705,7 @@ const planLocatorInstall = (
     if (request.nonInteractive && !request.all && explicitlySelectedTypes.length === 0) {
       return yield* installRefused({
         category: "usage",
-        detail: "A per-type selector or --all is required in non-interactive mode",
+        detail: "A per-type selector or --all is required when no prompt can open",
         recover:
           "Repeat --skill, --subagent, --rule, --hook, --knowledge, --mcp, or --pack for selected names, or pass --all",
       });

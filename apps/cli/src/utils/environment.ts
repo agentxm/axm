@@ -11,7 +11,13 @@ export const envOption = (name: string) => Config.option(Config.String(name));
 export const envWithDefault = (name: string, fallback: string) =>
   Config.String(name).pipe(Config.withDefault(fallback));
 
-/** Whether CI is enabled, preserving conventional false spellings. */
-export const isCI = Effect.map(envOption("CI"), (value) =>
-  Option.exists(value, (raw) => raw.length > 0 && raw !== "0" && raw.toLowerCase() !== "false"),
-);
+/**
+ * The one reading of the `CI` variable: any non-empty value enables CI except
+ * the conventional false spellings. Every CI decision — prompt availability,
+ * output styling, and the startup update check — applies this predicate.
+ */
+export const ciEnabled = (raw: string | undefined): boolean =>
+  raw !== undefined && raw.length > 0 && raw !== "0" && raw.toLowerCase() !== "false";
+
+/** Whether CI is enabled, read through the active configuration provider. */
+export const isCI = Effect.map(envOption("CI"), (value) => Option.exists(value, ciEnabled));

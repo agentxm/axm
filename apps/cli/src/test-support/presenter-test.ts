@@ -6,6 +6,7 @@ import type * as Schema from "effect/Schema";
 import { type BoxOptions, type LogMessage, type ResultOptions } from "../screen/output.js";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { subscribeLossless, type OperationEvent } from "@agentxm/workspace/transitions/planning";
+import { promptAvailability } from "../cli-flags/interactivity.js";
 import {
   Screen,
   plain,
@@ -310,7 +311,9 @@ const makeTestScreenService = (
       });
     }),
   // Machine output never prompts, whatever the script holds: asking is the
-  // usage error by construction, as it is on the real machine screen.
+  // usage error by construction, as it is on the real machine screen. The
+  // human test screen can always paint, so its decision is the flags'.
+  canAsk: resultReturnValue ? Effect.succeed(false) : promptAvailability,
   ask: resultReturnValue
     ? (ask, guard) => Effect.fail(promptRequired(plain(ask.question), guard))
     : scriptedAsk(state.script, (doc) => captureDoc(state, doc, "stderr")),

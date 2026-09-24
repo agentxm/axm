@@ -3,7 +3,7 @@ import {
   SetupWorkspace,
   type SetupOutcome,
 } from "@agentxm/workspace/configuration";
-import { agentFlag, isNonInteractive, jsonFlag, Verbosity } from "../cli-flags/index.js";
+import { agentFlag, jsonFlag, Verbosity } from "../cli-flags/index.js";
 import { emitResult, Screen, errorDoc } from "../screen/index.js";
 import { processOutcome, withArgvTracking } from "../cli-runtime/index.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
@@ -140,7 +140,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: HandleSetu
   const verbosity = yield* Verbosity;
   const json = yield* jsonFlag;
   const machineOutput = Option.getOrElse(json, () => false);
-  const nonInteractive = machineOutput || (yield* isNonInteractive);
+  const nonInteractive = !(yield* screen.canAsk);
   const doNotTrackOpt = yield* envOption("DO_NOT_TRACK");
   const axmTelemetryOpt = yield* envOption("AXM_TELEMETRY");
   const telemetryMode = resolveTelemetryMode({

@@ -286,7 +286,7 @@ export const materializationFailureToStepFailure = (
     case "McpRequiredInputsMissing":
       return makeStepFailure({
         category: "usage",
-        detail: `${error.localName} needs ${error.inputNames.join(", ")}, and --non-interactive cannot prompt for them`,
+        detail: `${error.localName} needs ${error.inputNames.join(", ")}, and no prompt can open to ask for them`,
         suggestions: [
           {
             description: "Supply each required input on the command line",

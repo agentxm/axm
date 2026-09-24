@@ -288,7 +288,11 @@ export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): 
         localVersion: version,
         inputs: {
           args: argv,
-          isNonInteractive: resolveNonInteractiveFromArgv(argv),
+          isNonInteractive: resolveNonInteractiveFromArgv(argv, {
+            // eslint-disable-next-line no-restricted-properties -- Raw startup read before the configuration provider exists.
+            ci: process.env["CI"],
+            stdinIsTTY: process.stdin.isTTY,
+          }),
           isJsonOutput: isJson,
           isStderrTTY: stderrIsTTY(),
         },

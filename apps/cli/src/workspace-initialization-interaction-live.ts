@@ -1,5 +1,3 @@
-import type * as Config from "effect/Config";
-import { OutputWriteFailed } from "./screen/streams.js";
 /**
  * CLI implementation of the workspace-initialization interaction port.
  *
@@ -15,15 +13,17 @@ import * as Result from "effect/Result";
 import type * as Array from "effect/Array";
 import {
   Screen,
+  askFailureFields,
   pickAsk,
   yesNo,
+  type AskFailure,
+  type AskFailureWording,
   type ChooseAsk,
   type ChooseOption,
   type ConfirmAsk,
   type InputAsk,
   type PickAsk,
 } from "./screen/index.js";
-import type { AppError } from "./app-error/index.js";
 import {
   WorkspaceConfigurationFailed,
   WorkspaceInitializationCancelled,
@@ -150,37 +150,22 @@ export const customSourceAsk: InputAsk<string> = {
 const cancelled = (error: { readonly message: string }) =>
   Effect.fail(new WorkspaceInitializationCancelled({ message: error.message }));
 
-const carriedCategory = (
-  code: AppError["code"],
-): "conflict" | "internal" | "usage" | "validation" =>
-  code === "conflict" || code === "usage" || code === "validation" ? code : "internal";
+const setupWording: AskFailureWording = {
+  configuration: "Workspace interaction configuration could not be read.",
+  output: "The workspace setup interaction could not be displayed.",
+};
 
 /**
  * Carry a prompt-guard envelope into the feature's typed failure family; the
  * boundary conversion back is a field copy, so the rendered envelope stays
- * byte-identical.
+ * byte-identical. A cancellation passes through as itself.
  */
 const toInteractionFailure = (
-  error: AppError | OutputWriteFailed | Config.ConfigError | WorkspaceInitializationCancelled,
+  error: AskFailure | WorkspaceInitializationCancelled,
 ): WorkspaceConfigurationFailed | WorkspaceInitializationCancelled =>
   error instanceof WorkspaceInitializationCancelled
     ? error
-    : new WorkspaceConfigurationFailed({
-        category:
-          error._tag === "OutputWriteFailed" || error._tag === "ConfigError"
-            ? "internal"
-            : carriedCategory(error.code),
-        detail:
-          error._tag === "ConfigError"
-            ? "Workspace interaction configuration could not be read."
-            : error._tag === "OutputWriteFailed"
-              ? "The workspace setup interaction could not be displayed."
-              : error.detail,
-        ...("suggestions" in error && error.suggestions !== undefined
-          ? { suggestions: error.suggestions }
-          : {}),
-        cause: error,
-      });
+    : new WorkspaceConfigurationFailed(askFailureFields(error, setupWording));
 
 export const WorkspaceInitializationInteractionLive = Layer.effect(
   WorkspaceInitializationInteraction,

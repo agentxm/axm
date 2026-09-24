@@ -11,7 +11,7 @@ import {
   recoverySwitch,
 } from "@agentxm/workspace/transitions/planning";
 
-import { isNonInteractiveOptional } from "../../cli-flags/index.js";
+import { Screen } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { failureToAppError } from "../../app-error/conversions.js";
 import { emitOperationResolution } from "../../operation-output.js";
@@ -43,7 +43,7 @@ export const handleFork = (args: ForkHandlerArgs) =>
   );
 
 const handleForkBody = Effect.fn("Fork.handle")(function* (args: ForkHandlerArgs) {
-  const nonInteractive = yield* isNonInteractiveOptional;
+  const nonInteractive = !(yield* (yield* Screen).canAsk);
   const candidate = yield* ForkExtension.prepare({
     source: args.source,
     target: args.target,

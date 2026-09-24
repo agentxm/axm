@@ -63,6 +63,8 @@ export const lifecycleFailureToStepFailure = (error: LifecycleFamilyFailure): St
         category: error.category,
         title: error.title,
         detail: error.detail,
+        metadata: error.metadata,
+        retryable: error.retryable,
         recover: error.recover,
         cmd: error.cmd,
         suggestions: error.suggestions,

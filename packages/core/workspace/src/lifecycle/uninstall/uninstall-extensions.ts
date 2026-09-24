@@ -17,9 +17,9 @@ import {
   prepareUninstallArtifact,
   collectCleanupStep,
   buildReconciliationClosure,
-  type SyncPolicyFailure,
+  syncFailureRendering,
+  workspaceFailureToStepFailure,
 } from "../../reconciliation/index.js";
-import { lifecycleStepFailure } from "../step-failure.js";
 
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
@@ -255,16 +255,6 @@ export const prepareUninstallExtensions: (
       artifacts[index] === undefined ? [] : [[name, artifacts[index]] as const],
     ),
   );
-  const cleanupAdapter = {
-    toStepFailure: (cause: SyncPolicyFailure) =>
-      lifecycleStepFailure(
-        new ExtensionLifecycleFailed({
-          category: "conflict",
-          detail: "detail" in cause ? cause.detail : cause._tag,
-          cause,
-        }),
-      ),
-  };
   const activeNames = (type: InstallableExtensionType) =>
     new Set(
       proposal.after.nodes
@@ -302,7 +292,7 @@ export const prepareUninstallExtensions: (
             expectedMcpServerNames: activeNames("mcp-server"),
             expectedHookNames: activeNames("hook"),
             subjects: [{ type: leafType, name: nameFromLabel(step.label) }],
-            adapter: cleanupAdapter,
+            adapter: syncFailureRendering,
           }).pipe(
             Effect.mapError(
               (cause) =>
@@ -331,8 +321,7 @@ export const prepareUninstallExtensions: (
               { step: cleanup.value, coverage: "ineligible" },
               { step: removal, coverage: "eligible" },
             ],
-            toStepFailure: (failure) =>
-              failure._tag === "StepFailure" ? failure : cleanupAdapter.toStepFailure(failure),
+            toStepFailure: workspaceFailureToStepFailure,
             validate: Effect.void,
           });
         }),

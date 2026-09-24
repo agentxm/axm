@@ -26,6 +26,7 @@ import type { Version } from "@agentxm/extension-model/unstable/version-constrai
 import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { SourceHostProviders } from "../../../resolution/sources/index.js";
 import { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
+import { sourceResolutionRefused } from "../../../lifecycle/install/vocabulary.js";
 import {
   StepFailureConversion,
   type StepFailureConversionService,
@@ -187,16 +188,9 @@ const runInstallPack = (op: InstallPackOperation, adapter: StepFailureConversion
     // Keep fetch scope alive through copy; fetched directories are released on scope close.
     const manifestContentIdentity = yield* Effect.scoped(
       Effect.gen(function* () {
-        const fetched = yield* sources.fetch(op.args.ref).pipe(
-          Effect.mapError(
-            (error) =>
-              new ExtensionLifecycleFailed({
-                category: "network",
-                detail: `Failed to fetch pack archive: ${error.message}`,
-                cause: error,
-              }),
-          ),
-        );
+        const fetched = yield* sources
+          .fetch(op.args.ref)
+          .pipe(Effect.mapError((error) => sourceResolutionRefused(error)));
 
         const manifestPath = path.join(fetched.directory, PACK_MANIFEST_FILENAME);
         const manifestContent = yield* fs.readFileString(manifestPath).pipe(

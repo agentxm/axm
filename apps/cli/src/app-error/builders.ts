@@ -1,4 +1,4 @@
-import { makeAppError, type AppError, type AppErrorCode } from "./app-error.js";
+import { makeAppError } from "./app-error.js";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 export const BC = {
@@ -10,34 +10,6 @@ export const BC = {
     description,
   }),
 } as const;
-
-/**
- * The one result for being signed out.
- *
- * There are two states, so there is one way to report the first: signed out,
- * with the command that ends it. The device-code form is carried alongside for
- * an invocation that has no terminal of its own to run a browser sign-in from,
- * and a token for one that cannot sign in at all. Nothing that a signed-in
- * person can hit renders this.
- */
-export const errSignedOut = (message = "You are not signed in.", cause?: unknown) =>
-  makeAppError({
-    code: "auth_required",
-    detail: message,
-    blockedOn: "human",
-    suggestions: [
-      BC.run("axm login", "Sign in."),
-      BC.run(
-        "axm login --device-code --json",
-        "Start a non-blocking device sign-in and ask a person to approve it.",
-      ),
-      {
-        description: "Create a personal access token in AgentXM.ai.",
-        url: "https://agentxm.ai/u/settings/tokens",
-      },
-    ],
-    cause,
-  });
 
 export const errPublishConflict = (args: { readonly version?: string; readonly cause?: unknown }) =>
   makeAppError({
@@ -68,35 +40,4 @@ export const errRegistryPublishRejected = (args: {
     detail: args.message,
     suggestions: args.suggestions ?? [BC.do("Check the extension package and try again.")],
     cause: args.cause,
-  });
-
-/**
- * Change endpoint semantics on a mapped envelope while preserving failure
- * evidence and recovery. Owned here with the envelope vocabulary; the
- * registry integration's typed analogue is `withRegistrySemantics`.
- */
-export const withAppErrorSemantics = (
-  error: AppError,
-  semantics: {
-    readonly code?: AppErrorCode;
-    readonly title?: string;
-    readonly detail?: string;
-    readonly suggestions?: ReadonlyArray<SuggestedAction>;
-  },
-): AppError =>
-  makeAppError({
-    code: semantics.code ?? error.code,
-    title: semantics.title ?? error.title,
-    detail: semantics.detail ?? error.detail,
-    ...(error.metadata === undefined ? {} : { metadata: error.metadata }),
-    ...(error.problem === undefined ? {} : { problem: error.problem }),
-    ...(error.inputs === undefined ? {} : { inputs: error.inputs }),
-    ...(error.blockedOn === undefined ? {} : { blockedOn: error.blockedOn }),
-    ...(error.action === undefined ? {} : { action: error.action }),
-    ...(semantics.suggestions === undefined
-      ? error.suggestions === undefined
-        ? {}
-        : { suggestions: error.suggestions }
-      : { suggestions: semantics.suggestions }),
-    cause: error.cause,
   });

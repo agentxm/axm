@@ -29,7 +29,11 @@ import type {
   SourceSwitchFamily,
 } from "../transitions/planning/index.js";
 import type { ExtensionLifecycleFailed } from "./errors.js";
-import { installRefused, type PrepareInstallRequirements } from "./install/vocabulary.js";
+import {
+  installRefused,
+  sourceResolutionRefused,
+  type PrepareInstallRequirements,
+} from "./install/vocabulary.js";
 
 export const SOURCE_SWITCH_CONDITION_ID = "source-authority-change";
 const SOURCE_SWITCH_STATE_CONDITION_ID = "source-switch-current-state";
@@ -234,15 +238,9 @@ const proposedTreeIntegrity = (
 ): Effect.Effect<string, ExtensionLifecycleFailed, PrepareInstallRequirements> =>
   Effect.gen(function* () {
     const providers = yield* SourceHostProviders;
-    const files = yield* providers.fetch(ref).pipe(
-      Effect.mapError((cause) =>
-        installRefused({
-          category: "network",
-          detail: `The target source for ${sourceIdentity(ref)} could not be read for switch preview`,
-          cause,
-        }),
-      ),
-    );
+    const files = yield* providers
+      .fetch(ref)
+      .pipe(Effect.mapError((cause) => sourceResolutionRefused(cause)));
     return yield* comparableTreeIntegrity(files.directory, ref, compareWithRegistry);
   });
 

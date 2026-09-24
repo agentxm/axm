@@ -10,6 +10,12 @@
  */
 
 export { PublishFailed } from "./errors.js";
+export {
+  publishFailedToStepFailure,
+  publishFailureToStepFailure,
+  registryAccessFailureToStepFailure,
+  type PublishFamilyFailure,
+} from "./step-failure.js";
 
 export { PUBLISHABLE_TYPES, isPublishableType, type PublishableType } from "./publishable-types.js";
 
@@ -74,10 +80,7 @@ export {
   isPublishFailure,
   isRetryablePublishFailure,
   publishCause,
-  publishFailureCategory,
-  publishFailureDetail,
   publishFailureProblemCode,
-  publishFailureSuggestions,
   type PublishCauseClass,
   type PublishFailure,
 } from "./failure.js";

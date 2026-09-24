@@ -37,6 +37,7 @@ import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
 import { registryLoginSuggestions } from "../../../lifecycle/install/registry-login-suggestion.js";
 import {
   installRefused,
+  sourceResolutionRefused,
   type InstallStepRequirements,
   type ResolveInstallRequirements,
   type RuleInstallIntent,
@@ -100,13 +101,7 @@ export const discoverRuleRefs: (
       versionRange: request.versionRange,
     })
     .pipe(
-      Effect.mapError((cause) =>
-        installRefused({
-          category: "network",
-          detail: "Rules could not be discovered from the source",
-          cause,
-        }),
-      ),
+      Effect.mapError((cause) => sourceResolutionRefused(cause)),
       Effect.map((refs) => refs.filter((ref): ref is RuleExtensionRef => ref.type === "rule")),
     );
 });

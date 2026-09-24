@@ -5,18 +5,19 @@ import {
   StepFailure,
   makeOperationResolution,
   operationPresentation,
+  stepFailureRetryCanHelp,
   type JobStepArtifact,
   type OperationErrorCategory,
   type OperationResolution,
   type ResolvedUnit,
 } from "@agentxm/workspace/transitions/planning";
 
-import { LockfileVersionUnsupported } from "@agentxm/workspace/desired-state";
+import { LockfileIoError, LockfileVersionUnsupported } from "@agentxm/workspace/desired-state";
 import { workspaceFailureToStepFailure } from "@agentxm/workspace/reconciliation";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { operationDoc, unsettledUnits } from "./operation-view.js";
-import { RETRYABLE_FAILURE_CATEGORIES, retryCanHelp } from "./operation-output.js";
+import { retryCanHelp } from "./operation-output.js";
 import { suggestionsForScope } from "./root/shared/scoped-command.js";
 import { paintText } from "./screen/paint-text.js";
 
@@ -24,7 +25,7 @@ export const specification = defineSpecification({
   requirement: "cli/non-success-results-name-a-fitting-recovery",
   title: "A result that did not succeed names a recovery that fits it",
   statement:
-    "When an operation settles partial, failed, blocked, or interrupted, its `Next` shall name at least one recovery that fits the outcome — the emitting command narrowed to the units that did not settle where an unchanged retry can help, or a recovery the producer of a failure stated — and shall not consist solely of a generic inventory suggestion; where no command can change the outcome, it shall offer no retry.",
+    "When an operation settles partial, failed, blocked, or interrupted, its `Next` shall name at least one recovery that fits the outcome — the emitting command narrowed to the units that did not settle where an unchanged retry can help, or a recovery the producer of a failure stated — and shall not consist solely of a generic inventory suggestion; where no command can change the outcome, it shall offer no retry. Whether a retry can help is the kernel's one decision per failure: the producer's stated retryability, or else its category.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "extension-adoption"],
@@ -131,7 +132,9 @@ describe("A non-success result names a fitting recovery", () => {
     expect(unsettledUnits(resolution).map((unit) => unit.id)).toEqual(["research", "okf"]);
   });
 
-  it.each([...RETRYABLE_FAILURE_CATEGORIES])(
+  // The external class of the shared vocabulary less quota, which a retry
+  // does not refill.
+  it.each(["network", "rate_limit", "timeout", "unavailable"] as const)(
     "offers the emitting route again for a %s failure",
     (category) => {
       const resolution = resolutionOf([
@@ -152,6 +155,29 @@ describe("A non-success result names a fitting recovery", () => {
       expect(retryCanHelp(unsettledUnits(resolution))).toBe(false);
     },
   );
+
+  it("offers no retry where the producer stated the failure is not retryable", () => {
+    // Unreadable workspace storage is unavailable, a category a retry can
+    // usually change; the producer knows this one cannot be, and its verdict
+    // is the one the recovery follows on every path.
+    const error = workspaceFailureToStepFailure(
+      new LockfileIoError({ path: "/w/axm-lock.yaml", cause: new Error("EACCES") }),
+    );
+    expect(error.category).toBe("unavailable");
+    expect(stepFailureRetryCanHelp(error)).toBe(false);
+    const resolution = resolutionOf([unitFailedWith("research", error)]);
+    expect(retryCanHelp(unsettledUnits(resolution))).toBe(false);
+  });
+
+  it("offers a retry where the producer proved the failure worth one", () => {
+    const resolution = resolutionOf([
+      unitFailedWith(
+        "research",
+        new StepFailure({ category: "auth", detail: "The session lapsed.", retryable: true }),
+      ),
+    ]);
+    expect(retryCanHelp(unsettledUnits(resolution))).toBe(true);
+  });
 
   it("never settles non-success with only a generic inventory suggestion", () => {
     const resolution = resolutionOf([

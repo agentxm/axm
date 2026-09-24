@@ -23,7 +23,8 @@ import * as Result from "effect/Result";
 import * as Ref from "effect/Ref";
 import * as ServiceMap from "effect/Context";
 import { observeProjectionPlans } from "./planning.js";
-import type { ProjectionParticipantFailure } from "./errors.js";
+import { isProjectionError, type ProjectionParticipantFailure } from "./errors.js";
+import { projectionErrorToStepFailure } from "../materialization/projection-step-failure.js";
 import {
   aggregateUnitSubject,
   ProjectionParticipants,
@@ -93,56 +94,29 @@ export interface ProjectionInvariantFact {
  * sync branch on. Malformed or newer ownership proof blocks reconciliation;
  * every other failure is reported but does not claim the unit is unowned.
  */
-export const projectionUnavailability = (
+export const projectionUnavailabilityReason = (
   failure: ProjectionParticipantFailure,
-): { readonly reasonCode: ProjectionUnavailableReasonCode; readonly message: string } => {
-  switch (failure._tag) {
-    case "ManagedRegionViolation":
-      return {
-        reasonCode:
-          failure.reasonCode === "managed-region-unsupported-version"
-            ? "unsupported-version"
-            : "invalid-ownership",
-        message: failure.reason ?? `AXM cannot safely update its section in ${failure.displayPath}`,
-      };
-    case "ProjectionTargetUnsupported":
-      return { reasonCode: "unavailable", message: failure.detail };
-    case "ProjectionIoFailed":
-      return {
-        reasonCode: "unavailable",
-        message: `AXM could not ${failure.step === "reconcile" ? "update" : failure.step} its section in ${failure.path}`,
-      };
-    case "DesiredStateIncomplete":
-      return { reasonCode: "unavailable", message: failure.problems };
-    case "AuthoredContributorUnsupported":
-      return {
-        reasonCode: "unavailable",
-        message: `User workspaces cannot contribute workspace-authored ${failure.type} packages`,
-      };
-    case "ContributorIdentityInvalid":
-      return {
-        reasonCode: "unavailable",
-        message: `Contributor identity ${failure.identity} does not name a ${failure.type}`,
-      };
-    case "ContributorUnresolved":
-      return {
-        reasonCode: "unavailable",
-        message: `AXM has no locked version for ${failure.type} ${failure.name}`,
-      };
-    case "ContributorTreeMismatch":
-      return {
-        reasonCode: "unavailable",
-        message: `Installed package files differ from axm-lock.yaml: ${failure.packageRoot}`,
-      };
-    case "ProjectionParticipantFailed":
-      return { reasonCode: "unavailable", message: failure.detail };
-  }
-};
+): ProjectionUnavailableReasonCode =>
+  failure._tag !== "ManagedRegionViolation"
+    ? "unavailable"
+    : failure.reasonCode === "managed-region-unsupported-version"
+      ? "unsupported-version"
+      : "invalid-ownership";
+
+/**
+ * The sentence an unavailable unit's fact carries: the kernel's rendering of
+ * projection's own failure family, so lint and sync name the unit exactly as
+ * the failure reads at a command boundary; a participant's stated failure
+ * keeps the participant's own sentence, which projection never renders.
+ */
+const projectionUnavailabilityMessage = (failure: ProjectionParticipantFailure): string =>
+  isProjectionError(failure) ? projectionErrorToStepFailure(failure).detail : failure.detail;
 
 const uniqueSorted = (values: ReadonlyArray<string>): ReadonlyArray<string> =>
   Array.from(new Set(values)).sort((left, right) => left.localeCompare(right));
 
-const makeUnavailableProjectionFact = (args: {
+/** The fact for a unit its owner could not plan or observe. */
+export const makeUnavailableProjectionFact = (args: {
   readonly unitId: OwnershipUnitId;
   readonly path: string;
   readonly scope: WorkspaceScope;
@@ -151,7 +125,8 @@ const makeUnavailableProjectionFact = (args: {
   readonly failure: ProjectionParticipantFailure;
 }): ProjectionInvariantFact => {
   const contributors = uniqueSorted(args.expectedContributors);
-  const { message, reasonCode } = projectionUnavailability(args.failure);
+  const reasonCode = projectionUnavailabilityReason(args.failure);
+  const message = projectionUnavailabilityMessage(args.failure);
   return {
     predicate: PROJECTION_INVARIANT_PREDICATE,
     subject: {

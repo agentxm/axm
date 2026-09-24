@@ -30,6 +30,19 @@ import {
   RegistryRequestFailed,
 } from "@agentxm/registry-client";
 import {
+  AuthExchangeFailed,
+  AuthInteractionAbandoned,
+  AuthTokenPolicyRequired,
+  DeviceAuthorizationPending,
+  DeviceLoginCodeExpired,
+  DeviceLoginDenied,
+  RegistryAccessFailed,
+  SignedOut,
+  StepUpRequired,
+  StepUpVerificationPending,
+} from "@agentxm/registry-access/authentication";
+import { PublishFailed } from "@agentxm/workspace/publishing";
+import {
   ApprovalRecoveryMissing,
   CandidateFingerprintFailed,
   LifecyclePostconditionViolated,
@@ -285,6 +298,18 @@ const incompatibleAxmSkill: AxmSkillCompatibility = {
 const registryMetadata = {
   request: { service: "registry", method: "GET", url: "https://registry.agentxm.ai/v1/x" },
   response: { status: 503, requestId: "req_1", problemCode: "service_unavailable" },
+} as const;
+
+const stepUpHandoff = {
+  kind: "open-url",
+  purpose: "step-up",
+  requestRef: "https://registry.example.test/v1/auth/step-up/requests/step_fixture",
+  registryUrl: "https://registry.example.test",
+  url: "https://agentxm.ai/step-up/step_fixture",
+  expiresAt: "2099-01-01T00:00:00.000Z",
+  intervalSeconds: 2,
+  resume:
+    "Rerun the same command with the same inputs and --step-up-request https://registry.example.test/v1/auth/step-up/requests/step_fixture.",
 } as const;
 
 type Representatives = {
@@ -632,6 +657,12 @@ const representatives: Representatives = {
   ],
   GitOperationFailed: [
     new GitOperationFailed({ operation: "clone", detail: "Failed to clone", cause: ioCause }),
+    new GitOperationFailed({
+      operation: "fetch-commit",
+      detail: "Failed to fetch commit abc123",
+      cause: ioCause,
+    }),
+    new GitOperationFailed({ operation: "list-remote-refs", detail: "Failed to list refs" }),
     new GitOperationFailed({ operation: "get-tree-sha", detail: "Failed to get tree SHA" }),
   ],
   WorkspaceCatalogUnavailable: [
@@ -814,6 +845,105 @@ const representatives: Representatives = {
       category: "conflict",
       detail: "A managed region on AGENTS.md is owned by another writer.",
       suggestions: [{ description: "Resolve the region." }],
+    }),
+    // A cleanup failure inside an uninstall or activation closure.
+    new WorkspaceSyncFailed({
+      category: "internal",
+      detail: "Failed to remove managed agent artifact: /w/.claude/skills/demo",
+      cause: ioCause,
+    }),
+  ],
+  PublishFailed: [
+    new PublishFailed({
+      category: "conflict",
+      detail: "Version 1.2.3 already exists.",
+      recover: "Bump the version in your manifest.",
+    }),
+    new PublishFailed({
+      category: "validation",
+      detail: "The package is not authored by this workspace.",
+      suggestions: [{ description: "Adopt it first.", cmd: "axm adopt @owner/skills/demo" }],
+    }),
+  ],
+  RegistryAccessFailed: [
+    new RegistryAccessFailed({
+      category: "auth_expired",
+      detail: "The step-up request expired before verification completed.",
+      recover: "Rerun the command to start a new verification request.",
+    }),
+    new RegistryAccessFailed({
+      category: "auth_denied",
+      detail: "The pending device sign-in was denied.",
+      suggestions: [
+        {
+          description: "Request a new device sign-in code.",
+          cmd: "axm login --device-code --json",
+        },
+      ],
+      cause: new DeviceLoginDenied(),
+    }),
+  ],
+  SignedOut: [new SignedOut({ message: "You are not signed in." })],
+  AuthTokenPolicyRequired: [new AuthTokenPolicyRequired({})],
+  DeviceLoginDenied: [new DeviceLoginDenied()],
+  DeviceLoginCodeExpired: [new DeviceLoginCodeExpired()],
+  DeviceAuthorizationPending: [
+    new DeviceAuthorizationPending({
+      waitEnded: { _tag: "Elapsed", seconds: 30 },
+      registryUrl: "https://registry.example.test",
+      intervalSeconds: 2,
+      verificationUri: "https://auth.agentxm.ai/device",
+      verificationUriComplete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+      userCode: "ABCD-1234",
+      expiresAt: "2099-01-01T00:00:00.000Z",
+      resume: "axm login --device-code --wait-for-human 300 --json",
+    }),
+    new DeviceAuthorizationPending({
+      waitEnded: { _tag: "Stopped" },
+      registryUrl: "https://registry.example.test",
+      intervalSeconds: 2,
+      verificationUri: "https://auth.agentxm.ai/device",
+      verificationUriComplete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+      userCode: "ABCD-1234",
+      expiresAt: "2099-01-01T00:00:00.000Z",
+      resume: "axm login --device-code --wait-for-human 300 --json",
+    }),
+  ],
+  StepUpVerificationPending: [
+    new StepUpVerificationPending({ action: stepUpHandoff, timedOut: false }),
+    new StepUpVerificationPending({ action: stepUpHandoff, timedOut: true }),
+  ],
+  AuthInteractionAbandoned: [
+    new AuthInteractionAbandoned({ message: "The sign-in prompt was abandoned." }),
+  ],
+  StepUpRequired: [
+    new StepUpRequired({
+      stepUp: {
+        requestId: "step_1",
+        verificationUrl: "https://agentxm.ai/step-up/step_1",
+        statusUrl: "https://registry.example.test/v1/auth/step-up/requests/step_1",
+        expiresAt: "2099-01-01T00:00:00.000Z",
+        intervalSeconds: 2,
+        action: "Create access token",
+        target: "ci-admin",
+      },
+      failure: new RegistryRequestFailed({
+        category: "auth",
+        detail: "Could not create token",
+        metadata: { response: { status: 401, body: { code: "eotp" } } },
+        cause: ioCause,
+      }),
+    }),
+  ],
+  AuthExchangeFailed: [
+    new AuthExchangeFailed({
+      detail: "Token refresh request failed",
+      suggestions: [{ description: "Sign in again.", cmd: "axm login" }],
+      failure: new RegistryRequestFailed({
+        category: "network",
+        detail: "Token exchange failed: the Registry could not be reached.",
+        cause: ioCause,
+      }),
     }),
   ],
 };
@@ -1043,6 +1173,60 @@ describe("A failure reads the same on the direct and plan paths", () => {
           "axm sync --preview --scope user",
           "axm sync --scope user",
         ]);
+      }
+    }),
+  );
+
+  it.effect("exits a Git fetch failure as a network failure on both paths", () =>
+    Effect.gen(function* () {
+      // A pinned ref is fetched from the remote; the one category table
+      // classifies it once, so the plan path and the direct path agree.
+      const failure = new GitOperationFailed({
+        operation: "fetch-commit",
+        detail: "Failed to fetch commit abc123",
+        cause: ioCause,
+      });
+      for (const view of yield* Effect.all([
+        directView(failure, "project"),
+        planView(failure, "project"),
+      ])) {
+        expect(view.code).toBe("network");
+        expect(view.exitCode).toBe(8);
+      }
+    }),
+  );
+
+  it.effect("keeps a sign-in recovery unscoped in a user workspace on both paths", () =>
+    Effect.gen(function* () {
+      // Signing in runs for the whole installation: `axm login` takes no
+      // `--scope`, so a user-scope workspace must not narrow it.
+      const failures = [
+        new SignedOut({ message: "You are not signed in." }),
+        new DeviceLoginCodeExpired(),
+        new ExtensionLifecycleFailed({
+          category: "not_found",
+          detail: "@acme/skills/private was not found in configured registries",
+          suggestions: [
+            {
+              description: "Sign in to check whether the extension is private.",
+              cmd: "axm login",
+              commandScope: "global",
+            },
+          ],
+        }),
+      ];
+      for (const failure of failures) {
+        for (const view of yield* Effect.all([
+          directView(failure, "user"),
+          planView(failure, "user"),
+        ])) {
+          const commands = view.suggestions.flatMap((suggestion) => suggestion.cmd ?? []);
+          expect(commands.length).toBeGreaterThan(0);
+          for (const command of commands) {
+            expect(command).toMatch(/^axm login/);
+            expect(command).not.toContain("--scope");
+          }
+        }
       }
     }),
   );

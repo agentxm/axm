@@ -46,11 +46,11 @@ import {
   settleOperation,
   unitsByStableIdentity,
   type JobStepArtifact,
-  type OperationErrorCategory,
   type OperationOutcome,
   type OperationResolution,
   type ResolvedUnit,
   type StepFailure,
+  stepFailureRetryCanHelp,
 } from "@agentxm/workspace/transitions/planning";
 import { operationExitCode, operationOk } from "./operation-exit-code.js";
 import {
@@ -816,23 +816,12 @@ const releaseAgeRecoveryText = (
 };
 
 /**
- * The failure categories a retry can change. They are the `external` class of
- * the shared error vocabulary less `quota`, which a retry does not refill: a
- * category outside them describes a condition a person resolves, and offering
- * a retry for one would send a reader round the same loop.
+ * Whether re-running the emitting command could change what these units did.
+ * The kernel decides per failure, from the producer's own verdict or its
+ * category; this only asks whether any unsettled unit's failure admits one.
  */
-export const RETRYABLE_FAILURE_CATEGORIES: ReadonlySet<OperationErrorCategory> = new Set([
-  "network",
-  "rate_limit",
-  "timeout",
-  "unavailable",
-]);
-
-/** Whether re-running the emitting command could change what these units did. */
 export const retryCanHelp = (units: ReadonlyArray<ResolvedUnit<unknown>>): boolean =>
-  units.some(
-    (unit) => unit.error !== undefined && RETRYABLE_FAILURE_CATEGORIES.has(unit.error.category),
-  );
+  units.some((unit) => unit.error !== undefined && stepFailureRetryCanHelp(unit.error));
 
 /** The last path segment, which is the extension's own name in every form. */
 const targetName = (value: string): string => value.split("/").at(-1) ?? value;

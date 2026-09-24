@@ -11,8 +11,10 @@ import * as Option from "effect/Option";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import { redactRegistryText } from "@agentxm/registry-client";
 import { StepUpVerificationPending, type AuthError } from "@agentxm/registry-access/authentication";
+import { workspaceFailureToStepFailure } from "../../reconciliation/failure-rendering.js";
 import {
   StepFailure,
+  stepFailureWithCause,
   unitIdOf,
   type OperationJournalState,
 } from "../../transitions/planning/index.js";
@@ -22,10 +24,7 @@ import { PublishFailed } from "../errors.js";
 import {
   isPublishFailure,
   publishCause,
-  publishFailureCategory,
-  publishFailureDetail,
   publishFailureProblemCode,
-  publishFailureSuggestions,
   type PublishFailure,
 } from "../failure.js";
 import type { PublishCandidate, PublishPreparationFailure, SelectedEntry } from "./model.js";
@@ -33,26 +32,12 @@ import { publishItemId } from "./publication.js";
 import type { PublishPublicationSet, PublishResultItem } from "./result.js";
 
 /**
- * Publish steps settle with the typed publish failure as the step failure's
- * cause; the reader below recovers it so publish causes keep their
- * request and response evidence verbatim.
+ * Publish steps settle with the kernel's rendering of the typed failure, and
+ * carry that failure as the step failure's cause; the reader below recovers
+ * it so publish causes keep their request and response evidence verbatim.
  */
-export const publishStepFailure = (failure: PublishFailure | AuthError): StepFailure => {
-  if (!isPublishFailure(failure)) {
-    return new StepFailure({
-      category: "auth",
-      detail: "Publication did not complete because authentication did not.",
-      cause: failure,
-    });
-  }
-  const suggestions = publishFailureSuggestions(failure);
-  return new StepFailure({
-    category: publishFailureCategory(failure),
-    detail: publishFailureDetail(failure),
-    ...(suggestions.length === 0 ? {} : { suggestions }),
-    cause: failure,
-  });
-};
+export const publishStepFailure = (failure: PublishFailure | AuthError): StepFailure =>
+  stepFailureWithCause(workspaceFailureToStepFailure(failure), failure);
 
 /**
  * The pending human handoff a settled step carried, if any. Publication did
@@ -359,7 +344,7 @@ export const publicationSetResult = (options: {
               severity: "error",
               reason: "authoritative_preflight_failed",
               message: publishCause(options.blocked).message,
-              suggestions: publishFailureSuggestions(options.blocked),
+              suggestions: workspaceFailureToStepFailure(options.blocked).suggestions ?? [],
             },
           ],
   };

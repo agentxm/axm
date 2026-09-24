@@ -99,7 +99,7 @@ export {
   exclusiveMemberRetentionPolicy,
 } from "./retention-policy.js";
 
-export { ReconciliationFailureConversionLive } from "./layer.js";
+export { ReconciliationFailureConversionLive, syncFailureRendering } from "./layer.js";
 export { workspaceFailureToStepFailure, type WorkspaceFailure } from "./failure-rendering.js";
 export { isWorkspaceFailure } from "./failure-recognition.js";
 

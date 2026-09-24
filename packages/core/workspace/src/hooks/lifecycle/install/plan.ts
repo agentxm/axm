@@ -46,6 +46,7 @@ import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
 import { registryLoginSuggestions } from "../../../lifecycle/install/registry-login-suggestion.js";
 import {
   installRefused,
+  sourceResolutionRefused,
   type HookInstallIntent,
   type InstallStepRequirements,
   type ResolveInstallRequirements,
@@ -151,13 +152,7 @@ export const discoverHookRefs: (
       versionRange: request.versionRange,
     })
     .pipe(
-      Effect.mapError((cause) =>
-        installRefused({
-          category: "network",
-          detail: "Hooks packages could not be discovered from the source",
-          cause,
-        }),
-      ),
+      Effect.mapError((cause) => sourceResolutionRefused(cause)),
       Effect.map((refs) => refs.filter((ref): ref is HookExtensionRef => ref.type === "hook")),
     );
 });

@@ -9,12 +9,7 @@ import * as Data from "effect/Data";
 import * as Schema from "effect/Schema";
 
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
-
-const CarriedSuggestedActionSchema = Schema.Struct({
-  description: Schema.String,
-  cmd: Schema.optional(Schema.String),
-  url: Schema.optional(Schema.String),
-});
+import { FailureSuggestedActionSchema } from "../transitions/planning/plan/errors.js";
 
 /**
  * A resolution policy step could not proceed. The carried fields mirror the
@@ -37,7 +32,7 @@ export class ExtensionResolutionFailed extends Schema.TaggedError<ExtensionResol
     detail: Schema.optional(Schema.String),
     recover: Schema.optional(Schema.String),
     cmd: Schema.optional(Schema.String),
-    suggestions: Schema.optional(Schema.Array(CarriedSuggestedActionSchema)),
+    suggestions: Schema.optional(Schema.Array(FailureSuggestedActionSchema)),
     cause: Schema.optional(Schema.Unknown),
   },
 ) {}

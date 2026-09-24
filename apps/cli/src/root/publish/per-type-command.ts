@@ -5,7 +5,7 @@ import { acceptWarningsFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { extensionTypeToPlural } from "@agentxm/extension-model/unstable/extensions";
 import { normalizeTypePublishSelection, type PublishableType } from "@agentxm/workspace/publishing";
-import { publishFailureToAppError } from "../../feature-errors.js";
+import { failureToAppError } from "../../app-error/conversions.js";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
@@ -79,7 +79,7 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
           selectors: parsed.extensions,
           owners: parsed.owner,
           excludes: parsed.exclude,
-        }).pipe(Effect.mapError(publishFailureToAppError));
+        }).pipe(Effect.mapError(failureToAppError));
         return yield* handleRootPublish({
           ...selection,
           registry: parsed.registry,
@@ -112,7 +112,7 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
         selectors: parsed.extensions,
         owners: parsed.owner,
         excludes: parsed.exclude,
-      }).pipe(Effect.mapError(publishFailureToAppError));
+      }).pipe(Effect.mapError(failureToAppError));
       return yield* handleRootPublish({
         ...selection,
         registry: parsed.registry,

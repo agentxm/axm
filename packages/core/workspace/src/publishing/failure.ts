@@ -3,14 +3,18 @@
  * machine-readable cause the publish result reports for a step that actually
  * failed.
  *
+ * The kernel renders every publish failure once; this module reads that
+ * rendering to build the document's cause and to aggregate a run's failures.
+ * It words nothing itself.
+ *
  * @experimental This API is unstable and may change without notice.
  */
 
 import { isRegistryClientFailure, redactRegistryText } from "@agentxm/registry-client";
 import type { RegistryClientFailure } from "@agentxm/registry-client";
 import { ConfigError } from "effect/Config";
-import type { OperationErrorCategory } from "../transitions/planning/index.js";
-import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+import { workspaceFailureToStepFailure } from "../reconciliation/failure-rendering.js";
+import type { OperationErrorCategory, StepFailure } from "../transitions/planning/index.js";
 
 import { PublishFailed } from "./errors.js";
 
@@ -42,45 +46,22 @@ const CAUSE_CLASS_BY_CATEGORY: Readonly<Record<OperationErrorCategory, PublishCa
   timeout: "external",
 };
 
-/** The category the failure assigned itself. */
-export const publishFailureCategory = (failure: PublishFailure): OperationErrorCategory =>
-  failure._tag === "ConfigError"
-    ? failure.cause._tag === "SourceError"
-      ? "unavailable"
-      : "validation"
-    : failure.category;
-
-/** The user-facing sentence the failure carries. */
-export const publishFailureDetail = (failure: PublishFailure): string =>
-  failure._tag === "ConfigError"
-    ? "Registry cache configuration could not be read."
-    : failure._tag === "PublishFailed"
-      ? failure.detail
-      : failure._tag === "RegistryProblem"
-        ? (failure.detail ?? failure.title ?? "The registry rejected the request.")
-        : failure.detail;
-
-export const publishFailureSuggestions = (
-  failure: PublishFailure,
-): ReadonlyArray<SuggestedAction> =>
-  failure._tag === "ConfigError" ? [] : (failure.suggestions ?? []);
-
-const failureMetadata = (failure: PublishFailure) =>
-  failure._tag === "PublishFailed" || failure._tag === "ConfigError" ? undefined : failure.metadata;
+/** The kernel's rendering of a publish failure, which every reading below shares. */
+const rendered = (failure: PublishFailure): StepFailure => workspaceFailureToStepFailure(failure);
 
 /** True when the request policy proved the failure worth retrying. */
 export const isRetryablePublishFailure = (failure: PublishFailure): boolean =>
-  failureMetadata(failure)?.requestPolicy?.retryable === true;
+  rendered(failure).metadata?.requestPolicy?.retryable === true;
 
 /** The Registry problem code, when the failure carried one. */
 export const publishFailureProblemCode = (failure: PublishFailure): string | undefined =>
-  failureMetadata(failure)?.response?.problemCode;
+  rendered(failure).metadata?.response?.problemCode;
 
 /** The Registry lifecycle reason carried by a typed publication refusal. */
 export const publishFailureLifecycleReason = (
   failure: PublishFailure,
 ): "deleting" | "held" | "archived" | undefined => {
-  const response = failureMetadata(failure)?.response;
+  const response = rendered(failure).metadata?.response;
   const body = response?.body;
   if (
     response?.problemCode !== "lifecycle_blocked" ||
@@ -100,14 +81,13 @@ export const publishFailureLifecycleReason = (
  * Registry-supplied text are redacted before they reach durable output.
  */
 export const publishCause = (failure: PublishFailure) => {
-  const category = publishFailureCategory(failure);
-  const metadata = failureMetadata(failure);
-  const policy = metadata?.requestPolicy;
-  const response = metadata?.response;
+  const step = rendered(failure);
+  const policy = step.metadata?.requestPolicy;
+  const response = step.metadata?.response;
   return {
-    code: category,
-    class: CAUSE_CLASS_BY_CATEGORY[category],
-    message: redactRegistryText(publishFailureDetail(failure)),
+    code: step.category,
+    class: CAUSE_CLASS_BY_CATEGORY[step.category],
+    message: redactRegistryText(step.detail),
     retryable: policy?.retryable ?? false,
     ...(policy === undefined
       ? {}
@@ -141,22 +121,22 @@ export const aggregatePublishFailure = (
   failures: ReadonlyArray<PublishFailure>,
 ): PublishFailed => {
   const [first] = failures;
+  const steps = failures.map(rendered);
+  const [firstStep] = steps;
   const allRetryable = failures.length > 0 && failures.every(isRetryablePublishFailure);
   const category: OperationErrorCategory =
     first !== undefined &&
-    (allRetryable ||
-      failures.every(
-        (failure) => publishFailureCategory(failure) === publishFailureCategory(first),
-      ))
-      ? publishFailureCategory(first)
+    firstStep !== undefined &&
+    (allRetryable || steps.every((step) => step.category === firstStep.category))
+      ? firstStep.category
       : "internal";
   return new PublishFailed({
     category,
     detail: `Failed to publish ${failedCount} extension${failedCount === 1 ? "" : "s"}${
-      first !== undefined && category !== "internal" ? `: ${publishFailureDetail(first)}` : ""
+      firstStep !== undefined && category !== "internal" ? `: ${firstStep.detail}` : ""
     }`,
-    ...(first !== undefined && category !== "internal"
-      ? { suggestions: publishFailureSuggestions(first) }
+    ...(firstStep?.suggestions !== undefined && category !== "internal"
+      ? { suggestions: firstStep.suggestions }
       : {}),
   });
 };

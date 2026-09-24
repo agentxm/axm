@@ -57,6 +57,7 @@ import { registryLoginSuggestions } from "../../../lifecycle/install/registry-lo
 import { parseRegistryInstallTarget } from "../../../lifecycle/install/registry-install-target.js";
 import {
   installRefused,
+  sourceResolutionRefused,
   type InstallStepRequirements,
   type McpServerInstallIntent,
   type ResolveInstallRequirements,
@@ -393,12 +394,7 @@ export const discoverMcpServerRefs: (
     })
     .pipe(
       Effect.mapError((cause) =>
-        installRefused({
-          category: "network",
-          detail: "MCP server source could not be read",
-          suggestions: [{ description: SOURCE_GUIDANCE }],
-          cause,
-        }),
+        sourceResolutionRefused(cause, [{ description: SOURCE_GUIDANCE }]),
       ),
     );
   return refs.filter((ref): ref is McpServerExtensionRef => ref.type === "mcp-server");

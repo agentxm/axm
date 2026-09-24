@@ -19,7 +19,7 @@ import {
 } from "@agentxm/registry-protocol/unstable/publish";
 import { ManagePublishedVisibility } from "@agentxm/workspace/publishing";
 import type { ExtensionVisibility } from "@agentxm/extension-model/unstable/extensions";
-import { publishFailureToAppError } from "../../feature-errors.js";
+import { failureToAppError } from "../../app-error/conversions.js";
 import { HumanVerificationOptions, isNonInteractive, jsonFlag } from "../../cli-flags/index.js";
 import * as Option from "effect/Option";
 import { withLiveOperation } from "../../operation-lifecycle.js";
@@ -85,7 +85,7 @@ export const handleVisibilityStatus = Effect.fn("Visibility.status")(
       ),
     );
   },
-  Effect.mapError(publishFailureToAppError),
+  Effect.mapError(failureToAppError),
   Effect.asVoid,
 );
 
@@ -102,7 +102,7 @@ export const handleVisibilitySet = Effect.fn("Visibility.set")(
     );
     yield* emitMutation(written.mutation);
   },
-  Effect.mapError(publishFailureToAppError),
+  Effect.mapError(failureToAppError),
   Effect.asVoid,
 );
 
@@ -118,6 +118,6 @@ export const handleVisibilityReconcile = Effect.fn("Visibility.reconcile")(
     );
     yield* emitMutation(written.mutation);
   },
-  Effect.mapError(publishFailureToAppError),
+  Effect.mapError(failureToAppError),
   Effect.asVoid,
 );

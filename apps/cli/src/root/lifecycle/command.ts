@@ -23,7 +23,7 @@ import {
   DeprecationTransitionSchema,
   type DeprecationTransition,
 } from "@agentxm/registry-protocol/unstable/registry";
-import { publishFailureToAppError } from "../../feature-errors.js";
+import { failureToAppError } from "../../app-error/conversions.js";
 
 import { withRuntime } from "../../runtime.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";
@@ -68,7 +68,7 @@ export const handleYank = Effect.fn("Yank.handle")(
       ),
     );
   },
-  Effect.mapError(publishFailureToAppError),
+  Effect.mapError(failureToAppError),
   Effect.asVoid,
 );
 
@@ -81,7 +81,7 @@ export const handleUnyank = Effect.fn("Unyank.handle")(
       ),
     );
   },
-  Effect.mapError(publishFailureToAppError),
+  Effect.mapError(failureToAppError),
   Effect.asVoid,
 );
 
@@ -135,7 +135,7 @@ export const handleDeprecate = Effect.fn("Deprecate.handle")(
     );
     yield* emitDeprecationTransition(written.transition);
   },
-  Effect.mapError(publishFailureToAppError),
+  Effect.mapError(failureToAppError),
   Effect.asVoid,
 );
 
@@ -147,7 +147,7 @@ export const handleUndeprecate = Effect.fn("Undeprecate.handle")(
     );
     yield* emitDeprecationTransition(written.transition);
   },
-  Effect.mapError(publishFailureToAppError),
+  Effect.mapError(failureToAppError),
   Effect.asVoid,
 );
 
@@ -184,7 +184,7 @@ export const handleArchive = Effect.fn("Archive.handle")(
     );
     yield* emitArchivalTransition(written.transition);
   },
-  Effect.mapError(publishFailureToAppError),
+  Effect.mapError(failureToAppError),
   Effect.asVoid,
 );
 
@@ -196,7 +196,7 @@ export const handleUnarchive = Effect.fn("Unarchive.handle")(
     );
     yield* emitArchivalTransition(written.transition);
   },
-  Effect.mapError(publishFailureToAppError),
+  Effect.mapError(failureToAppError),
   Effect.asVoid,
 );
 

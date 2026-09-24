@@ -104,6 +104,7 @@ import {
   type PlannedJobStep,
 } from "../transitions/planning/index.js";
 import { WorkspaceSyncFailed } from "./errors.js";
+import { workspaceFailureToStepFailure } from "./failure-rendering.js";
 import {
   isInlineMcpServerEntry,
   SYNC_RECOVERY_IDS,
@@ -366,43 +367,12 @@ export type ConfiguredEntryResolutionRequirements =
   | LockfileReader
   | DesiredStateReader;
 
-const SYNC_CATEGORIES = ["conflict", "internal", "not_found", "validation"] as const;
-
-const syncCategory = (
-  cause: ConfiguredEntryResolutionFailure,
-): (typeof SYNC_CATEGORIES)[number] => {
-  if (!("category" in cause)) return "conflict";
-  const found = SYNC_CATEGORIES.find((category) => category === cause.category);
-  return found ?? "conflict";
-};
-
-const resolutionDetail = (cause: ConfiguredEntryResolutionFailure): string =>
-  "detail" in cause && typeof cause.detail === "string" ? cause.detail : cause._tag;
-
-/** The suggestion shape this feature's refusal carries to the boundary. */
-type CarriedSuggestedActions = NonNullable<WorkspaceSyncFailed["suggestions"]>;
-
-/**
- * The recovery routes the resolution refusal already named. Annotating the
- * refusal with the node that needed it must not cost the operator the escape
- * the producer described, so `recover`/`cmd` fold into a leading action the
- * way the application boundary folds them.
- */
-const resolutionGuidance = (cause: ConfiguredEntryResolutionFailure): CarriedSuggestedActions => {
-  const recover =
-    "recover" in cause && typeof cause.recover === "string" ? cause.recover : undefined;
-  const cmd = "cmd" in cause && typeof cause.cmd === "string" ? cause.cmd : undefined;
-  const carried: CarriedSuggestedActions =
-    "suggestions" in cause && cause.suggestions !== undefined ? cause.suggestions : [];
-  const leading: CarriedSuggestedActions =
-    recover === undefined ? [] : [{ description: recover, ...(cmd === undefined ? {} : { cmd }) }];
-  return [...leading, ...carried];
-};
-
 /**
  * Resolve one desired node's configured entry, annotating the failure with
  * the node and the canonical observation that made resolution necessary, so
- * the blocker states the same fact lint reports for the node.
+ * the blocker states the same fact lint reports for the node. The kernel's
+ * rendering of the failure supplies its category, sentence, and recoveries;
+ * the annotation adds only the node and the fact.
  */
 const resolveDesiredNodeRef = (
   node: DesiredExtensionNode & { readonly source: string },
@@ -421,17 +391,17 @@ const resolveDesiredNodeRef = (
     >,
   ) =>
     effect.pipe(
-      Effect.mapError(
-        (cause) =>
-          new WorkspaceSyncFailed({
-            category: syncCategory(cause),
-            detail: `${node.type} ${node.name}: ${resolutionDetail(cause)}; ${canonicalObservationFactText(node, observation)}`,
-            ...(resolutionGuidance(cause).length === 0
-              ? {}
-              : { suggestions: resolutionGuidance(cause) }),
-            cause,
-          }),
-      ),
+      Effect.mapError((cause) => {
+        const rendered = workspaceFailureToStepFailure(cause);
+        return new WorkspaceSyncFailed({
+          category: rendered.category,
+          detail: `${node.type} ${node.name}: ${rendered.detail}; ${canonicalObservationFactText(node, observation)}`,
+          ...(rendered.suggestions === undefined || rendered.suggestions.length === 0
+            ? {}
+            : { suggestions: rendered.suggestions }),
+          cause,
+        });
+      }),
     );
   switch (node.type) {
     case "skill":

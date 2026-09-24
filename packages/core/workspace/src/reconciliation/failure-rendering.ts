@@ -61,6 +61,10 @@ import {
   lifecycleFailureToStepFailure,
   type LifecycleFamilyFailure,
 } from "../lifecycle/step-failure.js";
+import {
+  publishFailureToStepFailure,
+  type PublishFamilyFailure,
+} from "../publishing/step-failure.js";
 
 import type { WorkspaceSyncFailed } from "./errors.js";
 import { isWorkspaceFailure } from "./failure-recognition.js";
@@ -82,6 +86,7 @@ export type WorkspaceFailure =
   | ResolutionFamilyFailure
   | AuthoringFamilyFailure
   | LifecycleFamilyFailure
+  | PublishFamilyFailure
   | WorkspaceConfigurationFailed
   | WorkspaceSyncFailed;
 
@@ -283,6 +288,18 @@ export const workspaceFailureToStepFailure = (failure: WorkspaceFailure): StepFa
     case "SubagentSelectionUnavailable":
     case "InstallSelectionUnavailable":
       return lifecycleFailureToStepFailure(failure);
+    case "PublishFailed":
+    case "RegistryAccessFailed":
+    case "SignedOut":
+    case "AuthTokenPolicyRequired":
+    case "DeviceLoginDenied":
+    case "DeviceLoginCodeExpired":
+    case "DeviceAuthorizationPending":
+    case "StepUpVerificationPending":
+    case "AuthInteractionAbandoned":
+    case "StepUpRequired":
+    case "AuthExchangeFailed":
+      return publishFailureToStepFailure(failure);
     case "WorkspaceConfigurationFailed":
       return configurationFailedToStepFailure(failure);
     case "WorkspaceSyncFailed":

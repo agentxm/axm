@@ -245,7 +245,7 @@ export const withOperationLifecycle = <A, E, R>(
                     signal,
                     observed,
                   );
-                  const { exitCode } = yield* emitOperationResolution(args.command, resolution);
+                  const { exitCode } = yield* emitOperationResolution(resolution);
                   // Inside the uninterruptible mask: the completion event must
                   // land before the original interruption continues to the process owner.
                   yield* recordCommandCompletion(exitCode);

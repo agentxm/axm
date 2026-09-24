@@ -19,7 +19,7 @@ import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/sugges
 
 import { failureToAppError } from "../../app-error/conversions.js";
 import { emitOperationResolution } from "../../operation-output.js";
-import { makePlanExecution } from "./confirmation-recovery.js";
+import { makePlanInvocation } from "./confirmation-recovery.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
 export interface CreateExtensionCommandArgs {
@@ -36,14 +36,15 @@ const body = (args: CreateExtensionCommandArgs) =>
     const candidate = yield* CreateExtension.prepare(args.request).pipe(
       Effect.mapError(failureToAppError),
     );
-    const execution = yield* makePlanExecution(
+    const { execution, recovery } = yield* makePlanInvocation(
       { preview: args.preview },
       { command: [], arguments: [] },
     );
     const resolution = yield* CreateExtension.previewOrApply(candidate, execution).pipe(
       Effect.mapError(failureToAppError),
     );
-    yield* emitOperationResolution(args.command, resolution, {
+    yield* emitOperationResolution(resolution, {
+      recovery,
       suggestions: args.suggestions(candidate),
     });
   });

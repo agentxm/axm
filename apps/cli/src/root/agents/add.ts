@@ -10,7 +10,7 @@ import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
-import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
+import { makePublicPositionalPlanInvocation } from "../shared/confirmation-recovery.js";
 import {
   previewCapabilityFlag,
   previewableCapabilities,
@@ -47,7 +47,7 @@ const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddAr
   }
 
   if (candidate._tag === "Unchanged") {
-    yield* emitNoOpOutcome("agents.add", {
+    yield* emitNoOpOutcome({
       planName: PLAN_NAME,
       planDescription: "Configure coding agents and materialize installed extensions",
       message: candidate.message,
@@ -80,7 +80,7 @@ const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddAr
 
   // Goes through the reconciling resolver rather than the local one: adding an
   // agent materializes installed extensions, which needs a readable lockfile.
-  const execution = yield* makePublicPositionalPlanExecution(
+  const { execution, recovery } = yield* makePublicPositionalPlanInvocation(
     args,
     ["agents", "add"],
     candidate.agentIds,
@@ -94,7 +94,7 @@ const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddAr
     outcome === "applied" || outcome === "partial"
       ? buildPermissionSuggestions(candidate.agentIds, candidate.scope)
       : [];
-  yield* emitOperationResolution("agents.add", resolution, { suggestions });
+  yield* emitOperationResolution(resolution, { recovery, suggestions });
 });
 
 const addConfig = {

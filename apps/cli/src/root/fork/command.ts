@@ -21,7 +21,7 @@ import {
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import { makeConfirmationRecovery, makePlanInvocation } from "../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
 export interface ForkHandlerArgs {
@@ -52,7 +52,7 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: ForkHandlerArgs
     nonInteractive,
   }).pipe(Effect.mapError(failureToAppError));
 
-  const execution = yield* makePlanExecution(
+  const { execution, recovery } = yield* makePlanInvocation(
     { preview: args.preview },
     makeConfirmationRecovery(
       ["fork"],
@@ -70,7 +70,7 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: ForkHandlerArgs
   const resolution = yield* ForkExtension.previewOrApply(candidate, execution).pipe(
     Effect.mapError(failureToAppError),
   );
-  yield* emitOperationResolution("fork", resolution);
+  yield* emitOperationResolution(resolution, { recovery });
 });
 
 const config = {

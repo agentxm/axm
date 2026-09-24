@@ -8,6 +8,7 @@ import type { InstallableExtensionType } from "@agentxm/extension-model/unstable
 import type { InstallExtensionSelectors } from "@agentxm/workspace/lifecycle";
 import { ReleaseAgePosture } from "@agentxm/workspace/resolution";
 import {
+  protectedRecoveryValue,
   publicRecoveryValue,
   recoveryOption,
   recoverySwitch,
@@ -136,6 +137,9 @@ export const handleInstall = (args: InstallHandlerArgs) =>
           onNone: () => [],
           onSome: (name) => [recoveryOption("--as", publicRecoveryValue(name))],
         }),
+        // The values of `--env` are inputs a connection needs, so the recovery
+        // line names the flag without reproducing what was passed.
+        ...args.env.map(() => recoveryOption("--env", protectedRecoveryValue())),
       ],
       suggestions: [{ description: "Inspect workspace facts", cmd: "axm lint" }],
       noOpMessage: "No extensions installed.",

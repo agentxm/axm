@@ -17,8 +17,7 @@ import {
 } from "@agentxm/workspace/transitions/planning";
 
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import { nameFromLabel } from "@agentxm/workspace/reconciliation";
-import type { ResolvedUnit } from "@agentxm/workspace/transitions/planning";
+import type { ConfirmationRecovery } from "@agentxm/workspace/transitions/planning";
 
 import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";
 import {
@@ -29,7 +28,12 @@ import {
 } from "../../operation-output.js";
 import { INSPECT_INSTALLED } from "../suggested-actions.js";
 import { toAppError } from "../../app-error/conversions.js";
-import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import {
+  makeConfirmationRecovery,
+  makePlanInvocation,
+  narrowUpdateNames,
+  retrySuggestion,
+} from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
@@ -65,52 +69,19 @@ const workspaceUpdateCommand = (
   });
 
 /**
- * What to type next when a sweep did not finish. Settled units are no-ops on a
- * rerun, so the emitting route is safe to repeat and is the one route that
- * covers every unsettled unit; the typed forms narrow it to the units that
- * are still waiting. Only a failure a retry can change is offered one — where
- * nothing a command does would help, the reasons stand on their own.
- */
-const updateRecovery = (args: {
-  readonly type: Option.Option<WorkspaceUpdatableType>;
-  readonly unsettled: ReadonlyArray<ResolvedUnit<unknown>>;
-  readonly refresh: boolean;
-  readonly ignoreReleaseAge: boolean;
-}): ReadonlyArray<SuggestedAction> => {
-  if (!retryCanHelp(args.unsettled)) return [];
-  const route = workspaceUpdateCommand(args.type);
-  const flags = [
-    ...(args.refresh ? ["--refresh"] : []),
-    ...(args.ignoreReleaseAge ? ["--ignore-release-age"] : []),
-  ];
-  // The root route takes no `--name`, so it repeats the whole sweep; a typed
-  // route names each unit that is still waiting.
-  const names = Option.isNone(args.type)
-    ? []
-    : args.unsettled.flatMap((unit) => ["--name", nameFromLabel(unit.label)]);
-  return [
-    {
-      description:
-        args.unsettled.length === 1
-          ? "Try the extension that did not update again"
-          : "Try the extensions that did not update again",
-      cmd: ["axm", ...route, ...flags, ...names].join(" "),
-    },
-  ];
-};
-
-/**
  * What the sweep offers next. A constraint contradiction is a choice to make,
  * not a step to repeat, so it names the declarations that disagree; a sweep
  * that settled everything offers only the inventory; and anything else offers
- * a route only where one would actually settle it, so a failure no rerun can
- * change names nothing here.
+ * the invocation again only where a rerun would actually settle it, so a
+ * failure no rerun can change names nothing here. Settled units are no-ops
+ * on a rerun, so the invocation is safe to repeat; the root route takes no
+ * `--name` and repeats the whole sweep, while a typed route is narrowed to
+ * the units that are still waiting.
  */
 export const updateSuggestions =
   (args: {
     readonly type: Option.Option<WorkspaceUpdatableType>;
-    readonly refresh: boolean;
-    readonly ignoreReleaseAge: boolean;
+    readonly recovery: ConfirmationRecovery;
     readonly constraintRefused: boolean;
   }) =>
   ({ unsettled }: OperationRecoveryContext): ReadonlyArray<SuggestedAction> => {
@@ -125,12 +96,15 @@ export const updateSuggestions =
       ];
     }
     if (unsettled.length === 0) return [INSPECT_INSTALLED];
-    return updateRecovery({
-      type: args.type,
-      unsettled,
-      refresh: args.refresh,
-      ignoreReleaseAge: args.ignoreReleaseAge,
-    });
+    if (!retryCanHelp(unsettled)) return [];
+    return [
+      retrySuggestion(
+        unsettled.length === 1
+          ? "Try the extension that did not update again"
+          : "Try the extensions that did not update again",
+        Option.isNone(args.type) ? args.recovery : narrowUpdateNames(args.recovery, unsettled),
+      ),
+    ];
   };
 
 export interface WorkspaceUpdateHandlerArgs {
@@ -181,7 +155,7 @@ const handleWorkspaceUpdateBody = Effect.fn("Update.handleConfigured")(function*
         sourceKind: "workspace",
       }),
     );
-    yield* emitNoOpOutcome(args.command, {
+    yield* emitNoOpOutcome({
       planName: args.planName,
       message: candidate.message,
       ...Option.match(candidate.planDescription, {
@@ -193,7 +167,7 @@ const handleWorkspaceUpdateBody = Effect.fn("Update.handleConfigured")(function*
   }
 
   const posture = yield* ReleaseAgePosture;
-  const execution = yield* makePlanExecution(
+  const { execution, recovery } = yield* makePlanInvocation(
     { preview: args.flags.preview },
     makeConfirmationRecovery(workspaceUpdateCommand(args.type), [
       recoverySwitch("--refresh", args.flags.force === true),
@@ -218,12 +192,8 @@ const handleWorkspaceUpdateBody = Effect.fn("Update.handleConfigured")(function*
   const constraintRefused = resolution.units.some(
     (unit) => unit.blocking?.reference === PACK_CONSTRAINT_CONFLICT_BLOCKER_ID,
   );
-  yield* emitOperationResolution(args.command, resolution, {
-    suggestions: updateSuggestions({
-      type: args.type,
-      refresh: args.flags.force === true,
-      ignoreReleaseAge: posture === "ignore",
-      constraintRefused,
-    }),
+  yield* emitOperationResolution(resolution, {
+    recovery,
+    suggestions: updateSuggestions({ type: args.type, recovery, constraintRefused }),
   });
 });

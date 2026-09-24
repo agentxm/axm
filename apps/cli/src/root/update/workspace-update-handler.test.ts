@@ -16,7 +16,11 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 
 import { PACK_CONSTRAINT_CONFLICT_BLOCKER_ID } from "@agentxm/workspace/lifecycle";
-import { StepFailure, type ResolvedUnit } from "@agentxm/workspace/transitions/planning";
+import {
+  StepFailure,
+  recoverySwitch,
+  type ResolvedUnit,
+} from "@agentxm/workspace/transitions/planning";
 
 import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
@@ -217,8 +221,13 @@ describe("workspace update suggestions", () => {
   ) =>
     updateSuggestions({
       type: Option.none(),
-      refresh: false,
-      ignoreReleaseAge: false,
+      recovery: {
+        command: Option.match(over.type ?? Option.none(), {
+          onNone: () => ["update"],
+          onSome: () => ["skills", "update"],
+        }),
+        arguments: [recoverySwitch("--refresh", false)],
+      },
       constraintRefused: false,
       ...over,
     })({ outcome: "failed", unsettled });

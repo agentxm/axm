@@ -44,11 +44,11 @@ People and agents can understand invalid workspace state and recover it through 
 - Open questions: cli/agent-selection-is-membership-or-filter separately refuses an unsupported id supplied through the --agent option at parse time; whether that rule should cite this one as the authority for corrective guidance, or stay a distinct parse-time rule, is undecided.
 - Source: [`packages/core/workspace/src/configuration/membership/rejects-unknown-agent.spec.ts`](../packages/core/workspace/src/configuration/membership/rejects-unknown-agent.spec.ts)
 
-##### A blocked approval names a recovery the command line will accept
+##### A blocked approval or an unsettled retry names a recovery the command line will accept
 
 - Requirement: `cli/approval-required-names-a-valid-recovery`
 - Owner: `cli`
-- Statement: When an apply stops as approval required, its recovery shall name the approval its route supports — a replay carrying the advance-approval flag where the route offers one, otherwise an interactive rerun without machine or non-interactive switches — the named command shall parse on the real command line, and a request whose values cannot be replayed safely shall describe the recovery without echoing those values.
+- Statement: When an apply stops as approval required, its recovery shall name the approval its route supports — a replay carrying the advance-approval flag where the route offers one, otherwise an interactive rerun without machine or non-interactive switches — and when an apply leaves units unsettled that a rerun can change, its retry shall replay the invocation as typed, narrowed to the unsettled units where the route has a selector to name them; every named command shall carry the invocation's real locator, selector, and flags, shall parse on the real command line, and a request whose values cannot be replayed safely shall describe the recovery without echoing those values.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`
@@ -57,6 +57,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Methods: example, contract
 - Derived from: `cli/lockfile-rejections-name-recovery-routes`, `cli/confirmation-flags-have-a-supported-purpose`, `apps/cli-e2e/src/approval-required-recovery.e2e.test.ts`
 - Limitation: These replays use inert values without shell quoting; the interactive-only recovery is parsed through its complete registered branch with an observing handler and does not establish terminal prompt behavior. Retires when: Add quoted recovery values and an interactive terminal replay through a supported process harness; existing confirmation specifications continue to own prompt behavior.
+- Limitation: The activation and partial-install examples compose the recovery from the invocation the adapter records and the units the kernel reports, because no in-memory fixture makes an activation ask for approval or makes one selected extension fail retryably while another installs. Retires when: Add a fixture that fails one selected extension with a retryable failure, then drive the install handler end to end and replay its retry line.
 - Additional evidence: process via [`apps/cli-e2e/src/approval-required-recovery.e2e.test.ts`](../apps/cli-e2e/src/approval-required-recovery.e2e.test.ts) — Only a real command line shows that the emitted recovery parses and, when run, produces exactly the transition it promised while leaving unrelated workspace content alone.
 - Source: [`apps/cli/src/root/shared/approval-required-names-a-valid-recovery.spec.ts`](../apps/cli/src/root/shared/approval-required-names-a-valid-recovery.spec.ts)
 

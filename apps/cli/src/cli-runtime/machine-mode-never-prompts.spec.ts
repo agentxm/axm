@@ -12,7 +12,7 @@ import { ResolvePlanInteractionLive, classifyError } from "./index.js";
 import { SetupDocumentSchema, handleSetup } from "../root/setup.js";
 import { getAppError } from "../test-support/test-helpers.js";
 import { handleDemote } from "../root/demote/command.js";
-import { handleInstall as handleSkillsInstall } from "../root/skills/install/handler.js";
+import { handleInstall } from "../root/install/handler.js";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../test-support/install-harness.js";
@@ -108,10 +108,17 @@ describe("Machine mode never prompts", () => {
         const source = writeTwoSkillSource(workspace.root);
         const before = snapshotWorkspaceContent(workspace.root);
 
-        const failure = yield* handleSkillsInstall(
-          { source: Option.some(source), skills: [], all: false },
-          { force: false, preview: false },
-        ).pipe(Effect.provide(workspace.layer), Effect.flip);
+        const failure = yield* handleInstall({
+          type: Option.some("skill"),
+          source: Option.some(source),
+          selectors: { skill: [] },
+          all: false,
+          force: false,
+          preview: false,
+          env: [],
+          localName: Option.none(),
+          bundled: false,
+        }).pipe(Effect.provide(workspace.layer), Effect.flip);
 
         const error = getAppError(failure);
         expect(error.code).toBe("usage");
@@ -133,10 +140,17 @@ describe("Machine mode never prompts", () => {
       cleanups.push(workspace.cleanup);
       const source = writeTwoSkillSource(workspace.root);
 
-      yield* handleSkillsInstall(
-        { source: Option.some(source), skills: ["alpha"], all: false },
-        { force: false, preview: false },
-      ).pipe(Effect.provide(workspace.layer));
+      yield* handleInstall({
+        type: Option.some("skill"),
+        source: Option.some(source),
+        selectors: { skill: ["alpha"] },
+        all: false,
+        force: false,
+        preview: false,
+        env: [],
+        localName: Option.none(),
+        bundled: false,
+      }).pipe(Effect.provide(workspace.layer));
 
       expect(workspace.rendererState.results.at(-1)?.data).toMatchObject({
         result: { outcome: "applied" },

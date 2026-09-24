@@ -22,7 +22,7 @@ import {
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { makePlanExecution } from "../shared/confirmation-recovery.js";
+import { makePlanInvocation } from "../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 import {
   isVersionableType,
@@ -104,14 +104,14 @@ const handleVersionBody = Effect.fn("Version.handle")(function* (args: VersionHa
     change,
   }).pipe(Effect.mapError(failureToAppError));
 
-  const execution = yield* makePlanExecution(
+  const { execution, recovery } = yield* makePlanInvocation(
     { preview: args.preview },
     { command: [], arguments: [] },
   );
   const resolution = yield* ChangeAuthoredVersion.previewOrApply(candidate, execution).pipe(
     Effect.mapError(failureToAppError),
   );
-  yield* emitOperationResolution("version", resolution);
+  yield* emitOperationResolution(resolution, { recovery });
 });
 
 export interface RootVersionHandlerArgs {

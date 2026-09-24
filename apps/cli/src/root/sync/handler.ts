@@ -25,7 +25,11 @@ import {
   retryCanHelp,
   type OperationSuggestions,
 } from "../../operation-output.js";
-import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import {
+  makeConfirmationRecovery,
+  makePlanInvocation,
+  retrySuggestion,
+} from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
@@ -69,7 +73,7 @@ const handleSyncBody = Effect.fn("Sync.handle")(function* (args: HandleSyncArgs)
   );
 
   if (candidate._tag === "AlreadyReconciled") {
-    yield* emitNoOpOutcome("sync", {
+    yield* emitNoOpOutcome({
       planName: candidate.planName,
       planDescription: candidate.planDescription,
       message: candidate.message,
@@ -80,7 +84,7 @@ const handleSyncBody = Effect.fn("Sync.handle")(function* (args: HandleSyncArgs)
   // Sync confirms nothing in advance: it applies ready reconciliation work and
   // stops before mutation if a plan ever carries an unexpected confirmable
   // condition, naming interactive approval rather than a flag it lacks.
-  const execution = yield* makePlanExecution(
+  const { execution, recovery } = yield* makePlanInvocation(
     { preview: args.preview },
     makeConfirmationRecovery(
       ["sync"],
@@ -101,20 +105,23 @@ const handleSyncBody = Effect.fn("Sync.handle")(function* (args: HandleSyncArgs)
   const outcome = deriveOperationOutcome(resolution);
   const diverged =
     args.failOnChange === true && outcome === "previewed" && resolution.units.length > 0;
-  // A sync that did not finish is repeated through the same route: it
-  // converges from the state the workspace is now in, so the units it settled
-  // are no-ops and the ones it did not are what it tries again.
+  // A sync that did not finish is repeated through the invocation the person
+  // typed: it converges from the state the workspace is now in, so the units
+  // it settled are no-ops and the ones it did not are what it tries again.
   const retry: OperationSuggestions = ({ unsettled }) =>
     unsettled.length === 0 || !retryCanHelp(unsettled)
       ? []
-      : [{ description: "Reconcile the workspace again", cmd: "axm sync" }];
+      : [retrySuggestion("Reconcile the workspace again", recovery)];
   yield* emitOperationResolution(
-    "sync",
     diverged ? { ...resolution, divergence: true } : resolution,
     diverged
-      ? { message: "Workspace is out of sync; no changes were made", suggestions: retry }
+      ? {
+          recovery,
+          message: "Workspace is out of sync; no changes were made",
+          suggestions: retry,
+        }
       : outcome === "no-op" && resolution.units.length === 0
-        ? { message: candidate.upToDateMessage }
-        : { suggestions: retry },
+        ? { recovery, message: candidate.upToDateMessage }
+        : { recovery, suggestions: retry },
   );
 });

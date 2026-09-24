@@ -1082,7 +1082,7 @@ const planView = (failure: WorkspaceFailure, scope: WorkspaceScope) =>
           failingPlan(workspaceFailureToStepFailure(failure)),
         );
         const resolution = yield* resolveExecutionCandidate(candidate, preapprovedPlanExecution);
-        const emitted = yield* emitOperationResolution(PARITY_COMMAND, resolution);
+        const emitted = yield* emitOperationResolution(resolution);
         return { resolution, emitted };
       }),
     ).pipe(workspace.provide);

@@ -76,14 +76,10 @@ export type PlanExecutionRequest =
 
 /** Invocation-scoped policy input plus safe replay metadata for approval recovery. */
 export type PlanExecution =
-  | {
-      readonly request: { readonly mode: "preview" };
-      readonly configuredAgentOperations?: ReadonlyArray<ConfiguredAgentOperation>;
-    }
+  | { readonly request: { readonly mode: "preview" } }
   | {
       readonly request: Extract<PlanExecutionRequest, { readonly mode: "apply" }>;
       readonly approvalRecovery: ConfirmationRecovery;
-      readonly configuredAgentOperations?: ReadonlyArray<ConfiguredAgentOperation>;
     };
 
 export const previewPlanExecution: PlanExecution = { request: { mode: "preview" } };
@@ -114,15 +110,9 @@ export const requestedPlanExecution = (options: {
   readonly intent: RequestedPlanIntent;
   readonly recovery: ConfirmationRecovery;
   readonly acceptedPolicies?: ReadonlySet<PlanPolicyId>;
-  readonly configuredAgentOperations?: ReadonlyArray<ConfiguredAgentOperation>;
 }): PlanExecution =>
   options.intent.preview
-    ? {
-        ...previewPlanExecution,
-        ...(options.configuredAgentOperations === undefined
-          ? {}
-          : { configuredAgentOperations: options.configuredAgentOperations }),
-      }
+    ? previewPlanExecution
     : applyPlanExecution({
         approval: confirmableRiskApproval(
           options.intent.yes === undefined ? {} : { preapproved: options.intent.yes },
@@ -131,16 +121,12 @@ export const requestedPlanExecution = (options: {
           ? {}
           : { acceptedPolicies: options.acceptedPolicies }),
         recovery: options.recovery,
-        ...(options.configuredAgentOperations === undefined
-          ? {}
-          : { configuredAgentOperations: options.configuredAgentOperations }),
       });
 
 export const applyPlanExecution = (options: {
   readonly approval: ConfirmableRiskApproval;
   readonly acceptedPolicies?: ReadonlySet<PlanPolicyId>;
   readonly recovery: ConfirmationRecovery;
-  readonly configuredAgentOperations?: ReadonlyArray<ConfiguredAgentOperation>;
 }): PlanExecution => ({
   request: {
     mode: "apply",
@@ -148,9 +134,6 @@ export const applyPlanExecution = (options: {
     acceptedPolicies: options.acceptedPolicies ?? new Set(),
   },
   approvalRecovery: options.recovery,
-  ...(options.configuredAgentOperations === undefined
-    ? {}
-    : { configuredAgentOperations: options.configuredAgentOperations }),
 });
 
 export const publicRecoveryValue = (value: string): ConfirmationRecoveryValue => ({

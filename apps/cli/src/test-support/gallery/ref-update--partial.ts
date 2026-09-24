@@ -26,5 +26,7 @@ export const refUpdatePartial = operationDoc(partialUpdate, {
       cmd: "axm update",
     },
   ],
-  callouts: releaseAgeDoc("update", partialUpdateReleaseAge, { unsettled }),
+  callouts: releaseAgeDoc({ command: ["update"], arguments: [] }, partialUpdateReleaseAge, {
+    unsettled,
+  }),
 });

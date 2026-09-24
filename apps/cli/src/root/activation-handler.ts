@@ -13,7 +13,7 @@ import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/sugges
 
 import { failureToAppError } from "../app-error/conversions.js";
 import { emitOperationResolution } from "../operation-output.js";
-import { makePublicPositionalPlanExecution } from "./shared/confirmation-recovery.js";
+import { makePublicPositionalPlanInvocation } from "./shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "./shared/no-op-output.js";
 import { withOperationLifecycle } from "../operation-lifecycle.js";
 
@@ -55,7 +55,7 @@ const handleSetActivationBody = Effect.fn("SetActivation.handle")(function* (
   }).pipe(Effect.mapError(failureToAppError));
 
   if (candidate._tag === "Unchanged") {
-    yield* emitNoOpOutcome(presentation.command, {
+    yield* emitNoOpOutcome({
       planName: presentation.planName,
       planDescription: `${args.enabled ? "Enable" : "Disable"} ${candidate.name}`,
       message: candidate.message,
@@ -63,13 +63,16 @@ const handleSetActivationBody = Effect.fn("SetActivation.handle")(function* (
     return;
   }
 
-  const execution = yield* makePublicPositionalPlanExecution(args, presentation.commandPath, [
-    candidate.name,
-  ]);
+  const { execution, recovery } = yield* makePublicPositionalPlanInvocation(
+    args,
+    presentation.commandPath,
+    [candidate.name],
+  );
   const resolution = yield* SetActivation.previewOrApply(candidate, execution).pipe(
     Effect.mapError(failureToAppError),
   );
-  yield* emitOperationResolution(presentation.command, resolution, {
+  yield* emitOperationResolution(resolution, {
+    recovery,
     suggestions: presentation.suggestions,
   });
 });

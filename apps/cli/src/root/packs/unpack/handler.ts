@@ -4,7 +4,7 @@ import { PromoteAuthoredPack } from "@agentxm/workspace/lifecycle";
 
 import { emitOperationResolution } from "../../../operation-output.js";
 import { toAppError } from "../../../app-error/conversions.js";
-import { makePublicPositionalPlanExecution } from "../../shared/confirmation-recovery.js";
+import { makePublicPositionalPlanInvocation } from "../../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../../../operation-lifecycle.js";
 
 export interface UnpackHandlerArgs {
@@ -30,11 +30,11 @@ export const handleUnpack = (args: UnpackHandlerArgs) =>
 
 const handleUnpackBody = Effect.fn("UnpackPack.handle")(function* (args: UnpackHandlerArgs) {
   const candidate = yield* PromoteAuthoredPack.prepare({ name: args.name });
-  const execution = yield* makePublicPositionalPlanExecution(
+  const { execution, recovery } = yield* makePublicPositionalPlanInvocation(
     args,
     ["packs", "unpack"],
     [args.name],
   );
   const resolution = yield* PromoteAuthoredPack.previewOrApply(candidate, execution);
-  yield* emitOperationResolution("packs.unpack", resolution);
+  yield* emitOperationResolution(resolution, { recovery });
 });

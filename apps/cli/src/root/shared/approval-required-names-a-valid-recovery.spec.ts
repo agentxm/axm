@@ -9,9 +9,24 @@ import { afterEach } from "vitest";
 
 import { handleDemote } from "../demote/command.js";
 import { handleInstall } from "../install/handler.js";
+import { handleUpdate } from "../update/handler.js";
 import { handleWorkspaceUpdate } from "../update/workspace-update-handler.js";
+import {
+  makeInstallPlanInvocation,
+  makePublicPositionalPlanInvocation,
+  narrowInstallSelection,
+  retrySuggestion,
+} from "./confirmation-recovery.js";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
+import {
+  StepFailure,
+  confirmationRecoverySuggestions,
+  recoveryOption,
+  recoverySwitch,
+  protectedRecoveryValue,
+  type ResolvedUnit,
+} from "@agentxm/workspace/transitions/planning";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../../test-support/install-harness.js";
 import { writeAuthoredSkill } from "../../test-support/publish-harness.js";
 import { admitRecoveryArgv } from "../../test-support/recovery-argv-admission.js";
@@ -19,9 +34,9 @@ import { makeSpecRegistry, type SpecRegistry } from "../../test-support/registry
 
 export const specification = defineSpecification({
   requirement: "cli/approval-required-names-a-valid-recovery",
-  title: "A blocked approval names a recovery the command line will accept",
+  title: "A blocked approval or an unsettled retry names a recovery the command line will accept",
   statement:
-    "When an apply stops as approval required, its recovery shall name the approval its route supports — a replay carrying the advance-approval flag where the route offers one, otherwise an interactive rerun without machine or non-interactive switches — the named command shall parse on the real command line, and a request whose values cannot be replayed safely shall describe the recovery without echoing those values.",
+    "When an apply stops as approval required, its recovery shall name the approval its route supports — a replay carrying the advance-approval flag where the route offers one, otherwise an interactive rerun without machine or non-interactive switches — and when an apply leaves units unsettled that a rerun can change, its retry shall replay the invocation as typed, narrowed to the unsettled units where the route has a selector to name them; every named command shall carry the invocation's real locator, selector, and flags, shall parse on the real command line, and a request whose values cannot be replayed safely shall describe the recovery without echoing those values.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics"],
@@ -43,6 +58,12 @@ export const specification = defineSpecification({
         "These replays use inert values without shell quoting; the interactive-only recovery is parsed through its complete registered branch with an observing handler and does not establish terminal prompt behavior.",
       retirementCondition:
         "Add quoted recovery values and an interactive terminal replay through a supported process harness; existing confirmation specifications continue to own prompt behavior.",
+    },
+    {
+      limitation:
+        "The activation and partial-install examples compose the recovery from the invocation the adapter records and the units the kernel reports, because no in-memory fixture makes an activation ask for approval or makes one selected extension fail retryably while another installs.",
+      retirementCondition:
+        "Add a fixture that fails one selected extension with a retryable failure, then drive the install handler end to end and replay its retry line.",
     },
   ],
 });
@@ -196,6 +217,142 @@ describe("Approval-required recovery", () => {
         expect(argv).not.toContain("--non-interactive");
         yield* admitRecoveryArgv(argv, ["skills", "update"]);
         expect(workspace.readLockfileText()).toContain("publisherBindingId: hbnd_test");
+      }),
+  );
+
+  it.effect(
+    "a targeted update without advance approval names an interactive rerun that keeps its target",
+    () =>
+      Effect.gen(function* () {
+        const registry = makeSpecRegistry();
+        cleanups.push(registry.cleanup);
+        registry.writeSkill(SKILL, [{ version: "1.0.0", body: "First guidance." }]);
+        const workspace = makeSpecWorkspace({
+          machine: true,
+          flags: { nonInteractive: true, json: true },
+          settings: { sources: [registry.source] },
+        });
+        cleanups.push(workspace.cleanup);
+        yield* handleInstall({
+          type: Option.none(),
+          source: Option.some(FQN),
+          selectors: {},
+          all: false,
+          force: false,
+          preview: false,
+          env: [],
+          localName: Option.none(),
+          bundled: false,
+        }).pipe(Effect.provide(workspace.layer));
+        registry.writeSkill(SKILL, [
+          { version: "2.0.0", body: "Second guidance." },
+          { version: "1.0.0", body: "First guidance." },
+        ]);
+        republishUnderBinding(registry, SKILL, "hbnd_other");
+        workspace.rendererState.results.splice(0);
+
+        yield* handleUpdate({ source: Option.some(FQN), force: false, preview: false }).pipe(
+          Effect.provide(workspace.layer),
+        );
+
+        const [entry] = workspace.rendererState.results;
+        expect(entry?.data).toMatchObject({
+          result: {
+            outcome: "blocked",
+            blocking: { class: "approval-required", subject: "publisher-ownership-change" },
+          },
+        });
+        const escape = escapeOf(entry?.data);
+        expect(escape.description).toContain("Approve interactively");
+        const argv = argvOf(escape.cmd ?? "");
+        expect(argv[0]).toBe("update");
+        expect(argv).toContain(FQN);
+        expect(argv).not.toContain("--json");
+        expect(argv).not.toContain("--non-interactive");
+        expect(yield* admitRecoveryArgv(argv, ["update"])).toMatchObject({
+          source: Option.some(FQN),
+        });
+        expect(workspace.readLockfileText()).toContain("publisherBindingId: hbnd_test");
+      }),
+  );
+
+  it.effect("an activation route names an interactive rerun carrying its name", () =>
+    Effect.gen(function* () {
+      const { recovery } = yield* makePublicPositionalPlanInvocation(
+        { preview: false },
+        ["skills", "enable"],
+        [SKILL],
+      );
+      const [escape] = confirmationRecoverySuggestions(recovery, "interactive");
+      const argv = argvOf(escape?.cmd ?? "");
+      expect(argv.slice(0, 2)).toEqual(["skills", "enable"]);
+      expect(yield* admitRecoveryArgv(argv, ["skills", "enable"])).toMatchObject({ name: SKILL });
+    }),
+  );
+
+  const unsettledExtension = (label: string): ResolvedUnit<unknown> => ({
+    id: label,
+    label,
+    state: "failed",
+    error: new StepFailure({ category: "network", detail: "Registry unreachable." }),
+  });
+
+  it.effect("a partial install retries the selection narrowed to the units still waiting", () =>
+    Effect.gen(function* () {
+      const source = "./extensions";
+      const { recovery } = yield* makeInstallPlanInvocation(
+        { preview: false, force: false },
+        ["install"],
+        [source],
+        [
+          recoverySwitch("--all", true),
+          recoverySwitch("--bundled", false),
+          recoverySwitch("--ignore-release-age", true),
+        ],
+      );
+      const unsettled = [
+        unsettledExtension("skills/alpha"),
+        unsettledExtension("rules/safe-shell"),
+      ];
+
+      const retry = retrySuggestion(
+        "Try the extensions that did not install again",
+        narrowInstallSelection(recovery, unsettled),
+      );
+
+      const argv = argvOf(retry.cmd ?? "");
+      expect(argv[0]).toBe("install");
+      expect(argv).toContain(source);
+      expect(argv).toContain("--ignore-release-age");
+      expect(argv).not.toContain("--all");
+      expect(yield* admitRecoveryArgv(argv, ["install"])).toMatchObject({
+        source: Option.some(source),
+        skill: ["alpha"],
+        rule: ["safe-shell"],
+        all: false,
+        ignoreReleaseAge: true,
+      });
+    }),
+  );
+
+  it.effect(
+    "a partial install whose invocation cannot be echoed safely is described without a replay",
+    () =>
+      Effect.gen(function* () {
+        const { recovery } = yield* makeInstallPlanInvocation(
+          { preview: false, force: false },
+          ["mcps", "install"],
+          ["@acme/mcps/context"],
+          [recoveryOption("--env", protectedRecoveryValue())],
+        );
+
+        const retry = retrySuggestion(
+          "Try the extension that did not install again",
+          narrowInstallSelection(recovery, [unsettledExtension("mcps/context")]),
+        );
+
+        expect(retry.cmd).toBeUndefined();
+        expect(retry.description).toBe("Try the extension that did not install again");
       }),
   );
 

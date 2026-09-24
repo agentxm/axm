@@ -25,7 +25,7 @@ import {
   operationResolutionSummary,
   retryCanHelp,
 } from "../../operation-output.js";
-import { makeUninstallPlanExecution } from "./confirmation-recovery.js";
+import { makePublicPositionalPlanInvocation, retrySuggestion } from "./confirmation-recovery.js";
 import { emitNoOpOutcome } from "./no-op-output.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
@@ -74,7 +74,7 @@ const body = (args: UninstallCommandArgs) =>
       Effect.mapError(failureToAppError),
     );
 
-    const execution = yield* makeUninstallPlanExecution(
+    const { execution, recovery } = yield* makePublicPositionalPlanInvocation(
       { preview: args.preview },
       args.recoveryCommand,
       args.recoveryPositionals,
@@ -97,7 +97,8 @@ const body = (args: UninstallCommandArgs) =>
       resolution.mode === "preview" &&
       resolution.units.length === 0
     ) {
-      yield* emitOperationResolution(args.command, resolution, {
+      yield* emitOperationResolution(resolution, {
+        recovery,
         message: args.previewEmptyResult,
       });
       return;
@@ -113,7 +114,7 @@ const body = (args: UninstallCommandArgs) =>
       noOpMessage !== undefined &&
       (deriveOperationOutcome(resolution) === "no-op" || allUnitsAlreadyAbsent)
     ) {
-      yield* emitNoOpOutcome(args.command, {
+      yield* emitNoOpOutcome({
         planName: resolution.name,
         message: noOpMessage({
           type: candidate.type,
@@ -124,17 +125,15 @@ const body = (args: UninstallCommandArgs) =>
       return;
     }
 
-    yield* emitOperationResolution(args.command, resolution, {
+    yield* emitOperationResolution(resolution, {
+      recovery,
       // An uninstall converges from the state the workspace is now in, so the
-      // route the person typed is what tries the rest again.
+      // invocation the person typed is what tries the rest again.
       suggestions: ({ unsettled }) =>
         unsettled.length === 0 || !retryCanHelp(unsettled)
           ? args.suggestions(candidate.type)
           : [
-              {
-                description: "Try removing what is left again",
-                cmd: ["axm", ...args.recoveryCommand, candidate.selector].join(" "),
-              },
+              retrySuggestion("Try removing what is left again", recovery),
               ...args.suggestions(candidate.type),
             ],
     });

@@ -7,7 +7,6 @@ import { NAMED_OVERRIDE_POLICIES } from "./index.js";
 import { collectHelpFiles } from "../test-support/command-tree-test-helpers.js";
 import { getAppError } from "../test-support/test-helpers.js";
 import { handleInstall } from "../root/install/handler.js";
-import { handleInstall as handleSkillsInstall } from "../root/skills/install/handler.js";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../test-support/install-harness.js";
@@ -57,10 +56,17 @@ const reinstallForms = [
   {
     form: "skills install",
     install: (source: string, force: boolean) =>
-      handleSkillsInstall(
-        { source: Option.some(source), skills: [], all: true },
-        { force, preview: false },
-      ),
+      handleInstall({
+        type: Option.some("skill"),
+        source: Option.some(source),
+        selectors: { skill: [] },
+        all: true,
+        force,
+        preview: false,
+        env: [],
+        localName: Option.none(),
+        bundled: false,
+      }),
   },
 ] as const;
 

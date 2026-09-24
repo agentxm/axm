@@ -27,7 +27,7 @@ import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
-import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
+import { makePublicPositionalPlanInvocation } from "../shared/confirmation-recovery.js";
 import {
   previewCapabilityFlag,
   previewableCapabilities,
@@ -122,7 +122,7 @@ const handleAgentsRemoveBody = Effect.fn("Agents.remove")(function* (args: Agent
     .pipe(Effect.mapError(failureToAppError));
 
   if (candidate._tag === "Unchanged") {
-    yield* emitNoOpOutcome("agents.remove", {
+    yield* emitNoOpOutcome({
       planName: PLAN_NAME,
       planDescription: `Remove ${args.ids.join(", ")} and clean up managed artifacts`,
       message: candidate.message,
@@ -135,7 +135,7 @@ const handleAgentsRemoveBody = Effect.fn("Agents.remove")(function* (args: Agent
     dryRun: true,
   }).pipe(Effect.mapError(toAppError));
 
-  const execution = yield* makePublicPositionalPlanExecution(
+  const { execution, recovery } = yield* makePublicPositionalPlanInvocation(
     args,
     ["agents", "remove"],
     candidate.agentIds,
@@ -156,7 +156,8 @@ const handleAgentsRemoveBody = Effect.fn("Agents.remove")(function* (args: Agent
     })
     .pipe(Effect.mapError(failureToAppError));
 
-  yield* emitOperationResolution("agents.remove", resolution, {
+  yield* emitOperationResolution(resolution, {
+    recovery,
     suggestions: [{ description: "Inspect configured agents", cmd: "axm agents list" }],
   });
 });

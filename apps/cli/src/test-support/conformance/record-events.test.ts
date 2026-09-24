@@ -17,7 +17,7 @@ import { afterEach, beforeEach } from "vitest";
 
 import { OperationEventSchema, type OperationEvent } from "@agentxm/workspace/transitions/planning";
 
-import { handleInstall } from "../../root/skills/install/handler.js";
+import { handleInstall } from "../../root/install/handler.js";
 import { makeWorkspaceLifecycleTestContext } from "../test-helpers.js";
 import { writeWorkspaceFiles } from "../test-stubs.js";
 
@@ -69,10 +69,17 @@ describe("recorded lifecycle event logs", () => {
   };
 
   const install = (source: string, preview: boolean) =>
-    handleInstall(
-      { source: Option.some(source), skills: [path.basename(source)], all: false },
-      { force: false, preview },
-    );
+    handleInstall({
+      type: Option.some("skill"),
+      source: Option.some(source),
+      selectors: { skill: [path.basename(source)] },
+      all: false,
+      force: false,
+      preview,
+      env: [],
+      localName: Option.none(),
+      bundled: false,
+    });
 
   const record = (name: string, events: ReadonlyArray<OperationEvent>) =>
     Effect.promise(async () => {

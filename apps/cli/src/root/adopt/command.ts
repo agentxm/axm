@@ -13,7 +13,7 @@ import {
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
+import { makePublicPositionalPlanInvocation } from "../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
 export interface AdoptHandlerArgs {
@@ -36,7 +36,7 @@ const handleAdoptBody = Effect.fn("Adopt.handle")(function* (args: AdoptHandlerA
   const candidate = yield* AdoptExtension.prepare({ fqn: args.fqn, nonInteractive }).pipe(
     Effect.mapError(failureToAppError),
   );
-  const execution = yield* makePublicPositionalPlanExecution(
+  const { execution, recovery } = yield* makePublicPositionalPlanInvocation(
     { preview: args.preview },
     ["adopt"],
     [args.fqn],
@@ -44,7 +44,7 @@ const handleAdoptBody = Effect.fn("Adopt.handle")(function* (args: AdoptHandlerA
   const resolution = yield* AdoptExtension.previewOrApply(candidate, execution).pipe(
     Effect.mapError(failureToAppError),
   );
-  yield* emitOperationResolution("adopt", resolution);
+  yield* emitOperationResolution(resolution, { recovery });
 });
 
 const config = {

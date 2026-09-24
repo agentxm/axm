@@ -35,7 +35,7 @@ import {
 } from "@agentxm/workspace/publishing";
 import type { ExtensionVisibility } from "@agentxm/extension-model/unstable/extensions";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import { makeConfirmationRecovery, makePlanInvocation } from "../shared/confirmation-recovery.js";
 import {
   previewCapabilityFlag,
   previewableCapabilities,
@@ -165,14 +165,13 @@ const reportPublishOutcome = Effect.fn("Publish.report")(function* (
     outcome.recovery === undefined
       ? undefined
       : yield* Effect.gen(function* () {
-          const execution = yield* makePlanExecution(
+          const invocation = yield* makePlanInvocation(
             { preview: args.preview },
             makeExactPublishRecovery(args, outcome.recovery?.remainingItems ?? []),
           );
-          const cmd =
-            "approvalRecovery" in execution
-              ? renderConfirmationRecoveryCommand(execution.approvalRecovery, { approval: "none" })
-              : undefined;
+          const cmd = renderConfirmationRecoveryCommand(invocation.recovery, {
+            approval: "none",
+          });
           return cmd === undefined
             ? undefined
             : {
@@ -248,8 +247,8 @@ export const handleRootPublish = Effect.fn("Publish.handle")(
           if (preparation._tag === "Settled") {
             return yield* reportPublishOutcome(args, preparation.outcome, startedAtMs);
           }
-          const execution = yield* restore(
-            makePlanExecution(
+          const { execution } = yield* restore(
+            makePlanInvocation(
               { preview: args.preview },
               makeExactPublishRecovery(args, preparation.candidate.candidateFqns),
               args.acceptWarnings ? ["accept-warnings"] : [],

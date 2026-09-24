@@ -43,8 +43,10 @@ import {
   countUnitStates,
   deriveOperationOutcome,
   makeOperationResolution,
+  renderConfirmationRecoveryCommand,
   settleOperation,
   unitsByStableIdentity,
+  type ConfirmationRecovery,
   type JobStepArtifact,
   type OperationOutcome,
   type OperationResolution,
@@ -793,14 +795,30 @@ const releaseAgeBypassLines = (record: ReleaseAgeRecordView): ReadonlyArray<stri
   `${releaseAgeExemption(record)}; otherwise held until ${record.eligibleAt}`,
 ];
 
+const RELEASE_AGE_OVERRIDE = "--ignore-release-age";
+
 /**
- * The invocation an operator would repeat, derived from the command that
- * emitted this result. Recovery guidance names this command and no other.
+ * The one-run override, named as the emitting invocation with the override
+ * appended: the kernel renders the command from the invocation's own
+ * recovery, so a targeted route keeps its target and a route whose values
+ * cannot be echoed safely is described without a command. An operation with
+ * no invocation to replay names the override alone.
  */
-const emittingInvocation = (command: string): string => `axm ${command.replaceAll(".", " ")}`;
+const releaseAgeOverride = (recovery: ConfirmationRecovery | undefined): string => {
+  const command =
+    recovery === undefined
+      ? undefined
+      : renderConfirmationRecoveryCommand(recovery, {
+          approval: "none",
+          additionalSwitches: [RELEASE_AGE_OVERRIDE],
+        });
+  return command === undefined
+    ? `rerun the same command with ${RELEASE_AGE_OVERRIDE}`
+    : `rerun ${command}`;
+};
 
 const releaseAgeRecoveryText = (
-  command: string,
+  recovery: ConfirmationRecovery | undefined,
   holdbacks: ReadonlyArray<ReleaseAgeRecordView>,
 ): string => {
   const targets = Array.from(
@@ -812,7 +830,7 @@ const releaseAgeRecoveryText = (
       : "declare them in minimumReleaseAgeExclude";
   return `Wait until the release becomes available, pin an older available version, or ${exemption}. To take ${
     targets.length === 1 ? "it" : "them"
-  } now for this run only, rerun ${emittingInvocation(command)} --ignore-release-age.`;
+  } now for this run only, ${releaseAgeOverride(recovery)}.`;
 };
 
 /**
@@ -827,7 +845,7 @@ export const retryCanHelp = (units: ReadonlyArray<ResolvedUnit<unknown>>): boole
 const targetName = (value: string): string => value.split("/").at(-1) ?? value;
 
 export const releaseAgeDoc = (
-  command: string,
+  recovery: ConfirmationRecovery | undefined,
   result: Pick<PlanResolutionResult, "holdbacks" | "releaseAgeBypasses">,
   settled?: { readonly unsettled: ReadonlySet<string> },
 ): Doc => {
@@ -857,7 +875,7 @@ export const releaseAgeDoc = (
               ),
               {
                 _tag: "paragraph",
-                text: releaseAgeRecoveryText(command, holdbacks),
+                text: releaseAgeRecoveryText(recovery, holdbacks),
               },
             ],
           } as const,
@@ -908,6 +926,13 @@ export type OperationSuggestions =
   | ((context: OperationRecoveryContext) => ReadonlyArray<SuggestedAction>);
 
 export interface EmitOperationResolutionOptions {
+  /**
+   * The invocation that produced this resolution, as a recovery line replays
+   * it. A condition the operation reports names its recovery through this
+   * value; an operation with no invocation to replay, such as an interrupted
+   * one, leaves it out.
+   */
+  readonly recovery?: ConfirmationRecovery;
   readonly suggestions?: OperationSuggestions;
   readonly withoutSuggestions?: boolean;
   /** Overrides the derived human headline and is carried in the document. */
@@ -933,7 +958,6 @@ export interface EmittedOperationResolution {
  * re-deriving.
  */
 export const emitOperationResolution = (
-  command: string,
   resolution: OperationResolution<unknown>,
   options?: EmitOperationResolutionOptions,
 ) =>
@@ -1000,7 +1024,7 @@ export const emitOperationResolution = (
           ...(options?.message === undefined ? {} : { message: options.message }),
           // A condition the operation reports stands with the ledger it is
           // about, so `Next` stays the last thing a reader sees.
-          callouts: releaseAgeDoc(command, result, { unsettled }),
+          callouts: releaseAgeDoc(options?.recovery, result, { unsettled }),
         });
       },
       { ...(suggestions === undefined ? {} : { suggestions }), ok },
@@ -1013,19 +1037,15 @@ export const emitOperationResolution = (
  * in the invocation's actual mode whose outcome derives `no-op`, with the
  * stated message.
  */
-export const emitNoOpOperation = (
-  command: string,
-  args: {
-    readonly mode: "preview" | "apply";
-    readonly planName: string;
-    readonly planDescription?: string;
-    readonly message: string;
-    readonly suggestions?: ReadonlyArray<SuggestedAction>;
-    readonly withoutSuggestions?: boolean;
-  },
-) =>
+export const emitNoOpOperation = (args: {
+  readonly mode: "preview" | "apply";
+  readonly planName: string;
+  readonly planDescription?: string;
+  readonly message: string;
+  readonly suggestions?: ReadonlyArray<SuggestedAction>;
+  readonly withoutSuggestions?: boolean;
+}) =>
   emitOperationResolution(
-    command,
     makeOperationResolution({
       name: args.planName,
       description:

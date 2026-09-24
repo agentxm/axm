@@ -23,7 +23,7 @@ import {
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import { makeConfirmationRecovery, makePlanInvocation } from "../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
 export interface McpsImportArgs {
@@ -109,22 +109,21 @@ const handleMcpsImportBody = Effect.fn("Mcps.import")(function* (args: McpsImpor
       nonInteractive,
       discovery: discoveryFrom(preflight),
     }).pipe(Effect.mapError(failureToAppError));
-    const packageExecution = yield* makePlanExecution(
+    const packageInvocation = yield* makePlanInvocation(
       { preview: args.preview },
       makeConfirmationRecovery(["mcps", "import"], []),
     );
     const packageResolution = yield* ImportNativeExtension.previewOrApply(
       conversion,
-      packageExecution,
+      packageInvocation.execution,
     ).pipe(Effect.mapError(failureToAppError));
-    yield* emitOperationResolution("mcps.import", packageResolution);
+    yield* emitOperationResolution(packageResolution, { recovery: packageInvocation.recovery });
     return;
   }
 
-  const execution = yield* makePlanExecution(
+  const { execution, recovery } = yield* makePlanInvocation(
     { preview: args.preview },
     makeConfirmationRecovery(["mcps", "import"], []),
-    [],
   );
   const resolution = yield* ImportMcpServers.previewOrApply(candidate, execution).pipe(
     Effect.mapError(failureToAppError),
@@ -136,7 +135,8 @@ const handleMcpsImportBody = Effect.fn("Mcps.import")(function* (args: McpsImpor
       ? [{ description: "Undo", cmd: `axm mcps uninstall ${preflight.candidates[0]?.name ?? ""}` }]
       : []),
   ];
-  yield* emitOperationResolution("mcps.import", resolution, {
+  yield* emitOperationResolution(resolution, {
+    recovery,
     suggestions,
     ...(preflight.candidates.length === 0 && preflight.conflicts.length === 0
       ? { message: "No unmanaged MCP servers imported." }

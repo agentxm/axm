@@ -100,11 +100,16 @@ export const JsonVersionDocSchema = Schema.Struct({
 
 export type JsonVersionDoc = typeof JsonVersionDocSchema.Type;
 
-export const isSubcommandDoc = (doc: HelpDoc): boolean => {
-  const beforeBrackets = doc.usage.replace(/\s*[[<].*$/, "").trim();
-  const tokens = beforeBrackets.split(/\s+/).filter((token) => token.length > 0);
-  return tokens.length > 1;
-};
+/** What the formatter writes to Effect CLI's console: one built-in document. */
+export const FormatterDocumentSchema = Schema.Union([JsonHelpDocSchema, JsonVersionDocSchema]);
+export type FormatterDocument = typeof FormatterDocumentSchema.Type;
+
+/**
+ * Reads a formatter document back from the console text Effect CLI wrote.
+ * `None` is console text that is not a formatter document.
+ */
+export const decodeFormatterDocument: (text: string) => Option.Option<FormatterDocument> =
+  Schema.decodeUnknownOption(Schema.fromJsonString(FormatterDocumentSchema));
 
 export const toJsonFlagDoc = (flag: FlagDoc): JsonFlagDoc => ({
   name: flag.name,

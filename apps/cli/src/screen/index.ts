@@ -135,7 +135,6 @@ export {
 } from "./machine-events.js";
 export { ScreenLoggerLive } from "./logger.js";
 export { interruptionFallback } from "./interruption-fallback.js";
-export { boldText, cyanText, dimText, greenText } from "./terminal-style.js";
 export {
   agentOutcome,
   artifactChange,

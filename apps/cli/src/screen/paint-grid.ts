@@ -47,6 +47,10 @@ export const paintFields = (
   const { indent, gap } = options;
   const valueWidth = remaining(style.width, options.valueStart);
   return fields.flatMap((field) => {
+    // A label with nothing beside it is painted alone, not padded to a value.
+    if (plain(field.value).length === 0) {
+      return paintPrefixed(field.label, style, { indent, first: "", tone: "dim" });
+    }
     const labelWidth = displayWidth(plain(field.label));
     const valueStart = Math.max(options.valueStart, indent + labelWidth + gap);
     return valueWidth !== "unbounded" &&

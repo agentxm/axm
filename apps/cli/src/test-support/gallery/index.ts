@@ -6,6 +6,8 @@ import { refViewIdentity } from "./ref-view--identity.js";
 import { refViewOneField } from "./ref-view--one-field.js";
 import { detail } from "./detail.js";
 import { everyNode } from "./every-node.js";
+import { helpCommand } from "./help--command.js";
+import { helpRoot } from "./help--root.js";
 import type { GalleryFixture } from "./fixture.js";
 import { inventory } from "./inventory.js";
 import { inventoryAltStacked } from "./inventory-alt-stacked.js";
@@ -174,6 +176,8 @@ export const gallery: ReadonlyArray<GalleryFixture> = [
   { _tag: "document", name: "wait-static", doc: waitStatic },
   { _tag: "document", name: "wait-settled", doc: waitSettledFixture },
   { _tag: "document", name: "every-node", doc: everyNode },
+  { _tag: "document", name: "help--root", doc: helpRoot },
+  { _tag: "document", name: "help--command", doc: helpCommand },
   {
     _tag: "document",
     name: "width-gate--four-widths",

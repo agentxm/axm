@@ -57,7 +57,7 @@ describe("compiled binary smoke", () => {
     const result = await runBinary(["--help"]);
 
     expect(result.exitCode).toBe(0);
-    expect(getOutput(result)).toContain("USAGE\n  axm <command> [flags]");
+    expect(getOutput(result)).toContain("USAGE\n     axm <command> [flags]");
     expect(getOutput(result)).toContain("MANAGE EXTENSIONS");
   });
 

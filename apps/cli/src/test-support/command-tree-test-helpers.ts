@@ -11,12 +11,17 @@
 
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as ServiceMap from "effect/Context";
 import { CliOutput, Command } from "effect/unstable/cli";
 import type { HelpDoc } from "effect/unstable/cli/HelpDoc";
 
 import { TestRenderer } from "./presenter-test.js";
 import { rootCommand } from "../app.js";
+import { toJsonHelpDoc } from "../cli-runtime/index.js";
+import { LearnMore } from "../formatter.js";
+import { commandHelpDoc } from "../root/help/command-help-view.js";
 import { baseLayer } from "../runtime.js";
+import { paintText } from "../screen/index.js";
 
 export const TEST_VERSION = "0.0.0-test";
 
@@ -58,6 +63,17 @@ const captureHelpDocForArgs = (
 export const captureHelpDoc = (
   path: ReadonlyArray<string>,
 ): Effect.Effect<HelpDoc, unknown, never> => captureHelpDocForArgs([...path, "--help"]);
+
+/** The human help text as a pipe receives it: plain, at natural width. */
+export const helpText = (doc: HelpDoc): string =>
+  paintText(
+    commandHelpDoc(toJsonHelpDoc(doc, { learnMore: ServiceMap.get(doc.annotations, LearnMore) })),
+    { width: "unbounded", colors: false },
+  ).join("\n");
+
+export const captureHelpText = (
+  path: ReadonlyArray<string>,
+): Effect.Effect<string, unknown, never> => Effect.map(captureHelpDoc(path), helpText);
 
 export const captureHelpRequestDoc = (
   path: ReadonlyArray<string>,

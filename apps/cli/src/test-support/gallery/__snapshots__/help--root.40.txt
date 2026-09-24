@@ -1,0 +1,43 @@
+▄▀█ ▀▄▀ █▀▄▀█
+█▀█ █ █ █ ▀ █
+Agent Extension Manager by AgentXM
+
+https://axm.sh | https://agentxm.ai
+
+USAGE
+     axm <command> [flags]
+
+START HERE
+     setup          Set up AXM in the
+                    current project
+     help           Show topic or
+                    command help
+
+EXTENSION TYPES
+     skills, mcps, subagents, rules,
+     hooks, knowledge, packs
+     Run axm <type> --help for
+     type-specific commands
+
+PUBLISHED EXTENSIONS
+     yank, unyank   Exclude a version
+                    from fresh
+                    resolution
+     archive, unarchive
+       Block new releases; history keeps
+       resolving
+
+AUTH
+     login, logout, whoami
+
+GLOBAL FLAGS
+     --help, --verbose, --quiet, --json,
+     --directory
+     Run axm <command> --help for flag
+     details
+
+LEARN MORE
+     axm help getting-started
+       Set up AXM in a new workspace
+     axm help       Browse all help
+                    topics

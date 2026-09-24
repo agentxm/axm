@@ -5,8 +5,6 @@ export interface CliOutputEnvironment {
 }
 
 export interface CliOutputPolicy {
-  /** Whether any stream is styled; per-stream truth lives in `stdoutColors` and `stderrColors`. */
-  readonly colors: boolean;
   /** ANSI styling on stdout: only when stdout is itself a terminal. */
   readonly stdoutColors: boolean;
   /** ANSI styling on stderr: only when stderr is itself a terminal. */
@@ -76,7 +74,6 @@ export const resolveCliOutputPolicy = (
   const stderrColors = colorCapable && stderrIsTTY === true;
 
   return {
-    colors: stdoutColors || stderrColors,
     stdoutColors,
     stderrColors,
     animate,

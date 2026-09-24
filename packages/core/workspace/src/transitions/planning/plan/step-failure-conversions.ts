@@ -99,10 +99,14 @@ export const workspaceStateReadFailureToStepFailure = (
         suggestions: [{ description: "Fix the JSON syntax in the settings file, then re-run." }],
         cause: error,
       });
+    // Local storage the workspace cannot read: unavailable, named for the
+    // file, and not retryable until the stated repair is made.
     case "SettingsIoError":
       return makeStepFailure({
         category: "unavailable",
+        title: "Workspace settings unreadable",
         detail: `Workspace settings at ${error.path} could not be read`,
+        retryable: false,
         suggestions: [
           {
             description: "Repair the settings file permissions or restore the file, then re-run.",
@@ -113,7 +117,9 @@ export const workspaceStateReadFailureToStepFailure = (
     case "LockfileIoError":
       return makeStepFailure({
         category: "unavailable",
+        title: "Workspace lockfile unreadable",
         detail: `Workspace lockfile at ${error.path} could not be read`,
+        retryable: false,
         suggestions: [
           {
             description:

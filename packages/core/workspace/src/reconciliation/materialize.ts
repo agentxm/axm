@@ -35,6 +35,7 @@ import { installMcpServer, type McpServerInstallRequirements } from "./mcps/inst
 import { buildMaterializeOperation, targetFromRef, toStepKey } from "./extensions/operations.js";
 import { enabledConfiguredEntries, isConfiguredEntryEnabled } from "../desired-state/index.js";
 import {
+  acceptedResolutionIncompatibleRecovery,
   acceptedResolutionIncompatibleText,
   canonicalObservationFactText,
   CodingAgentRepository,
@@ -89,6 +90,7 @@ import { type RuleExtensionRef } from "@agentxm/extension-model/unstable/extensi
 import { type SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import {
   parseExtensionFqnParts,
+  toExtensionTypePlural,
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
 import {
@@ -577,19 +579,22 @@ export const collectMaterializeSteps = (args: {
           // the blocker below both read it rather than observing again.
           const canonical = yield* observeDesiredCanonical(node);
           const { observation, accepted } = canonical;
-          if (observation.status === "constraint-mismatch")
+          if (observation.status === "constraint-mismatch") {
+            // `axm update` names the extension by its accepted package, or by
+            // its desired identity when nothing registry-owned is accepted.
+            const acceptedOwner = accepted?.identity.owner;
+            const fqn =
+              accepted === undefined || acceptedOwner === undefined
+                ? node.identity.replace(/^(?:workspace|bundled):/u, "")
+                : `${acceptedOwner}/${toExtensionTypePlural(node.type)}/${accepted.identity.name}`;
             return yield* new WorkspaceSyncFailed({
               category: "conflict",
               detail: acceptedResolutionIncompatibleText(
                 makeExtensionConstraintInvariantFact(node, observation),
               ),
-              suggestions: [
-                {
-                  description: "Explicitly update the extension to accept a satisfying resolution.",
-                  cmd: "axm update --help",
-                },
-              ],
+              suggestions: [acceptedResolutionIncompatibleRecovery(fqn)],
             });
+          }
           if (accepted !== undefined && observation.status === "wrong-origin")
             return yield* new WorkspaceSyncFailed({
               category: "conflict",

@@ -202,7 +202,7 @@ describe("Sync preserves configuration and accepted resolutions", () => {
   });
 
   it.effect(
-    "blocks an accepted Pack member a later direct pin excludes, stating the fact install states",
+    "blocks an accepted Pack member a later direct pin excludes, stating the fact and route install states",
     () => {
       const published = registry();
       publishSharedMemberScenario(published);
@@ -237,6 +237,13 @@ describe("Sync preserves configuration and accepted resolutions", () => {
                 pin: SHARED_MEMBER_PIN.inside,
                 acceptedVersion: "1.2.0",
               }),
+              // The explicit resolution transition, named as install names it.
+              suggestions: [
+                {
+                  description: "Explicitly update the extension to accept a satisfying resolution.",
+                  cmd: `axm update ${SHARED_MEMBER.fqn}`,
+                },
+              ],
             });
             expect(workspace.snapshot()).toEqual(before);
           }),

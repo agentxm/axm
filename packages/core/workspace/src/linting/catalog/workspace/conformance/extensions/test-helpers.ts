@@ -7,7 +7,6 @@ import type {
   CanonicalObservation,
   DesiredExtensionNode,
   InstalledSkill,
-  InstalledSubagent,
 } from "../../../../../desired-state/index.js";
 import type { WorkspaceRuleContext } from "../../../../workspace-context.js";
 import { configuredButNotInstalledRule } from "../../configured-but-not-installed.js";
@@ -23,44 +22,49 @@ import {
   type WorkspaceRuleConformanceCase,
 } from "../test-helpers.js";
 
-const configuredSubagent = (canonicalPresent: boolean): InstalledSubagent => ({
-  key: { scope: "project", type: "subagent", name: decodeExtensionNameSync("reviewer") },
-  installationOrigin: {
-    _tag: "direct",
-    declared: {
-      name: decodeExtensionNameSync("reviewer"),
-      entry: { source: "@acme/subagents/reviewer", enabled: true },
+const desiredSubagent = {
+  type: "subagent",
+  name: "reviewer",
+  identity: "@acme/subagents/reviewer",
+  source: "@acme/subagents/reviewer",
+  enabled: true,
+  constraints: [],
+  origins: [
+    {
+      type: "settings",
+      localName: "reviewer",
+      authority: "sourced",
+      source: "@acme/subagents/reviewer",
+      enabled: true,
     },
-  },
-  activation: "enabled",
-  resolved: Option.none(),
-  actual: canonicalPresent
-    ? [
-        {
-          key: { scope: "project", type: "subagent", name: decodeExtensionNameSync("reviewer") },
-          origin: { _tag: "canonical-axm-subagent" },
-          contentRoot: "/workspace/agent_extensions/registry/@acme/subagents/reviewer/src",
-          sourcePath:
-            "/workspace/agent_extensions/registry/@acme/subagents/reviewer/src/reviewer.md",
-          packageRoot: "/workspace/agent_extensions/registry/@acme/subagents/reviewer",
-        },
-      ]
-    : [],
-  providingPacks: [],
-});
+  ],
+} satisfies DesiredExtensionNode;
 
+/** The subagent's one canonical observation: usable when its content is present, else missing. */
 const configuredSubagentContext = (canonicalPresent: boolean) =>
   contextFor({ settings: validSettings(), lockfile: validLockfile }).pipe(
     Effect.map(
       (context) =>
         ({
           ...context,
-          workspace: {
-            ...context.workspace,
-            subagents: {
-              ...context.workspace.subagents,
-              installed: Effect.succeed([configuredSubagent(canonicalPresent)]),
-            },
+          health: {
+            desiredState: Effect.succeed({
+              complete: true,
+              nodes: [desiredSubagent],
+              mcpSourceClosures: [],
+              problems: [],
+            }),
+            canonicalObservations: Effect.succeed([
+              {
+                desired: desiredSubagent,
+                observation: {
+                  type: "subagent",
+                  name: "reviewer",
+                  status: canonicalPresent ? "usable" : "missing",
+                  path: "/workspace/agent_extensions/registry/@acme/subagents/reviewer",
+                },
+              },
+            ]),
           },
         }) satisfies WorkspaceRuleContext,
     ),

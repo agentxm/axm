@@ -177,6 +177,7 @@ export {
   type DesiredExtensionOrigin,
   type DesiredConstraintConflict,
   type DesiredConstraintContributor,
+  type DesiredConstraintProposal,
   type DesiredEffectiveConstraint,
   type DesiredStateGraph,
   type DesiredStateProblem,

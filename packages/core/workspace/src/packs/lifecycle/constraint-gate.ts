@@ -267,9 +267,3 @@ export interface AcceptedMemberMismatch {
   readonly fqn: string;
   readonly fact: ExtensionConstraintInvariantFact;
 }
-
-/** The route that accepts a resolution the effective constraint admits. */
-export const acceptedMemberMismatchRecovery = (mismatch: AcceptedMemberMismatch) => ({
-  description: "Explicitly update the extension to accept a satisfying resolution.",
-  cmd: `axm update ${mismatch.fqn}`,
-});

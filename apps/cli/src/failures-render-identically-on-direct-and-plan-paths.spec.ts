@@ -1047,21 +1047,34 @@ describe("A failure reads the same on the direct and plan paths", () => {
     }),
   );
 
-  it.effect("reads an unreadable settings or lockfile as unavailable storage on every path", () =>
-    Effect.gen(function* () {
-      for (const failure of [
-        new SettingsIoError({ path: "/w/axm.json", cause: ioCause }),
-        new LockfileIoError({ path: "/w/axm-lock.yaml", cause: ioCause }),
-      ]) {
-        for (const view of yield* Effect.all([
-          directView(failure, "project"),
-          planView(failure, "project"),
-        ])) {
-          expect(view.code).toBe("unavailable");
-          expect(view.exitCode).toBe(11);
+  it.effect(
+    "reads an unreadable settings or lockfile as unavailable storage that names the file and implies no retry",
+    () =>
+      Effect.gen(function* () {
+        for (const [failure, title, repair] of [
+          [
+            new SettingsIoError({ path: "/w/axm.json", cause: ioCause }),
+            "Workspace settings unreadable",
+            "Repair the settings file permissions or restore the file, then re-run.",
+          ],
+          [
+            new LockfileIoError({ path: "/w/axm-lock.yaml", cause: ioCause }),
+            "Workspace lockfile unreadable",
+            "Repair the lockfile permissions or restore a known-good copy, then re-run.",
+          ],
+        ] as const) {
+          for (const view of yield* Effect.all([
+            directView(failure, "project"),
+            planView(failure, "project"),
+          ])) {
+            expect(view.code).toBe("unavailable");
+            expect(view.exitCode).toBe(11);
+            expect(view.title).toBe(title);
+            expect(view.retryable).toBe(false);
+            expect(view.suggestions.map((suggestion) => suggestion.description)).toEqual([repair]);
+          }
         }
-      }
-    }),
+      }),
   );
 
   it.effect("renders a lifecycle plan step the same way through the provided conversion", () =>

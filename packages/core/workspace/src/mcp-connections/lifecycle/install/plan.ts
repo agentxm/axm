@@ -14,6 +14,11 @@ import {
   DesiredStateReader,
   SettingsReader,
   WorkspaceLocation,
+  desiredStateProblemText,
+  effectiveDesiredConstraint,
+  isSourcedDesiredExtension,
+  type DesiredConstraintProposal,
+  type DesiredStateGraph,
 } from "../../../desired-state/index.js";
 
 import * as FileSystem from "effect/FileSystem";
@@ -26,6 +31,7 @@ import { installMcpServer, readMcpServerManifest } from "../../../reconciliation
 import { materializeRegistryPackage } from "../../../materialization/index.js";
 import { stripFileProtocol } from "@agentxm/registry-client";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
+import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 import { validateManifestMcpServerTargets } from "../../../projection/agent-adapters/index.js";
 import {
   CONFIGURABLE_AGENTS_BY_ID,
@@ -45,7 +51,7 @@ import { operationPresentation, type Plan } from "../../../transitions/planning/
 import { mcpRegistryResolutionKey } from "../../../desired-state/index.js";
 
 import { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
-import { selectMcpSourceConstraint } from "../domain/source-admission.js";
+import { admitMcpLocalName } from "../domain/source-admission.js";
 import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
 import { registryLoginSuggestions } from "../../../lifecycle/install/registry-login-suggestion.js";
 import { parseRegistryInstallTarget } from "../../../lifecycle/install/registry-install-target.js";
@@ -226,6 +232,65 @@ export const parseMcpServerInstallRequest: (
   };
 });
 
+/**
+ * Admit one local connection to a source and select the range it resolves
+ * within: the desired graph's effective constraint once the requested range
+ * rewrites this connection's direct declaration. Every other connection to
+ * the source and every Pack that requires it still contributes its range,
+ * and a conflict among them refuses the install naming every contributor.
+ */
+const selectMcpSourceConstraint = (
+  graph: DesiredStateGraph,
+  input: {
+    readonly localName: ExtensionName;
+    readonly sourceIdentity: string;
+    readonly versionRange: Option.Option<string>;
+  },
+): Effect.Effect<Option.Option<string>, ExtensionLifecycleFailed> =>
+  Effect.gen(function* () {
+    const localConnection = graph.nodes.find(
+      (node) => node.type === "mcp-server" && node.name === input.localName,
+    );
+    yield* admitMcpLocalName({
+      localName: input.localName,
+      sourceIdentity: input.sourceIdentity,
+      localConnection:
+        localConnection === undefined
+          ? undefined
+          : {
+              sourceIdentity: isSourcedDesiredExtension(localConnection)
+                ? localConnection.identity
+                : null,
+            },
+    }).pipe(
+      Effect.mapError((cause) =>
+        installRefused({ category: "conflict", detail: cause.reason, cause }),
+      ),
+    );
+    const declaration: DesiredConstraintProposal = Option.isSome(input.versionRange)
+      ? {
+          source: "settings",
+          localName: input.localName,
+          range: input.versionRange.value,
+          location: SETTINGS_FILENAME,
+        }
+      : { source: "settings", localName: input.localName };
+    const effective = effectiveDesiredConstraint(
+      graph,
+      { type: "mcp-server", name: input.localName, identity: input.sourceIdentity },
+      [declaration],
+    );
+    if (Result.isFailure(effective)) {
+      return yield* installRefused({
+        category: "conflict",
+        detail: `Cannot connect ${input.localName} because its source constraints are unsatisfiable: ${desiredStateProblemText(effective.failure)}`,
+        recover:
+          "Request a range every other connection to the source and every Pack that requires it admits",
+      });
+    }
+    return effective.success.range;
+  });
+
 /** Resolve the source named by the parsed request. */
 export const resolveMcpServerSourceRequest: (
   request: ParsedMcpServerInstallRequest,
@@ -287,37 +352,11 @@ export const resolveMcpServerSourceRequest: (
         }),
       ),
     );
-    const existingLocalNode = graph.nodes.find(
-      (node) => node.type === "mcp-server" && node.name === localName,
-    );
-    const closure = graph.mcpSourceClosures.find((candidate) => candidate.identity === identity);
-    const versionRange = yield* selectMcpSourceConstraint(
-      {
-        owner,
-        serverName,
-        localName,
-        sourceIdentity: identity,
-        versionRange: request.versionRange,
-      },
-      {
-        localConnection:
-          existingLocalNode === undefined
-            ? undefined
-            : {
-                sourceIdentity:
-                  existingLocalNode.authority === "inline" ? null : existingLocalNode.identity,
-              },
-        origins: (closure?.origins ?? []).map((origin) =>
-          origin.type === "settings"
-            ? { kind: "connection", name: origin.localName, constraint: origin.constraint }
-            : { kind: "pack", name: origin.pack, constraint: origin.constraint },
-        ),
-      },
-    ).pipe(
-      Effect.mapError((cause) =>
-        installRefused({ category: "conflict", detail: cause.reason, cause }),
-      ),
-    );
+    const versionRange = yield* selectMcpSourceConstraint(graph, {
+      localName,
+      sourceIdentity: identity,
+      versionRange: request.versionRange,
+    });
     return {
       source,
       owner: request.owner,
@@ -459,34 +498,11 @@ export const finalizeMcpServerInstallIntent: (
             : requestedIdentity;
         })
       : Effect.succeed(requestedIdentity);
-    const closure = graph.mcpSourceClosures.find((candidate) => candidate.identity === identity);
-    yield* selectMcpSourceConstraint(
-      {
-        owner: ref.owner,
-        serverName: ref.server.name,
-        localName,
-        sourceIdentity: identity,
-        versionRange: request.versionRange,
-      },
-      {
-        localConnection:
-          existingLocalNode === undefined
-            ? undefined
-            : {
-                sourceIdentity:
-                  existingLocalNode.authority === "inline" ? null : existingLocalNode.identity,
-              },
-        origins: (closure?.origins ?? []).map((origin) =>
-          origin.type === "settings"
-            ? { kind: "connection", name: origin.localName, constraint: origin.constraint }
-            : { kind: "pack", name: origin.pack, constraint: origin.constraint },
-        ),
-      },
-    ).pipe(
-      Effect.mapError((cause) =>
-        installRefused({ category: "conflict", detail: cause.reason, cause }),
-      ),
-    );
+    yield* selectMcpSourceConstraint(graph, {
+      localName,
+      sourceIdentity: identity,
+      versionRange: request.versionRange,
+    });
     return {
       ref,
       localName,

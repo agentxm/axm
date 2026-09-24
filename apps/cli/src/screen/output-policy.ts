@@ -1,6 +1,6 @@
 import { ciEnabled } from "../utils/environment.js";
 
-export interface CliOutputEnvironment {
+interface CliOutputEnvironment {
   readonly stdoutIsTTY: boolean | undefined;
   readonly stderrIsTTY: boolean | undefined;
   readonly env: NodeJS.ProcessEnv;

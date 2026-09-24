@@ -77,7 +77,7 @@ import { CatalogExtensionTypeSchema } from "@agentxm/extension-model/unstable/ex
 
 import { operationDoc, resolutionAgentCoverage, unsettledUnits } from "./operation-view.js";
 import { emitResult, count, type Doc } from "./screen/index.js";
-import { ScopedRoutes, suggestionsForCurrentWorkspace } from "./root/shared/scoped-command.js";
+import { currentWorkspaceScoping, suggestionsForScope } from "./root/shared/scoped-command.js";
 import type { TargetedUpdatePublicContext } from "@agentxm/workspace/resolution";
 
 export const PLAN_RESULT_CONTRACT = "plan-result-v3";
@@ -1007,8 +1007,8 @@ export const emitOperationResolution = (
         ? options.suggestions({ outcome, unsettled: unsettledUnits(resolution) })
         : (options?.suggestions ?? []);
     const next = operationNextActions(resolutionRecoveries(resolution), offered);
-    const suggestions = next.length === 0 ? undefined : yield* suggestionsForCurrentWorkspace(next);
-    const scopedRoutes = yield* Effect.serviceOption(ScopedRoutes);
+    const { scope, routes } = yield* currentWorkspaceScoping;
+    const suggestions = next.length === 0 ? undefined : suggestionsForScope(next, scope, routes);
 
     const result = toPlanResolutionResult(resolution, {
       verbose: verbosity.isAtLeast("verbose"),
@@ -1054,10 +1054,7 @@ export const emitOperationResolution = (
         return operationDoc(resolution, {
           verbosity: verbosity.level,
           ...(suggestions === undefined ? {} : { suggestions }),
-          ...Option.match(scopedRoutes, {
-            onNone: () => ({}),
-            onSome: ({ routes }) => ({ scopedRoutes: routes }),
-          }),
+          scopedRoutes: routes,
           ...(options?.message === undefined ? {} : { message: options.message }),
           // A condition the operation reports stands with the ledger it is
           // about, so `Next` stays the last thing a reader sees.

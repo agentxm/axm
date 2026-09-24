@@ -209,7 +209,7 @@ describe("workspace update handler output", () => {
  */
 describe("workspace update suggestions", () => {
   const unit = (over: Partial<ResolvedUnit<unknown>>): ResolvedUnit<unknown> => ({
-    id: "packs/alpha",
+    id: "pack:@acme/alpha",
     label: "@acme/packs/alpha",
     state: "failed",
     ...over,
@@ -256,6 +256,7 @@ describe("workspace update suggestions", () => {
 
   it("offers the narrowed update route for a failure a retry can change", () => {
     const failed = unit({
+      id: "skill:triage",
       label: "skills/triage",
       error: new StepFailure({ category: "network", detail: "Registry unreachable." }),
     });

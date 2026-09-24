@@ -661,6 +661,32 @@ describe("withCliErrorHandling cancellation", () => {
     );
   }
 
+  it.effect("exits a died application error with the code its classification states", () =>
+    Effect.gen(function* () {
+      const exit = yield* withCliErrorHandling(
+        Effect.die(makeAppError({ code: "conflict", detail: "The lockfile changed underneath" })),
+        {
+          command: "test",
+          format: "text",
+          telemetryConfig: { mode: "off", client: { name: "cli", version: "0.0.0" } },
+        },
+      ).pipe(Effect.exit);
+
+      expect(exit).toEqual(Exit.succeed(processOutcome(ExitCode.Conflict)));
+      expect(stderrWrites.join("")).toContain("conflict, exit 6");
+    }).pipe(
+      Effect.provide(
+        Layer.mergeAll(
+          globalFlagLayer,
+          testLayer("text"),
+          Layer.succeed(jsonFlag, Option.none()),
+          Layer.succeed(HttpClient.HttpClient, stubHttpClient),
+          NodeServices.layer,
+        ),
+      ),
+    ),
+  );
+
   for (const Cancellation of [
     WorkspaceInitializationCancelled,
     SkillSelectionCancelled,

@@ -16,7 +16,7 @@ import * as Effect from "effect/Effect";
 import { SetActivation, type SetActivationRequest } from "@agentxm/workspace/lifecycle";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
-import { makeAppError, type AppError } from "../app-error/index.js";
+import { AppError } from "../app-error/index.js";
 import { failureToAppError } from "../app-error/conversions.js";
 import { emitOperationResolution } from "../operation-output.js";
 import { EXTENSION_TYPE_PRESENTATION } from "./extension-type-presentation.js";
@@ -54,15 +54,23 @@ export const handleSetActivation = (
 
 /**
  * A refusal that found no such subject is answered with the command that
- * lists what the workspace does hold; every other refusal stands as the
- * feature rendered it.
+ * lists what the workspace does hold, appended to whatever the feature
+ * offered; every other field of the refusal stands as the feature rendered
+ * it, and so does every other refusal.
  */
 const withInspection = (error: AppError, inspect: SuggestedAction): AppError =>
   error.code === "not_found"
-    ? makeAppError({
+    ? new AppError({
         code: error.code,
         title: error.title,
         detail: error.detail,
+        ...(error.metadata === undefined ? {} : { metadata: error.metadata }),
+        ...(error.status === undefined ? {} : { status: error.status }),
+        ...(error.retryable === undefined ? {} : { retryable: error.retryable }),
+        ...(error.blockedOn === undefined ? {} : { blockedOn: error.blockedOn }),
+        ...(error.action === undefined ? {} : { action: error.action }),
+        ...(error.problem === undefined ? {} : { problem: error.problem }),
+        ...(error.inputs === undefined ? {} : { inputs: error.inputs }),
         suggestions: [...(error.suggestions ?? []), inspect],
         cause: error.cause,
       })

@@ -77,14 +77,15 @@ export interface CliTelemetryConfig {
 /**
  * Emit a defect (unhandled panic). The squashed cause classifies through the
  * one failure classifier and renders through the one error renderer, so a
- * defect reads exactly like any other internal error on every channel: the
+ * defect reads exactly like any other error of its code on every channel: the
  * same title, the same `--debug` cause chain in text, the same stable
- * envelope in JSON.
- *
- * Exported for tests; production callers route through `withCliErrorHandling`.
+ * envelope in JSON. The classification is handed back so the process exits
+ * with the code the rendered phrase states.
  */
-export const writeDefect = (cause: Cause.Cause<unknown>, format: OutputFormat) =>
-  writeExpectedCliError(failureToAppError(Cause.squash(cause)), format);
+export const writeDefect = (cause: Cause.Cause<unknown>, format: OutputFormat) => {
+  const defect = failureToAppError(Cause.squash(cause));
+  return writeExpectedCliError(defect, format).pipe(Effect.as(defect));
+};
 
 export type ExpectedCliError =
   | OutputWriteFailed
@@ -379,16 +380,18 @@ export const withCliErrorHandling = <A, R>(
           return Effect.failCause(cause);
         }
 
-        const defect = failureToAppError(Cause.squash(cause));
-        return writeExpectedCliError(defect, options.format).pipe(
-          Effect.andThen(settleOutput),
-          Effect.andThen(
-            settle({
-              result: "defect",
-              failure: { code: defect.code, level: "fatal", handled: false },
-            }),
+        return writeDefect(cause, options.format).pipe(
+          Effect.flatMap((defect) =>
+            settleOutput.pipe(
+              Effect.andThen(
+                settle({
+                  result: "defect",
+                  failure: { code: defect.code, level: "fatal", handled: false },
+                }),
+              ),
+              Effect.as(processOutcome(exitCodeFor(defect.code))),
+            ),
           ),
-          Effect.as(processOutcome(ExitCode.Internal)),
         );
       }),
     );

@@ -15,6 +15,7 @@ export {
   toLabelWithCompanions,
   toTypedLabel,
   toStepKey,
+  extensionFromStepKey,
   type AuthoredExtensionOperationArgs,
   type CallerStepFailure,
   type InstallOperationArgs,

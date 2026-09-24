@@ -93,24 +93,40 @@ export const suggestionsForScope = (
       : { ...publicSuggestion, cmd: commandForScope(publicSuggestion.cmd, scope, routes) };
   });
 
+export interface WorkspaceScoping {
+  readonly scope: WorkspaceScope;
+  readonly routes: ReadonlySet<string>;
+}
+
 /**
- * Address suggestions to the current workspace: its scope, and the routes the
- * running command tree registers with `--scope`. Without a workspace or a
+ * The workspace a running command addresses its suggestions to: the scope it
+ * ran in, and the routes the running command tree registers with `--scope`.
+ * Without a workspace in context the scope is the project's; without a
+ * command tree no route takes the flag.
+ */
+export const currentWorkspaceScoping: Effect.Effect<WorkspaceScoping> = Effect.gen(function* () {
+  const location = yield* Effect.serviceOption(WorkspaceLocation);
+  const scoped = yield* Effect.serviceOption(ScopedRoutes);
+  return {
+    scope: Option.match(location, { onNone: () => "project", onSome: ({ scope }) => scope }),
+    routes: Option.match(scoped, {
+      onNone: () => NO_SCOPED_ROUTES,
+      onSome: ({ routes }) => routes,
+    }),
+  };
+});
+
+/**
+ * Address suggestions to the current workspace. Without a workspace or a
  * command tree in context nothing is addressed, and the suggestions leave
  * only their public fields behind.
  */
 export const suggestionsForCurrentWorkspace = (
   suggestions: ReadonlyArray<FailureSuggestedAction>,
 ) =>
-  Effect.gen(function* () {
-    const location = yield* Effect.serviceOption(WorkspaceLocation);
-    const scoped = yield* Effect.serviceOption(ScopedRoutes);
-    return suggestionsForScope(
-      suggestions,
-      Option.match(location, { onNone: () => "project", onSome: ({ scope }) => scope }),
-      Option.match(scoped, { onNone: () => NO_SCOPED_ROUTES, onSome: ({ routes }) => routes }),
-    );
-  });
+  Effect.map(currentWorkspaceScoping, ({ scope, routes }) =>
+    suggestionsForScope(suggestions, scope, routes),
+  );
 
 /**
  * A command's failure as the workspace it ran in reports it: a workspace

@@ -44,7 +44,7 @@ export interface LayoutColumn {
   readonly align: "left" | "right";
 }
 
-export interface GridColumn {
+interface GridColumn {
   /** Index into the source columns. */
   readonly index: number;
   readonly width: number;

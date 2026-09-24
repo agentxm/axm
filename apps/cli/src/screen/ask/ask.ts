@@ -65,7 +65,7 @@ export interface ChooseAsk<A> extends AskBase {
  * One option of a `Pick` as the list shows it: what it is called, the facts
  * that tell it apart, and the group it is listed under.
  */
-export interface PickEntry {
+interface PickEntry {
   readonly title: string;
   /** Facts shown beside the title, which the painter joins with its separator. */
   readonly details?: ReadonlyArray<Text>;
@@ -168,7 +168,7 @@ export const typedText = (key: AskKey): string | undefined =>
  * show next, the value it settled on with the one transcript line it leaves,
  * or a cancellation.
  */
-export type AskAction<S, A> =
+type AskAction<S, A> =
   | { readonly _tag: "Next"; readonly state: S }
   | { readonly _tag: "Submit"; readonly value: A; readonly answer: Doc }
   | { readonly _tag: "Cancel" };
@@ -222,7 +222,7 @@ export interface AskFailureWording {
 }
 
 /** What a port's own failure carries for a question that did not settle. */
-export interface AskFailureFields {
+interface AskFailureFields {
   readonly category: "usage" | "internal";
   readonly detail: string;
   readonly suggestions?: NonNullable<AppError["suggestions"]>;

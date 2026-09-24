@@ -275,7 +275,7 @@ export const interruptionPhrase = (
   }
 };
 
-export type PublishParticipation = "publish" | "verified-existing";
+type PublishParticipation = "publish" | "verified-existing";
 
 /**
  * What a publish plan ledger says an extension will do: be uploaded, or be
@@ -399,7 +399,7 @@ export const publishSourceState = (
 export const publishSourceDifferences = (differenceCount: number): string =>
   `${count(differenceCount, "path")} ${differenceCount === 1 ? "differs" : "differ"} from HEAD`;
 
-export type PublishDisposition =
+type PublishDisposition =
   "included" | "excluded" | "unmanaged" | "not-authored" | "not-publishable" | "unmatched";
 
 export const publishDisposition = (value: PublishDisposition): string => {
@@ -421,7 +421,7 @@ export const publishDisposition = (value: PublishDisposition): string => {
   }
 };
 
-export type PublishReason =
+type PublishReason =
   | "selected"
   | "excluded"
   | "unmanaged"

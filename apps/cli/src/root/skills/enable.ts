@@ -10,7 +10,6 @@ import {
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { LIST_INSTALLED_SKILLS } from "../suggested-actions.js";
 
 export interface EnableHandlerArgs {
   readonly name: string;
@@ -24,10 +23,7 @@ export const handleEnable = (args: EnableHandlerArgs) =>
       command: "skills.enable",
       commandPath: ["skills", "enable"],
       planName: "Enable skill",
-      suggestions: [
-        LIST_INSTALLED_SKILLS,
-        { description: "Undo", cmd: `axm skills disable ${args.name}` },
-      ],
+      suggestions: [{ description: "Undo", cmd: `axm skills disable ${args.name}` }],
     },
   );
 

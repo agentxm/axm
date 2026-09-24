@@ -14,7 +14,7 @@
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
-export interface ExtensionTypePresentation {
+interface ExtensionTypePresentation {
   /** What a report calls one of, and several of, this type's extensions. */
   readonly noun: { readonly singular: string; readonly plural: string };
   /** The command that inspects what is installed of this type. */

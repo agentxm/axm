@@ -24,12 +24,9 @@ import {
 } from "@agentxm/workspace/transitions/planning";
 import type { PlanPolicyId } from "@agentxm/workspace/transitions/planning";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import {
-  isExtensionTypePlural,
-  toExtensionType,
-  type ExtensionType,
-} from "@agentxm/extension-model/unstable/extensions";
+import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import { WorkspaceLocation } from "@agentxm/workspace/desired-state";
+import { extensionFromStepKey } from "@agentxm/workspace/reconciliation";
 
 export const makeConfirmationRecovery = (
   command: ReadonlyArray<string>,
@@ -145,16 +142,8 @@ export const retrySuggestion = (
   return cmd === undefined ? { description } : { description, cmd };
 };
 
-/** The extension a ledger unit is about, read from its typed label. */
-const typedUnit = (
-  unit: ResolvedUnit<unknown>,
-): { readonly type: ExtensionType; readonly name: string } | undefined => {
-  const segments = unit.label.replace(/^(?:Install|Reinstall|Skip|Update)\s+/u, "").split("/");
-  const name = segments.at(-1);
-  const plural = segments.at(-2);
-  if (name === undefined || name.length === 0 || !isExtensionTypePlural(plural)) return undefined;
-  return { type: toExtensionType(plural), name };
-};
+/** The extension a ledger unit is about, read from its planned step key. */
+const typedUnit = (unit: ResolvedUnit<unknown>) => extensionFromStepKey(unit.id);
 
 const INSTALL_SELECTION_FLAGS = new Set([
   "--all",

@@ -43,7 +43,7 @@ export const InstructionEventSchema = Schema.Struct({
   type: Schema.Literal("instruction"),
   message: Schema.String,
 }).annotate({ identifier: "InstructionEvent" });
-export type InstructionEvent = typeof InstructionEventSchema.Type;
+type InstructionEvent = typeof InstructionEventSchema.Type;
 
 export const MachineEventSchema = Schema.Union([
   ProgressEventSchema,

@@ -87,7 +87,7 @@ export const writeOutput = (
     });
   });
 
-export interface OutputStreamFacts extends TerminalSize {
+interface OutputStreamFacts extends TerminalSize {
   /** Result layout follows stdout even when it is a different terminal. */
   readonly stdoutColumns: number;
   readonly stdoutIsTTY: boolean;
@@ -176,7 +176,7 @@ export const OutputStreamsLive: Layer.Layer<OutputStreams> = Layer.effect(
 /** Pre-runtime TTY fact for startup policy without exposing Node streams. */
 export const stderrIsTTY = (): boolean => process.stderr.isTTY === true;
 
-export interface TestOutputStreamsState {
+interface TestOutputStreamsState {
   readonly stdout: Array<string>;
   readonly stderr: Array<string>;
   /** The terminal the streams report. A test narrows it, then offers a resize. */

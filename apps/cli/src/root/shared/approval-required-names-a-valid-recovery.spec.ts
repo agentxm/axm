@@ -290,8 +290,8 @@ describe("Approval-required recovery", () => {
     }),
   );
 
-  const unsettledExtension = (label: string): ResolvedUnit<unknown> => ({
-    id: label,
+  const unsettledExtension = (id: string, label: string): ResolvedUnit<unknown> => ({
+    id,
     label,
     state: "failed",
     error: new StepFailure({ category: "network", detail: "Registry unreachable." }),
@@ -311,8 +311,8 @@ describe("Approval-required recovery", () => {
         ],
       );
       const unsettled = [
-        unsettledExtension("skills/alpha"),
-        unsettledExtension("rules/safe-shell"),
+        unsettledExtension("skill:alpha", "skills/alpha"),
+        unsettledExtension("rule:safe-shell", "rules/safe-shell"),
       ];
 
       const retry = retrySuggestion(
@@ -348,7 +348,9 @@ describe("Approval-required recovery", () => {
 
         const retry = retrySuggestion(
           "Try the extension that did not install again",
-          narrowInstallSelection(recovery, [unsettledExtension("mcps/context")]),
+          narrowInstallSelection(recovery, [
+            unsettledExtension("mcp-server:context", "mcps/context"),
+          ]),
         );
 
         expect(retry.cmd).toBeUndefined();

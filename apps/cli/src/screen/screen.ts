@@ -52,7 +52,7 @@ export interface ScreenLogRecord {
   readonly message: string;
 }
 
-export interface ScreenFacts {
+interface ScreenFacts {
   readonly columns: number;
   readonly stdoutIsTTY: boolean;
   /** Whether the primary result stream is styled. */
@@ -134,7 +134,7 @@ const encodeJson = <S extends Schema.Top>(data: Schema.Schema.Type<S>, schema: S
   // eslint-disable-next-line no-restricted-syntax -- schema/type mismatch is a defect.
   Schema.encodeEffect(schema)(data).pipe(Effect.orDie);
 
-export interface ScreenLiveOptions {
+interface ScreenLiveOptions {
   /** ANSI styling per stream: only a stream that is itself a terminal is styled. */
   readonly colors: { readonly stdout: boolean; readonly stderr: boolean };
   readonly animate: boolean;

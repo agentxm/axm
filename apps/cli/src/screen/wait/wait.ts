@@ -56,7 +56,7 @@ export const waitKeys = (actions: WaitActions): WaitKeys => ({
   copy: actions.copy !== undefined,
 });
 
-export type WaitKeyAction = "open" | "copy" | "stop" | "ignore";
+type WaitKeyAction = "open" | "copy" | "stop" | "ignore";
 
 /**
  * One key against an open wait. Escape and an interrupt stop it; `o` and `c`

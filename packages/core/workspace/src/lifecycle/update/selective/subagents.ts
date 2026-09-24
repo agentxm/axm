@@ -24,11 +24,8 @@ import * as Option from "effect/Option";
 import {
   decodeExtensionNameSync,
   parseSourceQualifiedRegistrySourcePatternParts,
-  type ExtensionName,
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
-import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
-import { createRegistryClient } from "@agentxm/registry-client";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -69,6 +66,7 @@ import { buildSelectiveUpdatePlan, type SelectiveUpdateUnit } from "./plan.js";
 import type { SelectiveUpdateStepRequirements } from "./requirements.js";
 import {
   constrainSelectedEntries,
+  publishedReleases,
   selectUpdateTargets,
   type SelectiveUpdateEntry,
   type SelectiveUpdateSelectors,
@@ -128,16 +126,6 @@ const appendWarnings =
       message: result.message.length === 0 ? warning : `${result.message}; ${warning}`,
     };
   };
-
-/** The newest release the Registry index lists, which it orders newest first. */
-const latestPublishedVersion = (source: RegistrySource, owner: Handle, name: ExtensionName) =>
-  Effect.gen(function* () {
-    const location =
-      source.location.protocol === "file:" ? source.location.pathname : source.location.href;
-    const client = yield* createRegistryClient(location);
-    const index = yield* client.getExtensionIndex({ owner, type: "subagent", name });
-    return Option.flatMap(index, (value) => Option.fromUndefinedOr(value.versions[0]?.version));
-  });
 
 const skippedSubagentStep = (
   scope: WorkspaceScope,
@@ -273,7 +261,14 @@ export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate
               const latest = effective.contributors.some(
                 (contributor) => contributor.source === "pack",
               )
-                ? yield* latestPublishedVersion(source, registryPattern.value.owner, lookupName)
+                ? Option.flatMap(
+                    yield* publishedReleases(source, {
+                      owner: registryPattern.value.owner,
+                      type: "subagent",
+                      name: lookupName,
+                    }),
+                    (releases) => Option.fromUndefinedOr(releases[0]?.version),
+                  )
                 : Option.none<string>();
               return {
                 type: "match",

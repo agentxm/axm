@@ -56,7 +56,6 @@ import {
   type ReleaseAgeRecord,
 } from "../../../resolution/index.js";
 import { resolveSource, SourceHostProviders } from "../../../resolution/sources/index.js";
-import { createRegistryClient } from "@agentxm/registry-client";
 import {
   operationPresentation,
   prepareExecutionCandidate,
@@ -79,6 +78,7 @@ import { buildSelectiveUpdatePlan, type SelectiveUpdateUnit } from "./plan.js";
 import type { SelectiveUpdateStepRequirements } from "./requirements.js";
 import {
   constrainSelectedEntries,
+  publishedReleases,
   selectUpdateTargets,
   type SelectiveUpdateEntry,
   type SelectiveUpdateSelectors,
@@ -350,19 +350,16 @@ export const prepareSelectiveSkillUpdate = Effect.fn("SelectiveSkillUpdate.prepa
         });
       }
 
-      const location =
-        source.location.protocol === "file:" ? source.location.pathname : source.location.href;
-      const client = yield* createRegistryClient(location);
-      const indexOption = yield* client.getExtensionIndex({
+      const releases = yield* publishedReleases(source, {
         owner,
         type: "skill",
         name: lookupName,
       });
-      if (Option.isNone(indexOption)) {
+      if (Option.isNone(releases)) {
         return Option.none<RegistrySkillConstraintResolution>();
       }
 
-      const [latestEntry] = indexOption.value.versions;
+      const [latestEntry] = releases.value;
       const latestVersion = latestEntry?.version;
       if (latestVersion === undefined) {
         return yield* new ExtensionLifecycleFailed({
@@ -375,7 +372,7 @@ export const prepareSelectiveSkillUpdate = Effect.fn("SelectiveSkillUpdate.prepa
 
       // The newest visible release within the effective constraint, before
       // and after the minimum release age withholds unaged releases.
-      const newestWithin = resolveVersionInRange(indexOption.value.versions, effective.range);
+      const newestWithin = resolveVersionInRange(releases.value, effective.range);
       if (Option.isNone(newestWithin)) {
         const constraintLabel =
           packRequired || Option.isNone(userConstraint)
@@ -389,7 +386,7 @@ export const prepareSelectiveSkillUpdate = Effect.fn("SelectiveSkillUpdate.prepa
       }
       const desiredEntry = newestWithin.value;
       const matureWithin = resolveVersionInRange(
-        indexOption.value.versions.filter((entry) => isVersionEntryEligibleAt(entry, evaluation)),
+        releases.value.filter((entry) => isVersionEntryEligibleAt(entry, evaluation)),
         effective.range,
       );
       const resolvedVersion = Option.map(matureWithin, (entry) => ({

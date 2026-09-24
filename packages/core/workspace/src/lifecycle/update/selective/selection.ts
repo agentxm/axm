@@ -15,7 +15,13 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 
-import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/extension-model/unstable/extensions";
+import {
+  parseSourceQualifiedRegistrySourcePatternParts,
+  type ExtensionName,
+  type Handle,
+} from "@agentxm/extension-model/unstable/extensions";
+import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
+import { createRegistryClient } from "@agentxm/registry-client";
 import {
   resolveInstalledIdentifierNameOrInput,
   resolveSource,
@@ -83,6 +89,28 @@ export const constrainSelectedEntries = Effect.fn("SelectiveUpdate.effectiveCons
     return constrained;
   },
 );
+
+/**
+ * Every release a selected entry's Registry index lists, newest first, or
+ * none when the Registry does not list the entry. The index is the one
+ * listing that includes releases the effective constraint or the minimum
+ * release age excludes, so it names the newest release a Pack range holds
+ * the entry below.
+ */
+export const publishedReleases = Effect.fn("SelectiveUpdate.publishedReleases")(function* (
+  source: RegistrySource,
+  target: {
+    readonly owner: Handle;
+    readonly type: "skill" | "subagent";
+    readonly name: ExtensionName;
+  },
+) {
+  const location =
+    source.location.protocol === "file:" ? source.location.pathname : source.location.href;
+  const client = yield* createRegistryClient(location);
+  const index = yield* client.getExtensionIndex(target);
+  return Option.map(index, (value) => value.versions);
+});
 
 /** Why a selective update settled without a plan. */
 export type SelectiveUpdateNothingReason = "none-installed" | "no-source-match" | "no-name-match";

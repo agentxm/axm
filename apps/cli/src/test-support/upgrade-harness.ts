@@ -75,6 +75,8 @@ export interface UpgradeCommandRun {
   readonly document: unknown;
   readonly calls: ReadonlyArray<SubprocessInvocation>;
   readonly installMetaWrites: ReadonlyArray<InstallMetaData>;
+  /** The process exit the handler returned for its assessment. */
+  readonly exitCode: number;
 }
 
 /** Run `axm upgrade` against a stand-in installation and release origin. */
@@ -146,7 +148,7 @@ export const runUpgradeCommand = (options?: UpgradeCommandOptions) =>
       ...(options?.localVersion === undefined ? {} : { localVersion: options.localVersion }),
     }).pipe(Effect.provide(layer), Effect.forkChild);
     if (options?.advanceMs !== undefined) yield* TestClock.adjust(options.advanceMs);
-    yield* Fiber.join(fiber);
+    const outcome = yield* Fiber.join(fiber);
 
     const stdout = streams.log
       .filter((entry) => entry.channel === "stdout")
@@ -161,6 +163,7 @@ export const runUpgradeCommand = (options?: UpgradeCommandOptions) =>
       document: parsedDocument,
       calls: subprocess.calls,
       installMetaWrites,
+      exitCode: outcome.exitCode,
     } satisfies UpgradeCommandRun;
   });
 

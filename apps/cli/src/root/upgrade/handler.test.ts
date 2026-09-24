@@ -40,6 +40,18 @@ describe("upgrade human view", () => {
 
       expect(run.humanOutput).toContain("Output from npm install -g ");
       expect(run.humanOutput).toContain("npm ERR! permission denied");
+      // A failed assessment exits through the one outcome-to-exit mapping.
+      expect(run.exitCode).toBe(1);
+    }),
+  );
+
+  it.effect("exits zero for a completed upgrade", () =>
+    Effect.gen(function* () {
+      const run = yield* runUpgradeCommand({
+        method: new Npm({ importUrl: "file:///npm/axm" }),
+        human: true,
+      });
+      expect(run.exitCode).toBe(0);
     }),
   );
 

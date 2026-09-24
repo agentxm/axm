@@ -9,13 +9,11 @@
 import type * as Config from "effect/Config";
 import * as Schema from "effect/Schema";
 import type { ExtensionManagerFailure } from "../materialization/index.js";
+import {
+  FailureSuggestedActionSchema,
+  OperationErrorCategorySchema,
+} from "../transitions/planning/plan/errors.js";
 import type { McpConfigSyncFailure } from "../projection/agent-adapters/index.js";
-
-const CarriedSuggestedActionSchema = Schema.Struct({
-  description: Schema.String,
-  cmd: Schema.optional(Schema.String),
-  url: Schema.optional(Schema.String),
-});
 
 /**
  * A workspace reconciliation policy step could not proceed. `category` and `detail`
@@ -24,9 +22,9 @@ const CarriedSuggestedActionSchema = Schema.Struct({
 export class WorkspaceSyncFailed extends Schema.TaggedError<WorkspaceSyncFailed>()(
   "WorkspaceSyncFailed",
   {
-    category: Schema.Literals(["conflict", "internal", "not_found", "validation"]),
+    category: OperationErrorCategorySchema,
     detail: Schema.String,
-    suggestions: Schema.optional(Schema.Array(CarriedSuggestedActionSchema)),
+    suggestions: Schema.optional(Schema.Array(FailureSuggestedActionSchema)),
     cause: Schema.optional(Schema.Unknown),
   },
 ) {}

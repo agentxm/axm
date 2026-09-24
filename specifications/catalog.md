@@ -398,7 +398,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/non-success-results-name-a-fitting-recovery`
 - Owner: `cli`
-- Statement: When an operation settles partial, failed, blocked, or interrupted, its `Next` shall name at least one recovery that fits the outcome — the emitting command narrowed to the units that did not settle where an unchanged retry can help, or a recovery the producer of a failure stated — and shall not consist solely of a generic inventory suggestion; where no command can change the outcome, it shall offer no retry.
+- Statement: When an operation settles partial, failed, blocked, or interrupted, its `Next` shall name at least one recovery that fits the outcome — the emitting command narrowed to the units that did not settle where an unchanged retry can help, or a recovery the producer of a failure stated — and shall not consist solely of a generic inventory suggestion; where no command can change the outcome, it shall offer no retry. Whether a retry can help is the kernel's one decision per failure: the producer's stated retryability, or else its category.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `extension-adoption`

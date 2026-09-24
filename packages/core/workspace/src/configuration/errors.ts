@@ -14,7 +14,11 @@ import type {
   CandidateFingerprintFailed,
   PlanInteractionFailed,
 } from "../transitions/planning/index.js";
-import { makeStepFailure, type StepFailure } from "../transitions/planning/plan/errors.js";
+import {
+  FailureSuggestedActionSchema,
+  makeStepFailure,
+  type StepFailure,
+} from "../transitions/planning/plan/errors.js";
 import type {
   InvalidAgentId,
   LockfileValidationError,
@@ -42,12 +46,6 @@ export type WorkspaceConfigurationExecutionFailure =
   | WorkspaceSettingsReadFailure
   | WorkspaceTransitionAcquireFailure;
 
-const CarriedSuggestedActionSchema = Schema.Struct({
-  description: Schema.String,
-  cmd: Schema.optional(Schema.String),
-  url: Schema.optional(Schema.String),
-});
-
 /**
  * A workspace configuration flow could not proceed. `category` and `detail`
  * carry the boundary rendering 1:1.
@@ -57,7 +55,7 @@ export class WorkspaceConfigurationFailed extends Schema.TaggedError<WorkspaceCo
   {
     category: Schema.Literals(["conflict", "internal", "usage", "validation"]),
     detail: Schema.String,
-    suggestions: Schema.optional(Schema.Array(CarriedSuggestedActionSchema)),
+    suggestions: Schema.optional(Schema.Array(FailureSuggestedActionSchema)),
     recover: Schema.optional(Schema.String),
     cmd: Schema.optional(Schema.String),
     cause: Schema.optional(Schema.Unknown),

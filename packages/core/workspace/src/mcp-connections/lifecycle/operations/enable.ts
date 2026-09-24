@@ -171,7 +171,7 @@ export const enableMcpServer = (
     }
     const canonicalPath = canonical.value.observation.path;
     const accepted = Option.getOrUndefined(
-      yield* lockfile.mcpServerForConnection(op.args.serverName),
+      yield* lockfile.acceptedEntry("mcp-server", op.args.serverName),
     );
     const identity = canonical.value.desired.identity.startsWith("workspace:")
       ? canonical.value.desired.identity.slice("workspace:".length)

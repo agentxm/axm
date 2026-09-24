@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import { makeWorkspaceReadModel } from "../../../desired-state/index.js";
 import { WorkspaceReadModelTest } from "../../../desired-state/testing.js";
-import type { DesiredExtensionNode } from "../../../desired-state/index.js";
+import type { CanonicalObservation, DesiredExtensionNode } from "../../../desired-state/index.js";
 import { emptyWorkspaceState, type WorkspaceState } from "../test-support/interpret-ops.js";
 import { scopeFilesFromWorkspaceState } from "../test-support/fixture-state.js";
 import { skillsLockfileAlignedRule } from "./skills-lockfile-aligned.js";
@@ -26,6 +26,7 @@ const desiredSkill = (
 const contextFor = (
   state: WorkspaceState,
   nodes: ReadonlyArray<DesiredExtensionNode>,
+  observations: ReadonlyArray<CanonicalObservation>,
 ): Effect.Effect<WorkspaceRuleContext> => {
   const project = scopeFilesFromWorkspaceState(state);
   return Effect.gen(function* () {
@@ -41,6 +42,14 @@ const contextFor = (
           mcpSourceClosures: [],
           problems: [],
         }),
+        canonicalObservations: Effect.succeed(
+          observations.flatMap((observation) => {
+            const desired = nodes.find(
+              (node) => node.type === observation.type && node.name === observation.name,
+            );
+            return desired === undefined ? [] : [{ desired, observation }];
+          }),
+        ),
       },
       displayRoot: "",
     } satisfies WorkspaceRuleContext;
@@ -56,9 +65,13 @@ const contextFor = (
   );
 };
 
-const runCheck = (state: WorkspaceState, nodes: ReadonlyArray<DesiredExtensionNode> = []) =>
+const runCheck = (
+  state: WorkspaceState,
+  nodes: ReadonlyArray<DesiredExtensionNode> = [],
+  observations: ReadonlyArray<CanonicalObservation> = [],
+) =>
   Effect.gen(function* () {
-    const context = yield* contextFor(state, nodes);
+    const context = yield* contextFor(state, nodes, observations);
     return yield* skillsLockfileAlignedRule.check(context);
   });
 
@@ -105,9 +118,29 @@ describe("workspace/skills-lockfile-aligned", () => {
     }),
   );
 
-  it.effect("reports a Registry resolution outside the desired constraint", () =>
+  it.effect("reports the absent accepted resolution the canonical observation found", () =>
     Effect.gen(function* () {
       const source = "@acme/skills/reviewer@^0.1.0";
+      const state = emptyWorkspaceState();
+      state.settings = { agents: ["claude-code"], skills: { reviewer: source } };
+      state.lockfile = { lockfileVersion: 8, skills: {} };
+
+      const findings = yield* runCheck(
+        state,
+        [desiredSkill(source, ["^0.1.0"])],
+        [{ type: "skill", name: "reviewer", status: "missing-resolution" }],
+      );
+
+      expect(findings.map(({ message }) => message)).toEqual([
+        "skill '@acme/skills/reviewer' has no accepted resolution.",
+      ]);
+    }),
+  );
+
+  it.effect("leaves a constraint mismatch to the rule that reports the constraint fact", () =>
+    Effect.gen(function* () {
+      const source = "@acme/skills/reviewer@^0.1.0";
+      const desired = desiredSkill(source, ["^0.1.0"]);
       const state = emptyWorkspaceState();
       state.settings = { agents: ["claude-code"], skills: { reviewer: source } };
       state.lockfile = {
@@ -115,10 +148,26 @@ describe("workspace/skills-lockfile-aligned", () => {
         skills: { reviewer: registryResolution("1.0.0") },
       };
 
-      const findings = yield* runCheck(state, [desiredSkill(source, ["^0.1.0"])]);
+      const findings = yield* runCheck(
+        state,
+        [desired],
+        [
+          {
+            type: "skill",
+            name: "reviewer",
+            status: "constraint-mismatch",
+            acceptedVersion: "1.0.0",
+            authority: {
+              source: "desired-state-graph",
+              identity: desired.identity,
+              locator: source,
+              constraints: [{ source: "settings", range: "^0.1.0", location: "axm.json" }],
+            },
+          },
+        ],
+      );
 
-      expect(findings).toHaveLength(1);
-      expect(findings[0]?.message).toContain("does not satisfy desired constraint");
+      expect(findings).toEqual([]);
     }),
   );
 });

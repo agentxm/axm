@@ -291,38 +291,42 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
     const authoredPackages = Option.isSome(settings)
       ? yield* observeAuthoredPackages({ layout, settings: settings.value })
       : [];
+    // Every rule that reports a canonical observation reads this one
+    // observation of each desired node for the run.
     const canonicalObservations: Effect.Effect<
       ReadonlyArray<{
         readonly desired: DesiredExtensionNode;
         readonly observation: CanonicalObservation;
       }>,
       WorkspaceHealthFailure
-    > = Effect.gen(function* () {
-      const graph = yield* desiredState.graph();
-      return yield* Effect.forEach(
-        graph.nodes,
-        (node) =>
-          acceptedCanonicalObservation({
-            type: node.type,
-            name: node.name,
-          }).pipe(
-            Effect.flatMap((accepted) =>
-              Option.isNone(accepted)
-                ? new LintStagingFailed({
-                    category: "internal",
-                    detail: `Desired extension disappeared while linting: ${node.type}:${node.name}`,
-                  })
-                : Effect.succeed({ desired: node, observation: accepted.value.observation }),
+    > = yield* Effect.cached(
+      Effect.gen(function* () {
+        const graph = yield* desiredState.graph();
+        return yield* Effect.forEach(
+          graph.nodes,
+          (node) =>
+            acceptedCanonicalObservation({
+              type: node.type,
+              name: node.name,
+            }).pipe(
+              Effect.flatMap((accepted) =>
+                Option.isNone(accepted)
+                  ? new LintStagingFailed({
+                      category: "internal",
+                      detail: `Desired extension disappeared while linting: ${node.type}:${node.name}`,
+                    })
+                  : Effect.succeed({ desired: node, observation: accepted.value.observation }),
+              ),
             ),
-          ),
-        { concurrency: 16 },
-      );
-    }).pipe(
-      Effect.provideService(FileSystem.FileSystem, fileSystem),
-      Effect.provideService(Path.Path, path),
-      Effect.provideService(WorkspaceLocation, location),
-      Effect.provideService(LockfileReader, lockfile),
-      Effect.provideService(DesiredStateReader, desiredState),
+          { concurrency: 16 },
+        );
+      }).pipe(
+        Effect.provideService(FileSystem.FileSystem, fileSystem),
+        Effect.provideService(Path.Path, path),
+        Effect.provideService(WorkspaceLocation, location),
+        Effect.provideService(LockfileReader, lockfile),
+        Effect.provideService(DesiredStateReader, desiredState),
+      ),
     );
 
     const evaluations = yield* evaluateAllCatalogs({

@@ -191,6 +191,8 @@ export {
 export {
   desiredStateProblemText,
   desiredStateProblemsText,
+  formatConstraintContributors,
+  packManifestContentMismatchText,
 } from "./workspace/desired-state-problem-text.js";
 export {
   effectiveExtensionActivation,
@@ -213,8 +215,10 @@ export {
   acceptedLockedCanonicalPath,
   prepareAcceptedCanonicalTransition,
   acceptedCanonicalObservation,
+  observeDesiredCanonical,
   removableAcceptedCanonicalPath,
   usableAcceptedCanonical,
+  usableAcceptedCanonicalFrom,
   usableAcceptedCanonicalObservation,
   usableAcceptedCanonicalRef,
   type AcceptedCanonicalObservation,

@@ -1767,7 +1767,7 @@ describe("root sync handler", { timeout: 15_000 }, () => {
       );
 
       expect(error.detail).toContain("skill review");
-      expect(error.detail).toContain("canonical status");
+      expect(error.detail).toContain("has no accepted resolution");
       expect(rendererState.results).toEqual([]);
     }),
   );

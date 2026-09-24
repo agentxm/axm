@@ -70,7 +70,6 @@ import {
   type ReleaseAgeBypassRecord,
   type ReleaseAgeHoldbackRecord,
   type SourceAuthorityBlockedFact,
-  type SourceAuthorityInput,
   type WorkspacePackDependencyResolver,
 } from "../../../resolution/index.js";
 import {
@@ -91,8 +90,10 @@ import {
   effectiveDesiredConstraint,
   isDesiredExtensionActive,
   isRequiredByAnotherOrigin,
+  observeDesiredCanonical,
   originsOutsidePacks,
   usableAcceptedCanonical,
+  usableAcceptedCanonicalFrom,
   type HookExtensionTarget,
   type KnowledgeExtensionTarget,
   type McpServerExtensionTarget,
@@ -468,10 +469,15 @@ export const scanWorkspaceAuthority: (
     );
     if (desired === undefined) continue;
 
-    const canonical = yield* usableAcceptedCanonical({
-      type: parsed.type,
-      name: parsed.name,
-    }).pipe(
+    // One observation judges the configured workspace package; its usable
+    // ref is read from that observation rather than by observing again.
+    const canonical = yield* observeDesiredCanonical(desired).pipe(
+      Effect.flatMap((observed) =>
+        Effect.map(usableAcceptedCanonicalFrom(observed), (usable) => ({
+          status: observed.observation.status,
+          usable,
+        })),
+      ),
       Effect.mapError((cause) =>
         installRefused({
           category: "internal",
@@ -481,18 +487,12 @@ export const scanWorkspaceAuthority: (
       ),
     );
     const targetIdentity = `${parsed.owner}/${toExtensionTypePlural(parsed.type)}/${parsed.name}`;
-    const configuredVersion =
-      Option.isSome(canonical) &&
-      (canonical.value.ref.refType === "registry" || canonical.value.ref.refType === "workspace")
-        ? canonical.value.ref.version
-        : undefined;
-    const configured: NonNullable<SourceAuthorityInput["configured"]> = {
-      identity: desired.identity,
-      workspace: desired.identity.startsWith("workspace:"),
-      ...(configuredVersion === undefined ? {} : { version: configuredVersion }),
-      status: Option.isSome(canonical) ? canonical.value.observation.status : "missing",
-    };
-    const input: SourceAuthorityInput = {
+    const configuredVersion = Option.match(canonical.usable, {
+      onNone: () => undefined,
+      onSome: ({ ref }) =>
+        ref.refType === "registry" || ref.refType === "workspace" ? ref.version : undefined,
+    });
+    const decision = evaluateSourceAuthority({
       target: { type: parsed.type, name: parsed.name, identity: targetIdentity },
       relationship: { kind: "member" as const, root: packIdentity },
       requested: {
@@ -502,38 +502,20 @@ export const scanWorkspaceAuthority: (
             : `registry:${declaredSource.url.href}:${targetIdentity}`,
         workspace: false,
       },
-      configured,
+      configured: {
+        identity: desired.identity,
+        workspace: desired.identity.startsWith("workspace:"),
+        ...(configuredVersion === undefined ? {} : { version: configuredVersion }),
+        status: canonical.status,
+      },
       requiredVersionRange: constraint,
-    };
-    const decision = evaluateSourceAuthority(input);
+    });
     if (decision.kind === "blocked") {
       blockers.push(decision.fact);
       continue;
     }
-    if (decision.kind !== "workspace-satisfied") continue;
-
-    if (Option.isNone(canonical)) {
-      const unusable = evaluateSourceAuthority({
-        ...input,
-        configured: { ...configured, status: "wrong-origin" },
-      });
-      if (unusable.kind === "blocked") blockers.push(unusable.fact);
-      continue;
-    }
-    const ref = canonical.value.ref;
-    if (
-      ref.refType !== "workspace" ||
-      ref.type !== parsed.type ||
-      ref.owner !== parsed.owner ||
-      ref.name !== parsed.name
-    ) {
-      const mismatched = evaluateSourceAuthority({
-        ...input,
-        configured: { ...configured, status: "wrong-origin" },
-      });
-      if (mismatched.kind === "blocked") blockers.push(mismatched.fact);
-      continue;
-    }
+    if (decision.kind !== "workspace-satisfied" || Option.isNone(canonical.usable)) continue;
+    const ref = canonical.usable.value.ref;
     workspaceRefs.set(`${parsed.type}:${parsed.owner}/${parsed.name}`, ref);
   }
 

@@ -67,7 +67,9 @@ export const collectUnreachableRetirement = (
         : yield* Effect.forEach(
             scope.subjects.filter((subject) => subject.type === "mcp-server"),
             (subject) =>
-              locks.mcpServerForConnection(subject.name).pipe(Effect.map(Option.getOrUndefined)),
+              locks
+                .acceptedEntry("mcp-server", subject.name)
+                .pipe(Effect.map(Option.getOrUndefined)),
           );
     const canonicalPath = ({ type, entry }: (typeof accepted)[number]) =>
       computeExtensionPathsForLayout(

@@ -261,7 +261,7 @@ export const listMcpServers: () => Effect.Effect<
     inventory.items,
     (row) =>
       Effect.gen(function* () {
-        const locked = yield* lockfile.mcpServerForConnection(row.name);
+        const locked = yield* lockfile.acceptedEntry("mcp-server", row.name);
         const configuredEntry = configured[row.name];
         const desiredNode = graph.nodes.find(
           (node) => node.type === "mcp-server" && node.name === row.name,

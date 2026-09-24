@@ -360,7 +360,7 @@ describe("Pack member resolution without Registry release dates", () => {
               identity: "workspace:@acme/skills/review",
               workspace: true,
               version: "1.4.0",
-              status: "locally-modified",
+              status: "corrupt",
             },
             requiredVersionRange: "^1.0.0",
           });
@@ -371,12 +371,12 @@ describe("Pack member resolution without Registry release dates", () => {
       ).pipe(Effect.flip);
 
       expect(error).toMatchObject({ _tag: "SourceAuthorityBlocked" });
-      expect(describeTestFailure(error)).toContain("locally-modified");
+      expect(describeTestFailure(error)).toContain("corrupt");
       expect(error).toMatchObject({
         recovery: [
           {
             description:
-              "Repair or explicitly remove the locally-modified workspace dependency before installing the pack.",
+              "Repair or explicitly remove the corrupt workspace dependency before installing the pack.",
           },
         ],
       });

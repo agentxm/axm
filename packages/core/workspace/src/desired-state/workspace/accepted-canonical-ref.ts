@@ -4,6 +4,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
+import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
@@ -40,6 +41,7 @@ import { resolveWorkspaceExtensionRef } from "./configured-entry-resolution/work
 import type { DesiredExtensionNode } from "./desired-state-graph.js";
 import { DesiredStateReader } from "./desired-state-reader.js";
 import { LockfileReader } from "./lockfile-reader.js";
+import type { LockEntryByType } from "./entry-accessors.js";
 import { SettingsReader, type SettingsReaderService } from "./settings-reader.js";
 import type { WorkspaceStateReadFailure } from "./contracts.js";
 import { WorkspaceLocation, type WorkspaceLocationService } from "./location.js";
@@ -85,41 +87,6 @@ export const removableAcceptedCanonicalPath = (
       : Option.fromUndefinedOr(state.observation.path),
   );
 
-const getAcceptedResolution = (
-  type: DesiredExtensionNode["type"],
-  name: string,
-): Effect.Effect<
-  Option.Option<AcceptedExtensionResolution>,
-  WorkspaceStateReadFailure,
-  LockfileReader
-> => {
-  const read = (): Effect.Effect<
-    Option.Option<AcceptedExtensionResolution>,
-    WorkspaceStateReadFailure,
-    LockfileReader
-  > =>
-    Effect.gen(function* () {
-      const lockfile = yield* LockfileReader;
-      switch (type) {
-        case "skill":
-          return yield* lockfile.entry("skill", name);
-        case "mcp-server":
-          return yield* lockfile.mcpServerForConnection(name);
-        case "subagent":
-          return yield* lockfile.entry("subagent", name);
-        case "rule":
-          return yield* lockfile.entry("rule", name);
-        case "hook":
-          return yield* lockfile.entry("hook", name);
-        case "knowledge":
-          return yield* lockfile.entry("knowledge", name);
-        case "pack":
-          return yield* lockfile.entry("pack", name);
-      }
-    });
-  return read();
-};
-
 /** Exact acquired canonical path reconstructed directly from accepted lock authority. */
 export const acceptedLockedCanonicalPath = (
   args: AcceptedCanonicalRefArgs,
@@ -132,7 +99,7 @@ export const acceptedLockedCanonicalPath = (
     const path = yield* Path.Path;
     const location = yield* WorkspaceLocation;
     const layout = yield* Ref.get(location.layout);
-    const accepted = yield* getAcceptedResolution(args.type, args.name);
+    const accepted = yield* (yield* LockfileReader).acceptedEntry(args.type, args.name);
     return Option.map(
       accepted,
       (entry) =>
@@ -224,8 +191,30 @@ const lockRefDeps = (
 const missingAccepted = (label: string, name: string) =>
   new AcceptedResolutionMissing({ label, name });
 
-const refFromAcceptedResolution = (
-  type: DesiredExtensionNode["type"],
+type LockRefDeps = ReturnType<typeof lockRefDeps>;
+
+/** Each type's lock-row translation, with the label its missing row reports. */
+const lockEntryRefs: {
+  readonly [T in InstallableExtensionType]: {
+    readonly label: string;
+    readonly toRef: (
+      name: string,
+      entry: LockEntryByType[T],
+      deps: LockRefDeps,
+    ) => Effect.Effect<ExtensionRef, LockEntryToRefError>;
+  };
+} = {
+  skill: { label: "Skill", toRef: skillLockEntryToRef },
+  "mcp-server": { label: "MCP", toRef: mcpServerLockEntryToRef },
+  subagent: { label: "Subagent", toRef: subagentLockEntryToRef },
+  rule: { label: "Rule", toRef: ruleLockEntryToRef },
+  hook: { label: "Hook", toRef: hookLockEntryToRef },
+  knowledge: { label: "Knowledge", toRef: knowledgeLockEntryToRef },
+  pack: { label: "Pack", toRef: packLockEntryToRef },
+};
+
+const refFromAcceptedResolution = <T extends InstallableExtensionType>(
+  type: T,
   name: string,
 ): Effect.Effect<
   ExtensionRef,
@@ -236,59 +225,10 @@ const refFromAcceptedResolution = (
     const path = yield* Path.Path;
     const location = yield* WorkspaceLocation;
     const settings = yield* SettingsReader;
-    const lockfile = yield* LockfileReader;
-    const deps = lockRefDeps(location, settings, path);
-    switch (type) {
-      case "skill": {
-        const entry = yield* lockfile.entry("skill", name);
-        return yield* Option.match(entry, {
-          onNone: () => Effect.fail(missingAccepted("Skill", name)),
-          onSome: (value) => skillLockEntryToRef(name, value, deps),
-        });
-      }
-      case "mcp-server": {
-        const entry = yield* lockfile.mcpServerForConnection(name);
-        return yield* Option.match(entry, {
-          onNone: () => Effect.fail(missingAccepted("MCP", name)),
-          onSome: (value) => mcpServerLockEntryToRef(name, value, deps),
-        });
-      }
-      case "subagent": {
-        const entry = yield* lockfile.entry("subagent", name);
-        return yield* Option.match(entry, {
-          onNone: () => Effect.fail(missingAccepted("Subagent", name)),
-          onSome: (value) => subagentLockEntryToRef(name, value, deps),
-        });
-      }
-      case "rule": {
-        const entry = yield* lockfile.entry("rule", name);
-        return yield* Option.match(entry, {
-          onNone: () => Effect.fail(missingAccepted("Rule", name)),
-          onSome: (value) => ruleLockEntryToRef(name, value, deps),
-        });
-      }
-      case "hook": {
-        const entry = yield* lockfile.entry("hook", name);
-        return yield* Option.match(entry, {
-          onNone: () => Effect.fail(missingAccepted("Hook", name)),
-          onSome: (value) => hookLockEntryToRef(name, value, deps),
-        });
-      }
-      case "knowledge": {
-        const entry = yield* lockfile.entry("knowledge", name);
-        return yield* Option.match(entry, {
-          onNone: () => Effect.fail(missingAccepted("Knowledge", name)),
-          onSome: (value) => knowledgeLockEntryToRef(name, value, deps),
-        });
-      }
-      case "pack": {
-        const entry = yield* lockfile.entry("pack", name);
-        return yield* Option.match(entry, {
-          onNone: () => Effect.fail(missingAccepted("Pack", name)),
-          onSome: (value) => packLockEntryToRef(name, value, deps),
-        });
-      }
-    }
+    const entry = yield* (yield* LockfileReader).acceptedEntry(type, name);
+    const translation = lockEntryRefs[type];
+    if (Option.isNone(entry)) return yield* missingAccepted(translation.label, name);
+    return yield* translation.toRef(name, entry.value, lockRefDeps(location, settings, path));
   });
 
 /** Reconstruct a ref directly from accepted lock authority without desired reachability. */
@@ -300,7 +240,7 @@ export const acceptedLockedResolutionRef = (
   FileSystem.FileSystem | Path.Path | WorkspaceLocation | SettingsReader | LockfileReader
 > =>
   Effect.gen(function* () {
-    const accepted = yield* getAcceptedResolution(args.type, args.name);
+    const accepted = yield* (yield* LockfileReader).acceptedEntry(args.type, args.name);
     if (Option.isNone(accepted)) return Option.none();
     return Option.some(yield* refFromAcceptedResolution(args.type, args.name));
   });
@@ -374,6 +314,30 @@ export const acceptedResolutionRef = (
     return yield* acceptedLockedResolutionRef(args);
   });
 
+/** Observe one desired node against the accepted resolution its type and name resolve to. */
+export const observeDesiredCanonical = (
+  desired: DesiredExtensionNode,
+): Effect.Effect<
+  AcceptedCanonicalObservation,
+  WorkspaceStateReadFailure,
+  FileSystem.FileSystem | Path.Path | WorkspaceLocation | LockfileReader
+> =>
+  Effect.gen(function* () {
+    const location = yield* WorkspaceLocation;
+    const layout = yield* Ref.get(location.layout);
+    const accepted = yield* (yield* LockfileReader).acceptedEntry(desired.type, desired.name);
+    const observation = yield* observeCanonicalExtension({
+      layout,
+      desired,
+      accepted: Option.getOrUndefined(accepted),
+    });
+    return {
+      desired,
+      ...(Option.isSome(accepted) ? { accepted: accepted.value } : {}),
+      observation,
+    };
+  });
+
 export const acceptedCanonicalObservation = ({
   type,
   name,
@@ -384,25 +348,23 @@ export const acceptedCanonicalObservation = ({
   FileSystem.FileSystem | Path.Path | WorkspaceLocation | LockfileReader | DesiredStateReader
 > =>
   Effect.gen(function* () {
-    const location = yield* WorkspaceLocation;
-    const layout = yield* Ref.get(location.layout);
     const desiredState = yield* DesiredStateReader;
     const desired =
       proposed ??
       (yield* desiredState.graph()).nodes.find((node) => node.type === type && node.name === name);
     if (desired === undefined) return Option.none();
-    const accepted = yield* getAcceptedResolution(type, name);
-    const observation = yield* observeCanonicalExtension({
-      layout,
-      desired,
-      accepted: Option.getOrUndefined(accepted),
-    });
-    return Option.some({
-      desired,
-      ...(Option.isSome(accepted) ? { accepted: accepted.value } : {}),
-      observation,
-    });
+    return Option.some(yield* observeDesiredCanonical(desired));
   });
+
+const asUsable = (
+  value: AcceptedCanonicalObservation,
+): Option.Option<UsableAcceptedCanonicalObservation> =>
+  value.observation.status === "usable" && value.observation.path !== undefined
+    ? Option.some({
+        ...value,
+        observation: { ...value.observation, status: "usable", path: value.observation.path },
+      })
+    : Option.none();
 
 export const usableAcceptedCanonicalObservation = (
   args: AcceptedCanonicalRefArgs,
@@ -410,19 +372,29 @@ export const usableAcceptedCanonicalObservation = (
   Option.Option<UsableAcceptedCanonicalObservation>,
   AcceptedCanonicalRefError,
   FileSystem.FileSystem | Path.Path | WorkspaceLocation | LockfileReader | DesiredStateReader
+> => acceptedCanonicalObservation(args).pipe(Effect.map(Option.flatMap(asUsable)));
+
+/**
+ * The usable accepted package an observation already established, with the
+ * ref it is restored from. Reading the ref does not observe the package again.
+ */
+export const usableAcceptedCanonicalFrom = (
+  canonical: AcceptedCanonicalObservation,
+): Effect.Effect<
+  Option.Option<UsableAcceptedCanonical>,
+  AcceptedCanonicalRefError,
+  FileSystem.FileSystem | Path.Path | WorkspaceLocation | SettingsReader | LockfileReader
 > =>
-  acceptedCanonicalObservation(args).pipe(
-    Effect.map(
-      Option.flatMap((value) =>
-        value.observation.status === "usable" && value.observation.path !== undefined
-          ? Option.some({
-              ...value,
-              observation: { ...value.observation, status: "usable", path: value.observation.path },
-            })
-          : Option.none(),
-      ),
-    ),
-  );
+  Effect.gen(function* () {
+    const usable = asUsable(canonical);
+    if (Option.isNone(usable)) return Option.none();
+    const ref = yield* refForDesired(usable.value.desired);
+    // A usable local acquisition is the accepted copy, even if the original
+    // directory has changed or disappeared. Keep sourcePath as its identity.
+    const retainedRef =
+      ref.refType === "local" ? { ...ref, location: usable.value.observation.path } : ref;
+    return Option.some({ ...usable.value, ref: retainedRef });
+  });
 
 export const usableAcceptedCanonical = (
   args: AcceptedCanonicalRefArgs,
@@ -436,16 +408,14 @@ export const usableAcceptedCanonical = (
   | LockfileReader
   | DesiredStateReader
 > =>
-  Effect.gen(function* () {
-    const canonical = yield* usableAcceptedCanonicalObservation(args);
-    if (Option.isNone(canonical)) return Option.none();
-    const ref = yield* refForDesired(canonical.value.desired);
-    // A usable local acquisition is the accepted copy, even if the original
-    // directory has changed or disappeared. Keep sourcePath as its identity.
-    const retainedRef =
-      ref.refType === "local" ? { ...ref, location: canonical.value.observation.path } : ref;
-    return Option.some({ ...canonical.value, ref: retainedRef });
-  });
+  acceptedCanonicalObservation(args).pipe(
+    Effect.flatMap(
+      Option.match({
+        onNone: () => Effect.succeed(Option.none()),
+        onSome: usableAcceptedCanonicalFrom,
+      }),
+    ),
+  );
 
 export const usableAcceptedCanonicalRef = (
   args: AcceptedCanonicalRefArgs,

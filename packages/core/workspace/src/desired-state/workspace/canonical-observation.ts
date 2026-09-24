@@ -52,7 +52,6 @@ export type CanonicalObservationStatus =
   | "wrong-origin"
   | "corrupt"
   | "incomplete"
-  | "locally-modified"
   | "materialization-mismatch"
   | "usable";
 
@@ -177,7 +176,6 @@ const parseJson = (raw: string): unknown | undefined => {
 };
 
 const constraintMismatchObservation = (args: {
-  readonly path: Path.Path;
   readonly desired: DesiredExtensionNode & { readonly source: string };
   readonly canonicalPath?: string;
   readonly acceptedVersion?: string;
@@ -197,6 +195,67 @@ const constraintMismatchObservation = (args: {
   ...(args.observedVersion === undefined ? {} : { observedVersion: args.observedVersion }),
 });
 
+const acceptedOriginMatches = (
+  desired: DesiredExtensionNode & { readonly source: string },
+  accepted: AcceptedExtensionResolution,
+): boolean => {
+  const acceptedIdentity =
+    desired.type === "mcp-server"
+      ? mcpResolutionKey(accepted)
+      : isRegistryResolution(accepted)
+        ? `${accepted.identity.owner}/${toExtensionTypePlural(desired.type)}/${accepted.identity.name}`
+        : printSourceParams(lockEntryToSourceParams(accepted));
+  return (
+    acceptedIdentity === desired.identity ||
+    acceptedIdentity === desired.source ||
+    lockEntryMatchesSourceLocator(accepted, desired.source)
+  );
+};
+
+/**
+ * Judge the accepted resolution for a desired node before any content is
+ * read: whether a node needs one, whether one is recorded, whether it names
+ * the desired origin, and whether its version satisfies every desired
+ * constraint. `none` means that authority stands and the canonical content
+ * decides the rest of the observation. Workspace-authored content has no
+ * accepted resolution; its manifest is judged with the content. Activation is
+ * not an input: a disabled node is judged exactly like an enabled one.
+ */
+export const observeAcceptedResolution = (
+  desired: DesiredExtensionNode,
+  accepted: AcceptedExtensionResolution | undefined,
+): Option.Option<CanonicalObservation> => {
+  if (desired.source === undefined) {
+    return Option.some({ type: desired.type, name: desired.name, status: "not-applicable" });
+  }
+  if (desired.identity.startsWith("workspace:")) return Option.none();
+  const bundled = desired.identity.startsWith("bundled:");
+  if (!bundled && accepted === undefined) {
+    return Option.some({ type: desired.type, name: desired.name, status: "missing-resolution" });
+  }
+  if (!bundled && accepted !== undefined && !acceptedOriginMatches(desired, accepted)) {
+    return Option.some({ type: desired.type, name: desired.name, status: "wrong-origin" });
+  }
+  if (
+    desired.constraints.length > 0 &&
+    (accepted === undefined ||
+      !isRegistryResolution(accepted) ||
+      desired.constraints.some(
+        (constraint) => !semver.satisfies(accepted.resolved.version, constraint),
+      ))
+  ) {
+    return Option.some(
+      constraintMismatchObservation({
+        desired,
+        ...(accepted !== undefined && isRegistryResolution(accepted)
+          ? { acceptedVersion: accepted.resolved.version }
+          : {}),
+      }),
+    );
+  }
+  return Option.none();
+};
+
 export const observeCanonicalExtension = ({
   layout,
   desired,
@@ -210,80 +269,22 @@ export const observeCanonicalExtension = ({
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     if (desired.source === undefined) {
-      return {
-        type: desired.type,
-        name: desired.name,
-        status: "not-applicable",
-      };
+      return { type: desired.type, name: desired.name, status: "not-applicable" };
+    }
+    const judged = observeAcceptedResolution(desired, accepted);
+    const root = canonicalPathForAcceptedExtension(path, layout, desired, accepted);
+    if (Option.isSome(judged)) {
+      return judged.value.status === "constraint-mismatch" && root !== undefined
+        ? { ...judged.value, path: root }
+        : judged.value;
     }
     const workspaceAuthored = desired.identity.startsWith("workspace:");
     const bundled = desired.identity.startsWith("bundled:");
-    if (!workspaceAuthored && !bundled && accepted === undefined) {
-      return {
-        type: desired.type,
-        name: desired.name,
-        status: "missing-resolution",
-      };
-    }
-    const acceptedIdentity =
-      desired.type === "mcp-server" && accepted !== undefined
-        ? mcpResolutionKey(accepted)
-        : accepted !== undefined && isRegistryResolution(accepted)
-          ? `${accepted.identity.owner}/${toExtensionTypePlural(desired.type)}/${accepted.identity.name}`
-          : accepted === undefined
-            ? undefined
-            : printSourceParams(lockEntryToSourceParams(accepted));
-    if (
-      !workspaceAuthored &&
-      !bundled &&
-      acceptedIdentity !== desired.identity &&
-      acceptedIdentity !== desired.source &&
-      (accepted === undefined || !lockEntryMatchesSourceLocator(accepted, desired.source))
-    ) {
-      return {
-        type: desired.type,
-        name: desired.name,
-        status: "wrong-origin",
-      };
-    }
-    const acceptedConstraintMismatch =
-      !workspaceAuthored &&
-      desired.constraints.length > 0 &&
-      (accepted === undefined ||
-        !isRegistryResolution(accepted) ||
-        desired.constraints.some(
-          (constraint) => !semver.satisfies(accepted.resolved.version, constraint),
-        ));
-    const acceptedVersion =
-      accepted !== undefined && isRegistryResolution(accepted)
-        ? accepted.resolved.version
-        : undefined;
-
-    const root = canonicalPathForAcceptedExtension(path, layout, desired, accepted);
     if (root === undefined) {
-      if (acceptedConstraintMismatch) {
-        return constraintMismatchObservation({
-          path,
-          desired,
-          ...(acceptedVersion === undefined ? {} : { acceptedVersion }),
-        });
-      }
-      return {
-        type: desired.type,
-        name: desired.name,
-        status: "wrong-origin",
-      };
+      return { type: desired.type, name: desired.name, status: "wrong-origin" };
     }
     const exists = yield* fs.exists(root).pipe(Effect.orElseSucceed(() => false));
     if (!exists) {
-      if (acceptedConstraintMismatch) {
-        return constraintMismatchObservation({
-          path,
-          desired,
-          canonicalPath: root,
-          ...(acceptedVersion === undefined ? {} : { acceptedVersion }),
-        });
-      }
       return { type: desired.type, name: desired.name, status: "missing", path: root };
     }
 
@@ -292,15 +293,6 @@ export const observeCanonicalExtension = ({
       accepted !== undefined &&
       accepted.identity.owner === undefined
     ) {
-      if (acceptedConstraintMismatch) {
-        return constraintMismatchObservation({
-          path,
-          desired,
-          canonicalPath: root,
-          ...(acceptedVersion === undefined ? {} : { acceptedVersion }),
-        });
-      }
-
       const skillMdPath = path.join(root, "SKILL.md");
       const skillMdExists = yield* fs.exists(skillMdPath).pipe(Effect.orElseSucceed(() => false));
       if (!skillMdExists) {
@@ -339,101 +331,53 @@ export const observeCanonicalExtension = ({
     const contract = MANIFEST_CONTRACTS[desired.type];
     const manifestPath = path.join(root, contract.filename);
     const manifestExists = yield* fs.exists(manifestPath).pipe(Effect.orElseSucceed(() => false));
-    let manifestVersion: string | undefined;
-    {
-      if (!manifestExists) {
-        if (acceptedConstraintMismatch) {
-          return constraintMismatchObservation({
-            path,
-            desired,
-            canonicalPath: root,
-            ...(acceptedVersion === undefined ? {} : { acceptedVersion }),
-          });
-        }
-        return { type: desired.type, name: desired.name, status: "incomplete", path: root };
-      }
-      const raw = yield* fs.readFileString(manifestPath).pipe(Effect.result);
-      if (Result.isFailure(raw)) {
-        if (acceptedConstraintMismatch) {
-          return constraintMismatchObservation({
-            path,
-            desired,
-            canonicalPath: root,
-            ...(acceptedVersion === undefined ? {} : { acceptedVersion }),
-          });
-        }
-        return { type: desired.type, name: desired.name, status: "corrupt", path: root };
-      }
-      const parsed = parseJson(raw.success);
-      if (parsed === undefined) {
-        if (acceptedConstraintMismatch) {
-          return constraintMismatchObservation({
-            path,
-            desired,
-            canonicalPath: root,
-            ...(acceptedVersion === undefined ? {} : { acceptedVersion }),
-          });
-        }
-        return { type: desired.type, name: desired.name, status: "corrupt", path: root };
-      }
-      const decoded = Schema.decodeUnknownResult(contract.schema)(parsed);
-      if (Result.isFailure(decoded)) {
-        if (acceptedConstraintMismatch) {
-          return constraintMismatchObservation({
-            path,
-            desired,
-            canonicalPath: root,
-            ...(acceptedVersion === undefined ? {} : { acceptedVersion }),
-          });
-        }
-        return { type: desired.type, name: desired.name, status: "corrupt", path: root };
-      }
-      const expectedOwner = bundled
-        ? "@agentxm"
-        : workspaceAuthored
-          ? layout.owner
-          : accepted?.identity.owner;
-      const expectedName = bundled
-        ? desired.name
-        : workspaceAuthored
-          ? desired.name
-          : accepted?.identity.name;
-      if (
-        typeof parsed !== "object" ||
-        parsed === null ||
-        !("owner" in parsed) ||
-        parsed.owner !== expectedOwner ||
-        !("name" in parsed) ||
-        parsed.name !== expectedName ||
-        !("type" in parsed) ||
-        parsed.type !== desired.type
-      ) {
-        return { type: desired.type, name: desired.name, status: "wrong-origin", path: root };
-      }
-      if (
-        typeof parsed === "object" &&
-        parsed !== null &&
-        "version" in parsed &&
-        typeof parsed.version === "string"
-      ) {
-        manifestVersion = parsed.version;
-      }
+    if (!manifestExists) {
+      return { type: desired.type, name: desired.name, status: "incomplete", path: root };
     }
-
+    const raw = yield* fs.readFileString(manifestPath).pipe(Effect.result);
+    if (Result.isFailure(raw)) {
+      return { type: desired.type, name: desired.name, status: "corrupt", path: root };
+    }
+    const parsed = parseJson(raw.success);
+    if (parsed === undefined) {
+      return { type: desired.type, name: desired.name, status: "corrupt", path: root };
+    }
+    const decoded = Schema.decodeUnknownResult(contract.schema)(parsed);
+    if (Result.isFailure(decoded)) {
+      return { type: desired.type, name: desired.name, status: "corrupt", path: root };
+    }
+    const expectedOwner = bundled
+      ? "@agentxm"
+      : workspaceAuthored
+        ? layout.owner
+        : accepted?.identity.owner;
+    const expectedName = bundled || workspaceAuthored ? desired.name : accepted?.identity.name;
     if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      !("owner" in parsed) ||
+      parsed.owner !== expectedOwner ||
+      !("name" in parsed) ||
+      parsed.name !== expectedName ||
+      !("type" in parsed) ||
+      parsed.type !== desired.type
+    ) {
+      return { type: desired.type, name: desired.name, status: "wrong-origin", path: root };
+    }
+    const manifestVersion =
+      "version" in parsed && typeof parsed.version === "string" ? parsed.version : undefined;
+
+    // Authored content has no accepted version: its manifest is what the
+    // desired constraints judge.
+    if (
+      workspaceAuthored &&
       desired.constraints.length > 0 &&
-      (acceptedConstraintMismatch ||
-        (workspaceAuthored &&
-          (manifestVersion === undefined ||
-            desired.constraints.some(
-              (constraint) => !semver.satisfies(manifestVersion, constraint),
-            ))))
+      (manifestVersion === undefined ||
+        desired.constraints.some((constraint) => !semver.satisfies(manifestVersion, constraint)))
     ) {
       return constraintMismatchObservation({
-        path,
         desired,
         canonicalPath: root,
-        ...(acceptedVersion === undefined ? {} : { acceptedVersion }),
         ...(manifestVersion === undefined ? {} : { observedVersion: manifestVersion }),
       });
     }

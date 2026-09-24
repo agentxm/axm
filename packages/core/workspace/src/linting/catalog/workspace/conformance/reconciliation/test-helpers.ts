@@ -99,13 +99,12 @@ export const desiredStateReconcilableConformance: WorkspaceRuleConformanceCase =
     desiredStateContext({
       type: "skill",
       name: "installed-skill",
-      status: "locally-modified",
+      status: "corrupt",
       path: "/workspace/skills/installed-skill",
-      contentIdentity: "sha256-working",
     }),
   expectedFindings: [
     {
-      message: "skill '@test/skills/installed-skill' has canonical state locally-modified.",
+      message: "skill '@test/skills/installed-skill' has canonical state corrupt.",
       location: { file: "/workspace/skills/installed-skill" },
     },
   ],

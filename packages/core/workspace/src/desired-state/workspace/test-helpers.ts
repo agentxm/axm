@@ -39,7 +39,7 @@ export const SHARED_MEMBER_PACKS = [
 /** Exact direct pins: one inside both Pack ranges, one outside both. */
 export const SHARED_MEMBER_PIN = { inside: "1.1.0", outside: "2.0.0" } as const;
 
-/** A declared MCP connection the workspace disabled; nothing may acquire it. */
+/** A declared MCP connection the workspace disabled; it constrains no other extension. */
 export const DISABLED_MCP = {
   name: "offline-search",
   fqn: "@acme/mcps/offline-search",

@@ -27,20 +27,8 @@ import {
   type VersionRange,
 } from "@agentxm/extension-model/unstable/version-constraints";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import type {
-  HookLockEntry,
-  KnowledgeLockEntry,
-  McpServerLockEntry,
-  PackLockEntry,
-  RuleLockEntry,
-  SkillLockEntry,
-  SubagentLockEntry,
-} from "../../desired-state/index.js";
+import type { AcceptedExtensionResolution } from "../../desired-state/index.js";
 import { DesiredStateReader, LockfileReader } from "../../desired-state/index.js";
-import type {
-  LockfileReaderService,
-  WorkspaceStateReadFailure,
-} from "../../desired-state/index.js";
 import { isSourcedDesiredExtension } from "../../desired-state/index.js";
 import { checkCurrency, type CurrencyResult } from "./check-currency.js";
 import { WorkspaceInspectionFailed } from "../errors.js";
@@ -106,37 +94,7 @@ const parseConstraintFromSource = (source: string): Option.Option<VersionRange> 
 const buildFqn = (ownerHandle: Handle, type: ExtensionType, name: ExtensionName): string =>
   `${ownerHandle}/${toExtensionTypePlural(type)}/${name}`;
 
-type AcceptedResolution =
-  | SkillLockEntry
-  | McpServerLockEntry
-  | SubagentLockEntry
-  | RuleLockEntry
-  | HookLockEntry
-  | KnowledgeLockEntry
-  | PackLockEntry;
-
-const getAcceptedResolution = (
-  lockfile: LockfileReaderService,
-  type: ExtensionType,
-  name: string,
-): Effect.Effect<Option.Option<AcceptedResolution>, WorkspaceStateReadFailure> => {
-  switch (type) {
-    case "skill":
-      return lockfile.entry("skill", name);
-    case "mcp-server":
-      return lockfile.mcpServerForConnection(name);
-    case "subagent":
-      return lockfile.entry("subagent", name);
-    case "rule":
-      return lockfile.entry("rule", name);
-    case "hook":
-      return lockfile.entry("hook", name);
-    case "knowledge":
-      return lockfile.entry("knowledge", name);
-    case "pack":
-      return lockfile.entry("pack", name);
-  }
-};
+type AcceptedResolution = AcceptedExtensionResolution;
 
 type GitAcceptedResolution = Extract<
   AcceptedResolution,
@@ -178,9 +136,9 @@ const collectCurrency = (extensionType: ExtensionType, client: RegistryClient) =
         .filter(isSourcedDesiredExtension)
         .filter((node) => node.type === extensionType && node.enabled),
       (node) =>
-        getAcceptedResolution(lockfile, node.type, node.name).pipe(
-          Effect.map((resolution) => ({ node, resolution })),
-        ),
+        lockfile
+          .acceptedEntry(node.type, node.name)
+          .pipe(Effect.map((resolution) => ({ node, resolution }))),
     );
     const eligible = accepted.flatMap(({ node, resolution }) =>
       Option.isSome(resolution) && isRegistryAcceptedResolution(resolution.value)
@@ -325,9 +283,9 @@ const collectSourceFreshness = (args: { readonly extensionType: ExtensionType })
         .filter(isSourcedDesiredExtension)
         .filter((node) => node.type === extensionType && node.enabled),
       (node) =>
-        getAcceptedResolution(lockfile, node.type, node.name).pipe(
-          Effect.map((resolution) => ({ node, resolution })),
-        ),
+        lockfile
+          .acceptedEntry(node.type, node.name)
+          .pipe(Effect.map((resolution) => ({ node, resolution }))),
     );
     const eligible = accepted.flatMap(({ node, resolution }) =>
       Option.isSome(resolution) && isGitAcceptedResolution(resolution.value)

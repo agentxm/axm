@@ -4,6 +4,7 @@ import * as Option from "effect/Option";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
 import type {
   ActualSkill,
+  CanonicalObservation,
   DesiredExtensionNode,
   InstalledSkill,
   InstalledSubagent,
@@ -95,6 +96,17 @@ const desiredReviewer = {
   ],
 } satisfies DesiredExtensionNode;
 
+/** The canonical observation of the reviewer Skill: usable when accepted, else unresolved. */
+const reviewerObservation = (accepted: boolean): CanonicalObservation =>
+  accepted
+    ? {
+        type: "skill",
+        name: "reviewer",
+        status: "usable",
+        path: "/workspace/agent_extensions/registry/@acme/skills/reviewer",
+      }
+    : { type: "skill", name: "reviewer", status: "missing-resolution" };
+
 const skillLockContext = (accepted: boolean) =>
   contextFor({
     settings: validSettings({
@@ -133,6 +145,9 @@ const skillLockContext = (accepted: boolean) =>
               mcpSourceClosures: [],
               problems: [],
             }),
+            canonicalObservations: Effect.succeed([
+              { desired: desiredReviewer, observation: reviewerObservation(accepted) },
+            ]),
           },
         }) satisfies WorkspaceRuleContext,
     ),
@@ -144,7 +159,7 @@ export const skillsLockfileAlignedConformance: WorkspaceRuleConformanceCase = {
   violated: () => skillLockContext(false),
   expectedFindings: [
     {
-      message: "Skill 'reviewer' has desired external content but no accepted resolution.",
+      message: "skill '@acme/skills/reviewer' has no accepted resolution.",
       location: { file: "axm-lock.yaml" },
     },
   ],
@@ -288,6 +303,9 @@ const packDependencyContext = (accepted: boolean) =>
               mcpSourceClosures: [],
               problems: [],
             }),
+            canonicalObservations: Effect.succeed([
+              { desired: packDeclaredReviewer, observation: reviewerObservation(accepted) },
+            ]),
           },
         }) satisfies WorkspaceRuleContext,
     ),
@@ -336,7 +354,7 @@ export const packsDependenciesResolvedConformance: WorkspaceRuleConformanceCase 
   violated: () => packDependencyContext(false),
   expectedFindings: [
     {
-      message: "Pack-declared skill '@acme/skills/reviewer' has no accepted external resolution.",
+      message: "Pack-declared skill '@acme/skills/reviewer' has no accepted resolution.",
       location: { file: "axm-lock.yaml" },
     },
   ],

@@ -398,7 +398,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/non-success-results-name-a-fitting-recovery`
 - Owner: `cli`
-- Statement: When an operation settles partial, failed, blocked, or interrupted, its `Next` shall name at least one recovery that fits the outcome — the emitting command narrowed to the units that did not settle where an unchanged retry can help, or a recovery the producer of a failure stated — and shall not consist solely of a generic inventory suggestion; where no command can change the outcome, it shall offer no retry. Whether a retry can help is the kernel's one decision per failure: the producer's stated retryability, or else its category.
+- Statement: When an operation settles partial, failed, blocked, or interrupted, its `Next` shall name at least one recovery that fits the outcome — the emitting command narrowed to the units that did not settle where an unchanged retry can help, or a recovery the producer of a failure stated, for every unit that failed — and shall not consist solely of a generic inventory suggestion; where no command can change the outcome, it shall offer no retry; and in a user-scope workspace each recovery command shall appear once, addressed with `--scope user` exactly when its route accepts that flag. Whether a retry can help is the kernel's one decision per failure: the producer's stated retryability, or else its category.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `extension-adoption`
@@ -522,7 +522,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/errors-do-not-disclose-credentials`
 - Owner: `cli`
-- Statement: AXM shall redact credential values from error reports and their diagnostic details in human and machine output at every supported verbosity level, and from the failure detail a resolved unit publishes on the lifecycle event stream.
+- Statement: AXM shall redact credential values, including an exact credential the Registry echoed under a sensitive key, from error reports and their diagnostic details in human and machine output at every supported verbosity level, from the plan result document, from the publish result's cause, and from the failure detail a resolved unit publishes on the lifecycle event stream.
 - Class: quality (security)
 - Role: experience
 - Product goals: `actionable-diagnostics`, `machine-automation`
@@ -4645,7 +4645,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 - Requirement: `cli/exit-codes-match-published-reference`
 - Owner: `cli`
-- Statement: The served exit-codes help topic shall list exactly the exit codes and meanings the command line returns at runtime, with no missing, extra, or differing rows, and an invocation the parser rejects or an apply stopped as approval required shall exit with the code whose published meaning names that outcome.
+- Statement: The served exit-codes help topic shall list exactly the exit codes and meanings the command line returns at runtime, with no missing, extra, or differing rows, and an invocation the parser rejects, an apply stopped as approval required, or an operation terminated by a signal shall exit with the code whose published meaning names that outcome.
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `knowledge-access`

@@ -71,11 +71,17 @@ export const toAppError = (error: WorkspaceFailure | AppError): AppError => {
 
 /**
  * Convert any failure a command can surface — a workspace failure, an
- * envelope that already travelled the channel, or an unrecognized value —
- * into the CLI-facing `AppError`. An unrecognized value is an internal error.
+ * envelope that already travelled the channel, or an unrecognized value such
+ * as a squashed defect — into the CLI-facing `AppError`. This is the one
+ * classifier of an arbitrary failure: an unrecognized value is an internal
+ * error whose reason is the message it carried, with the value as its cause.
  */
 export const failureToAppError = (failure: unknown): AppError => {
   if (failure instanceof AppError) return failure;
   if (isWorkspaceFailure(failure)) return toAppError(failure);
-  return makeAppError({ code: "internal", detail: String(failure), cause: failure });
+  return makeAppError({
+    code: "internal",
+    detail: failure instanceof Error ? failure.message : String(failure),
+    cause: failure,
+  });
 };

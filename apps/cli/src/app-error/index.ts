@@ -4,7 +4,7 @@ export {
   AppErrorCodes,
   ExitCode,
   ExitCodeDefinitions,
-  defaultSuggestionsFor,
+  appErrorCodeForExit,
   defaultTitleFor,
   effectiveSuggestionsFor,
   errorClassForAppErrorCode,
@@ -20,14 +20,14 @@ export {
   errPublishConflict,
   errRegistryPublishRejected,
 } from "./builders.js";
-export { appErrorDoc, defectDoc, renderAppError } from "./view.js";
-export { serializeErrorCauseChain, type SerializedErrorCause } from "./cause-chain.js";
+export { appErrorDoc, renderAppError } from "./view.js";
 export {
-  REDACTED_SECRET,
-  collectSensitiveStrings,
+  SerializedErrorCauseSchema,
+  serializeErrorCauseChain,
+  type SerializedErrorCause,
+} from "./cause-chain.js";
+export {
   redactCredentialBearingLocator,
   redactAppErrorMetadata,
-  redactSensitiveText,
-  redactSensitiveValue,
   redactSuggestedAction,
 } from "./secret-redaction.js";

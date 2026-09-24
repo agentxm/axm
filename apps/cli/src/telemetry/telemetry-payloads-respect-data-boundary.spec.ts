@@ -1,4 +1,3 @@
-import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
@@ -9,8 +8,7 @@ import { describe, expect, it } from "@effect/vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { AppError } from "../app-error/index.js";
-import { reportCliDefect, reportCliError } from "../cli-runtime/telemetry.js";
+import { recordCommandSettlement } from "../cli-runtime/telemetry.js";
 import {
   captureTelemetry,
   makeTelemetryOperation,
@@ -163,37 +161,45 @@ describe("Telemetry data boundary", () => {
   );
 
   it.effect(
-    "handled errors and defects exclude arbitrary content as well as credential-shaped values",
+    "handled errors and defects report only their category, never content or credentials",
     () =>
       Effect.gen(function* () {
         const { client, captured } = captureClient();
         const telemetry = yield* telemetryOver(client);
         const content = sensitiveSentinels.join(" ");
-        yield* reportCliError(
-          new AppError({
-            code: "validation",
-            title: "Invalid input",
-            detail: content,
-            cause: undefined,
-            metadata: {
-              response: { status: 400, body: { token: sensitiveSentinels[3], content } },
-            },
-          }),
-          "install",
-        ).pipe(Effect.provideService(TelemetryClient, telemetry));
-        yield* reportCliDefect(Cause.die(new Error(content)), "install").pipe(
-          Effect.provideService(TelemetryClient, telemetry),
-        );
-        expect(captured).toHaveLength(2);
+        // The settlement reporter takes the failure's category only: the
+        // detail, the response body, and the defect message never reach it.
+        yield* recordCommandSettlement({
+          command: "install",
+          result: "error",
+          durationMs: 5,
+          failure: { code: "validation", level: "error", handled: true },
+          semanticProperties: { "cli.outcome": "failed" },
+        }).pipe(Effect.provideService(TelemetryClient, telemetry));
+        yield* recordCommandSettlement({
+          command: "install",
+          result: "defect",
+          durationMs: 5,
+          failure: { code: "internal", level: "fatal", handled: false },
+        }).pipe(Effect.provideService(TelemetryClient, telemetry));
+        expect(JSON.stringify(captured)).not.toContain(content);
         for (const secret of sensitiveSentinels)
           expect(JSON.stringify(captured)).not.toContain(secret);
+        const errorRequests = captured.filter((request) => request.url.endsWith("/v1/errors"));
+        const eventRequests = captured.filter((request) => request.url.endsWith("/v1/events"));
+        expect(errorRequests).toHaveLength(2);
+        expect(eventRequests).toHaveLength(2);
         const errors = [];
-        for (const request of captured) {
+        for (const request of errorRequests) {
           const decoded = yield* decodeErrorsRequest(request.body);
           errors.push(...decoded.errors);
           expect(decoded.context.command).toBe("install");
         }
         expect(errors.map((error) => error.name)).toEqual(["validation", "Defect"]);
+        for (const request of eventRequests) {
+          const decoded = yield* decodeEventsRequest(request.body);
+          expect(decoded.events.map((event) => event.event)).toEqual(["command_completed"]);
+        }
       }),
   );
 });

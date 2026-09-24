@@ -8,6 +8,7 @@
  * own account of what happened.
  */
 
+import { collectSensitiveStrings, redactRegistryText } from "@agentxm/registry-client";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -45,6 +46,7 @@ import {
   makeOperationResolution,
   settleOperation,
   unitsByStableIdentity,
+  type FailureSuggestedAction,
   type JobStepArtifact,
   type OperationOutcome,
   type OperationResolution,
@@ -59,12 +61,13 @@ import {
 } from "@agentxm/workspace/desired-state";
 import {
   AppErrorCodeSchema,
+  ExitCode,
+  appErrorCodeForExit,
   defaultTitleFor,
   redactAppErrorMetadata,
   redactCredentialBearingLocator,
-  redactSensitiveText,
-  serializeErrorCauseChain,
 } from "./app-error/index.js";
+import { SerializedErrorCauseSchema, serializeErrorCauseChain } from "./app-error/cause-chain.js";
 import { formatMinimumReleaseAgeSeconds } from "@agentxm/workspace/resolution";
 import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import { ArchivalViewSchema } from "@agentxm/extension-model/unstable/extensions/archival";
@@ -211,17 +214,6 @@ const StepArtifactSchema = Schema.Struct({
 });
 type StepArtifact = typeof StepArtifactSchema.Type;
 
-const ErrorCauseSchema = Schema.Struct({
-  _tag: Schema.String,
-  code: Schema.optional(Schema.String),
-  message: Schema.String,
-  stack: Schema.optional(Schema.String),
-}).annotate({
-  identifier: "ErrorCause",
-  title: "Error Cause",
-  description: "One serialized entry from a failed step error cause chain.",
-});
-
 const OperationFailureSchema = Schema.Struct({
   code: AppErrorCodeSchema,
   title: Schema.optional(Schema.String),
@@ -229,7 +221,7 @@ const OperationFailureSchema = Schema.Struct({
   problem: Schema.optional(FailureProblemSchema),
   metadata: Schema.optional(FailureMetadataSchema),
   retryable: Schema.optional(Schema.Boolean),
-  causes: Schema.optional(Schema.Array(ErrorCauseSchema)),
+  causes: Schema.optional(Schema.Array(SerializedErrorCauseSchema)),
 }).annotate({
   identifier: "OperationFailure",
   title: "Operation Failure",
@@ -539,17 +531,17 @@ const artifactForJson = (
       : {
           references: references.map((reference) => ({
             ...reference,
-            path: redactSensitiveText(reference.path),
-            reason: redactSensitiveText(reference.reason),
+            path: redactRegistryText(reference.path),
+            reason: redactRegistryText(reference.reason),
           })),
         }),
-    ...(base.path === undefined ? {} : { path: redactSensitiveText(base.path) }),
+    ...(base.path === undefined ? {} : { path: redactRegistryText(base.path) }),
     ...(managedRegions === undefined
       ? {}
       : {
           managedRegions: managedRegions.map((region) => ({
             ...region,
-            path: redactSensitiveText(region.path),
+            path: redactRegistryText(region.path),
           })),
         }),
   };
@@ -558,8 +550,8 @@ const artifactForJson = (
       ? undefined
       : {
           ...source,
-          origin: redactSensitiveText(source.origin),
-          ...(source.ref === undefined ? {} : { ref: redactSensitiveText(source.ref) }),
+          origin: redactRegistryText(source.origin),
+          ...(source.ref === undefined ? {} : { ref: redactRegistryText(source.ref) }),
         };
   const rest =
     options.debug === true && sanitizedSource !== undefined
@@ -575,29 +567,40 @@ const artifactForJson = (
         ...rest,
         targets: additionalTargets.map((target) => ({
           ...target,
-          path: redactSensitiveText(target.path),
+          path: redactRegistryText(target.path),
         })),
       };
 };
 
 /**
- * What a failure states beside its code and sentence, as machine output
- * carries it: the redacted title the command boundary would print, the
- * structured problem, redacted request evidence, and retryability.
+ * What a failure states as machine output carries it: its code, its redacted
+ * sentence and title, the structured problem, redacted request evidence,
+ * retryability, and — at verbose and debug levels — its cause chain. The
+ * exact credentials its evidence carries under sensitive keys are erased from
+ * every sentence, with the one policy every machine document applies.
  */
-const renderedFailureFields = (failure: StepFailure) => ({
-  title: redactSensitiveText(failure.title ?? defaultTitleFor(failure.category)),
-  ...(failure.problem === undefined ? {} : { problem: failure.problem }),
-  ...(failure.metadata === undefined ? {} : { metadata: redactAppErrorMetadata(failure.metadata) }),
-  ...(failure.retryable === undefined ? {} : { retryable: failure.retryable }),
-});
+const failureForJson = (failure: StepFailure, options: PlanResolutionResultOptions) => {
+  const secrets = collectSensitiveStrings(failure.metadata);
+  const causes =
+    options.verbose === true || options.debug === true
+      ? serializeErrorCauseChain(failure.cause, { debug: options.debug === true, secrets })
+      : [];
+  return {
+    code: failure.category,
+    message: redactRegistryText(failure.detail, { secrets }),
+    title: redactRegistryText(failure.title ?? defaultTitleFor(failure.category), { secrets }),
+    ...(failure.problem === undefined ? {} : { problem: failure.problem }),
+    ...(failure.metadata === undefined
+      ? {}
+      : { metadata: redactAppErrorMetadata(failure.metadata, secrets) }),
+    ...(failure.retryable === undefined ? {} : { retryable: failure.retryable }),
+    ...(causes.length > 0 ? { causes } : {}),
+  };
+};
 
 const unitForJson = (unit: ResolvedUnit<unknown>, options: PlanResolutionResultOptions): Unit => {
   const includeErrorDetails = options.verbose === true || options.debug === true;
-  const causes =
-    unit.error !== undefined && includeErrorDetails
-      ? serializeErrorCauseChain(unit.error.cause, { debug: options.debug === true })
-      : [];
+  const secrets = collectSensitiveStrings(unit.error?.metadata);
   return {
     id: unit.id,
     label: unit.label,
@@ -608,30 +611,23 @@ const unitForJson = (unit: ResolvedUnit<unknown>, options: PlanResolutionResultO
       : {
           blocking: {
             ...unit.blocking,
-            detail: redactSensitiveText(unit.blocking.detail),
+            detail: redactRegistryText(unit.blocking.detail, { secrets }),
           },
         }),
     ...(unit.message === undefined || unit.message.length === 0
       ? {}
-      : { message: redactSensitiveText(unit.message) }),
+      : { message: redactRegistryText(unit.message, { secrets }) }),
     ...(unit.warnings === undefined || unit.warnings.length === 0
       ? {}
-      : { warnings: unit.warnings.map((warning) => redactSensitiveText(warning)) }),
+      : { warnings: unit.warnings.map((warning) => redactRegistryText(warning, { secrets })) }),
     ...(unit.error === undefined ? {} : { code: unit.error.category }),
     ...(unit.error !== undefined && includeErrorDetails
-      ? {
-          error: {
-            code: unit.error.category,
-            message: redactSensitiveText(unit.error.detail),
-            ...renderedFailureFields(unit.error),
-            ...(causes.length > 0 ? { causes } : {}),
-          },
-        }
+      ? { error: failureForJson(unit.error, options) }
       : {}),
     ...(unit.artifact === undefined ? {} : { artifact: artifactForJson(unit.artifact, options) }),
     ...(unit.agentOutcomes === undefined ? {} : { agentOutcomes: unit.agentOutcomes }),
     ...(unit.registryLifecycle === undefined ? {} : { registryLifecycle: unit.registryLifecycle }),
-    ...(unit.links === undefined ? {} : { links: { html: redactSensitiveText(unit.links.html) } }),
+    ...(unit.links === undefined ? {} : { links: { html: redactRegistryText(unit.links.html) } }),
   };
 };
 
@@ -670,25 +666,12 @@ export const toPlanResolutionResult = (
       : {
           blocking: {
             ...resolution.blocking,
-            detail: redactSensitiveText(resolution.blocking.detail),
+            detail: redactRegistryText(resolution.blocking.detail),
           },
         }),
     ...(resolution.failure === undefined
       ? {}
-      : {
-          failure: {
-            code: resolution.failure.category,
-            message: redactSensitiveText(resolution.failure.detail),
-            ...renderedFailureFields(resolution.failure),
-            ...(options.verbose === true || options.debug === true
-              ? {
-                  causes: serializeErrorCauseChain(resolution.failure.cause, {
-                    debug: options.debug === true,
-                  }),
-                }
-              : {}),
-          },
-        }),
+      : { failure: failureForJson(resolution.failure, options) }),
     ...(resolution.interruption === undefined ? {} : { interruption: resolution.interruption }),
     ...(resolution.divergence === undefined ? {} : { divergence: resolution.divergence }),
     counts: {
@@ -711,7 +694,7 @@ export const toPlanResolutionResult = (
       : {
           footprint: resolution.footprint.map((entry) => ({
             ...entry,
-            path: redactSensitiveText(entry.path),
+            path: redactRegistryText(entry.path),
           })),
         }),
     ...(resolution.recovery === undefined
@@ -719,7 +702,7 @@ export const toPlanResolutionResult = (
       : {
           recovery: {
             ...resolution.recovery,
-            retained: resolution.recovery.retained.map((path) => redactSensitiveText(path)),
+            retained: resolution.recovery.retained.map((path) => redactRegistryText(path)),
           },
         }),
     ...releaseAgeResultFields(resolution),
@@ -927,6 +910,58 @@ export interface EmittedOperationResolution {
 }
 
 /**
+ * The recoveries a settled operation states for itself: the ones the kernel
+ * lifted onto the operation, the actions its recovery content names, the
+ * escape its block names, and every failure its units settled with.
+ */
+export interface SettledRecoveries {
+  readonly suggestions?: ReadonlyArray<FailureSuggestedAction>;
+  readonly recovery?: ReadonlyArray<SuggestedAction>;
+  readonly escape?: SuggestedAction;
+  readonly failures: ReadonlyArray<{
+    readonly suggestions?: ReadonlyArray<FailureSuggestedAction> | undefined;
+  }>;
+}
+
+/** What a resolution states for itself, read once for both channels. */
+export const resolutionRecoveries = (
+  resolution: OperationResolution<unknown>,
+): SettledRecoveries => ({
+  ...(resolution.suggestions === undefined ? {} : { suggestions: resolution.suggestions }),
+  ...(resolution.recovery === undefined ? {} : { recovery: resolution.recovery.actions }),
+  ...(resolution.blocking?.escape === undefined ? {} : { escape: resolution.blocking.escape }),
+  failures: unsettledUnits(resolution).flatMap((unit) =>
+    unit.error === undefined ? [] : [unit.error],
+  ),
+});
+
+const sameAction = (left: FailureSuggestedAction, right: FailureSuggestedAction): boolean =>
+  left.description === right.description && left.cmd === right.cmd && left.url === right.url;
+
+/**
+ * The one `Next` list of a settled operation, for the machine envelope and the
+ * human render alike: what the adapter offers, then every failed unit's own
+ * recovery (a reader of seven failures needs all of them), then what the
+ * operation states for itself, its recovery actions, and the escape its block
+ * names, each once. Scope is applied afterwards, at the emit boundary.
+ */
+export const operationNextActions = (
+  settled: SettledRecoveries,
+  offered: ReadonlyArray<SuggestedAction>,
+): ReadonlyArray<FailureSuggestedAction> => {
+  const combined = [
+    ...offered,
+    ...settled.failures.flatMap((failure) => failure.suggestions ?? []),
+    ...(settled.suggestions ?? []),
+    ...(settled.recovery ?? []),
+    ...(settled.escape === undefined ? [] : [settled.escape]),
+  ];
+  return combined.filter(
+    (suggestion, index) => combined.findIndex((other) => sameAction(other, suggestion)) === index,
+  );
+};
+
+/**
  * Terminate a plan-family invocation: derive outcome and exit, record
  * completion semantics, emit the machine document, and project the human
  * render. Returns the derivations so callers can act on them without
@@ -947,19 +982,8 @@ export const emitOperationResolution = (
       typeof options?.suggestions === "function"
         ? options.suggestions({ outcome, unsettled: unsettledUnits(resolution) })
         : (options?.suggestions ?? []);
-    const combinedSuggestions = [
-      ...offered,
-      ...(resolution.suggestions ?? []),
-      ...(resolution.blocking?.escape === undefined ? [] : [resolution.blocking.escape]),
-    ];
-    const deduped = combinedSuggestions.filter(
-      (suggestion, index) =>
-        combinedSuggestions.findIndex(
-          (other) => other.description === suggestion.description && other.cmd === suggestion.cmd,
-        ) === index,
-    );
-    const suggestions =
-      deduped.length === 0 ? undefined : yield* suggestionsForCurrentWorkspace(deduped);
+    const next = operationNextActions(resolutionRecoveries(resolution), offered);
+    const suggestions = next.length === 0 ? undefined : yield* suggestionsForCurrentWorkspace(next);
 
     const result = toPlanResolutionResult(resolution, {
       verbose: verbosity.isAtLeast("verbose"),
@@ -969,6 +993,14 @@ export const emitOperationResolution = (
       ...(options?.targetedUpdate === undefined ? {} : { targetedUpdate: options.targetedUpdate }),
     });
 
+    // The category a non-success settles with, for telemetry: the operation's
+    // own failure, else the first failed unit's (so a partial outcome is
+    // reported), else the category the exit code pairs with (a block).
+    const failedUnit = resolution.units.find((unit) => unit.error !== undefined);
+    const failureCode =
+      exitCode === ExitCode.Success || outcome === "interrupted"
+        ? undefined
+        : (result.failure?.code ?? failedUnit?.error?.category ?? appErrorCodeForExit(exitCode));
     const existingSemanticProperties = yield* getCommandSemanticProperties;
     yield* setCommandSemanticProperties({
       ...existingSemanticProperties,
@@ -976,7 +1008,7 @@ export const emitOperationResolution = (
       ...(resolution.blocking === undefined
         ? {}
         : { "cli.blocking_class": resolution.blocking.class }),
-      ...(result.failure === undefined ? {} : { "cli.error_code": result.failure.code }),
+      ...(failureCode === undefined ? {} : { "cli.error_code": failureCode }),
       ...(resolution.candidateId === undefined
         ? {}
         : { "cli.candidate_id": resolution.candidateId }),

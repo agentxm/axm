@@ -1,17 +1,13 @@
-import * as Cause from "effect/Cause";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Ref from "effect/Ref";
 import { makeOperationLifecycle } from "@agentxm/workspace/transitions/planning";
 
-import { makeAppError } from "../app-error/index.js";
-import { QuestionCancelled } from "../screen/ask/question-cancelled.js";
 import { TelemetryClient, type TelemetryClientService } from "../telemetry/index.js";
 import type { TelemetryProperties } from "../telemetry/client.js";
 import {
-  reportCliDefect,
-  reportCliError,
+  recordCommandSettlement,
   trackCliCommand,
   trackCliCommandCompleted,
   CommandSemanticProperties,
@@ -27,6 +23,7 @@ interface Capture {
   readonly events: Array<{ event: string; properties?: TelemetryProperties }>;
   readonly errors: Array<{
     name: string;
+    category?: string;
     level: "error" | "fatal";
     errorClass: "internal" | "user" | "external";
     handled: boolean;
@@ -45,6 +42,7 @@ const makeCaptureLayer = (): readonly [Layer.Layer<TelemetryClient>, Capture] =>
       Effect.sync(() => {
         capture.errors.push({
           name: error.name,
+          ...(error.category === undefined ? {} : { category: error.category }),
           level: error.level,
           errorClass: error.errorClass,
           handled: error.handled,
@@ -75,83 +73,54 @@ describe("cli telemetry helpers", () => {
     }),
   );
 
-  it.effect("reports AppError as a handled error", () =>
+  it.effect("settles a handled failure as one error report and one completion event", () =>
     Effect.gen(function* () {
       const [layer, capture] = makeCaptureLayer();
 
-      yield* reportCliError(
-        makeAppError({
-          code: "not_found",
-          detail: "Workspace state not initialized",
-          suggestions: [{ description: "Create a workspace.", cmd: "axm setup" }],
-        }),
-        "setup",
-      ).pipe(Effect.provide(layer));
+      yield* recordCommandSettlement({
+        command: "setup",
+        result: "error",
+        durationMs: 42,
+        failure: { code: "not_found", level: "error", handled: true },
+        semanticProperties: { "cli.outcome": "failed" },
+      }).pipe(Effect.provide(layer));
 
       expect(capture.errors).toEqual([
         {
           name: "not_found",
+          category: "not_found",
           level: "error",
           errorClass: "user",
           handled: true,
           command: "setup",
         },
       ]);
-    }),
-  );
-
-  it.effect("redacts metadata-derived secrets from handled-error telemetry", () =>
-    Effect.gen(function* () {
-      const [layer, capture] = makeCaptureLayer();
-      const secret = "AXM_SECRET_SENTINEL_92";
-
-      yield* reportCliError(
-        makeAppError({
-          code: "internal",
-          detail: `registry failed with ${secret}`,
-          metadata: {
-            response: {
-              status: 500,
-              body: { access_token: secret },
-            },
+      expect(capture.events).toEqual([
+        {
+          event: "command_completed",
+          properties: {
+            "cli.command": "setup",
+            "cli.result": "error",
+            "cli.duration_ms": 42,
+            "cli.error_code": "not_found",
+            "cli.error_category": "not_found",
+            "cli.outcome": "failed",
           },
-        }),
-        "publish",
-      ).pipe(Effect.provide(layer));
-
-      expect(JSON.stringify(capture.errors)).not.toContain(secret);
+        },
+      ]);
     }),
   );
 
-  it.effect("skips QuestionCancelled", () =>
+  it.effect("settles a defect as a fatal, unhandled report of its category", () =>
     Effect.gen(function* () {
       const [layer, capture] = makeCaptureLayer();
 
-      yield* reportCliError(new QuestionCancelled({ message: "cancelled" }), "setup").pipe(
-        Effect.provide(layer),
-      );
-
-      expect(capture.errors).toHaveLength(0);
-    }),
-  );
-
-  it.effect("skips interrupt-only causes", () =>
-    Effect.gen(function* () {
-      const [layer, capture] = makeCaptureLayer();
-
-      yield* reportCliDefect(Cause.interrupt(), "test").pipe(Effect.provide(layer));
-
-      expect(capture.errors).toHaveLength(0);
-    }),
-  );
-
-  it.effect("reports defects as fatal errors", () =>
-    Effect.gen(function* () {
-      const [layer, capture] = makeCaptureLayer();
-
-      yield* reportCliDefect(Cause.die(new Error("boom")), "skills list").pipe(
-        Effect.provide(layer),
-      );
+      yield* recordCommandSettlement({
+        command: "skills list",
+        result: "defect",
+        durationMs: 7,
+        failure: { code: "internal", level: "fatal", handled: false },
+      }).pipe(Effect.provide(layer));
 
       expect(capture.errors).toEqual([
         {
@@ -162,19 +131,44 @@ describe("cli telemetry helpers", () => {
           command: "skills list",
         },
       ]);
+      expect(
+        capture.events.map(({ event, properties }) => [event, properties?.["cli.result"]]),
+      ).toEqual([["command_completed", "defect"]]);
     }),
   );
 
-  it.effect("redacts credential-shaped defects from telemetry", () =>
+  it.effect("settles a cancellation and a success without an error report", () =>
     Effect.gen(function* () {
       const [layer, capture] = makeCaptureLayer();
-      const secret = "ghp_abcdefghijklmnopqrstuvwxyz123456";
 
-      yield* reportCliDefect(Cause.die(new Error(`Bearer ${secret}`)), "skills list").pipe(
+      yield* recordCommandSettlement({ command: "setup", result: "cancelled", durationMs: 1 }).pipe(
+        Effect.provide(layer),
+      );
+      yield* recordCommandSettlement({ command: "setup", result: "success", durationMs: 1 }).pipe(
         Effect.provide(layer),
       );
 
-      expect(JSON.stringify(capture.errors)).not.toContain(secret);
+      expect(capture.errors).toHaveLength(0);
+      expect(capture.events.map(({ properties }) => properties?.["cli.result"])).toEqual([
+        "cancelled",
+        "success",
+      ]);
+    }),
+  );
+
+  it.effect("swallows a reporting failure so the settlement never fails the command", () =>
+    Effect.gen(function* () {
+      const layer = Layer.succeed(TelemetryClient, {
+        trackEvent: () => Effect.die(new Error("transport down")),
+        reportError: () => Effect.die(new Error("transport down")),
+      } satisfies TelemetryClientService);
+
+      yield* recordCommandSettlement({
+        command: "setup",
+        result: "error",
+        durationMs: 1,
+        failure: { code: "network", level: "error", handled: true },
+      }).pipe(Effect.provide(layer));
     }),
   );
 

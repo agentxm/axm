@@ -20,52 +20,54 @@ import {
  * - `0` — success
  * - `1`–`16` — AXM application errors (this enum)
  * - `17`–`127` — reserved for future AXM application errors; do not reuse
- * - `128`+ — POSIX signal convention (e.g., 130 SIGINT, 143 SIGTERM); set
- *   by the runtime's signal handlers, not by `AppError`
+ * - `128`+ — POSIX signal convention (130 SIGINT, 143 SIGTERM); set by the
+ *   runtime's signal handlers and the operation exit mapping, not by
+ *   `AppError`
  *
  * The numeric values diverge from `sysexits.h` deliberately: AXM uses a
  * flat 1–N scheme so the `code` field in JSON output stays the agent-facing
  * discriminator rather than the number.
  *
- * The descriptions here are the canonical wording. Other surfaces — the
- * help topic at `apps/cli/help/topics/exit-codes.md`, docs, error
- * envelopes — should match. A consistency test pins the help topic to
- * these strings; see `app-error.test.ts`.
+ * `ExitCodeDefinitions` below holds the one public meaning of every code,
+ * including the signal codes; the help topic at
+ * `apps/cli/help/topics/exit-codes.md` is pinned to it by
+ * `cli/exit-codes-match-published-reference`. Each member here names only the
+ * `AppErrorCode` it pairs with.
  */
 export const ExitCode = {
-  /** Success. Also used for help output and cancelled prompts. */
+  /** Pairs with no `AppErrorCode`. */
   Success: 0,
-  /** Command ran successfully but reported problems requiring attention (e.g., `axm lint` findings, doctor-style checks). Not lint-only — any "ran but found problems" outcome belongs here. Pairs with `AppErrorCode` `issues`. */
+  /** Pairs with `AppErrorCode` `issues`. */
   Issues: 1,
-  /** Invalid command, flags, or arguments. Fix the invocation. Pairs with `AppErrorCode` `usage`. */
+  /** Pairs with `AppErrorCode` `usage`. */
   Usage: 2,
-  /** Resource doesn't exist or isn't visible. Pairs with `AppErrorCode` `not_found`. */
+  /** Pairs with `AppErrorCode` `not_found`. */
   NotFound: 3,
-  /** Credentials were rejected, are invalid, or expired. Sign in again. Pairs with `AppErrorCode` `auth`. */
+  /** Pairs with `AppErrorCode` `auth`. */
   Auth: 4,
-  /** Signed in, but not authorized for this action. Pairs with `AppErrorCode` `forbidden`. */
+  /** Pairs with `AppErrorCode` `forbidden`. */
   Forbidden: 5,
-  /** Conflicts with current state (already exists, version mismatch, concurrent update). Reconcile and retry. Pairs with `AppErrorCode` `conflict`. */
+  /** Pairs with `AppErrorCode` `conflict`. */
   Conflict: 6,
-  /** Rate limited. Retry after a backoff. Pairs with `AppErrorCode` `rate_limit`. */
+  /** Pairs with `AppErrorCode` `rate_limit`. */
   RateLimit: 7,
-  /** Couldn't reach the remote service (DNS, TCP, TLS, timeout). Usually retryable. Pairs with `AppErrorCode` `network`. */
+  /** Pairs with `AppErrorCode` `network`. */
   Network: 8,
-  /** Input parsed but failed validation. Correct it and retry. Pairs with `AppErrorCode` `validation`. */
+  /** Pairs with `AppErrorCode` `validation`. */
   Validation: 9,
-  /** Unexpected internal error. Likely a bug — please report it. Pairs with `AppErrorCode` `internal`. */
+  /** Pairs with `AppErrorCode` `internal`. */
   Internal: 10,
-  /** Service is responsive but temporarily unable to serve. Pairs with `AppErrorCode` `unavailable`. */
+  /** Pairs with `AppErrorCode` `unavailable`. */
   Unavailable: 11,
-  /** Quota, storage, or plan limit exhausted. Pairs with `AppErrorCode` `quota`. */
+  /** Pairs with `AppErrorCode` `quota`. */
   Quota: 12,
-  /** Authentication or authorization is waiting on a person to complete a required action. Pairs with `AppErrorCode` `auth_required`. */
+  /** Pairs with `AppErrorCode` `auth_required`. */
   AuthRequired: 13,
-  /** A pending authentication flow expired. Pairs with `AppErrorCode` `auth_expired`. */
+  /** Pairs with `AppErrorCode` `auth_expired`. */
   AuthExpired: 14,
-  /** A person denied or cancelled a pending authentication flow. Pairs with `AppErrorCode` `auth_denied`. */
+  /** Pairs with `AppErrorCode` `auth_denied`. */
   AuthDenied: 15,
-  /** A bounded operation did not complete before its caller-selected deadline. Pairs with `AppErrorCode` `timeout`. */
+  /** Pairs with `AppErrorCode` `timeout`. */
   Timeout: 16,
 } as const;
 
@@ -142,6 +144,10 @@ export const ExitCodeDefinitions = [
   {
     code: 130,
     meaning: "Interrupted by SIGINT. Local candidate-wide transactions roll back before AXM exits.",
+  },
+  {
+    code: 143,
+    meaning: "Terminated by SIGTERM. Local candidate-wide transactions roll back before AXM exits.",
   },
 ] as const;
 
@@ -228,6 +234,13 @@ const ExitCodeByAppErrorCode: Readonly<Record<AppErrorCode, ExitCode>> = {
 
 export const exitCodeFor = (code: AppErrorCode): ExitCode => ExitCodeByAppErrorCode[code];
 
+/**
+ * The `AppErrorCode` a non-zero application exit code pairs with, read from
+ * the same 1:1 table; `undefined` for success and the signal codes.
+ */
+export const appErrorCodeForExit = (exitCode: number): AppErrorCode | undefined =>
+  AppErrorCodes.find((code) => ExitCodeByAppErrorCode[code] === exitCode);
+
 /** The pending action a failure hands to a person, as the kernel renders it. */
 export type AppErrorAction = FailureAction;
 
@@ -285,7 +298,7 @@ const DefaultSuggestionsByAppErrorCode: Readonly<
 };
 
 /** Baseline suggested next actions for an error category. */
-export const defaultSuggestionsFor = (code: AppErrorCode): ReadonlyArray<SuggestedAction> =>
+const defaultSuggestionsFor = (code: AppErrorCode): ReadonlyArray<SuggestedAction> =>
   DefaultSuggestionsByAppErrorCode[code];
 
 const AppErrorClassByAppErrorCode: Readonly<Record<AppErrorCode, AppErrorClass>> = {

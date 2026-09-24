@@ -113,7 +113,7 @@ import {
 import { LatestReleaseCheckLive } from "@agentxm/cli-maintenance/self-update/composition";
 
 import { loadVersion } from "./version.js";
-import { failureForWorkspaceScope } from "./root/shared/scoped-command.js";
+import { ScopedRoutes, failureForWorkspaceScope } from "./root/shared/scoped-command.js";
 import { ScreenLoggerLive } from "./screen/index.js";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
 import { ReleaseAgePosture } from "@agentxm/workspace/resolution";
@@ -426,6 +426,10 @@ export const withWorkspace =
         projectRoot: configured.projectRoot ?? executionDirectory.path,
       } satisfies Omit<WorkspaceStateOptions, "builtInSources">;
       const wsLayer = makeWorkspaceProgramLayer(resolved);
+      const scopedRoutes = Option.match(yield* Effect.serviceOption(ScopedRoutes), {
+        onNone: (): ReadonlySet<string> => new Set(),
+        onSome: ({ routes }) => routes,
+      });
       return yield* Effect.scoped(
         Layer.build(wsLayer).pipe(
           Effect.flatMap((workspaceContext) => Effect.provide(program, workspaceContext)),
@@ -434,7 +438,7 @@ export const withWorkspace =
         // Naming the channel keeps the emitted declaration on the alias
         // rather than on every workspace failure it spans.
         Effect.mapError((error): ExpectedCliError =>
-          failureForWorkspaceScope(error, resolved.scope),
+          failureForWorkspaceScope(error, resolved.scope, scopedRoutes),
         ),
         Effect.ensuring(
           Effect.gen(function* () {

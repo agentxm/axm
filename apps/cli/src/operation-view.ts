@@ -712,26 +712,13 @@ export const unsettledUnits = (
 ): ReadonlyArray<ResolvedUnit<unknown>> =>
   resolution.units.filter((unit) => owesReason(settlementOf(unit, resolution.mode)));
 
-/**
- * What every unsettled unit's producer suggested, in ledger order and without
- * repeats. The resolution lifts only the first failed unit's suggestions; a
- * reader of seven failures needs all of them.
- */
-const producerSuggestions = (
-  resolution: OperationResolution<unknown>,
-): ReadonlyArray<SuggestedAction> => {
-  const suggested = unsettledUnits(resolution).flatMap((unit) => unit.error?.suggestions ?? []);
-  return suggested.filter(
-    (suggestion, index) =>
-      suggested.findIndex(
-        (other) => other.description === suggestion.description && other.cmd === suggestion.cmd,
-      ) === index,
-  );
-};
-
 export interface OperationDocOptions {
   readonly verbosity: VerbosityLevel;
   readonly message?: string;
+  /**
+   * The operation's one composed `Next` list, as the emit boundary folded and
+   * scoped it for every channel; the view adds nothing to it.
+   */
   readonly suggestions?: ReadonlyArray<SuggestedAction>;
   /**
    * Conditions the operation reports beside its ledger, such as a release-age
@@ -790,17 +777,7 @@ export const operationDoc = (
           { count: counts.skipped, state: "skipped" },
         ]),
   );
-  const offered = [
-    ...(options.suggestions ?? []),
-    ...(resolution.recovery?.actions ?? []),
-    ...producerSuggestions(resolution),
-  ];
-  const next = offered.filter(
-    (suggestion, index) =>
-      offered.findIndex(
-        (other) => other.description === suggestion.description && other.cmd === suggestion.cmd,
-      ) === index,
-  );
+  const next = options.suggestions ?? [];
   const aside = verdictAside(
     resolution.units,
     resolution.mode,

@@ -5,7 +5,10 @@ import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
+import { makeOperationResolution } from "@agentxm/workspace/transitions/planning";
+
 import { ExitCodeDefinitions } from "../app-error/index.js";
+import { resolutionExitCode } from "../operation-exit-code.js";
 import { HelpTopicResultSchema, handleHelpPath } from "../root/help/command.js";
 import { OperationExitLive, classifyError, getOperationExitCode } from "./index.js";
 import { TestRenderer } from "../test-support/presenter-test.js";
@@ -21,7 +24,7 @@ export const specification = defineSpecification({
   requirement: "cli/exit-codes-match-published-reference",
   title: "The published exit-code reference matches the runtime exit codes",
   statement:
-    "The served exit-codes help topic shall list exactly the exit codes and meanings the command line returns at runtime, with no missing, extra, or differing rows, and an invocation the parser rejects or an apply stopped as approval required shall exit with the code whose published meaning names that outcome.",
+    "The served exit-codes help topic shall list exactly the exit codes and meanings the command line returns at runtime, with no missing, extra, or differing rows, and an invocation the parser rejects, an apply stopped as approval required, or an operation terminated by a signal shall exit with the code whose published meaning names that outcome.",
   class: "functional",
   role: "interface",
   goals: ["machine-automation", "knowledge-access"],
@@ -50,6 +53,10 @@ const parseExitCodeRows = (
 
 /** The published row whose meaning covers bad invocations and blocked approvals. */
 const usageRow = ExitCodeDefinitions.find((row) => row.meaning.startsWith("Invalid invocation"));
+
+/** The published rows for the two termination signals an operation can settle on. */
+const signalRow = (signal: "SIGINT" | "SIGTERM") =>
+  ExitCodeDefinitions.find((row) => row.meaning.includes(signal));
 
 describe("Published exit-code reference", () => {
   const cleanups: Array<() => void> = [];
@@ -107,6 +114,22 @@ describe("Published exit-code reference", () => {
         });
         expect(Option.getOrUndefined(exitCode)).toBe(usageRow?.code);
       }),
+  );
+
+  it.each(["SIGINT", "SIGTERM"] as const)(
+    "an operation terminated by %s exits with the published code for that signal",
+    (signal) => {
+      const interrupted = makeOperationResolution({
+        name: "Install extensions",
+        description: Option.none(),
+        mode: "apply",
+        atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
+        units: [],
+        interruption: { signal, disposition: "restored" },
+      });
+      expect(signalRow(signal)).toBeDefined();
+      expect(resolutionExitCode(interrupted)).toBe(signalRow(signal)?.code);
+    },
   );
 
   it.effect("the served exit-codes help topic states exactly the runtime exit codes", () =>

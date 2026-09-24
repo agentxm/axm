@@ -1,13 +1,23 @@
-import type { AppError, AppErrorCode } from "./app-error.js";
+import { redactRegistryText, redactRegistryValue } from "@agentxm/registry-client";
+import * as Schema from "effect/Schema";
+import { AppErrorCodeSchema, type AppError } from "./app-error.js";
 import { StepFailure } from "@agentxm/workspace/transitions/planning";
-import { redactSensitiveText, redactSensitiveValue } from "./secret-redaction.js";
 
-export interface SerializedErrorCause {
-  readonly _tag: string;
-  readonly code?: AppErrorCode;
-  readonly message: string;
-  readonly stack?: string;
-}
+/**
+ * One serialized entry of a failure's cause chain, as every machine document
+ * that carries a cause chain declares it.
+ */
+export const SerializedErrorCauseSchema = Schema.Struct({
+  _tag: Schema.String,
+  code: Schema.optional(AppErrorCodeSchema),
+  message: Schema.String,
+  stack: Schema.optional(Schema.String),
+}).annotate({
+  identifier: "ErrorCause",
+  title: "Error Cause",
+  description: "One serialized entry from a failure's cause chain.",
+});
+export type SerializedErrorCause = typeof SerializedErrorCauseSchema.Type;
 
 const MAX_CAUSE_DEPTH = 16;
 
@@ -55,16 +65,16 @@ const structuredObjectMessage = (cause: unknown): string | undefined => {
 
 const causeMessage = (cause: unknown, secrets: ReadonlyArray<string>): string => {
   if (typeof cause === "string" || typeof cause === "number" || typeof cause === "boolean") {
-    return redactSensitiveText(String(cause), { secrets });
+    return redactRegistryText(String(cause), { secrets });
   }
   if (cause === null) return "null";
   if (cause === undefined) return "undefined";
 
   const structuredMessage = structuredObjectMessage(cause);
-  if (structuredMessage !== undefined) return redactSensitiveText(structuredMessage, { secrets });
+  if (structuredMessage !== undefined) return redactRegistryText(structuredMessage, { secrets });
 
   try {
-    return JSON.stringify(redactSensitiveValue(cause, { secrets })) ?? String(cause);
+    return JSON.stringify(redactRegistryValue(cause, { secrets })) ?? String(cause);
   } catch {
     return "[unserializable object]";
   }
@@ -83,7 +93,7 @@ const serializeCause = (
     return {
       _tag: "AppError",
       code: cause.code,
-      message: redactSensitiveText(cause.detail, { secrets: options.secrets }),
+      message: redactRegistryText(cause.detail, { secrets: options.secrets }),
     };
   }
 
@@ -91,7 +101,7 @@ const serializeCause = (
     return {
       _tag: "StepFailure",
       code: cause.category,
-      message: redactSensitiveText(cause.detail, { secrets: options.secrets }),
+      message: redactRegistryText(cause.detail, { secrets: options.secrets }),
     };
   }
 
@@ -102,9 +112,9 @@ const serializeCause = (
       message:
         message === undefined
           ? causeMessage(cause, options.secrets)
-          : redactSensitiveText(message, { secrets: options.secrets }),
+          : redactRegistryText(message, { secrets: options.secrets }),
       ...(options.debug && cause.stack !== undefined
-        ? { stack: redactSensitiveText(cause.stack, { secrets: options.secrets }) }
+        ? { stack: redactRegistryText(cause.stack, { secrets: options.secrets }) }
         : {}),
     };
   }

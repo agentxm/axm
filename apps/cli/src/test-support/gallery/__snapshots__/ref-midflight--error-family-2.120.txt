@@ -7,7 +7,8 @@ Next
 Next
      axm list --help   See the flags the command takes
 
- ✖   An unexpected error occurred   internal, exit 10
+ ✖   Internal Error                internal, exit 10
      Cannot read properties of undefined (reading 'agents')
+     --debug shows the cause.
 Next
      https://github.com/agentxm/axm/issues

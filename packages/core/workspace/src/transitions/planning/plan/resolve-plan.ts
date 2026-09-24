@@ -66,6 +66,7 @@ import {
   OperationRequestBudget,
   OperationScratchBudget,
   OperationScratchLimitExceeded,
+  collectSensitiveStrings,
   redactRegistryText,
 } from "@agentxm/registry-client";
 import { AcquiredContent, sourceRefContentKey } from "../../../acquisition/acquired-content.js";
@@ -712,7 +713,9 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
     step.result.result === "error"
       ? {
           category: step.result.error.category,
-          detail: redactRegistryText(step.result.error.detail),
+          detail: redactRegistryText(step.result.error.detail, {
+            secrets: collectSensitiveStrings(step.result.error.metadata),
+          }),
         }
       : undefined;
   const startedUnits = yield* Ref.make(0);

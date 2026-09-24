@@ -16,16 +16,19 @@ import { LockfileIoError, LockfileVersionUnsupported } from "@agentxm/workspace/
 import { workspaceFailureToStepFailure } from "@agentxm/workspace/reconciliation";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
+
+import { rootCommand } from "./app.js";
 import { operationDoc, unsettledUnits } from "./operation-view.js";
-import { retryCanHelp } from "./operation-output.js";
-import { suggestionsForScope } from "./root/shared/scoped-command.js";
+import { operationNextActions, resolutionRecoveries, retryCanHelp } from "./operation-output.js";
+import { scopedRoutesOf, suggestionsForScope } from "./root/shared/scoped-command.js";
 import { paintText } from "./screen/paint-text.js";
 
 export const specification = defineSpecification({
   requirement: "cli/non-success-results-name-a-fitting-recovery",
   title: "A result that did not succeed names a recovery that fits it",
   statement:
-    "When an operation settles partial, failed, blocked, or interrupted, its `Next` shall name at least one recovery that fits the outcome — the emitting command narrowed to the units that did not settle where an unchanged retry can help, or a recovery the producer of a failure stated — and shall not consist solely of a generic inventory suggestion; where no command can change the outcome, it shall offer no retry. Whether a retry can help is the kernel's one decision per failure: the producer's stated retryability, or else its category.",
+    "When an operation settles partial, failed, blocked, or interrupted, its `Next` shall name at least one recovery that fits the outcome — the emitting command narrowed to the units that did not settle where an unchanged retry can help, or a recovery the producer of a failure stated, for every unit that failed — and shall not consist solely of a generic inventory suggestion; where no command can change the outcome, it shall offer no retry; and in a user-scope workspace each recovery command shall appear once, addressed with `--scope user` exactly when its route accepts that flag. Whether a retry can help is the kernel's one decision per failure: the producer's stated retryability, or else its category.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "extension-adoption"],
@@ -106,11 +109,22 @@ const resolutionOf = (units: ReadonlyArray<ResolvedUnit<unknown>>): OperationRes
     units,
   });
 
-/** The `Next` lines of a painted result, without the label above them. */
+const scopedRoutes = scopedRoutesOf(rootCommand);
+
+/**
+ * The `Next` lines of a painted result, without the label above them: the one
+ * composed and scoped recovery list the emit boundary hands the view.
+ */
 const nextLines = (
   resolution: OperationResolution<unknown>,
-  suggestions: ReadonlyArray<{ readonly description: string; readonly cmd?: string }>,
+  offered: ReadonlyArray<{ readonly description: string; readonly cmd?: string }>,
+  scope: WorkspaceScope = "project",
 ): ReadonlyArray<string> => {
+  const suggestions = suggestionsForScope(
+    operationNextActions(resolutionRecoveries(resolution), offered),
+    scope,
+    scopedRoutes,
+  );
   const lines = paintText(operationDoc(resolution, { verbosity: "normal", suggestions }), {
     width: 100,
     colors: false,
@@ -203,6 +217,30 @@ describe("A non-success result names a fitting recovery", () => {
     expect(painted).toContain("axm update skills/okf --refresh");
   });
 
+  it("prints one scoped copy of a producer recovery in a user workspace, never a duplicate", () => {
+    const resolution = resolutionOf([
+      failedUnit("research", "validation", [
+        { description: "Inspect supported agent IDs.", cmd: "axm agents list --available" },
+      ]),
+    ]);
+    const painted = nextLines(resolution, [], "user").join("\n");
+    expect(painted.split("axm agents list --available --scope user")).toHaveLength(2);
+    expect(painted).not.toMatch(/axm agents list --available(?!\s+--scope user)/u);
+  });
+
+  it("never appends --scope user to a command whose route has no scope flag", () => {
+    const resolution = resolutionOf([
+      failedUnit("research", "auth", [
+        { description: "Sign in, then retry.", cmd: "axm login" },
+        { description: "Review registry settings.", cmd: "axm help settings" },
+      ]),
+    ]);
+    const painted = nextLines(resolution, [], "user").join("\n");
+    expect(painted).toContain("axm login");
+    expect(painted).toContain("axm help settings");
+    expect(painted).not.toContain("--scope user");
+  });
+
   it("names the recovery a typed failure states when it settles a plan step", () => {
     const error = workspaceFailureToStepFailure(
       new LockfileVersionUnsupported({
@@ -216,7 +254,7 @@ describe("A non-success result names a fitting recovery", () => {
     expect(retryCanHelp(unsettledUnits(resolution))).toBe(false);
     expect(nextLines(resolution, []).join("\n")).toContain("axm upgrade");
     // The upgrade runs for the whole installation, never narrowed to a scope.
-    expect(suggestionsForScope(error.suggestions ?? [], "user")).toEqual([
+    expect(suggestionsForScope(error.suggestions ?? [], "user", scopedRoutes)).toEqual([
       { description: "Upgrade AXM before accessing this workspace.", cmd: "axm upgrade" },
     ]);
   });

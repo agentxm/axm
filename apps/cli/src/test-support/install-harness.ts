@@ -46,6 +46,8 @@ import {
   SubagentManagerLive,
 } from "./test-helpers.js";
 import { makeWorkspaceFileContents, writeWorkspaceFiles } from "./test-stubs.js";
+import { rootCommand } from "../app.js";
+import { ScopedRoutesLive } from "../root/shared/scoped-command.js";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
 import { ReleaseAgePosture, type ReleaseAgePostureValue } from "@agentxm/workspace/resolution";
 import { makeMemoryTransitionLockWorld } from "@agentxm/workspace/transitions/settlement/testing";
@@ -272,6 +274,9 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
     fullLayer,
     invariantFactsLayer,
     Layer.succeed(ReleaseAgePosture, options.releaseAgePosture ?? "enforce"),
+    // Recovery commands address the workspace scope the way the executable's
+    // own command tree decides.
+    ScopedRoutesLive(rootCommand),
   );
   // The user home is read through configuration, whose provider snapshots the
   // environment; relocating it therefore means supplying the provider, not

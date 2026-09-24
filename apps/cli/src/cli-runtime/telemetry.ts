@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import * as Cause from "effect/Cause";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -13,10 +12,7 @@ import {
   type OperationEvent,
   type OperationLifecycleService,
 } from "@agentxm/workspace/transitions/planning";
-import { errorClassForAppErrorCode } from "../app-error/index.js";
-import type { ExpectedCliError } from "./runtime-envelope.js";
-import { isWorkspaceFailure } from "@agentxm/workspace/reconciliation";
-import { toAppError } from "../app-error/conversions.js";
+import { errorClassForAppErrorCode, type AppErrorCode } from "../app-error/index.js";
 import { TelemetryClient } from "../telemetry/index.js";
 import type { TelemetryProperties } from "../telemetry/client.js";
 import {
@@ -183,31 +179,63 @@ export const readGlobalFlagProperties = Effect.gen(function* () {
 });
 
 // ---------------------------------------------------------------------------
-// Error reporting (unchanged)
+// Command settlement
 // ---------------------------------------------------------------------------
 
-export const reportCliError = (
-  error: ExpectedCliError,
-  command: string,
-): Effect.Effect<void, never, TelemetryClient> => {
-  const resolved =
-    error._tag === "AppError" ? error : isWorkspaceFailure(error) ? toAppError(error) : undefined;
-  return resolved === undefined
-    ? Effect.void
-    : Effect.gen(function* () {
-        const telemetry = yield* TelemetryClient;
-        yield* telemetry.reportError({
-          name: resolved.code,
-          // Error details can quote arbitrary package content or resolved input.
-          // Telemetry reports the stable category; local output owns the detail.
-          category: resolved.code,
-          level: "error",
-          errorClass: errorClassForAppErrorCode(resolved.code),
-          handled: true,
-          command,
-        });
-      }).pipe(Effect.catchCause(() => Effect.void));
-};
+/** The failure a command settled with, as telemetry reports it. */
+export interface CommandSettlementFailure {
+  readonly code: AppErrorCode;
+  readonly level: "error" | "fatal";
+  /** True when the command handled the failure; false for a defect. */
+  readonly handled: boolean;
+}
+
+export interface CommandSettlement {
+  readonly command: string;
+  readonly result: CliCommandCompletedOptions["result"];
+  readonly durationMs: number;
+  /** Absent for a success or a cancellation. */
+  readonly failure?: CommandSettlementFailure;
+  readonly semanticProperties?: TelemetryProperties;
+}
+
+/**
+ * Report one settled command outcome: the error report, when the command
+ * settled with a failure, and then the completion event, from the same
+ * settlement. Every termination path — an operation resolution, a handled
+ * error, a defect, a cancellation — settles through this one reporter, so a
+ * failure is reported the same way whichever path it took. Error details can
+ * quote arbitrary package content or resolved input; telemetry reports the
+ * stable category and local output owns the detail.
+ */
+export const recordCommandSettlement = (
+  settlement: CommandSettlement,
+): Effect.Effect<void, never, TelemetryClient> =>
+  Effect.gen(function* () {
+    const telemetry = yield* TelemetryClient;
+    const failure = settlement.failure;
+    if (failure !== undefined) {
+      yield* telemetry
+        .reportError({
+          name: failure.handled ? failure.code : "Defect",
+          ...(failure.handled ? { category: failure.code } : {}),
+          level: failure.level,
+          errorClass: errorClassForAppErrorCode(failure.code),
+          handled: failure.handled,
+          command: settlement.command,
+        })
+        .pipe(Effect.catchCause(() => Effect.void));
+    }
+    yield* trackCliCommandCompleted({
+      command: settlement.command,
+      result: settlement.result,
+      durationMs: settlement.durationMs,
+      ...(failure === undefined ? {} : { errorCode: failure.code, errorCategory: failure.code }),
+      ...(settlement.semanticProperties === undefined
+        ? {}
+        : { semanticProperties: settlement.semanticProperties }),
+    });
+  }).pipe(Effect.catchCause(() => Effect.void));
 
 // ---------------------------------------------------------------------------
 // Command semantic properties (Ref-based forwarding)
@@ -329,24 +357,3 @@ export const observeLifecycleForTelemetry = (
       Effect.forkScoped,
     );
   });
-
-// ---------------------------------------------------------------------------
-// Defect reporting
-// ---------------------------------------------------------------------------
-
-export const reportCliDefect = (
-  cause: Cause.Cause<unknown>,
-  command: string,
-): Effect.Effect<void, never, TelemetryClient> =>
-  Cause.hasInterruptsOnly(cause)
-    ? Effect.void
-    : Effect.gen(function* () {
-        const telemetry = yield* TelemetryClient;
-        yield* telemetry.reportError({
-          name: "Defect",
-          level: "fatal",
-          errorClass: "internal",
-          handled: false,
-          command,
-        });
-      }).pipe(Effect.catchCause(() => Effect.void));

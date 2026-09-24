@@ -1,3 +1,8 @@
+import {
+  collectSensitiveStrings,
+  redactRegistryText,
+  redactRegistryValue,
+} from "@agentxm/registry-client";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
   exitPhrase,
@@ -10,17 +15,11 @@ import {
 import {
   type AppError,
   type AppErrorCode,
-  defaultSuggestionsFor,
   effectiveSuggestionsFor,
   exitCodeFor,
 } from "./app-error.js";
 import { serializeErrorCauseChain } from "./cause-chain.js";
-import {
-  collectSensitiveStrings,
-  redactSensitiveText,
-  redactSensitiveValue,
-  redactSuggestedAction,
-} from "./secret-redaction.js";
+import { redactSuggestedAction } from "./secret-redaction.js";
 
 const defaultRenderOptions: { readonly verbose: boolean; readonly debug: boolean } = {
   verbose: false,
@@ -45,9 +44,9 @@ const getRegistryUrl = (error: AppError): string | undefined =>
 
 const formatRegistryLocation = (url: string, secrets: ReadonlyArray<string>): string => {
   try {
-    return redactSensitiveText(new URL(url).origin, { secrets });
+    return redactRegistryText(new URL(url).origin, { secrets });
   } catch {
-    return redactSensitiveText(url, { secrets });
+    return redactRegistryText(url, { secrets });
   }
 };
 
@@ -59,7 +58,7 @@ const formatRegistryRequest = (
   if (request === undefined || request.service !== "registry") {
     return undefined;
   }
-  return redactSensitiveText(
+  return redactRegistryText(
     request.method === undefined ? request.url : `${request.method} ${request.url}`,
     { secrets },
   );
@@ -70,7 +69,7 @@ const formatResponseBody = (
   secrets: ReadonlyArray<string>,
 ): ReadonlyArray<string> => {
   try {
-    return JSON.stringify(redactSensitiveValue(body, { secrets }), null, 2).split("\n");
+    return JSON.stringify(redactRegistryValue(body, { secrets }), null, 2).split("\n");
   } catch {
     return ["[unserializable response body]"];
   }
@@ -120,7 +119,7 @@ const problemAside = (code: AppErrorCode): string => `${code}, ${exitPhrase(exit
 
 /** The reason, with how many attempts it took when a retry policy ran out. */
 const reasonText = (error: AppError, secrets: ReadonlyArray<string>): Text => {
-  const detail = redactSensitiveText(error.detail, { secrets });
+  const detail = redactRegistryText(error.detail, { secrets });
   const attempts = error.metadata?.requestPolicy?.attemptCount;
   return attempts === undefined || attempts < 2
     ? detail
@@ -141,10 +140,10 @@ export const appErrorDoc = (
   const requestId = getRequestId(error);
   const registryUrl = getRegistryUrl(error);
   const detailed = options.verbose || options.debug;
-  const title = redactSensitiveText(error.title, { secrets });
+  const title = redactRegistryText(error.title, { secrets });
   const fields: Array<Field> = (error.inputs ?? []).map((input) => ({
-    label: redactSensitiveText(input.label, { secrets }),
-    value: redactSensitiveText(input.value, { secrets }),
+    label: redactRegistryText(input.label, { secrets }),
+    value: redactRegistryText(input.value, { secrets }),
   }));
   const children: Array<DocNode> = [];
 
@@ -162,13 +161,13 @@ export const appErrorDoc = (
   if (requestId !== undefined && (detailed || error.code === "internal")) {
     fields.push({
       label: "Request ID",
-      value: [{ text: redactSensitiveText(requestId, { secrets }), copyable: true }],
+      value: [{ text: redactRegistryText(requestId, { secrets }), copyable: true }],
     });
   }
 
   // A failure about its inputs states them as fields, which say more than
   // the sentence its detail spells for the machine envelope.
-  if (error.inputs === undefined && redactSensitiveText(error.detail, { secrets }) !== title) {
+  if (error.inputs === undefined && redactRegistryText(error.detail, { secrets }) !== title) {
     children.push({ _tag: "paragraph", text: reasonText(error, secrets) });
   }
   if (fields.length > 0) children.push({ _tag: "fields", fields });
@@ -197,31 +196,6 @@ export const appErrorDoc = (
       ...(children.length === 0 ? {} : { children }),
     },
     ...(next === undefined ? [] : [next]),
-  ];
-};
-
-/**
- * A defect has no category of its own, so it reads as an internal problem:
- * the message it carried as the reason, and the report link as its recovery.
- */
-export const defectDoc = (error: unknown): Doc => {
-  const message =
-    error instanceof Error
-      ? redactSensitiveText(error.message)
-      : typeof error === "string"
-        ? redactSensitiveText(error)
-        : undefined;
-  return [
-    {
-      _tag: "callout",
-      tone: "error",
-      title: "An unexpected error occurred",
-      aside: problemAside("internal"),
-      ...(message === undefined || message.length === 0
-        ? {}
-        : { children: [{ _tag: "paragraph", text: message }] }),
-    },
-    { _tag: "next", actions: defaultSuggestionsFor("internal") },
   ];
 };
 

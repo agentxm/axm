@@ -17,6 +17,7 @@ import type {
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 
 type ObservationRuleId =
+  | "workspace/configured-but-not-installed"
   | "workspace/desired-state-reconcilable"
   | "workspace/knowledge-state-valid"
   | "workspace/packs-dependencies-resolved"
@@ -50,7 +51,8 @@ const reportedByGraph = (
 /**
  * The one rule that reports an observation, or `undefined` when it is no
  * violation. Absent canonical content with an accepted resolution is reported
- * by the rule that owns configured-but-absent content.
+ * by the rule that owns configured-but-absent content, whatever the node's
+ * activation, because sync realizes a disabled node's content too.
  */
 const observationRule = (
   graph: DesiredStateGraph,
@@ -60,11 +62,11 @@ const observationRule = (
   if (
     observation.status === "usable" ||
     observation.status === "not-applicable" ||
-    observation.status === "missing" ||
     reportedByGraph(graph, observed)
   ) {
     return undefined;
   }
+  if (observation.status === "missing") return "workspace/configured-but-not-installed";
   if (observation.status === "missing-resolution") {
     if (desired.origins.some((origin) => origin.type === "pack")) {
       return "workspace/packs-dependencies-resolved";
@@ -91,20 +93,5 @@ export const observationsReportedBy = (
     if (Result.isFailure(graph) || Result.isFailure(observations)) return [];
     return observations.success.filter(
       (observed) => observationRule(graph.success, observed) === ruleId,
-    );
-  });
-
-/** Desired nodes whose accepted resolution is absent, keyed by type and name. */
-export const missingResolutionNodes = (
-  context: WorkspaceRuleContext,
-): Effect.Effect<ReadonlySet<string>> =>
-  Effect.gen(function* () {
-    if (context.health?.canonicalObservations === undefined) return new Set();
-    const observations = yield* Effect.result(context.health.canonicalObservations);
-    if (Result.isFailure(observations)) return new Set();
-    return new Set(
-      observations.success.flatMap(({ desired, observation }) =>
-        observation.status === "missing-resolution" ? [`${desired.type}:${desired.name}`] : [],
-      ),
     );
   });

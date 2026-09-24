@@ -609,8 +609,9 @@ describe("axm lint (e2e, Phase 7)", () => {
         expect(document.result.input.fingerprint).toMatch(/^sha256:[0-9a-f]{64}$/);
         expect(document.result.input.fingerprint).not.toContain(temp.path);
         const findings: Array<{ ruleId: string }> = document.result.findings;
+        // Only the staged settings declare `demo`, and no lockfile accepts it.
         expect(findings.map((finding) => finding.ruleId)).toContain(
-          "workspace/configured-but-not-installed",
+          "workspace/skills-lockfile-aligned",
         );
         expect(git(temp.path, ["status", "--porcelain=v2", "-z"])).toBe(statusBefore);
         expect(git(temp.path, ["ls-files", "--stage", "-z"])).toBe(indexBefore);

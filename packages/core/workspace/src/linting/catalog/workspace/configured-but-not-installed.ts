@@ -1,149 +1,48 @@
-// @effect-diagnostics anyUnknownInErrorContext:off — lint converts opaque observation failures into fact-only findings at this boundary
+/**
+ * Reports desired extensions whose canonical content is absent.
+ *
+ * The canonical observation is the judge: a desired node observed `missing`
+ * has an accepted resolution, or is workspace-authored, and no canonical
+ * content. Desired means the desired-state graph holds the node, whatever its
+ * activation — sync realizes a disabled node's content as it does an enabled
+ * one's — so a member of a disabled Pack, which the graph does not hold, is
+ * not reported.
+ */
 import * as Effect from "effect/Effect";
-import * as Result from "effect/Result";
-import {
-  extensionTypeSentenceLabels,
-  type ExtensionType,
-} from "@agentxm/extension-model/unstable/extensions/common";
-import type { WorkspaceReadModel } from "../../../desired-state/index.js";
+import { extensionTypeSentenceLabels } from "@agentxm/extension-model/unstable/extensions/common";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
+import type { DesiredExtensionNode } from "../../../desired-state/index.js";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "@agentxm/extension-content/lint";
 import { canonicalDisplayRoot, settingsDisplayPath } from "./display-paths.js";
-import { missingResolutionNodes } from "./canonical-observation-findings.js";
-import { categorizeEntry } from "./helpers/source-categorize.js";
+import { observationsReportedBy } from "./canonical-observation-findings.js";
 
 const RULE_ID = "workspace/configured-but-not-installed";
 
-interface ActualWithOrigin {
-  readonly origin: {
-    readonly _tag: string;
-  };
-}
-
-interface InstalledRow {
-  readonly key: {
-    readonly type: ExtensionType;
-    readonly name: string;
-  };
-  readonly activation: "enabled" | "disabled";
-  readonly actual: ReadonlyArray<ActualWithOrigin>;
-  readonly installationOrigin:
-    | {
-        readonly _tag: "direct";
-        readonly declared: {
-          readonly entry: {
-            readonly source?: string | undefined;
-          };
-        };
-      }
-    | {
-        readonly _tag: "pack-member";
-        readonly pack: {
-          readonly key: {
-            readonly name: string;
-          };
-        };
-      };
-}
-
-/**
- * Every read-model family whose rows this rule walks.
- *
- * Total over `ExtensionType`: the rule used to read five of the nine families
- * and silently said nothing about a configured-but-absent context package,
- * rule, hook, or knowledge bundle. Keyed off the type table, a new extension
- * type now fails compile here until its coverage is decided.
- */
-const INSTALLED_ROWS_BY_TYPE = {
-  skill: (workspace: WorkspaceReadModel) => workspace.skills.installed,
-  "mcp-server": (workspace: WorkspaceReadModel) => workspace.mcpServers.installed,
-  subagent: (workspace: WorkspaceReadModel) => workspace.subagents.installed,
-  rule: (workspace: WorkspaceReadModel) => workspace.rules.installed,
-  hook: (workspace: WorkspaceReadModel) => workspace.hooks.installed,
-  knowledge: (workspace: WorkspaceReadModel) => workspace.knowledge.installed,
-  pack: (workspace: WorkspaceReadModel) => workspace.packs.installed,
-} satisfies Record<
-  ExtensionType,
-  (workspace: WorkspaceReadModel) => Effect.Effect<ReadonlyArray<InstalledRow>, unknown>
->;
-
-/**
- * Read order. Findings render in this order, so it is declared rather than
- * derived from object key order.
- */
-const READ_ORDER: ReadonlyArray<ExtensionType> = [
-  "skill",
-  "mcp-server",
-  "subagent",
-  "rule",
-  "hook",
-  "knowledge",
-  "pack",
-];
-
-const extensionLabel = (type: ExtensionType): string => extensionTypeSentenceLabels[type];
-
-const hasCanonicalContent = (actual: ReadonlyArray<ActualWithOrigin>): boolean =>
-  actual.some(
-    (entry) =>
-      entry.origin._tag.startsWith("canonical-axm-") ||
-      entry.origin._tag.startsWith("external-axm-"),
+/** Whether the node's direct declaration names a workspace source. */
+const declaresWorkspaceSource = (desired: DesiredExtensionNode): boolean =>
+  desired.origins.some(
+    (origin) =>
+      origin.type === "settings" &&
+      origin.source !== undefined &&
+      isWorkspaceSourceLocator(origin.source),
   );
 
 const findingFor = (
-  row: InstalledRow,
+  desired: DesiredExtensionNode,
   scope: WorkspaceRuleContext["subject"]["scope"],
-): AdvisoryFinding => ({
-  kind: "advisory",
-  ruleId: RULE_ID,
-  severity: "error",
-  message:
-    row.installationOrigin._tag === "direct" &&
-    row.installationOrigin.declared.entry.source !== undefined &&
-    categorizeEntry(row.key.name, row.installationOrigin.declared.entry.source).kind === "workspace"
-      ? `${extensionLabel(row.key.type)} '${row.key.name}' declares a workspace source, but its authored canonical package is missing from the configured authored root.`
-      : `${extensionLabel(row.key.type)} '${row.key.name}' is desired, but its canonical content is missing from ${canonicalDisplayRoot(scope)}.`,
-  location: { file: settingsDisplayPath(scope) },
-});
-
-const hasLintableInstallSource = (row: InstalledRow): boolean => {
-  if (row.installationOrigin._tag === "pack-member") return true;
-  const source = row.installationOrigin.declared.entry.source;
-  if (source === undefined) return false;
-  const categorized = categorizeEntry(row.key.name, source);
-  return (
-    categorized.kind === "registry" ||
-    categorized.kind === "workspace" ||
-    categorized.kind === "non-registry"
-  );
+): AdvisoryFinding => {
+  const label = extensionTypeSentenceLabels[desired.type];
+  return {
+    kind: "advisory",
+    ruleId: RULE_ID,
+    severity: "error",
+    message: declaresWorkspaceSource(desired)
+      ? `${label} '${desired.name}' declares a workspace source, but its authored canonical package is missing from the configured authored root.`
+      : `${label} '${desired.name}' is desired, but its canonical content is missing from ${canonicalDisplayRoot(scope)}.`,
+    location: { file: settingsDisplayPath(scope) },
+  };
 };
-
-const checkRows = (
-  rows: ReadonlyArray<InstalledRow>,
-  scope: WorkspaceRuleContext["subject"]["scope"],
-  unresolved: ReadonlySet<string>,
-): ReadonlyArray<AdvisoryFinding> =>
-  rows.flatMap((row) => {
-    if (row.activation === "disabled") return [];
-    // Content cannot be acquired without an accepted resolution; the rule
-    // that reports the absent resolution owns this node.
-    if (unresolved.has(`${row.key.type}:${row.key.name}`)) return [];
-    if (row.installationOrigin._tag !== "direct" && row.installationOrigin._tag !== "pack-member") {
-      return [];
-    }
-    if (!hasLintableInstallSource(row)) return [];
-    if (hasCanonicalContent(row.actual)) return [];
-    return [findingFor(row, scope)];
-  });
-
-const readRows = (
-  effect: Effect.Effect<ReadonlyArray<InstalledRow>, unknown>,
-): Effect.Effect<ReadonlyArray<InstalledRow>> =>
-  Effect.gen(function* () {
-    const result = yield* Effect.result(effect);
-    if (Result.isFailure(result)) return [];
-    return result.success;
-  });
 
 export const configuredButNotInstalledRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
@@ -151,15 +50,7 @@ export const configuredButNotInstalledRule: AdvisoryRule<WorkspaceRuleContext> =
   kind: "advisory",
   severity: "error",
   check: (context) =>
-    Effect.flatMap(missingResolutionNodes(context), (unresolved) =>
-      Effect.map(
-        Effect.forEach(
-          READ_ORDER,
-          (type) => readRows(INSTALLED_ROWS_BY_TYPE[type](context.workspace)),
-          { concurrency: "unbounded" },
-        ),
-        (families) =>
-          families.flatMap((rows) => checkRows(rows, context.subject.scope, unresolved)),
-      ),
+    Effect.map(observationsReportedBy(context, RULE_ID), (observed) =>
+      observed.map(({ desired }) => findingFor(desired, context.subject.scope)),
     ),
 };

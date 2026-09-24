@@ -14,6 +14,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
+import * as semver from "semver";
 
 import {
   packMemberVersionRange,
@@ -31,7 +32,9 @@ import {
   acceptedCanonicalObservation,
   DesiredStateReader,
   LockfileReader,
+  observeDesiredCanonical,
   SettingsReader,
+  usableAcceptedCanonicalFrom,
   WorkspaceLocation,
 } from "../../desired-state/index.js";
 
@@ -178,25 +181,55 @@ export const ShowPack = {
     const graph = yield* desiredState.graph();
     const sourceAuthority = isWorkspaceSourceLocator(source) ? "workspace" : "registry";
     const normalizedPackFqn = packFqn.replace(/^workspace:/u, "");
-    const desiredDependencies = Object.entries(manifest.dependencies).map(([fqn, declaration]) => {
-      const constraint = packMemberVersionRange(declaration);
-      const node = graph.nodes.find(
-        (candidate) =>
-          stripLocatorPrefix(candidate.identity) === fqn &&
-          candidate.origins.some(
-            (origin) =>
-              origin.type === "pack" &&
-              origin.pack.replace(/^workspace:/u, "") === normalizedPackFqn,
-          ),
-      );
-      return {
-        fqn,
-        constraint,
-        version: null,
-        source: node?.source ?? null,
-        reachability: node === undefined ? ("missing" as const) : ("satisfying" as const),
-      };
-    });
+    const desiredDependencies = yield* Effect.forEach(
+      Object.entries(manifest.dependencies),
+      ([fqn, declaration]) =>
+        Effect.gen(function* () {
+          const constraint = packMemberVersionRange(declaration);
+          const node = graph.nodes.find(
+            (candidate) =>
+              stripLocatorPrefix(candidate.identity) === fqn &&
+              candidate.origins.some(
+                (origin) =>
+                  origin.type === "pack" &&
+                  origin.pack.replace(/^workspace:/u, "") === normalizedPackFqn,
+              ),
+          );
+          if (node === undefined) {
+            return {
+              fqn,
+              constraint,
+              version: null,
+              source: null,
+              reachability: "missing" as const,
+            };
+          }
+          // The canonical observation judges the member once; this Pack's own
+          // range then says whether the judged version is excluded here.
+          const canonical = yield* observeDesiredCanonical(node);
+          const usable = yield* usableAcceptedCanonicalFrom(canonical);
+          const { observation } = canonical;
+          const version = Option.match(usable, {
+            onNone: () =>
+              observation.status === "constraint-mismatch"
+                ? (observation.acceptedVersion ?? observation.observedVersion ?? null)
+                : null,
+            onSome: ({ ref }) =>
+              ref.refType === "registry" || ref.refType === "workspace" ? ref.version : null,
+          });
+          const excluded =
+            observation.status === "constraint-mismatch" &&
+            (version === null || !semver.satisfies(version, constraint));
+          return {
+            fqn,
+            constraint,
+            version,
+            source: node.source ?? null,
+            reachability: excluded ? ("excluded" as const) : ("satisfying" as const),
+          };
+        }),
+      { concurrency: 1 },
+    );
     return {
       scope: location.scope,
       pack: packFqn,

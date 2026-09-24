@@ -132,14 +132,17 @@ export const ShowExtension = {
     const [configured, locked, inventory] = yield* Effect.all(
       [
         records.rows(request.type).pipe(Effect.map(configuredRowsByName)),
-        lockfile.entries(request.type),
+        // The accepted resolution the desired name resolves to: for a sourced
+        // MCP connection that is its source's shared row, not a row under
+        // the local name.
+        lockfile.acceptedEntry(request.type, request.name),
         records.getExtensionInventory(request.type, {}),
       ],
       { concurrency: "unbounded" },
     );
 
     const configuredEntry = configured[request.name];
-    const lockEntry = locked[request.name];
+    const lockEntry = Option.getOrUndefined(locked);
     const inventoryRow = inventory.items.find((row) => row.name === request.name);
 
     if (configuredEntry === undefined && lockEntry === undefined && inventoryRow === undefined) {

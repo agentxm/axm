@@ -25,8 +25,6 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as Result from "effect/Result";
-import * as Schema from "effect/Schema";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { AgentRootResolverLive } from "../../../desired-state/index.js";
 import {
@@ -86,10 +84,6 @@ import { HOOK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/hooks/
 import { KNOWLEDGE_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/knowledge/manifest-schema";
 import { inspectKnowledgePackage } from "@agentxm/extension-content/knowledge";
 import {
-  buildPackDependencyReachability,
-  type PackDependencyAuthority,
-  type PackDependencyMemberObservation,
-  type PackDependencyReachability,
   observeInstructionProjection,
   resolveInstructionsConfig,
 } from "../../../projection/index.js";
@@ -98,20 +92,13 @@ import { MCP_SERVER_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/
 import { canonicalDisplayRoot } from "../workspace/display-paths.js";
 import { RULE_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/rules/manifest-schema";
 import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
-import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/skills/manifest-schema";
 
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/subagents/manifest-schema";
 import { readManifestJson } from "./manifest-json.js";
 import type { ExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions/common";
-import {
-  CommonManifestBaseFields,
-  ExtensionNameSchema,
-  ExtensionTypeSchema,
-  toExtensionTypePlural,
-  type ExtensionType,
-} from "@agentxm/extension-model/unstable/extensions/common";
+import { type ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
 import { type AxmSkillCompatibilityPolicyService } from "@agentxm/cli-maintenance/official-skill/application";
 import { readAxmSkillWorkspaceCompatibility } from "../../../resolution/index.js";
 
@@ -270,7 +257,6 @@ export const buildLintWorkspace = (
       // The projection already read every installed manifest; hand the same
       // values to workspace rules rather than re-reading them per rule.
       installedExtensions: { manifests: Effect.succeed(projection.installedManifests) },
-      packDependencyReachability: Effect.succeed(projection.packDependencyReachability),
       ...(args.owner === undefined ? {} : { owner: args.owner }),
       ...(args.projections === undefined ? {} : { projections: args.projections }),
       ...(args.axmSkillCompatibilityPolicy === undefined
@@ -384,7 +370,6 @@ interface NamedPack {
 interface LintWorkspaceProjection {
   readonly view: LintWorkspaceView;
   readonly installedManifests: ReadonlyArray<InstalledExtensionManifest>;
-  readonly packDependencyReachability: ReadonlyArray<PackDependencyReachability>;
 }
 
 const joinManifestPath = (root: string, filename: string): string =>
@@ -403,29 +388,27 @@ const buildLintWorkspaceView = (
       members: Effect.Effect<ReadonlyArray<Row>, SettingsReadError | LockfileReadError>,
     ) => Effect.all([installed, members]).pipe(Effect.map((rows) => rows.flat()));
     const model = args.readModel;
-    const [skills, packs, subagents, mcpServers, hooks, rules, knowledge, workspaceOwner] =
-      yield* Effect.all(
-        [
-          withMembers(model.skills.installed, model.skills.packMemberRows(args.members("skill"))),
-          model.packs.installed,
-          withMembers(
-            model.subagents.installed,
-            model.subagents.packMemberRows(args.members("subagent")),
-          ),
-          withMembers(
-            model.mcpServers.installed,
-            model.mcpServers.packMemberRows(args.members("mcp-server")),
-          ),
-          withMembers(model.hooks.installed, model.hooks.packMemberRows(args.members("hook"))),
-          withMembers(model.rules.installed, model.rules.packMemberRows(args.members("rule"))),
-          withMembers(
-            model.knowledge.installed,
-            model.knowledge.packMemberRows(args.members("knowledge")),
-          ),
-          model.owner,
-        ],
-        { concurrency: "unbounded" },
-      );
+    const [skills, packs, subagents, mcpServers, hooks, rules, knowledge] = yield* Effect.all(
+      [
+        withMembers(model.skills.installed, model.skills.packMemberRows(args.members("skill"))),
+        model.packs.installed,
+        withMembers(
+          model.subagents.installed,
+          model.subagents.packMemberRows(args.members("subagent")),
+        ),
+        withMembers(
+          model.mcpServers.installed,
+          model.mcpServers.packMemberRows(args.members("mcp-server")),
+        ),
+        withMembers(model.hooks.installed, model.hooks.packMemberRows(args.members("hook"))),
+        withMembers(model.rules.installed, model.rules.packMemberRows(args.members("rule"))),
+        withMembers(
+          model.knowledge.installed,
+          model.knowledge.packMemberRows(args.members("knowledge")),
+        ),
+      ],
+      { concurrency: "unbounded" },
+    );
     const namedSkills = skills.flatMap((skill): ReadonlyArray<NamedSkill> => {
       const built = installedSkillToInfo(args, skill);
       return built === undefined
@@ -507,14 +490,8 @@ const buildLintWorkspaceView = (
       ...toManifests("rule", rulesWithJson, (c) => c.subject.ruleJson),
       ...toManifests("knowledge", knowledgeWithJson, (c) => c.subject.knowledgeJson),
     ];
-    const manifestByMember = new Map(
-      installedManifests.map((entry) => [
-        `${entry.extensionType}\u0000${entry.name}`,
-        entry.manifestJson,
-      ]),
-    );
-    // Only per-extension rule contexts defer; the manifests and Pack
-    // reachability above still cover every installed extension.
+    // Only per-extension rule contexts defer; the manifests above still
+    // cover every installed extension.
     const inspected =
       (type: ExtensionType) =>
       (entry: { readonly name: string }): boolean =>
@@ -538,99 +515,8 @@ const buildLintWorkspaceView = (
           .map((entry) => entry.context),
       },
       installedManifests,
-      packDependencyReachability: buildPackDependencyReachability({
-        packs: installedPacksWithJson.flatMap(toPackDependencyDeclaration),
-        members: [...skills, ...subagents, ...mcpServers, ...hooks, ...rules, ...knowledge].flatMap(
-          (entry) =>
-            memberObservation(
-              entry,
-              manifestByMember.get(`${entry.key.type}\u0000${entry.key.name}`),
-              workspaceOwner,
-            ),
-        ),
-      }),
     };
   });
-
-const MemberIdentitySchema = Schema.Struct({
-  owner: CommonManifestBaseFields.owner,
-  version: CommonManifestBaseFields.version,
-  name: ExtensionNameSchema,
-  type: ExtensionTypeSchema,
-});
-
-const memberObservation = (
-  installed:
-    | InstalledSkill
-    | InstalledSubagent
-    | InstalledMcpServer
-    | InstalledHook
-    | InstalledRule
-    | InstalledKnowledgeBundle,
-  manifestJson: unknown,
-  workspaceOwner: Option.Option<Handle>,
-): ReadonlyArray<PackDependencyMemberObservation> => {
-  const extensionType = installed.key.type;
-  if (
-    installed.installationOrigin._tag === "direct" &&
-    installed.installationOrigin.declared.entry.source === "workspace"
-  ) {
-    // Workspace authorship has no accepted external lock row. Its declared
-    // package supplies the current version; agent copies and unrelated files
-    // cannot become a second resolution authority.
-    const decoded = Schema.decodeUnknownResult(MemberIdentitySchema)(manifestJson);
-    if (
-      Result.isFailure(decoded) ||
-      Option.isNone(workspaceOwner) ||
-      decoded.success.owner !== workspaceOwner.value ||
-      decoded.success.type !== extensionType ||
-      decoded.success.name !== installed.key.name
-    )
-      return [];
-    return [
-      {
-        fqn: `${decoded.success.owner}/${toExtensionTypePlural(extensionType)}/${decoded.success.name}`,
-        version: decoded.success.version,
-        authority: "workspace",
-      },
-    ];
-  }
-  const resolved = installed.resolved;
-  if (Option.isNone(resolved)) return [];
-  const entry = resolved.value.lockEntry;
-  if (entry.source.type !== "registry" || !("version" in entry.resolved)) return [];
-  return [
-    {
-      fqn: `${entry.identity.owner}/${toExtensionTypePlural(extensionType)}/${entry.identity.name}`,
-      version: entry.resolved.version,
-      authority: "registry",
-    },
-  ];
-};
-
-const installedPackAuthority = (installed: InstalledPack): PackDependencyAuthority => {
-  if (Option.isSome(installed.resolved)) {
-    return "registry";
-  }
-  if (installed.installationOrigin._tag !== "direct") return "registry";
-  const declared = installed.installationOrigin.declared.entry;
-  const source = typeof declared === "string" ? declared : declared.source;
-  return source === "workspace" ? "workspace" : "registry";
-};
-
-const toPackDependencyDeclaration = (entry: NamedPack) => {
-  const decoded = Schema.decodeUnknownResult(PackManifestSchema)(entry.info.packJson);
-  if (Result.isFailure(decoded)) return [];
-  const manifest = decoded.success;
-  return [
-    {
-      packFqn: `${manifest.owner}/packs/${manifest.name}`,
-      packAuthority: installedPackAuthority(entry.installed),
-      manifestPath: joinManifestPath(entry.info.displayRoot, PACK_MANIFEST_FILENAME),
-      dependencies: manifest.dependencies,
-    },
-  ];
-};
 
 const namedContext = <C extends { readonly displayRoot: string }>(
   name: string,

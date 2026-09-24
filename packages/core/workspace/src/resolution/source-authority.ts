@@ -1,4 +1,3 @@
-import * as semver from "semver";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
 import type { CanonicalObservationStatus } from "../desired-state/index.js";
 
@@ -21,18 +20,15 @@ export interface SourceAuthorityInput {
   readonly configured?: {
     readonly identity: string;
     readonly workspace: boolean;
-    readonly version?: string;
     /** The configured workspace package's canonical observation. */
     readonly status?: CanonicalObservationStatus;
   };
-  readonly requiredVersionRange?: string;
   readonly allowWorkspaceReplacement?: boolean;
 }
 
 export type SourceAuthorityBlockedCause =
   | "workspace-source-replacement"
   | "workspace-identity-mismatch"
-  | "workspace-version-incompatible"
   | "workspace-unusable"
   | "pack-source-conflict";
 
@@ -44,8 +40,6 @@ export interface SourceAuthorityBlockedFact {
   readonly configuredSource: string;
   readonly cause: SourceAuthorityBlockedCause;
   readonly detail: string;
-  readonly workspaceVersion?: string;
-  readonly requiredVersionRange?: string;
   readonly recovery: ReadonlyArray<{ readonly description: string }>;
 }
 
@@ -56,7 +50,6 @@ export type SourceAuthorityDecision =
       readonly target: SourceAuthorityTarget;
       readonly relationship: Extract<SourceAuthorityRelationship, { readonly kind: "member" }>;
       readonly configuredSource: string;
-      readonly workspaceVersion?: string;
     }
   | { readonly kind: "blocked"; readonly fact: SourceAuthorityBlockedFact };
 
@@ -76,10 +69,6 @@ const blocked = (
     configuredSource: configured.identity,
     cause,
     detail,
-    ...(configured.version === undefined ? {} : { workspaceVersion: configured.version }),
-    ...(input.requiredVersionRange === undefined
-      ? {}
-      : { requiredVersionRange: input.requiredVersionRange }),
     recovery,
   },
 });
@@ -142,29 +131,13 @@ export const evaluateSourceAuthority = (input: SourceAuthorityInput): SourceAuth
     );
   }
 
-  if (
-    input.requiredVersionRange !== undefined &&
-    (configured.version === undefined ||
-      !semver.satisfies(configured.version, input.requiredVersionRange))
-  ) {
-    return blocked(
-      input,
-      configured,
-      "workspace-version-incompatible",
-      `Workspace dependency ${input.target.identity}@${configured.version ?? "unknown"} does not satisfy ${input.requiredVersionRange}`,
-      [
-        {
-          description: `Update the workspace dependency to satisfy ${input.requiredVersionRange}, or explicitly transition its authority.`,
-        },
-      ],
-    );
-  }
-
+  // Whether the workspace package's version satisfies the member's range is
+  // judged once, by the canonical observation and the member resolver; this
+  // authority decision only says which source may supply the member.
   return {
     kind: "workspace-satisfied",
     target: input.target,
     relationship: input.relationship,
     configuredSource: configured.identity,
-    ...(configured.version === undefined ? {} : { workspaceVersion: configured.version }),
   };
 };

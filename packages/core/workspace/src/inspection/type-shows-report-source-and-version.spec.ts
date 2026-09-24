@@ -5,12 +5,18 @@ import * as Schema from "effect/Schema";
 import { ManifestIdentitySchema } from "@agentxm/extension-content";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
+import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
+import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
+import { mcpRegistryResolutionKey } from "../desired-state/index.js";
+import { makeRegistryMcpServerLockEntry } from "../desired-state/testing.js";
 import { ShowExtension } from "./show/show-extension.js";
 import {
   AUTHORING_TYPES,
   authoredManifestPath,
   makeAuthoredExtensionFixture,
   type AuthoringType,
+  inspectionRegistryUrl,
+  makeInspectionFixture,
 } from "./testing.js";
 import {
   installRegistrySkill,
@@ -70,6 +76,58 @@ describe("Installed extension detail", () => {
         )
         .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));
     });
+
+  // A sourced MCP connection is shown under its local name, while its
+  // accepted resolution is recorded once under the source it resolves to.
+  it.effect("reports a sourced MCP connection's accepted version under its local name", () => {
+    const authority = new URL(inspectionRegistryUrl);
+    const fixture = makeInspectionFixture({
+      settings: {
+        agents: [],
+        defaultRegistry: "test",
+        sources: [{ name: "test", type: "registry", location: inspectionRegistryUrl }],
+        mcpServers: { context: { source: "@acme/mcps/context@^1.0.0", enabled: true } },
+      },
+      lockfile: {
+        mcpServers: {
+          [mcpRegistryResolutionKey({ authority, owner: "@acme", name: "context" })]:
+            makeRegistryMcpServerLockEntry({
+              owner: decodeHandleSync("@acme"),
+              name: "context",
+              resolvedVersion: decodeVersionSync("1.2.0"),
+              endpoint: authority,
+            }),
+        },
+      },
+      files: {
+        "agent_extensions/registry/@acme/mcps/context/mcp.json": JSON.stringify({
+          owner: "@acme",
+          type: "mcp-server",
+          name: "context",
+          version: "1.2.0",
+          server: {
+            name: "io.github.acme/context",
+            description: "Context server",
+            version: "1.2.0",
+            remotes: [{ type: "streamable-http", url: "https://mcp.acme.test/context" }],
+          },
+        }),
+      },
+    });
+    return fixture
+      .provide(
+        Effect.gen(function* () {
+          const result = yield* ShowExtension.query({ type: "mcp-server", name: "context" });
+          expect(result.item).toMatchObject({
+            name: "context",
+            source: "@acme/mcps/context@^1.0.0",
+            version: "1.2.0",
+            locked: true,
+          });
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));
+  });
 
   // The arrangement is an installation, not a lockfile written by hand: the
   // source and version below are what installing recorded, so this example

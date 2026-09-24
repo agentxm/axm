@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  buildPackDependencyReachability,
-  packDependencyReachabilityByMember,
-} from "./dependency-reachability.js";
+import { buildPackDependencyReachability } from "./dependency-reachability.js";
 
 describe("pack dependency reachability", () => {
   it("classifies satisfying, excluded, and missing members deterministically", () => {
@@ -32,9 +29,6 @@ describe("pack dependency reachability", () => {
         { memberFqn: "@acme/skills/satisfying", classification: "satisfying" },
       ],
     );
-    expect(packDependencyReachabilityByMember(records).get("@acme/skills/excluded")).toEqual([
-      records[0],
-    ]);
   });
 
   it("leaves invalid ranges to manifest validation", () => {

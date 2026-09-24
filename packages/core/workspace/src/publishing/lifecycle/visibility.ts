@@ -19,6 +19,7 @@ import * as Schema from "effect/Schema";
 import {
   ExtensionFqnSchema,
   ExtensionVisibilitySchema,
+  formatFqn,
   parseExtensionFqnParts,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { ExtensionVisibility } from "@agentxm/extension-model/unstable/extensions/common";
@@ -30,7 +31,11 @@ import type {
   VisibilityMutationResult,
 } from "@agentxm/registry-protocol/unstable/publish";
 import { runWithStepUp, type StepUpOptions } from "@agentxm/registry-access/authentication";
-import { SettingsReader, WorkspaceLocation } from "../../desired-state/index.js";
+import {
+  acceptedCanonicalObservation,
+  SettingsReader,
+  WorkspaceLocation,
+} from "../../desired-state/index.js";
 
 import { PublishFailed } from "../errors.js";
 import { declaredVisibilityIntent } from "../publish/publication.js";
@@ -95,33 +100,46 @@ export const repositoryVisibilityIntent = Effect.fn("Visibility.repositoryIntent
       validation("Repository visibility can be configured only for project workspaces."),
     );
   }
-  const manifestPath = path.join(
-    layout.authoredRoot(parts.type),
-    parts.name,
-    manifestFilenameForType(parts.type),
-  );
-  const manifest = yield* fs.exists(manifestPath).pipe(
-    Effect.flatMap((exists) =>
-      exists
-        ? fs
-            .readFileString(manifestPath)
-            .pipe(
-              Effect.flatMap(
-                Schema.decodeUnknownEffect(Schema.fromJsonString(ManifestVisibilitySchema)),
-              ),
-              Effect.map(Option.some),
-            )
-        : Effect.succeed(Option.none<typeof ManifestVisibilitySchema.Type>()),
+  // The authored manifest is read where the canonical observation placed the
+  // declared package; an undeclared or foreign package declares no intent.
+  const authoredRoot = yield* acceptedCanonicalObservation({
+    type: parts.type,
+    name: parts.name,
+  }).pipe(
+    Effect.map(
+      Option.flatMap(({ desired, observation }) =>
+        desired.identity.startsWith("workspace:") && observation.status !== "wrong-origin"
+          ? Option.fromUndefinedOr(observation.path)
+          : Option.none(),
+      ),
     ),
     Effect.mapError(
       (cause) =>
         new PublishFailed({
           category: "validation",
-          detail: `Unable to read visibility intent from ${manifestPath}.`,
+          detail: `Unable to observe the declared package for ${formatFqn(parts)}.`,
           cause,
         }),
     ),
   );
+  const manifest = yield* Option.match(authoredRoot, {
+    onNone: () => Effect.succeed(Option.none<typeof ManifestVisibilitySchema.Type>()),
+    onSome: (root) => {
+      const manifestPath = path.join(root, manifestFilenameForType(parts.type));
+      return fs.readFileString(manifestPath).pipe(
+        Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(ManifestVisibilitySchema))),
+        Effect.map(Option.some),
+        Effect.mapError(
+          (cause) =>
+            new PublishFailed({
+              category: "validation",
+              detail: `Unable to read visibility intent from ${manifestPath}.`,
+              cause,
+            }),
+        ),
+      );
+    },
+  });
   const workspaceDefault = yield* settings.publishDefaultVisibility.pipe(
     Effect.mapError(
       (cause) =>

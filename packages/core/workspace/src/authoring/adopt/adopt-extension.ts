@@ -48,7 +48,6 @@ import {
   type RecipeRequirements,
 } from "../../reconciliation/index.js";
 import {
-  extensionTypeToPlural,
   formatFqn,
   parseFqn,
   type ExtensionType,
@@ -243,15 +242,7 @@ export const prepareAdoptExtension: (
 
   const name = parsed.name;
   const fqn = formatFqn(parsed);
-  const sourceDir = path.join(
-    layout.acquiredRoot,
-    "registry",
-    parsed.owner,
-    extensionTypeToPlural[parsed.type],
-    name,
-  );
   const targetDir = path.join(layout.authoredRoot(parsed.type), name);
-  const acquiredPath = path.relative(location.baseDir, sourceDir);
   const authoredPath = path.relative(location.baseDir, targetDir);
   const settingsPath = settingsRelativePath(path, location, layout);
 
@@ -271,19 +262,24 @@ export const prepareAdoptExtension: (
     destinations: [targetDir],
   });
 
-  // In-place adoption is decided from what is on disk now and repeated under
-  // the transaction lock, so preview and apply refuse the same states.
-  const inPlaceRefusals = Effect.gen(function* () {
+  // The acquired copy adoption moves is the one the install-root inventory
+  // names for exactly this identity; the canonical location is never
+  // recomputed by hand here.
+  const observeAcquiredCopies = Effect.gen(function* () {
     const inventory = yield* observeInstallRoot({
       layout: layout,
       graph: yield* (yield* DesiredStateReader).graph(),
       locks,
     });
-    const installedCopy = inventory.packages.find(
-      (entry) =>
-        entry.type === parsed.type &&
-        entry.name === name &&
-        (entry.owner === undefined || entry.owner === parsed.owner),
+    return inventory.packages.filter((entry) => entry.type === parsed.type && entry.name === name);
+  });
+  const acquiredCopy = (yield* observeAcquiredCopies).find((entry) => entry.owner === parsed.owner);
+
+  // In-place adoption is decided from what is on disk now and repeated under
+  // the transaction lock, so preview and apply refuse the same states.
+  const inPlaceRefusals = Effect.gen(function* () {
+    const installedCopy = (yield* observeAcquiredCopies).find(
+      (entry) => entry.owner === undefined || entry.owner === parsed.owner,
     );
     // Two copies of one identity leave adoption no single content to author.
     if (installedCopy !== undefined) {
@@ -322,6 +318,14 @@ export const prepareAdoptExtension: (
     );
   const mode: AdoptExtensionCandidate["mode"] = authoredExists ? "in-place" : "move";
   yield* mode === "in-place" ? inPlaceRefusals : createOnly;
+  if (mode === "move" && acquiredCopy === undefined) {
+    return yield* new AuthoringFailed({
+      category: "not_found",
+      detail: `No acquired copy of ${fqn} is installed in this workspace to adopt`,
+    });
+  }
+  const sourceDir = acquiredCopy?.path ?? targetDir;
+  const acquiredPath = path.relative(location.baseDir, sourceDir);
 
   // A package the workspace never declared becomes enabled: adopting content
   // that stays invisible is not what adoption was asked for.

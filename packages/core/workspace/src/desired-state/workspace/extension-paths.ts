@@ -194,6 +194,20 @@ const extensionPathsAt = (
   };
 };
 
+/** The owner every bundled official skill is published under. */
+export const BUNDLED_SKILL_OWNER = "@agentxm";
+
+/**
+ * Where a bundled official skill's canonical package sits: the Registry tree
+ * of its owner, under the settings name that declares it. Every reader and
+ * writer of that package derives the path here.
+ */
+export const bundledSkillCanonicalRoot = (
+  join: (...paths: string[]) => string,
+  layout: WorkspaceLayout,
+  name: string,
+): string => join(layout.acquiredRoot, "registry", BUNDLED_SKILL_OWNER, "skills", name);
+
 export const computeExtensionPathsForLayout = (
   join: (...paths: string[]) => string,
   layout: WorkspaceLayout,

@@ -11,7 +11,6 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
-import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import * as semver from "semver";
 
@@ -31,6 +30,7 @@ import {
   type PackMemberConstraintMap,
   type ExtensionName,
   type Handle,
+  parseExtensionFqnParts,
 } from "@agentxm/extension-model/unstable/extensions";
 import { CompanionPackageSchema } from "@agentxm/extension-model/unstable/package-urls";
 import {
@@ -51,7 +51,6 @@ import { inspectKnowledgeBundle } from "@agentxm/extension-content/knowledge";
 import { createRegistryClient } from "@agentxm/registry-client";
 import {
   SettingsReader,
-  WorkspaceLocation,
   acceptedCanonicalObservation,
   settingsEntries,
 } from "../../desired-state/index.js";
@@ -292,59 +291,60 @@ const identityFromSource = (entry: CatalogEntry): SelectedEntry | undefined => {
  */
 export const identityFromManagedPackage = Effect.fn("Publish.identityFromManagedPackage")(
   function* (entry: CatalogEntry) {
+    // The canonical observation is the one judge of where the package sits
+    // and, for an authored package, whether its manifest is this workspace's.
+    const accepted = yield* acceptedCanonicalObservation({ type: entry.type, name: entry.name });
+    const extensionDir = Option.getOrUndefined(
+      Option.flatMap(accepted, ({ observation }) => Option.fromUndefinedOr(observation.path)),
+    );
     const parsedIdentity = identityFromSource(entry);
-    if (parsedIdentity !== undefined) return parsedIdentity;
+    if (parsedIdentity !== undefined) {
+      return extensionDir === undefined ? parsedIdentity : { ...parsedIdentity, extensionDir };
+    }
+    if (Option.isNone(accepted) || extensionDir === undefined) return undefined;
 
-    const location = yield* WorkspaceLocation;
-    const layout = yield* Ref.get(location.layout);
+    const authored = accepted.value.desired.identity.startsWith("workspace:");
+    // A declared authored package whose manifest names another owner, type,
+    // or name is not this workspace's package: nothing publishes it as such.
+    if (authored && accepted.value.observation.status === "wrong-origin") return undefined;
+    const authoredIdentity = authored
+      ? parseExtensionFqnParts(accepted.value.desired.identity.slice("workspace:".length))
+      : undefined;
+    if (authored && authoredIdentity === undefined) return undefined;
+
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const authored = isWorkspaceSourceLocator(entry.source);
-    const accepted = authored
-      ? Option.none()
-      : yield* acceptedCanonicalObservation({ type: entry.type, name: entry.name });
-    const extensionRoots = authored
-      ? layout.scope === "project"
-        ? [path.join(layout.authoredRoot(entry.type), entry.name)]
-        : []
-      : Option.match(accepted, {
-          onNone: () => [],
-          onSome: ({ observation }) => (observation.path === undefined ? [] : [observation.path]),
-        });
-
-    for (const extensionDir of extensionRoots) {
-      const manifestPath = path.join(extensionDir, manifestFilename[entry.type]);
-      const raw = yield* fs.readFileString(manifestPath).pipe(Effect.option);
-      if (Option.isNone(raw)) continue;
-      const json = yield* Effect.sync((): unknown => {
-        try {
-          return JSON.parse(raw.value);
-        } catch {
-          return undefined;
-        }
-      });
-      const manifest = Schema.decodeUnknownOption(CandidateManifestSchema)(json);
-      if (
-        Option.isNone(manifest) ||
-        manifest.value.type !== entry.type ||
-        manifest.value.name !== entry.name
-      ) {
-        continue;
+    const manifestPath = path.join(extensionDir, manifestFilename[entry.type]);
+    const raw = yield* fs.readFileString(manifestPath).pipe(Effect.option);
+    if (Option.isNone(raw)) return undefined;
+    const json = yield* Effect.sync((): unknown => {
+      try {
+        return JSON.parse(raw.value);
+      } catch {
+        return undefined;
       }
-      return {
-        ...entry,
-        owner: manifest.value.owner,
-        fqn: formatFqn(manifest.value),
-        sourceType: sourceType(entry.source),
-        authored,
-        extensionDir,
-        declaredVersion: manifest.value.version,
-        ...(manifest.value.dependencies === undefined
-          ? {}
-          : { declaredDependencies: manifest.value.dependencies }),
-      } satisfies SelectedEntry;
+    });
+    const manifest = Schema.decodeUnknownOption(CandidateManifestSchema)(json);
+    if (
+      Option.isNone(manifest) ||
+      manifest.value.type !== entry.type ||
+      manifest.value.name !== entry.name
+    ) {
+      return undefined;
     }
-    return undefined;
+    const identity = authoredIdentity ?? manifest.value;
+    return {
+      ...entry,
+      owner: identity.owner,
+      fqn: formatFqn(identity),
+      sourceType: sourceType(entry.source),
+      authored,
+      extensionDir,
+      declaredVersion: manifest.value.version,
+      ...(manifest.value.dependencies === undefined
+        ? {}
+        : { declaredDependencies: manifest.value.dependencies }),
+    } satisfies SelectedEntry;
   },
 );
 
@@ -407,8 +407,6 @@ export const selectEntries = Effect.fn("Publish.selectEntries")(function* (
   catalog: ReadonlyArray<CatalogEntry>,
   args: PublishRequest,
 ) {
-  const location = yield* WorkspaceLocation;
-  const layout = yield* Ref.get(location.layout);
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const hasFilters = args.owners.length > 0 || args.types.length > 0 || args.excludes.length > 0;
@@ -459,11 +457,12 @@ export const selectEntries = Effect.fn("Publish.selectEntries")(function* (
   if (args.includeDependencies) {
     const selectedPacks = selected.filter((entry) => entry.type === "pack");
     for (const pack of selectedPacks) {
-      const packDir =
-        pack.extensionDir ??
-        (layout.scope === "project"
-          ? path.join(layout.authoredRoot("pack"), pack.name)
-          : path.join(layout.acquiredRoot, pack.owner, "packs", pack.name));
+      // The pack's location is the one the canonical observation established;
+      // nothing here guesses a second one.
+      const packDir = pack.extensionDir;
+      if (packDir === undefined) {
+        return yield* validation(`Cannot read dependencies for ${pack.fqn}`);
+      }
       const manifestPath = path.join(packDir, manifestFilename.pack);
       const raw = yield* fs
         .readFileString(manifestPath)
@@ -730,20 +729,17 @@ export const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
   }
   if (selected.skipReason !== undefined) return undefined;
   if (!isPublishableType(selected.type)) return undefined;
-  const location = yield* WorkspaceLocation;
-  const layout = yield* Ref.get(location.layout);
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const extensionDir =
-    selected.extensionDir ??
-    (layout.scope === "project" && selected.authored
-      ? path.join(layout.authoredRoot(selected.type), selected.name)
-      : path.join(
-          layout.acquiredRoot,
-          selected.owner,
-          extensionTypeToPlural[selected.type],
-          selected.name,
-        ));
+  const extensionDir = selected.extensionDir;
+  if (extensionDir === undefined) {
+    return yield* Effect.fail(
+      new PublishFailed({
+        category: "not_found",
+        detail: `Canonical package for ${selected.fqn} is not available in this workspace.`,
+      }),
+    );
+  }
   const manifestPath = path.join(extensionDir, manifestFilename[selected.type]);
   const manifestJson = yield* fs.readFileString(manifestPath).pipe(
     Effect.flatMap((content) =>

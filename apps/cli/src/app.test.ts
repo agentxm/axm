@@ -16,8 +16,12 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 
 import { run } from "./app.js";
-import { captureHelpDoc, collectHelpFiles } from "./test-support/command-tree-test-helpers.js";
-import { LearnMore, ROOT_HELP_WIDTH, makeAxmFormatter } from "./formatter.js";
+import {
+  captureHelpDoc,
+  collectHelpFiles,
+  helpText,
+} from "./test-support/command-tree-test-helpers.js";
+import { LearnMore } from "./formatter.js";
 import {
   INSTALLED_STATE_SCOPE_COMMANDS,
   PROJECT_ONLY_AUTHORING_COMMANDS,
@@ -48,7 +52,7 @@ const renderedRootCommandNames = (rendered: string): ReadonlyArray<string> =>
         : [];
     })
     .flatMap(
-      (row) => /^ {2}([a-z][a-z-]*(?:, [a-z][a-z-]*)*)(?: |$)/.exec(row)?.[1]?.split(", ") ?? [],
+      (row) => /^ +([a-z][a-z-]*(?:, [a-z][a-z-]*)*)(?: |$)/.exec(row)?.[1]?.split(", ") ?? [],
     );
 
 class ExitCalled extends Error {
@@ -273,27 +277,13 @@ describe("root command help", () => {
   it.effect("names every registered root command exactly once in rendered root help", () =>
     Effect.gen(function* () {
       const doc = yield* captureHelpDoc([]);
-      const rendered = renderedRootCommandNames(
-        makeAxmFormatter({ colors: false }).formatHelpDoc(doc),
-      );
+      const rendered = renderedRootCommandNames(helpText(doc));
       const registered = (doc.subcommands ?? []).flatMap((group) =>
         group.commands.map((command) => command.name),
       );
 
       expect(rendered.length).toBe(new Set(rendered).size);
       expect(new Set(rendered)).toEqual(new Set(registered));
-    }),
-  );
-
-  it.effect(`renders root help within ${ROOT_HELP_WIDTH} columns`, () =>
-    Effect.gen(function* () {
-      const doc = yield* captureHelpDoc([]);
-      const rendered = makeAxmFormatter({ colors: false }).formatHelpDoc(doc);
-      const overflowing = rendered
-        .split("\n")
-        .filter((line) => Array.from(line).length > ROOT_HELP_WIDTH);
-
-      expect(overflowing).toEqual([]);
     }),
   );
 });

@@ -77,6 +77,40 @@ describe("Install locally named MCP connections", () => {
       .pipe(Effect.provide(NodeServices.layer));
   });
 
+  it.effect("resolves a new connection within the range a Pack requires of its source", () => {
+    const { workspace, registry } = setup();
+    registry.writeMcp("context", [{ version: "1.0.0" }, { version: "2.0.0" }]);
+    registry.writePack("toolkit", [
+      { version: "1.0.0", dependencies: { "@acme/mcps/context": "^1.0.0" } },
+    ]);
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          yield* applyInstall(
+            installRequest({
+              type: "pack",
+              subject: { kind: "source", source: "@acme/packs/toolkit" },
+            }),
+          );
+
+          yield* install("@acme/mcps/context", "personal-context");
+
+          expect(readSettings(workspace)).toMatchObject({
+            mcpServers: { "personal-context": "test:@acme/mcps/context" },
+          });
+          const lockfile: unknown = YAML.parse(workspace.readFile("axm-lock.yaml"));
+          if (typeof lockfile !== "object" || lockfile === null || !("mcpServers" in lockfile)) {
+            throw new Error("Expected an MCP resolution map");
+          }
+          // The Pack's member and the new connection share one resolution the Pack admits.
+          expect(Object.values(lockfile.mcpServers ?? {})).toEqual([
+            expect.objectContaining({ resolved: expect.objectContaining({ version: "1.0.0" }) }),
+          ]);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
   it.effect("uses each local name verbatim as the agent-native MCP key", () => {
     const { workspace } = setup();
     return workspace

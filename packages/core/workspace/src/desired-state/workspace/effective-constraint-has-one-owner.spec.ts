@@ -153,4 +153,20 @@ describe("The effective constraint has one owner", () => {
       ]);
     }),
   );
+
+  it.effect(
+    "a proposed declaration without a range leaves every Pack range deciding the constraint",
+    () =>
+      Effect.gen(function* () {
+        const graph = yield* sharedMemberGraph(SHARED_MEMBER_PIN.outside);
+
+        const unpinned = effectiveDesiredConstraint(graph, member, [
+          { source: "settings", localName: SHARED_MEMBER.name },
+        ]);
+
+        if (Result.isFailure(unpinned)) throw new Error("Expected a satisfiable constraint");
+        expect(admitted(unpinned.success)).toEqual(["1.0.0", "1.1.0", "1.2.0"]);
+        expect(unpinned.success.contributors).toEqual(packContributors);
+      }),
+  );
 });

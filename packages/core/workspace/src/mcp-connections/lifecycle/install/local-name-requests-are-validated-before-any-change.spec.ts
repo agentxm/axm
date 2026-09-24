@@ -120,10 +120,50 @@ describe("Validate locally named MCP install requests", () => {
             Effect.flip,
           );
 
-          expect(refusalDetail(failure)).toContain("constraints do not intersect");
+          const detail = refusalDetail(failure);
+          expect(detail).toContain(
+            "mcp-server personal-context, work-context: incompatible constraints",
+          );
+          expect(detail).toContain("settings range=^1.0.0");
+          expect(detail).toContain("settings range=^2.0.0");
+          expect(detail).toContain("decision=blocked");
           expect(recordedState(world)).toEqual(before);
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));
   });
+
+  it.effect(
+    "rejects a requested constraint outside the range a Pack requires of the source, naming both",
+    () => {
+      const world = setup([{ name: "context", versions: ["1.0.0", "2.0.0"] }]);
+      world.registry.writePack("toolkit", [
+        { version: "1.0.0", dependencies: { "@acme/mcps/context": "^1.0.0" } },
+      ]);
+      return world.workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* applyInstall(
+              installRequest({
+                type: "pack",
+                subject: { kind: "source", source: "@acme/packs/toolkit" },
+              }),
+            );
+            const before = recordedState(world);
+
+            const failure = yield* install("@acme/mcps/context@^2.0.0", "personal-context").pipe(
+              Effect.flip,
+            );
+
+            const detail = refusalDetail(failure);
+            expect(detail).toContain("incompatible constraints");
+            expect(detail).toContain("@acme/packs/toolkit range=^1.0.0");
+            expect(detail).toContain("settings range=^2.0.0");
+            expect(detail).toContain("decision=blocked");
+            expect(recordedState(world)).toEqual(before);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
 });

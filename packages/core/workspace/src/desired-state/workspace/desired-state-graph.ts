@@ -406,10 +406,23 @@ export const collectDesiredConstraintContributors = (
     }),
   );
 
-const contributorOwner = (contributor: DesiredConstraintContributor): string =>
+/**
+ * One owner's contribution after a change a planner is about to make: the
+ * direct declaration for a local name, or a Pack. A direct declaration the
+ * change rewrites without a range contributes nothing afterwards.
+ */
+export type DesiredConstraintProposal =
+  | DesiredConstraintContributor
+  | { readonly source: "settings"; readonly localName: string; readonly range?: undefined };
+
+const contributorOwner = (contributor: DesiredConstraintProposal): string =>
   contributor.source === "pack"
     ? `pack:${packageIdentity(contributor.dependingPack ?? "")}`
     : `settings:${contributor.localName ?? ""}`;
+
+const isContributor = (
+  proposal: DesiredConstraintProposal,
+): proposal is DesiredConstraintContributor => proposal.range !== undefined;
 
 const decodeRange = Schema.decodeUnknownOption(VersionRangeSchema);
 
@@ -452,24 +465,34 @@ const combineConstraintContributors = (
  * A sourced MCP server's contributors are its whole source-resolution
  * closure, because every local connection to one source shares a resolution.
  *
- * `proposed` contributors describe a change a planner is about to make: each
+ * `proposed` contributions describe a change a planner is about to make: each
  * one replaces the graph's contributors with the same owner — the direct
  * declaration for that local name, or that Pack — so a planner asks what the
  * constraint becomes after its own change without publishing it. A target
- * the graph does not desire is constrained by its proposed contributors only.
+ * the graph does not desire is constrained by its proposed contributors
+ * only, except that a prospective MCP connection naming a source `identity`
+ * joins that source's closure and is constrained by it as well.
  */
 export const effectiveDesiredConstraint = (
   graph: Pick<DesiredStateGraph, "nodes" | "mcpSourceClosures">,
-  target: { readonly type: ExtensionType; readonly name: string },
-  proposed: ReadonlyArray<DesiredConstraintContributor> = [],
+  target: { readonly type: ExtensionType; readonly name: string; readonly identity?: string },
+  proposed: ReadonlyArray<DesiredConstraintProposal> = [],
 ): Result.Result<DesiredEffectiveConstraint, DesiredConstraintConflict> => {
   const node = graph.nodes.find(
     (candidate) => candidate.type === target.type && candidate.name === target.name,
   );
+  const closureIdentity =
+    target.type !== "mcp-server"
+      ? undefined
+      : node === undefined
+        ? target.identity
+        : isSourcedDesiredExtension(node)
+          ? node.identity
+          : undefined;
   const closure =
-    node !== undefined && node.type === "mcp-server" && isSourcedDesiredExtension(node)
-      ? graph.mcpSourceClosures.find((candidate) => candidate.identity === node.identity)
-      : undefined;
+    closureIdentity === undefined
+      ? undefined
+      : graph.mcpSourceClosures.find((candidate) => candidate.identity === closureIdentity);
   const replaced = new Set(proposed.map(contributorOwner));
   const current = collectDesiredConstraintContributors(
     closure?.origins ?? node?.origins ?? [],
@@ -477,9 +500,12 @@ export const effectiveDesiredConstraint = (
   return combineConstraintContributors(
     {
       extensionType: target.type,
-      name: closure === undefined ? target.name : closure.localNames.join(", "),
+      name:
+        closure === undefined
+          ? target.name
+          : [...new Set([...closure.localNames, target.name])].sort().join(", "),
     },
-    sortConstraintContributors([...current, ...proposed]),
+    sortConstraintContributors([...current, ...proposed.filter(isContributor)]),
   );
 };
 

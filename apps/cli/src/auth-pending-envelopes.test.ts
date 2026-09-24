@@ -17,7 +17,7 @@ import {
 } from "@agentxm/registry-access/authentication";
 import type { HumanHandoffAction } from "@agentxm/registry-protocol/unstable/human-handoff";
 
-import { authFailureToAppError } from "./feature-errors.js";
+import { failureToAppError } from "./app-error/conversions.js";
 import { classifyError, JsonErrorEnvelopeSchema } from "./cli-runtime/index.js";
 
 const registryUrl = "https://registry.example.test";
@@ -34,8 +34,7 @@ const stepUpAction: HumanHandoffAction = {
   resume: `Rerun the same command with the same inputs and --step-up-request ${stepUpRequestRef}.`,
 };
 
-const classify = (failure: Parameters<typeof authFailureToAppError>[0]) =>
-  classifyError(authFailureToAppError(failure), "json");
+const classify = (failure: unknown) => classifyError(failureToAppError(failure), "json");
 
 describe("human-handoff exit codes and envelope", () => {
   it("exits 13 for a pending step-up verification and renders the open-url action", () => {

@@ -1,10 +1,10 @@
-import type { HumanHandoffAction } from "@agentxm/registry-protocol/unstable/human-handoff";
 import * as Data from "effect/Data";
 import * as Schema from "effect/Schema";
 
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
   defaultFailureDetail,
+  type FailureAction,
   type FailureInput,
   type FailureMetadata,
   type FailureProblem,
@@ -228,16 +228,8 @@ const ExitCodeByAppErrorCode: Readonly<Record<AppErrorCode, ExitCode>> = {
 
 export const exitCodeFor = (code: AppErrorCode): ExitCode => ExitCodeByAppErrorCode[code];
 
-export type AppErrorAction =
-  | HumanHandoffAction
-  | {
-      readonly kind: "open-url";
-      readonly url: string;
-      readonly fallbackUrl?: string;
-      readonly code?: string;
-      readonly expiresAt?: string;
-      readonly resume?: string;
-    };
+/** The pending action a failure hands to a person, as the kernel renders it. */
+export type AppErrorAction = FailureAction;
 
 const DefaultTitleByAppErrorCode: Readonly<Record<AppErrorCode, string>> = {
   auth: "Unauthorized",

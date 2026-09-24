@@ -69,10 +69,11 @@ describe("aggregatePublishFailure", () => {
 describe("publishCause", () => {
   it("reports unavailable configuration without exposing provider details or claiming a retry", () => {
     const failure = new ConfigError(new SourceError({ message: "private source detail" }));
+    // The sentence is the kernel's, the same one a command boundary prints.
     expect(publishCause(failure)).toEqual({
       code: "unavailable",
       class: "external",
-      message: "Registry cache configuration could not be read.",
+      message: "AXM configuration could not be loaded.",
       retryable: false,
     });
   });

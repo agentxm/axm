@@ -1,8 +1,7 @@
 /**
- * Envelope pinning for the registry-access boundary conversions. The auth
- * feature's internal tests assert typed failures; the byte-for-byte envelope
- * contract that used to live at the construction sites is pinned here, in the
- * one place that owns the mapping.
+ * Envelope pinning for the Registry access family. The kernel renders every
+ * access failure once; this file pins the envelope the CLI projects from that
+ * rendering, byte-for-byte where the former in-place conversions were pinned.
  */
 
 import { describe, expect, it } from "vitest";
@@ -20,21 +19,12 @@ import {
 } from "@agentxm/registry-access/authentication";
 import { RegistryRequestFailed } from "@agentxm/registry-client";
 
-import {
-  authExchangeFailedToAppError,
-  authFailureToAppError,
-  signedOutToAppError,
-  authTokenPolicyRequiredToAppError,
-  deviceAuthorizationPendingToAppError,
-  deviceLoginCodeExpiredToAppError,
-  deviceLoginDeniedToAppError,
-  registryAccessFailedToAppError,
-  stepUpRequiredToAppError,
-} from "./feature-errors.js";
+import { failureToAppError } from "./app-error/conversions.js";
+import { coerceAuthFailure } from "./feature-errors.js";
 
-describe("registry-access envelope conversions", () => {
+describe("registry-access envelope projection", () => {
   it("carries a policy failure's category, wording, and recovery over 1:1", () => {
-    const error = registryAccessFailedToAppError(
+    const error = failureToAppError(
       new RegistryAccessFailed({
         category: "auth_expired",
         detail: "The step-up request expired before verification completed.",
@@ -49,8 +39,8 @@ describe("registry-access envelope conversions", () => {
     ]);
   });
 
-  it("converts a typed auth failure in cause position into the nested envelope", () => {
-    const error = registryAccessFailedToAppError(
+  it("renders a typed auth failure in cause position as the kernel renders it alone", () => {
+    const error = failureToAppError(
       new RegistryAccessFailed({
         category: "auth_expired",
         detail: "The pending device sign-in expired. No credentials were changed.",
@@ -64,22 +54,23 @@ describe("registry-access envelope conversions", () => {
       }),
     );
     expect(error.cause).toMatchObject({
-      _tag: "AppError",
-      code: "auth",
+      _tag: "StepFailure",
+      category: "auth",
       detail: "Login code expired",
     });
   });
 
-  it("renders the signed-out envelope exactly as the shared builder", () => {
-    const error = signedOutToAppError(new SignedOut({ message: "You are not signed in." }));
+  it("renders the signed-out envelope with the command that ends it", () => {
+    const error = failureToAppError(new SignedOut({ message: "You are not signed in." }));
     expect(error.code).toBe("auth_required");
     expect(error.detail).toBe("You are not signed in.");
     expect(error.blockedOn).toBe("human");
     expect(error.suggestions).toEqual([
-      { description: "Sign in.", cmd: "axm login" },
+      { description: "Sign in.", cmd: "axm login", commandScope: "global" },
       {
         description: "Start a non-blocking device sign-in and ask a person to approve it.",
         cmd: "axm login --device-code --json",
+        commandScope: "global",
       },
       {
         description: "Create a personal access token in AgentXM.ai.",
@@ -88,8 +79,8 @@ describe("registry-access envelope conversions", () => {
     ]);
   });
 
-  it("renders the ambient-token-policy envelope exactly as the former builder", () => {
-    const error = authTokenPolicyRequiredToAppError(new AuthTokenPolicyRequired({}));
+  it("renders the ambient-token-policy envelope", () => {
+    const error = failureToAppError(new AuthTokenPolicyRequired({}));
     expect(error.code).toBe("auth_required");
     expect(error.detail).toBe("No authentication token is available.");
     expect(error.blockedOn).toBe("human");
@@ -106,23 +97,23 @@ describe("registry-access envelope conversions", () => {
   });
 
   it("renders the device-login terminal outcomes verbatim", () => {
-    const denied = deviceLoginDeniedToAppError(new DeviceLoginDenied());
+    const denied = failureToAppError(new DeviceLoginDenied());
     expect(denied.code).toBe("auth");
     expect(denied.detail).toBe("Login was denied or cancelled");
     expect(denied.suggestions).toEqual([
-      { description: "Try signing in again.", cmd: "axm login" },
+      { description: "Try signing in again.", cmd: "axm login", commandScope: "global" },
     ]);
 
-    const expired = deviceLoginCodeExpiredToAppError(new DeviceLoginCodeExpired());
+    const expired = failureToAppError(new DeviceLoginCodeExpired());
     expect(expired.code).toBe("auth");
     expect(expired.detail).toBe("Login code expired");
     expect(expired.suggestions).toEqual([
-      { description: "Try signing in again.", cmd: "axm login" },
+      { description: "Try signing in again.", cmd: "axm login", commandScope: "global" },
     ]);
   });
 
   it("renders the pending-human timeout envelope with the full open-url action", () => {
-    const error = deviceAuthorizationPendingToAppError(
+    const error = failureToAppError(
       new DeviceAuthorizationPending({
         registryUrl: "https://registry.example.test",
         intervalSeconds: 2,
@@ -157,6 +148,7 @@ describe("registry-access envelope conversions", () => {
       {
         description: "Resume waiting after approval.",
         cmd: "axm login --device-code --wait-for-human 300 --json",
+        commandScope: "global",
       },
     ]);
   });
@@ -168,7 +160,7 @@ describe("registry-access envelope conversions", () => {
       metadata: { response: { status: 401, body: { code: "eotp" } } },
       cause: "original transport cause",
     });
-    const error = stepUpRequiredToAppError(
+    const error = failureToAppError(
       new StepUpRequired({
         stepUp: {
           requestId: "step_1",
@@ -200,8 +192,8 @@ describe("registry-access envelope conversions", () => {
     expect(error.cause).toBe("original transport cause");
   });
 
-  it("overlays exchange semantics while keeping the mapped failure's title and metadata", () => {
-    const error = authExchangeFailedToAppError(
+  it("overlays exchange semantics while keeping the transport failure's evidence", () => {
+    const error = failureToAppError(
       new AuthExchangeFailed({
         detail: "Token refresh request failed",
         suggestions: [{ description: "Sign in again.", cmd: "axm login" }],
@@ -213,25 +205,25 @@ describe("registry-access envelope conversions", () => {
       }),
     );
     expect(error.code).toBe("auth");
-    // The former in-place conversion froze the title at the pre-overlay
-    // category's default; the overlay preserves it.
-    expect(error.title).toBe("Network Error");
+    expect(error.title).toBe("Unauthorized");
     expect(error.detail).toBe("Token refresh request failed");
-    expect(error.suggestions).toEqual([{ description: "Sign in again.", cmd: "axm login" }]);
+    expect(error.suggestions).toEqual([
+      { description: "Sign in again.", cmd: "axm login", commandScope: "global" },
+    ]);
     expect(error.cause).toBe("socket closed");
   });
 
-  it("passes envelopes through and wraps unknown failures as internal", () => {
+  it("passes envelopes through and leaves other expected failures untouched", () => {
     const envelope = makeAppError({ code: "usage", detail: "bad flags" });
-    expect(authFailureToAppError(envelope)).toBe(envelope);
+    expect(coerceAuthFailure(envelope)).toBe(envelope);
 
-    const registry = authFailureToAppError(
+    const registry = failureToAppError(
       new RegistryRequestFailed({ category: "not_found", detail: "missing" }),
     );
     expect(registry.code).toBe("not_found");
     expect(registry.detail).toBe("missing");
 
-    const unknown = authFailureToAppError("boom");
+    const unknown = failureToAppError("boom");
     expect(unknown.code).toBe("internal");
     expect(unknown.detail).toBe("boom");
   });

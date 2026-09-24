@@ -7,6 +7,7 @@
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, describe, expect, it } from "@effect/vitest";
+import type * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
@@ -27,7 +28,9 @@ import {
   type SourceHostProvidersService,
 } from "../../resolution/sources/service.js";
 import type { SourceResolutionFailure } from "../../resolution/sources/index.js";
+import type { ExtensionLifecycleFailed } from "../errors.js";
 import { makeLifecycleFixture } from "../testing.js";
+import type { ResolveInstallRequirements } from "./vocabulary.js";
 
 const registry: RegistrySource = {
   type: "registry",
@@ -51,72 +54,90 @@ const forbidden = new RegistryProblem({
     request: { service: "registry", method: "GET", url: `${registry.location.href}v1/x` },
     response: { status: 403, requestId: "req_403" },
   },
+  cause: undefined,
 });
 
-/** Every per-type discovery, given one source. */
-const discoveries = (source: RegistrySource | typeof git) =>
+type Discovery = Effect.Effect<
+  void,
+  ExtensionLifecycleFailed | Config.ConfigError,
+  ResolveInstallRequirements
+>;
+
+/** Every per-type discovery, given one source; what each finds is not the question. */
+const discoveries = (
+  source: RegistrySource | typeof git,
+): ReadonlyArray<readonly [string, Discovery]> => [
   [
-    [
-      "skill",
-      discoverSkillRefs({
-        source,
-        versionRange: Option.none(),
-        requestedSkills: ["review"],
-        requestedOwner: Option.none(),
-        resolutionProbes: [],
-        all: false,
-        force: false,
-        nonInteractive: true,
-      }),
-    ],
-    [
-      "subagent",
-      discoverSubagentRefs({
-        source,
-        versionRange: Option.none(),
-        requestedSubagents: ["review"],
-        requestedOwner: Option.none(),
-        resolutionProbes: [],
-        all: false,
-        nonInteractive: true,
-      }),
-    ],
-    [
-      "rule",
-      discoverRuleRefs({ source, names: [], owner: Option.none(), versionRange: Option.none() }),
-    ],
-    [
-      "hook",
-      discoverHookRefs({ source, names: [], owner: Option.none(), versionRange: Option.none() }),
-    ],
-    [
-      "knowledge",
-      discoverKnowledgeRefs({
-        source,
-        names: [],
-        owner: Option.none(),
-        versionRange: Option.none(),
-      }),
-    ],
-    [
-      "mcp-server",
-      discoverMcpServerRefs({
-        source,
-        owner: Option.none(),
-        serverName: Option.none(),
-        versionRange: Option.none(),
-      }),
-    ],
-    [
-      "pack",
-      discoverPackRefs({
-        source: git,
-        owner: Option.none(),
-        packName: Option.none(),
-        versionRange: Option.none(),
-      }),
-    ],
-  ] as const;
+    "skill",
+    discoverSkillRefs({
+      source,
+      versionRange: Option.none(),
+      requestedSkills: ["review"],
+      requestedOwner: Option.none(),
+      resolutionProbes: [],
+      all: false,
+      force: false,
+      nonInteractive: true,
+    }).pipe(Effect.asVoid),
+  ],
+  [
+    "subagent",
+    discoverSubagentRefs({
+      source,
+      versionRange: Option.none(),
+      requestedSubagents: ["review"],
+      requestedOwner: Option.none(),
+      resolutionProbes: [],
+      all: false,
+      nonInteractive: true,
+    }).pipe(Effect.asVoid),
+  ],
+  [
+    "rule",
+    discoverRuleRefs({
+      source,
+      names: [],
+      owner: Option.none(),
+      versionRange: Option.none(),
+    }).pipe(Effect.asVoid),
+  ],
+  [
+    "hook",
+    discoverHookRefs({
+      source,
+      names: [],
+      owner: Option.none(),
+      versionRange: Option.none(),
+    }).pipe(Effect.asVoid),
+  ],
+  [
+    "knowledge",
+    discoverKnowledgeRefs({
+      source,
+      names: [],
+      owner: Option.none(),
+      versionRange: Option.none(),
+    }).pipe(Effect.asVoid),
+  ],
+  [
+    "mcp-server",
+    discoverMcpServerRefs({
+      source,
+      owner: Option.none(),
+      serverName: Option.none(),
+      versionRange: Option.none(),
+    }).pipe(Effect.asVoid),
+  ],
+  [
+    "pack",
+    discoverPackRefs({
+      source: git,
+      owner: Option.none(),
+      packName: Option.none(),
+      versionRange: Option.none(),
+    }).pipe(Effect.asVoid),
+  ],
+];
 
 /** A provider set whose every lookup meets the same failure. */
 const refusing = (failure: SourceResolutionFailure): SourceHostProvidersService => ({
@@ -127,6 +148,21 @@ const refusing = (failure: SourceResolutionFailure): SourceHostProvidersService 
   cloneUrl: () => Option.none(),
   origin: (source) => source.type,
 });
+
+/** The kernel's rendering of what one discovery refused with. */
+const refusal = (
+  discovery: Discovery,
+  providers: SourceHostProvidersService,
+  fixture: ReturnType<typeof makeLifecycleFixture>,
+) =>
+  discovery.pipe(
+    Effect.provideService(SourceHostProviders, providers),
+    Effect.scoped,
+    fixture.provide,
+    Effect.provide(NodeServices.layer),
+    Effect.flip,
+    Effect.map(workspaceFailureToStepFailure),
+  );
 
 describe("Source discovery failures read as the kernel renders them", () => {
   const cleanups: Array<() => void> = [];
@@ -139,14 +175,7 @@ describe("Source discovery failures read as the kernel renders them", () => {
       const fixture = makeLifecycleFixture({ settings: { agents: [] } });
       cleanups.push(fixture.cleanup);
       for (const [type, discovery] of discoveries(registry)) {
-        const failure = yield* discovery.pipe(
-          Effect.provideService(SourceHostProviders, refusing(forbidden)),
-          Effect.scoped,
-          fixture.provide,
-          Effect.provide(NodeServices.layer),
-          Effect.flip,
-        );
-        const rendered = workspaceFailureToStepFailure(failure);
+        const rendered = yield* refusal(discovery, refusing(forbidden), fixture);
         expect([type, rendered.category]).toEqual([type, "forbidden"]);
         expect(rendered.detail).toBe("You do not have access to @acme.");
         expect(rendered.metadata?.response?.status).toBe(403);
@@ -160,21 +189,23 @@ describe("Source discovery failures read as the kernel renders them", () => {
       cleanups.push(fixture.cleanup);
       for (const [failure, category] of [
         [new RegistryRequestFailed({ category: "auth", detail: "Credentials rejected." }), "auth"],
-        [new RegistryProblem({ category: "rate_limit", detail: "Slow down." }), "rate_limit"],
+        [
+          new RegistryProblem({
+            category: "rate_limit",
+            detail: "Slow down.",
+            metadata: { response: { status: 429 } },
+            cause: undefined,
+          }),
+          "rate_limit",
+        ],
         [
           new RegistryRequestFailed({ category: "timeout", detail: "Deadline elapsed." }),
           "timeout",
         ],
       ] as const) {
         for (const [type, discovery] of discoveries(registry)) {
-          const refused = yield* discovery.pipe(
-            Effect.provideService(SourceHostProviders, refusing(failure)),
-            Effect.scoped,
-            fixture.provide,
-            Effect.provide(NodeServices.layer),
-            Effect.flip,
-          );
-          expect([type, workspaceFailureToStepFailure(refused).category]).toEqual([type, category]);
+          const rendered = yield* refusal(discovery, refusing(failure), fixture);
+          expect([type, rendered.category]).toEqual([type, category]);
         }
       }
     }),
@@ -188,14 +219,8 @@ describe("Source discovery failures read as the kernel renders them", () => {
         new GitOperationFailed({ operation: "fetch-commit", detail: "Failed to fetch abc123" }),
       );
       for (const [type, discovery] of discoveries(git)) {
-        const refused = yield* discovery.pipe(
-          Effect.provideService(SourceHostProviders, providers),
-          Effect.scoped,
-          fixture.provide,
-          Effect.provide(NodeServices.layer),
-          Effect.flip,
-        );
-        expect([type, workspaceFailureToStepFailure(refused).category]).toEqual([type, "network"]);
+        const rendered = yield* refusal(discovery, providers, fixture);
+        expect([type, rendered.category]).toEqual([type, "network"]);
       }
     }),
   );

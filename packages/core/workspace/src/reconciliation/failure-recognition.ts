@@ -20,6 +20,18 @@ import {
   RegistryProblem,
   RegistryRequestFailed,
 } from "@agentxm/registry-client";
+import {
+  AuthExchangeFailed,
+  AuthInteractionAbandoned,
+  AuthTokenPolicyRequired,
+  DeviceAuthorizationPending,
+  DeviceLoginCodeExpired,
+  DeviceLoginDenied,
+  RegistryAccessFailed,
+  SignedOut,
+  StepUpRequired,
+  StepUpVerificationPending,
+} from "@agentxm/registry-access/authentication";
 
 import {
   ArchiveIntegrityMismatch,
@@ -142,6 +154,7 @@ import {
   WriteBackupRetained,
 } from "../projection/agent-adapters/errors.js";
 import { NativeWriteRefused } from "../projection/agent-adapters/native-write-authority.js";
+import { PublishFailed } from "../publishing/errors.js";
 import { TransientBackupFailed } from "../projection/agent-adapters/transient-backup.js";
 import {
   AuthoredContributorUnsupported,
@@ -378,6 +391,17 @@ const workspaceFailureClasses = () =>
     SkillSelectionUnavailable,
     SubagentSelectionUnavailable,
     InstallSelectionUnavailable,
+    PublishFailed,
+    RegistryAccessFailed,
+    SignedOut,
+    AuthTokenPolicyRequired,
+    DeviceLoginDenied,
+    DeviceLoginCodeExpired,
+    DeviceAuthorizationPending,
+    StepUpVerificationPending,
+    AuthInteractionAbandoned,
+    StepUpRequired,
+    AuthExchangeFailed,
     WorkspaceConfigurationFailed,
     WorkspaceSyncFailed,
   ] as const;

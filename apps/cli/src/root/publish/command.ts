@@ -41,7 +41,7 @@ import {
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { publishFailureToAppError } from "../../feature-errors.js";
+import { failureToAppError } from "../../app-error/conversions.js";
 import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 import { emitPublishResult } from "./result.js";
@@ -128,7 +128,7 @@ const dispositionExitCode = (disposition: PublishOutcome["disposition"]): number
     case "Interrupted":
       return disposition.signal === "SIGTERM" ? 143 : 130;
     case "Failed":
-      return exitCodeFor(publishFailureToAppError(disposition.failure).code);
+      return exitCodeFor(failureToAppError(disposition.failure).code);
   }
 };
 
@@ -141,7 +141,7 @@ const outcomeSuggestions = (outcome: PublishOutcome): ReadonlyArray<SuggestedAct
   const suggestions = [
     ...outcome.suggestions,
     ...(outcome.disposition._tag === "Failed"
-      ? (publishFailureToAppError(outcome.disposition.failure).suggestions ?? [])
+      ? (failureToAppError(outcome.disposition.failure).suggestions ?? [])
       : []),
   ];
   return suggestions.filter(
@@ -270,7 +270,7 @@ export const handleRootPublish = Effect.fn("Publish.handle")(
   Effect.mapError((failure) =>
     failure instanceof AppError || failure instanceof OutputWriteFailed
       ? failure
-      : publishFailureToAppError(failure),
+      : failureToAppError(failure),
   ),
 );
 

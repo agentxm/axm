@@ -16,11 +16,9 @@ export {
 } from "./app-error.js";
 export {
   BC,
-  errSignedOut,
   errInstallFailed,
   errPublishConflict,
   errRegistryPublishRejected,
-  withAppErrorSemantics,
 } from "./builders.js";
 export { appErrorDoc, defectDoc, renderAppError } from "./view.js";
 export { serializeErrorCauseChain, type SerializedErrorCause } from "./cause-chain.js";

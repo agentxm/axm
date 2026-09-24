@@ -65,7 +65,7 @@ import { ProjectionParticipantsLive } from "@agentxm/workspace/materialization/l
 import { KnowledgeIndexLive } from "@agentxm/workspace/knowledge/query/live";
 import { WorkspaceInvariantFactsLive } from "@agentxm/workspace/projection/live";
 import { AuthLoginPresenterLive } from "./auth-login-presenter.js";
-import { registryAccessFailedToAppError } from "./feature-errors.js";
+import { failureToAppError } from "./app-error/conversions.js";
 import { LifecycleFailureConversionLive } from "@agentxm/workspace/lifecycle";
 import { ReconciliationFailureConversionLive } from "@agentxm/workspace/reconciliation";
 import { WorkspaceInitializationInteractionLive } from "./workspace-initialization-interaction-live.js";
@@ -525,9 +525,7 @@ export const withRuntime =
           Effect.provideService(ExecutionDirectory, executionDirectory),
           Effect.provideService(DefaultRegistryTarget, defaultRegistry),
           Effect.provide(makeAuthLayer(defaultRegistry.url)),
-          Effect.catchTag("RegistryAccessFailed", (error) =>
-            Effect.fail(registryAccessFailedToAppError(error)),
-          ),
+          Effect.catchTag("RegistryAccessFailed", (error) => Effect.fail(failureToAppError(error))),
         ),
         {
           command,
@@ -543,9 +541,7 @@ export const withRuntime =
           ),
         ),
         Effect.scoped,
-        Effect.catchTag("RegistryAccessFailed", (error) =>
-          Effect.fail(registryAccessFailedToAppError(error)),
-        ),
+        Effect.catchTag("RegistryAccessFailed", (error) => Effect.fail(failureToAppError(error))),
       );
     }).pipe(Effect.provide(WorkspaceFileWriteLocksLive));
 

@@ -1085,6 +1085,58 @@ describe("root sync handler", { timeout: 15_000 }, () => {
   );
 
   it.effect(
+    "reports a failed recovery restoration by its deciding failure and retained state",
+    () =>
+      Effect.gen(function* () {
+        const fixture = makePackRollbackFixture(tempDir, {
+          canonicalPackState: "changed",
+          withMemberDependency: false,
+        });
+        // Publishing the re-acquired Pack over its protected canonical tree
+        // fails, and so does the copy back out of the snapshot store, so the
+        // recovery settles without a complete restoration.
+        const canonicalPack = fixture.paths.canonicalPack;
+        const faults = injectWriteFaults(
+          (operation) =>
+            operation.kind === "rename"
+              ? operation.path === canonicalPack
+              : operation.kind === "copy" && operation.source.includes("axm-rollback-"),
+          "Injected recovery write failure",
+        );
+        const { provide, rendererState } = makeLayers(
+          { machine: true, fileSystemLayer: faults },
+          fixture.sources,
+        );
+
+        yield* provide(handleSync({ preview: false }));
+
+        const payload = expectRecord(rendererState.results[0]?.data);
+        const result = expectRecord(property(payload, "result"));
+        const recovery = expectRecord(property(result, "recovery"));
+        const snapshotDir = property(recovery, "snapshotDir");
+        if (typeof snapshotDir === "string")
+          fs.rmSync(snapshotDir, { recursive: true, force: true });
+        const failure = expectRecord(property(result, "failure"));
+        const [unit] = planResultUnits(result);
+        // The unit and the plan both name the Pack's own failure as the
+        // kernel renders it, never a bare failure tag.
+        expect(property(failure, "message")).toBe(
+          `Failed to replace the installed package at ${canonicalPack} (internal)`,
+        );
+        expect(unit).toMatchObject({
+          label: expect.stringContaining("Recover @acme/packs/toolkit"),
+          state: "failed",
+          disposition: "retained",
+          message: property(failure, "message"),
+        });
+        expect(property(recovery, "retained")).toContain(
+          "agent_extensions/registry/@acme/packs/toolkit",
+        );
+        expect(typeof snapshotDir).toBe("string");
+      }),
+  );
+
+  it.effect(
     "C-15: rolls back accepted Pack recovery and resolves interruption through the lifecycle",
     () =>
       Effect.gen(function* () {

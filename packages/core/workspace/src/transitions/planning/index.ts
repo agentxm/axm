@@ -182,9 +182,7 @@ export {
 export {
   candidateFingerprintFailedToStepFailure,
   configuredAgentOutcomesUnavailableToStepFailure,
-  restorationIncompleteToStepFailure,
   workspaceStateReadFailureToStepFailure,
-  workspaceTransactionFailureToStepFailure,
 } from "./plan/step-failure-conversions.js";
 
 // Interaction port for preview/apply presentation, progress, and confirmation.

@@ -4,6 +4,7 @@ import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions
 import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import {
   desiredStateProblemsText,
+  formatConstraintContributors,
   type DesiredConstraintConflict,
   type DesiredConstraintContributor,
   type DesiredExtensionOrigin,
@@ -266,11 +267,6 @@ export const configuredEntryConstraintBlockPlan = (args: {
  */
 export const ACCEPTED_RESOLUTION_INCOMPATIBLE_BLOCKER_ID = "accepted-resolution-incompatible";
 
-const contributorText = (contributor: DesiredConstraintContributor): string =>
-  contributor.source === "pack"
-    ? `${contributor.dependingPack ?? "unknown Pack"} range=${contributor.range} location=${contributor.location}`
-    : `settings range=${contributor.range} location=${contributor.location}`;
-
 /** One accepted member resolution the member's effective constraint excludes. */
 export interface AcceptedMemberMismatch {
   readonly type: Exclude<ExtensionType, "pack">;
@@ -288,7 +284,7 @@ export const acceptedMemberMismatchText = (mismatch: AcceptedMemberMismatch): st
     `constraints=${
       mismatch.contributors.length === 0
         ? mismatch.constraint
-        : mismatch.contributors.map(contributorText).join(", ")
+        : formatConstraintContributors(mismatch.contributors)
     }`,
     `accepted version=${mismatch.acceptedVersion}`,
     "decision=blocked",

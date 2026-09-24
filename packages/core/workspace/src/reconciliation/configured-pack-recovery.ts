@@ -61,13 +61,7 @@ import {
   WorkspaceLocation,
   type DesiredStateGraph,
 } from "../desired-state/index.js";
-import {
-  restorationIncompleteToStepFailure,
-  StepFailure,
-  workspaceTransactionFailureToStepFailure,
-  type PlannedJobStep,
-} from "../transitions/planning/index.js";
-import { WorkspaceRestorationIncomplete } from "../transitions/settlement/index.js";
+import type { PlannedJobStep } from "../transitions/planning/index.js";
 
 import { buildReconciliationClosure } from "./closure.js";
 import { WorkspaceSyncFailed } from "./errors.js";
@@ -368,12 +362,10 @@ export const collectConfiguredPackRecovery = (args: {
                     step,
                     coverage: "eligible" as const,
                   })),
+                  // The recovery closure renders its failures through the
+                  // same conversion as every other sync step.
                   toStepFailure: (failure) =>
-                    failure instanceof StepFailure
-                      ? failure
-                      : failure instanceof WorkspaceRestorationIncomplete
-                        ? restorationIncompleteToStepFailure(failure)
-                        : workspaceTransactionFailureToStepFailure(failure),
+                    failure._tag === "StepFailure" ? failure : args.adapter.toStepFailure(failure),
                   validate: Effect.gen(function* () {
                     for (const ref of [packRef, ...memberRefs]) {
                       const target = targetFromRef(ref).name;

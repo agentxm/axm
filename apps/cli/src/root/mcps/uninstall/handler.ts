@@ -18,13 +18,10 @@ export const handleUninstallMcpServer = (
   runUninstallCommand({
     command: "mcps.uninstall",
     preview: flags.preview,
-    liveName: "Uninstall MCP server",
     request: {
       type: Option.some("mcp-server"),
       selector: args.serverName,
     },
     recoveryCommand: ["mcps", "uninstall"],
     recoveryPositionals: [args.serverName],
-    suggestions: () => [{ description: "Inspect MCP servers", cmd: "axm mcps list" }],
-    noOpMessage: () => "No MCP servers uninstalled.",
   });

@@ -268,8 +268,9 @@ const alreadySettled = (request: SetActivationRequest, name: string): Activation
 
 /**
  * A request naming a subject the workspace does not hold, settled the way the
- * type's command has always answered it: a refusal with the type's own
- * recovery route, or a statement that there is nothing to change.
+ * type's command has always answered it: a refusal, or a statement that there
+ * is nothing to change. The command that inspects what the workspace does
+ * hold is the application's to name; the refusal states only the fact.
  */
 const notHeld = (
   request: SetActivationRequest,
@@ -281,18 +282,12 @@ const notHeld = (
       return new ExtensionLifecycleFailed({
         category: "not_found",
         detail: `${quotedSubject(request.type, name)} is not installed`,
-        suggestions: [
-          { description: `Inspect installed ${request.type}s`, cmd: `axm ${request.type}s list` },
-        ],
       });
     case "knowledge":
     case "pack":
       return new ExtensionLifecycleFailed({
         category: "not_found",
         detail: `${quotedSubject(request.type, name)} is not configured`,
-        ...(request.type === "pack"
-          ? { suggestions: [{ description: "Inspect installed packs", cmd: "axm packs list" }] }
-          : {}),
       });
     case "mcp-server":
     case "rule":

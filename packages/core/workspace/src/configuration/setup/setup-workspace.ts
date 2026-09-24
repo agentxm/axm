@@ -667,7 +667,8 @@ export const reportSetupWorkspace = (
       steps.push({
         label: "Agent materialization",
         status: "warning",
-        message: `No coding-agent targets are configured. Run \`axm agents add --detected${scope === "user" ? " --scope user" : ""}\` to materialize installed extensions.`,
+        message:
+          "No coding-agent targets are configured, so installed extensions are not materialized.",
       });
     }
 

@@ -1507,7 +1507,7 @@ describe("axm packs uninstall", () => {
         cwd: temp.path,
       });
       expect(human.exitCode, human.stdout + human.stderr).toBe(0);
-      expect(human.stdout + human.stderr).toContain("No packs would be uninstalled.");
+      expect(human.stdout + human.stderr).toContain("No packs uninstalled.");
 
       const machine = await runCli(["packs", "uninstall", "missing-*", "--preview", "--json"], {
         cwd: temp.path,

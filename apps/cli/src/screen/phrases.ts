@@ -102,6 +102,15 @@ export const NOT_TRIED = "not tried";
  */
 export const PENDING_VERSION = "pending";
 
+/**
+ * What a cell or field says in place of a value there is none of: a version
+ * nothing reported, a title a concept does not carry, an activation that does
+ * not apply. A dash reads as "there is none" in every mode, so the marker is
+ * the same in Unicode and ASCII output and AXM prints no symbol of its own
+ * for it.
+ */
+export const ABSENT = "-";
+
 /** Why a row rolled back when the unit was still running as the operation stopped. */
 export const INTERRUPTED_IN_FLIGHT = "interrupted in flight";
 

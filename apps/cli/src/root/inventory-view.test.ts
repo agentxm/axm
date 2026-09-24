@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { ABSENT } from "../screen/index.js";
 import {
   inventoryActivation,
   inventoryAgentOutcomes,
@@ -19,7 +20,7 @@ describe("inventory human vocabulary", () => {
   });
 
   it("explains when activation does not apply", () => {
-    expect(inventoryActivation({ lifecycle: "unmanaged", enabled: null })).toBe("not applicable");
+    expect(inventoryActivation({ lifecycle: "unmanaged", enabled: null })).toBe(ABSENT);
   });
 
   it("maps agent outcomes instead of exposing their enum values", () => {

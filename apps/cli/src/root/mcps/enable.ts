@@ -18,10 +18,7 @@ export const handleEnableMcpServer = (args: { readonly name: string; readonly pr
       command: "mcps.enable",
       commandPath: ["mcps", "enable"],
       planName: "Enable MCP server",
-      suggestions: [
-        { description: "Inspect MCP servers", cmd: "axm mcps list" },
-        { description: "Undo", cmd: `axm mcps disable ${args.name}` },
-      ],
+      suggestions: [{ description: "Undo", cmd: `axm mcps disable ${args.name}` }],
     },
   );
 

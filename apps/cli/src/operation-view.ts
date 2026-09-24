@@ -20,8 +20,8 @@ import {
 
 import { Verbosity, type VerbosityLevel } from "./cli-flags/index.js";
 import {
+  ABSENT,
   INTERRUPTED_IN_FLIGHT,
-  MISSING_VERSION,
   NOT_TRIED,
   PENDING_VERSION,
   Screen,
@@ -61,6 +61,7 @@ import {
 } from "./screen/index.js";
 import { operationExitCode } from "./operation-exit-code.js";
 import { redactCredentialBearingLocator } from "./app-error/index.js";
+import { commandForScope } from "./root/shared/scoped-command.js";
 
 /**
  * Separates the parts of one cell or aside. The painter owns the separator
@@ -105,7 +106,7 @@ const versionCell = (artifact: JobStepArtifact | undefined): string => {
     artifact?.previousVersion === undefined || artifact.previousVersion.length === 0
       ? undefined
       : artifact.previousVersion;
-  if (version === undefined) return previous ?? MISSING_VERSION.operation;
+  if (version === undefined) return previous ?? ABSENT;
   return previous === undefined || previous === version ? version : `${previous} to ${version}`;
 };
 
@@ -832,7 +833,7 @@ export const operationDoc = (
             children: [
               {
                 _tag: "paragraph",
-                text: `Run \`axm agents add --detected${coverage.scope === "user" ? " --scope user" : ""}\`, then retry.`,
+                text: `Run \`${commandForScope("axm agents add --detected", coverage.scope)}\`, then retry.`,
               },
             ],
           } as const,

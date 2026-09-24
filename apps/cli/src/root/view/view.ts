@@ -10,6 +10,7 @@ import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/sugges
 import type { ViewDocument } from "@agentxm/workspace/inspection";
 
 import {
+  ABSENT,
   factParts,
   type Doc,
   type Field,
@@ -21,9 +22,6 @@ import { extensionTypeText } from "../inventory-view.js";
 
 /** Versions the page names before it gives the total instead. */
 const LISTED_VERSIONS = 5;
-
-/** Stands in for a fact the Registry did not report. */
-const NOT_REPORTED = "—";
 
 const dim = (value: string): Span => ({ text: value, tone: "dim" });
 
@@ -71,7 +69,7 @@ const replacementText = (deprecation: DeprecationView): Text | undefined => {
 
 const versionsText = (data: ViewDocument): Text => {
   const versions = data.versions.map((entry) => entry.version);
-  if (versions.length === 0) return NOT_REPORTED;
+  if (versions.length === 0) return ABSENT;
   return versions.length <= LISTED_VERSIONS
     ? versions.join(", ")
     : [
@@ -108,7 +106,7 @@ export const viewPageDoc = (data: ViewDocument): Doc => {
   const replacement = deprecation === null ? undefined : replacementText(deprecation);
   const fields: ReadonlyArray<Field> = [
     { label: "Owner", value: data.owner },
-    { label: "Latest", value: data.latest?.version ?? NOT_REPORTED },
+    { label: "Latest", value: data.latest?.version ?? ABSENT },
     { label: "Versions", value: versionsText(data) },
     ...(replacement === undefined ? [] : [{ label: "Replacement", value: replacement }]),
   ];

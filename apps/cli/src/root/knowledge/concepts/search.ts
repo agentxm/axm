@@ -9,7 +9,7 @@ import {
 import { observeUnit } from "@agentxm/workspace/transitions/planning";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
-import { emitResult, inventoryDoc, type ViewColumn } from "../../../screen/index.js";
+import { ABSENT, emitResult, inventoryDoc, type ViewColumn } from "../../../screen/index.js";
 import { processOutcome, withArgvTracking } from "../../../cli-runtime/index.js";
 import {
   readOnlyCapabilities,
@@ -63,7 +63,7 @@ export const handleKnowledgeConceptSearch = Effect.fn("Knowledge.concepts.search
     const rows = page.items.map(({ ref, title, kind }) => ({
       bundle: sanitizeKnowledgeTerminalText(ref.bundle),
       concept: sanitizeKnowledgeTerminalText(ref.conceptId),
-      title: sanitizeKnowledgeTerminalText(title ?? "—"),
+      title: sanitizeKnowledgeTerminalText(title ?? ABSENT),
       kind,
     }));
     return inventoryDoc({

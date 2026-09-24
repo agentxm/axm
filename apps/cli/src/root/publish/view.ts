@@ -21,7 +21,7 @@ import {
   publishSourceState,
   publishVisibilityOrigin,
   suggestionsDoc,
-  MISSING_VERSION,
+  ABSENT,
   PROSE_SEPARATOR,
   VERBOSE_DETAILS_HINT,
   VERBOSE_LIST_HINT,
@@ -252,7 +252,7 @@ const placedRow = (placed: Placed, mode: PublishResult["mode"], detailed: boolea
     mark: markOf(placed.standing),
     cells: [
       identity(placed.item),
-      placed.item.version ?? MISSING_VERSION.publication,
+      placed.item.version ?? ABSENT,
       wordOf(placed.standing, mode),
       detailOf(placed.item, placed.standing, mode, placed.setItem),
     ],
@@ -271,7 +271,7 @@ const decisionRow = (decision: PublishSelectionDecision): LedgerRow => ({
   mark: "unchanged",
   cells: [
     decision.id,
-    MISSING_VERSION.publication,
+    ABSENT,
     publishOutcome("skipped"),
     joined([
       publishDisposition(decision.disposition),

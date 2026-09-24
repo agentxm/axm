@@ -18,10 +18,7 @@ export const handleEnableRule = (args: { readonly name: string; readonly preview
       command: "rules.enable",
       commandPath: ["rules", "enable"],
       planName: "Enable rules",
-      suggestions: [
-        { description: "Inspect installed rules", cmd: "axm rules list" },
-        { description: "Undo", cmd: `axm rules disable ${args.name}` },
-      ],
+      suggestions: [{ description: "Undo", cmd: `axm rules disable ${args.name}` }],
     },
   );
 

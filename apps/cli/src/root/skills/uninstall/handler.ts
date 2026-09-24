@@ -19,16 +19,10 @@ export const handleUninstall = (args: UninstallHandlerArgs, flags: { readonly pr
   runUninstallCommand({
     command: "skills.uninstall",
     preview: flags.preview,
-    liveName: "Uninstall skill",
     request: {
       type: Option.some("skill"),
       selector: args.skill,
     },
     recoveryCommand: ["skills", "uninstall"],
     recoveryPositionals: [args.skill],
-    suggestions: () => [{ description: "Inspect installed skills", cmd: "axm skills list" }],
-    noOpMessage: ({ selector, alreadyAbsent }) =>
-      alreadyAbsent && !selector.includes("*")
-        ? `No skills uninstalled; ${selector} is not installed.`
-        : "No skills uninstalled.",
   });

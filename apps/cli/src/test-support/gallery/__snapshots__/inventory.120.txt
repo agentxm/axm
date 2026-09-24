@@ -1,14 +1,12 @@
-     Name             State           Activation      Type       Agents                Agent outcomes
-     @craigsmitham/   managed by      enabled         registry   claude-code, codex,   claude-code: available, codex:
-     effect-v4        this                                       cursor, gemini-cli    available, cursor: available,
-                      workspace                                                        gemini-cli: available
-     @craigsmitham/   managed by      enabled         registry   claude-code, codex    claude-code: available, codex:
-     field-notes      this                                                             already available
-                      workspace
-     @agentxm/        managed by      disabled        registry   none                  none
-     knowledge/       this
-     agentxm          workspace
-     local-notes      outside AXM     not             detected   none                  none
-                                      applicable
+     Name              State             Activation   Type       Agents                Agent outcomes
+     @craigsmitham/    managed by this   enabled      registry   claude-code, codex,   claude-code: available, codex:
+     effect-v4         workspace                                 cursor, gemini-cli    available, cursor: available,
+                                                                                       gemini-cli: available
+     @craigsmitham/    managed by this   enabled      registry   claude-code, codex    claude-code: available, codex:
+     field-notes       workspace                                                       already available
+     @agentxm/         managed by this   disabled     registry   none                  none
+     knowledge/        workspace
+     agentxm
+     local-notes       outside AXM       -            detected   none                  none
 
 4 skills: 3 managed by this workspace, 3 installed, 1 found outside AXM

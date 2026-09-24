@@ -159,6 +159,7 @@ export {
   sharedDispositionStatement,
   subjectHeader,
   subjectNoun,
+  ABSENT,
   ALREADY_PUBLISHED,
   NOT_TRIED,
   INTERRUPTED_IN_FLIGHT,
@@ -219,7 +220,6 @@ export {
   type CliOutputPolicy,
 } from "./output-policy.js";
 export {
-  MISSING_VERSION,
   PROSE_SEPARATOR,
   VERBOSE_DETAILS_HINT,
   VERBOSE_LIST_HINT,

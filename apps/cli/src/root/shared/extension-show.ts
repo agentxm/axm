@@ -3,6 +3,7 @@ import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import {
+  ABSENT,
   emitResult,
   fieldsDoc,
   headlineDoc,
@@ -74,9 +75,9 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
       {
         type: args.type,
         name: args.name,
-        enabled: result.item.enabled === null ? "n/a" : yesNo(result.item.enabled),
+        enabled: result.item.enabled === null ? ABSENT : yesNo(result.item.enabled),
         source: result.item.source,
-        version: result.item.version ?? "n/a",
+        version: result.item.version ?? ABSENT,
         scope: result.item.scope,
         locked: yesNo(result.item.locked),
       },

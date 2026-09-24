@@ -39,6 +39,7 @@ import { withUpdateCheck, resolveNonInteractiveFromArgv } from "./update-check-s
 import { axmGlobalFlags, baseLayer, startupUpdateCheckLayer } from "./runtime.js";
 import { loadVersion } from "./version.js";
 import { groupCapabilities, withCommandCapabilities } from "./root/shared/command-capabilities.js";
+import { ScopedRoutesLive } from "./root/shared/scoped-command.js";
 
 import { setupCommand } from "./root/setup.js";
 import { instructionsCommand } from "./root/instructions.js";
@@ -301,6 +302,9 @@ export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): 
             startupUpdateCheckLayer,
             rendererLayer,
             CliOutput.layer(makeAxmFormatter()),
+            // Recovery commands are addressed to the workspace scope only where
+            // the registered route takes `--scope`; the tree says which do.
+            ScopedRoutesLive(rootCommand),
           ),
         ),
         // An explicitly empty override remains distinct from an absent key.

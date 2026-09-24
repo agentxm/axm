@@ -61,7 +61,7 @@ import {
 } from "./screen/index.js";
 import { operationExitCode } from "./operation-exit-code.js";
 import { redactCredentialBearingLocator } from "./app-error/index.js";
-import { commandForScope } from "./root/shared/scoped-command.js";
+import { NO_SCOPED_ROUTES, commandForScope } from "./root/shared/scoped-command.js";
 
 /**
  * Separates the parts of one cell or aside. The painter owns the separator
@@ -713,27 +713,20 @@ export const unsettledUnits = (
 ): ReadonlyArray<ResolvedUnit<unknown>> =>
   resolution.units.filter((unit) => owesReason(settlementOf(unit, resolution.mode)));
 
-/**
- * What every unsettled unit's producer suggested, in ledger order and without
- * repeats. The resolution lifts only the first failed unit's suggestions; a
- * reader of seven failures needs all of them.
- */
-const producerSuggestions = (
-  resolution: OperationResolution<unknown>,
-): ReadonlyArray<SuggestedAction> => {
-  const suggested = unsettledUnits(resolution).flatMap((unit) => unit.error?.suggestions ?? []);
-  return suggested.filter(
-    (suggestion, index) =>
-      suggested.findIndex(
-        (other) => other.description === suggestion.description && other.cmd === suggestion.cmd,
-      ) === index,
-  );
-};
-
 export interface OperationDocOptions {
   readonly verbosity: VerbosityLevel;
   readonly message?: string;
+  /**
+   * The operation's one composed `Next` list, as the emit boundary folded and
+   * scoped it for every channel; the view adds nothing to it.
+   */
   readonly suggestions?: ReadonlyArray<SuggestedAction>;
+  /**
+   * The registered routes that take `--scope`, so a command the view itself
+   * names is addressed to the workspace by the same rule as every suggestion.
+   * Absent where no command tree is in context, and nothing is addressed.
+   */
+  readonly scopedRoutes?: ReadonlySet<string>;
   /**
    * Conditions the operation reports beside its ledger, such as a release-age
    * decision. They stand between the rows and the verdict, so `Next` is the
@@ -791,17 +784,7 @@ export const operationDoc = (
           { count: counts.skipped, state: "skipped" },
         ]),
   );
-  const offered = [
-    ...(options.suggestions ?? []),
-    ...(resolution.recovery?.actions ?? []),
-    ...producerSuggestions(resolution),
-  ];
-  const next = offered.filter(
-    (suggestion, index) =>
-      offered.findIndex(
-        (other) => other.description === suggestion.description && other.cmd === suggestion.cmd,
-      ) === index,
-  );
+  const next = options.suggestions ?? [];
   const aside = verdictAside(
     resolution.units,
     resolution.mode,
@@ -833,7 +816,7 @@ export const operationDoc = (
             children: [
               {
                 _tag: "paragraph",
-                text: `Run \`${commandForScope("axm agents add --detected", coverage.scope)}\`, then retry.`,
+                text: `Run \`${commandForScope("axm agents add --detected", coverage.scope, options.scopedRoutes ?? NO_SCOPED_ROUTES)}\`, then retry.`,
               },
             ],
           } as const,

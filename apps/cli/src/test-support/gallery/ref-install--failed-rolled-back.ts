@@ -1,4 +1,5 @@
 import { operationDoc } from "../../operation-view.js";
+import { operationNextActions, resolutionRecoveries } from "../../operation-output.js";
 import { failedRolledBackInstall } from "./samples/operation-stress.js";
 
 /**
@@ -9,5 +10,7 @@ import { failedRolledBackInstall } from "./samples/operation-stress.js";
  */
 export const refInstallFailedRolledBack = operationDoc(failedRolledBackInstall, {
   verbosity: "normal",
-  suggestions: [{ description: "Inspect installed extensions", cmd: "axm list" }],
+  suggestions: operationNextActions(resolutionRecoveries(failedRolledBackInstall), [
+    { description: "Inspect installed extensions", cmd: "axm list" },
+  ]),
 });

@@ -10,7 +10,11 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { isRegistryClientFailure, redactRegistryText } from "@agentxm/registry-client";
+import {
+  collectSensitiveStrings,
+  isRegistryClientFailure,
+  redactRegistryText,
+} from "@agentxm/registry-client";
 import type { RegistryClientFailure } from "@agentxm/registry-client";
 import { ConfigError } from "effect/Config";
 import { workspaceFailureToStepFailure } from "../reconciliation/failure-rendering.js";
@@ -78,16 +82,18 @@ export const publishFailureLifecycleReason = (
 /**
  * The redacted cause the publish document reports. Only evidence the Registry
  * or the request policy established is carried; credential shapes in
- * Registry-supplied text are redacted before they reach durable output.
+ * Registry-supplied text, and the exact credentials the response carried
+ * under sensitive keys, are redacted before they reach durable output.
  */
 export const publishCause = (failure: PublishFailure) => {
   const step = rendered(failure);
   const policy = step.metadata?.requestPolicy;
   const response = step.metadata?.response;
+  const secrets = collectSensitiveStrings(step.metadata);
   return {
     code: step.category,
     class: CAUSE_CLASS_BY_CATEGORY[step.category],
-    message: redactRegistryText(step.detail),
+    message: redactRegistryText(step.detail, { secrets }),
     retryable: policy?.retryable ?? false,
     ...(policy === undefined
       ? {}
@@ -99,14 +105,14 @@ export const publishCause = (failure: PublishFailure) => {
         }),
     ...(response?.requestId === undefined
       ? {}
-      : { requestId: redactRegistryText(response.requestId) }),
+      : { requestId: redactRegistryText(response.requestId, { secrets }) }),
     ...(response === undefined
       ? {}
       : {
           responseStatus: response.status,
           ...(response.problemCode === undefined
             ? {}
-            : { problemCode: redactRegistryText(response.problemCode) }),
+            : { problemCode: redactRegistryText(response.problemCode, { secrets }) }),
         }),
   };
 };

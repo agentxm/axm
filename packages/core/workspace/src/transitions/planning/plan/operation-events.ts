@@ -34,7 +34,7 @@ import type * as Scope from "effect/Scope";
 import * as ServiceMap from "effect/Context";
 import * as Stream from "effect/Stream";
 
-import { redactRegistryText } from "@agentxm/registry-client";
+import { collectSensitiveStrings, redactRegistryText } from "@agentxm/registry-client";
 
 import { BlockingClassSchema } from "./plan.js";
 import { OperationErrorCategorySchema, StepFailure } from "./errors.js";
@@ -442,7 +442,12 @@ const unitFailureForExit = (exit: Exit.Exit<unknown, unknown>): UnitFailure | un
   if (Exit.isSuccess(exit)) return undefined;
   const error = Option.getOrUndefined(Cause.findErrorOption(exit.cause));
   return error instanceof StepFailure
-    ? { category: error.category, detail: redactRegistryText(error.detail) }
+    ? {
+        category: error.category,
+        detail: redactRegistryText(error.detail, {
+          secrets: collectSensitiveStrings(error.metadata),
+        }),
+      }
     : undefined;
 };
 

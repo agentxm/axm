@@ -85,8 +85,7 @@ export {
 export {
   trackCliCommand,
   trackCliCommandCompleted,
-  reportCliDefect,
-  reportCliError,
+  recordCommandSettlement,
   setCommandSemanticProperties,
   getCommandSemanticProperties,
   observeLifecycleForTelemetry,
@@ -97,6 +96,8 @@ export {
   startProductActivity,
   type CliCommandTelemetryOptions,
   type CliCommandCompletedOptions,
+  type CommandSettlement,
+  type CommandSettlementFailure,
   type ProductActivityIntent,
   type ProductActivityKind,
 } from "./telemetry.js";

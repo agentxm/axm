@@ -22,12 +22,13 @@ import * as Data from "effect/Data";
 import { processOutcome } from "./process-outcome.js";
 import { captureTelemetry } from "../test-support/telemetry-harness.js";
 import {
-  exitCodeForSemanticProperties,
   makeFoundationLayer,
   withCliErrorHandling,
   writeDefect,
   writeExpectedCliError,
 } from "./runtime-envelope.js";
+import { emitOperationResolution } from "../operation-output.js";
+import { StepFailure, makeOperationResolution } from "@agentxm/workspace/transitions/planning";
 
 /**
  * Structural stand-in for the workspace configuration feature's typed
@@ -131,49 +132,6 @@ describe("makeFoundationLayer", () => {
   );
 });
 
-describe("exitCodeForSemanticProperties", () => {
-  it("returns issues when a command reports failed steps", () => {
-    expect(exitCodeForSemanticProperties({ "cli.failed_count": 1 })).toBe(ExitCode.Issues);
-  });
-
-  it("returns issues when a command reports blocked steps", () => {
-    expect(exitCodeForSemanticProperties({ "cli.blocked_count": 1 })).toBe(ExitCode.Issues);
-  });
-
-  it("maps plan execution reasons to stable process exits", () => {
-    expect(exitCodeForSemanticProperties({ "cli.reason": "approval-required" })).toBe(
-      ExitCode.Usage,
-    );
-    expect(exitCodeForSemanticProperties({ "cli.reason": "override-required" })).toBe(
-      ExitCode.Usage,
-    );
-    expect(exitCodeForSemanticProperties({ "cli.reason": "stale-candidate" })).toBe(
-      ExitCode.Conflict,
-    );
-    expect(exitCodeForSemanticProperties({ "cli.reason": "interrupted" })).toBe(130);
-    expect(exitCodeForSemanticProperties({ "cli.reason": "execution-failed" })).toBe(
-      ExitCode.Issues,
-    );
-    expect(
-      exitCodeForSemanticProperties({
-        "cli.reason": "hard-blocked",
-        "cli.error_code": "auth_required",
-      }),
-    ).toBe(ExitCode.AuthRequired);
-  });
-
-  it("returns undefined for successful or missing plan counts", () => {
-    expect(
-      exitCodeForSemanticProperties({
-        "cli.failed_count": 0,
-        "cli.blocked_count": 0,
-        "cli.outcome": "applied",
-      }),
-    ).toBeUndefined();
-    expect(exitCodeForSemanticProperties({})).toBeUndefined();
-  });
-});
-
 // ---------------------------------------------------------------------------
 // writeDefect — JSON-mode channel contract for unhandled defects
 // ---------------------------------------------------------------------------
@@ -215,7 +173,7 @@ describe("writeDefect", () => {
   });
 
   it.effect(
-    "text mode: writes human-readable defect to stderr only, leaving stdout untouched",
+    "text mode: renders the defect as an internal error on stderr only, leaving stdout untouched",
     () =>
       Effect.gen(function* () {
         yield* writeDefect(Cause.die(new Error("boom")), "text").pipe(
@@ -225,13 +183,30 @@ describe("writeDefect", () => {
         expect(stdoutWrites).toEqual([]);
         expect(stderrWrites).toHaveLength(1);
         expect(stderrWrites[0]).toMatch(/^ (?:✖ {3}|xx {2})/);
-        expect(stderrWrites[0]).toContain("An unexpected error occurred");
-        expect(stderrWrites[0]).not.toContain("✗");
+        // The same title, reason, and debug hint every internal error gets.
+        expect(stderrWrites[0]).toContain("Internal Error");
+        expect(stderrWrites[0]).toContain("internal, exit 10");
         expect(stderrWrites[0]).toContain("boom");
+        expect(stderrWrites[0]).toContain("--debug shows the cause.");
+        expect(stderrWrites[0]).not.toContain("✗");
       }),
   );
 
-  it.effect("json mode: emits one JSON envelope on stdout and pure NDJSON on stderr", () =>
+  it.effect("text mode: --debug adds the defect's cause chain like any internal error", () =>
+    Effect.gen(function* () {
+      const defect = new Error("boom");
+      defect.stack = "Error: boom\n at explode";
+      yield* writeDefect(Cause.die(defect), "text").pipe(
+        Effect.provide(testLayer("text", { verbosityLevel: "debug" })),
+      );
+
+      const stderr = stderrWrites.join("");
+      expect(stderr).toContain("Cause: Error: boom");
+      expect(stderr).toContain("Stack: at explode");
+    }),
+  );
+
+  it.effect("json mode: emits the stable error envelope on stdout and pure NDJSON on stderr", () =>
     Effect.gen(function* () {
       yield* writeDefect(Cause.die(new Error("boom")), "json").pipe(
         Effect.provide(testLayer("json")),
@@ -244,19 +219,22 @@ describe("writeDefect", () => {
         code: "internal",
         title: "Internal Error",
         detail: "boom",
+        cause: [{ _tag: "Error", message: "boom" }],
+        suggestions: [{ url: "https://github.com/agentxm/axm/issues" }],
       });
 
-      expect(stderrWrites).toHaveLength(1);
-      for (const line of stderrWrites) {
-        const event: unknown = JSON.parse(line.trim());
-        // Schema-conformant ErrorEvent: { type, code, message } — full detail
-        // (title/detail/suggestions) lives in the stdout envelope.
-        expect(event).toEqual({
-          type: "error",
-          code: "internal",
-          message: "boom",
-        });
-      }
+      // The live stream a handled internal error writes: its recovery, then
+      // the schema-conformant ErrorEvent; full detail lives in the envelope.
+      const events = stderrWrites.map((line) => JSON.parse(line.trim()) as unknown);
+      expect(events).toEqual([
+        {
+          type: "suggestion",
+          description:
+            "This looks like a bug. Please report it, including the request ID if one is shown.",
+          url: "https://github.com/agentxm/axm/issues",
+        },
+        { type: "error", code: "internal", message: "boom" },
+      ]);
     }),
   );
 
@@ -525,6 +503,62 @@ describe("withCliErrorHandling cancellation", () => {
         ),
     );
   }
+
+  it.effect("a failed plan-path command reports its category under AXM_TELEMETRY=errors", () =>
+    Effect.gen(function* () {
+      const capture = captureTelemetry();
+      const failed = makeOperationResolution({
+        name: "Update skills",
+        description: Option.none(),
+        mode: "apply",
+        atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
+        units: [
+          {
+            id: "skill:review",
+            label: "review",
+            state: "failed",
+            error: new StepFailure({
+              category: "network",
+              detail: "The registry was unreachable.",
+            }),
+          },
+        ],
+      });
+      const exit = yield* withCliErrorHandling(emitOperationResolution(failed), {
+        command: "update",
+        format: "text",
+        telemetryConfig: {
+          mode: "errors",
+          client: { name: "cli", version: "1.2.3" },
+          deliverInTest: true,
+          installationId: "00000000-0000-4000-8000-000000000001",
+          eventIdFactory: () => "00000000-0000-4000-8000-000000000002",
+        },
+      }).pipe(Effect.provideService(HttpClient.HttpClient, capture.client), Effect.exit);
+
+      // The operation exits as failed work; the report names the category the
+      // failed unit settled with, so a unit-level failure is never unreported.
+      expect(exit).toEqual(Exit.succeed(processOutcome(ExitCode.Issues)));
+      expect(capture.requests.map((request) => request.url.replace(/^.*\/v1\//, "/v1/"))).toEqual([
+        "/v1/errors",
+      ]);
+      expect(capture.requests[0]?.body).toMatchObject({
+        context: { command: "update" },
+        errors: [{ name: "network" }],
+        handled: true,
+        tags: { errorCode: "network", errorCategory: "network" },
+      });
+    }).pipe(
+      Effect.provide(
+        Layer.mergeAll(
+          globalFlagLayer,
+          testLayer("text"),
+          Layer.succeed(jsonFlag, Option.none()),
+          NodeServices.layer,
+        ),
+      ),
+    ),
+  );
 
   it.effect("retains an owned delivery failure after its diagnostic reaches stderr", () =>
     Effect.gen(function* () {

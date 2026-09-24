@@ -9,9 +9,11 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 
 import { makeAppError, type AppError } from "../app-error/index.js";
-import { commandForScope } from "./shared/scoped-command.js";
 
-/** The named extension is not installed: offer the matching inventory command. */
+/**
+ * The named extension is not installed: offer the matching inventory command.
+ * The workspace boundary the command ran in addresses it to that scope.
+ */
 export const extensionNotInstalledToAppError = (failure: ExtensionNotInstalled): AppError => {
   const label = extensionTypeSentenceLabels[failure.type];
   return makeAppError({
@@ -20,7 +22,7 @@ export const extensionNotInstalledToAppError = (failure: ExtensionNotInstalled):
     suggestions: [
       {
         description: `Inspect installed ${label} entries`,
-        cmd: commandForScope(`axm ${toExtensionTypePlural(failure.type)} list`, failure.scope),
+        cmd: `axm ${toExtensionTypePlural(failure.type)} list`,
       },
     ],
   });

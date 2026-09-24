@@ -23,7 +23,7 @@ import { LearnMore, formatLearnMore } from "../formatter.js";
 import { ExecutionDirectory } from "../execution-directory.js";
 import { withRuntime, withWorkspace } from "../runtime.js";
 import { formatDisplayPath } from "./shared/display-path.js";
-import { commandForScope } from "./shared/scoped-command.js";
+import { ScopedRoutes, suggestionsForScope } from "./shared/scoped-command.js";
 import {
   preapprovalCapabilityFlag,
   previewCapabilityFlag,
@@ -77,33 +77,33 @@ const setupSuggestions = (args: {
   const suggestions: Array<SuggestedAction> = [
     {
       description: "Inspect configured agents",
-      cmd: commandForScope("axm agents list", args.scope),
+      cmd: "axm agents list",
     },
     {
       description: "Preview workspace reconciliation",
-      cmd: commandForScope("axm sync --preview", args.scope),
+      cmd: "axm sync --preview",
     },
     {
       description: "Lint workspace state",
-      cmd: commandForScope("axm lint", args.scope),
+      cmd: "axm lint",
     },
     {
       description: "List installed extensions",
-      cmd: commandForScope("axm list", args.scope),
+      cmd: "axm list",
     },
   ];
 
   if (args.status === "already-initialized") {
     suggestions.splice(1, 0, {
       description: "Manage coding-agent membership",
-      cmd: commandForScope("axm agents --help", args.scope),
+      cmd: "axm agents --help",
     });
   }
 
   if (args.agentCount === 0) {
     suggestions.unshift({
       description: "Detect and configure active coding agents",
-      cmd: commandForScope("axm agents add --detected", args.scope),
+      cmd: "axm agents add --detected",
     });
   } else if (args.scope === "project") {
     suggestions.push({ description: "Discover recommended extensions", cmd: "axm discover" });
@@ -208,13 +208,23 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: HandleSetu
     bundledSkill: { installed: transition.initialized, version: AXM_SKILL_VERSION },
   }).pipe(Effect.mapError(coerceConfigurationFailure));
 
-  const suggestions = setupSuggestions({
-    status: result.status,
-    agentCount: result.agents.length,
-    agentIds: result.agents.map((agent) => agent.id),
-    scope: transition.location.scope,
-    telemetryEnabled,
+  // Follow-up commands address the scope that was set up, where their route
+  // takes one; the running command tree says which routes do.
+  const scopedRoutes = Option.match(yield* Effect.serviceOption(ScopedRoutes), {
+    onNone: (): ReadonlySet<string> => new Set(),
+    onSome: ({ routes }) => routes,
   });
+  const suggestions = suggestionsForScope(
+    setupSuggestions({
+      status: result.status,
+      agentCount: result.agents.length,
+      agentIds: result.agents.map((agent) => agent.id),
+      scope: transition.location.scope,
+      telemetryEnabled,
+    }),
+    transition.location.scope,
+    scopedRoutes,
+  );
 
   yield* emitResult(
     { result },

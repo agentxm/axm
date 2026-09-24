@@ -95,6 +95,34 @@ export const sharedMemberSettings = (pin: string) => ({
 });
 
 /**
+ * The one text every route states when the shared member's accepted
+ * resolution lies outside a later direct pin, written in the form install
+ * records: install refuses to replay it and sync refuses to restore it, in
+ * the same words.
+ */
+export const sharedMemberOutsidePinFact = (args: {
+  /** The Registry source name the recorded direct pin qualifies. */
+  readonly registry: string;
+  readonly pin: string;
+  readonly acceptedVersion: string;
+}): string =>
+  [
+    "fact=workspace/extension-constraints-satisfied",
+    `skill '${SHARED_MEMBER.fqn}' has constraint mismatch`,
+    `authority=desired-state-graph:${args.registry}:${SHARED_MEMBER.fqn}@${args.pin}`,
+    `constraints=${[
+      `settings range=${args.pin} location=axm.json`,
+      ...SHARED_MEMBER_PACKS.map(
+        (pack) =>
+          `${pack.fqn} range=${pack.range} location=agent_extensions/registry/${SHARED_MEMBER.owner}/packs/${pack.name}/pack.json`,
+      ),
+    ].join(", ")}`,
+    `accepted version=${args.acceptedVersion}`,
+    "decision=blocked",
+    "reason=accepted-resolution-incompatible",
+  ].join("; ");
+
+/**
  * The same scenario with a subagent as the shared member: the two Packs
  * require it with the same broad ranges, and the workspace pins it directly.
  * The subagent Packs carry their own names so the scenario can stand beside

@@ -4,12 +4,11 @@ import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions
 import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import {
   desiredStateProblemsText,
-  formatConstraintContributors,
   type DesiredConstraintConflict,
-  type DesiredConstraintContributor,
   type DesiredExtensionOrigin,
   type DesiredStateGraph,
 } from "../../desired-state/index.js";
+import type { ExtensionConstraintInvariantFact } from "../../projection/index.js";
 import { toTypedLabel } from "../../reconciliation/index.js";
 import { operationPresentation, type Plan } from "../../transitions/planning/index.js";
 
@@ -261,35 +260,13 @@ export const configuredEntryConstraintBlockPlan = (args: {
 });
 
 /**
- * The machine-readable reference a Pack refusal carries when a member's
- * accepted resolution no longer satisfies its effective constraint — the
- * reason sync gives for the same fact.
+ * One accepted member resolution the member's effective constraint excludes,
+ * stated as the constraint fact sync reports for the same member.
  */
-export const ACCEPTED_RESOLUTION_INCOMPATIBLE_BLOCKER_ID = "accepted-resolution-incompatible";
-
-/** One accepted member resolution the member's effective constraint excludes. */
 export interface AcceptedMemberMismatch {
-  readonly type: Exclude<ExtensionType, "pack">;
   readonly fqn: string;
-  readonly acceptedVersion: string;
-  /** Every contributor to the effective constraint; empty when only the range is known. */
-  readonly contributors: ReadonlyArray<DesiredConstraintContributor>;
-  readonly constraint: string;
+  readonly fact: ExtensionConstraintInvariantFact;
 }
-
-/** The fact a refusal states, in the shape sync reports it. */
-export const acceptedMemberMismatchText = (mismatch: AcceptedMemberMismatch): string =>
-  [
-    `${mismatch.type} '${mismatch.fqn}' has constraint mismatch`,
-    `constraints=${
-      mismatch.contributors.length === 0
-        ? mismatch.constraint
-        : formatConstraintContributors(mismatch.contributors)
-    }`,
-    `accepted version=${mismatch.acceptedVersion}`,
-    "decision=blocked",
-    `reason=${ACCEPTED_RESOLUTION_INCOMPATIBLE_BLOCKER_ID}`,
-  ].join("; ");
 
 /** The route that accepts a resolution the effective constraint admits. */
 export const acceptedMemberMismatchRecovery = (mismatch: AcceptedMemberMismatch) => ({

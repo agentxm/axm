@@ -35,10 +35,12 @@ import { installMcpServer, type McpServerInstallRequirements } from "./mcps/inst
 import { buildMaterializeOperation, targetFromRef, toStepKey } from "./extensions/operations.js";
 import { enabledConfiguredEntries, isConfiguredEntryEnabled } from "../desired-state/index.js";
 import {
+  acceptedResolutionIncompatibleText,
   canonicalObservationFactText,
   CodingAgentRepository,
   inspectMcpServerAcrossAgents,
   isObservedMaterializationCurrent,
+  makeExtensionConstraintInvariantFact,
   type ProjectionParticipantRequirements,
   type CodingAgentRepositoryService,
 } from "../projection/index.js";
@@ -578,7 +580,9 @@ export const collectMaterializeSteps = (args: {
           if (observation.status === "constraint-mismatch")
             return yield* new WorkspaceSyncFailed({
               category: "conflict",
-              detail: `${canonicalObservationFactText(node, observation)}; decision=blocked; reason=accepted-resolution-incompatible`,
+              detail: acceptedResolutionIncompatibleText(
+                makeExtensionConstraintInvariantFact(node, observation),
+              ),
               suggestions: [
                 {
                   description: "Explicitly update the extension to accept a satisfying resolution.",

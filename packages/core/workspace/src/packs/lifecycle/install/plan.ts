@@ -122,12 +122,15 @@ import {
   type ResolveInstallRequirements,
 } from "../../../lifecycle/install/vocabulary.js";
 import {
-  ACCEPTED_RESOLUTION_INCOMPATIBLE_BLOCKER_ID,
   acceptedMemberMismatchRecovery,
-  acceptedMemberMismatchText,
   configuredPackConstraintBlockPlan,
   type AcceptedMemberMismatch,
 } from "../constraint-gate.js";
+import {
+  ACCEPTED_RESOLUTION_INCOMPATIBLE_BLOCKER_ID,
+  acceptedResolutionIncompatibleText,
+  makeExtensionConstraintInvariantFact,
+} from "../../../projection/index.js";
 import { expandPackInstallRefsWithReleaseAge } from "../expansion.js";
 import { validatePackGraphPostcondition } from "../graph-transition.js";
 import { buildPackMemberInstallStep } from "../member-install-step.js";
@@ -736,18 +739,37 @@ export const selectPackGraph = Effect.fn("InstallExtensions.selectPackGraph")(fu
             name: mismatch.name,
             declared: packMemberVersionRange(declaration),
           });
+    // The fact is the one sync observes for the member's desired node, so
+    // both routes state it identically.
+    const member = proposedGraph.nodes.find(
+      (node) => node.type === mismatch.type && node.name === mismatch.name,
+    );
+    const fact = makeExtensionConstraintInvariantFact(
+      member ?? {
+        type: mismatch.type,
+        name: mismatch.name,
+        identity: mismatch.dependencyTarget,
+        constraints: [mismatch.constraint],
+      },
+      {
+        type: mismatch.type,
+        name: mismatch.name,
+        status: "constraint-mismatch",
+        authority: {
+          source: "desired-state-graph",
+          identity: member?.identity ?? mismatch.dependencyTarget,
+          locator: member?.source ?? mismatch.dependencyTarget,
+          constraints:
+            effective === undefined || Result.isFailure(effective)
+              ? []
+              : effective.success.contributors,
+        },
+        acceptedVersion: mismatch.acceptedVersion,
+      },
+    );
     return {
       kind: "accepted-incompatible",
-      mismatch: {
-        type: mismatch.type,
-        fqn: mismatch.dependencyTarget,
-        acceptedVersion: mismatch.acceptedVersion,
-        contributors:
-          effective === undefined || Result.isFailure(effective)
-            ? []
-            : effective.success.contributors,
-        constraint: mismatch.constraint,
-      },
+      mismatch: { fqn: mismatch.dependencyTarget, fact },
     } satisfies PackGraphSelection;
   }
   if (expansion.kind === "policy_held") {
@@ -1224,7 +1246,7 @@ export const planPackInstall: (
     });
   }
   if (selection.kind === "accepted-incompatible") {
-    const detail = acceptedMemberMismatchText(selection.mismatch);
+    const detail = acceptedResolutionIncompatibleText(selection.mismatch.fact);
     return {
       _tag: "Plan",
       name: "Install pack",

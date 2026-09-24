@@ -3405,7 +3405,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/install/records-direct-intent`
 - Owner: `workspace`
-- Statement: When a person installs an acquirable extension, the install shall record it in workspace settings as directly desired configuration; when a configured Pack's accepted member resolution no longer satisfies that member's effective constraint, the install shall change nothing and report the mismatch with every contributor and the update route that accepts a satisfying resolution.
+- Statement: When a person installs an acquirable extension, the install shall record it in workspace settings as directly desired configuration; when a configured Pack's accepted member resolution no longer satisfies that member's effective constraint, the install shall change nothing and report the mismatch with every contributor, in the words sync states that fact, and the update route that accepts a satisfying resolution.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`

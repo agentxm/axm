@@ -14,6 +14,7 @@ import {
   SHARED_MEMBER_PIN,
   publishSharedMemberScenario,
   sharedMemberBody,
+  sharedMemberOutsidePinFact,
   sharedMemberSettings,
 } from "../../desired-state/workspace/test-helpers.js";
 import {
@@ -35,7 +36,7 @@ export const specification = defineSpecification({
   requirement: "cli/install/records-direct-intent",
   title: "Install records the extension as directly desired workspace configuration",
   statement:
-    "When a person installs an acquirable extension, the install shall record it in workspace settings as directly desired configuration; when a configured Pack's accepted member resolution no longer satisfies that member's effective constraint, the install shall change nothing and report the mismatch with every contributor and the update route that accepts a satisfying resolution.",
+    "When a person installs an acquirable extension, the install shall record it in workspace settings as directly desired configuration; when a configured Pack's accepted member resolution no longer satisfies that member's effective constraint, the install shall change nothing and report the mismatch with every contributor, in the words sync states that fact, and the update route that accepts a satisfying resolution.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity"],
@@ -183,12 +184,15 @@ describe("Install records direct workspace intent", () => {
             // selects: the install changes nothing and names the decision.
             expect(deriveOperationOutcome(refused)).toBe("blocked");
             expect(workspace.snapshot()).toEqual(before);
+            // Every contributor, in the words sync states the same fact.
             const mismatch = refused.units.find((unit) => unit.state === "blocked")?.message;
-            expect(mismatch).toContain(`'${SHARED_MEMBER.fqn}' has constraint mismatch`);
-            expect(mismatch).toContain(`settings range=${SHARED_MEMBER_PIN.inside}`);
-            for (const pack of SHARED_MEMBER_PACKS) expect(mismatch).toContain(pack.fqn);
-            expect(mismatch).toContain("accepted version=1.2.0");
-            expect(mismatch).toContain("reason=accepted-resolution-incompatible");
+            expect(mismatch).toBe(
+              sharedMemberOutsidePinFact({
+                registry: registry.source.name,
+                pin: SHARED_MEMBER_PIN.inside,
+                acceptedVersion: "1.2.0",
+              }),
+            );
             expect(refused.suggestions).toContainEqual({
               description: "Explicitly update the extension to accept a satisfying resolution.",
               cmd: `axm update ${SHARED_MEMBER.fqn}`,

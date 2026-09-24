@@ -49,7 +49,7 @@ import {
 import { prepareConfiguredPackIntent } from "../lifecycle/install/configured.js";
 import type { ExtensionLifecycleFailed } from "../lifecycle/errors.js";
 import { readProposedGraph, selectPackGraph } from "../packs/lifecycle/install/plan.js";
-import { acceptedMemberMismatchText } from "../packs/lifecycle/constraint-gate.js";
+import { acceptedResolutionIncompatibleText } from "../projection/index.js";
 import { withPackRegistryIndexMemo } from "../resolution/sources/providers/registry/index-memo.js";
 import {
   acceptedCanonicalObservation,
@@ -280,7 +280,7 @@ export const collectConfiguredPackRecovery = (args: {
             );
           }
           if (selection.kind === "accepted-incompatible") {
-            return blocked(acceptedMemberMismatchText(selection.mismatch));
+            return blocked(acceptedResolutionIncompatibleText(selection.mismatch.fact));
           }
           const held = {
             holdbacks: [...packHoldbacks, ...selection.holdbacks],

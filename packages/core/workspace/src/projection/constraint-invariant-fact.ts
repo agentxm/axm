@@ -158,7 +158,7 @@ export const makeProspectiveExtensionConstraintFacts = (args: {
 };
 
 export const makeExtensionConstraintInvariantFact = (
-  desired: DesiredExtensionNode,
+  desired: Pick<DesiredExtensionNode, "type" | "name" | "identity" | "constraints">,
   observation: CanonicalConstraintMismatchObservation,
 ): ExtensionConstraintInvariantFact => ({
   predicate: EXTENSION_CONSTRAINT_INVARIANT_PREDICATE,
@@ -210,3 +210,20 @@ export const extensionConstraintFactText = (fact: ExtensionConstraintInvariantFa
     ...versions,
   ].join("; ");
 };
+
+/**
+ * The machine-readable reference a refusal carries when an accepted
+ * resolution no longer satisfies its effective constraint. Sync and a Pack
+ * operation refuse the same fact for the same reason.
+ */
+export const ACCEPTED_RESOLUTION_INCOMPATIBLE_BLOCKER_ID = "accepted-resolution-incompatible";
+
+/**
+ * The one text for an accepted resolution its effective constraint excludes:
+ * the constraint fact and the blocking decision. Sync's blocker and a Pack
+ * operation's refusal both state it here.
+ */
+export const acceptedResolutionIncompatibleText = (
+  fact: ExtensionConstraintInvariantFact,
+): string =>
+  `${extensionConstraintFactText(fact)}; decision=blocked; reason=${ACCEPTED_RESOLUTION_INCOMPATIBLE_BLOCKER_ID}`;

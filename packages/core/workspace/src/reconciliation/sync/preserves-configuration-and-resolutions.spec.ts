@@ -14,9 +14,11 @@ import { deriveOperationOutcome } from "../../transitions/planning/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import {
   SHARED_MEMBER,
+  SHARED_MEMBER_PACKS,
   SHARED_MEMBER_PIN,
   publishSharedMemberScenario,
   sharedMemberBody,
+  sharedMemberOutsidePinFact,
   sharedMemberSettings,
 } from "../../desired-state/workspace/test-helpers.js";
 
@@ -198,6 +200,50 @@ describe("Sync preserves configuration and accepted resolutions", () => {
       )
       .pipe(Effect.provide(NodeServices.layer));
   });
+
+  it.effect(
+    "blocks an accepted Pack member a later direct pin excludes, stating the fact install states",
+    () => {
+      const published = registry();
+      publishSharedMemberScenario(published);
+      const configured = {
+        agents: ["claude-code"],
+        sources: [published.source],
+        packs: Object.fromEntries(SHARED_MEMBER_PACKS.map((pack) => [pack.name, pack.fqn])),
+      };
+      const workspace = fixture(configured);
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            // Both Packs accept the newest member version they admit, then the
+            // person pins the member directly, in the form install records.
+            yield* applySync();
+            expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.2.0");
+            workspace.writeSettings({
+              owner: "@acme",
+              ...configured,
+              skills: {
+                [SHARED_MEMBER.name]: `${published.source.name}:${SHARED_MEMBER.fqn}@${SHARED_MEMBER_PIN.inside}`,
+              },
+            });
+            const before = workspace.snapshot();
+
+            const failure = yield* applySync().pipe(Effect.flip);
+
+            expect(failure).toMatchObject({
+              _tag: "WorkspaceSyncFailed",
+              detail: sharedMemberOutsidePinFact({
+                registry: published.source.name,
+                pin: SHARED_MEMBER_PIN.inside,
+                acceptedVersion: "1.2.0",
+              }),
+            });
+            expect(workspace.snapshot()).toEqual(before);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
 
   it.effect(
     "restores a missing Git package from the accepted commit after the branch advances",

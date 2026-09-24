@@ -24,8 +24,11 @@ import * as Option from "effect/Option";
 import {
   decodeExtensionNameSync,
   parseSourceQualifiedRegistrySourcePatternParts,
+  type ExtensionName,
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
+import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
+import { createRegistryClient } from "@agentxm/registry-client";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -33,6 +36,7 @@ import { SubagentManager } from "../../../materialization/index.js";
 import { buildInstallOperation } from "../../../reconciliation/index.js";
 import {
   classifyPublisherBindingTransition,
+  heldBackReleaseWarnings,
   makeConfiguredReleaseAgeEvaluation,
   normalizeReleaseAgeRecords,
   publisherTransitionWarning,
@@ -103,6 +107,8 @@ type ResolveResult =
       readonly ref: SubagentExtensionRef;
       readonly holdbacks: ReadonlyArray<ReleaseAgeRecord>;
       readonly bypasses?: ReadonlyArray<ReleaseAgeBypassRecord>;
+      /** Packs whose range holds the subagent below its newest release. */
+      readonly warnings: ReadonlyArray<string>;
     }
   | {
       readonly type: "skip";
@@ -112,15 +118,26 @@ type ResolveResult =
       readonly holdback?: ReleaseAgeRecord;
     };
 
-const appendWarning =
-  (warning: string | undefined) =>
-  (result: JobStepResult): JobStepResult =>
-    warning === undefined || result.result === "error"
-      ? result
-      : {
-          ...result,
-          message: result.message.length === 0 ? warning : `${result.message}; ${warning}`,
-        };
+const appendWarnings =
+  (warnings: ReadonlyArray<string>) =>
+  (result: JobStepResult): JobStepResult => {
+    if (warnings.length === 0 || result.result === "error") return result;
+    const warning = warnings.join("; ");
+    return {
+      ...result,
+      message: result.message.length === 0 ? warning : `${result.message}; ${warning}`,
+    };
+  };
+
+/** The newest release the Registry index lists, which it orders newest first. */
+const latestPublishedVersion = (source: RegistrySource, owner: Handle, name: ExtensionName) =>
+  Effect.gen(function* () {
+    const location =
+      source.location.protocol === "file:" ? source.location.pathname : source.location.href;
+    const client = yield* createRegistryClient(location);
+    const index = yield* client.getExtensionIndex({ owner, type: "subagent", name });
+    return Option.flatMap(index, (value) => Option.fromUndefinedOr(value.versions[0]?.version));
+  });
 
 const skippedSubagentStep = (
   scope: WorkspaceScope,
@@ -251,6 +268,13 @@ export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate
                   detail: `Registry resolved ${registryResolution.target} as ${registryResolution.ref.type}, expected subagent`,
                 });
               }
+              // A Pack that holds the subagent below its newest release is
+              // reported the way selective skill update reports it.
+              const latest = effective.contributors.some(
+                (contributor) => contributor.source === "pack",
+              )
+                ? yield* latestPublishedVersion(source, registryPattern.value.owner, lookupName)
+                : Option.none<string>();
               return {
                 type: "match",
                 ref: registryResolution.ref,
@@ -259,6 +283,16 @@ export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate
                   registryResolution,
                   registryResolution.ref.version,
                 ),
+                warnings: Option.match(latest, {
+                  onNone: () => [],
+                  onSome: (latestVersion) =>
+                    heldBackReleaseWarnings({
+                      subject: registryResolution.target,
+                      latestVersion,
+                      selectedVersion: registryResolution.ref.version,
+                      contributors: effective.contributors,
+                    }),
+                }),
               } satisfies ResolveResult;
             }
             if (registryResolution.kind === "policy_held") {
@@ -301,7 +335,12 @@ export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate
           const subagentRef = namedRefs.find((r) => r.subagent.name === name);
 
           if (subagentRef) {
-            return { type: "match", ref: subagentRef, holdbacks: [] } satisfies ResolveResult;
+            return {
+              type: "match",
+              ref: subagentRef,
+              holdbacks: [],
+              warnings: [],
+            } satisfies ResolveResult;
           }
 
           return {
@@ -343,7 +382,9 @@ export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate
     // Classify every proposed Registry acceptance against the accepted
     // resolution. A replaced publisher binding is a trust decision a person
     // makes at a prompt; the plan carries it as an interactive-only condition.
-    const warningsBySubagent = new Map<string, string>();
+    const warningsBySubagent = new Map<string, ReadonlyArray<string>>(
+      resolved.map((item) => [item.ref.subagent.name, item.warnings]),
+    );
     const publisherTransitions: Array<PublisherBindingTransition> = [];
     for (const item of resolved) {
       const proposed = registryBindingProposal(item.ref);
@@ -367,10 +408,10 @@ export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate
       });
       if (Option.isSome(transition)) {
         publisherTransitions.push(transition.value);
-        warningsBySubagent.set(
-          item.ref.subagent.name,
+        warningsBySubagent.set(item.ref.subagent.name, [
           publisherTransitionWarning(transition.value),
-        );
+          ...item.warnings,
+        ]);
       }
     }
 
@@ -384,7 +425,9 @@ export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate
       if (step.readiness === "error") return step;
       return {
         ...step,
-        run: step.run.pipe(Effect.map(appendWarning(warningsBySubagent.get(ref.subagent.name)))),
+        run: step.run.pipe(
+          Effect.map(appendWarnings(warningsBySubagent.get(ref.subagent.name) ?? [])),
+        ),
       };
     };
 

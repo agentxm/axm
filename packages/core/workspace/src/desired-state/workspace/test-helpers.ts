@@ -94,6 +94,54 @@ export const sharedMemberSettings = (pin: string) => ({
   },
 });
 
+/**
+ * The same scenario with a subagent as the shared member: the two Packs
+ * require it with the same broad ranges, and the workspace pins it directly.
+ * The subagent Packs carry their own names so the scenario can stand beside
+ * the skill one.
+ */
+export const SHARED_SUBAGENT = {
+  owner: SHARED_MEMBER.owner,
+  name: "reviewer",
+  fqn: "@acme/subagents/reviewer",
+  versions: SHARED_MEMBER.versions,
+} as const;
+
+/** The two Packs that require the shared subagent, with the shared-member ranges. */
+export const SHARED_SUBAGENT_PACKS = SHARED_MEMBER_PACKS.map((pack) => ({
+  name: `${pack.name}-agents`,
+  fqn: `${pack.fqn}-agents`,
+  range: pack.range,
+}));
+
+/** The Registry writes the subagent scenario needs. */
+export interface SharedSubagentPublisher {
+  readonly writeSubagent: (
+    name: string,
+    versions: ReadonlyArray<{ readonly version: string; readonly body: string }>,
+  ) => void;
+  readonly writePack: SharedMemberPublisher["writePack"];
+}
+
+/** Publish every version of the shared subagent and both Packs that require it. */
+export const publishSharedSubagentScenario = (registry: SharedSubagentPublisher): void => {
+  registry.writeSubagent(
+    SHARED_SUBAGENT.name,
+    SHARED_SUBAGENT.versions.map((version) => ({ version, body: sharedMemberBody(version) })),
+  );
+  for (const pack of SHARED_SUBAGENT_PACKS) {
+    registry.writePack(pack.name, [
+      { version: PACK_VERSION, dependencies: { [SHARED_SUBAGENT.fqn]: pack.range } },
+    ]);
+  }
+};
+
+/** The authored entries that declare the subagent scenario with the given direct pin. */
+export const sharedSubagentSettings = (pin: string) => ({
+  subagents: { [SHARED_SUBAGENT.name]: `${SHARED_SUBAGENT.fqn}@${pin}` },
+  packs: Object.fromEntries(SHARED_SUBAGENT_PACKS.map((pack) => [pack.name, pack.fqn])),
+});
+
 /** Pack manifests held in memory, located where a registry Pack is materialized. */
 const scenarioPackManifests: PackManifestsPort = {
   locate: ({ owner, name }) => {

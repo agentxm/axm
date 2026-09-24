@@ -28,9 +28,13 @@ import {
   SHARED_MEMBER,
   SHARED_MEMBER_PACKS,
   SHARED_MEMBER_PIN,
+  SHARED_SUBAGENT,
+  SHARED_SUBAGENT_PACKS,
   publishSharedMemberScenario,
+  publishSharedSubagentScenario,
   sharedMemberBody,
   sharedMemberSettings,
+  sharedSubagentSettings,
 } from "../../desired-state/workspace/test-helpers.js";
 import {
   applyUpdate,
@@ -110,90 +114,125 @@ it.effect(
   },
 );
 
-describe("selective subagent update of a member a Pack also requires", () => {
-  const name = "reviewer";
-  const fqn = `@acme/subagents/${name}`;
+describe("selective subagent update of a member a direct pin and Packs share", () => {
+  const cleanups: Array<() => void> = [];
+  afterEach(() => {
+    for (const cleanup of cleanups.splice(0)) cleanup();
+  });
 
-  /** The subagent is declared directly without a range and required by a Pack. */
-  const acceptedWithinPack = () =>
+  /**
+   * The shared-subagent scenario accepted at 1.0.0, after which the person
+   * re-declares the subagent in the form install recorded, with `pin` as its
+   * range or with no range at all.
+   */
+  const acceptedThenRedeclared = (pin: string | undefined) =>
     Effect.gen(function* () {
-      const created = makeInstallWorld({
-        settings: {
-          subagents: { [name]: `test:${fqn}` },
-          packs: { agents: "@acme/packs/agents" },
-        },
-      });
-      created.registry.writeSubagent(name, [
-        { version: "1.0.0", body: "First reviewer." },
-        { version: "1.1.0", body: "Accepted reviewer." },
-      ]);
-      created.registry.writePack("agents", [
-        { version: "1.0.0", dependencies: { [fqn]: "^1.0.0" } },
-      ]);
+      const created = makeInstallWorld({ settings: sharedSubagentSettings("1.0.0") });
+      cleanups.push(created.cleanup);
+      publishSharedSubagentScenario(created.registry);
       yield* created.workspace.provide(
         applyInstall(installRequest({ subject: { kind: "configured" } })),
       );
-      created.registry.writeSubagent(name, [
-        { version: "1.0.0", body: "First reviewer." },
-        { version: "1.1.0", body: "Accepted reviewer." },
-        { version: "1.2.0", body: "Compatible reviewer." },
-        { version: "2.0.0", body: "Different reviewer." },
-      ]);
-      return created;
+      const settings = readSettings(created.workspace);
+      const subagents = settings["subagents"];
+      const declared =
+        typeof subagents === "object" && subagents !== null && SHARED_SUBAGENT.name in subagents
+          ? Reflect.get(subagents, SHARED_SUBAGENT.name)
+          : undefined;
+      if (typeof declared !== "string") throw new Error("Expected the recorded direct pin");
+      created.workspace.writeFile(
+        "axm.json",
+        `${JSON.stringify(
+          {
+            ...settings,
+            subagents: {
+              [SHARED_SUBAGENT.name]: declared.replace(
+                /@1\.0\.0$/u,
+                pin === undefined ? "" : `@${pin}`,
+              ),
+            },
+          },
+          null,
+          2,
+        )}\n`,
+      );
+      return created.workspace;
     });
 
   const selectiveUpdate = SelectiveUpdate.prepare({
     kind: "selective-subagents",
     source: Option.none(),
-    nameFilters: [name],
+    nameFilters: [SHARED_SUBAGENT.name],
     nameFilterFlag: "--name",
     ignoreVersionConstraints: false,
   });
 
-  it.effect("advances within the range the Pack declares, not to the newest release", () =>
-    Effect.gen(function* () {
-      const { workspace, cleanup } = yield* acceptedWithinPack();
-      yield* workspace
-        .provide(
-          Effect.gen(function* () {
-            const candidate = yield* selectiveUpdate;
-            if (candidate.outcome !== "planned") throw new Error(candidate.message);
-            const resolution = yield* SelectiveUpdate.previewOrApply(
-              candidate,
-              preapprovedPlanExecution,
-            );
+  const applySelectiveUpdate = Effect.gen(function* () {
+    const candidate = yield* selectiveUpdate;
+    if (candidate.outcome !== "planned") throw new Error(candidate.message);
+    return yield* SelectiveUpdate.previewOrApply(candidate, preapprovedPlanExecution);
+  });
 
-            expect(deriveOperationOutcome(resolution)).toBe("applied");
-            expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.2.0");
-            expect(workspace.readFile("axm-lock.yaml")).not.toContain("version: 2.0.0");
-          }),
-        )
-        .pipe(Effect.ensuring(Effect.sync(cleanup)));
-    }).pipe(Effect.provide(NodeServices.layer)),
+  const lockedVersion = (workspace: LifecycleFixture): unknown => {
+    const parsed: unknown = YAML.parse(workspace.readFile("axm-lock.yaml"));
+    if (typeof parsed !== "object" || parsed === null || !("subagents" in parsed)) return undefined;
+    const locked = parsed.subagents;
+    if (typeof locked !== "object" || locked === null) return undefined;
+    const entry: unknown = Reflect.get(locked, SHARED_SUBAGENT.name);
+    return typeof entry === "object" && entry !== null && "resolved" in entry
+      ? entry.resolved
+      : undefined;
+  };
+
+  it.effect(
+    "advances to the direct pin, not the newest version every Pack admits, and names the Packs that hold it back",
+    () =>
+      Effect.gen(function* () {
+        const workspace = yield* acceptedThenRedeclared(SHARED_MEMBER_PIN.inside);
+
+        const resolution = yield* workspace.provide(applySelectiveUpdate);
+
+        expect(deriveOperationOutcome(resolution)).toBe("applied");
+        expect(lockedVersion(workspace)).toMatchObject({ version: SHARED_MEMBER_PIN.inside });
+        const message = resolution.units.map((unit) => unit.message ?? "").join("\n");
+        for (const pack of SHARED_SUBAGENT_PACKS) {
+          expect(message).toContain(
+            `${SHARED_SUBAGENT.fqn} held at ${SHARED_MEMBER_PIN.inside} by pack "${pack.fqn}" (${pack.range}), latest is 2.0.0`,
+          );
+        }
+      }).pipe(Effect.provide(NodeServices.layer)),
   );
 
-  it.effect("refuses a direct pin the Pack's range excludes, naming both contributors", () =>
-    Effect.gen(function* () {
-      const { workspace, cleanup } = yield* acceptedWithinPack();
-      const settings = readSettings(workspace);
-      workspace.writeFile(
-        "axm.json",
-        `${JSON.stringify({ ...settings, subagents: { [name]: `test:${fqn}@2.0.0` } }, null, 2)}\n`,
-      );
-      const lockBefore = workspace.readFile("axm-lock.yaml");
-      yield* workspace
-        .provide(
-          Effect.gen(function* () {
-            const failure = yield* selectiveUpdate.pipe(Effect.flip);
+  it.effect(
+    "a direct pin outside every Pack range changes nothing and names all three contributors",
+    () =>
+      Effect.gen(function* () {
+        const workspace = yield* acceptedThenRedeclared(SHARED_MEMBER_PIN.outside);
+        const lockBefore = workspace.readFile("axm-lock.yaml");
 
-            expect(failure).toMatchObject({ category: "conflict" });
-            expect(JSON.stringify(failure)).toContain("settings range=2.0.0");
-            expect(JSON.stringify(failure)).toContain("@acme/packs/agents range=^1.0.0");
-            expect(workspace.readFile("axm-lock.yaml")).toBe(lockBefore);
-          }),
-        )
-        .pipe(Effect.ensuring(Effect.sync(cleanup)));
-    }).pipe(Effect.provide(NodeServices.layer)),
+        const failure = yield* workspace.provide(selectiveUpdate.pipe(Effect.flip));
+
+        expect(failure).toMatchObject({ category: "conflict" });
+        const detail = JSON.stringify(failure);
+        expect(detail).toContain(`settings range=${SHARED_MEMBER_PIN.outside}`);
+        for (const pack of SHARED_SUBAGENT_PACKS) {
+          expect(detail).toContain(`${pack.fqn} range=${pack.range}`);
+        }
+        expect(workspace.readFile("axm-lock.yaml")).toBe(lockBefore);
+      }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect(
+    "without a direct range, advances within the Packs' ranges, not to the newest release",
+    () =>
+      Effect.gen(function* () {
+        const workspace = yield* acceptedThenRedeclared(undefined);
+
+        const resolution = yield* workspace.provide(applySelectiveUpdate);
+
+        expect(deriveOperationOutcome(resolution)).toBe("applied");
+        expect(lockedVersion(workspace)).toMatchObject({ version: "1.2.0" });
+      }).pipe(Effect.provide(NodeServices.layer)),
   );
 });
 

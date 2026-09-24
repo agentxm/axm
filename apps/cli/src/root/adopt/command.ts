@@ -3,7 +3,7 @@ import { Argument, Command } from "effect/unstable/cli";
 
 import { AdoptExtension, adoptExtensionPlanName } from "@agentxm/workspace/authoring";
 
-import { isNonInteractiveOptional } from "../../cli-flags/index.js";
+import { Screen } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { failureToAppError } from "../../app-error/conversions.js";
 import { emitOperationResolution } from "../../operation-output.js";
@@ -13,7 +13,7 @@ import {
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
+import { makePublicPositionalPlanInvocation } from "../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
 export interface AdoptHandlerArgs {
@@ -32,11 +32,11 @@ export const handleAdopt = (args: AdoptHandlerArgs) =>
   );
 
 const handleAdoptBody = Effect.fn("Adopt.handle")(function* (args: AdoptHandlerArgs) {
-  const nonInteractive = yield* isNonInteractiveOptional;
+  const nonInteractive = !(yield* (yield* Screen).canAsk);
   const candidate = yield* AdoptExtension.prepare({ fqn: args.fqn, nonInteractive }).pipe(
     Effect.mapError(failureToAppError),
   );
-  const execution = yield* makePublicPositionalPlanExecution(
+  const { execution, recovery } = yield* makePublicPositionalPlanInvocation(
     { preview: args.preview },
     ["adopt"],
     [args.fqn],
@@ -44,7 +44,7 @@ const handleAdoptBody = Effect.fn("Adopt.handle")(function* (args: AdoptHandlerA
   const resolution = yield* AdoptExtension.previewOrApply(candidate, execution).pipe(
     Effect.mapError(failureToAppError),
   );
-  yield* emitOperationResolution("adopt", resolution);
+  yield* emitOperationResolution(resolution, { recovery });
 });
 
 const config = {

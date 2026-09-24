@@ -8,7 +8,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
 
-import { isNonInteractiveOptional } from "../../cli-flags/index.js";
+import { Screen } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
@@ -27,7 +27,7 @@ export interface McpServersNewHandlerArgs {
 
 export const handleMcpServersNew = (args: McpServersNewHandlerArgs) =>
   Effect.gen(function* () {
-    const nonInteractive = yield* isNonInteractiveOptional;
+    const nonInteractive = !(yield* (yield* Screen).canAsk);
     return yield* runCreateExtensionCommand({
       command: "mcps.new",
       preview: args.preview,

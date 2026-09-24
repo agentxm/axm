@@ -20,6 +20,7 @@ import {
   syncFailureRendering,
   workspaceFailureToStepFailure,
 } from "../../reconciliation/index.js";
+import { expectedProjectionNamesOf } from "../../projection/index.js";
 
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
@@ -287,10 +288,12 @@ export const prepareUninstallExtensions: (
             };
           }
           const cleanup = yield* collectCleanupStep({
-            expectedSkillNames: activeNames("skill"),
-            expectedSubagentNames: activeNames("subagent"),
-            expectedMcpServerNames: activeNames("mcp-server"),
-            expectedHookNames: activeNames("hook"),
+            expectedNames: expectedProjectionNamesOf({
+              skill: activeNames("skill"),
+              subagent: activeNames("subagent"),
+              mcpServer: activeNames("mcp-server"),
+              hook: activeNames("hook"),
+            }),
             subjects: [{ type: leafType, name: nameFromLabel(step.label) }],
             adapter: syncFailureRendering,
           }).pipe(

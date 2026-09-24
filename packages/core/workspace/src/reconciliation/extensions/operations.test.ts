@@ -33,6 +33,7 @@ import {
   formatPackageUrlParts,
   toLabelWithCompanions,
   toStepKey,
+  extensionFromStepKey,
 } from "./operations.js";
 import type { CallerStepFailure } from "./operations.js";
 import { SourceAuthorityBlocked } from "../../resolution/index.js";
@@ -200,6 +201,34 @@ describe("toStepKey", () => {
     expect(toStepKey({ type: "pack", name: "frontend", owner: handle("@acme") })).toBe(
       "pack:@acme/frontend",
     );
+  });
+});
+
+describe("extensionFromStepKey", () => {
+  it("reads the type and name a step key names", () => {
+    expect(extensionFromStepKey(toStepKey({ type: "skill", name: "lint" }))).toEqual({
+      type: "skill",
+      name: "lint",
+    });
+    expect(extensionFromStepKey("mcp-server:context")).toEqual({
+      type: "mcp-server",
+      name: "context",
+    });
+  });
+
+  it("reads a pack's own name from behind its owner", () => {
+    expect(
+      extensionFromStepKey(toStepKey({ type: "pack", name: "frontend", owner: handle("@acme") })),
+    ).toEqual({ type: "pack", name: "frontend" });
+  });
+
+  it("names no extension for a key of another shape", () => {
+    expect(extensionFromStepKey("skills/lint")).toBeUndefined();
+    expect(extensionFromStepKey("projection:knowledge:discovery-region")).toBeUndefined();
+    expect(extensionFromStepKey("agent-readback:skill")).toBeUndefined();
+    expect(extensionFromStepKey("skill:lint:planning-error")).toBeUndefined();
+    expect(extensionFromStepKey("skill:")).toBeUndefined();
+    expect(extensionFromStepKey("pack:@acme/")).toBeUndefined();
   });
 });
 

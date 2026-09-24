@@ -16,7 +16,6 @@ import {
   recoveryPositional,
   recoverySwitch,
   type OperationResolution,
-  type PlanExecution,
 } from "@agentxm/workspace/transitions/planning";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
@@ -27,7 +26,12 @@ import {
   retryCanHelp,
 } from "../../operation-output.js";
 import { toAppError } from "../../app-error/conversions.js";
-import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import {
+  makeConfirmationRecovery,
+  makePlanInvocation,
+  retrySuggestion,
+  type PlanInvocation,
+} from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 import { INSPECT_INSTALLED } from "../suggested-actions.js";
@@ -116,23 +120,12 @@ export const blockerSuggestions = (
   }
 };
 
-/** A release the minimum-release-age policy is still holding back. */
-const releaseAgeSuggestions = (resolution: OperationResolution): ReadonlyArray<SuggestedAction> => {
-  const held = resolution.releaseAge?.holdbacks?.[0];
-  if (held === undefined || resolution.blocking?.reference !== "release-age-held") return [];
-  return [
-    {
-      description: `Wait until ${held.eligibleAt}, request an eligible older version, declare ${held.target} in minimumReleaseAgeExclude, or rerun this command with --ignore-release-age.`,
-    },
-  ];
-};
-
 /** Fold the adapter's recovery commands into a refused outcome. */
 const withRecovery = (
   resolution: OperationResolution,
   context: TargetedUpdatePublicContext | undefined,
 ): OperationResolution => {
-  const suggestions = [...blockerSuggestions(context), ...releaseAgeSuggestions(resolution)];
+  const suggestions = blockerSuggestions(context);
   const escape = suggestions[0];
   if (resolution.blocking === undefined || escape === undefined) return resolution;
   return {
@@ -142,10 +135,10 @@ const withRecovery = (
   };
 };
 
-const targetedExecution = (args: RootUpdateHandlerArgs, source: string) =>
+const targetedInvocation = (args: RootUpdateHandlerArgs, source: string) =>
   Effect.gen(function* () {
     const posture = yield* ReleaseAgePosture;
-    return yield* makePlanExecution(
+    return yield* makePlanInvocation(
       { preview: args.preview },
       makeConfirmationRecovery(args.recoveryCommand ?? ["update"], [
         recoverySwitch("--refresh", args.force),
@@ -157,9 +150,8 @@ const targetedExecution = (args: RootUpdateHandlerArgs, source: string) =>
 
 const reportTargeted = (
   candidate: Exclude<UpdateCandidate, { readonly outcome: "nothing-configured" }>,
-  execution: PlanExecution,
+  { execution, recovery }: PlanInvocation,
   subjectType: UpdateSubjectType,
-  source: string,
 ) =>
   Effect.gen(function* () {
     const resolution = yield* UpdateExtensions.previewOrApply(candidate, execution);
@@ -170,18 +162,14 @@ const reportTargeted = (
         operationResolutionSummary(reported, { subjectType, sourceKind: "registry" }),
       ),
     );
-    yield* emitOperationResolution("update", reported, {
-      // A targeted update names one extension, so the route that recovers it
-      // is the one the person just typed.
+    yield* emitOperationResolution(reported, {
+      recovery,
+      // A targeted update names one extension, so the invocation that
+      // recovers it is the one the person just typed.
       suggestions: ({ unsettled }) =>
         unsettled.length === 0 || !retryCanHelp(unsettled)
           ? [INSPECT_INSTALLED]
-          : [
-              {
-                description: "Try the extension that did not update again",
-                cmd: `axm update ${credentialFreeLocatorRecoveryValue(source)}`,
-              },
-            ],
+          : [retrySuggestion("Try the extension that did not update again", recovery)],
       ...(context === undefined ? {} : { targetedUpdate: contextForResolution(context, reported) }),
     });
   });
@@ -227,12 +215,12 @@ const handleTargetedUpdateBody = Effect.fn("Update.handleTargeted")(function* (
     nonInteractive: false,
   });
   if (candidate.outcome === "nothing-configured") {
-    yield* emitNoOpOutcome("update", {
+    yield* emitNoOpOutcome({
       planName: "Update configured extensions",
       message: candidate.message,
     });
     return;
   }
-  const execution = yield* targetedExecution(args, source);
-  yield* reportTargeted(candidate, execution, candidate.subjectType, source);
+  const invocation = yield* targetedInvocation(args, source);
+  yield* reportTargeted(candidate, invocation, candidate.subjectType);
 });

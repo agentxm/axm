@@ -21,26 +21,75 @@ import { layer as coreWorkspaceLayer } from "@agentxm/workspace/desired-state/li
 import { ConfiguredAgentOutcomesProviderTest } from "@agentxm/workspace/desired-state/testing";
 import { ResolvePlanInteractionTest } from "@agentxm/workspace/transitions/planning/testing";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
+import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import {
   expectAppliedPlanResult,
   expectNoOpPlanResult,
   expectPreviewedPlanResult,
   planResultUnits,
+  property,
 } from "../../test-support/test-helpers.js";
 import { handleAgentsRemove } from "./remove.js";
 
 const writeWorkspace = (
   axmDir: string,
-  options: { readonly agents: ReadonlyArray<string>; readonly lockfile: string },
+  options: {
+    readonly agents: ReadonlyArray<string>;
+    readonly lockfile: string;
+    /** Skill declarations written into settings, keyed by name. */
+    readonly skills?: Readonly<Record<string, unknown>>;
+  },
 ) => {
   const projectRoot = path.dirname(axmDir);
   fs.mkdirSync(axmDir, { recursive: true });
   fs.writeFileSync(
     path.join(projectRoot, "axm.json"),
-    JSON.stringify({ owner: "@acme", agents: options.agents }, null, 2),
+    JSON.stringify(
+      {
+        owner: "@acme",
+        agents: options.agents,
+        ...(options.skills === undefined ? {} : { skills: options.skills }),
+      },
+      null,
+      2,
+    ),
   );
   fs.writeFileSync(path.join(projectRoot, "axm-lock.yaml"), options.lockfile);
 };
+
+/** A workspace-authored skill the desired graph can resolve. */
+const writeAuthoredSkill = (projectRoot: string, name: string) => {
+  const skillDir = path.join(projectRoot, "skills", name);
+  fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
+  fs.writeFileSync(
+    path.join(skillDir, "skill.json"),
+    `${JSON.stringify(
+      { owner: "@acme", type: "skill", name, version: "1.0.0", description: `The ${name} skill.` },
+      null,
+      2,
+    )}\n`,
+  );
+  fs.writeFileSync(
+    path.join(skillDir, "src", "SKILL.md"),
+    `---\nname: ${name}\ndescription: The ${name} skill.\n---\n\n# ${name}\n`,
+  );
+  return path.join(skillDir, "src");
+};
+
+/** Realize a skill into an agent directory the way the product does. */
+const linkSkill = (
+  projectRoot: string,
+  agentSkillsDir: string,
+  name: string,
+  sourceDir: string,
+) => {
+  const skillsDir = path.join(projectRoot, agentSkillsDir);
+  fs.mkdirSync(skillsDir, { recursive: true });
+  fs.symlinkSync(path.relative(skillsDir, sourceDir), path.join(skillsDir, name));
+};
+
+/** The one cleanup step every removal of managed outputs plans, as the kernel labels it. */
+const CLEANUP_LABEL = "stale managed agent projections";
 
 describe("agents remove.handler", () => {
   let tempDir: string;
@@ -71,6 +120,8 @@ describe("agents remove.handler", () => {
   const makeLayers = (opts?: {
     readonly wsOverrides?: Partial<WorkspaceStateOptions>;
     readonly machine?: boolean;
+    /** The agents the catalog knows; `opencode` alone unless stated. */
+    readonly agents?: ReadonlyArray<AgentId>;
   }) => {
     const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
     const interaction = ResolvePlanInteractionTest();
@@ -91,9 +142,13 @@ describe("agents remove.handler", () => {
       baseLayer,
     );
     const opencode = codingAgentForId("opencode");
+    const agents = (opts?.agents ?? ["opencode"]).map(codingAgentForId);
+    // The repository never reports the membership a removal leaves behind:
+    // a cleanup that consulted it instead of the settled candidate would
+    // treat every agent's outputs as residue.
     const agentRepo: CodingAgentRepositoryService = {
-      get: () => Effect.succeed(opencode),
-      all: Effect.succeed([opencode]),
+      get: (id) => Effect.succeed(agents.find((agent) => agent.id === id) ?? opencode),
+      all: Effect.succeed(agents),
       getConfiguredAgents: () => Effect.succeed([]),
       getMaterializationAgents: () => Effect.succeed([]),
       getUnknownConfiguredAgentIds: () => Effect.succeed([]),
@@ -151,15 +206,14 @@ describe("agents remove.handler", () => {
           preview: true,
         });
 
+        // Nothing of the departing agent's is on disk, so no cleanup step is
+        // planned: the plan holds only the membership change.
         const result = expectPreviewedPlanResult(rendererState.results[0]?.data, {
           planName: "Remove coding agents",
-          totalSteps: 2,
+          totalSteps: 1,
         });
         expect(result).toMatchObject({
-          units: [
-            { label: "Remove managed agent artifacts", state: "ready" },
-            { label: "Remove opencode", state: "ready" },
-          ],
+          units: [{ label: "Remove opencode", state: "ready" }],
         });
       }),
     );
@@ -182,23 +236,11 @@ describe("agents remove.handler", () => {
 
         const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
           planName: "Remove coding agents",
-          totalSteps: 2,
+          totalSteps: 1,
           appliedCount: 1,
         });
         expect(result).toMatchObject({
           units: [
-            {
-              label: "Remove managed agent artifacts",
-              state: "unchanged",
-              message: "Removed 0 managed artifacts",
-              artifact: {
-                path: "managed agent artifacts",
-                scope: "project",
-                agents: ["opencode"],
-                change: "unchanged",
-                fileCount: 0,
-              },
-            },
             {
               label: "Remove opencode",
               state: "committed",
@@ -217,7 +259,7 @@ describe("agents remove.handler", () => {
     );
   });
 
-  it.effect("reports removed managed artifact targets as workspace-relative paths", () => {
+  it.effect("reports a departing agent's outputs as the one projection cleanup step", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["opencode"],
@@ -232,10 +274,9 @@ describe("agents remove.handler", () => {
       "axm",
       "src",
     );
-    const skillsDir = path.join(tempDir, ".opencode", "skills");
     fs.mkdirSync(sourceDir, { recursive: true });
-    fs.mkdirSync(skillsDir, { recursive: true });
-    fs.symlinkSync(path.relative(skillsDir, sourceDir), path.join(skillsDir, "axm"));
+    linkSkill(tempDir, path.join(".opencode", "skills"), "axm", sourceDir);
+    const removedPath = path.join(tempDir, ".opencode", "skills", "axm");
 
     return provide(
       Effect.gen(function* () {
@@ -250,23 +291,58 @@ describe("agents remove.handler", () => {
           totalSteps: 2,
         });
         const units = planResultUnits(result);
-        expect(units[0]).toMatchObject({
-          label: "Remove managed agent artifacts",
+        const cleanup = units.find((unit) => property(unit, "label") === CLEANUP_LABEL);
+        // The same step `sync` and `uninstall` plan: the kernel's label,
+        // message, and absolute target path.
+        expect(cleanup).toMatchObject({
+          label: CLEANUP_LABEL,
           state: "committed",
-          artifact: {
-            path: "managed agent artifacts",
-            scope: "project",
-            agents: ["opencode"],
-            change: "removed",
-            fileCount: 1,
-            targets: [
-              {
-                path: ".opencode/skills/axm",
-                change: "removed",
-              },
-            ],
-          },
+          message: "Removed 1 stale managed agent projection",
+          artifact: { path: removedPath, scope: "project", change: "removed", fileCount: 1 },
         });
+        expect(property(cleanup, "artifact")).not.toHaveProperty("agents");
+        expect(units).toContainEqual(
+          expect.objectContaining({ label: "Remove opencode", state: "committed" }),
+        );
+      }),
+    );
+  });
+
+  it.effect("cleans up against the membership left after removal, not the catalog", () => {
+    const { provide, rendererState } = makeLayers({
+      machine: true,
+      agents: ["claude-code", "opencode"],
+    });
+    writeWorkspace(path.join(tempDir, ".axm"), {
+      agents: ["claude-code", "opencode"],
+      lockfile: "lockfileVersion: 8\nskills: {}\n",
+      skills: { "code-review": { source: "workspace", enabled: true } },
+    });
+    const sourceDir = writeAuthoredSkill(tempDir, "code-review");
+    linkSkill(tempDir, path.join(".claude", "skills"), "code-review", sourceDir);
+    linkSkill(tempDir, path.join(".opencode", "skills"), "code-review", sourceDir);
+    const remaining = path.join(tempDir, ".claude", "skills", "code-review");
+    const departing = path.join(tempDir, ".opencode", "skills", "code-review");
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleAgentsRemove({
+          ids: ["opencode"],
+          force: false,
+          preview: false,
+        });
+
+        // The catalog reports no materialization agents at all; had the
+        // cleanup consulted it, the remaining agent's output would be gone.
+        expect(fs.existsSync(departing)).toBe(false);
+        expect(fs.existsSync(remaining)).toBe(true);
+        const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+          planName: "Remove coding agents",
+          totalSteps: 2,
+        });
+        expect(
+          planResultUnits(result).find((unit) => property(unit, "label") === CLEANUP_LABEL),
+        ).toMatchObject({ artifact: { path: departing, change: "removed", fileCount: 1 } });
       }),
     );
   });

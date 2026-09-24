@@ -19,7 +19,7 @@ import type {
   UnitState,
 } from "@agentxm/workspace/transitions/planning";
 
-export interface ProgressMeasure {
+interface ProgressMeasure {
   readonly done: number;
   readonly total?: number;
   readonly unit: ProgressUnit;
@@ -45,21 +45,21 @@ export interface ProgressUnitState {
   readonly failure?: UnitFailure;
 }
 
-export interface ProgressWait {
+interface ProgressWait {
   readonly blockingClass: BlockingClass;
   readonly subject: string;
   readonly detail: string;
   readonly sinceMs: number;
 }
 
-export interface ProgressOperation {
+interface ProgressOperation {
   readonly id: string;
   readonly name: string;
   readonly mode: OperationMode;
   readonly startedAtMs: number;
 }
 
-export interface ProgressSettlement {
+interface ProgressSettlement {
   readonly outcome: SettledOutcome;
   readonly atMs: number;
 }

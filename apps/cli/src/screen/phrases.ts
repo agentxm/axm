@@ -102,6 +102,15 @@ export const NOT_TRIED = "not tried";
  */
 export const PENDING_VERSION = "pending";
 
+/**
+ * What a cell or field says in place of a value there is none of: a version
+ * nothing reported, a title a concept does not carry, an activation that does
+ * not apply. A dash reads as "there is none" in every mode, so the marker is
+ * the same in Unicode and ASCII output and AXM prints no symbol of its own
+ * for it.
+ */
+export const ABSENT = "-";
+
 /** Why a row rolled back when the unit was still running as the operation stopped. */
 export const INTERRUPTED_IN_FLIGHT = "interrupted in flight";
 
@@ -266,7 +275,7 @@ export const interruptionPhrase = (
   }
 };
 
-export type PublishParticipation = "publish" | "verified-existing";
+type PublishParticipation = "publish" | "verified-existing";
 
 /**
  * What a publish plan ledger says an extension will do: be uploaded, or be
@@ -390,7 +399,7 @@ export const publishSourceState = (
 export const publishSourceDifferences = (differenceCount: number): string =>
   `${count(differenceCount, "path")} ${differenceCount === 1 ? "differs" : "differ"} from HEAD`;
 
-export type PublishDisposition =
+type PublishDisposition =
   "included" | "excluded" | "unmanaged" | "not-authored" | "not-publishable" | "unmatched";
 
 export const publishDisposition = (value: PublishDisposition): string => {
@@ -412,7 +421,7 @@ export const publishDisposition = (value: PublishDisposition): string => {
   }
 };
 
-export type PublishReason =
+type PublishReason =
   | "selected"
   | "excluded"
   | "unmanaged"

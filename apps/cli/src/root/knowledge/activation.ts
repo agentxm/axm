@@ -18,6 +18,6 @@ export const setKnowledgeEnabled = (name: string, enabled: boolean, preview: boo
       command: enabled ? "knowledge.enable" : "knowledge.disable",
       commandPath: ["knowledge", enabled ? "enable" : "disable"],
       planName: `${enabled ? "Enable" : "Disable"} knowledge bundle`,
-      suggestions: [{ description: "Browse installed Knowledge", cmd: "axm knowledge list" }],
+      suggestions: [],
     },
   );

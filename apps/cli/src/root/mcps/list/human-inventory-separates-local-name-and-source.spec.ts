@@ -7,7 +7,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { makeSpecWorkspace } from "../../../test-support/install-harness.js";
 import { makeSpecRegistry } from "../../../test-support/registry-fixture.js";
-import { handleInstallMcpServer } from "../install/handler.js";
+import { handleInstall } from "../../install/handler.js";
 import { handleListMcpServers } from "../list.js";
 
 export const specification = defineSpecification({
@@ -38,14 +38,17 @@ describe("List locally named MCP connections for a person", () => {
       const workspace = makeSpecWorkspace({ settings: { sources: [registry.source] } });
       cleanups.push(workspace.cleanup, registry.cleanup);
       for (const localName of ["work-context", "personal-context"]) {
-        yield* handleInstallMcpServer(
-          {
-            source: Option.some("@acme/mcps/context"),
-            localName: Option.some(localName),
-            env: [],
-          },
-          { force: false, preview: false },
-        ).pipe(Effect.provide(workspace.layer));
+        yield* handleInstall({
+          type: Option.some("mcp-server"),
+          source: Option.some("@acme/mcps/context"),
+          selectors: { "mcp-server": [] },
+          all: false,
+          force: false,
+          preview: false,
+          env: [],
+          localName: Option.some(localName),
+          bundled: false,
+        }).pipe(Effect.provide(workspace.layer));
       }
       workspace.rendererState.tables.length = 0;
       return workspace;

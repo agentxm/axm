@@ -9,7 +9,6 @@ import { afterEach } from "vitest";
 
 import { collectHelpFiles } from "../test-support/command-tree-test-helpers.js";
 import { handleInstall } from "../root/install/handler.js";
-import { handleInstall as handleSkillsInstall } from "../root/skills/install/handler.js";
 import { handleSync } from "../root/sync/handler.js";
 import { handleUpdate } from "../root/update/handler.js";
 import { handleWorkspaceUpdate } from "../root/update/workspace-update-handler.js";
@@ -208,10 +207,17 @@ const blockedForms: ReadonlyArray<{
     form: "the shared workspace install",
     fixture: heldNewerRelease,
     run: (workspace) =>
-      handleSkillsInstall(
-        { source: Option.none(), skills: [], all: false },
-        { force: false, preview: false },
-      ).pipe(Effect.provide(workspace.layer)),
+      handleInstall({
+        type: Option.some("skill"),
+        source: Option.none(),
+        selectors: { skill: [] },
+        all: false,
+        force: false,
+        preview: false,
+        env: [],
+        localName: Option.none(),
+        bundled: false,
+      }).pipe(Effect.provide(workspace.layer)),
   },
   {
     form: "the shared workspace update",

@@ -16,7 +16,11 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 
 import { PACK_CONSTRAINT_CONFLICT_BLOCKER_ID } from "@agentxm/workspace/lifecycle";
-import { StepFailure, type ResolvedUnit } from "@agentxm/workspace/transitions/planning";
+import {
+  StepFailure,
+  recoverySwitch,
+  type ResolvedUnit,
+} from "@agentxm/workspace/transitions/planning";
 
 import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
@@ -205,7 +209,7 @@ describe("workspace update handler output", () => {
  */
 describe("workspace update suggestions", () => {
   const unit = (over: Partial<ResolvedUnit<unknown>>): ResolvedUnit<unknown> => ({
-    id: "packs/alpha",
+    id: "pack:@acme/alpha",
     label: "@acme/packs/alpha",
     state: "failed",
     ...over,
@@ -217,8 +221,13 @@ describe("workspace update suggestions", () => {
   ) =>
     updateSuggestions({
       type: Option.none(),
-      refresh: false,
-      ignoreReleaseAge: false,
+      recovery: {
+        command: Option.match(over.type ?? Option.none(), {
+          onNone: () => ["update"],
+          onSome: () => ["skills", "update"],
+        }),
+        arguments: [recoverySwitch("--refresh", false)],
+      },
       constraintRefused: false,
       ...over,
     })({ outcome: "failed", unsettled });
@@ -247,6 +256,7 @@ describe("workspace update suggestions", () => {
 
   it("offers the narrowed update route for a failure a retry can change", () => {
     const failed = unit({
+      id: "skill:triage",
       label: "skills/triage",
       error: new StepFailure({ category: "network", detail: "Registry unreachable." }),
     });

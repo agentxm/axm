@@ -10,11 +10,6 @@ export const INSPECT_INSTALLED = {
   cmd: "axm list",
 } as const satisfies SuggestedAction;
 
-export const LIST_INSTALLED_SKILLS = {
-  description: "List installed skills",
-  cmd: "axm skills list",
-} as const satisfies SuggestedAction;
-
 export const INSTALL_EXTENSION_FROM_REGISTRY = {
   description: "Install an extension from a registry FQN or source locator",
   cmd: "axm install <source>",

@@ -1,5 +1,9 @@
 import { operationDoc } from "../../operation-view.js";
-import { releaseAgeDoc } from "../../operation-output.js";
+import {
+  operationNextActions,
+  releaseAgeDoc,
+  resolutionRecoveries,
+} from "../../operation-output.js";
 import { partialUpdate, partialUpdateReleaseAge } from "./samples/operation-stress.js";
 
 /**
@@ -20,11 +24,13 @@ const unsettled = new Set(
 
 export const refUpdatePartial = operationDoc(partialUpdate, {
   verbosity: "normal",
-  suggestions: [
+  suggestions: operationNextActions(resolutionRecoveries(partialUpdate), [
     {
       description: "Try the extensions that did not update again",
       cmd: "axm update",
     },
-  ],
-  callouts: releaseAgeDoc("update", partialUpdateReleaseAge, { unsettled }),
+  ]),
+  callouts: releaseAgeDoc({ command: ["update"], arguments: [] }, partialUpdateReleaseAge, {
+    unsettled,
+  }),
 });

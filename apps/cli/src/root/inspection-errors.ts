@@ -3,28 +3,22 @@ import type {
   PackInspectionRefused,
   PublishedMetadataUnavailable,
 } from "@agentxm/workspace/inspection";
-import {
-  extensionTypeSentenceLabels,
-  toExtensionTypePlural,
-} from "@agentxm/extension-model/unstable/extensions";
+import { extensionTypeSentenceLabels } from "@agentxm/extension-model/unstable/extensions";
 
 import { makeAppError, type AppError } from "../app-error/index.js";
-import { commandForScope } from "./shared/scoped-command.js";
+import { EXTENSION_TYPE_PRESENTATION } from "./extension-type-presentation.js";
 
-/** The named extension is not installed: offer the matching inventory command. */
-export const extensionNotInstalledToAppError = (failure: ExtensionNotInstalled): AppError => {
-  const label = extensionTypeSentenceLabels[failure.type];
-  return makeAppError({
+/**
+ * The named extension is not installed: offer the type's inspection command
+ * from the presentation table. The workspace boundary the command ran in
+ * addresses it to that scope.
+ */
+export const extensionNotInstalledToAppError = (failure: ExtensionNotInstalled): AppError =>
+  makeAppError({
     code: "not_found",
-    detail: `${label} "${failure.name}" is not installed`,
-    suggestions: [
-      {
-        description: `Inspect installed ${label} entries`,
-        cmd: commandForScope(`axm ${toExtensionTypePlural(failure.type)} list`, failure.scope),
-      },
-    ],
+    detail: `${extensionTypeSentenceLabels[failure.type]} "${failure.name}" is not installed`,
+    suggestions: [EXTENSION_TYPE_PRESENTATION[failure.type].inspect],
   });
-};
 
 export const packInspectionRefusedToAppError = (failure: PackInspectionRefused): AppError =>
   makeAppError({

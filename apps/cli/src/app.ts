@@ -33,11 +33,13 @@ import {
 } from "./cli-runtime/index.js";
 
 import { LearnMore, formatLearnMore, makeAxmFormatter } from "./formatter.js";
+import { presentBuiltInOutput } from "./built-in-output.js";
 import { withUpdateCheck, resolveNonInteractiveFromArgv } from "./update-check-startup.js";
 
 import { axmGlobalFlags, baseLayer, startupUpdateCheckLayer } from "./runtime.js";
 import { loadVersion } from "./version.js";
 import { groupCapabilities, withCommandCapabilities } from "./root/shared/command-capabilities.js";
+import { ScopedRoutesLive } from "./root/shared/scoped-command.js";
 
 import { setupCommand } from "./root/setup.js";
 import { instructionsCommand } from "./root/instructions.js";
@@ -198,7 +200,15 @@ const rejectsTokenOutputAtStartup = (args: ReadonlyArray<string>): AppError | un
   return detail === undefined ? undefined : makeAppError({ code: "usage", detail });
 };
 
-const runCommand = (argv: ReadonlyArray<string>, isJson: boolean) =>
+/**
+ * One invocation of the command tree, with everything Effect CLI writes to its
+ * console routed through the Screen. Built-in help and version output is
+ * presented from the formatter's machine document, and the parser's own error
+ * rendering is switched off because the application paints usage errors too.
+ *
+ * @internal Exported for the output specifications that drive a real invocation.
+ */
+export const runCommand = (argv: ReadonlyArray<string>, isJson: boolean) =>
   Effect.gen(function* () {
     const screen = yield* Screen;
     const stdout: Array<string> = [];
@@ -210,30 +220,21 @@ const runCommand = (argv: ReadonlyArray<string>, isJson: boolean) =>
         void stderr.push(`${formatConsoleArgs(...args)}\n`),
     };
     const exit = yield* Effect.exit(
-      Command.runWith(rootCommand, { version })(argv).pipe(
+      Command.runWith(rootCommand, { version, renderErrors: false })(argv).pipe(
         Effect.provideService(Console.Console, bufferedConsole),
       ),
     );
     const failure = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined;
-    const usageHelp =
-      failure !== undefined &&
-      CliError.isCliError(failure) &&
-      failure._tag === "ShowHelp" &&
-      failure.errors.length > 0;
+    const helpRequest =
+      failure !== undefined && CliError.isCliError(failure) && failure._tag === "ShowHelp"
+        ? failure
+        : undefined;
 
-    if (usageHelp) {
-      if (!isJson) {
-        if (stdout.length > 0) {
-          yield* screen.note([{ _tag: "raw", content: stdout.join("") }]);
-        }
-        if (stderr.length > 0) {
-          yield* screen.note([{ _tag: "raw", content: stderr.join("") }]);
-        }
-      }
-    } else {
-      if (stdout.length > 0) yield* screen.result([{ _tag: "raw", content: stdout.join("") }]);
-      if (stderr.length > 0) yield* screen.note([{ _tag: "raw", content: stderr.join("") }]);
-    }
+    yield* presentBuiltInOutput(stdout.join(""), {
+      helpRequest,
+      format: isJson ? "json" : "text",
+    });
+    if (stderr.length > 0) yield* screen.note([{ _tag: "raw", content: stderr.join("") }]);
 
     if (Exit.isFailure(exit)) return yield* Effect.failCause(exit.cause);
     const exitCode = yield* getOperationExitCode;
@@ -287,19 +288,27 @@ export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): 
         localVersion: version,
         inputs: {
           args: argv,
-          isNonInteractive: resolveNonInteractiveFromArgv(argv),
+          isNonInteractive: resolveNonInteractiveFromArgv(argv, {
+            // eslint-disable-next-line no-restricted-properties -- Raw startup read before the configuration provider exists.
+            ci: process.env["CI"],
+            stdinIsTTY: process.stdin.isTTY,
+          }),
           isJsonOutput: isJson,
           isStderrTTY: stderrIsTTY(),
         },
       }).pipe(
-        // Built-in --help / --version output is formatter-driven, so explicit
-        // --json has to be reflected here before Effect CLI starts rendering.
+        // Built-in --help / --version output is formatter-driven: the formatter
+        // emits machine documents, and the Screen selected above presents them,
+        // deciding colour and width per stream.
         Effect.provide(
           Layer.mergeAll(
             baseLayer,
             startupUpdateCheckLayer,
             rendererLayer,
-            CliOutput.layer(makeAxmFormatter({ json: isJson, colors: outputPolicy.colors })),
+            CliOutput.layer(makeAxmFormatter()),
+            // Recovery commands are addressed to the workspace scope only where
+            // the registered route takes `--scope`; the tree says which do.
+            ScopedRoutesLive(rootCommand),
           ),
         ),
         // An explicitly empty override remains distinct from an absent key.

@@ -1,3 +1,4 @@
+import { collectSensitiveStrings, redactRegistryText } from "@agentxm/registry-client";
 import { HumanHandoffActionSchema } from "@agentxm/registry-protocol/unstable/human-handoff";
 import * as Schema from "effect/Schema";
 
@@ -10,14 +11,17 @@ import {
   AppErrorCodeSchema,
   type AppError,
   type AppErrorCode,
-  type SerializedErrorCause,
-  serializeErrorCauseChain,
   effectiveSuggestionsFor,
-  collectSensitiveStrings,
   redactAppErrorMetadata,
-  redactSensitiveText,
   redactSuggestedAction,
 } from "../app-error/index.js";
+// The cause-chain module is read directly: this module evaluates inside the
+// application error boundary's own import cycle, before its index settles.
+import {
+  SerializedErrorCauseSchema,
+  serializeErrorCauseChain,
+  type SerializedErrorCause,
+} from "../app-error/cause-chain.js";
 import {
   SuggestedActionSchema,
   type SuggestedAction,
@@ -29,16 +33,7 @@ export const JsonErrorEnvelopeSchema = Schema.Struct({
   title: Schema.String,
   detail: Schema.String,
   problem: Schema.optional(FailureProblemSchema),
-  cause: Schema.optional(
-    Schema.Array(
-      Schema.Struct({
-        _tag: Schema.String,
-        code: Schema.optional(AppErrorCodeSchema),
-        message: Schema.String,
-        stack: Schema.optional(Schema.String),
-      }),
-    ),
-  ),
+  cause: Schema.optional(Schema.Array(SerializedErrorCauseSchema)),
   metadata: Schema.optional(FailureMetadataSchema),
   status: Schema.optional(Schema.Literal("pending-human")),
   retryable: Schema.optional(Schema.Boolean),
@@ -121,7 +116,7 @@ export const makeJsonSuccessEnvelope = (args?: {
 }): JsonSuccessEnvelope | JsonOperationFailureEnvelope => ({
   ok: args?.ok === false ? false : true,
   result: normalizeResult(args?.payload),
-  ...(args?.summary !== undefined ? { summary: redactSensitiveText(args.summary) } : {}),
+  ...(args?.summary !== undefined ? { summary: redactRegistryText(args.summary) } : {}),
   ...(args?.suggestions !== undefined && args.suggestions.length > 0
     ? { suggestions: args.suggestions.map((suggestion) => redactSuggestedAction(suggestion)) }
     : {}),
@@ -144,17 +139,17 @@ export const makeJsonErrorEnvelope = (args: {
   return {
     ok: false,
     code: args.code,
-    title: redactSensitiveText(args.title, { secrets }),
-    detail: redactSensitiveText(args.detail, { secrets }),
+    title: redactRegistryText(args.title, { secrets }),
+    detail: redactRegistryText(args.detail, { secrets }),
     ...(args.problem !== undefined ? { problem: args.problem } : {}),
     ...(args.cause !== undefined && args.cause.length > 0
       ? {
           cause: args.cause.map((cause) => ({
             ...cause,
-            message: redactSensitiveText(cause.message, { secrets }),
+            message: redactRegistryText(cause.message, { secrets }),
             ...(cause.stack === undefined
               ? {}
-              : { stack: redactSensitiveText(cause.stack, { secrets }) }),
+              : { stack: redactRegistryText(cause.stack, { secrets }) }),
           })),
         }
       : {}),

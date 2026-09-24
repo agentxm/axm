@@ -36,7 +36,7 @@ const parseOptions = (argv: ReadonlyArray<string>): Options => {
   let name: string | undefined;
   let width = process.stdout.columns ?? 80;
   let rows = process.stdout.rows ?? 24;
-  let colors = policy.colors;
+  let colors = policy.stdoutColors;
   let ascii = policy.glyphs === "ascii";
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];

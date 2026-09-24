@@ -2,7 +2,7 @@ import { withLiveOperation } from "../../operation-lifecycle.js";
 import * as Effect from "effect/Effect";
 import { Command } from "effect/unstable/cli";
 
-import { emitResult, count, inventoryDoc, type ViewColumn } from "../../screen/index.js";
+import { ABSENT, emitResult, count, inventoryDoc, type ViewColumn } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import {
@@ -21,7 +21,7 @@ const renderInstructionEntry = (
   resolution: KnowledgeInstructionEntryResolution | undefined,
 ): string =>
   resolution === undefined
-    ? "not applicable"
+    ? ABSENT
     : `${resolution.included ? "included" : "excluded"} (${resolution.reason})`;
 
 const BundleColumns = [

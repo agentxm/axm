@@ -4,11 +4,15 @@ import {
 } from "@agentxm/extension-model/unstable/extensions/common";
 import { detectedPackageName, type DiscoverExtensionsResult } from "@agentxm/workspace/discovery";
 
-import { count, inventoryDoc, type Doc, type Text, type ViewColumn } from "../../screen/index.js";
+import {
+  ABSENT,
+  count,
+  inventoryDoc,
+  type Doc,
+  type Text,
+  type ViewColumn,
+} from "../../screen/index.js";
 import { extensionTypeText } from "../inventory-view.js";
-
-/** Stands in for a fact the Registry did not report. */
-const NOT_REPORTED = "-";
 
 interface DiscoverTableRow {
   readonly package: string;
@@ -44,7 +48,7 @@ const resolutionText = (
     | undefined,
 ): string => {
   if (resolution === undefined) {
-    return NOT_REPORTED;
+    return ABSENT;
   }
   switch (resolution.type) {
     case "registry":
@@ -82,7 +86,7 @@ const DiscoverColumns = [
   {
     header: "Type",
     value: (row: DiscoverTableRow) =>
-      row.type === undefined ? NOT_REPORTED : extensionTypeText(row.type),
+      row.type === undefined ? ABSENT : extensionTypeText(row.type),
   },
   { header: "Trust", value: trustText },
   { header: "Resolution", value: (row: DiscoverTableRow) => row.resolution },

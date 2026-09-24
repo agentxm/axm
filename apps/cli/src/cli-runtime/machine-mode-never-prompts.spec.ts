@@ -1,3 +1,4 @@
+import * as fs from "node:fs";
 import * as path from "node:path";
 
 import * as Effect from "effect/Effect";
@@ -12,7 +13,7 @@ import { ResolvePlanInteractionLive, classifyError } from "./index.js";
 import { SetupDocumentSchema, handleSetup } from "../root/setup.js";
 import { getAppError } from "../test-support/test-helpers.js";
 import { handleDemote } from "../root/demote/command.js";
-import { handleInstall as handleSkillsInstall } from "../root/skills/install/handler.js";
+import { handleInstall } from "../root/install/handler.js";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../test-support/install-harness.js";
@@ -44,6 +45,34 @@ export const specification = defineSpecification({
 });
 
 const decodeDocument = Schema.decodeUnknownEffect(SetupDocumentSchema);
+
+/** A local MCP server package declaring an input nothing supplies without a prompt. */
+const writeMcpSourceWithRequiredInput = (workspaceRoot: string): string => {
+  const packageRoot = path.join(workspaceRoot, "vendor", "demo");
+  const manifest = {
+    owner: "@acme",
+    type: "mcp-server",
+    name: "demo",
+    version: "1.0.0",
+    server: {
+      name: "ai.agentxm.spec/demo",
+      description: "The demo server.",
+      version: "1.0.0",
+      packages: [
+        {
+          registryType: "npm",
+          identifier: "@acme/demo",
+          version: "1.0.0",
+          transport: { type: "stdio" },
+          environmentVariables: [{ name: "API_TOKEN", isRequired: true, isSecret: true }],
+        },
+      ],
+    },
+  };
+  fs.mkdirSync(packageRoot, { recursive: true });
+  fs.writeFileSync(path.join(packageRoot, "mcp.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+  return packageRoot;
+};
 
 /** A local source holding two skills, so an install must choose which to take. */
 const writeTwoSkillSource = (workspaceRoot: string): string => {
@@ -108,18 +137,78 @@ describe("Machine mode never prompts", () => {
         const source = writeTwoSkillSource(workspace.root);
         const before = snapshotWorkspaceContent(workspace.root);
 
-        const failure = yield* handleSkillsInstall(
-          { source: Option.some(source), skills: [], all: false },
-          { force: false, preview: false },
-        ).pipe(Effect.provide(workspace.layer), Effect.flip);
+        const failure = yield* handleInstall({
+          type: Option.some("skill"),
+          source: Option.some(source),
+          selectors: { skill: [] },
+          all: false,
+          force: false,
+          preview: false,
+          env: [],
+          localName: Option.none(),
+          bundled: false,
+        }).pipe(Effect.provide(workspace.layer), Effect.flip);
 
         const error = getAppError(failure);
         expect(error.code).toBe("usage");
-        expect(error.detail).toContain("Select skills to install");
+        expect(error.detail).toContain("Unable to obtain a skill selection");
         const classified = classifyError(failure, "json");
         expect(classified.exitCode).toBeGreaterThan(0);
         expect(JSON.parse(classified.stdout ?? "")).toMatchObject({ ok: false, code: "usage" });
         expect(workspace.rendererState.results).toEqual([]);
+        expect(snapshotWorkspaceContent(workspace.root)).toEqual(before);
+      }),
+  );
+
+  it.effect(
+    "an MCP install that needs a required input fails with its recipe without raising any prompt, even from an interactive terminal",
+    () =>
+      Effect.gen(function* () {
+        // Machine output alone closes the prompt: the terminal could ask for
+        // the input, so the refusal must come from the one prompt decision,
+        // and no workspace state may change.
+        const workspace = makeSpecWorkspace({
+          machine: true,
+          flags: { nonInteractive: false, json: true },
+        });
+        cleanups.push(workspace.cleanup);
+        const source = writeMcpSourceWithRequiredInput(workspace.root);
+        const before = snapshotWorkspaceContent(workspace.root);
+
+        yield* handleInstall({
+          type: Option.some("mcp-server"),
+          source: Option.some(source),
+          selectors: { "mcp-server": ["demo"] },
+          all: false,
+          force: false,
+          preview: false,
+          env: [],
+          localName: Option.none(),
+          bundled: false,
+        }).pipe(Effect.provide(workspace.layer));
+
+        // The refusal is the unit's own failure, rolled back inside the
+        // result: the document reports it as a usage failure with the recipe.
+        const [entry] = workspace.rendererState.results;
+        expect(entry?.ok).toBe(false);
+        expect(entry?.data).toMatchObject({
+          result: {
+            outcome: "failed",
+            counts: { committed: 0, failed: 1 },
+            failure: {
+              code: "usage",
+              message: expect.stringContaining(
+                "demo needs API_TOKEN, and no prompt can open to ask for them",
+              ),
+            },
+            units: [{ id: "mcp-server:demo", state: "failed", disposition: "restored" }],
+          },
+        });
+        expect(workspace.rendererState.suggestions).toContainEqual({
+          description: "Supply each required input on the command line",
+          cmd: "--env API_TOKEN=<value>",
+        });
+        expect(workspace.promptState.confirmCalls).toEqual([]);
         expect(snapshotWorkspaceContent(workspace.root)).toEqual(before);
       }),
   );
@@ -133,10 +222,17 @@ describe("Machine mode never prompts", () => {
       cleanups.push(workspace.cleanup);
       const source = writeTwoSkillSource(workspace.root);
 
-      yield* handleSkillsInstall(
-        { source: Option.some(source), skills: ["alpha"], all: false },
-        { force: false, preview: false },
-      ).pipe(Effect.provide(workspace.layer));
+      yield* handleInstall({
+        type: Option.some("skill"),
+        source: Option.some(source),
+        selectors: { skill: ["alpha"] },
+        all: false,
+        force: false,
+        preview: false,
+        env: [],
+        localName: Option.none(),
+        bundled: false,
+      }).pipe(Effect.provide(workspace.layer));
 
       expect(workspace.rendererState.results.at(-1)?.data).toMatchObject({
         result: { outcome: "applied" },

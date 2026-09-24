@@ -11,6 +11,8 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
+import { rootCommand } from "../app.js";
+import { ScopedRoutesLive } from "./shared/scoped-command.js";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import * as YAML from "yaml";
@@ -118,6 +120,7 @@ const makeSetupTestContext = (opts?: {
     Layer.succeed(AgentExecutableResolver, {
       exists: () => Effect.succeed(false),
     }),
+    ScopedRoutesLive(rootCommand),
   );
   const layer = baseLayer;
   const handleSetup = handleSetupLive;

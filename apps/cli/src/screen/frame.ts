@@ -64,7 +64,7 @@ const initialState: FrameState = {
   freshLine: true,
 };
 
-export interface FrameOptions {
+interface FrameOptions {
   readonly animate: boolean;
   readonly quiet: boolean;
   readonly colors: boolean;

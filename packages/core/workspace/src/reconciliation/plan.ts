@@ -35,7 +35,7 @@ import {
   assertInstructionsGitignoreSafe,
   instructionProjectionEffects,
   instructionProjectionIsCurrent,
-  expectedProjectionNamesOf,
+  type ExpectedProjectionNames,
   type ProjectionInvariantFact,
 } from "../projection/index.js";
 import {
@@ -387,12 +387,15 @@ export const collectKnowledgeStep: (args: {
  * The stale-managed-projection cleanup step, or nothing when the sweep found
  * no owned residue. The failure channel is named: the cleanup sweep's own
  * union, not the expansion of every family that feeds it.
+ *
+ * The agents whose outputs stay are the workspace's materialization agents
+ * unless the caller names the set itself: a membership change that removes
+ * an agent reconciles against the membership the workspace holds once the
+ * change settles, which is not yet what the repository reports.
  */
 export const collectCleanupStep: (args: {
-  readonly expectedSkillNames: ReadonlySet<string>;
-  readonly expectedSubagentNames: ReadonlySet<string>;
-  readonly expectedMcpServerNames: ReadonlySet<string>;
-  readonly expectedHookNames: ReadonlySet<string>;
+  readonly expectedNames: ExpectedProjectionNames;
+  readonly desiredAgentIds?: ReadonlySet<string>;
   readonly adapter: SyncFailureAdapter;
   readonly subjects?: ReadonlyArray<{ readonly type: string; readonly name: string }>;
 }) => Effect.Effect<
@@ -407,18 +410,12 @@ export const collectCleanupStep: (args: {
 > = Effect.fn("Sync.collectCleanupStep")(function* (args) {
   const location = yield* WorkspaceLocation;
   const agentRepo = yield* CodingAgentRepository;
-  const desiredAgentIds = new Set(
-    (yield* agentRepo.getMaterializationAgents()).map(({ id }) => id),
-  );
-  const expectedNames = expectedProjectionNamesOf({
-    skill: args.expectedSkillNames,
-    subagent: args.expectedSubagentNames,
-    mcpServer: args.expectedMcpServerNames,
-    hook: args.expectedHookNames,
-  });
+  const desiredAgentIds =
+    args.desiredAgentIds ??
+    new Set((yield* agentRepo.getMaterializationAgents()).map(({ id }) => id));
   const preview = yield* reconcileAgentOutputs({
     desiredAgentIds,
-    expectedNames,
+    expectedNames: args.expectedNames,
     dryRun: true,
     ...(args.subjects === undefined ? {} : { subjects: args.subjects }),
   });
@@ -437,7 +434,7 @@ export const collectCleanupStep: (args: {
     },
     run: reconcileAgentOutputs({
       desiredAgentIds,
-      expectedNames,
+      expectedNames: args.expectedNames,
       ...(args.subjects === undefined ? {} : { subjects: args.subjects }),
     }).pipe(
       Effect.mapError(args.adapter.toStepFailure),

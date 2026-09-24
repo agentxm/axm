@@ -1,4 +1,5 @@
 import type { Doc, TableColumn } from "../../screen/doc.js";
+import { ABSENT } from "../../screen/phrases.js";
 
 /**
  * Inventory list: the shape every `<type> list` command paints. Six columns
@@ -40,7 +41,7 @@ export const inventoryRows: ReadonlyArray<ReadonlyArray<string>> = [
     "none",
     "none",
   ],
-  ["local-notes", "outside AXM", "not applicable", "detected", "none", "none"],
+  ["local-notes", "outside AXM", ABSENT, "detected", "none", "none"],
 ];
 
 export const inventoryCaption =

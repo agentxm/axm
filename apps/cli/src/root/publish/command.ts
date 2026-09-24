@@ -1,11 +1,11 @@
-import { OutputWriteFailed } from "../../screen/index.js";
+import { OutputWriteFailed, Screen } from "../../screen/index.js";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { AppError, exitCodeFor } from "../../app-error/index.js";
-import { acceptWarningsFlag, isNonInteractive, jsonFlag } from "../../cli-flags/index.js";
+import { AppError } from "../../app-error/index.js";
+import { acceptWarningsFlag } from "../../cli-flags/index.js";
 import {
   processOutcome,
   recordCommandCompletion,
@@ -15,6 +15,7 @@ import {
 import { withLiveOperation } from "../../operation-lifecycle.js";
 import {
   ResolvePlanInteraction,
+  type OperationOutcome,
   type ResolvePlanInteractionService,
 } from "@agentxm/workspace/transitions/planning";
 import {
@@ -34,14 +35,16 @@ import {
   type PublishRequest,
 } from "@agentxm/workspace/publishing";
 import type { ExtensionVisibility } from "@agentxm/extension-model/unstable/extensions";
-import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import { makeConfirmationRecovery, makePlanInvocation } from "../shared/confirmation-recovery.js";
 import {
   previewCapabilityFlag,
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
 import { failureToAppError } from "../../app-error/conversions.js";
+import { operationExitCode, type OperationVerdict } from "../../operation-exit-code.js";
+import { operationNextActions } from "../../operation-output.js";
+import { suggestionsForCurrentWorkspace } from "../shared/scoped-command.js";
 import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 import { emitPublishResult } from "./result.js";
@@ -120,39 +123,28 @@ const publishRequest = (args: RootPublishHandlerArgs, unattended: boolean): Publ
   unattended,
 });
 
-/** The exit code an outcome's disposition ends the invocation with. */
-const dispositionExitCode = (disposition: PublishOutcome["disposition"]): number => {
+/**
+ * The settled verdict a publish disposition states, read by the one
+ * outcome-to-exit mapping every operation exits through: a plan the feature
+ * stopped before execution is a blocked operation, a run that failed is a
+ * failed one, and an external termination is an interruption.
+ */
+const dispositionVerdict = (
+  disposition: PublishOutcome["disposition"],
+): { readonly outcome: OperationOutcome; readonly verdict: OperationVerdict } => {
   switch (disposition._tag) {
     case "Completed":
-      return 0;
+      return { outcome: "applied", verdict: {} };
     case "Interrupted":
-      return disposition.signal === "SIGTERM" ? 143 : 130;
+      return { outcome: "interrupted", verdict: { interruption: { signal: disposition.signal } } };
     case "Failed":
-      return exitCodeFor(failureToAppError(disposition.failure).code);
+      return disposition.blocking === undefined
+        ? { outcome: "failed", verdict: { failure: disposition.failure } }
+        : {
+            outcome: "blocked",
+            verdict: { blocking: disposition.blocking, failure: disposition.failure },
+          };
   }
-};
-
-/**
- * What the reported outcome offers next: the feature's suggestions and the
- * recoveries its failure carries, once each. A reported failure ends with its
- * exit code rather than a problem report, so its recoveries travel here.
- */
-const outcomeSuggestions = (outcome: PublishOutcome): ReadonlyArray<SuggestedAction> => {
-  const suggestions = [
-    ...outcome.suggestions,
-    ...(outcome.disposition._tag === "Failed"
-      ? (failureToAppError(outcome.disposition.failure).suggestions ?? [])
-      : []),
-  ];
-  return suggestions.filter(
-    (suggestion, index) =>
-      suggestions.findIndex(
-        (other) =>
-          other.description === suggestion.description &&
-          other.cmd === suggestion.cmd &&
-          other.url === suggestion.url,
-      ) === index,
-  );
 };
 
 /** Render the feature's outcome, then terminate the way it says to. */
@@ -165,14 +157,13 @@ const reportPublishOutcome = Effect.fn("Publish.report")(function* (
     outcome.recovery === undefined
       ? undefined
       : yield* Effect.gen(function* () {
-          const execution = yield* makePlanExecution(
+          const invocation = yield* makePlanInvocation(
             { preview: args.preview },
             makeExactPublishRecovery(args, outcome.recovery?.remainingItems ?? []),
           );
-          const cmd =
-            "approvalRecovery" in execution
-              ? renderConfirmationRecoveryCommand(execution.approvalRecovery, { approval: "none" })
-              : undefined;
+          const cmd = renderConfirmationRecoveryCommand(invocation.recovery, {
+            approval: "none",
+          });
           return cmd === undefined
             ? undefined
             : {
@@ -182,7 +173,22 @@ const reportPublishOutcome = Effect.fn("Publish.report")(function* (
                 blockedDependents: outcome.recovery?.blockedDependents ?? [],
               };
         });
-  const exitCode = dispositionExitCode(outcome.disposition);
+  const { outcome: settledOutcome, verdict } = dispositionVerdict(outcome.disposition);
+  const exitCode = operationExitCode(verdict, settledOutcome);
+  // A reported failure ends with its exit code rather than a problem report,
+  // so the recoveries its failure carries travel with the result.
+  const suggestions = yield* suggestionsForCurrentWorkspace(
+    operationNextActions(
+      {
+        suggestions: outcome.suggestions,
+        failures:
+          outcome.disposition._tag === "Failed"
+            ? [failureToAppError(outcome.disposition.failure)]
+            : [],
+      },
+      [],
+    ),
+  );
   yield* emitPublishResult(
     normalizePublishResult({
       mode: outcome.mode,
@@ -198,7 +204,7 @@ const reportPublishOutcome = Effect.fn("Publish.report")(function* (
     {
       exitCode,
       elapsedMs: (yield* Clock.currentTimeMillis) - startedAtMs,
-      suggestions: outcomeSuggestions(outcome),
+      suggestions,
     },
   );
   if (outcome.disposition._tag === "Interrupted") {
@@ -228,7 +234,7 @@ const withPublishPreviewOwnedByView = Effect.updateService(
 export const handleRootPublish = Effect.fn("Publish.handle")(
   function* (args: RootPublishHandlerArgs) {
     const startedAtMs = yield* Clock.currentTimeMillis;
-    const unattended = Option.getOrElse(yield* jsonFlag, () => false) || (yield* isNonInteractive);
+    const unattended = !(yield* (yield* Screen).canAsk);
     return yield* withLiveOperation(
       {
         command: "publish",
@@ -248,8 +254,8 @@ export const handleRootPublish = Effect.fn("Publish.handle")(
           if (preparation._tag === "Settled") {
             return yield* reportPublishOutcome(args, preparation.outcome, startedAtMs);
           }
-          const execution = yield* restore(
-            makePlanExecution(
+          const { execution } = yield* restore(
+            makePlanInvocation(
               { preview: args.preview },
               makeExactPublishRecovery(args, preparation.candidate.candidateFqns),
               args.acceptWarnings ? ["accept-warnings"] : [],

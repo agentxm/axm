@@ -16,7 +16,6 @@ describe("stripTerminalFormatting", () => {
 describe("resolveCliOutputPolicy", () => {
   it("enables colors and interactive activity for a TTY without suppressing env", () => {
     expect(resolveCliOutputPolicy({ stdoutIsTTY: true, env: {} })).toEqual({
-      colors: true,
       stdoutColors: true,
       stderrColors: true,
       animate: true,
@@ -27,7 +26,6 @@ describe("resolveCliOutputPolicy", () => {
 
   it("disables colors and interactive activity when stdout is not a TTY", () => {
     expect(resolveCliOutputPolicy({ stdoutIsTTY: false, env: {} })).toEqual({
-      colors: false,
       stdoutColors: false,
       stderrColors: false,
       animate: false,
@@ -38,7 +36,6 @@ describe("resolveCliOutputPolicy", () => {
 
   it("disables colors and interactive activity when NO_COLOR is set", () => {
     expect(resolveCliOutputPolicy({ stdoutIsTTY: true, env: { NO_COLOR: "1" } })).toEqual({
-      colors: false,
       stdoutColors: false,
       stderrColors: false,
       animate: false,
@@ -49,7 +46,6 @@ describe("resolveCliOutputPolicy", () => {
 
   it("disables colors and interactive activity when FORCE_COLOR is disabled", () => {
     expect(resolveCliOutputPolicy({ stdoutIsTTY: true, env: { FORCE_COLOR: "0" } })).toEqual({
-      colors: false,
       stdoutColors: false,
       stderrColors: false,
       animate: false,
@@ -58,7 +54,6 @@ describe("resolveCliOutputPolicy", () => {
     });
 
     expect(resolveCliOutputPolicy({ stdoutIsTTY: true, env: { FORCE_COLOR: "" } })).toEqual({
-      colors: false,
       stdoutColors: false,
       stderrColors: false,
       animate: false,
@@ -69,7 +64,6 @@ describe("resolveCliOutputPolicy", () => {
 
   it("disables colors and interactive activity in CI", () => {
     expect(resolveCliOutputPolicy({ stdoutIsTTY: true, env: { CI: "true" } })).toEqual({
-      colors: false,
       stdoutColors: false,
       stderrColors: false,
       animate: false,
@@ -80,7 +74,6 @@ describe("resolveCliOutputPolicy", () => {
 
   it("disables colors and interactive activity for a dumb terminal", () => {
     expect(resolveCliOutputPolicy({ stdoutIsTTY: true, env: { TERM: "dumb" } })).toEqual({
-      colors: false,
       stdoutColors: false,
       stderrColors: false,
       animate: false,
@@ -91,7 +84,6 @@ describe("resolveCliOutputPolicy", () => {
 
   it("records quiet output preference independently of color policy", () => {
     expect(resolveCliOutputPolicy({ stdoutIsTTY: true, env: {}, quiet: true })).toEqual({
-      colors: true,
       stdoutColors: true,
       stderrColors: true,
       animate: true,
@@ -102,7 +94,6 @@ describe("resolveCliOutputPolicy", () => {
 
   it("keeps a pipe plain when FORCE_COLOR is requested", () => {
     expect(resolveCliOutputPolicy({ stdoutIsTTY: false, env: { FORCE_COLOR: "1" } })).toEqual({
-      colors: false,
       stdoutColors: false,
       stderrColors: false,
       animate: false,
@@ -114,10 +105,10 @@ describe("resolveCliOutputPolicy", () => {
   it("styles each stream only when that stream is a TTY", () => {
     expect(
       resolveCliOutputPolicy({ stdoutIsTTY: false, stderrIsTTY: true, env: {} }),
-    ).toMatchObject({ colors: true, stdoutColors: false, stderrColors: true });
+    ).toMatchObject({ stdoutColors: false, stderrColors: true });
     expect(
       resolveCliOutputPolicy({ stdoutIsTTY: true, stderrIsTTY: false, env: {} }),
-    ).toMatchObject({ colors: true, stdoutColors: true, stderrColors: false });
+    ).toMatchObject({ stdoutColors: true, stderrColors: false });
     expect(
       resolveCliOutputPolicy({ stdoutIsTTY: false, stderrIsTTY: true, env: { FORCE_COLOR: "1" } }),
     ).toMatchObject({ stdoutColors: false, stderrColors: true, animate: true });

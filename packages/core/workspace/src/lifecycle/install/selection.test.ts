@@ -25,7 +25,7 @@ const first = candidate("safe-shell");
 const second = candidate("commit-style");
 
 describe("install source selection", () => {
-  it.effect("requires a selector or --all in non-interactive mode", () =>
+  it.effect("requires a selector or --all when no prompt can open", () =>
     Effect.gen(function* () {
       const failure = yield* selectInstallRefs([first, second], {
         type: "rule",

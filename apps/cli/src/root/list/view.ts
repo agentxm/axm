@@ -6,6 +6,7 @@ import type {
 } from "@agentxm/workspace/inspection";
 
 import {
+  ABSENT,
   count,
   inventoryDoc,
   paragraphDoc,
@@ -101,8 +102,8 @@ const toRow = (item: ExtensionListItem, filter: ExtensionListFilter): ListTableR
   management: item.management,
   installed: item.installed,
   enabled: item.enabled === true,
-  version: item.version ?? "-",
-  source: item.source ?? "-",
+  version: item.version ?? ABSENT,
+  source: item.source ?? ABSENT,
   state: item.assessment.state,
   guidance: guidanceFor(item, filter),
 });

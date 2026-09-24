@@ -45,7 +45,7 @@ import {
 import { WorkspaceRecords } from "../../../desired-state/index.js";
 import { OperationJournal, makeOperationJournal } from "./operation-journal.js";
 import type { Plan } from "./plan.js";
-import type { PlanExecution } from "./plan-execution.js";
+import type { ConfiguredAgentOperation, PlanExecution } from "./plan-execution.js";
 import type { ExecutionCandidate } from "./execution-candidate.js";
 import { StepFailure, type PlanInteractionFailed } from "./errors.js";
 import { isExecutionCandidateFresh, makeExecutionCandidate } from "./execution-candidate.js";
@@ -79,15 +79,16 @@ const previewOrApply = <Requirements, Output>(
   plan: Plan<Requirements, Output>,
   options: {
     readonly execution: PlanExecution;
+    readonly configuredAgentOperations?: ReadonlyArray<ConfiguredAgentOperation>;
     readonly beforeApply?: (
       candidate: ExecutionCandidate<Requirements, Output>,
     ) => Effect.Effect<void, StepFailure, Requirements>;
   },
 ) =>
   prepareExecutionCandidate(plan, {
-    ...(options.execution.configuredAgentOperations === undefined
+    ...(options.configuredAgentOperations === undefined
       ? {}
-      : { configuredAgentOperations: options.execution.configuredAgentOperations }),
+      : { configuredAgentOperations: options.configuredAgentOperations }),
   }).pipe(
     Effect.flatMap((candidate) =>
       resolveExecutionCandidate(
@@ -772,13 +773,10 @@ describe("previewOrApply", () => {
 
     return Effect.gen(function* () {
       const result = yield* previewOrApply(plan, {
-        execution: applyPlanExecution({
-          approval: "preapproved",
-          recovery: testRecovery,
-          configuredAgentOperations: [
-            { extensionType: "skill", name: "code-review", plannedState: "enabled" },
-          ],
-        }),
+        execution: applyPlanExecution({ approval: "preapproved", recovery: testRecovery }),
+        configuredAgentOperations: [
+          { extensionType: "skill", name: "code-review", plannedState: "enabled" },
+        ],
       });
 
       // The settled closure's commit stands; the missing projection readback
@@ -828,14 +826,11 @@ describe("previewOrApply", () => {
           }).pipe(Effect.andThen(records.getExtensionInventory(type, options))),
       } satisfies typeof records;
       yield* previewOrApply(plan, {
-        execution: applyPlanExecution({
-          approval: "preapproved",
-          recovery: testRecovery,
-          configuredAgentOperations: [
-            { extensionType: "skill", name: "review", plannedState: "enabled" },
-            { extensionType: "skill", name: "triage", plannedState: "enabled" },
-          ],
-        }),
+        execution: applyPlanExecution({ approval: "preapproved", recovery: testRecovery }),
+        configuredAgentOperations: [
+          { extensionType: "skill", name: "review", plannedState: "enabled" },
+          { extensionType: "skill", name: "triage", plannedState: "enabled" },
+        ],
       }).pipe(
         Effect.provideService(WorkspaceRecords, observed),
         Effect.provideService(OperationLifecycle, lifecycle),

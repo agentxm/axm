@@ -18,10 +18,7 @@ export const handleDisableHook = (args: { readonly name: string; readonly previe
       command: "hooks.disable",
       commandPath: ["hooks", "disable"],
       planName: "Disable hooks",
-      suggestions: [
-        { description: "Inspect installed hooks packages", cmd: "axm hooks list" },
-        { description: "Undo", cmd: `axm hooks enable ${args.name}` },
-      ],
+      suggestions: [{ description: "Undo", cmd: `axm hooks enable ${args.name}` }],
     },
   );
 

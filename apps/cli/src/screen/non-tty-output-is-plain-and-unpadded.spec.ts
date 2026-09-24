@@ -1,15 +1,25 @@
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
+import { CliError, CliOutput } from "effect/unstable/cli";
 import { afterEach } from "vitest";
 
 import { displayWidth, Screen, stripTerminalFormatting } from "./index.js";
+import { runCommand } from "../app.js";
+import { makeAxmFormatter } from "../formatter.js";
 import { handleInstall } from "../root/install/handler.js";
 import { handleList as handleSkillsList } from "../root/skills/list.js";
+import { baseLayer } from "../runtime.js";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
+import { captureHelpDoc } from "../test-support/command-tree-test-helpers.js";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../test-support/install-harness.js";
-import { humanScreenLayer, makeRecordingStreams } from "../test-support/screen-harness.js";
+import {
+  humanScreenLayer,
+  makeRecordingStreams,
+  type RecordingStreams,
+} from "../test-support/screen-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/non-tty-output-is-plain-and-unpadded",
@@ -97,6 +107,93 @@ describe("Non-terminal human output", () => {
       for (const line of stdout) {
         expect(displayWidth(stripTerminalFormatting(line)), line).toBeLessThanOrEqual(COLUMNS);
       }
+    }),
+  );
+
+  /**
+   * One real invocation of the command tree with the production formatter and
+   * Screen, so built-in help and the parser's usage errors are painted exactly
+   * as the process paints them. A help request ends as the parser's own
+   * failure after the Screen has written it.
+   */
+  const invoke = (argv: ReadonlyArray<string>, streams: RecordingStreams) =>
+    runCommand(argv, false).pipe(
+      Effect.catch((error) =>
+        CliError.isCliError(error) && error._tag === "ShowHelp" ? Effect.void : Effect.fail(error),
+      ),
+      Effect.provide(
+        Layer.mergeAll(baseLayer, humanScreenLayer(streams), CliOutput.layer(makeAxmFormatter())),
+      ),
+    );
+
+  it.effect.each([
+    { label: "root", path: [] },
+    { label: "command", path: ["install"] },
+  ])(
+    "built-in $label help on a piped stdout is plain and keeps every description whole",
+    ({ path }) =>
+      Effect.gen(function* () {
+        const streams = makeRecordingStreams({
+          stdoutIsTTY: false,
+          stderrIsTTY: true,
+          columns: COLUMNS,
+        });
+        yield* invoke([...path, "--help"], streams);
+
+        const stdout = streams.lines("stdout");
+        expect(stdout.join("\n")).toContain("USAGE");
+        expect(stdout.join("\n")).not.toContain('"type": "help"');
+        expect(stdout.join("\n")).not.toContain(ESCAPE);
+        for (const line of stdout) expect(line, line).not.toMatch(/\s$/u);
+        // Every described flag is on one line: nothing was wrapped to a column.
+        // Root help names its global flags without describing them.
+        const doc = yield* captureHelpDoc(path);
+        const described =
+          path.length === 0 ? doc.flags : [...doc.flags, ...(doc.globalFlags ?? [])];
+        for (const flag of described) {
+          const description = Option.getOrElse(flag.description, () => "");
+          if (description.length === 0) continue;
+          expect(
+            stdout.filter((line) => line.includes(description)),
+            `--${flag.name}`,
+          ).toHaveLength(1);
+        }
+        // The widest line exceeds the terminal facts, so no width was applied.
+        expect(Math.max(...stdout.map(displayWidth))).toBeGreaterThan(COLUMNS);
+      }),
+  );
+
+  it.effect("a usage error on a piped stderr is plain", () =>
+    Effect.gen(function* () {
+      const streams = makeRecordingStreams({
+        stdoutIsTTY: true,
+        stderrIsTTY: false,
+        columns: COLUMNS,
+      });
+      yield* invoke(["install", "--definitely-unknown"], streams);
+
+      expect(streams.lines("stdout")).toEqual([]);
+      const stderr = streams.lines("stderr");
+      expect(stderr.join("\n")).toContain("Unrecognized flag: --definitely-unknown");
+      expect(stderr.join("\n")).not.toContain(ESCAPE);
+      for (const line of stderr) expect(line, line).not.toMatch(/\s$/u);
+    }),
+  );
+
+  it.effect("the same usage error is styled when stderr is a terminal", () =>
+    Effect.gen(function* () {
+      // A positive control: the plain pipe above is the stream's decision,
+      // not a renderer that never styles usage errors.
+      const streams = makeRecordingStreams({
+        stdoutIsTTY: false,
+        stderrIsTTY: true,
+        columns: COLUMNS,
+      });
+      yield* invoke(["install", "--definitely-unknown"], streams);
+
+      const stderr = streams.lines("stderr");
+      expect(stderr.join("\n")).toContain("Unrecognized flag: --definitely-unknown");
+      expect(stderr.join("\n")).toContain(ESCAPE);
     }),
   );
 

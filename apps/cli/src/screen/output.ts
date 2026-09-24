@@ -19,26 +19,6 @@ export interface TreeNode<T> {
   readonly children?: ReadonlyArray<TreeNode<T>>;
 }
 
-export interface TreeDef<T> {
-  readonly label: (item: T) => string;
-  readonly detail?: (item: T) => string | undefined;
-  readonly icon?: (item: T) => string | undefined;
-}
-
-export interface ListPayload<T extends object> extends SuccessOptions {
-  readonly items: ReadonlyArray<T>;
-  readonly count?: number;
-  readonly emptyMessage?: string;
-}
-
-export interface DetailOptions extends SuggestionOptions {
-  readonly title?: string;
-}
-
-export interface TreePayload<T extends object> extends SuccessOptions {
-  readonly roots: ReadonlyArray<TreeNode<T>>;
-}
-
 export interface BoxOptions {
   readonly contentAlignment?: "left" | "center" | "right";
   readonly titleAlignment?: "left" | "center" | "right";

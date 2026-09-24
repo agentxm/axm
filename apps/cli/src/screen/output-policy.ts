@@ -1,12 +1,12 @@
-export interface CliOutputEnvironment {
+import { ciEnabled } from "../utils/environment.js";
+
+interface CliOutputEnvironment {
   readonly stdoutIsTTY: boolean | undefined;
   readonly stderrIsTTY: boolean | undefined;
   readonly env: NodeJS.ProcessEnv;
 }
 
 export interface CliOutputPolicy {
-  /** Whether any stream is styled; per-stream truth lives in `stdoutColors` and `stderrColors`. */
-  readonly colors: boolean;
   /** ANSI styling on stdout: only when stdout is itself a terminal. */
   readonly stdoutColors: boolean;
   /** ANSI styling on stderr: only when stderr is itself a terminal. */
@@ -22,7 +22,7 @@ const hasNonEmptyEnv = (env: NodeJS.ProcessEnv, name: string): boolean => {
   return value !== undefined && value !== "";
 };
 
-const hasCi = (env: NodeJS.ProcessEnv): boolean => hasNonEmptyEnv(env, "CI");
+const hasCi = (env: NodeJS.ProcessEnv): boolean => ciEnabled(env["CI"]);
 
 const hasNoColor = (env: NodeJS.ProcessEnv): boolean => hasNonEmptyEnv(env, "NO_COLOR");
 
@@ -76,7 +76,6 @@ export const resolveCliOutputPolicy = (
   const stderrColors = colorCapable && stderrIsTTY === true;
 
   return {
-    colors: stdoutColors || stderrColors,
     stdoutColors,
     stderrColors,
     animate,

@@ -4,7 +4,7 @@
 | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 0    | Success. Also used for help output and cancelled prompts.                                                                                                                               |
 | 1    | Command ran successfully but reported problems requiring attention (e.g., `axm lint` findings, doctor-style checks). Not lint-only — any "ran but found problems" outcome belongs here. |
-| 2    | Invalid invocation, confirmable approval required in non-interactive mode, or a named policy override is required. Fix the invocation or use the reported recovery action.              |
+| 2    | Invalid invocation, confirmable approval required when no prompt can open, or a named policy override is required. Fix the invocation or use the reported recovery action.              |
 | 3    | Resource doesn't exist or isn't visible.                                                                                                                                                |
 | 4    | Credentials were rejected, are invalid, or expired. Sign in again.                                                                                                                      |
 | 5    | Signed in, but not authorized for this action.                                                                                                                                          |
@@ -20,12 +20,11 @@
 | 15   | A person denied or cancelled a pending authentication flow.                                                                                                                             |
 | 16   | A bounded operation did not complete before its caller-selected deadline.                                                                                                               |
 | 130  | Interrupted by SIGINT. Local candidate-wide transactions roll back before AXM exits.                                                                                                    |
+| 143  | Terminated by SIGTERM. Local candidate-wide transactions roll back before AXM exits.                                                                                                    |
 
 `axm sync --preview --fail-on-change` uses code 1 only when planning succeeds
 and finds reconciliation work. Planning blockers and failures keep their normal
 exit meanings.
 
-Plan JSON can include `reason` with `approval-required`, `override-required`,
-`stale-candidate`, `hard-blocked`, `interrupted`, or `execution-failed`.
-`candidateId` identifies the displayed candidate whose material inputs were
-revalidated immediately before execution.
+Plan JSON carries `candidateId`, which identifies the displayed candidate whose
+material inputs were revalidated immediately before execution.

@@ -1,3 +1,4 @@
+import { redactRegistryValue } from "@agentxm/registry-client";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Logger from "effect/Logger";
@@ -7,12 +8,11 @@ import * as References from "effect/References";
 import * as Stream from "effect/Stream";
 import * as Context from "effect/Context";
 
-import { redactSensitiveValue } from "../app-error/secret-redaction.js";
 import { verbosityToLogLevel, type VerbosityLevel } from "../cli-flags/index.js";
 import { Screen, type ScreenLogRecord } from "./screen.js";
 
 const messageText = (message: unknown): string => {
-  const redacted = redactSensitiveValue(message);
+  const redacted = redactRegistryValue(message);
   if (typeof redacted === "string") return redacted;
   if (Array.isArray(redacted)) {
     return redacted

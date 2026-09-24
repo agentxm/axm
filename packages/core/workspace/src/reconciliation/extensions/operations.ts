@@ -60,7 +60,11 @@ import type {
   WorkspaceRestorationIncomplete,
   WorkspaceTransactionScope,
 } from "../../transitions/settlement/index.js";
-import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions/common";
+import {
+  isExtensionType,
+  toExtensionTypePlural,
+  type ExtensionType,
+} from "@agentxm/extension-model/unstable/extensions/common";
 
 // -----------------------------------------------------------------------------
 // Target Helpers
@@ -157,6 +161,25 @@ export const toStepKey = (target: ExtensionTarget): string =>
   target.type === "pack"
     ? `${target.type}:${target.owner}/${target.name}`
     : `${target.type}:${target.name}`;
+
+/**
+ * The extension a step key names, read back from `toStepKey`'s grammar: the
+ * type before the first `:`, then the name, owner-qualified for a Pack. A key
+ * of another shape — a projection, a readback, a gate, or an extension key
+ * carrying a suffix — names no extension, and a consumer that has to select
+ * an extension by name treats such a unit as one it cannot identify.
+ */
+export const extensionFromStepKey = (
+  key: string,
+): { readonly type: ExtensionType; readonly name: string } | undefined => {
+  const separator = key.indexOf(":");
+  if (separator === -1) return undefined;
+  const type = key.slice(0, separator);
+  const rest = key.slice(separator + 1);
+  if (!isExtensionType(type) || rest.length === 0 || rest.includes(":")) return undefined;
+  const name = type === "pack" ? rest.slice(rest.lastIndexOf("/") + 1) : rest;
+  return name.length === 0 ? undefined : { type, name };
+};
 
 /**
  * Format a single PackageUrlParts as a compact display string.

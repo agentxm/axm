@@ -12,7 +12,7 @@ import {
 import { emitOperationResolution } from "../../operation-output.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { makePlanExecution } from "../shared/confirmation-recovery.js";
+import { makePlanInvocation } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 import { failureToAppError } from "../../app-error/conversions.js";
@@ -45,7 +45,7 @@ const handleMcpsAddBody = Effect.fn("Mcps.add")(function* (args: McpsAddArgs) {
   }).pipe(Effect.mapError(failureToAppError));
 
   if (candidate._tag === "Unchanged") {
-    yield* emitNoOpOutcome("mcps.add", {
+    yield* emitNoOpOutcome({
       planName: PLAN_NAME,
       planDescription: `Configure ${args.name} and sync agent MCP configs`,
       message: candidate.message,
@@ -53,7 +53,7 @@ const handleMcpsAddBody = Effect.fn("Mcps.add")(function* (args: McpsAddArgs) {
     return;
   }
 
-  const execution = yield* makePlanExecution(
+  const { execution, recovery } = yield* makePlanInvocation(
     { preview: args.preview },
     { command: [], arguments: [] },
     args.force ? ["accept-warnings"] : [],
@@ -61,7 +61,7 @@ const handleMcpsAddBody = Effect.fn("Mcps.add")(function* (args: McpsAddArgs) {
   const resolution = yield* AddInlineMcpServer.previewOrApply(candidate, execution).pipe(
     Effect.mapError(failureToAppError),
   );
-  yield* emitOperationResolution("mcps.add", resolution);
+  yield* emitOperationResolution(resolution, { recovery });
 });
 
 const addConfig = {

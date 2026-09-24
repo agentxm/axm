@@ -18,7 +18,7 @@ import {
 } from "./shared/command-capabilities.js";
 import { withLiveOperation, withOperationLifecycle } from "../operation-lifecycle.js";
 import { emitNoOpOutcome } from "./shared/no-op-output.js";
-import { makePlanExecution } from "./shared/confirmation-recovery.js";
+import { makePlanInvocation } from "./shared/confirmation-recovery.js";
 import { failureToAppError } from "../app-error/conversions.js";
 
 /**
@@ -116,18 +116,21 @@ const runInstructions = (
       Effect.mapError(failureToAppError),
     );
     if (candidate._tag === "Unchanged") {
-      yield* emitNoOpOutcome(command, {
+      yield* emitNoOpOutcome({
         planName: PLAN_NAME[candidate.action],
         message: candidate.message,
         withoutSuggestions: true,
       });
       return;
     }
-    const execution = yield* makePlanExecution({ preview }, { command: [], arguments: [] }, []);
+    const { execution, recovery } = yield* makePlanInvocation(
+      { preview },
+      { command: [], arguments: [] },
+    );
     const resolution = yield* ManageInstructions.previewOrApply(candidate, execution).pipe(
       Effect.mapError(failureToAppError),
     );
-    yield* emitOperationResolution(command, resolution);
+    yield* emitOperationResolution(resolution, { recovery });
   });
 
 const instructionsStatusConfig = {

@@ -144,6 +144,10 @@ const walkParam = (param: Param.Any): WalkedParam => {
   throw new Error(`Unsupported CLI parameter node: ${param._tag}`);
 };
 
+/** The registered names of a command's own flags, as its help renders them. */
+export const commandFlagNames = (command: CliCommand.Command.Any): ReadonlyArray<string> =>
+  getRuntimeCommand(command).config.flags.map((flag) => walkParam(flag).single.name);
+
 const getChoiceKeys = (
   primitive: Primitive.Primitive<unknown>,
 ): ReadonlyArray<string> | undefined => {

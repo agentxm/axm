@@ -31,7 +31,11 @@ describe("AppError", () => {
   });
 
   it("defines one canonical public meaning for every application and signal exit", () => {
-    expect(ExitCodeDefinitions.map(({ code }) => code)).toEqual([...Object.values(ExitCode), 130]);
+    expect(ExitCodeDefinitions.map(({ code }) => code)).toEqual([
+      ...Object.values(ExitCode),
+      130,
+      143,
+    ]);
     expect(new Set(ExitCodeDefinitions.map(({ code }) => code)).size).toBe(
       ExitCodeDefinitions.length,
     );

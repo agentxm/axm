@@ -1,5 +1,5 @@
 /**
- * `axm mcps install` grammar refusals.
+ * Install argument grammar refusals.
  *
  * A local connection name only means something against a source, so `--as`
  * with no source is refused by the command adapter before any feature call.
@@ -16,20 +16,17 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 
-import { writeWorkspaceFiles } from "../../../test-support/test-stubs.js";
-import {
-  getAppError,
-  makeWorkspaceLifecycleTestContext,
-} from "../../../test-support/test-helpers.js";
-import { handleInstallMcpServer } from "./handler.js";
+import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
+import { getAppError, makeWorkspaceLifecycleTestContext } from "../../test-support/test-helpers.js";
+import { handleInstall } from "./handler.js";
 
-describe("mcps install argument grammar", () => {
+describe("install argument grammar", () => {
   let tempDir: string;
   let originalCwd: string;
 
   beforeEach(() => {
     originalCwd = process.cwd();
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "mcps-install-grammar-"));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "install-grammar-"));
     process.chdir(tempDir);
     writeWorkspaceFiles(path.join(tempDir, ".axm"));
     fs.writeFileSync(path.join(tempDir, "axm.json"), JSON.stringify({ agents: [] }));
@@ -47,12 +44,21 @@ describe("mcps install argument grammar", () => {
 
     return provide(
       Effect.gen(function* () {
-        const failure = yield* handleInstallMcpServer(
-          { source: Option.none(), localName: Option.some("work-context"), env: [] },
-          { force: false, preview: false },
-        ).pipe(Effect.flip);
+        const failure = yield* handleInstall({
+          type: Option.some("mcp-server"),
+          source: Option.none(),
+          selectors: { "mcp-server": [] },
+          all: false,
+          force: false,
+          preview: false,
+          env: [],
+          localName: Option.some("work-context"),
+          bundled: false,
+        }).pipe(Effect.flip);
 
-        expect(getAppError(failure).detail).toContain("--as requires an MCP server source");
+        expect(getAppError(failure).detail).toContain(
+          "--as is only valid for an MCP server selected from a source",
+        );
         expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsBefore);
         expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).toBe(lockBefore);
       }),

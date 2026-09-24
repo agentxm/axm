@@ -1,6 +1,6 @@
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 
-import { agentOutcome, count, type Text, type Tint } from "../screen/index.js";
+import { ABSENT, agentOutcome, count, type Text, type Tint } from "../screen/index.js";
 import type {
   ConfiguredAgentOutcome,
   ExtensionInventory,
@@ -51,7 +51,7 @@ export const inventoryLifecycle = (row: InventoryRowFacts): string => {
 };
 
 export const inventoryActivation = (row: InventoryRowFacts): string =>
-  row.enabled === null ? "not applicable" : row.enabled ? "enabled" : "disabled";
+  row.enabled === null ? ABSENT : row.enabled ? "enabled" : "disabled";
 
 export const inventoryAgentOutcomes = (outcomes: ReadonlyArray<ConfiguredAgentOutcome>): string =>
   outcomes.length === 0

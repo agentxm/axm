@@ -63,6 +63,7 @@ import {
   resolveExecutionCandidate,
   settleOperation,
   type JobStepResult,
+  type OperationBlock,
   type OperationPrecondition,
   type Plan,
   type PlanExecution,
@@ -130,10 +131,14 @@ export type PublishSelectionSummary = Omit<
   "counts" | "dependencyInclusion"
 >;
 
-/** How an invocation must terminate once its result document is reported. */
+/**
+ * How an invocation must terminate once its result document is reported. A
+ * failure that stopped the plan before execution carries the plan's typed
+ * block, so the application exits it the way it exits every blocked plan.
+ */
 export type PublishDisposition =
   | { readonly _tag: "Completed" }
-  | { readonly _tag: "Failed"; readonly failure: PublishFailed }
+  | { readonly _tag: "Failed"; readonly failure: PublishFailed; readonly blocking?: OperationBlock }
   | { readonly _tag: "Interrupted"; readonly signal: "SIGINT" | "SIGTERM" };
 
 /**
@@ -982,6 +987,7 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
                 `Publish execution did not start: ${planFailureReason}.`),
             suggestions: resolution.suggestions ?? [],
           }),
+          ...(planBlocking === undefined ? {} : { blocking: planBlocking }),
         }
       : failed.length > 0
         ? {

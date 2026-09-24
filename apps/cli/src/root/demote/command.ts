@@ -19,7 +19,7 @@ import {
   withCommandCapabilities,
   type CommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import { makeConfirmationRecovery, makePlanInvocation } from "../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
 /**
@@ -62,7 +62,7 @@ const handleDemoteBody = Effect.fn("Demote.handle")(function* (args: DemoteHandl
     fqn: args.fqn,
     source: args.source,
   });
-  const execution = yield* makePlanExecution(
+  const { execution, recovery } = yield* makePlanInvocation(
     { preview: args.preview, yes: args.yes },
     makeConfirmationRecovery(
       ["demote"],
@@ -73,7 +73,7 @@ const handleDemoteBody = Effect.fn("Demote.handle")(function* (args: DemoteHandl
     ),
   );
   const resolution = yield* DemoteToExternalSource.previewOrApply(candidate, execution);
-  yield* emitOperationResolution("demote", resolution);
+  yield* emitOperationResolution(resolution, { recovery });
 });
 
 const config = {

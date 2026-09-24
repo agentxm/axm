@@ -8,13 +8,14 @@ import type { InstallableExtensionType } from "@agentxm/extension-model/unstable
 import type { InstallExtensionSelectors } from "@agentxm/workspace/lifecycle";
 import { ReleaseAgePosture } from "@agentxm/workspace/resolution";
 import {
+  protectedRecoveryValue,
   publicRecoveryValue,
   recoveryOption,
   recoverySwitch,
 } from "@agentxm/workspace/transitions/planning";
 
 import { makeAppError } from "../../app-error/index.js";
-import { isNonInteractiveOptional } from "../../cli-flags/index.js";
+import { Screen } from "../../screen/index.js";
 import { runInstallCommand } from "../shared/install-command.js";
 import { handleWorkspaceInstall } from "./workspace-install-handler.js";
 
@@ -100,7 +101,7 @@ export const handleInstall = (args: InstallHandlerArgs) =>
       });
     }
 
-    const nonInteractive = yield* isNonInteractiveOptional;
+    const nonInteractive = !(yield* (yield* Screen).canAsk);
     const ignoreReleaseAge = (yield* ReleaseAgePosture) === "ignore";
     const source = Option.getOrElse(args.source, () => "@agentxm/skills/axm");
     const command = commandSegments(args.type);
@@ -136,6 +137,9 @@ export const handleInstall = (args: InstallHandlerArgs) =>
           onNone: () => [],
           onSome: (name) => [recoveryOption("--as", publicRecoveryValue(name))],
         }),
+        // The values of `--env` are inputs a connection needs, so the recovery
+        // line names the flag without reproducing what was passed.
+        ...args.env.map(() => recoveryOption("--env", protectedRecoveryValue())),
       ],
       suggestions: [{ description: "Inspect workspace facts", cmd: "axm lint" }],
       noOpMessage: "No extensions installed.",

@@ -12,18 +12,19 @@ import { ImportMcpServers, type McpImportPreflight } from "@agentxm/workspace/co
 import type { OperationResolution } from "@agentxm/workspace/transitions/planning";
 
 import { makeAppError } from "../../app-error/index.js";
-import { isNonInteractiveOptional } from "../../cli-flags/index.js";
+import { Screen } from "../../screen/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { failureToAppError } from "../../app-error/conversions.js";
 import { emitOperationResolution } from "../../operation-output.js";
+import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
   previewCapabilityFlag,
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import { makeConfirmationRecovery, makePlanInvocation } from "../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
 export interface McpsImportArgs {
@@ -101,7 +102,7 @@ const handleMcpsImportBody = Effect.fn("Mcps.import")(function* (args: McpsImpor
         detail: "MCP package import is project-workspace only; omit --scope user",
       });
     }
-    const nonInteractive = yield* isNonInteractiveOptional;
+    const nonInteractive = !(yield* (yield* Screen).canAsk);
     const conversion = yield* ImportNativeExtension.prepare({
       type: "mcp-server",
       target: packageTarget.value,
@@ -109,34 +110,34 @@ const handleMcpsImportBody = Effect.fn("Mcps.import")(function* (args: McpsImpor
       nonInteractive,
       discovery: discoveryFrom(preflight),
     }).pipe(Effect.mapError(failureToAppError));
-    const packageExecution = yield* makePlanExecution(
+    const packageInvocation = yield* makePlanInvocation(
       { preview: args.preview },
       makeConfirmationRecovery(["mcps", "import"], []),
     );
     const packageResolution = yield* ImportNativeExtension.previewOrApply(
       conversion,
-      packageExecution,
+      packageInvocation.execution,
     ).pipe(Effect.mapError(failureToAppError));
-    yield* emitOperationResolution("mcps.import", packageResolution);
+    yield* emitOperationResolution(packageResolution, { recovery: packageInvocation.recovery });
     return;
   }
 
-  const execution = yield* makePlanExecution(
+  const { execution, recovery } = yield* makePlanInvocation(
     { preview: args.preview },
     makeConfirmationRecovery(["mcps", "import"], []),
-    [],
   );
   const resolution = yield* ImportMcpServers.previewOrApply(candidate, execution).pipe(
     Effect.mapError(failureToAppError),
   );
   const appliedCount = importedCount(resolution, preflight.candidates.length);
   const suggestions = [
-    { description: "Inspect MCP servers", cmd: "axm mcps list" },
+    EXTENSION_TYPE_PRESENTATION["mcp-server"].inspect,
     ...(appliedCount === 1
       ? [{ description: "Undo", cmd: `axm mcps uninstall ${preflight.candidates[0]?.name ?? ""}` }]
       : []),
   ];
-  yield* emitOperationResolution("mcps.import", resolution, {
+  yield* emitOperationResolution(resolution, {
+    recovery,
     suggestions,
     ...(preflight.candidates.length === 0 && preflight.conflicts.length === 0
       ? { message: "No unmanaged MCP servers imported." }

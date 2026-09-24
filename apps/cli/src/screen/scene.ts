@@ -45,7 +45,7 @@ export interface Scene {
   readonly interaction?: ScenePart | undefined;
 }
 
-export interface SceneStyle extends Omit<PaintStyle, "width"> {
+interface SceneStyle extends Omit<PaintStyle, "width"> {
   readonly spinner: string;
   readonly nowMs: number;
 }

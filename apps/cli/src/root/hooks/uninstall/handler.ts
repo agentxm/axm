@@ -17,10 +17,7 @@ export const handleUninstallHook = (
   runUninstallCommand({
     command: "hooks.uninstall",
     preview: flags.preview,
-    liveName: "Uninstall hook",
     request: { type: Option.some("hook"), selector: args.name },
     recoveryCommand: ["hooks", "uninstall"],
     recoveryPositionals: [args.name],
-    suggestions: () => [{ description: "Inspect installed hooks packages", cmd: "axm hooks list" }],
-    noOpMessage: () => "No hooks packages uninstalled.",
   });

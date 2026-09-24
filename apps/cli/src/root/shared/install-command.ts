@@ -17,7 +17,6 @@ import {
 } from "@agentxm/workspace/lifecycle";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
-  credentialFreeLocatorRecoveryValue,
   deriveOperationOutcome,
   operationPresentation,
   type ConfirmationRecoveryArgument,
@@ -36,7 +35,11 @@ import {
   retryCanHelp,
 } from "../../operation-output.js";
 import { Screen, headlineDoc } from "../../screen/index.js";
-import { makeInstallPlanExecution } from "./confirmation-recovery.js";
+import {
+  makeInstallPlanInvocation,
+  narrowInstallSelection,
+  retrySuggestion,
+} from "./confirmation-recovery.js";
 import { emitNoOpOutcome } from "./no-op-output.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
@@ -90,7 +93,7 @@ const body = (args: InstallCommandArgs) =>
 
     const noOpMessage = args.noOpMessage;
     if (candidate.empty) {
-      yield* emitNoOpOutcome(args.command, {
+      yield* emitNoOpOutcome({
         planName: candidate.planName,
         message: Option.getOrElse(
           candidate.emptyMessage,
@@ -100,7 +103,7 @@ const body = (args: InstallCommandArgs) =>
       return;
     }
 
-    const execution = yield* makeInstallPlanExecution(
+    const { execution, recovery } = yield* makeInstallPlanInvocation(
       { preview: args.preview, force: args.force },
       args.recoveryCommand,
       args.recoveryLocators,
@@ -128,29 +131,27 @@ const body = (args: InstallCommandArgs) =>
       deriveOperationOutcome(resolution) === "no-op" &&
       resolution.units.length === 0
     ) {
-      yield* emitNoOpOutcome(args.command, { planName: resolution.name, message: noOpMessage });
+      yield* emitNoOpOutcome({ planName: resolution.name, message: noOpMessage });
       return;
     }
 
-    yield* emitOperationResolution(args.command, resolution, {
-      // An install that did not finish is repeated through the route the
-      // person typed: settled units are no-ops, and the locators are the
-      // credential-free ones the confirmation recovery already reproduces.
+    yield* emitOperationResolution(resolution, {
+      recovery,
+      // An install that did not finish is repeated through the invocation the
+      // person typed, narrowed to the extensions still waiting where the
+      // source selection can name them; settled units converge as no-ops.
       suggestions: ({ unsettled }) =>
         unsettled.length === 0 || !retryCanHelp(unsettled)
           ? args.suggestions
           : [
-              {
-                description:
-                  unsettled.length === 1
-                    ? "Try the extension that did not install again"
-                    : "Try the extensions that did not install again",
-                cmd: [
-                  "axm",
-                  ...args.recoveryCommand,
-                  ...args.recoveryLocators.map(credentialFreeLocatorRecoveryValue),
-                ].join(" "),
-              },
+              retrySuggestion(
+                unsettled.length === 1
+                  ? "Try the extension that did not install again"
+                  : "Try the extensions that did not install again",
+                args.request.subject.kind === "source"
+                  ? narrowInstallSelection(recovery, unsettled)
+                  : recovery,
+              ),
               ...args.suggestions,
             ],
     });

@@ -236,7 +236,8 @@ import { stepFailureToAppError, toAppError } from "./app-error/conversions.js";
 import { JsonErrorEnvelopeSchema, classifyError } from "./cli-runtime/index.js";
 import { withOperationLifecycle } from "./operation-lifecycle.js";
 import { PlanResolutionResultSchema, emitOperationResolution } from "./operation-output.js";
-import { failureForWorkspaceScope } from "./root/shared/scoped-command.js";
+import { failureForWorkspaceScope, scopedRoutesOf } from "./root/shared/scoped-command.js";
+import { rootCommand } from "./app.js";
 import { makeSpecWorkspace } from "./test-support/install-harness.js";
 
 export const specification = defineSpecification({
@@ -1005,7 +1006,7 @@ const decodePlanDocument = Schema.decodeUnknownEffect(
  */
 const directView = (failure: WorkspaceFailure, scope: WorkspaceScope) =>
   Effect.gen(function* () {
-    const reported = failureForWorkspaceScope(failure, scope);
+    const reported = failureForWorkspaceScope(failure, scope, scopedRoutesOf(rootCommand));
     const envelope = reported instanceof AppError ? reported : undefined;
     const classified = classifyError(reported, "json");
     const document = yield* decodeErrorDocument(classified.stdout ?? "");
@@ -1082,7 +1083,7 @@ const planView = (failure: WorkspaceFailure, scope: WorkspaceScope) =>
           failingPlan(workspaceFailureToStepFailure(failure)),
         );
         const resolution = yield* resolveExecutionCandidate(candidate, preapprovedPlanExecution);
-        const emitted = yield* emitOperationResolution(PARITY_COMMAND, resolution);
+        const emitted = yield* emitOperationResolution(resolution);
         return { resolution, emitted };
       }),
     ).pipe(workspace.provide);

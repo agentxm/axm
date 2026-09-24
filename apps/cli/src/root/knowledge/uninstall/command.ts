@@ -23,14 +23,12 @@ export const handleKnowledgeUninstall = (args: KnowledgeUninstallHandlerArgs) =>
   runUninstallCommand({
     command: "knowledge.uninstall",
     preview: args.preview,
-    liveName: "Uninstall knowledge",
     request: {
       type: Option.some("knowledge"),
       selector: args.name,
     },
     recoveryCommand: ["knowledge", "uninstall"],
     recoveryPositionals: [args.name],
-    suggestions: () => [{ description: "Browse installed Knowledge", cmd: "axm knowledge list" }],
   });
 
 const uninstallConfig = {

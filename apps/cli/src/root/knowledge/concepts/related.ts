@@ -8,7 +8,7 @@ import {
   KnowledgeDiscovery,
 } from "@agentxm/workspace/knowledge/query";
 
-import { emitResult, inventoryDoc, type ViewColumn } from "../../../screen/index.js";
+import { ABSENT, emitResult, inventoryDoc, type ViewColumn } from "../../../screen/index.js";
 import { processOutcome, withArgvTracking } from "../../../cli-runtime/index.js";
 import {
   readOnlyCapabilities,
@@ -58,7 +58,7 @@ export const handleKnowledgeConceptRelated = Effect.fn("Knowledge.concepts.relat
       depth,
       relation,
       concept: sanitizeKnowledgeTerminalText(`${ref.bundle}#${ref.conceptId}`),
-      title: sanitizeKnowledgeTerminalText(title ?? "—"),
+      title: sanitizeKnowledgeTerminalText(title ?? ABSENT),
     }));
     return inventoryDoc({
       rows,

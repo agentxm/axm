@@ -1,3 +1,4 @@
+import { collectSensitiveStrings, redactRegistryText } from "@agentxm/registry-client";
 import { OutputWriteFailed } from "../screen/streams.js";
 import { CliError } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
@@ -7,14 +8,11 @@ import {
   appErrorDoc,
   exitCodeFor,
   effectiveSuggestionsFor,
-  collectSensitiveStrings,
-  makeAppError,
-  redactSensitiveText,
   redactSuggestedAction,
   renderAppError,
 } from "../app-error/index.js";
 import { isWorkspaceFailure } from "@agentxm/workspace/reconciliation";
-import { toAppError } from "../app-error/conversions.js";
+import { failureToAppError, toAppError } from "../app-error/conversions.js";
 import type { OutputFormat } from "./output-mode.js";
 import { makeJsonErrorEnvelope, makeJsonErrorEnvelopeFromAppError } from "./json-envelope.js";
 import {
@@ -83,7 +81,7 @@ export const renderAppErrorChannels = (
       ...effectiveSuggestionsFor(error).map((suggestion) =>
         JSON.stringify(suggestionEvent(redactSuggestedAction(suggestion, secrets))),
       ),
-      JSON.stringify(errorEvent(error.code, redactSensitiveText(error.detail, { secrets }))),
+      JSON.stringify(errorEvent(error.code, redactRegistryText(error.detail, { secrets }))),
     ],
     stdout: JSON.stringify(makeJsonErrorEnvelopeFromAppError(error, options), null, 2) + "\n",
   };
@@ -132,7 +130,7 @@ export const classifyError = (
       }
 
       if (format !== "text") {
-        const message = redactSensitiveText(cliErrorMessage(error.errors));
+        const message = redactRegistryText(cliErrorMessage(error.errors));
         return {
           exitCode: ExitCode.Usage,
           stderr: [JSON.stringify(errorEvent("usage", message))],
@@ -157,7 +155,7 @@ export const classifyError = (
         "errors" in error && Array.isArray(error.errors) && error.errors.length > 0
           ? cliErrorMessage(error.errors)
           : error.message;
-      const message = redactSensitiveText(rawMessage);
+      const message = redactRegistryText(rawMessage);
       return {
         exitCode: ExitCode.Usage,
         stderr: [JSON.stringify(errorEvent("usage", message))],
@@ -177,14 +175,9 @@ export const classifyError = (
     return { exitCode: ExitCode.Usage };
   }
 
-  const message = redactSensitiveText(error instanceof Error ? error.message : String(error));
-  const wrapped = makeAppError({
-    code: "internal",
-    detail: message,
-    cause: error,
-  });
+  const wrapped = failureToAppError(error);
   return {
-    exitCode: ExitCode.Internal,
+    exitCode: exitCodeFor(wrapped.code),
     ...renderAppErrorChannels(wrapped, format, options),
   };
 };

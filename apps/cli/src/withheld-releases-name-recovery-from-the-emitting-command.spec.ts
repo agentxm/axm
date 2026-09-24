@@ -48,6 +48,7 @@ const heldNewerRelease = (cleanups: Array<() => void>) =>
     registry.writeSkill(SKILL, [{ version: "1.0.0", body: "First guidance." }]);
     const workspace = makeSpecWorkspace({
       screen: { kind: "human" },
+      flags: { nonInteractive: false },
       settings: { sources: [registry.source], skills: { [SKILL]: FQN } },
     });
     cleanups.push(workspace.cleanup);
@@ -78,6 +79,7 @@ const allowedNewerRelease = (cleanups: Array<() => void>) =>
     registry.writeSkill(SKILL, [{ version: "1.0.0", body: "First guidance." }]);
     const workspace = makeSpecWorkspace({
       screen: { kind: "human" },
+      flags: { nonInteractive: false },
       settings: {
         sources: [registry.source],
         skills: { [SKILL]: FQN },
@@ -119,14 +121,20 @@ const heldOnlyRelease = (cleanups: Array<() => void>) =>
     return workspace;
   });
 
-/** Command forms that keep an eligible release and report the withheld one. */
+/**
+ * Command forms that keep an eligible release and report the withheld one.
+ * The override each names is its own invocation with the one-run flag
+ * appended, so a targeted form keeps the target it was given.
+ */
 const withholdingCommands: ReadonlyArray<{
   readonly command: string;
+  readonly override: string;
   readonly others: ReadonlyArray<string>;
   readonly run: (workspace: SpecWorkspace) => Effect.Effect<void, unknown>;
 }> = [
   {
     command: "axm update",
+    override: `axm update ${OVERRIDE}`,
     others: ["axm install", "axm sync", "axm skills update"],
     run: (workspace) =>
       handleUpdate({ source: Option.none(), force: false, preview: false }).pipe(
@@ -134,7 +142,17 @@ const withholdingCommands: ReadonlyArray<{
       ),
   },
   {
+    command: `axm update ${FQN}`,
+    override: `axm update ${OVERRIDE} ${FQN}`,
+    others: ["axm install", "axm sync", "axm skills update"],
+    run: (workspace) =>
+      handleUpdate({ source: Option.some(FQN), force: false, preview: false }).pipe(
+        Effect.provide(workspace.layer),
+      ),
+  },
+  {
     command: "axm skills update",
+    override: `axm skills update ${OVERRIDE}`,
     others: ["axm install", "axm sync"],
     run: (workspace) =>
       handleWorkspaceUpdate({
@@ -188,7 +206,7 @@ describe("A release withheld by the minimum release age", () => {
 
   it.effect.each(withholdingCommands)(
     "$command names its own override and the declared-exemption route",
-    ({ command, others, run }) =>
+    ({ override, others, run }) =>
       Effect.gen(function* () {
         const workspace = yield* heldNewerRelease(cleanups);
 
@@ -196,7 +214,7 @@ describe("A release withheld by the minimum release age", () => {
 
         const rendered = renderedText(workspace);
         expect(rendered).toContain("still in the 24h waiting period");
-        expect(rendered).toContain(`${command} ${OVERRIDE}`);
+        expect(rendered).toContain(`rerun ${override}.`);
         expect(rendered).toContain(EXEMPTION);
         for (const other of others) {
           expect(rendered).not.toContain(other);
@@ -241,18 +259,26 @@ describe("A release withheld by the minimum release age", () => {
       ],
     };
     const name = FQN.split("/").at(-1) ?? FQN;
-    const allowed = paintText(releaseAgeDoc("update", evidence, { unsettled: new Set() }), {
-      width: 100,
-      colors: false,
-    }).join("\n");
+    const allowed = paintText(
+      releaseAgeDoc({ command: ["update"], arguments: [] }, evidence, { unsettled: new Set() }),
+      {
+        width: 100,
+        colors: false,
+      },
+    ).join("\n");
     expect(allowed).toContain("allowed before the 24h minimum release age");
 
     // The same evidence, for a unit that did not settle as planned: nothing
     // was let in, so the callout that says one was does not stand.
-    const refused = paintText(releaseAgeDoc("update", evidence, { unsettled: new Set([name]) }), {
-      width: 100,
-      colors: false,
-    }).join("\n");
+    const refused = paintText(
+      releaseAgeDoc({ command: ["update"], arguments: [] }, evidence, {
+        unsettled: new Set([name]),
+      }),
+      {
+        width: 100,
+        colors: false,
+      },
+    ).join("\n");
     expect(refused).not.toContain("allowed before");
   });
 

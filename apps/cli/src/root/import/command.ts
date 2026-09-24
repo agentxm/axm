@@ -19,7 +19,7 @@ import {
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import { makeConfirmationRecovery, makePlanInvocation } from "../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
 /** The types whose native content this route converts. */
@@ -52,7 +52,7 @@ const handleImportBody = Effect.fn("Import.handle")(function* (args: ImportHandl
     enable: args.enable,
   }).pipe(Effect.mapError(failureToAppError));
 
-  const execution = yield* makePlanExecution(
+  const { execution, recovery } = yield* makePlanInvocation(
     { preview: args.preview },
     makeConfirmationRecovery(
       [group, "import"],
@@ -66,7 +66,7 @@ const handleImportBody = Effect.fn("Import.handle")(function* (args: ImportHandl
   const resolution = yield* ImportNativeExtension.previewOrApply(candidate, execution).pipe(
     Effect.mapError(failureToAppError),
   );
-  yield* emitOperationResolution(`${group} import`, resolution);
+  yield* emitOperationResolution(resolution, { recovery });
 });
 
 const config = {

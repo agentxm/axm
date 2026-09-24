@@ -85,6 +85,7 @@ export const makeTestScreen = (options?: {
     observe: (lifecycle) =>
       subscribeLossless(lifecycle, (event) => Effect.sync(() => void state.events.push(event))),
     log: (record) => Effect.sync(() => void state.logs.push(record)),
+    canAsk: Effect.succeed(options?.interactive !== false),
     ask: scriptedAsk(
       state.script,
       (doc) => state.docs.push({ channel: "stderr", doc, persistent: false }),

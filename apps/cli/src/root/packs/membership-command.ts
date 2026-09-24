@@ -19,7 +19,8 @@ import { publicRecoveryValue, recoveryPositional } from "@agentxm/workspace/tran
 import { makeAppError } from "../../app-error/index.js";
 import { toAppError } from "../../app-error/conversions.js";
 import { emitOperationResolution } from "../../operation-output.js";
-import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
+import { makeConfirmationRecovery, makePlanInvocation } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
@@ -58,7 +59,7 @@ const body = (args: PackMembershipCommandArgs) =>
     );
 
     if (candidate._tag === "NoChange") {
-      yield* emitNoOpOutcome(commandId(change), {
+      yield* emitNoOpOutcome({
         planName: packMembershipPlanName(change),
         planDescription:
           change === "add"
@@ -70,7 +71,7 @@ const body = (args: PackMembershipCommandArgs) =>
       return;
     }
 
-    const execution = yield* makePlanExecution(
+    const { execution, recovery } = yield* makePlanInvocation(
       { preview: args.preview },
       makeConfirmationRecovery(
         ["packs", change],
@@ -83,18 +84,19 @@ const body = (args: PackMembershipCommandArgs) =>
     const resolution = yield* ChangePackMembership.previewOrApply(candidate, execution).pipe(
       Effect.mapError(toAppError),
     );
-    yield* emitOperationResolution(commandId(change), resolution, {
+    yield* emitOperationResolution(resolution, {
+      recovery,
       suggestions:
         change === "add"
           ? [
-              { description: "Inspect installed packs", cmd: "axm packs list" },
+              EXTENSION_TYPE_PRESENTATION.pack.inspect,
               {
                 description: "Remove from pack",
                 cmd: `axm packs remove ${candidate.pack} ${selector}`,
               },
             ]
           : [
-              { description: "Inspect installed packs", cmd: "axm packs list" },
+              EXTENSION_TYPE_PRESENTATION.pack.inspect,
               {
                 description: "Add to pack",
                 cmd: `axm packs add ${candidate.pack} <extension>`,

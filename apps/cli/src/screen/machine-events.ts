@@ -1,8 +1,7 @@
+import { redactRegistryValue } from "@agentxm/registry-client";
 import * as Schema from "effect/Schema";
 
 import { OperationEventSchema, type OperationEvent } from "@agentxm/workspace/transitions/planning";
-
-import { redactSensitiveValue } from "../app-error/secret-redaction.js";
 
 /**
  * One lifecycle event of a running operation, written to stderr as it
@@ -44,7 +43,7 @@ export const InstructionEventSchema = Schema.Struct({
   type: Schema.Literal("instruction"),
   message: Schema.String,
 }).annotate({ identifier: "InstructionEvent" });
-export type InstructionEvent = typeof InstructionEventSchema.Type;
+type InstructionEvent = typeof InstructionEventSchema.Type;
 
 export const MachineEventSchema = Schema.Union([
   ProgressEventSchema,
@@ -91,4 +90,4 @@ export const instructionEvent = (message: string): InstructionEvent => ({
 });
 
 export const encodeMachineEvent = (event: MachineEvent): string =>
-  `${JSON.stringify(redactSensitiveValue(event))}\n`;
+  `${JSON.stringify(redactRegistryValue(event))}\n`;

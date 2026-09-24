@@ -22,8 +22,9 @@ import {
 } from "@agentxm/cli-maintenance/self-update/application";
 import type { AvailableUpdate } from "@agentxm/cli-maintenance/self-update/domain";
 
+import { isAgentSession } from "./cli-flags/index.js";
 import { Screen } from "./screen/index.js";
-import { isAgent } from "./interaction.js";
+import { ciEnabled } from "./utils/environment.js";
 
 // -----------------------------------------------------------------------------
 // Skip detection from argv
@@ -39,13 +40,17 @@ export const isUpgradeCommand = (args: ReadonlyArray<string>): boolean => {
 };
 
 /**
- * Detect non-interactive mode from raw argv and environment.
+ * Detect non-interactive mode from raw argv and environment. This runs before
+ * Effect CLI parses flags, so the flag is read from raw argv; CI is read with
+ * the same predicate every other CI decision applies.
  */
-export const resolveNonInteractiveFromArgv = (args: ReadonlyArray<string>): boolean =>
+export const resolveNonInteractiveFromArgv = (
+  args: ReadonlyArray<string>,
+  environment: { readonly ci: string | undefined; readonly stdinIsTTY: boolean | undefined },
+): boolean =>
   args.includes("--non-interactive") ||
-  // eslint-disable-next-line no-restricted-properties -- Centralized env var access for CI detection
-  process.env["CI"] === "true" ||
-  process.stdin.isTTY !== true;
+  ciEnabled(environment.ci) ||
+  environment.stdinIsTTY !== true;
 
 export interface UpdateCheckContextInputs {
   readonly args: ReadonlyArray<string>;
@@ -55,25 +60,32 @@ export interface UpdateCheckContextInputs {
   readonly isStderrTTY?: boolean | undefined;
   /** State `AXM_NO_UPDATE_CHECK` instead of reading it from configuration. */
   readonly noUpdateCheckEnv?: boolean | undefined;
-  /** Override agent-session detection. Defaults to `isAgent(process.env)`. */
+  /** State agent-session detection instead of reading it from configuration. */
   readonly isAgentSession?: boolean | undefined;
 }
 
-const skipContext = (inputs: UpdateCheckContextInputs) => ({
-  isJsonOutput: inputs.isJsonOutput,
-  isUpgradeCommand: isUpgradeCommand(inputs.args),
-  isNonInteractive: inputs.isNonInteractive,
-  isStderrTTY: inputs.isStderrTTY ?? false,
-  // eslint-disable-next-line no-restricted-properties -- Centralized env var access for agent-session detection
-  isAgentSession: inputs.isAgentSession ?? isAgent(process.env),
-  ...(inputs.noUpdateCheckEnv === undefined ? {} : { noUpdateCheckEnv: inputs.noUpdateCheckEnv }),
-});
+/**
+ * The environment signals the skip context reads from configuration. A
+ * configuration failure suppresses this optional check; it cannot fail the
+ * command.
+ */
+const environmentSignals = Effect.all({
+  noUpdateCheckEnv: Effect.map(
+    Config.option(Config.String("AXM_NO_UPDATE_CHECK")),
+    (value) => Option.getOrUndefined(value) === "1",
+  ),
+  isAgentSession,
+}).pipe(Effect.catch(() => Effect.succeed({ noUpdateCheckEnv: true, isAgentSession: false })));
 
-const noUpdateCheckEnvironment = Config.option(Config.String("AXM_NO_UPDATE_CHECK")).pipe(
-  Effect.map((value) => Option.getOrUndefined(value) === "1"),
-  // Configuration failure suppresses this optional check; it cannot fail the command.
-  Effect.catch(() => Effect.succeed(true)),
-);
+const skipContext = (inputs: UpdateCheckContextInputs) =>
+  Effect.map(environmentSignals, (signals) => ({
+    isJsonOutput: inputs.isJsonOutput,
+    isUpgradeCommand: isUpgradeCommand(inputs.args),
+    isNonInteractive: inputs.isNonInteractive,
+    isStderrTTY: inputs.isStderrTTY ?? false,
+    isAgentSession: inputs.isAgentSession ?? signals.isAgentSession,
+    noUpdateCheckEnv: inputs.noUpdateCheckEnv ?? signals.noUpdateCheckEnv,
+  }));
 
 // -----------------------------------------------------------------------------
 // Notification printing
@@ -105,13 +117,10 @@ export const withUpdateCheck = <A, E, R>(
 ): Effect.Effect<A, E | OutputWriteFailed, R | UpdateCheckCache | LatestReleaseCheck | Screen> =>
   Effect.scoped(
     Effect.gen(function* () {
-      const context = skipContext(options.inputs);
+      const context = yield* skipContext(options.inputs);
       const outcome = yield* checkStartupUpdate({
         localVersion: options.localVersion,
-        context: {
-          ...context,
-          noUpdateCheckEnv: context.noUpdateCheckEnv ?? (yield* noUpdateCheckEnvironment),
-        },
+        context,
       });
       if (outcome._tag === "Skipped" || Option.isNone(outcome.notification)) {
         return yield* program;

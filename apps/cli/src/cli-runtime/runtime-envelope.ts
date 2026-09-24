@@ -8,16 +8,10 @@ import * as Option from "effect/Option";
 
 import { jsonFlag, debugFlag, verboseFlag, quietFlag } from "../cli-flags/index.js";
 import type { OutputFormat } from "./output-mode.js";
-import type { AppError } from "../app-error/index.js";
-import {
-  AppErrorCodes,
-  ExitCode,
-  defectDoc,
-  exitCodeFor,
-  redactSensitiveText,
-} from "../app-error/index.js";
+import type { AppError, AppErrorCode } from "../app-error/index.js";
+import { AppErrorCodes, ExitCode, appErrorCodeForExit, exitCodeFor } from "../app-error/index.js";
 import { isWorkspaceFailure, type WorkspaceFailure } from "@agentxm/workspace/reconciliation";
-import { toAppError } from "../app-error/conversions.js";
+import { failureToAppError, toAppError } from "../app-error/conversions.js";
 import type { SkillSelectionCancelled } from "@agentxm/workspace/skills/lifecycle/application";
 import type { SubagentSelectionCancelled } from "@agentxm/workspace/subagents/lifecycle/application";
 import type { InstallSelectionCancelled } from "@agentxm/workspace/lifecycle";
@@ -39,13 +33,12 @@ import { OperationExit, getOperationExitCode } from "./operation-exit.js";
 import { CommandCompletion } from "./command-completion.js";
 import {
   readGlobalFlagProperties,
-  reportCliDefect,
-  reportCliError,
+  recordCommandSettlement,
   trackCliCommand,
-  trackCliCommandCompleted,
   getCommandSemanticProperties,
   CommandSemanticPropertiesLive,
   ProductActivityLive,
+  type CommandSettlement,
 } from "./telemetry.js";
 import { CommandArgv, serializeArgv } from "./command-argv.js";
 import {
@@ -57,7 +50,6 @@ import {
 import {
   InteractiveScreen,
   MachineScreen,
-  errorEvent,
   resolveCliOutputPolicy,
   type QuestionCancelled,
   OutputWriteFailed,
@@ -68,7 +60,6 @@ import {
   Verbosity,
   type VerbosityLevel,
 } from "../cli-flags/index.js";
-import { makeJsonErrorEnvelope } from "./json-envelope.js";
 import { Screen } from "../screen/index.js";
 import { ScreenLogDrain } from "../screen/logger.js";
 
@@ -83,48 +74,18 @@ export interface CliTelemetryConfig {
   readonly eventIdFactory?: TelemetryClientOptions["eventIdFactory"];
 }
 
-const defectMessage = (cause: Cause.Cause<unknown>): string => {
-  const squashed = Cause.squash(cause);
-  return redactSensitiveText(squashed instanceof Error ? squashed.message : String(squashed));
-};
-
 /**
- * Emit a defect (unhandled panic) to the appropriate channel.
- *
- * - text: human-readable message on stderr.
- * - json: NDJSON `error` event on stderr + structured envelope on stdout.
- *
- * Exported for tests; production callers route through `withCliErrorHandling`.
+ * Emit a defect (unhandled panic). The squashed cause classifies through the
+ * one failure classifier and renders through the one error renderer, so a
+ * defect reads exactly like any other error of its code on every channel: the
+ * same title, the same `--debug` cause chain in text, the same stable
+ * envelope in JSON. The classification is handed back so the process exits
+ * with the code the rendered phrase states.
  */
-export const writeDefect = (cause: Cause.Cause<unknown>, format: OutputFormat) =>
-  Effect.gen(function* () {
-    const screen = yield* Screen;
-    const message = defectMessage(cause);
-
-    if (format === "text") {
-      yield* screen.note(defectDoc(message));
-      return;
-    }
-
-    yield* screen.note([
-      { _tag: "raw", content: `${JSON.stringify(errorEvent("internal", message))}\n` },
-    ]);
-    yield* screen.result([
-      {
-        _tag: "raw",
-        content:
-          JSON.stringify(
-            makeJsonErrorEnvelope({
-              code: "internal",
-              title: "Internal Error",
-              detail: message,
-            }),
-            null,
-            2,
-          ) + "\n",
-      },
-    ]);
-  });
+export const writeDefect = (cause: Cause.Cause<unknown>, format: OutputFormat) => {
+  const defect = failureToAppError(Cause.squash(cause));
+  return writeExpectedCliError(defect, format).pipe(Effect.as(defect));
+};
 
 export type ExpectedCliError =
   | OutputWriteFailed
@@ -146,36 +107,31 @@ export type CliRuntimeFoundation = Screen | Verbosity;
 const expectedErrorToAppError = (error: ExpectedCliError): AppError | undefined =>
   error._tag === "AppError" ? error : isWorkspaceFailure(error) ? toAppError(error) : undefined;
 
-const defaultExitCodeForExpectedError = (error: ExpectedCliError): number => {
-  const resolved = expectedErrorToAppError(error);
-  return resolved === undefined ? ExitCode.Success : exitCodeFor(resolved.code);
-};
-
-const positiveNumericProperty = (properties: TelemetryProperties, key: string): boolean => {
-  const value = properties[key];
-  return typeof value === "number" && value > 0;
-};
-
 const elapsedMilliseconds = (start: bigint, end: bigint): number =>
   Duration.toMillis(Duration.nanos(end - start));
 
-export const exitCodeForSemanticProperties = (
-  properties: TelemetryProperties,
-): number | undefined => {
-  const reason = properties["cli.reason"];
-  if (reason === "approval-required" || reason === "override-required") return ExitCode.Usage;
-  if (reason === "stale-candidate") return ExitCode.Conflict;
-  if (reason === "interrupted") return 130;
-  if (reason === "execution-failed") return ExitCode.Issues;
-  if (reason === "hard-blocked") {
-    const code = properties["cli.error_code"];
-    const matched = AppErrorCodes.find((candidate) => candidate === code);
-    return matched === undefined ? ExitCode.Issues : exitCodeFor(matched);
-  }
-  return positiveNumericProperty(properties, "cli.failed_count") ||
-    positiveNumericProperty(properties, "cli.blocked_count")
-    ? ExitCode.Issues
-    : undefined;
+const isAppErrorCode = (value: unknown): value is AppErrorCode =>
+  AppErrorCodes.some((candidate) => candidate === value);
+
+/**
+ * The settled outcome an exit code states, for a command that ended by
+ * returning: a signal code is a cancellation, zero is success, and any other
+ * code is a handled error whose category the command recorded — an operation
+ * resolution records the category it settled with — or, for a command that
+ * only returned its exit, the category that exit pairs with.
+ */
+const settlementForExit = (
+  exitCode: number,
+  semanticProperties: TelemetryProperties,
+): Pick<CommandSettlement, "result" | "failure"> => {
+  if (exitCode === 130 || exitCode === 143) return { result: "cancelled" };
+  if (exitCode === ExitCode.Success) return { result: "success" };
+  const recorded = semanticProperties["cli.error_code"];
+  const code = isAppErrorCode(recorded) ? recorded : appErrorCodeForExit(exitCode);
+  return {
+    result: "error",
+    ...(code === undefined ? {} : { failure: { code, level: "error", handled: true } }),
+  };
 };
 
 /**
@@ -332,35 +288,26 @@ export const withCliErrorHandling = <A, R>(
 
     // Execute program with timing
     const startTime = yield* Clock.monotonicTimeNanos;
-    // command_completed is recorded exactly once, whichever termination path runs.
-    const completionRecorded = yield* Ref.make(false);
-    const semanticCause = (semanticProperties: TelemetryProperties) => {
-      const code = semanticProperties["cli.error_code"];
-      return typeof code === "string" ? code : undefined;
-    };
-    // Operation boundaries that finish inside an uninterruptible region record
-    // completion through this hook, before the pending interrupt can fire at
-    // the envelope's own continuation boundary.
-    const recordForExit = (exitCode: number) =>
+    // Settlement is recorded exactly once, whichever termination path runs.
+    const settled = yield* Ref.make(false);
+    const settle = (settlement: Pick<CommandSettlement, "result" | "failure">) =>
       Effect.gen(function* () {
-        if (yield* Ref.get(completionRecorded)) return;
+        if (yield* Ref.getAndSet(settled, true)) return;
         const semanticProperties = yield* getCommandSemanticProperties;
-        const causeClass = semanticCause(semanticProperties);
-        yield* Ref.set(completionRecorded, true);
-        yield* trackCliCommandCompleted({
+        yield* recordCommandSettlement({
           command,
-          result:
-            exitCode === 130 || exitCode === 143
-              ? "cancelled"
-              : exitCode === 0
-                ? "success"
-                : "error",
+          ...settlement,
           durationMs: elapsedMilliseconds(startTime, yield* Clock.monotonicTimeNanos),
-          ...(causeClass === undefined || exitCode === 0
-            ? {}
-            : { errorCode: causeClass, errorCategory: causeClass }),
           semanticProperties,
         });
+      });
+    // Operation boundaries that finish inside an uninterruptible region settle
+    // through this hook, before the pending interrupt can fire at the
+    // envelope's own continuation boundary.
+    const settleForExit = (exitCode: number) =>
+      Effect.gen(function* () {
+        const semanticProperties = yield* getCommandSemanticProperties;
+        yield* settle(settlementForExit(exitCode, semanticProperties));
       });
 
     const settleOutput = Effect.gen(function* () {
@@ -371,42 +318,26 @@ export const withCliErrorHandling = <A, R>(
     });
 
     return yield* program.pipe(
-      Effect.provideService(CommandCompletion, { record: recordForExit }),
+      Effect.provideService(CommandCompletion, { record: settleForExit }),
       Effect.tap(() => settleOutput),
       Effect.flatMap((value) =>
         Effect.gen(function* () {
-          const semanticProperties = yield* getCommandSemanticProperties;
-          // An operation resolution's own exit mapping wins verbatim; the
-          // semantic-property derivation serves only commands without one.
-          const operationExit = Option.getOrUndefined(yield* getOperationExitCode);
-          const semanticExitCode = isProcessOutcome(value)
+          // A returned outcome states its exit; an operation resolution's own
+          // exit mapping recorded the code; anything else ended successfully.
+          const exitCode = isProcessOutcome(value)
             ? value.exitCode
-            : (operationExit ??
-              exitCodeForSemanticProperties(semanticProperties) ??
-              ExitCode.Success);
-          const causeClass = semanticCause(semanticProperties);
-          yield* Ref.set(completionRecorded, true);
-          yield* trackCliCommandCompleted({
-            command,
-            result: semanticExitCode === ExitCode.Success ? "success" : "error",
-            durationMs: elapsedMilliseconds(startTime, yield* Clock.monotonicTimeNanos),
-            ...(semanticExitCode !== ExitCode.Success && {
-              errorCode: causeClass ?? "issues",
-              errorCategory: causeClass ?? "issues",
-            }),
-            semanticProperties,
-          });
-          return processOutcome(semanticExitCode);
+            : Option.getOrElse(yield* getOperationExitCode, () => ExitCode.Success);
+          yield* settleForExit(exitCode);
+          return processOutcome(exitCode);
         }),
       ),
       Effect.catch((error: ExpectedCliError) => {
         if (error instanceof OutputWriteFailed)
-          return recordForExit(ExitCode.Internal).pipe(
+          return settleForExit(ExitCode.Internal).pipe(
             Effect.as(processOutcome(ExitCode.Internal)),
           );
-        const exitCode = defaultExitCodeForExpectedError(error);
         const resolved = expectedErrorToAppError(error);
-        const result = resolved === undefined ? "cancelled" : "error";
+        const exitCode = resolved === undefined ? ExitCode.Success : exitCodeFor(resolved.code);
 
         return writeExpectedCliError(error, options.format).pipe(
           // An owned failure may already include an output failure and its
@@ -419,22 +350,15 @@ export const withCliErrorHandling = <A, R>(
               ? settleOutput
               : settleOutput.pipe(Effect.catchTag("OutputWriteFailed", () => Effect.void)),
           ),
-          Effect.andThen(reportCliError(error, command)),
           Effect.andThen(
-            Effect.gen(function* () {
-              const semanticProperties = yield* getCommandSemanticProperties;
-              yield* Ref.set(completionRecorded, true);
-              yield* trackCliCommandCompleted({
-                command,
-                result,
-                durationMs: elapsedMilliseconds(startTime, yield* Clock.monotonicTimeNanos),
-                ...(resolved !== undefined && {
-                  errorCode: resolved.code,
-                  errorCategory: resolved.code,
-                }),
-                semanticProperties,
-              });
-            }),
+            settle(
+              resolved === undefined
+                ? { result: "cancelled" }
+                : {
+                    result: "error",
+                    failure: { code: resolved.code, level: "error", handled: true },
+                  },
+            ),
           ),
           Effect.as(processOutcome(exitCode)),
         );
@@ -446,29 +370,28 @@ export const withCliErrorHandling = <A, R>(
           Option.isSome(failure) &&
           failure.value instanceof OutputWriteFailed
         ) {
-          return recordForExit(ExitCode.Internal).pipe(
+          return settleForExit(ExitCode.Internal).pipe(
             Effect.as(processOutcome(ExitCode.Internal)),
           );
         }
+        // An interruption is never a defect: it continues to the process
+        // owner, which reports the signal's exit.
         if (Cause.hasInterruptsOnly(cause)) {
           return Effect.failCause(cause);
         }
 
         return writeDefect(cause, options.format).pipe(
-          Effect.andThen(settleOutput),
-          Effect.andThen(reportCliDefect(cause, command)),
-          Effect.andThen(
-            Effect.gen(function* () {
-              const semanticProperties = yield* getCommandSemanticProperties;
-              yield* trackCliCommandCompleted({
-                command,
-                result: "defect",
-                durationMs: elapsedMilliseconds(startTime, yield* Clock.monotonicTimeNanos),
-                semanticProperties,
-              });
-            }),
+          Effect.flatMap((defect) =>
+            settleOutput.pipe(
+              Effect.andThen(
+                settle({
+                  result: "defect",
+                  failure: { code: defect.code, level: "fatal", handled: false },
+                }),
+              ),
+              Effect.as(processOutcome(exitCodeFor(defect.code))),
+            ),
           ),
-          Effect.as(processOutcome(ExitCode.Internal)),
         );
       }),
     );

@@ -44,11 +44,11 @@ People and agents can understand invalid workspace state and recover it through 
 - Open questions: cli/agent-selection-is-membership-or-filter separately refuses an unsupported id supplied through the --agent option at parse time; whether that rule should cite this one as the authority for corrective guidance, or stay a distinct parse-time rule, is undecided.
 - Source: [`packages/core/workspace/src/configuration/membership/rejects-unknown-agent.spec.ts`](../packages/core/workspace/src/configuration/membership/rejects-unknown-agent.spec.ts)
 
-##### A blocked approval names a recovery the command line will accept
+##### A blocked approval or an unsettled retry names a recovery the command line will accept
 
 - Requirement: `cli/approval-required-names-a-valid-recovery`
 - Owner: `cli`
-- Statement: When an apply stops as approval required, its recovery shall name the approval its route supports — a replay carrying the advance-approval flag where the route offers one, otherwise an interactive rerun without machine or non-interactive switches — the named command shall parse on the real command line, and a request whose values cannot be replayed safely shall describe the recovery without echoing those values.
+- Statement: When an apply stops as approval required, its recovery shall name the approval its route supports — a replay carrying the advance-approval flag where the route offers one, otherwise an interactive rerun without machine or non-interactive switches — and when an apply leaves units unsettled that a rerun can change, its retry shall replay the invocation as typed, narrowed to the unsettled units where the route has a selector to name them; every named command shall carry the invocation's real locator, selector, and flags, shall parse on the real command line, and a request whose values cannot be replayed safely shall describe the recovery without echoing those values.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`
@@ -57,6 +57,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Methods: example, contract
 - Derived from: `cli/lockfile-rejections-name-recovery-routes`, `cli/confirmation-flags-have-a-supported-purpose`, `apps/cli-e2e/src/approval-required-recovery.e2e.test.ts`
 - Limitation: These replays use inert values without shell quoting; the interactive-only recovery is parsed through its complete registered branch with an observing handler and does not establish terminal prompt behavior. Retires when: Add quoted recovery values and an interactive terminal replay through a supported process harness; existing confirmation specifications continue to own prompt behavior.
+- Limitation: The activation and partial-install examples compose the recovery from the invocation the adapter records and the units the kernel reports, because no in-memory fixture makes an activation ask for approval or makes one selected extension fail retryably while another installs. Retires when: Add a fixture that fails one selected extension with a retryable failure, then drive the install handler end to end and replay its retry line.
 - Additional evidence: process via [`apps/cli-e2e/src/approval-required-recovery.e2e.test.ts`](../apps/cli-e2e/src/approval-required-recovery.e2e.test.ts) — Only a real command line shows that the emitted recovery parses and, when run, produces exactly the transition it promised while leaving unrelated workspace content alone.
 - Source: [`apps/cli/src/root/shared/approval-required-names-a-valid-recovery.spec.ts`](../apps/cli/src/root/shared/approval-required-names-a-valid-recovery.spec.ts)
 
@@ -398,7 +399,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/non-success-results-name-a-fitting-recovery`
 - Owner: `cli`
-- Statement: When an operation settles partial, failed, blocked, or interrupted, its `Next` shall name at least one recovery that fits the outcome — the emitting command narrowed to the units that did not settle where an unchanged retry can help, or a recovery the producer of a failure stated — and shall not consist solely of a generic inventory suggestion; where no command can change the outcome, it shall offer no retry. Whether a retry can help is the kernel's one decision per failure: the producer's stated retryability, or else its category.
+- Statement: When an operation settles partial, failed, blocked, or interrupted, its `Next` shall name at least one recovery that fits the outcome — the emitting command narrowed to the units that did not settle where an unchanged retry can help, or a recovery the producer of a failure stated, for every unit that failed — and shall not consist solely of a generic inventory suggestion; where no command can change the outcome, it shall offer no retry; and in a user-scope workspace each recovery command shall appear once, addressed with `--scope user` exactly when its route accepts that flag. Whether a retry can help is the kernel's one decision per failure: the producer's stated retryability, or else its category.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `extension-adoption`
@@ -522,7 +523,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/errors-do-not-disclose-credentials`
 - Owner: `cli`
-- Statement: AXM shall redact credential values from error reports and their diagnostic details in human and machine output at every supported verbosity level, and from the failure detail a resolved unit publishes on the lifecycle event stream.
+- Statement: AXM shall redact credential values, including an exact credential the Registry echoed under a sensitive key, from error reports and their diagnostic details in human and machine output at every supported verbosity level, from the plan result document, from the publish result's cause, and from the failure detail a resolved unit publishes on the lifecycle event stream.
 - Class: quality (security)
 - Role: experience
 - Product goals: `actionable-diagnostics`, `machine-automation`
@@ -578,7 +579,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Methods: decision-table, example
 - Derived from: `apps/cli/help/topics/environment.md`, `apps/cli/src/screen/output-policy.test.ts`, `apps/cli/src/screen/paint-text.test.ts`
 - Open questions: Which locale input controls glyph selection when LC_ALL, LC_CTYPE, and LANG disagree? Earlier environment prose described a non-UTF-8 input selecting ASCII, while the resolver and an internal example select Unicode if any input names UTF-8; this requirement does not decide mixed-locale precedence.
-- Limitation: Examples drive production policy, Screen, and painter over recording streams with supplied terminal facts. They cover status, change, live-progress, prompt, wait, answer, tree, separator, truncation, and content examples, not an actual terminal font, locale installation, or every authored document. Retires when: Add platform, progress, prompt, or new document evidence when its distinct display-symbol obligation is allocated.
+- Limitation: Examples drive production policy, Screen, and painter over recording streams with supplied terminal facts. They cover status, change, live-progress, prompt, wait, answer, tree, separator, truncation, content, and absent-value examples, not an actual terminal font, locale installation, or every authored document. Retires when: Add platform, progress, prompt, or new document evidence when its distinct display-symbol obligation is allocated.
 - Source: [`apps/cli/src/screen/ascii-human-output-preserves-content.spec.ts`](../apps/cli/src/screen/ascii-human-output-preserves-content.spec.ts)
 
 ##### Interactions retain their context and outcome
@@ -4645,7 +4646,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 - Requirement: `cli/exit-codes-match-published-reference`
 - Owner: `cli`
-- Statement: The served exit-codes help topic shall list exactly the exit codes and meanings the command line returns at runtime, with no missing, extra, or differing rows, and an invocation the parser rejects or an apply stopped as approval required shall exit with the code whose published meaning names that outcome.
+- Statement: The served exit-codes help topic shall list exactly the exit codes and meanings the command line returns at runtime, with no missing, extra, or differing rows, and an invocation the parser rejects, an apply stopped as approval required, or an operation terminated by a signal shall exit with the code whose published meaning names that outcome.
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `knowledge-access`

@@ -11,7 +11,7 @@ import {
   recoverySwitch,
 } from "@agentxm/workspace/transitions/planning";
 
-import { isNonInteractiveOptional } from "../../cli-flags/index.js";
+import { Screen } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { failureToAppError } from "../../app-error/conversions.js";
 import { emitOperationResolution } from "../../operation-output.js";
@@ -21,7 +21,7 @@ import {
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import { makeConfirmationRecovery, makePlanInvocation } from "../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
 export interface ForkHandlerArgs {
@@ -43,7 +43,7 @@ export const handleFork = (args: ForkHandlerArgs) =>
   );
 
 const handleForkBody = Effect.fn("Fork.handle")(function* (args: ForkHandlerArgs) {
-  const nonInteractive = yield* isNonInteractiveOptional;
+  const nonInteractive = !(yield* (yield* Screen).canAsk);
   const candidate = yield* ForkExtension.prepare({
     source: args.source,
     target: args.target,
@@ -52,7 +52,7 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: ForkHandlerArgs
     nonInteractive,
   }).pipe(Effect.mapError(failureToAppError));
 
-  const execution = yield* makePlanExecution(
+  const { execution, recovery } = yield* makePlanInvocation(
     { preview: args.preview },
     makeConfirmationRecovery(
       ["fork"],
@@ -70,7 +70,7 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: ForkHandlerArgs
   const resolution = yield* ForkExtension.previewOrApply(candidate, execution).pipe(
     Effect.mapError(failureToAppError),
   );
-  yield* emitOperationResolution("fork", resolution);
+  yield* emitOperationResolution(resolution, { recovery });
 });
 
 const config = {

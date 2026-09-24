@@ -232,7 +232,7 @@ describe("machine-output contract register", () => {
   it.effect("runtime-encodes every registered --help document with JsonHelpDocSchema", () =>
     Effect.gen(function* () {
       const helpFiles = yield* collectHelpFiles();
-      const formatter = makeAxmFormatter({ json: true, colors: false });
+      const formatter = makeAxmFormatter();
 
       for (const [path, doc] of helpFiles) {
         const output = formatter.formatHelpDoc(doc);
@@ -247,7 +247,7 @@ describe("machine-output contract register", () => {
   it.effect("runtime-encodes --help through every alias path", () =>
     Effect.gen(function* () {
       const aliases = yield* collectCommandAliases();
-      const formatter = makeAxmFormatter({ json: true, colors: false });
+      const formatter = makeAxmFormatter();
 
       for (const aliasPath of aliases.keys()) {
         const doc = yield* captureHelpDoc(aliasPath.split(" ").slice(1));
@@ -259,7 +259,7 @@ describe("machine-output contract register", () => {
   );
 
   it("runtime-encodes the formatter-owned --version document", () => {
-    const formatter = makeAxmFormatter({ json: true, colors: false });
+    const formatter = makeAxmFormatter();
     const parsed: unknown = JSON.parse(formatter.formatVersion("axm", "1.2.3"));
 
     expect(() => Schema.decodeUnknownSync(JsonVersionDocSchema)(parsed)).not.toThrow();

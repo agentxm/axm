@@ -1,7 +1,7 @@
 import { ScaffoldNameInvalid } from "@agentxm/workspace/authoring";
 
-import { appErrorDoc, defectDoc, makeAppError } from "../../app-error/index.js";
-import { toAppError } from "../../app-error/conversions.js";
+import { appErrorDoc, makeAppError } from "../../app-error/index.js";
+import { failureToAppError, toAppError } from "../../app-error/conversions.js";
 import type { Doc } from "../../screen/doc.js";
 
 /**
@@ -35,5 +35,7 @@ export const refMidflightErrorFamily2: Doc = [
     }),
   ),
   { _tag: "blank" },
-  ...defectDoc(new Error("Cannot read properties of undefined (reading 'agents')")),
+  ...appErrorDoc(
+    failureToAppError(new Error("Cannot read properties of undefined (reading 'agents')")),
+  ),
 ];

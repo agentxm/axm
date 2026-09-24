@@ -12,9 +12,6 @@ export const handleDisableSubagent = (args: DisableSubagentHandlerArgs) =>
       command: "subagents.disable",
       commandPath: ["subagents", "disable"],
       planName: "Disable subagent",
-      suggestions: [
-        { description: "Inspect installed subagents", cmd: "axm subagents list" },
-        { description: "Undo", cmd: `axm subagents enable ${args.name}` },
-      ],
+      suggestions: [{ description: "Undo", cmd: `axm subagents enable ${args.name}` }],
     },
   );

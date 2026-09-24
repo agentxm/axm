@@ -16,8 +16,6 @@ export const ensureNewline = (content: string): string =>
 export const streamPaintWidth = (isTTY: boolean, columns: number): number | "unbounded" =>
   isTTY ? columns : "unbounded";
 
-/** Established empty-version glyphs for the operation and publication grammars. */
-export const MISSING_VERSION = { operation: "-", publication: "—" };
 export const PROSE_SEPARATOR = ", ";
 export const VERBOSE_DETAILS_HINT = "--verbose for details";
 export const VERBOSE_LIST_HINT = "--verbose to list";

@@ -39,7 +39,7 @@ Each help form has one primary job:
 
 | Surface                                                   | Job                                                                                   | Authority                                        |
 | --------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| `axm` and `axm --help`                                    | Orient users to AXM and its top-level command families.                               | The root command tree and formatter.             |
+| `axm` and `axm --help`                                    | Orient users to AXM and its top-level command families.                               | The root command tree and its help view.         |
 | Parent command invocation and `axm <command-path> --help` | Describe executable command paths, arguments, flags, subcommands, and examples.       | Command definitions and annotations.             |
 | `axm help`                                                | List the available prose and schema topics.                                           | The generated topic registry.                    |
 | `axm help <topic>`                                        | Present durable guidance or a raw schema that is broader than one command invocation. | Topic sources and schema sources.                |
@@ -82,10 +82,11 @@ inventory or presentation details:
   and examples.
 - Topic and schema sources own topic names and content; generated artifacts are
   derived copies.
-- The formatter owns terminal layout and formatter-produced machine help
-  documents.
-- The formatter's help document remains authoritative input; the output screen
-  paints or transports it without redefining help semantics.
+- The formatter owns the machine help document and nothing about its
+  presentation: no styling, width, wrapping, or output mode.
+- The formatter's help document remains authoritative input; the command-help
+  view says what each part of it means, and the output screen paints that view
+  with its per-stream colour and width without redefining help semantics.
 - [CLI output](output.md) owns channel boundaries, envelopes, and the separation
   between human and machine presentation.
 - Behavior and completeness tests own the exact supported results.

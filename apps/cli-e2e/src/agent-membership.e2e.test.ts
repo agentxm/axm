@@ -129,16 +129,14 @@ describe("atomic agent membership lifecycle", () => {
           outcome: "applied",
           mode: "apply",
           counts: { total: 2, committed: 2, failed: 0, blocked: 0 },
+          // The cleanup is the same step `sync` and `uninstall` plan; the
+          // unowned file is not reported because it was never AXM's to touch.
           units: expect.arrayContaining([
             expect.objectContaining({
-              label: "Remove managed agent artifacts",
+              label: "stale managed agent projections",
               state: "committed",
-              message: "Removed 1 managed artifact; preserved 1 unowned artifact",
-              artifact: expect.objectContaining({
-                targets: expect.arrayContaining([
-                  expect.objectContaining({ path: ".opencode/skills/manual", change: "unchanged" }),
-                ]),
-              }),
+              message: "Removed 1 stale managed agent projection",
+              artifact: expect.objectContaining({ change: "removed", fileCount: 1 }),
             }),
           ]),
         },

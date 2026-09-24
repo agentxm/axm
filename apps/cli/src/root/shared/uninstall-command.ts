@@ -4,7 +4,9 @@
  * The feature settles which extensions the selector names and resolves the
  * removal; this module turns flags into an execution intent, typed refusals
  * into the error envelope, and the outcome into the report a person reads —
- * including the no-op wording for a selector that matched nothing.
+ * including the no-op wording for a selector that matched nothing. The words
+ * a type's report uses come from the per-type presentation table, so the
+ * root form and the typed form of one removal read the same.
  */
 
 import * as Effect from "effect/Effect";
@@ -12,7 +14,6 @@ import * as Option from "effect/Option";
 
 import { UninstallExtensions, type UninstallExtensionsRequest } from "@agentxm/workspace/lifecycle";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
   deriveOperationOutcome,
   operationPresentation,
@@ -25,7 +26,8 @@ import {
   operationResolutionSummary,
   retryCanHelp,
 } from "../../operation-output.js";
-import { makeUninstallPlanExecution } from "./confirmation-recovery.js";
+import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
+import { makePublicPositionalPlanInvocation, retrySuggestion } from "./confirmation-recovery.js";
 import { emitNoOpOutcome } from "./no-op-output.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
@@ -33,48 +35,49 @@ export interface UninstallCommandArgs {
   /** Telemetry and machine-output command identity, e.g. `skills.uninstall`. */
   readonly command: string;
   readonly request: UninstallExtensionsRequest;
-  /**
-   * What the live frame calls this operation before planning settles which
-   * extensions the selector names. The plan the feature settles carries its
-   * own type-specific name, which is what the result document reports.
-   */
-  readonly liveName: string;
   readonly preview: boolean;
   /** The command words a confirmation-recovery line reproduces. */
   readonly recoveryCommand: ReadonlyArray<string>;
   /** What the person typed, reproduced as the recovery line's positional. */
   readonly recoveryPositionals: ReadonlyArray<string>;
-  readonly suggestions: (type: InstallableExtensionType) => ReadonlyArray<SuggestedAction>;
-  /**
-   * What to say when the selector named nothing this command could remove. A
-   * route that leaves this out reports the empty operation itself instead.
-   */
-  readonly noOpMessage?: (args: {
-    readonly type: InstallableExtensionType;
-    /**
-     * The subject as the settled removal names it: the selector a typed
-     * route was given, or the extension name the root form read out of the
-     * registry FQN. A report names the same subject either way.
-     */
-    readonly selector: string;
-    /** True when the named extensions were all already absent. */
-    readonly alreadyAbsent: boolean;
-  }) => string;
-  /**
-   * What a preview that found nothing to remove says when the machine-output
-   * envelope did not already say it. Only the routes that report an empty
-   * preview as a result rather than a no-op supply this.
-   */
-  readonly previewEmptyResult?: string;
 }
+
+/**
+ * What the live frame calls the operation before planning settles which
+ * extensions the selector names. The root route accepts every type, so it
+ * names the operation generically; the plan the feature settles carries its
+ * own type-specific name, which is what the result document reports.
+ */
+const liveName = (type: Option.Option<InstallableExtensionType>): string =>
+  Option.match(type, {
+    onNone: () => "Uninstall extension",
+    onSome: (type) => `Uninstall ${EXTENSION_TYPE_PRESENTATION[type].noun.singular}`,
+  });
+
+/**
+ * What a removal says when it withdrew nothing. A literal name that was
+ * already absent is named; a glob is a pattern, not an extension, so a glob
+ * that matched nothing says only that nothing was removed.
+ */
+const noOpMessage = (
+  type: InstallableExtensionType,
+  selector: string,
+  alreadyAbsent: boolean,
+): string => {
+  const { plural } = EXTENSION_TYPE_PRESENTATION[type].noun;
+  return alreadyAbsent && !selector.includes("*")
+    ? `No ${plural} uninstalled; ${selector} is not installed.`
+    : `No ${plural} uninstalled.`;
+};
 
 const body = (args: UninstallCommandArgs) =>
   Effect.gen(function* () {
     const candidate = yield* UninstallExtensions.prepare(args.request).pipe(
       Effect.mapError(failureToAppError),
     );
+    const { inspect } = EXTENSION_TYPE_PRESENTATION[candidate.type];
 
-    const execution = yield* makeUninstallPlanExecution(
+    const { execution, recovery } = yield* makePublicPositionalPlanInvocation(
       { preview: args.preview },
       args.recoveryCommand,
       args.recoveryPositionals,
@@ -92,51 +95,30 @@ const body = (args: UninstallCommandArgs) =>
       ),
     );
 
-    if (
-      args.previewEmptyResult !== undefined &&
-      resolution.mode === "preview" &&
-      resolution.units.length === 0
-    ) {
-      yield* emitOperationResolution(args.command, resolution, {
-        message: args.previewEmptyResult,
-      });
-      return;
-    }
-
     // A removal whose every unit found nothing to withdraw changed nothing,
     // even though the plan had units to run.
     const allUnitsAlreadyAbsent =
       candidate.empty ||
       (resolution.units.length > 0 && resolution.units.every((unit) => unit.state === "unchanged"));
-    const noOpMessage = args.noOpMessage;
-    if (
-      noOpMessage !== undefined &&
-      (deriveOperationOutcome(resolution) === "no-op" || allUnitsAlreadyAbsent)
-    ) {
-      yield* emitNoOpOutcome(args.command, {
+    if (deriveOperationOutcome(resolution) === "no-op" || allUnitsAlreadyAbsent) {
+      // The registry FQN the person typed is not what a report calls the
+      // extension: the settled removal names the same subject a typed route
+      // would have named.
+      yield* emitNoOpOutcome({
         planName: resolution.name,
-        message: noOpMessage({
-          type: candidate.type,
-          selector: candidate.selector,
-          alreadyAbsent: allUnitsAlreadyAbsent,
-        }),
+        message: noOpMessage(candidate.type, candidate.selector, allUnitsAlreadyAbsent),
       });
       return;
     }
 
-    yield* emitOperationResolution(args.command, resolution, {
+    yield* emitOperationResolution(resolution, {
+      recovery,
       // An uninstall converges from the state the workspace is now in, so the
-      // route the person typed is what tries the rest again.
+      // invocation the person typed is what tries the rest again.
       suggestions: ({ unsettled }) =>
         unsettled.length === 0 || !retryCanHelp(unsettled)
-          ? args.suggestions(candidate.type)
-          : [
-              {
-                description: "Try removing what is left again",
-                cmd: ["axm", ...args.recoveryCommand, candidate.selector].join(" "),
-              },
-              ...args.suggestions(candidate.type),
-            ],
+          ? [inspect]
+          : [retrySuggestion("Try removing what is left again", recovery), inspect],
     });
   });
 
@@ -146,7 +128,7 @@ export const runUninstallCommand = (args: UninstallCommandArgs) =>
     {
       command: args.command,
       mode: args.preview ? "preview" : "apply",
-      planName: args.liveName,
+      planName: liveName(args.request.type),
       presentation: operationPresentation(
         { imperative: "uninstall", past: "Uninstalled", gerund: "Uninstalling" },
         Option.getOrUndefined(args.request.type),

@@ -25,9 +25,9 @@ import type { AuthorMaterialization } from "../../transitions/planning/index.js"
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 import * as FileSystem from "effect/FileSystem";
-import type * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import type { RegistryClientFactory } from "@agentxm/registry-client";
 
 import {
   SkillManager,
@@ -173,7 +173,7 @@ export type AdoptExtensionFailure =
 export type PrepareAdoptExtensionRequirements =
   | FileSystem.FileSystem
   | Path.Path
-  | HttpClient.HttpClient
+  | RegistryClientFactory
   | AcceptedResolutionWriter
   | DesiredStateReader
   | DesiredStateWriter

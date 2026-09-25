@@ -6,7 +6,9 @@ import { describe, expect } from "vitest";
 import { it } from "@effect/vitest";
 
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 
 import { GitDirectoryComparison } from "../resolution/sources/index.js";
 import { AuthClient } from "@agentxm/registry-access/authentication";
@@ -79,6 +81,6 @@ describe("./testing.js", () => {
       expect(
         Option.isNone(yield* comparison.compare({ directory: "/tmp/axm", currentPaths: [] })),
       ).toBe(true);
-    }).pipe(Effect.provide(PublishPortsTest())),
+    }).pipe(Effect.provide(Layer.provideMerge(PublishPortsTest(), NodeServices.layer))),
   );
 });

@@ -10,6 +10,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
+import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { afterEach, beforeEach, vi } from "vitest";
 import {
   CodingAgentRepository,
@@ -182,7 +183,10 @@ const makeServices = (
 
   return {
     layer: Layer.mergeAll(
-      Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer, NativeWriteAuthorityPermissive),
+      Layer.mergeAll(
+        Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
+        NativeWriteAuthorityPermissive,
+      ),
       WorkspaceReadTest({
         baseDir: path.dirname(axmDir),
         runtimeDir: axmDir,

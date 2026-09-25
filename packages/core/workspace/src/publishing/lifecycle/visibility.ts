@@ -24,7 +24,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import type { ExtensionVisibility } from "@agentxm/extension-model/unstable/extensions/common";
 import { manifestFilenameForType } from "@agentxm/extension-content";
-import { createRegistryClient, RegistryUrl } from "@agentxm/registry-client";
+import { RegistryClientFactory, RegistryUrl } from "@agentxm/registry-client";
 import type {
   VisibilityEvaluation,
   VisibilityIntent,
@@ -163,8 +163,7 @@ export const repositoryVisibilityIntent = Effect.fn("Visibility.repositoryIntent
 export const status = Effect.fn("ManagePublishedVisibility.status")(function* (target: string) {
   const parsed = yield* parseVisibilityTarget(target);
   const intent = yield* repositoryVisibilityIntent(parsed.parts);
-  const registryUrl = yield* RegistryUrl;
-  const client = yield* createRegistryClient(registryUrl);
+  const client = yield* (yield* RegistryClientFactory).forDefaultRegistry;
   return yield* client.getExtensionVisibility({ ...parsed.parts, intent });
 });
 
@@ -196,7 +195,7 @@ export const set = Effect.fn("ManagePublishedVisibility.set")(function* (
 ) {
   const parsed = yield* parseVisibilityTarget(request.target);
   const registryUrl = yield* RegistryUrl;
-  const client = yield* createRegistryClient(registryUrl);
+  const client = yield* (yield* RegistryClientFactory).forDefaultRegistry;
   const evaluation = yield* client.getExtensionVisibility({ ...parsed.parts, intent: null });
   const missing = requireEstablishedVisibility(request.target, evaluation);
   if (Option.isSome(missing)) return yield* Effect.fail(missing.value);
@@ -243,7 +242,7 @@ export const reconcile = Effect.fn("ManagePublishedVisibility.reconcile")(functi
     );
   }
   const registryUrl = yield* RegistryUrl;
-  const client = yield* createRegistryClient(registryUrl);
+  const client = yield* (yield* RegistryClientFactory).forDefaultRegistry;
   const evaluation = yield* client.getExtensionVisibility({ ...parsed.parts, intent });
   const missing = requireEstablishedVisibility(request.target, evaluation);
   if (Option.isSome(missing)) return yield* Effect.fail(missing.value);

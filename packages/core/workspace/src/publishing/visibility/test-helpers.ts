@@ -30,7 +30,11 @@ import {
   AuthLoginPresenterTest,
   CredentialStoreTest,
 } from "@agentxm/registry-access/testing";
-import { RegistryUrlTest, testRegistryUrl } from "@agentxm/registry-client/testing";
+import {
+  RegistryClientFactoryTest,
+  RegistryUrlTest,
+  testRegistryUrl,
+} from "@agentxm/registry-client/testing";
 import { layer as WorkspaceStateLayer } from "../../desired-state/live.js";
 
 import { observedRevision, registryTarget } from "../test-helpers.js";
@@ -128,6 +132,7 @@ export const makeVisibilityWorld = (
       CredentialStoreTest(),
       RegistryUrlTest(testRegistryUrl),
       Layer.succeed(HttpClient.HttpClient, transport),
+      RegistryClientFactoryTest(Layer.succeed(HttpClient.HttpClient, transport)),
     ),
     Layer.merge(
       Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),

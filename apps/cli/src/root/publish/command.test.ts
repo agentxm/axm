@@ -257,10 +257,6 @@ describe("root publish", () => {
 
   it.effect("creates no server state during a signed-out preview", () => {
     writeReviewSkill();
-    const context = makeWorkspaceHandlerTestContext({
-      machine: true,
-      wsOptions: { projectRoot: tempDir },
-    });
     const writes: Array<string> = [];
     const httpClient = HttpClient.make((request) =>
       Effect.sync(() => {
@@ -290,12 +286,18 @@ describe("root publish", () => {
         );
       }),
     );
+    // The workspace's Registry clients bind their transport when the context
+    // is built, so the recording port is supplied there.
+    const context = makeWorkspaceHandlerTestContext({
+      machine: true,
+      httpClient,
+      wsOptions: { projectRoot: tempDir },
+    });
     const provide = Effect.provide(
       Layer.mergeAll(
         context.fullLayer,
         AuthClientTest(),
         DeviceLoginInteractionTest().layer,
-        Layer.succeed(HttpClient.HttpClient, httpClient),
         Layer.provide(GitDirectoryComparisonLive, context.fullLayer),
       ),
     );

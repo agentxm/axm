@@ -9,13 +9,13 @@
 
 import type * as FileSystem from "effect/FileSystem";
 import type * as Config from "effect/Config";
-import type * as HttpClient from "effect/unstable/http/HttpClient";
 import type * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
+import type { RegistryClientFactory } from "@agentxm/registry-client";
 
 import {
   extensionTypeSentenceLabels,
@@ -176,7 +176,7 @@ export const prepareConfiguredRegistryEntry = (
   | LockfileReader
   | DesiredStateReader
   | FileSystem.FileSystem
-  | HttpClient.HttpClient
+  | RegistryClientFactory
   | Path.Path
 > =>
   Effect.gen(function* () {

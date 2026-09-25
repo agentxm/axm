@@ -14,7 +14,6 @@
  */
 
 import * as FileSystem from "effect/FileSystem";
-import type * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Array from "effect/Array";
@@ -34,7 +33,7 @@ import {
   makeWorkspaceRelativeSourcePath,
 } from "@agentxm/extension-model/unstable/path-types";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import { stripFileProtocol } from "@agentxm/registry-client";
+import { RegistryClientFactory, stripFileProtocol } from "@agentxm/registry-client";
 import {
   acceptedRegistryVersionForRef,
   validateExactResolvedVersion,
@@ -594,7 +593,7 @@ const syncConfiguredAgentsOnInstall = (args: {
  */
 export type McpServerInstallRequirements =
   | FileSystem.FileSystem
-  | HttpClient.HttpClient
+  | RegistryClientFactory
   | Path.Path
   | WorkspaceLocation
   | SettingsReader

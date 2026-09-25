@@ -44,7 +44,6 @@ import type {
 } from "@agentxm/registry-protocol/unstable/registry/resolution-metadata";
 import type { PackageUrlParts } from "@agentxm/extension-model/unstable/packaging/package-url";
 import type { AgentExtensionRecommendation } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
-import { stripFileProtocol } from "./fs-helpers.js";
 import { makeUserArchiveCache } from "./archive-cache.js";
 import { createLocalRegistryClient } from "./local-client.js";
 import { createRemoteRegistryClient } from "./remote-client.js";
@@ -426,12 +425,16 @@ export interface RegistryClient {
 // -----------------------------------------------------------------------------
 
 /**
- * Create the appropriate registry client based on location scheme.
+ * Create the appropriate registry client for a location the
+ * `RegistryClientFactory` already settled.
  *
- * - Local paths and `file://` URLs -> `LocalRegistryClient`
+ * - Native filesystem paths -> `LocalRegistryClient`
  * - `http://` and `https://` URLs -> `RemoteRegistryClient`
  *
- * @param location - Registry location (local path, file:// URL, or https:// URL)
+ * Features never call this directly: the factory owns the transport services
+ * and the `file:` URL conversion, and is the only builder they see.
+ *
+ * @param location - Registry location (native path or http(s) URL)
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -446,8 +449,7 @@ export const createRegistryClient = (
       return createRemoteRegistryClient(location, httpClient, archiveCache, options?.requestPolicy);
     }
 
-    const localPath = location.startsWith("file://") ? stripFileProtocol(location) : location;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    return createLocalRegistryClient(localPath, fs, path);
+    return createLocalRegistryClient(location, fs, path);
   });

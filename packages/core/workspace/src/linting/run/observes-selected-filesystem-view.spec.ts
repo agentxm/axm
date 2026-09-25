@@ -8,6 +8,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { describe, expect, it } from "@effect/vitest";
+import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { afterEach } from "vitest";
 
 import { NoProjectionParticipants } from "../../projection/testing.js";
@@ -149,7 +150,10 @@ describe("Selected lint filesystem view", () => {
       expect(fs.readFileSync(settingsPath, "utf8")).toBe(validSettings);
     }).pipe(
       Effect.provide(
-        Layer.mergeAll(NodeServices.layer, OfflineHttpClient, NoProjectionParticipants),
+        Layer.mergeAll(
+          Layer.provideMerge(RegistryTransportTest(OfflineHttpClient), NodeServices.layer),
+          NoProjectionParticipants,
+        ),
       ),
     );
   });

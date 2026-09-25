@@ -32,8 +32,14 @@ const viewConfig = {
 
 export const viewCommand = Command.make("view", viewConfig, ({ handle, field, registry, type }) => {
   const parts = parseExtensionFqnParts(handle);
+  // A fully qualified handle needs no workspace to name what it views; the
+  // effective default Registry is still the settings-selected one, so the
+  // workspace is read as it is, initialized or not.
   if (Option.isNone(registry) && Option.isNone(type) && parts !== undefined) {
-    return handleDefaultRegistryFqnView({ handle, field, parts }).pipe(withRuntime("view"));
+    return handleDefaultRegistryFqnView({ handle, field, parts }).pipe(
+      withWorkspace({ scope: DEFAULT_WORKSPACE_SCOPE, allowUninitialized: true }),
+      withRuntime("view"),
+    );
   }
   return handleView({ handle, field, registry, type }).pipe(
     withWorkspace(DEFAULT_WORKSPACE_SCOPE),

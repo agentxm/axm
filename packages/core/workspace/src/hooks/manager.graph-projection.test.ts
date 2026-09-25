@@ -20,6 +20,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
+import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { HooksLockMapSchema, type HooksLockMap } from "../desired-state/index.js";
 import {
   WorkspaceCatalogTestLive,
@@ -138,7 +139,9 @@ describe("HookManager graph-derived unit projection", () => {
       Layer.provide(Layer.succeed(SourceHostProviders, providersStub)),
       Layer.provideMerge(NativeWriteAuthorityLive),
       Layer.provideMerge(WorkspaceFileWriteLocksLive),
-      Layer.provideMerge(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),
+      Layer.provideMerge(
+        Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
+      ),
     );
   };
 

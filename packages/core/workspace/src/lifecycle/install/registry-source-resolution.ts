@@ -11,10 +11,7 @@
 
 import * as Effect from "effect/Effect";
 import type * as Config from "effect/Config";
-import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
-import type * as Path from "effect/Path";
-import type * as HttpClient from "effect/unstable/http/HttpClient";
 
 import type {
   ExtensionName,
@@ -22,7 +19,7 @@ import type {
   Handle,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
-import { createRegistryClient } from "@agentxm/registry-client";
+import { RegistryClientFactory } from "@agentxm/registry-client";
 import {
   resolveIdentifier,
   sourceResolutionFailureCategory,
@@ -40,8 +37,7 @@ import {
   sourceResolutionRefused,
 } from "./vocabulary.js";
 
-type RegistrySourceProbeRequirements =
-  SettingsReader | FileSystem.FileSystem | HttpClient.HttpClient | Path.Path;
+type RegistrySourceProbeRequirements = SettingsReader | RegistryClientFactory;
 
 type DefaultRegistrySourceResolutionRequirements =
   RegistrySourceProbeRequirements | WorkspaceCatalog;
@@ -145,8 +141,9 @@ export const resolveConfiguredRegistrySource: (
     });
   }
 
+  const registryClients = yield* RegistryClientFactory;
   for (const registrySource of registrySources) {
-    const client = yield* createRegistryClient(registrySource.location.href);
+    const client = yield* registryClients.forLocation(registrySource.location);
     const matchResult = yield* Option.match(args.extensionName, {
       onNone: () => client.ownerExists(args.owner),
       onSome: (name) =>

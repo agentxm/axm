@@ -19,8 +19,8 @@ import type * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
-import type * as HttpClient from "effect/unstable/http/HttpClient";
 import * as ServiceMap from "effect/Context";
+import type { RegistryClientFactory } from "@agentxm/registry-client";
 import type { NativeWriteAuthority } from "./agent-adapters/index.js";
 import type {
   DesiredStateReader,
@@ -47,7 +47,7 @@ import {
 export type ProjectionParticipantRequirements =
   | FileSystem.FileSystem
   | Path.Path
-  | HttpClient.HttpClient
+  | RegistryClientFactory
   | NativeWriteAuthority
   | WorkspaceLocation
   | SettingsReader

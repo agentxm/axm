@@ -27,11 +27,11 @@ import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { OperationRequestBudget } from "@agentxm/registry-client";
+import type { RegistryClientFactory } from "@agentxm/registry-client";
 import type * as Config from "effect/Config";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
-import type * as HttpClient from "effect/unstable/http/HttpClient";
 
 import {
   heldBackReleaseWarnings,
@@ -179,7 +179,7 @@ type WorkspaceUpdateCollectorContext =
   | PackInstallRequirements
   | StepFailureConversion
   | Scope.Scope
-  | HttpClient.HttpClient
+  | RegistryClientFactory
   | FileSystem.FileSystem
   | Path.Path
   | DesiredStateReader

@@ -1,9 +1,6 @@
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
-import type * as FileSystem from "effect/FileSystem";
-import type * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Option from "effect/Option";
-import type * as Path from "effect/Path";
 import * as Result from "effect/Result";
 
 import {
@@ -26,7 +23,7 @@ import {
   type ExtensionType,
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
-import { createRegistryClient } from "@agentxm/registry-client";
+import { RegistryClientFactory } from "@agentxm/registry-client";
 import { WorkspaceCatalog } from "./workspace-catalog.js";
 
 /**
@@ -229,11 +226,12 @@ const registryCandidates = (
 ): Effect.Effect<
   ReadonlyArray<IdentifierCandidate>,
   SourceResolutionFailure,
-  WorkspaceCatalog | FileSystem.FileSystem | HttpClient.HttpClient | Path.Path
+  WorkspaceCatalog | RegistryClientFactory
 > =>
   Effect.gen(function* () {
     const name = yield* decodeName(input);
     const catalog = yield* WorkspaceCatalog;
+    const registryClients = yield* RegistryClientFactory;
     const registrySources = (yield* catalog.registrySourceHosts).filter(
       (source) => source.name === registrySourceName,
     );
@@ -242,11 +240,7 @@ const registryCandidates = (
       registrySources,
       (sourceConfig) =>
         Effect.gen(function* () {
-          const location =
-            sourceConfig.location.protocol === "file:"
-              ? sourceConfig.location.pathname
-              : sourceConfig.location.href;
-          const client = yield* createRegistryClient(location);
+          const client = yield* registryClients.forLocation(sourceConfig.location);
           const result = yield* client.getExtensionsByScope({
             owner: "*",
             names: [name],

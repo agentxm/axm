@@ -48,10 +48,11 @@ import {
   validateArchive,
 } from "@agentxm/extension-content";
 import { inspectKnowledgeBundle } from "@agentxm/extension-content/knowledge";
-import { createRegistryClient } from "@agentxm/registry-client";
+import { RegistryClientFactory } from "@agentxm/registry-client";
 import {
   SettingsReader,
   acceptedCanonicalObservation,
+  registryBaseUrl,
   settingsEntries,
 } from "../../desired-state/index.js";
 
@@ -638,44 +639,37 @@ export const selectEntries = Effect.fn("Publish.selectEntries")(function* (
   } satisfies PublishSelection;
 });
 
+/**
+ * The Registry a publish addresses: an explicit URL override, else the named
+ * or default configured source, through the workspace's one target owner.
+ */
 export const resolveTargetRegistry = Effect.fn("Publish.resolveTargetRegistry")(function* (
   requested: Option.Option<string>,
   urlOverride: Option.Option<string>,
 ) {
-  const settings = yield* SettingsReader;
   if (Option.isSome(urlOverride)) {
     const url = yield* Effect.try({
-      try: () => new URL(urlOverride.value).href,
+      try: () => registryBaseUrl(new URL(urlOverride.value)),
       catch: (cause) => validation("--registry-url must be a valid URL", { cause }),
     });
     return { name: Option.getOrElse(requested, () => "override"), url } satisfies TargetRegistry;
   }
-  if (Option.isNone(requested)) {
-    const defaultRegistryName = yield* settings.defaultRegistry;
-    const defaultRegistry = yield* settings.sourceByName(defaultRegistryName);
-    if (Option.isNone(defaultRegistry) || defaultRegistry.value.type !== "registry") {
-      return yield* Effect.fail(
-        new PublishFailed({
-          category: "usage",
-          detail: `Default registry source "${defaultRegistryName}" not found`,
-        }),
-      );
-    }
-    return {
-      name: defaultRegistryName,
-      url: defaultRegistry.value.location.href,
-    } satisfies TargetRegistry;
-  }
-  const source = yield* settings.sourceByName(requested.value);
-  if (Option.isNone(source) || source.value.type !== "registry") {
+  const settings = yield* SettingsReader;
+  const selection = yield* settings.registryTarget(requested);
+  if (Option.isNone(selection.url)) {
     return yield* Effect.fail(
-      new PublishFailed({
-        category: "not_found",
-        detail: `Registry source "${requested.value}" not found`,
-      }),
+      Option.isNone(requested)
+        ? new PublishFailed({
+            category: "usage",
+            detail: `Default registry source "${selection.name}" not found`,
+          })
+        : new PublishFailed({
+            category: "not_found",
+            detail: `Registry source "${selection.name}" not found`,
+          }),
     );
   }
-  return { name: requested.value, url: source.value.location.href } satisfies TargetRegistry;
+  return { name: selection.name, url: selection.url.value } satisfies TargetRegistry;
 });
 
 const developmentRootWarning = (
@@ -871,7 +865,7 @@ export const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
       ),
     ),
   );
-  const client = yield* createRegistryClient(registry.url);
+  const client = yield* (yield* RegistryClientFactory).forLocation(registry.url);
   const index = yield* client.getExtensionIndex({
     owner: selected.owner,
     type: selected.type,

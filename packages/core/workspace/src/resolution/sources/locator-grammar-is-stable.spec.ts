@@ -8,6 +8,7 @@ import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { fc as FastCheck } from "@fast-check/vitest";
 import { describe, expect, it } from "@effect/vitest";
+import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import { defineSpecification } from "@agentxm/specification-metadata";
@@ -52,8 +53,7 @@ const OfflineHttp = Layer.succeed(
 
 const TestLayer = Layer.mergeAll(
   WorkspaceCatalogTest({ sources: [registry] }),
-  OfflineHttp,
-  NodeServices.layer,
+  Layer.provideMerge(RegistryTransportTest(OfflineHttp), NodeServices.layer),
 );
 
 const resolve = (input: string) => resolveSource(input).pipe(Effect.provide(TestLayer));

@@ -1863,32 +1863,6 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
         );
       });
 
-      it.effect("creates a local client for a file:// URL", () => {
-        const registryRoot = makeRegistryDir();
-        const skillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "my-skill");
-
-        return Effect.gen(function* () {
-          const fs = yield* FileSystem.FileSystem;
-          yield* fs.makeDirectory(skillDir, { recursive: true });
-          yield* fs.writeFileString(
-            nodePath.join(skillDir, "index.json"),
-            JSON.stringify(makeIndex()),
-          );
-
-          const client = yield* createRegistryClient(`file://${registryRoot}`);
-          const result = yield* client.getExtensionsByScope({
-            ...defaultSearchOptions,
-            names: ["my-skill"],
-          });
-          expect(result.extensions).toHaveLength(1);
-          expect(at(result.extensions, 0).name).toBe("my-skill");
-        }).pipe(
-          Effect.ensuring(
-            Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
-          ),
-        );
-      });
-
       it.effect("creates a remote client for an https:// URL", () =>
         Effect.gen(function* () {
           const client = yield* createRegistryClient("https://registry.example.com");

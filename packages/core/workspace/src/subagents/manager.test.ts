@@ -17,6 +17,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import type { LocalSubagentRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import type { AddSubagentArgs, CodingAgent } from "../projection/agent-adapters/index.js";
 import { SubagentManager } from "../materialization/managers.js";
@@ -178,7 +179,10 @@ const makeTestLayer = (overrides?: {
     Layer.provideMerge(MockWorkspaceTransactionScope(axmDir)),
     Layer.provide(agentRepoLayer),
     Layer.provideMerge(
-      Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer, NativeWriteAuthorityPermissive),
+      Layer.mergeAll(
+        Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
+        NativeWriteAuthorityPermissive,
+      ),
     ),
   );
 };

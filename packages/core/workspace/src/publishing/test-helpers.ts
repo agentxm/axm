@@ -42,7 +42,12 @@ import {
   TokenExchangeTest,
 } from "@agentxm/registry-access/testing";
 import { AuthMiddlewareLive, SessionRefresherLive } from "@agentxm/registry-access/adapters";
-import { RegistryUrlTest, testRegistryUrl } from "@agentxm/registry-client/testing";
+import { RegistryClientFactoryLive } from "@agentxm/registry-client";
+import {
+  RegistryClientFactoryTest,
+  RegistryUrlTest,
+  testRegistryUrl,
+} from "@agentxm/registry-client/testing";
 import { validateArchive } from "@agentxm/extension-content";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { formatFqn } from "@agentxm/extension-model/unstable/extensions";
@@ -302,9 +307,15 @@ export const makePublishWorld = (options: PublishWorldOptions = {}) => {
     Layer.provide(SessionRefresherLive, Layer.merge(TokenExchangeTest(), base)),
     base,
   );
-  const services = Layer.provideMerge(
+  const authenticated = Layer.provideMerge(
     Layer.provide(AuthMiddlewareLive, withRefresher),
     withRefresher,
+  );
+  // Registry clients are built over the authenticated transport, as the
+  // executable builds them, so an upload carries the seeded session.
+  const services = Layer.provideMerge(
+    Layer.provide(RegistryClientFactoryLive, authenticated),
+    authenticated,
   );
 
   return {
@@ -719,6 +730,10 @@ export const makeRegistryManagementWorld = (
   const services = Layer.mergeAll(
     Layer.succeed(HttpClient.HttpClient, httpClient),
     RegistryUrlTest(testRegistryUrl),
+    Layer.provide(
+      RegistryClientFactoryTest(Layer.succeed(HttpClient.HttpClient, httpClient)),
+      NodeServices.layer,
+    ),
   );
   return {
     requests,

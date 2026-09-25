@@ -29,6 +29,7 @@ export const specification = defineSpecification({
   derivedFrom: [
     "apps/cli/help/topics/settings.md",
     "apps/cli/src/runtime.ts",
+    "packages/core/workspace/src/desired-state/workspace/settings-reader.ts",
     "packages/supporting/registry-access/src/credentials/token-resolution.ts",
   ],
   supersedes: [
@@ -111,6 +112,36 @@ describe("Settings-selected default Registry", () => {
       });
     }).pipe(Effect.ensuring(Effect.sync(fixture.cleanup)));
   });
+
+  it.effect.each([
+    {
+      configured: "https://registry.company.test/axm",
+      rendered: "https://registry.company.test/axm",
+      shape: "a Registry served under a path",
+    },
+    {
+      configured: "https://registry.company.test/",
+      rendered: "https://registry.company.test",
+      shape: "a bare origin written with a trailing slash",
+    },
+    {
+      configured: "https://registry.company.test/axm/",
+      rendered: "https://registry.company.test/axm",
+      shape: "a path written with a trailing slash",
+    },
+  ] as const)(
+    "renders $shape as its location without a trailing slash",
+    ({ configured, rendered }) => {
+      const fixture = makeSettingsFixture();
+      writeSettings(path.join(fixture.project, "axm.json"), {
+        defaultRegistry: "company",
+        sources: [source("company", configured)],
+      });
+      return Effect.gen(function* () {
+        expect(yield* resolveTarget(fixture)).toEqual({ name: "company", url: rendered });
+      }).pipe(Effect.ensuring(Effect.sync(fixture.cleanup)));
+    },
+  );
 
   it.effect("preserves the complete location of a file-backed default Registry", () => {
     const fixture = makeSettingsFixture();

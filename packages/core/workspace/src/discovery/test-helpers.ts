@@ -4,8 +4,8 @@ import * as nodePath from "node:path";
 
 import * as Deferred from "effect/Deferred";
 import type * as Config from "effect/Config";
-import type * as FileSystem from "effect/FileSystem";
-import type * as Path from "effect/Path";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as HttpClient from "effect/unstable/http/HttpClient";
@@ -14,7 +14,7 @@ import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import type { PackageType } from "@agentxm/extension-model/unstable/packaging";
 import {
-  createRegistryClient,
+  makeRegistryClientFactory,
   type RegistryClient,
   type RegistryClientFactoryService,
 } from "@agentxm/registry-client";
@@ -25,7 +25,7 @@ export const registryFactoryForClient = (
 ): RegistryClientFactoryService => ({
   forLocation: (location) =>
     Effect.sync(() => {
-      observeLocation(location);
+      observeLocation(location instanceof URL ? location.href : location);
       return client;
     }),
   forDefaultRegistry: Effect.succeed(client),
@@ -90,9 +90,15 @@ export const makeRecordedRegistryPort = (
   return {
     requests,
     firstRequest: Deferred.await(firstRequest),
-    client: createRegistryClient(discoveryRegistryUrl).pipe(
-      Effect.provideService(HttpClient.HttpClient, httpClient),
-    ),
+    client: Effect.gen(function* () {
+      const factory = makeRegistryClientFactory({
+        httpClient,
+        fileSystem: yield* FileSystem.FileSystem,
+        path: yield* Path.Path,
+        defaultRegistryLocation: discoveryRegistryUrl,
+      });
+      return yield* factory.forLocation(discoveryRegistryUrl);
+    }),
   };
 };
 

@@ -28,7 +28,11 @@ import {
   PlanInvocationTest,
   ResolvePlanInteractionTest,
 } from "@agentxm/workspace/transitions/planning/testing";
-import type { WorkspaceStateError, WorkspaceStateOptions } from "@agentxm/workspace/desired-state";
+import type {
+  SourceHostConfig,
+  WorkspaceStateError,
+  WorkspaceStateOptions,
+} from "@agentxm/workspace/desired-state";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import {
   layer as coreWorkspaceLayer,
@@ -565,7 +569,7 @@ export const makeCliTestContext = (opts?: {
     Layer.mergeAll(
       platformLayer,
       Layer.succeed(HttpClient.HttpClient, opts?.httpClient ?? testHttpClient),
-      Layer.succeed(RegistryUrl, "https://registry.example.com"),
+      Layer.succeed(RegistryUrl, cliTestRegistryUrl),
     ),
   );
   const baseLayer = Layer.mergeAll(
@@ -579,7 +583,7 @@ export const makeCliTestContext = (opts?: {
     workspaceInitializationLayer,
     flagsLayer,
     Layer.succeed(ExecutionDirectory, { path: decodeAbsolutePathSync(process.cwd()) }),
-    Layer.succeed(RegistryUrl, "https://registry.example.com"),
+    Layer.succeed(RegistryUrl, cliTestRegistryUrl),
     CredentialStoreTest(),
     // The posture a command boundary discharges when it registers no
     // override. A test that wants the one-shot bypass provides "ignore"
@@ -617,6 +621,16 @@ const isRepositoryPath = (startDir: string): boolean => {
   }
 };
 
+/** The Registry every CLI test harness binds its transport to and selects by default. */
+export const cliTestRegistryUrl = "https://registry.example.com";
+
+/** The built-in source a harness workspace selects when its settings name no default. */
+export const cliTestBuiltInSources = (
+  registryUrl: string = cliTestRegistryUrl,
+): ReadonlyArray<SourceHostConfig> => [
+  { name: "agentxm", type: "registry", location: new URL(registryUrl) },
+];
+
 export const makeWorkspaceHandlerTestContext = (opts?: {
   readonly prompt?: TestPromptConfig | undefined;
   readonly flags?:
@@ -653,6 +667,7 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
   const projectRoot = decodeAbsolutePathSync(opts?.wsOptions?.projectRoot ?? process.cwd());
   const wsOptions = {
     scope: "project",
+    builtInSources: cliTestBuiltInSources(),
     ...opts?.wsOptions,
     projectRoot,
   } satisfies WorkspaceStateOptions;

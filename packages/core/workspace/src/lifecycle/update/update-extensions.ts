@@ -30,7 +30,7 @@ import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
-import type * as HttpClient from "effect/unstable/http/HttpClient";
+import type { RegistryClientFactory } from "@agentxm/registry-client";
 
 import {
   HookManager,
@@ -260,7 +260,7 @@ export type PrepareUpdateRequirements =
   | StepFailureConversion
   | FileSystem.FileSystem
   | Path.Path
-  | HttpClient.HttpClient
+  | RegistryClientFactory
   | Scope.Scope
   | ReleaseAgePosture
   | SourceHostProviders

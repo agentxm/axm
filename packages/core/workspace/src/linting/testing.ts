@@ -30,7 +30,7 @@ import type * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "../transitions/settlement/live.js";
 import type * as Path from "effect/Path";
-import type * as HttpClient from "effect/unstable/http/HttpClient";
+import type { RegistryClientFactory } from "@agentxm/registry-client";
 
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import {
@@ -99,7 +99,7 @@ export interface LintWorkspaceFixtureOptions {
 export type LintWorkspaceServices = Layer.Layer<
   Exclude<LintWorkspaceRequirements, FileSystem.FileSystem | Path.Path>,
   WorkspaceStateError,
-  FileSystem.FileSystem | Path.Path | HttpClient.HttpClient | ProjectionParticipants
+  FileSystem.FileSystem | Path.Path | RegistryClientFactory | ProjectionParticipants
 >;
 
 export interface LintWorkspaceFixture {

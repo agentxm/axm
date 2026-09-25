@@ -12,6 +12,7 @@ import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "../transitions/settlement/live.js";
 import * as Option from "effect/Option";
+import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { computeSourceHash } from "../desired-state/index.js";
 import type { KnowledgeLockEntry } from "../desired-state/index.js";
@@ -201,7 +202,9 @@ const managerLayer = (
     ),
     Layer.provideMerge(NativeWriteAuthorityLive),
     Layer.provideMerge(WorkspaceFileWriteLocksLive),
-    Layer.provideMerge(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),
+    Layer.provideMerge(
+      Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
+    ),
   );
 };
 

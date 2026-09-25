@@ -20,7 +20,7 @@ import * as semver from "semver";
 
 import { decodeHandleSync, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
-  createRegistryClient,
+  RegistryClientFactory,
   extractZip,
   extensionLifecycleWarnings,
   withBufferedArchiveBudget,
@@ -197,11 +197,7 @@ const readRegistryIndex = (
   Effect.serviceOption(RegistryIndexMemo).pipe(
     Effect.flatMap((memo) =>
       Option.isSome(memo)
-        ? memo.value.get(
-            source.location.protocol === "file:" ? source.location.pathname : source.location.href,
-            source.name,
-            args,
-          )
+        ? memo.value.get(source.location.href, source.name, args)
         : client.getExtensionIndex(args),
     ),
   );
@@ -820,8 +816,7 @@ export const createRemoteRegistrySourceHostProvider = (
 export const createRegistrySourceHostProviderFromHost = (host: RegistrySourceHost) =>
   Effect.gen(function* () {
     const location = host.location;
-    const locationStr = location.protocol === "file:" ? location.pathname : location.href;
-    const client = yield* createRegistryClient(locationStr);
+    const client = yield* (yield* RegistryClientFactory).forLocation(location);
 
     if (location.protocol === "file:" || !location.protocol.startsWith("http")) {
       return createLocalRegistrySourceHostProvider(client);

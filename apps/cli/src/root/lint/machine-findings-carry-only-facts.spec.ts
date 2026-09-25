@@ -4,6 +4,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientError from "effect/unstable/http/HttpClientError";
 import { describe, expect, it } from "@effect/vitest";
+import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
@@ -125,7 +126,10 @@ describe("Machine lint output", () => {
           TestFlagsLayer({ nonInteractive: true, json: true }),
         ).pipe(
           Layer.provideMerge(
-            Layer.mergeAll(NodeServices.layer, OfflineHttpClient, NoProjectionParticipants),
+            Layer.mergeAll(
+              Layer.provideMerge(RegistryTransportTest(OfflineHttpClient), NodeServices.layer),
+              NoProjectionParticipants,
+            ),
           ),
         ),
       ),

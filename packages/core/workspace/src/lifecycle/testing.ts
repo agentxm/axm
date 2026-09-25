@@ -21,6 +21,7 @@ import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "../transitions/settlement/live.js";
 import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
+import { RegistryClientFactoryTest } from "@agentxm/registry-client/testing";
 
 import { AgentExecutableResolver } from "../projection/agent-adapters/index.js";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
@@ -313,6 +314,7 @@ export const makeLifecycleFixture = (options: LifecycleFixtureOptions = {}) => {
       CodingAgentRepositoryLive,
       NativeWriteAuthorityLive,
       transport,
+      RegistryClientFactoryTest(transport),
       interaction.layer,
       selection,
       executables,

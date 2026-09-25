@@ -20,7 +20,6 @@ import type * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import type * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
@@ -30,7 +29,7 @@ import {
   type PreviewPublicationSetResponse,
 } from "@agentxm/registry-protocol/unstable/registry";
 import {
-  createRegistryClient,
+  RegistryClientFactory,
   RegistryUrl,
   type RegistryPublishWarning,
 } from "@agentxm/registry-client";
@@ -178,7 +177,7 @@ interface PublishPlanOutput {
 }
 
 type PublishPlanRequirements =
-  | HttpClient.HttpClient
+  | RegistryClientFactory
   | FileSystem.FileSystem
   | Path.Path
   | GitDirectoryComparison
@@ -261,7 +260,7 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(function* (request
       const catalog = yield* catalogEntries();
       const selection = yield* selectEntries(catalog, request);
       if (remoteRegistry && selection.entries.length > 0) {
-        const client = yield* createRegistryClient(registry.url);
+        const client = yield* (yield* RegistryClientFactory).forLocation(registry.url);
         yield* validatePublishOwners(
           selection.entries.map((entry) => entry.owner),
           client,
@@ -398,7 +397,7 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(function* (request
   > = shouldPreviewAuthoritatively
     ? yield* Effect.result(
         Effect.gen(function* () {
-          const client = yield* createRegistryClient(registry.url);
+          const client = yield* (yield* RegistryClientFactory).forLocation(registry.url);
           return yield* previewPublishCandidates(
             sourceAssessedCandidates,
             client,

@@ -53,7 +53,7 @@ import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-t
 import { SourceHostProvidersLive } from "../../resolution/sources/live.js";
 import { CredentialStore } from "@agentxm/registry-access/credentials";
 import { CredentialStoreTest } from "@agentxm/registry-access/testing";
-import { RegistryUrl } from "@agentxm/registry-client";
+import { RegistryClientFactoryLive, RegistryUrl } from "@agentxm/registry-client";
 import { StepFailure } from "../../transitions/planning/index.js";
 import {
   CodingAgentRepositoryLive,
@@ -293,7 +293,11 @@ export const makeInstalledWorkspace = (options: InstalledWorkspaceOptions = {}) 
     agents,
   );
   const policy = Layer.provideMerge(
-    Layer.mergeAll(AxmSkillCandidateGateLive, RegistryResolutionPolicyLive),
+    Layer.mergeAll(
+      AxmSkillCandidateGateLive,
+      RegistryResolutionPolicyLive,
+      Layer.provide(RegistryClientFactoryLive, Layer.mergeAll(platform, environment)),
+    ),
     projection,
   );
   const sources = Layer.provideMerge(SourceHostProvidersLive, policy);

@@ -8,6 +8,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
+import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { afterEach, beforeEach, vi } from "vitest";
 import {
   CodingAgentRepository,
@@ -127,8 +128,7 @@ describeLiveSmoke("chrome-devtools-mcp live smoke", () => {
         Effect.provide(
           Layer.mergeAll(
             Layer.mergeAll(
-              NodeServices.layer,
-              FetchHttpClient.layer,
+              Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
               NativeWriteAuthorityPermissive,
             ),
             WorkspaceReadTest({ baseDir: base, runtimeDir: axmDir }),
@@ -154,8 +154,7 @@ describeLiveSmoke("chrome-devtools-mcp live smoke", () => {
         Effect.provide(
           Layer.mergeAll(
             Layer.mergeAll(
-              NodeServices.layer,
-              FetchHttpClient.layer,
+              Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
               NativeWriteAuthorityPermissive,
             ),
             WorkspaceReadTest({ baseDir: base, runtimeDir: axmDir }),

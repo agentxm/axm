@@ -5,6 +5,7 @@ import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 
 import { resolveSource } from "./resolve-source.js";
 import { WorkspaceCatalogTest } from "./testing.js";
@@ -43,7 +44,10 @@ const http = Layer.succeed(
     Effect.succeed(HttpClientResponse.fromWeb(request, new Response("offline", { status: 503 }))),
   ),
 );
-const TestLayer = Layer.mergeAll(catalog, http, NodeServices.layer);
+const TestLayer = Layer.mergeAll(
+  catalog,
+  Layer.provideMerge(RegistryTransportTest(http), NodeServices.layer),
+);
 const resolve = (input: string, expectedType?: "skill" | "mcp-server") =>
   resolveSource(input, expectedType === undefined ? undefined : { expectedType }).pipe(
     Effect.provide(TestLayer),

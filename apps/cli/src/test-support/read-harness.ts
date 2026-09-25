@@ -10,7 +10,7 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { ExecutionDirectory } from "../execution-directory.js";
-import { makeCliTestContext, makeWorkspaceHandlerTestContext } from "./test-helpers.js";
+import { makeWorkspaceHandlerTestContext } from "./test-helpers.js";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { makeSpecWorkspace, type SpecWorkspaceOptions } from "./install-harness.js";
 
@@ -51,23 +51,6 @@ const registryPort = (
     }),
   );
 
-export const makePublicReadSpecContext = (
-  respond: (request: ObservedRequest) => ResponseFixture,
-) => {
-  const requests: Array<ObservedRequest> = [];
-  const context = makeCliTestContext({
-    machine: true,
-    httpClient: registryPort(requests, respond),
-  });
-  const provide = Effect.provide(context.baseLayer);
-  return {
-    ...context,
-    requests,
-    provide: <A, E, R>(program: Effect.Effect<A, E, R>) =>
-      program.pipe(Effect.provideService(RegistryUrl, readRegistry), provide),
-  };
-};
-
 export const makeReadSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
   const requests: Array<ObservedRequest> = [];
   const firstRequest = Deferred.makeUnsafe<void>();
@@ -89,6 +72,7 @@ export const makeReadSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
     machine: true,
     userSettings: {},
     httpClient: port,
+    registryUrl: readRegistry,
     ...options,
   });
   const writeJson = (relativePath: string, value: unknown) => {

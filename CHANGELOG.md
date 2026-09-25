@@ -1,3 +1,20 @@
+## 0.35.0 (2026-09-25)
+
+### 🩹 Fixes
+
+- Preserve credentials and upgrade recovery state on storage failures; make command output completion, cancellation, and publish-lock ownership reliable. ([#429](https://github.com/agentxm/axm/pull/429))
+- Preserve configuration source failures when selecting cache and workspace paths, without fallback writes or registry requests. ([#430](https://github.com/agentxm/axm/pull/430))
+- Honor injected environment configuration and preserve source failures across discovery, agent operations, and CLI interaction. ([#431](https://github.com/agentxm/axm/pull/431))
+- Scope workspace file-write coordination to each invocation and release inactive path locks. ([#432](https://github.com/agentxm/axm/pull/432))
+
+### ⚠️ Breaking Changes
+
+- Require structured deprecation reasons and add explicit workspace migration with preview, diagnostics, and complete warnings. ([#450](https://github.com/agentxm/axm/pull/450))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.34.0 (2026-09-22)
 
 ### 🩹 Fixes

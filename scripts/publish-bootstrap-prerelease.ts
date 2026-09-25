@@ -81,6 +81,7 @@ const version = derivePreviewVersion({
   shortSha: sourceSha.slice(0, 12),
 });
 const distTag = "preview";
+const npmObservationTimeoutMs = 300_000;
 const internalManifestPaths = readProductionPackages(process.cwd())
   .filter(({ name }) => !RELEASE_PACKAGES.some((pkg) => pkg.name === name))
   .map(({ directory }) => join(directory, "package.json"));
@@ -169,7 +170,7 @@ try {
           },
         };
       }),
-      { timeoutMs: 120_000 },
+      { timeoutMs: npmObservationTimeoutMs },
     ),
   );
 
@@ -190,7 +191,7 @@ try {
         conflicts: (observed) =>
           observed !== null && semver.valid(observed) !== null && semver.gt(observed, version),
         retryError: isTransientPublicationError,
-        timeoutMs: 120_000,
+        timeoutMs: npmObservationTimeoutMs,
       });
     } catch (readbackFailure) {
       if (submissionFailure !== undefined) {

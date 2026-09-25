@@ -14,19 +14,24 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: Resume a stable release or publish the explicit bootstrap prerelease
+        description: Resume a stable release or publish an explicit preview
         required: true
         default: stable-recovery
         type: choice
         options:
           - stable-recovery
           - bootstrap-prerelease
+          - branch-preview
       release_tag:
         description: Existing stable tag to resume; required for stable-recovery
         required: false
         type: string
       source_sha:
-        description: Exact current main commit; required for bootstrap-prerelease
+        description: Exact source commit; required for prerelease modes
+        required: false
+        type: string
+      source_ref:
+        description: Exact branch name; required for branch-preview
         required: false
         type: string
       initialize_npm_packages:
@@ -69,7 +74,7 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.mode == 'bootstrap-prerelease' && inputs.source_sha || 'main' }}
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || (inputs.mode == 'bootstrap-prerelease' || inputs.mode == 'branch-preview') && inputs.source_sha || 'main' }}
 
       - name: Resolve exact publication source
         id: source
@@ -83,6 +88,7 @@ jobs:
           RELEASE_TAG: ${{ inputs.release_tag }}
           REQUESTED_MODE: ${{ inputs.mode }}
           SOURCE_SHA: ${{ inputs.source_sha }}
+          SOURCE_REF: ${{ inputs.source_ref }}
         run: |
           set -euo pipefail
           eligible=false
@@ -148,6 +154,21 @@ jobs:
               exit 1
             fi
             eligible=true
+          elif [[ "$mode" == branch-preview ]]; then
+            if [[ ! "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ || "$sha" != "$SOURCE_SHA" ]]; then
+              echo "branch-preview requires the exact checked-out source_sha."
+              exit 1
+            fi
+            if [[ ! "$SOURCE_REF" =~ ^[a-zA-Z0-9][a-zA-Z0-9/_-]*$ || "$SOURCE_REF" == main ]]; then
+              echo "branch-preview requires an explicit non-main branch name."
+              exit 1
+            fi
+            git fetch origin "$SOURCE_REF" --no-tags
+            if [[ "$(git rev-parse FETCH_HEAD)" != "$sha" ]]; then
+              echo "Branch preview requires the exact current branch head."
+              exit 1
+            fi
+            eligible=true
           else
             echo "Unknown publication mode: $mode"
             exit 1
@@ -187,7 +208,7 @@ jobs:
   release:
     name: Publish Release Assets
     needs: source
-    if: needs.source.outputs.eligible == 'true' && needs.source.outputs.mode != 'bootstrap-prerelease'
+    if: needs.source.outputs.eligible == 'true' && needs.source.outputs.mode != 'bootstrap-prerelease' && needs.source.outputs.mode != 'branch-preview'
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -300,7 +321,7 @@ jobs:
   bootstrap-prerelease:
     name: Publish Bootstrap Prerelease
     needs: source
-    if: needs.source.outputs.eligible == 'true' && needs.source.outputs.mode == 'bootstrap-prerelease'
+    if: needs.source.outputs.eligible == 'true' && (needs.source.outputs.mode == 'bootstrap-prerelease' || needs.source.outputs.mode == 'branch-preview')
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -310,7 +331,7 @@ jobs:
       version: ${{ steps.publish.outputs.version }}
       ci_run_id: ${{ steps.publish.outputs.ci_run_id }}
     steps:
-      - name: Checkout exact current main
+      - name: Checkout exact preview source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -337,9 +358,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           NPM_INITIAL_PUBLISH_TOKEN: ${{ github.event_name == 'workflow_dispatch' && inputs.initialize_npm_packages && secrets.NPM_INITIAL_PUBLISH_TOKEN || '' }}
+          SOURCE_REF: ${{ needs.source.outputs.mode == 'branch-preview' && inputs.source_ref || '' }}
         run: >-
           pnpm exec nx run axm:publish-bootstrap-prerelease --outputStyle=static --
-          "${{ needs.source.outputs.sha }}" "${{ github.run_id }}"
+          "${{ needs.source.outputs.sha }}" "${{ github.run_id }}" "$SOURCE_REF"
 
   bootstrap-prerelease-verify:
     name: Verify Bootstrap Prerelease Install
@@ -590,8 +612,8 @@ jobs:
               echo "The completed CI run did not identify a release commit; no publication was attempted."
               exit 0
             fi
-            if [ "$MODE" = bootstrap-prerelease ]; then
-              echo "Bootstrap prerelease: ${BOOTSTRAP_VERSION:-not published}"
+            if [ "$MODE" = bootstrap-prerelease ] || [ "$MODE" = branch-preview ]; then
+              echo "Preview: ${BOOTSTRAP_VERSION:-not published}"
               echo "Exact npm install verification: ${BOOTSTRAP_VERIFY:-not run}"
               exit 0
             fi

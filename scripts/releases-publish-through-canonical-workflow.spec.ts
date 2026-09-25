@@ -15,7 +15,7 @@ export const specification = defineSpecification({
   requirement: "system/process/releases-publish-through-canonical-workflow",
   title: "One automated workflow publishes releases",
   statement:
-    "Release artifacts shall be published only by the canonical publish.yml workflow, automatically after successful exact merged-revision CI or through its explicit recovery and bootstrap-prerelease modes, and no other workflow shall publish release artifacts.",
+    "Release artifacts shall be published only by the canonical publish.yml workflow, automatically after successful exact merged-revision CI or through its explicit recovery, current-main preview, and exact branch-preview modes, and no other workflow shall publish release artifacts.",
   class: "process",
   role: "supporting",
   goals: ["dependable-change-process", "trustworthy-distribution"],
@@ -39,6 +39,7 @@ const withPublicationSource = (
   use: (fixture: {
     readonly commit: (subject: string, version?: string) => string;
     readonly checkout: (sha: string) => void;
+    readonly branch: (name: string) => string;
     readonly select: (input: Readonly<Record<string, string>>) => {
       readonly status: number | null;
       readonly output: string;
@@ -84,6 +85,12 @@ const withPublicationSource = (
       },
       checkout: (sha) => {
         git("checkout", "--quiet", "--detach", sha);
+      },
+      branch: (name) => {
+        git("checkout", "--quiet", "-b", name);
+        git("commit", "--quiet", "--allow-empty", "-m", `Branch ${name}`);
+        git("push", "--quiet", "origin", name);
+        return git("rev-parse", "HEAD");
       },
       select: (input) => {
         fs.writeFileSync(outputPath, "");
@@ -147,11 +154,12 @@ describe("Canonical release workflow", () => {
         "mode",
         "release_tag",
         "source_sha",
+        "source_ref",
         "initialize_npm_packages",
       ]);
       expect(triggers.workflow_dispatch.inputs["mode"]).toMatchObject({
         required: true,
-        options: ["stable-recovery", "bootstrap-prerelease"],
+        options: ["stable-recovery", "bootstrap-prerelease", "branch-preview"],
       });
       expect(triggers.workflow_dispatch.inputs["initialize_npm_packages"]).toMatchObject({
         required: false,
@@ -357,6 +365,30 @@ describe("Canonical release workflow", () => {
         const superseded = select({ ...input, SOURCE_SHA: previous });
         expect(superseded.status, superseded.output).not.toBe(0);
         expect(superseded.selected["eligible"]).not.toBe("true");
+      }),
+    ),
+  );
+
+  it.effect("requires an exact current branch head for branch preview", () =>
+    Effect.sync(() =>
+      withPublicationSource(({ commit, branch, checkout, select }) => {
+        commit("Main source");
+        const head = branch("codex/preview");
+        const input = {
+          EVENT_NAME: "workflow_dispatch",
+          REQUESTED_MODE: "branch-preview",
+          SOURCE_REF: "codex/preview",
+        };
+        const accepted = select({ ...input, SOURCE_SHA: head });
+        expect(accepted.status, accepted.output).toBe(0);
+        expect(accepted.selected["sha"]).toBe(head);
+        for (const sourceRef of ["main", "missing", "codex/../preview"]) {
+          const rejected = select({ ...input, SOURCE_REF: sourceRef, SOURCE_SHA: head });
+          expect(rejected.status, rejected.output).not.toBe(0);
+        }
+        checkout("main");
+        const wrongHead = select({ ...input, SOURCE_SHA: head });
+        expect(wrongHead.status, wrongHead.output).not.toBe(0);
       }),
     ),
   );

@@ -34,7 +34,11 @@ export const specification = defineSpecification({
 });
 
 describe("Conditional deprecation removal", () => {
-  const before = { deprecatedAt: "2026-07-29T00:00:00.000Z", message: "Existing guidance." };
+  const before = {
+    deprecatedAt: "2026-07-29T00:00:00.000Z",
+    reason: "other",
+    message: "Existing guidance.",
+  };
   const transition = {
     target: registryTarget,
     before,

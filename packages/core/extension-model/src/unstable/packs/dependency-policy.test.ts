@@ -188,6 +188,7 @@ describe("pack dependency policy", () => {
   it("carries deprecation guidance while retaining a valid resolution", () => {
     const deprecation = {
       deprecatedAt: DateTime.makeUnsafe("2026-08-15T20:00:00.000Z"),
+      reason: "superseded",
       message: "Use the maintained replacement.",
       replacement: { status: "available", fqn: "@acme/skills/review-next" },
     } as const;

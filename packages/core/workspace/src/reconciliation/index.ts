@@ -6,7 +6,6 @@ export {
   buildMaterializeOperation,
   buildNewExtensionStep,
   buildUninstallOperation,
-  extensionRefLifecycleWarnings,
   extensionRefRegistryLifecycle,
   formatPackageUrlParts,
   targetFromRef,
@@ -28,6 +27,7 @@ export {
   type UninstallSettlement,
   type UnreadablePackageRetirement,
 } from "./extensions/operations.js";
+export { extensionRefLifecycleWarnings } from "../lifecycle/warnings.js";
 
 export { WorkspaceSyncFailed, type WorkspaceSyncCleanupFailure } from "./errors.js";
 export {

@@ -1,9 +1,5 @@
 import * as DateTime from "effect/DateTime";
 
-import {
-  extensionTypeToPlural,
-  parseExtensionFqnParts,
-} from "@agentxm/extension-model/unstable/extensions";
 import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import type { ArchivalView } from "@agentxm/extension-model/unstable/extensions/archival";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
@@ -78,21 +74,19 @@ const versionsText = (data: ViewDocument): Text => {
       ];
 };
 
-/**
- * The one command worth copying: the install of this extension, or — once it
- * is deprecated for an available replacement — the install of that
- * replacement, on the route its own type registers.
- */
+/** The next action must be viable for the current deprecation reason. */
 const nextAction = (data: ViewDocument): SuggestedAction => {
-  const replacement = data.deprecation?.replacement;
-  const parts =
-    replacement?.status === "available" ? parseExtensionFqnParts(replacement.fqn) : undefined;
-  return replacement?.status === "available" && parts !== undefined
-    ? {
-        description: "Install the replacement",
-        cmd: `axm ${extensionTypeToPlural[parts.type]} install ${replacement.fqn}`,
-      }
-    : { description: "Install this extension", cmd: data.install };
+  const deprecation = data.deprecation;
+  if (deprecation === null) return { description: "Install this extension", cmd: data.install };
+  if (
+    deprecation.reason === "obsolete" ||
+    (deprecation.reason === "superseded" && deprecation.replacement.status === "available")
+  ) {
+    return { description: "Preview migration", cmd: `axm migrate ${data.handle} --dry-run` };
+  }
+  return deprecation.reason === "superseded"
+    ? { description: "The replacement is unavailable; axm migrate cannot proceed yet" }
+    : { description: "Choose a successor manually; axm migrate cannot choose one" };
 };
 
 /**
@@ -108,6 +102,7 @@ export const viewPageDoc = (data: ViewDocument): Doc => {
     { label: "Owner", value: data.owner },
     { label: "Latest", value: data.latest?.version ?? ABSENT },
     { label: "Versions", value: versionsText(data) },
+    ...(deprecation === null ? [] : [{ label: "Deprecation reason", value: deprecation.reason }]),
     ...(replacement === undefined ? [] : [{ label: "Replacement", value: replacement }]),
   ];
   return [

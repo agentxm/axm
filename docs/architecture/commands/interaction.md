@@ -51,10 +51,9 @@ meaning, and an architecture specification compares every node's declaration
 with its parsed flags and its executable evidence
 through the repository's command-capability allocation check.
 
-`--preview` is the one spelling of assessment
-(`cli/preview-uses-the-canonical-flag`). Every command that can plan a change
-exposes it: workspace lifecycle, authoring, publish, sync, setup, demote, and
-the executable upgrade. A preview reports the exact candidate — including one
+`--preview` is the usual spelling of assessment
+(`cli/preview-uses-the-canonical-flag`). The deprecated-extension migration
+command uses `--dry-run`. A preview reports the exact candidate — including one
 the command would refuse to apply — and changes no protected state. Each
 preview route carries its own `preview-is-pure` specification, identified as
 `cli/<command>/preview-is-pure` and resolved through the

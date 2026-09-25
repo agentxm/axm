@@ -106,6 +106,7 @@ describe("view handler", () => {
     const { provide, rendererState } = makeWorkspaceHandlerTestContext();
     writeIndex(registryRoot, {
       deprecatedAt: "2026-03-01T00:00:00.000Z",
+      reason: "superseded",
       replacement: { status: "unavailable" },
     });
 
@@ -123,10 +124,8 @@ describe("view handler", () => {
         expect(page.some((line) => /Replacement\s+unavailable or not visible$/u.test(line))).toBe(
           true,
         );
-        // With no replacement to name, the next step is still this extension's install.
-        expect(page).toContain(
-          "     axm skills install @test/skills/code-review   Install this extension",
-        );
+        expect(page.some((line) => line.includes("axm migrate cannot proceed yet"))).toBe(true);
+        expect(page.join("\n")).not.toContain("axm migrate @test/skills/code-review");
       }),
     );
   });

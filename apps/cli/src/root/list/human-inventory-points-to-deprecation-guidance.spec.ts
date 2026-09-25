@@ -91,6 +91,7 @@ describe("Deprecation guidance in human inventories", () => {
         archival: null,
         deprecation: {
           deprecatedAt: "2026-03-01T00:00:00.000Z",
+          reason: "other",
           message: "Use the replacement skill.",
         },
         versions: [

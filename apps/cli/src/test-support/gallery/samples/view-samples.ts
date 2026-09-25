@@ -54,6 +54,7 @@ export const changelog: ViewDocument = {
   archival: null,
   deprecation: {
     deprecatedAt: DateTime.makeUnsafe("2026-08-02T00:00:00Z"),
+    reason: "superseded",
     message: "Superseded by release notes that read the pull requests, not the log.",
     replacement: { status: "available", fqn: "@acme/skills/release-notes" },
   },

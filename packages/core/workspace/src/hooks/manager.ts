@@ -9,6 +9,7 @@ import { usableAcceptedCanonical } from "../desired-state/index.js";
  */
 
 import * as Effect from "effect/Effect";
+import { extensionRefLifecycleWarnings } from "../lifecycle/warnings.js";
 import * as Ref from "effect/Ref";
 import {
   DesiredStateReader,
@@ -478,9 +479,7 @@ export const HookManagerLive = Layer.effect(
             version: ref.version,
             integrity: ref.integrity,
             publisherBindingId: ref.publisherBindingId,
-            ...(ref.lifecycleWarnings === undefined
-              ? {}
-              : { lifecycleWarnings: ref.lifecycleWarnings }),
+            lifecycleWarnings: extensionRefLifecycleWarnings(ref),
             messages: {
               integrityMismatchDetail: `Integrity mismatch for hook:${ref.name}@${ref.version}`,
             },

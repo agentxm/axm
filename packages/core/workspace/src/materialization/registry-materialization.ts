@@ -148,11 +148,12 @@ export const materializeRegistryPackageWithTreeIntegrity = <E = never>(
             }),
           });
           const { archive, warnings } = yield* client.getExtensionPackage(packageArgs);
-          if (warnings !== undefined) {
-            yield* Effect.forEach(warnings, (warning) => Effect.logWarning(warning), {
-              discard: true,
-            });
-          }
+          const distinctWarnings = [
+            ...new Set([...(args.lifecycleWarnings ?? []), ...(warnings ?? [])]),
+          ];
+          yield* Effect.forEach(distinctWarnings, (warning) => Effect.logWarning(warning), {
+            discard: true,
+          });
           if (Option.isSome(args.integrity)) {
             const actualIntegrity = yield* computeIntegrity(archive);
             if (actualIntegrity !== args.integrity.value) {

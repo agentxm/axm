@@ -822,6 +822,65 @@ describe("axm install", () => {
     }
   });
 
+  it("previews and migrates a deprecated skill through the local Registry", async () => {
+    const registryDir = createTempDir("axm-registry-");
+    const workspace = createTempDir();
+    const source = registryFqn("skills", "old-review");
+    const replacement = registryFqn("skills", "new-review");
+
+    try {
+      await publishSkillToRegistry(registryDir.path, "old-review");
+      await publishSkillToRegistry(registryDir.path, "new-review");
+      await initWorkspace(workspace.path, registryDir.path);
+
+      const installed = await runJsonCommand(workspace.path, ["install"], [source]);
+      expect(installed.stdout.result.outcome).toBe("applied");
+
+      const indexPath = path.join(
+        registryDir.path,
+        "extensions",
+        "@test",
+        "skills",
+        "old-review",
+        "index.json",
+      );
+      const index = fs.readFileSync(indexPath, "utf8");
+      expect(index).toContain('"deprecation":null');
+      fs.writeFileSync(
+        indexPath,
+        index.replace(
+          '"deprecation":null',
+          `"deprecation": ${JSON.stringify({
+            deprecatedAt: "2026-09-25T00:00:00.000Z",
+            reason: "superseded",
+            replacement: { status: "available", fqn: replacement },
+          })}`,
+        ),
+      );
+
+      const settingsBefore = fs.readFileSync(path.join(workspace.path, "axm.json"), "utf8");
+      const lockBefore = fs.readFileSync(path.join(workspace.path, "axm-lock.yaml"), "utf8");
+      const preview = await runJsonCommand(workspace.path, ["migrate"], [source, "--dry-run"]);
+      expect(preview.stdout.result.outcome).toBe("previewed");
+      expect(fs.readFileSync(path.join(workspace.path, "axm.json"), "utf8")).toBe(settingsBefore);
+      expect(fs.readFileSync(path.join(workspace.path, "axm-lock.yaml"), "utf8")).toBe(lockBefore);
+
+      const migrated = await runJsonCommand(workspace.path, ["migrate"], [source]);
+      expect(migrated.stdout.result.outcome).toBe("applied");
+      expect(readSettings(workspace.path).skills?.["old-review"]).toBeUndefined();
+      expect(readSettings(workspace.path).skills?.["new-review"]).toBe(`test:${replacement}`);
+      expect(fs.existsSync(extensionDirForSurface(workspace.path, "skills", "old-review"))).toBe(
+        false,
+      );
+      expect(fs.existsSync(extensionDirForSurface(workspace.path, "skills", "new-review"))).toBe(
+        true,
+      );
+    } finally {
+      registryDir.cleanup();
+      workspace.cleanup();
+    }
+  });
+
   it.each(installCases)(
     "C-01: installs all configured $label entries for no-arg $plural install",
     async (row) => {

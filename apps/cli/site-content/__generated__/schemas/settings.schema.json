@@ -729,6 +729,7 @@
             "workspace/hook-ownership-ambiguous": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/managed-file-unowned": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/installed-but-not-configured": { "$ref": "#/definitions/LintRuleSeverity" },
+            "workspace/deprecated-installed": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/authored-package-declared": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/install-root-entries-recognized": {
               "$ref": "#/definitions/LintRuleSeverity"

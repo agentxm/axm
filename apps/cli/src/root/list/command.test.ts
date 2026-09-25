@@ -193,6 +193,7 @@ describe("root list", () => {
     writeInstalledRegistrySkill({
       deprecation: {
         deprecatedAt: "2026-03-01T00:00:00.000Z",
+        reason: "superseded",
         message: "Use the replacement skill.",
         replacement: { status: "available", fqn: "@acme/skills/replacement" },
       },

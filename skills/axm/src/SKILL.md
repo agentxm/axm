@@ -203,6 +203,13 @@ workspace state. Diagnosis is a local read and authorizes no repair.
    `axm view <fqn> --json` for a replacement named only in a deprecation note.
    Never authenticate for these. Report an offline request, unreachable source,
    or timeout as skipped, not failed.
+   For a directly installed deprecated extension, report its reason and any
+   disclosed replacement. Suggest `axm migrate <fqn> --dry-run` for `obsolete`
+   or `superseded` with an available replacement; apply `axm migrate <fqn>`
+   only when repair was selected. For `superseded` with an unavailable or
+   concealed replacement, explain why migration cannot proceed. For
+   `unmaintained` or `other`, explain that the user must choose a successor.
+   A Pack member requires its publisher to update the dependency.
 5. Render [the doctor report](references/doctor-report.md) exactly, then stop
    at its choice. Only a selected option or named IDs authorize repair;
    free text becomes a plan to approve.

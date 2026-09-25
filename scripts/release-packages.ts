@@ -41,6 +41,17 @@ export const stampBootstrapManifest = (original: string, path: string, version: 
   return `${JSON.stringify(decoded, undefined, 2)}\n`;
 };
 
+/** Stamp the bundled official skill to the exact prerelease CLI version. */
+export const stampBootstrapSkillDocument = (original: string, version: string): string => {
+  const replaceOnce = (input: string, key: string): string => {
+    const pattern = new RegExp(`^([ \\t]*)${key}:.*$`, "gm");
+    const matches = [...input.matchAll(pattern)];
+    if (matches.length !== 1) throw new Error(`Expected one ${key} in the AXM skill document.`);
+    return input.replace(pattern, `$1${key}: "${version}"`);
+  };
+  return replaceOnce(replaceOnce(original, "axm.sh/cli-version"), "axm.sh/cli-version-range");
+};
+
 export const validatePack = async (tarball: string, name: string, version: string) => {
   const manifest = Schema.decodeUnknownSync(Schema.fromJsonString(packedManifest))(
     capture("tar", ["-xOf", tarball, "package/package.json"]),

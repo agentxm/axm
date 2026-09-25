@@ -15,9 +15,9 @@ import {
 
 export const specification = defineSpecification({
   requirement: "cli/deprecate/rejects-conflicting-or-empty-guidance",
-  title: "Deprecation rejects contradictory or empty guidance",
+  title: "Deprecation validates reason-specific guidance",
   statement:
-    "The deprecate command shall reject a field supplied together with its clearing flag before contacting the Registry and reject an edit that leaves neither a message nor a replacement before attempting a write.",
+    "The deprecate command shall reject a field supplied together with its clearing flag before contacting the Registry. After observing current guidance, it shall require a replacement for superseded, prohibit one and require notes for obsolete, allow either field for unmaintained, and require notes for other before attempting a write.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition"],
@@ -44,6 +44,7 @@ describe("Valid deprecation guidance", () => {
             Effect.flip(
               deprecate({
                 ref: registryTarget,
+                reason: Option.some("other"),
                 message: field === "message" ? Option.some("Guidance.") : Option.none(),
                 replacement:
                   field === "replacement" ? Option.some("@acme/skills/replacement") : Option.none(),
@@ -74,6 +75,7 @@ describe("Valid deprecation guidance", () => {
               Effect.flip(
                 deprecate({
                   ref: registryTarget,
+                  reason: Option.some("other"),
                   message,
                   replacement: Option.none(),
                   clearMessage: false,
@@ -86,6 +88,40 @@ describe("Valid deprecation guidance", () => {
           expect(failure.category).toBe("validation");
           expect(world.requests.map(({ method }) => method)).toEqual(["GET"]);
         }),
+    );
+  }
+
+  for (const testCase of [
+    { reason: "superseded", message: Option.some("Notes"), replacement: Option.none<string>() },
+    {
+      reason: "obsolete",
+      message: Option.some("Notes"),
+      replacement: Option.some("@acme/skills/replacement"),
+    },
+    { reason: "obsolete", message: Option.none<string>(), replacement: Option.none<string>() },
+  ] as const) {
+    it.effect(`rejects invalid ${testCase.reason} guidance before writing`, () =>
+      Effect.gen(function* () {
+        const world = makeRegistryManagementWorld(() =>
+          jsonRegistryResponse({ deprecation: null, revision: observedRevision }),
+        );
+        const failure = expectPublishFailed(
+          yield* world.provide(
+            Effect.flip(
+              deprecate({
+                ref: registryTarget,
+                reason: Option.some(testCase.reason),
+                message: testCase.message,
+                replacement: testCase.replacement,
+                clearMessage: false,
+                clearReplacement: false,
+              }),
+            ),
+          ),
+        );
+        expect(failure.category).toBe("validation");
+        expect(world.requests.map(({ method }) => method)).toEqual(["GET"]);
+      }),
     );
   }
 });

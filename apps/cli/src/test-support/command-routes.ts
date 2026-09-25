@@ -52,6 +52,7 @@ export const COMMAND_ROUTE_ALLOCATION: ReadonlyArray<CommandRouteAllocation> = [
   previewable("install"),
   previewable("update"),
   previewable("uninstall"),
+  route("migrate"),
   route("list"),
   route("view"),
   route("visibility"),

@@ -450,7 +450,7 @@ export const Author = Schema.Struct({
 });
 export type DeprecationMessage = string;
 export const DeprecationMessage = Schema.String.annotate({
-  description: "Concise publisher guidance for consumers of a deprecated extension.",
+  description: "Optional publisher notes for consumers of a deprecated extension.",
 })
   .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
   .check(
@@ -752,6 +752,16 @@ export const DeprecationRevision = Schema.String.annotate({
     identifier: "DeprecationRevision",
   }),
 );
+export type DeprecationReason = "superseded" | "obsolete" | "unmaintained" | "other";
+export const DeprecationReason = Schema.Literals([
+  "superseded",
+  "obsolete",
+  "unmaintained",
+  "other",
+]).annotate({
+  description: "The publisher's structured reason for deprecating an extension.",
+  identifier: "DeprecationReason",
+});
 export type YankVersionBody = {
   readonly category?: "broken" | "security" | "accidental" | "other" | null;
   readonly notice?: string | null;
@@ -1861,37 +1871,67 @@ export const ExtensionIdentityMismatchErrorEncoded = Schema.Struct({
 export type DeprecationView =
   | {
       readonly deprecatedAt: IsoDateTimeString;
+      readonly reason: "superseded";
+      readonly message?: DeprecationMessage | null;
+      readonly replacement: DeprecationReplacement;
+    }
+  | {
+      readonly deprecatedAt: IsoDateTimeString;
+      readonly reason: "obsolete";
       readonly message: DeprecationMessage;
+      readonly replacement?: never | null;
+    }
+  | {
+      readonly deprecatedAt: IsoDateTimeString;
+      readonly reason: "unmaintained";
+      readonly message?: DeprecationMessage | null;
       readonly replacement?: DeprecationReplacement | null;
     }
   | {
       readonly deprecatedAt: IsoDateTimeString;
-      readonly message?: DeprecationMessage | null;
-      readonly replacement: DeprecationReplacement;
+      readonly reason: "other";
+      readonly message: DeprecationMessage;
+      readonly replacement?: DeprecationReplacement | null;
     };
 export const DeprecationView = Schema.Union([
   Schema.Struct({
     deprecatedAt: IsoDateTimeString,
+    reason: Schema.Literal("superseded"),
+    message: Schema.optionalKey(Schema.Union([DeprecationMessage, Schema.Null])),
+    replacement: DeprecationReplacement,
+  }),
+  Schema.Struct({
+    deprecatedAt: IsoDateTimeString,
+    reason: Schema.Literal("obsolete"),
     message: DeprecationMessage,
+    replacement: Schema.optionalKey(Schema.Union([Schema.Never, Schema.Null])),
+  }),
+  Schema.Struct({
+    deprecatedAt: IsoDateTimeString,
+    reason: Schema.Literal("unmaintained"),
+    message: Schema.optionalKey(Schema.Union([DeprecationMessage, Schema.Null])),
     replacement: Schema.optionalKey(Schema.Union([DeprecationReplacement, Schema.Null])),
   }),
   Schema.Struct({
     deprecatedAt: IsoDateTimeString,
-    message: Schema.optionalKey(Schema.Union([DeprecationMessage, Schema.Null])),
-    replacement: DeprecationReplacement,
+    reason: Schema.Literal("other"),
+    message: DeprecationMessage,
+    replacement: Schema.optionalKey(Schema.Union([DeprecationReplacement, Schema.Null])),
   }),
 ]).annotate({
   description: "Canonical authorization-safe identity deprecation guidance.",
   identifier: "DeprecationView",
 });
 export type PutDeprecationBody = {
+  readonly reason: DeprecationReason;
   readonly message: string | null;
   readonly replacement: DeprecationReplacementIntent;
 };
 export const PutDeprecationBody = Schema.Struct({
+  reason: DeprecationReason,
   message: Schema.Union([
     Schema.String.annotate({
-      description: "Publisher migration guidance, normalized by the Registry.",
+      description: "Optional publisher notes, normalized by the Registry.",
     }).check(
       Schema.isMaxLength(500).annotate({ expected: "a value with a length of at most 500" }),
     ),
@@ -2624,8 +2664,8 @@ export type TokensCreateRequestJson = CreateTokenRequest;
 export const TokensCreateRequestJson = CreateTokenRequest;
 export type TokensCreate201 = CreateTokenResponse;
 export const TokensCreate201 = CreateTokenResponse;
-export type TokensCreate400 = DecodeErrorResponseEncoded;
-export const TokensCreate400 = DecodeErrorResponseEncoded;
+export type TokensCreate400 = ProblemDetails | DecodeErrorResponseEncoded;
+export const TokensCreate400 = Schema.Union([ProblemDetails, DecodeErrorResponseEncoded]);
 export type TokensCreate401 = StepUpRequiredErrorEncoded | ProblemDetails;
 export const TokensCreate401 = Schema.Union([StepUpRequiredErrorEncoded, ProblemDetails]);
 export type TokensCreate403 = ForbiddenErrorEncoded;

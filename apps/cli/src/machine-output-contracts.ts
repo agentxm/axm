@@ -917,6 +917,7 @@ const planPaths = [
   "axm mcps new",
   "axm mcps uninstall",
   "axm mcps update",
+  "axm migrate",
   "axm packs add",
   "axm packs disable",
   "axm packs enable",

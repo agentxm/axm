@@ -15,7 +15,7 @@ export const specification = defineSpecification({
   requirement: "cli/view/reports-deprecation-and-replacement-availability",
   title: "View reports deprecation and replacement availability",
   statement:
-    "When viewing a deprecated extension, AXM shall report its deprecation guidance while identifying an unavailable replacement without inventing a replacement identity.",
+    "When viewing a deprecated extension, AXM shall report its reason and guidance while identifying an unavailable replacement without inventing a replacement identity.",
   class: "functional",
   role: "experience",
   goals: ["extension-adoption", "machine-automation", "actionable-diagnostics"],
@@ -56,6 +56,7 @@ describe("Extension deprecation details", () => {
           ...publishedIndex,
           deprecation: {
             deprecatedAt: "2026-03-01T00:00:00.000Z",
+            reason: "superseded",
             message: "Use the replacement when available.",
             replacement,
           },

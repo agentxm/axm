@@ -31,6 +31,7 @@ describe("Deprecation in ordinary inventories", () => {
         versions: [{ version: "1.0.0", published: "2026-01-01T00:00:00.000Z" }],
         deprecation: {
           deprecatedAt: "2026-03-01T00:00:00.000Z",
+          reason: "other",
           message: "Use the replacement.",
         },
       },

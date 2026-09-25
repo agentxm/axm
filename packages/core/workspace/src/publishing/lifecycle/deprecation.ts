@@ -19,6 +19,7 @@ import {
   formatFqn,
   parseFqn,
 } from "@agentxm/extension-model/unstable/extensions";
+import type { DeprecationReason } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import {
   deprecateExtension,
   getExtensionDeprecation,
@@ -33,6 +34,7 @@ import { parseExtensionReference } from "./retirement.js";
 /** The edit a caller expressed for one field of the guidance. */
 export interface DeprecationEdit {
   readonly ref: string;
+  readonly reason: Option.Option<DeprecationReason>;
   readonly message: Option.Option<string>;
   readonly replacement: Option.Option<string>;
   readonly clearMessage: boolean;
@@ -81,6 +83,14 @@ export const deprecate = Effect.fn("DeprecatePublishedExtension.deprecate")(func
   if (Option.isSome(conflicting)) return yield* Effect.fail(conflicting.value);
 
   const current = yield* getExtensionDeprecation(ref);
+  const reason = Option.getOrUndefined(edit.reason) ?? current.deprecation?.reason;
+  if (reason === undefined) {
+    return yield* Effect.fail(
+      validation("A deprecation reason is required.", [
+        { description: "Supply --reason superseded, obsolete, unmaintained, or other." },
+      ]),
+    );
+  }
   const suppliedMessage = Option.getOrUndefined(edit.message)?.trim();
   const message = edit.clearMessage
     ? null
@@ -98,17 +108,27 @@ export const deprecate = Effect.fn("DeprecatePublishedExtension.deprecate")(func
         : current.deprecation.replacement.status === "available"
           ? { kind: "set", fqn: current.deprecation.replacement.fqn }
           : { kind: "preserve" };
-  if (message === null && replacement.kind === "clear") {
+  const hasReplacement = replacement.kind !== "clear";
+  if (reason === "superseded" && !hasReplacement) {
     return yield* Effect.fail(
-      validation("A deprecation requires a message, a replacement, or both.", [
-        { description: "Supply --message or --replacement, or remove the deprecation instead." },
+      validation("A superseded extension requires a replacement.", [
+        { description: "Supply --replacement or retain the current replacement." },
       ]),
+    );
+  }
+  if (reason === "obsolete" && hasReplacement) {
+    return yield* Effect.fail(validation("An obsolete extension cannot name a replacement."));
+  }
+  if ((reason === "obsolete" || reason === "other") && message === null) {
+    return yield* Effect.fail(
+      validation(`A ${reason} deprecation requires notes.`, [{ description: "Supply --message." }]),
     );
   }
   return {
     registry: registryUrl,
     transition: yield* deprecateExtension(ref, {
       revision: current.revision,
+      reason,
       message,
       replacement,
     }),

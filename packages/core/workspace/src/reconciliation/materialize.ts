@@ -33,7 +33,13 @@ import {
   type PreparedHookProjection,
 } from "../materialization/index.js";
 import { installMcpServer, type McpServerInstallRequirements } from "./mcps/install-operation.js";
-import { buildMaterializeOperation, targetFromRef, toStepKey } from "./extensions/operations.js";
+import {
+  buildMaterializeOperation,
+  extensionRefRegistryLifecycle,
+  targetFromRef,
+  toStepKey,
+} from "./extensions/operations.js";
+import { extensionRefLifecycleWarnings } from "../lifecycle/warnings.js";
 import { settingsEntries, type Settings } from "../desired-state/index.js";
 import {
   acceptedResolutionIncompatibleRecovery,
@@ -312,10 +318,15 @@ const buildMcpServerSyncOperation = ({
   readonly adapter: SyncFailureAdapter;
 }): PlannedJobStep<SyncStepRequirements | McpServerInstallRequirements> => {
   const target = targetFromRef(ref);
+  const lifecycleWarnings = extensionRefLifecycleWarnings(ref);
+  const registryLifecycle = extensionRefRegistryLifecycle(ref);
   return {
     key: toStepKey(target),
     label: transitionLabel,
-    readiness: "ready",
+    ...(lifecycleWarnings.length === 0
+      ? { readiness: "ready" as const }
+      : { readiness: "warn" as const, warnMessage: lifecycleWarnings.join("; ") }),
+    ...(registryLifecycle === undefined ? {} : { registryLifecycle }),
     ...(ref.refType === "workspace" || !force ? {} : { acquisitionRefs: [ref] }),
     run: installMcpServer({
       name: "install-mcp-server",

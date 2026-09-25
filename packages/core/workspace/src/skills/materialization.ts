@@ -19,6 +19,7 @@ import {
   reusableCanonicalTree,
 } from "../acquisition/canonical-directory.js";
 import { materializeRegistryPackageWithTreeIntegrity } from "../materialization/registry-materialization.js";
+import { extensionRefLifecycleWarnings } from "../lifecycle/warnings.js";
 import { validatePathSafety } from "../desired-state/index.js";
 import {
   computeMaterializedTreeIntegrity,
@@ -152,9 +153,7 @@ const materializeRegistry = (
         version: ref.version,
         integrity: ref.integrity,
         publisherBindingId: ref.publisherBindingId,
-        ...(ref.lifecycleWarnings === undefined
-          ? {}
-          : { lifecycleWarnings: ref.lifecycleWarnings }),
+        lifecycleWarnings: extensionRefLifecycleWarnings(ref),
         messages: {
           integrityMismatchDetail: `Integrity mismatch for ${ref.name}@${ref.version}`,
         },

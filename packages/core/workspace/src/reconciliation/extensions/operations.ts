@@ -56,7 +56,7 @@ import type { PackageUrlParts } from "@agentxm/extension-model/unstable/packagin
 import type { ExtensionTarget, ExtensionTargetFor } from "../../desired-state/index.js";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { evaluateSourceAuthority } from "../../resolution/index.js";
-import { formatDeprecationWarning } from "@agentxm/registry-client";
+import { extensionRefLifecycleWarnings } from "../../lifecycle/warnings.js";
 import { runWorkspaceTransaction } from "../../transitions/settlement/index.js";
 import type {
   WorkspaceTransactionFailure,
@@ -84,21 +84,6 @@ export function targetFromRef(ref: ExtensionRef): ExtensionTarget {
   const name = extensionRefName(ref);
   return ref.type === "pack" ? { type: "pack", name, owner: ref.owner } : { type: ref.type, name };
 }
-
-export const extensionRefLifecycleWarnings = (ref: ExtensionRef): ReadonlyArray<string> =>
-  ref.refType === "registry"
-    ? [
-        ...(ref.deprecation === undefined
-          ? []
-          : [
-              formatDeprecationWarning(
-                `${ref.owner}/${toExtensionTypePlural(ref.type)}/${ref.name}`,
-                ref.deprecation,
-              ),
-            ]),
-        ...(ref.lifecycleWarnings ?? []),
-      ]
-    : [];
 
 export const extensionRefRegistryLifecycle = (ref: ExtensionRef) => {
   if (ref.refType !== "registry") return undefined;
@@ -796,12 +781,17 @@ export const buildMaterializeOperation = <
 ): PlannedJobStep<R | RecipeRequirements> => {
   const target = targetFromRef(args.ref);
   const companionPkgs = args.ref.refType === "registry" ? args.ref.packages : [];
+  const lifecycleWarnings = extensionRefLifecycleWarnings(args.ref);
+  const registryLifecycle = extensionRefRegistryLifecycle(args.ref);
 
   return {
     key: toStepKey(target),
     label: args.label ?? toLabelWithCompanions(target, companionPkgs),
-    readiness: "ready",
+    ...(lifecycleWarnings.length === 0
+      ? { readiness: "ready" as const }
+      : { readiness: "warn" as const, warnMessage: lifecycleWarnings.join("; ") }),
     materialPaths: sourceMaterialPaths(args.ref),
+    ...(registryLifecycle === undefined ? {} : { registryLifecycle }),
     ...(args.ref.refType === "workspace" || args.force !== true
       ? {}
       : { acquisitionRefs: [args.ref] }),

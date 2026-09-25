@@ -207,9 +207,9 @@ previously populated package `dist` directory.
 GitHub Release creation and final publication with bounded state readback.
 `axm:validate-release-cohort -- <directory> <version> <sha>` validates the
 fixed npm cohort independently of publication. `axm:publish-bootstrap-prerelease
--- <sha> <workflow-run-id>` owns the exceptional exact-current-main preview
-cohort and its immutable npm publication; it is available only through the
-canonical workflow's explicit bootstrap mode.
+-- <sha> <workflow-run-id> [branch-ref]` owns immutable npm preview cohort
+publication. The canonical workflow permits an explicit current-main bootstrap
+or an exact branch-head preview after successful CI.
 
 `axm:distribute-release -- <version> <tag> [asset-directory]` owns artifact,
 fixed-cohort npm and Homebrew publication. It depends on cohort builds, checks

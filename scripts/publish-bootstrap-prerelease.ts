@@ -8,7 +8,11 @@ import * as ConfigProvider from "effect/ConfigProvider";
 import * as semver from "semver";
 
 import { run } from "./release-command.js";
-import { produceReleaseCohort, stampBootstrapManifest } from "./release-packages.js";
+import {
+  produceReleaseCohort,
+  stampBootstrapManifest,
+  stampBootstrapSkillDocument,
+} from "./release-packages.js";
 import {
   contentIntegrity,
   isTransientPublicationError,
@@ -23,6 +27,9 @@ import {
   currentHeadSha,
   fail,
   git,
+  AXM_SKILL_DOCUMENT_PATH,
+  AXM_SKILL_GENERATED_PATH,
+  AXM_SKILL_MANIFEST_PATH,
   RELEASE_PACKAGES,
   RELEASE_PACKAGE_JSON_PATHS,
   requireMatchingReleasePackageVersions,
@@ -39,18 +46,29 @@ const publicationEnvironment = (name: string, packageExists: boolean): NodeJS.Pr
   return npmPublicationProcessEnvironment(name, packageExists, npmAuthentication, process.env);
 };
 
-const [sourceSha, sequenceText] = Schema.decodeUnknownSync(
-  Schema.Tuple([Schema.String, Schema.String]),
+const [sourceSha, sequenceText, sourceRef] = Schema.decodeUnknownSync(
+  Schema.Tuple([Schema.String, Schema.String, Schema.String]),
   { errors: "all" },
-)(process.argv.slice(2, 4));
-if (process.argv.length !== 4) fail("Expected <source-sha> <workflow-run-id>.");
+)([process.argv[2], process.argv[3], process.argv[4] ?? ""]);
+if (process.argv.length < 4 || process.argv.length > 5)
+  fail("Expected <source-sha> <workflow-run-id> [source-ref].");
 if (!/^[0-9a-f]{40}$/u.test(sourceSha)) fail("Expected a full lowercase source commit SHA.");
 const sequence = Number(sequenceText);
 if (!Number.isSafeInteger(sequence) || sequence < 1) fail("Expected a positive workflow run ID.");
 if (currentHeadSha() !== sourceSha) fail(`Checked-out source does not match ${sourceSha}.`);
-run("git", ["fetch", "origin", "main", "--no-tags"]);
-if (git("rev-parse", "origin/main") !== sourceSha) {
-  fail("Bootstrap prereleases may be published only from the current main commit.");
+if (
+  sourceRef !== "" &&
+  (!/^[a-zA-Z0-9][a-zA-Z0-9/_-]*$/u.test(sourceRef) || sourceRef === "main")
+) {
+  fail("Branch preview requires an explicit non-main branch name.");
+}
+run("git", ["fetch", "origin", sourceRef === "" ? "main" : sourceRef, "--no-tags"]);
+if (git("rev-parse", "FETCH_HEAD") !== sourceSha) {
+  fail(
+    sourceRef === ""
+      ? "Bootstrap prereleases may be published only from the current main commit."
+      : "Branch previews may be published only from the exact current branch head.",
+  );
 }
 const ciRun = requireSuccessfulCiRun(sourceSha);
 
@@ -61,7 +79,12 @@ const version = derivePreviewVersion({
   shortSha: sourceSha.slice(0, 12),
 });
 const distTag = "preview";
-const snapshots = RELEASE_PACKAGE_JSON_PATHS.map((path) => ({
+const snapshots = [
+  ...RELEASE_PACKAGE_JSON_PATHS,
+  AXM_SKILL_MANIFEST_PATH,
+  AXM_SKILL_DOCUMENT_PATH,
+  AXM_SKILL_GENERATED_PATH,
+].map((path) => ({
   path,
   original: readFileSync(path, "utf8"),
 }));
@@ -71,13 +94,22 @@ mkdirSync(cohort);
 
 try {
   try {
-    for (const snapshot of snapshots) {
+    for (const snapshot of snapshots.filter(
+      ({ path }) => path !== AXM_SKILL_DOCUMENT_PATH && path !== AXM_SKILL_GENERATED_PATH,
+    )) {
       writeFileSync(
         snapshot.path,
         stampBootstrapManifest(snapshot.original, snapshot.path, version),
         "utf8",
       );
     }
+    const skillDocument = snapshots.find(({ path }) => path === AXM_SKILL_DOCUMENT_PATH);
+    if (skillDocument === undefined) throw new Error("AXM skill document snapshot is missing.");
+    writeFileSync(
+      AXM_SKILL_DOCUMENT_PATH,
+      stampBootstrapSkillDocument(skillDocument.original, version),
+      "utf8",
+    );
     runNx("run-many", "-t", "build", "--projects", "tag:release:cli");
     await produceReleaseCohort(version, sourceSha, cohort);
   } finally {

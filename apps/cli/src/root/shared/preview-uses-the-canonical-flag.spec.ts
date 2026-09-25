@@ -9,9 +9,9 @@ import { probeFlag } from "../../test-support/parser-probe.js";
 
 export const specification = defineSpecification({
   requirement: "cli/preview-uses-the-canonical-flag",
-  title: "Assessment is spelled --preview everywhere it exists and nowhere else",
+  title: "Assessment uses its declared flag on every command",
   statement:
-    "Every command that assesses its change without applying it shall accept --preview and no alternative spelling, every command without an assessment shall reject --preview, every command that offers preapproval shall accept --yes while every command without one shall reject it, and rendered help shall list --preview and --yes on exactly the commands whose capabilities declare them.",
+    "Commands that assess their change without applying it shall accept --preview and no alternative spelling, except migrate, which uses --dry-run. Commands without a --preview assessment shall reject that flag, every command that offers preapproval shall accept --yes while every command without one shall reject it, and rendered help shall list --preview and --yes on exactly the commands whose capabilities declare them.",
   class: "functional",
   role: "interface",
   goals: ["machine-automation"],
@@ -66,6 +66,13 @@ describe("The canonical assessment flag", () => {
     Effect.gen(function* () {
       expect(yield* probeFlag(["upgrade"], PREVIEW)).toBe("accepted");
       expect(yield* probeFlag(["upgrade"], RETIRED_SPELLING)).toBe("unrecognized");
+    }),
+  );
+
+  it.effect("migrate uses its explicit --dry-run preview", () =>
+    Effect.gen(function* () {
+      expect(yield* probeFlag(["migrate"], RETIRED_SPELLING)).toBe("accepted");
+      expect(yield* probeFlag(["migrate"], PREVIEW)).toBe("unrecognized");
     }),
   );
 

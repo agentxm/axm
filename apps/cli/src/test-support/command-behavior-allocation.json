@@ -826,6 +826,14 @@
     "deprecate": {
       "flags": [
         {
+          "name": "reason",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          }
+        },
+        {
           "name": "message",
           "rawHelp": {
             "aliases": [],
@@ -875,6 +883,11 @@
           "requirements": ["cli/deprecate/updates-guidance-at-the-observed-revision"],
           "when": "An unversioned extension FQN selects extension-level guidance.",
           "details": ["Target FQN grammar retains shared interface authority."]
+        },
+        {
+          "parameters": ["flag:reason"],
+          "requirements": ["cli/deprecate/rejects-conflicting-or-empty-guidance"],
+          "when": "Selecting or editing the structured reason for deprecation."
         },
         {
           "parameters": ["flag:message"],
@@ -4622,6 +4635,52 @@
           ],
           "when": "The actual operation reaches the minimum-release-age gate.",
           "openTopics": ["activation-source-resolution"]
+        }
+      ]
+    },
+    "migrate": {
+      "flags": [
+        {
+          "name": "scope",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          }
+        },
+        {
+          "name": "dry-run",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        }
+      ],
+      "arguments": [
+        {
+          "name": "extension",
+          "rawHelp": {
+            "type": "string",
+            "required": true,
+            "variadic": false
+          }
+        }
+      ],
+      "relatedRequirements": ["cli/migrate/acts-on-deprecation"],
+      "parameterBindings": [
+        {
+          "parameters": ["flag:scope"],
+          "requirements": ["cli/installed-state-stays-in-selected-scope"]
+        },
+        {
+          "parameters": ["flag:dry-run"],
+          "requirements": ["cli/migrate/acts-on-deprecation"],
+          "when": "The migration is previewed without changing workspace state."
+        },
+        {
+          "parameters": ["argument:extension"],
+          "requirements": ["cli/migrate/acts-on-deprecation"]
         }
       ]
     },

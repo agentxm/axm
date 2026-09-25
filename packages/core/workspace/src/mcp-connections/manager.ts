@@ -13,6 +13,7 @@ import { usableAcceptedCanonical } from "../desired-state/index.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import { extensionRefLifecycleWarnings } from "../lifecycle/warnings.js";
 import * as Ref from "effect/Ref";
 import {
   DesiredStateReader,
@@ -244,9 +245,7 @@ export const McpServerManagerLive = Layer.effect(
         version: registryRef.version,
         integrity: registryRef.integrity,
         publisherBindingId: registryRef.publisherBindingId,
-        ...(registryRef.lifecycleWarnings === undefined
-          ? {}
-          : { lifecycleWarnings: registryRef.lifecycleWarnings }),
+        lifecycleWarnings: extensionRefLifecycleWarnings(registryRef),
         messages: {
           integrityMismatchDetail: `Integrity mismatch for ${registryRef.name}@${registryRef.version}`,
         },

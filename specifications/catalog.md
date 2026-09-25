@@ -252,6 +252,18 @@ People and agents can understand invalid workspace state and recover it through 
 - Methods: example, decision-table
 - Source: [`packages/core/workspace/src/linting/catalog/workspace/reports-agent-content-without-settings.spec.ts`](../packages/core/workspace/src/linting/catalog/workspace/reports-agent-content-without-settings.spec.ts)
 
+##### Lint reports deprecated installed extensions
+
+- Requirement: `cli/lint/reports-deprecated-installed`
+- Owner: `workspace`
+- Statement: When current Registry assessment marks installed extensions deprecated, lint shall report one warning per extension with its reason, replacement and the applicable command, and strict mode shall fail without changing workspace state.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`packages/core/workspace/src/linting/catalog/workspace/deprecated-installed.spec.ts`](../packages/core/workspace/src/linting/catalog/workspace/deprecated-installed.spec.ts)
+
 ##### Lint preserves workspace files whether the run succeeds or fails
 
 - Requirement: `cli/lint/reports-facts-without-mutation`
@@ -1175,6 +1187,18 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Methods: example
 - Source: [`packages/core/workspace/src/mcp-connections/lifecycle/install/local-connection-names-share-source-resolution.spec.ts`](../packages/core/workspace/src/mcp-connections/lifecycle/install/local-connection-names-share-source-resolution.spec.ts)
 
+##### Direct MCP installation warns about deprecation
+
+- Requirement: `cli/mcps/install/warns-when-deprecated`
+- Owner: `workspace`
+- Statement: Installing a deprecated Registry MCP connection directly shall report its deprecation in the planned step and in the preview result without blocking the install.
+- Class: functional
+- Role: experience
+- Product goals: `extension-adoption`, `agent-interoperability`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`packages/core/workspace/src/mcp-connections/lifecycle/install/warns-when-deprecated.spec.ts`](../packages/core/workspace/src/mcp-connections/lifecycle/install/warns-when-deprecated.spec.ts)
+
 ##### Skill installation selects the requested skills from a source
 
 - Requirement: `cli/skills/install/selects-requested-source-skills`
@@ -1279,7 +1303,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 
 - Requirement: `cli/view/reports-deprecation-and-replacement-availability`
 - Owner: `workspace`
-- Statement: When viewing a deprecated extension, AXM shall report its deprecation guidance while identifying an unavailable replacement without inventing a replacement identity.
+- Statement: When viewing a deprecated extension, AXM shall report its reason and guidance while identifying an unavailable replacement without inventing a replacement identity.
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `machine-automation`, `actionable-diagnostics`
@@ -2125,11 +2149,11 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Methods: example
 - Source: [`packages/core/workspace/src/lifecycle/demote/preview-is-pure.spec.ts`](../packages/core/workspace/src/lifecycle/demote/preview-is-pure.spec.ts)
 
-##### Deprecation rejects contradictory or empty guidance
+##### Deprecation validates reason-specific guidance
 
 - Requirement: `cli/deprecate/rejects-conflicting-or-empty-guidance`
 - Owner: `workspace`
-- Statement: The deprecate command shall reject a field supplied together with its clearing flag before contacting the Registry and reject an edit that leaves neither a message nor a replacement before attempting a write.
+- Statement: The deprecate command shall reject a field supplied together with its clearing flag before contacting the Registry. After observing current guidance, it shall require a replacement for superseded, prohibit one and require notes for obsolete, allow either field for unmaintained, and require notes for other before attempting a write.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`
@@ -3637,7 +3661,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/list/reports-deprecation-guidance`
 - Owner: `workspace`
-- Statement: When listing deprecated installations, AXM shall return the Registry’s deprecation message and replacement availability for each matching installation.
+- Statement: When listing deprecated installations, AXM shall return the Registry’s deprecation reason, notes, and replacement availability for each matching installation.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
@@ -3777,6 +3801,18 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: memory; selection: per-change
 - Methods: example
 - Source: [`packages/core/workspace/src/mcp-connections/lifecycle/update/shared-source-update-is-closure-wide.spec.ts`](../packages/core/workspace/src/mcp-connections/lifecycle/update/shared-source-update-is-closure-wide.spec.ts)
+
+##### Migrate replaces or removes a deprecated installed extension
+
+- Requirement: `cli/migrate/acts-on-deprecation`
+- Owner: `workspace`
+- Statement: A migration of an installed Registry extension shall preview without changes, replace a superseded source with an available same-type or cross-type successor as one plan, remove an obsolete source, and refuse a manual-choice reason, concealed successor, or Pack-owned member.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Source: [`packages/core/workspace/src/lifecycle/migrate-deprecated.spec.ts`](../packages/core/workspace/src/lifecycle/migrate-deprecated.spec.ts)
 
 ##### Configuring a Pack-supplied member declares no acquisition
 
@@ -4809,11 +4845,11 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Methods: example
 - Source: [`apps/cli/src/screen/output-writes-await-acknowledgement.spec.ts`](../apps/cli/src/screen/output-writes-await-acknowledgement.spec.ts)
 
-##### Assessment is spelled --preview everywhere it exists and nowhere else
+##### Assessment uses its declared flag on every command
 
 - Requirement: `cli/preview-uses-the-canonical-flag`
 - Owner: `cli`
-- Statement: Every command that assesses its change without applying it shall accept --preview and no alternative spelling, every command without an assessment shall reject --preview, every command that offers preapproval shall accept --yes while every command without one shall reject it, and rendered help shall list --preview and --yes on exactly the commands whose capabilities declare them.
+- Statement: Commands that assess their change without applying it shall accept --preview and no alternative spelling, except migrate, which uses --dry-run. Commands without a --preview assessment shall reject that flag, every command that offers preapproval shall accept --yes while every command without one shall reject it, and rendered help shall list --preview and --yes on exactly the commands whose capabilities declare them.
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`
@@ -5425,7 +5461,7 @@ Changes and releases land through the governed repository process with required 
 
 - Requirement: `system/process/releases-publish-through-canonical-workflow`
 - Owner: `axm`
-- Statement: Release artifacts shall be published only by the canonical publish.yml workflow, automatically after successful exact merged-revision CI or through its explicit recovery and bootstrap-prerelease modes, and no other workflow shall publish release artifacts.
+- Statement: Release artifacts shall be published only by the canonical publish.yml workflow, automatically after successful exact merged-revision CI or through its explicit recovery, current-main preview, and exact branch-preview modes, and no other workflow shall publish release artifacts.
 - Class: process
 - Role: supporting
 - Product goals: `dependable-change-process`, `trustworthy-distribution`

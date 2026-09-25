@@ -7,7 +7,8 @@
  * its caller: the platform, and the statement of which extension types
  * contribute projections. This helper states both — the host file system, so
  * a run observes the same bytes the product observes; a transport that
- * refuses every request, so a run that reached the network would fail loudly;
+ * refuses every request, so current deprecation assessment remains unavailable
+ * without reaching the network;
  * and no projection participants, so nothing outside `@agentxm/workspace/linting`
  * decides what a fixture's workspace is expected to contain.
  */
@@ -27,7 +28,7 @@ import type { LintWorkspaceFixture } from "./testing.js";
 import { fixLintWorkspace, queryLintWorkspace } from "./run/lint-workspace.js";
 import type { LintJsonFinding } from "./json-schema.js";
 
-/** A lint run reads no Registry, so a transport that refuses proves it. */
+/** Keep Registry assessment offline for fixtures that exercise local lint facts. */
 export const OfflineHttpClient: Layer.Layer<HttpClient.HttpClient> = Layer.succeed(
   HttpClient.HttpClient,
   HttpClient.make((request) =>
@@ -35,7 +36,7 @@ export const OfflineHttpClient: Layer.Layer<HttpClient.HttpClient> = Layer.succe
       new HttpClientError.HttpClientError({
         reason: new HttpClientError.TransportError({
           request,
-          cause: new Error("A lint run must not reach the network."),
+          cause: new Error("Registry assessment is unavailable in this lint fixture."),
           description: "Offline test transport",
         }),
       }),
@@ -43,7 +44,7 @@ export const OfflineHttpClient: Layer.Layer<HttpClient.HttpClient> = Layer.succe
   ),
 );
 
-/** Registry clients over the refusing transport: a run that built one would still reach nothing. */
+/** Registry clients over the refusing transport: no request leaves the process. */
 const OfflineRegistryClients = Layer.provide(
   RegistryClientFactoryLive,
   Layer.mergeAll(NodeServices.layer, OfflineHttpClient, RegistryUrlTest()),

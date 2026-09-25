@@ -95,6 +95,7 @@ describe("Registry management authentication failures", () => {
       run: () =>
         deprecate({
           ref: registryTarget,
+          reason: Option.some("other"),
           message: Option.some("Guidance."),
           replacement: Option.none(),
           clearMessage: false,

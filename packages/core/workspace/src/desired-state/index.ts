@@ -77,6 +77,13 @@ export { sanitizeName, normalizeExtensionName } from "./workspace/extension-name
 export { computePackPathsForLayout, type PackDirPath } from "./workspace/pack-paths.js";
 export { computePackManifestContentIdentity } from "./workspace/pack-manifest-content-identity.js";
 export {
+  observePackManifest,
+  PackManifests,
+  type LocatedPackManifest,
+  type PackManifestObservation,
+  type PackManifestsPort,
+} from "./workspace/pack-manifests.js";
+export {
   MaterializedFileTargetSchema,
   type MaterializedFileTarget,
 } from "./workspace/materialized-file-target.js";

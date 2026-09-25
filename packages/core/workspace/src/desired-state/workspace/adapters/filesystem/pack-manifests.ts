@@ -6,7 +6,7 @@ import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/
 import { ACQUIRED_EXTENSIONS_DIR } from "../../constants.js";
 import { configuredAuthoredDirectory } from "../../layout.js";
 import { computePackPathsForLayout } from "../../pack-paths.js";
-import { PackManifests } from "../../pack-manifests.js";
+import { observePackManifest, PackManifests } from "../../pack-manifests.js";
 
 export const FilesystemPackManifests = Layer.effect(
   PackManifests,
@@ -30,9 +30,12 @@ export const FilesystemPackManifests = Layer.effect(
         return {
           path: manifestPath,
           relativePath: path.relative(relativeTo, manifestPath),
-          contents: fs
-            .readFileString(manifestPath)
-            .pipe(Effect.match({ onSuccess: (contents) => contents, onFailure: () => undefined })),
+          manifest: fs.readFileString(manifestPath).pipe(
+            Effect.match({
+              onSuccess: observePackManifest,
+              onFailure: () => ({ status: "unavailable" as const }),
+            }),
+          ),
         };
       },
     });

@@ -33,7 +33,11 @@ export const validSettings = (contents: object = { agents: ["claude-code"] }) =>
 
 /** No Pack manifest is readable in an in-memory fixture; a configured Pack reports as unavailable. */
 const noPackManifests: PackManifestsPort = {
-  locate: () => ({ path: "", relativePath: "", contents: Effect.succeed(undefined) }),
+  locate: () => ({
+    path: "",
+    relativePath: "",
+    manifest: Effect.succeed({ status: "unavailable" as const }),
+  }),
 };
 
 /**

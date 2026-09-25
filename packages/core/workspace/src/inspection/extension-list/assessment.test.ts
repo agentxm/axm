@@ -15,12 +15,8 @@ import {
 import { assessExtensionListItems, type ExtensionListItem } from "./assessment.js";
 import { LOCKFILE_VERSION, type Lockfile, type Settings } from "../../desired-state/index.js";
 import { WorkspaceReadTest, type WorkspaceReadTestFacts } from "../../desired-state/testing.js";
-import { CodingAgentRepositoryLive } from "../../projection/live.js";
-import {
-  handle,
-  RegistryClientFactoryTestLive,
-  WorkspaceCatalogTestLive,
-} from "../test-helpers.js";
+import { CodingAgentRepositoryLive, WorkspaceCatalogLive } from "../../projection/live.js";
+import { handle, RegistryClientFactoryTestLive } from "../test-helpers.js";
 
 const workspaceWithCatalogLayer = (
   facts: Omit<WorkspaceReadTestFacts, "baseDir" | "runtimeDir"> = {},
@@ -40,7 +36,7 @@ const workspaceWithCatalogLayer = (
   return Layer.mergeAll(
     readLayer,
     RegistryClientFactoryTestLive(),
-    WorkspaceCatalogTestLive.pipe(
+    WorkspaceCatalogLive.pipe(
       Layer.provide(readLayer),
       Layer.provide(CodingAgentRepositoryLive),
       Layer.provide(NodeServices.layer),

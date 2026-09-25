@@ -1,8 +1,7 @@
 /**
  * Shared helpers for extension-lifecycle internal tests: decode shortcuts,
  * deterministic tree integrity, a coding-agent stub, a structural failure
- * adapter, and a workspace-backed catalog layer for configured-entry
- * resolution against temporary workspaces.
+ * adapter for tests against temporary workspaces.
  */
 
 import * as crypto from "node:crypto";
@@ -10,12 +9,7 @@ import * as nodeFs from "node:fs";
 import * as nodePath from "node:path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
-import { DesiredStateReader, WorkspaceLocation, WorkspaceRecords } from "../desired-state/index.js";
-
-import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import type { CodingAgent } from "../projection/agent-adapters/index.js";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
@@ -30,22 +24,8 @@ import {
   type Version,
   type VersionRange,
 } from "@agentxm/extension-model/unstable/version-constraints";
-import { CodingAgentRepository } from "../projection/index.js";
-import {
-  fileUrlToPath,
-  WorkspaceCatalog,
-  WorkspaceCatalogUnavailable,
-  type SkillCandidates,
-} from "../resolution/sources/index.js";
 import { StepFailure } from "../transitions/planning/index.js";
-import { skillsInDir, type DiscoveredSkill } from "../desired-state/index.js";
-import {
-  configuredRowsByName,
-  installedRowsByName,
-  unmanagedRowsByName,
-} from "../desired-state/index.js";
 import { TreeIntegritySchema, type TreeIntegrity } from "../desired-state/index.js";
-import { SettingsReader } from "../desired-state/index.js";
 import { ExtensionLifecycleFailed } from "./errors.js";
 import { StepFailureConversion } from "./step-failure-conversion.js";
 
@@ -182,122 +162,3 @@ export const testFailureToStepFailure = (failure: unknown): StepFailure =>
 export const TestStepFailureConversion = Layer.succeed(StepFailureConversion, {
   toStepFailure: testFailureToStepFailure,
 });
-
-const sortNames = (names: ReadonlyArray<string>): ReadonlyArray<string> => {
-  const copy = [...names];
-  copy.sort((a, b) => a.localeCompare(b));
-  return copy;
-};
-
-const catalogUnavailable = (failure: unknown): WorkspaceCatalogUnavailable =>
-  new WorkspaceCatalogUnavailable({
-    category: "internal",
-    detail: describeTestFailure(failure),
-    cause: failure,
-  });
-
-/**
- * Workspace-backed catalog layer for tests: the same facts the application's
- * catalog Live supplies, with structural failure wording.
- */
-export const WorkspaceCatalogTestLive = Layer.effect(
-  WorkspaceCatalog,
-  Effect.gen(function* () {
-    const location = yield* WorkspaceLocation;
-    const settings = yield* SettingsReader;
-    const desiredState = yield* DesiredStateReader;
-    const records = yield* WorkspaceRecords;
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const agentRepo = yield* CodingAgentRepository;
-
-    const skillCandidates: Effect.Effect<SkillCandidates, WorkspaceCatalogUnavailable> = Effect.gen(
-      function* () {
-        const base = location.baseDir;
-        const installedSkills = yield* records
-          .rows("skill")
-          .pipe(Effect.mapError(catalogUnavailable))
-          .pipe(Effect.map(installedRowsByName));
-        const unmanagedSkills = yield* records
-          .rows("skill")
-          .pipe(Effect.mapError(catalogUnavailable))
-          .pipe(Effect.map(unmanagedRowsByName));
-        const configuredSkills = yield* records
-          .rows("skill")
-          .pipe(Effect.mapError(catalogUnavailable))
-          .pipe(Effect.map(configuredRowsByName));
-        const configuredAgents = yield* agentRepo
-          .getMaterializationAgents()
-          .pipe(
-            Effect.mapError(catalogUnavailable),
-            Effect.provideService(SettingsReader, settings),
-          );
-        const resolvedAgents = yield* Effect.forEach(
-          configuredAgents,
-          (agent) =>
-            agent.resolveEffectiveSkillsDir({ workspaceRoot: base }).pipe(
-              Effect.mapError(catalogUnavailable),
-              Effect.map((outcome) => ({ agent, outcome })),
-            ),
-          // eslint-disable-next-line axm-policy/no-unbounded-io -- test helper over the fixed agent catalog under the test Effect scope
-          { concurrency: "unbounded" },
-        );
-
-        const agentRoots = sortNames(
-          Array.dedupe(
-            Array.getSomes(
-              Array.map(resolvedAgents, ({ outcome }) =>
-                outcome._tag === "supported"
-                  ? Option.some(path.normalize(outcome.dir))
-                  : Option.none<string>(),
-              ),
-            ),
-          ),
-        );
-
-        const onDiskRefs = yield* Effect.forEach(
-          agentRoots,
-          (agentRoot) =>
-            skillsInDir(agentRoot, Option.none(), {
-              fullDepth: false,
-              includeInternal: false,
-            }).pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<DiscoveredSkill>>([]))),
-          // eslint-disable-next-line axm-policy/no-unbounded-io -- test helper over fixed agent roots under the test Effect scope
-          { concurrency: "unbounded" },
-        ).pipe(Effect.map(Array.flatten));
-
-        const refsSortedByLocation = [...onDiskRefs].sort((a, b) =>
-          a.location.localeCompare(b.location),
-        );
-        const onDiskByName = new Map<string, string>();
-        for (const ref of refsSortedByLocation) {
-          if (!onDiskByName.has(ref.skill.name)) {
-            onDiskByName.set(ref.skill.name, fileUrlToPath(ref.location));
-          }
-        }
-
-        const names = sortNames(
-          Array.dedupe([
-            ...Object.keys(installedSkills),
-            ...Object.keys(unmanagedSkills),
-            ...onDiskByName.keys(),
-          ]),
-        );
-
-        return { names, configuredSkills, onDiskByName } as const;
-      },
-    ).pipe(
-      Effect.provideService(FileSystem.FileSystem, fs),
-      Effect.provideService(Path.Path, path),
-    );
-
-    return {
-      workspaceRoot: location.baseDir,
-      configuredSources: settings.configuredSources.pipe(Effect.mapError(catalogUnavailable)),
-      registrySourceHosts: settings.registrySourceHosts.pipe(Effect.mapError(catalogUnavailable)),
-      defaultRegistry: settings.defaultRegistry.pipe(Effect.mapError(catalogUnavailable)),
-      desiredExtensionGraph: desiredState.graph().pipe(Effect.mapError(catalogUnavailable)),
-      skillCandidates,
-    };
-  }),
-);

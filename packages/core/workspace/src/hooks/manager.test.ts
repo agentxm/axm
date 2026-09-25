@@ -28,9 +28,12 @@ import {
   TEST_CONTENT_IDENTITY,
   WorkspaceReadTest,
 } from "../desired-state/testing.js";
-import { CodingAgentRepositoryLive, NativeWriteAuthorityLive } from "../projection/live.js";
 import {
-  WorkspaceCatalogTestLive,
+  CodingAgentRepositoryLive,
+  NativeWriteAuthorityLive,
+  WorkspaceCatalogLive,
+} from "../projection/live.js";
+import {
   computeMaterializedTreeIntegritySync,
   describeTestFailure,
   extensionName,
@@ -123,7 +126,7 @@ const makeHookManagerLayer = (
       ),
     );
   return HookManagerLive.pipe(
-    Layer.provideMerge(WorkspaceCatalogTestLive),
+    Layer.provideMerge(WorkspaceCatalogLive),
     Layer.provideMerge(CodingAgentRepositoryLive),
     Layer.provideMerge(
       WorkspaceReadTest({

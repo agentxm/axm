@@ -22,10 +22,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { HooksLockMapSchema, type HooksLockMap } from "../desired-state/index.js";
-import {
-  WorkspaceCatalogTestLive,
-  computeMaterializedTreeIntegritySync,
-} from "../materialization/test-helpers.js";
+import { computeMaterializedTreeIntegritySync } from "../materialization/test-helpers.js";
 import { HookManager } from "../materialization/managers.js";
 import { applyPlannedProjections, observeProjectionPlans } from "../projection/index.js";
 import { SourceHostProviders } from "../resolution/sources/index.js";
@@ -33,7 +30,11 @@ import type { SourceHostProvidersService } from "../resolution/sources/index.js"
 import type { DesiredExtensionNode, DesiredStateGraph } from "../desired-state/index.js";
 import type { Settings } from "../desired-state/index.js";
 import { WorkspaceReadTest, MockWorkspaceTransactionScope } from "../desired-state/testing.js";
-import { CodingAgentRepositoryLive, NativeWriteAuthorityLive } from "../projection/live.js";
+import {
+  CodingAgentRepositoryLive,
+  NativeWriteAuthorityLive,
+  WorkspaceCatalogLive,
+} from "../projection/live.js";
 import { HookManagerLive } from "./manager.js";
 
 const OWNER = "@acme";
@@ -128,7 +129,7 @@ describe("HookManager graph-derived unit projection", () => {
   }) => {
     const axmDir = nodePath.join(baseDir, ".axm");
     return HookManagerLive.pipe(
-      Layer.provideMerge(WorkspaceCatalogTestLive),
+      Layer.provideMerge(WorkspaceCatalogLive),
       Layer.provideMerge(CodingAgentRepositoryLive),
       Layer.provideMerge(
         WorkspaceReadTest({

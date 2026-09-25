@@ -30,9 +30,12 @@ import {
 } from "../desired-state/index.js";
 import { WorkspaceReadTest, MockWorkspaceTransactionScope } from "../desired-state/testing.js";
 import { exactVersion } from "../desired-state/test-helpers.js";
-import { CodingAgentRepositoryLive, NativeWriteAuthorityLive } from "../projection/live.js";
 import {
-  WorkspaceCatalogTestLive,
+  CodingAgentRepositoryLive,
+  NativeWriteAuthorityLive,
+  WorkspaceCatalogLive,
+} from "../projection/live.js";
+import {
   computeMaterializedTreeIntegritySync,
   extensionName,
   handle,
@@ -126,7 +129,7 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
   }) => {
     const axmDir = nodePath.join(baseDir, ".axm");
     return KnowledgeManagerLive.pipe(
-      Layer.provideMerge(WorkspaceCatalogTestLive),
+      Layer.provideMerge(WorkspaceCatalogLive),
       Layer.provideMerge(CodingAgentRepositoryLive),
       Layer.provideMerge(
         Layer.mergeAll(

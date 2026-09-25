@@ -51,6 +51,7 @@ export const subagentInstallationFacts: SubagentInstallationFacts<
                 : { agentId: agent.id, state: outcome._tag, reason: outcome.reason },
             ),
           ),
+      // eslint-disable-next-line axm-policy/no-unbounded-io -- configured agents are a subset of the fixed agent catalog
       { concurrency: "unbounded" },
     ).pipe(
       Effect.mapError((cause) =>

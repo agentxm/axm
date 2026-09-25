@@ -1108,13 +1108,10 @@ export default [
     },
   },
   {
-    // These variable-cardinality I/O surfaces were remediated in the 2026-08
-    // concurrency census. Keep literal unbounded traversal from returning.
-    files: [
-      "packages/supporting/registry-client/src/remote-client.ts",
-      "packages/core/workspace/src/resolution/sources/providers/convention-discovery.ts",
-      "packages/core/workspace/src/inspection/version-currency/collectors.ts",
-    ],
+    // Every retained unbounded literal needs a site-specific rationale for its
+    // fixed catalog or fixed-arity join; new literals require the same review.
+    files: ["{apps,packages,tools}/**/src/**/*.ts", "{apps,packages,tools}/**/src/**/*.tsx"],
+    ignores: testPurposeFiles,
     plugins: {
       "axm-policy": axmPolicyPlugin,
     },

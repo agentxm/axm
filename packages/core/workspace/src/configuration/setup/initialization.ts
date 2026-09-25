@@ -298,6 +298,7 @@ const instructionSourceChoices = (workspaceRoot: string, defaultFileName: string
             content,
           } satisfies SetupInstructionSourceChoice;
         }),
+      // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed instruction-source filename list
       { concurrency: "unbounded" },
     );
   });

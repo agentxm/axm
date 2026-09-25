@@ -100,6 +100,7 @@ export const collectExtensionListItems = Effect.fn("Workspace.collectExtensionLi
     const types = type === undefined ? installableExtensionTypes : [type];
     const rowsByKey = new Map<string, ReadModelRecordRow>();
     const rowsByType = yield* Effect.forEach(types, (itemType) => records.rows(itemType), {
+      // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed installable extension-type catalog
       concurrency: "unbounded",
     });
     for (const row of rowsByType.flat()) {

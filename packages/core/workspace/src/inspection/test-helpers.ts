@@ -115,6 +115,7 @@ export const WorkspaceCatalogTestLive = Layer.effect(
               Effect.mapError(catalogUnavailable),
               Effect.map((outcome) => ({ agent, outcome })),
             ),
+          // eslint-disable-next-line axm-policy/no-unbounded-io -- test helper over the fixed agent catalog under the test Effect scope
           { concurrency: "unbounded" },
         );
 
@@ -137,6 +138,7 @@ export const WorkspaceCatalogTestLive = Layer.effect(
               fullDepth: false,
               includeInternal: false,
             }).pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<DiscoveredSkill>>([]))),
+          // eslint-disable-next-line axm-policy/no-unbounded-io -- test helper over fixed agent roots under the test Effect scope
           { concurrency: "unbounded" },
         ).pipe(Effect.map(Array.flatten));
 

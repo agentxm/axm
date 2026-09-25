@@ -139,6 +139,7 @@ export const ShowExtension = {
         lockfile.acceptedEntry(request.type, request.name),
         records.getExtensionInventory(request.type, {}),
       ],
+      // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed two-way join of accepted lock entry and inventory
       { concurrency: "unbounded" },
     );
 

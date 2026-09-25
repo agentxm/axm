@@ -154,6 +154,7 @@ export const isObservedMaterializationCurrent = <E>({
                     return observed.paths.includes(expectedPath);
                   }),
                 ),
+              // eslint-disable-next-line axm-policy/no-unbounded-io -- configured agents are a subset of the fixed agent catalog
               { concurrency: "unbounded" },
             ).pipe(Effect.map((results) => results.every(Boolean)));
           }),

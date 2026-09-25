@@ -212,6 +212,7 @@ const inspect = (ref: SkillExtensionRef) =>
         agent
           .resolveEffectiveSkillsDir({ workspaceRoot: workspaceLocation.baseDir })
           .pipe(Effect.map((outcome) => ({ agentId: agent.id, outcome }))),
+      // eslint-disable-next-line axm-policy/no-unbounded-io -- configured agents are a subset of the fixed agent catalog
       { concurrency: "unbounded" },
     );
     const unknownAgents = yield* agentRepo.getUnknownConfiguredAgentIds();
@@ -248,6 +249,7 @@ const inspect = (ref: SkillExtensionRef) =>
           }),
         );
       },
+      // eslint-disable-next-line axm-policy/no-unbounded-io -- target directories come from the fixed agent catalog
       { concurrency: "unbounded" },
     );
     const firstTarget = targets[0];

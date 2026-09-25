@@ -186,6 +186,7 @@ const readIndexEntries = (gitRoot: string) =>
         stderr: collectText(handle.stderr),
         exitCode: handle.exitCode,
       },
+      // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed three-way join of scoped child stdout, stderr, and exit
       { concurrency: "unbounded" },
     );
     if (result.exitCode !== 0) {
@@ -230,6 +231,7 @@ const readIndexBlobs = (args: {
         stderr: collectText(handle.stderr),
         exitCode: handle.exitCode,
       },
+      // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed three-way join of scoped child stdout, stderr, and exit
       { concurrency: "unbounded" },
     );
   }).pipe(

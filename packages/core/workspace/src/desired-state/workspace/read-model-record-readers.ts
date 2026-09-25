@@ -483,6 +483,7 @@ export const makeReadModelRecordReaders = (args: {
     Effect.gen(function* () {
       const types = options.type === undefined ? installableExtensionTypes : [options.type];
       const inventories = yield* Effect.forEach(types, (type) => getExtensionInventory(type, {}), {
+        // eslint-disable-next-line axm-policy/no-unbounded-io -- one inventory per fixed installable extension type
         concurrency: "unbounded",
       });
       const items = inventories

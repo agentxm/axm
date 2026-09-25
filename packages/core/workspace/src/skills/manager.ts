@@ -106,6 +106,7 @@ export const SkillManagerLive = Layer.effect(
           agent
             .resolveEffectiveSkillsDir({ workspaceRoot: baseDir })
             .pipe(Effect.map((outcome) => ({ agent, outcome }))),
+        // eslint-disable-next-line axm-policy/no-unbounded-io -- configured agents are a subset of the fixed agent catalog
         { concurrency: "unbounded" },
       );
 
@@ -212,6 +213,7 @@ export const SkillManagerLive = Layer.effect(
             agent
               .resolveEffectiveSkillsDir({ workspaceRoot: baseDir })
               .pipe(Effect.map((outcome) => ({ agent, outcome }))),
+          // eslint-disable-next-line axm-policy/no-unbounded-io -- configured agents are a subset of the fixed agent catalog
           { concurrency: "unbounded" },
         );
 

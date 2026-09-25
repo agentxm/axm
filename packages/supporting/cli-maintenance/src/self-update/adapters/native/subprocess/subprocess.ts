@@ -133,6 +133,7 @@ const makeRunCommand =
           stderr: collectBytes(spawned.value.stderr),
           exitCode: spawned.value.exitCode,
         },
+        // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed three-way join of scoped child stdout, stderr, and exit
         { concurrency: "unbounded" },
       ).pipe(
         Effect.option,

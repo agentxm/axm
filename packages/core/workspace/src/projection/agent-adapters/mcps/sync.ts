@@ -404,6 +404,7 @@ export const removeMcpServerFromManifest = (
           activationField: config.activationField,
           disableOnly: args.disableOnly ?? false,
         }),
+      // eslint-disable-next-line axm-policy/no-unbounded-io -- catalog-declared MCP config targets for one agent
       { concurrency: "unbounded" },
     );
     const syncTargets = writeResults.flatMap((result) => result.targets);

@@ -198,6 +198,7 @@ const detectScopeRaw = (
             resolved,
           })),
         ),
+      // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed marker list for one agent descriptor
       { concurrency: "unbounded" },
     );
 
@@ -227,6 +228,7 @@ export const detectAgentScopes = (agent: AgentDescriptor, projectDir: string) =>
     const home = yield* getHome;
     const [project, user] = yield* Effect.all(
       [detectAgentInRootRaw(agent, projectDir), detectScopeRaw(agent.detection.user, home, "user")],
+      // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed two-way join of project and user scopes
       { concurrency: "unbounded" },
     );
     return { agent, project, user } satisfies AgentScopeDetection;
@@ -256,6 +258,7 @@ export const detectAgent = (agent: AgentDescriptor, projectDir: string) =>
  */
 export const detectAgentsInRoot = (rootDir: string) =>
   Effect.filter(Object.values(AGENTS), (agent) => detectAgentInRootRaw(agent, rootDir), {
+    // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed agent descriptor catalog
     concurrency: "unbounded",
   }).pipe(Effect.mapError(wrapDetectionError(`Failed to detect installed agents in ${rootDir}`)));
 
@@ -278,6 +281,7 @@ export const detectAgents = (projectDir: string) =>
 /** Detect all agents while retaining the scope that supplied each signal. */
 export const detectAgentScopeResults = (projectDir: string) =>
   Effect.forEach(Object.values(AGENTS), (agent) => detectAgentScopes(agent, projectDir), {
+    // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed agent descriptor catalog
     concurrency: "unbounded",
   }).pipe(Effect.map((detections) => detections.filter(({ project, user }) => project || user)));
 

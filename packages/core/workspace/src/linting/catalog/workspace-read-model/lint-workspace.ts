@@ -407,6 +407,7 @@ const buildLintWorkspaceView = (
           model.knowledge.packMemberRows(args.members("knowledge")),
         ),
       ],
+      // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed per-type row set
       { concurrency: "unbounded" },
     );
     const namedSkills = skills.flatMap((skill): ReadonlyArray<NamedSkill> => {

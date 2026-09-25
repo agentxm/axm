@@ -210,6 +210,7 @@ export const parsePluginManifests = (
   Effect.gen(function* () {
     const [marketplaceDirs, pluginDirs] = yield* Effect.all(
       [parseMarketplaceJson(basePath), parsePluginJson(basePath)],
+      // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed two-way join of marketplace and plugin manifest parsers
       { concurrency: "unbounded" },
     );
     return Array.dedupe([...marketplaceDirs, ...pluginDirs]);

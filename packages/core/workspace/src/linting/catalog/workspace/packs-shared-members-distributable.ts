@@ -28,6 +28,7 @@ export const packsSharedMembersDistributableRule: AdvisoryRule<WorkspaceRuleCont
           Effect.result(context.workspace.knowledge.declared),
           Effect.result(context.workspace.packs.declared),
         ],
+        // eslint-disable-next-line axm-policy/no-unbounded-io -- one declared collection per fixed extension type
         { concurrency: "unbounded" },
       );
       if (

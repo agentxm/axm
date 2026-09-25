@@ -3,21 +3,13 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
-import * as Schema from "effect/Schema";
 import * as semver from "semver";
 import { computeMaterializedTreeIntegrity } from "./materialized-tree.js";
 import {
   toExtensionTypePlural,
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
-import { HookManifestSchema } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
-import { KnowledgeManifestSchema } from "@agentxm/extension-model/unstable/knowledge";
-import { McpServerManifestSchema } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
-import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
-import { RuleManifestSchema } from "@agentxm/extension-model/unstable/rules/manifest-schema";
-import { parseSkillMd } from "@agentxm/extension-content";
-import { SkillManifestSchema } from "@agentxm/extension-model/unstable/skills/manifest-schema";
-import { SubagentManifestSchema } from "@agentxm/extension-model/unstable/subagents/manifest-schema";
+import { parseSkillMd, readExtensionManifest } from "@agentxm/extension-content";
 import type {
   HookLockEntry,
   KnowledgeLockEntry,
@@ -104,19 +96,6 @@ const isRegistryResolution = (
   { readonly source: { readonly type: "registry" } }
 > => entry.source.type === "registry";
 
-const MANIFEST_CONTRACTS = {
-  skill: { filename: "skill.json", schema: SkillManifestSchema },
-  "mcp-server": { filename: "mcp.json", schema: McpServerManifestSchema },
-  subagent: { filename: "subagent.json", schema: SubagentManifestSchema },
-  rule: { filename: "rule.json", schema: RuleManifestSchema },
-  hook: { filename: "hook.json", schema: HookManifestSchema },
-  knowledge: { filename: "knowledge.json", schema: KnowledgeManifestSchema },
-  pack: { filename: "pack.json", schema: PackManifestSchema },
-} as const satisfies Record<
-  ExtensionType,
-  { readonly filename: string; readonly schema: Schema.Top }
->;
-
 export const canonicalPathForAcceptedExtension = (
   path: Path.Path,
   layout: WorkspaceLayout,
@@ -164,14 +143,6 @@ const hasRequiredPayload = (
     case "mcp-server":
     case "pack":
       return Effect.succeed(true);
-  }
-};
-
-const parseJson = (raw: string): unknown | undefined => {
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return undefined;
   }
 };
 
@@ -411,24 +382,16 @@ export const observeCanonicalExtension = ({
       };
     }
 
-    const contract = MANIFEST_CONTRACTS[desired.type];
-    const manifestPath = path.join(root, contract.filename);
-    const manifestExists = yield* fs.exists(manifestPath).pipe(Effect.orElseSucceed(() => false));
-    if (!manifestExists) {
-      return { type: desired.type, name: desired.name, status: "incomplete", path: root };
+    const read = yield* readExtensionManifest(root, desired.type).pipe(Effect.result);
+    if (Result.isFailure(read)) {
+      return {
+        type: desired.type,
+        name: desired.name,
+        status: read.failure.code === "manifest_missing" ? "incomplete" : "corrupt",
+        path: root,
+      };
     }
-    const raw = yield* fs.readFileString(manifestPath).pipe(Effect.result);
-    if (Result.isFailure(raw)) {
-      return { type: desired.type, name: desired.name, status: "corrupt", path: root };
-    }
-    const parsed = parseJson(raw.success);
-    if (parsed === undefined) {
-      return { type: desired.type, name: desired.name, status: "corrupt", path: root };
-    }
-    const decoded = Schema.decodeUnknownResult(contract.schema)(parsed);
-    if (Result.isFailure(decoded)) {
-      return { type: desired.type, name: desired.name, status: "corrupt", path: root };
-    }
+    const parsed = read.success.raw;
     const expectedOwner = bundled
       ? "@agentxm"
       : workspaceAuthored

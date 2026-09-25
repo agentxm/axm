@@ -54,7 +54,6 @@ const emptyMcpServerManager = {
   listMaterializable: () => Effect.succeed([]),
   materializeUninstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   configuredAgentOutcomes: () => Effect.succeed([]),
-  configuredAgentOutcomesForEntry: () => Effect.succeed([]),
 } satisfies ServiceMap.Service.Shape<typeof McpServerManager>;
 
 const emptyHookManager = {

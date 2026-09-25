@@ -26,11 +26,8 @@ import {
   mcpServerArtifact,
   mcpSourceTarget,
 } from "../../../materialization/index.js";
-import {
-  collectSecretInputNames,
-  deleteMcpSecrets,
-  readMcpServerManifest,
-} from "../../../reconciliation/index.js";
+import { deleteMcpSecrets, readMcpServerManifest } from "../../../reconciliation/index.js";
+import { collectSecretInputNames } from "../../../projection/agent-adapters/index.js";
 import { buildUninstallOperation } from "../../../reconciliation/index.js";
 import {
   appendWarningsToMessage,

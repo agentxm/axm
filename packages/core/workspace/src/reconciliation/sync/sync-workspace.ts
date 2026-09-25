@@ -52,11 +52,7 @@ import {
   type PlanInteractionFailed,
   type PlannedJobStep,
 } from "../../transitions/planning/index.js";
-import {
-  WorkspaceInvariantFacts,
-  expectedProjectionNamesOf,
-  type ProjectionInvariantFact,
-} from "../../projection/index.js";
+import { WorkspaceInvariantFacts, type ProjectionInvariantFact } from "../../projection/index.js";
 import {
   ConfiguredAgentOutcomesProvider,
   DesiredStateReader,
@@ -339,12 +335,7 @@ export const prepareSyncWorkspace = (
           ? Option.none()
           : yield* collectCleanupStep({
               ...(subjects === undefined ? {} : { subjects }),
-              expectedNames: expectedProjectionNamesOf({
-                skill: collected.expectedSkillNames,
-                subagent: collected.expectedSubagentNames,
-                mcpServer: collected.expectedMcpServerNames,
-                hook: collected.expectedHookNames,
-              }),
+              expectedNames: collected.expectedNames,
               adapter: conversion,
             });
         const instructionStep: Option.Option<SyncPlanStep> = selectionTouches(selection, "rule")

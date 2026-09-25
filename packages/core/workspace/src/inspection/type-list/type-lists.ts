@@ -20,7 +20,7 @@ import {
   parseSourceQualifiedRegistrySourcePatternParts,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import { inspectMcpServerAcrossAgents, type McpInspectionError } from "../../projection/index.js";
+import { inspectDesiredMcpServer, type McpInspectionError } from "../../projection/index.js";
 import {
   ConfiguredAgentOutcomesProvider,
   DesiredStateReader,
@@ -266,27 +266,26 @@ export const listMcpServers: () => Effect.Effect<
         const desiredNode = graph.nodes.find(
           (node) => node.type === "mcp-server" && node.name === row.name,
         );
-        const inspections =
-          row.enabled !== false &&
-          (row.classification.lifecycle === "configured" ||
-            row.classification.lifecycle === "implicit") &&
-          configuredEntry !== undefined
-            ? yield* inspectMcpServerAcrossAgents({
+        // Every desired connection is inspected the same way, whether the
+        // workspace declared it or a Pack supplied it.
+        const inspection =
+          row.enabled !== false && desiredNode !== undefined && desiredNode.enabled
+            ? yield* inspectDesiredMcpServer({
                 workspaceRoot: location.baseDir,
                 scope: location.scope,
                 agentIds: configuredAgents,
-                serverName: row.name,
+                node: desiredNode,
                 entry: configuredEntry,
                 canonicalPaths: row.paths,
               })
-            : [];
+            : undefined;
         return mcpServerListRows({
           row: baseRow(row),
           origins: row.origins,
           configuredEntry,
           desiredNode,
           locked,
-          inspections,
+          inspection,
         });
       }),
     { concurrency: 16 },

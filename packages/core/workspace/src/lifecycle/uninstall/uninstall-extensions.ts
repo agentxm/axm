@@ -20,7 +20,7 @@ import {
   syncFailureRendering,
   workspaceFailureToStepFailure,
 } from "../../reconciliation/index.js";
-import { expectedProjectionNamesOf } from "../../projection/index.js";
+import { expectedProjectionNames } from "../../projection/index.js";
 
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
@@ -256,12 +256,6 @@ export const prepareUninstallExtensions: (
       artifacts[index] === undefined ? [] : [[name, artifacts[index]] as const],
     ),
   );
-  const activeNames = (type: InstallableExtensionType) =>
-    new Set(
-      proposal.after.nodes
-        .filter((node) => node.type === type && node.enabled)
-        .map((node) => node.name),
-    );
   const jobs = yield* Effect.forEach(planned.plan.jobs, (job) =>
     Effect.gen(function* () {
       const steps = yield* Effect.forEach(job.steps, (step) =>
@@ -288,12 +282,7 @@ export const prepareUninstallExtensions: (
             };
           }
           const cleanup = yield* collectCleanupStep({
-            expectedNames: expectedProjectionNamesOf({
-              skill: activeNames("skill"),
-              subagent: activeNames("subagent"),
-              mcpServer: activeNames("mcp-server"),
-              hook: activeNames("hook"),
-            }),
+            expectedNames: expectedProjectionNames(proposal.after),
             subjects: [{ type: leafType, name: nameFromLabel(step.label) }],
             adapter: syncFailureRendering,
           }).pipe(

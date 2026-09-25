@@ -13,7 +13,7 @@ import {
   FailureSuggestedActionSchema,
   OperationErrorCategorySchema,
 } from "../transitions/planning/plan/errors.js";
-import type { McpConfigSyncFailure } from "../projection/agent-adapters/index.js";
+import type { NativeFormatFailure } from "../projection/agent-adapters/index.js";
 
 /**
  * A workspace reconciliation policy step could not proceed. `category` and `detail`
@@ -31,4 +31,4 @@ export class WorkspaceSyncFailed extends Schema.TaggedError<WorkspaceSyncFailed>
 
 /** Every failure the rendered-file cleanup sweep surfaces. */
 export type WorkspaceSyncCleanupFailure =
-  WorkspaceSyncFailed | ExtensionManagerFailure | McpConfigSyncFailure | Config.ConfigError;
+  WorkspaceSyncFailed | ExtensionManagerFailure | NativeFormatFailure | Config.ConfigError;

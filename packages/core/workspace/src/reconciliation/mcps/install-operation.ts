@@ -22,6 +22,8 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import {
+  collectSecretInputNames,
+  mcpProjectionInputValues,
   NativeWriteAuthority,
   syncManifestMcpServerToAgents,
 } from "../../projection/agent-adapters/index.js";
@@ -75,8 +77,6 @@ import { buildExternalMcpServerLockEntry } from "../../mcp-connections/lock-entr
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   MCP_SERVER_MANIFEST_FILENAME,
-  type McpRegistryArgument,
-  type McpRegistryInput,
   type McpRegistryKeyValueInput,
   type McpServerManifest,
   McpServerManifestSchema,
@@ -165,15 +165,6 @@ export type McpSecretDeletionOutcome =
   | { readonly _tag: "absent"; readonly inputName: string }
   | { readonly _tag: "failed"; readonly inputName: string };
 
-const maybeSecretInputName = (
-  input: McpRegistryInput | McpRegistryKeyValueInput | McpRegistryArgument,
-): string | undefined => {
-  if (input.isSecret !== true) return undefined;
-  if ("name" in input) return input.name;
-  if ("valueHint" in input) return input.valueHint;
-  return undefined;
-};
-
 /**
  * Named environment inputs the manifest marks required. Only key/value inputs
  * are collected: an unnamed input has nothing a caller could pass through
@@ -193,29 +184,6 @@ const collectRequiredInputNames = (manifest: McpServerManifest): ReadonlySet<str
 
   for (const remote of manifest.server.remotes ?? []) {
     for (const input of remote.headers ?? []) add(input);
-  }
-
-  return names;
-};
-
-export const collectSecretInputNames = (manifest: McpServerManifest): ReadonlySet<string> => {
-  const names = new Set<string>();
-  const add = (input: McpRegistryInput | McpRegistryKeyValueInput | McpRegistryArgument) => {
-    const name = maybeSecretInputName(input);
-    if (name !== undefined) names.add(name);
-  };
-
-  for (const pkg of manifest.server.packages ?? []) {
-    for (const input of pkg.environmentVariables ?? []) add(input);
-    for (const input of pkg.runtimeArguments ?? []) add(input);
-    for (const input of pkg.packageArguments ?? []) add(input);
-  }
-
-  for (const remote of manifest.server.remotes ?? []) {
-    for (const input of remote.headers ?? []) add(input);
-    for (const [name, input] of Object.entries(remote.variables ?? {})) {
-      if (input.isSecret === true) names.add(name);
-    }
   }
 
   return names;
@@ -401,17 +369,6 @@ const redactSettingsEnv = (
   }
   return redacted;
 };
-
-const preserveSecretReferences = (
-  values: Readonly<Record<string, string>>,
-  secretNames: ReadonlySet<string>,
-): Readonly<Record<string, string>> =>
-  Object.fromEntries(
-    Object.entries(values).map(([name, value]) => [
-      name,
-      secretNames.has(name) ? `\${${name}}` : value,
-    ]),
-  );
 
 const REQUIRED_AGENT_IDS: ReadonlySet<AgentId> = new Set<AgentId>([
   "claude-code",
@@ -898,7 +855,7 @@ export const installMcpServer: (
             resolvedVersion,
             nothingRunnable,
             enabled: projectionEntry.enabled !== false,
-            configValues: preserveSecretReferences(projectionEnv, secretNames),
+            configValues: mcpProjectionInputValues(projectionEnv, secretNames),
             entry: projectionEntry,
           });
         }),

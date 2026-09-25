@@ -182,15 +182,6 @@ export {
 // Skill lifecycle operations
 export { getSkillDisplayName } from "../skills/lifecycle/utils.js";
 
-// MCP server lifecycle operations. Installation itself is a materialization
-// capability (`@agentxm/workspace/materialization`) because the authoring
-// routes need it too and a feature may not import a peer feature.
-export {
-  uninstallMcpServer,
-  type UninstallMcpServerOperation,
-  type UninstallMcpServerOperationArgs,
-} from "../mcp-connections/lifecycle/operations/uninstall.js";
-
 // Update: the atomicity a workspace-wide sweep declares.
 export {
   WORKSPACE_UPDATE_ATOMICITY,

@@ -14,6 +14,11 @@ import { parseYaml, readYamlEntry } from "../yaml.js";
 import { NativeWriteAuthorityPermissive } from "../testing.js";
 import { removeAgentMcpConfig, writeAgentMcpConfig } from "./config-writer.js";
 
+/** The ownership record every projected entry carries; a TOML fence names its ext. */
+const ownedBy = (name: string) => ({
+  "x-axm": { v: 1, managed: true, ext: `@workspace/mcps/${name}`, source: "inline" },
+});
+
 const withNode = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect.pipe(Effect.provide(Layer.merge(NodeServices.layer, NativeWriteAuthorityPermissive)));
 
@@ -171,13 +176,14 @@ describe("agent MCP config writer", () => {
             serversKey: "mcp_servers",
             target: { scope: "project", path: "agent.toml", format: "toml", attribution: "agent" },
             entry: {
+              ...ownedBy("context"),
               command: "npx",
               args: ["-y", "@acme/context-mcp@1.0.0"],
             },
           });
 
           expect(readFileSync(configPath, "utf8")).toContain(
-            "# axm:start v=1 region=mcp-server:context ext=@agentxm/mcps/context",
+            "# axm:start v=1 region=mcp-server:context ext=@workspace/mcps/context",
           );
           expect(existsSync(`${configPath}.bak`)).toBe(false);
           expect(writeResult.targets).toEqual([{ path: "agent.toml", change: "updated" }]);
@@ -225,7 +231,7 @@ describe("agent MCP config writer", () => {
             serverName: "My_Server",
             serversKey: "mcp_servers",
             target,
-            entry: { command: "npx" },
+            entry: { ...ownedBy("My_Server"), command: "npx" },
           });
           yield* removeAgentMcpConfig({
             workspaceRoot,
@@ -263,6 +269,7 @@ describe("agent MCP config writer", () => {
               serversKey: "mcp_servers",
               target,
               entry: {
+                ...ownedBy(serverName),
                 enabled: true,
                 command: "npx",
                 args: ["-y", `@acme/${serverName}`],
@@ -303,7 +310,7 @@ describe("agent MCP config writer", () => {
               serverName,
               serversKey: "mcp_servers",
               target,
-              entry: { enabled: true, command: "npx" },
+              entry: { ...ownedBy(serverName), enabled: true, command: "npx" },
             });
           }
 

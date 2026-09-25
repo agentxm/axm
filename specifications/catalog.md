@@ -700,14 +700,14 @@ Configured extensions realize correctly and completely for every configured codi
 
 - Requirement: `cli/mcps/projects-to-every-configured-agent`
 - Owner: `workspace`
-- Statement: When an MCP server is configured and enabled, however it entered the workspace — added, authored inline, or adopted from one agent's own native configuration — reconciliation shall write it to the native configuration of every configured agent that can represent it, shall account for every configured agent and report one that cannot represent it as unsupported rather than omitting it, shall write no server that is configured as disabled, and shall remove it from every agent it reached once desired state disables or withdraws it.
+- Statement: When an MCP server is desired and enabled, however it entered the workspace — added, authored inline, adopted from one agent's own native configuration, or supplied by an installed Pack — reconciliation shall write it to the native configuration of every configured agent that can represent it, shall account for every configured agent and report one that cannot represent it as unsupported rather than omitting it, shall judge whether each agent's entry is current from its decoded native value and report a hand-edited entry as stale under one reason code in every inspection surface, shall repair it without further change on the next run, shall write no server that is configured as disabled, and shall remove it from every agent it reached once desired state disables or withdraws it.
 - Class: functional
 - Role: experience
 - Product goals: `agent-interoperability`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
 - Derived from: `cli/mcps/import/adoption-reaches-every-configured-agent`, `cli/mcps/inline-lifecycle-is-idempotent`, `cli/mcps/inline-authority-is-operation-coherent`, `cli/activation-follows-desired-state`
-- Assumptions: Claude Code and Cursor keep distinct project-scope MCP configuration files, so two native files observe two agents.; An unmanaged server declared in one agent's own configuration file is the only shape adoption records, so one such declaration stands for every adopted entry.; Amp is catalogued without MCP configuration support, so it stands for any configured agent that cannot represent a server.
+- Assumptions: Claude Code and Cursor keep distinct project-scope MCP configuration files, so two native files observe two agents.; An unmanaged server declared in one agent's own configuration file is the only shape adoption records, so one such declaration stands for every adopted entry.; Amp is catalogued without MCP configuration support, so it stands for any configured agent that cannot represent a server.; A Pack that declares one MCP member is the only way a connection reaches desired state without its own settings entry, so one such Pack stands for every Pack-supplied connection.
 - Additional evidence: process via [`apps/cli-e2e/src/activation-lifecycle.e2e.test.ts`](../apps/cli-e2e/src/activation-lifecycle.e2e.test.ts) — Drives every catalog extension type — including the mcp-server and pack types that cannot be sourced from a local package in memory — through authored creation, update, disable, enable, and uninstall in the real CLI process, proving preview purity, apply idempotency, native agent files, and lint-clean workspace state between every transition.
 - Source: [`packages/core/workspace/src/reconciliation/sync/mcps/projects-to-every-configured-agent.spec.ts`](../packages/core/workspace/src/reconciliation/sync/mcps/projects-to-every-configured-agent.spec.ts)
 
@@ -2416,6 +2416,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `cli/projection-currency-follows-state-authority`
+- Assumptions: An inline connection and a Pack-supplied Registry connection are the two ways a structured MCP projection enters desired state, so one of each stands for every structured native projection.
 - Source: [`packages/core/workspace/src/reconciliation/sync/native-projections-compare-by-decoded-value.spec.ts`](../packages/core/workspace/src/reconciliation/sync/native-projections-compare-by-decoded-value.spec.ts)
 
 ##### Pack add preview describes the dependency without changing any state
@@ -2649,7 +2650,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 
 - Requirement: `cli/sync/realizes-desired-state`
 - Owner: `workspace`
-- Statement: Sync shall realize desired installations and activation, accepting a first resolution when absent and restoring missing content only from its accepted identity, shall remove unreachable accepted records, verified acquired installations and obsolete owned outputs when reachability and ownership are established while preserving authored and unowned content, and shall report convergence only when every required postcondition in its scope is satisfied.
+- Statement: Sync shall realize desired installations and activation, accepting a first resolution when absent and restoring missing content only from its accepted identity, shall remove unreachable accepted records, verified acquired installations and obsolete owned outputs when reachability and ownership are established while preserving authored and unowned content, shall keep the owned outputs of every desired extension whose own closure is blocked in a run that commits others, and shall report convergence only when every required postcondition in its scope is satisfied.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `agent-interoperability`
@@ -4004,7 +4005,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/sync/preserves-unowned-agent-content`
 - Owner: `workspace`
-- Statement: When sync retires agent-native content that desired state no longer reaches, it shall remove only content AXM can prove it owns and shall leave hand-authored neighbors in the same agent directory untouched.
+- Statement: When sync retires agent-native content that desired state no longer reaches, it shall remove only content AXM can prove it owns and shall leave hand-authored neighbors in the same agent directory untouched; and when a desired projection would overwrite agent-native content AXM cannot prove it owns, sync shall block that projection and leave the content untouched.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
@@ -4044,12 +4045,13 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/sync/unreadable-agent-configuration-prevents-reconciliation`
 - Owner: `workspace`
-- Statement: When an agent skill-directory configuration source cannot be read, AXM shall report the configuration failure before changing workspace or agent files, without treating the agent's outputs as absent or already reconciled.
+- Statement: When an agent skill-directory configuration source cannot be read, or an agent's native MCP configuration file cannot be decoded as the configuration its format requires, AXM shall report the configuration failure before changing workspace or agent files, without treating the agent's outputs as absent or already reconciled.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: decision-table, example
+- Assumptions: A JSON MCP configuration whose root is an array is the smallest file that parses but is not the map the format requires, so it stands for every undecodable native MCP configuration.
 - Source: [`packages/core/workspace/src/reconciliation/sync/unreadable-agent-configuration-prevents-reconciliation.spec.ts`](../packages/core/workspace/src/reconciliation/sync/unreadable-agent-configuration-prevents-reconciliation.spec.ts)
 
 ##### Agent filters match any selected agent

@@ -32,7 +32,7 @@ import type {
 } from "./manager-contract.js";
 import type { ExtensionManagerFailure } from "./errors.js";
 import type { ProjectionPlan } from "../projection/index.js";
-import type { ConfiguredAgentOutcome, McpServerEntry } from "../desired-state/index.js";
+import type { ConfiguredAgentOutcome } from "../desired-state/index.js";
 import type { WorkspaceTransactionScope } from "../transitions/settlement/index.js";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import type { TreeIntegrity } from "../desired-state/index.js";
@@ -178,18 +178,14 @@ export interface McpServerManagerService
   readonly materializeDeactivate: (args: {
     readonly target: ExtensionTargetFor<McpServerExtensionRef>;
   }) => Effect.Effect<McpServerMaterializationFacts, ExtensionManagerFailure, ManagerRequirements>;
+  /**
+   * Every desired MCP connection's per-agent outcome, judged from the
+   * desired-state graph (or a proposed one) rather than from raw settings.
+   */
   readonly configuredAgentOutcomes: (
     state: "projected" | "current",
+    proposedGraph?: DesiredStateGraph,
   ) => Effect.Effect<
-    ReadonlyArray<ConfiguredAgentOutcome>,
-    ExtensionManagerFailure,
-    ManagerRequirements
-  >;
-  readonly configuredAgentOutcomesForEntry: (args: {
-    readonly name: string;
-    readonly entry: McpServerEntry;
-    readonly state: "projected" | "current";
-  }) => Effect.Effect<
     ReadonlyArray<ConfiguredAgentOutcome>,
     ExtensionManagerFailure,
     ManagerRequirements

@@ -6,7 +6,14 @@ import { afterEach } from "vitest";
 import { deriveOperationOutcome } from "../../transitions/planning/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { applySync, expectResolved, makeSyncFixture, previewSync } from "./test-helpers.js";
+import {
+  applySync,
+  expectResolved,
+  makeFileRegistry,
+  makeSyncFixture,
+  previewSync,
+  type SyncFixture,
+} from "./test-helpers.js";
 
 export const specification = defineSpecification({
   requirement: "cli/native-projections-compare-by-decoded-value",
@@ -19,7 +26,9 @@ export const specification = defineSpecification({
   methods: ["example"],
   derivedFrom: ["cli/projection-currency-follows-state-authority"],
   supersedes: [],
-  assumptions: [],
+  assumptions: [
+    "An inline connection and a Pack-supplied Registry connection are the two ways a structured MCP projection enters desired state, so one of each stands for every structured native projection.",
+  ],
   openQuestions: [],
 });
 
@@ -28,20 +37,28 @@ const NATIVE = ".mcp.json";
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-/** Rewrite the managed `demo` entry's command, keeping everything else. */
-const replaceManagedMcpCommand = (content: string, command: string): string => {
+/** Rewrite one managed entry's command, keeping everything else. */
+const replaceManagedMcpCommand = (content: string, name: string, command: string): string => {
   const config: unknown = JSON.parse(content);
   if (!isRecord(config) || !isRecord(config["mcpServers"])) {
     throw new Error("Expected a native MCP configuration map");
   }
-  const demo = config["mcpServers"]["demo"];
-  if (!isRecord(demo)) throw new Error("Expected a managed demo MCP entry");
+  const entry = config["mcpServers"][name];
+  if (!isRecord(entry)) throw new Error(`Expected a managed ${name} MCP entry`);
   return `${JSON.stringify(
-    { ...config, mcpServers: { ...config["mcpServers"], demo: { ...demo, command } } },
+    { ...config, mcpServers: { ...config["mcpServers"], [name]: { ...entry, command } } },
     null,
     4,
   )}\n`;
 };
+
+interface ProjectionRow {
+  readonly label: string;
+  readonly name: string;
+  /** The command the desired configuration renders for the entry. */
+  readonly command: string;
+  readonly workspace: () => SyncFixture;
+}
 
 describe("Native projection comparison", () => {
   const cleanups: Array<() => void> = [];
@@ -51,15 +68,50 @@ describe("Native projection comparison", () => {
     }
   });
 
-  it.effect("compares structured native projections by decoded value", () => {
-    const workspace = makeSyncFixture({
-      settings: {
-        owner: "@acme",
-        agents: ["claude-code"],
-        mcpServers: { demo: { command: "node", args: ["server.js"] } },
+  const rows: ReadonlyArray<ProjectionRow> = [
+    {
+      label: "an inline connection",
+      name: "demo",
+      command: "node",
+      workspace: () => {
+        const workspace = makeSyncFixture({
+          settings: {
+            owner: "@acme",
+            agents: ["claude-code"],
+            mcpServers: { demo: { command: "node", args: ["server.js"] } },
+          },
+        });
+        cleanups.push(workspace.cleanup);
+        return workspace;
       },
-    });
-    cleanups.push(workspace.cleanup);
+    },
+    {
+      label: "a Pack-supplied connection",
+      name: "context",
+      command: "npx",
+      workspace: () => {
+        const registry = makeFileRegistry();
+        cleanups.push(registry.cleanup);
+        registry.writeMcp("context", [{ version: "1.0.0" }]);
+        registry.writePack("toolkit", [
+          { version: "1.0.0", dependencies: { "@acme/mcps/context": "^1.0.0" } },
+        ]);
+        const workspace = makeSyncFixture({
+          settings: {
+            owner: "@acme",
+            agents: ["claude-code"],
+            sources: [registry.source],
+            packs: { toolkit: "test:@acme/packs/toolkit@^1.0.0" },
+          },
+        });
+        cleanups.push(workspace.cleanup);
+        return workspace;
+      },
+    },
+  ];
+
+  it.effect.each(rows)("compares $label by decoded value", (row) => {
+    const workspace = row.workspace();
     return workspace
       .provide(
         Effect.gen(function* () {
@@ -78,7 +130,7 @@ describe("Native projection comparison", () => {
 
           // A real value change is divergence: the preview reports work, and
           // leaves the file exactly as the editor left it.
-          const changed = replaceManagedMcpCommand(equivalent, "python");
+          const changed = replaceManagedMcpCommand(equivalent, row.name, "python");
           workspace.writeFile(NATIVE, changed);
           const previewed = expectResolved(yield* previewSync());
           expect(deriveOperationOutcome(previewed)).toBe("previewed");
@@ -87,8 +139,9 @@ describe("Native projection comparison", () => {
 
           yield* applySync();
           expect(JSON.parse(workspace.readFile(NATIVE))).toMatchObject({
-            mcpServers: { demo: { command: "node", args: ["server.js"] } },
+            mcpServers: { [row.name]: { command: row.command } },
           });
+          expect((yield* previewSync())._tag).toBe("AlreadyReconciled");
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));

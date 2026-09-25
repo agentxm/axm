@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import YAML from "yaml";
 import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
@@ -24,7 +25,7 @@ export const specification = defineSpecification({
   requirement: "cli/sync/realizes-desired-state",
   title: "Sync realizes desired additions and removes what desired state no longer includes",
   statement:
-    "Sync shall realize desired installations and activation, accepting a first resolution when absent and restoring missing content only from its accepted identity, shall remove unreachable accepted records, verified acquired installations and obsolete owned outputs when reachability and ownership are established while preserving authored and unowned content, and shall report convergence only when every required postcondition in its scope is satisfied.",
+    "Sync shall realize desired installations and activation, accepting a first resolution when absent and restoring missing content only from its accepted identity, shall remove unreachable accepted records, verified acquired installations and obsolete owned outputs when reachability and ownership are established while preserving authored and unowned content, shall keep the owned outputs of every desired extension whose own closure is blocked in a run that commits others, and shall report convergence only when every required postcondition in its scope is satisfied.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "agent-interoperability"],
@@ -166,6 +167,64 @@ describe("Sync realizes desired workspace state", () => {
             ).toBe(retained);
             expect(workspace.readFile("axm.json")).toBe(settings);
             expect((yield* applySync())._tag).not.toBe("AlreadyReconciled");
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
+
+  it.effect(
+    "keeps the native entry of a Pack-supplied MCP server whose closure is blocked while another commits",
+    () => {
+      const registry = makeFileRegistry();
+      cleanups.push(registry.cleanup);
+      registry.writeMcp("context", [{ version: "1.0.0" }]);
+      registry.writeSkill("ready", [{ version: "1.0.0", body: "Ready." }]);
+      registry.writePack("toolkit", [
+        { version: "1.0.0", dependencies: { "@acme/mcps/context": "^1.0.0" } },
+      ]);
+      const base = {
+        owner: "@acme",
+        agents: ["claude-code"],
+        sources: [registry.source],
+        packs: { toolkit: "test:@acme/packs/toolkit@^1.0.0" },
+      };
+      const workspace = makeSyncFixture({ settings: base });
+      cleanups.push(workspace.cleanup);
+      const nativeHasContext = (): boolean =>
+        JSON.stringify(JSON.parse(workspace.readFile(".mcp.json"))).includes('"context"');
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* applySync();
+            expect(nativeHasContext()).toBe(true);
+
+            // The member's accepted row is gone and its Registry can no
+            // longer serve it, so its closure cannot resolve this run. It is
+            // still desired: the Pack still declares it.
+            const lock: unknown = YAML.parse(workspace.readFile("axm-lock.yaml"));
+            if (typeof lock !== "object" || lock === null || !("mcpServers" in lock)) {
+              throw new Error("Expected the lockfile to hold the accepted MCP row");
+            }
+            const { mcpServers: _accepted, ...withoutMember } = lock;
+            void _accepted;
+            workspace.writeFile("axm-lock.yaml", YAML.stringify(withoutMember));
+            workspace.remove("agent_extensions/registry/@acme/mcps/context");
+            fs.rmSync(path.join(registry.root, "extensions", "@acme", "mcps"), {
+              recursive: true,
+              force: true,
+            });
+            workspace.writeSettings({
+              ...base,
+              skills: { ready: "test:@acme/skills/ready@^1.0.0" },
+            });
+
+            const result = expectResolved(yield* applySync());
+            expect(deriveOperationOutcome(result)).not.toBe("applied");
+            expect(
+              workspace.exists("agent_extensions/registry/@acme/skills/ready/src/SKILL.md"),
+            ).toBe(true);
+            expect(nativeHasContext()).toBe(true);
           }),
         )
         .pipe(Effect.provide(NodeServices.layer));

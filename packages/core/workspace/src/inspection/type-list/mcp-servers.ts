@@ -12,10 +12,12 @@
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import type { AgentMcpServerInspection } from "../../projection/index.js";
+import type {
+  AgentMcpServerInspection,
+  DesiredMcpServerInspection,
+} from "../../projection/index.js";
 import {
   ExtensionInventoryRowSchema,
-  type ConfiguredAgentOutcome,
   type ExtensionInventory,
   type McpServerEntry,
   type McpServerLockEntry,
@@ -96,45 +98,12 @@ const projectionStatus = (inspections: ReadonlyArray<AgentMcpServerInspection>):
 
 const configuredStatus = (args: {
   readonly enabled: boolean;
-  readonly configuredEntry: McpServerEntry | undefined;
-  readonly inspections: ReadonlyArray<AgentMcpServerInspection>;
+  readonly inspection: DesiredMcpServerInspection | undefined;
 }): string => {
   if (!args.enabled) return "disabled";
-  if (args.configuredEntry === undefined) return "enabled";
-  return projectionStatus(args.inspections);
+  if (args.inspection === undefined) return "enabled";
+  return projectionStatus(args.inspection.inspections);
 };
-
-/** One inspection restated in the workspace's per-agent outcome vocabulary. */
-const inspectionOutcome = (
-  name: string,
-  inspection: AgentMcpServerInspection,
-): ConfiguredAgentOutcome => ({
-  extensionType: "mcp-server",
-  name,
-  agentId: inspection.agentId,
-  outcome:
-    inspection.status === "match"
-      ? "current"
-      : inspection.status === "unsupported"
-        ? "unsupported"
-        : inspection.status === "blocked"
-          ? "blocked"
-          : "failed",
-  reasonCode:
-    inspection.status === "absent"
-      ? "projection-missing"
-      : inspection.status === "drift"
-        ? "stale-projection"
-        : `mcp-${inspection.status}`,
-  reason:
-    inspection.reason ??
-    (inspection.status === "absent"
-      ? `The expected ${inspection.agentId} projection is missing.`
-      : inspection.status === "drift"
-        ? `The expected ${inspection.agentId} projection is stale.`
-        : `MCP projection status is ${inspection.status}.`),
-  path: inspection.path,
-});
 
 export const mcpServerListRows = (args: {
   readonly row: TypeListRow;
@@ -142,9 +111,10 @@ export const mcpServerListRows = (args: {
   readonly configuredEntry: McpServerEntry | undefined;
   readonly desiredNode: DesiredMcpServerNode | undefined;
   readonly locked: Option.Option<McpServerLockEntry>;
-  readonly inspections: ReadonlyArray<AgentMcpServerInspection>;
+  /** The projection's judgment of the connection, when it is desired and enabled. */
+  readonly inspection: DesiredMcpServerInspection | undefined;
 }): McpServerListRow => {
-  const { row, configuredEntry, desiredNode, locked, inspections } = args;
+  const { row, configuredEntry, desiredNode, locked, inspection } = args;
   const registryResolution =
     Option.isSome(locked) && locked.value.source.type === "registry"
       ? locked.value.resolved
@@ -186,16 +156,12 @@ export const mcpServerListRows = (args: {
     transport: args.origins.some((origin) => origin.includes("config")) ? "config" : "auto",
     status:
       row.lifecycle === "configured" || row.lifecycle === "implicit"
-        ? configuredStatus({
-            enabled: row.enabled !== false,
-            configuredEntry,
-            inspections,
-          })
+        ? configuredStatus({ enabled: row.enabled !== false, inspection })
         : row.lifecycle,
     agentOutcomes:
-      inspections.length === 0
+      inspection === undefined || inspection.outcomes.length === 0
         ? row.agentOutcomes
-        : inspections.map((inspection) => inspectionOutcome(row.name, inspection)),
+        : inspection.outcomes,
   };
 };
 

@@ -8,7 +8,34 @@ import type { McpServerEntry } from "../../desired-state/index.js";
 import * as Layer from "effect/Layer";
 import { readYamlEntry, writeAgentMcpConfig } from "../agent-adapters/index.js";
 import { NativeWriteAuthorityPermissive } from "../agent-adapters/testing.js";
-import { collectManagedAgentMcpServers, inspectAgentMcpServer } from "./inspection.js";
+import { collectManagedAgentMcpServers, inspectDesiredMcpServer } from "./inspection.js";
+
+/** One agent's inspection of one connection, judged from the desired-state facts. */
+const inspectAgentMcpServer = (args: {
+  readonly workspaceRoot: string;
+  readonly scope: "project" | "user";
+  readonly agentId: string;
+  readonly serverName: string;
+  readonly entry: McpServerEntry;
+}) =>
+  inspectDesiredMcpServer({
+    workspaceRoot: args.workspaceRoot,
+    scope: args.scope,
+    agentIds: [args.agentId],
+    node: {
+      name: args.serverName,
+      authority:
+        args.entry.command !== undefined || args.entry.url !== undefined ? "inline" : "sourced",
+    },
+    entry: args.entry,
+    canonicalPaths: [],
+  }).pipe(
+    Effect.flatMap(({ inspections }) =>
+      inspections[0] === undefined
+        ? Effect.die(`no inspection for ${args.agentId}`)
+        : Effect.succeed(inspections[0]),
+    ),
+  );
 
 const withNode = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect.pipe(Effect.provide(Layer.merge(NodeServices.layer, NativeWriteAuthorityPermissive)));

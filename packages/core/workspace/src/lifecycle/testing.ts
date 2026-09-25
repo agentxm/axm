@@ -162,6 +162,11 @@ export interface LifecycleFixtureOptions {
    * Registry the specification published into.
    */
   readonly sources?: "none" | "live";
+  /**
+   * The HTTP transport Registry clients use. The default refuses every
+   * request; a live-Registry smoke supplies a real one.
+   */
+  readonly httpClient?: Layer.Layer<HttpClient.HttpClient>;
   /** The CLI version the official-skill compatibility policy evaluates against. */
   readonly cliVersion?: string;
   /**
@@ -291,10 +296,12 @@ export const makeLifecycleFixture = (options: LifecycleFixtureOptions = {}) => {
     cloneUrl: () => Option.none(),
     origin: () => "fixture",
   });
-  const transport = Layer.succeed(
-    HttpClient.HttpClient,
-    HttpClient.make(() => Effect.die("no HTTP request in this fixture")),
-  );
+  const transport =
+    options.httpClient ??
+    Layer.succeed(
+      HttpClient.HttpClient,
+      HttpClient.make(() => Effect.die("no HTTP request in this fixture")),
+    );
   const installedExecutables = new Set(options.installedExecutables ?? []);
   const executables = Layer.succeed(AgentExecutableResolver, {
     exists: (name: string) => Effect.succeed(installedExecutables.has(name)),

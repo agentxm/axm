@@ -49,7 +49,6 @@ export {
   collectHooksStep,
   collectInstructionStep,
   collectKnowledgeStep,
-  isInlineMcpServerEntry,
   makeSyncPlan,
   projectionDivergenceLabel,
   projectionFactsNeedReconciliation,
@@ -104,7 +103,6 @@ export { workspaceFailureToStepFailure, type WorkspaceFailure } from "./failure-
 export { isWorkspaceFailure } from "./failure-recognition.js";
 
 export {
-  collectSecretInputNames,
   deleteMcpSecrets,
   installMcpServer,
   readMcpServerManifest,

@@ -30,8 +30,6 @@ export const existingUnboundedConcurrencySites: ReadonlyArray<string> = [
   '["packages/core/workspace/src/projection/agent-adapters/detection.ts","Effect.forEach(Object.values(AGENTS), (agent) => detectAgentScopes(agent, projectDir), {","concurrency: \\"unbounded\\",","}).pipe(Effect.map((detections) => detections.filter(({ project, user }) => project || user)));"]',
   '["packages/core/workspace/src/projection/agent-adapters/detection.ts","[detectAgentInRootRaw(agent, projectDir), detectScopeRaw(agent.detection.user, home, \\"user\\")],","{ concurrency: \\"unbounded\\" },",");"]',
   '["packages/core/workspace/src/projection/agent-adapters/mcps/sync.ts","}),","{ concurrency: \\"unbounded\\" },",");"]',
-  '["packages/core/workspace/src/projection/agent-adapters/mcps/sync.ts","}),","{ concurrency: \\"unbounded\\" },",");"]',
-  '["packages/core/workspace/src/projection/agent-adapters/mcps/sync.ts","},","{ concurrency: \\"unbounded\\" },",");"]',
   '["packages/core/workspace/src/projection/materialization-currency.ts","),","{ concurrency: \\"unbounded\\" },",").pipe(Effect.map((results) => results.every(Boolean)));"]',
   '["packages/core/workspace/src/skills/lifecycle/adapters/installation.ts",".pipe(Effect.map((outcome) => ({ agentId: agent.id, outcome }))),","{ concurrency: \\"unbounded\\" },",");"]',
   '["packages/core/workspace/src/skills/lifecycle/adapters/installation.ts","},","{ concurrency: \\"unbounded\\" },",");"]',

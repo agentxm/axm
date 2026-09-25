@@ -196,13 +196,32 @@ export {
 } from "./mcps/resolution.js";
 export {
   removeAgentMcpConfig,
-  resolveAgentMcpConfigTargetPath,
   writeAgentMcpConfig,
   type AgentMcpConfigWriteResult,
   type AgentMcpConfigWriteTarget,
   type RemoveAgentMcpConfigArgs,
   type WriteAgentMcpConfigArgs,
 } from "./mcps/config-writer.js";
+export {
+  decodeJsonMcpConfig,
+  hasTomlMcpEntry,
+  managedNativeMcpEntryNames,
+  parseTomlMcpEntry,
+  readNativeMcpConfig,
+  readNativeMcpEntry,
+  resolveAgentMcpConfigTargetPath,
+  type DecodedJsonMcpConfig,
+  type NativeMcpConfigRead,
+} from "./mcps/native-config.js";
+export { collectSecretInputNames, mcpProjectionInputValues } from "./mcps/inputs.js";
+export {
+  configuredMcpCapability,
+  planMcpServerTargets,
+  type McpAgentTargetPlan,
+  type McpTargetPlan,
+  type McpTargetWrite,
+  type PlanMcpServerTargetsArgs,
+} from "./mcps/target-plan.js";
 export {
   resolveSharedMcpTarget,
   type ResolvedSharedMcpTarget,
@@ -213,26 +232,13 @@ export {
 } from "./mcps/shared-target.js";
 export { groupConfiguredMcpTargets, type McpTargetGroup } from "./mcps/targeting.js";
 export {
-  addMcpServerConfigFirst,
-  addMcpServerConfigOnly,
-  decodeMcpServerManifestAt,
   addMcpServerFromManifest,
-  addMcpServerMixed,
+  decodeMcpServerManifestAt,
   pruneManagedMcpServersForAgent,
-  removeMcpServerConfigFirst,
-  removeMcpServerConfigOnly,
   removeMcpServerFromManifest,
-  removeMcpServerMixed,
-  runCliInvocation,
-  syncInlineMcpServerToAgent,
   syncInlineMcpServerToAgents,
   syncManifestMcpServerToAgents,
   validateManifestMcpServerTargets,
-  type CliInvocation,
-  type CliInvocationResult,
-  type ConfigFirstStrategy,
-  type McpConfigSyncFailure,
-  type MixedStrategyConfig,
   type PruneManagedMcpServersArgs,
   type SyncInlineMcpServerArgs,
   type SyncManifestMcpServerArgs,

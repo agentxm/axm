@@ -37,7 +37,6 @@ export const specification = defineSpecification({
 const registryVersion = `${registryTarget}@1.2.3`;
 
 /** No terminal and no pending request: an authentication rejection is terminal. */
-const verification = { unattended: true } as const;
 
 /** The category a typed feature failure carries, whichever family it belongs to. */
 const categoryOf = (failure: unknown): string => {
@@ -106,11 +105,11 @@ describe("Registry management authentication failures", () => {
     { name: "visibility status", run: () => status(registryTarget) },
     {
       name: "visibility set",
-      run: () => set({ target: registryTarget, visibility: "private", verification }),
+      run: () => set({ target: registryTarget, visibility: "private" }),
     },
     {
       name: "visibility reconcile",
-      run: () => reconcile({ target: registryTarget, verification }),
+      run: () => reconcile({ target: registryTarget }),
     },
   ];
 

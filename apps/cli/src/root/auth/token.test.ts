@@ -14,8 +14,6 @@ import {
   CredentialStoreTest,
 } from "@agentxm/registry-access/testing";
 import { RegistryUrl } from "@agentxm/registry-client";
-import { StepUpRequired } from "@agentxm/registry-access/authentication";
-import { RegistryRequestFailed } from "@agentxm/registry-client";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
@@ -79,7 +77,7 @@ const makeLayers = (opts?: {
   );
   const provide = Effect.provide(FullLayer);
 
-  return { provide, rendererState, interactionState: interaction.state };
+  return { provide, rendererState };
 };
 
 describe("auth token handler", () => {
@@ -224,79 +222,6 @@ describe("auth token handler", () => {
           { description: "List tokens", cmd: "axm token list" },
           { description: "Revoke this token", cmd: "axm token revoke token_123" },
         ]);
-      }),
-    );
-  });
-
-  it.effect("completes step-up before creating a privileged token", () => {
-    const createCalls: Array<unknown> = [];
-    const { provide, rendererState, interactionState } = makeLayers({
-      hasCredentials: true,
-      nonInteractive: false,
-      authOverrides: {
-        createToken: (params, options) => {
-          createCalls.push({ params, options });
-          if (options?.stepUpRequestId === undefined) {
-            return Effect.fail(
-              new StepUpRequired({
-                stepUp: {
-                  requestId: "step_01h455vb4pexka56gq5w2r7cpc",
-                  verificationUrl: "https://agentxm.ai/step-up/step_01h455vb4pexka56gq5w2r7cpc",
-                  statusUrl:
-                    "https://registry.agentxm.ai/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc",
-                  expiresAt: "2026-08-10T16:05:00.000Z",
-                  intervalSeconds: 2,
-                  maxAgeSeconds: 300,
-                  action: "Create access token",
-                  target: "ci-admin",
-                },
-                failure: new RegistryRequestFailed({
-                  category: "auth",
-                  detail: "Step-up authentication is required",
-                  metadata: { response: { status: 401 } },
-                }),
-              }),
-            );
-          }
-          return Effect.succeed({
-            id: "token_123",
-            token: "axmt_created",
-            name: params.name,
-            permissions: {
-              model: "gat",
-              owners: [],
-              extensions: [],
-              permission: "admin",
-            },
-            createdAt: DateTime.makeUnsafe("2026-05-15T00:00:00.000Z"),
-            expiresAt: DateTime.makeUnsafe("2026-06-14T00:00:00.000Z"),
-          });
-        },
-        waitForStepUpRequest: () => Effect.void,
-      },
-    });
-
-    return provide(
-      Effect.gen(function* () {
-        yield* handleCreateToken({
-          name: "ci-admin",
-          expires: "30d",
-          owners: [],
-          extensions: [],
-          permission: "admin",
-        });
-
-        expect(interactionState.openBrowserCalls).toEqual([
-          "https://agentxm.ai/step-up/step_01h455vb4pexka56gq5w2r7cpc",
-        ]);
-        expect(createCalls).toMatchObject([
-          { options: undefined },
-          { options: { stepUpRequestId: "step_01h455vb4pexka56gq5w2r7cpc" } },
-        ]);
-        expect(rendererState.details[0]?.item).toMatchObject({
-          id: "token_123",
-          token: "axmt_created",
-        });
       }),
     );
   });

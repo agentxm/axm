@@ -399,100 +399,6 @@
         "summary": "Return authenticated user info"
       }
     },
-    "/v1/auth/step-up/requests/{requestId}": {
-      "get": {
-        "tags": ["Auth"],
-        "operationId": "Auth.getStepUpRequest",
-        "parameters": [
-          {
-            "name": "requestId",
-            "in": "path",
-            "schema": {
-              "$ref": "#/components/schemas/StepUpRequestId"
-            },
-            "required": true
-          }
-        ],
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "StepUpRequestStatusResponse",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StepUpRequestStatusResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponseEncoded"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "InternalError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "ServiceUnavailableError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Poll step-up request status"
-      }
-    },
     "/v1/tokens": {
       "get": {
         "tags": ["Tokens"],
@@ -603,23 +509,7 @@
       "post": {
         "tags": ["Tokens"],
         "operationId": "Tokens.create",
-        "parameters": [
-          {
-            "name": "x-axm-step-up-request",
-            "in": "header",
-            "schema": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/StepUpRequestId"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "required": false
-          }
-        ],
+        "parameters": [],
         "security": [
           {
             "bearer": []
@@ -654,24 +544,11 @@
             }
           },
           "401": {
-            "description": "StepUpRequiredError | UnauthorizedError",
+            "description": "UnauthorizedError",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/StepUpRequiredErrorEncoded"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ProblemDetails"
-                    }
-                  ],
-                  "discriminator": {
-                    "propertyName": "code",
-                    "mapping": {
-                      "eotp": "#/components/schemas/StepUpRequiredErrorEncoded"
-                    }
-                  }
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -688,26 +565,6 @@
           },
           "404": {
             "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "ConflictError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "GoneError",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -747,6 +604,7 @@
             }
           }
         },
+        "description": "Token creation is browser-only: a person creates a token in AgentXM settings after a recent sign-in. Every Registry credential is refused with 403 `browser_session_required`, and `details.settingsUrl` names the settings page where the person can create one.",
         "summary": "Create scoped access token",
         "requestBody": {
           "content": {
@@ -1766,21 +1624,6 @@
             "required": true
           },
           {
-            "name": "x-axm-step-up-request",
-            "in": "header",
-            "schema": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/StepUpRequestId"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "required": false
-          },
-          {
             "name": "if-match",
             "in": "header",
             "schema": {
@@ -1823,24 +1666,11 @@
             }
           },
           "401": {
-            "description": "StepUpRequiredError | UnauthorizedError",
+            "description": "UnauthorizedError",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/StepUpRequiredErrorEncoded"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ProblemDetails"
-                    }
-                  ],
-                  "discriminator": {
-                    "propertyName": "code",
-                    "mapping": {
-                      "eotp": "#/components/schemas/StepUpRequiredErrorEncoded"
-                    }
-                  }
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -1968,21 +1798,6 @@
               "$ref": "#/components/schemas/ExtensionName"
             },
             "required": true
-          },
-          {
-            "name": "x-axm-step-up-request",
-            "in": "header",
-            "schema": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/StepUpRequestId"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "required": false
           }
         ],
         "security": [
@@ -2017,17 +1832,6 @@
                             "type": "string"
                           }
                         },
-                        "dependentPackCount": {
-                          "anyOf": [
-                            {
-                              "type": "number"
-                            },
-                            {
-                              "type": "string",
-                              "enum": ["Infinity", "-Infinity", "NaN"]
-                            }
-                          ]
-                        },
                         "libraryMembershipCount": {
                           "anyOf": [
                             {
@@ -2058,12 +1862,7 @@
                           ]
                         }
                       },
-                      "required": [
-                        "versions",
-                        "dependentPackCount",
-                        "libraryMembershipCount",
-                        "downloadCount"
-                      ],
+                      "required": ["versions", "libraryMembershipCount", "downloadCount"],
                       "additionalProperties": false
                     }
                   },
@@ -2091,24 +1890,11 @@
             }
           },
           "401": {
-            "description": "StepUpRequiredError | UnauthorizedError",
+            "description": "UnauthorizedError",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/StepUpRequiredErrorEncoded"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ProblemDetails"
-                    }
-                  ],
-                  "discriminator": {
-                    "propertyName": "code",
-                    "mapping": {
-                      "eotp": "#/components/schemas/StepUpRequiredErrorEncoded"
-                    }
-                  }
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -2134,7 +1920,7 @@
             }
           },
           "409": {
-            "description": "ConflictError | LifecycleBlockedError",
+            "description": "ConflictError | ExtensionDeletionIneligibleError | LifecycleBlockedError",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2143,25 +1929,19 @@
                       "$ref": "#/components/schemas/ProblemDetails"
                     },
                     {
+                      "$ref": "#/components/schemas/ExtensionDeletionIneligibleErrorEncoded"
+                    },
+                    {
                       "$ref": "#/components/schemas/LifecycleBlockedErrorEncoded"
                     }
                   ],
                   "discriminator": {
                     "propertyName": "code",
                     "mapping": {
+                      "extension_deletion_ineligible": "#/components/schemas/ExtensionDeletionIneligibleErrorEncoded",
                       "lifecycle_blocked": "#/components/schemas/LifecycleBlockedErrorEncoded"
                     }
                   }
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "GoneError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -4792,16 +4572,44 @@
                     "requiredConfirmation": {
                       "type": "string"
                     },
-                    "warnings": {
+                    "eligibility": {
                       "type": "object",
                       "properties": {
-                        "versions": {
+                        "eligible": {
+                          "type": "boolean"
+                        },
+                        "reasons": {
                           "type": "array",
                           "items": {
-                            "type": "string"
+                            "type": "string",
+                            "enum": [
+                              "first-version-published-over-24-hours-ago",
+                              "other-extensions-depend-on-it"
+                            ]
                           }
                         },
-                        "dependentPackCount": {
+                        "firstPublishedAt": {
+                          "anyOf": [
+                            {
+                              "$ref": "#/components/schemas/IsoDateTimeString"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "deletableUntil": {
+                          "anyOf": [
+                            {
+                              "$ref": "#/components/schemas/IsoDateTimeString"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "When deletion stops being possible, 24 hours after the first published version; null while nothing is published or once it is ineligible."
+                        },
+                        "dependentExtensionCount": {
                           "anyOf": [
                             {
                               "type": "number"
@@ -4811,6 +4619,26 @@
                               "enum": ["Infinity", "-Infinity", "NaN"]
                             }
                           ]
+                        }
+                      },
+                      "required": [
+                        "eligible",
+                        "reasons",
+                        "firstPublishedAt",
+                        "deletableUntil",
+                        "dependentExtensionCount"
+                      ],
+                      "additionalProperties": false,
+                      "description": "An Extension can be deleted only while nothing is published, or within 24 hours of its first published version while no other Extension depends on it."
+                    },
+                    "warnings": {
+                      "type": "object",
+                      "properties": {
+                        "versions": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
                         },
                         "libraryMembershipCount": {
                           "anyOf": [
@@ -4842,16 +4670,11 @@
                           ]
                         }
                       },
-                      "required": [
-                        "versions",
-                        "dependentPackCount",
-                        "libraryMembershipCount",
-                        "downloadCount"
-                      ],
+                      "required": ["versions", "libraryMembershipCount", "downloadCount"],
                       "additionalProperties": false
                     }
                   },
-                  "required": ["requiredConfirmation", "warnings"],
+                  "required": ["requiredConfirmation", "eligibility", "warnings"],
                   "additionalProperties": false
                 }
               }
@@ -7004,27 +6827,105 @@
         "title": "Auth Me Response",
         "description": "Your user profile and credential details."
       },
-      "StepUpRequestId": {
+      "TokenId": {
         "type": "string",
-        "pattern": "^step_[0-7][0-9a-hjkmnp-tv-z]{25}$",
-        "title": "Step-Up Request ID",
-        "description": "Identifies one short-lived cross-channel authentication request.",
-        "examples": ["step_01h455vb4pexka56gq5w2r7cpc"]
+        "pattern": "^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+        "title": "Token ID",
+        "description": "Identifies an access token or personal access token (PAT) issued to a user. Used to authenticate API requests to the registry.",
+        "examples": ["tok_01h455vb4pexka56gq5w2r7cpc"]
       },
-      "StepUpRequestStatusResponse": {
+      "TokenListItem": {
         "type": "object",
         "properties": {
-          "status": {
+          "id": {
+            "$ref": "#/components/schemas/TokenId"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "Human-readable name of the token, if assigned."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
             "type": "string",
-            "enum": ["pending", "verified", "consumed", "cancelled", "expired"]
+            "description": "Token type (e.g. 'pat', 'session')."
+          },
+          "permissions": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TokenPermissions"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What this token may do. Null for an interactive session, which is its holder's whole authority."
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/IsoDateTimeString"
           },
           "expires_at": {
             "$ref": "#/components/schemas/IsoDateTimeString"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IsoDateTimeString"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
-        "required": ["status", "expires_at"],
+        "required": [
+          "id",
+          "name",
+          "type",
+          "permissions",
+          "created_at",
+          "expires_at",
+          "last_used_at"
+        ],
         "additionalProperties": false,
-        "title": "Step-up Request Status Response"
+        "title": "Token List Item",
+        "description": "Summary of an access token."
+      },
+      "TokenListResponse": {
+        "type": "object",
+        "properties": {
+          "tokens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TokenListItem"
+            },
+            "description": "List of access tokens for the authenticated user."
+          },
+          "has_more": {
+            "type": "boolean",
+            "description": "Whether additional tokens exist beyond this page."
+          },
+          "cursor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "Opaque cursor for fetching the next page of results."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["tokens", "has_more", "cursor"],
+        "additionalProperties": false,
+        "title": "Token List Response",
+        "description": "A page of your access tokens."
       },
       "AuthorizationDenyDetails": {
         "type": "object",
@@ -7135,106 +7036,6 @@
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
       },
-      "TokenId": {
-        "type": "string",
-        "pattern": "^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$",
-        "title": "Token ID",
-        "description": "Identifies an access token or personal access token (PAT) issued to a user. Used to authenticate API requests to the registry.",
-        "examples": ["tok_01h455vb4pexka56gq5w2r7cpc"]
-      },
-      "TokenListItem": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "$ref": "#/components/schemas/TokenId"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "type": "string",
-                "description": "Human-readable name of the token, if assigned."
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "type": {
-            "type": "string",
-            "description": "Token type (e.g. 'pat', 'session')."
-          },
-          "permissions": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/TokenPermissions"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "What this token may do. Null for an interactive session, which is its holder's whole authority."
-          },
-          "created_at": {
-            "$ref": "#/components/schemas/IsoDateTimeString"
-          },
-          "expires_at": {
-            "$ref": "#/components/schemas/IsoDateTimeString"
-          },
-          "last_used_at": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/IsoDateTimeString"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "type",
-          "permissions",
-          "created_at",
-          "expires_at",
-          "last_used_at"
-        ],
-        "additionalProperties": false,
-        "title": "Token List Item",
-        "description": "Summary of an access token."
-      },
-      "TokenListResponse": {
-        "type": "object",
-        "properties": {
-          "tokens": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TokenListItem"
-            },
-            "description": "List of access tokens for the authenticated user."
-          },
-          "has_more": {
-            "type": "boolean",
-            "description": "Whether additional tokens exist beyond this page."
-          },
-          "cursor": {
-            "anyOf": [
-              {
-                "type": "string",
-                "description": "Opaque cursor for fetching the next page of results."
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": ["tokens", "has_more", "cursor"],
-        "additionalProperties": false,
-        "title": "Token List Response",
-        "description": "A page of your access tokens."
-      },
       "CreateTokenPermissionsRequest": {
         "type": "object",
         "properties": {
@@ -7331,81 +7132,6 @@
         "additionalProperties": false,
         "title": "Create Token Response",
         "description": "Your new access token. The token value is only shown once — save it now."
-      },
-      "IsoDateTimeString_1": {
-        "type": "string",
-        "title": "ISO Date-Time String",
-        "description": "A date and time string (e.g. 2024-01-15T12:00:00.000Z).",
-        "format": "date-time"
-      },
-      "StepUpRequiredErrorEncoded": {
-        "type": "object",
-        "properties": {
-          "kind": {
-            "type": "string",
-            "enum": ["StepUpRequiredError"]
-          },
-          "type": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          },
-          "status": {
-            "type": "integer"
-          },
-          "detail": {
-            "type": "string"
-          },
-          "instance": {
-            "type": "string"
-          },
-          "code": {
-            "type": "string",
-            "enum": ["eotp"]
-          },
-          "step_up": {
-            "type": "object",
-            "properties": {
-              "request_id": {
-                "$ref": "#/components/schemas/StepUpRequestId"
-              },
-              "verification_url": {
-                "type": "string"
-              },
-              "status_url": {
-                "type": "string"
-              },
-              "expires_at": {
-                "$ref": "#/components/schemas/IsoDateTimeString_1"
-              },
-              "interval": {
-                "type": "integer"
-              },
-              "action": {
-                "type": "string"
-              },
-              "target": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "request_id",
-              "verification_url",
-              "status_url",
-              "expires_at",
-              "interval",
-              "action",
-              "target"
-            ],
-            "additionalProperties": false
-          },
-          "max_age": {
-            "type": "integer"
-          }
-        },
-        "required": ["kind", "type", "title", "status", "detail", "code"],
-        "additionalProperties": false
       },
       "Handle": {
         "type": "string",
@@ -8551,6 +8277,12 @@
         "title": "Extension Links",
         "description": "Hyperlinks for an extension resource. `html` is the canonical web page URL."
       },
+      "IsoDateTimeString_1": {
+        "type": "string",
+        "title": "ISO Date-Time String",
+        "description": "A date and time string (e.g. 2024-01-15T12:00:00.000Z).",
+        "format": "date-time"
+      },
       "ExtensionNameHeldErrorEncoded": {
         "type": "object",
         "properties": {
@@ -8898,6 +8630,74 @@
         "additionalProperties": false,
         "title": "Delete Extension Body",
         "description": "High-intent confirmation for permanent whole-Extension deletion."
+      },
+      "ExtensionDeletionIneligibleErrorEncoded": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["ExtensionDeletionIneligibleError"]
+          },
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "enum": ["extension_deletion_ineligible"]
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["first-version-published-over-24-hours-ago", "other-extensions-depend-on-it"]
+            }
+          },
+          "first_published_at": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IsoDateTimeString_1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dependent_extension_count": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
+              }
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "type",
+          "title",
+          "status",
+          "detail",
+          "code",
+          "reasons",
+          "first_published_at",
+          "dependent_extension_count"
+        ],
+        "additionalProperties": false
       },
       "ResolutionMetadataCallerKey": {
         "type": "string",

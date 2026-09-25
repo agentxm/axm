@@ -24,11 +24,7 @@ export type AuthLoginProgress =
   | { readonly _tag: "CompletingSignIn"; readonly registryHost: string }
   | { readonly _tag: "CheckingRegistrySession"; readonly registryHost: string }
   | { readonly _tag: "RevokingRegistrySession"; readonly registryHost: string }
-  | { readonly _tag: "ListingRegistryTokens" }
-  /** A Registry write that the Registry may challenge for human verification. */
-  | { readonly _tag: "RunningVerifiedWrite"; readonly operation: string }
-  /** The one retry of the challenged write, after verification. */
-  | { readonly _tag: "RetryingVerifiedWrite"; readonly operation: string };
+  | { readonly _tag: "ListingRegistryTokens" };
 
 /** What a person decided about replacing a session that is still valid. */
 export type SessionReplacementDecision = "replace" | "keep";
@@ -65,14 +61,6 @@ export type HumanHandoff =
       readonly expiresAtMs: number;
       readonly browserOpened: boolean;
     }
-  /** Human verification of one challenged Registry write. */
-  | {
-      readonly _tag: "StepUp";
-      readonly action: string;
-      readonly target: string;
-      readonly verificationUrl: string;
-      readonly expiresAtMs: number;
-    }
   /** Review of the exact publication set before Registry capabilities are issued. */
   | {
       readonly _tag: "PublishAuthorization";
@@ -88,8 +76,6 @@ export const handoffUrl = (handoff: HumanHandoff): string => {
       return handoff.verificationUriComplete;
     case "LoopbackLogin":
       return handoff.authorizeUrl;
-    case "StepUp":
-      return handoff.verificationUrl;
     case "PublishAuthorization":
       return handoff.authorizationUrl;
   }

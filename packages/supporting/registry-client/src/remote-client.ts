@@ -1150,9 +1150,6 @@ export const createRemoteRegistryClient = (
       client.ExtensionsUpdateVisibility(target.owner, pluralizeType(target.type), target.name, {
         params: {
           "if-match": args.revision,
-          ...(args.verification === undefined
-            ? {}
-            : { "x-axm-step-up-request": args.verification }),
         },
         payload,
         config: undefined,

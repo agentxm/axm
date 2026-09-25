@@ -182,6 +182,26 @@ describe("registryErrorToProblem", () => {
     expect(JSON.stringify(error.suggestions)).not.toContain("axm login");
   });
 
+  it("points browser-only token creation to the Registry settings page", () => {
+    const error = registryErrorToProblem(
+      {
+        kind: "ForbiddenError",
+        type: "about:blank",
+        title: "Forbidden",
+        status: 403,
+        detail: "Create access tokens in web settings.",
+        code: "browser_session_required",
+        details: { settingsUrl: "https://agentxm.ai/settings/tokens" },
+      },
+      responseFor(403),
+    );
+
+    expect(error.suggestions).toContainEqual({
+      description: "Create access tokens in web settings.",
+      url: "https://agentxm.ai/settings/tokens",
+    });
+  });
+
   it("keeps the Registry's own words for a forbidding rule it has no recovery for", () => {
     const error = registryErrorToProblem(
       {

@@ -39,7 +39,7 @@ export const specification = defineSpecification({
 
 const registryVersion = `${registryTarget}@1.2.3`;
 
-/** No terminal and no pending request: the write needs no step-up here. */
+/** No terminal and no pending request: the write proceeds directly. */
 
 /** The authorization ports every Registry write passes through. */
 const withAuthPorts = <A, E, R>(effect: Effect.Effect<A, E, R>) =>

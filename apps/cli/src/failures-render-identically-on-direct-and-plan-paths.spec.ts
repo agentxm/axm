@@ -38,8 +38,6 @@ import {
   DeviceLoginDenied,
   RegistryAccessFailed,
   SignedOut,
-  StepUpRequired,
-  StepUpVerificationPending,
 } from "@agentxm/registry-access/authentication";
 import { PublishFailed } from "@agentxm/workspace/publishing";
 import {
@@ -299,18 +297,6 @@ const incompatibleAxmSkill: AxmSkillCompatibility = {
 const registryMetadata = {
   request: { service: "registry", method: "GET", url: "https://registry.agentxm.ai/v1/x" },
   response: { status: 503, requestId: "req_1", problemCode: "service_unavailable" },
-} as const;
-
-const stepUpHandoff = {
-  kind: "open-url",
-  purpose: "step-up",
-  requestRef: "https://registry.example.test/v1/auth/step-up/requests/step_fixture",
-  registryUrl: "https://registry.example.test",
-  url: "https://agentxm.ai/step-up/step_fixture",
-  expiresAt: "2099-01-01T00:00:00.000Z",
-  intervalSeconds: 2,
-  resume:
-    "Rerun the same command with the same inputs and --step-up-request https://registry.example.test/v1/auth/step-up/requests/step_fixture.",
 } as const;
 
 type Representatives = {
@@ -869,8 +855,10 @@ const representatives: Representatives = {
   RegistryAccessFailed: [
     new RegistryAccessFailed({
       category: "auth_expired",
-      detail: "The step-up request expired before verification completed.",
-      recover: "Rerun the command to start a new verification request.",
+      detail: "The pending device sign-in expired.",
+      suggestions: [
+        { description: "Start a new device sign-in.", cmd: "axm login --device-code --json" },
+      ],
     }),
     new RegistryAccessFailed({
       category: "auth_denied",
@@ -910,31 +898,8 @@ const representatives: Representatives = {
       resume: "axm login --device-code --wait-for-human 300 --json",
     }),
   ],
-  StepUpVerificationPending: [
-    new StepUpVerificationPending({ action: stepUpHandoff, timedOut: false }),
-    new StepUpVerificationPending({ action: stepUpHandoff, timedOut: true }),
-  ],
   AuthInteractionAbandoned: [
     new AuthInteractionAbandoned({ message: "The sign-in prompt was abandoned." }),
-  ],
-  StepUpRequired: [
-    new StepUpRequired({
-      stepUp: {
-        requestId: "step_1",
-        verificationUrl: "https://agentxm.ai/step-up/step_1",
-        statusUrl: "https://registry.example.test/v1/auth/step-up/requests/step_1",
-        expiresAt: "2099-01-01T00:00:00.000Z",
-        intervalSeconds: 2,
-        action: "Create access token",
-        target: "ci-admin",
-      },
-      failure: new RegistryRequestFailed({
-        category: "auth",
-        detail: "Could not create token",
-        metadata: { response: { status: 401, body: { code: "eotp" } } },
-        cause: ioCause,
-      }),
-    }),
   ],
   AuthExchangeFailed: [
     new AuthExchangeFailed({

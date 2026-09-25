@@ -2,11 +2,11 @@ import type { Doc } from "../../screen/doc.js";
 import { waitSettled } from "../../screen/wait/view.js";
 import type { WaitView } from "../../screen/wait/wait.js";
 
-const stepUp: WaitView = {
-  subject: "step-up-verification",
+const publicationAuthorization: WaitView = {
+  subject: "publication-authorization",
   detail: "waiting on you",
-  label: "Verification of yank",
-  status: "Waiting for verification of yank",
+  label: "Publication authorization",
+  status: "Waiting for approval",
   brief: [],
   expiresAtMs: 600_000,
 };
@@ -17,5 +17,5 @@ const stepUp: WaitView = {
  */
 export const waitSettledFixture: Doc = [
   { _tag: "answer", mark: "ok", label: "Device sign-in", value: "48.2s" },
-  ...waitSettled(stepUp, 12_400),
+  ...waitSettled(publicationAuthorization, 12_400),
 ];

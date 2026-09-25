@@ -1255,8 +1255,15 @@
         },
         {
           "name": "hook",
-          "rawHelp": { "aliases": [], "type": "string", "required": true },
-          "occurrences": { "minimumOccurrences": 0, "repeatable": true }
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": true
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
         },
         {
           "name": "all",
@@ -1828,7 +1835,11 @@
         },
         {
           "name": "all",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         },
         {
           "name": "reinstall",
@@ -1856,47 +1867,107 @@
         },
         {
           "name": "skill",
-          "rawHelp": { "aliases": [], "type": "string", "required": true },
-          "occurrences": { "minimumOccurrences": 0, "repeatable": true }
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": true
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
         },
         {
           "name": "subagent",
-          "rawHelp": { "aliases": [], "type": "string", "required": true },
-          "occurrences": { "minimumOccurrences": 0, "repeatable": true }
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": true
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
         },
         {
           "name": "rule",
-          "rawHelp": { "aliases": [], "type": "string", "required": true },
-          "occurrences": { "minimumOccurrences": 0, "repeatable": true }
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": true
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
         },
         {
           "name": "hook",
-          "rawHelp": { "aliases": [], "type": "string", "required": true },
-          "occurrences": { "minimumOccurrences": 0, "repeatable": true }
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": true
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
         },
         {
           "name": "knowledge",
-          "rawHelp": { "aliases": [], "type": "string", "required": true },
-          "occurrences": { "minimumOccurrences": 0, "repeatable": true }
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": true
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
         },
         {
           "name": "mcp",
-          "rawHelp": { "aliases": [], "type": "string", "required": true },
-          "occurrences": { "minimumOccurrences": 0, "repeatable": true }
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": true
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
         },
         {
           "name": "pack",
-          "rawHelp": { "aliases": [], "type": "string", "required": true },
-          "occurrences": { "minimumOccurrences": 0, "repeatable": true }
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": true
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
         },
         {
           "name": "env",
-          "rawHelp": { "aliases": ["-e"], "type": "string", "required": true },
-          "occurrences": { "minimumOccurrences": 0, "repeatable": true }
+          "rawHelp": {
+            "aliases": ["-e"],
+            "type": "string",
+            "required": true
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
         },
         {
           "name": "as",
-          "rawHelp": { "aliases": [], "type": "string", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -2850,16 +2921,31 @@
         },
         {
           "name": "knowledge",
-          "rawHelp": { "aliases": [], "type": "string", "required": true },
-          "occurrences": { "minimumOccurrences": 0, "repeatable": true }
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": true
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
         },
         {
           "name": "all",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         },
         {
           "name": "reinstall",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         },
         {
           "name": "preview",
@@ -4059,12 +4145,23 @@
         },
         {
           "name": "mcp",
-          "rawHelp": { "aliases": [], "type": "string", "required": true },
-          "occurrences": { "minimumOccurrences": 0, "repeatable": true }
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": true
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
         },
         {
           "name": "all",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         },
         {
           "name": "reinstall",
@@ -4908,12 +5005,23 @@
         },
         {
           "name": "pack",
-          "rawHelp": { "aliases": [], "type": "string", "required": true },
-          "occurrences": { "minimumOccurrences": 0, "repeatable": true }
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": true
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
         },
         {
           "name": "all",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         },
         {
           "name": "reinstall",
@@ -5874,12 +5982,23 @@
         },
         {
           "name": "rule",
-          "rawHelp": { "aliases": [], "type": "string", "required": true },
-          "occurrences": { "minimumOccurrences": 0, "repeatable": true }
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": true
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
         },
         {
           "name": "all",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         },
         {
           "name": "reinstall",
@@ -6476,107 +6595,211 @@
       "flags": [
         {
           "name": "bazel",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         },
         {
           "name": "cargo",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         },
         {
           "name": "cocoapods",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         },
         {
           "name": "composer",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         },
         {
           "name": "conan",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         },
         {
           "name": "conda",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         },
         {
           "name": "cpan",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         },
         {
           "name": "cran",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         },
         {
           "name": "docker",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         },
         {
           "name": "gem",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         },
         {
           "name": "golang",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         },
         {
           "name": "hackage",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         },
         {
           "name": "hex",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         },
         {
           "name": "huggingface",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         },
         {
           "name": "jsr",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         },
         {
           "name": "julia",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         },
         {
           "name": "luarocks",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         },
         {
           "name": "maven",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         },
         {
           "name": "mojo",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         },
         {
           "name": "npm",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         },
         {
           "name": "nuget",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         },
         {
           "name": "opam",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         },
         {
           "name": "pub",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         },
         {
           "name": "pypi",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         },
         {
           "name": "swift",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         },
         {
           "name": "zig",
-          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [],
@@ -8396,22 +8619,6 @@
     "token create": {
       "flags": [
         {
-          "name": "step-up-request",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": false
-          }
-        },
-        {
-          "name": "wait-for-human",
-          "rawHelp": {
-            "aliases": [],
-            "type": "integer",
-            "required": false
-          }
-        },
-        {
           "name": "output",
           "rawHelp": {
             "aliases": [],
@@ -8471,8 +8678,6 @@
       "arguments": [],
       "relatedRequirements": [
         "cli/credentials-follow-explicit-source-precedence",
-        "cli/registry-writes-complete-required-verification",
-        "cli/unattended-verification-is-resumable",
         "cli/token/create/reports-uncertain-issuance"
       ],
       "conditionalLinks": [
@@ -8486,13 +8691,6 @@
         }
       ],
       "parameterBindings": [
-        {
-          "parameters": ["flag:step-up-request", "flag:wait-for-human"],
-          "requirements": [
-            "cli/registry-writes-complete-required-verification",
-            "cli/unattended-verification-is-resumable"
-          ]
-        },
         {
           "parameters": ["flag:output"],
           "requirements": [
@@ -8673,10 +8871,7 @@
           }
         }
       ],
-      "relatedRequirements": [
-        "cli/registry-writes-complete-required-verification",
-        "cli/unattended-verification-is-resumable"
-      ],
+      "relatedRequirements": [],
       "parameterBindings": [
         {
           "parameters": ["argument:extension"],
@@ -9014,24 +9209,7 @@
       "parameterBindings": []
     },
     "visibility reconcile": {
-      "flags": [
-        {
-          "name": "step-up-request",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": false
-          }
-        },
-        {
-          "name": "wait-for-human",
-          "rawHelp": {
-            "aliases": [],
-            "type": "integer",
-            "required": false
-          }
-        }
-      ],
+      "flags": [],
       "arguments": [
         {
           "name": "extension",
@@ -9042,18 +9220,8 @@
           }
         }
       ],
-      "relatedRequirements": [
-        "cli/registry-writes-complete-required-verification",
-        "cli/unattended-verification-is-resumable"
-      ],
+      "relatedRequirements": [],
       "parameterBindings": [
-        {
-          "parameters": ["flag:step-up-request", "flag:wait-for-human"],
-          "requirements": [
-            "cli/registry-writes-complete-required-verification",
-            "cli/unattended-verification-is-resumable"
-          ]
-        },
         {
           "parameters": ["argument:extension"],
           "requirements": ["cli/visibility/reconcile/applies-declared-repository-intent"],
@@ -9062,24 +9230,7 @@
       ]
     },
     "visibility set": {
-      "flags": [
-        {
-          "name": "step-up-request",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": false
-          }
-        },
-        {
-          "name": "wait-for-human",
-          "rawHelp": {
-            "aliases": [],
-            "type": "integer",
-            "required": false
-          }
-        }
-      ],
+      "flags": [],
       "arguments": [
         {
           "name": "extension",
@@ -9098,18 +9249,8 @@
           }
         }
       ],
-      "relatedRequirements": [
-        "cli/registry-writes-complete-required-verification",
-        "cli/unattended-verification-is-resumable"
-      ],
+      "relatedRequirements": [],
       "parameterBindings": [
-        {
-          "parameters": ["flag:step-up-request", "flag:wait-for-human"],
-          "requirements": [
-            "cli/registry-writes-complete-required-verification",
-            "cli/unattended-verification-is-resumable"
-          ]
-        },
         {
           "parameters": ["argument:extension"],
           "requirements": ["cli/visibility/set/uses-explicit-intent-and-observed-revision"],
@@ -9202,10 +9343,7 @@
           }
         }
       ],
-      "relatedRequirements": [
-        "cli/registry-writes-complete-required-verification",
-        "cli/unattended-verification-is-resumable"
-      ],
+      "relatedRequirements": [],
       "parameterBindings": [
         {
           "parameters": ["argument:extension"],

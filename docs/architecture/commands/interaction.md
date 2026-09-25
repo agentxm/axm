@@ -228,7 +228,7 @@ adds candidate details, and `--preview --verbose` shows them before acting.
 Quiet mode retains any candidate and risks required for approval.
 
 A wait parks the terminal while a person acts elsewhere: signing in, entering a
-device code, authorizing a publication, or completing step-up verification. It
+device code, or authorizing a publication. It
 first commits its instructions, code, link, and expiry. Its changing status
 and controls take the active region and race the awaited result against keys: `o` opens the browser, `c` copies the one-time
 code for device login and the link for every other wait, and `esc` abandons the

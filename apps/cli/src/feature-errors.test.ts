@@ -15,7 +15,6 @@ import {
   DeviceLoginCodeExpired,
   DeviceLoginDenied,
   RegistryAccessFailed,
-  StepUpRequired,
 } from "@agentxm/registry-access/authentication";
 import { RegistryRequestFailed } from "@agentxm/registry-client";
 
@@ -27,15 +26,15 @@ describe("registry-access envelope projection", () => {
     const error = failureToAppError(
       new RegistryAccessFailed({
         category: "auth_expired",
-        detail: "The step-up request expired before verification completed.",
-        recover: "Rerun the command to start a new verification request.",
+        detail: "The pending device sign-in expired.",
+        recover: "Run axm login to start a new device sign-in.",
       }),
     );
     expect(error.code).toBe("auth_expired");
     expect(error.title).toBe("Authentication Expired");
-    expect(error.detail).toBe("The step-up request expired before verification completed.");
+    expect(error.detail).toBe("The pending device sign-in expired.");
     expect(error.suggestions).toEqual([
-      { description: "Rerun the command to start a new verification request." },
+      { description: "Run axm login to start a new device sign-in." },
     ]);
   });
 
@@ -151,45 +150,6 @@ describe("registry-access envelope projection", () => {
         commandScope: "global",
       },
     ]);
-  });
-
-  it("restores step-up metadata and cause from the carried transport failure", () => {
-    const failure = new RegistryRequestFailed({
-      category: "auth",
-      detail: "Could not create token",
-      metadata: { response: { status: 401, body: { code: "eotp" } } },
-      cause: "original transport cause",
-    });
-    const error = failureToAppError(
-      new StepUpRequired({
-        stepUp: {
-          requestId: "step_1",
-          verificationUrl: "https://agentxm.ai/step-up/step_1",
-          statusUrl: "https://registry.agentxm.ai/v1/auth/step-up/requests/step_1",
-          expiresAt: "2026-08-10T16:05:00.000Z",
-          intervalSeconds: 2,
-          action: "Create access token",
-          target: "ci-admin",
-        },
-        failure,
-      }),
-    );
-    expect(error.code).toBe("auth_required");
-    expect(error.detail).toBe("Step-up authentication is required");
-    expect(error.blockedOn).toBe("human");
-    expect(error.action).toEqual({
-      kind: "open-url",
-      url: "https://agentxm.ai/step-up/step_1",
-      expiresAt: "2026-08-10T16:05:00.000Z",
-    });
-    expect(error.metadata).toEqual({ response: { status: 401, body: { code: "eotp" } } });
-    expect(error.suggestions).toEqual([
-      {
-        description:
-          "Complete verification while the command is waiting, or rerun the command to restart.",
-      },
-    ]);
-    expect(error.cause).toBe("original transport cause");
   });
 
   it("overlays exchange semantics while keeping the transport failure's evidence", () => {

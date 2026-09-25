@@ -36,37 +36,11 @@ any non-default Registry origin. Configure the durable Registry choice with
 
 ## Creating a token for automation
 
-`axm token create --output token` writes exactly the new token followed by one
-newline to stdout; its ID, name, permissions, expiry, approval instructions,
-and any recovery guidance go to stderr. Token commands never return a secret in
-a `--json` document, and without `--output` they refuse to run unless stdout is
-an interactive terminal. Creation requires a signed-in session. When the
-Registry asks for approval, `--wait-for-human 300` waits up to 300 seconds for
-it and then retries the creation once.
-
-Pipe the token straight into the tool that stores it, and refuse empty or
-incomplete input so a failed creation cannot overwrite an existing secret:
-
-```bash
-set -o pipefail
-axm token create \
-  --name ci-publisher \
-  --extension @acme/skills/review \
-  --permission publish \
-  --expires 90d \
-  --wait-for-human 300 \
-  --output token |
-(
-  set +x
-  IFS= read -r token || exit 1
-  [ -n "$token" ] || exit 1
-  printf '%s' "$token" |
-    gh secret set AXM_REGISTRY_TOKEN --repo acme/extensions
-)
-```
-
-A workflow then hands that secret to AXM as `AXM_TOKEN`; the secret's own name
-is yours to choose.
+Create access tokens in [web settings](https://agentxm.ai/u/settings/tokens).
+Choose the token's permission and resource restrictions there, then copy its
+one-time secret into your automation secret store. A workflow hands that secret
+to AXM as `AXM_TOKEN` or through `AXM_TOKEN_FILE`. `axm token list` and
+`axm token revoke` remain available in the CLI.
 
 Success means AXM issued the token and stdout accepted it, not that the
 receiving tool stored it, or that anything was still reading: acceptance is the

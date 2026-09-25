@@ -108,7 +108,6 @@ import {
   interruptedPublishResults,
   preparationFailureOf,
   publicationSetResult,
-  pendingHumanCause,
   publishStepFailure,
   publishStepFailureCause,
   selectedResult,
@@ -792,12 +791,6 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
 
   if (resolved.interrupted) return resolved.outcome;
   const resolution = resolved.resolution;
-
-  // A pending human approval is not a publish outcome: nothing was uploaded,
-  // and the invocation reports the handoff instead of a result document.
-  const pending =
-    resolution.failure === undefined ? undefined : pendingHumanCause(resolution.failure);
-  if (pending !== undefined) return yield* Effect.fail(pending);
 
   const planBlocking = resolution.blocking;
   const planFailed = planBlocking !== undefined || resolution.failure !== undefined;

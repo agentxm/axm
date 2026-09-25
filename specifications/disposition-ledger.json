@@ -395,13 +395,22 @@
   },
   {
     "requirement": "cli/token/completes-required-human-verification",
-    "disposition": "superseded-by",
-    "successor": "cli/registry-writes-complete-required-verification",
-    "basis": "Token creation and revocation restated the challenged-write protocol the successor owns: present the action, target and verification URL, wait once within the bound, retry the identical request exactly once with the verification identifier, and report no success on denial. The successor exercises createToken as one of its write kinds, with the approved, denied, and challenged-again rows the token file carried, and the completed-verification fact is the typed step-up result the use case returns. Revoking a token takes authority away and is never challenged, so it carries no verification obligation."
+    "disposition": "retired",
+    "basis": "The Registry retired step-up requests. Token creation is now browser-only and a CLI credential receives browser_session_required with the settings URL. Token revocation still takes authority away without an extra verification challenge."
+  },
+  {
+    "requirement": "cli/registry-writes-complete-required-verification",
+    "disposition": "retired",
+    "basis": "The Registry no longer issues step-up requests or accepts their evidence for CLI writes. Browser-only actions refuse a CLI credential with browser_session_required and name the web settings page. Device sign-in and publication authorization retain their separate flows."
+  },
+  {
+    "requirement": "cli/unattended-verification-is-resumable",
+    "disposition": "retired",
+    "basis": "There is no Registry step-up request for an unattended CLI write to resume. Browser-only actions return a web settings destination; device sign-in and publication authorization continue to own their distinct resumable handoffs."
   },
   {
     "requirement": "cli/publish/authorization-resumes-the-exact-publication",
     "disposition": "retired",
-    "basis": "Publishing requires a session or a token, so there is no signed-out publish approval left to resume. The obligation described the browser-approved publish capability end to end: the saved initiator proof, the exact-inputs recheck before exchange, and the one-time polling exchange. Every part of it went with the capability. Resuming a step-up challenge on a publish a signed-in person is already making is a different obligation, owned by the step-up specifications."
+    "basis": "Publishing requires a session or a token, so there is no signed-out publish approval left to resume. The obligation described the browser-approved publish capability end to end: the saved initiator proof, the exact-inputs recheck before exchange, and the one-time polling exchange. Every part of it went with the capability. The separate Registry step-up challenge was retired later."
   }
 ]

@@ -30,7 +30,6 @@ import type {
   VisibilityIntent,
   VisibilityMutationResult,
 } from "@agentxm/registry-protocol/unstable/publish";
-import { runWithStepUp, type StepUpOptions } from "@agentxm/registry-access/authentication";
 import {
   acceptedCanonicalObservation,
   SettingsReader,
@@ -179,7 +178,6 @@ const requireEstablishedVisibility = (target: string, evaluation: VisibilityEval
 
 export interface VisibilityWriteRequest {
   readonly target: string;
-  readonly verification: StepUpOptions;
 }
 
 export interface VisibilitySetRequest extends VisibilityWriteRequest {
@@ -208,25 +206,15 @@ export const set = Effect.fn("ManagePublishedVisibility.set")(function* (
       }),
     );
   }
-  const mutation = yield* runWithStepUp(
-    (verification) =>
-      client.updateExtensionVisibility({
-        target: parsed.fqn,
-        visibility: request.visibility,
-        revision: actual.revision,
-        authority: { kind: "operator" },
-        ...(verification === undefined ? {} : { verification }),
-      }),
-    {
-      operationLabel: `Update ${request.target}`,
-    },
-    request.verification,
-    registryUrl,
-  );
+  const mutation = yield* client.updateExtensionVisibility({
+    target: parsed.fqn,
+    visibility: request.visibility,
+    revision: actual.revision,
+    authority: { kind: "operator" },
+  });
   return {
     registry: registryUrl,
-    verificationCompleted: mutation.stepUpCompleted,
-    mutation: mutation.value satisfies VisibilityMutationResult,
+    mutation: mutation satisfies VisibilityMutationResult,
   };
 });
 
@@ -255,29 +243,19 @@ export const reconcile = Effect.fn("ManagePublishedVisibility.reconcile")(functi
       }),
     );
   }
-  const mutation = yield* runWithStepUp(
-    (verification) =>
-      client.updateExtensionVisibility({
-        target: parsed.fqn,
-        visibility: intent.value,
-        revision: actual.revision,
-        authority: {
-          kind: "repository",
-          source: intent.source,
-          fingerprint: intent.fingerprint,
-        },
-        ...(verification === undefined ? {} : { verification }),
-      }),
-    {
-      operationLabel: `Reconcile ${request.target}`,
+  const mutation = yield* client.updateExtensionVisibility({
+    target: parsed.fqn,
+    visibility: intent.value,
+    revision: actual.revision,
+    authority: {
+      kind: "repository",
+      source: intent.source,
+      fingerprint: intent.fingerprint,
     },
-    request.verification,
-    registryUrl,
-  );
+  });
   return {
     registry: registryUrl,
-    verificationCompleted: mutation.stepUpCompleted,
-    mutation: mutation.value satisfies VisibilityMutationResult,
+    mutation: mutation satisfies VisibilityMutationResult,
   };
 });
 

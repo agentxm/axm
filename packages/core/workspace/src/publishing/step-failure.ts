@@ -141,37 +141,8 @@ export const registryAccessFailureToStepFailure = (error: RegistryAccessFailure)
         },
         suggestions: [signIn("Resume waiting after approval.", error.resume)],
       });
-    case "StepUpVerificationPending":
-      return makeStepFailure({
-        category: error.timedOut ? "timeout" : "auth_required",
-        detail: "Human verification is pending. No challenged write has completed.",
-        status: "pending-human",
-        retryable: true,
-        blockedOn: "human",
-        action: error.action,
-        recover: error.action.resume,
-      });
     case "AuthInteractionAbandoned":
       return makeStepFailure({ category: "usage", detail: error.message });
-    case "StepUpRequired": {
-      // Evidence and cause come from the carried transport failure, rendered
-      // as the kernel renders it wherever else it surfaces.
-      const transport = resolutionFailureToStepFailure(error.failure);
-      return makeStepFailure({
-        category: "auth_required",
-        detail: "Step-up authentication is required",
-        blockedOn: "human",
-        action: {
-          kind: "open-url",
-          url: error.stepUp.verificationUrl,
-          expiresAt: error.stepUp.expiresAt,
-        },
-        metadata: transport.metadata,
-        recover:
-          "Complete verification while the command is waiting, or rerun the command to restart.",
-        cause: transport.cause,
-      });
-    }
     case "AuthExchangeFailed": {
       // The flow assigns auth semantics to a token-exchange transport
       // failure: its own sentence and recoveries over the transport's

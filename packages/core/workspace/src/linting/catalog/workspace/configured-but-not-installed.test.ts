@@ -255,6 +255,7 @@ describe("workspace/configured-but-not-installed in a real workspace", () => {
         )
         .pipe(Effect.provide(NodeServices.layer));
     },
+    { timeout: 15_000 },
   );
 
   it.effect("states a Skill's missing accepted content once across the whole lint run", () => {

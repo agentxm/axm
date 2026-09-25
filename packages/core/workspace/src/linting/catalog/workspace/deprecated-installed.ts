@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import type { AdvisoryRule, LintFinding } from "@agentxm/extension-content/lint";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
-import { settingsDisplayPath } from "./display-paths.js";
+import { settingsDisplayPath } from "../../../desired-state/index.js";
 
 const RULE_ID = "workspace/deprecated-installed";
 

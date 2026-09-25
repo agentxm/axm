@@ -89,7 +89,7 @@ import {
 } from "../../../projection/index.js";
 import type { KnowledgeInspection } from "@agentxm/extension-content/knowledge";
 import { MCP_SERVER_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
-import { canonicalDisplayRoot } from "../workspace/display-paths.js";
+import { acquiredRootDisplayPath } from "../../../desired-state/index.js";
 import { RULE_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/rules/manifest-schema";
 import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/skills/manifest-schema";
@@ -746,7 +746,7 @@ const nativeSkillInfo = (
     name,
     skillJson: undefined,
   }),
-  packageDisplayRoot: `${canonicalDisplayRoot(args.scope)}/${sourceName}/${owner}/skills/${name}`,
+  packageDisplayRoot: `${acquiredRootDisplayPath(args.scope)}/${sourceName}/${owner}/skills/${name}`,
 });
 
 const installedPackToInfo = (
@@ -967,7 +967,7 @@ const subagentPackageRoot = (
     if (parsed !== undefined && parsed.type === "subagents") {
       return args.platform.path.resolve(
         args.workspaceRoot,
-        `${canonicalDisplayRoot(args.scope)}/agentxm/${parsed.owner}/subagents/${subagent.key.name}`,
+        `${acquiredRootDisplayPath(args.scope)}/agentxm/${parsed.owner}/subagents/${subagent.key.name}`,
       );
     }
   }
@@ -999,7 +999,7 @@ const mcpServerPackageRoot = (
     if (parsed !== undefined && parsed.type === "mcps") {
       return args.platform.path.resolve(
         args.workspaceRoot,
-        `${canonicalDisplayRoot(args.scope)}/agentxm/${parsed.owner}/mcps/${mcpServer.key.name}`,
+        `${acquiredRootDisplayPath(args.scope)}/agentxm/${parsed.owner}/mcps/${mcpServer.key.name}`,
       );
     }
   }
@@ -1033,7 +1033,7 @@ const acquiredPackageDisplayRoot = (
   type: ExtensionTypePlural,
   name: string,
 ): string =>
-  acquiredExtensionDisplayPathFromLockEntry(canonicalDisplayRoot(scope), entry, type, name);
+  acquiredExtensionDisplayPathFromLockEntry(acquiredRootDisplayPath(scope), entry, type, name);
 
 // -----------------------------------------------------------------------------
 // Provenance → displayRoot helpers
@@ -1049,7 +1049,7 @@ export const registryNativeSkillDisplayRoot = (
   _sourceName: string,
   owner: string,
   name: string,
-): string => `${canonicalDisplayRoot(scope)}/registry/${owner}/skills/${name}/src`;
+): string => `${acquiredRootDisplayPath(scope)}/registry/${owner}/skills/${name}/src`;
 
 /**
  * Compute the content `displayRoot` for an identity-qualified acquired skill.
@@ -1078,7 +1078,7 @@ export const registryPackDisplayRoot = (
   _sourceName: string,
   owner: string,
   name: string,
-): string => `${canonicalDisplayRoot(scope)}/registry/${owner}/packs/${name}`;
+): string => `${acquiredRootDisplayPath(scope)}/registry/${owner}/packs/${name}`;
 
 // -----------------------------------------------------------------------------
 // Build-a-skill-info helpers (thin wrappers over the skill / pack accessors).
@@ -1111,7 +1111,7 @@ export const buildNativeInstalledSkillInfo = (
 ): InstalledSkillInfo => {
   const packageRoot = args.platform.path.resolve(
     args.workspaceRoot,
-    `${canonicalDisplayRoot(args.scope)}/registry/${args.owner}/skills/${args.name}`,
+    `${acquiredRootDisplayPath(args.scope)}/registry/${args.owner}/skills/${args.name}`,
   );
   const contentRoot = args.platform.path.resolve(packageRoot, "src");
   return {
@@ -1190,7 +1190,7 @@ export interface BuildInstalledPackInfoArgs {
 export const buildInstalledPackInfo = (args: BuildInstalledPackInfoArgs): InstalledPackInfo => {
   const absoluteRoot = args.platform.path.resolve(
     args.workspaceRoot,
-    `${canonicalDisplayRoot(args.scope)}/${args.sourceName}/${args.owner}/packs/${args.name}`,
+    `${acquiredRootDisplayPath(args.scope)}/${args.sourceName}/${args.owner}/packs/${args.name}`,
   );
   return {
     packJson: args.packJson,

@@ -35,7 +35,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions/universal-skills-dir";
 import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import { deferringNodes } from "./canonical-observation-findings.js";
-import { settingsDisplayPath } from "./display-paths.js";
+import { settingsDisplayPath } from "../../../desired-state/index.js";
 import { desiredPackMemberBindings } from "./helpers/pack-members.js";
 
 const RULE_ID = "workspace/skills-artifacts-correct";

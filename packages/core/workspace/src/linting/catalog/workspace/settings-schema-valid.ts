@@ -29,7 +29,7 @@ import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryFinding } from "@agentxm/extension-content/lint";
 import type { AdvisoryRule } from "@agentxm/extension-content/lint";
 import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
-import { settingsDisplayPath } from "./display-paths.js";
+import { settingsDisplayPath } from "../../../desired-state/index.js";
 
 const RULE_ID = "workspace/settings-schema-valid";
 

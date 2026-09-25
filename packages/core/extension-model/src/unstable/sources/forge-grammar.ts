@@ -14,14 +14,6 @@ import * as Schema from "effect/Schema";
 
 import { SourceNamespaceSchema, SourceRefSchema, SourceSubPathSchema } from "./types.js";
 
-import type {
-  AzureReposSourceParams,
-  BitbucketSourceParams,
-  GitHubSourceParams,
-  GitLabSourceParams,
-  LocalSourceParams,
-} from "./types.js";
-
 /** @experimental */
 export const FORGE_PREFIXES = ["github", "gitlab", "bitbucket", "azurerepos"] as const;
 /** @experimental */
@@ -233,51 +225,3 @@ export const parseForgeBrowserUrl = (url: URL): Option.Option<ForgeCoordinate> =
   } satisfies ForgeCoordinate;
   return validCoordinate(coordinate) ? Option.some(coordinate) : Option.none();
 };
-
-/** @experimental */
-export const printGitHubSource = (
-  source: GitHubSourceParams,
-  sourceName = source.sourceName ?? "github",
-) => {
-  let s = `${sourceName}:${source.owner}/${source.repo}`;
-  if (Option.isSome(source.subPath)) s += `//${source.subPath.value}`;
-  if (Option.isSome(source.ref)) s += `@${source.ref.value}`;
-  return s;
-};
-
-/** @experimental */
-export const printGitLabSource = (
-  source: GitLabSourceParams,
-  sourceName = source.sourceName ?? "gitlab",
-) => {
-  let s = `${sourceName}:${source.owner}/${source.repo}`;
-  if (Option.isSome(source.subPath)) s += `//${source.subPath.value}`;
-  if (Option.isSome(source.ref)) s += `@${source.ref.value}`;
-  return s;
-};
-
-/** @experimental */
-export const printBitbucketSource = (
-  source: BitbucketSourceParams,
-  sourceName = source.sourceName ?? "bitbucket",
-) => {
-  let s = `${sourceName}:${source.owner}/${source.repo}`;
-  if (Option.isSome(source.subPath)) s += `//${source.subPath.value}`;
-  if (Option.isSome(source.ref)) s += `@${source.ref.value}`;
-  return s;
-};
-
-/** @experimental */
-export const printAzureReposSource = (
-  source: AzureReposSourceParams,
-  sourceName = source.sourceName ?? "azurerepos",
-) => {
-  let s = `${sourceName}:${source.organization}/${source.project}/${source.repo}`;
-  if (Option.isSome(source.subPath)) s += `//${source.subPath.value}`;
-  if (Option.isSome(source.ref)) s += `@${source.ref.value}`;
-  return s;
-};
-
-/** @experimental */
-export const printLocalSource = (source: LocalSourceParams) =>
-  source.path.startsWith("/") || source.path.startsWith(".") ? source.path : `./${source.path}`;

@@ -78,4 +78,42 @@ describe("lock entry printers", () => {
       ),
     ).toBe(true);
   });
+
+  it("matches a bare GitHub locator with subpath and revision", () => {
+    expect(
+      lockEntryMatchesSourceLocator(
+        {
+          source: {
+            type: "git",
+            url: new URL("https://github.com/acme/extensions.git"),
+            revision: "main",
+            path: "skills/review",
+          },
+          identity: { owner: handle("@acme"), name: extensionName("review") },
+          resolved: { commit: "commit-1", tree: "tree-1" },
+          treeIntegrity,
+        },
+        "acme/extensions//skills/review@main",
+      ),
+    ).toBe(true);
+  });
+
+  it("matches an Azure Repos locator", () => {
+    expect(
+      lockEntryMatchesSourceLocator(
+        {
+          source: {
+            type: "git",
+            url: new URL("https://dev.azure.com/acme/platform/_git/widgets"),
+            revision: "main",
+            path: "skills/review",
+          },
+          identity: { owner: handle("@acme"), name: extensionName("review") },
+          resolved: { commit: "commit-1", tree: "tree-1" },
+          treeIntegrity,
+        },
+        "azurerepos:acme/platform/widgets//skills/review@main",
+      ),
+    ).toBe(true);
+  });
 });

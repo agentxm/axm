@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 
-import { printLocalSource } from "@agentxm/extension-model/unstable/sources/forge-grammar";
+import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import { parseLocalPath } from "./parser.js";
 
 describe("print round-trip", () => {
@@ -9,7 +9,7 @@ describe("print round-trip", () => {
     Effect.gen(function* () {
       const path = "./my/skills";
       const source = yield* parseLocalPath(path);
-      expect(printLocalSource(source)).toBe(path);
+      expect(printSourceParams(source)).toBe(path);
     }),
   );
 
@@ -17,7 +17,7 @@ describe("print round-trip", () => {
     Effect.gen(function* () {
       const path = "/home/user/skills";
       const source = yield* parseLocalPath(path);
-      expect(printLocalSource(source)).toBe(path);
+      expect(printSourceParams(source)).toBe(path);
     }),
   );
 });

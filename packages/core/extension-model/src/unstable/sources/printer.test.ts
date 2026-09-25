@@ -4,6 +4,14 @@ import { extensionName, handle } from "../test-helpers.js";
 import { printSourceParams } from "./printer.js";
 
 describe("printSourceParams", () => {
+  it.each([
+    ["./my/skills", "./my/skills"],
+    ["my/skills", "./my/skills"],
+    ["/home/user/skills", "/home/user/skills"],
+  ] as const)("prints local path %s", (path, expected) => {
+    expect(printSourceParams({ type: "local", path })).toBe(expected);
+  });
+
   it("prints source parameters", () => {
     expect(
       printSourceParams({

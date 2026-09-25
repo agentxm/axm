@@ -16,6 +16,10 @@ import type {
   SubagentLockEntry,
 } from "../lockfile/schema.js";
 import { formatFqn } from "@agentxm/extension-model/unstable/extensions";
+import {
+  forgeCoordinateFromGitUrl,
+  printForgeCoordinateBody,
+} from "@agentxm/extension-model/unstable/sources/forge-grammar";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import type { SourceParams } from "@agentxm/extension-model/unstable/sources/types";
 
@@ -54,41 +58,19 @@ export const lockEntryToSourceParams = (entry: SourceLockEntry): SourceParams =>
   }
 };
 
-const knownGitHostPrefix = (url: URL): string | undefined => {
-  switch (url.hostname.toLowerCase()) {
-    case "github.com":
-      return "github";
-    case "gitlab.com":
-      return "gitlab";
-    case "bitbucket.org":
-      return "bitbucket";
-    default:
-      return undefined;
-  }
-};
-
-const trimSlashes = (value: string): string => {
-  let start = 0;
-  let end = value.length;
-  while (start < end && value[start] === "/") start += 1;
-  while (end > start && value[end - 1] === "/") end -= 1;
-  return value.slice(start, end);
-};
-
 /** Whether a declaration locator denotes the self-described accepted source. */
 export const lockEntryMatchesSourceLocator = (entry: SourceLockEntry, locator: string): boolean => {
   if (printSourceParams(lockEntryToSourceParams(entry)) === locator) return true;
   if (entry.source.type !== "git") return false;
 
-  const prefix = knownGitHostPrefix(entry.source.url);
-  if (prefix === undefined) return false;
-  const repository = trimSlashes(entry.source.url.pathname).replace(/\.git$/, "");
-  if (repository.length === 0) return false;
-  const path = entry.source.path === undefined ? "" : `//${entry.source.path}`;
-  const revision = entry.source.revision === undefined ? "" : `@${entry.source.revision}`;
-  return (
-    locator === `${prefix}:${repository}${path}${revision}` ||
-    (prefix === "github" && locator === `${repository}${path}${revision}`)
+  return Option.exists(
+    forgeCoordinateFromGitUrl(
+      entry.source.url,
+      Option.fromUndefinedOr(entry.source.revision),
+      Option.fromUndefinedOr(entry.source.path),
+    ),
+    (coordinate) =>
+      coordinate.forge === "github" && locator === printForgeCoordinateBody(coordinate),
   );
 };
 

@@ -7,12 +7,11 @@
 
 import * as Option from "effect/Option";
 import { formatFqn } from "../extensions/fqn.js";
-import {
-  forgeCoordinateFromGitUrl,
-  printForgeCoordinate,
-  printLocalSource,
-} from "./forge-grammar.js";
-import type { SourceParams } from "./types.js";
+import { forgeCoordinateFromGitUrl, printForgeCoordinate } from "./forge-grammar.js";
+import type { LocalSourceParams, SourceParams } from "./types.js";
+
+const printLocalSource = (source: LocalSourceParams): string =>
+  source.path.startsWith("/") || source.path.startsWith(".") ? source.path : `./${source.path}`;
 
 /**
  * Print source params as their canonical shorthand string.

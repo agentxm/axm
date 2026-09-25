@@ -13,25 +13,25 @@
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import * as Result from "effect/Result";
 import { bindRegistrySource } from "../../desired-state/index.js";
 import * as Option from "effect/Option";
 import type { RegistryClientFactory } from "@agentxm/registry-client";
 
-import * as azurerepos from "./providers/azurerepos/index.js";
-import * as bitbucket from "./providers/bitbucket/index.js";
-import * as github from "./providers/github/index.js";
-import * as gitlab from "./providers/gitlab/index.js";
+import {
+  forgeCloneUrl,
+  isForgePrefix,
+  parseForgeBrowserUrl,
+  parseForgeCoordinate,
+  type ForgeCoordinate,
+} from "@agentxm/extension-model/unstable/sources/forge-grammar";
 import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
 import type {
   InputParseResult,
   ShorthandInput,
 } from "@agentxm/extension-model/unstable/sources/parser";
 import type {
-  AzureReposSourceParams,
-  BitbucketSourceParams,
   GitSource,
-  GitHubSourceParams,
-  GitLabSourceParams,
   RegistrySource,
   Source,
 } from "@agentxm/extension-model/unstable/sources/types";
@@ -71,31 +71,12 @@ const genericGitSourceFromUrl = (
   subPath,
 });
 
-type ForgeSourceParams =
-  GitHubSourceParams | GitLabSourceParams | BitbucketSourceParams | AzureReposSourceParams;
-
-const gitSourceFromForgeParams = (params: ForgeSourceParams): GitSource => {
-  const cloneUrl =
-    params.type === "azurerepos"
-      ? new URL(
-          `${params.organization}/${params.project}/_git/${params.repo}`,
-          "https://dev.azure.com/",
-        )
-      : new URL(
-          `${params.owner}/${params.repo}.git`,
-          params.type === "github"
-            ? "https://github.com/"
-            : params.type === "gitlab"
-              ? "https://gitlab.com/"
-              : "https://bitbucket.org/",
-        );
-  return {
-    type: "git",
-    url: cloneUrl,
-    ref: params.ref,
-    subPath: params.subPath,
-  };
-};
+const gitSourceFromForgeCoordinate = (coordinate: ForgeCoordinate): GitSource => ({
+  type: "git",
+  url: forgeCloneUrl(coordinate),
+  ref: coordinate.ref,
+  subPath: coordinate.subPath,
+});
 
 const splitScpPathRef = (scp: {
   readonly user: string;
@@ -126,27 +107,26 @@ const splitScpPathRef = (scp: {
 // Helpers
 // -----------------------------------------------------------------------------
 
-/** Parse shorthand input using the provider for the given source type. */
+/** Parse shorthand input using the model's forge grammar. */
 const parseShorthandForSource = (
   shorthand: ShorthandInput,
 ): Effect.Effect<GitSource, SourceSyntaxInvalid> => {
   const input = `${shorthand.prefix}:${shorthand.remainingInput}`;
-  switch (shorthand.prefix) {
-    case "github":
-      return github.parseShorthand(input).pipe(Effect.map(gitSourceFromForgeParams));
-    case "gitlab":
-      return gitlab.parseShorthand(input).pipe(Effect.map(gitSourceFromForgeParams));
-    case "bitbucket":
-      return bitbucket.parseShorthand(input).pipe(Effect.map(gitSourceFromForgeParams));
-    case "azurerepos":
-      return azurerepos.parseShorthand(input).pipe(Effect.map(gitSourceFromForgeParams));
-    default:
-      return Effect.fail(
+  if (!isForgePrefix(shorthand.prefix)) {
+    return Effect.fail(
+      new SourceSyntaxInvalid({
+        detail: `Source type "${shorthand.prefix}" does not support shorthand syntax`,
+      }),
+    );
+  }
+  const parsed = parseForgeCoordinate(shorthand.prefix, shorthand.remainingInput);
+  return Result.isSuccess(parsed)
+    ? Effect.succeed(gitSourceFromForgeCoordinate(parsed.success))
+    : Effect.fail(
         new SourceSyntaxInvalid({
-          detail: `Source type "${shorthand.prefix}" does not support shorthand syntax`,
+          detail: `Invalid provider shorthand "${input}": ${parsed.failure.reason}`,
         }),
       );
-  }
 };
 
 // -----------------------------------------------------------------------------
@@ -165,20 +145,13 @@ export const routeUrlInput = (url: URL, _input: string) =>
       });
     }
 
-    const parseKnownBrowserUrl =
-      url.hostname === "github.com"
-        ? github.parseUrl(url).pipe(Effect.map(gitSourceFromForgeParams))
-        : url.hostname === "gitlab.com"
-          ? gitlab.parseUrl(url).pipe(Effect.map(gitSourceFromForgeParams))
-          : url.hostname === "bitbucket.org"
-            ? bitbucket.parseUrl(url).pipe(Effect.map(gitSourceFromForgeParams))
-            : url.hostname === "dev.azure.com"
-              ? azurerepos.parseUrl(url).pipe(Effect.map(gitSourceFromForgeParams))
-              : undefined;
-    if (parseKnownBrowserUrl === undefined) return genericGitSourceFromUrl(url);
-
-    const parsed = yield* Effect.result(parseKnownBrowserUrl);
-    return parsed._tag === "Success" ? parsed.success : genericGitSourceFromUrl(url);
+    const parsed = parseForgeBrowserUrl(url);
+    return Option.isSome(parsed)
+      ? {
+          ...gitSourceFromForgeCoordinate(parsed.value),
+          ref: Option.orElse(parsed.value.ref, () => refFromUrlHash(url)),
+        }
+      : genericGitSourceFromUrl(url);
   });
 
 // -----------------------------------------------------------------------------

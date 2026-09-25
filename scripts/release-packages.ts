@@ -30,6 +30,14 @@ export const stampBootstrapManifest = (original: string, path: string, version: 
   }
   decoded["version"] = version;
 
+  return stampBootstrapCohortReferences(JSON.stringify(decoded), version);
+};
+
+/** Pin bundled implementation packages' references to the preview cohort. */
+export const stampBootstrapCohortReferences = (original: string, version: string): string => {
+  const decoded: unknown = JSON.parse(original);
+  if (!isRecord(decoded)) throw new Error("Could not stamp cohort references in package manifest.");
+
   for (const section of ["dependencies", "optionalDependencies", "peerDependencies"]) {
     const dependencies = decoded[section];
     if (!isRecord(dependencies)) continue;

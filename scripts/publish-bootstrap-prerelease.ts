@@ -10,6 +10,7 @@ import * as semver from "semver";
 import { run } from "./release-command.js";
 import {
   produceReleaseCohort,
+  stampBootstrapCohortReferences,
   stampBootstrapManifest,
   stampBootstrapSkillDocument,
 } from "./release-packages.js";
@@ -38,6 +39,7 @@ import {
 } from "./release-shared.js";
 
 import { loadNpmPublicationAuth, npmPublicationProcessEnvironment } from "./release-npm-auth.js";
+import { readProductionPackages } from "./production-packages.js";
 
 const npmAuthentication = await Effect.runPromise(
   loadNpmPublicationAuth(ConfigProvider.fromEnvRecord(process.env)),
@@ -79,8 +81,12 @@ const version = derivePreviewVersion({
   shortSha: sourceSha.slice(0, 12),
 });
 const distTag = "preview";
+const internalManifestPaths = readProductionPackages(process.cwd())
+  .filter(({ name }) => !RELEASE_PACKAGES.some((pkg) => pkg.name === name))
+  .map(({ directory }) => join(directory, "package.json"));
 const snapshots = [
   ...RELEASE_PACKAGE_JSON_PATHS,
+  ...internalManifestPaths,
   AXM_SKILL_MANIFEST_PATH,
   AXM_SKILL_DOCUMENT_PATH,
   AXM_SKILL_GENERATED_PATH,
@@ -99,7 +105,9 @@ try {
     )) {
       writeFileSync(
         snapshot.path,
-        stampBootstrapManifest(snapshot.original, snapshot.path, version),
+        internalManifestPaths.includes(snapshot.path)
+          ? stampBootstrapCohortReferences(snapshot.original, version)
+          : stampBootstrapManifest(snapshot.original, snapshot.path, version),
         "utf8",
       );
     }

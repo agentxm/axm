@@ -8,6 +8,7 @@ import { RELEASE_PACKAGES } from "./release-shared.js";
 import { capture, captureIn } from "./release-command.js";
 import {
   RELEASE_COHORT_MANIFEST,
+  stampBootstrapCohortReferences,
   stampBootstrapManifest,
   stampBootstrapSkillDocument,
   validatePack,
@@ -133,6 +134,31 @@ describe("bootstrap cohort manifests", () => {
       },
       devDependencies: {
         "@agentxm/specification-metadata": "catalog:",
+      },
+    });
+  });
+
+  it("pins bundled package cohort references without changing its own version", () => {
+    const preview = "0.34.0-preview.123.abcdef012345";
+    const stamped: unknown = JSON.parse(
+      stampBootstrapCohortReferences(
+        JSON.stringify({
+          name: "@agentxm/workspace",
+          version: "0.30.2",
+          dependencies: {
+            "@agentxm/extension-content": "workspace:^",
+            effect: "catalog:",
+          },
+        }),
+        preview,
+      ),
+    );
+    expect(stamped).toEqual({
+      name: "@agentxm/workspace",
+      version: "0.30.2",
+      dependencies: {
+        "@agentxm/extension-content": preview,
+        effect: "catalog:",
       },
     });
   });

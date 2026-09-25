@@ -3,6 +3,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
+import { isWithinOrEqual } from "@agentxm/extension-model/unstable/path-types";
 import {
   extensionTypes,
   toExtensionTypePlural,
@@ -232,11 +233,6 @@ export const collectUnreachableRetirement = (
       ),
     });
   });
-
-const isWithinOrEqual = (path: Path.Path, parent: string, child: string) => {
-  const relative = path.relative(parent, child);
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
-};
 
 /** `@owner/plural/name` for a well-formed installed package path. */
 const leftoverIdentity = (entry: InstalledPackageEntry) =>

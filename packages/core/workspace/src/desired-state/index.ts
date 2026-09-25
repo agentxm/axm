@@ -25,7 +25,7 @@ export {
 } from "./knowledge/discovery-config.js";
 
 // Path safety
-export { safeChildPath, validatePathSafety, PathTraversalDetected } from "./utils/path-safety.js";
+export { validatePathSafety, PathTraversalDetected } from "./utils/path-safety.js";
 
 // Additional settings and lockfile vocabulary consumed beyond the barrels
 export { SETTINGS_KNOWN_KEYS } from "./settings/schema.js";

@@ -22,8 +22,7 @@ import {
   MAX_BUFFERED_ARCHIVE_BYTES,
   MAX_EXTRACTED_ARCHIVE_BYTES,
 } from "./archive-limits.js";
-import { safeChildPath } from "./path-safety.js";
-import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
+import { makeAbsolutePath, safeChildPath } from "@agentxm/extension-model/unstable/path-types";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
   toExtensionTypePlural,
@@ -267,7 +266,7 @@ const extractZipWithoutBudget = (
         Effect.gen(function* () {
           // Reject any entry whose resolved path escapes the target directory
           // (zip slip): `..` traversal or an absolute path.
-          const safePath = yield* safeChildPath(baseDir, name);
+          const safePath = safeChildPath(path, baseDir, name);
           if (Option.isNone(safePath)) {
             return yield* new RegistryOperationFailed({
               category: "validation",

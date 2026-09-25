@@ -11,6 +11,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import { isStrictlyWithin } from "@agentxm/extension-model/unstable/path-types";
 import * as Stream from "effect/Stream";
 import { ChildProcess } from "effect/unstable/process";
 import { createHash } from "node:crypto";
@@ -259,8 +260,7 @@ const writeIndexEntry = (args: {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const destination = path.resolve(args.workspaceRoot, args.entry.path);
-    const relative = path.relative(args.workspaceRoot, destination);
-    if (relative.length === 0 || relative.startsWith("..") || path.isAbsolute(relative)) {
+    if (!isStrictlyWithin(path, args.workspaceRoot, destination)) {
       return yield* stagedSnapshotError({
         detail: `Git index path escapes the staged workspace: ${args.entry.path}`,
       });

@@ -9,7 +9,11 @@ import { ACQUIRED_EXTENSIONS_DIR, LOCK_FILENAME, USER_WORKSPACE_DIRECTORY } from
 import { AXM_DIR_NAME } from "@agentxm/host-primitives";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type { Settings } from "../settings/schema.js";
-import { makeAbsolutePath, type AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
+import {
+  isWithinOrEqual,
+  makeAbsolutePath,
+  type AbsolutePath,
+} from "@agentxm/extension-model/unstable/path-types";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 
 export { LOCK_FILENAME } from "./constants.js";
@@ -100,11 +104,6 @@ export const configuredAuthoredDirectory = (settings: Settings, type: ExtensionT
 const layoutError = (detail: string, cause?: unknown): WorkspaceLayoutError =>
   new WorkspaceLayoutError({ detail, ...(cause === undefined ? {} : { cause }) });
 
-const overlaps = (path: Path.Path, left: string, right: string): boolean => {
-  const relative = path.relative(left, right);
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
-};
-
 const validateLexicalDirectory = (
   path: Path.Path,
   projectRoot: AbsolutePath,
@@ -126,12 +125,12 @@ const validateLexicalDirectory = (
   }
 
   const resolved = path.resolve(projectRoot, configured);
-  if (!overlaps(path, projectRoot, resolved)) {
+  if (!isWithinOrEqual(path, projectRoot, resolved)) {
     return Effect.fail(
       layoutError(`Invalid ${type} authored directory "${configured}": path escapes the workspace`),
     );
   }
-  const collision = reservedRoots.find((reserved) => overlaps(path, reserved, resolved));
+  const collision = reservedRoots.find((reserved) => isWithinOrEqual(path, reserved, resolved));
   if (collision !== undefined) {
     return Effect.fail(
       layoutError(
@@ -186,7 +185,7 @@ const validateExistingAuthoredRoot = (
           layoutError(`Failed to resolve ${type} authored root ${root}`, cause),
         ),
       );
-    if (!overlaps(path, realProjectRoot, realRoot)) {
+    if (!isWithinOrEqual(path, realProjectRoot, realRoot)) {
       return yield* layoutError(
         `Invalid ${type} authored root ${root}: real path escapes the workspace`,
       );
@@ -234,7 +233,7 @@ export const resolveProjectWorkspaceLayout = (
         reservedRoots,
       );
       for (const [otherType, otherRoot] of roots) {
-        if (overlaps(path, otherRoot, root) || overlaps(path, root, otherRoot)) {
+        if (isWithinOrEqual(path, otherRoot, root) || isWithinOrEqual(path, root, otherRoot)) {
           return yield* layoutError(
             `Invalid ${extensionType} authored directory ${root}: overlaps ${otherType} authored root ${otherRoot}`,
           );

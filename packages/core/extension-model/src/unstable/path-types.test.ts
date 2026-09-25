@@ -10,6 +10,9 @@ import {
   makeWorkspaceRelativePath,
   makeWorkspaceRelativeSourcePath,
   isPathSafe,
+  isStrictlyWithin,
+  isWithinOrEqual,
+  safeChildPath,
 } from "./path-types.js";
 
 layer(Path.layer, { excludeTestServices: true })("path-types", (it) => {
@@ -108,6 +111,38 @@ layer(Path.layer, { excludeTestServices: true })("path-types", (it) => {
 
   const pathSafe = (base: string, target: string) =>
     Effect.map(Path.Path, (path) => isPathSafe(path, base, target));
+
+  it.effect("accepts only resolved children in the safe child predicate", () =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      const base = path.resolve("/workspace");
+      expect(Option.getOrNull(safeChildPath(path, base, "skill/readme.md"))).toBe(
+        path.join(base, "skill", "readme.md"),
+      );
+      expect(Option.getOrNull(safeChildPath(path, base, "."))).toBe(base);
+      expect(Option.isNone(safeChildPath(path, base, "../outside"))).toBe(true);
+      expect(Option.isNone(safeChildPath(path, base, path.resolve("/outside")))).toBe(true);
+      expect(Option.isNone(safeChildPath(path, base, path.resolve("/workspace-copy")))).toBe(true);
+    }),
+  );
+
+  it.effect("distinguishes inclusive and strict relative containment", () =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      const base = path.resolve("/workspace");
+      const child = path.join(base, "skill", "readme.md");
+      const sibling = path.resolve("/workspace-copy");
+      const outside = path.resolve("/outside");
+      expect(isWithinOrEqual(path, base, base)).toBe(true);
+      expect(isStrictlyWithin(path, base, base)).toBe(false);
+      expect(isWithinOrEqual(path, base, child)).toBe(true);
+      expect(isStrictlyWithin(path, base, child)).toBe(true);
+      for (const target of [sibling, outside, path.resolve(base, "../outside")]) {
+        expect(isWithinOrEqual(path, base, target)).toBe(false);
+        expect(isStrictlyWithin(path, base, target)).toBe(false);
+      }
+    }),
+  );
 
   it.effect("accepts a target within base", () =>
     Effect.map(pathSafe("/a/b", "/a/b/c/d"), (safe) => expect(safe).toBe(true)),

@@ -15,7 +15,11 @@ import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import type { CatalogExtensionType } from "@agentxm/extension-model/unstable/extension-types/schema";
 import { type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type { Settings, SourceHostConfig } from "../../settings/schema.js";
-import { makeAbsolutePath, type AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
+import {
+  isWithinOrEqual,
+  makeAbsolutePath,
+  type AbsolutePath,
+} from "@agentxm/extension-model/unstable/path-types";
 import {
   resolveProjectWorkspaceLayout,
   resolveProjectWorkspaceStatePaths,
@@ -172,12 +176,7 @@ const validateRoot = (
 ): Effect.Effect<ResolvedWorkspaceRoot, WorkspaceRootEscape> =>
   Effect.gen(function* () {
     const resolved = pathSvc.resolve(candidate);
-    const resolvedAllowed = pathSvc.resolve(allowedRoot);
-
-    if (resolved === resolvedAllowed) return ResolvedWorkspaceRoot(resolved);
-
-    const relative = pathSvc.relative(resolvedAllowed, resolved);
-    if (relative !== "" && (relative.startsWith("..") || pathSvc.isAbsolute(relative))) {
+    if (!isWithinOrEqual(pathSvc, allowedRoot, resolved)) {
       return yield* new WorkspaceRootEscape({
         workspaceRoot: candidate,
         allowedRoot,

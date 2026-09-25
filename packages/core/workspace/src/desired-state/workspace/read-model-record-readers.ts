@@ -8,6 +8,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
+import { isWithinOrEqual } from "@agentxm/extension-model/unstable/path-types";
 import {
   installableExtensionTypes,
   type InstallableExtensionType,
@@ -165,11 +166,6 @@ export const makeReadModelRecordReaders = (args: {
     };
   };
 
-  const isWithin = (root: string, candidate: string): boolean => {
-    const relative = args.path.relative(root, candidate);
-    return !relative.startsWith("..") && !args.path.isAbsolute(relative);
-  };
-
   /**
    * Classify one occurrence desired state does not explain: an AXM package
    * under the install root is `leftover`, an AXM package under its type's
@@ -188,11 +184,11 @@ export const makeReadModelRecordReaders = (args: {
     if (originTag === null || packageLocation === null) return "unmanaged";
     const canonical = originTag.startsWith("canonical-axm-");
     if (!canonical && !originTag.startsWith("external-axm-")) return "unmanaged";
-    if (isWithin(layout.value.acquiredRoot, packageLocation)) return "leftover";
+    if (isWithinOrEqual(args.path, layout.value.acquiredRoot, packageLocation)) return "leftover";
     if (
       canonical &&
       layout.value.scope === "project" &&
-      isWithin(layout.value.authoredRoot(key.type), packageLocation)
+      isWithinOrEqual(args.path, layout.value.authoredRoot(key.type), packageLocation)
     ) {
       return "undeclared";
     }

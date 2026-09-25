@@ -1646,7 +1646,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `packages/supporting/registry-access/src/credentials/token-resolution.ts`
-- Additional evidence: process via [`apps/cli-e2e/src/auth.e2e.test.ts`](../apps/cli-e2e/src/auth.e2e.test.ts) — This Vitest entrypoint executes the imported cli-commands/auth/token/token.e2e.ts scenarios through real CLI processes. They observe raw/JSON token stdout and HTTP verification followed by token creation. Imported source bytes remain part of the repository execution inputs; this binding attributes evidence to the selected entrypoint, not to an import alone.
+- Additional evidence: process via [`apps/cli-e2e/src/auth.e2e.test.ts`](../apps/cli-e2e/src/auth.e2e.test.ts) — This Vitest entrypoint executes the imported cli-commands/auth/token/token.e2e.ts scenarios through real CLI processes. They observe raw/JSON token stdout and the Registry's browser-only token creation refusal. Imported source bytes remain part of the repository execution inputs; this binding attributes evidence to the selected entrypoint, not to an import alone.
 - Source: [`packages/supporting/registry-access/src/credentials/credentials-follow-explicit-source-precedence.spec.ts`](../packages/supporting/registry-access/src/credentials/credentials-follow-explicit-source-precedence.spec.ts)
 
 ##### Environments without session storage require explicit tokens
@@ -1878,21 +1878,6 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Derived from: `packages/supporting/registry-access/src/authentication/tokens.ts`
 - Source: [`packages/supporting/registry-access/src/authentication/tokens/revoke-revokes-only-selected-token.spec.ts`](../packages/supporting/registry-access/src/authentication/tokens/revoke-revokes-only-selected-token.spec.ts)
 
-##### Unattended verification returns the same resumable request
-
-- Requirement: `cli/unattended-verification-is-resumable`
-- Owner: `registry-access`
-- Statement: When a Registry write no person is guiding requires human verification, AXM shall return a pending-human handoff immediately unless a bounded wait was explicitly requested, identify its purpose, Registry, nonsecret request reference, verification URL, expiry, polling interval and resume instruction, resume only that referenced request with the original inputs without creating a replacement or performing the write before verification, refuse a reference naming another Registry, another purpose, or carrying a query without presenting any credential, and refuse a nonpositive bounded wait before attempting the write.
-- Class: functional
-- Role: experience
-- Product goals: `machine-automation`, `privacy-and-consent`, `safe-repetition`
-- Boundary: memory; selection: per-change
-- Methods: decision-table, example
-- Derived from: `cli/registry-writes-complete-required-verification`
-- Limitation: The Registry boundary is controlled; server-side action, actor and intent binding enforcement is outside this CLI evidence. Retires when: Deployed Registry conformance evidence verifies rejection of altered action, actor and intent bindings.
-- Limitation: That machine output or a missing terminal each make an invocation unattended, and that the pending handoff renders as exit 13 (or 16 when the wait elapses) in the JSON error envelope, are boundary decisions this capability cannot observe; the envelope and exit codes are pinned by apps/cli/src/auth-pending-envelopes.test.ts, and that login does not offer the resume flag by apps/cli/src/cli-flags/human-verification.test.ts. Retires when: cli/exit-codes-match-published-reference adopts the pending-verification exit codes, and one owner states the unattended-invocation rule the write commands each derive today.
-- Source: [`packages/supporting/registry-access/src/authentication/step-up/unattended-verification-is-resumable.spec.ts`](../packages/supporting/registry-access/src/authentication/step-up/unattended-verification-is-resumable.spec.ts)
-
 ##### View reports archival and the effective lifecycle state
 
 - Requirement: `cli/view/reports-archival-and-effective-lifecycle-state`
@@ -1979,22 +1964,6 @@ Observation of product use stays within the documented data boundary and under t
 - Methods: decision-table
 - Derived from: `AgentXM Registry API 0.1.0`
 - Source: [`packages/core/workspace/src/publishing/lifecycle/registry-management-preserves-authentication-failures.spec.ts`](../packages/core/workspace/src/publishing/lifecycle/registry-management-preserves-authentication-failures.spec.ts)
-
-##### Challenged Registry writes complete the required verification before retrying
-
-- Requirement: `cli/registry-writes-complete-required-verification`
-- Owner: `registry-access`
-- Statement: When a Registry write that a person is guiding, or one explicitly requesting a bounded wait, receives a human-verification challenge, AXM shall present the action, target and verification URL, wait once for that challenge's completion within its lifetime and the requested wait bound, retry the identical write at most once with its verification identifier while preserving every input it carried, and report no success if verification or the retry fails.
-- Class: functional
-- Role: experience
-- Product goals: `privacy-and-consent`, `safe-repetition`
-- Boundary: memory; selection: per-change
-- Methods: decision-table, example
-- Derived from: `AgentXM Registry API 0.1.0`, `packages/supporting/registry-access/src/authentication/step-up.ts`, `cli/token/completes-required-human-verification`
-- Supersedes: `cli/token/completes-required-human-verification`
-- Limitation: Token creation is exercised through its own use case; the visibility writes are exercised as parameterized mutation ports, so that visibility set and visibility reconcile each compose this capability is not established here. Retires when: Workspace publishing carries a test proving each visibility command composes runWithStepUp with its observed revision.
-- Additional evidence: process via [`apps/cli-e2e/src/auth.e2e.test.ts`](../apps/cli-e2e/src/auth.e2e.test.ts) — This Vitest entrypoint executes the imported cli-commands/auth/token/token.e2e.ts scenarios through real CLI processes. They observe raw/JSON token stdout and HTTP verification followed by token creation. Imported source bytes remain part of the repository execution inputs; this binding attributes evidence to the selected entrypoint, not to an import alone.
-- Source: [`packages/supporting/registry-access/src/authentication/step-up/registry-writes-complete-required-verification.spec.ts`](../packages/supporting/registry-access/src/authentication/step-up/registry-writes-complete-required-verification.spec.ts)
 
 ##### Telemetry collection requires the operator's environment consent
 
@@ -4928,7 +4897,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `apps/cli/src/root/auth/token.ts`
-- Additional evidence: process via [`apps/cli-e2e/src/auth.e2e.test.ts`](../apps/cli-e2e/src/auth.e2e.test.ts) — This Vitest entrypoint executes the imported cli-commands/auth/token/token.e2e.ts scenarios through real CLI processes. They observe raw/JSON token stdout and HTTP verification followed by token creation. Imported source bytes remain part of the repository execution inputs; this binding attributes evidence to the selected entrypoint, not to an import alone.
+- Additional evidence: process via [`apps/cli-e2e/src/auth.e2e.test.ts`](../apps/cli-e2e/src/auth.e2e.test.ts) — This Vitest entrypoint executes the imported cli-commands/auth/token/token.e2e.ts scenarios through real CLI processes. They observe raw/JSON token stdout and the Registry's browser-only token creation refusal. Imported source bytes remain part of the repository execution inputs; this binding attributes evidence to the selected entrypoint, not to an import alone.
 - Source: [`apps/cli/src/root/auth/token-returns-effective-token.spec.ts`](../apps/cli/src/root/auth/token-returns-effective-token.spec.ts)
 
 ##### Machine upgrade emits one complete assessment

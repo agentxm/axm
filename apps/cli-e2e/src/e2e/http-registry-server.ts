@@ -26,7 +26,6 @@ const INDEX_PATH = /^\/v1\/extensions\/([^/]+)\/([^/]+)\/([^/]+)$/;
 const OWNER_PATH = /^\/v1\/owners\/([^/]+)$/;
 
 const decodePathSegment = (segment: string): string => decodeURIComponent(segment);
-const STEP_UP_REQUEST_ID = "step_01h455vb4pexka56gq5w2r7cpc";
 const TEST_OWNER = "@test";
 
 const TYPE_BY_PLURAL: Readonly<Record<string, string>> = {
@@ -114,8 +113,8 @@ export interface HttpRegistryOptions {
   readonly enforcePackDependencies?: boolean;
   /** Observe an authorized archive request before its response is sent. */
   readonly onArchiveRequest?: (pluralAndName: string) => void;
-  /** Require and complete the durable step-up flow for POST /v1/tokens, and accept revocation. */
-  readonly stepUpTokenCreate?: boolean;
+  /** Refuse token creation from CLI credentials and name the browser settings page. */
+  readonly browserOnlyTokenCreate?: boolean;
   /** Return a deliberately unusable publish-preview contract or HTTP failure. */
   readonly publishPreviewMode?: "unavailable" | "incomplete" | "missing" | "service-unavailable";
   /** Map bearer tokens to the owner whose private extensions they may read. */
@@ -473,7 +472,7 @@ export const startHttpRegistry = async (
       }
 
       if (
-        options.stepUpTokenCreate === true &&
+        options.browserOnlyTokenCreate === true &&
         request.method === "POST" &&
         pathname !== "/v1/resolutions/metadata"
       ) {
@@ -482,35 +481,14 @@ export const startHttpRegistry = async (
           return;
         }
         await readBody(request);
-        const requestOrigin = `http://${request.headers.host ?? "127.0.0.1"}`;
-        if (request.headers["x-axm-step-up-request"] !== STEP_UP_REQUEST_ID) {
-          sendJson(response, 401, {
-            kind: "StepUpRequiredError",
-            type: "https://axm.dev/problems/step-up-required",
-            title: "Step-up verification required",
-            status: 401,
-            detail: "Complete step-up verification before creating the token.",
-            code: "eotp",
-            max_age: 300,
-            step_up: {
-              request_id: STEP_UP_REQUEST_ID,
-              verification_url: `${requestOrigin}/step-up/${STEP_UP_REQUEST_ID}`,
-              status_url: `${requestOrigin}/v1/auth/step-up/requests/${STEP_UP_REQUEST_ID}`,
-              expires_at: "2099-01-01T00:05:00.000Z",
-              interval: 0,
-              action: "Create access token",
-              target: "e2e-step-up",
-            },
-          });
-          return;
-        }
-        sendJson(response, 201, {
-          id: "tok_01h455vb4pexka56gq5w2r7cpc",
-          token: "axmt_step_up_e2e",
-          name: "e2e-step-up",
-          permissions: { model: "gat", owners: [], extensions: [], permission: "read" },
-          created_at: "2026-08-10T15:00:00.000Z",
-          expires_at: "2026-09-09T15:00:00.000Z",
+        sendJson(response, 403, {
+          kind: "ForbiddenError",
+          type: "about:blank",
+          title: "Forbidden",
+          status: 403,
+          detail: "Create access tokens in web settings.",
+          code: "browser_session_required",
+          details: { settingsUrl: "https://agentxm.ai/u/settings/tokens" },
         });
         return;
       }
@@ -807,32 +785,11 @@ export const startHttpRegistry = async (
       }
 
       if (
-        options.stepUpTokenCreate === true &&
-        request.method === "DELETE" &&
-        pathname.startsWith("/v1/tokens/")
-      ) {
-        response.writeHead(204);
-        response.end();
-        return;
-      }
-
-      if (
         request.method !== "GET" &&
         request.method !== "HEAD" &&
         !(request.method === "POST" && pathname === "/v1/resolutions/metadata")
       ) {
         sendProblem(response, 405, `Unsupported method ${request.method ?? "unknown"}`);
-        return;
-      }
-
-      if (
-        options.stepUpTokenCreate === true &&
-        pathname === `/v1/auth/step-up/requests/${STEP_UP_REQUEST_ID}`
-      ) {
-        sendJson(response, 200, {
-          status: "verified",
-          expires_at: "2099-01-01T00:05:00.000Z",
-        });
         return;
       }
 

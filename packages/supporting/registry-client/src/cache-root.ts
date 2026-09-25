@@ -1,10 +1,10 @@
 /** Platform cache placement shared by all non-authoritative AXM caches. */
 
-import * as os from "node:os";
 import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import { configuredUserHome, osHomeDirectory } from "@agentxm/host-primitives";
 
 export interface AxmCacheEnvironment {
   readonly axmUserHome?: string;
@@ -42,7 +42,6 @@ export const resolveAxmCacheRootPure = (
 };
 
 const cacheEnvironmentConfig = Config.all({
-  axmUserHome: Config.option(Config.String("AXM_USER_HOME")),
   localAppData: Config.option(Config.String("LOCALAPPDATA")),
   xdgCacheHome: Config.option(Config.String("XDG_CACHE_HOME")),
 });
@@ -51,10 +50,10 @@ export const resolveAxmCacheRoot = (): Effect.Effect<string, Config.ConfigError,
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const environment = yield* cacheEnvironmentConfig;
-    const axmUserHome = Option.getOrUndefined(environment.axmUserHome);
+    const axmUserHome = Option.getOrUndefined(yield* configuredUserHome);
     const localAppData = Option.getOrUndefined(environment.localAppData);
     const xdgCacheHome = Option.getOrUndefined(environment.xdgCacheHome);
-    return resolveAxmCacheRootPure(path.join, process.platform, os.homedir(), {
+    return resolveAxmCacheRootPure(path.join, process.platform, yield* osHomeDirectory, {
       ...(axmUserHome === undefined ? {} : { axmUserHome }),
       ...(localAppData === undefined ? {} : { localAppData }),
       ...(xdgCacheHome === undefined ? {} : { xdgCacheHome }),

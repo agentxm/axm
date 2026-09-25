@@ -12,7 +12,7 @@ import { makeScannerFileSystem, type InstructionsConfig } from "../../desired-st
 import { createSymlink } from "../../desired-state/index.js";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 import { DISCOVERY_SKIPPED_DIRECTORIES } from "@agentxm/extension-model/unstable/discovery-walk";
-import { AXM_DIR_NAME } from "../../desired-state/index.js";
+import { AXM_DIR_NAME } from "@agentxm/host-primitives";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { protectWorkspacePath } from "../../transitions/settlement/index.js";
 import { recordFootprint } from "../../transitions/settlement/index.js";

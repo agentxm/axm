@@ -28,7 +28,7 @@ import * as ServiceMap from "effect/Context";
 
 import * as Config from "effect/Config";
 
-import { resolveUserAxmHomePure } from "../internal/user-axm-home.js";
+import { resolveUserAxmHomePure, resolveUserHome } from "@agentxm/host-primitives";
 
 const InstallMetaSchema = Schema.Struct({
   schemaVersion: Schema.Literal(2),
@@ -280,26 +280,6 @@ export const detectFromInputs = (inputs: InstallMethodInputs) =>
     });
   });
 
-const selectHomeDir = (
-  platform: string,
-  axmUserHome: Option.Option<string>,
-  home: Option.Option<string>,
-  userProfile: Option.Option<string>,
-  homePath: Option.Option<string>,
-): string => {
-  if (Option.isSome(axmUserHome)) return axmUserHome.value;
-  if (platform === "win32") {
-    if (Option.isSome(userProfile)) return userProfile.value;
-    if (Option.isSome(home)) return home.value;
-    if (Option.isSome(homePath)) return homePath.value;
-    return "/tmp";
-  }
-  if (Option.isSome(home)) return home.value;
-  if (Option.isSome(userProfile)) return userProfile.value;
-  if (Option.isSome(homePath)) return homePath.value;
-  return "/tmp";
-};
-
 const parseUserAgent = (
   userAgent: Option.Option<string>,
 ): Pick<InstallMethodInputs, "packageManager" | "packageManagerVersion"> => {
@@ -314,10 +294,6 @@ const parseUserAgent = (
 };
 
 const detectionEnvironmentConfig = Config.all({
-  axmUserHome: Config.option(Config.String("AXM_USER_HOME")),
-  home: Config.option(Config.String("HOME")),
-  userProfile: Config.option(Config.String("USERPROFILE")),
-  homePath: Config.option(Config.String("HOMEPATH")),
   userAgent: Config.option(Config.String("npm_config_user_agent")),
 });
 
@@ -328,14 +304,14 @@ export const InstallMethodLive = Layer.effect(
     const pathService = yield* Path.Path;
     const platform = yield* Effect.sync(() => process.platform);
     const environment = yield* detectionEnvironmentConfig;
-    const { axmUserHome, home, userProfile, homePath, userAgent } = environment;
+    const { userAgent } = environment;
     const argvExecutable = process.argv[0];
     const inputs: InstallMethodInputs = {
       execPath: process.execPath,
       invocationPaths:
         argvExecutable === undefined ? [process.argv0] : [process.argv0, argvExecutable],
       importMetaUrl: import.meta.url,
-      homeDir: selectHomeDir(platform, axmUserHome, home, userProfile, homePath),
+      homeDir: yield* resolveUserHome(),
       platform,
       ...parseUserAgent(userAgent),
     };

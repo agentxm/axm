@@ -60,7 +60,7 @@ export {
 } from "./native-write-authority.js";
 
 // Constants (path helpers)
-export { getHome, getConfigHome } from "./constants.js";
+export { getConfigHome } from "./constants.js";
 
 // Catalog-derived agent path helpers
 export {

@@ -5,6 +5,7 @@
  */
 
 import * as FileSystem from "effect/FileSystem";
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as Path from "effect/Path";
 import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -12,10 +13,14 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { sweepStaleAtomicWriteTemps, writeFileAtomic } from "@agentxm/host-primitives";
+import {
+  resolveUserAxmHome,
+  sweepStaleAtomicWriteTemps,
+  writeFileAtomic,
+} from "@agentxm/host-primitives";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
 import { RegistryAccessFailed } from "./errors.js";
-import { envOption } from "../adapters/environment.js";
+import { AuthEnvironment } from "../adapters/environment.js";
 
 export const PendingDeviceLoginSchema = Schema.Struct({
   version: Schema.Literal(3),
@@ -49,13 +54,6 @@ const PENDING_LOGIN_FILENAME = "pending-login.json";
 const DIR_PERMISSIONS = 0o700;
 const FILE_PERMISSIONS = 0o600;
 
-const resolveHomeDir = (values: ReadonlyArray<Option.Option<string>>): string => {
-  for (const value of values) {
-    if (Option.isSome(value)) return value.value;
-  }
-  return "/tmp";
-};
-
 const storeError = (detail: string, cause: unknown) =>
   new RegistryAccessFailed({ category: "auth", detail, cause });
 
@@ -64,13 +62,10 @@ export const PendingDeviceLoginStoreLive = Layer.effect(
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const homeDir = resolveHomeDir([
-      yield* envOption("AXM_USER_HOME"),
-      yield* envOption("HOME"),
-      yield* envOption("USERPROFILE"),
-      yield* envOption("HOMEPATH"),
-    ]);
-    const directory = path.join(homeDir, ".axm");
+    const directory = yield* resolveUserAxmHome().pipe(
+      Effect.provideServiceEffect(ConfigProvider.ConfigProvider, AuthEnvironment),
+      Effect.mapError((cause) => storeError("Could not read pending login home", cause)),
+    );
     const filePath = path.join(directory, PENDING_LOGIN_FILENAME);
     const sweepTemps = sweepStaleAtomicWriteTemps(fs, filePath).pipe(
       Effect.provideService(Path.Path, path),

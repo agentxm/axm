@@ -37,7 +37,6 @@ import {
   type CodingAgentRepositoryService,
 } from "../../projection/index.js";
 import {
-  AXM_DIR_NAME,
   ArtifactChangeSchema,
   LOCK_FILENAME,
   resolveUserWorkspaceRoot,
@@ -48,6 +47,7 @@ import {
   type Settings,
   type WorkspaceStateOptions,
 } from "../../desired-state/index.js";
+import { AXM_DIR_NAME } from "@agentxm/host-primitives";
 import {
   runWorkspaceTransaction,
   WorkspaceTransactionScope,

@@ -1,4 +1,4 @@
-import { ciEnabled } from "../utils/environment.js";
+import { ciEnabled } from "@agentxm/host-primitives";
 
 interface CliOutputEnvironment {
   readonly stdoutIsTTY: boolean | undefined;

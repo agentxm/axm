@@ -333,6 +333,9 @@ importers:
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../../packages/core/extension-model
+      '@agentxm/host-primitives':
+        specifier: workspace:^
+        version: link:../../packages/generic/host-primitives
       '@agentxm/registry-access':
         specifier: workspace:^
         version: link:../../packages/supporting/registry-access

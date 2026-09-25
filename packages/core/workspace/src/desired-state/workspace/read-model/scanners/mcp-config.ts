@@ -30,7 +30,7 @@ import * as Schema from "effect/Schema";
 import { parse as parseJson, type ParseError } from "jsonc-parser";
 import { parse as parseToml } from "smol-toml";
 import { parse as parseYaml } from "yaml";
-import { getHome } from "../../../utils/environment.js";
+import { osHomeDirectory } from "@agentxm/host-primitives";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentDescriptor, AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import {
@@ -271,7 +271,7 @@ const resolveMcpConfigTargetPath = (
 ): Effect.Effect<Option.Option<string>> =>
   Effect.gen(function* () {
     const { path, workspaceRoot, diagnostics } = deps;
-    const home = yield* getHome;
+    const home = yield* osHomeDirectory;
     const configPath =
       target.scope === "user"
         ? target.path.startsWith("~/")

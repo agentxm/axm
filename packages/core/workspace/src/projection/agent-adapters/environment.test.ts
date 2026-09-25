@@ -14,7 +14,7 @@ import {
 } from "./detection.js";
 import { AgentPresenceProbe, AgentPresenceProbeLive } from "./agent-presence.js";
 import { codingAgentForId } from "./agents/adapters.js";
-import { envOption } from "./environment.js";
+import { envOption } from "@agentxm/host-primitives";
 
 const sourceError = new ConfigProvider.SourceError({ message: "source unavailable" });
 const unavailable = ConfigProvider.layer(ConfigProvider.make(() => Effect.fail(sourceError)));

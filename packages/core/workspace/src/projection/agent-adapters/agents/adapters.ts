@@ -18,8 +18,7 @@ import {
   type ConfigurableAgentId as CatalogAgentId,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { type CodingAgent } from "./coding-agent.js";
-import { envOption } from "../environment.js";
-import { getHome } from "../constants.js";
+import { envOption, osHomeDirectory } from "@agentxm/host-primitives";
 import {
   addRooSubagent,
   addSubagentViaResolve,
@@ -127,7 +126,7 @@ export const codingAgentFromDescriptor = (descriptor: AgentDescriptor): CodingAg
         }
         const path = yield* Path.Path;
         if (scope === "user") {
-          const home = yield* getHome;
+          const home = yield* osHomeDirectory;
           return {
             _tag: "supported",
             dir: path.join(home, descriptor.subagents.dir),

@@ -33,11 +33,11 @@ import {
   type WorkspaceReadModel,
 } from "../../../desired-state/index.js";
 import {
-  AXM_DIR_NAME,
   USER_WORKSPACE_DIRECTORY,
   packMemberBindings,
   type DesiredStateGraph,
 } from "../../../desired-state/index.js";
+import { AXM_DIR_NAME } from "@agentxm/host-primitives";
 import type {
   LockfileReadError,
   SettingsReadError,

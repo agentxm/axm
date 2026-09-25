@@ -16,7 +16,7 @@ import * as Path from "effect/Path";
 import { parse, type ParseError } from "jsonc-parser";
 import type { McpConfigTarget } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { isPathSafe } from "@agentxm/extension-model/unstable/path-types";
-import { getHome } from "../constants.js";
+import { osHomeDirectory } from "@agentxm/host-primitives";
 import { McpConfigInvalid, McpConfigIoFailed } from "../errors.js";
 import { managedKeyedBlockNames } from "../managed-regions-keyed-block.js";
 import { parseTomlValue, stringifyTomlKey } from "../toml.js";
@@ -33,7 +33,7 @@ export const resolveAgentMcpConfigTargetPath = (
 ): Effect.Effect<string, McpConfigInvalid, Path.Path> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const home = yield* getHome;
+    const home = yield* osHomeDirectory;
     const base =
       target.scope === "user"
         ? target.path.startsWith("~/")

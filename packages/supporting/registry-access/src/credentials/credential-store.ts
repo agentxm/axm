@@ -14,6 +14,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as ServiceMap from "effect/Context";
 import * as Cache from "effect/Cache";
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as Data from "effect/Data";
 import type * as DateTime from "effect/DateTime";
 import * as Deferred from "effect/Deferred";
@@ -25,10 +26,17 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import * as lockfile from "proper-lockfile";
-import { writeFileAtomic } from "@agentxm/host-primitives";
+import { resolveUserHome, writeFileAtomic } from "@agentxm/host-primitives";
 import { decodeHandleSync, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { AuthTokenPolicyRequired, RegistryAccessFailed } from "../authentication/errors.js";
-import { envOption, isCI, isContainer, isRoot, isSSH, isWSL } from "../adapters/environment.js";
+import {
+  AuthEnvironment,
+  isCI,
+  isContainer,
+  isRoot,
+  isSSH,
+  isWSL,
+} from "../adapters/environment.js";
 import type {
   CredentialEntry,
   CredentialFile,
@@ -136,22 +144,6 @@ export const KeyringEntryLoader = ServiceMap.Reference<
 // -----------------------------------------------------------------------------
 // Internal helpers (take fs/path as args to avoid context leakage)
 // -----------------------------------------------------------------------------
-
-export const resolveCredentialHomeDir = (config: {
-  readonly axmUserHome: Option.Option<string>;
-  readonly home: Option.Option<string>;
-  readonly userProfile: Option.Option<string>;
-  readonly homePath: Option.Option<string>;
-}): string =>
-  Option.getOrElse(
-    Option.orElse(config.axmUserHome, () =>
-      Option.orElse(
-        Option.orElse(config.home, () => config.userProfile),
-        () => config.homePath,
-      ),
-    ),
-    () => "/tmp",
-  );
 
 const getCredentialsDir = (path: Path.Path, homeDir: string) => {
   return path.join(homeDir, ".config", CONFIG_DIR_NAME);
@@ -564,11 +556,17 @@ export const CredentialStoreLive = Layer.effect(
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const keyringEntry = yield* KeyringEntryLoader;
-    const axmUserHome = yield* envOption("AXM_USER_HOME");
-    const home = yield* envOption("HOME");
-    const userProfile = yield* envOption("USERPROFILE");
-    const homePath = yield* envOption("HOMEPATH");
-    const homeDir = resolveCredentialHomeDir({ axmUserHome, home, userProfile, homePath });
+    const homeDir = yield* resolveUserHome().pipe(
+      Effect.provideServiceEffect(ConfigProvider.ConfigProvider, AuthEnvironment),
+      Effect.mapError(
+        (cause) =>
+          new RegistryAccessFailed({
+            category: "auth",
+            detail: "Could not read authentication configuration: AXM_USER_HOME",
+            cause,
+          }),
+      ),
+    );
     const env = yield* detectEnvironment;
     const storageTier = selectTier(env);
     const persistedCredentialsAllowed = canUsePersistedCredentials(env);

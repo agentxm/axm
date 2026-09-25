@@ -24,7 +24,7 @@ import {
   DISCOVERY_MAX_DEPTH,
   DISCOVERY_SKIPPED_DIRECTORIES,
 } from "@agentxm/extension-model/unstable/discovery-walk";
-import { envOption } from "../../../utils/environment.js";
+import { envOption } from "@agentxm/host-primitives";
 import { SCANNER_IO_CONCURRENCY } from "../scanners/fs-helpers.js";
 
 /**

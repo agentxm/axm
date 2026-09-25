@@ -31,9 +31,8 @@ interface IndexEntry {
   readonly path: string;
 }
 
-// Deliberately duplicated from the CLI-destined environment module: a feature
-// package may not depend on application utilities, and this snapshot helper is
-// within the sanctioned duplication budget for small pure functions.
+// The linting feature owns this filtered environment snapshot for its child
+// processes; configuration-backed host readers serve a different boundary.
 // eslint-disable-next-line no-restricted-properties -- Centralized env var access point; callers filter the snapshot before passing it to child processes
 const readEnvironment = (): Readonly<Record<string, string | undefined>> => ({ ...process.env });
 

@@ -125,12 +125,10 @@ export {
   type WorkspaceLayout,
 } from "./workspace/layout.js";
 export {
-  AXM_DIR_NAME,
   USER_WORKSPACE_DIRECTORY,
   getProjectRuntimeDir,
   locateWorkspace,
   resolveUserAxmHome,
-  resolveUserAxmHomePure,
   resolveUserHome,
   resolveUserWorkspaceRoot,
   resolveUserWorkspaceRootPure,

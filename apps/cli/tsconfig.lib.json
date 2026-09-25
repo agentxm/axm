@@ -16,6 +16,9 @@
   ],
   "references": [
     {
+      "path": "../../packages/generic/host-primitives/tsconfig.lib.json"
+    },
+    {
       "path": "../../tools/specification-metadata/tsconfig.lib.json"
     },
     {

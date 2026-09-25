@@ -67,7 +67,6 @@ export {
   InstallSelectionInteraction,
   InstallSelectionCancelled,
   InstallSelectionUnavailable,
-  extensionRefName,
   selectInstallRefs,
   type InstallSelectionCandidate,
   type InstallSelectionFailure,

@@ -336,7 +336,13 @@ export type {
 // Narrow workspace-state services
 export { WorkspaceDocuments, type WorkspaceDocumentsService } from "./workspace/documents.js";
 export { WorkspaceLocation, type WorkspaceLocationService } from "./workspace/location.js";
-export { SettingsReader, type SettingsReaderService } from "./workspace/settings-reader.js";
+export {
+  SettingsReader,
+  bindRegistrySource,
+  type BoundRegistrySource,
+  type RegistrySourceHost,
+  type SettingsReaderService,
+} from "./workspace/settings-reader.js";
 export { LockfileReader, type LockfileReaderService } from "./workspace/lockfile-reader.js";
 export { readOtherScopeState, type OtherScopeState } from "./workspace/other-scope-reader.js";
 export {

@@ -27,10 +27,14 @@ const LOCAL_PATH_PATTERN = /^(?:\.\.?\/|\/|~\/|~\\|[A-Za-z]:[\\/])/;
 /** A simple name with no `/`, `@`, or URL scheme. */
 type NameInput = { readonly pattern: "name-input"; readonly name: string };
 
-/** A namespaced registry source: `[source-name:]@owner/<plural-type>/name`. */
+/**
+ * A namespaced registry source: `[source-name:]@owner/<plural-type>/name`.
+ * `sourceName` is the configured source the input spells; an unqualified
+ * input leaves it unbound for the workspace to assign.
+ */
 type RegistryPatternInput = {
   readonly pattern: "registry-pattern-input";
-  readonly sourceName: string;
+  readonly sourceName: Option.Option<string>;
   readonly type: Option.Option<ExtensionTypePlural>;
   readonly owner: Handle;
   readonly name: Option.Option<ExtensionName>;

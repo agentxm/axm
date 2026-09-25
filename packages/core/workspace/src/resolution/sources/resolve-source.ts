@@ -14,6 +14,7 @@ import type * as FileSystem from "effect/FileSystem";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 import type * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import { bindRegistrySource } from "../../desired-state/index.js";
 import * as Option from "effect/Option";
 
 import * as azurerepos from "./providers/azurerepos/index.js";
@@ -373,9 +374,13 @@ export const resolveSource = (
         return { type: "local" as const, path: pattern.path };
       case "registry-pattern-input":
         return yield* routeRegistryInput(
-          trimmed.startsWith("@")
-            ? { ...pattern, sourceName: yield* (yield* WorkspaceCatalog).defaultRegistry }
-            : pattern,
+          {
+            ...pattern,
+            sourceName: bindRegistrySource(
+              pattern.sourceName,
+              yield* (yield* WorkspaceCatalog).defaultRegistry,
+            ),
+          },
           parsed.originalInput,
         );
       case "slash-pattern":

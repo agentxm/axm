@@ -1,3 +1,4 @@
+import { extensionRefName } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -12,7 +13,6 @@ import {
   installableExtensionTypes,
   type InstallableExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { RegistryClientFactory } from "@agentxm/registry-client";
 import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import { resolveSource, SourceHostProviders } from "../../resolution/sources/index.js";
@@ -88,25 +88,6 @@ const recordSource = (row: ReadModelRecordRow | undefined): string | undefined =
   const source = row.source;
   if (source === undefined) return undefined;
   return typeof source === "string" ? source : Option.getOrUndefined(source);
-};
-
-const refName = (ref: ExtensionRef): string => {
-  switch (ref.type) {
-    case "skill":
-      return ref.skill.name;
-    case "mcp-server":
-      return ref.server.name;
-    case "subagent":
-      return ref.subagent.name;
-    case "rule":
-      return ref.rule.name;
-    case "hook":
-      return ref.hook.name;
-    case "knowledge":
-      return ref.knowledge.name;
-    case "pack":
-      return ref.pack.name;
-  }
 };
 
 const inventoryKey = (type: string, name: string): string => `${type}:${name}`;
@@ -263,7 +244,9 @@ const gitAssessment = Effect.fn("Workspace.gitExtensionAssessment")(function* (
       reason: workspaceFailureToStepFailure(refs.failure).detail,
     } satisfies ExtensionAssessment;
   }
-  const match = refs.success.find((ref) => ref.type === item.type && refName(ref) === item.name);
+  const match = refs.success.find(
+    (ref) => ref.type === item.type && extensionRefName(ref) === item.name,
+  );
   if (match === undefined || match.refType !== "git-hosted") {
     return {
       state: "unknown",

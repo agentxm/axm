@@ -9,6 +9,7 @@
  * @packageDocumentation
  */
 
+import type { ExtensionName } from "../common.js";
 import type { SkillExtensionRef } from "./skill.js";
 import type { McpServerExtensionRef } from "./mcp-server.js";
 import type { SubagentExtensionRef } from "./subagent.js";
@@ -26,3 +27,29 @@ export type ExtensionRef =
   | HookExtensionRef
   | KnowledgeExtensionRef
   | PackRef;
+
+/**
+ * The name an extension's own manifest gives it: the configured workspace
+ * name it occupies. A Registry ref's `name` is the package the Registry
+ * serves it under and may differ; Registry operations use that one.
+ *
+ * @experimental
+ */
+export const extensionRefName = (ref: ExtensionRef): ExtensionName => {
+  switch (ref.type) {
+    case "skill":
+      return ref.skill.name;
+    case "mcp-server":
+      return ref.server.name;
+    case "pack":
+      return ref.pack.name;
+    case "subagent":
+      return ref.subagent.name;
+    case "rule":
+      return ref.rule.name;
+    case "hook":
+      return ref.hook.name;
+    case "knowledge":
+      return ref.knowledge.name;
+  }
+};

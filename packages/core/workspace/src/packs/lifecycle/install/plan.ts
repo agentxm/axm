@@ -43,7 +43,10 @@ import {
   targetFromRef,
   toLabel,
 } from "../../../reconciliation/index.js";
-import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
+import {
+  extensionRefName,
+  type ExtensionRef,
+} from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { sourceRefContentKey } from "../../../acquisition/acquired-content.js";
 import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import {
@@ -234,28 +237,7 @@ const collectResolvedDependencyNames = (
 ): PackDependencyNameSets => {
   const names = makePackDependencyNameSets();
   for (const ref of refs) {
-    switch (ref.type) {
-      case "pack":
-        break;
-      case "skill":
-        names.skill.add(ref.skill.name);
-        break;
-      case "mcp-server":
-        names["mcp-server"].add(ref.server.name);
-        break;
-      case "subagent":
-        names.subagent.add(ref.subagent.name);
-        break;
-      case "rule":
-        names.rule.add(ref.rule.name);
-        break;
-      case "hook":
-        names.hook.add(ref.hook.name);
-        break;
-      case "knowledge":
-        names.knowledge.add(ref.knowledge.name);
-        break;
-    }
+    if (ref.type !== "pack") names[ref.type].add(extensionRefName(ref));
   }
   return names;
 };

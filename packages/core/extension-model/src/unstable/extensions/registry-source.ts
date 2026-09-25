@@ -1,9 +1,14 @@
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as SchemaIssue from "effect/SchemaIssue";
 import * as SchemaTransformation from "effect/SchemaTransformation";
-import { ExtensionNameSchema, ExtensionTypePluralSchema } from "./common.js";
+import {
+  ExtensionNameSchema,
+  ExtensionTypePluralSchema,
+  splitExtensionReference,
+} from "./common.js";
 import { HandleSchema } from "./handle.js";
 import { VersionRangeSchema } from "../version-constraints/version-constraints.js";
 
@@ -49,8 +54,14 @@ export type RegistrySourcePatternParts = Schema.Schema.Type<
   typeof RegistrySourcePatternPartsSchema
 >;
 
+/**
+ * A Registry locator with the configured source it names, when it names one.
+ * An unqualified `@owner/...` locator names no source here: which configured
+ * Registry it binds to is a workspace decision, made beside the settings that
+ * hold the effective default Registry.
+ */
 export type SourceQualifiedRegistrySourcePatternParts = RegistrySourcePatternParts & {
-  readonly sourceName: string;
+  readonly sourceName: Option.Option<string>;
 };
 
 export const RegistrySourceRefPartsSchema = Schema.Struct({
@@ -72,27 +83,6 @@ const decodeRegistrySourcePatternParts = Schema.decodeUnknownResult(
 );
 const decodeRegistrySourceRefParts = Schema.decodeUnknownResult(RegistrySourceRefPartsSchema);
 
-const parseNameAndConstraintSegment = (
-  segment: string,
-): { readonly name: string; readonly versionRange?: string | undefined } | undefined => {
-  const atIndex = segment.indexOf("@");
-  if (atIndex === 0) {
-    return undefined;
-  }
-
-  if (atIndex === -1) {
-    return { name: segment };
-  }
-
-  const name = segment.slice(0, atIndex);
-  const versionRange = segment.slice(atIndex + 1);
-  if (name.length === 0 || versionRange.length === 0) {
-    return undefined;
-  }
-
-  return { name, versionRange };
-};
-
 export const parseRegistrySourcePatternParts = (
   input: string,
 ): RegistrySourcePatternParts | undefined => {
@@ -100,7 +90,8 @@ export const parseRegistrySourcePatternParts = (
     return undefined;
   }
 
-  const segments = input.split("/");
+  const { name: reference, constraint } = splitExtensionReference(input);
+  const segments = reference.split("/");
   if (segments.length < 1 || segments.length > 3) {
     return undefined;
   }
@@ -128,17 +119,9 @@ export const parseRegistrySourcePatternParts = (
     }
   } else {
     const type = segments[1];
-    const third = segments[2];
-    if (type !== undefined && third !== undefined) {
-      const parsedName = parseNameAndConstraintSegment(third);
-      if (parsedName !== undefined) {
-        candidate = {
-          owner,
-          type,
-          name: parsedName.name,
-          versionRange: parsedName.versionRange,
-        };
-      }
+    const name = segments[2];
+    if (type !== undefined && name !== undefined) {
+      candidate = { owner, type, name, versionRange: constraint };
     }
   }
 
@@ -150,20 +133,25 @@ export const parseRegistrySourcePatternParts = (
   return Result.isSuccess(result) ? result.success : undefined;
 };
 
-/** Parse a Registry locator, assigning unqualified input to the built-in agentxm source. */
+/**
+ * Parse a Registry locator, keeping the configured source name it spells
+ * (`<source>:@owner/...`) and leaving an unqualified locator unbound.
+ */
 export const parseSourceQualifiedRegistrySourcePatternParts = (
   input: string,
 ): SourceQualifiedRegistrySourcePatternParts | undefined => {
   const unqualified = parseRegistrySourcePatternParts(input);
   if (unqualified !== undefined) {
-    return { ...unqualified, sourceName: "agentxm" };
+    return { ...unqualified, sourceName: Option.none() };
   }
 
   const separator = input.indexOf(":");
   if (separator <= 0) return undefined;
   const sourceName = input.slice(0, separator);
   const qualified = parseRegistrySourcePatternParts(input.slice(separator + 1));
-  return qualified === undefined ? undefined : { ...qualified, sourceName };
+  return qualified === undefined
+    ? undefined
+    : { ...qualified, sourceName: Option.some(sourceName) };
 };
 
 export const parseRegistrySourceRef = (input: string): RegistrySourceRefParts | undefined => {
@@ -172,7 +160,8 @@ export const parseRegistrySourceRef = (input: string): RegistrySourceRefParts | 
     return undefined;
   }
 
-  const result = decodeRegistrySourceRefParts(parsed);
+  const { sourceName: _sourceName, ...parts } = parsed;
+  const result = decodeRegistrySourceRefParts(parts);
   return Result.isSuccess(result) ? result.success : undefined;
 };
 

@@ -89,33 +89,9 @@ export const decodeVersionRangeSync = Schema.decodeUnknownSync(VersionRangeSchem
 const parseSemverVersion = (version: string): semver.SemVer | null => semver.parse(version);
 
 /**
- * Extract a version range suffix from a source string.
- *
- * Handles both namespaced (`@handle/name@^1.0.0`) and non-namespaced (`name@^1.0.0`) names.
- * Returns `Option.none()` when no version suffix is present.
+ * Decode a value as a semver version range, or none when it is not one.
  */
-export const parseVersionRange = (sourceString: string): Option.Option<VersionRange> => {
-  const decodeRange = (value: string): Option.Option<VersionRange> => {
-    try {
-      return Option.some(decodeVersionRangeSync(value));
-    } catch {
-      return Option.none();
-    }
-  };
-
-  // For namespaced packages (@handle/name@range), find the @ after the handle
-  if (sourceString.startsWith("@")) {
-    const slashIndex = sourceString.indexOf("/");
-    if (slashIndex === -1) return Option.none();
-    const afterHandle = sourceString.indexOf("@", slashIndex + 1);
-    if (afterHandle === -1) return Option.none();
-    return decodeRange(sourceString.slice(afterHandle + 1));
-  }
-  // For non-namespaced packages (name@range)
-  const atIndex = sourceString.indexOf("@");
-  if (atIndex === -1) return Option.none();
-  return decodeRange(sourceString.slice(atIndex + 1));
-};
+export const decodeVersionRangeOption = Schema.decodeUnknownOption(VersionRangeSchema);
 
 /**
  * Check whether a string is a valid semver version range.
@@ -217,37 +193,32 @@ export const hasMinorOrMajorVersionBump = (
 };
 
 /**
- * Check whether a version satisfies a semver version range.
+ * Whether a version is one the range admits: the one predicate every
+ * selection and every satisfaction check applies, so a range admits the same
+ * versions wherever it is asked. It follows semver exactly, so `*` and an
+ * absent range admit every stable version and no prerelease; a prerelease is
+ * admitted only by a range that names its version tuple.
  */
 export const versionSatisfiesRange = (version: Version, range: VersionRange): boolean =>
   semver.satisfies(version, range);
 
+/** The range an absent constraint stands for: every stable version. */
+const UNCONSTRAINED_RANGE = "*";
+
 /**
- * Select the maximum version that satisfies the range, independent of input
- * order.
- *
- * - `Option.none()` range or `"*"` matches any version.
- * - Invalid ranges match nothing.
+ * Select the highest version the range admits, independent of input order.
+ * An absent range admits what `*` admits; an invalid range admits nothing.
  */
 export const resolveVersionInRange = <T extends VersionEntryLike>(
   versions: ReadonlyArray<T>,
   range: Option.Option<string>,
 ): Option.Option<T> => {
-  const rangeStr = Option.getOrElse(range, () => "*");
-
-  // Wildcard means no range filtering
-  const isWildcard = rangeStr === "*";
-
-  // Validate the range early
-  if (!isWildcard && !isValidVersionRange(rangeStr)) {
-    return Option.none();
-  }
+  const decoded = decodeVersionRangeOption(Option.getOrElse(range, () => UNCONSTRAINED_RANGE));
+  if (Option.isNone(decoded)) return Option.none();
 
   let selected: T | undefined;
   for (const version of versions) {
-    if (!isWildcard && !semver.satisfies(version.version, rangeStr)) {
-      continue;
-    }
+    if (!versionSatisfiesRange(version.version, decoded.value)) continue;
     if (selected === undefined || semver.compareBuild(version.version, selected.version) > 0) {
       selected = version;
     }

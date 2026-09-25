@@ -53,7 +53,6 @@ const resolveSkillRegistrySource = (
 
     return yield* resolveConfiguredRegistrySource({
       sourceName: pattern.sourceName,
-      useDefaultRegistry: originalInput.startsWith("@"),
       owner: pattern.owner,
       extensionType: "skill",
       extensionName: pattern.name,

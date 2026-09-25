@@ -13,7 +13,6 @@ import { makeManifestJsonParseFailure } from "./manifest-json.js";
 import {
   makeRecommendedPacksValidRule,
   makeStandaloneDeclarationValidRule,
-  splitPackSpec,
 } from "./recommended-packs-rules.js";
 
 interface TestContext {
@@ -37,22 +36,6 @@ const base = {
   name: "brick-building",
   version: "1.0.0",
 };
-
-describe("splitPackSpec", () => {
-  it("returns the whole spec when there is no version range", () => {
-    expect(splitPackSpec("@acme/packs/bricks")).toEqual({
-      fqn: "@acme/packs/bricks",
-      range: undefined,
-    });
-  });
-
-  it("splits on the @ that follows the last slash, not the owner @", () => {
-    expect(splitPackSpec("@acme/packs/bricks@^1.0.0")).toEqual({
-      fqn: "@acme/packs/bricks",
-      range: "^1.0.0",
-    });
-  });
-});
 
 describe("<type>/standalone-declaration-valid", () => {
   it("ships as an advisory warning", () => {

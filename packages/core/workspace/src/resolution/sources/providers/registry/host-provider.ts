@@ -46,7 +46,6 @@ import {
   toExtensionTypePlural,
   toAuthor,
   type Author,
-  type ExtensionName,
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
 import {
@@ -612,26 +611,6 @@ const toExtensionRef = (
   }
 };
 
-/** Extract extension name from an ExtensionRef. */
-const refName = (ref: ExtensionRef): ExtensionName => {
-  switch (ref.type) {
-    case "skill":
-      return ref.skill.name;
-    case "mcp-server":
-      return ref.server.name;
-    case "pack":
-      return ref.pack.name;
-    case "subagent":
-      return ref.subagent.name;
-    case "rule":
-      return ref.rule.name;
-    case "hook":
-      return ref.hook.name;
-    case "knowledge":
-      return ref.knowledge.name;
-  }
-};
-
 /** Map ExtensionRef type to ExtensionType. */
 const refRegistryType = (ref: ExtensionRef): ExtensionType => ref.type;
 
@@ -643,9 +622,10 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
       });
     }
 
-    const { owner, version, integrity: expectedIntegrity } = ref;
+    // The Registry serves the package under the ref's own name, which may
+    // differ from the workspace name its manifest gives it.
+    const { owner, version, integrity: expectedIntegrity, name } = ref;
     const type = refRegistryType(ref);
-    const name = refName(ref);
     const reportProgress = yield* makeThrottledUnitProgress({ unit: "bytes" });
 
     const packageArgs: GetExtensionPackageArgs = Option.match(expectedIntegrity, {

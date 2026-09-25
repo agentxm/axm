@@ -648,17 +648,41 @@ export const parseExtensionFqnParts = (input: string): ExtensionFqnParts | undef
 };
 
 /**
+ * A reference split into the name it identifies and the constraint appended
+ * to it. The constraint is everything after the first `@` that follows the
+ * last `/`, because the owner segment also starts with `@`; a trailing `@`
+ * yields an empty constraint for the caller to reject.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface SplitExtensionReference {
+  readonly name: string;
+  readonly constraint: string | undefined;
+}
+
+/**
+ * Split `@owner/<plural>/name[@constraint]` into its name and constraint.
+ * This is the one place the separator between a name and its constraint is
+ * decided.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const splitExtensionReference = (input: string): SplitExtensionReference => {
+  const lastSlash = input.lastIndexOf("/");
+  const constraintAt = lastSlash > 0 ? input.indexOf("@", lastSlash + 1) : -1;
+  return constraintAt > 0
+    ? { name: input.slice(0, constraintAt), constraint: input.slice(constraintAt + 1) }
+    : { name: input, constraint: undefined };
+};
+
+/**
  * Parse an extension spec string (with optional version constraint) into parts.
  * Strips the version constraint suffix and returns the validated FQN parts.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const parseExtensionSpecParts = (input: string): ExtensionFqnParts | undefined => {
-  const lastSlash = input.lastIndexOf("/");
-  const constraintAt = lastSlash > 0 ? input.indexOf("@", lastSlash + 1) : -1;
-  const fqnPart = constraintAt > 0 ? input.slice(0, constraintAt) : input;
-  return parseExtensionFqnParts(fqnPart);
-};
+export const parseExtensionSpecParts = (input: string): ExtensionFqnParts | undefined =>
+  parseExtensionFqnParts(splitExtensionReference(input).name);
 
 const INVALID_EXTENSION_FQN_MESSAGE =
   "Expected fully qualified name in @handle/(skills|mcps|subagents|rules|hooks|knowledge|packs)/name form";
@@ -755,30 +779,23 @@ export type PackFqn = Schema.Schema.Type<typeof PackFqnSchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
+/** The constraint issue of a split reference, or none when it has none or it is valid. */
+const constraintIssue = (constraint: string | undefined): string | undefined => {
+  if (constraint === undefined) return undefined;
+  const constraintResult = Schema.decodeUnknownResult(VersionRangeSchema)(constraint);
+  return Result.isFailure(constraintResult)
+    ? `Expected valid version constraint after @, got: ${constraint}`
+    : undefined;
+};
+
 export const ExtensionSpecSchema = Schema.NonEmptyString.pipe(
   Schema.check(
     Schema.makeFilter((value: string) => {
-      // Find the constraint separator: the @ after the last slash
-      const lastSlash = value.lastIndexOf("/");
-      const constraintAt = lastSlash > 0 ? value.indexOf("@", lastSlash + 1) : -1;
-
-      const fqnPart = constraintAt > 0 ? value.slice(0, constraintAt) : value;
-      const constraintPart = constraintAt > 0 ? value.slice(constraintAt + 1) : undefined;
-
-      // Validate FQN portion
-      if (parseExtensionFqnParts(fqnPart) === undefined) {
+      const { name, constraint } = splitExtensionReference(value);
+      if (parseExtensionFqnParts(name) === undefined) {
         return `Expected extension spec in @handle/type/name[@constraint] form, got: ${value}`;
       }
-
-      // Validate constraint portion if present
-      if (constraintPart !== undefined) {
-        const constraintResult = Schema.decodeUnknownResult(VersionRangeSchema)(constraintPart);
-        if (Result.isFailure(constraintResult)) {
-          return `Expected valid version constraint after @, got: ${constraintPart}`;
-        }
-      }
-
-      return undefined;
+      return constraintIssue(constraint);
     }),
   ),
   Schema.check(
@@ -813,24 +830,11 @@ export type ExtensionSpec = Schema.Schema.Type<typeof ExtensionSpecSchema>;
 export const PackSpecSchema = Schema.NonEmptyString.pipe(
   Schema.check(
     Schema.makeFilter((value: string) => {
-      const lastSlash = value.lastIndexOf("/");
-      const constraintAt = lastSlash > 0 ? value.indexOf("@", lastSlash + 1) : -1;
-
-      const fqnPart = constraintAt > 0 ? value.slice(0, constraintAt) : value;
-      const constraintPart = constraintAt > 0 ? value.slice(constraintAt + 1) : undefined;
-
-      if (!PACK_FQN_PATTERN.test(fqnPart)) {
+      const { name, constraint } = splitExtensionReference(value);
+      if (!PACK_FQN_PATTERN.test(name)) {
         return `Expected pack spec in @handle/packs/name[@constraint] form, got: ${value}`;
       }
-
-      if (constraintPart !== undefined) {
-        const constraintResult = Schema.decodeUnknownResult(VersionRangeSchema)(constraintPart);
-        if (Result.isFailure(constraintResult)) {
-          return `Expected valid version constraint after @, got: ${constraintPart}`;
-        }
-      }
-
-      return undefined;
+      return constraintIssue(constraint);
     }),
   ),
   Schema.check(

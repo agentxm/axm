@@ -39,6 +39,29 @@ import { WorkspaceStateShared } from "./shared.js";
 
 type Read<A> = Effect.Effect<A, WorkspaceSettingsReadFailure>;
 
+/** A configured Registry host. */
+export type RegistrySourceHost = Extract<SourceHostConfig, { readonly type: "registry" }>;
+
+/** A Registry locator bound to the configured source that serves it. */
+export interface BoundRegistrySource {
+  /** The source the locator spells, or the effective default Registry when it spells none. */
+  readonly sourceName: string;
+  /** The configured Registry host of that name, when one is configured. */
+  readonly host: Option.Option<RegistrySourceHost>;
+}
+
+/**
+ * Bind a Registry locator's source: the one place an unqualified `@owner/...`
+ * locator is assigned to the effective default Registry. Every consumer that
+ * needs to know which configured Registry a locator names goes through here
+ * (directly with the effective default in hand, or through
+ * `SettingsReader.bindRegistrySource`).
+ */
+export const bindRegistrySource = (
+  sourceName: Option.Option<string>,
+  defaultRegistry: string,
+): string => Option.getOrElse(sourceName, () => defaultRegistry);
+
 export interface SettingsReaderService {
   /** The selected scope's settings, defaulting when the file is absent. */
   readonly settings: Read<Settings>;
@@ -50,6 +73,14 @@ export interface SettingsReaderService {
   >;
   /** defaultRegistry: project settings, then user-scope settings, then agentxm. */
   readonly defaultRegistry: Read<string>;
+  /**
+   * The configured Registry a parsed locator names: its spelled source, or
+   * the effective default Registry when it spells none, with that source's
+   * configured host.
+   */
+  readonly bindRegistrySource: (locator: {
+    readonly sourceName: Option.Option<string>;
+  }) => Read<BoundRegistrySource>;
   /** Owner: project settings, then user-scope settings, then none. */
   readonly owner: Read<Option.Option<Handle>>;
   /** Repository publication default for this exact workspace scope. */
@@ -113,6 +144,16 @@ export const makeSettingsReader = (
     return merged;
   }).pipe(Effect.withSpan("SettingsReader.configuredSources"));
 
+  const registrySourceHosts: Read<ReadonlyArray<RegistrySourceHost>> = configuredSources.pipe(
+    Effect.map((sources) => sources.filter((s): s is RegistrySourceHost => s.type === "registry")),
+  );
+  const defaultRegistry: Read<string> = Effect.gen(function* () {
+    const project = yield* projectSettings;
+    if (project.defaultRegistry !== undefined) return project.defaultRegistry;
+    const user = yield* userSettings;
+    return user.defaultRegistry ?? "agentxm";
+  }).pipe(Effect.withSpan("SettingsReader.defaultRegistry"));
+
   return {
     settings,
     configuredSources,
@@ -120,19 +161,17 @@ export const makeSettingsReader = (
       configuredSources.pipe(
         Effect.map((sources) => Option.fromUndefinedOr(sources.find((s) => s.name === name))),
       ),
-    registrySourceHosts: configuredSources.pipe(
-      Effect.map((sources) =>
-        sources.filter(
-          (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
-        ),
-      ),
-    ),
-    defaultRegistry: Effect.gen(function* () {
-      const project = yield* projectSettings;
-      if (project.defaultRegistry !== undefined) return project.defaultRegistry;
-      const user = yield* userSettings;
-      return user.defaultRegistry ?? "agentxm";
-    }).pipe(Effect.withSpan("SettingsReader.defaultRegistry")),
+    registrySourceHosts,
+    defaultRegistry,
+    bindRegistrySource: (locator) =>
+      Effect.gen(function* () {
+        const sourceName = bindRegistrySource(locator.sourceName, yield* defaultRegistry);
+        const hosts = yield* registrySourceHosts;
+        return {
+          sourceName,
+          host: Option.fromUndefinedOr(hosts.find((host) => host.name === sourceName)),
+        };
+      }).pipe(Effect.withSpan("SettingsReader.bindRegistrySource")),
     owner: Effect.gen(function* () {
       const project = yield* projectSettings;
       if (project.owner) return Option.some(project.owner);

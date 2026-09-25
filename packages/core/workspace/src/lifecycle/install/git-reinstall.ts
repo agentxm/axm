@@ -1,3 +1,4 @@
+import { extensionRefName } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 /**
  * Reconstructing a forced Git reinstall from accepted lock authority.
  *
@@ -21,25 +22,6 @@ const sameGitLocator = (left: GitSource, right: GitSource): boolean =>
   left.url.href === right.url.href &&
   Option.getOrUndefined(left.ref) === Option.getOrUndefined(right.ref) &&
   Option.getOrUndefined(left.subPath) === Option.getOrUndefined(right.subPath);
-
-export const refWorkspaceName = (ref: ExtensionRef): string => {
-  switch (ref.type) {
-    case "skill":
-      return ref.skill.name;
-    case "mcp-server":
-      return ref.server.name;
-    case "subagent":
-      return ref.subagent.name;
-    case "rule":
-      return ref.rule.name;
-    case "hook":
-      return ref.hook.name;
-    case "knowledge":
-      return ref.knowledge.name;
-    case "pack":
-      return ref.pack.name;
-  }
-};
 
 const reacquireAcceptedGitRef = (
   ref: Extract<ExtensionRef, { readonly refType: "git-hosted" }>,
@@ -103,7 +85,10 @@ export const findGitReinstallRefs = (
   });
 
 /** Use a matching accepted Git ref and make its recorded commit available locally. */
-export const pinGitReinstallRef = (ref: ExtensionRef, configuredName = refWorkspaceName(ref)) =>
+export const pinGitReinstallRef = (
+  ref: ExtensionRef,
+  configuredName: string = extensionRefName(ref),
+) =>
   Effect.gen(function* () {
     if (ref.refType !== "git-hosted") return ref;
     const accepted = yield* acceptedLockedResolutionRef({

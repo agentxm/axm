@@ -48,7 +48,10 @@ import type {
   PlannedJobStep,
 } from "../../transitions/planning/index.js";
 import type { RegistryBindingProposal } from "../../resolution/index.js";
-import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
+import {
+  extensionRefName,
+  type ExtensionRef,
+} from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { PackageUrlParts } from "@agentxm/extension-model/unstable/packaging/package-url";
 import type { ExtensionTarget, ExtensionTargetFor } from "../../desired-state/index.js";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
@@ -77,22 +80,8 @@ import {
  */
 export function targetFromRef<TRef extends ExtensionRef>(ref: TRef): ExtensionTargetFor<TRef>;
 export function targetFromRef(ref: ExtensionRef): ExtensionTarget {
-  switch (ref.type) {
-    case "skill":
-      return { type: "skill", name: ref.skill.name };
-    case "pack":
-      return { type: "pack", name: ref.pack.name, owner: ref.owner };
-    case "mcp-server":
-      return { type: "mcp-server", name: ref.server.name };
-    case "subagent":
-      return { type: "subagent", name: ref.subagent.name };
-    case "rule":
-      return { type: "rule", name: ref.rule.name };
-    case "hook":
-      return { type: "hook", name: ref.hook.name };
-    case "knowledge":
-      return { type: "knowledge", name: ref.knowledge.name };
-  }
+  const name = extensionRefName(ref);
+  return ref.type === "pack" ? { type: "pack", name, owner: ref.owner } : { type: ref.type, name };
 }
 
 export const extensionRefLifecycleWarnings = (ref: ExtensionRef): ReadonlyArray<string> =>

@@ -49,7 +49,6 @@ const resolveSubagentRegistrySource = (
 
     return yield* resolveConfiguredRegistrySource({
       sourceName: pattern.sourceName,
-      useDefaultRegistry: originalInput.startsWith("@"),
       owner: pattern.owner,
       extensionType: "subagent",
       extensionName: pattern.name,

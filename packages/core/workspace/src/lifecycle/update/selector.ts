@@ -31,6 +31,7 @@ import {
   resolveSource,
 } from "../../resolution/sources/index.js";
 import {
+  SettingsReader,
   WorkspaceRecords,
   configuredRowsByName,
   enabledConfiguredEntries,
@@ -73,10 +74,14 @@ const sourceMatchesEntrySource = (sourceValue: string, entrySource: string | und
     const requestedRegistry = parseSourceQualifiedRegistrySourcePatternParts(sourceValue);
     const configuredRegistry = parseSourceQualifiedRegistrySourcePatternParts(entrySource);
     if (requestedRegistry !== undefined || configuredRegistry !== undefined) {
+      if (requestedRegistry === undefined || configuredRegistry === undefined) return false;
+      // Both locators bind to the effective default Registry when unqualified,
+      // so the source recorded at install matches the source asked for now.
+      const settings = yield* SettingsReader;
+      const requestedSource = yield* settings.bindRegistrySource(requestedRegistry);
+      const configuredSource = yield* settings.bindRegistrySource(configuredRegistry);
       return (
-        requestedRegistry !== undefined &&
-        configuredRegistry !== undefined &&
-        requestedRegistry.sourceName === configuredRegistry.sourceName &&
+        requestedSource.sourceName === configuredSource.sourceName &&
         requestedRegistry.owner === configuredRegistry.owner &&
         requestedRegistry.type === configuredRegistry.type &&
         requestedRegistry.name === configuredRegistry.name

@@ -14,7 +14,10 @@ import * as Option from "effect/Option";
 
 import { expandGlobs } from "@agentxm/extension-model/unstable/extensions/name-patterns";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
+import {
+  extensionRefName,
+  type ExtensionRef,
+} from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 
 import type { ExtensionLifecycleFailed } from "../errors.js";
 import { installRefused } from "./vocabulary.js";
@@ -47,25 +50,6 @@ export class InstallSelectionInteraction extends Context.Service<
     >;
   }
 >()("@agentxm/workspace/lifecycle/install/InstallSelectionInteraction") {}
-
-export const extensionRefName = (ref: ExtensionRef): string => {
-  switch (ref.type) {
-    case "skill":
-      return ref.skill.name;
-    case "mcp-server":
-      return ref.server.name;
-    case "subagent":
-      return ref.subagent.name;
-    case "rule":
-      return ref.rule.name;
-    case "hook":
-      return ref.hook.name;
-    case "knowledge":
-      return ref.knowledge.name;
-    case "pack":
-      return ref.pack.name;
-  }
-};
 
 const extensionRefDescription = (ref: ExtensionRef): Option.Option<string> => {
   switch (ref.type) {

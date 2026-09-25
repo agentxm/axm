@@ -1,3 +1,4 @@
+import { extensionRefName } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import * as Effect from "effect/Effect";
 import { BUNDLED_SKILL_OWNER, bundledSkillCanonicalRoot } from "./extension-paths.js";
 import * as FileSystem from "effect/FileSystem";
@@ -114,25 +115,6 @@ export const acceptedLockedCanonicalPath = (
     );
   });
 
-const workspaceNameFromRef = (ref: ExtensionRef): string => {
-  switch (ref.type) {
-    case "skill":
-      return ref.skill.name;
-    case "mcp-server":
-      return ref.server.name;
-    case "subagent":
-      return ref.subagent.name;
-    case "rule":
-      return ref.rule.name;
-    case "hook":
-      return ref.hook.name;
-    case "knowledge":
-      return ref.knowledge.name;
-    case "pack":
-      return ref.pack.name;
-  }
-};
-
 /**
  * Capture exact cleanup for a superseded accepted package. The old path is
  * read before the lock transition; the returned effect runs afterward and
@@ -158,7 +140,7 @@ export const prepareAcceptedCanonicalTransition = (
       layout,
       args.ref,
       toExtensionTypePlural(args.ref.type),
-      workspaceNameFromRef(args.ref),
+      extensionRefName(args.ref),
     ).canonicalPath;
     if (path.resolve(previous.value) === path.resolve(next)) {
       return yield* Effect.succeed(Effect.void);

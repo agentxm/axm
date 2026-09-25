@@ -19,7 +19,7 @@ import {
   WorkspaceRecords,
 } from "../desired-state/index.js";
 
-import { stripFileProtocol } from "@agentxm/registry-client";
+import { fromFileLocation } from "@agentxm/host-primitives";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -541,7 +541,7 @@ export const RuleManagerLive = Layer.effect(
           ? makeWorkspaceRelativeSourcePath(
               path,
               baseDir,
-              ref.sourcePath ?? stripFileProtocol(ref.location),
+              ref.sourcePath ?? fromFileLocation(ref.location),
             )
           : Option.none<string>();
       if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {

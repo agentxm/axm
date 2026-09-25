@@ -7,6 +7,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { toFileLocation } from "@agentxm/host-primitives";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
@@ -359,7 +360,22 @@ describe("skillsInDir", () => {
 
           const matchingSkills = skills.filter((s) => s.skill.name === "quality");
           expect(matchingSkills).toHaveLength(1);
-          expect(at(matchingSkills, 0).location).toBe(`file://${canonicalPath}`);
+          expect(at(matchingSkills, 0).location).toBe(toFileLocation(canonicalPath));
+        }),
+      ),
+    );
+
+    it.effect("encodes special characters in discovered file locations", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const sourceRoot = path.join(tempDir, "source # percent%");
+          const skillPath = path.join(sourceRoot, "skills", "quality");
+          createSkillMd(skillPath, "quality", "Canonical skill");
+
+          const skills = yield* skillsInDir(sourceRoot, Option.none(), defaultOptions);
+
+          expect(at(skills, 0).location).toBe(toFileLocation(skillPath));
+          expect(at(skills, 0).location).toContain("%20%23%20percent%25");
         }),
       ),
     );

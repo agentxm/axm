@@ -40,7 +40,8 @@ import {
   makeWorkspaceRelativeSourcePath,
 } from "@agentxm/extension-model/unstable/path-types";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import { RegistryClientFactory, stripFileProtocol } from "@agentxm/registry-client";
+import { RegistryClientFactory } from "@agentxm/registry-client";
+import { fromFileLocation } from "@agentxm/host-primitives";
 import {
   acceptedRegistryVersionForRef,
   validateExactResolvedVersion,
@@ -629,7 +630,7 @@ export const installMcpServer: (
               makeWorkspaceRelativeSourcePath(
                 path,
                 location.baseDir,
-                stripFileProtocol(ref.location),
+                fromFileLocation(ref.location),
               ),
               () => ref.source.path,
             )
@@ -645,7 +646,7 @@ export const installMcpServer: (
       existingLocalNode !== undefined &&
       existingLocalNode.identity.authority === "path" &&
       path.resolve(location.baseDir, existingLocalNode.identity.locator) ===
-        path.resolve(stripFileProtocol(ref.location))
+        path.resolve(fromFileLocation(ref.location))
         ? desiredMcpSourceKey(existingLocalNode.identity)
         : requestedSourceIdentity;
     if (
@@ -731,7 +732,7 @@ export const installMcpServer: (
                   baseDir: location.baseDir,
                   canonicalPath: destination,
                   populate: (stagingPath) =>
-                    copyExtensionDirectory(stripFileProtocol(ref.location), stagingPath).pipe(
+                    copyExtensionDirectory(fromFileLocation(ref.location), stagingPath).pipe(
                       Effect.mapError(
                         (cause) =>
                           new McpWorkspacePackageInvalid({
@@ -773,7 +774,7 @@ export const installMcpServer: (
                   ? makeWorkspaceRelativeSourcePath(
                       path,
                       location.baseDir,
-                      stripFileProtocol(ref.location),
+                      fromFileLocation(ref.location),
                     )
                   : Option.none(),
             });

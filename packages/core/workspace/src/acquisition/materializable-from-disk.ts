@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect";
-import { stripFileProtocol } from "@agentxm/registry-client";
+import { fromFileLocation } from "@agentxm/host-primitives";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -110,7 +110,7 @@ export const configuredSkillsToDiskRefs = (
             return Effect.succeed(Option.none<SkillExtensionRef>());
           }
           const skillFile = env.path.join(
-            stripFileProtocol(ref.location),
+            fromFileLocation(ref.location),
             ...(ref.portable === true ? [] : ["src"]),
             "SKILL.md",
           );

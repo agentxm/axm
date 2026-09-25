@@ -6,7 +6,7 @@ import { extensionRefName } from "@agentxm/extension-model/unstable/extensions/r
  * @packageDocumentation
  */
 
-import { pathToFileURL } from "node:url";
+import { toFileLocation } from "@agentxm/host-primitives";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
@@ -42,7 +42,7 @@ const reacquireAcceptedGitRef = (
       .pipe(Effect.mapError((cause) => sourceResolutionRefused(cause)));
     return {
       ...lockedCandidate,
-      location: pathToFileURL(fetched.directory).href,
+      location: toFileLocation(fetched.directory),
     } satisfies ExtensionRef;
   });
 

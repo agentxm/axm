@@ -9,7 +9,7 @@
  */
 
 import * as FileSystem from "effect/FileSystem";
-import { stripFileProtocol } from "@agentxm/registry-client";
+import { fromFileLocation } from "@agentxm/host-primitives";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -84,7 +84,7 @@ const materializeFromDisk = (
       sanitizedName,
     );
     yield* validatePathSafety(pathService, baseDir, canonicalPath);
-    const packageRoot = yield* acquiredDirectoryForRef(ref, stripFileProtocol(ref.location));
+    const packageRoot = yield* acquiredDirectoryForRef(ref, fromFileLocation(ref.location));
     const sourceSkillPath =
       ref.portable === true ? packageRoot : pathService.join(packageRoot, "src");
     yield* validateAxmSkillCandidate({

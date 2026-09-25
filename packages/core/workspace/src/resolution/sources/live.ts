@@ -14,7 +14,8 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { RegistryClientFactory, stripFileProtocol } from "@agentxm/registry-client";
+import { RegistryClientFactory } from "@agentxm/registry-client";
+import { fromFileLocation } from "@agentxm/host-primitives";
 import type * as Scope from "effect/Scope";
 
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
@@ -105,7 +106,7 @@ export const SourceHostProvidersLive: Layer.Layer<
       ref: ExtensionRef,
     ): Effect.Effect<ExtensionRef, SourceNotResolvable> => {
       if (ref.refType !== "local") return Effect.succeed(ref);
-      const selectedPath = stripFileProtocol(ref.location);
+      const selectedPath = fromFileLocation(ref.location);
       const relative = makeWorkspaceRelativeSourcePath(path, catalog.workspaceRoot, selectedPath);
       if (Option.isNone(relative)) {
         return Effect.fail(

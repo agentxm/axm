@@ -34,7 +34,7 @@ import {
   readMcpServerManifest,
 } from "../../../reconciliation/index.js";
 import { materializeRegistryPackage } from "../../../materialization/index.js";
-import { stripFileProtocol } from "@agentxm/registry-client";
+import { fromFileLocation } from "@agentxm/host-primitives";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 import { validateManifestMcpServerTargets } from "../../../projection/agent-adapters/index.js";
@@ -470,7 +470,7 @@ export const finalizeMcpServerInstallIntent: (
       const path = yield* Path.Path;
       const localPath = sourceRequest.source.path;
       return Option.getOrElse(
-        makeWorkspaceRelativeSourcePath(path, location.baseDir, stripFileProtocol(ref.location)),
+        makeWorkspaceRelativeSourcePath(path, location.baseDir, fromFileLocation(ref.location)),
         () => localPath,
       );
     });
@@ -498,7 +498,7 @@ export const finalizeMcpServerInstallIntent: (
           const location = yield* WorkspaceLocation;
           const path = yield* Path.Path;
           return path.resolve(location.baseDir, existingLocalIdentity.locator) ===
-            path.resolve(stripFileProtocol(ref.location))
+            path.resolve(fromFileLocation(ref.location))
             ? desiredMcpSourceKey(existingLocalIdentity)
             : requestedIdentity;
         })
@@ -587,7 +587,7 @@ export const planMcpServerInstall: (
                 },
               });
             })
-          : stripFileProtocol(ref.location);
+          : fromFileLocation(ref.location);
       const manifest = yield* readMcpServerManifest(manifestPath);
       if (Option.isNone(manifest)) {
         return yield* installRefused({

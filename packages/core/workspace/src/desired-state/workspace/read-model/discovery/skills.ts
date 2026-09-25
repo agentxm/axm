@@ -10,6 +10,7 @@
 import type * as Config from "effect/Config";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import { toFileLocation } from "@agentxm/host-primitives";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import { AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
 import { parsePluginManifests } from "./plugin-manifests.js";
@@ -45,7 +46,7 @@ export interface DiscoveredSkill {
 const makeDiscoveredSkill = (skill: Skill, fullPath: string): DiscoveredSkill => ({
   type: "skill",
   skill,
-  location: `file://${fullPath}`,
+  location: toFileLocation(fullPath),
 });
 
 /**

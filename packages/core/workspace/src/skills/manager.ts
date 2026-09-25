@@ -13,7 +13,7 @@ import { usableAcceptedCanonical } from "../desired-state/index.js";
  */
 
 import * as FileSystem from "effect/FileSystem";
-import { stripFileProtocol } from "@agentxm/registry-client";
+import { fromFileLocation } from "@agentxm/host-primitives";
 import * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
@@ -383,7 +383,7 @@ export const SkillManagerLive = Layer.effect(
             ? makeWorkspaceRelativeSourcePath(
                 path,
                 baseDir,
-                ref.sourcePath ?? stripFileProtocol(ref.location),
+                ref.sourcePath ?? fromFileLocation(ref.location),
               )
             : Option.none();
         if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {

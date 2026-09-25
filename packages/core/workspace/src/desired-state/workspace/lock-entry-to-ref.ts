@@ -5,7 +5,7 @@
  * @packageDocumentation
  */
 
-import { pathToFileURL } from "node:url";
+import { toFileLocation } from "@agentxm/host-primitives";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
@@ -79,7 +79,7 @@ interface LockEntryToRefDeps {
   >;
 }
 
-const fileHref = (path: string): string => pathToFileURL(path).href;
+const fileHref = (path: string): string => toFileLocation(path);
 
 const localLockEntryPath = (deps: LockEntryToRefDeps, entryPath: string): string =>
   deps.path.resolve(deps.baseDir, entryPath);

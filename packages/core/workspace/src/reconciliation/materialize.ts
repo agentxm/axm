@@ -9,7 +9,7 @@
  * @experimental All exports from this module are unstable and may change without notice.
  */
 
-import { pathToFileURL } from "node:url";
+import { toFileLocation } from "@agentxm/host-primitives";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -650,7 +650,7 @@ export const collectMaterializeSteps = (args: {
             );
             ref = {
               ...acceptedGitRef,
-              location: pathToFileURL(files.directory).href,
+              location: toFileLocation(files.directory),
             } satisfies ExtensionRef;
           }
           const inventoryRead = inventories.get(node.type);

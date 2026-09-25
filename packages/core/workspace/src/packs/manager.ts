@@ -24,7 +24,7 @@ import {
 
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { stripFileProtocol } from "@agentxm/registry-client";
+import { fromFileLocation } from "@agentxm/host-primitives";
 import {
   PackArchiveFetchFailed,
   PackDefinitionInvalid,
@@ -304,7 +304,7 @@ export const PackManagerLive = Layer.effect(
         ).canonicalPath;
         const workspaceRelativeLocalSourcePath =
           ref.refType === "local"
-            ? makeWorkspaceRelativeSourcePath(path, baseDir, stripFileProtocol(ref.location))
+            ? makeWorkspaceRelativeSourcePath(path, baseDir, fromFileLocation(ref.location))
             : Option.none<string>();
         const workspaceRelativeLocalSourceRoot =
           ref.refType === "local"

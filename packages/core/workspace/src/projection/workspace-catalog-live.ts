@@ -23,10 +23,10 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
+import { fromFileLocation } from "@agentxm/host-primitives";
 import type * as PlatformError from "effect/PlatformError";
 import type { CodingAgentFailure } from "./agent-adapters/index.js";
 import {
-  fileUrlToPath,
   WorkspaceCatalog,
   WorkspaceCatalogUnavailable,
   type SkillCandidates,
@@ -211,7 +211,7 @@ export const WorkspaceCatalogLive = Layer.effect(
       const onDiskByName = new Map<string, string>();
       for (const ref of refsSortedByLocation) {
         if (!onDiskByName.has(ref.skill.name)) {
-          onDiskByName.set(ref.skill.name, fileUrlToPath(ref.location));
+          onDiskByName.set(ref.skill.name, fromFileLocation(ref.location));
         }
       }
 

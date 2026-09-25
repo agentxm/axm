@@ -71,7 +71,7 @@ import {
 import { SourceHostProviders } from "../resolution/sources/index.js";
 import { copyExtensionDirectory } from "../acquisition/copy-directory.js";
 import { replaceCanonicalDirectoryWithInspection } from "../acquisition/canonical-directory.js";
-import { stripFileProtocol } from "@agentxm/registry-client";
+import { fromFileLocation } from "@agentxm/host-primitives";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import {
   acceptedRowKey,
@@ -502,7 +502,7 @@ export const McpServerManagerLive = Layer.effect(
           contentIdentity: yield* computePackageContentHash(canonicalPath),
           localPath:
             ref.refType === "local"
-              ? makeWorkspaceRelativeSourcePath(path, baseDir, stripFileProtocol(ref.location))
+              ? makeWorkspaceRelativeSourcePath(path, baseDir, fromFileLocation(ref.location))
               : Option.none(),
         });
         return Option.some({ key: mcpResolutionKey(entry), entry });

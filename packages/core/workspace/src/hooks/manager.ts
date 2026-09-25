@@ -19,7 +19,7 @@ import {
   WorkspaceRecords,
 } from "../desired-state/index.js";
 
-import { stripFileProtocol } from "@agentxm/registry-client";
+import { fromFileLocation } from "@agentxm/host-primitives";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -607,7 +607,7 @@ export const HookManagerLive = Layer.effect(
         ? Effect.scoped(
             sources.fetch(ref).pipe(Effect.flatMap(({ directory }) => readManifest(directory))),
           )
-        : readManifest(stripFileProtocol(ref.location));
+        : readManifest(fromFileLocation(ref.location));
 
     const evaluateConfiguredOutcomes = (args: {
       readonly configuredAgents: ReadonlyArray<string>;
@@ -972,7 +972,7 @@ export const HookManagerLive = Layer.effect(
                 const root =
                   ref.refType === "registry"
                     ? (yield* sources.fetch(ref)).directory
-                    : stripFileProtocol(ref.location);
+                    : fromFileLocation(ref.location);
                 const manifest = yield* readManifest(root);
                 const entrypoint = path.resolve(root, manifest.entrypoint);
                 yield* validatePathSafety(path, root, entrypoint);
@@ -1041,7 +1041,7 @@ export const HookManagerLive = Layer.effect(
           ? makeWorkspaceRelativeSourcePath(
               path,
               baseDir,
-              ref.sourcePath ?? stripFileProtocol(ref.location),
+              ref.sourcePath ?? fromFileLocation(ref.location),
             )
           : Option.none<string>();
       if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {

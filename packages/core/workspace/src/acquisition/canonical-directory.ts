@@ -8,7 +8,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { stripFileProtocol } from "@agentxm/registry-client";
+import { fromFileLocation } from "@agentxm/host-primitives";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import {
@@ -348,7 +348,7 @@ export const materializeExternalPackageWithTreeIntegrity = <E = never>(
 
     yield* validatePathSafety(path, args.baseDir, args.canonicalPath);
 
-    const sourcePath = stripFileProtocol(args.sourceLocation);
+    const sourcePath = fromFileLocation(args.sourceLocation);
     const isSelfCopy = path.resolve(sourcePath) === path.resolve(args.canonicalPath);
     if (isSelfCopy) {
       return {

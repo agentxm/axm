@@ -10,7 +10,7 @@
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
-import { stripFileProtocol } from "@agentxm/registry-client";
+import { fromFileLocation } from "@agentxm/host-primitives";
 
 import { SourceNetworkFailure, type SourceError } from "../errors.js";
 import type { SourceHostProvider } from "@agentxm/extension-model/unstable/sources/source-host-provider";
@@ -54,7 +54,7 @@ export const createLocalSourceHostProvider = (): SourceHostProvider<
       );
     }
     return Effect.succeed({
-      directory: stripFileProtocol(ref.location),
+      directory: fromFileLocation(ref.location),
     });
   },
 });

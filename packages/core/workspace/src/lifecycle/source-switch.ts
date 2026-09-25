@@ -16,7 +16,7 @@ import {
 } from "../desired-state/index.js";
 import { isArchivePathIncluded } from "../publishing/index.js";
 import { SourceHostProviders } from "../resolution/sources/index.js";
-import { fileUrlToPath } from "../resolution/sources/file-url.js";
+import { fromFileLocation } from "@agentxm/host-primitives";
 import type {
   JobStepArtifact,
   PackMemberSourceSwitchEndpoint,
@@ -78,7 +78,7 @@ const sourceLocator = (ref: ExtensionRef): string => {
     case "git-hosted":
       return `${publicUrl(ref.source.url)}${ref.sourcePath === undefined ? "" : `//${ref.sourcePath}`}`;
     case "local":
-      return fileUrlToPath(ref.location);
+      return fromFileLocation(ref.location);
     case "workspace":
       throw new TypeError("Workspace refs do not participate in acquired source switches");
   }

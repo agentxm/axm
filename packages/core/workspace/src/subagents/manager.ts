@@ -12,7 +12,7 @@ import { usableAcceptedCanonical } from "../desired-state/index.js";
  */
 
 import * as FileSystem from "effect/FileSystem";
-import { stripFileProtocol } from "@agentxm/registry-client";
+import { fromFileLocation } from "@agentxm/host-primitives";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import { extensionRefLifecycleWarnings } from "../lifecycle/warnings.js";
@@ -365,10 +365,7 @@ export const SubagentManagerLive = Layer.effect(
         switch (ref.refType) {
           case "git-hosted":
           case "local": {
-            const packageRoot = yield* acquiredDirectoryForRef(
-              ref,
-              stripFileProtocol(ref.location),
-            );
+            const packageRoot = yield* acquiredDirectoryForRef(ref, fromFileLocation(ref.location));
             const sourcePath =
               currentLayout().scope === "project" ? packageRoot : path.join(packageRoot, "src");
             const targetPath =
@@ -934,7 +931,7 @@ export const SubagentManagerLive = Layer.effect(
             ? makeWorkspaceRelativeSourcePath(
                 path,
                 baseDir,
-                ref.sourcePath ?? stripFileProtocol(ref.location),
+                ref.sourcePath ?? fromFileLocation(ref.location),
               )
             : Option.none();
         if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {

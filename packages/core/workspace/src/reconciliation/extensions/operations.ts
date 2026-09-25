@@ -4,7 +4,7 @@ import {
   LifecyclePostconditionViolated,
   ScaffoldedExtensionUnresolved,
 } from "../../transitions/planning/index.js";
-import { stripFileProtocol } from "@agentxm/registry-client";
+import { fromFileLocation } from "@agentxm/host-primitives";
 /**
  * Shared extension closure recipes — install, materialize, uninstall, and the
  * authored-package transition.
@@ -320,7 +320,7 @@ const observeFootprint = <A, E, R>(
 
 /** Mutable source inputs are part of the candidate, even before first acceptance. */
 const sourceMaterialPaths = (ref: ExtensionRef): ReadonlyArray<string> =>
-  ref.refType === "local" || ref.refType === "workspace" ? [stripFileProtocol(ref.location)] : [];
+  ref.refType === "local" || ref.refType === "workspace" ? [fromFileLocation(ref.location)] : [];
 
 export interface InstallOperationArgs<
   TRef extends ExtensionRef,

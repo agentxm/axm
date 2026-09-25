@@ -10,7 +10,7 @@ export const specification = defineSpecification({
   requirement: "cli/list/reports-deprecation-guidance",
   title: "Deprecation listings report available replacement guidance",
   statement:
-    "When listing deprecated installations, AXM shall return the Registry\u2019s deprecation message and replacement availability for each matching installation.",
+    "When listing deprecated installations, AXM shall return the Registry\u2019s deprecation reason, notes, and replacement availability for each matching installation.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "machine-automation", "actionable-diagnostics"],
@@ -29,6 +29,7 @@ describe("Installation deprecation guidance", () => {
     {
       label: "message and visible replacement",
       guidance: {
+        reason: "superseded",
         message: "Use the replacement.",
         replacement: { status: "available", fqn: "@acme/skills/replacement" },
       },
@@ -36,14 +37,21 @@ describe("Installation deprecation guidance", () => {
     {
       label: "message and unavailable replacement",
       guidance: {
+        reason: "superseded",
         message: "Use the replacement when available.",
         replacement: { status: "unavailable" },
       },
     },
-    { label: "message only", guidance: { message: "This extension is no longer maintained." } },
+    {
+      label: "message only",
+      guidance: { reason: "other", message: "This extension is no longer maintained." },
+    },
     {
       label: "replacement only",
-      guidance: { replacement: { status: "available", fqn: "@acme/skills/replacement" } },
+      guidance: {
+        reason: "superseded",
+        replacement: { status: "available", fqn: "@acme/skills/replacement" },
+      },
     },
   ])
     it.effect(row.label, () => {

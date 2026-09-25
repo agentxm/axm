@@ -64,7 +64,6 @@ describe("Token creation", () => {
             owners: ["@alice"],
             extensions: ["@alice/skills/review"],
             permission,
-            verification: { unattended: true },
           },
           authRegistry,
         );
@@ -82,7 +81,7 @@ describe("Token creation", () => {
             },
           },
         ]);
-        expect(result).toEqual({ token: created, stepUpCompleted: false });
+        expect(result).toEqual({ token: created });
         expect(yield* store.load(authRegistry)).toEqual(before);
       }).pipe(Effect.provide(layer));
     });

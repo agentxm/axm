@@ -15,6 +15,7 @@ import * as FileSystem from "effect/FileSystem";
 import { stripFileProtocol } from "@agentxm/registry-client";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import { extensionRefLifecycleWarnings } from "../lifecycle/warnings.js";
 import * as Ref from "effect/Ref";
 import {
   LockfileReader,
@@ -344,9 +345,7 @@ export const SubagentManagerLive = Layer.effect(
           version: ref.version,
           integrity: ref.integrity,
           publisherBindingId: ref.publisherBindingId,
-          ...(ref.lifecycleWarnings === undefined
-            ? {}
-            : { lifecycleWarnings: ref.lifecycleWarnings }),
+          lifecycleWarnings: extensionRefLifecycleWarnings(ref),
           messages: {
             integrityMismatchDetail: `Integrity mismatch for ${ref.name}@${ref.version}`,
           },

@@ -10,7 +10,7 @@ import * as Option from "effect/Option";
 
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import { redactRegistryText } from "@agentxm/registry-client";
-import { StepUpVerificationPending, type AuthError } from "@agentxm/registry-access/authentication";
+import type { AuthError } from "@agentxm/registry-access/authentication";
 import { workspaceFailureToStepFailure } from "../../reconciliation/failure-rendering.js";
 import {
   StepFailure,
@@ -38,13 +38,6 @@ import type { PublishPublicationSet, PublishResultItem } from "./result.js";
  */
 export const publishStepFailure = (failure: PublishFailure | AuthError): StepFailure =>
   stepFailureWithCause(workspaceFailureToStepFailure(failure), failure);
-
-/**
- * The pending human handoff a settled step carried, if any. Publication did
- * not start, so the invocation reports the handoff instead of a result.
- */
-export const pendingHumanCause = (failure: StepFailure): StepUpVerificationPending | undefined =>
-  failure.cause instanceof StepUpVerificationPending ? failure.cause : undefined;
 
 /** The typed failure a settled step carried, or a generic one it did not. */
 export const publishStepFailureCause = (failure: StepFailure): PublishFailure =>

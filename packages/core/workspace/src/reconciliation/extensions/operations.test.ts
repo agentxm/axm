@@ -295,6 +295,7 @@ describe("buildInstallOperation", () => {
       const name = extensionName("review");
       const deprecation = {
         deprecatedAt: DateTime.makeUnsafe("2026-03-01T00:00:00.000Z"),
+        reason: "superseded" as const,
         message: "Move review workflows.",
         replacement: {
           status: "available" as const,
@@ -363,6 +364,7 @@ describe("buildInstallOperation", () => {
       };
       const deprecation = {
         deprecatedAt: DateTime.makeUnsafe("2026-09-18T00:00:00.000Z"),
+        reason: "other" as const,
         message: "Move review workflows.",
       };
       const archiveWarning = "@acme/skills/review is archived: No longer maintained";
@@ -780,6 +782,53 @@ describe("buildAuthoredExtensionStep", () => {
 });
 
 describe("buildMaterializeOperation", () => {
+  it("warns when sync materializes a deprecated registry extension", () => {
+    const name = extensionName("review");
+    const ref: RegistrySkillRef = {
+      type: "skill",
+      refType: "registry",
+      publisherBindingId: "hbnd_test",
+      source: {
+        type: "registry",
+        name: "agentxm",
+        location: new URL("https://registry.agentxm.ai"),
+        owner: Option.some(handle("@acme")),
+      },
+      owner: handle("@acme"),
+      name,
+      version: exactVersion("1.0.0"),
+      integrity: Option.none(),
+      packages: [],
+      deprecation: {
+        deprecatedAt: DateTime.makeUnsafe("2026-03-01T00:00:00.000Z"),
+        reason: "superseded",
+        message: "Use the new reviewer.",
+        replacement: {
+          status: "available",
+          fqn: fullyQualifiedName("@acme/skills/reviewer"),
+        },
+      },
+      skill: { name, description: Option.none(), metadata: Option.none() },
+    };
+    const manager = {
+      isInstalled: () => Effect.succeed(true),
+      materializeInstall: () => Effect.succeed(NO_FACTS),
+      acquireCanonical: () => Effect.succeed(NO_FACTS),
+      acceptedResolution: () => Effect.succeed(Option.none()),
+    } satisfies SynchronizeMaterialization<
+      SkillExtensionRef,
+      void,
+      ExtensionManagerFailure,
+      ManagerRequirements
+    >;
+
+    const operation = buildMaterializeOperation(manager, { ref, toStepFailure });
+    expect(operation.readiness).toBe("warn");
+    if (operation.readiness === "warn") {
+      expect(operation.warnMessage).toContain("@acme/skills/review is deprecated");
+    }
+  });
+
   it.effect("derives accepted resolution facts only after materialization succeeds", () =>
     Effect.gen(function* () {
       const calls: string[] = [];

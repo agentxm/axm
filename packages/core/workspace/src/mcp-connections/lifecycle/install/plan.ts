@@ -10,6 +10,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import { extensionRefLifecycleWarnings } from "../../../lifecycle/warnings.js";
 import {
   DesiredStateReader,
   SettingsReader,
@@ -27,7 +28,11 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
-import { installMcpServer, readMcpServerManifest } from "../../../reconciliation/index.js";
+import {
+  extensionRefRegistryLifecycle,
+  installMcpServer,
+  readMcpServerManifest,
+} from "../../../reconciliation/index.js";
 import { materializeRegistryPackage } from "../../../materialization/index.js";
 import { stripFileProtocol } from "@agentxm/registry-client";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
@@ -576,9 +581,7 @@ export const planMcpServerInstall: (
                 version: ref.version,
                 integrity: ref.integrity,
                 publisherBindingId: ref.publisherBindingId,
-                ...(ref.lifecycleWarnings === undefined
-                  ? {}
-                  : { lifecycleWarnings: ref.lifecycleWarnings }),
+                lifecycleWarnings: extensionRefLifecycleWarnings(ref),
                 messages: {
                   integrityMismatchDetail: `Integrity mismatch for ${ref.name}@${ref.version}`,
                 },
@@ -640,6 +643,8 @@ export const planMcpServerInstall: (
           publisherBindingId: intent.ref.publisherBindingId,
         }
       : undefined;
+  const lifecycleWarnings = extensionRefLifecycleWarnings(intent.ref);
+  const registryLifecycle = extensionRefRegistryLifecycle(intent.ref);
 
   return {
     _tag: "Plan",
@@ -656,9 +661,12 @@ export const planMcpServerInstall: (
           {
             key: `mcp-server:${intent.localName}`,
             label: intent.localName,
-            readiness: "ready",
+            ...(lifecycleWarnings.length === 0
+              ? { readiness: "ready" as const }
+              : { readiness: "warn" as const, warnMessage: lifecycleWarnings.join("; ") }),
             sourceBinding,
             ...(registryBinding === undefined ? {} : { registryBinding }),
+            ...(registryLifecycle === undefined ? {} : { registryLifecycle }),
             run: installMcpServer({
               name: "install-mcp-server",
               args: {

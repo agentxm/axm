@@ -51,10 +51,9 @@ meaning, and an architecture specification compares every node's declaration
 with its parsed flags and its executable evidence
 through the repository's command-capability allocation check.
 
-`--preview` is the one spelling of assessment
-(`cli/preview-uses-the-canonical-flag`). Every command that can plan a change
-exposes it: workspace lifecycle, authoring, publish, sync, setup, demote, and
-the executable upgrade. A preview reports the exact candidate — including one
+`--preview` is the usual spelling of assessment
+(`cli/preview-uses-the-canonical-flag`). The deprecated-extension migration
+command uses `--dry-run`. A preview reports the exact candidate — including one
 the command would refuse to apply — and changes no protected state. Each
 preview route carries its own `preview-is-pure` specification, identified as
 `cli/<command>/preview-is-pure` and resolved through the
@@ -229,7 +228,7 @@ adds candidate details, and `--preview --verbose` shows them before acting.
 Quiet mode retains any candidate and risks required for approval.
 
 A wait parks the terminal while a person acts elsewhere: signing in, entering a
-device code, authorizing a publication, or completing step-up verification. It
+device code, or authorizing a publication. It
 first commits its instructions, code, link, and expiry. Its changing status
 and controls take the active region and race the awaited result against keys: `o` opens the browser, `c` copies the one-time
 code for device login and the link for every other wait, and `esc` abandons the

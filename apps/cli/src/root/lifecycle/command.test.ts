@@ -19,6 +19,7 @@ const target = "@acme/skills/review";
 const archived = { archivedAt: "2026-09-19T00:00:00.000Z", reason: "No longer maintained" };
 const deprecated = {
   deprecatedAt: "2026-09-19T00:00:00.000Z",
+  reason: "superseded",
   message: "Move review workflows",
   replacement: { status: "available", fqn: "@acme/skills/reviewer" },
 };
@@ -73,6 +74,7 @@ describe("Registry lifecycle human output", () => {
               case "deprecate":
                 yield* handleDeprecate({
                   ref: target,
+                  reason: Option.some("superseded"),
                   message: Option.some(deprecated.message),
                   replacement: Option.some(deprecated.replacement.fqn),
                   clearMessage: false,

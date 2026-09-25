@@ -4870,6 +4870,46 @@
         "subcommands": []
       },
       {
+        "name": "migrate",
+        "aliases": [],
+        "description": "Replace a superseded extension or remove an obsolete one",
+        "arguments": [
+          {
+            "name": "extension",
+            "aliases": [],
+            "type": "string",
+            "required": true,
+            "description": "Installed deprecated Registry extension FQN"
+          }
+        ],
+        "options": [
+          {
+            "name": "scope",
+            "aliases": [],
+            "type": "choice",
+            "required": false,
+            "description": "Project (default) or user workspace",
+            "choices": [{ "value": "project" }, { "value": "user" }]
+          },
+          {
+            "name": "dry-run",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Preview the complete migration without changing the workspace"
+          }
+        ],
+        "globalOptions": [],
+        "examples": [
+          {
+            "command": "axm migrate @acme/skills/review --dry-run",
+            "description": "Preview migration"
+          },
+          { "command": "axm migrate @acme/skills/review", "description": "Apply migration" }
+        ],
+        "subcommands": []
+      },
+      {
         "name": "list",
         "aliases": [],
         "description": "List extensions across all types",
@@ -5573,22 +5613,7 @@
                 "choices": [{ "value": "public" }, { "value": "private" }]
               }
             ],
-            "options": [
-              {
-                "name": "step-up-request",
-                "aliases": [],
-                "type": "string",
-                "required": false,
-                "description": "Resume this write using its step-up request URL and unchanged inputs"
-              },
-              {
-                "name": "wait-for-human",
-                "aliases": [],
-                "type": "integer",
-                "required": false,
-                "description": "Wait at most this many seconds for a person to approve in a browser"
-              }
-            ],
+            "options": [],
             "globalOptions": [],
             "examples": [
               {
@@ -5611,22 +5636,7 @@
                 "description": "Exact extension FQN (@owner/<plural-type>/name)"
               }
             ],
-            "options": [
-              {
-                "name": "step-up-request",
-                "aliases": [],
-                "type": "string",
-                "required": false,
-                "description": "Resume this write using its step-up request URL and unchanged inputs"
-              },
-              {
-                "name": "wait-for-human",
-                "aliases": [],
-                "type": "integer",
-                "required": false,
-                "description": "Wait at most this many seconds for a person to approve in a browser"
-              }
-            ],
+            "options": [],
             "globalOptions": [],
             "examples": [
               {
@@ -5731,11 +5741,24 @@
         ],
         "options": [
           {
+            "name": "reason",
+            "aliases": [],
+            "type": "choice",
+            "required": false,
+            "description": "Why the extension is deprecated",
+            "choices": [
+              { "value": "superseded" },
+              { "value": "obsolete" },
+              { "value": "unmaintained" },
+              { "value": "other" }
+            ]
+          },
+          {
             "name": "message",
             "aliases": [],
             "type": "string",
             "required": false,
-            "description": "Concise publisher migration guidance (maximum 500 characters)"
+            "description": "Optional publisher notes (maximum 500 characters); required for obsolete and other"
           },
           {
             "name": "replacement",
@@ -5762,7 +5785,7 @@
         "globalOptions": [],
         "examples": [
           {
-            "command": "axm deprecate @acme/skills/code-review --replacement @acme/skills/reviewer --message \"Move review workflows\"",
+            "command": "axm deprecate @acme/skills/code-review --reason superseded --replacement @acme/skills/reviewer --message \"Move review workflows\"",
             "description": "Deprecate with structured replacement guidance"
           }
         ],
@@ -6417,20 +6440,6 @@
             "arguments": [],
             "options": [
               {
-                "name": "step-up-request",
-                "aliases": [],
-                "type": "string",
-                "required": false,
-                "description": "Resume this write using its step-up request URL and unchanged inputs"
-              },
-              {
-                "name": "wait-for-human",
-                "aliases": [],
-                "type": "integer",
-                "required": false,
-                "description": "Wait at most this many seconds for a person to approve in a browser"
-              },
-              {
                 "name": "output",
                 "aliases": [],
                 "type": "choice",
@@ -6484,8 +6493,8 @@
                 "description": "Create a publish token scoped to @foo and show it once"
               },
               {
-                "command": "axm token create --name ci --extension @foo/skills/review --permission publish --wait-for-human 300 --output token",
-                "description": "Write only the new token to stdout for a pipe, waiting up to 300s for approval"
+                "command": "axm token create --name ci --extension @foo/skills/review --permission publish --output token",
+                "description": "Write only the new token to stdout for a pipe"
               }
             ],
             "subcommands": []

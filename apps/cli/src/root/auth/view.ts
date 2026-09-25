@@ -28,15 +28,11 @@ export const authProgressLabel = (progress: AuthLoginProgress): string => {
       return `registry session on ${progress.registryHost}`;
     case "ListingRegistryTokens":
       return "registry tokens";
-    case "RunningVerifiedWrite":
-    case "RetryingVerifiedWrite":
-      return progress.operation;
   }
 };
 
 /**
- * Lifecycle unit id for one sign-in or verification phase. Ids name the work,
- * not the progress tag, so a retry reads as a distinct unit.
+ * Lifecycle unit id for one sign-in phase.
  */
 export const authProgressUnitId = (progress: AuthLoginProgress): string => {
   switch (progress._tag) {
@@ -46,10 +42,6 @@ export const authProgressUnitId = (progress: AuthLoginProgress): string => {
       return "revoke";
     case "ListingRegistryTokens":
       return "tokens";
-    case "RunningVerifiedWrite":
-      return "operation";
-    case "RetryingVerifiedWrite":
-      return "operation-retry";
     default:
       return progress._tag;
   }
@@ -101,7 +93,10 @@ export const pendingDeviceSuggestions = (
 
 export const loginSuccessSuggestions = [
   { description: "Check active account", cmd: "axm whoami" },
-  { description: "Create an API token", cmd: "axm token create --name <name>" },
+  {
+    description: "Create an API token in web settings",
+    url: "https://agentxm.ai/u/settings/tokens",
+  },
 ] satisfies ReadonlyArray<SuggestedAction>;
 
 /**
@@ -163,22 +158,6 @@ const handoffBrief = (handoff: HumanHandoff): Doc => {
           text: `Sign-in returns to ${handoff.redirectUri}. On a remote or headless machine, run \`axm login --device-code\`.`,
         },
       ];
-    case "StepUp":
-      return [
-        {
-          _tag: "paragraph",
-          text: `Verify ${handoff.action} on ${handoff.target} to continue.`,
-        },
-        {
-          _tag: "next",
-          actions: [{ description: `Verify ${handoff.action}`, url: handoff.verificationUrl }],
-        },
-        {
-          _tag: "paragraph",
-          tone: "dim",
-          text: "This command retries once, by itself, after verification.",
-        },
-      ];
     case "PublishAuthorization":
       return [
         {
@@ -197,8 +176,6 @@ const handoffStatus = (handoff: HumanHandoff): string => {
       return `Waiting for approval on ${handoff.registryHost}`;
     case "LoopbackLogin":
       return `Waiting for browser sign-in on ${handoff.registryHost}`;
-    case "StepUp":
-      return `Waiting for verification of ${handoff.action}`;
     case "PublishAuthorization":
       return "Waiting for your approval in the browser";
   }
@@ -211,8 +188,6 @@ const handoffLabel = (handoff: HumanHandoff): string => {
       return "Device sign-in";
     case "LoopbackLogin":
       return "Browser sign-in";
-    case "StepUp":
-      return `Verification of ${handoff.action}`;
     case "PublishAuthorization":
       return "Approved in browser";
   }
@@ -228,8 +203,6 @@ const handoffDetail = (handoff: HumanHandoff): string => {
       return "approve the sign-in in a browser";
     case "LoopbackLogin":
       return "finish the sign-in in a browser";
-    case "StepUp":
-      return `verify ${handoff.action} in a browser`;
     case "PublishAuthorization":
       return "approve the exact publication set in a browser";
   }
@@ -242,8 +215,6 @@ const handoffSubject = (handoff: HumanHandoff): string => {
       return "device-authorization";
     case "LoopbackLogin":
       return "browser-authorization";
-    case "StepUp":
-      return "step-up-verification";
     case "PublishAuthorization":
       return "publish-authorization";
   }

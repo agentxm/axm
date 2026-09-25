@@ -1,6 +1,6 @@
 /**
  * Rendering for whole-extension Registry visibility. Intent resolution, the
- * revision precondition, the authority kind, and human verification belong to
+ * revision precondition, and authority kind belong to
  * `@agentxm/workspace/publishing`; this module parses inputs and renders.
  */
 
@@ -9,7 +9,6 @@ import * as Effect from "effect/Effect";
 import {
   emitResult,
   paragraphDoc,
-  Screen,
   successDoc,
   tableDoc,
   type ViewColumn,
@@ -21,8 +20,6 @@ import {
 import { ManagePublishedVisibility } from "@agentxm/workspace/publishing";
 import type { ExtensionVisibility } from "@agentxm/extension-model/unstable/extensions";
 import { failureToAppError } from "../../app-error/conversions.js";
-import { HumanVerificationOptions } from "../../cli-flags/index.js";
-import * as Option from "effect/Option";
 import { withLiveOperation } from "../../operation-lifecycle.js";
 
 interface VisibilityRow {
@@ -34,17 +31,6 @@ const visibilityColumns: ReadonlyArray<ViewColumn<VisibilityRow>> = [
   { header: "Field", value: (row) => row.field },
   { header: "Value", value: (row) => row.value },
 ];
-
-/** The invocation's human-verification inputs, as the capability reads them. */
-const verificationOptions = Effect.gen(function* () {
-  const { stepUpRequest, waitForHuman } = yield* HumanVerificationOptions;
-  const unattended = !(yield* (yield* Screen).canAsk);
-  return {
-    ...(Option.isNone(stepUpRequest) ? {} : { resumeReference: stepUpRequest.value }),
-    ...(Option.isNone(waitForHuman) ? {} : { waitForHumanSeconds: waitForHuman.value }),
-    unattended,
-  };
-});
 
 const emitEvaluation = (evaluation: typeof VisibilityEvaluationSchema.Type) =>
   Effect.gen(function* () {
@@ -92,13 +78,11 @@ export const handleVisibilityStatus = Effect.fn("Visibility.status")(
 
 export const handleVisibilitySet = Effect.fn("Visibility.set")(
   function* (target: string, visibility: ExtensionVisibility) {
-    const verification = yield* verificationOptions;
     const written = yield* withLiveOperation(
       { command: "visibility.set", name: `Set visibility of ${target}`, mode: "apply" },
       ManagePublishedVisibility.set({
         target,
         visibility,
-        verification,
       }),
     );
     yield* emitMutation(written.mutation);
@@ -109,12 +93,10 @@ export const handleVisibilitySet = Effect.fn("Visibility.set")(
 
 export const handleVisibilityReconcile = Effect.fn("Visibility.reconcile")(
   function* (target: string) {
-    const verification = yield* verificationOptions;
     const written = yield* withLiveOperation(
       { command: "visibility.reconcile", name: `Reconcile visibility of ${target}`, mode: "apply" },
       ManagePublishedVisibility.reconcile({
         target,
-        verification,
       }),
     );
     yield* emitMutation(written.mutation);

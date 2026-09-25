@@ -126,6 +126,28 @@ const credentialNotAdmittedRecovery = (body: unknown): SuggestedAction => {
     : { description: "This credential may not perform this operation." };
 };
 
+const browserSessionRecovery = (body: unknown): SuggestedAction => {
+  if (typeof body !== "object" || body === null) {
+    return { description: "Create access tokens in the browser." };
+  }
+  const details: unknown = Reflect.get(body, "details");
+  if (typeof details !== "object" || details === null) {
+    return { description: "Create access tokens in the browser." };
+  }
+  const settingsUrl: unknown = Reflect.get(details, "settingsUrl");
+  if (typeof settingsUrl !== "string") {
+    return { description: "Create access tokens in the browser." };
+  }
+  try {
+    const url = new URL(settingsUrl);
+    return url.protocol === "https:" || url.protocol === "http:"
+      ? { description: "Create access tokens in web settings.", url: settingsUrl }
+      : { description: "Create access tokens in the browser." };
+  } catch {
+    return { description: "Create access tokens in the browser." };
+  }
+};
+
 /**
  * What a person can do about one forbidding rule.
  *
@@ -144,10 +166,7 @@ const FORBIDDEN_RECOVERIES: Partial<
   resource_restriction: {
     description: "This credential is restricted to other resources. Use your signed-in session.",
   },
-  browser_session_required: {
-    description: "Complete this one on the web.",
-    url: "https://agentxm.ai",
-  },
+  browser_session_required: (body) => browserSessionRecovery(body),
   credential_not_admitted: (body) => credentialNotAdmittedRecovery(body),
   identity_suspended: {
     description: "Contact support to restore this account.",

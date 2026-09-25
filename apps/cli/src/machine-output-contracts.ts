@@ -825,7 +825,7 @@ const visibilityMutationFamily = defineResultFamily({
   ],
   schemaNames: ["VisibilityMutationResultSchema"],
   requiredTopLevelKeys: ["target", "before", "after", "authority", "result", "revision"],
-  scenarios: ["changed", "already satisfied", "stale revision", "step-up required"],
+  scenarios: ["changed", "already satisfied", "stale revision"],
   rationale:
     "Visibility administration reports the conditional whole-Extension mutation and resulting revision.",
   humanOutputKind: "mutation",
@@ -917,6 +917,7 @@ const planPaths = [
   "axm mcps new",
   "axm mcps uninstall",
   "axm mcps update",
+  "axm migrate",
   "axm packs add",
   "axm packs disable",
   "axm packs enable",

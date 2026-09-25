@@ -8,7 +8,6 @@ export {
   buildUninstallOperation,
   classifyInstallChange,
   forecastInstallChange,
-  extensionRefLifecycleWarnings,
   extensionRefRegistryLifecycle,
   formatPackageUrlParts,
   targetFromRef,
@@ -32,6 +31,7 @@ export {
   type UninstallSettlement,
   type UnreadablePackageRetirement,
 } from "./extensions/operations.js";
+export { extensionRefLifecycleWarnings } from "../lifecycle/warnings.js";
 export { buildPackMemberStep, type PackMemberRef } from "./extensions/pack-member-step.js";
 
 export { WorkspaceSyncFailed, type WorkspaceSyncCleanupFailure } from "./errors.js";

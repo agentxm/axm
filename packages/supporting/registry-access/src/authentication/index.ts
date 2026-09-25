@@ -1,5 +1,5 @@
 /**
- * Registry authentication, identity, token authority, and verified writes.
+ * Registry authentication, identity, and token authority.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -15,25 +15,21 @@ export {
   REGISTRY_ACCESS_ERROR_CATEGORIES,
   RegistryAccessFailed,
   SignedOut,
-  StepUpRequired,
-  StepUpVerificationPending,
   isAuthError,
   isRegistryAccessFailure,
   signedOut,
   type AuthError,
   type RegistryAccessErrorCategory,
   type RegistryAccessFailure,
-  type StepUpRequest,
 } from "./errors.js";
 
 export type {
   AuthClientService,
-  CreateTokenOptions,
   DeviceFlowResponse,
   MeResponse,
   PollResult,
 } from "./auth-client.js";
-export { AuthClient, TokenExchange, pollOnce, readStepUpRequest } from "./auth-client.js";
+export { AuthClient, TokenExchange, pollOnce } from "./auth-client.js";
 export type { NormalizedTokenResponse } from "./oauth-contract.js";
 
 export type {
@@ -67,12 +63,6 @@ export type {
 } from "./login-presenter.js";
 export { AuthLoginPresenter, handoffUrl } from "./login-presenter.js";
 
-export {
-  runWithStepUp,
-  type StepUpOptions,
-  type StepUpPresentation,
-  type VerifiedWrite,
-} from "./step-up.js";
 export { selectedRegistry, type SelectedRegistry } from "./selected-registry.js";
 
 export {

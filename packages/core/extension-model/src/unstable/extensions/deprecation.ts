@@ -18,8 +18,17 @@ const DeprecationMessageSchema = Schema.String.check(
   Schema.isMaxLength(500),
 ).annotate({
   identifier: "DeprecationMessage",
-  description: "Concise publisher guidance for consumers of a deprecated extension.",
+  description: "Optional publisher notes for consumers of a deprecated extension.",
 });
+
+export const DeprecationReasons = ["superseded", "obsolete", "unmaintained", "other"] as const;
+
+export const DeprecationReasonSchema = Schema.Literals(DeprecationReasons).annotate({
+  identifier: "DeprecationReason",
+  description: "The publisher's structured reason for deprecating an extension.",
+});
+
+export type DeprecationReason = typeof DeprecationReasonSchema.Type;
 
 export const DeprecationReplacementSchema = Schema.Union([
   Schema.Struct({
@@ -38,13 +47,27 @@ export const DeprecationReplacementSchema = Schema.Union([
 export const DeprecationViewSchema = Schema.Union([
   Schema.Struct({
     deprecatedAt: DateTimeUtcSchema,
+    reason: Schema.Literal("superseded"),
+    message: Schema.optional(DeprecationMessageSchema),
+    replacement: DeprecationReplacementSchema,
+  }),
+  Schema.Struct({
+    deprecatedAt: DateTimeUtcSchema,
+    reason: Schema.Literal("obsolete"),
     message: DeprecationMessageSchema,
+    replacement: Schema.optional(Schema.Never),
+  }),
+  Schema.Struct({
+    deprecatedAt: DateTimeUtcSchema,
+    reason: Schema.Literal("unmaintained"),
+    message: Schema.optional(DeprecationMessageSchema),
     replacement: Schema.optional(DeprecationReplacementSchema),
   }),
   Schema.Struct({
     deprecatedAt: DateTimeUtcSchema,
-    message: Schema.optional(DeprecationMessageSchema),
-    replacement: DeprecationReplacementSchema,
+    reason: Schema.Literal("other"),
+    message: DeprecationMessageSchema,
+    replacement: Schema.optional(DeprecationReplacementSchema),
   }),
 ]).annotate({
   identifier: "DeprecationView",

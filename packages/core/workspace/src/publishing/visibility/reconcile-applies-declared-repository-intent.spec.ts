@@ -36,9 +36,6 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
-/** No terminal and no pending request: the write needs no step-up here. */
-const verification = { unattended: true } as const;
-
 describe("Repository visibility reconciliation", () => {
   const cleanups: Array<() => void> = [];
   afterEach(() => {
@@ -75,7 +72,7 @@ describe("Repository visibility reconciliation", () => {
             cleanups.push(world.cleanup);
 
             const outcome = yield* world.provide(
-              reconcile({ target: registryTarget, verification }).pipe(Effect.exit),
+              reconcile({ target: registryTarget }).pipe(Effect.exit),
             );
 
             expect(outcome._tag).toBe(rejected ? "Failure" : "Success");
@@ -116,9 +113,7 @@ describe("Repository visibility reconciliation", () => {
         );
         cleanups.push(world.cleanup);
 
-        const failed = yield* world.provide(
-          Effect.flip(reconcile({ target: registryTarget, verification })),
-        );
+        const failed = yield* world.provide(Effect.flip(reconcile({ target: registryTarget })));
 
         expect(expectPublishFailed(failed).category).toBe(
           failure === "not-established" ? "not_found" : "validation",

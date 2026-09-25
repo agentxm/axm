@@ -88,14 +88,6 @@ const loopbackHandoff = {
   browserOpened: true,
 } as const satisfies HumanHandoff;
 
-const stepUpHandoff = {
-  _tag: "StepUp",
-  action: "yank",
-  target: "@acme/skills/review",
-  verificationUrl: "https://agentxm.ai/step-up/step_abc",
-  expiresAtMs: Date.parse("2099-01-01T00:00:00.000Z"),
-} as const satisfies HumanHandoff;
-
 const noInteraction = {
   openBrowser: () => Effect.succeed(false),
   copyToClipboard: () => Effect.succeed(false),
@@ -103,7 +95,10 @@ const noInteraction = {
 
 const loginSuccessSuggestions = [
   { description: "Check active account", cmd: "axm whoami" },
-  { description: "Create an API token", cmd: "axm token create --name <name>" },
+  {
+    description: "Create an API token in web settings",
+    url: "https://agentxm.ai/u/settings/tokens",
+  },
 ];
 
 const makeHuman = () => {
@@ -409,23 +404,6 @@ describe("AuthLoginPresenterLive", () => {
       yield* presenter.awaitHuman({ ...loopbackHandoff, browserOpened: false }, Effect.void);
 
       expect(logs.info[0]).toBe("Authorize AXM in a browser.");
-    }).pipe(Effect.provide(layer));
-  });
-
-  it.effect("parks on the step-up handoff and says it retries by itself", () => {
-    const { layer, state, logs } = makeHuman();
-
-    return Effect.gen(function* () {
-      const presenter = yield* AuthLoginPresenter;
-      yield* presenter.awaitHuman(stepUpHandoff, Effect.void);
-
-      expect(logs.info).toEqual([
-        "Verify yank on @acme/skills/review to continue.",
-        "This command retries once, by itself, after verification.",
-      ]);
-      expect(state.suggestions).toEqual([
-        { description: "Verify yank", url: "https://agentxm.ai/step-up/step_abc" },
-      ]);
     }).pipe(Effect.provide(layer));
   });
 

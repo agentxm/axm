@@ -1,4 +1,3 @@
-import { humanVerificationFlags, withHumanVerificationOptions } from "../../cli-flags/index.js";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
@@ -21,7 +20,7 @@ import {
   type CreateTokenRequest,
   type TokenPermissionLevel,
 } from "@agentxm/registry-access/authentication";
-import { HumanVerificationOptions, jsonFlag } from "../../cli-flags/index.js";
+import { jsonFlag } from "../../cli-flags/index.js";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
 import {
   emitResult,
@@ -162,20 +161,6 @@ const resolveCredentialOutput = (requested: "token" | "human" | undefined) =>
     return "human" as const;
   });
 
-/** The invocation's human-verification inputs, as the capability reads them. */
-const verificationOptions = (credentialOutput: "token" | "human") =>
-  Effect.gen(function* () {
-    const { stepUpRequest, waitForHuman } = yield* HumanVerificationOptions;
-    // Raw output never opens a browser: stdout belongs to a consumer, so
-    // approval proceeds as an unattended handoff on stderr.
-    const unattended = credentialOutput === "token" || !(yield* (yield* Screen).canAsk);
-    return {
-      ...(Option.isNone(stepUpRequest) ? {} : { resumeReference: stepUpRequest.value }),
-      ...(Option.isNone(waitForHuman) ? {} : { waitForHumanSeconds: waitForHuman.value }),
-      unattended,
-    };
-  });
-
 export const handleToken = Effect.fn("AuthToken.handle")(
   function* (args: TokenHandlerArgs) {
     yield* resolveCredentialOutput(args.output);
@@ -294,7 +279,6 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(
       owners: args.owners,
       extensions: args.extensions,
       permission: args.permission,
-      verification: yield* verificationOptions(credentialOutput),
     };
     const create = createToken(request, registry.url);
     // The operation settles only after raw delivery, so no observer hears
@@ -417,7 +401,6 @@ export const handleRevokeToken = Effect.fn("AuthTokenRevoke.handle")(
 const tokenConfig = { output: outputFlag } as const;
 
 const createTokenConfig = {
-  ...humanVerificationFlags,
   output: outputFlag,
   name: Flag.String("name").pipe(Flag.withDescription("Human-readable token name")),
   expires: Flag.String("expires").pipe(
@@ -457,7 +440,6 @@ const createTokenCommand = Command.make(
       }),
     }).pipe(withRuntime("auth token create")),
 ).pipe(
-  withHumanVerificationOptions,
   withArgvTracking(createTokenConfig),
   withCommandCapabilities(directWriteCapabilities("credentials")),
   Command.withDescription("Create a granular access token"),
@@ -468,8 +450,8 @@ const createTokenCommand = Command.make(
     },
     {
       command:
-        "axm token create --name ci --extension @foo/skills/review --permission publish --wait-for-human 300 --output token",
-      description: "Write only the new token to stdout for a pipe, waiting up to 300s for approval",
+        "axm token create --name ci --extension @foo/skills/review --permission publish --output token",
+      description: "Write only the new token to stdout for a pipe",
     },
   ]),
 );

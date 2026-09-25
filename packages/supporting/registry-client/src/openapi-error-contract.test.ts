@@ -78,14 +78,14 @@ const statusForErrorSchema = (schemaName: string): number | undefined => {
 };
 
 describe("registry OpenAPI error code contract", () => {
-  it.effect("decodes an unavailable step-up read and preserves its problem details", () =>
+  it.effect("decodes an unavailable identity read and preserves its problem details", () =>
     Effect.gen(function* () {
       const requests: Array<string> = [];
       const problem = {
         type: "https://registry.agentxm.ai/problems/service_unavailable",
         title: "Service Unavailable",
         status: 503,
-        detail: "Recent-authentication verification is temporarily unavailable.",
+        detail: "The Registry is temporarily unavailable.",
         code: "service_unavailable",
       };
       const client = make(
@@ -102,12 +102,12 @@ describe("registry OpenAPI error code contract", () => {
           }),
         ).pipe(HttpClient.mapRequest(HttpClientRequest.prependUrl("https://registry.example.com"))),
       );
-      const result = yield* client.AuthGetStepUpRequest("stup_01", undefined).pipe(Effect.result);
-      expect(requests).toEqual(["https://registry.example.com/v1/auth/step-up/requests/stup_01"]);
+      const result = yield* client.AuthGetMe(undefined).pipe(Effect.result);
+      expect(requests).toEqual(["https://registry.example.com/v1/auth/me"]);
       expect(Result.isFailure(result)).toBe(true);
       if (Result.isSuccess(result)) throw new Error("Expected an unavailable read.");
-      expect(result.failure._tag).toBe("AuthGetStepUpRequest503");
-      if (result.failure._tag !== "AuthGetStepUpRequest503") {
+      expect(result.failure._tag).toBe("AuthGetMe503");
+      if (result.failure._tag !== "AuthGetMe503") {
         throw new Error("Expected a declared Registry response.");
       }
       expect(result.failure.cause).toEqual(problem);

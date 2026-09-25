@@ -18,6 +18,7 @@ import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
+import { extensionRefLifecycleWarnings } from "../../lifecycle/warnings.js";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
@@ -246,9 +247,7 @@ const installFromRegistry = (
         version: ref.version,
         integrity: ref.integrity,
         publisherBindingId: ref.publisherBindingId,
-        ...(ref.lifecycleWarnings === undefined
-          ? {}
-          : { lifecycleWarnings: ref.lifecycleWarnings }),
+        lifecycleWarnings: extensionRefLifecycleWarnings(ref),
         messages: {
           integrityMismatchDetail: `Integrity mismatch for ${ref.name}@${ref.version}`,
         },

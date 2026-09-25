@@ -40,10 +40,10 @@ import type {
   StepFailure,
 } from "../../transitions/planning/index.js";
 import { registrySourceArtifact } from "../../packs/lifecycle/artifact.js";
+import { extensionRefLifecycleWarnings } from "../../lifecycle/warnings.js";
 import { installMcpServer, type McpServerInstallRequirements } from "../mcps/install-operation.js";
 import {
   buildInstallOperation,
-  extensionRefLifecycleWarnings,
   extensionRefRegistryLifecycle,
   toLabelWithCompanions,
   type CallerStepFailure,

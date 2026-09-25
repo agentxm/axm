@@ -190,6 +190,26 @@ const encodePublicationSetRequest = (args: PreviewExtensionPublishesArgs) => ({
  * encode/re-decode round-trip. Companion packages are the one remaining
  * wire-form field (versionRange strings), so they decode via the wire schema.
  */
+const normalizeIndexDeprecation = (value: NonNullable<ExtensionsGet200["deprecation"]>) => {
+  const replacement =
+    value.replacement === undefined || value.replacement === null
+      ? undefined
+      : value.replacement.status === "available"
+        ? value.replacement
+        : {
+            status: "unavailable" as const,
+            ...(value.replacement.fqn === undefined || value.replacement.fqn === null
+              ? {}
+              : { fqn: value.replacement.fqn }),
+          };
+  return {
+    deprecatedAt: value.deprecatedAt,
+    reason: value.reason,
+    ...(value.message === undefined || value.message === null ? {} : { message: value.message }),
+    ...(replacement === undefined ? {} : { replacement }),
+  };
+};
+
 const mapToExtensionIndex = (response: ExtensionsGet200): ExtensionIndex =>
   decodeExtensionIndex({
     name: response.name,
@@ -218,41 +238,7 @@ const mapToExtensionIndex = (response: ExtensionsGet200): ExtensionIndex =>
               : { reason: response.archival.reason }),
           },
     deprecation:
-      response.deprecation === null
-        ? null
-        : response.deprecation.message !== undefined && response.deprecation.message !== null
-          ? {
-              deprecatedAt: response.deprecation.deprecatedAt,
-              message: response.deprecation.message,
-              ...(response.deprecation.replacement === undefined ||
-              response.deprecation.replacement === null
-                ? {}
-                : {
-                    replacement:
-                      response.deprecation.replacement.status === "available"
-                        ? response.deprecation.replacement
-                        : {
-                            status: "unavailable" as const,
-                            ...(response.deprecation.replacement.fqn === undefined ||
-                            response.deprecation.replacement.fqn === null
-                              ? {}
-                              : { fqn: response.deprecation.replacement.fqn }),
-                          },
-                  }),
-            }
-          : {
-              deprecatedAt: response.deprecation.deprecatedAt,
-              replacement:
-                response.deprecation.replacement?.status === "available"
-                  ? response.deprecation.replacement
-                  : {
-                      status: "unavailable" as const,
-                      ...(response.deprecation.replacement?.fqn === undefined ||
-                      response.deprecation.replacement.fqn === null
-                        ? {}
-                        : { fqn: response.deprecation.replacement.fqn }),
-                    },
-            },
+      response.deprecation === null ? null : normalizeIndexDeprecation(response.deprecation),
     versions: response.versions.map((v) => ({
       version: v.version,
       published: v.published,
@@ -1164,9 +1150,6 @@ export const createRemoteRegistryClient = (
       client.ExtensionsUpdateVisibility(target.owner, pluralizeType(target.type), target.name, {
         params: {
           "if-match": args.revision,
-          ...(args.verification === undefined
-            ? {}
-            : { "x-axm-step-up-request": args.verification }),
         },
         payload,
         config: undefined,

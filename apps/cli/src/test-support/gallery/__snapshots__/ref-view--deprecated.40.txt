@@ -9,9 +9,11 @@
      Owner          @legacy
      Latest         0.3.0
      Versions       0.3.0, 0.2.0, 0.1.0
+     Deprecation reason
+       superseded
      Replacement    @acme/skills/
                     release-notes
 
 Next
-     axm skills install @acme/skills/release-notes
-     Install the replacement
+     axm migrate @legacy/skills/changelog --dry-run
+     Preview migration

@@ -31,9 +31,6 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
-/** No terminal and no pending request: the write needs no step-up here. */
-const verification = { unattended: true } as const;
-
 describe("Explicit visibility mutation", () => {
   const cleanups: Array<() => void> = [];
   afterEach(() => {
@@ -70,7 +67,7 @@ describe("Explicit visibility mutation", () => {
         cleanups.push(world.cleanup);
 
         const outcome = yield* world.provide(
-          set({ target: registryTarget, visibility: "private", verification }).pipe(Effect.exit),
+          set({ target: registryTarget, visibility: "private" }).pipe(Effect.exit),
         );
 
         const fails = behavior === "rejected" || behavior === "not-established";

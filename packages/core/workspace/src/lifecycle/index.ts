@@ -10,6 +10,7 @@
  */
 
 export { ExtensionLifecycleFailed } from "./errors.js";
+export { formatDeprecationWarning } from "./warnings.js";
 export {
   StepFailureConversion,
   withAdaptedStepFailures,
@@ -147,6 +148,7 @@ export {
 } from "../packs/lifecycle/constraint-gate.js";
 
 // Uninstall: withdrawing extensions, as one use case behind every spelling.
+export { MigrateDeprecated } from "./migrate-deprecated.js";
 export {
   UninstallExtensions,
   prepareUninstallExtensions,

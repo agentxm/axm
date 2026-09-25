@@ -1,2 +1,2 @@
  ✔   Device sign-in                48.2s
-     Verification of yank          Wait completed in 12.4s
+     Publication authorization     Wait completed in 12.4s

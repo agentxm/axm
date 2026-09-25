@@ -15,7 +15,7 @@ sources:
     title: Pre-migration repository guidance
 generated:
   by: codex/gpt-5
-  at: 2026-09-19T00:00:00Z
+  at: 2026-09-25T13:00:00Z
 ---
 
 # Release the AXM CLI
@@ -340,6 +340,33 @@ working-tree publisher. It derives a deterministic preview version from the
 workflow run and source commit, publishes the fixed cohort with provenance
 under the `preview` dist-tag, and verifies an exact global installation. It
 refuses a stale source revision or a preview tag that has already advanced.
+
+## Branch preview for a consumer PR
+
+When a consumer repository must test unreleased AXM changes before the public
+PR merges, dispatch CI and then the canonical publish workflow at the exact
+current public branch head:
+
+```bash
+source_ref=codex/extension-deprecation
+git fetch origin "$source_ref"
+source_sha="$(git rev-parse FETCH_HEAD)"
+gh workflow run ci.yml --repo agentxm/axm --ref "$source_ref"
+# Wait for successful CI on source_sha before publishing.
+gh workflow run publish.yml \
+  --repo agentxm/axm \
+  --ref "$source_ref" \
+  --field mode=branch-preview \
+  --field source_sha="$source_sha" \
+  --field source_ref="$source_ref"
+```
+
+The workflow accepts only the exact current head of the named non-main branch
+and a successful CI run for that commit. It publishes the complete immutable
+npm cohort under a deterministic `preview` version and verifies an exact
+global installation. Pin the consumer to the resulting exact version. If the
+branch advances, rerun CI and publish a new preview from the new head; an old
+preview remains immutable.
 
 ## First npm package setup
 

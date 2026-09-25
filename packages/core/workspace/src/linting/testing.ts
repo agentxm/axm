@@ -97,7 +97,7 @@ export interface LintWorkspaceFixtureOptions {
  * fact to invent.
  */
 export type LintWorkspaceServices = Layer.Layer<
-  Exclude<LintWorkspaceRequirements, FileSystem.FileSystem | Path.Path>,
+  Exclude<LintWorkspaceRequirements, FileSystem.FileSystem | Path.Path | RegistryClientFactory>,
   WorkspaceStateError,
   FileSystem.FileSystem | Path.Path | RegistryClientFactory | ProjectionParticipants
 >;

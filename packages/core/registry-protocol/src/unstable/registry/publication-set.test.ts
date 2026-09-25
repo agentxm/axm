@@ -119,21 +119,24 @@ describe("publication set contract", () => {
     const deprecatedAt = "2026-08-15T20:00:00.000Z";
     const decode = Schema.decodeUnknownSync(DeprecationViewSchema);
     const shapes = [
-      { deprecatedAt, message: "Use the supported workflow." },
+      { deprecatedAt, reason: "obsolete", message: "Use the supported workflow." },
       {
         deprecatedAt,
+        reason: "superseded",
         replacement: { status: "available", fqn: "@acme/skills/review-next" },
       },
       {
         deprecatedAt,
+        reason: "superseded",
         message: "Use the maintained replacement.",
         replacement: { status: "available", fqn: "@acme/skills/review-next" },
       },
       {
         deprecatedAt,
+        reason: "superseded",
         replacement: { status: "unavailable", fqn: "@acme/skills/review-next" },
       },
-      { deprecatedAt, replacement: { status: "unavailable" } },
+      { deprecatedAt, reason: "superseded", replacement: { status: "unavailable" } },
     ];
 
     for (const shape of shapes) expect(() => decode(shape)).not.toThrow();

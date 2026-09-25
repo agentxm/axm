@@ -20,7 +20,10 @@ what they intended or directing them through a recovery workflow.
 
 Lint reads local authoritative and observed state and reports what is invalid.
 Its workspace facts come from the shared invariant model rather than a
-lint-specific definition of validity.
+lint-specific definition of validity. For installed Registry extensions it
+also checks current deprecation state, using the same assessment as
+`axm list --deprecated`. A deprecated installation produces a warning with its
+reason and applicable command; `--strict` makes that warning fail CI.
 
 Each finding identifies:
 
@@ -59,7 +62,8 @@ state. Findings that are not repairable are never guessed at.
 
 Lint does not report general inventory, available updates, unpublished authored
 content, registry availability, recovery classifications, or predictions about
-which mutation a finding would block. It does not use the network.
+which mutation a finding would block. The deprecation check is the only
+network read; unavailable Registry state leaves that check unassessed.
 
 Lint does not guess user intent, choose workspace configuration, install or
 remove extensions, or change authoritative lock state. Those responsibilities

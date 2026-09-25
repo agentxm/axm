@@ -47,9 +47,7 @@ import {
   RefreshUnavailable,
   RegistryAccessFailed,
   SessionEnded,
-  StepUpRequired,
   type AuthError,
-  type StepUpRequest,
 } from "./errors.js";
 import { readTokenPermissions, type TokenPermissions } from "./tokens/permissions.js";
 
@@ -143,10 +141,6 @@ export interface TokenListResponse {
   readonly cursor: string | null;
 }
 
-export interface CreateTokenOptions {
-  readonly stepUpRequestId?: string;
-}
-
 export interface BuildAuthorizeUrlParams {
   readonly challenge: string;
   readonly expiresAt?: DateTime.Utc;
@@ -195,19 +189,11 @@ export interface AuthClientService {
   readonly getMe: (accessToken?: string) => Effect.Effect<MeResponse, AuthError>;
   readonly createToken: (
     params: CreateTokenParams,
-    options?: CreateTokenOptions,
   ) => Effect.Effect<CreatedTokenResponse, AuthError>;
   readonly listTokens: (params?: {
     readonly limit?: number;
     readonly cursor?: string;
   }) => Effect.Effect<TokenListResponse, AuthError>;
-  readonly getStepUpRequest: (
-    requestId: string,
-  ) => Effect.Effect<GeneratedRegistryClient.StepUpRequestStatusResponse, AuthError>;
-  readonly waitForStepUpRequest: (
-    statusUrl: string,
-    intervalSeconds: number,
-  ) => Effect.Effect<void, AuthError>;
   readonly deleteToken: (tokenId: string) => Effect.Effect<void, AuthError>;
 }
 
@@ -260,12 +246,6 @@ class OAuthTokenResponseError extends Data.TaggedError("OAuthTokenResponseError"
   readonly retryable: boolean;
 }> {}
 
-const retryAfterSeconds = (value: string | undefined, fallback: number): number => {
-  if (value === undefined) return fallback;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed >= 0 ? Math.ceil(parsed) : fallback;
-};
-
 /** Normalize a generated token response to our domain NormalizedTokenResponse. */
 const normalizeTokenResponse = (token: {
   readonly access_token: string;
@@ -282,13 +262,6 @@ const SessionTokenResponseSchema = Schema.Struct({
   refresh_token: Schema.String,
   expires_at: DateTimeUtcSchema,
 });
-
-type StepUpPollResult =
-  | {
-      readonly kind: "status";
-      readonly response: GeneratedRegistryClient.StepUpRequestStatusResponse;
-    }
-  | { readonly kind: "rate_limited"; readonly retryAfterSeconds: number };
 
 const deriveAuthorizationOrigin = (registryUrl: string): string => {
   const url = new URL(registryUrl);
@@ -354,65 +327,6 @@ const makeGeneratedAuthClient = (
         : remoteHttpClient.pipe(HttpClient.mapRequest(HttpClientRequest.bearerToken(accessToken))),
     ),
   );
-};
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
-
-const readString = (record: Record<string, unknown>, key: string): string | null => {
-  const value = record[key];
-  return typeof value === "string" ? value : null;
-};
-
-const readInteger = (record: Record<string, unknown>, key: string): number | null => {
-  const value = record[key];
-  return typeof value === "number" && Number.isInteger(value) ? value : null;
-};
-
-const readExpiry = (record: Record<string, unknown>): string | null => {
-  const value = record["expires_at"];
-  if (typeof value === "string") return value;
-  return DateTime.isDateTime(value) ? DateTime.formatIso(value) : null;
-};
-
-export const readStepUpRequest = (error: {
-  readonly metadata?: { readonly response?: { readonly body?: unknown } | undefined } | undefined;
-}): StepUpRequest | null => {
-  const body = error.metadata?.response?.body;
-  if (!isRecord(body) || readString(body, "code") !== "eotp") return null;
-  const wire = body["step_up"];
-  if (!isRecord(wire)) return null;
-
-  const requestId = readString(wire, "request_id");
-  const verificationUrl = readString(wire, "verification_url");
-  const statusUrl = readString(wire, "status_url");
-  const expiresAt = readExpiry(wire);
-  const intervalSeconds = readInteger(wire, "interval");
-  const action = readString(wire, "action");
-  const target = readString(wire, "target");
-  if (
-    requestId === null ||
-    verificationUrl === null ||
-    statusUrl === null ||
-    expiresAt === null ||
-    intervalSeconds === null ||
-    action === null ||
-    target === null
-  ) {
-    return null;
-  }
-
-  const maxAgeSeconds = readInteger(body, "max_age");
-  return {
-    requestId,
-    verificationUrl,
-    statusUrl,
-    expiresAt,
-    intervalSeconds,
-    ...(maxAgeSeconds === null ? {} : { maxAgeSeconds }),
-    action,
-    target,
-  };
 };
 
 /**
@@ -677,13 +591,10 @@ export const AuthClientLive = Layer.effect(
     );
 
     const createToken: AuthClientService["createToken"] = Effect.fn("AuthClient.createToken")(
-      function* (params, options) {
+      function* (params) {
         const authedClient = makeGeneratedAuthClient(httpClient, registryUrl);
         const decoded = yield* authedClient
           .TokensCreate({
-            ...(options?.stepUpRequestId === undefined
-              ? {}
-              : { params: { "x-axm-step-up-request": options.stepUpRequestId } }),
             payload: {
               name: params.name,
               permissions: params.permissions,
@@ -691,11 +602,9 @@ export const AuthClientLive = Layer.effect(
             },
           })
           .pipe(
-            Effect.mapError((error) => {
-              const mapped = mapRegistryAccessError(registryUrl, "Could not create token", error);
-              const stepUp = readStepUpRequest(mapped);
-              return stepUp === null ? mapped : new StepUpRequired({ stepUp, failure: mapped });
-            }),
+            Effect.mapError((error) =>
+              mapRegistryAccessError(registryUrl, "Could not create token", error),
+            ),
           );
 
         return {
@@ -741,84 +650,6 @@ export const AuthClientLive = Layer.effect(
       },
     );
 
-    const getStepUpRequest: AuthClientService["getStepUpRequest"] = (requestId) =>
-      makeGeneratedAuthClient(httpClient, registryUrl)
-        .AuthGetStepUpRequest(requestId, undefined)
-        .pipe(
-          Effect.mapError((error) =>
-            mapRegistryAccessError(registryUrl, "Could not read step-up request", error),
-          ),
-        );
-
-    const waitForStepUpRequest: AuthClientService["waitForStepUpRequest"] = Effect.fn(
-      "AuthClient.waitForStepUpRequest",
-    )(function* (statusUrl, intervalSeconds) {
-      const parsedStatusUrl = new URL(statusUrl);
-      const requestId = parsedStatusUrl.pathname.slice(
-        parsedStatusUrl.pathname.lastIndexOf("/") + 1,
-      );
-
-      for (let attempt = 0; attempt < 300; attempt += 1) {
-        const authedClient = makeGeneratedAuthClient(httpClient, registryUrl);
-        const result: StepUpPollResult = yield* authedClient
-          .AuthGetStepUpRequest(requestId, undefined)
-          .pipe(
-            Effect.map((response) => ({ kind: "status", response }) satisfies StepUpPollResult),
-            Effect.catch((error) =>
-              isRegistryClientError("AuthGetStepUpRequest429")(error) ||
-              (isHttpClientError(error) && error.response?.status === 429)
-                ? Effect.succeed({
-                    kind: "rate_limited",
-                    retryAfterSeconds: retryAfterSeconds(
-                      error.response?.headers["retry-after"],
-                      Math.max(1, intervalSeconds),
-                    ),
-                  } satisfies StepUpPollResult)
-                : Effect.fail(
-                    mapRegistryAccessError(registryUrl, "Could not complete step-up", error),
-                  ),
-            ),
-          );
-
-        if (result.kind === "rate_limited") {
-          yield* Effect.sleep(Duration.seconds(result.retryAfterSeconds));
-          continue;
-        }
-
-        switch (result.response.status) {
-          case "verified":
-            return;
-          case "cancelled":
-            return yield* new RegistryAccessFailed({
-              category: "auth_denied",
-              detail: "The step-up request was cancelled.",
-              recover: "Rerun the command to start a new verification request.",
-            });
-          case "expired":
-            return yield* new RegistryAccessFailed({
-              category: "auth_expired",
-              detail: "The step-up request expired before verification completed.",
-              recover: "Rerun the command to start a new verification request.",
-            });
-          case "consumed":
-            return yield* new RegistryAccessFailed({
-              category: "conflict",
-              detail: "The step-up request has already been used.",
-              recover: "Rerun the command to start a new verification request.",
-            });
-          case "pending":
-            yield* Effect.sleep(Duration.seconds(Math.max(0, intervalSeconds)));
-        }
-      }
-
-      return yield* new RegistryAccessFailed({
-        category: "auth_expired",
-        detail: "The step-up request expired before verification completed.",
-        recover: "Rerun the command to start a new verification request.",
-        cause: { statusUrl },
-      });
-    });
-
     const deleteToken: AuthClientService["deleteToken"] = Effect.fn("AuthClient.deleteToken")(
       function* (tokenId) {
         const authedClient = makeGeneratedAuthClient(httpClient, registryUrl);
@@ -841,8 +672,6 @@ export const AuthClientLive = Layer.effect(
       getMe,
       createToken,
       listTokens,
-      getStepUpRequest,
-      waitForStepUpRequest,
       deleteToken,
     } satisfies AuthClientService;
   }),
@@ -1031,17 +860,6 @@ export const AuthClientTest = (overrides?: Partial<AuthClientService>) =>
         }),
       ),
     listTokens: () =>
-      Effect.fail(
-        new RegistryAccessFailed({
-          category: "auth",
-          detail: "Not implemented in test",
-        }),
-      ),
-    getStepUpRequest: () =>
-      Effect.fail(
-        new RegistryAccessFailed({ category: "auth", detail: "Not implemented in test" }),
-      ),
-    waitForStepUpRequest: () =>
       Effect.fail(
         new RegistryAccessFailed({
           category: "auth",

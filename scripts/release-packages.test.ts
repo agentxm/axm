@@ -8,7 +8,9 @@ import { RELEASE_PACKAGES } from "./release-shared.js";
 import { capture, captureIn } from "./release-command.js";
 import {
   RELEASE_COHORT_MANIFEST,
+  stampBootstrapCohortReferences,
   stampBootstrapManifest,
+  stampBootstrapSkillDocument,
   validatePack,
   validateReleaseCohort,
   validateReleaseCohortManifest,
@@ -76,6 +78,21 @@ describe("release cohort artifact manifest", () => {
 });
 
 describe("bootstrap cohort manifests", () => {
+  it("pins the bundled official skill to the exact preview CLI", () => {
+    const preview = "0.34.0-preview.123.abcdef012345";
+    const source =
+      '---\nmetadata:\n  axm.sh/cli-version: "0.34.0"\n  axm.sh/cli-version-range: ">=0.34.0 <0.35.0"\n---\n';
+    expect(stampBootstrapSkillDocument(source, preview)).toContain(
+      `axm.sh/cli-version-range: "${preview}"`,
+    );
+    expect(stampBootstrapSkillDocument(source, preview)).toContain(
+      `axm.sh/cli-version: "${preview}"`,
+    );
+    expect(() => stampBootstrapSkillDocument("---\nmetadata:\n---\n", preview)).toThrow(
+      "AXM skill document",
+    );
+  });
+
   it("pins only intra-cohort runtime dependencies to the exact preview version", () => {
     const preview = "0.31.1-preview.123.abcdef012345";
     const stamped: unknown = JSON.parse(
@@ -117,6 +134,31 @@ describe("bootstrap cohort manifests", () => {
       },
       devDependencies: {
         "@agentxm/specification-metadata": "catalog:",
+      },
+    });
+  });
+
+  it("pins bundled package cohort references without changing its own version", () => {
+    const preview = "0.34.0-preview.123.abcdef012345";
+    const stamped: unknown = JSON.parse(
+      stampBootstrapCohortReferences(
+        JSON.stringify({
+          name: "@agentxm/workspace",
+          version: "0.30.2",
+          dependencies: {
+            "@agentxm/extension-content": "workspace:^",
+            effect: "catalog:",
+          },
+        }),
+        preview,
+      ),
+    );
+    expect(stamped).toEqual({
+      name: "@agentxm/workspace",
+      version: "0.30.2",
+      dependencies: {
+        "@agentxm/extension-content": preview,
+        effect: "catalog:",
       },
     });
   });

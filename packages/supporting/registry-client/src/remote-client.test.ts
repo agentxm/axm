@@ -415,6 +415,7 @@ describe("getExtensionIndex", () => {
         ...extensionIndexResponse,
         deprecation: {
           deprecatedAt: "2025-02-01T00:00:00Z",
+          reason: "superseded",
           message: "Use the replacement skill",
           replacement: {
             status: "available",
@@ -431,6 +432,7 @@ describe("getExtensionIndex", () => {
 
       expect(result.deprecation).toEqual({
         deprecatedAt: DateTime.makeUnsafe("2025-02-01T00:00:00Z"),
+        reason: "superseded",
         message: "Use the replacement skill",
         replacement: {
           status: "available",
@@ -1114,8 +1116,8 @@ describe("getExtensionPackage", () => {
         ...extensionIndexResponse,
         deprecation: {
           deprecatedAt: "2025-02-01T00:00:00Z",
+          reason: "other",
           message: "Use the replacement skill",
-          replacement: null,
         },
         versions: extensionIndexResponse.versions.map((version) =>
           version.version === "1.0.0"

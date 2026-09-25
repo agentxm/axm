@@ -28,6 +28,7 @@ const HANDLE = "@acme/skills/review";
 
 const deprecation = {
   deprecatedAt: "2026-03-01T00:00:00.000Z",
+  reason: "superseded",
   message: "Use the replacement when available.",
   replacement: { status: "available", fqn: "@acme/skills/replacement" },
 } as const;

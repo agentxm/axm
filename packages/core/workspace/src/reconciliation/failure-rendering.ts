@@ -286,9 +286,7 @@ export const workspaceFailureToStepFailure = (failure: WorkspaceFailure): StepFa
     case "DeviceLoginDenied":
     case "DeviceLoginCodeExpired":
     case "DeviceAuthorizationPending":
-    case "StepUpVerificationPending":
     case "AuthInteractionAbandoned":
-    case "StepUpRequired":
     case "AuthExchangeFailed":
       return publishFailureToStepFailure(failure);
     case "WorkspaceConfigurationFailed":

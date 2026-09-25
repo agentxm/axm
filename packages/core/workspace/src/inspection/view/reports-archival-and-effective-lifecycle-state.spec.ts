@@ -48,6 +48,7 @@ describe("Extension archival details", () => {
         },
         deprecation: {
           deprecatedAt: "2026-09-18T00:00:00.000Z",
+          reason: "other",
           message: "Move to the replacement.",
         },
         versions: [

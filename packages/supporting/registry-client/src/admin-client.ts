@@ -15,7 +15,10 @@ import type {
   DeprecationReplacementIntent,
   DeprecationTransition,
 } from "@agentxm/registry-protocol/unstable/registry/schema";
-import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
+import type {
+  DeprecationReason,
+  DeprecationView,
+} from "@agentxm/extension-model/unstable/extensions/deprecation";
 import type { ArchivalView } from "@agentxm/extension-model/unstable/extensions/archival";
 
 export interface RegistryExtensionReference {
@@ -32,6 +35,7 @@ export type YankCategory = "broken" | "security" | "accidental" | "other";
 
 export interface PutExtensionDeprecationInput {
   readonly revision: string;
+  readonly reason: DeprecationReason;
   readonly message: string | null;
   readonly replacement: DeprecationReplacementIntent;
 }
@@ -83,20 +87,37 @@ export const normalizeRegistryDeprecation = (
               ? {}
               : { fqn: value.replacement.fqn }),
           };
-  if (value.message !== undefined && value.message !== null) {
+  if (value.reason === "superseded" && replacement !== undefined)
     return Effect.succeed({
       deprecatedAt: value.deprecatedAt,
+      reason: value.reason,
+      replacement,
+      ...(value.message === undefined || value.message === null ? {} : { message: value.message }),
+    });
+  if (value.reason === "obsolete" && value.message !== null)
+    return Effect.succeed({
+      deprecatedAt: value.deprecatedAt,
+      reason: value.reason,
+      message: value.message,
+    });
+  if (value.reason === "unmaintained")
+    return Effect.succeed({
+      deprecatedAt: value.deprecatedAt,
+      reason: value.reason,
+      ...(value.message === undefined || value.message === null ? {} : { message: value.message }),
+      ...(replacement === undefined ? {} : { replacement }),
+    });
+  if (value.reason === "other" && value.message !== null)
+    return Effect.succeed({
+      deprecatedAt: value.deprecatedAt,
+      reason: value.reason,
       message: value.message,
       ...(replacement === undefined ? {} : { replacement }),
     });
-  }
-  if (replacement !== undefined) {
-    return Effect.succeed({ deprecatedAt: value.deprecatedAt, replacement });
-  }
   return Effect.fail(
     new RegistryRequestFailed({
       category: "internal",
-      detail: "Registry response did not contain required deprecation guidance.",
+      detail: "Registry response did not contain valid reason-specific deprecation guidance.",
     }),
   );
 };
@@ -318,7 +339,7 @@ export const deprecateExtension = (
       registryUrl,
       client.ExtensionsPutDeprecation(ref.owner, ref.type, ref.name, {
         params: { "if-match": input.revision },
-        payload: { message: input.message, replacement: input.replacement },
+        payload: { reason: input.reason, message: input.message, replacement: input.replacement },
       }),
       {
         operation: "deprecate extension",

@@ -1,7 +1,6 @@
 /**
  * Granular access-token policy: the public vocabulary a token is described in,
- * the expiry grammar and its bounds, and the human verification that creating
- * a credential asks for.
+ * the expiry grammar and its bounds.
  *
  * A token is narrowed by one permission level, an optional allowlist of owners
  * and extensions, and an expiry. Scope strings are the Registry's internal
@@ -30,7 +29,6 @@ import { CredentialStore } from "../credentials/credential-store.js";
 import { RegistryAccessFailed, type AuthError } from "./errors.js";
 import { AuthLoginPresenter } from "./login-presenter.js";
 import { requireSignedIn } from "./identity.js";
-import { runWithStepUp, type StepUpOptions } from "./step-up.js";
 import { maxTokenLifetimeSeconds, type TokenPermissionLevel } from "./tokens/permissions.js";
 
 /** A token may live no less than an hour. Its ceiling depends on what it can do. */
@@ -47,12 +45,10 @@ export interface CreateTokenRequest extends TokenAuthorityRequest {
   readonly name: string;
   /** Relative lifetime (`7d`, `30d`, `1y`) or an absolute ISO timestamp. */
   readonly expires: string;
-  readonly verification: StepUpOptions;
 }
 
 export interface CreatedToken {
   readonly token: CreatedTokenResponse;
-  readonly stepUpCompleted: boolean;
 }
 
 const invalid = (detail: string) => new RegistryAccessFailed({ category: "validation", detail });
@@ -148,21 +144,10 @@ export const createToken = Effect.fn("Tokens.create")(function* (
   const expiresIn = yield* parseExpiresInSeconds(request.expires).pipe(
     Effect.flatMap((seconds) => validateExpiresInSeconds(seconds, request.permission)),
   );
-  const created = yield* runWithStepUp(
-    (stepUpRequestId) =>
-      authClient
-        .createToken(
-          { name: request.name, expiresIn, permissions: tokenPermissions(request) },
-          stepUpRequestId === undefined ? undefined : { stepUpRequestId },
-        )
-        .pipe(Effect.mapError(reportUncertainIssuance(request.name))),
-    {
-      operationLabel: `Create registry token "${request.name}"`,
-    },
-    request.verification,
-    registryUrl,
-  );
-  return { token: created.value, stepUpCompleted: created.stepUpCompleted } satisfies CreatedToken;
+  const token = yield* authClient
+    .createToken({ name: request.name, expiresIn, permissions: tokenPermissions(request) })
+    .pipe(Effect.mapError(reportUncertainIssuance(request.name)));
+  return { token } satisfies CreatedToken;
 });
 
 /**

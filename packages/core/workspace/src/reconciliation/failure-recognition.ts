@@ -29,8 +29,6 @@ import {
   DeviceLoginDenied,
   RegistryAccessFailed,
   SignedOut,
-  StepUpRequired,
-  StepUpVerificationPending,
 } from "@agentxm/registry-access/authentication";
 
 import {
@@ -372,9 +370,7 @@ const workspaceFailureClasses = () =>
     DeviceLoginDenied,
     DeviceLoginCodeExpired,
     DeviceAuthorizationPending,
-    StepUpVerificationPending,
     AuthInteractionAbandoned,
-    StepUpRequired,
     AuthExchangeFailed,
     WorkspaceConfigurationFailed,
     WorkspaceSyncFailed,

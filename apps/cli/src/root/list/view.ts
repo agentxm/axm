@@ -4,6 +4,7 @@ import type {
   ExtensionListFilter,
   ExtensionListItem,
 } from "@agentxm/workspace/inspection";
+import { formatDeprecationWarning } from "@agentxm/workspace/lifecycle";
 
 import {
   ABSENT,
@@ -81,19 +82,7 @@ const guidanceFor = (item: ExtensionListItem, filter: ExtensionListFilter): stri
   }
   const deprecation = item.assessment.deprecation;
   if (deprecation === undefined) return "-";
-  const replacement = deprecation.replacement;
-  return [
-    deprecation.message,
-    replacement?.status === "available"
-      ? `Use ${replacement.fqn}`
-      : replacement === undefined
-        ? undefined
-        : replacement.fqn === undefined
-          ? "Replacement unavailable or not visible"
-          : `Replacement ${replacement.fqn} unavailable`,
-  ]
-    .filter((value): value is string => value !== undefined)
-    .join("; ");
+  return formatDeprecationWarning(item.ref, deprecation);
 };
 
 const toRow = (item: ExtensionListItem, filter: ExtensionListFilter): ListTableRow => ({

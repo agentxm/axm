@@ -33,16 +33,11 @@ import {
   RegistryUrl,
   type RegistryClientFailure,
 } from "@agentxm/registry-client";
-import { RegistryAccessFailed, StepUpRequired, type AuthError } from "./errors.js";
+import { RegistryAccessFailed, type AuthError } from "./errors.js";
 
 const asRegistryFailure = (error: AuthError): RegistryClientFailure => {
   if (isRegistryClientFailure(error)) return error;
   throw new Error(`Expected a registry client failure, got ${error._tag}`);
-};
-
-const asAuthFailed = (error: AuthError): RegistryAccessFailed => {
-  if (error instanceof RegistryAccessFailed) return error;
-  throw new Error(`Expected RegistryAccessFailed, got ${error._tag}`);
 };
 
 // -----------------------------------------------------------------------------
@@ -148,13 +143,6 @@ const makeUnauthorizedError = () => ({
 });
 
 // Build a RefreshTokenError-compatible JSON error body.
-/** A token request whose only interesting part is whether it is challenged. */
-const createTokenParams = {
-  name: "ci",
-  expiresIn: 86_400,
-  permissions: { permission: "read" },
-} as const;
-
 const makeRefreshTokenError = () => ({
   kind: "RefreshTokenError",
   type: "urn:ietf:params:problem:refresh-token",
@@ -681,162 +669,7 @@ describe("AuthClient.pollDeviceToken", () => {
   });
 });
 
-describe("AuthClient step-up requests", () => {
-  it.effect("waits through pending status and completes when the request is verified", () => {
-    let callCount = 0;
-    const layer = makeTestLayer((request) => {
-      expect(request.url).toBe(
-        `${REGISTRY_URL}/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc`,
-      );
-      callCount += 1;
-      return new Response(
-        JSON.stringify({
-          status: callCount === 1 ? "pending" : "verified",
-          expires_at: "2026-08-10T16:05:00.000Z",
-        }),
-        { status: 200, headers: { "content-type": "application/json" } },
-      );
-    });
-
-    return Effect.gen(function* () {
-      const client = yield* AuthClient;
-      yield* client.waitForStepUpRequest(
-        `${REGISTRY_URL}/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc`,
-        0,
-      );
-      expect(callCount).toBe(2);
-    }).pipe(Effect.provide(layer));
-  });
-
-  it.effect("honors Retry-After when status polling is rate limited", () => {
-    let callCount = 0;
-    const layer = makeTestLayer(() => {
-      callCount += 1;
-      return callCount === 1
-        ? new Response("rate limited", { status: 429, headers: { "retry-after": "2" } })
-        : new Response(
-            JSON.stringify({
-              status: "verified",
-              expires_at: "2026-08-10T16:05:00.000Z",
-            }),
-            { status: 200, headers: { "content-type": "application/json" } },
-          );
-    });
-
-    return Effect.gen(function* () {
-      const client = yield* AuthClient;
-      const fiber = yield* Effect.forkChild(
-        client.waitForStepUpRequest(
-          `${REGISTRY_URL}/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc`,
-          0,
-        ),
-      );
-      yield* Effect.yieldNow;
-      yield* TestClock.adjust("2 seconds");
-      yield* Fiber.join(fiber);
-      expect(callCount).toBe(2);
-    }).pipe(Effect.provide(layer));
-  });
-
-  it.effect("maps cancelled, expired, and consumed requests to distinct errors", () => {
-    const terminalStatuses = [
-      ["cancelled", "auth_denied", "cancelled"],
-      ["expired", "auth_expired", "expired"],
-      ["consumed", "conflict", "already been used"],
-    ] as const;
-
-    return Effect.forEach(terminalStatuses, ([status, code, detail]) => {
-      const layer = makeTestLayer(
-        () =>
-          new Response(JSON.stringify({ status, expires_at: "2026-08-10T16:05:00.000Z" }), {
-            status: 200,
-            headers: { "content-type": "application/json" },
-          }),
-      );
-      return Effect.gen(function* () {
-        const client = yield* AuthClient;
-        const error = asAuthFailed(
-          yield* client
-            .waitForStepUpRequest(
-              `${REGISTRY_URL}/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc`,
-              0,
-            )
-            .pipe(Effect.flip),
-        );
-        expect(error.category).toBe(code);
-        expect(error.detail).toContain(detail);
-      }).pipe(Effect.provide(layer));
-    }).pipe(Effect.asVoid);
-  });
-
-  it.effect("retains the contextual request handoff from a step-up response", () => {
-    const layer = makeTestLayer(
-      () =>
-        new Response(
-          JSON.stringify({
-            kind: "StepUpRequiredError",
-            type: "https://agentxm.ai/problems/eotp",
-            title: "Additional Authentication Required",
-            status: 401,
-            detail: "More recent authentication is required for this operation.",
-            code: "eotp",
-            max_age: 300,
-            step_up: {
-              request_id: "step_01h455vb4pexka56gq5w2r7cpc",
-              verification_url: "https://agentxm.ai/step-up/step_01h455vb4pexka56gq5w2r7cpc",
-              status_url: `${REGISTRY_URL}/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc`,
-              expires_at: "2026-08-10T16:05:00.000Z",
-              interval: 2,
-              action: "Create access token",
-              target: "ci",
-            },
-          }),
-          { status: 401, headers: { "content-type": "application/problem+json" } },
-        ),
-    );
-
-    return Effect.gen(function* () {
-      const client = yield* AuthClient;
-      const error = yield* client.createToken(createTokenParams).pipe(Effect.flip);
-      expect(error instanceof StepUpRequired ? error.stepUp : null).toEqual({
-        requestId: "step_01h455vb4pexka56gq5w2r7cpc",
-        verificationUrl: "https://agentxm.ai/step-up/step_01h455vb4pexka56gq5w2r7cpc",
-        statusUrl: `${REGISTRY_URL}/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc`,
-        expiresAt: "2026-08-10T16:05:00.000Z",
-        intervalSeconds: 2,
-        maxAgeSeconds: 300,
-        action: "Create access token",
-        target: "ci",
-      });
-    }).pipe(Effect.provide(layer));
-  });
-
-  it.effect("retries a token creation with only the opaque request header", () => {
-    let stepUpRequestHeader: string | undefined;
-    const layer = makeTestLayer((request) => {
-      stepUpRequestHeader = request.headers["x-axm-step-up-request"];
-      return new Response(
-        JSON.stringify({
-          id: "tok_01h455vb4pexka56gq5w2r7cpc",
-          token: "axmt_created",
-          name: "ci",
-          permissions: { model: "gat", owners: [], extensions: [], permission: "read" },
-          created_at: "2026-08-10T16:00:00.000Z",
-          expires_at: "2026-09-09T16:00:00.000Z",
-        }),
-        { status: 201, headers: { "content-type": "application/json" } },
-      );
-    });
-
-    return Effect.gen(function* () {
-      const client = yield* AuthClient;
-      yield* client.createToken(createTokenParams, {
-        stepUpRequestId: "step_01h455vb4pexka56gq5w2r7cpc",
-      });
-      expect(stepUpRequestHeader).toBe("step_01h455vb4pexka56gq5w2r7cpc");
-    }).pipe(Effect.provide(layer));
-  });
-
+describe("AuthClient token operations", () => {
   it.effect("revokes a token without a verification header", () => {
     let stepUpRequestHeader: string | undefined;
     const layer = makeTestLayer((request) => {

@@ -11,6 +11,10 @@ import {
 } from "../shared/command-capabilities.js";
 import type { YankCategory } from "@agentxm/registry-client";
 import {
+  DeprecationReasons,
+  type DeprecationReason,
+} from "@agentxm/extension-model/unstable/extensions/deprecation";
+import {
   ArchivePublishedExtension,
   DeprecatePublishedExtension,
   RegistryTransitionSchema,
@@ -105,6 +109,9 @@ const emitDeprecationTransition = (transition: DeprecationTransition) =>
         `State: ${transition.before === null ? "active" : "deprecated"} to ${transition.after === null ? "active" : "deprecated"}`,
       ),
       ...headlineDoc("info", `Revision: ${transition.revision}`),
+      ...(transition.after === null
+        ? []
+        : headlineDoc("info", `Reason: ${transition.after.reason}`)),
       ...(transition.after?.message === undefined
         ? []
         : headlineDoc("info", `Message: ${transition.after.message}`)),
@@ -124,6 +131,7 @@ const emitDeprecationTransition = (transition: DeprecationTransition) =>
 export const handleDeprecate = Effect.fn("Deprecate.handle")(
   function* (input: {
     readonly ref: string;
+    readonly reason: Option.Option<DeprecationReason>;
     readonly message: Option.Option<string>;
     readonly replacement: Option.Option<string>;
     readonly clearMessage: boolean;
@@ -228,8 +236,14 @@ const deprecateConfig = {
   ref: Argument.String("extension").pipe(
     Argument.withDescription("Extension FQN (@owner/<plural-type>/name)"),
   ),
+  reason: Flag.Literals("reason", DeprecationReasons).pipe(
+    Flag.withDescription("Why the extension is deprecated"),
+    Flag.optional,
+  ),
   message: Flag.String("message").pipe(
-    Flag.withDescription("Concise publisher migration guidance (maximum 500 characters)"),
+    Flag.withDescription(
+      "Optional publisher notes (maximum 500 characters); required for obsolete and other",
+    ),
     Flag.optional,
   ),
   replacement: Flag.String("replacement").pipe(
@@ -314,7 +328,7 @@ export const deprecateCommand = Command.make("deprecate", deprecateConfig, (inpu
   Command.withExamples([
     {
       command:
-        'axm deprecate @acme/skills/code-review --replacement @acme/skills/reviewer --message "Move review workflows"',
+        'axm deprecate @acme/skills/code-review --reason superseded --replacement @acme/skills/reviewer --message "Move review workflows"',
       description: "Deprecate with structured replacement guidance",
     },
   ]),

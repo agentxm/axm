@@ -1,4 +1,3 @@
-import type { HumanHandoffAction } from "@agentxm/registry-protocol/unstable/human-handoff";
 /**
  * Typed failures for the Registry access capability. The producer owns the
  * category choice and user-facing wording; the application boundary converts
@@ -124,29 +123,6 @@ export class DeviceAuthorizationPending extends Data.TaggedError("DeviceAuthoriz
   readonly resume: string;
 }> {}
 
-/** One step-up verification request as the registry described it on the wire. */
-export interface StepUpRequest {
-  readonly requestId: string;
-  readonly verificationUrl: string;
-  readonly statusUrl: string;
-  readonly expiresAt: string;
-  readonly intervalSeconds: number;
-  readonly maxAgeSeconds?: number;
-  readonly action: string;
-  readonly target: string;
-}
-
-/**
- * The registry demands step-up verification by a person before the operation
- * can proceed. Carries the parsed step-up request and the underlying
- * transport failure so the boundary reproduces the exact metadata and cause
- * evidence.
- */
-export class StepUpRequired extends Data.TaggedError("StepUpRequired")<{
-  readonly stepUp: StepUpRequest;
-  readonly failure: RegistryClientFailure;
-}> {}
-
 /**
  * A token-exchange endpoint failed and the flow assigns it auth semantics:
  * the boundary overlays the carried detail and suggestions onto the mapped
@@ -156,16 +132,6 @@ export class AuthExchangeFailed extends Data.TaggedError("AuthExchangeFailed")<{
   readonly detail: string;
   readonly suggestions?: ReadonlyArray<SuggestedAction>;
   readonly failure: RegistryClientFailure;
-}> {}
-
-/**
- * A challenged Registry write is waiting on human verification. No challenged
- * write has completed: the operation is retried exactly once, after the
- * verification the carried handoff describes.
- */
-export class StepUpVerificationPending extends Data.TaggedError("StepUpVerificationPending")<{
-  readonly action: HumanHandoffAction;
-  readonly timedOut: boolean;
 }> {}
 
 /**
@@ -184,9 +150,7 @@ export type RegistryAccessFailure =
   | DeviceLoginDenied
   | DeviceLoginCodeExpired
   | DeviceAuthorizationPending
-  | StepUpVerificationPending
   | AuthInteractionAbandoned
-  | StepUpRequired
   | AuthExchangeFailed;
 
 export const isRegistryAccessFailure = (error: unknown): error is RegistryAccessFailure =>
@@ -196,9 +160,7 @@ export const isRegistryAccessFailure = (error: unknown): error is RegistryAccess
   error instanceof DeviceLoginDenied ||
   error instanceof DeviceLoginCodeExpired ||
   error instanceof DeviceAuthorizationPending ||
-  error instanceof StepUpVerificationPending ||
   error instanceof AuthInteractionAbandoned ||
-  error instanceof StepUpRequired ||
   error instanceof AuthExchangeFailed;
 
 /**

@@ -2,7 +2,7 @@
  * The wait model the `Screen` runs.
  *
  * A wait parks the terminal while a person acts somewhere else: approving a
- * sign-in, entering a one-time code, completing verification. A view describes
+ * sign-in, entering a one-time code, or authorizing a publication. A view describes
  * it as data and the `Screen` commits its instructions, keeps
  * only its countdown live, and races the awaited result against the keys that
  * reopen, copy, and stop it. Nothing here paints or reads input, so the

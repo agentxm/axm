@@ -13,7 +13,6 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions/handle";
-import { RegistryProblem } from "@agentxm/registry-client";
 
 import {
   AuthClientTest,
@@ -27,7 +26,7 @@ import {
   CredentialStoreTest,
 } from "../../credentials/credential-store.js";
 import { DeviceLoginInteractionTest } from "../device-login.js";
-import { RegistryAccessFailed, StepUpRequired, type StepUpRequest } from "../errors.js";
+import { RegistryAccessFailed } from "../errors.js";
 import { AuthEnvironment } from "../../adapters/environment.js";
 import { AuthLoginInteractionTest } from "../../adapters/login-interaction.js";
 import { AuthLoginPresenterTest } from "../login-presenter.js";
@@ -209,34 +208,3 @@ export const deviceLoginRequest = (overrides: Partial<LoginRequest> = {}): Login
 /** A request that resumes a pending device sign-in instead of starting one. */
 export const resumeLoginRequest = (overrides: Partial<LoginRequest> = {}): LoginRequest =>
   deviceLoginRequest({ waitForHumanSeconds: 300, ...overrides });
-
-// -----------------------------------------------------------------------------
-// Step-up verification fixtures
-// -----------------------------------------------------------------------------
-
-export const stepUpRequestId = "step_fixtureverification";
-export const stepUpStatusUrl = `${authRegistry}/v1/auth/step-up/requests/${stepUpRequestId}`;
-export const stepUpVerificationUrl = `https://agentxm.ai/step-up/${stepUpRequestId}`;
-export const stepUpExpiresAt = "2099-01-01T00:00:00.000Z";
-
-/** One step-up request as the Registry describes it on the wire. */
-export const makeStepUpRequest = (action: string, target: string): StepUpRequest => ({
-  requestId: stepUpRequestId,
-  verificationUrl: stepUpVerificationUrl,
-  statusUrl: stepUpStatusUrl,
-  expiresAt: stepUpExpiresAt,
-  intervalSeconds: 2,
-  action,
-  target,
-});
-
-/** The 401 challenge a Registry write answers with before verification. */
-export const stepUpChallenge = (stepUp: StepUpRequest): StepUpRequired =>
-  new StepUpRequired({
-    stepUp,
-    failure: new RegistryProblem({
-      category: "auth",
-      metadata: { response: { status: 401 } },
-      cause: undefined,
-    }),
-  });

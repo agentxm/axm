@@ -6,6 +6,7 @@ import * as SchemaIssue from "effect/SchemaIssue";
 import {
   ExtensionNameSchema,
   ExtensionTypeSchema,
+  extensionTypes,
   type ExtensionName,
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/common";
@@ -44,6 +45,7 @@ import type { ArchiveGuardrailError, ZipEntry } from "./archive-guardrails.js";
 export class ManifestError extends Data.TaggedError("ManifestError")<{
   readonly code:
     | "manifest_missing"
+    | "manifest_unreadable"
     | "manifest_multiple"
     | "manifest_invalid_json"
     | "manifest_schema_invalid"
@@ -53,6 +55,7 @@ export class ManifestError extends Data.TaggedError("ManifestError")<{
     | "declared_manifest_mismatch";
   readonly detail: string;
   readonly details?: unknown;
+  readonly cause?: unknown;
 }> {}
 
 export const MANIFEST_FILENAME_BY_TYPE = {
@@ -64,6 +67,13 @@ export const MANIFEST_FILENAME_BY_TYPE = {
   hook: HOOK_MANIFEST_FILENAME,
   knowledge: KNOWLEDGE_MANIFEST_FILENAME,
 } as const satisfies Record<ExtensionType, string>;
+
+export const MANIFEST_FILENAMES: ReadonlySet<string> = new Set(
+  Object.values(MANIFEST_FILENAME_BY_TYPE),
+);
+
+export const extensionTypeForManifestFilename = (fileName: string): ExtensionType | undefined =>
+  extensionTypes.find((type) => MANIFEST_FILENAME_BY_TYPE[type] === fileName);
 
 export const manifestFilenameForType = (type: ExtensionType): string =>
   MANIFEST_FILENAME_BY_TYPE[type];

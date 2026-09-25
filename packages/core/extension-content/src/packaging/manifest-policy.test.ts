@@ -7,6 +7,8 @@ import {
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import { ArchiveGuardrailError, type ZipEntry } from "./archive-guardrails.js";
 import {
+  extensionTypeForManifestFilename,
+  MANIFEST_FILENAMES,
   manifestFilenameForType,
   resolveManifest,
   validateManifestHasNoAgentsField,
@@ -55,7 +57,10 @@ describe("manifestFilenameForType", () => {
     };
     for (const type of extensionTypes) {
       expect(manifestFilenameForType(type)).toBe(filenameByType[type]);
+      expect(extensionTypeForManifestFilename(filenameByType[type])).toBe(type);
+      expect(MANIFEST_FILENAMES.has(filenameByType[type])).toBe(true);
     }
+    expect(extensionTypeForManifestFilename("other.json")).toBeUndefined();
   });
 });
 

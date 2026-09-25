@@ -75,6 +75,7 @@ export {
   type DeclaredPublishIdentity,
   type ExtensionManifest,
   MANIFEST_FILENAME_BY_TYPE,
+  MANIFEST_FILENAMES,
   MANIFEST_SCHEMA_BY_TYPE,
   ManifestError,
   type ManifestIdentity,
@@ -82,8 +83,10 @@ export {
   type ManifestResolutionInput,
   type ResolvedManifest,
   manifestFilenameForType,
+  extensionTypeForManifestFilename,
   manifestSchemaForType,
   resolveManifest,
   validateDeclaredManifestAlignment,
   validateManifestHasNoAgentsField,
 } from "./packaging/manifest-policy.js";
+export { readExtensionManifest } from "./packaging/manifest-file.js";

@@ -5,7 +5,6 @@ import * as nodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { afterEach, beforeEach } from "vitest";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
@@ -14,7 +13,6 @@ import { handle } from "../test-helpers.js";
 import type { DesiredExtensionNode, DesiredStateGraph } from "./desired-state-graph.js";
 import { observeInstallRoot } from "./install-root.js";
 import { resolveProjectWorkspaceLayout } from "./layout.js";
-import type { LockfileReaderService } from "./lockfile-reader.js";
 
 const node = (
   name: string,
@@ -40,11 +38,9 @@ const graph = (nodes: ReadonlyArray<DesiredExtensionNode>, complete = true): Des
   problems: [],
 });
 
-// Assertion needed: the observation reads only `entries`, and every row here is empty.
 const noLocks = {
   entries: () => Effect.succeed({}),
-  entry: () => Effect.succeed(Option.none()),
-} as unknown as LockfileReaderService;
+};
 
 layer(NodeServices.layer, { excludeTestServices: true })("install-root inventory", (it) => {
   let root: string;

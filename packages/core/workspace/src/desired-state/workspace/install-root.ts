@@ -125,7 +125,7 @@ const isIdentityPrefix = (segments: ReadonlyArray<string>) => {
 export interface ObserveInstallRootArgs {
   readonly layout: WorkspaceLayout;
   readonly graph: DesiredStateGraph;
-  readonly locks: LockfileReaderService;
+  readonly locks: Pick<LockfileReaderService, "entries">;
 }
 
 /**

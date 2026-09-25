@@ -42,6 +42,7 @@ The workspace read model is cached observation, inventory, and diagnostic
 context. It reports what exists without inferring desired membership,
 installation, Pack reachability, accepted resolution, or ownership from names,
 paths, bytes, or historical state.
+The inventory takes its `leftover` classification from the install-root observation, whose reachability verdict comes from the desired-state graph; it never infers that verdict from path containment.
 
 A dedicated invariant-fact capability composes:
 

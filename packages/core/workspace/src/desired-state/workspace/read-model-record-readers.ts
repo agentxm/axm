@@ -28,6 +28,7 @@ import {
   type LifecycleInventoryCandidate,
 } from "./read-model/extensions/inventory.js";
 import type { WorkspaceLayout } from "./layout.js";
+import type { InstallRootInventory } from "./install-root.js";
 import type { PackMemberBinding } from "./read-model/extensions/projection.js";
 import type { WorkspaceReadModel } from "./read-model/service.js";
 import type { ActivationState, ExtensionKey, Scope } from "./read-model/types.js";
@@ -62,6 +63,7 @@ export const makeReadModelRecordReaders = (args: {
   readonly path: Path.Path;
   readonly readScopedContext: ReadScopedContext;
   readonly getDesiredStateGraph: () => Effect.Effect<DesiredStateGraph, WorkspaceStateReadFailure>;
+  readonly installRoot: InstallRootInventory;
 }): ReadModelRecordReaders => {
   const packagingKindForSource = (
     type: WorkspaceManagedExtensionType,
@@ -166,33 +168,32 @@ export const makeReadModelRecordReaders = (args: {
     };
   };
 
-  /**
-   * Classify one occurrence desired state does not explain: an AXM package
-   * under the install root is `leftover`, an AXM package under its type's
-   * standard authoring folder is `undeclared`, and anything else — native
-   * agent content — is `unmanaged`.
-   */
+  /** Classify unexplained content from the install-root reachability verdict. */
   const unexplainedLifecycle = (
     layout: Option.Option<WorkspaceLayout>,
     key: ExtensionKey,
     actual: unknown,
-  ): Exclude<ExtensionInventoryLifecycle, "configured" | "implicit"> => {
-    if (Option.isNone(layout) || typeof actual !== "object" || actual === null) return "unmanaged";
+  ): Option.Option<Exclude<ExtensionInventoryLifecycle, "configured" | "implicit">> => {
+    if (Option.isNone(layout) || typeof actual !== "object" || actual === null)
+      return Option.some("unmanaged");
     const originTag = stringProperty("origin" in actual ? actual.origin : undefined, "_tag");
     const packageLocation =
       stringProperty(actual, "packageRoot") ?? stringProperty(actual, "contentRoot");
-    if (originTag === null || packageLocation === null) return "unmanaged";
-    const canonical = originTag.startsWith("canonical-axm-");
-    if (!canonical && !originTag.startsWith("external-axm-")) return "unmanaged";
-    if (isWithinOrEqual(args.path, layout.value.acquiredRoot, packageLocation)) return "leftover";
+    if (originTag === null || packageLocation === null) return Option.some("unmanaged");
+    if (!originTag.startsWith("canonical-axm-")) return Option.some("unmanaged");
+    const entry = args.installRoot.packages.find((candidate) => candidate.path === packageLocation);
+    if (entry !== undefined) {
+      if (!entry.reached) return Option.some("leftover");
+      if (entry.sourceDirectory === undefined) return Option.some("undeclared");
+      return Option.none();
+    }
     if (
-      canonical &&
       layout.value.scope === "project" &&
       isWithinOrEqual(args.path, layout.value.authoredRoot(key.type), packageLocation)
     ) {
-      return "undeclared";
+      return Option.some("undeclared");
     }
-    return "unmanaged";
+    return Option.some("unmanaged");
   };
 
   const lifecycleCandidateFromUnexplained = (
@@ -201,13 +202,14 @@ export const makeReadModelRecordReaders = (args: {
       readonly key: ExtensionKey;
       readonly actual: unknown;
     },
-  ): LifecycleInventoryCandidate => ({
-    key: row.key,
-    lifecycle: unexplainedLifecycle(layout, row.key, row.actual),
-    enabled: null,
-    installed: true,
-    ...observationFromActual(row.actual),
-  });
+  ): Option.Option<LifecycleInventoryCandidate> =>
+    Option.map(unexplainedLifecycle(layout, row.key, row.actual), (lifecycle) => ({
+      key: row.key,
+      lifecycle,
+      enabled: null,
+      installed: true,
+      ...observationFromActual(row.actual),
+    }));
 
   /** The members the graph binds to `type`, with the activation it settled. */
   const getPackMemberBindings = (
@@ -442,7 +444,10 @@ export const makeReadModelRecordReaders = (args: {
               ...rows.installed.map((row) =>
                 lifecycleCandidateFromInstalled(row, configuredAgents),
               ),
-              ...rows.unmanaged.map((row) => lifecycleCandidateFromUnexplained(scoped.layout, row)),
+              ...rows.unmanaged.flatMap((row) => {
+                const candidate = lifecycleCandidateFromUnexplained(scoped.layout, row);
+                return Option.isSome(candidate) ? [candidate.value] : [];
+              }),
             ],
             agents: [],
           });

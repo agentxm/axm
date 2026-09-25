@@ -10,10 +10,13 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
+import * as Ref from "effect/Ref";
 
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { DesiredStateReader, type DesiredStateReaderService } from "./desired-state-reader.js";
 import { WorkspaceLocation, type WorkspaceLocationService } from "./location.js";
+import { LockfileReader, type LockfileReaderService } from "./lockfile-reader.js";
+import { observeInstallRoot } from "./install-root.js";
 import type { ExtensionInventory } from "./read-model/extensions/inventory.js";
 import { makeReadModelRecordReaders } from "./read-model-record-readers.js";
 import type { ReadModelRecordRow } from "./read-model-record-types.js";
@@ -48,6 +51,7 @@ export class WorkspaceRecords extends ServiceMap.Service<
 export const makeWorkspaceRecords = (
   location: WorkspaceLocationService,
   desiredState: DesiredStateReaderService,
+  locks: Pick<LockfileReaderService, "entries">,
 ): WorkspaceRecordsService => {
   // The record readers take the platform path service and scoped reads with
   // the platform already discharged; bind both at each call so `FileSystem`
@@ -65,12 +69,16 @@ export const makeWorkspaceRecords = (
           Effect.provideService(FileSystem.FileSystem, fs),
           Effect.provideService(Path.Path, path),
         );
+      const graph = yield* provide(desiredState.graph());
+      const layout = yield* Ref.get(location.layout);
+      const installRoot = yield* provide(observeInstallRoot({ layout, graph, locks }));
       const readers = makeReadModelRecordReaders({
         baseDir: location.baseDir,
         scope: location.scope,
         path,
         readScopedContext: (f) => provide(readScopedModel(location, location.runtimeDir, f)),
-        getDesiredStateGraph: () => provide(desiredState.graph()),
+        getDesiredStateGraph: () => Effect.succeed(graph),
+        installRoot,
       });
       return yield* use(readers);
     });
@@ -85,10 +93,14 @@ export const makeWorkspaceRecords = (
 export const WorkspaceRecordsLive: Layer.Layer<
   WorkspaceRecords,
   never,
-  WorkspaceLocation | DesiredStateReader
+  WorkspaceLocation | DesiredStateReader | LockfileReader
 > = Layer.effect(
   WorkspaceRecords,
   Effect.gen(function* () {
-    return makeWorkspaceRecords(yield* WorkspaceLocation, yield* DesiredStateReader);
+    return makeWorkspaceRecords(
+      yield* WorkspaceLocation,
+      yield* DesiredStateReader,
+      yield* LockfileReader,
+    );
   }),
 );

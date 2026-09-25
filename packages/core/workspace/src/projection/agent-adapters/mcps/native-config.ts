@@ -187,7 +187,11 @@ export const hasTomlMcpEntry = (raw: string, serversKey: string, serverName: str
   return raw.split(/\r?\n/u).some((line) => line.trim() === header);
 };
 
-/** Decode one server's TOML table, with its nested tables, from a block of lines. */
+/**
+ * Decode one server's TOML table, with its nested tables, from a block of
+ * lines. Keys come from the file, so they are collected in Maps and only
+ * become object keys through `Object.fromEntries`, never by assignment.
+ */
 export const parseTomlMcpEntry = (
   rawBlock: string,
   serversKey: string,
@@ -195,8 +199,8 @@ export const parseTomlMcpEntry = (
 ): Readonly<Record<string, unknown>> => {
   const rootHeader = tomlTableHeader(serversKey, serverName);
   let currentTable: "root" | string | null = null;
-  const root: Record<string, unknown> = {};
-  const nested: Record<string, Record<string, unknown>> = {};
+  const root = new Map<string, unknown>();
+  const nested = new Map<string, Map<string, unknown>>();
 
   for (const line of rawBlock.split("\n")) {
     const trimmed = line.trim();
@@ -210,7 +214,7 @@ export const parseTomlMcpEntry = (
       const nestedKey = nestedMatch?.[1]?.replace(/^"|"$/g, "");
       currentTable =
         nestedKey !== undefined && trimmed.startsWith(rootHeader.slice(0, -1)) ? nestedKey : null;
-      if (currentTable !== null && currentTable !== "root") nested[currentTable] = {};
+      if (currentTable !== null && currentTable !== "root") nested.set(currentTable, new Map());
       continue;
     }
 
@@ -219,13 +223,16 @@ export const parseTomlMcpEntry = (
     const key = trimmed.slice(0, separator).trim().replace(/^"|"$/g, "");
     const value = parseTomlValue(trimmed.slice(separator + 1).trim());
     if (currentTable === "root") {
-      root[key] = value;
+      root.set(key, value);
       continue;
     }
-    const current = nested[currentTable] ?? {};
-    current[key] = value;
-    nested[currentTable] = current;
+    const current = nested.get(currentTable) ?? new Map<string, unknown>();
+    current.set(key, value);
+    nested.set(currentTable, current);
   }
 
-  return { ...root, ...nested };
+  return Object.fromEntries([
+    ...root,
+    ...[...nested].map(([table, values]) => [table, Object.fromEntries(values)] as const),
+  ]);
 };

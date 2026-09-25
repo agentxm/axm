@@ -90,7 +90,8 @@
   "dependencies": {
     "effect": "catalog:",
     "semver": "catalog:",
-    "@agentxm/extension-model": "workspace:^"
+    "@agentxm/extension-model": "workspace:^",
+    "@agentxm/host-primitives": "workspace:^"
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",

@@ -73,13 +73,3 @@ export {
   recordFootprint,
   type FootprintObservation,
 } from "./footprint-recorder.js";
-
-export {
-  atomicWriteTempPrefix,
-  sweepStaleAtomicWriteTemps,
-  writeFileAtomic,
-  type AtomicWriteFailure,
-  type AtomicWriteStep,
-  type SkipIfUnchanged,
-  type WriteFileAtomicOptions,
-} from "./atomic-write.js";

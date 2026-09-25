@@ -49,7 +49,7 @@ import {
   type AgentExtensionRecommendation,
   type AgentExtensionSource,
 } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
-import { writeFileAtomic } from "./atomic-write.js";
+import { writeFileAtomic } from "@agentxm/host-primitives";
 import { withLocalPublicationLock } from "./local-publication-lock.js";
 import {
   packagesToPackageUrlParts,

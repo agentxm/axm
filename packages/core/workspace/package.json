@@ -261,6 +261,7 @@
     "@agentxm/cli-maintenance": "workspace:^",
     "@agentxm/extension-content": "workspace:^",
     "@agentxm/extension-model": "workspace:^",
+    "@agentxm/host-primitives": "workspace:^",
     "@agentxm/registry-protocol": "workspace:^",
     "effect": "catalog:",
     "jsonc-parser": "catalog:",

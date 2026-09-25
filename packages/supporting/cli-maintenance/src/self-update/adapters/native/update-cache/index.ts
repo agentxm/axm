@@ -6,7 +6,7 @@ import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import { writeFileAtomic } from "../internal/atomic-write.js";
+import { writeFileAtomic } from "@agentxm/host-primitives";
 
 const CACHE_SCHEMA = "axm.update-check-cache/v3";
 const StableVersionSchema = Schema.String.pipe(

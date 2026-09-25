@@ -12,6 +12,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
+import { sweepStaleAtomicWriteTemps, writeFileAtomic } from "@agentxm/host-primitives";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
 import { RegistryAccessFailed } from "./errors.js";
 import { envOption } from "../adapters/environment.js";
@@ -71,7 +72,9 @@ export const PendingDeviceLoginStoreLive = Layer.effect(
     ]);
     const directory = path.join(homeDir, ".axm");
     const filePath = path.join(directory, PENDING_LOGIN_FILENAME);
-    const temporaryPath = path.join(directory, `${PENDING_LOGIN_FILENAME}.tmp`);
+    const sweepTemps = sweepStaleAtomicWriteTemps(fs, filePath).pipe(
+      Effect.provideService(Path.Path, path),
+    );
 
     const ensureDirectory = Effect.gen(function* () {
       yield* fs
@@ -88,20 +91,13 @@ export const PendingDeviceLoginStoreLive = Layer.effect(
         const encoded = yield* Schema.encodeEffect(PendingDeviceLoginSchema)(pending).pipe(
           Effect.mapError((error) => storeError("Could not encode pending login", error)),
         );
-        yield* fs.chmod(temporaryPath, FILE_PERMISSIONS).pipe(Effect.catch(() => Effect.void));
-        yield* fs
-          .writeFileString(temporaryPath, JSON.stringify(encoded, null, 2), {
-            mode: FILE_PERMISSIONS,
-          })
-          .pipe(
-            Effect.mapError((error) => storeError("Could not persist pending login", error)),
-            Effect.tapError(() => fs.remove(temporaryPath).pipe(Effect.catch(() => Effect.void))),
-          );
-        yield* fs.chmod(temporaryPath, FILE_PERMISSIONS).pipe(Effect.catch(() => Effect.void));
-        yield* fs.rename(temporaryPath, filePath).pipe(
-          Effect.mapError((error) => storeError("Could not persist pending login", error)),
-          Effect.tapError(() => fs.remove(temporaryPath).pipe(Effect.catch(() => Effect.void))),
-        );
+        yield* sweepTemps;
+        yield* writeFileAtomic(fs, {
+          targetPath: filePath,
+          content: JSON.stringify(encoded, null, 2),
+          mode: FILE_PERMISSIONS,
+          mapError: (failure) => storeError("Could not persist pending login", failure.cause),
+        });
         yield* fs.chmod(filePath, FILE_PERMISSIONS).pipe(Effect.catch(() => Effect.void));
       },
     );
@@ -145,12 +141,6 @@ export const PendingDeviceLoginStoreLive = Layer.effect(
         yield* fs
           .remove(filePath)
           .pipe(Effect.mapError((error) => storeError("Could not clear pending login", error)));
-      }
-      const temporaryExists = yield* fs
-        .exists(temporaryPath)
-        .pipe(Effect.catch(() => Effect.succeed(false)));
-      if (temporaryExists) {
-        yield* fs.remove(temporaryPath).pipe(Effect.catch(() => Effect.void));
       }
     });
 

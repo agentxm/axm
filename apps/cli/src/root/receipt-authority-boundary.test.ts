@@ -36,11 +36,12 @@ describe("accepted-resolution authority boundary", () => {
     const lockingSources = [
       "packages/core/workspace/src/transitions/settlement/transaction.ts",
       "packages/core/workspace/src/transitions/settlement/transition-lock.ts",
-      "packages/core/workspace/src/transitions/settlement/atomic-write.ts",
+      "packages/generic/host-primitives/src/atomic-write.ts",
     ].map((source) => fs.readFileSync(path.join(repoRoot, source), "utf8"));
-    const kernelPackages = ["packages/core/workspace/package.json"].map((manifest) =>
-      fs.readFileSync(path.join(repoRoot, manifest), "utf8"),
-    );
+    const kernelPackages = [
+      "packages/core/workspace/package.json",
+      "packages/generic/host-primitives/package.json",
+    ].map((manifest) => fs.readFileSync(path.join(repoRoot, manifest), "utf8"));
 
     for (const source of lockingSources) {
       expect(source).not.toContain("fs-native-extensions");

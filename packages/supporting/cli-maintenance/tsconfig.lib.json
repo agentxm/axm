@@ -16,6 +16,9 @@
   ],
   "references": [
     {
+      "path": "../../generic/host-primitives/tsconfig.lib.json"
+    },
+    {
       "path": "../../core/extension-model/tsconfig.lib.json"
     },
     {

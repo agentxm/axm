@@ -112,6 +112,17 @@ export function capabilityBoundaries(rootPath, elements, files, roleDescriptors 
                 allow: { to: { element: { type: "test-support" } } },
               },
               {
+                from: { file: { categories: ["adapter", "composition", "test"] } },
+                allow: {
+                  to: {
+                    element: {
+                      path: "packages/generic/host-primitives/src",
+                      fileInternalPath: `index.${sourceExtension}`,
+                    },
+                  },
+                },
+              },
+              {
                 to: { element: { type: "backstage" } },
                 allow: { to: publicDomain },
               },

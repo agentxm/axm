@@ -19,7 +19,7 @@ import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
 
 import { UpgradeFailed } from "../../../application/index.js";
-import { writeFileAtomic } from "../internal/atomic-write.js";
+import { writeFileAtomic } from "@agentxm/host-primitives";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
 
 import { resolveUserAxmHome } from "../internal/user-axm-home.js";

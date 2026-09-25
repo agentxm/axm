@@ -298,6 +298,20 @@ describe("module boundary constraints", () => {
     expect(integrationToCapability[0]?.message).toContain("role:integration");
   });
 
+  it("lets integrations use generic host primitives without opening other capabilities", async () => {
+    expect(
+      await boundaryViolations('import "@agentxm/host-primitives";', SUPPORTING_INTEGRATION),
+    ).toEqual([]);
+    expect(
+      (
+        await boundaryViolations(
+          'import "@agentxm/cli-maintenance/official-skill/domain";',
+          SUPPORTING_INTEGRATION,
+        )
+      ).map((violation) => violation.ruleId),
+    ).toEqual(["@nx/enforce-module-boundaries"]);
+  });
+
   it("keeps engineering libraries out of runtime while tests may compose them", async () => {
     expect(
       (await boundaryViolations('import "@agentxm/test-support";', CORE_CAPABILITY)).map(

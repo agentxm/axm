@@ -550,6 +550,9 @@ importers:
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../extension-model
+      '@agentxm/host-primitives':
+        specifier: workspace:^
+        version: link:../../generic/host-primitives
       '@agentxm/registry-access':
         specifier: workspace:^
         version: link:../../supporting/registry-access
@@ -648,6 +651,9 @@ importers:
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../../core/extension-model
+      '@agentxm/host-primitives':
+        specifier: workspace:^
+        version: link:../../generic/host-primitives
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.117
@@ -685,6 +691,9 @@ importers:
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../../core/extension-model
+      '@agentxm/host-primitives':
+        specifier: workspace:^
+        version: link:../../generic/host-primitives
       '@agentxm/registry-client':
         specifier: workspace:^
         version: link:../registry-client
@@ -731,6 +740,9 @@ importers:
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../../core/extension-model
+      '@agentxm/host-primitives':
+        specifier: workspace:^
+        version: link:../../generic/host-primitives
       '@agentxm/registry-protocol':
         specifier: workspace:^
         version: link:../../core/registry-protocol

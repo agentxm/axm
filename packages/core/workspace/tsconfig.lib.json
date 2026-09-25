@@ -19,6 +19,9 @@
   ],
   "references": [
     {
+      "path": "../../generic/host-primitives/tsconfig.lib.json"
+    },
+    {
       "path": "../../supporting/registry-access/tsconfig.lib.json"
     },
     {

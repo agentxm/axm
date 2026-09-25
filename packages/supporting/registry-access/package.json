@@ -49,6 +49,7 @@
   },
   "dependencies": {
     "@agentxm/extension-model": "workspace:^",
+    "@agentxm/host-primitives": "workspace:^",
     "@agentxm/registry-client": "workspace:^",
     "@agentxm/registry-protocol": "workspace:^",
     "@napi-rs/keyring": "^1.3.0",

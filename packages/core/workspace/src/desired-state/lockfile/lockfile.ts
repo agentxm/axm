@@ -11,6 +11,7 @@
 import { LOCKFILE_NAME } from "@agentxm/extension-model/unstable/workspace-files";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import { sweepStaleAtomicWriteTemps, writeFileAtomic } from "@agentxm/host-primitives";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
@@ -18,8 +19,6 @@ import YAML from "yaml";
 import {
   protectWorkspacePath,
   recordFootprint,
-  sweepStaleAtomicWriteTemps,
-  writeFileAtomic,
   WorkspaceFileWriteLocks,
 } from "../../transitions/settlement/index.js";
 import { LockfileValidationError, LockfileWriteError } from "./errors.js";

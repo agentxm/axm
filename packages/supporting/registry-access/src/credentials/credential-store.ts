@@ -25,6 +25,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import * as lockfile from "proper-lockfile";
+import { writeFileAtomic } from "@agentxm/host-primitives";
 import { decodeHandleSync, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { AuthTokenPolicyRequired, RegistryAccessFailed } from "../authentication/errors.js";
 import { envOption, isCI, isContainer, isRoot, isSSH, isWSL } from "../adapters/environment.js";
@@ -409,29 +410,17 @@ const writeCredentialFile = (
       ),
     );
     const content = JSON.stringify(encoded, null, 2);
-    // Stage beside the destination so the replacement is one same-filesystem
-    // rename. Scope cleanup removes partial staging on failure or interruption;
-    // the last committed file is never opened for truncation.
-    yield* Effect.scoped(
-      Effect.gen(function* () {
-        const stagingDir = yield* fs.makeTempDirectoryScoped({
-          directory: getCredentialsDir(path, homeDir),
-          prefix: ".credentials-",
-        });
-        const staged = path.join(stagingDir, CREDENTIALS_FILENAME);
-        yield* fs.writeFileString(staged, content, { flag: "wx", mode: FILE_PERMISSIONS });
-        yield* fs.rename(staged, filePath).pipe(Effect.uninterruptible);
-      }),
-    ).pipe(
-      Effect.mapError(
-        (error) =>
-          new RegistryAccessFailed({
-            category: "auth",
-            detail: "Failed to write credential file",
-            cause: error,
-          }),
-      ),
-    );
+    yield* writeFileAtomic(fs, {
+      targetPath: filePath,
+      content,
+      mode: FILE_PERMISSIONS,
+      mapError: (failure) =>
+        new RegistryAccessFailed({
+          category: "auth",
+          detail: "Failed to write credential file",
+          cause: failure.cause,
+        }),
+    });
   });
 
 const emptyCredentialFile: CredentialFile = {

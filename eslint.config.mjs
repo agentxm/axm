@@ -344,9 +344,14 @@ const runtimeRoleDependencies = {
   "role:application": ["role:feature", "role:capability", "role:integration", "role:contract"],
   "role:feature": ["role:capability", "role:integration", "role:contract"],
   "role:capability": ["role:capability", "role:integration", "role:contract"],
-  // Integrations may also compose the leaf content library, whose own budget
-  // is the extension model alone (see the scope:extension-content row).
-  "role:integration": ["role:integration", "role:contract", "scope:extension-content"],
+  // Integrations may also compose the leaf content library and generic host
+  // primitives. Both have narrower dependency budgets under their own scope.
+  "role:integration": [
+    "role:integration",
+    "role:contract",
+    "scope:extension-content",
+    "scope:host-primitives",
+  ],
   "role:contract": ["role:contract"],
 };
 

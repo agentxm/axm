@@ -5,18 +5,14 @@
  * @packageDocumentation
  */
 
+import { sweepStaleAtomicWriteTemps, writeFileAtomic } from "@agentxm/host-primitives";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as JsonPatch from "effect/JsonPatch";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { SettingsWriteError } from "./errors.js";
-import {
-  protectWorkspacePath,
-  recordFootprint,
-  sweepStaleAtomicWriteTemps,
-  writeFileAtomic,
-} from "../../transitions/settlement/index.js";
+import { protectWorkspacePath, recordFootprint } from "../../transitions/settlement/index.js";
 import {
   SETTINGS_KEY_ORDER,
   SETTINGS_KNOWN_KEYS,

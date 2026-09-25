@@ -91,6 +91,38 @@ test("every published policy entry exists and has its declared file classificati
   }
 });
 
+test("generic host primitives are classified as host adapters", () => {
+  const matcher = new Elements({ rootPath: root }).getMatcher({
+    elements: capabilityElements,
+    files: capabilityFileDescriptors,
+    filesSingleMatch: true,
+  });
+  const source = resolve(root, "packages/generic/host-primitives/src/atomic-write.ts");
+  const owner = matcher.describeElement(source);
+  assert.equal(owner.isUnknown, false);
+  assert.equal(owner.captured.strategy, "generic");
+  assert.deepEqual(matcher.describeFile(source).categories, ["adapter"]);
+});
+
+test("self-update adapters use the public generic host entry point", async () => {
+  const filePath =
+    "packages/supporting/cli-maintenance/src/self-update/adapters/native/install-meta/install-meta.ts";
+  const [publicImport] = await eslint.lintText(
+    'import { writeFileAtomic } from "@agentxm/host-primitives"; export { writeFileAtomic };',
+    { filePath },
+  );
+  assert.equal(publicImport.fatalErrorCount, 0, JSON.stringify(publicImport.messages));
+  assert.deepEqual(
+    publicImport.messages.filter(({ ruleId }) => ruleId?.startsWith("boundaries/")),
+    [],
+  );
+  const [privateImport] = await eslint.lintText(
+    'import { writeFileAtomic } from "../../../../../../../generic/host-primitives/src/atomic-write.js"; export { writeFileAtomic };',
+    { filePath },
+  );
+  assert.ok(privateImport.messages.some(({ ruleId }) => ruleId === "boundaries/dependencies"));
+});
+
 for (const [name, code, rule] of [
   [
     "the composed root config rejects filesystem barrel imports in published policy",

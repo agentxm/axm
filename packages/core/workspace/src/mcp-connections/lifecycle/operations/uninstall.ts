@@ -53,6 +53,7 @@ import {
   withAdaptedStepFailures,
 } from "../../../lifecycle/step-failure-conversion.js";
 import { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
+import { desiredMcpSourceKey } from "../../../desired-state/index.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -273,7 +274,9 @@ export const uninstallMcpServer: (
     const sourceClosure =
       desiredNode === undefined || desiredNode.authority === "inline"
         ? undefined
-        : desired.mcpSourceClosures.find((closure) => closure.identity === desiredNode.identity);
+        : desired.mcpSourceClosures.find(
+            (closure) => closure.key === desiredMcpSourceKey(desiredNode.identity),
+          );
     const keepSharedResolution =
       sourceClosure !== undefined &&
       (sourceClosure.localNames.some((name) => name !== op.args.serverName) ||
@@ -330,7 +333,7 @@ export const uninstallMcpServer: (
             {
               scopeRoot: path.resolve(location.baseDir),
               localName: op.args.serverName,
-              sourceIdentity: desiredNode.identity,
+              sourceIdentity: desiredMcpSourceKey(desiredNode.identity),
             },
             secretNames,
           );

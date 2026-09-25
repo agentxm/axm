@@ -4,10 +4,13 @@ import { evaluateSourceAuthority, type SourceAuthorityInput } from "./source-aut
 const rootInput = (overrides: Partial<SourceAuthorityInput> = {}): SourceAuthorityInput => ({
   target: { type: "pack", name: "toolkit", identity: "@test/packs/toolkit" },
   relationship: { kind: "root" },
-  requested: { identity: "registry:@test/packs/toolkit@1.0.0", workspace: false },
+  requested: {
+    authority: "registry",
+    fqn: "@test/packs/toolkit",
+    registry: { sourceName: undefined, endpoint: undefined },
+  },
   configured: {
-    identity: "workspace:@test/packs/toolkit",
-    workspace: true,
+    identity: { authority: "workspace", fqn: "@test/packs/toolkit" },
     status: "usable",
   },
   ...overrides,
@@ -29,7 +32,7 @@ describe("evaluateSourceAuthority", () => {
     expect(
       evaluateSourceAuthority(
         rootInput({
-          requested: { identity: "workspace:@test/packs/toolkit", workspace: true },
+          requested: { authority: "workspace", fqn: "@test/packs/toolkit" },
         }),
       ),
     ).toEqual({ kind: "allow-requested" });
@@ -45,7 +48,13 @@ describe("evaluateSourceAuthority", () => {
     expect(
       evaluateSourceAuthority(
         rootInput({
-          configured: { identity: "registry:@test/packs/toolkit", workspace: false },
+          configured: {
+            identity: {
+              authority: "registry",
+              fqn: "@test/packs/toolkit",
+              registry: { sourceName: undefined, endpoint: undefined },
+            },
+          },
         }),
       ),
     ).toEqual({ kind: "allow-requested" });
@@ -56,8 +65,7 @@ describe("evaluateSourceAuthority", () => {
       evaluateSourceAuthority({
         ...rootInput({
           configured: {
-            identity: "workspace:@test/skills/guide",
-            workspace: true,
+            identity: { authority: "workspace", fqn: "@test/skills/guide" },
             status: "usable",
           },
         }),
@@ -72,8 +80,7 @@ describe("evaluateSourceAuthority", () => {
       evaluateSourceAuthority({
         ...rootInput({
           configured: {
-            identity: "workspace:@other/skills/guide",
-            workspace: true,
+            identity: { authority: "workspace", fqn: "@other/skills/guide" },
             status: "usable",
           },
         }),
@@ -91,8 +98,7 @@ describe("evaluateSourceAuthority", () => {
       evaluateSourceAuthority({
         ...rootInput({
           configured: {
-            identity: "workspace:@test/skills/guide",
-            workspace: true,
+            identity: { authority: "workspace", fqn: "@test/skills/guide" },
             status: "corrupt",
           },
         }),

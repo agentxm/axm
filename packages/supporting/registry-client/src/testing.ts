@@ -30,7 +30,11 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientError from "effect/unstable/http/HttpClientError";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
-import { RegistryClientFactory, makeRegistryClientFactory } from "./registry-client-factory.js";
+import {
+  RegistryClientFactory,
+  RegistryClientFactoryLive,
+  makeRegistryClientFactory,
+} from "./registry-client-factory.js";
 import { RegistryUrl } from "./registry-url.js";
 
 /** The endpoint fixtures name when the test does not care which Registry it is. */
@@ -39,6 +43,27 @@ export const testRegistryUrl = "https://registry.example.test";
 /** The Registry endpoint one run targets. */
 export const RegistryUrlTest = (url: string = testRegistryUrl): Layer.Layer<RegistryUrl> =>
   Layer.succeed(RegistryUrl, url);
+
+/**
+ * The production `RegistryClientFactory` over one transport, for a fixture
+ * that binds the platform itself. Every client it hands out speaks through
+ * `transport`, so a refusing transport proves a run reached no Registry.
+ */
+export const RegistryClientFactoryTest = (
+  transport: Layer.Layer<HttpClient.HttpClient>,
+  url: string = testRegistryUrl,
+): Layer.Layer<RegistryClientFactory, never, FileSystem.FileSystem | Path.Path> =>
+  Layer.provide(RegistryClientFactoryLive, Layer.mergeAll(transport, RegistryUrlTest(url)));
+
+/** One transport together with the factory over it: what a run that may reach a Registry binds. */
+export const RegistryTransportTest = (
+  transport: Layer.Layer<HttpClient.HttpClient>,
+  url: string = testRegistryUrl,
+): Layer.Layer<
+  HttpClient.HttpClient | RegistryClientFactory,
+  never,
+  FileSystem.FileSystem | Path.Path
+> => Layer.merge(transport, RegistryClientFactoryTest(transport, url));
 
 /** One request the recorded transport observed, in the shape a test asserts on. */
 export interface ObservedRegistryRequest {

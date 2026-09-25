@@ -12,6 +12,7 @@ import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "../transitions/settlement/live.js";
 import * as Option from "effect/Option";
+import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { computeSourceHash } from "../desired-state/index.js";
 import type { KnowledgeLockEntry } from "../desired-state/index.js";
@@ -141,7 +142,7 @@ const desiredHandbookReadFacts = (
       {
         type: "knowledge",
         name: "handbook",
-        identity: "./source",
+        identity: { authority: "path", locator: "./source" },
         source: "./source",
         enabled: true,
         constraint: UNCONSTRAINED_DESIRED_NODE,
@@ -201,7 +202,9 @@ const managerLayer = (
     ),
     Layer.provideMerge(NativeWriteAuthorityLive),
     Layer.provideMerge(WorkspaceFileWriteLocksLive),
-    Layer.provideMerge(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),
+    Layer.provideMerge(
+      Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
+    ),
   );
 };
 
@@ -232,7 +235,7 @@ describe("KnowledgeManager", () => {
                     {
                       type: "knowledge",
                       name: "handbook",
-                      identity: "workspace:@acme/knowledge/handbook",
+                      identity: { authority: "workspace", fqn: "@acme/knowledge/handbook" },
                       source: "workspace",
                       enabled: true,
                       constraint: UNCONSTRAINED_DESIRED_NODE,
@@ -474,7 +477,7 @@ describe("KnowledgeManager", () => {
                       {
                         type: "knowledge",
                         name: "handbook",
-                        identity: "./source",
+                        identity: { authority: "path", locator: "./source" },
                         source: "./source",
                         enabled: true,
                         constraint: UNCONSTRAINED_DESIRED_NODE,
@@ -489,7 +492,11 @@ describe("KnowledgeManager", () => {
                       {
                         type: "knowledge",
                         name: "unresolved",
-                        identity: "@acme/knowledge/unresolved",
+                        identity: {
+                          authority: "registry",
+                          fqn: "@acme/knowledge/unresolved",
+                          registry: { sourceName: undefined, endpoint: undefined },
+                        },
                         source: "@acme/knowledge/unresolved",
                         enabled: true,
                         constraint: UNCONSTRAINED_DESIRED_NODE,
@@ -729,7 +736,7 @@ describe("KnowledgeManager", () => {
                 nodes: ["healthy", "unavailable"].map((name) => ({
                   type: "knowledge" as const,
                   name,
-                  identity: `./sources/${name}`,
+                  identity: { authority: "path", locator: `./sources/${name}` },
                   source: `./sources/${name}`,
                   enabled: true,
                   constraint: UNCONSTRAINED_DESIRED_NODE,

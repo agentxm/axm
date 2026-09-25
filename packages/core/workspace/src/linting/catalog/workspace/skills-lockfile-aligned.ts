@@ -3,7 +3,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
+import { desiredReachesAcceptedRow } from "../../../desired-state/index.js";
 import { canonicalObservationFactText } from "../../../projection/index.js";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "@agentxm/extension-content/lint";
@@ -42,19 +42,10 @@ export const skillsLockfileAlignedRule: AdvisoryRule<WorkspaceRuleContext> = {
         ({ desired, observation }) =>
           finding(`${canonicalObservationFactText(desired, observation)}.`, lockfilePath),
       );
-      // Workspace-authored Skills record no accepted resolution.
-      const desiredSkills = new Set(
-        graph.success.nodes
-          .filter(
-            (node) =>
-              node.type === "skill" &&
-              node.source !== undefined &&
-              !isWorkspaceSourceLocator(node.source),
-          )
-          .map((node) => node.name),
-      );
+      // A row no desired Skill reaches is retirement's to remove; the same
+      // predicate decides it here, so lint never reports what sync keeps.
       const undesired = Object.keys(lockfile.success.value.skills)
-        .filter((name) => !desiredSkills.has(name))
+        .filter((name) => !desiredReachesAcceptedRow(graph.success, { type: "skill", key: name }))
         .map((name) =>
           finding(`Skill '${name}' has an accepted resolution but is not desired.`, lockfilePath),
         );

@@ -4,6 +4,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 
 import { resolveSource } from "./resolve-source.js";
 import { SourceHostProviders, type SourceHostProvidersService } from "./service.js";
@@ -19,8 +20,7 @@ const Workspace = Layer.mergeAll(
       },
     ],
   }),
-  NodeServices.layer,
-  FetchHttpClient.layer,
+  Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
 );
 
 describe("resolution flow", () => {

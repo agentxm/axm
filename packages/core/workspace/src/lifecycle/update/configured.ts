@@ -27,11 +27,11 @@ import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { OperationRequestBudget } from "@agentxm/registry-client";
+import type { RegistryClientFactory } from "@agentxm/registry-client";
 import type * as Config from "effect/Config";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
-import type * as HttpClient from "effect/unstable/http/HttpClient";
 
 import {
   heldBackReleaseWarnings,
@@ -139,6 +139,7 @@ import { assessGitSelector } from "./git-selector.js";
 import { withPackRegistryIndexMemo } from "../../resolution/sources/providers/registry/index-memo.js";
 import { AXM_SKILL_BUNDLED_APPLY_COMMAND } from "@agentxm/cli-maintenance/official-skill/adapters/cli";
 import { AXM_SKILL_FQN } from "@agentxm/cli-maintenance/official-skill/domain";
+import { desiredMcpSourceKey } from "../../desired-state/index.js";
 
 export type WorkspaceUpdatableType = InstallableExtensionType;
 
@@ -179,7 +180,7 @@ type WorkspaceUpdateCollectorContext =
   | PackInstallRequirements
   | StepFailureConversion
   | Scope.Scope
-  | HttpClient.HttpClient
+  | RegistryClientFactory
   | FileSystem.FileSystem
   | Path.Path
   | DesiredStateReader
@@ -1071,8 +1072,9 @@ const collectMcpServerPlans = (
         }
         // Every local connection to one source shares one resolution, so the
         // closure advances once, through its first connection.
-        if (seenSourceClosures.has(desired.identity)) return [];
-        seenSourceClosures.add(desired.identity);
+        const sourceKey = desiredMcpSourceKey(desired.identity);
+        if (seenSourceClosures.has(sourceKey)) return [];
+        seenSourceClosures.add(sourceKey);
         return [entry];
       },
     );

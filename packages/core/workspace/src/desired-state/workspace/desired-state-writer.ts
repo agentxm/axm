@@ -58,6 +58,8 @@ import type {
   WorkspaceStateMutationFailure,
 } from "./contracts.js";
 import { WorkspaceStateShared } from "./shared.js";
+import { acceptedRowKey } from "./accepted-reachability.js";
+import { desiredMcpSourceKey } from "./desired-identity.js";
 
 /** The declaration each installable extension type accepts. */
 export interface DeclareArgsByType {
@@ -381,18 +383,19 @@ export const makeDesiredStateWriter = (
       const desiredNode = graph.nodes.find(
         (node) => node.type === "mcp-server" && node.name === name,
       );
+      const resolutionKey =
+        desiredNode === undefined ? undefined : Option.getOrUndefined(acceptedRowKey(desiredNode));
       const closure =
         desiredNode === undefined || desiredNode.authority === "inline"
           ? undefined
           : graph.mcpSourceClosures.find(
-              (candidate) => candidate.identity === desiredNode.identity,
+              (candidate) => candidate.key === desiredMcpSourceKey(desiredNode.identity),
             );
       const current = yield* settings;
       if (Option.isSome(settingsEntries["mcp-server"].entry(current, name))) {
         yield* writeSettings(settingsEntries["mcp-server"].remove(current, name));
       }
       const currentLockfile = yield* lockfile;
-      const resolutionKey = desiredNode?.identity;
       const keepSharedResolution =
         closure !== undefined &&
         (closure.localNames.length > 1 || closure.origins.some((origin) => origin.type === "pack"));

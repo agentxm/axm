@@ -42,7 +42,11 @@ const externalPackGraph = {
     {
       type: "pack",
       name: "toolkit",
-      identity: "@acme/packs/toolkit",
+      identity: {
+        authority: "registry",
+        fqn: "@acme/packs/toolkit",
+        registry: { sourceName: undefined, endpoint: undefined },
+      },
       source: "@acme/packs/toolkit",
       enabled: true,
       constraint: UNCONSTRAINED_DESIRED_NODE,
@@ -179,7 +183,7 @@ describe("validateDesiredPackLock", () => {
         ...externalPackGraph,
         nodes: externalPackGraph.nodes.map((node) => ({
           ...node,
-          identity: "workspace:@acme/packs/toolkit",
+          identity: { authority: "workspace", fqn: "@acme/packs/toolkit" },
           source: "workspace:@acme/packs/toolkit",
         })),
       };

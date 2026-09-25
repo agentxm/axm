@@ -22,6 +22,7 @@ import type {
 } from "../transitions/planning/index.js";
 import { proposeDesiredState, type DesiredStateProposal } from "./proposed-state.js";
 import { WorkspaceSyncFailed } from "./errors.js";
+import { acceptedRowKey, sameDesiredIdentity } from "../desired-state/index.js";
 
 /** Describe retirement from the same proposed authority that decides retention. */
 export const prepareUninstallArtifact = (
@@ -47,7 +48,7 @@ export const prepareUninstallArtifact = (
     const sourceRemainsDesired =
       before !== undefined &&
       state.after.nodes.some(
-        (node) => node.type === before.type && node.identity === before.identity,
+        (node) => node.type === before.type && sameDesiredIdentity(node.identity, before.identity),
       );
     const canonical = yield* acceptedCanonicalObservation({
       type: target.type,
@@ -68,7 +69,9 @@ export const prepareUninstallArtifact = (
     }
     const locked = yield* locks.entry(
       target.type,
-      target.type === "mcp-server" ? (before?.identity ?? target.name) : target.name,
+      before === undefined
+        ? target.name
+        : Option.getOrElse(acceptedRowKey(before), () => target.name),
     );
     if (Option.isSome(locked) && after === undefined && !sourceRemainsDesired)
       targets.push({ path: lockPath, change: "updated" });
@@ -91,7 +94,7 @@ export const prepareUninstallArtifact = (
           state: "absent",
           reason: "canonical content is already absent",
         });
-      else if (before?.identity.startsWith("workspace:"))
+      else if (before?.identity.authority === "workspace")
         references.push({ path: relative, state: "retained", reason: "workspace-authored source" });
       else if (after !== undefined || sourceRemainsDesired)
         references.push({

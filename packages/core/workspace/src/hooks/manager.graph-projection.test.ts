@@ -20,6 +20,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
+import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { HooksLockMapSchema, type HooksLockMap } from "../desired-state/index.js";
 import {
   WorkspaceCatalogTestLive,
@@ -64,14 +65,18 @@ const registryLock = (baseDir: string, name: string) => ({
 const packHookNode = (name: string, pack: string): DesiredExtensionNode => ({
   type: "hook",
   name,
-  identity: `${OWNER}/hooks/${name}`,
+  identity: {
+    authority: "registry",
+    fqn: `${OWNER}/hooks/${name}`,
+    registry: { sourceName: undefined, endpoint: undefined },
+  },
   source: `${OWNER}/hooks/${name}@^1.0.0`,
   enabled: true,
   constraint: desiredConstraintOf("^1.0.0"),
   origins: [
     {
       type: "pack",
-      pack: `${OWNER}/packs/${pack}`,
+      pack: { authority: "registry", fqn: `${OWNER}/packs/${pack}` },
       manifestPath: `/workspace/agent_extensions/registry/${OWNER}/packs/${pack}/pack.json`,
       source: `${OWNER}/hooks/${name}`,
       constraint: "^1.0.0",
@@ -138,7 +143,9 @@ describe("HookManager graph-derived unit projection", () => {
       Layer.provide(Layer.succeed(SourceHostProviders, providersStub)),
       Layer.provideMerge(NativeWriteAuthorityLive),
       Layer.provideMerge(WorkspaceFileWriteLocksLive),
-      Layer.provideMerge(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),
+      Layer.provideMerge(
+        Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
+      ),
     );
   };
 

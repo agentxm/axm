@@ -67,7 +67,6 @@ import { buildReconciliationClosure } from "./closure.js";
 import { WorkspaceSyncFailed } from "./errors.js";
 import type { SyncFailureAdapter, SyncPolicyFailure } from "./failure-adapter.js";
 import {
-  normalizedIdentity,
   recoverableExternalPackName,
   scopedProblems,
   type ConfiguredEntryResolutionRequirements,
@@ -240,9 +239,7 @@ export const collectConfiguredPackRecovery = (args: {
         Effect.gen(function* () {
           const packRef = intent.packToInstall;
           const stepProblems = recoveryProblems.filter(
-            (problem) =>
-              "pack" in problem &&
-              normalizedIdentity(problem.pack) === normalizedIdentity(packRef.pack.name),
+            (problem) => "pack" in problem && problem.pack === packRef.pack.name,
           );
           // The step names the Pack the way every other route names it: the
           // fully qualified identity the problems text also reports.

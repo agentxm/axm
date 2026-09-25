@@ -10,12 +10,11 @@
  */
 
 import * as FileSystem from "effect/FileSystem";
-import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { stripFileProtocol } from "@agentxm/registry-client";
+import { RegistryClientFactory, stripFileProtocol } from "@agentxm/registry-client";
 import type * as Scope from "effect/Scope";
 
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
@@ -57,7 +56,7 @@ import {
  * Live layer for SourceHostProviders.
  *
  * Constructs the provider registry with all source type providers.
- * Captures FileSystem, Path, HttpClient, the WorkspaceCatalog port, the
+ * Captures FileSystem, Path, the Registry client port, the WorkspaceCatalog port, the
  * AxmSkillCandidateGate port, and the RegistryResolutionPolicy port at
  * creation time so the service interface doesn't leak these dependencies.
  *
@@ -67,20 +66,20 @@ export const SourceHostProvidersLive: Layer.Layer<
   SourceHostProviders,
   never,
   | FileSystem.FileSystem
-  | HttpClient.HttpClient
   | Path.Path
   | WorkspaceCatalog
   | AxmSkillCandidateGate
   | RegistryResolutionPolicy
+  | RegistryClientFactory
 > = Layer.effect(
   SourceHostProviders,
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const httpClient = yield* HttpClient.HttpClient;
     const path = yield* Path.Path;
     const catalog = yield* WorkspaceCatalog;
     const axmSkillGate = yield* AxmSkillCandidateGate;
     const resolutionPolicy = yield* RegistryResolutionPolicy;
+    const registryClients = yield* RegistryClientFactory;
 
     const localProvider = createLocalSourceHostProvider();
     const gitProvider = createGitSourceHostProvider();
@@ -89,10 +88,10 @@ export const SourceHostProvidersLive: Layer.Layer<
     // Captured layer for providing to provider operations
     const depLayer = Layer.mergeAll(
       Layer.succeed(FileSystem.FileSystem, fs),
-      Layer.succeed(HttpClient.HttpClient, httpClient),
       Layer.succeed(Path.Path, path),
       Layer.succeed(AxmSkillCandidateGate, axmSkillGate),
       Layer.succeed(RegistryResolutionPolicy, resolutionPolicy),
+      Layer.succeed(RegistryClientFactory, registryClients),
     );
 
     const localSourceForWorkspace = (source: Extract<Source, { readonly type: "local" }>) => ({

@@ -1,5 +1,10 @@
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
-import type { CanonicalObservationStatus } from "../desired-state/index.js";
+import {
+  desiredPackageKey,
+  formatDesiredIdentity,
+  type CanonicalObservationStatus,
+  type DesiredNodeIdentity,
+} from "../desired-state/index.js";
 
 export type SourceAuthorityRelationship =
   { readonly kind: "root" } | { readonly kind: "member"; readonly root: string };
@@ -13,13 +18,11 @@ export interface SourceAuthorityTarget {
 export interface SourceAuthorityInput {
   readonly target: SourceAuthorityTarget;
   readonly relationship: SourceAuthorityRelationship;
-  readonly requested: {
-    readonly identity: string;
-    readonly workspace: boolean;
-  };
+  /** The identity the request would install. */
+  readonly requested: DesiredNodeIdentity;
   readonly configured?: {
-    readonly identity: string;
-    readonly workspace: boolean;
+    /** The identity the workspace already holds for the target. */
+    readonly identity: DesiredNodeIdentity;
     /** The configured workspace package's canonical observation. */
     readonly status?: CanonicalObservationStatus;
   };
@@ -65,8 +68,8 @@ const blocked = (
     id: `workspace-authority:${input.relationship.kind}:${input.target.identity}:${cause}`,
     target: input.target,
     relationship: input.relationship,
-    requestedSource: input.requested.identity,
-    configuredSource: configured.identity,
+    requestedSource: formatDesiredIdentity(input.requested),
+    configuredSource: formatDesiredIdentity(configured.identity),
     cause,
     detail,
     recovery,
@@ -77,8 +80,8 @@ export const evaluateSourceAuthority = (input: SourceAuthorityInput): SourceAuth
   const configured = input.configured;
   if (
     configured === undefined ||
-    !configured.workspace ||
-    input.requested.workspace ||
+    configured.identity.authority !== "workspace" ||
+    input.requested.authority === "workspace" ||
     input.allowWorkspaceReplacement === true
   ) {
     return { kind: "allow-requested" };
@@ -89,7 +92,7 @@ export const evaluateSourceAuthority = (input: SourceAuthorityInput): SourceAuth
       input,
       configured,
       "workspace-source-replacement",
-      `Cannot install over workspace-sourced ${input.target.type} "${input.target.name}" with ${input.requested.identity}`,
+      `Cannot install over workspace-sourced ${input.target.type} "${input.target.name}" with ${formatDesiredIdentity(input.requested)}`,
       [
         {
           description:
@@ -99,9 +102,7 @@ export const evaluateSourceAuthority = (input: SourceAuthorityInput): SourceAuth
     );
   }
 
-  const configuredIdentity = configured.identity.startsWith("workspace:")
-    ? configured.identity.slice("workspace:".length)
-    : configured.identity;
+  const configuredIdentity = desiredPackageKey(configured.identity);
   if (configuredIdentity !== input.target.identity) {
     return blocked(
       input,
@@ -138,6 +139,6 @@ export const evaluateSourceAuthority = (input: SourceAuthorityInput): SourceAuth
     kind: "workspace-satisfied",
     target: input.target,
     relationship: input.relationship,
-    configuredSource: configured.identity,
+    configuredSource: formatDesiredIdentity(configured.identity),
   };
 };

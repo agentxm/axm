@@ -22,10 +22,10 @@ import type { AuthorMaterialization } from "../../transitions/planning/index.js"
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 import * as FileSystem from "effect/FileSystem";
-import type * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
+import type { RegistryClientFactory } from "@agentxm/registry-client";
 
 import {
   SkillManager,
@@ -196,7 +196,7 @@ export type PrepareForkExtensionRequirements =
   | FileSystem.FileSystem
   | Path.Path
   | Scope.Scope
-  | HttpClient.HttpClient
+  | RegistryClientFactory
   | AcceptedResolutionWriter
   | DesiredStateWriter
   | SettingsReader

@@ -1,9 +1,11 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as Option from "effect/Option";
+import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { extensionName, handle } from "../../test-helpers.js";
 import { makeLiveRegistryIndexMemo } from "./index-memo.js";
 
@@ -62,8 +64,12 @@ describe("Registry planning metadata batches", () => {
           { concurrency: "unbounded" },
         );
       }).pipe(
-        Effect.provide(NodeServices.layer),
-        Effect.provideService(HttpClient.HttpClient, http),
+        Effect.provide(
+          Layer.provideMerge(
+            RegistryTransportTest(Layer.succeed(HttpClient.HttpClient, http)),
+            NodeServices.layer,
+          ),
+        ),
       );
 
       expect(paths).toEqual(["/v1/resolutions/metadata"]);

@@ -48,9 +48,12 @@ import {
   type PlannedJobStep,
 } from "../../../transitions/planning/index.js";
 import {
-  decodeDesiredExtensionIdentity,
+  desiredPackageKey,
+  formatDesiredIdentity,
   isRequiredByAnotherOrigin,
-  type DesiredPackageAuthority,
+  sameDesiredIdentity,
+  type DesiredAuthority,
+  type DesiredNodeIdentity,
   type DesiredStateGraph,
   type ExtensionTarget,
   type PackExtensionTarget,
@@ -84,17 +87,14 @@ export type PackUninstallSelector =
 export interface ResolvedPackUninstallTarget extends PackExtensionTarget {
   readonly owner: Handle;
   readonly name: ExtensionName;
-  readonly authority: DesiredPackageAuthority;
-  readonly desiredIdentity: string;
+  readonly authority: DesiredAuthority;
+  readonly desiredIdentity: DesiredNodeIdentity;
 }
 
 /** The packs this removal withdraws. */
 export interface PackUninstallIntent {
   readonly packsToUninstall: ReadonlyArray<ResolvedPackUninstallTarget>;
 }
-
-const normalizedPackIdentity = (identity: string): string =>
-  identity.startsWith("workspace:") ? identity.slice("workspace:".length) : identity;
 
 const identityValidationError = (identity: string) =>
   installRefused({
@@ -130,26 +130,26 @@ export const validateResolvedPackUninstallTargets = (
       if (current === undefined) {
         return yield* installRefused({
           category: "conflict",
-          detail: `Pack ${expected.desiredIdentity} changed or was removed before uninstall`,
+          detail: `Pack ${formatDesiredIdentity(expected.desiredIdentity)} changed or was removed before uninstall`,
           recover: "Inspect the current pack state, then retry the uninstall.",
           cmd: `axm packs show ${expected.name}`,
         });
       }
 
-      const decoded = decodeDesiredExtensionIdentity(current.identity);
+      const decoded = parseExtensionFqnParts(desiredPackageKey(current.identity));
       if (decoded === undefined || decoded.type !== "pack") {
-        return yield* identityValidationError(current.identity);
+        return yield* identityValidationError(formatDesiredIdentity(current.identity));
       }
 
       if (
-        current.identity !== expected.desiredIdentity ||
-        decoded.authority !== expected.authority ||
+        !sameDesiredIdentity(current.identity, expected.desiredIdentity) ||
+        current.identity.authority !== expected.authority ||
         decoded.owner !== expected.owner ||
         decoded.name !== expected.name
       ) {
         return yield* installRefused({
           category: "conflict",
-          detail: `Pack ${expected.desiredIdentity} changed or was removed before uninstall`,
+          detail: `Pack ${formatDesiredIdentity(expected.desiredIdentity)} changed or was removed before uninstall`,
           recover: "Inspect the current pack state, then retry the uninstall.",
           cmd: `axm packs show ${expected.name}`,
         });
@@ -245,16 +245,16 @@ export const finalizePackUninstallIntent: (
         (candidate) => candidate.type === "pack" && candidate.name === name,
       );
       for (const node of candidates) {
-        const identity = decodeDesiredExtensionIdentity(node.identity);
+        const identity = parseExtensionFqnParts(desiredPackageKey(node.identity));
         if (identity === undefined || identity.type !== "pack") {
-          return yield* identityValidationError(node.identity);
+          return yield* identityValidationError(formatDesiredIdentity(node.identity));
         }
         if (selector._tag === "ExactFqn" && identity.owner !== selector.identity.owner) continue;
-        targets.set(node.identity, {
+        targets.set(formatDesiredIdentity(node.identity), {
           type: "pack",
           name: identity.name,
           owner: identity.owner,
-          authority: identity.authority,
+          authority: node.identity.authority,
           desiredIdentity: node.identity,
         });
       }
@@ -298,7 +298,7 @@ export const planPackUninstall: (
   const observedGraph = yield* readDesiredGraph;
   const graphReadiness = planPackUninstallGraphReadiness(
     observedGraph,
-    intent.packsToUninstall.map((pack) => pack.desiredIdentity),
+    intent.packsToUninstall.map((pack) => desiredPackageKey(pack.desiredIdentity)),
     location.scope,
   );
   if (graphReadiness.readiness === "blocked") {
@@ -314,8 +314,9 @@ export const planPackUninstall: (
             {
               readiness: "error",
               label:
-                intent.packsToUninstall.map((pack) => pack.desiredIdentity).join(", ") ||
-                "Pack graph",
+                intent.packsToUninstall
+                  .map((pack) => formatDesiredIdentity(pack.desiredIdentity))
+                  .join(", ") || "Pack graph",
               errorMessage: graphReadiness.detail,
               blockingConditionIds: [PACK_UNINSTALL_GRAPH_BLOCKER_ID],
               artifact: {
@@ -364,7 +365,7 @@ export const planPackUninstall: (
   // unreadable manifest, so the lookup is keyed by the selected pack's name.
   const retirementByPackName = new Map<string, PackRetirement>(
     intent.packsToUninstall.flatMap((pack) => {
-      const retirement = retirementByIdentity.get(normalizedPackIdentity(pack.desiredIdentity));
+      const retirement = retirementByIdentity.get(desiredPackageKey(pack.desiredIdentity));
       return retirement === undefined ? [] : [[pack.name, retirement] as const];
     }),
   );
@@ -376,12 +377,12 @@ export const planPackUninstall: (
     allTargets.set(`pack:${pack.name}`, pack);
   }
   const removingPackIdentities = new Set(
-    intent.packsToUninstall.map((pack) => pack.desiredIdentity),
+    intent.packsToUninstall.map((pack) => desiredPackageKey(pack.desiredIdentity)),
   );
   for (const node of graph.nodes) {
     if (node.type === "pack") continue;
     const removedOrigin = node.origins.some(
-      (origin) => origin.type === "pack" && removingPackIdentities.has(origin.pack),
+      (origin) => origin.type === "pack" && removingPackIdentities.has(origin.pack.fqn),
     );
     if (!removedOrigin || isRequiredByAnotherOrigin(node, removingPackIdentities)) continue;
     allTargets.set(`${node.type}:${node.name}`, { type: node.type, name: node.name });
@@ -547,7 +548,7 @@ export const planPackUninstall: (
       yield* validateResolvedPackUninstallTargets(currentGraph, intent.packsToUninstall);
       const currentReadiness = planPackUninstallGraphReadiness(
         currentGraph,
-        intent.packsToUninstall.map((pack) => pack.desiredIdentity),
+        intent.packsToUninstall.map((pack) => desiredPackageKey(pack.desiredIdentity)),
         location.scope,
       );
       yield* validatePackRetirementFacts({

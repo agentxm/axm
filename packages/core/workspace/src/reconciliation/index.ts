@@ -62,7 +62,6 @@ export {
 } from "./plan.js";
 export {
   collectMaterializeSteps,
-  normalizedIdentity,
   recoverableExternalPackName,
   scopedProblems,
   selectedDesiredNodes,

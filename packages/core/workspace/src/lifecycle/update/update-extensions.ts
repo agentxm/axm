@@ -30,7 +30,7 @@ import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
-import type * as HttpClient from "effect/unstable/http/HttpClient";
+import type { RegistryClientFactory } from "@agentxm/registry-client";
 
 import {
   HookManager,
@@ -120,6 +120,7 @@ import { resolveConfiguredUpdateSelection, type ConfiguredUpdateSelector } from 
 import { resolveRootUpdateIntent, type RootUpdateIntent } from "./root-request.js";
 import { wrapTargetedUpdatePlan } from "./targeted-plan.js";
 import { nameFromLabel } from "../../reconciliation/index.js";
+import { desiredPackageKey } from "../../desired-state/index.js";
 
 // -----------------------------------------------------------------------------
 // Request
@@ -260,7 +261,7 @@ export type PrepareUpdateRequirements =
   | StepFailureConversion
   | FileSystem.FileSystem
   | Path.Path
-  | HttpClient.HttpClient
+  | RegistryClientFactory
   | Scope.Scope
   | ReleaseAgePosture
   | SourceHostProviders
@@ -293,13 +294,10 @@ const TARGETED_UPDATE_HELD_RELEASE_POLICY: HeldReleasePolicy = "preserve-or-bloc
 // Desired-state facts a targeted update is decided against
 // -----------------------------------------------------------------------------
 
-const normalizedPackIdentity = (identity: string): string =>
-  identity.startsWith("workspace:") ? identity.slice("workspace:".length) : identity;
-
 const desiredNodeForIntent = (graph: DesiredStateGraph, intent: RootUpdateIntent) =>
   graph.nodes.find((node) => {
     if (node.type !== intent.type) return false;
-    if (normalizedPackIdentity(node.identity) === intent.target) return true;
+    if (desiredPackageKey(node.identity) === intent.target) return true;
     if (node.type !== "mcp-server" || node.source === undefined) return false;
     const parsed = parseSourceQualifiedRegistrySourcePatternParts(node.source);
     return (
@@ -343,10 +341,7 @@ const preservableRegistryVersion = Effect.fn("UpdateExtensions.preservableVersio
     const graphNodes = graph.nodes.filter(
       (node) =>
         (node.type === "pack" && node.name === intent.name) ||
-        node.origins.some(
-          (origin) =>
-            origin.type === "pack" && normalizedPackIdentity(origin.pack) === intent.target,
-        ),
+        node.origins.some((origin) => origin.type === "pack" && origin.pack.fqn === intent.target),
     );
     const usable = yield* Effect.forEach(graphNodes, (node) =>
       usableAcceptedCanonical({ type: node.type, name: node.name }).pipe(Effect.map(Option.isSome)),

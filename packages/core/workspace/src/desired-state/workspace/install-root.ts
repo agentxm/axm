@@ -16,6 +16,7 @@
 
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import {
   extensionTypes,
@@ -25,6 +26,7 @@ import {
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
 
+import { acceptedRowKey, desiredReachesAcceptedRow } from "./accepted-reachability.js";
 import type { DesiredStateGraph } from "./desired-state-graph.js";
 import { sanitizeName } from "./extension-name.js";
 import {
@@ -144,11 +146,6 @@ export const observeInstallRoot = ({ layout, graph, locks }: ObserveInstallRootA
           ),
         ),
     )).flat();
-    const nodeReaches = (type: ExtensionType, key: string) =>
-      graph.nodes.some(
-        (node) =>
-          node.type === type && (type === "mcp-server" ? node.identity === key : node.name === key),
-      );
     const lockedPaths = new Map<string, (typeof accepted)[number] & { readonly reached: boolean }>(
       accepted.map((row) => [
         computeExtensionPathsForLayout(
@@ -158,18 +155,16 @@ export const observeInstallRoot = ({ layout, graph, locks }: ObserveInstallRootA
           toExtensionTypePlural(row.type),
           row.entry.identity.name,
         ).canonicalPath,
-        { ...row, reached: nodeReaches(row.type, row.key) },
+        { ...row, reached: desiredReachesAcceptedRow(graph, row) },
       ]),
     );
     // A desired extension whose resolution is not yet accepted may still be
     // materialized into this path, so it reaches every same-named package.
-    const unlockedDesired = graph.nodes.filter(
-      (node) =>
-        !accepted.some(
-          (row) =>
-            row.type === node.type &&
-            (node.type === "mcp-server" ? row.key === node.identity : row.key === node.name),
-        ),
+    const unlockedDesired = graph.nodes.filter((node) =>
+      Option.match(acceptedRowKey(node), {
+        onNone: () => true,
+        onSome: (key) => !accepted.some((row) => row.type === node.type && row.key === key),
+      }),
     );
 
     const packages: Array<InstalledPackageEntry> = [];

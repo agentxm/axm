@@ -4519,6 +4519,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Product goals: `extension-adoption`, `trustworthy-distribution`
 - Boundary: memory; selection: per-change
 - Methods: property, decision-table, example
+- Assumptions: A wildcard or absent constraint admits every stable version and no prerelease, exactly as semver does; a prerelease-only extension is selected only through a range that names its version tuple.
 - Source: [`packages/core/extension-model/src/unstable/version-constraints/range-satisfaction-follows-semver.spec.ts`](../packages/core/extension-model/src/unstable/version-constraints/range-satisfaction-follows-semver.spec.ts)
 
 ### Goal: knowledge-access
@@ -4860,7 +4861,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Boundary: memory; selection: per-change
 - Boundary rationale: The composition root reads real project and user settings through the production workspace layer; built-CLI install, authentication, and publish-preview rows are bound evidence for the process boundary.
 - Methods: example, decision-table
-- Derived from: `apps/cli/help/topics/settings.md`, `apps/cli/src/runtime.ts`, `packages/supporting/registry-access/src/credentials/token-resolution.ts`
+- Derived from: `apps/cli/help/topics/settings.md`, `apps/cli/src/runtime.ts`, `packages/core/workspace/src/desired-state/workspace/settings-reader.ts`, `packages/supporting/registry-access/src/credentials/token-resolution.ts`
 - Supersedes: `cli/environment-selects-built-in-extension-source`, `cli/environment-selects-registry-services`
 - Additional evidence: process via [`apps/cli-e2e/src/registry-service-origin.e2e.test.ts`](../apps/cli-e2e/src/registry-service-origin.e2e.test.ts) — Only a real invocation against a controlled HTTP origin shows the settings-selected default Registry reaching the wire and an invalid selection being refused before any request leaves the process.
 - Source: [`apps/cli/src/settings-select-default-registry.spec.ts`](../apps/cli/src/settings-select-default-registry.spec.ts)

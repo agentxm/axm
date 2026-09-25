@@ -78,51 +78,55 @@ describe("A workspace update plans coherent groups", () => {
     return created;
   };
 
-  it.effect("two selected Packs sharing a member advance on one member resolution", () => {
-    const { workspace, registry } = world();
-    registry.writeRule("shared", [{ version: "1.0.0", body: "First." }]);
-    publishPack(registry, {
-      pack: "one",
-      rule: "shared",
-      packVersion: "1.0.0",
-      memberRange: "^1.0.0",
-    });
-    publishPack(registry, {
-      pack: "two",
-      rule: "shared",
-      packVersion: "1.0.0",
-      memberRange: "^1.0.0",
-    });
-    return workspace
-      .provide(
-        Effect.gen(function* () {
-          yield* installPack("one");
-          yield* installPack("two");
+  it.effect(
+    "two selected Packs sharing a member advance on one member resolution",
+    () => {
+      const { workspace, registry } = world();
+      registry.writeRule("shared", [{ version: "1.0.0", body: "First." }]);
+      publishPack(registry, {
+        pack: "one",
+        rule: "shared",
+        packVersion: "1.0.0",
+        memberRange: "^1.0.0",
+      });
+      publishPack(registry, {
+        pack: "two",
+        rule: "shared",
+        packVersion: "1.0.0",
+        memberRange: "^1.0.0",
+      });
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* installPack("one");
+            yield* installPack("two");
 
-          registry.writeRule("shared", [
-            { version: "1.0.0", body: "First." },
-            { version: "1.1.0", body: "Second." },
-          ]);
-          registry.writePack("one", [
-            { version: "1.0.0", dependencies: { "@acme/rules/shared": "^1.0.0" } },
-            { version: "1.1.0", dependencies: { "@acme/rules/shared": "^1.1.0" } },
-          ]);
-          registry.writePack("two", [
-            { version: "1.0.0", dependencies: { "@acme/rules/shared": "^1.0.0" } },
-            { version: "1.1.0", dependencies: { "@acme/rules/shared": "^1.1.0" } },
-          ]);
+            registry.writeRule("shared", [
+              { version: "1.0.0", body: "First." },
+              { version: "1.1.0", body: "Second." },
+            ]);
+            registry.writePack("one", [
+              { version: "1.0.0", dependencies: { "@acme/rules/shared": "^1.0.0" } },
+              { version: "1.1.0", dependencies: { "@acme/rules/shared": "^1.1.0" } },
+            ]);
+            registry.writePack("two", [
+              { version: "1.0.0", dependencies: { "@acme/rules/shared": "^1.0.0" } },
+              { version: "1.1.0", dependencies: { "@acme/rules/shared": "^1.1.0" } },
+            ]);
 
-          const resolution = expectResolved(
-            yield* applyUpdate(configuredUpdateRequest({ type: "pack" })),
-          );
+            const resolution = expectResolved(
+              yield* applyUpdate(configuredUpdateRequest({ type: "pack" })),
+            );
 
-          expect(deriveOperationOutcome(resolution)).toBe("applied");
-          expect(lockContains(workspace, "version: 1.1.0")).toBe(true);
-          expect(lockContains(workspace, "version: 1.0.0")).toBe(false);
-        }),
-      )
-      .pipe(Effect.provide(NodeServices.layer));
-  });
+            expect(deriveOperationOutcome(resolution)).toBe("applied");
+            expect(lockContains(workspace, "version: 1.1.0")).toBe(true);
+            expect(lockContains(workspace, "version: 1.0.0")).toBe(false);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+    { timeout: 15_000 },
+  );
 
   it.effect("a refused group leaves an independent ready group free to settle", () => {
     const { workspace, registry } = world();

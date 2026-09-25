@@ -13,6 +13,7 @@
  */
 
 import type * as Config from "effect/Config";
+import type { DesiredNodeIdentity } from "../../desired-state/index.js";
 import type * as Effect from "effect/Effect";
 import * as Data from "effect/Data";
 import * as ServiceMap from "effect/Context";
@@ -46,7 +47,7 @@ export class WorkspaceCatalogUnavailable extends Data.TaggedError("WorkspaceCata
 export interface DesiredExtensionNodeView {
   readonly type: ExtensionType;
   readonly name: string;
-  readonly identity: string;
+  readonly identity: DesiredNodeIdentity;
   readonly source?: string | undefined;
 }
 

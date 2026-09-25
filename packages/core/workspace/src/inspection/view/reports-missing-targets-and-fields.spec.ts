@@ -6,8 +6,8 @@ import * as Result from "effect/Result";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
-import { defaultViewRegistry, resolveViewHandle, ViewExtension } from "./view-extension.js";
-import { makeInspectionFixture } from "../testing.js";
+import { resolveViewHandle, resolveViewRegistry, ViewExtension } from "./view-extension.js";
+import { inspectionRegistryUrl, makeInspectionFixture } from "../testing.js";
 
 export const specification = defineSpecification({
   requirement: "cli/view/reports-missing-targets-and-fields",
@@ -84,13 +84,18 @@ const conditions = [
 describe("Unavailable metadata", () => {
   for (const condition of conditions)
     it.effect(condition.name, () => {
-      const fixture = makeInspectionFixture({ settings: {}, respond: condition.respond });
+      const fixture = makeInspectionFixture({
+        settings: {
+          sources: [{ name: "test", type: "registry", location: inspectionRegistryUrl }],
+        },
+        respond: condition.respond,
+      });
       const parts = parseExtensionFqnParts(handle);
       if (parts === undefined) throw new Error("Expected a fully qualified handle");
       return fixture
         .provide(
           Effect.gen(function* () {
-            const targetRegistry = yield* defaultViewRegistry;
+            const targetRegistry = yield* resolveViewRegistry(Option.none());
             const result = yield* Effect.result(
               ViewExtension.read({ handle, parts, targetRegistry, field: condition.field }),
             );

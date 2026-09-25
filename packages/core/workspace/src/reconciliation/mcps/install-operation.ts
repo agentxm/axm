@@ -14,7 +14,6 @@
  */
 
 import * as FileSystem from "effect/FileSystem";
-import type * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Array from "effect/Array";
@@ -28,13 +27,17 @@ import {
 } from "../../projection/agent-adapters/index.js";
 import type { McpServerSyncOutcome } from "../../projection/agent-adapters/index.js";
 import { CodingAgentRepository } from "../../projection/index.js";
-import { mcpRegistryResolutionKey } from "../../desired-state/index.js";
+import {
+  desiredMcpSourceKey,
+  mcpRegistryResolutionKey,
+  mcpWorkspaceSourceKey,
+} from "../../desired-state/index.js";
 import {
   isPathSafe,
   makeWorkspaceRelativeSourcePath,
 } from "@agentxm/extension-model/unstable/path-types";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import { stripFileProtocol } from "@agentxm/registry-client";
+import { RegistryClientFactory, stripFileProtocol } from "@agentxm/registry-client";
 import {
   acceptedRegistryVersionForRef,
   validateExactResolvedVersion,
@@ -594,7 +597,7 @@ const syncConfiguredAgentsOnInstall = (args: {
  */
 export type McpServerInstallRequirements =
   | FileSystem.FileSystem
-  | HttpClient.HttpClient
+  | RegistryClientFactory
   | Path.Path
   | WorkspaceLocation
   | SettingsReader
@@ -654,7 +657,7 @@ export const installMcpServer: (
     const requestedSourceIdentity =
       resolutionKey ??
       (ref.refType === "workspace"
-        ? `workspace:${ref.owner}/mcps/${ref.server.name}`
+        ? mcpWorkspaceSourceKey(ref.owner, ref.server.name)
         : ref.refType === "local"
           ? Option.getOrElse(
               makeWorkspaceRelativeSourcePath(
@@ -669,26 +672,32 @@ export const installMcpServer: (
     const existingLocalNode = desiredGraph.nodes.find(
       (node) => node.type === "mcp-server" && node.name === localName,
     );
+    // A local source is one source however it is spelled: the connection
+    // keeps the key the existing declaration already carries.
     const sourceIdentity =
       ref.refType === "local" &&
       existingLocalNode !== undefined &&
-      path.resolve(location.baseDir, existingLocalNode.identity) ===
+      existingLocalNode.identity.authority === "path" &&
+      path.resolve(location.baseDir, existingLocalNode.identity.locator) ===
         path.resolve(stripFileProtocol(ref.location))
-        ? existingLocalNode.identity
+        ? desiredMcpSourceKey(existingLocalNode.identity)
         : requestedSourceIdentity;
     if (
       existingLocalNode !== undefined &&
-      (existingLocalNode.authority === "inline" || existingLocalNode.identity !== sourceIdentity)
+      (existingLocalNode.authority === "inline" ||
+        desiredMcpSourceKey(existingLocalNode.identity) !== sourceIdentity)
     ) {
       return yield* new McpLocalNameConflict({
         localName,
         requestedIdentity: sourceIdentity,
         owningIdentity:
-          existingLocalNode.authority === "inline" ? "inline" : existingLocalNode.identity,
+          existingLocalNode.authority === "inline"
+            ? "inline"
+            : desiredMcpSourceKey(existingLocalNode.identity),
       });
     }
     const existingClosure = desiredGraph.mcpSourceClosures.find(
-      (closure) => closure.identity === sourceIdentity,
+      (closure) => closure.key === sourceIdentity,
     );
     const acceptedEntry =
       ref.refType === "registry"

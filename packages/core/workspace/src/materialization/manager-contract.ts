@@ -1,7 +1,7 @@
 /** Native materialization output and adapter requirements. */
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
-import type * as HttpClient from "effect/unstable/http/HttpClient";
+import type { RegistryClientFactory } from "@agentxm/registry-client";
 
 import type { NativeWriteAuthority } from "../projection/agent-adapters/index.js";
 import type {
@@ -11,11 +11,11 @@ import type {
   WorkspaceLocation,
 } from "../desired-state/index.js";
 
-/** Canonical acquisition leaves filesystem and source transport services in R. */
+/** Canonical acquisition leaves the filesystem and the Registry client port in R. */
 export type CanonicalMaterializationRequirements =
   | FileSystem.FileSystem
   | Path.Path
-  | HttpClient.HttpClient
+  | RegistryClientFactory
   | WorkspaceLocation
   | SettingsReader
   | LockfileReader

@@ -34,6 +34,7 @@ import {
   type DesiredStateGraph,
   type WorkspaceLayout,
 } from "../desired-state/index.js";
+import { formatDesiredIdentity } from "../desired-state/index.js";
 
 /** One member of an aggregate unit's contributor set, resolved to content. */
 export interface AggregateContributor {
@@ -90,18 +91,22 @@ export const contributorForNode = (args: {
 > =>
   Effect.gen(function* () {
     const { accepted, layout, node } = args;
-    const workspaceAuthored = node.identity.startsWith("workspace:");
+    const workspaceAuthored = node.identity.authority === "workspace";
     if (workspaceAuthored && layout.scope === "user") {
       return yield* new AuthoredContributorUnsupported({ type: node.type });
     }
-    const authoredIdentity = workspaceAuthored
-      ? parseExtensionFqnParts(node.identity.slice("workspace:".length))
-      : undefined;
+    const authoredIdentity =
+      node.identity.authority === "workspace"
+        ? parseExtensionFqnParts(node.identity.fqn)
+        : undefined;
     if (
       workspaceAuthored &&
       (authoredIdentity === undefined || authoredIdentity.type !== node.type)
     ) {
-      return yield* new ContributorIdentityInvalid({ type: node.type, identity: node.identity });
+      return yield* new ContributorIdentityInvalid({
+        type: node.type,
+        identity: formatDesiredIdentity(node.identity),
+      });
     }
     const observation = yield* observeCanonicalExtension({ layout, desired: node, accepted });
     if (observation.status === "missing-resolution") {

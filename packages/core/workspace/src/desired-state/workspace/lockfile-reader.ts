@@ -12,6 +12,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
+import { acceptedRowKey } from "./accepted-reachability.js";
 import type { LockfileValidationError } from "../lockfile/errors.js";
 import type { Lockfile } from "../lockfile/schema.js";
 import { DesiredStateReader, type DesiredStateReaderService } from "./desired-state-reader.js";
@@ -64,9 +65,7 @@ export const makeLockfileReader = (
       const node = graph.nodes.find(
         (candidate) => candidate.type === "mcp-server" && candidate.name === localName,
       );
-      return node === undefined || node.authority === "inline"
-        ? Option.none()
-        : Option.some(node.identity);
+      return node === undefined ? Option.none() : acceptedRowKey(node);
     });
   return {
     lockfile,

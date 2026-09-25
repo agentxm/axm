@@ -20,7 +20,7 @@ import * as semver from "semver";
 
 import { decodeHandleSync, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
-  createRegistryClient,
+  RegistryClientFactory,
   extractZip,
   extensionLifecycleWarnings,
   withBufferedArchiveBudget,
@@ -46,7 +46,6 @@ import {
   toExtensionTypePlural,
   toAuthor,
   type Author,
-  type ExtensionName,
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
 import {
@@ -197,11 +196,7 @@ const readRegistryIndex = (
   Effect.serviceOption(RegistryIndexMemo).pipe(
     Effect.flatMap((memo) =>
       Option.isSome(memo)
-        ? memo.value.get(
-            source.location.protocol === "file:" ? source.location.pathname : source.location.href,
-            source.name,
-            args,
-          )
+        ? memo.value.get(source.location.href, source.name, args)
         : client.getExtensionIndex(args),
     ),
   );
@@ -612,26 +607,6 @@ const toExtensionRef = (
   }
 };
 
-/** Extract extension name from an ExtensionRef. */
-const refName = (ref: ExtensionRef): ExtensionName => {
-  switch (ref.type) {
-    case "skill":
-      return ref.skill.name;
-    case "mcp-server":
-      return ref.server.name;
-    case "pack":
-      return ref.pack.name;
-    case "subagent":
-      return ref.subagent.name;
-    case "rule":
-      return ref.rule.name;
-    case "hook":
-      return ref.hook.name;
-    case "knowledge":
-      return ref.knowledge.name;
-  }
-};
-
 /** Map ExtensionRef type to ExtensionType. */
 const refRegistryType = (ref: ExtensionRef): ExtensionType => ref.type;
 
@@ -643,9 +618,10 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
       });
     }
 
-    const { owner, version, integrity: expectedIntegrity } = ref;
+    // The Registry serves the package under the ref's own name, which may
+    // differ from the workspace name its manifest gives it.
+    const { owner, version, integrity: expectedIntegrity, name } = ref;
     const type = refRegistryType(ref);
-    const name = refName(ref);
     const reportProgress = yield* makeThrottledUnitProgress({ unit: "bytes" });
 
     const packageArgs: GetExtensionPackageArgs = Option.match(expectedIntegrity, {
@@ -820,8 +796,7 @@ export const createRemoteRegistrySourceHostProvider = (
 export const createRegistrySourceHostProviderFromHost = (host: RegistrySourceHost) =>
   Effect.gen(function* () {
     const location = host.location;
-    const locationStr = location.protocol === "file:" ? location.pathname : location.href;
-    const client = yield* createRegistryClient(locationStr);
+    const client = yield* (yield* RegistryClientFactory).forLocation(location);
 
     if (location.protocol === "file:" || !location.protocol.startsWith("http")) {
       return createLocalRegistrySourceHostProvider(client);

@@ -30,7 +30,7 @@ import {
   type IdentifierResourceType,
   type ResolvedIdentifier,
 } from "../../resolution/sources/index.js";
-import { RegistryClientFactory, RegistryUrl } from "@agentxm/registry-client";
+import { RegistryClientFactory } from "@agentxm/registry-client";
 import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry";
 import { SettingsReader } from "../../desired-state/index.js";
 
@@ -96,41 +96,25 @@ export interface ViewTargetRegistry {
 const installCommandFor = (type: ExtensionType, handle: string): string =>
   `axm ${extensionTypeToPlural[type]} install ${handle}`;
 
-/** The configured default registry, for invocations that precede a workspace. */
-export const defaultViewRegistry: Effect.Effect<ViewTargetRegistry, never, RegistryUrl> =
-  Effect.map(RegistryUrl, (registryUrl) => ({ registryName: "agentxm", registryUrl }));
-
 /**
  * The registry a request selects: the configured default when none is named,
- * otherwise the named registry source this workspace configured.
+ * otherwise the named registry source this workspace configured — both
+ * through the workspace's one Registry target owner.
  */
 export const resolveViewRegistry = Effect.fn("ViewExtension.resolveRegistry")(function* (
   registry: Option.Option<string>,
 ) {
   const settings = yield* SettingsReader;
-  if (Option.isNone(registry)) {
-    return {
-      registryName: yield* settings.defaultRegistry,
-      registryUrl: yield* RegistryUrl,
-    } satisfies ViewTargetRegistry;
-  }
-  const registrySources = yield* settings.registrySourceHosts;
-  if (registrySources.length === 0) {
-    return yield* new PublishedMetadataUnavailable({
-      reason: "workspace-not-initialized",
-      detail: "No registry sources configured",
-    });
-  }
-  const named = yield* settings.sourceByName(registry.value);
-  if (Option.isNone(named) || named.value.type !== "registry") {
+  const selection = yield* settings.registryTarget(registry);
+  if (Option.isNone(selection.url)) {
     return yield* new PublishedMetadataUnavailable({
       reason: "registry-not-configured",
-      detail: `Registry source "${registry.value}" not found or not a registry source`,
+      detail: `Registry source "${selection.name}" not found or not a registry source`,
     });
   }
   return {
-    registryName: registry.value,
-    registryUrl: named.value.location.href,
+    registryName: selection.name,
+    registryUrl: selection.url.value,
   } satisfies ViewTargetRegistry;
 });
 

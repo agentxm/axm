@@ -15,6 +15,7 @@ import type {
   DesiredStateGraph,
 } from "../../../desired-state/index.js";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
+import { desiredPackageKey } from "../../../desired-state/index.js";
 
 type ObservationRuleId =
   | "workspace/configured-but-not-installed"
@@ -42,7 +43,7 @@ const reportedByGraph = (
           problem.name === desired.name
         );
       case "pack-resolution-unavailable":
-        return desired.type === "pack" && problem.pack === desired.identity;
+        return desired.type === "pack" && problem.pack === desiredPackageKey(desired.identity);
       default:
         return false;
     }

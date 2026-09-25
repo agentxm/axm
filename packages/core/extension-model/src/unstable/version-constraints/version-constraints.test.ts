@@ -9,7 +9,6 @@ import type { VersionEntryLike } from "./version-constraints.js";
 import {
   intersectVersionConstraints,
   isValidVersionRange,
-  parseVersionRange,
   resolveVersionInRange,
   versionSatisfiesRange,
   VersionRangeSchema,
@@ -70,40 +69,6 @@ describe("VersionRangeSchema", () => {
 
   it("rejects invalid constraints", () => {
     expect(() => decode("latest")).toThrow();
-  });
-});
-
-// -----------------------------------------------------------------------------
-// parseVersionRange
-// -----------------------------------------------------------------------------
-
-describe("parseVersionRange", () => {
-  it("returns Option.none() for a bare namespaced name", () => {
-    expect(parseVersionRange("@handle/name")).toEqual(Option.none());
-  });
-
-  it("extracts a caret constraint", () => {
-    expect(parseVersionRange("@handle/name@^1.0.0")).toEqual(Option.some("^1.0.0"));
-  });
-
-  it("extracts an exact version", () => {
-    expect(parseVersionRange("@handle/name@1.2.3")).toEqual(Option.some("1.2.3"));
-  });
-
-  it("extracts a tilde constraint", () => {
-    expect(parseVersionRange("@handle/name@~1.2.0")).toEqual(Option.some("~1.2.0"));
-  });
-
-  it("extracts a range constraint", () => {
-    expect(parseVersionRange("@handle/name@>=1.0.0 <2.0.0")).toEqual(Option.some(">=1.0.0 <2.0.0"));
-  });
-
-  it("returns Option.none() for non-namespaced bare name", () => {
-    expect(parseVersionRange("name")).toEqual(Option.none());
-  });
-
-  it("extracts constraint from non-namespaced name", () => {
-    expect(parseVersionRange("name@^2.0.0")).toEqual(Option.some("^2.0.0"));
   });
 });
 
@@ -192,6 +157,22 @@ describe("resolveVersionInRange", () => {
     const result = resolveVersionInRange(versions, Option.some("*"));
     expect(Option.isSome(result)).toBe(true);
     expect(Option.getOrThrow(result).version).toBe("2.0.0");
+  });
+
+  it("admits no prerelease under the wildcard or an absent range", () => {
+    const stable = makeVersionEntryLike("1.9.0");
+    const prerelease = makeVersionEntryLike("2.0.0-beta.1");
+    const mixed = [stable, prerelease];
+    expect(Option.getOrThrow(resolveVersionInRange(mixed, Option.some("*"))).version).toBe("1.9.0");
+    expect(Option.getOrThrow(resolveVersionInRange(mixed, Option.none())).version).toBe("1.9.0");
+    expect(Option.isNone(resolveVersionInRange([prerelease], Option.none()))).toBe(true);
+  });
+
+  it("admits a prerelease only through a range that names its tuple", () => {
+    const mixed = [makeVersionEntryLike("1.9.0"), makeVersionEntryLike("2.0.0-beta.1")];
+    expect(Option.getOrThrow(resolveVersionInRange(mixed, Option.some(">=2.0.0-0"))).version).toBe(
+      "2.0.0-beta.1",
+    );
   });
 
   it("returns Option.none() for empty versions array", () => {

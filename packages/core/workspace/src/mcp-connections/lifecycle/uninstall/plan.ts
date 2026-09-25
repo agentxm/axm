@@ -52,6 +52,7 @@ import {
   workspaceLockfilePath,
   workspaceSettingsPath,
 } from "../../../lifecycle/workspace-paths.js";
+import { desiredMcpSourceKey } from "../../../desired-state/index.js";
 
 /** One local connection name is removed at a time. */
 export const parseMcpServerUninstallRequest = (selector: string): McpServerUninstallIntent => ({
@@ -122,7 +123,7 @@ export const planMcpServerUninstall: (
                 {
                   scopeRoot: path.resolve(location.baseDir),
                   localName: target.name,
-                  sourceIdentity: desiredNode.identity,
+                  sourceIdentity: desiredMcpSourceKey(desiredNode.identity),
                 },
                 secretNames,
               )).flatMap((outcome) =>

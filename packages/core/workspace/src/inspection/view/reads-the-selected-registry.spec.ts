@@ -44,7 +44,10 @@ const publishedIndex = {
 const companyRegistry = "https://company-registry.example.test";
 const handle = "@acme/skills/review";
 
-const configuredSources = [{ name: "company", type: "registry", location: companyRegistry }];
+const configuredSources = [
+  { name: "test", type: "registry", location: inspectionRegistryUrl },
+  { name: "company", type: "registry", location: companyRegistry },
+];
 
 describe("Registry-selected extension view", () => {
   for (const named of [false, true])

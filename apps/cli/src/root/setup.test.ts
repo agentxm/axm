@@ -17,6 +17,7 @@ import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import * as YAML from "yaml";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
+import { RegistryClientFactoryTest } from "@agentxm/registry-client/testing";
 import { afterEach, beforeEach } from "vitest";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { AgentExecutableResolver } from "@agentxm/workspace/projection/agent-adapters";
@@ -107,6 +108,10 @@ const makeSetupTestContext = (opts?: {
     ),
     Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),
     FetchHttpClient.layer,
+    Layer.provide(
+      RegistryClientFactoryTest(FetchHttpClient.layer, "https://registry.invalid"),
+      NodeServices.layer,
+    ),
     CodingAgentRepositoryLive,
     Layer.provide(WorkspaceTransactionScopesLive, NodeServices.layer),
     // Setup applies the bundled official skill inside the initialization

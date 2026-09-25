@@ -19,12 +19,11 @@ import {
 
 import type { ExtensionLifecycleFailed } from "../../lifecycle/errors.js";
 import { installRefused } from "../../lifecycle/install/vocabulary.js";
-
-const normalizedIdentity = (identity: string): string =>
-  identity.startsWith("workspace:") ? identity.slice("workspace:".length) : identity;
+import { desiredPackageKey } from "../../desired-state/index.js";
 
 interface RequiredPack {
   readonly name: string;
+  /** The Pack's fully qualified name. */
   readonly identity: string;
   readonly enabled?: boolean;
 }
@@ -60,9 +59,7 @@ export const validatePackGraphPostcondition = (args: {
         }),
       ),
     );
-    const requiredPackIdentities = new Set(
-      (args.requiredPacks ?? []).map((pack) => normalizedIdentity(pack.identity)),
-    );
+    const requiredPackIdentities = new Set((args.requiredPacks ?? []).map((pack) => pack.identity));
     const requiredMemberKeys = new Set(
       (args.requiredMembers ?? []).map((member) => `${member.type}:${member.name}`),
     );
@@ -73,7 +70,7 @@ export const validatePackGraphPostcondition = (args: {
         case "pack-identity-mismatch":
         case "pack-resolution-unavailable":
         case "pack-manifest-content-mismatch":
-          return requiredPackIdentities.has(normalizedIdentity(problem.pack));
+          return requiredPackIdentities.has(problem.pack);
         case "projection-collision":
         case "constraint-conflict":
         case "workspace-owner-missing":
@@ -94,11 +91,11 @@ export const validatePackGraphPostcondition = (args: {
       );
       if (
         node === undefined ||
-        normalizedIdentity(node.identity) !== normalizedIdentity(expected.identity) ||
+        desiredPackageKey(node.identity) !== expected.identity ||
         (expected.enabled !== undefined && node.enabled !== expected.enabled)
       ) {
         const expectedPredicate = [
-          `identity ${normalizedIdentity(expected.identity)}`,
+          `identity ${expected.identity}`,
           ...(expected.enabled === undefined
             ? []
             : [`activation ${expected.enabled ? "enabled" : "disabled"}`]),
@@ -106,7 +103,7 @@ export const validatePackGraphPostcondition = (args: {
         const observedPredicate =
           node === undefined
             ? "absent"
-            : `identity ${normalizedIdentity(node.identity)}, activation ${node.enabled ? "enabled" : "disabled"}`;
+            : `identity ${desiredPackageKey(node.identity)}, activation ${node.enabled ? "enabled" : "disabled"}`;
         return yield* installRefused({
           category: "internal",
           detail: `Pack graph closure ${expected.identity} failed its desired-state predicate: expected ${expectedPredicate}; observed ${observedPredicate}`,
@@ -122,9 +119,7 @@ export const validatePackGraphPostcondition = (args: {
       const hasPackOrigin =
         packIdentity === undefined ||
         node?.origins.some(
-          (origin) =>
-            origin.type === "pack" &&
-            normalizedIdentity(origin.pack) === normalizedIdentity(packIdentity),
+          (origin) => origin.type === "pack" && origin.pack.fqn === packIdentity,
         ) === true;
       const hasDirectOrigin =
         expected.direct !== true ||
@@ -136,9 +131,7 @@ export const validatePackGraphPostcondition = (args: {
         (expected.enabled !== undefined && node.enabled !== expected.enabled)
       ) {
         const expectedPredicate = [
-          ...(packIdentity === undefined
-            ? []
-            : [`Pack ownership ${normalizedIdentity(packIdentity)}`]),
+          ...(packIdentity === undefined ? [] : [`Pack ownership ${packIdentity}`]),
           ...(expected.direct === true ? ["direct ownership"] : []),
           ...(expected.enabled === undefined
             ? []
@@ -150,9 +143,7 @@ export const validatePackGraphPostcondition = (args: {
             : `origins ${
                 node.origins
                   .map((origin) =>
-                    origin.type === "pack"
-                      ? `Pack ${normalizedIdentity(origin.pack)}`
-                      : "direct settings",
+                    origin.type === "pack" ? `Pack ${origin.pack.fqn}` : "direct settings",
                   )
                   .join(", ") || "none"
               }, activation ${node.enabled ? "enabled" : "disabled"}`;

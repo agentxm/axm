@@ -18,6 +18,7 @@ import { WorkspaceFileWriteLocksLive } from "../transitions/settlement/live.js";
 import * as Option from "effect/Option";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
+import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { KnowledgeManager } from "../materialization/managers.js";
 import { applyPlannedProjections, observeProjectionPlans } from "../projection/index.js";
 import { SourceHostProviders, SourceNotResolvable } from "../resolution/sources/index.js";
@@ -44,14 +45,18 @@ const OWNER = "@acme";
 const packKnowledgeNode = (name: string, pack: string): DesiredExtensionNode => ({
   type: "knowledge",
   name,
-  identity: `${OWNER}/knowledge/${name}`,
+  identity: {
+    authority: "registry",
+    fqn: `${OWNER}/knowledge/${name}`,
+    registry: { sourceName: undefined, endpoint: undefined },
+  },
   source: `${OWNER}/knowledge/${name}@^1.0.0`,
   enabled: true,
   constraint: desiredConstraintOf("^1.0.0"),
   origins: [
     {
       type: "pack",
-      pack: `${OWNER}/packs/${pack}`,
+      pack: { authority: "registry", fqn: `${OWNER}/packs/${pack}` },
       manifestPath: `/workspace/agent_extensions/${OWNER}/packs/${pack}/pack.json`,
       source: `${OWNER}/knowledge/${name}`,
       constraint: "^1.0.0",
@@ -157,7 +162,9 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
       ),
       Layer.provideMerge(NativeWriteAuthorityLive),
       Layer.provideMerge(WorkspaceFileWriteLocksLive),
-      Layer.provideMerge(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),
+      Layer.provideMerge(
+        Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
+      ),
     );
   };
 

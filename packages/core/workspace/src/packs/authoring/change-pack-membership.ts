@@ -74,6 +74,7 @@ import {
   PackSourceMissing,
 } from "./membership-errors.js";
 import { removeFromPack } from "./remove-from-pack.js";
+import { desiredPackageKey } from "../../desired-state/index.js";
 
 // -----------------------------------------------------------------------------
 // Request and candidate
@@ -149,27 +150,25 @@ const memberCandidates = Effect.fn("ChangePackMembership.memberCandidates")(func
   for (const node of graph.nodes) {
     if (!isCatalogExtensionType(node.type)) continue;
     if (node.source === undefined) continue;
-    const ref = node.identity.startsWith("workspace:")
-      ? yield* resolveWorkspaceExtensionRef({
-          settingsName: node.name,
-          source: node.source,
-          expectedType: node.type,
-          layout: layout,
-          scope: location.scope,
-        }).pipe(Effect.map(Option.some))
-      : yield* usableAcceptedCanonical({ type: node.type, name: node.name }).pipe(
-          Effect.map(Option.map((canonical) => canonical.ref)),
-        );
+    const ref =
+      node.identity.authority === "workspace"
+        ? yield* resolveWorkspaceExtensionRef({
+            settingsName: node.name,
+            source: node.source,
+            expectedType: node.type,
+            layout: layout,
+            scope: location.scope,
+          }).pipe(Effect.map(Option.some))
+        : yield* usableAcceptedCanonical({ type: node.type, name: node.name }).pipe(
+            Effect.map(Option.map((canonical) => canonical.ref)),
+          );
     if (
       Option.isNone(ref) ||
       (ref.value.refType !== "registry" && ref.value.refType !== "workspace")
     ) {
       continue;
     }
-    const acceptedIdentity = node.identity.startsWith("workspace:")
-      ? node.identity.slice("workspace:".length)
-      : node.identity;
-    const parsed = parseExtensionFqnParts(acceptedIdentity);
+    const parsed = parseExtensionFqnParts(desiredPackageKey(node.identity));
     if (parsed === undefined || parsed.type !== node.type) continue;
     const packageName = decodeExtensionNameSync(parsed.name);
     candidates.push({
@@ -358,8 +357,7 @@ const additions = Effect.fn("ChangePackMembership.additions")(function* (args: {
     name: decodeExtensionNameSync(args.pack),
   });
   const targetPackProblems = graph.problems.filter(
-    (problem) =>
-      "pack" in problem && (problem.pack === packFqn || problem.pack === `workspace:${packFqn}`),
+    (problem) => "pack" in problem && problem.pack === packFqn,
   );
   if (targetPackProblems.length > 0) return yield* new PackGraphInvalid({ packFqn });
 

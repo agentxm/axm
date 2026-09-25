@@ -15,7 +15,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
-import * as HttpClient from "effect/unstable/http/HttpClient";
+import { RegistryClientFactory } from "@agentxm/registry-client";
 import { NativeWriteAuthority } from "../../projection/agent-adapters/index.js";
 import {
   ConfiguredAgentOutcomesProvider,
@@ -38,7 +38,7 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
     const managerLayer = Layer.mergeAll(
       Layer.succeed(FileSystem.FileSystem, yield* FileSystem.FileSystem),
       Layer.succeed(Path.Path, yield* Path.Path),
-      Layer.succeed(HttpClient.HttpClient, yield* HttpClient.HttpClient),
+      Layer.succeed(RegistryClientFactory, yield* RegistryClientFactory),
       Layer.succeed(NativeWriteAuthority, yield* NativeWriteAuthority),
       Layer.succeed(WorkspaceLocation, yield* WorkspaceLocation),
       Layer.succeed(SettingsReader, yield* SettingsReader),

@@ -16,6 +16,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "../transitions/settlement/live.js";
 import * as Option from "effect/Option";
+import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { HookManager } from "../materialization/managers.js";
 import { applyPlannedProjections } from "../projection/index.js";
@@ -140,7 +141,7 @@ const makeHookManagerLayer = (
           nodes: hookNames.map((name) => ({
             type: "hook" as const,
             name,
-            identity: "./source-hook",
+            identity: { authority: "path", locator: "./source-hook" },
             source: "./source-hook",
             enabled: true,
             constraint: UNCONSTRAINED_DESIRED_NODE,
@@ -155,7 +156,9 @@ const makeHookManagerLayer = (
     Layer.provide(makeSourceHostProviders()),
     Layer.provideMerge(NativeWriteAuthorityLive),
     Layer.provideMerge(WorkspaceFileWriteLocksLive),
-    Layer.provideMerge(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),
+    Layer.provideMerge(
+      Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
+    ),
   );
 };
 

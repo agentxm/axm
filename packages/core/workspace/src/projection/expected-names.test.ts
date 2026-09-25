@@ -7,7 +7,11 @@ import { expectedProjectionNames, expectedProjectionNamesOf } from "./expected-n
 const node = (type: ExtensionType, name: string, enabled: boolean): DesiredExtensionNode => ({
   type,
   name,
-  identity: `@acme/${type}/${name}`,
+  identity: {
+    authority: "registry",
+    fqn: `@acme/${type}/${name}`,
+    registry: { sourceName: undefined, endpoint: undefined },
+  },
   enabled,
   constraint: UNCONSTRAINED_DESIRED_NODE,
   origins: [],

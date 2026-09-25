@@ -7,6 +7,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientError from "effect/unstable/http/HttpClientError";
+import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 
 import { NoProjectionParticipants } from "../projection/testing.js";
 
@@ -69,7 +70,10 @@ describe("./testing.js", () => {
       Effect.provide(
         workspace.layer.pipe(
           Layer.provideMerge(
-            Layer.mergeAll(NodeServices.layer, OfflineHttpClient, NoProjectionParticipants),
+            Layer.mergeAll(
+              Layer.provideMerge(RegistryTransportTest(OfflineHttpClient), NodeServices.layer),
+              NoProjectionParticipants,
+            ),
           ),
         ),
       ),

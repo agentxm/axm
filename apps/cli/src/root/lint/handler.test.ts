@@ -16,6 +16,7 @@ import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
+import { RegistryClientFactoryTest } from "@agentxm/registry-client/testing";
 import { afterEach, beforeEach } from "vitest";
 
 import {
@@ -113,6 +114,7 @@ describe("axm lint handler", () => {
     const baseLayer = Layer.mergeAll(
       Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),
       FetchHttpClient.layer,
+      Layer.provide(RegistryClientFactoryTest(FetchHttpClient.layer), NodeServices.layer),
       renderer.layer,
       TestFlagsLayer({
         nonInteractive: true,

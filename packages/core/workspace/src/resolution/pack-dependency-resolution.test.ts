@@ -353,12 +353,12 @@ describe("Pack member resolution without Registry release dates", () => {
             },
             relationship: { kind: "member", root: "@acme/packs/toolkit" },
             requested: {
-              identity: "registry:@acme/skills/review",
-              workspace: false,
+              authority: "registry",
+              fqn: "@acme/skills/review",
+              registry: { sourceName: undefined, endpoint: undefined },
             },
             configured: {
-              identity: "workspace:@acme/skills/review",
-              workspace: true,
+              identity: { authority: "workspace", fqn: "@acme/skills/review" },
               status: "corrupt",
             },
           });

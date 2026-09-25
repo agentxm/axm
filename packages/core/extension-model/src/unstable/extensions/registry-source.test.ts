@@ -1,3 +1,4 @@
+import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
@@ -77,12 +78,12 @@ describe("registry-source", () => {
   });
 
   describe("parseSourceQualifiedRegistrySourcePatternParts", () => {
-    it("assigns unqualified Registry locators to agentxm", () => {
+    it("leaves an unqualified Registry locator unbound", () => {
       expect(parseSourceQualifiedRegistrySourcePatternParts("@acme/skills/reviewer")).toEqual({
         owner: "@acme",
         type: "skills",
         name: "reviewer",
-        sourceName: "agentxm",
+        sourceName: Option.none(),
       });
     });
 
@@ -94,7 +95,7 @@ describe("registry-source", () => {
         type: "skills",
         name: "reviewer",
         versionRange: "^1.2.3",
-        sourceName: "internal",
+        sourceName: Option.some("internal"),
       });
     });
   });

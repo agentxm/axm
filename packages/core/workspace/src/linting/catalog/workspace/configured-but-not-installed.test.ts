@@ -46,7 +46,11 @@ const desiredNode = (args: {
   return {
     type: args.type,
     name: args.name,
-    identity: `@acme/${PLURALS[args.type]}/${args.name}`,
+    identity: {
+      authority: "registry",
+      fqn: `@acme/${PLURALS[args.type]}/${args.name}`,
+      registry: { sourceName: undefined, endpoint: undefined },
+    },
     source,
     enabled,
     constraint: UNCONSTRAINED_DESIRED_NODE,
@@ -54,7 +58,7 @@ const desiredNode = (args: {
       args.origin === "pack-member"
         ? {
             type: "pack",
-            pack: "@acme/packs/starter",
+            pack: { authority: "registry", fqn: "@acme/packs/starter" },
             manifestPath: "agent_extensions/registry/@acme/packs/starter/pack.json",
             source,
             constraint: "^1.0.0",
@@ -251,6 +255,7 @@ describe("workspace/configured-but-not-installed in a real workspace", () => {
         )
         .pipe(Effect.provide(NodeServices.layer));
     },
+    { timeout: 15_000 },
   );
 
   it.effect("states a Skill's missing accepted content once across the whole lint run", () => {

@@ -16,7 +16,31 @@ import { SyncWorkspace } from "./sync-workspace.js";
 import { makeSyncFixture, syncRequest } from "./test-helpers.js";
 
 it.effect("batches configured Pack indexes despite uneven workspace read completion", () => {
+  const batches: string[][] = [];
+  const http = HttpClient.make((request) =>
+    Effect.sync(() => {
+      if (request.body._tag !== "Uint8Array") throw new Error("Expected JSON request bytes.");
+      const body = Schema.decodeUnknownSync(Schema.fromJsonString(ResolutionMetadataRequestSchema))(
+        new TextDecoder().decode(request.body.body),
+      );
+      batches.push(body.items.map((item) => item.identity.name));
+      return HttpClientResponse.fromWeb(
+        request,
+        new Response(
+          JSON.stringify({
+            schemaVersion: 1,
+            selectionPolicyVersion: "1",
+            observedAt: "2026-09-22T00:00:00.000Z",
+            results: body.items.map((item) => ({ key: item.key, outcome: "unavailable" })),
+          }),
+          { status: 200 },
+        ),
+      );
+    }),
+  );
+  // The fixture's Registry clients bind this transport when its layer is built.
   const workspace = makeSyncFixture({
+    httpClient: http,
     settings: {
       owner: "@test",
       minimumReleaseAge: "0s",
@@ -31,7 +55,6 @@ it.effect("batches configured Pack indexes despite uneven workspace read complet
         const lockfile = yield* LockfileReader;
         const releaseFirst = yield* Deferred.make<void>();
         const secondReady = yield* Deferred.make<void>();
-        const batches: string[][] = [];
         let secondReads = 0;
         // Hold the first Pack's accepted-resolution read, and note when the
         // second Pack's has been read twice, whichever accessor reads it.
@@ -41,27 +64,6 @@ it.effect("batches configured Pack indexes despite uneven workspace read complet
             if (type === "pack" && name === "second" && ++secondReads === 2)
               yield* Deferred.succeed(secondReady, undefined);
           });
-        const http = HttpClient.make((request) =>
-          Effect.sync(() => {
-            if (request.body._tag !== "Uint8Array") throw new Error("Expected JSON request bytes.");
-            const body = Schema.decodeUnknownSync(
-              Schema.fromJsonString(ResolutionMetadataRequestSchema),
-            )(new TextDecoder().decode(request.body.body));
-            batches.push(body.items.map((item) => item.identity.name));
-            return HttpClientResponse.fromWeb(
-              request,
-              new Response(
-                JSON.stringify({
-                  schemaVersion: 1,
-                  selectionPolicyVersion: "1",
-                  observedAt: "2026-09-22T00:00:00.000Z",
-                  results: body.items.map((item) => ({ key: item.key, outcome: "unavailable" })),
-                }),
-                { status: 200 },
-              ),
-            );
-          }),
-        );
         const budget = yield* makeOperationRequestBudget({ invocation: 2, origin: 2 });
         const planning = yield* SyncWorkspace.prepare(syncRequest()).pipe(
           Effect.provideService(LockfileReader, {
@@ -70,7 +72,6 @@ it.effect("batches configured Pack indexes despite uneven workspace read complet
             acceptedEntry: (type, name) =>
               Effect.tap(lockfile.acceptedEntry(type, name), () => gate(type, name)),
           }),
-          Effect.provideService(HttpClient.HttpClient, http),
           Effect.provideService(OperationRequestBudget, budget),
           Effect.forkChild,
         );

@@ -68,6 +68,7 @@ import { buildReconciliationClosure } from "./closure.js";
 import { reconcileAgentOutputs } from "./rendered-file-cleanup.js";
 import type { WorkspaceSyncCleanupFailure } from "./errors.js";
 import type { SyncFailureAdapter } from "./failure-adapter.js";
+import { desiredPackageKey } from "../desired-state/index.js";
 
 export const SYNC_RECOVERY_IDS = {
   packManifestDivergence: "pack:manifest-divergence",
@@ -738,9 +739,9 @@ export const makeSyncPlan = <R>({
         )
           continue;
         keys.add(`subject:${node.type}:${node.name}`);
-        if (node.type === "pack") keys.add(`pack:${node.identity.replace(/^workspace:/, "")}`);
+        if (node.type === "pack") keys.add(`pack:${desiredPackageKey(node.identity)}`);
         for (const origin of node.origins)
-          if (origin.type === "pack") keys.add(`pack:${origin.pack.replace(/^workspace:/, "")}`);
+          if (origin.type === "pack") keys.add(`pack:${origin.pack.fqn}`);
       }
       for (const target of [
         ...(step.artifact?.targets ?? []),

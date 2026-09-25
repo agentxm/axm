@@ -89,7 +89,11 @@ import {
 } from "@agentxm/registry-access/adapters";
 import { RegistryClientFactoryLive, RegistryUrl } from "@agentxm/registry-client";
 import { resolveTelemetryMode } from "./telemetry/index.js";
-import { SettingsReader, type WorkspaceStateOptions } from "@agentxm/workspace/desired-state";
+import {
+  SettingsReader,
+  type RegistryTarget,
+  type WorkspaceStateOptions,
+} from "@agentxm/workspace/desired-state";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace/desired-state/live";
 import type { SourceHostConfig } from "@agentxm/workspace/desired-state";
@@ -98,10 +102,6 @@ import {
   type AbsolutePath,
 } from "@agentxm/extension-model/unstable/path-types";
 import { ExecutionDirectory } from "./execution-directory.js";
-import {
-  DefaultRegistryTarget,
-  type DefaultRegistryTargetService,
-} from "./default-registry-target.js";
 import {
   UpgradePreparationLive,
   PackageInstallationLive,
@@ -290,6 +290,11 @@ const readRuntimeEnvConfig = (): RuntimeEnvConfig => ({
   debug: Option.fromUndefinedOr(process.env["AXM_DEBUG"]),
 });
 
+/**
+ * The Registry this invocation binds its transport, credentials, and clients
+ * to: the settings-selected default, read through the workspace's one target
+ * owner before any command's own workspace boundary is reached.
+ */
 export const resolveDefaultRegistryTarget = (projectRoot: AbsolutePath) => {
   const stateLayer = Layer.provide(
     coreWorkspaceLayer({
@@ -303,20 +308,15 @@ export const resolveDefaultRegistryTarget = (projectRoot: AbsolutePath) => {
   return Effect.scoped(
     Effect.gen(function* () {
       const settings = yield* SettingsReader;
-      const name = yield* settings.defaultRegistry;
-      const source = yield* settings.sourceByName(name);
-      if (Option.isNone(source) || source.value.type !== "registry") {
+      const selection = yield* settings.registryTarget(Option.none());
+      if (Option.isNone(selection.url)) {
         return yield* makeAppError({
           code: "usage",
-          detail: `Default registry source "${name}" is not configured.`,
-          recover: `Add a Registry source named "${name}" or change defaultRegistry in axm.json.`,
+          detail: `Default registry source "${selection.name}" is not configured.`,
+          recover: `Add a Registry source named "${selection.name}" or change defaultRegistry in axm.json.`,
         });
       }
-      const location = source.value.location;
-      return {
-        name,
-        url: location.protocol === "file:" ? location.href : location.origin,
-      } satisfies DefaultRegistryTargetService;
+      return { name: selection.name, url: selection.url.value } satisfies RegistryTarget;
     }).pipe(Effect.provide(stateLayer)),
   ).pipe(
     Effect.matchEffect({
@@ -327,10 +327,7 @@ export const resolveDefaultRegistryTarget = (projectRoot: AbsolutePath) => {
             // where its canonical path-aware diagnostic is preserved. Runtime
             // bootstrap only needs a safe transport default until that boundary
             // is reached.
-            Effect.succeed({
-              name: "agentxm",
-              url: AGENTXM_REGISTRY_URL,
-            } satisfies DefaultRegistryTargetService),
+            Effect.succeed({ name: "agentxm", url: AGENTXM_REGISTRY_URL } satisfies RegistryTarget),
       onSuccess: Effect.succeed,
     }),
   );
@@ -527,7 +524,6 @@ export const withRuntime =
       return yield* withCliErrorHandling(
         program.pipe(
           Effect.provideService(ExecutionDirectory, executionDirectory),
-          Effect.provideService(DefaultRegistryTarget, defaultRegistry),
           Effect.provide(makeAuthLayer(defaultRegistry.url)),
           Effect.catchTag("RegistryAccessFailed", (error) => Effect.fail(failureToAppError(error))),
         ),

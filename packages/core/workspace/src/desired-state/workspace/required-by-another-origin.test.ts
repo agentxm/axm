@@ -8,7 +8,9 @@ import {
 
 const packOrigin = (pack: string): DesiredExtensionOrigin => ({
   type: "pack",
-  pack,
+  pack: pack.startsWith("workspace:")
+    ? { authority: "workspace", fqn: pack.slice("workspace:".length) }
+    : { authority: "registry", fqn: pack },
   manifestPath: `agent_extensions/${pack}/pack.json`,
   source: "@acme/skills/review",
   constraint: "^1.0.0",
@@ -31,11 +33,10 @@ describe("isRequiredByAnotherOrigin", () => {
     ).toBe(false);
   });
 
-  it("names an authored Pack with or without its workspace prefix", () => {
+  it("names an authored Pack by its fully qualified name", () => {
     const node = { origins: [packOrigin("workspace:@acme/packs/tools")] };
 
     expect(isRequiredByAnotherOrigin(node, ["@acme/packs/tools"])).toBe(false);
-    expect(isRequiredByAnotherOrigin(node, ["workspace:@acme/packs/tools"])).toBe(false);
   });
 
   it("answers yes for a direct declaration or another Pack", () => {

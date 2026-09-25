@@ -18,6 +18,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import { splitExtensionReference } from "@agentxm/extension-model/unstable/extensions/common";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
 import { isManifestJsonParseFailure } from "./manifest-json.js";
 
@@ -52,25 +53,6 @@ const manifestRecord = (input: unknown): Readonly<Record<string, unknown>> | und
 
 const stringEntries = (value: unknown): ReadonlyArray<string> =>
   Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : [];
-
-/**
- * Split a `recommendedPacks` entry into its FQN and optional version range.
- *
- * Mirrors the separator search in `PackSpecSchema`: the range delimiter is the
- * first `@` after the last `/`, since the owner segment also starts with `@`.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const splitPackSpec = (
-  spec: string,
-): { readonly fqn: string; readonly range: string | undefined } => {
-  const lastSlash = spec.lastIndexOf("/");
-  const rangeAt = lastSlash > 0 ? spec.indexOf("@", lastSlash + 1) : -1;
-  if (rangeAt <= 0) {
-    return { fqn: spec, range: undefined };
-  }
-  return { fqn: spec.slice(0, rangeAt), range: spec.slice(rangeAt + 1) };
-};
 
 // -----------------------------------------------------------------------------
 // <namespace>/standalone-declaration-valid
@@ -152,7 +134,7 @@ export const makeRecommendedPacksValidRule = <C>(
       }
       const findings: Array<AdvisoryFinding> = [];
       for (const entry of stringEntries(manifest["recommendedPacks"])) {
-        const { fqn, range } = splitPackSpec(entry);
+        const { name: fqn, constraint: range } = splitExtensionReference(entry);
         if (range === undefined) {
           continue;
         }

@@ -3,9 +3,11 @@ import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 import { fc as FastCheck, it as fastCheckIt } from "@fast-check/vitest";
 
+import * as Option from "effect/Option";
 import {
   decodeVersionRangeSync,
   decodeVersionSync,
+  resolveVersionInRange,
   versionSatisfiesRange,
   VersionRangeSchema,
   VersionSchema,
@@ -22,9 +24,11 @@ export const specification = defineSpecification({
   role: "interface",
   goals: ["extension-adoption", "trustworthy-distribution"],
   methods: ["property", "decision-table", "example"],
+  assumptions: [
+    "A wildcard or absent constraint admits every stable version and no prerelease, exactly as semver does; a prerelease-only extension is selected only through a range that names its version tuple.",
+  ],
   derivedFrom: [],
   supersedes: [],
-  assumptions: [],
   openQuestions: [],
 });
 
@@ -81,6 +85,46 @@ describe("Version constraint satisfaction", () => {
     ({ candidate }) => {
       expect(satisfies(render(candidate), "*")).toBe(true);
     },
+  );
+
+  it.effect.each([
+    { range: "*", version: "2.0.0-beta.1", admitted: false, reason: "the wildcard names no tuple" },
+    { range: "^1.0.0", version: "2.0.0-beta.1", admitted: false, reason: "the range excludes it" },
+    {
+      range: ">=2.0.0-0",
+      version: "2.0.0-beta.1",
+      admitted: true,
+      reason: "the range names its tuple",
+    },
+    {
+      range: "2.0.0-beta.1",
+      version: "2.0.0-beta.1",
+      admitted: true,
+      reason: "it is the exact version",
+    },
+  ] as const)(
+    "a prerelease $version under $range is admitted=$admitted because $reason",
+    ({ range, version, admitted }) =>
+      Effect.sync(() => {
+        expect(satisfies(version, range)).toBe(admitted);
+      }),
+  );
+
+  it.effect(
+    "selection admits exactly what satisfaction admits: a wildcard selects the highest stable version over a newer prerelease",
+    () =>
+      Effect.sync(() => {
+        const prerelease = { version: decodeVersionSync("2.0.0-beta.1") };
+        const stable = { version: decodeVersionSync("1.9.0") };
+        const versions = [prerelease, stable];
+        for (const range of [Option.some("*"), Option.none<string>()]) {
+          expect(Option.getOrThrow(resolveVersionInRange(versions, range)).version).toBe("1.9.0");
+        }
+        expect(
+          Option.getOrThrow(resolveVersionInRange(versions, Option.some(">=2.0.0-0"))).version,
+        ).toBe("2.0.0-beta.1");
+        expect(Option.isNone(resolveVersionInRange([prerelease], Option.none()))).toBe(true);
+      }),
   );
 
   it.effect(

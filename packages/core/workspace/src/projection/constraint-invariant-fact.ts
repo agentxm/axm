@@ -18,6 +18,7 @@ import type {
   CanonicalConstraintMismatchObservation,
 } from "../desired-state/index.js";
 import { formatConstraintContributors, type DesiredExtensionNode } from "../desired-state/index.js";
+import { desiredPackageKey } from "../desired-state/index.js";
 
 export const EXTENSION_CONSTRAINT_INVARIANT_PREDICATE =
   "workspace/extension-constraints-satisfied" as const;
@@ -165,7 +166,7 @@ export const makeExtensionConstraintInvariantFact = (
   subject: {
     type: desired.type,
     name: desired.name,
-    identity: desired.identity.replace(/^workspace:/, ""),
+    identity: desiredPackageKey(desired.identity),
     ...(observation.path === undefined ? {} : { path: observation.path }),
   },
   authority: {

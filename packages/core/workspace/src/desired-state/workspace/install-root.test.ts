@@ -22,7 +22,11 @@ const node = (
 ): DesiredExtensionNode => ({
   type,
   name,
-  identity: `agentxm:@acme/skills/${name}`,
+  identity: {
+    authority: "registry",
+    fqn: `@acme/skills/${name}`,
+    registry: { sourceName: "agentxm", endpoint: undefined },
+  },
   source: `agentxm:@acme/skills/${name}@^1.0.0`,
   enabled: true,
   constraint: UNCONSTRAINED_DESIRED_NODE,

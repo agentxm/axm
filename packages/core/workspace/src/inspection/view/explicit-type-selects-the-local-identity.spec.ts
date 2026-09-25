@@ -6,7 +6,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
 import { makeRegistrySkillLockEntry } from "../../desired-state/testing.js";
 
-import { defaultViewRegistry, resolveViewHandle, ViewExtension } from "./view-extension.js";
+import { resolveViewHandle, resolveViewRegistry, ViewExtension } from "./view-extension.js";
 import { inspectionRegistryUrl, makeInspectionFixture } from "../testing.js";
 
 export const specification = defineSpecification({
@@ -76,7 +76,7 @@ describe("Typed local-name lookup", () => {
       return fixture
         .provide(
           Effect.gen(function* () {
-            const targetRegistry = yield* defaultViewRegistry;
+            const targetRegistry = yield* resolveViewRegistry(Option.none());
             const parts = yield* resolveViewHandle({
               handle: "review",
               type: Option.some(row.type),
@@ -135,7 +135,7 @@ describe("Typed local-name lookup", () => {
       .provide(
         Effect.gen(function* () {
           expect(fixture.readFile("axm-lock.yaml")).toContain("@stale");
-          const targetRegistry = yield* defaultViewRegistry;
+          const targetRegistry = yield* resolveViewRegistry(Option.none());
           const parts = yield* resolveViewHandle({
             handle: "review",
             type: Option.some("skill"),

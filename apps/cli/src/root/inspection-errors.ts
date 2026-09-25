@@ -47,12 +47,6 @@ export const publishedMetadataUnavailableToAppError = (
   offerSignIn: boolean,
 ): AppError => {
   switch (failure.reason) {
-    case "workspace-not-initialized":
-      return makeAppError({
-        code: "usage",
-        detail: failure.detail,
-        suggestions: [{ description: "Initialize this workspace first.", cmd: "axm setup" }],
-      });
     case "registry-not-configured":
       return makeAppError({ code: "not_found", detail: failure.detail });
     case "ambiguous-name":

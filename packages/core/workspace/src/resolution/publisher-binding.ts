@@ -22,29 +22,12 @@
 
 import * as Option from "effect/Option";
 
-import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
+import {
+  extensionRefName,
+  type ExtensionRef,
+} from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions";
-
-/** The configured (local) name a ref occupies in workspace settings. */
-const configuredNameFromRef = (ref: ExtensionRef): string => {
-  switch (ref.type) {
-    case "skill":
-      return ref.skill.name;
-    case "pack":
-      return ref.pack.name;
-    case "mcp-server":
-      return ref.server.name;
-    case "subagent":
-      return ref.subagent.name;
-    case "rule":
-      return ref.rule.name;
-    case "hook":
-      return ref.hook.name;
-    case "knowledge":
-      return ref.knowledge.name;
-  }
-};
 
 /**
  * The Registry identity a step proposes to accept. Trust classification
@@ -79,7 +62,7 @@ export const registryBindingProposal = (ref: ExtensionRef): RegistryBindingPropo
   ref.refType === "registry"
     ? {
         extensionType: ref.type,
-        target: configuredNameFromRef(ref),
+        target: extensionRefName(ref),
         owner: ref.owner,
         packageName: ref.name,
         version: ref.version,

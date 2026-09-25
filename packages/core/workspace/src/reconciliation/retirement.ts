@@ -15,6 +15,7 @@ import {
   computeExtensionPathsForLayout,
   extensionPathSourceFromLockEntry,
   computeMaterializedTreeIntegrity,
+  desiredReachesAcceptedRow,
   validatePathSafety,
   lockEntrySemanticallyEqual,
   observeInstallRoot,
@@ -47,11 +48,6 @@ export const collectUnreachableRetirement = (
     const graph = observedGraph ?? scope?.resultingGraph ?? (yield* desiredState.graph());
     if (!graph.complete)
       return Option.none<PlannedJobStep<SyncStepRequirements | LockfileReader>>();
-    const reachable = (type: (typeof extensionTypes)[number], key: string) =>
-      graph.nodes.some(
-        (node) =>
-          node.type === type && (type === "mcp-server" ? node.identity === key : node.name === key),
-      );
     const accepted = (yield* Effect.forEach(extensionTypes, (type) =>
       locks
         .entries(type)
@@ -80,18 +76,18 @@ export const collectUnreachableRetirement = (
         entry.identity.name,
       ).canonicalPath;
     const retainedPaths = new Set(
-      accepted.filter(({ type, key }) => reachable(type, key)).map(canonicalPath),
+      accepted.filter((row) => desiredReachesAcceptedRow(graph, row)).map(canonicalPath),
     );
     const retired = yield* Effect.forEach(
       accepted.filter(
-        ({ type, key, entry }) =>
-          !reachable(type, key) &&
+        (row) =>
+          !desiredReachesAcceptedRow(graph, row) &&
           (scope === undefined ||
             scope.subjects.some(
-              (subject) => subject.type === type && subject.name === entry.identity.name,
+              (subject) => subject.type === row.type && subject.name === row.entry.identity.name,
             ) ||
-            (type === "mcp-server" &&
-              scopedMcpEntries.some((scoped) => lockEntrySemanticallyEqual(scoped, entry)))),
+            (row.type === "mcp-server" &&
+              scopedMcpEntries.some((scoped) => lockEntrySemanticallyEqual(scoped, row.entry)))),
       ),
       (row) =>
         Effect.gen(function* () {
@@ -157,24 +153,20 @@ export const collectUnreachableRetirement = (
       run: runWorkspaceTransaction({
         transition: Effect.gen(function* () {
           const current = yield* desiredState.graph();
-          if (
-            !current.complete ||
-            retired.some(({ type, key }) =>
-              current.nodes.some(
-                (node) =>
-                  node.type === type &&
-                  (type === "mcp-server" ? node.identity === key : node.name === key),
-              ),
-            )
-          ) {
+          if (!current.complete || retired.some((row) => desiredReachesAcceptedRow(current, row))) {
             return yield* new WorkspaceSyncFailed({
               category: "conflict",
               detail: "Desired reachability changed before retirement",
             });
           }
+          const remaining: Array<(typeof retired)[number]> = [];
           for (const row of retired) {
             const accepted = yield* locks.entry(row.type, row.key);
-            if (Option.isNone(accepted) || !lockEntrySemanticallyEqual(accepted.value, row.entry))
+            // An earlier step of this run may have settled the row already
+            // (materializing authored content withdraws the resolution it
+            // supersedes); the retired state then already holds.
+            if (Option.isNone(accepted)) continue;
+            if (!lockEntrySemanticallyEqual(accepted.value, row.entry))
               return yield* new WorkspaceSyncFailed({
                 category: "conflict",
                 detail: `Accepted ${row.type} ${row.key} changed before retirement`,
@@ -198,8 +190,10 @@ export const collectUnreachableRetirement = (
                 ),
               );
             }
+            remaining.push(row);
           }
-          yield* (yield* AcceptedResolutionWriter).removeAcceptedEntries(retired);
+          if (remaining.length > 0)
+            yield* (yield* AcceptedResolutionWriter).removeAcceptedEntries(remaining);
         }),
         validate: () =>
           Effect.gen(function* () {

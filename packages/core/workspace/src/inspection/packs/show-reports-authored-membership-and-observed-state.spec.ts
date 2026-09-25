@@ -3,8 +3,23 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
+import * as Schema from "effect/Schema";
+import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
+import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
+import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
+
+import {
+  computeMaterializedTreeIntegrity,
+  computePackManifestContentIdentity,
+  mcpRegistryResolutionKey,
+} from "../../desired-state/index.js";
+import {
+  makeRegistryMcpServerLockEntry,
+  makeRegistryPackLockEntry,
+} from "../../desired-state/testing.js";
 import { ShowPack } from "./show-pack.js";
 import {
+  inspectionRegistryUrl,
   makeAcceptedPackFixture,
   makeAuthoredPackFixture,
   makeInspectionFixture,
@@ -104,6 +119,94 @@ describe("Pack state inspection", () => {
               version: "1.5.0",
               source: "workspace",
               reachability: "excluded",
+            },
+          ]);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));
+  });
+
+  it.effect("reports a Pack-declared Registry MCP member from its accepted resolution", () => {
+    const endpoint = new URL(inspectionRegistryUrl);
+    const owner = decodeHandleSync("@acme");
+    const manifest = {
+      owner: "@acme",
+      type: "pack",
+      name: "toolkit",
+      version: "2.3.4",
+      dependencies: { "@acme/mcps/context": "^1.0.0" },
+    };
+    // An MCP source's accepted row is keyed by its resolution key, which the
+    // Pack member's desired identity carries once it is bound to the Registry.
+    const resolutionKey = mcpRegistryResolutionKey({ authority: endpoint, owner, name: "context" });
+    const fixture = makeInspectionFixture({
+      settings: {
+        agents: [],
+        defaultRegistry: "test",
+        sources: [{ name: "test", type: "registry", location: inspectionRegistryUrl }],
+        packs: { toolkit: { source: "@acme/packs/toolkit@2.3.4", enabled: true } },
+      },
+      lockfile: {
+        packs: {
+          toolkit: makeRegistryPackLockEntry({
+            owner,
+            name: "toolkit",
+            resolvedVersion: decodeVersionSync("2.3.4"),
+            endpoint,
+            sourceHash: computePackManifestContentIdentity(
+              Schema.decodeUnknownSync(PackManifestSchema)(manifest),
+            ),
+          }),
+        },
+        mcpServers: {
+          [resolutionKey]: makeRegistryMcpServerLockEntry({ owner, name: "context", endpoint }),
+        },
+      },
+      files: {
+        "agent_extensions/registry/@acme/packs/toolkit/pack.json": JSON.stringify(manifest),
+        "agent_extensions/registry/@acme/mcps/context/mcp.json": JSON.stringify({
+          owner: "@acme",
+          type: "mcp-server",
+          name: "context",
+          version: "1.0.0",
+          server: { name: "io.acme/context", description: "Context server", version: "1.0.0" },
+        }),
+      },
+    });
+    return fixture
+      .provide(
+        Effect.gen(function* () {
+          // Accept the materialized MCP package exactly as written.
+          const treeIntegrity = yield* computeMaterializedTreeIntegrity(
+            `${fixture.root}/agent_extensions/registry/@acme/mcps/context`,
+          );
+          const lockfile: unknown = JSON.parse(fixture.readFile("axm-lock.yaml"));
+          const accepted = Schema.decodeUnknownSync(
+            Schema.Struct({ mcpServers: Schema.Record(Schema.String, Schema.Unknown) }),
+          )(lockfile);
+          fixture.writeFile(
+            "axm-lock.yaml",
+            JSON.stringify({
+              ...Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Unknown))(lockfile),
+              mcpServers: {
+                [resolutionKey]: {
+                  ...Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Unknown))(
+                    accepted.mcpServers[resolutionKey],
+                  ),
+                  treeIntegrity,
+                },
+              },
+            }),
+          );
+
+          const result = yield* ShowPack.query({ target: "toolkit" });
+          expect(result.desiredDependencies).toEqual([
+            {
+              fqn: "@acme/mcps/context",
+              constraint: "^1.0.0",
+              version: "1.0.0",
+              source: "@acme/mcps/context@^1.0.0",
+              reachability: "satisfying",
             },
           ]);
         }),

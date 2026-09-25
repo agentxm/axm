@@ -72,7 +72,14 @@ export const desiredNode = (
   return {
     type,
     name,
-    identity: parsed === undefined ? source : `${parsed.owner}/${parsed.type}/${parsed.name}`,
+    identity:
+      parsed === undefined
+        ? { authority: "git", locator: source }
+        : {
+            authority: "registry",
+            fqn: `${parsed.owner}/${parsed.type}/${parsed.name}`,
+            registry: { sourceName: undefined, endpoint: undefined },
+          },
     source,
   };
 };

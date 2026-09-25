@@ -63,7 +63,6 @@ export {
   type ShowPackRequest,
 } from "./packs/show-pack.js";
 export {
-  defaultViewRegistry,
   resolveViewHandle,
   resolveViewRegistry,
   VIEW_FIELDS,

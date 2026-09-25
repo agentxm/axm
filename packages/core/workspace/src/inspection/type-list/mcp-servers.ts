@@ -22,11 +22,16 @@ import {
 } from "../../desired-state/index.js";
 
 import type { TypeListRow } from "./type-lists.js";
+import {
+  desiredMcpSourceKey,
+  formatDesiredIdentity,
+  type DesiredNodeIdentity,
+} from "../../desired-state/index.js";
 
 /** The desired-state facts an MCP row reads: where it comes from and under which identity. */
 export interface DesiredMcpServerNode {
   readonly source?: string | undefined;
-  readonly identity: string;
+  readonly identity: DesiredNodeIdentity;
   readonly authority?: string | undefined;
 }
 
@@ -159,8 +164,11 @@ export const mcpServerListRows = (args: {
         : desiredNode !== undefined && desiredNode.authority !== "inline"
           ? {
               kind: "registry",
-              locator: configuredEntry?.source ?? desiredNode.source ?? desiredNode.identity,
-              identity: desiredNode.identity,
+              locator:
+                configuredEntry?.source ??
+                desiredNode.source ??
+                formatDesiredIdentity(desiredNode.identity),
+              identity: desiredMcpSourceKey(desiredNode.identity),
             }
           : { kind: "unmanaged" },
     resolution:

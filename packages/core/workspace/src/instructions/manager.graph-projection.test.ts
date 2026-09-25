@@ -23,6 +23,7 @@ import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import * as Schema from "effect/Schema";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { RulesLockMapSchema, type RulesLockMap } from "../desired-state/index.js";
 import {
   WorkspaceCatalogTestLive,
@@ -66,7 +67,11 @@ const registryLock = (baseDir: string, name: string, version = "1.0.0") => ({
 const settingsRuleNode = (name: string): DesiredExtensionNode => ({
   type: "rule",
   name,
-  identity: `${OWNER}/rules/${name}`,
+  identity: {
+    authority: "registry",
+    fqn: `${OWNER}/rules/${name}`,
+    registry: { sourceName: "agentxm", endpoint: undefined },
+  },
   source: `agentxm:${OWNER}/rules/${name}`,
   enabled: true,
   constraint: UNCONSTRAINED_DESIRED_NODE,
@@ -76,7 +81,7 @@ const settingsRuleNode = (name: string): DesiredExtensionNode => ({
 const workspaceRuleNode = (name: string): DesiredExtensionNode => ({
   type: "rule",
   name,
-  identity: `workspace:${OWNER}/rules/${name}`,
+  identity: { authority: "workspace", fqn: `${OWNER}/rules/${name}` },
   source: "workspace",
   enabled: true,
   constraint: UNCONSTRAINED_DESIRED_NODE,
@@ -86,14 +91,18 @@ const workspaceRuleNode = (name: string): DesiredExtensionNode => ({
 const packRuleNode = (name: string, pack: string): DesiredExtensionNode => ({
   type: "rule",
   name,
-  identity: `${OWNER}/rules/${name}`,
+  identity: {
+    authority: "registry",
+    fqn: `${OWNER}/rules/${name}`,
+    registry: { sourceName: undefined, endpoint: undefined },
+  },
   source: `${OWNER}/rules/${name}@^1.0.0`,
   enabled: true,
   constraint: desiredConstraintOf("^1.0.0"),
   origins: [
     {
       type: "pack",
-      pack: `${OWNER}/packs/${pack}`,
+      pack: { authority: "registry", fqn: `${OWNER}/packs/${pack}` },
       manifestPath: `/workspace/agent_extensions/registry/${OWNER}/packs/${pack}/pack.json`,
       source: `${OWNER}/rules/${name}`,
       constraint: "^1.0.0",
@@ -191,7 +200,9 @@ describe("RuleManager graph-derived region projection", () => {
       Layer.provide(Layer.succeed(SourceHostProviders, providersStub)),
       Layer.provideMerge(NativeWriteAuthorityLive),
       Layer.provideMerge(WorkspaceFileWriteLocksLive),
-      Layer.provideMerge(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),
+      Layer.provideMerge(
+        Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
+      ),
     );
   };
 

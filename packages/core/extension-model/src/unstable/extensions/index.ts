@@ -76,6 +76,8 @@ export {
   nonPackExtensionTypePluralSegments,
   parseExtensionFqnParts,
   parseExtensionSpecParts,
+  splitExtensionReference,
+  type SplitExtensionReference,
   toAuthor,
   toExtensionType,
   toExtensionTypePlural,

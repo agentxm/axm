@@ -69,16 +69,24 @@ const makeServices = (
     Object.values(lockfileMcpServers).map((entry) => [mcpResolutionKey(entry), entry]),
   );
   const desiredNodes = Object.entries(lockfileMcpServers).map(([name, entry]) => {
-    const identity = mcpResolutionKey(entry);
+    const key = mcpResolutionKey(entry);
+    const identity = {
+      authority: "registry" as const,
+      fqn: `${entry.identity.owner ?? "@acme"}/mcps/${entry.identity.name}`,
+      registry: { sourceName: undefined, endpoint: undefined },
+      resolutionKey: key,
+    };
     return {
       type: "mcp-server" as const,
       name,
       identity,
       authority: "sourced" as const,
-      source: identity,
+      source: identity.fqn,
       enabled: true,
       constraint: UNCONSTRAINED_DESIRED_NODE,
-      origins: [{ type: "settings" as const, localName: name, source: identity, enabled: true }],
+      origins: [
+        { type: "settings" as const, localName: name, source: identity.fqn, enabled: true },
+      ],
     };
   });
   return {

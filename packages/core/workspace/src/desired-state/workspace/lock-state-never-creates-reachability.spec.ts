@@ -13,6 +13,8 @@ import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-t
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { WorkspaceStateLive } from "../live.js";
+import * as Option from "effect/Option";
+import { acceptedRowKey, desiredReachesAcceptedRow } from "./accepted-reachability.js";
 import { DesiredStateReader } from "./desired-state-reader.js";
 import { WorkspaceRecords } from "./workspace-records.js";
 import { deriveOperationOutcome } from "../../transitions/planning/index.js";
@@ -77,12 +79,15 @@ const lockOnlyRows = [
   },
 ] as const;
 
-const makeWorkspace = (lockfile: Readonly<Record<string, unknown>>) => {
+const makeWorkspace = (
+  lockfile: Readonly<Record<string, unknown>>,
+  settings: Readonly<Record<string, unknown>> = {},
+) => {
   const root = fs.realpathSync(fs.mkdtempSync(nodePath.join(os.tmpdir(), "axm-lock-only-")));
   fs.mkdirSync(nodePath.join(root, ".axm"), { recursive: true });
   fs.writeFileSync(
     nodePath.join(root, "axm.json"),
-    `${JSON.stringify({ owner: "@acme", agents: [] }, null, 2)}\n`,
+    `${JSON.stringify({ owner: "@acme", agents: [], ...settings }, null, 2)}\n`,
   );
   // JSON is valid YAML, so the lockfile fixture needs no emitter.
   fs.writeFileSync(
@@ -117,6 +122,29 @@ describe("Lock state and desired-state reachability", () => {
       // Nothing desires it, so no node carries it and nothing downstream can
       // reach it to acquire or realize it.
       expect(desired.nodes.map((node) => node.name)).not.toContain(row.name);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("a workspace-authored declaration never reaches an acquired row of its name", () =>
+    Effect.gen(function* () {
+      const workspace = makeWorkspace(
+        { skills: { review: acceptedRegistryRow("review", "skill") } },
+        { skills: { review: { source: "workspace", enabled: true } } },
+      );
+      cleanups.push(workspace.cleanup);
+
+      const desired = yield* Effect.provide(
+        Effect.flatMap(DesiredStateReader, (reader) => reader.graph()),
+        workspace.layer,
+      );
+      const node = desired.nodes.find((candidate) => candidate.name === "review");
+
+      // The workspace is authoritative for the package, so the stale external
+      // row is unreached: sync retires it, and the same predicate says so to
+      // lint and to the install-root inventory.
+      expect(node?.identity).toEqual({ authority: "workspace", fqn: "@acme/skills/review" });
+      expect(node && Option.isNone(acceptedRowKey(node))).toBe(true);
+      expect(desiredReachesAcceptedRow(desired, { type: "skill", key: "review" })).toBe(false);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 

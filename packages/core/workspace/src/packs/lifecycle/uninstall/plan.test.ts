@@ -9,6 +9,7 @@
  */
 
 import { UNCONSTRAINED_DESIRED_NODE } from "../../../desired-state/index.js";
+import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
 import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
@@ -20,8 +21,9 @@ import { afterEach } from "vitest";
 import { deriveOperationOutcome } from "../../../transitions/planning/index.js";
 import { preapprovedPlanExecution } from "../../../transitions/planning/testing.js";
 import {
-  decodeDesiredExtensionIdentity,
+  desiredPackageKey,
   type DesiredExtensionNode,
+  type DesiredNodeIdentity,
   type DesiredStateGraph,
 } from "../../../desired-state/index.js";
 
@@ -45,28 +47,44 @@ import {
   type ResolvedPackUninstallTarget,
 } from "./plan.js";
 
-const targetFor = (identity: string): ResolvedPackUninstallTarget => {
-  const decoded = decodeDesiredExtensionIdentity(identity);
+const packIdentity = (locator: string): DesiredNodeIdentity =>
+  locator.startsWith("workspace:")
+    ? { authority: "workspace", fqn: locator.slice("workspace:".length) }
+    : {
+        authority: "registry",
+        fqn: locator,
+        registry: { sourceName: undefined, endpoint: undefined },
+      };
+
+const targetFor = (locator: string): ResolvedPackUninstallTarget => {
+  const identity = packIdentity(locator);
+  const decoded = parseExtensionFqnParts(desiredPackageKey(identity));
   if (decoded === undefined || decoded.type !== "pack") {
-    throw new Error(`Invalid pack test identity: ${identity}`);
+    throw new Error(`Invalid pack test identity: ${locator}`);
   }
   return {
     type: "pack",
     owner: decoded.owner,
     name: decoded.name,
-    authority: decoded.authority,
+    authority: identity.authority,
     desiredIdentity: identity,
   };
 };
 
-const packNode = (identity: string, name = "toolkit"): DesiredExtensionNode => ({
+const packNode = (identity: DesiredNodeIdentity, name = "toolkit"): DesiredExtensionNode => ({
   type: "pack",
   name,
   identity,
-  source: identity,
+  source: identity.authority === "workspace" ? "workspace" : desiredPackageKey(identity),
   enabled: true,
   constraint: UNCONSTRAINED_DESIRED_NODE,
-  origins: [{ type: "settings", source: identity, enabled: true }],
+  origins: [
+    {
+      type: "settings",
+      source: identity.authority === "workspace" ? "workspace" : desiredPackageKey(identity),
+      enabled: true,
+    },
+  ],
 });
 
 const completeGraph = (nodes: ReadonlyArray<DesiredExtensionNode>): DesiredStateGraph => ({
@@ -96,7 +114,11 @@ describe("pack uninstall target precondition", () => {
         {
           type: "skill",
           name: "unrelated",
-          identity: "@other/skills/unrelated",
+          identity: {
+            authority: "registry",
+            fqn: "@other/skills/unrelated",
+            registry: { sourceName: undefined, endpoint: undefined },
+          },
           source: "@other/skills/unrelated",
           enabled: true,
           constraint: UNCONSTRAINED_DESIRED_NODE,
@@ -109,14 +131,18 @@ describe("pack uninstall target precondition", () => {
 
   it.effect("fails with conflict when the selected owner changes", () =>
     expectFailureCategory(
-      completeGraph([packNode("workspace:@other/packs/toolkit")]),
+      completeGraph([packNode(packIdentity("workspace:@other/packs/toolkit"))]),
       [selected],
       "conflict",
     ),
   );
 
   it.effect("fails with conflict when the selected authority changes", () =>
-    expectFailureCategory(completeGraph([packNode("@acme/packs/toolkit")]), [selected], "conflict"),
+    expectFailureCategory(
+      completeGraph([packNode(packIdentity("@acme/packs/toolkit"))]),
+      [selected],
+      "conflict",
+    ),
   );
 
   it.effect("fails with conflict when the selected node disappears", () =>
@@ -125,7 +151,7 @@ describe("pack uninstall target precondition", () => {
 
   it.effect("fails with validation when the selected current identity cannot decode", () =>
     expectFailureCategory(
-      completeGraph([packNode("workspace:not-an-extension")]),
+      completeGraph([packNode(packIdentity("workspace:not-an-extension"))]),
       [selected],
       "validation",
     ),

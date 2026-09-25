@@ -1,3 +1,4 @@
+import { extensionRefName } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import * as Effect from "effect/Effect";
 import { BUNDLED_SKILL_OWNER, bundledSkillCanonicalRoot } from "./extension-paths.js";
 import * as FileSystem from "effect/FileSystem";
@@ -83,7 +84,7 @@ export const removableAcceptedCanonicalPath = (
   canonical: Option.Option<AcceptedCanonicalObservation>,
 ): Option.Option<string> =>
   Option.flatMap(canonical, (state) =>
-    state.desired.identity.startsWith("workspace:")
+    state.desired.identity.authority === "workspace"
       ? Option.none()
       : Option.fromUndefinedOr(state.observation.path),
   );
@@ -114,25 +115,6 @@ export const acceptedLockedCanonicalPath = (
     );
   });
 
-const workspaceNameFromRef = (ref: ExtensionRef): string => {
-  switch (ref.type) {
-    case "skill":
-      return ref.skill.name;
-    case "mcp-server":
-      return ref.server.name;
-    case "subagent":
-      return ref.subagent.name;
-    case "rule":
-      return ref.rule.name;
-    case "hook":
-      return ref.hook.name;
-    case "knowledge":
-      return ref.knowledge.name;
-    case "pack":
-      return ref.pack.name;
-  }
-};
-
 /**
  * Capture exact cleanup for a superseded accepted package. The old path is
  * read before the lock transition; the returned effect runs afterward and
@@ -158,7 +140,7 @@ export const prepareAcceptedCanonicalTransition = (
       layout,
       args.ref,
       toExtensionTypePlural(args.ref.type),
-      workspaceNameFromRef(args.ref),
+      extensionRefName(args.ref),
     ).canonicalPath;
     if (path.resolve(previous.value) === path.resolve(next)) {
       return yield* Effect.succeed(Effect.void);
@@ -259,7 +241,7 @@ const refForDesired = (
     if (desired.source === undefined) {
       return yield* new InlineExtensionSourceMissing({ name: desired.name });
     }
-    if (desired.identity.startsWith("bundled:")) {
+    if (desired.identity.authority === "bundled") {
       const path = yield* Path.Path;
       return yield* resolveWorkspaceExtensionRef({
         settingsName: desired.name,
@@ -274,7 +256,7 @@ const refForDesired = (
         },
       });
     }
-    if (desired.identity.startsWith("workspace:")) {
+    if (desired.identity.authority === "workspace") {
       return yield* resolveWorkspaceExtensionRef({
         settingsName: desired.name,
         source: desired.source,
@@ -309,7 +291,7 @@ export const acceptedResolutionRef = (
       (yield* desiredState.graph()).nodes.find(
         (node) => node.type === args.type && node.name === args.name,
       );
-    if (desired === undefined || desired.identity.startsWith("workspace:")) {
+    if (desired === undefined || desired.identity.authority === "workspace") {
       return Option.none();
     }
     return yield* acceptedLockedResolutionRef(args);

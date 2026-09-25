@@ -26,7 +26,7 @@ import {
   parseMinimumReleaseAge,
   releaseAgeExemptionForIdentity,
 } from "../../../resolution/index.js";
-import { createRegistryClient } from "@agentxm/registry-client";
+import { RegistryClientFactory } from "@agentxm/registry-client";
 import { CodingAgentRepository } from "../../../projection/index.js";
 import { sanitizeName, type SkillPathSource } from "../../../desired-state/index.js";
 import type { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
@@ -155,11 +155,7 @@ const releaseAge = (ref: Extract<SkillExtensionRef, { readonly refType: "registr
     if (exemption !== undefined) return Option.none<ReleaseAgeFact>();
 
     return yield* Effect.gen(function* () {
-      const location =
-        ref.source.location.protocol === "file:"
-          ? ref.source.location.pathname
-          : ref.source.location.href;
-      const client = yield* createRegistryClient(location);
+      const client = yield* (yield* RegistryClientFactory).forLocation(ref.source.location);
       const index = yield* client.getExtensionIndex({
         owner: ref.owner,
         type: "skill",

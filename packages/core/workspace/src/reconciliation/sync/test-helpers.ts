@@ -55,7 +55,11 @@ import {
 } from "../../projection/live.js";
 import { layer as WorkspaceLayerLive } from "../../desired-state/live.js";
 import { withTestRegistryDefault } from "../../desired-state/testing.js";
-import { makeFileRegistry, type FileRegistry } from "@agentxm/registry-client/testing";
+import {
+  makeFileRegistry,
+  RegistryClientFactoryTest,
+  type FileRegistry,
+} from "@agentxm/registry-client/testing";
 
 import { SyncStepFailureConversionTest } from "./testing.js";
 import { SyncWorkspace, type SyncWorkspaceCandidate } from "./sync-workspace.js";
@@ -75,6 +79,13 @@ export interface SyncFixtureOptions {
   readonly files?: Readonly<Record<string, string>>;
   /** Agent executables the machine reports as present. */
   readonly installedExecutables?: ReadonlyArray<string>;
+  /**
+   * The transport the workspace's Registry client factory binds. The factory
+   * captures its transport when the layer is built, so a test that controls
+   * Registry responses supplies the port here rather than providing an HTTP
+   * client to the program afterwards. Absent, every request is refused.
+   */
+  readonly httpClient?: HttpClient.HttpClient;
 }
 
 /**
@@ -151,7 +162,7 @@ export const makeSyncFixture = (options: SyncFixtureOptions = {}) => {
   );
   const transport = Layer.succeed(
     HttpClient.HttpClient,
-    HttpClient.make(() => Effect.die("no HTTP request in this fixture")),
+    options.httpClient ?? HttpClient.make(() => Effect.die("no HTTP request in this fixture")),
   );
   const installedExecutables = new Set(options.installedExecutables ?? []);
   const executables = Layer.succeed(AgentExecutableResolver, {
@@ -171,6 +182,7 @@ export const makeSyncFixture = (options: SyncFixtureOptions = {}) => {
       CodingAgentRepositoryLive,
       NativeWriteAuthorityLive,
       transport,
+      RegistryClientFactoryTest(transport),
       interaction.layer,
       executables,
       SyncStepFailureConversionTest,

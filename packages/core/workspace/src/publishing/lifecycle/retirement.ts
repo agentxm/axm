@@ -15,7 +15,11 @@ import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
-import { parseFqn, toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions";
+import {
+  parseFqn,
+  splitExtensionReference,
+  toExtensionTypePlural,
+} from "@agentxm/extension-model/unstable/extensions";
 import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   RegistryUrl,
@@ -69,17 +73,16 @@ export const parseExactVersionReference = (
   input: string,
 ): Effect.Effect<RegistryExtensionVersionReference, PublishFailed> =>
   Effect.gen(function* () {
-    const lastSlash = input.lastIndexOf("/");
-    const versionAt = lastSlash < 0 ? -1 : input.indexOf("@", lastSlash + 1);
-    if (versionAt < 0) {
+    const { name, constraint } = splitExtensionReference(input);
+    if (constraint === undefined) {
       return yield* Effect.fail(
         validation(`Expected an exact version in ${input}`, [
           { description: "Use @owner/<plural-type>/name@1.2.3." },
         ]),
       );
     }
-    const ref = yield* parseExtensionReference(input.slice(0, versionAt));
-    const decodedVersion = decodeVersion(input.slice(versionAt + 1));
+    const ref = yield* parseExtensionReference(name);
+    const decodedVersion = decodeVersion(constraint);
     if (Result.isFailure(decodedVersion)) {
       return yield* Effect.fail(
         new PublishFailed({

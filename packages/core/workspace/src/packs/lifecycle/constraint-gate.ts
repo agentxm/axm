@@ -13,13 +13,10 @@ import { toTypedLabel } from "../../reconciliation/index.js";
 import { operationPresentation, type Plan } from "../../transitions/planning/index.js";
 
 import type { InstallStepRequirements } from "../../lifecycle/install/vocabulary.js";
-
-const normalizedPackIdentity = (identity: string): string => identity.replace(/^workspace:/u, "");
+import { desiredPackageKey } from "../../desired-state/index.js";
 
 const packOrigins = (origins: ReadonlyArray<DesiredExtensionOrigin>): ReadonlyArray<string> =>
-  origins.flatMap((origin) =>
-    origin.type === "pack" ? [normalizedPackIdentity(origin.pack)] : [],
-  );
+  origins.flatMap((origin) => (origin.type === "pack" ? [origin.pack.fqn] : []));
 
 /**
  * Packs that share a member depend on the same resolution, so a change to one
@@ -51,7 +48,7 @@ const selectedPackIdentities = (
   const selected = new Set(prospectivePacks.map((pack) => `${pack.owner}/packs/${pack.pack.name}`));
   for (const node of graph.nodes) {
     if (node.type === "pack" && (selectedNames === undefined || selectedNames.has(node.name))) {
-      selected.add(normalizedPackIdentity(node.identity));
+      selected.add(desiredPackageKey(node.identity));
     }
   }
   return selected;
@@ -126,7 +123,7 @@ export const packUpdateGroups = (args: {
         problem.contributors.some(
           (contributor) =>
             contributor.dependingPack !== undefined &&
-            packIdentities.has(normalizedPackIdentity(contributor.dependingPack)),
+            packIdentities.has(contributor.dependingPack),
         ),
     );
     groups.push({
@@ -150,8 +147,7 @@ export const relevantPackConstraintProblems = (args: {
       problem.type === "constraint-conflict" &&
       problem.contributors.some(
         (contributor) =>
-          contributor.dependingPack !== undefined &&
-          closure.has(normalizedPackIdentity(contributor.dependingPack)),
+          contributor.dependingPack !== undefined && closure.has(contributor.dependingPack),
       ),
   );
 };

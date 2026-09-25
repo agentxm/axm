@@ -1,6 +1,7 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
+import { pathToFileURL } from "node:url";
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
@@ -39,6 +40,22 @@ describe("RegistryClientFactory", () => {
         name: decodeExtensionNameSync("absent"),
       });
       expect(Option.isNone(index)).toBe(true);
+    }).pipe(
+      Effect.provide(makeLayer(root)),
+      Effect.ensuring(Effect.sync(() => rmSync(root, { recursive: true, force: true }))),
+    );
+  });
+
+  it.effect("names the directory a percent-encoded file: URL decodes to", () => {
+    const root = mkdtempSync(nodePath.join(tmpdir(), "axm-registry-factory-"));
+    const namedRoot = nodePath.join(root, "my registry");
+    mkdirSync(nodePath.join(namedRoot, "extensions", "@acme"), { recursive: true });
+    return Effect.gen(function* () {
+      const factory = yield* RegistryClientFactory;
+      for (const location of [pathToFileURL(namedRoot), pathToFileURL(namedRoot).href, namedRoot]) {
+        const client = yield* factory.forLocation(location);
+        expect((yield* client.ownerExists(decodeHandleSync("@acme"))).exists).toBe(true);
+      }
     }).pipe(
       Effect.provide(makeLayer(root)),
       Effect.ensuring(Effect.sync(() => rmSync(root, { recursive: true, force: true }))),

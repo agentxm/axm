@@ -14,7 +14,6 @@
 
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
-import * as HttpClient from "effect/unstable/http/HttpClient";
 import { NativeWriteAuthority } from "./agent-adapters/index.js";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -22,6 +21,7 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Ref from "effect/Ref";
 import * as ServiceMap from "effect/Context";
+import { RegistryClientFactory } from "@agentxm/registry-client";
 import { observeProjectionPlans } from "./planning.js";
 import { isProjectionError, type ProjectionParticipantFailure } from "./errors.js";
 import { projectionErrorToStepFailure } from "../materialization/projection-step-failure.js";
@@ -42,6 +42,7 @@ import {
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { OwnershipUnitId, ProjectionUnitObservation } from "./units.js";
 import type { ProjectionContributorExclusion } from "./exclusions.js";
+import { formatDesiredIdentity } from "../desired-state/index.js";
 
 export const PROJECTION_INVARIANT_PREDICATE = "workspace/projection-current" as const;
 
@@ -234,7 +235,7 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
     const participants = yield* ProjectionParticipants;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const httpClient = yield* HttpClient.HttpClient;
+    const registryClients = yield* RegistryClientFactory;
     const nativeWriteAuthority = yield* NativeWriteAuthority;
     const fsPathLayer = Layer.mergeAll(
       Layer.succeed(FileSystem.FileSystem, fs),
@@ -268,7 +269,7 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
         const readLayer = workspaceReadLayer(observedGraph);
         const participantLayer = Layer.mergeAll(
           readLayer,
-          Layer.succeed(HttpClient.HttpClient, httpClient),
+          Layer.succeed(RegistryClientFactory, registryClients),
           Layer.succeed(NativeWriteAuthority, nativeWriteAuthority),
         );
         const observeParticipant = (participant: ProjectionParticipant) =>
@@ -332,9 +333,9 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
                                       path: `subagent:${node.name}`,
                                       present: observation.present,
                                       current: observation.current,
-                                      expectedContributors: [node.identity],
+                                      expectedContributors: [formatDesiredIdentity(node.identity)],
                                       observedContributors: observation.present
-                                        ? [node.identity]
+                                        ? [formatDesiredIdentity(node.identity)]
                                         : [],
                                     },
                                     location.scope,
@@ -360,7 +361,7 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
           Option.isSome(completeGraph)
             ? completeGraph.value.nodes
                 .filter((node) => node.type === type && node.enabled)
-                .map(({ identity }) => identity)
+                .map(({ identity }) => formatDesiredIdentity(identity))
             : [];
         for (const [index, participant] of participants.aggregates.entries()) {
           const result = observed[index];

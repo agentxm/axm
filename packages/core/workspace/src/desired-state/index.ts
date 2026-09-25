@@ -188,11 +188,31 @@ export {
   type DesiredStateProblem,
   type ProspectivePackRef,
 } from "./workspace/desired-state-graph.js";
-// The source-qualified identity a desired-graph node carries, decoded.
+// Whether desired state reaches an accepted lock row.
 export {
-  decodeDesiredExtensionIdentity,
-  type DecodedDesiredExtensionIdentity,
-  type DesiredPackageAuthority,
+  acceptedRowKey,
+  desiredNodeReachesRow,
+  desiredReachesAcceptedRow,
+  type AcceptedRowRef,
+} from "./workspace/accepted-reachability.js";
+// The typed identity a desired-graph node carries.
+export {
+  desiredIdentityFqn,
+  desiredIdentityOfRef,
+  desiredMcpSourceKey,
+  desiredPackageKey,
+  desiredSourceAuthorityOf,
+  formatDesiredIdentity,
+  formatDesiredSourceAuthority,
+  locatorAuthority,
+  sameDesiredIdentity,
+  sameDesiredPackage,
+  sameDesiredSourceAuthority,
+  type DesiredAuthority,
+  type DesiredNodeIdentity,
+  type DesiredPackIdentity,
+  type DesiredRegistryBinding,
+  type DesiredSourceAuthority,
 } from "./workspace/desired-identity.js";
 export {
   desiredStateProblemText,
@@ -262,7 +282,11 @@ export {
 
 // Source metadata
 export { deriveSourceMetaFromLockType, type SourceMeta } from "./workspace/source-metadata.js";
-export { mcpRegistryResolutionKey, mcpResolutionKey } from "./workspace/mcp-source-identity.js";
+export {
+  mcpRegistryResolutionKey,
+  mcpResolutionKey,
+  mcpWorkspaceSourceKey,
+} from "./workspace/mcp-source-identity.js";
 
 // Workspace read model
 export {
@@ -336,7 +360,16 @@ export type {
 // Narrow workspace-state services
 export { WorkspaceDocuments, type WorkspaceDocumentsService } from "./workspace/documents.js";
 export { WorkspaceLocation, type WorkspaceLocationService } from "./workspace/location.js";
-export { SettingsReader, type SettingsReaderService } from "./workspace/settings-reader.js";
+export {
+  SettingsReader,
+  bindRegistrySource,
+  registryBaseUrl,
+  type BoundRegistrySource,
+  type RegistrySourceHost,
+  type RegistryTarget,
+  type RegistryTargetSelection,
+  type SettingsReaderService,
+} from "./workspace/settings-reader.js";
 export { LockfileReader, type LockfileReaderService } from "./workspace/lockfile-reader.js";
 export { readOtherScopeState, type OtherScopeState } from "./workspace/other-scope-reader.js";
 export {

@@ -11,7 +11,11 @@ import type { DesiredExtensionNode } from "../desired-state/index.js";
 const desired = {
   type: "skill",
   name: "review",
-  identity: "@acme/skills/review",
+  identity: {
+    authority: "registry",
+    fqn: "@acme/skills/review",
+    registry: { sourceName: undefined, endpoint: undefined },
+  },
   source: "@acme/skills/review@>=2.0.0 <3.0.0",
   enabled: true,
   constraint: desiredConstraintOf(">=2.0.0 <3.0.0", "^2.1.0"),

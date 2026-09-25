@@ -121,9 +121,16 @@ const resolvedFromState = (settings: Settings, lockfile: Lockfile): ResolvedMcpS
     // source. Neither resolves through a shared source identity.
     if (!isSourcedMcpServerEntry(entry)) continue;
     const parsed = parseSourceQualifiedRegistrySourcePatternParts(entry.source);
-    const configuredRegistry = settings.sources?.find(
-      (source) => source.type === "registry" && source.name === parsed?.sourceName,
-    );
+    // A spelled source pins the accepted endpoint; an unqualified locator's
+    // binding is the desired-state graph's decision, not this row's.
+    const spelledSource =
+      parsed === undefined ? undefined : Option.getOrUndefined(parsed.sourceName);
+    const configuredRegistry =
+      spelledSource === undefined
+        ? undefined
+        : settings.sources?.find(
+            (source) => source.type === "registry" && source.name === spelledSource,
+          );
     const lockEntry = locked.find((candidate) => {
       if (parsed !== undefined && candidate.source.type === "registry") {
         return (

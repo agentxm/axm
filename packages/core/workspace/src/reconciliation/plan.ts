@@ -57,6 +57,7 @@ import type { WorkspaceTransactionScope } from "../transitions/settlement/index.
 import {
   SettingsReader,
   WorkspaceLocation,
+  settingsDisplayPath,
   type WorkspaceLocationService,
   type DesiredStateGraph,
   type McpServerEntry,
@@ -749,8 +750,7 @@ export const makeSyncPlan = <R>({
         label: steps.map((step) => step.label).join("; "),
         message: "Reconciled dependent workspace state",
         artifact: {
-          path:
-            artifacts[0]?.path ?? (scope === "project" ? "axm.json" : ".axm/workspace/axm.json"),
+          path: artifacts[0]?.path ?? settingsDisplayPath(scope),
           scope,
           change: "updated",
           targets: artifacts.flatMap((artifact) => artifact.targets ?? []),

@@ -1,6 +1,7 @@
 import type { Handle } from "@agentxm/extension-model/unstable/extensions";
 import type { JobStepArtifact, JobStepArtifactTarget } from "../../transitions/planning/index.js";
 import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
+import { acquiredDisplayPath } from "../../desired-state/index.js";
 
 export const packManifestPath = (
   scope: JobStepArtifact["scope"],
@@ -9,7 +10,7 @@ export const packManifestPath = (
 ): string =>
   scope === "project"
     ? `packs/${name}/${PACK_MANIFEST_FILENAME}`
-    : `.axm/workspace/agent_extensions/${owner}/packs/${name}/${PACK_MANIFEST_FILENAME}`;
+    : acquiredDisplayPath(scope, `${owner}/packs/${name}/${PACK_MANIFEST_FILENAME}`);
 
 export const packManifestTarget = (
   scope: JobStepArtifact["scope"],

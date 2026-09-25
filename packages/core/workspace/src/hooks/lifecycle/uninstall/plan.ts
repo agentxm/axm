@@ -39,10 +39,10 @@ import {
 import { makeWorkspaceRetentionPolicy } from "../../../reconciliation/index.js";
 import type { HookUninstallIntent } from "../../../lifecycle/uninstall/vocabulary.js";
 import {
-  workspaceCanonicalRoot,
-  workspaceLockfilePath,
-  workspaceSettingsPath,
-} from "../../../lifecycle/workspace-paths.js";
+  acquiredRootDisplayPath,
+  lockfileDisplayPath,
+  settingsDisplayPath,
+} from "../../../desired-state/index.js";
 
 const hookUninstallArtifactTargets = (
   entry: Option.Option<HookLockEntry>,
@@ -52,14 +52,14 @@ const hookUninstallArtifactTargets = (
 ): ReadonlyArray<JobStepArtifactTarget> => {
   if (Option.isNone(entry)) return [];
   const sourcePath = acquiredExtensionDisplayPathFromLockEntry(
-    workspaceCanonicalRoot(scope),
+    acquiredRootDisplayPath(scope),
     entry.value,
     "hooks",
     targetName,
   );
   return [
-    { path: workspaceLockfilePath(scope), change: "updated" },
-    { path: workspaceSettingsPath(scope), change: "updated" },
+    { path: lockfileDisplayPath(scope), change: "updated" },
+    { path: settingsDisplayPath(scope), change: "updated" },
     { path: sourcePath, change: retained ? "unchanged" : "removed" },
   ];
 };
@@ -126,8 +126,8 @@ export const planHookUninstall: (
           );
           return Effect.succeed({
             path: retained
-              ? workspaceSettingsPath(location.scope)
-              : workspaceLockfilePath(location.scope),
+              ? settingsDisplayPath(location.scope)
+              : lockfileDisplayPath(location.scope),
             scope: location.scope,
             change: retained ? "updated" : "removed",
             ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),

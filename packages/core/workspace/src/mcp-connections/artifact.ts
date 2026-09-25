@@ -1,14 +1,16 @@
 import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
-import { ACQUIRED_EXTENSIONS_DIR } from "../desired-state/index.js";
-import { acquiredExtensionDisplayPathFromLockEntry } from "../desired-state/index.js";
+import {
+  acquiredExtensionDisplayPathFromLockEntry,
+  acquiredRootDisplayPath,
+  lockfileDisplayPath,
+  settingsDisplayPath,
+} from "../desired-state/index.js";
 import type { McpServerLockEntry } from "../desired-state/index.js";
 import type { JobStepArtifact, JobStepArtifactTarget } from "../transitions/planning/index.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 export const mcpConfigSurface = (scope: WorkspaceScope): string =>
-  scope === "project"
-    ? "axm.json / axm-lock.yaml"
-    : ".axm/workspace/axm.json / .axm/workspace/axm-lock.yaml";
+  `${settingsDisplayPath(scope)} / ${lockfileDisplayPath(scope)}`;
 export const MCP_AGENT_CONFIG_SURFACE = ".mcp.json";
 
 export const mcpServerVersion = (entry: McpServerLockEntry): string | undefined =>
@@ -18,7 +20,7 @@ export const mcpServerVersion = (entry: McpServerLockEntry): string | undefined 
 
 export const mcpServerSourcePath = (scope: WorkspaceScope, entry: McpServerLockEntry): string =>
   acquiredExtensionDisplayPathFromLockEntry(
-    scope === "project" ? ACQUIRED_EXTENSIONS_DIR : ".axm/workspace/agent_extensions",
+    acquiredRootDisplayPath(scope),
     entry,
     "mcps",
     entry.identity.name,
@@ -90,7 +92,7 @@ export const mcpSettingsTarget = (
   scope: WorkspaceScope,
   change: JobStepArtifactTarget["change"],
 ): JobStepArtifactTarget => ({
-  path: scope === "project" ? "axm.json" : ".axm/workspace/axm.json",
+  path: settingsDisplayPath(scope),
   change,
 });
 

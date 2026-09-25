@@ -38,6 +38,7 @@ import type {
   RegistrySource,
 } from "@agentxm/extension-model/unstable/sources/types";
 import { acquiredExtensionDisplayPathFromLockEntry } from "./extension-paths.js";
+import { acquiredRootDisplayPath } from "./display-paths.js";
 
 /** Failure of the caller-supplied configured-source lookup. */
 export type LockEntrySourceLookupError = SettingsReadError | WorkspaceRootEscape;
@@ -138,10 +139,7 @@ const lockEntryLocation = (
   extensionType: Parameters<typeof toExtensionTypePlural>[0],
   workspaceName: string,
 ): string => {
-  const root =
-    deps.scope === "project"
-      ? `${deps.baseDir}/agent_extensions`
-      : `${deps.baseDir}/.axm/workspace/agent_extensions`;
+  const root = `${deps.baseDir}/${acquiredRootDisplayPath(deps.scope)}`;
   return fileHref(
     acquiredExtensionDisplayPathFromLockEntry(
       root,

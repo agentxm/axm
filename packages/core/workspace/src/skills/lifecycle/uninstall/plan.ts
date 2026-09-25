@@ -57,12 +57,12 @@ import {
 import { makeWorkspaceRetentionPolicy } from "../../../reconciliation/index.js";
 import type { SkillUninstallIntent } from "../../../lifecycle/uninstall/vocabulary.js";
 import {
-  workspaceAuthoredPath,
-  workspaceCanonicalPath,
-  workspaceCanonicalRoot,
-  workspaceLockfilePath,
-  workspaceSettingsPath,
-} from "../../../lifecycle/workspace-paths.js";
+  authoredDisplayPath,
+  acquiredDisplayPath,
+  acquiredRootDisplayPath,
+  lockfileDisplayPath,
+  settingsDisplayPath,
+} from "../../../desired-state/index.js";
 
 const skillSourceTarget = (
   location: WorkspaceLocationService,
@@ -74,7 +74,7 @@ const skillSourceTarget = (
 ): JobStepArtifactTarget => {
   if (Option.isSome(configuredSource) && configuredSource.value === "workspace") {
     return {
-      path: workspaceAuthoredPath(path, location, layout, "skill", sanitizedName),
+      path: authoredDisplayPath(path, location, layout, "skill", sanitizedName),
       change: "unchanged",
     };
   }
@@ -82,7 +82,7 @@ const skillSourceTarget = (
     const entry = lockEntry.value;
     return {
       path: acquiredExtensionDisplayPathFromLockEntry(
-        workspaceCanonicalRoot(location.scope),
+        acquiredRootDisplayPath(location.scope),
         entry,
         "skills",
         sanitizedName,
@@ -90,7 +90,7 @@ const skillSourceTarget = (
       change: "removed",
     };
   }
-  return { path: workspaceCanonicalPath(location.scope, sanitizedName), change: "removed" };
+  return { path: acquiredDisplayPath(location.scope, sanitizedName), change: "removed" };
 };
 
 /** Expand the selector against installed skills; a glob may match nothing. */
@@ -226,8 +226,8 @@ export const planSkillUninstall: (
           scope: location.scope,
           change: "removed",
           workspaceTargets: [
-            { path: workspaceLockfilePath(location.scope), change: "updated" },
-            { path: workspaceSettingsPath(location.scope), change: "updated" },
+            { path: lockfileDisplayPath(location.scope), change: "updated" },
+            { path: settingsDisplayPath(location.scope), change: "updated" },
             sourceTarget,
           ],
         });
@@ -240,8 +240,8 @@ export const planSkillUninstall: (
           scope: location.scope,
           change: "unchanged",
           workspaceTargets: [
-            { path: workspaceLockfilePath(location.scope), change: "unchanged" },
-            { path: workspaceSettingsPath(location.scope), change: "updated" },
+            { path: lockfileDisplayPath(location.scope), change: "unchanged" },
+            { path: settingsDisplayPath(location.scope), change: "updated" },
             { path: sourceTarget.path, change: "unchanged" },
           ],
         });

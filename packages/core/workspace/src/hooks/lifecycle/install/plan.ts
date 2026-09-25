@@ -38,9 +38,9 @@ import {
 } from "../../../transitions/planning/index.js";
 import { applyPlannedProjections } from "../../../projection/index.js";
 import {
-  ACQUIRED_EXTENSIONS_DIR,
   acquiredExtensionDisplayPath,
   acquiredExtensionDisplayPathFromLockEntry,
+  acquiredRootDisplayPath,
   type ArtifactChange,
   type ConfiguredAgentOutcome,
   type HookLockEntry,
@@ -70,17 +70,19 @@ const hookLockEntryVersion = (entry: HookLockEntry): string | undefined =>
     ? entry.resolved.version
     : undefined;
 
-const acquiredRoot = (scope: JobStepArtifact["scope"]): string =>
-  scope === "project" ? ACQUIRED_EXTENSIONS_DIR : ".axm/workspace/agent_extensions";
-
 const hookRefArtifactPath = (ref: HookExtensionRef, scope: JobStepArtifact["scope"]): string =>
   ref.refType === "workspace"
     ? ref.location
-    : acquiredExtensionDisplayPath(acquiredRoot(scope), ref, HOOK_EXTENSION_DIR, ref.name);
+    : acquiredExtensionDisplayPath(
+        acquiredRootDisplayPath(scope),
+        ref,
+        HOOK_EXTENSION_DIR,
+        ref.name,
+      );
 
 const hookInstallArtifactPath = (entry: HookLockEntry, scope: JobStepArtifact["scope"]): string =>
   acquiredExtensionDisplayPathFromLockEntry(
-    acquiredRoot(scope),
+    acquiredRootDisplayPath(scope),
     entry,
     HOOK_EXTENSION_DIR,
     entry.identity.name,

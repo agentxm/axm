@@ -43,6 +43,7 @@ import {
   SettingsWriter,
   WorkspaceLocation,
   WorkspaceRecords,
+  settingsDisplayPath,
   type WorkspaceStateReadFailure,
 } from "../../desired-state/index.js";
 import {
@@ -66,9 +67,6 @@ import {
 
 const plural = (count: number, singular: string): string =>
   `${String(count)} ${singular}${count === 1 ? "" : "s"}`;
-
-const settingsDisplayPath = (scope: WorkspaceScope): string =>
-  scope === "project" ? "axm.json" : ".axm/workspace/axm.json";
 
 /**
  * Serialize a native-format failure. Every member of the family names the

@@ -13,6 +13,8 @@ import {
   LockfileReader,
   SettingsReader,
   WorkspaceLocation,
+  lockfileDisplayPath,
+  settingsDisplayPath,
   type ExtensionTarget,
 } from "../desired-state/index.js";
 import type {
@@ -54,9 +56,8 @@ export const prepareUninstallArtifact = (
       type: target.type,
       name: target.name,
     });
-    const prefix = location.scope === "project" ? "" : ".axm/workspace/";
-    const settingsPath = `${prefix}axm.json`;
-    const lockPath = `${prefix}axm-lock.yaml`;
+    const settingsPath = settingsDisplayPath(location.scope);
+    const lockPath = lockfileDisplayPath(location.scope);
     const targets: JobStepArtifactTarget[] = [];
     const references: JobStepArtifactReference[] = [];
     // Settings change when the removal withdraws a declaration, and equally

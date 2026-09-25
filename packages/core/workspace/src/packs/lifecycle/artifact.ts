@@ -15,12 +15,10 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import type { JobStepArtifact } from "../../transitions/planning/index.js";
 import {
-  ACQUIRED_EXTENSIONS_DIR,
   acquiredExtensionDisplayPath,
+  acquiredRootDisplayPath,
   type ArtifactChange,
 } from "../../desired-state/index.js";
-
-const USER_SCOPE_ACQUIRED_ROOT = ".axm/workspace/agent_extensions";
 
 /** The registry directory segment a type's acquired packages live under. */
 export const registryPluralSegment = (type: ExtensionType): ExtensionTypePlural =>
@@ -31,7 +29,7 @@ export const registrySourcePath = (ref: ExtensionRef, scope: JobStepArtifact["sc
   ref.refType === "workspace"
     ? ref.location
     : acquiredExtensionDisplayPath(
-        scope === "project" ? ACQUIRED_EXTENSIONS_DIR : USER_SCOPE_ACQUIRED_ROOT,
+        acquiredRootDisplayPath(scope),
         ref,
         registryPluralSegment(ref.type),
         ref.name,

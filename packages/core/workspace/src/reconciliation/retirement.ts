@@ -13,6 +13,7 @@ import {
   DesiredStateReader,
   LockfileReader,
   WorkspaceLocation,
+  lockfileDisplayPath,
   computeExtensionPathsForLayout,
   extensionPathSourceFromLockEntry,
   computeMaterializedTreeIntegrity,
@@ -127,7 +128,7 @@ export const collectUnreachableRetirement = (
     if (retired.length === 0)
       return Option.none<PlannedJobStep<SyncStepRequirements | LockfileReader>>();
     const artifact = {
-      path: location.scope === "project" ? "axm-lock.yaml" : ".axm/workspace/axm-lock.yaml",
+      path: lockfileDisplayPath(location.scope),
       scope: location.scope,
       change: "updated" as const,
       references: retired

@@ -26,6 +26,18 @@ export {
 // Path safety
 export { validatePathSafety, PathTraversalDetected } from "./utils/path-safety.js";
 
+// Workspace-relative display paths
+export {
+  USER_WORKSPACE_DISPLAY_ROOT,
+  workspaceFileDisplayPath,
+  settingsDisplayPath,
+  lockfileDisplayPath,
+  acquiredRootDisplayPath,
+  acquiredDisplayPath,
+  authoredDisplayPath,
+  workspaceDisplayPath,
+} from "./workspace/display-paths.js";
+
 // Additional settings and lockfile vocabulary consumed beyond the barrels
 export { SETTINGS_KNOWN_KEYS } from "./settings/schema.js";
 export {

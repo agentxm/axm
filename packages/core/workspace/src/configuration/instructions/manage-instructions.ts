@@ -64,6 +64,7 @@ import {
   SettingsWriter,
   WorkspaceLocation,
   WorkspaceRecords,
+  settingsDisplayPath,
   type InstructionsConfig,
   type WorkspaceStateReadFailure,
 } from "../../desired-state/index.js";
@@ -179,9 +180,6 @@ export interface ManageInstructionsCandidate {
   readonly blocked: Option.Option<WorkspaceConfigurationFailed>;
   readonly scope: WorkspaceScope;
 }
-
-const settingsDisplayPath = (scope: WorkspaceScope): string =>
-  scope === "project" ? "axm.json" : ".axm/workspace/axm.json";
 
 /**
  * The transition's artifact: the settings file that records the choice, plus

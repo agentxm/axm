@@ -57,6 +57,7 @@ import {
   SettingsWriter,
   WorkspaceLocation,
   WorkspaceRecords,
+  settingsDisplayPath,
   type WorkspaceStateReadFailure,
 } from "../../desired-state/index.js";
 import {
@@ -85,10 +86,6 @@ export type ConfigureAgentsFailure =
 
 /** Every failure resolving a prepared membership change can surface. */
 export type MembershipExecutionFailure = WorkspaceConfigurationExecutionFailure;
-
-/** Stable workspace-relative path of the settings file membership is recorded in. */
-const settingsDisplayPath = (scope: WorkspaceScope): string =>
-  scope === "project" ? "axm.json" : ".axm/workspace/axm.json";
 
 const membershipArtifact = (
   scope: WorkspaceScope,

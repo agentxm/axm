@@ -45,10 +45,7 @@ import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
 import type { InstallStepRequirements } from "../../../lifecycle/install/vocabulary.js";
 import { makeWorkspaceRetentionPolicy } from "../../../reconciliation/index.js";
 import type { McpServerUninstallIntent } from "../../../lifecycle/uninstall/vocabulary.js";
-import {
-  workspaceLockfilePath,
-  workspaceSettingsPath,
-} from "../../../lifecycle/workspace-paths.js";
+import { lockfileDisplayPath, settingsDisplayPath } from "../../../desired-state/index.js";
 import { desiredMcpSourceKey } from "../../../desired-state/index.js";
 
 /** One local connection name is removed at a time. */
@@ -147,8 +144,8 @@ export const planMcpServerUninstall: (
             targets: unchanged
               ? []
               : [
-                  { path: workspaceLockfilePath(location.scope), change: "updated" },
-                  { path: workspaceSettingsPath(location.scope), change: "updated" },
+                  { path: lockfileDisplayPath(location.scope), change: "updated" },
+                  { path: settingsDisplayPath(location.scope), change: "updated" },
                   ...(sourceTarget === undefined ? [] : [sourceTarget]),
                 ],
           }),

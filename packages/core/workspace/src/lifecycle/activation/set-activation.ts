@@ -119,7 +119,7 @@ import {
   withAdaptedStepFailures,
   type LifecycleFailure,
 } from "../step-failure-conversion.js";
-import { settingsDisplayPath } from "./display-paths.js";
+import { settingsDisplayPath } from "../../desired-state/index.js";
 import type { SetActivationExecutionFailure } from "./errors.js";
 
 // -----------------------------------------------------------------------------

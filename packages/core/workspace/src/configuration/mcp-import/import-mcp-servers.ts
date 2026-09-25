@@ -38,6 +38,7 @@ import {
   SettingsWriter,
   WorkspaceLocation,
   WorkspaceRecords,
+  settingsDisplayPath,
 } from "../../desired-state/index.js";
 import {
   FootprintRecorder,
@@ -55,9 +56,6 @@ import { preflightMcpImports, type McpImportPreflight } from "./preflight.js";
 
 const plural = (count: number, singular: string): string =>
   `${String(count)} ${singular}${count === 1 ? "" : "s"}`;
-
-const settingsDisplayPath = (scope: WorkspaceScope): string =>
-  scope === "project" ? "axm.json" : ".axm/workspace/axm.json";
 
 export interface ImportMcpServersCandidate {
   readonly _tag: "ImportMcpServers";

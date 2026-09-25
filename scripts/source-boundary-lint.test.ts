@@ -332,7 +332,7 @@ describe("module boundary constraints", () => {
   });
 
   it("confines the generic domain to itself", async () => {
-    // No generic package exists yet. Inspect the effective configuration for
+    // The fixture path keeps this rule independent of host-primitives. Inspect the effective configuration for
     // production and test files, not every partial block in the flat config.
     const eslint = new ESLint({ cwd: repoRoot });
     for (const [file, allowed] of [

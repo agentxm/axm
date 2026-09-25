@@ -1,0 +1,20 @@
+{
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "name": "host-primitives",
+  "projectType": "library",
+  "root": "packages/generic/host-primitives",
+  "sourceRoot": "packages/generic/host-primitives/src",
+  "tags": ["type:lib", "role:capability", "scope:host-primitives"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "packages/generic/host-primitives/src/index.ts",
+        "outputPath": "packages/generic/host-primitives/dist",
+        "tsConfig": "packages/generic/host-primitives/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    }
+  }
+}

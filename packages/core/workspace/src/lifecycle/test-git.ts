@@ -65,7 +65,8 @@ export const serveBareRepository = async (options: {
   readonly name: string;
 }): Promise<ServedGitRepository> => {
   const repository = nodePath.join(options.root, `${options.name}.git`);
-  execFileSync("git", ["clone", "--quiet", "--bare", options.source, repository], {
+  // `--` ends option parsing, so a fixture path can never be read as a git option.
+  execFileSync("git", ["clone", "--quiet", "--bare", "--", options.source, repository], {
     cwd: options.root,
   });
   const port = await availablePort();

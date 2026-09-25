@@ -12,15 +12,10 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { PackageURL } from "packageurl-js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import {
-  decodeAgentExtensions,
-  decodePurl,
-  parseJsonOptional,
-  readFileOptional,
-} from "./reader-io.js";
+import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
 import { parseTomlDocument, tomlStringEntries, tomlTable } from "./toml.js";
+import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const hexType = Schema.decodeUnknownSync(PackageTypeSchema)("hex");
@@ -67,10 +62,8 @@ const parseMixExs = (content: string, source: string): ReadonlyArray<DetectedPac
 
     const version = isExactVersion(versionSpec) ? versionSpec : undefined;
 
-    const purl = new PackageURL("hex", null, name, version ?? null, null, null);
-    const purlParts = decodePurl(purl.toString());
-
-    results.push({ purl: purlParts, type: hexType, source });
+    const detected = makeDetectedPackage({ type: hexType, name, version, source });
+    if (Option.isSome(detected)) results.push(detected.value);
   }
 
   return results;
@@ -92,10 +85,8 @@ const parseTomlDeps = (
   )) {
     const version = isExactVersion(versionSpec) ? versionSpec : undefined;
 
-    const purl = new PackageURL("hex", null, name, version ?? null, null, null);
-    const purlParts = decodePurl(purl.toString());
-
-    results.push({ purl: purlParts, type: hexType, source });
+    const detected = makeDetectedPackage({ type: hexType, name, version, source });
+    if (Option.isSome(detected)) results.push(detected.value);
   }
 
   return results;

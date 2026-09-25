@@ -13,14 +13,9 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { PackageURL } from "packageurl-js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import {
-  decodeAgentExtensions,
-  decodePurl,
-  parseJsonOptional,
-  readFileOptional,
-} from "./reader-io.js";
+import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const luarocksType = Schema.decodeUnknownSync(PackageTypeSchema)("luarocks");
@@ -78,9 +73,13 @@ const parseRockspecDeps = (content: string, source: string): ReadonlyArray<Detec
     const parsed = parseLuaDep(entry);
     if (parsed === undefined) continue;
 
-    const purl = new PackageURL("luarocks", null, parsed.name, parsed.version ?? null, null, null);
-    const purlParts = decodePurl(purl.toString());
-    results.push({ purl: purlParts, type: luarocksType, source });
+    const detected = makeDetectedPackage({
+      type: luarocksType,
+      name: parsed.name,
+      version: parsed.version,
+      source,
+    });
+    if (Option.isSome(detected)) results.push(detected.value);
   }
 
   return results;

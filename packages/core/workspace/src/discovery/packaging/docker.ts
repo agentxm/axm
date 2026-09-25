@@ -10,14 +10,9 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { PackageURL } from "packageurl-js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import {
-  decodeAgentExtensions,
-  decodePurl,
-  parseJsonOptional,
-  readFileOptional,
-} from "./reader-io.js";
+import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const dockerType = Schema.decodeUnknownSync(PackageTypeSchema)("docker");
@@ -96,17 +91,15 @@ const imageToPurl = (ref: string, source: string): DetectedPackage | undefined =
   const parsed = parseImageRef(ref);
   if (parsed === undefined) return undefined;
 
-  const purl = new PackageURL(
-    "docker",
-    parsed.namespace ?? null,
-    parsed.name,
-    parsed.version ?? null,
-    null,
-    null,
+  return Option.getOrUndefined(
+    makeDetectedPackage({
+      type: dockerType,
+      namespace: parsed.namespace,
+      name: parsed.name,
+      version: parsed.version,
+      source,
+    }),
   );
-  const purlParts = decodePurl(purl.toString());
-
-  return { purl: purlParts, type: dockerType, source };
 };
 
 /**

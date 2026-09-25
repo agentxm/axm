@@ -13,9 +13,9 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { PackageURL } from "packageurl-js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAgentExtensions, decodePurl, readFileOptional } from "./reader-io.js";
+import { decodeAgentExtensions, readFileOptional } from "./reader-io.js";
+import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const opamType = Schema.decodeUnknownSync(PackageTypeSchema)("opam");
@@ -56,9 +56,8 @@ const parseOpamDepends = (content: string, source: string): ReadonlyArray<Detect
       }
     }
 
-    const purl = new PackageURL("opam", null, name, version ?? null, null, null);
-    const purlParts = decodePurl(purl.toString());
-    results.push({ purl: purlParts, type: opamType, source });
+    const detected = makeDetectedPackage({ type: opamType, name, version, source });
+    if (Option.isSome(detected)) results.push(detected.value);
   }
 
   return results;
@@ -140,9 +139,8 @@ const parseDuneProjectDepends = (
       if (name !== "") {
         entries.push(name);
         if (version !== undefined && !SKIP_DEPS.has(name)) {
-          const purl = new PackageURL("opam", null, name, version, null, null);
-          const purlParts = decodePurl(purl.toString());
-          results.push({ purl: purlParts, type: opamType, source });
+          const detected = makeDetectedPackage({ type: opamType, name, version, source });
+          if (Option.isSome(detected)) results.push(detected.value);
           // Skip to closing paren
           let depth = 1;
           while (i < depsContent.length && depth > 0) {
@@ -163,9 +161,8 @@ const parseDuneProjectDepends = (
       }
 
       if (name !== "" && !SKIP_DEPS.has(name) && version === undefined) {
-        const purl = new PackageURL("opam", null, name, null, null, null);
-        const purlParts = decodePurl(purl.toString());
-        results.push({ purl: purlParts, type: opamType, source });
+        const detected = makeDetectedPackage({ type: opamType, name, source });
+        if (Option.isSome(detected)) results.push(detected.value);
       }
     } else {
       // Bare name
@@ -176,9 +173,8 @@ const parseDuneProjectDepends = (
       }
 
       if (name !== "" && !SKIP_DEPS.has(name)) {
-        const purl = new PackageURL("opam", null, name, null, null, null);
-        const purlParts = decodePurl(purl.toString());
-        results.push({ purl: purlParts, type: opamType, source });
+        const detected = makeDetectedPackage({ type: opamType, name, source });
+        if (Option.isSome(detected)) results.push(detected.value);
       }
     }
   }

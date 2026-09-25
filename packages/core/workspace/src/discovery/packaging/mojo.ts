@@ -14,15 +14,10 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { PackageURL } from "packageurl-js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import {
-  decodeAgentExtensions,
-  decodePurl,
-  parseJsonOptional,
-  readFileOptional,
-} from "./reader-io.js";
+import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
 import { parseTomlDocument, tomlStringEntries, tomlTable } from "./toml.js";
+import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const mojoType = Schema.decodeUnknownSync(PackageTypeSchema)("mojo");
@@ -96,13 +91,21 @@ export const mojoDetector: PackageDetector = {
         const version = isExactVersion(dep.version) ? dep.version : undefined;
 
         if (isMojoSpecific) {
-          const purl = new PackageURL("mojo", null, dep.name, version ?? null, null, null);
-          const purlParts = decodePurl(purl.toString());
-          results.push({ purl: purlParts, type: mojoType, source: pixiPath });
+          const detected = makeDetectedPackage({
+            type: mojoType,
+            name: dep.name,
+            version,
+            source: pixiPath,
+          });
+          if (Option.isSome(detected)) results.push(detected.value);
         } else {
-          const purl = new PackageURL("conda", null, dep.name, version ?? null, null, null);
-          const purlParts = decodePurl(purl.toString());
-          results.push({ purl: purlParts, type: condaType, source: pixiPath });
+          const detected = makeDetectedPackage({
+            type: condaType,
+            name: dep.name,
+            version,
+            source: pixiPath,
+          });
+          if (Option.isSome(detected)) results.push(detected.value);
         }
       }
 

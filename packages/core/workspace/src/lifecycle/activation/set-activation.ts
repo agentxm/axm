@@ -24,7 +24,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
-import type * as HttpClient from "effect/unstable/http/HttpClient";
+import type { RegistryClientFactory } from "@agentxm/registry-client";
 
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -189,7 +189,7 @@ export type SetActivationRequirements =
   | McpServerManager
   | FileSystem.FileSystem
   | FootprintRecorder
-  | HttpClient.HttpClient
+  | RegistryClientFactory
   | ManagerRequirements
   | OperationJournal
   | Path.Path

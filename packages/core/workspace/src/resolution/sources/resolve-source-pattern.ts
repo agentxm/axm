@@ -9,9 +9,9 @@
  */
 
 import type * as FileSystem from "effect/FileSystem";
-import type * as HttpClient from "effect/unstable/http/HttpClient";
 import type * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import type { RegistryClientFactory } from "@agentxm/registry-client";
 
 import {
   SourceNotResolvable,
@@ -76,7 +76,7 @@ export const resolveSourcePattern = (
 ): Effect.Effect<
   ReadonlyArray<Source>,
   SourceResolutionFailure,
-  WorkspaceCatalog | FileSystem.FileSystem | HttpClient.HttpClient | Path.Path
+  WorkspaceCatalog | FileSystem.FileSystem | RegistryClientFactory | Path.Path
 > =>
   isGlobPattern(input)
     ? Effect.gen(function* () {

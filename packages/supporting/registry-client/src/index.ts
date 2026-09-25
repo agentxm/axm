@@ -38,7 +38,6 @@ export type {
   ExtensionVisibility,
   UpdateExtensionVisibilityArgs,
 } from "./client.js";
-export { createRegistryClient } from "./client.js";
 
 // Local client
 export { createLocalRegistryClient } from "./local-client.js";

@@ -953,7 +953,9 @@ describe("root sync handler", { timeout: 15_000 }, () => {
         Effect.map(getAppError),
       );
 
-      expect(error.detail).toContain("Invalid pack source for missing");
+      // The built-in Registry is always configured, so the unresolvable Pack
+      // fails at resolution rather than as an unrecognized source.
+      expect(error.detail).toContain('Configured extension "missing" could not be resolved');
       const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
       expect(config.mcpServers.retained.command).toBe("node");
     }),

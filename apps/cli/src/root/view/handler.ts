@@ -23,7 +23,6 @@ import { emitResult, rawDoc } from "../../screen/index.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";
 import { publishedMetadataUnavailableToAppError } from "../inspection-errors.js";
 import { viewPageDoc } from "./view.js";
-import { DefaultRegistryTarget } from "../../default-registry-target.js";
 
 export interface ViewHandlerArgs {
   readonly handle: string;
@@ -104,10 +103,10 @@ export const handleDefaultRegistryFqnView = Effect.fn("View.handleDefaultRegistr
     readonly field: Option.Option<string>;
     readonly parts: ExtensionFqnParts;
   }) {
-    const target = yield* DefaultRegistryTarget;
-    yield* readAndEmit({
-      ...args,
-      targetRegistry: { registryName: target.name, registryUrl: target.url },
-    });
+    const targetRegistry = yield* Effect.catchTags(
+      resolveViewRegistry(Option.none()),
+      unresolvable,
+    );
+    yield* readAndEmit({ ...args, targetRegistry });
   },
 );

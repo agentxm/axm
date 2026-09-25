@@ -8,12 +8,9 @@ import * as Exit from "effect/Exit";
 import * as Request from "effect/Request";
 import * as RequestResolver from "effect/RequestResolver";
 import * as Schema from "effect/Schema";
-import * as FileSystem from "effect/FileSystem";
-import * as Path from "effect/Path";
-import * as HttpClient from "effect/unstable/http/HttpClient";
 
 import {
-  createRegistryClient,
+  RegistryClientFactory,
   RegistryRequestFailed,
   type GetExtensionIndexArgs,
   type RegistryClientFailure,
@@ -105,12 +102,10 @@ export const makeRegistryIndexMemo = <R>(
 export const makeLiveRegistryIndexMemo = (): Effect.Effect<
   RegistryIndexMemoService,
   never,
-  FileSystem.FileSystem | HttpClient.HttpClient | Path.Path
+  RegistryClientFactory
 > =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const http = yield* HttpClient.HttpClient;
-    const path = yield* Path.Path;
+    const registryClients = yield* RegistryClientFactory;
     const resolver = RequestResolver.makeWith<RegistryIndexRequest>({
       batchKey: ({ request }) => `${request.key.location}\0${request.key.sourceName}`,
       delay: Effect.yieldNow,
@@ -119,11 +114,7 @@ export const makeLiveRegistryIndexMemo = (): Effect.Effect<
         Effect.gen(function* () {
           const first = entries[0].request.key;
           const run = Effect.gen(function* () {
-            const client = yield* createRegistryClient(first.location).pipe(
-              Effect.provideService(FileSystem.FileSystem, fs),
-              Effect.provideService(HttpClient.HttpClient, http),
-              Effect.provideService(Path.Path, path),
-            );
+            const client = yield* registryClients.forLocation(first.location);
             if (client.getResolutionMetadata === undefined) {
               return yield* Effect.forEach(entries, ({ request }) =>
                 client.getExtensionIndex(request.key),
@@ -184,7 +175,7 @@ export const makeLiveRegistryIndexMemo = (): Effect.Effect<
 
 export const withPackRegistryIndexMemo = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
-): Effect.Effect<A, E, R | FileSystem.FileSystem | HttpClient.HttpClient | Path.Path> =>
+): Effect.Effect<A, E, R | RegistryClientFactory> =>
   Effect.flatMap(makeLiveRegistryIndexMemo(), (memo) =>
     Effect.provideService(effect, RegistryIndexMemo, memo),
   );

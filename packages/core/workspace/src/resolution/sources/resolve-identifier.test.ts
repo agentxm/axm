@@ -6,6 +6,7 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
+import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
@@ -52,7 +53,7 @@ const provide = (
             },
           ],
         }),
-        Layer.merge(NodeServices.layer, FetchHttpClient.layer),
+        Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
       ),
     ),
   );
@@ -101,13 +102,18 @@ describe("resolveIdentifier", () => {
                 ],
               }),
               ConfigProvider.layer(ConfigProvider.make(() => Effect.fail(sourceError))),
-              Layer.succeed(
-                HttpClient.HttpClient,
-                HttpClient.make(() =>
-                  Effect.sync(() => {
-                    requests += 1;
-                  }).pipe(Effect.andThen(Effect.die("Unexpected request"))),
+              Layer.provide(
+                RegistryTransportTest(
+                  Layer.succeed(
+                    HttpClient.HttpClient,
+                    HttpClient.make(() =>
+                      Effect.sync(() => {
+                        requests += 1;
+                      }).pipe(Effect.andThen(Effect.die("Unexpected request"))),
+                    ),
+                  ),
                 ),
+                NodeServices.layer,
               ),
             ),
           ),
@@ -302,7 +308,7 @@ const provideForType = (
     Effect.provide(
       Layer.mergeAll(
         makeTestWorkspaceCatalog({ desiredExtensionGraph: desiredGraphByType[type] }),
-        Layer.merge(NodeServices.layer, FetchHttpClient.layer),
+        Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
       ),
     ),
   );

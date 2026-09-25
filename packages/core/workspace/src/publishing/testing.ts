@@ -21,7 +21,9 @@ import { pathToFileURL } from "node:url";
 
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import type * as HttpClient from "effect/unstable/http/HttpClient";
+import type * as FileSystem from "effect/FileSystem";
+import type * as Path from "effect/Path";
+import type { RegistryClientFactory } from "@agentxm/registry-client";
 
 import {
   GitDirectoryComparison,
@@ -38,7 +40,7 @@ import {
   AuthLoginPresenterTest,
   DeviceLoginInteractionTest,
 } from "@agentxm/registry-access/testing";
-import { OfflineHttpClient } from "@agentxm/registry-client/testing";
+import { OfflineHttpClient, RegistryClientFactoryTest } from "@agentxm/registry-client/testing";
 
 import type { PublishableType } from "./publishable-types.js";
 import type { PublishRequest } from "./publish/model.js";
@@ -259,7 +261,7 @@ export type PublishPorts =
   | AuthLoginPresenter
   | DeviceLoginInteraction
   | GitDirectoryComparison
-  | HttpClient.HttpClient;
+  | RegistryClientFactory;
 
 export interface PublishPortsTestOptions {
   /** Registry answers for the auth client; defaults to the client's own. */
@@ -282,13 +284,13 @@ export interface PublishPortsTestOptions {
  */
 export const PublishPortsTest = (
   options: PublishPortsTestOptions = {},
-): Layer.Layer<PublishPorts> =>
+): Layer.Layer<PublishPorts, never, FileSystem.FileSystem | Path.Path> =>
   Layer.mergeAll(
     AuthClientTest(options.auth),
     AuthLoginPresenterTest().layer,
     DeviceLoginInteractionTest().layer,
     GitDirectoryComparisonTest(options.compare),
-    OfflineHttpClient,
+    RegistryClientFactoryTest(OfflineHttpClient),
   );
 
 /**

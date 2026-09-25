@@ -6,6 +6,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as HttpClient from "effect/unstable/http/HttpClient";
+import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import {
   decodeExtensionNameSync,
   decodeHandleSync,
@@ -48,13 +49,18 @@ it.effect("does not treat failed cache configuration as absent release-age evide
               settings: { ...createDefaultSettings(), minimumReleaseAge: "24h" },
             }),
             ConfigProvider.layer(ConfigProvider.make(() => Effect.fail(sourceError))),
-            Layer.succeed(
-              HttpClient.HttpClient,
-              HttpClient.make(() =>
-                Effect.sync(() => {
-                  requests += 1;
-                }).pipe(Effect.andThen(Effect.die("Unexpected request"))),
+            Layer.provide(
+              RegistryTransportTest(
+                Layer.succeed(
+                  HttpClient.HttpClient,
+                  HttpClient.make(() =>
+                    Effect.sync(() => {
+                      requests += 1;
+                    }).pipe(Effect.andThen(Effect.die("Unexpected request"))),
+                  ),
+                ),
               ),
+              Layer.mergeAll(Path.layer, FileSystem.layerNoop({})),
             ),
           ),
         ),

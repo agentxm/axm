@@ -363,8 +363,11 @@ export { WorkspaceLocation, type WorkspaceLocationService } from "./workspace/lo
 export {
   SettingsReader,
   bindRegistrySource,
+  registryBaseUrl,
   type BoundRegistrySource,
   type RegistrySourceHost,
+  type RegistryTarget,
+  type RegistryTargetSelection,
   type SettingsReaderService,
 } from "./workspace/settings-reader.js";
 export { LockfileReader, type LockfileReaderService } from "./workspace/lockfile-reader.js";

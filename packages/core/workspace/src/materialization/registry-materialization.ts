@@ -12,11 +12,10 @@ import type * as Config from "effect/Config";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as HttpClient from "effect/unstable/http/HttpClient";
 import type { Version } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   computeIntegrity,
-  createRegistryClient,
+  RegistryClientFactory,
   extractZip,
   withBufferedArchiveBudget,
 } from "@agentxm/registry-client";
@@ -41,9 +40,6 @@ import {
   type MaterializedTreeInvalid,
   type TreeIntegrity,
 } from "../desired-state/index.js";
-
-const registryLocationForClient = (location: URL): string =>
-  location.protocol === "file:" ? location.pathname : location.href;
 
 export interface RegistryPackageMaterializationMessages {
   readonly integrityMismatchDetail: string;
@@ -90,7 +86,7 @@ export const materializeRegistryPackageWithTreeIntegrity = <E = never>(
   | ArchiveIntegrityMismatch
   | CanonicalDirectoryReplacementError
   | MaterializedTreeInvalid,
-  FileSystem.FileSystem | HttpClient.HttpClient | Path.Path
+  FileSystem.FileSystem | Path.Path | RegistryClientFactory
 > =>
   Effect.gen(function* () {
     yield* recoverCanonicalDirectory({
@@ -121,9 +117,7 @@ export const materializeRegistryPackageWithTreeIntegrity = <E = never>(
           return { kind: "prepared", directory: files.directory } as const;
         })
       : yield* Effect.gen(function* () {
-          const client = yield* createRegistryClient(
-            registryLocationForClient(args.sourceLocation),
-          );
+          const client = yield* (yield* RegistryClientFactory).forLocation(args.sourceLocation);
           // Continuous download progress reaches the lifecycle broadcast throttled:
           // tens of events per archive, attributed to the unit that is running and
           // to the attempt the request policy is on.

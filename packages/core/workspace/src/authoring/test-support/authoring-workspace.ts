@@ -23,7 +23,7 @@ import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 
 import { AgentPresenceProbeLive } from "../../projection/agent-adapters/live.js";
 import { CredentialStoreTest } from "@agentxm/registry-access/testing";
-import { RegistryUrl } from "@agentxm/registry-client";
+import { RegistryClientFactoryLive, RegistryUrl } from "@agentxm/registry-client";
 import { AxmSkillCandidateGateLive, RegistryResolutionPolicyLive } from "../../resolution/live.js";
 import { SourceHostProvidersLive } from "../../resolution/sources/live.js";
 import { makeMemoryMcpSecretStore } from "../../materialization/testing.js";
@@ -209,7 +209,11 @@ export const authoringWorkspaceEnvironment = (workspace: AuthoringWorkspace) => 
     agents,
   );
   const policy = Layer.provideMerge(
-    Layer.mergeAll(AxmSkillCandidateGateLive, RegistryResolutionPolicyLive),
+    Layer.mergeAll(
+      AxmSkillCandidateGateLive,
+      RegistryResolutionPolicyLive,
+      Layer.provide(RegistryClientFactoryLive, Layer.mergeAll(platform, identity)),
+    ),
     projection,
   );
   const sources = Layer.provideMerge(SourceHostProvidersLive, policy);

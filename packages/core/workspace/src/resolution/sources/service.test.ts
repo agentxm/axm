@@ -21,6 +21,7 @@ import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import type * as Scope from "effect/Scope";
 import { describe, expect, it } from "@effect/vitest";
+import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 
 import type { ExtensionIndex, VersionEntry } from "@agentxm/registry-protocol/unstable/registry";
 import type { FindOptions } from "@agentxm/extension-model/unstable/sources/source-host-provider";
@@ -102,9 +103,14 @@ const runWithService = <A, E>(
         RegistryResolutionPolicyTest,
       ),
     ),
-    Layer.provide(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),
+    Layer.provide(
+      Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
+    ),
   );
-  const fullLayer = Layer.mergeAll(spLayer, NodeServices.layer, FetchHttpClient.layer);
+  const fullLayer = Layer.mergeAll(
+    spLayer,
+    Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
+  );
   return effect.pipe(Effect.provide(fullLayer), Effect.scoped);
 };
 

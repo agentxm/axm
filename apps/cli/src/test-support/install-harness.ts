@@ -30,20 +30,21 @@ import {
 
 import { LifecycleFailureConversionLive } from "@agentxm/workspace/lifecycle";
 import {
-  KnowledgeIndexLive,
-  makeWorkspaceHandlerTestContext,
-  type FileSystemWriteEvent,
-  type TestPromptConfig,
   CodingAgentRepositoryLive,
-  NativeWriteAuthorityLive,
-  SourceHostProvidersLive,
   HookManagerLive,
+  KnowledgeIndexLive,
   KnowledgeManagerLive,
   McpServerManagerLive,
+  NativeWriteAuthorityLive,
   PackManagerLive,
   RuleManagerLive,
   SkillManagerLive,
+  SourceHostProvidersLive,
   SubagentManagerLive,
+  cliTestBuiltInSources,
+  makeWorkspaceHandlerTestContext,
+  type FileSystemWriteEvent,
+  type TestPromptConfig,
 } from "./test-helpers.js";
 import { makeWorkspaceFileContents, writeWorkspaceFiles } from "./test-stubs.js";
 import { rootCommand } from "../app.js";
@@ -122,6 +123,11 @@ export interface SpecWorkspaceOptions {
    * an HTTP client to the program afterwards.
    */
   readonly httpClient?: HttpClient.HttpClient;
+  /**
+   * The built-in Registry this workspace's settings select when they name no
+   * default: the same endpoint the harness transport answers for.
+   */
+  readonly registryUrl?: string;
 }
 
 export type SpecFileStore = MemoryFileStore;
@@ -232,6 +238,7 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
           WorkspaceStateLive({
             projectRoot: decodeAbsolutePathSync(root),
             scope: options.scope ?? "project",
+            builtInSources: cliTestBuiltInSources(options.registryUrl),
           }),
         );
   const context = makeWorkspaceHandlerTestContext({
@@ -245,7 +252,11 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
       ? { onFileSystemWrite: (event: FileSystemWriteEvent) => void writes.push(event) }
       : {}),
     flags: { nonInteractive: true, ...options.flags },
-    wsOptions: { projectRoot: root, scope: options.scope ?? "project" },
+    wsOptions: {
+      projectRoot: root,
+      scope: options.scope ?? "project",
+      builtInSources: cliTestBuiltInSources(options.registryUrl),
+    },
   });
 
   const workspaceServiceLayer = Layer.provideMerge(

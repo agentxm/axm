@@ -68,7 +68,6 @@ export class PublishedMetadataUnavailable extends Schema.TaggedError<PublishedMe
   {
     reason: Schema.Literals([
       "registry-not-configured",
-      "workspace-not-initialized",
       "ambiguous-name",
       "unqualified-name",
       "not-found",

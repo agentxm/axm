@@ -10,9 +10,6 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import type * as FileSystem from "effect/FileSystem";
-import type * as Path from "effect/Path";
-import type * as HttpClient from "effect/unstable/http/HttpClient";
 
 import {
   extensionTypeToPlural,
@@ -47,7 +44,7 @@ import {
   type VersionEntry,
 } from "@agentxm/registry-protocol/unstable/registry";
 import {
-  createRegistryClient,
+  RegistryClientFactory,
   type RegistryClient,
   type RegistryPublishWarning,
 } from "@agentxm/registry-client";
@@ -303,11 +300,7 @@ export const publishCandidate: (
   candidate: PublishCandidate,
   registry: TargetRegistry,
   onUploadDispatched?: Effect.Effect<void>,
-) => Effect.Effect<
-  PublishedCandidate,
-  PublishFailure,
-  HttpClient.HttpClient | FileSystem.FileSystem | Path.Path
-> = (
+) => Effect.Effect<PublishedCandidate, PublishFailure, RegistryClientFactory> = (
   candidate: PublishCandidate,
   registry: TargetRegistry,
   /**
@@ -319,7 +312,7 @@ export const publishCandidate: (
   onUploadDispatched: Effect.Effect<void> = Effect.void,
 ) =>
   Effect.gen(function* () {
-    const client = yield* createRegistryClient(registry.url);
+    const client = yield* (yield* RegistryClientFactory).forLocation(registry.url);
     const metadata: VersionEntry = {
       version: candidate.version,
       published: yield* DateTime.now,

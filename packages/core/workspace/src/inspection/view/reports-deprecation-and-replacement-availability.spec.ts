@@ -8,7 +8,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
 import { RegistryUrl } from "@agentxm/registry-client";
-import { defaultViewRegistry, ViewExtension } from "./view-extension.js";
+import { ViewExtension } from "./view-extension.js";
 import { inspectionRegistryUrl, makeRecordedRegistryPort } from "../testing.js";
 
 export const specification = defineSpecification({
@@ -64,7 +64,7 @@ describe("Extension deprecation details", () => {
       const parts = parseExtensionFqnParts(handle);
       if (parts === undefined) throw new Error("Expected a fully qualified handle");
       return Effect.gen(function* () {
-        const targetRegistry = yield* defaultViewRegistry;
+        const targetRegistry = { registryName: "agentxm", registryUrl: inspectionRegistryUrl };
         const result = yield* ViewExtension.read({
           handle,
           parts,

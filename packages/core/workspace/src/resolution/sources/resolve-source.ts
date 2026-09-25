@@ -11,11 +11,11 @@
  */
 
 import type * as FileSystem from "effect/FileSystem";
-import type * as HttpClient from "effect/unstable/http/HttpClient";
 import type * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import { bindRegistrySource } from "../../desired-state/index.js";
 import * as Option from "effect/Option";
+import type { RegistryClientFactory } from "@agentxm/registry-client";
 
 import * as azurerepos from "./providers/azurerepos/index.js";
 import * as bitbucket from "./providers/bitbucket/index.js";
@@ -221,7 +221,7 @@ export const routeNameInput = (
 ): Effect.Effect<
   Source,
   SourceResolutionFailure,
-  FileSystem.FileSystem | HttpClient.HttpClient | Path.Path | WorkspaceCatalog
+  FileSystem.FileSystem | RegistryClientFactory | Path.Path | WorkspaceCatalog
 > =>
   Effect.gen(function* () {
     const catalog = yield* WorkspaceCatalog;
@@ -335,7 +335,7 @@ export const resolveSource = (
 ): Effect.Effect<
   Source,
   SourceResolutionFailure,
-  FileSystem.FileSystem | HttpClient.HttpClient | Path.Path | WorkspaceCatalog
+  FileSystem.FileSystem | RegistryClientFactory | Path.Path | WorkspaceCatalog
 > =>
   Effect.gen(function* () {
     const trimmed = input.trim();

@@ -24,6 +24,7 @@ import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "../../transitions/settlement/live.js";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
+import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import {
   buildAuthoredExtensionStep,
   buildInstallOperation,
@@ -93,7 +94,7 @@ const grounded = <A, E>(
             lockPath: nodePath.join(transactionDir, "axm-lock.yaml"),
           }),
           NativeWriteAuthorityPermissive,
-          FetchHttpClient.layer,
+          RegistryTransportTest(FetchHttpClient.layer),
         ).pipe(Layer.provideMerge(NodeServices.layer)),
       ),
     ),

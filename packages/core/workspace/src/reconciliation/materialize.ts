@@ -18,7 +18,7 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import type * as Scope from "effect/Scope";
-import type * as HttpClient from "effect/unstable/http/HttpClient";
+import type { RegistryClientFactory } from "@agentxm/registry-client";
 import { SourceHostProviders, WorkspaceCatalog } from "../resolution/sources/index.js";
 import * as semver from "semver";
 import {
@@ -346,7 +346,7 @@ type ConfiguredEntryResolutionFailure = Effect.Error<ReturnType<typeof resolveCo
 /** Everything resolving one configured entry reads. */
 export type ConfiguredEntryResolutionRequirements =
   | FileSystem.FileSystem
-  | HttpClient.HttpClient
+  | RegistryClientFactory
   | Path.Path
   | ReleaseAgePosture
   | Scope.Scope

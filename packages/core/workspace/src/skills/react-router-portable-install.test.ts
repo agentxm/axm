@@ -11,6 +11,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { computeSourceHash } from "../desired-state/index.js";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import type { GitSource } from "@agentxm/extension-model/unstable/sources/types";
@@ -129,6 +130,10 @@ describe("portable React Router skill acquisition", () => {
       });
       expect(observed.status).toBe("usable");
       expect(observed.path).toBe(canonical);
-    }).pipe(Effect.provide(Layer.merge(NodeServices.layer, FetchHttpClient.layer))),
+    }).pipe(
+      Effect.provide(
+        Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
+      ),
+    ),
   );
 });

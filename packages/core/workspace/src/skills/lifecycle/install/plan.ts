@@ -18,7 +18,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import type * as HttpClient from "effect/unstable/http/HttpClient";
+import type { RegistryClientFactory } from "@agentxm/registry-client";
 
 import { SkillManager } from "../../../materialization/index.js";
 import { prepareSkillInstallation } from "../application/installation.js";
@@ -324,7 +324,7 @@ export const planSkillInstallationStep = (
 ): Effect.Effect<
   PlannedJobStep<InstallStepRequirements>,
   ExtensionLifecycleFailed | Config.ConfigError,
-  InstallStepRequirements | SkillManager | FileSystem.FileSystem | Path.Path | HttpClient.HttpClient
+  InstallStepRequirements | SkillManager | FileSystem.FileSystem | Path.Path | RegistryClientFactory
 > =>
   Effect.gen(function* () {
     const skillManager = yield* SkillManager;
@@ -352,7 +352,7 @@ export const planSkillInstall: (
 ) => Effect.Effect<
   Plan<InstallStepRequirements>,
   ExtensionLifecycleFailed | Config.ConfigError,
-  InstallStepRequirements | SkillManager | FileSystem.FileSystem | Path.Path | HttpClient.HttpClient
+  InstallStepRequirements | SkillManager | FileSystem.FileSystem | Path.Path | RegistryClientFactory
 > = Effect.fn("InstallExtensions.planSkills")(function* (
   intent: SkillInstallIntent,
   options?: { readonly installedBefore?: ReadonlyMap<string, boolean> },

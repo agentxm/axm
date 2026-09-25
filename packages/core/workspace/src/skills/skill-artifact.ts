@@ -10,7 +10,7 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import {
   UNIVERSAL_SKILLS_DIR,
   isUniversalSkillsDir,
@@ -19,13 +19,13 @@ import {
 import type { JobStepArtifact, JobStepArtifactTarget } from "../transitions/planning/index.js";
 
 export type InstallableSkillTarget = {
-  readonly agentId: AgentId;
+  readonly agentId: MaterializationTargetId;
   readonly targetDir: string;
 };
 
 export type InstallableSkillTargetLocation = {
   readonly targetDir: string;
-  readonly agentIds: ReadonlyArray<AgentId>;
+  readonly agentIds: ReadonlyArray<MaterializationTargetId>;
 };
 
 const UNIVERSAL_AGENT_ID = "universal";
@@ -37,8 +37,9 @@ export const artifactAgentIdsFromTargets = (
     targets.map((target) => target.agentId).filter((agentId) => agentId !== UNIVERSAL_AGENT_ID),
   );
 
-export const artifactTargetAgentIds = (agentIds: ReadonlyArray<AgentId>): ReadonlyArray<string> =>
-  agentIds.filter((agentId) => agentId !== UNIVERSAL_AGENT_ID);
+export const artifactTargetAgentIds = (
+  agentIds: ReadonlyArray<MaterializationTargetId>,
+): ReadonlyArray<string> => agentIds.filter((agentId) => agentId !== UNIVERSAL_AGENT_ID);
 
 const normalizedTargetDir = (path: Path.Path, targetDir: string): string =>
   stripTrailingSeparators(path.normalize(targetDir));
@@ -89,7 +90,10 @@ export const groupInstallTargetsByDirectory = (
         ),
       { concurrency: 16 },
     );
-    const locationsByKey = new Map<string, { targetDir: string; agentIds: Array<AgentId> }>();
+    const locationsByKey = new Map<
+      string,
+      { targetDir: string; agentIds: Array<MaterializationTargetId> }
+    >();
     for (const { key, target } of keyedTargets) {
       const existing = locationsByKey.get(key);
       if (existing === undefined) {

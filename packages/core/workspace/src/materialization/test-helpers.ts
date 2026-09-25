@@ -11,7 +11,7 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import type { CodingAgent } from "../projection/agent-adapters/index.js";
-import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import {
   decodeExtensionNameSync,
   ExtensionFqnSchema,
@@ -102,7 +102,7 @@ export const expectRecord = (
 };
 
 export const makeCodingAgentStub = (
-  id: AgentId,
+  id: MaterializationTargetId,
   overrides?: Partial<CodingAgent>,
 ): CodingAgent => ({
   id,

@@ -21,7 +21,7 @@ import * as Effect from "effect/Effect";
 import { extensionRefLifecycleWarnings } from "../../lifecycle/warnings.js";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import {
   collectSecretInputNames,
   mcpProjectionInputValues,
@@ -376,7 +376,7 @@ const redactSettingsEnv = (
   return redacted;
 };
 
-const REQUIRED_AGENT_IDS: ReadonlySet<AgentId> = new Set<AgentId>([
+const REQUIRED_AGENT_IDS: ReadonlySet<MaterializationTargetId> = new Set<MaterializationTargetId>([
   "claude-code",
   "opencode",
   "github-copilot-cli",
@@ -386,7 +386,7 @@ const REQUIRED_AGENT_IDS: ReadonlySet<AgentId> = new Set<AgentId>([
 ]);
 
 interface AgentOutcome {
-  readonly agentId: AgentId;
+  readonly agentId: MaterializationTargetId;
   readonly outcome: McpServerSyncOutcome;
 }
 

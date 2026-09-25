@@ -216,6 +216,7 @@ export {
   AgentIdSchema,
   CONFIGURABLE_AGENT_IDS,
   HOSTED_AGENT_IDS,
+  isConfigurableAgentId,
   type AgentId,
   type ConfigurableAgentId,
   type HostedAgentId,

@@ -29,7 +29,10 @@ import {
 import { userScopeRefusal } from "../scope-refusal.js";
 import { addMcpServerFromManifest, removeMcpServerFromManifest } from "../mcps/sync.js";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
-import type { AgentDescriptor, AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import type {
+  AgentDescriptor,
+  MaterializationTargetId,
+} from "@agentxm/extension-model/unstable/agents/types";
 
 const catalogAgentIds = new Set<string>(CATALOG_AGENT_IDS);
 
@@ -42,7 +45,9 @@ interface AgentRuntimeOverride {
 }
 
 /** Runtime deviations from the catalog descriptor, keyed by agent id. */
-export const AGENT_RUNTIME_OVERRIDES: Readonly<Partial<Record<AgentId, AgentRuntimeOverride>>> = {
+export const AGENT_RUNTIME_OVERRIDES: Readonly<
+  Partial<Record<MaterializationTargetId, AgentRuntimeOverride>>
+> = {
   "claude-code": { skillsDirectoryEnvironment: "AXM_CLAUDE_SKILLS_DIR" },
   "gemini-cli": { skillsDirectoryEnvironment: "AXM_GEMINI_CLI_SKILLS_DIR" },
   "kiro-cli": { subagentRenderAgentId: "kiro" },
@@ -173,5 +178,5 @@ export const codingAgentFromDescriptor = (descriptor: AgentDescriptor): CodingAg
 };
 
 /** @experimental This API is unstable and may change without notice. */
-export const codingAgentForId = (id: AgentId): CodingAgent =>
+export const codingAgentForId = (id: MaterializationTargetId): CodingAgent =>
   codingAgentFromDescriptor(AGENT_DESCRIPTORS[id]);

@@ -20,10 +20,10 @@ import {
   type AgentScopeDetection,
 } from "../../projection/agent-adapters/index.js";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
+import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import {
-  isConfigurableAgentId,
   type AgentDescriptor,
-  type AgentId,
+  type MaterializationTargetId,
   type ConfigurableAgentId,
 } from "@agentxm/extension-model/unstable/agents/types";
 import { WorkspaceConfigurationFailed } from "../errors.js";
@@ -95,7 +95,8 @@ const INSTRUCTION_SOURCE_CANDIDATES = [
   ".cursorrules",
 ] as const;
 
-const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENT_DESCRIPTORS, id);
+const isKnownAgentId = (id: string): id is MaterializationTargetId =>
+  Object.hasOwn(AGENT_DESCRIPTORS, id);
 
 const isKnownConfigurableAgentId = (id: string): id is ConfigurableAgentId =>
   isKnownAgentId(id) && isConfigurableAgentId(id);

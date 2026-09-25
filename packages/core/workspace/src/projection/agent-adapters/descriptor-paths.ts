@@ -8,14 +8,14 @@
  */
 
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
-import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 
-const unsupportedCapability = (agentId: AgentId, capability: string): never => {
+const unsupportedCapability = (agentId: MaterializationTargetId, capability: string): never => {
   throw new Error(`Agent ${agentId} does not support ${capability}`);
 };
 
 /** @experimental */
-export const agentSkillsProjectDir = (agentId: AgentId): string => {
+export const agentSkillsProjectDir = (agentId: MaterializationTargetId): string => {
   const skills = AGENT_DESCRIPTORS[agentId].skills;
   if (skills === undefined) {
     return unsupportedCapability(agentId, "skills");
@@ -24,11 +24,12 @@ export const agentSkillsProjectDir = (agentId: AgentId): string => {
 };
 
 /** @experimental */
-export const agentSubagentsProjectDirOptional = (agentId: AgentId): string | undefined =>
-  AGENT_DESCRIPTORS[agentId].subagents?.dir;
+export const agentSubagentsProjectDirOptional = (
+  agentId: MaterializationTargetId,
+): string | undefined => AGENT_DESCRIPTORS[agentId].subagents?.dir;
 
 /** @experimental */
-export const agentSubagentsProjectDir = (agentId: AgentId): string => {
+export const agentSubagentsProjectDir = (agentId: MaterializationTargetId): string => {
   const subagents = AGENT_DESCRIPTORS[agentId].subagents;
   if (subagents === undefined) {
     return unsupportedCapability(agentId, "subagents");

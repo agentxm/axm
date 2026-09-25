@@ -107,14 +107,11 @@ export interface AgentDetectionDescriptor {
 /** @experimental This API is unstable and may change without notice. */
 export { CONFIGURABLE_AGENT_IDS, type ConfigurableAgentId };
 
-/** @experimental This API is unstable and may change without notice. */
-export const AGENT_IDS = [...CONFIGURABLE_AGENT_IDS, "universal"] as const;
+/** Configurable agents plus the synthetic universal materialization target. @experimental */
+export const MATERIALIZATION_TARGET_IDS = [...CONFIGURABLE_AGENT_IDS, "universal"] as const;
 
 /** @experimental This API is unstable and may change without notice. */
-export type AgentId = (typeof AGENT_IDS)[number];
-
-/** @experimental This API is unstable and may change without notice. */
-export const isConfigurableAgentId = (id: AgentId): id is ConfigurableAgentId => id !== "universal";
+export type MaterializationTargetId = (typeof MATERIALIZATION_TARGET_IDS)[number];
 
 // -----------------------------------------------------------------------------
 // Agent Configuration
@@ -127,7 +124,7 @@ export const isConfigurableAgentId = (id: AgentId): id is ConfigurableAgentId =>
  */
 export interface AgentDescriptor {
   /** Unique identifier (e.g., "claude-code") */
-  readonly id: AgentId;
+  readonly id: MaterializationTargetId;
   /** Human-readable display name (e.g., "Claude Code") */
   readonly name: string;
   /**
@@ -167,4 +164,4 @@ export interface AgentDescriptor {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type AgentRegistry = Record.ReadonlyRecord<AgentId, AgentDescriptor>;
+export type AgentRegistry = Record.ReadonlyRecord<MaterializationTargetId, AgentDescriptor>;

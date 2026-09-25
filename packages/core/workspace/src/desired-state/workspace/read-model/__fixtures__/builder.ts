@@ -37,7 +37,7 @@ import * as Path from "effect/Path";
 import * as PlatformError from "effect/PlatformError";
 import YAML from "yaml";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
-import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import type { Settings } from "../../../settings/schema.js";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { resolveProjectWorkspaceLayout, resolveUserWorkspaceLayout } from "../../layout.js";
@@ -208,7 +208,8 @@ const validateRelativePath = (
  * still synthesize directories for hypothetical agents.
  */
 const resolveAgentContentRoot = (agentId: string): string => {
-  const isKnown = (id: string): id is AgentId => Object.hasOwn(AGENT_DESCRIPTORS, id);
+  const isKnown = (id: string): id is MaterializationTargetId =>
+    Object.hasOwn(AGENT_DESCRIPTORS, id);
   if (!isKnown(agentId)) return `.${agentId}`;
   const descriptor = AGENT_DESCRIPTORS[agentId];
   const skillsDir = descriptor.skills?.dir;
@@ -218,7 +219,8 @@ const resolveAgentContentRoot = (agentId: string): string => {
 };
 
 const resolveAgentSettingsRoot = (agentId: string): string => {
-  const isKnown = (id: string): id is AgentId => Object.hasOwn(AGENT_DESCRIPTORS, id);
+  const isKnown = (id: string): id is MaterializationTargetId =>
+    Object.hasOwn(AGENT_DESCRIPTORS, id);
   if (!isKnown(agentId)) return `.${agentId}`;
   const descriptor = AGENT_DESCRIPTORS[agentId];
   if (typeof descriptor.rootDir === "string") return descriptor.rootDir;

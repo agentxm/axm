@@ -11,7 +11,7 @@
  */
 
 import * as Data from "effect/Data";
-import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import type { McpInspectionError } from "../projection/index.js";
 
 /** A lock entry was requested before install recorded the package state. */
@@ -74,7 +74,7 @@ export class McpAgentSyncRefused extends Data.TaggedError("McpAgentSyncRefused")
   readonly serverName: string;
   readonly fault: McpAgentSyncFault;
   /** The agents the fault is about; empty when it is about none in particular. */
-  readonly agentIds: ReadonlyArray<AgentId | string>;
+  readonly agentIds: ReadonlyArray<MaterializationTargetId | string>;
 }> {}
 
 /** Every failure the MCP module surfaces. */

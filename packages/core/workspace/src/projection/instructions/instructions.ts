@@ -21,7 +21,7 @@ import { reconcilePatternList } from "../agent-adapters/index.js";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import type {
   AgentDescriptor,
-  AgentId,
+  MaterializationTargetId,
   AgentInstructionsDescriptor,
 } from "@agentxm/extension-model/unstable/agents/types";
 
@@ -78,7 +78,7 @@ export type ObservedInstructionForm =
 
 export interface InstructionStatusItem {
   readonly root: string;
-  readonly agentId: AgentId;
+  readonly agentId: MaterializationTargetId;
   readonly agentName: string;
   readonly sourceFile: string;
   readonly targetFile: string;
@@ -299,7 +299,7 @@ const isSymlink = (entry: string) =>
   });
 
 interface OwnFileConvention {
-  readonly agentId: AgentId;
+  readonly agentId: MaterializationTargetId;
   readonly agentName: string;
   readonly relativeTarget: string;
 }
@@ -574,14 +574,14 @@ export type PlannedInstructionItem =
       readonly action: "skip";
       readonly reason: InstructionSkipReason;
       readonly root: string;
-      readonly agentId: AgentId;
+      readonly agentId: MaterializationTargetId;
       readonly agentName: string;
       readonly sourcePath: string;
     }
   | {
       readonly action: "native" | "write" | "adapter";
       readonly root: string;
-      readonly agentId: AgentId;
+      readonly agentId: MaterializationTargetId;
       readonly agentName: string;
       readonly sourcePath: string;
       readonly targetPath: string;

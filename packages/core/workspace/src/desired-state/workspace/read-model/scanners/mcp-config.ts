@@ -32,7 +32,10 @@ import { parse as parseToml } from "smol-toml";
 import { parse as parseYaml } from "yaml";
 import { osHomeDirectory } from "@agentxm/host-primitives";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
-import type { AgentDescriptor, AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import type {
+  AgentDescriptor,
+  MaterializationTargetId,
+} from "@agentxm/extension-model/unstable/agents/types";
 import {
   CONFIGURABLE_AGENTS_BY_ID,
   type Agent,
@@ -66,7 +69,7 @@ export interface McpConfigScannerDeps {
   readonly workspaceRoot: string;
   readonly scope: Scope;
   readonly diagnostics: Diagnostics;
-  readonly agentRegistry?: Readonly<Partial<Record<AgentId, AgentDescriptor>>>;
+  readonly agentRegistry?: Readonly<Partial<Record<MaterializationTargetId, AgentDescriptor>>>;
 }
 
 /**
@@ -241,7 +244,7 @@ const surfacePlanKey = (plan: McpSurfaceScanPlan): string =>
 
 const planMcpSurfaces = (
   scope: Scope,
-  registry: Readonly<Partial<Record<AgentId, AgentDescriptor>>>,
+  registry: Readonly<Partial<Record<MaterializationTargetId, AgentDescriptor>>>,
 ): ReadonlyArray<McpSurfaceScanPlan> => {
   const plans = new Map<string, McpSurfaceScanPlan>();
   for (const descriptor of Object.values(registry)) {

@@ -16,7 +16,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import * as ServiceMap from "effect/Context";
-import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { detectAgentsForScope } from "./detection.js";
 
@@ -29,7 +29,10 @@ export interface AgentPresenceProbeService {
   readonly detect: (
     root: string,
     scope: WorkspaceScope,
-  ) => Effect.Effect<ReadonlySet<AgentId>, AgentPresenceUnavailable | Config.ConfigError>;
+  ) => Effect.Effect<
+    ReadonlySet<MaterializationTargetId>,
+    AgentPresenceUnavailable | Config.ConfigError
+  >;
 }
 
 export class AgentPresenceProbe extends ServiceMap.Service<
@@ -48,7 +51,9 @@ export const AgentPresenceProbeLive = Layer.effect(
         detectAgentsForScope(root, scope).pipe(
           Effect.provideService(FileSystem.FileSystem, fs),
           Effect.provideService(Path.Path, path),
-          Effect.map((detected) => new Set<AgentId>(detected.map((agent) => agent.id))),
+          Effect.map(
+            (detected) => new Set<MaterializationTargetId>(detected.map((agent) => agent.id)),
+          ),
           Effect.mapError((error) =>
             error._tag === "ConfigError"
               ? error

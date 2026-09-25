@@ -19,6 +19,7 @@ import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import type { LocalSubagentRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
+import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import type { AddSubagentArgs, CodingAgent } from "../projection/agent-adapters/index.js";
 import { SubagentManager } from "../materialization/managers.js";
 import { CodingAgentRepository } from "../projection/index.js";
@@ -82,8 +83,11 @@ const writeSubagentPackage = (packageRoot: string, name: string, description: st
   );
 };
 
-const makeMockCodingAgent = (id: string, overrides?: Partial<CodingAgent>): CodingAgent => ({
-  id: id as import("@agentxm/extension-model/unstable/agents/types").AgentId,
+const makeMockCodingAgent = (
+  id: MaterializationTargetId,
+  overrides?: Partial<CodingAgent>,
+): CodingAgent => ({
+  id,
   resolveEffectiveSkillsDir: () => Effect.succeed({ _tag: "unsupported", reason: "not used" }),
   addMcpServer: () => Effect.succeed({ _tag: "unsupported", reason: "not used" }),
   removeMcpServer: () => Effect.succeed({ _tag: "unsupported", reason: "not used" }),

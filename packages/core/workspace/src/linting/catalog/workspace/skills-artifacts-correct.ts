@@ -33,7 +33,7 @@ import {
   isUniversalSkillsRelativeDir,
   resolveUniversalDirPresence,
 } from "@agentxm/extension-model/unstable/extensions/universal-skills-dir";
-import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agents/types";
+import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import { deferringNodes } from "./canonical-observation-findings.js";
 import { settingsDisplayPath } from "./display-paths.js";
 import { desiredPackMemberBindings } from "./helpers/pack-members.js";

@@ -17,7 +17,7 @@ import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import type { CodingAgentFailure } from "../errors.js";
 import type { NativeWriteAuthority } from "../native-write-authority.js";
 import type { SubagentRenderInput } from "../subagents/rendering/types.js";
@@ -169,7 +169,7 @@ export type McpServerSyncOutcome =
  * manage MCP server configuration entries, and manage subagent files.
  */
 export interface CodingAgent {
-  readonly id: AgentId;
+  readonly id: MaterializationTargetId;
   readonly resolveEffectiveSkillsDir: (
     args: ResolveSkillsDirArgs,
   ) => Effect.Effect<ResolveSkillsDirOutcome, CodingAgentFailure, Path.Path>;

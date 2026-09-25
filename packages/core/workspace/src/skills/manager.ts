@@ -48,7 +48,7 @@ import {
   applyProjectionPlans,
   planSingletonProjection,
 } from "../projection/index.js";
-import { type AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import { type MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import { computeSkillSourceHash } from "./source-hash.js";
 import {
   ensureSkillAgentArtifact,
@@ -120,7 +120,10 @@ export const SkillManagerLive = Layer.effect(
         });
       }
 
-      const installTargets: Array<{ readonly agentId: AgentId; readonly dir: string }> = [];
+      const installTargets: Array<{
+        readonly agentId: MaterializationTargetId;
+        readonly dir: string;
+      }> = [];
       for (const { agent, outcome } of resolved) {
         if (outcome._tag === "supported") {
           installTargets.push({ agentId: agent.id, dir: path.normalize(outcome.dir) });
@@ -128,7 +131,7 @@ export const SkillManagerLive = Layer.effect(
       }
       const locations = new Map<
         string,
-        { readonly dir: string; readonly agentIds: Array<AgentId> }
+        { readonly dir: string; readonly agentIds: Array<MaterializationTargetId> }
       >();
       for (const target of installTargets) {
         const existing = locations.get(target.dir);

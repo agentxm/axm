@@ -28,7 +28,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
-import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import type { FixtureSpec } from "../../__fixtures__/builder.js";
 import {
   runScenario,
@@ -59,7 +59,9 @@ const spec = (project: NonNullable<FixtureSpec["project"]>): FixtureSpec => ({
 
 const runActual = (s: FixtureSpec) => runScenario(s, (ctx) => ctx.scope("project").skills.actual);
 
-const expectedSkillAgentIdsFor = (agentIds: ReadonlyArray<AgentId>): ReadonlyArray<string> => {
+const expectedSkillAgentIdsFor = (
+  agentIds: ReadonlyArray<MaterializationTargetId>,
+): ReadonlyArray<string> => {
   const observedDirs = agentIds.flatMap((agentId) => {
     const skills = AGENT_DESCRIPTORS[agentId].skills;
     return skills === undefined ? [] : [skills.dir];

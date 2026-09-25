@@ -11,7 +11,7 @@ import * as Result from "effect/Result";
 import type { WorkspaceLayoutError } from "../errors.js";
 import { AgentPresenceProbe } from "../../../projection/agent-adapters/index.js";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
-import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import type { CatalogExtensionType } from "@agentxm/extension-model/unstable/extension-types/schema";
 import { type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type { Settings, SourceHostConfig } from "../../settings/schema.js";
@@ -361,10 +361,10 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
   const presenceProbe = yield* Effect.serviceOption(AgentPresenceProbe);
   const presence = yield* Effect.cached(
     Option.match(presenceProbe, {
-      onNone: () => Effect.succeed(new Set<AgentId>()),
+      onNone: () => Effect.succeed(new Set<MaterializationTargetId>()),
       onSome: (probe) =>
         probe.detect(workspaceRoot, scope).pipe(
-          Effect.map((detected) => new Set<AgentId>(detected)),
+          Effect.map((detected) => new Set<MaterializationTargetId>(detected)),
           Effect.catchTag("AgentPresenceUnavailable", (error) =>
             diagnostics
               .append({
@@ -372,7 +372,7 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
                 message: `agent-presence: structured detection failed: ${error.message}`,
                 code: "scanner-io",
               })
-              .pipe(Effect.map(() => new Set<AgentId>())),
+              .pipe(Effect.map(() => new Set<MaterializationTargetId>())),
           ),
         ),
     }),

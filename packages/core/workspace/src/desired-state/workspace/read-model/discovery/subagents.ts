@@ -7,7 +7,10 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { SubagentScanFailed } from "../errors.js";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
-import type { AgentDescriptor, AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import type {
+  AgentDescriptor,
+  MaterializationTargetId,
+} from "@agentxm/extension-model/unstable/agents/types";
 import { SCANNER_IO_CONCURRENCY } from "../scanners/fs-helpers.js";
 
 export interface DetectedSubagentFile {
@@ -26,7 +29,8 @@ export interface AgentSubagentSummary {
   readonly files: ReadonlyArray<DetectedSubagentFile>;
 }
 
-const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENT_DESCRIPTORS, id);
+const isKnownAgentId = (id: string): id is MaterializationTargetId =>
+  Object.hasOwn(AGENT_DESCRIPTORS, id);
 
 const scanKnownAgentSubagentFiles = (agent: AgentDescriptor, projectDir: string) =>
   Effect.gen(function* () {

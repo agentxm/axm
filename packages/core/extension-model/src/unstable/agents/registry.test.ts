@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from "vitest";
 import { AGENT_DESCRIPTORS } from "./registry.js";
-import { AGENT_IDS } from "./types.js";
+import { MATERIALIZATION_TARGET_IDS } from "./types.js";
 
 describe("derived agent descriptors", () => {
   const agents = Object.values(AGENT_DESCRIPTORS);
@@ -68,15 +68,15 @@ describe("derived agent descriptors", () => {
   });
 });
 
-describe("AGENT_IDS", () => {
+describe("MATERIALIZATION_TARGET_IDS", () => {
   it("contains the descriptor IDs", () => {
-    expect(AGENT_IDS).toContain("claude-code");
-    expect(AGENT_IDS).toContain("cursor");
-    expect(AGENT_IDS).toContain("codex");
-    expect(AGENT_IDS).toContain("universal");
+    expect(MATERIALIZATION_TARGET_IDS).toContain("claude-code");
+    expect(MATERIALIZATION_TARGET_IDS).toContain("cursor");
+    expect(MATERIALIZATION_TARGET_IDS).toContain("codex");
+    expect(MATERIALIZATION_TARGET_IDS).toContain("universal");
   });
 
   it("has the same count as the descriptor record", () => {
-    expect(AGENT_IDS.length).toBe(Object.keys(AGENT_DESCRIPTORS).length);
+    expect(MATERIALIZATION_TARGET_IDS.length).toBe(Object.keys(AGENT_DESCRIPTORS).length);
   });
 });

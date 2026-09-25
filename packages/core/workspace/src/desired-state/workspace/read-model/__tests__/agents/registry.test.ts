@@ -8,18 +8,21 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
-import { AGENT_IDS, type AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import {
+  CONFIGURABLE_AGENT_IDS,
+  type MaterializationTargetId,
+} from "@agentxm/extension-model/unstable/agents/types";
 import { absentAll } from "../../__fixtures__/builder.js";
 import { WorkspaceReadModelTest } from "../../__fixtures__/test-layer.js";
 import { makeWorkspaceReadModel } from "../../service.js";
 import { getAgentModule, registeredAgentModules, type AgentModule } from "../../agents/index.js";
 
-const readModelAgentIds = AGENT_IDS.filter((id) => id !== "universal");
+const readModelAgentIds = CONFIGURABLE_AGENT_IDS;
 
 describe("agents/index.ts barrel", () => {
   it("lists every registered agent id exactly once in canonical order", () => {
     expect(registeredAgentModules.length).toBe(readModelAgentIds.length);
-    const seen = new Set<AgentId>();
+    const seen = new Set<MaterializationTargetId>();
     registeredAgentModules.forEach((module, i) => {
       expect(module.agentId).toBe(readModelAgentIds[i]);
       expect(seen.has(module.agentId)).toBe(false);
@@ -31,7 +34,7 @@ describe("agents/index.ts barrel", () => {
   });
 
   it("each module's agentId is valid", () => {
-    const validIds: ReadonlySet<string> = new Set<string>(AGENT_IDS);
+    const validIds: ReadonlySet<string> = new Set<string>(CONFIGURABLE_AGENT_IDS);
     for (const module of registeredAgentModules) {
       expect(validIds.has(module.agentId)).toBe(true);
     }
@@ -47,7 +50,7 @@ describe("agents/index.ts barrel", () => {
     }
   });
 
-  it("getAgentModule returns the matching module for every AGENT_IDS entry", () => {
+  it("getAgentModule returns the matching module for every configurable agent ID", () => {
     for (const id of readModelAgentIds) {
       const m = getAgentModule(id);
       expect(m.agentId).toBe(id);

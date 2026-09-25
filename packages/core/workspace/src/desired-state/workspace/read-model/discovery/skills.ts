@@ -12,7 +12,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { toFileLocation } from "@agentxm/host-primitives";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
-import { AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
+import { MATERIALIZATION_TARGET_IDS } from "@agentxm/extension-model/unstable/agents/types";
 import { parsePluginManifests } from "./plugin-manifests.js";
 import { parseSkillMd } from "@agentxm/extension-content";
 import type { Skill } from "@agentxm/extension-content";
@@ -88,7 +88,7 @@ const STATIC_PRIORITY_DIRECTORIES: readonly string[] = [
  */
 export const getPriorityDirectories = (): ReadonlyArray<string> => {
   const agentDirs = Array.dedupe(
-    AGENT_IDS.flatMap((id) => {
+    MATERIALIZATION_TARGET_IDS.flatMap((id) => {
       const skills = AGENT_DESCRIPTORS[id].skills;
       return skills === undefined
         ? []

@@ -12,7 +12,7 @@ import type {
 } from "../agents/types.js";
 import { PER_AGENT_EXTENSION_TYPES, type ExtensionType } from "../extensions/common.js";
 import { AGENTS } from "./catalog.js";
-import { CONFIGURABLE_AGENT_IDS, type ConfigurableAgentId } from "./identity.js";
+import { isConfigurableAgentId, type ConfigurableAgentId } from "./identity.js";
 import { LEAF_EXTENSION_TYPES, type LeafExtensionType } from "../extension-types/schema.js";
 import {
   SUPPORTED_AXM_SUPPORT,
@@ -111,11 +111,6 @@ const capabilityForType = (
   if (isPerAgentType(type)) return agent.capabilities[type];
   return undefined;
 };
-
-const configurableAgentIds = new Set<string>(CONFIGURABLE_AGENT_IDS);
-
-const isConfigurableAgentId = (id: string): id is ConfigurableAgentId =>
-  configurableAgentIds.has(id);
 
 const deriveAgentId = (agent: Agent): ConfigurableAgentId => {
   if (isConfigurableAgentId(agent.id)) return agent.id;

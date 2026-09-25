@@ -1,4 +1,4 @@
-import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import { ACQUIRED_EXTENSIONS_DIR } from "../desired-state/index.js";
 import { acquiredExtensionDisplayPathFromLockEntry } from "../desired-state/index.js";
 import type { McpServerLockEntry } from "../desired-state/index.js";
@@ -26,7 +26,7 @@ export const mcpServerSourcePath = (scope: WorkspaceScope, entry: McpServerLockE
 
 export const agentConfigTarget = (
   change: JobStepArtifactTarget["change"],
-  agentIds: ReadonlyArray<AgentId>,
+  agentIds: ReadonlyArray<MaterializationTargetId>,
 ): JobStepArtifactTarget | undefined =>
   agentIds.length === 0
     ? undefined

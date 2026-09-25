@@ -26,7 +26,7 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
-import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import type { AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { ExtensionTypeSchema } from "@agentxm/extension-model/unstable/extensions";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -421,7 +421,8 @@ export const previewOrApplySetupWorkspace = <
 // report
 // -----------------------------------------------------------------------------
 
-const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENT_DESCRIPTORS, id);
+const isKnownAgentId = (id: string): id is MaterializationTargetId =>
+  Object.hasOwn(AGENT_DESCRIPTORS, id);
 
 const stepStatus = (status: SetupStatus, hasChange: boolean): SetupPlanStep["status"] =>
   status === "preview" ? "ready" : hasChange ? "applied" : "unchanged";

@@ -21,7 +21,7 @@ import { layer as coreWorkspaceLayer } from "@agentxm/workspace/desired-state/li
 import { ConfiguredAgentOutcomesProviderTest } from "@agentxm/workspace/desired-state/testing";
 import { ResolvePlanInteractionTest } from "@agentxm/workspace/transitions/planning/testing";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
-import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import {
   expectAppliedPlanResult,
   expectNoOpPlanResult,
@@ -121,7 +121,7 @@ describe("agents remove.handler", () => {
     readonly wsOverrides?: Partial<WorkspaceStateOptions>;
     readonly machine?: boolean;
     /** The agents the catalog knows; `opencode` alone unless stated. */
-    readonly agents?: ReadonlyArray<AgentId>;
+    readonly agents?: ReadonlyArray<MaterializationTargetId>;
   }) => {
     const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
     const interaction = ResolvePlanInteractionTest();

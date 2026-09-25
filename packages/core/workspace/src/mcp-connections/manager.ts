@@ -71,7 +71,12 @@ import { copyExtensionDirectory } from "../acquisition/copy-directory.js";
 import { replaceCanonicalDirectoryWithInspection } from "../acquisition/canonical-directory.js";
 import { stripFileProtocol } from "@agentxm/registry-client";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
-import { computePackageContentHash, mcpResolutionKey } from "../desired-state/index.js";
+import {
+  acceptedRowKey,
+  computePackageContentHash,
+  desiredMcpSourceKey,
+  mcpResolutionKey,
+} from "../desired-state/index.js";
 import { registrySourceLockFields } from "../desired-state/index.js";
 import { buildExternalMcpServerLockEntry } from "./lock-entry-builder.js";
 import { McpWorkspacePackageInvalid } from "./errors.js";
@@ -260,7 +265,7 @@ export const McpServerManagerLive = Layer.effect(
           desiredNode === undefined || desiredNode.authority === "inline"
             ? undefined
             : graph.mcpSourceClosures.find(
-                (candidate) => candidate.identity === desiredNode.identity,
+                (candidate) => candidate.key === desiredMcpSourceKey(desiredNode.identity),
               );
         const retainShared =
           closure !== undefined && closure.localNames.some((name) => name !== target.name);
@@ -269,9 +274,7 @@ export const McpServerManagerLive = Layer.effect(
           treeIntegrity: Option.none(),
           removal: Option.some({
             resolutionKey:
-              desiredNode === undefined || desiredNode.authority === "inline"
-                ? Option.none<string>()
-                : Option.some(desiredNode.identity),
+              desiredNode === undefined ? Option.none<string>() : acceptedRowKey(desiredNode),
             retainShared,
           }),
         };

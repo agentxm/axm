@@ -48,7 +48,6 @@ import {
 import { type McpServerInstallRequirements } from "../../reconciliation/index.js";
 import { relevantPackConstraintProblems } from "../../packs/lifecycle/constraint-gate.js";
 import {
-  normalizedIdentity,
   prepareActivationRealization,
   proposeDesiredState,
   realizeActivation,
@@ -93,7 +92,7 @@ import {
 } from "../../transitions/planning/index.js";
 import {
   acceptedCanonicalObservation,
-  decodeDesiredExtensionIdentity,
+  desiredPackageKey,
   desiredStateProblemsText,
   usableAcceptedCanonical,
   DesiredStateReader,
@@ -616,11 +615,9 @@ const settlePack = (request: SetActivationRequest, adapter: SyncFailureAdapter) 
         recover: "Change the direct declaration or the Pack that requires a version outside it",
       });
     }
-    const identity = decodeDesiredExtensionIdentity(packNode.identity)?.fqn ?? packNode.identity;
+    const identity = desiredPackageKey(packNode.identity);
     const contributesTo = (node: DesiredExtensionNode): boolean =>
-      node.origins.some(
-        (origin) => origin.type === "pack" && normalizedIdentity(origin.pack) === identity,
-      );
+      node.origins.some((origin) => origin.type === "pack" && origin.pack.fqn === identity);
     // The graph decides which members the change moves: enabling moves every
     // member the Pack contributes; disabling moves the members that are
     // active now and not once the route is withdrawn.

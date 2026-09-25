@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+import { desiredPackageKey } from "../../../desired-state/index.js";
 import { desiredConstraintOf } from "../../../desired-state/testing.js";
 import * as Effect from "effect/Effect";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
@@ -17,7 +18,11 @@ const desiredSkill = (
 ): DesiredExtensionNode => ({
   type: "skill",
   name: "reviewer",
-  identity: "@acme/skills/reviewer",
+  identity: {
+    authority: "registry",
+    fqn: "@acme/skills/reviewer",
+    registry: { sourceName: undefined, endpoint: undefined },
+  },
   source,
   enabled: true,
   constraint: desiredConstraintOf(...constraints),
@@ -160,7 +165,7 @@ describe("workspace/skills-lockfile-aligned", () => {
             acceptedVersion: "1.0.0",
             authority: {
               source: "desired-state-graph",
-              identity: desired.identity,
+              identity: desiredPackageKey(desired.identity),
               locator: source,
               constraints: [{ source: "settings", range: "^0.1.0", location: "axm.json" }],
             },

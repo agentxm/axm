@@ -303,13 +303,15 @@ export const identityFromManagedPackage = Effect.fn("Publish.identityFromManaged
     }
     if (Option.isNone(accepted) || extensionDir === undefined) return undefined;
 
-    const authored = accepted.value.desired.identity.startsWith("workspace:");
+    const desiredIdentity = accepted.value.desired.identity;
+    const authored = desiredIdentity.authority === "workspace";
     // A declared authored package whose manifest names another owner, type,
     // or name is not this workspace's package: nothing publishes it as such.
     if (authored && accepted.value.observation.status === "wrong-origin") return undefined;
-    const authoredIdentity = authored
-      ? parseExtensionFqnParts(accepted.value.desired.identity.slice("workspace:".length))
-      : undefined;
+    const authoredIdentity =
+      desiredIdentity.authority === "workspace"
+        ? parseExtensionFqnParts(desiredIdentity.fqn)
+        : undefined;
     if (authored && authoredIdentity === undefined) return undefined;
 
     const fs = yield* FileSystem.FileSystem;

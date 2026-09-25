@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+import { desiredPackageKey } from "../../../desired-state/index.js";
 import { desiredConstraintOf } from "../../../desired-state/testing.js";
 import * as Effect from "effect/Effect";
 
@@ -59,7 +60,11 @@ describe("workspace/desired-state-reconcilable canonical modifications", () => {
     const desired = {
       type: "skill",
       name: "installed-skill",
-      identity: "@test/skills/installed-skill",
+      identity: {
+        authority: "registry",
+        fqn: "@test/skills/installed-skill",
+        registry: { sourceName: undefined, endpoint: undefined },
+      },
       source: "@test/skills/installed-skill@1.0.0",
       enabled: true,
       constraint: desiredConstraintOf("1.0.0"),
@@ -88,7 +93,11 @@ describe("workspace/desired-state-reconcilable canonical modifications", () => {
     const desired = {
       type: "skill",
       name: "review",
-      identity: "@test/skills/review",
+      identity: {
+        authority: "registry",
+        fqn: "@test/skills/review",
+        registry: { sourceName: undefined, endpoint: undefined },
+      },
       source: "@test/skills/review@^2.0.0",
       enabled: true,
       constraint: desiredConstraintOf("^2.0.0"),
@@ -102,7 +111,7 @@ describe("workspace/desired-state-reconcilable canonical modifications", () => {
       observedVersion: "1.0.0",
       authority: {
         source: "desired-state-graph",
-        identity: desired.identity,
+        identity: desiredPackageKey(desired.identity),
         locator: desired.source,
         constraints: [
           {

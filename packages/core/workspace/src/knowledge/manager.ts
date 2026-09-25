@@ -624,9 +624,10 @@ export const KnowledgeManagerLive = Layer.effect(
             }
             if (observation.path === undefined) {
               return yield* new KnowledgeDefinitionInvalid({
-                detail: node.identity.startsWith("workspace:")
-                  ? "User workspaces do not support workspace-authored Knowledge bundles"
-                  : canonicalObservationFactText(node, observation),
+                detail:
+                  node.identity.authority === "workspace"
+                    ? "User workspaces do not support workspace-authored Knowledge bundles"
+                    : canonicalObservationFactText(node, observation),
               });
             }
             const root = observation.path;
@@ -890,7 +891,7 @@ export const KnowledgeManagerLive = Layer.effect(
           const entry = locked[name];
           const observation = yield* observeDesiredKnowledge(node, entry);
           if (observation.status === "usable") continue;
-          if (node.identity.startsWith("workspace:")) {
+          if (node.identity.authority === "workspace") {
             return yield* new KnowledgeDefinitionInvalid({
               detail: `Active workspace-authored Knowledge bundle is missing or invalid: ${name}. ${canonicalObservationFactText(node, observation)}`,
             });

@@ -40,6 +40,7 @@ import {
   extensionPathSourceFromLockEntry,
 } from "./extension-paths.js";
 import { mcpResolutionKey } from "./mcp-source-identity.js";
+import { desiredMcpSourceKey, desiredPackageKey } from "./desired-identity.js";
 import { acceptedRegistryVersionForRef } from "../lockfile/accepted-registry-version.js";
 import type { TreeIntegrity } from "./materialized-tree.js";
 
@@ -123,10 +124,10 @@ export const canonicalPathForAcceptedExtension = (
   accepted: AcceptedExtensionResolution | undefined,
 ): string | undefined => {
   if (desired.source === undefined) return undefined;
-  if (desired.identity.startsWith("bundled:")) {
+  if (desired.identity.authority === "bundled") {
     return bundledSkillCanonicalRoot(path.join, layout, desired.name);
   }
-  if (desired.identity.startsWith("workspace:")) {
+  if (desired.identity.authority === "workspace") {
     if (layout.scope === "project")
       return path.join(layout.authoredRoot(desired.type), desired.name);
     return undefined;
@@ -212,7 +213,7 @@ const constraintMismatchObservation = (args: {
   ...(args.canonicalPath === undefined ? {} : { path: args.canonicalPath }),
   authority: {
     source: "desired-state-graph",
-    identity: args.desired.identity,
+    identity: desiredPackageKey(args.desired.identity),
     locator: args.desired.source,
     constraints: desiredConstraintContributors(args.desired),
   },
@@ -291,7 +292,8 @@ const acceptedOriginMatches = (
         ? `${accepted.identity.owner}/${toExtensionTypePlural(desired.type)}/${accepted.identity.name}`
         : printSourceParams(lockEntryToSourceParams(accepted));
   return (
-    acceptedIdentity === desired.identity ||
+    acceptedIdentity === desiredMcpSourceKey(desired.identity) ||
+    acceptedIdentity === desiredPackageKey(desired.identity) ||
     acceptedIdentity === desired.source ||
     lockEntryMatchesSourceLocator(accepted, desired.source)
   );
@@ -313,8 +315,8 @@ export const observeAcceptedResolution = (
   if (desired.source === undefined) {
     return Option.some({ type: desired.type, name: desired.name, status: "not-applicable" });
   }
-  if (desired.identity.startsWith("workspace:")) return Option.none();
-  const bundled = desired.identity.startsWith("bundled:");
+  if (desired.identity.authority === "workspace") return Option.none();
+  const bundled = desired.identity.authority === "bundled";
   if (!bundled && accepted === undefined) {
     return Option.some({ type: desired.type, name: desired.name, status: "missing-resolution" });
   }
@@ -363,8 +365,8 @@ export const observeCanonicalExtension = ({
         ? { ...judged.value, path: root }
         : judged.value;
     }
-    const workspaceAuthored = desired.identity.startsWith("workspace:");
-    const bundled = desired.identity.startsWith("bundled:");
+    const workspaceAuthored = desired.identity.authority === "workspace";
+    const bundled = desired.identity.authority === "bundled";
     if (root === undefined) {
       return { type: desired.type, name: desired.name, status: "wrong-origin" };
     }

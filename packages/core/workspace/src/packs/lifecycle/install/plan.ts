@@ -138,6 +138,13 @@ import { validatePackGraphPostcondition } from "../graph-transition.js";
 import { buildPackMemberInstallStep } from "../member-install-step.js";
 import { registrySourceArtifact, registrySourcePath } from "../artifact.js";
 import { exclusiveMemberRetentionPolicy } from "../../../reconciliation/index.js";
+import {
+  desiredIdentityOfRef,
+  desiredPackageKey,
+  desiredSourceAuthorityOf,
+  formatDesiredSourceAuthority,
+  type DesiredExtensionOrigin,
+} from "../../../desired-state/index.js";
 
 /** A pack install request after grammar parsing, before anything is discovered. */
 export interface ParsedPackInstallRequest {
@@ -320,19 +327,6 @@ export interface WorkspaceAuthorityScan {
   readonly fingerprint: string;
 }
 
-const sourceAuthorityIdentity = (source: Source): string => {
-  switch (source.type) {
-    case "registry":
-      return `registry:${source.location.href}`;
-    case "local":
-      return `path:${source.path}`;
-    case "git":
-      return `git:${source.url.href}#${Option.getOrElse(source.ref, () => "HEAD")}${Option.match(source.subPath, { onNone: () => "", onSome: (subPath) => `//${subPath}` })}`;
-    case "workspace":
-      return `workspace:${source.owner}/${toExtensionTypePlural(source.extensionType)}/${source.name}`;
-  }
-};
-
 /** What reading workspace source authority and accepted canonical content needs. */
 type WorkspaceAuthorityRequirements =
   | FileSystem.FileSystem
@@ -369,14 +363,8 @@ export const scanWorkspaceAuthority: (
     const decision = evaluateSourceAuthority({
       target: { type: "pack", name: pack.name, identity: packIdentity },
       relationship: { kind: "root" },
-      requested: {
-        identity: `${pack.refType}:${packIdentity}`,
-        workspace: pack.refType === "workspace",
-      },
-      configured: {
-        identity: root.identity,
-        workspace: root.identity.startsWith("workspace:"),
-      },
+      requested: desiredIdentityOfRef(pack),
+      configured: { identity: root.identity },
     });
     if (decision.kind === "blocked") blockers.push(decision.fact);
   }
@@ -392,21 +380,22 @@ export const scanWorkspaceAuthority: (
       (node) => node.type === parsed.type && node.name === parsed.name,
     );
     const existingPackOrigins = (existing?.origins ?? []).flatMap((origin) =>
-      origin.type === "pack" && origin.pack.replace(/^workspace:/u, "") !== packIdentity
-        ? [origin]
-        : [],
+      origin.type === "pack" && origin.pack.fqn !== packIdentity ? [origin] : [],
     );
-    const requestedAuthority =
+    const requestedAuthority = formatDesiredSourceAuthority(
       declaredSource === undefined
-        ? sourceAuthorityIdentity(pack.source)
-        : `registry:${declaredSource.url.href}`;
+        ? desiredSourceAuthorityOf(pack.source)
+        : { authority: "registry", endpoint: declaredSource.url },
+    );
+    const heldAuthority = (origin: Extract<DesiredExtensionOrigin, { readonly type: "pack" }>) =>
+      origin.sourceAuthority === undefined
+        ? origin.source
+        : formatDesiredSourceAuthority(origin.sourceAuthority);
     const existingPackDeclarations = existingPackOrigins.map(
-      (origin) => `${origin.pack} declares ${fqn} from ${origin.sourceAuthority ?? origin.source}`,
+      (origin) => `${origin.pack.fqn} declares ${fqn} from ${heldAuthority(origin)}`,
     );
     if (existingPackDeclarations.length > 0) {
-      const heldAuthorities = [
-        ...new Set(existingPackOrigins.map((origin) => origin.sourceAuthority ?? origin.source)),
-      ];
+      const heldAuthorities = [...new Set(existingPackOrigins.map(heldAuthority))];
       if (heldAuthorities.some((authority) => authority !== requestedAuthority)) {
         const declarations = [
           ...existingPackDeclarations,
@@ -466,17 +455,14 @@ export const scanWorkspaceAuthority: (
       target: { type: parsed.type, name: parsed.name, identity: targetIdentity },
       relationship: { kind: "member" as const, root: packIdentity },
       requested: {
-        identity:
-          declaredSource === undefined
-            ? `registry:${targetIdentity}`
-            : `registry:${declaredSource.url.href}:${targetIdentity}`,
-        workspace: false,
+        authority: "registry",
+        fqn: targetIdentity,
+        registry: {
+          sourceName: undefined,
+          endpoint: declaredSource === undefined ? undefined : declaredSource.url,
+        },
       },
-      configured: {
-        identity: desired.identity,
-        workspace: desired.identity.startsWith("workspace:"),
-        status: canonical.status,
-      },
+      configured: { identity: desired.identity, status: canonical.status },
     });
     if (decision.kind === "blocked") {
       blockers.push(decision.fact);
@@ -524,9 +510,7 @@ const packMemberEffectiveConstraint = (
     graph.nodes
       .find((node) => node.type === member.type && node.name === member.name)
       ?.origins.flatMap((origin) =>
-        origin.type === "pack" && origin.pack.replace(/^workspace:/u, "") === packIdentity
-          ? [origin.manifestPath]
-          : [],
+        origin.type === "pack" && origin.pack.fqn === packIdentity ? [origin.manifestPath] : [],
       )
       .at(0) ?? packIdentity;
   return effectiveDesiredConstraint(graph, { type: member.type, name: member.name }, [
@@ -599,7 +583,7 @@ export const heldPackGraphPreservable: (
   const nodes = graph.nodes.filter(
     (node) =>
       (node.type === "pack" && node.name === intent.packToInstall.pack.name) ||
-      node.origins.some((origin) => origin.type === "pack" && origin.pack === packIdentity),
+      node.origins.some((origin) => origin.type === "pack" && origin.pack.fqn === packIdentity),
   );
   const usable = yield* Effect.forEach(nodes, (node) =>
     usableAcceptedCanonical({ type: node.type, name: node.name }).pipe(
@@ -715,7 +699,11 @@ export const selectPackGraph = Effect.fn("InstallExtensions.selectPackGraph")(fu
       member ?? {
         type: mismatch.type,
         name: mismatch.name,
-        identity: mismatch.dependencyTarget,
+        identity: {
+          authority: "registry",
+          fqn: mismatch.dependencyTarget,
+          registry: { sourceName: undefined, endpoint: undefined },
+        },
       },
       {
         type: mismatch.type,
@@ -723,7 +711,8 @@ export const selectPackGraph = Effect.fn("InstallExtensions.selectPackGraph")(fu
         status: "constraint-mismatch",
         authority: {
           source: "desired-state-graph",
-          identity: member?.identity ?? mismatch.dependencyTarget,
+          identity:
+            member === undefined ? mismatch.dependencyTarget : desiredPackageKey(member.identity),
           locator: member?.source ?? mismatch.dependencyTarget,
           constraints:
             effective === undefined || Result.isFailure(effective)

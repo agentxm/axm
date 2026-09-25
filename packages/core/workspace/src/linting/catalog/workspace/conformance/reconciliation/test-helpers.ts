@@ -61,7 +61,11 @@ export const sourceEndpointsAlignedConformance: WorkspaceRuleConformanceCase = {
 const desiredSkill = {
   type: "skill",
   name: "installed-skill",
-  identity: "@test/skills/installed-skill",
+  identity: {
+    authority: "registry",
+    fqn: "@test/skills/installed-skill",
+    registry: { sourceName: undefined, endpoint: undefined },
+  },
   source: "@test/skills/installed-skill@1.0.0",
   enabled: true,
   constraint: desiredConstraintOf("1.0.0"),

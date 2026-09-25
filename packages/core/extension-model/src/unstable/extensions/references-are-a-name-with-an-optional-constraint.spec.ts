@@ -9,6 +9,7 @@ import {
   extensionTypes,
   parseExtensionFqnParts,
   parseExtensionSpecParts,
+  splitExtensionReference,
 } from "./common.js";
 import { formatFqn } from "./fqn.js";
 import { decodeHandleSync } from "./handle.js";
@@ -72,6 +73,26 @@ describe("Extension references", () => {
       expect(plain).toBeDefined();
       expect(parseExtensionSpecParts(`${fqn}@${constraint}`)).toEqual(plain);
     },
+  );
+
+  it.effect.each([
+    {
+      reference: "@acme/skills/code-review",
+      name: "@acme/skills/code-review",
+      constraint: undefined,
+    },
+    {
+      reference: "@acme/skills/code-review@^1.0.0",
+      name: "@acme/skills/code-review",
+      constraint: "^1.0.0",
+    },
+    { reference: "@acme/skills/code-review@", name: "@acme/skills/code-review", constraint: "" },
+  ] as const)(
+    "the constraint of $reference begins at the first @ after the last /, never at the owner's",
+    ({ reference, name, constraint }) =>
+      Effect.sync(() => {
+        expect(splitExtensionReference(reference)).toEqual({ name, constraint });
+      }),
   );
 
   it.effect("a version-constrained reference identifies the same extension as its plain name", () =>

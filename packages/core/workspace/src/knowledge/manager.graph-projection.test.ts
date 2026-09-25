@@ -44,14 +44,18 @@ const OWNER = "@acme";
 const packKnowledgeNode = (name: string, pack: string): DesiredExtensionNode => ({
   type: "knowledge",
   name,
-  identity: `${OWNER}/knowledge/${name}`,
+  identity: {
+    authority: "registry",
+    fqn: `${OWNER}/knowledge/${name}`,
+    registry: { sourceName: undefined, endpoint: undefined },
+  },
   source: `${OWNER}/knowledge/${name}@^1.0.0`,
   enabled: true,
   constraint: desiredConstraintOf("^1.0.0"),
   origins: [
     {
       type: "pack",
-      pack: `${OWNER}/packs/${pack}`,
+      pack: { authority: "registry", fqn: `${OWNER}/packs/${pack}` },
       manifestPath: `/workspace/agent_extensions/${OWNER}/packs/${pack}/pack.json`,
       source: `${OWNER}/knowledge/${name}`,
       constraint: "^1.0.0",

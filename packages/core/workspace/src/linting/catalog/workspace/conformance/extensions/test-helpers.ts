@@ -27,7 +27,11 @@ import {
 const desiredSubagent = {
   type: "subagent",
   name: "reviewer",
-  identity: "@acme/subagents/reviewer",
+  identity: {
+    authority: "registry",
+    fqn: "@acme/subagents/reviewer",
+    registry: { sourceName: undefined, endpoint: undefined },
+  },
   source: "@acme/subagents/reviewer",
   enabled: true,
   constraint: UNCONSTRAINED_DESIRED_NODE,
@@ -89,7 +93,11 @@ export const configuredButNotInstalledConformance: WorkspaceRuleConformanceCase 
 const desiredReviewer = {
   type: "skill",
   name: "reviewer",
-  identity: "@acme/skills/reviewer",
+  identity: {
+    authority: "registry",
+    fqn: "@acme/skills/reviewer",
+    registry: { sourceName: undefined, endpoint: undefined },
+  },
   source: "@acme/skills/reviewer@^1.0.0",
   enabled: true,
   constraint: desiredConstraintOf("^1.0.0"),
@@ -279,14 +287,18 @@ export const skillsArtifactsCorrectConformance: WorkspaceRuleConformanceCase = {
 const packDeclaredReviewer = {
   type: "skill",
   name: "reviewer",
-  identity: "@acme/skills/reviewer",
+  identity: {
+    authority: "registry",
+    fqn: "@acme/skills/reviewer",
+    registry: { sourceName: undefined, endpoint: undefined },
+  },
   source: "@acme/skills/reviewer@^1.0.0",
   enabled: true,
   constraint: desiredConstraintOf("^1.0.0"),
   origins: [
     {
       type: "pack",
-      pack: "@acme/packs/quality",
+      pack: { authority: "registry", fqn: "@acme/packs/quality" },
       manifestPath: "agent_extensions/registry/@acme/packs/quality/pack.json",
       source: "@acme/skills/reviewer@^1.0.0",
       constraint: "^1.0.0",

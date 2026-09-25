@@ -64,14 +64,18 @@ const registryLock = (baseDir: string, name: string) => ({
 const packHookNode = (name: string, pack: string): DesiredExtensionNode => ({
   type: "hook",
   name,
-  identity: `${OWNER}/hooks/${name}`,
+  identity: {
+    authority: "registry",
+    fqn: `${OWNER}/hooks/${name}`,
+    registry: { sourceName: undefined, endpoint: undefined },
+  },
   source: `${OWNER}/hooks/${name}@^1.0.0`,
   enabled: true,
   constraint: desiredConstraintOf("^1.0.0"),
   origins: [
     {
       type: "pack",
-      pack: `${OWNER}/packs/${pack}`,
+      pack: { authority: "registry", fqn: `${OWNER}/packs/${pack}` },
       manifestPath: `/workspace/agent_extensions/registry/${OWNER}/packs/${pack}/pack.json`,
       source: `${OWNER}/hooks/${name}`,
       constraint: "^1.0.0",

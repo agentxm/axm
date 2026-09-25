@@ -28,6 +28,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import { createRegistryClient } from "@agentxm/registry-client";
 import { WorkspaceCatalog } from "./workspace-catalog.js";
+import { desiredPackageKey } from "../../desired-state/index.js";
 
 /**
  * Every installable extension type an installed identifier can name.
@@ -190,10 +191,7 @@ const installedCandidates = (
     for (const node of graph.nodes) {
       if (node.type !== resourceType) continue;
       if (node.source === undefined) continue;
-      const graphIdentity = node.identity.startsWith("workspace:")
-        ? node.identity.slice("workspace:".length)
-        : node.identity;
-      const parsedIdentity = parseExtensionFqnParts(graphIdentity);
+      const parsedIdentity = parseExtensionFqnParts(desiredPackageKey(node.identity));
       const parts =
         parsedIdentity !== undefined && parsedIdentity.type === resourceType
           ? Option.some({

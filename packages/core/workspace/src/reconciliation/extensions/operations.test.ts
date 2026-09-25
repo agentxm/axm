@@ -438,6 +438,16 @@ describe("buildInstallOperation", () => {
         skill: { name, description: Option.none(), metadata: Option.none() },
       };
 
+      // The desired-state graph is the authority for what the workspace holds:
+      // it declares the skill as workspace-authored.
+      nodeFs.writeFileSync(
+        nodePath.join(transactionDir, "axm.json"),
+        JSON.stringify({
+          owner: "@acme",
+          agents: [],
+          skills: { review: { source: "workspace", enabled: true } },
+        }),
+      );
       const operation = buildInstallOperation(manager, {
         ref,
         declaration: { name: ref.skill.name, versionRange: Option.none() },

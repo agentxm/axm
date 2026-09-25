@@ -1736,8 +1736,11 @@ describe("root sync handler", { timeout: 15_000 }, () => {
 
       yield* provide(handleSync({ preview: false }));
 
+      // The authored content is materialized, and the stale external row is
+      // retired: nothing desired reaches it once the workspace is authoritative.
       expectAppliedPlanResult(rendererState.results[0]?.data, {
         planName: "Sync workspace",
+        totalSteps: 2,
       });
       const lockfile = YAML.parse(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8"));
       expect(lockfile.skills.review).toBeUndefined();

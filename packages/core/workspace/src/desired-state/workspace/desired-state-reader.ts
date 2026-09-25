@@ -58,13 +58,10 @@ export const makeDesiredStateReader = (
   const graph: DesiredStateReaderService["graph"] = (options) =>
     Effect.gen(function* () {
       const selected = options?.settings ?? (yield* settings.settings);
-      const current = {
-        ...selected,
-        defaultRegistry: selected.defaultRegistry ?? (yield* settings.defaultRegistry),
-      };
+      const defaultRegistry = selected.defaultRegistry ?? (yield* settings.defaultRegistry);
       const configuredSources = yield* settings.configuredSources;
       const layout = yield* Ref.get(location.layout);
-      const registryAccessorities = Object.fromEntries(
+      const registryEndpoints = Object.fromEntries(
         configuredSources.flatMap((source) =>
           source.type === "registry" ? [[source.name, source.location] as const] : [],
         ),
@@ -78,9 +75,10 @@ export const makeDesiredStateReader = (
         buildDesiredStateGraph({
           manifests,
           baseDir: location.baseDir,
-          settings: current,
+          settings: selected,
+          defaultRegistry,
           layout,
-          registryAccessorities,
+          registryEndpoints,
           acceptedPacks: lockfile.packs ?? {},
           excludedPacks,
           ...prospective,

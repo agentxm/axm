@@ -10,7 +10,11 @@ import { skillsArtifactsCorrectRule } from "./skills-artifacts-correct.js";
 const desiredReviewer = {
   type: "skill",
   name: "reviewer",
-  identity: "@acme/skills/reviewer",
+  identity: {
+    authority: "registry",
+    fqn: "@acme/skills/reviewer",
+    registry: { sourceName: undefined, endpoint: undefined },
+  },
   source: "@acme/skills/reviewer@^1.0.0",
   enabled: true,
   constraint: desiredConstraintOf("^1.0.0"),

@@ -1,6 +1,7 @@
 import * as Layer from "effect/Layer";
 import { desiredConstraintContributors } from "./canonical-observation.js";
 import { PackManifests } from "./pack-manifests.js";
+import { mcpRegistryResolutionKey } from "./mcp-source-identity.js";
 import { FilesystemPackManifests } from "./adapters/filesystem/pack-manifests.js";
 import * as nodeFs from "node:fs";
 import * as nodeOs from "node:os";
@@ -24,7 +25,7 @@ const writePack = (
   root: string,
   owner: string,
   name: string,
-  dependencies: Readonly<Record<string, string>>,
+  dependencies: Readonly<Record<string, unknown>>,
 ) => {
   const dir = nodePath.join(root, "agent_extensions", "registry", owner, "packs", name);
   nodeFs.mkdirSync(dir, { recursive: true });
@@ -125,6 +126,62 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
       expect(
         graph.nodes.filter((node) => node.origins.some((origin) => origin.type === "pack")),
       ).toHaveLength(6);
+    }),
+  );
+
+  it.effect("binds a Pack member to its declared Registry under the accepted-resolution key", () =>
+    Effect.gen(function* () {
+      const declared = new URL("https://registry.example/");
+      writePack(root, "@acme", "platform", {
+        "@acme/mcps/context": {
+          versionRange: "^1.0.0",
+          source: { type: "registry", url: declared.href },
+        },
+        "@acme/mcps/inherited": "^1.0.0",
+      });
+      const configured = new URL("https://corp.example.test/");
+
+      const graph = yield* buildDesiredStateGraph({
+        manifests: yield* PackManifests,
+        baseDir: root,
+        settings: { packs: { platform: { source: "corp:@acme/packs/platform", enabled: true } } },
+        defaultRegistry: "agentxm",
+        registryEndpoints: { corp: configured },
+      });
+
+      const context = graph.nodes.find((node) => node.name === "context");
+      const inherited = graph.nodes.find((node) => node.name === "inherited");
+      // The declared endpoint is the member's Registry, and its key is the one
+      // the lock row is recorded under, so the closure finds its resolution.
+      expect(context?.identity).toEqual({
+        authority: "registry",
+        fqn: "@acme/mcps/context",
+        registry: { sourceName: undefined, endpoint: declared },
+        resolutionKey: mcpRegistryResolutionKey({
+          authority: declared,
+          owner: "@acme",
+          name: "context",
+        }),
+      });
+      expect(inherited?.identity).toEqual({
+        authority: "registry",
+        fqn: "@acme/mcps/inherited",
+        registry: { sourceName: "corp", endpoint: configured },
+        resolutionKey: mcpRegistryResolutionKey({
+          authority: configured,
+          owner: "@acme",
+          name: "inherited",
+        }),
+      });
+      expect(graph.mcpSourceClosures.map((closure) => closure.key)).toEqual(
+        [context, inherited]
+          .flatMap((node) =>
+            node?.identity.authority === "registry" && node.identity.resolutionKey !== undefined
+              ? [node.identity.resolutionKey]
+              : [],
+          )
+          .sort(),
+      );
     }),
   );
 
@@ -349,7 +406,10 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
           withPackNode && desiredConstraintContributors(withPackNode).map(({ range }) => range),
         ).toEqual(["^1.1.0", "^1.0.0"]);
         for (const node of [withPackNode, directOnlyNode]) {
-          expect(node).toMatchObject({ identity: "@acme/knowledge/handbook", enabled: true });
+          expect(node).toMatchObject({
+            identity: { authority: "registry", fqn: "@acme/knowledge/handbook" },
+            enabled: true,
+          });
           if (node?.source === undefined)
             throw new Error("Expected the desired Knowledge package source");
           const versionAt = node.source.lastIndexOf("@");
@@ -391,7 +451,10 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
       const review = graph.nodes.find((node) => node.type === "skill" && node.name === "review");
       expect(review?.enabled).toBe(true);
       expect(review?.origins).toEqual([
-        expect.objectContaining({ type: "pack", pack: "@acme/packs/maintainers" }),
+        expect.objectContaining({
+          type: "pack",
+          pack: { authority: "registry", fqn: "@acme/packs/maintainers" },
+        }),
       ]);
     }),
   );
@@ -493,7 +556,7 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
 
       const review = graph.nodes.find((node) => node.type === "skill" && node.name === "review");
       expect(graph.complete).toBe(true);
-      expect(review?.identity).toBe("workspace:@acme/skills/review");
+      expect(review?.identity).toEqual({ authority: "workspace", fqn: "@acme/skills/review" });
       expect(review && desiredConstraintContributors(review).map(({ range }) => range)).toEqual([
         "^1.0.0",
       ]);

@@ -48,7 +48,11 @@ type TestOrigin =
 const node = (origins: ReadonlyArray<TestOrigin>): DesiredExtensionNode => ({
   type: "skill",
   name: "review",
-  identity: target.fqn,
+  identity: {
+    authority: "registry",
+    fqn: target.fqn,
+    registry: { sourceName: undefined, endpoint: undefined },
+  },
   source: origins[0]?.source ?? target.fqn,
   enabled: origins.some((origin) => origin.enabled),
   constraint: desiredConstraintOf(
@@ -91,7 +95,7 @@ describe("classifyTargetedUpdate", () => {
         {
           type: "mcp-server",
           name: "linear",
-          identity: inlineTarget.fqn,
+          identity: { authority: "inline", name: "linear" },
           authority: "inline",
           enabled: true,
           constraint: UNCONSTRAINED_DESIRED_NODE,
@@ -163,7 +167,7 @@ describe("classifyTargetedUpdate", () => {
         {
           type: "skill",
           name: "axm",
-          identity: "bundled:@agentxm/skills/axm",
+          identity: { authority: "bundled", fqn: "@agentxm/skills/axm" },
           authority: "sourced",
           source: "workspace",
           enabled: true,
@@ -206,7 +210,7 @@ describe("classifyTargetedUpdate", () => {
         node([
           {
             type: "pack",
-            pack: "@acme/packs/toolkit",
+            pack: { authority: "registry", fqn: "@acme/packs/toolkit" },
             source: target.fqn,
             constraint: "^1.0.0",
             enabled: true,
@@ -240,14 +244,14 @@ describe("classifyTargetedUpdate", () => {
         node([
           {
             type: "pack",
-            pack: "@acme/packs/toolkit",
+            pack: { authority: "registry", fqn: "@acme/packs/toolkit" },
             source: target.fqn,
             constraint: "^1.0.0",
             enabled: true,
           },
           {
             type: "pack",
-            pack: "@acme/packs/reviewers",
+            pack: { authority: "registry", fqn: "@acme/packs/reviewers" },
             source: target.fqn,
             constraint: ">=1.4.0 <1.8.0",
             enabled: true,
@@ -285,7 +289,7 @@ describe("classifyTargetedUpdate", () => {
           },
           {
             type: "pack",
-            pack: "@acme/packs/toolkit",
+            pack: { authority: "registry", fqn: "@acme/packs/toolkit" },
             source: target.fqn,
             constraint: "<1.9.0",
             enabled: true,
@@ -312,7 +316,7 @@ describe("classifyTargetedUpdate", () => {
       { type: "settings", source: target.fqn, enabled: false },
       {
         type: "pack",
-        pack: "@acme/packs/toolkit",
+        pack: { authority: "registry", fqn: "@acme/packs/toolkit" },
         source: target.fqn,
         constraint: "^1.0.0",
         enabled: true,
@@ -335,7 +339,7 @@ describe("classifyTargetedUpdate", () => {
         node([
           {
             type: "pack",
-            pack: "@acme/packs/toolkit",
+            pack: { authority: "registry", fqn: "@acme/packs/toolkit" },
             source: target.fqn,
             constraint: "^1.0.0",
             enabled: true,
@@ -355,7 +359,7 @@ describe("classifyTargetedUpdate", () => {
         node([
           {
             type: "pack",
-            pack: "@acme/packs/toolkit",
+            pack: { authority: "registry", fqn: "@acme/packs/toolkit" },
             source: "workspace",
             constraint: "^1.0.0",
             enabled: true,
@@ -455,7 +459,7 @@ describe("classifyTargetedUpdate", () => {
           },
           {
             type: "pack",
-            pack: "@acme/packs/toolkit",
+            pack: { authority: "registry", fqn: "@acme/packs/toolkit" },
             source: target.fqn,
             constraint: "^2.0.0",
             enabled: true,

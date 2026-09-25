@@ -141,7 +141,7 @@ const desiredHandbookReadFacts = (
       {
         type: "knowledge",
         name: "handbook",
-        identity: "./source",
+        identity: { authority: "path", locator: "./source" },
         source: "./source",
         enabled: true,
         constraint: UNCONSTRAINED_DESIRED_NODE,
@@ -232,7 +232,7 @@ describe("KnowledgeManager", () => {
                     {
                       type: "knowledge",
                       name: "handbook",
-                      identity: "workspace:@acme/knowledge/handbook",
+                      identity: { authority: "workspace", fqn: "@acme/knowledge/handbook" },
                       source: "workspace",
                       enabled: true,
                       constraint: UNCONSTRAINED_DESIRED_NODE,
@@ -474,7 +474,7 @@ describe("KnowledgeManager", () => {
                       {
                         type: "knowledge",
                         name: "handbook",
-                        identity: "./source",
+                        identity: { authority: "path", locator: "./source" },
                         source: "./source",
                         enabled: true,
                         constraint: UNCONSTRAINED_DESIRED_NODE,
@@ -489,7 +489,11 @@ describe("KnowledgeManager", () => {
                       {
                         type: "knowledge",
                         name: "unresolved",
-                        identity: "@acme/knowledge/unresolved",
+                        identity: {
+                          authority: "registry",
+                          fqn: "@acme/knowledge/unresolved",
+                          registry: { sourceName: undefined, endpoint: undefined },
+                        },
                         source: "@acme/knowledge/unresolved",
                         enabled: true,
                         constraint: UNCONSTRAINED_DESIRED_NODE,
@@ -729,7 +733,7 @@ describe("KnowledgeManager", () => {
                 nodes: ["healthy", "unavailable"].map((name) => ({
                   type: "knowledge" as const,
                   name,
-                  identity: `./sources/${name}`,
+                  identity: { authority: "path", locator: `./sources/${name}` },
                   source: `./sources/${name}`,
                   enabled: true,
                   constraint: UNCONSTRAINED_DESIRED_NODE,

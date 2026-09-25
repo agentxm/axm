@@ -7,7 +7,11 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { CanonicalObservation, DesiredExtensionNode } from "../desired-state/index.js";
+import {
+  desiredPackageKey,
+  type CanonicalObservation,
+  type DesiredExtensionNode,
+} from "../desired-state/index.js";
 import {
   extensionConstraintFactText,
   makeExtensionConstraintInvariantFact,
@@ -18,7 +22,7 @@ export const canonicalObservationFactText = (
   desired: DesiredExtensionNode,
   observation: CanonicalObservation,
 ): string => {
-  const subject = `${desired.type} '${desired.identity.replace(/^workspace:/, "")}'`;
+  const subject = `${desired.type} '${desiredPackageKey(desired.identity)}'`;
   switch (observation.status) {
     case "constraint-mismatch":
       return extensionConstraintFactText(

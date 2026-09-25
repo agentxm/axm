@@ -57,6 +57,11 @@ import { ExtensionLifecycleFailed } from "../../lifecycle/errors.js";
 import { lifecycleStepFailure } from "../../lifecycle/step-failure.js";
 import type { InstallStepRequirements } from "../../lifecycle/install/vocabulary.js";
 import { validatePackGraphPostcondition } from "./graph-transition.js";
+import {
+  desiredPackageKey,
+  formatDesiredIdentity,
+  type DesiredNodeIdentity,
+} from "../../desired-state/index.js";
 
 // -----------------------------------------------------------------------------
 // Request and candidate
@@ -188,15 +193,13 @@ const packDisplayPath = (
   path: Path.Path,
   location: WorkspaceLocationService,
   layout: WorkspaceLayout,
-  node: { readonly name: string; readonly identity: string },
+  node: { readonly name: string; readonly identity: DesiredNodeIdentity },
 ): string =>
-  node.identity.startsWith("workspace:") && layout.scope === "project"
+  node.identity.authority === "workspace" && layout.scope === "project"
     ? path.join(path.relative(location.baseDir, layout.authoredRoot("pack")), node.name)
     : path.join(
         path.relative(location.baseDir, layout.acquiredRoot),
-        node.identity.startsWith("workspace:")
-          ? node.identity.slice("workspace:".length)
-          : node.identity,
+        desiredPackageKey(node.identity),
       );
 
 // -----------------------------------------------------------------------------
@@ -249,7 +252,7 @@ const settleUnpack = Effect.fn("PromoteAuthoredPack.prepare")(function* (
       return yield* new ExtensionLifecycleFailed({
         category: "not_found",
         detail: `Accepted ${node.type} identity for "${node.name}" is unavailable`,
-        suggestions: [reconcileSuggestion(packNode.identity)],
+        suggestions: [reconcileSuggestion(desiredPackageKey(packNode.identity))],
       });
     }
     return canonical.value.ref;
@@ -260,14 +263,17 @@ const settleUnpack = Effect.fn("PromoteAuthoredPack.prepare")(function* (
     return yield* new ExtensionLifecycleFailed({
       category: "not_found",
       detail: `Accepted pack identity for "${request.name}" is invalid`,
-      suggestions: [reconcileSuggestion(packNode.identity)],
+      suggestions: [reconcileSuggestion(desiredPackageKey(packNode.identity))],
     });
   }
 
   const memberNodes = graph.nodes.filter(
     (node) =>
       node.type !== "pack" &&
-      node.origins.some((origin) => origin.type === "pack" && origin.pack === packNode.identity),
+      node.origins.some(
+        (origin) =>
+          origin.type === "pack" && origin.pack.fqn === desiredPackageKey(packNode.identity),
+      ),
   );
   const promotions = yield* Effect.forEach(
     memberNodes,
@@ -277,7 +283,7 @@ const settleUnpack = Effect.fn("PromoteAuthoredPack.prepare")(function* (
         return yield* new ExtensionLifecycleFailed({
           category: "not_found",
           detail: `Accepted ${node.type} identity for "${node.name}" is invalid`,
-          suggestions: [reconcileSuggestion(packNode.identity)],
+          suggestions: [reconcileSuggestion(desiredPackageKey(packNode.identity))],
         });
       }
       return node;
@@ -323,8 +329,8 @@ const settleUnpack = Effect.fn("PromoteAuthoredPack.prepare")(function* (
 
   const graphStep = yield* buildReconciliationClosure({
     toStepFailure: lifecycleStepFailure,
-    label: packNode.identity,
-    message: `Unpacked ${packNode.identity} into ${promotions.length} direct declaration${
+    label: formatDesiredIdentity(packNode.identity),
+    message: `Unpacked ${formatDesiredIdentity(packNode.identity)} into ${promotions.length} direct declaration${
       promotions.length === 1 ? "" : "s"
     }`,
     artifact: {
@@ -360,7 +366,7 @@ const settleUnpack = Effect.fn("PromoteAuthoredPack.prepare")(function* (
   };
 
   return {
-    packIdentity: packNode.identity,
+    packIdentity: formatDesiredIdentity(packNode.identity),
     packName: packNode.name,
     members: promotions.map((node) => ({
       type: node.type,

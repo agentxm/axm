@@ -119,7 +119,7 @@ describe("portable React Router skill acquisition", () => {
         desired: {
           type: "skill",
           name: "react-router",
-          identity: printSourceParams(source),
+          identity: { authority: "git", locator: printSourceParams(source) },
           source: printSourceParams(source),
           enabled: true,
           constraint: UNCONSTRAINED_DESIRED_NODE,

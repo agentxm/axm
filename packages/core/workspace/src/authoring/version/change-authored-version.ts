@@ -321,7 +321,9 @@ export const prepareChangeAuthoredVersion: (
     Option.exists(
       observed,
       ({ desired, observation }) =>
-        observation.status === "wrong-origin" || desired.identity !== `workspace:${fqn}`,
+        observation.status === "wrong-origin" ||
+        desired.identity.authority !== "workspace" ||
+        desired.identity.fqn !== fqn,
     )
   ) {
     return yield* new VersionTargetIdentityMismatch({ fqn, manifestPath });

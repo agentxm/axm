@@ -42,6 +42,7 @@ import {
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { OwnershipUnitId, ProjectionUnitObservation } from "./units.js";
 import type { ProjectionContributorExclusion } from "./exclusions.js";
+import { formatDesiredIdentity } from "../desired-state/index.js";
 
 export const PROJECTION_INVARIANT_PREDICATE = "workspace/projection-current" as const;
 
@@ -332,9 +333,9 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
                                       path: `subagent:${node.name}`,
                                       present: observation.present,
                                       current: observation.current,
-                                      expectedContributors: [node.identity],
+                                      expectedContributors: [formatDesiredIdentity(node.identity)],
                                       observedContributors: observation.present
-                                        ? [node.identity]
+                                        ? [formatDesiredIdentity(node.identity)]
                                         : [],
                                     },
                                     location.scope,
@@ -360,7 +361,7 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
           Option.isSome(completeGraph)
             ? completeGraph.value.nodes
                 .filter((node) => node.type === type && node.enabled)
-                .map(({ identity }) => identity)
+                .map(({ identity }) => formatDesiredIdentity(identity))
             : [];
         for (const [index, participant] of participants.aggregates.entries()) {
           const result = observed[index];

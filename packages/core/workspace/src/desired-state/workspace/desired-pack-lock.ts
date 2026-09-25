@@ -15,6 +15,7 @@ import type {
 } from "./desired-state-graph.js";
 import type { WorkspaceLayout } from "./layout.js";
 import type { PackManifestsPort } from "./pack-manifests.js";
+import { desiredPackageKey } from "./desired-identity.js";
 
 interface ValidateDesiredPackLockArgs {
   readonly manifests: PackManifestsPort;
@@ -24,9 +25,6 @@ interface ValidateDesiredPackLockArgs {
   readonly prospectivePacks?: ReadonlyArray<ProspectivePackRef>;
 }
 
-const normalizedPackIdentity = (identity: string): string =>
-  identity.startsWith("workspace:") ? identity.slice("workspace:".length) : identity;
-
 const decodeManifest = Schema.decodeUnknownSync(PackManifestSchema, {
   onExcessProperty: "error",
 });
@@ -34,7 +32,7 @@ const decodeManifest = Schema.decodeUnknownSync(PackManifestSchema, {
 /** What validating the accepted Pack state found. */
 export interface DesiredPackLockValidation {
   readonly problems: ReadonlyArray<DesiredStateProblem>;
-  /** Pack identities (without the `workspace:` prefix) whose accepted state cannot authorize their manifest. */
+  /** Fully qualified names of the Packs whose accepted state cannot authorize their manifest. */
   readonly invalidPacks: ReadonlySet<string>;
 }
 
@@ -56,10 +54,11 @@ export const validateDesiredPackLock = ({
     const invalidPacks = new Set<string>();
 
     for (const node of graph.nodes) {
-      if (node.type !== "pack" || !node.enabled || node.identity.startsWith("workspace:")) {
+      if (node.type !== "pack" || !node.enabled || node.identity.authority === "workspace") {
         continue;
       }
-      const identity = parseExtensionFqnParts(node.identity);
+      const packFqn = desiredPackageKey(node.identity);
+      const identity = parseExtensionFqnParts(packFqn);
       // A prospective Pack is the proposal a planner evaluates: its manifest
       // supersedes whatever is accepted today, so the accepted row does not
       // judge it and its routes count in the proposed graph.
@@ -84,10 +83,10 @@ export const validateDesiredPackLock = ({
       ) {
         problems.push({
           type: "pack-resolution-unavailable",
-          pack: node.identity,
+          pack: packFqn,
           detail: "The configured external Pack has no matching accepted resolution.",
         });
-        invalidPacks.add(normalizedPackIdentity(node.identity));
+        invalidPacks.add(packFqn);
         continue;
       }
 
@@ -123,7 +122,7 @@ export const validateDesiredPackLock = ({
       ) {
         problems.push({
           type: "pack-manifest-content-mismatch",
-          pack: node.identity,
+          pack: packFqn,
           path: manifestPath,
           status: observedManifest === undefined ? "missing" : "changed",
           acceptedVersion: entry.manifestVersion,
@@ -135,7 +134,7 @@ export const validateDesiredPackLock = ({
                 observedContentIdentity,
               }),
         });
-        invalidPacks.add(normalizedPackIdentity(node.identity));
+        invalidPacks.add(packFqn);
       }
     }
 

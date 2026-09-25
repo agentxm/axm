@@ -13,11 +13,9 @@
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type { DesiredExtensionNode, DesiredStateGraph } from "./desired-state-graph.js";
+import { desiredPackageKey } from "./desired-identity.js";
 import type { PackMemberBinding } from "./read-model/extensions/projection.js";
 import type { InstalledPackRef, Scope } from "./read-model/types.js";
-
-const normalizedPackIdentity = (identity: string): string =>
-  identity.startsWith("workspace:") ? identity.slice("workspace:".length) : identity;
 
 const supplyingPack = (
   graph: DesiredStateGraph,
@@ -28,8 +26,7 @@ const supplyingPack = (
   if (origin === undefined || origin.type !== "pack") return undefined;
   const pack = graph.nodes.find(
     (candidate) =>
-      candidate.type === "pack" &&
-      normalizedPackIdentity(candidate.identity) === normalizedPackIdentity(origin.pack),
+      candidate.type === "pack" && desiredPackageKey(candidate.identity) === origin.pack.fqn,
   );
   return pack === undefined
     ? undefined

@@ -108,7 +108,7 @@ export const repositoryVisibilityIntent = Effect.fn("Visibility.repositoryIntent
   }).pipe(
     Effect.map(
       Option.flatMap(({ desired, observation }) =>
-        desired.identity.startsWith("workspace:") && observation.status !== "wrong-origin"
+        desired.identity.authority === "workspace" && observation.status !== "wrong-origin"
           ? Option.fromUndefinedOr(observation.path)
           : Option.none(),
       ),

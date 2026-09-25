@@ -30,7 +30,11 @@ const catalog = WorkspaceCatalogTest({
       {
         type: "mcp-server",
         name: "server",
-        identity: "@acme/mcps/server",
+        identity: {
+          authority: "registry",
+          fqn: "@acme/mcps/server",
+          registry: { sourceName: undefined, endpoint: undefined },
+        },
         source: "github:acme/extensions//mcps/server",
       },
     ],

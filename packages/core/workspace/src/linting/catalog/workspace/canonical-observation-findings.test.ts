@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import { desiredPackageKey } from "../../../desired-state/index.js";
 import { UNCONSTRAINED_DESIRED_NODE } from "../../../desired-state/index.js";
 import * as nodePath from "node:path";
 
@@ -24,7 +25,11 @@ import { nodesDeferringToObservation } from "./canonical-observation-findings.js
 const desired = {
   type: "skill",
   name: "review",
-  identity: "@acme/skills/review",
+  identity: {
+    authority: "registry",
+    fqn: "@acme/skills/review",
+    registry: { sourceName: undefined, endpoint: undefined },
+  },
   source: "@acme/skills/review",
   enabled: true,
   constraint: UNCONSTRAINED_DESIRED_NODE,
@@ -73,7 +78,7 @@ describe("nodesDeferringToObservation", () => {
           status: "constraint-mismatch",
           authority: {
             source: "desired-state-graph",
-            identity: desired.identity,
+            identity: desiredPackageKey(desired.identity),
             locator: desired.source,
             constraints: [],
           },

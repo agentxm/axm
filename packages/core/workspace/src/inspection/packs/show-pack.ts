@@ -39,6 +39,7 @@ import {
 } from "../../desired-state/index.js";
 
 import { PackInspectionRefused } from "../errors.js";
+import { desiredPackageKey } from "../../desired-state/index.js";
 
 const PackMemberSchema = Schema.Struct({
   fqn: Schema.String,
@@ -63,9 +64,6 @@ export type PackShowResult = typeof PackShowResultSchema.Type;
 
 const configuredSource = (entry: string | { readonly source: string }): string =>
   typeof entry === "string" ? entry : entry.source;
-
-const stripLocatorPrefix = (value: string): string =>
-  value.replace(/^workspace:/u, "").replace(/^registry:/u, "");
 
 export interface ShowPackRequest {
   /** A configured pack name, or a fully qualified pack identity. */
@@ -188,11 +186,9 @@ export const ShowPack = {
           const constraint = packMemberVersionRange(declaration);
           const node = graph.nodes.find(
             (candidate) =>
-              stripLocatorPrefix(candidate.identity) === fqn &&
+              desiredPackageKey(candidate.identity) === fqn &&
               candidate.origins.some(
-                (origin) =>
-                  origin.type === "pack" &&
-                  origin.pack.replace(/^workspace:/u, "") === normalizedPackFqn,
+                (origin) => origin.type === "pack" && origin.pack.fqn === normalizedPackFqn,
               ),
           );
           if (node === undefined) {

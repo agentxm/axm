@@ -79,13 +79,13 @@ export const packsSharedMembersDistributableRule: AdvisoryRule<WorkspaceRuleCont
         if (!optedOut.has(`${node.type}:${node.name}`)) continue;
         for (const origin of node.origins) {
           if (origin.type !== "pack") continue;
-          const packName = parseExtensionFqnParts(origin.pack)?.name;
+          const packName = parseExtensionFqnParts(origin.pack.fqn)?.name;
           if (packName === undefined || !sharedPacks.has(packName)) continue;
           findings.push({
             kind: "advisory",
             ruleId: RULE_ID,
             severity: "error",
-            message: `Shared pack '${origin.pack}' names opted-out ${node.type} '${node.name}'.`,
+            message: `Shared pack '${origin.pack.fqn}' names opted-out ${node.type} '${node.name}'.`,
             location: { file: origin.manifestPath },
           });
         }

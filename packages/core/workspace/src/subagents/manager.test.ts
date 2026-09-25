@@ -128,7 +128,7 @@ const makeTestLayer = (overrides?: {
         {
           type: "subagent" as const,
           name,
-          identity: source,
+          identity: { authority: "git" as const, locator: source },
           source,
           enabled,
           constraint: UNCONSTRAINED_DESIRED_NODE,

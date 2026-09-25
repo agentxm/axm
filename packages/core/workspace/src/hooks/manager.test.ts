@@ -140,7 +140,7 @@ const makeHookManagerLayer = (
           nodes: hookNames.map((name) => ({
             type: "hook" as const,
             name,
-            identity: "./source-hook",
+            identity: { authority: "path", locator: "./source-hook" },
             source: "./source-hook",
             enabled: true,
             constraint: UNCONSTRAINED_DESIRED_NODE,

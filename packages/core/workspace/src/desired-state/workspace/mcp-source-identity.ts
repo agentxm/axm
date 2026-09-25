@@ -7,6 +7,7 @@
 
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions/common";
+import { desiredMcpSourceKey } from "./desired-identity.js";
 
 const normalizeAuthority = (authority: URL | string): string => {
   const raw = authority instanceof URL ? authority.href : authority;
@@ -48,3 +49,9 @@ export const mcpResolutionKey = (entry: {
       return `path:${encodeIdentityPart(entry.source.path)}:${entry.identity.owner ?? ""}/mcps/${entry.identity.name}`;
   }
 };
+
+/** The source key every connection to one workspace-authored MCP server shares. */
+export const mcpWorkspaceSourceKey = (
+  owner: Handle | string,
+  name: ExtensionName | string,
+): string => desiredMcpSourceKey({ authority: "workspace", fqn: `${owner}/mcps/${name}` });

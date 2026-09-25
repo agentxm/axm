@@ -48,7 +48,7 @@ import { printSourceParams } from "@agentxm/extension-model/unstable/sources/pri
 import { SourceHostProviders, resolveSource } from "../../../resolution/sources/index.js";
 import type { RegistryBindingProposal, SourceBindingProposal } from "../../../resolution/index.js";
 import { operationPresentation, type Plan } from "../../../transitions/planning/index.js";
-import { mcpRegistryResolutionKey } from "../../../desired-state/index.js";
+import { desiredMcpSourceKey, mcpRegistryResolutionKey } from "../../../desired-state/index.js";
 
 import { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
 import { admitMcpLocalName } from "../domain/source-admission.js";
@@ -260,7 +260,7 @@ const selectMcpSourceConstraint = (
           ? undefined
           : {
               sourceIdentity: isSourcedDesiredExtension(localConnection)
-                ? localConnection.identity
+                ? desiredMcpSourceKey(localConnection.identity)
                 : null,
             },
     }).pipe(
@@ -278,7 +278,7 @@ const selectMcpSourceConstraint = (
       : { source: "settings", localName: input.localName };
     const effective = effectiveDesiredConstraint(
       graph,
-      { type: "mcp-server", name: input.localName, identity: input.sourceIdentity },
+      { type: "mcp-server", name: input.localName, sourceKey: input.sourceIdentity },
       [declaration],
     );
     if (Result.isFailure(effective)) {
@@ -482,15 +482,19 @@ export const finalizeMcpServerInstallIntent: (
     const existingLocalNode = graph.nodes.find(
       (node) => node.type === "mcp-server" && node.name === localName,
     );
+    // A local source is one source however it is spelled: the connection
+    // keeps the key the existing declaration already carries.
+    const existingLocalIdentity =
+      existingLocalNode?.identity.authority === "path" ? existingLocalNode.identity : undefined;
     const identity = yield* sourceRequest.source.type === "local" &&
     ref.refType === "local" &&
-    existingLocalNode !== undefined
+    existingLocalIdentity !== undefined
       ? Effect.gen(function* () {
           const location = yield* WorkspaceLocation;
           const path = yield* Path.Path;
-          return path.resolve(location.baseDir, existingLocalNode.identity) ===
+          return path.resolve(location.baseDir, existingLocalIdentity.locator) ===
             path.resolve(stripFileProtocol(ref.location))
-            ? existingLocalNode.identity
+            ? desiredMcpSourceKey(existingLocalIdentity)
             : requestedIdentity;
         })
       : Effect.succeed(requestedIdentity);

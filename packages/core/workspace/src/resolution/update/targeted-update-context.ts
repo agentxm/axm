@@ -49,6 +49,7 @@ import {
   desiredStateProblemText,
   effectiveDesiredConstraint,
 } from "../../desired-state/index.js";
+import { desiredPackageKey } from "../../desired-state/index.js";
 
 export type TargetedUpdateBlocker =
   | "not-desired"
@@ -128,13 +129,6 @@ export interface ClassifyTargetedUpdateArgs {
   readonly packEvidence?: ReadonlyArray<unknown>;
 }
 
-const normalizedIdentity = (identity: string): string => {
-  for (const prefix of ["workspace:", "bundled:"]) {
-    if (identity.startsWith(prefix)) return identity.slice(prefix.length);
-  }
-  return identity;
-};
-
 const registryFqnFromSource = (source: string | undefined): string | undefined => {
   if (source === undefined) return undefined;
   const parsed = parseSourceQualifiedRegistrySourcePatternParts(source);
@@ -152,8 +146,7 @@ const configuredPackFqn = (
   if (entry.source === "registry" || isWorkspaceSourceLocator(entry.source)) {
     return configuredOwner === undefined ? undefined : `${configuredOwner}/packs/${entry.name}`;
   }
-  const source = normalizedIdentity(entry.source);
-  const parsed = parseSourceQualifiedRegistrySourcePatternParts(source);
+  const parsed = parseSourceQualifiedRegistrySourcePatternParts(entry.source);
   return parsed?.type === "packs" && parsed.name !== undefined
     ? `${parsed.owner}/packs/${parsed.name}`
     : undefined;
@@ -187,9 +180,11 @@ export const classifyTargetedUpdate = (args: ClassifyTargetedUpdateArgs): Target
   const node = args.graph.nodes.find(
     (candidate) =>
       candidate.type === args.target.type &&
-      (normalizedIdentity(candidate.identity) === args.target.fqn ||
+      (desiredPackageKey(candidate.identity) === args.target.fqn ||
         (candidate.type === "mcp-server" &&
-          registryFqnFromSource(candidate.source) === args.target.fqn)),
+          (candidate.identity.authority === "inline"
+            ? candidate.name === args.target.name
+            : registryFqnFromSource(candidate.source) === args.target.fqn))),
   );
   const targetProblems = args.graph.problems.filter(
     (problem) =>
@@ -204,13 +199,13 @@ export const classifyTargetedUpdate = (args: ClassifyTargetedUpdateArgs): Target
       targetProblems.includes(problem),
   );
   const directOrigin = node?.origins.find((origin) => origin.type === "settings");
-  const bundled = node?.identity.startsWith("bundled:") === true;
+  const bundled = node?.identity.authority === "bundled";
   const packOrigins = (node?.origins ?? [])
     .filter(
       (origin): origin is Extract<DesiredExtensionOrigin, { readonly type: "pack" }> =>
         origin.type === "pack",
     )
-    .sort((left, right) => left.pack.localeCompare(right.pack));
+    .sort((left, right) => left.pack.fqn.localeCompare(right.pack.fqn));
   const ownership: TargetedUpdateOwnership =
     directOrigin === undefined
       ? packOrigins.length === 0
@@ -221,10 +216,10 @@ export const classifyTargetedUpdate = (args: ClassifyTargetedUpdateArgs): Target
         : "combined";
   const packs = packOrigins.map((origin) => {
     const configured = args.configuredPacks.find(
-      (entry) => configuredPackFqn(entry, args.configuredOwner) === normalizedIdentity(origin.pack),
+      (entry) => configuredPackFqn(entry, args.configuredOwner) === origin.pack.fqn,
     );
     return {
-      fqn: normalizedIdentity(origin.pack),
+      fqn: origin.pack.fqn,
       ...(configured === undefined ? {} : { configuredName: configured.name }),
       ...(configured?.source === undefined
         ? {}
@@ -367,7 +362,7 @@ export const resolveTargetedUpdateContext: (args: {
       Effect.gen(function* () {
         const packNode = graph.nodes.find(
           (candidate) =>
-            candidate.type === "pack" && normalizedIdentity(candidate.identity) === pack.fqn,
+            candidate.type === "pack" && desiredPackageKey(candidate.identity) === pack.fqn,
         );
         if (packNode === undefined) return { fqn: pack.fqn, accepted: "absent" };
         const accepted = yield* lockfile.entry("pack", packNode.name);

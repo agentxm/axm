@@ -68,6 +68,7 @@ import {
   toExtensionTypePlural,
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/common";
+import { desiredIdentityOfRef, desiredPackageKey } from "../../desired-state/index.js";
 
 // -----------------------------------------------------------------------------
 // Target Helpers
@@ -378,25 +379,20 @@ const runInstallOperation = <TRef extends ExtensionRef, TMaterialization, F, R>(
 ): Effect.Effect<JobStepResult, StepFailure, R | RecipeRequirements> =>
   Effect.gen(function* () {
     const target = targetFromRef(args.ref);
-    const configuredSource =
-      manager.getConfiguredSource === undefined
-        ? Option.none<string>()
-        : yield* manager.getConfiguredSource({ target });
+    // The desired-state graph is the one authority for what the workspace
+    // already holds for this target.
+    const configured = (yield* (yield* DesiredStateReader).graph()).nodes.find(
+      (node) => node.type === target.type && node.name === target.name,
+    );
     const authority = evaluateSourceAuthority({
-      target: { ...target, identity: toStepKey(target) },
-      relationship: { kind: "root" },
-      requested: {
-        identity: `${args.ref.refType}:${toStepKey(target)}`,
-        workspace: args.ref.refType === "workspace",
+      target: {
+        ...target,
+        identity:
+          configured === undefined ? toStepKey(target) : desiredPackageKey(configured.identity),
       },
-      ...(Option.isNone(configuredSource)
-        ? {}
-        : {
-            configured: {
-              identity: configuredSource.value,
-              workspace: isWorkspaceSourceLocator(configuredSource.value),
-            },
-          }),
+      relationship: { kind: "root" },
+      requested: desiredIdentityOfRef(args.ref),
+      ...(configured === undefined ? {} : { configured: { identity: configured.identity } }),
       allowWorkspaceReplacement:
         args.sourceReplacements?.some(
           (replacement) => replacement.type === target.type && replacement.name === target.name,

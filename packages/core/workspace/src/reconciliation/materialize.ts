@@ -113,6 +113,7 @@ import {
   type SyncStepRequirements,
 } from "./plan.js";
 import type { SyncFailureAdapter, SyncPolicyFailure } from "./failure-adapter.js";
+import { desiredPackageKey, type DesiredNodeIdentity } from "../desired-state/index.js";
 
 export interface SyncSelection {
   readonly target: Option.Option<string>;
@@ -133,15 +134,8 @@ const isSubject = (
     (subject) => subject.type === node.type && subject.name === node.name,
   ) === true;
 
-export const normalizedIdentity = (identity: string): string =>
-  identity.startsWith("workspace:") ? identity.slice("workspace:".length) : identity;
-
-const sourceTransitionIdentity = (authority: string, identity: string): string =>
-  authority === "workspace"
-    ? "workspace"
-    : identity.startsWith(`${authority}:`)
-      ? identity
-      : `${authority}:${identity}`;
+const sourceTransitionIdentity = (authority: string, identity: DesiredNodeIdentity): string =>
+  authority === "workspace" ? "workspace" : `${authority}:${desiredPackageKey(identity)}`;
 
 export const selectedDesiredNodes = (
   graph: DesiredStateGraph,
@@ -157,14 +151,12 @@ export const selectedDesiredNodes = (
     if (parsed.type === "pack") {
       return graph.nodes.filter(
         (node) =>
-          (node.type === "pack" && normalizedIdentity(node.identity) === target) ||
-          node.origins.some(
-            (origin) => origin.type === "pack" && normalizedIdentity(origin.pack) === target,
-          ),
+          (node.type === "pack" && desiredPackageKey(node.identity) === target) ||
+          node.origins.some((origin) => origin.type === "pack" && origin.pack.fqn === target),
       );
     }
     return graph.nodes.filter(
-      (node) => node.type === parsed.type && normalizedIdentity(node.identity) === target,
+      (node) => node.type === parsed.type && desiredPackageKey(node.identity) === target,
     );
   }
   if (Option.isSome(selection.type)) {
@@ -199,9 +191,7 @@ export const scopedProblems = (
   const parsed = parseExtensionFqnParts(target);
   if (parsed === undefined) return graph.problems;
   if (parsed.type === "pack") {
-    return graph.problems.filter(
-      (problem) => "pack" in problem && normalizedIdentity(problem.pack) === target,
-    );
+    return graph.problems.filter((problem) => "pack" in problem && problem.pack === target);
   }
   return graph.problems.filter(
     (problem) =>
@@ -216,11 +206,11 @@ export const recoverableExternalPackName = (
   problem: DesiredStateGraph["problems"][number],
 ): string | undefined => {
   if (!("pack" in problem)) return undefined;
-  const identity = normalizedIdentity(problem.pack);
   const node = graph.nodes.find(
-    (candidate) => candidate.type === "pack" && normalizedIdentity(candidate.identity) === identity,
+    (candidate) =>
+      candidate.type === "pack" && desiredPackageKey(candidate.identity) === problem.pack,
   );
-  if (node === undefined || node.identity.startsWith("workspace:")) return undefined;
+  if (node === undefined || node.identity.authority === "workspace") return undefined;
   return node.name;
 };
 
@@ -601,7 +591,7 @@ export const collectMaterializeSteps = (args: {
             const acceptedOwner = accepted?.identity.owner;
             const fqn =
               accepted === undefined || acceptedOwner === undefined
-                ? node.identity.replace(/^(?:workspace|bundled):/u, "")
+                ? desiredPackageKey(node.identity)
                 : `${acceptedOwner}/${toExtensionTypePlural(node.type)}/${accepted.identity.name}`;
             return yield* new WorkspaceSyncFailed({
               category: "conflict",

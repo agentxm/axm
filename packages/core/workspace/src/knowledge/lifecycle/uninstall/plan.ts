@@ -126,7 +126,10 @@ const inspectOwnership: (
       .flatMap((item) => item.paths.map((itemPath) => path.resolve(location.baseDir, itemPath)));
     const normalizedExpected =
       expectedCanonicalPath === undefined ? undefined : path.resolve(expectedCanonicalPath);
-    const workspaceOwned = Option.exists(desired, (node) => node.identity.startsWith("workspace:"));
+    const workspaceOwned = Option.exists(
+      desired,
+      (node) => node.identity.authority === "workspace",
+    );
     const hasAcceptedOwnership =
       workspaceOwned ||
       Option.exists(acceptedObservation, (accepted) => accepted.accepted !== undefined);

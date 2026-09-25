@@ -81,7 +81,11 @@ const stateWithDesiredSkill = () => {
 const desiredSkill = {
   type: "skill",
   name: "my-skill",
-  identity: "@examples/skills/my-skill",
+  identity: {
+    authority: "registry",
+    fqn: "@examples/skills/my-skill",
+    registry: { sourceName: undefined, endpoint: undefined },
+  },
   source: "@examples/skills/my-skill@1.0.0",
   enabled: true,
   constraint: desiredConstraintOf("1.0.0"),

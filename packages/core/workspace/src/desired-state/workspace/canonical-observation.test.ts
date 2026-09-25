@@ -14,12 +14,18 @@ import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { observeCanonicalExtension } from "./canonical-observation.js";
 import { settleDesiredNodeConstraint, type DesiredExtensionNode } from "./desired-state-graph.js";
+import type { DesiredNodeIdentity } from "./desired-identity.js";
 import { resolveProjectWorkspaceLayout } from "./layout.js";
+
+const identityOf = (source: string): DesiredNodeIdentity =>
+  source.startsWith("workspace:")
+    ? { authority: "workspace", fqn: source.slice("workspace:".length) }
+    : { authority: "git", locator: source };
 
 const desiredSkill = (source = "github:acme/tools//skills/review@main"): DesiredExtensionNode => ({
   type: "skill",
   name: "review",
-  identity: source,
+  identity: identityOf(source),
   source,
   enabled: true,
   constraint: UNCONSTRAINED_DESIRED_NODE,
@@ -150,7 +156,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
           { type: "settings", source, constraint: "^2.0.0", enabled: true },
           {
             type: "pack",
-            pack: "@acme/packs/platform",
+            pack: { authority: "registry", fqn: "@acme/packs/platform" },
             manifestPath: `${root}/agent_extensions/registry/@acme/packs/platform/pack.json`,
             source: "@acme/rules/release",
             constraint: "^2.0.0",
@@ -160,7 +166,11 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
       } satisfies Pick<DesiredExtensionNode, "type" | "name" | "origins">;
       const desired: DesiredExtensionNode = {
         ...routes,
-        identity: "@acme/rules/release",
+        identity: {
+          authority: "registry",
+          fqn: "@acme/rules/release",
+          registry: { sourceName: undefined, endpoint: undefined },
+        },
         source,
         enabled: true,
         constraint: settleDesiredNodeConstraint(routes),
@@ -232,7 +242,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
       const desired: DesiredExtensionNode = {
         type: "rule",
         name: "release",
-        identity: source,
+        identity: identityOf(source),
         source,
         enabled: true,
         constraint: desiredConstraintOf("^2.0.0"),
@@ -240,7 +250,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
           { type: "settings", source, enabled: true },
           {
             type: "pack",
-            pack: "@acme/packs/release",
+            pack: { authority: "registry", fqn: "@acme/packs/release" },
             manifestPath: `${root}/packs/release/pack.json`,
             source: "@acme/rules/release",
             constraint: "^2.0.0",

@@ -84,7 +84,7 @@ export const removableAcceptedCanonicalPath = (
   canonical: Option.Option<AcceptedCanonicalObservation>,
 ): Option.Option<string> =>
   Option.flatMap(canonical, (state) =>
-    state.desired.identity.startsWith("workspace:")
+    state.desired.identity.authority === "workspace"
       ? Option.none()
       : Option.fromUndefinedOr(state.observation.path),
   );
@@ -241,7 +241,7 @@ const refForDesired = (
     if (desired.source === undefined) {
       return yield* new InlineExtensionSourceMissing({ name: desired.name });
     }
-    if (desired.identity.startsWith("bundled:")) {
+    if (desired.identity.authority === "bundled") {
       const path = yield* Path.Path;
       return yield* resolveWorkspaceExtensionRef({
         settingsName: desired.name,
@@ -256,7 +256,7 @@ const refForDesired = (
         },
       });
     }
-    if (desired.identity.startsWith("workspace:")) {
+    if (desired.identity.authority === "workspace") {
       return yield* resolveWorkspaceExtensionRef({
         settingsName: desired.name,
         source: desired.source,
@@ -291,7 +291,7 @@ export const acceptedResolutionRef = (
       (yield* desiredState.graph()).nodes.find(
         (node) => node.type === args.type && node.name === args.name,
       );
-    if (desired === undefined || desired.identity.startsWith("workspace:")) {
+    if (desired === undefined || desired.identity.authority === "workspace") {
       return Option.none();
     }
     return yield* acceptedLockedResolutionRef(args);

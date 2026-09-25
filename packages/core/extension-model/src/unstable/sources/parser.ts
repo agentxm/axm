@@ -11,6 +11,12 @@
 
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
+import {
+  isForgePrefix,
+  parseForgeCoordinate,
+  type ForgeCoordinate,
+  type ForgePrefix,
+} from "./forge-grammar.js";
 import type { VersionRange } from "../version-constraints/version-constraints.js";
 import type { ExtensionName, ExtensionType, ExtensionTypePlural } from "../extensions/common.js";
 import type { Handle } from "../extensions/handle.js";
@@ -55,10 +61,7 @@ type GitScpAddress = {
 /** An `owner/repo[//path][@ref]` style pattern containing `/` (not a URL or file path). */
 type SlashPattern = {
   readonly pattern: "slash-pattern";
-  readonly first: string;
-  readonly second: string;
-  readonly third: Option.Option<string>;
-  readonly ref: Option.Option<string>;
+  readonly coordinate: ForgeCoordinate;
 };
 
 /** A local filesystem path matching `LOCAL_PATH_PATTERN`. */
@@ -67,7 +70,7 @@ type FilePathPattern = { readonly pattern: "file-path-pattern"; readonly path: s
 /** A shorthand prefixed input: `<prefix>:...` where prefix is a known source provider. */
 export type ShorthandInput = {
   readonly pattern: "shorthand-input";
-  readonly prefix: string;
+  readonly prefix: ForgePrefix;
   readonly remainingInput: string;
 };
 
@@ -102,9 +105,6 @@ export type InputParseResult<T = InputPattern> = {
 
 /** SCP-style: `user@host:path` — no `://` scheme. */
 const SCP_PATTERN = /^([^@]+)@([^:]+):(.+)$/;
-
-/** Known shorthand prefixes. */
-const SHORTHAND_PREFIXES = new Set(["github", "gitlab", "bitbucket", "azurerepos"]);
 
 /** Simple name: alphanumeric with hyphens, no leading/trailing hyphen. */
 const NAME_PATTERN = /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/;
@@ -163,11 +163,12 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
 
   // 4. Shorthand prefix (github:..., gitlab:..., etc.) — must check before URL
   const colonIndex = input.indexOf(":");
-  if (colonIndex > 0 && SHORTHAND_PREFIXES.has(input.slice(0, colonIndex))) {
+  const prefix = input.slice(0, colonIndex);
+  if (colonIndex > 0 && isForgePrefix(prefix)) {
     return Option.some(
       wrap({
         pattern: "shorthand-input",
-        prefix: input.slice(0, colonIndex),
+        prefix,
         remainingInput: input.slice(colonIndex + 1),
       }),
     );
@@ -191,38 +192,18 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
 
   // 7. Slash pattern (`owner/repo[//path][@ref]`)
   if (input.includes("/")) {
-    const refIndex = input.lastIndexOf("@");
-    const hasRef = refIndex > 0 && refIndex < input.length - 1;
-    const coordinate = hasRef ? input.slice(0, refIndex) : input;
-    const ref = hasRef ? input.slice(refIndex + 1) : undefined;
-    const subPathIndex = coordinate.indexOf("//");
-    const repositoryCoordinate = subPathIndex < 0 ? coordinate : coordinate.slice(0, subPathIndex);
-    const subPath = subPathIndex < 0 ? undefined : coordinate.slice(subPathIndex + 2);
-    const segments = repositoryCoordinate.split("/");
-    const first = segments.at(0);
-    const second = segments.at(1);
+    const parsed = parseForgeCoordinate("github", input);
+    if (Result.isFailure(parsed)) return Option.none();
+    const coordinate = parsed.success;
+    const segments = coordinate.repository.split("/");
     if (
-      first !== undefined &&
-      second !== undefined &&
-      segments.length === 2 &&
-      NAME_PATTERN.test(first) &&
-      NAME_PATTERN.test(second) &&
-      (ref === undefined || (ref.length > 0 && !ref.includes("/"))) &&
-      (subPath === undefined ||
-        (subPath.length > 0 &&
-          subPath.split("/").every((segment) => segment.length > 0 && segment !== "..")))
+      segments.length !== 2 ||
+      !segments.every((segment) => NAME_PATTERN.test(segment)) ||
+      Option.exists(coordinate.ref, (ref) => ref.includes("/"))
     ) {
-      return Option.some(
-        wrap({
-          pattern: "slash-pattern",
-          first,
-          second,
-          third: Option.fromUndefinedOr(subPath),
-          ref: Option.fromUndefinedOr(ref),
-        }),
-      );
+      return Option.none();
     }
-    return Option.none();
+    return Option.some(wrap({ pattern: "slash-pattern", coordinate }));
   }
 
   // 8. Glob pattern (contains `*` wildcard)

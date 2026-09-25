@@ -20,7 +20,6 @@ import type { RegistryClientFactory } from "@agentxm/registry-client";
 
 import {
   forgeCloneUrl,
-  isForgePrefix,
   parseForgeBrowserUrl,
   parseForgeCoordinate,
   type ForgeCoordinate,
@@ -112,13 +111,6 @@ const parseShorthandForSource = (
   shorthand: ShorthandInput,
 ): Effect.Effect<GitSource, SourceSyntaxInvalid> => {
   const input = `${shorthand.prefix}:${shorthand.remainingInput}`;
-  if (!isForgePrefix(shorthand.prefix)) {
-    return Effect.fail(
-      new SourceSyntaxInvalid({
-        detail: `Source type "${shorthand.prefix}" does not support shorthand syntax`,
-      }),
-    );
-  }
   const parsed = parseForgeCoordinate(shorthand.prefix, shorthand.remainingInput);
   return Result.isSuccess(parsed)
     ? Effect.succeed(gitSourceFromForgeCoordinate(parsed.success))
@@ -265,27 +257,10 @@ export const routeRegistryInput = (
 /** Route bare owner/repository input through the built-in GitHub sugar. */
 export const resolveSlashInputSource = (
   pattern: {
-    readonly first: string;
-    readonly second: string;
-    readonly third: Option.Option<string>;
-    readonly ref: Option.Option<string>;
+    readonly coordinate: ForgeCoordinate;
   },
   _input: string,
-) => {
-  const shorthandBody = Option.match(pattern.third, {
-    onNone: () => `${pattern.first}/${pattern.second}`,
-    onSome: (subPath) => `${pattern.first}/${pattern.second}//${subPath}`,
-  });
-  const withRef = Option.match(pattern.ref, {
-    onNone: () => shorthandBody,
-    onSome: (ref) => `${shorthandBody}@${ref}`,
-  });
-  return parseShorthandForSource({
-    pattern: "shorthand-input",
-    prefix: "github",
-    remainingInput: withRef,
-  });
-};
+) => Effect.succeed(gitSourceFromForgeCoordinate(pattern.coordinate));
 
 // -----------------------------------------------------------------------------
 // Main resolver

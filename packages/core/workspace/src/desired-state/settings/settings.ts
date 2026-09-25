@@ -260,17 +260,21 @@ export const writeSettingsAtPath = (settingsPath: string, settings: Settings) =>
     // write can never truncate or corrupt the user's existing settings file.
     // The temp file is removed on any failure or interruption.
     yield* sweepStaleAtomicWriteTemps(fs, settingsPath);
-    yield* writeFileAtomic(fs, {
+    // A write that would leave the same bytes in place is not a durable
+    // change, so it neither touches the file nor enters the footprint. A
+    // prior file that cannot be read is replaced, as it always was.
+    const written = yield* writeFileAtomic(fs, {
       targetPath: settingsPath,
       content,
+      skipIfUnchanged: "ignore-read-errors",
       mapError: (failure) =>
-        failure.step === "rename"
-          ? new SettingsWriteError({ path: settingsPath, step: "rename", cause: failure.cause })
-          : new SettingsWriteError({
-              path: failure.tempPath,
-              step: "write-temp",
-              cause: failure.cause,
-            }),
+        new SettingsWriteError({
+          path: failure.step === "write-temp" ? failure.tempPath : settingsPath,
+          step: failure.step,
+          cause: failure.cause,
+        }),
     });
-    yield* recordFootprint({ path: settingsPath, change: existed ? "modified" : "created" });
+    if (written === "written") {
+      yield* recordFootprint({ path: settingsPath, change: existed ? "modified" : "created" });
+    }
   });

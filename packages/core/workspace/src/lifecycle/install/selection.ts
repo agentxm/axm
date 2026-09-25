@@ -2,9 +2,10 @@
  * Selecting extensions from a discovered source.
  *
  * The command grammar names selectors by extension type. This module owns the
- * shared policy for the types whose feature planners do not already have a
- * selection port: explicit selectors win, --all accepts the complete set,
- * unattended requests must be explicit, and interactive requests ask.
+ * one selection policy every installable type shares: explicit selectors win
+ * and must match something, --all accepts the complete set, an unattended
+ * request must be explicit, and an interactive request asks through one
+ * interaction port.
  */
 
 import * as Context from "effect/Context";
@@ -12,6 +13,11 @@ import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
+import {
+  extensionTypePluralSentenceLabels,
+  extensionTypeSentenceLabels,
+  extensionTypeToPlural,
+} from "@agentxm/extension-model/unstable/extensions";
 import { expandGlobs } from "@agentxm/extension-model/unstable/extensions/name-patterns";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
@@ -51,41 +57,45 @@ export class InstallSelectionInteraction extends Context.Service<
   }
 >()("@agentxm/workspace/lifecycle/install/InstallSelectionInteraction") {}
 
-const extensionRefDescription = (ref: ExtensionRef): Option.Option<string> => {
-  switch (ref.type) {
-    case "skill":
-      return ref.skill.description;
-    case "subagent":
-      return ref.subagent.description;
-    case "mcp-server":
-    case "rule":
-    case "hook":
-    case "knowledge":
-    case "pack":
-      return Option.none();
-  }
-};
+const extensionRefDescription = (ref: ExtensionRef): Option.Option<string> =>
+  ref.type === "skill"
+    ? ref.skill.description
+    : ref.type === "subagent"
+      ? ref.subagent.description
+      : Option.none();
+
+/** The flag that names one of this type's extensions on an install command. */
+const selectorFlag = (type: InstallableExtensionType): string =>
+  type === "mcp-server" ? "--mcp" : `--${type}`;
+
+/** What a request decided before the source's contents were known. */
+export interface InstallSelectionRequest {
+  readonly type: InstallableExtensionType;
+  /** Names or `*` patterns; an empty list means nothing was named. */
+  readonly selectors: ReadonlyArray<string>;
+  /** Take everything the source offers without asking. */
+  readonly all: boolean;
+  /** No prompt can open in this invocation. */
+  readonly nonInteractive: boolean;
+}
 
 export const selectInstallRefs = <Ref extends ExtensionRef>(
   refs: ReadonlyArray<Ref>,
-  request: {
-    readonly type: InstallableExtensionType;
-    readonly selectors: ReadonlyArray<string>;
-    readonly all: boolean;
-    readonly nonInteractive: boolean;
-  },
+  request: InstallSelectionRequest,
 ): Effect.Effect<ReadonlyArray<Ref>, InstallSelectionFailure, InstallSelectionInteraction> =>
   Effect.gen(function* () {
     if (refs.length === 0) return refs;
 
     const available = refs.map(extensionRefName);
+    const noun = extensionTypeSentenceLabels[request.type];
+    const plural = extensionTypePluralSentenceLabels[extensionTypeToPlural[request.type]];
     if (request.selectors.length > 0) {
       const selected = expandGlobs(request.selectors, available);
       if (selected.length === 0) {
         return yield* installRefused({
           category: "not_found",
-          detail: `No ${request.type} selections matched the source`,
-          recover: `Available names: ${available.join(", ")}`,
+          detail: `No ${plural} matched: ${request.selectors.join(", ")}. Source contains: ${available.join(", ")}`,
+          recover: `Check the ${noun} names or patterns and try again`,
         });
       }
       return refs.filter((ref) => selected.includes(extensionRefName(ref)));
@@ -95,8 +105,8 @@ export const selectInstallRefs = <Ref extends ExtensionRef>(
     if (request.nonInteractive) {
       return yield* installRefused({
         category: "usage",
-        detail: `A ${request.type} selector or --all is required when no prompt can open`,
-        recover: `Repeat --${request.type === "mcp-server" ? "mcp" : request.type} for selected names, or pass --all`,
+        detail: `${selectorFlag(request.type)} or --all is required to select ${plural} when no prompt can open`,
+        recover: `Repeat ${selectorFlag(request.type)} for each name to install, pass --all to take every ${noun}, or rerun from an interactive terminal`,
       });
     }
 

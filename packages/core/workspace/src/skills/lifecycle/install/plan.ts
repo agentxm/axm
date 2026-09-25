@@ -58,11 +58,6 @@ import {
   type ResolveInstallRequirements,
   type SkillInstallIntent,
 } from "../../../lifecycle/install/vocabulary.js";
-import {
-  determineSkillsToInstall,
-  SkillSelectionInteraction,
-  type SkillSelectionFailure,
-} from "../application/index.js";
 import { resolveSkillInstallSource } from "./source.js";
 
 /** A skill source after grammar parsing, before anything is discovered. */
@@ -269,40 +264,16 @@ export const discoverSkillRefs: (
   return discovered;
 });
 
-/** Settle which of the discovered skills this request installs. */
-export const finalizeSkillInstallIntent: (
+/** The intent the selected skills become: each with the range its declaration keeps. */
+export const finalizeSkillInstallIntent = (
   request: ParsedSkillInstallRequest,
-  discovered: ReadonlyArray<SkillExtensionRef>,
-) => Effect.Effect<
-  SkillInstallIntent,
-  ExtensionLifecycleFailed | SkillSelectionFailure,
-  SkillSelectionInteraction
-> = Effect.fn("InstallExtensions.finalizeSkillIntent")(function* (
-  request: ParsedSkillInstallRequest,
-  discovered: ReadonlyArray<SkillExtensionRef>,
-) {
-  const [first, ...rest] = discovered;
-  if (first === undefined) {
-    return yield* installRefused({ category: "not_found", detail: "No skills found in source" });
-  }
-  const candidates: Array.NonEmptyReadonlyArray<SkillExtensionRef> = [first, ...rest];
-  const selected = yield* determineSkillsToInstall(candidates, {
-    requestedSkills: request.requestedSkills,
-    all: request.all,
-    nonInteractive: request.nonInteractive,
-  });
-
-  if (Array.isReadonlyArrayEmpty(selected)) {
-    return { skillsToInstall: [] } satisfies SkillInstallIntent;
-  }
-
-  return {
-    skillsToInstall: selected.map((ref) => ({
-      ref,
-      versionRange: ref.refType === "registry" ? request.versionRange : Option.none<VersionRange>(),
-    })),
-    force: request.force,
-  } satisfies SkillInstallIntent;
+  selected: ReadonlyArray<SkillExtensionRef>,
+): SkillInstallIntent => ({
+  skillsToInstall: selected.map((ref) => ({
+    ref,
+    versionRange: ref.refType === "registry" ? request.versionRange : Option.none<VersionRange>(),
+  })),
+  force: request.force,
 });
 
 /**
@@ -315,7 +286,6 @@ export interface SkillInstallationStepInput {
   readonly ref: SkillExtensionRef;
   readonly versionRange: Option.Option<VersionRange>;
   readonly force: boolean;
-  readonly installedBefore?: boolean;
 }
 
 /** One skill-owned application step, shared by every install and update route. */
@@ -338,7 +308,6 @@ export const planSkillInstallationStep = (
       ref: input.ref,
       declaration: { name: input.ref.skill.name, versionRange: input.versionRange },
       force: input.force,
-      installedBefore: Effect.succeed(prepared.installedBefore),
       buildArtifact: prepared.buildArtifact,
     });
     for (const warning of prepared.warnings) step = withPlanWarning(step, Option.some(warning));
@@ -348,25 +317,14 @@ export const planSkillInstallationStep = (
 /** The closures a settled skill intent becomes. */
 export const planSkillInstall: (
   intent: SkillInstallIntent,
-  options?: { readonly installedBefore?: ReadonlyMap<string, boolean> },
 ) => Effect.Effect<
   Plan<InstallStepRequirements>,
   ExtensionLifecycleFailed | Config.ConfigError,
   InstallStepRequirements | SkillManager | FileSystem.FileSystem | Path.Path | RegistryClientFactory
-> = Effect.fn("InstallExtensions.planSkills")(function* (
-  intent: SkillInstallIntent,
-  options?: { readonly installedBefore?: ReadonlyMap<string, boolean> },
-) {
+> = Effect.fn("InstallExtensions.planSkills")(function* (intent: SkillInstallIntent) {
   const steps = yield* Effect.forEach(
     intent.skillsToInstall,
-    (entry) =>
-      planSkillInstallationStep({
-        ...entry,
-        force: intent.force === true,
-        ...(options?.installedBefore === undefined
-          ? {}
-          : { installedBefore: options.installedBefore.get(entry.ref.skill.name) ?? false }),
-      }),
+    (entry) => planSkillInstallationStep({ ...entry, force: intent.force === true }),
     { concurrency: 1 },
   );
 

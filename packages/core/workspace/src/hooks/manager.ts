@@ -26,7 +26,8 @@ import * as Path from "effect/Path";
 import * as RcMap from "effect/RcMap";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
-import { HookDefinitionInvalid, HookInstallStateMissing } from "./errors.js";
+import { HookDefinitionInvalid } from "./errors.js";
+import { acceptedResolutionFor } from "../materialization/accepted-resolution.js";
 import type { ExtensionManagerFailure } from "../materialization/errors.js";
 import {
   activeContributors,
@@ -57,8 +58,7 @@ import {
   installable,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { computePackageContentHash } from "../desired-state/index.js";
-import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "../desired-state/index.js";
-import { type SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
+import { computeMaterializedTreeIntegrity } from "../desired-state/index.js";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import {
   reusableCanonicalTree,
@@ -71,21 +71,13 @@ import { computeExtensionPathsForLayout } from "../desired-state/index.js";
 import type { DesiredStateGraph, ConfiguredAgentOutcome } from "../desired-state/index.js";
 import type { ProjectionUnitObservation } from "../projection/index.js";
 import { validatePathSafety } from "../desired-state/index.js";
-import { validateExactResolvedVersion } from "../desired-state/index.js";
-import type { HookLockEntry } from "../desired-state/index.js";
 import { MaterializedFileTargetSchema } from "../desired-state/index.js";
-import {
-  gitSourceLockFields,
-  pathSourceLockFields,
-  registrySourceLockFields,
-} from "../desired-state/index.js";
 import { SourceHostProviders, WorkspaceCatalog } from "../resolution/sources/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import {
   decodeRelativePathSync,
   makeWorkspaceRelativePath,
 } from "@agentxm/extension-model/unstable/path-types";
-import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { usableAcceptedCanonicalRef } from "../desired-state/index.js";
 import { NO_MATERIALIZATION_OBSERVATION } from "../materialization/manager-contract.js";
 import type { HookMaterializationFacts } from "../materialization/managers.js";
@@ -98,7 +90,7 @@ import {
   prepareAcceptedCanonicalTransition,
   removableAcceptedCanonicalPath,
 } from "../desired-state/index.js";
-import { protectWorkspacePath } from "../transitions/settlement/index.js";
+import { protectWorkspacePath, recordFootprint } from "../transitions/settlement/index.js";
 import {
   HOOK_EXTENSION_DIR,
   HOOK_MANIFEST_FILENAME,
@@ -117,47 +109,6 @@ const HOOK_FALLBACKS_REGION = "hook-fallbacks";
 
 const decodeHookManifest = Schema.decodeUnknownEffect(HookManifestSchema);
 const decodeMaterializedTarget = Schema.decodeUnknownSync(MaterializedFileTargetSchema);
-
-const registryHookLockEntry = (ref: RegistryHookRef, treeIntegrity: TreeIntegrity): HookLockEntry =>
-  registrySourceLockFields(
-    ref.source,
-    ref.owner,
-    ref.name,
-    decodeVersionSync(ref.version),
-    Option.getOrElse(ref.integrity, () => ""),
-    ref.publisherBindingId,
-    treeIntegrity,
-  );
-
-const gitHookLockEntry = (
-  ref: GitHostedHookRef,
-  contentIdentity: SourceHash,
-  treeIntegrity: TreeIntegrity,
-): HookLockEntry => ({
-  ...gitSourceLockFields(
-    ref.source,
-    Option.fromUndefinedOr(ref.sourcePath),
-    ref.gitCommitSha,
-    ref.gitTreeSha,
-    ref.owner,
-    ref.name,
-    treeIntegrity,
-  ),
-});
-
-const localHookLockEntry = (
-  ref: LocalHookRef,
-  workspaceRelativeLocalSourcePath: Option.Option<string>,
-  contentIdentity: SourceHash,
-  treeIntegrity: TreeIntegrity,
-): HookLockEntry =>
-  pathSourceLockFields(
-    Option.getOrElse(workspaceRelativeLocalSourcePath, () => ref.source.path),
-    contentIdentity,
-    ref.name,
-    treeIntegrity,
-    ref.owner,
-  );
 
 interface HookWriterTarget {
   readonly agent: CapabilityAgent;
@@ -281,6 +232,7 @@ const writeIfChanged = (
         ),
       ),
     });
+    yield* recordFootprint({ path: configPath, change: oldRaw === "" ? "created" : "modified" });
   });
 
 const interpreterForRuntime = (runtime: HookManifest["runtime"]): string => {
@@ -492,30 +444,44 @@ export const HookManagerLive = Layer.effect(
         };
       });
 
+    // A disk-sourced package is copied only when the canonical observation
+    // no longer finds the accepted tree; an intact accepted tree is reused,
+    // exactly as a Registry package is.
     const materializeFromExternal = (ref: GitHostedHookRef | LocalHookRef) =>
-      Effect.flatMap(acquiredDirectoryForRef(ref, ref.location), (sourceLocation) =>
-        provide(
+      Effect.gen(function* () {
+        const canonicalPath = computeExtensionPathsForLayout(
+          path.join,
+          currentLayout(),
+          ref,
+          HOOK_EXTENSION_DIR,
+          ref.hook.name,
+        ).canonicalPath;
+        const reusable = yield* provide(
+          reusableCanonicalTree({
+            canonicalPath,
+            requested: { refType: ref.refType, name: ref.hook.name },
+            accepted: yield* lockfile.entry("hook", ref.hook.name),
+            force: false,
+          }),
+        );
+        if (Option.isSome(reusable)) {
+          return { packageRoot: canonicalPath, treeIntegrity: reusable.value };
+        }
+        const sourceLocation = yield* acquiredDirectoryForRef(ref, ref.location);
+        const materialized = yield* provide(
           materializeExternalPackageWithTreeIntegrity({
             baseDir,
-            canonicalPath: computeExtensionPathsForLayout(
-              path.join,
-              currentLayout(),
-              ref,
-              HOOK_EXTENSION_DIR,
-              ref.hook.name,
-            ).canonicalPath,
+            canonicalPath,
             sourceLocation,
             copyFailureCode: "validation",
-            copyFailureDetail: (canonicalPath) =>
-              `Failed to copy hook package files to ${canonicalPath}`,
-          }).pipe(
-            Effect.map((materialized) => ({
-              packageRoot: materialized.canonicalPath,
-              treeIntegrity: materialized.treeIntegrity,
-            })),
-          ),
-        ),
-      );
+            copyFailureDetail: (target) => `Failed to copy hook package files to ${target}`,
+          }),
+        );
+        return {
+          packageRoot: materialized.canonicalPath,
+          treeIntegrity: materialized.treeIntegrity,
+        };
+      });
 
     // Serialize re-materialization of the same package within a process: sync
     // renders every agent target concurrently, and each render pass materializes
@@ -1112,45 +1078,6 @@ export const HookManagerLive = Layer.effect(
       } satisfies HookMaterializationFacts;
     });
 
-    const buildLockEntry = (
-      ref: HookExtensionRef,
-      materialization: Option.Option<HookMaterializationFacts>,
-    ): Effect.Effect<Option.Option<HookLockEntry>, HookInstallStateMissing> =>
-      Effect.gen(function* () {
-        const state = Option.getOrUndefined(
-          materialization.pipe(Option.flatMap((facts) => facts.acquired)),
-        );
-        switch (ref.refType) {
-          case "registry":
-            return state === undefined
-              ? yield* new HookInstallStateMissing({ name: ref.hook.name, kind: "tree-integrity" })
-              : Option.some(registryHookLockEntry(ref, state.treeIntegrity));
-          case "git-hosted":
-            return state === undefined
-              ? yield* new HookInstallStateMissing({
-                  name: ref.hook.name,
-                  kind: "content-identity",
-                })
-              : Option.some(gitHookLockEntry(ref, state.sourceHash, state.treeIntegrity));
-          case "local":
-            return state === undefined
-              ? yield* new HookInstallStateMissing({
-                  name: ref.hook.name,
-                  kind: "content-identity",
-                })
-              : Option.some(
-                  localHookLockEntry(
-                    ref,
-                    state.workspaceRelativeLocalSourcePath,
-                    state.sourceHash,
-                    state.treeIntegrity,
-                  ),
-                );
-          case "workspace":
-            return Option.none();
-        }
-      });
-
     // Canonical removal only. The shared operation flow re-renders the hook
     // units after settings and lock removal, once the target has left the graph.
     const withdrawn: HookMaterializationFacts = {
@@ -1254,22 +1181,11 @@ export const HookManagerLive = Layer.effect(
       materializeUninstall,
       materializeDeactivate,
 
-      acceptedResolution: Effect.fn("HookManager.acceptedResolution")(function* ({
-        ref,
-        materialization,
-      }) {
-        const entry = yield* buildLockEntry(ref, materialization);
-        if (Option.isNone(entry)) {
-          return Option.none();
-        }
-        if (ref.refType === "registry") {
-          yield* validateExactResolvedVersion(
-            `hooks.${ref.hook.name}.resolvedVersion`,
-            ref.version,
-          );
-        }
-        return Option.some({ key: ref.hook.name, entry: entry.value });
-      }),
+      acceptedResolution: ({ ref, materialization }) =>
+        acceptedResolutionFor({
+          ref,
+          acquired: Option.flatMap(materialization, (facts) => facts.acquired),
+        }),
 
       withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
     };

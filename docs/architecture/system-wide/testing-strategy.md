@@ -260,18 +260,18 @@ white-box evidence rather than a duplicate source of truth.
 
 ### Policy coverage and mutation evidence
 
-Skill and subagent selection have a bounded quality gate independent of
-specification completeness. The
+Install source selection, the one policy every installable type shares, has a
+bounded quality gate independent of specification completeness. The
 [policy test configuration](../../../packages/core/workspace/vitest.policy.config.ts)
-includes every domain source file in those owners, including files no test
-imports. Its complete statement, branch, function, and line thresholds apply
-to that small policy boundary. They are not a repository-wide quality score.
+includes that policy's source file whether or not a test imports it. Its
+complete statement, branch, function, and line thresholds apply to that small
+policy boundary. They are not a repository-wide quality score.
 [Vitest coverage](https://vitest.dev/guide/coverage.html) supplies the source
 inclusion, diagnostics, and reports.
 
 The owner's `test:policy-coverage` target runs in affected and full source
-verification. `test:policy` executes the same ordinary domain/application tests
-without coverage. Both resolve workspace dependencies from source and avoid
+verification. `test:policy` executes the same ordinary policy tests without
+coverage. Both resolve workspace dependencies from source and avoid
 unrelated CLI builds. They emit no specification receipts.
 
 `test:policy-mutation` is an explicit, bounded diagnostic target. Stryker's

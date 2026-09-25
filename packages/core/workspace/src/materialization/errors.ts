@@ -55,10 +55,12 @@ import type {
 } from "../desired-state/index.js";
 import type { SkillDiscoveryRootInvalid, SubagentScanFailed } from "../desired-state/index.js";
 import type { LockfileResolvedVersionInvalid } from "../desired-state/index.js";
+import type { InstallStateMissing } from "./accepted-resolution.js";
 
 /** Every typed failure the materialization modules construct themselves. */
 export type ExtensionMaterializationError =
   | MaterializationError
+  | InstallStateMissing
   | LifecyclePostconditionViolated
   | SourceAuthorityBlocked
   | ProjectionError

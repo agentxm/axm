@@ -39,6 +39,7 @@ import {
 } from "../../../materialization/index.js";
 import {
   buildInstallOperation,
+  buildPackMemberStep,
   buildUninstallOperation,
   targetFromRef,
   toLabel,
@@ -135,14 +136,13 @@ import {
 } from "../../../projection/index.js";
 import { expandPackInstallRefsWithReleaseAge } from "../expansion.js";
 import { validatePackGraphPostcondition } from "../graph-transition.js";
-import { buildPackMemberInstallStep } from "../member-install-step.js";
 import { registrySourceArtifact, registrySourcePath } from "../artifact.js";
 import { exclusiveMemberRetentionPolicy } from "../../../reconciliation/index.js";
 import {
   desiredIdentityOfRef,
   desiredPackageKey,
-  desiredSourceAuthorityOf,
   formatDesiredSourceAuthority,
+  packMemberSourceAuthority,
   type DesiredExtensionOrigin,
 } from "../../../desired-state/index.js";
 
@@ -344,6 +344,8 @@ export const scanWorkspaceAuthority: (
   WorkspaceAuthorityRequirements
 > = Effect.fn("InstallExtensions.scanWorkspaceAuthority")(function* (pack: PackRef) {
   const graph = yield* readDesiredGraph;
+  const path = yield* Path.Path;
+  const { baseDir } = yield* WorkspaceLocation;
   const packIdentity = `${pack.owner}/packs/${pack.name}`;
   const blockers: Array<SourceAuthorityBlockedFact> = [];
   const workspaceRefs = new Map<string, ExtensionRef>();
@@ -382,9 +384,11 @@ export const scanWorkspaceAuthority: (
     const existingPackOrigins = (existing?.origins ?? []).flatMap((origin) =>
       origin.type === "pack" && origin.pack.fqn !== packIdentity ? [origin] : [],
     );
+    // The requested spelling and the held one come from one producer, so a
+    // second Pack from the same source view is never a source conflict.
     const requestedAuthority = formatDesiredSourceAuthority(
       declaredSource === undefined
-        ? desiredSourceAuthorityOf(pack.source)
+        ? packMemberSourceAuthority({ kind: "resolved", source: pack.source, path, baseDir })
         : { authority: "registry", endpoint: declaredSource.url },
     );
     const heldAuthority = (origin: Extract<DesiredExtensionOrigin, { readonly type: "pack" }>) =>
@@ -1328,21 +1332,15 @@ export const planPackInstall: (
               ref,
               declaration: { name: ref.pack.name, versionRange: intent.versionRange },
               ...(intent.forceCanonical === true ? { force: true } : {}),
-              installedBefore: graph.complete
-                ? packManager.isInstalled({
-                    target: { type: "pack", name: ref.pack.name, owner: ref.owner },
-                  })
-                : Effect.succeed(false),
-              buildArtifact: ({ installedBefore }) =>
-                Effect.succeed(
-                  registrySourceArtifact({ ref, scope: location.scope, installedBefore }),
-                ),
+              buildArtifact: ({ change }) =>
+                Effect.succeed(registrySourceArtifact({ ref, scope: location.scope, change })),
             }),
           )
-        : buildPackMemberInstallStep({
+        : buildPackMemberStep({
             ref,
-            graphComplete: graph.complete,
             nonInteractive: intent.nonInteractive,
+            strictAgentSync: true,
+            toStepFailure: lifecycleStepFailure,
           }),
     { concurrency: 1 },
   );

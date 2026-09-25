@@ -117,7 +117,6 @@ export const wrapTargetedUpdatePlan = (args: {
       message: `Updated ${args.context.public.target.fqn}`,
       artifact,
       children,
-      reportUnchangedWhenChildrenUnchanged: true,
       preTransition: resolveTargetedUpdateContext({
         target: args.context.public.target,
         ...(args.explicitRange === undefined ? {} : { explicitRange: args.explicitRange }),

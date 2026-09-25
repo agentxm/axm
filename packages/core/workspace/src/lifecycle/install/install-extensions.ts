@@ -16,6 +16,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import type * as Config from "effect/Config";
 import * as Option from "effect/Option";
@@ -24,6 +25,7 @@ import {
   installableExtensionTypes,
   type InstallableExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/installable-types";
+import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {
   operationPresentation,
   prepareExecutionCandidate,
@@ -98,14 +100,6 @@ import { buildConfiguredInstallPlan, type ConfiguredInstallRequirements } from "
 import { formatRegistryProbe } from "./registry-source-resolution.js";
 import { resolveRootInstallIntent } from "./root-intent.js";
 import {
-  SkillSelectionInteraction,
-  type SkillSelectionFailure,
-} from "../../skills/lifecycle/application/index.js";
-import {
-  SubagentSelectionInteraction,
-  type SubagentSelectionFailure,
-} from "../../subagents/lifecycle/application/index.js";
-import {
   INSTALL_HELD_RELEASE_POLICY,
   installRefused,
   sourceResolutionRefused,
@@ -120,6 +114,7 @@ import {
   InstallSelectionInteraction,
   selectInstallRefs,
   type InstallSelectionFailure,
+  type InstallSelectionRequest,
 } from "./selection.js";
 
 // -----------------------------------------------------------------------------
@@ -210,8 +205,6 @@ export type InstallExtensionsFailure =
   | Config.ConfigError
   | ExtensionLifecycleFailed
   | ExtensionResolutionFailed
-  | SkillSelectionFailure
-  | SubagentSelectionFailure
   | InstallSelectionFailure
   | InstallExecutionFailure;
 
@@ -263,17 +256,34 @@ const combineTypePlans = (
   };
 };
 
+/**
+ * A refusal the person's own selection caused inside one type's route. The
+ * locator offers a source to every installable type and lets the types that
+ * find nothing there drop out; a selector that matched nothing, or a missing
+ * selector when no prompt can open, is not "nothing here" and must surface.
+ * It travels under this tag until the route boundary unwraps it.
+ */
+class SelectionRefused extends Data.TaggedError("SelectionRefused")<{
+  readonly failure: InstallSelectionFailure;
+}> {}
+
+const selectFrom = <Ref extends ExtensionRef>(
+  refs: ReadonlyArray<Ref>,
+  selection: InstallSelectionRequest,
+): Effect.Effect<ReadonlyArray<Ref>, SelectionRefused, InstallSelectionInteraction> =>
+  selectInstallRefs(refs, selection).pipe(
+    Effect.mapError((failure) => new SelectionRefused({ failure })),
+  );
+
 const planForType = (
   type: InstallableExtensionType,
   source: string,
   request: InstallExtensionsRequest,
 ): Effect.Effect<
   { readonly plan: Plan<InstallStepRequirements>; readonly diagnostics: InstallDiagnostics },
-  InstallExtensionsFailure,
+  InstallExtensionsFailure | SelectionRefused,
   | PrepareInstallRequirements
   | ConfiguredInstallRequirements
-  | SkillSelectionInteraction
-  | SubagentSelectionInteraction
   | InstallSelectionInteraction
   | BundledAxmSkillAsset
 > => {
@@ -301,7 +311,13 @@ const planForType = (
         const acceptedSkills = accepted.filter((ref) => ref.type === "skill");
         const discovered =
           acceptedSkills.length > 0 ? acceptedSkills : yield* discoverSkillRefs(parsed);
-        const intent = yield* finalizeSkillInstallIntent(parsed, discovered);
+        const selected = yield* selectFrom(discovered, {
+          type,
+          selectors: parsed.requestedSkills,
+          all: request.all,
+          nonInteractive: request.nonInteractive,
+        });
+        const intent = finalizeSkillInstallIntent(parsed, selected);
         const settledIntent =
           request.reinstall && acceptedSkills.length === 0
             ? {
@@ -360,7 +376,13 @@ const planForType = (
         const acceptedSubagents = accepted.filter((ref) => ref.type === "subagent");
         const discovered =
           acceptedSubagents.length > 0 ? acceptedSubagents : yield* discoverSubagentRefs(parsed);
-        const intent = yield* finalizeSubagentInstallIntent(parsed, discovered);
+        const selected = yield* selectFrom(discovered, {
+          type,
+          selectors: parsed.requestedSubagents,
+          all: request.all,
+          nonInteractive: request.nonInteractive,
+        });
+        const intent = finalizeSubagentInstallIntent(parsed, selected);
         const settledIntent =
           request.reinstall && acceptedSubagents.length === 0
             ? {
@@ -409,7 +431,7 @@ const planForType = (
         const acceptedRules = accepted.filter((ref) => ref.type === "rule");
         const discovered =
           acceptedRules.length > 0 ? acceptedRules : yield* discoverRuleRefs(parsed);
-        const selected = yield* selectInstallRefs(discovered, {
+        const selected = yield* selectFrom(discovered, {
           type,
           selectors: effectiveSelectors,
           all: request.all,
@@ -453,7 +475,7 @@ const planForType = (
         const acceptedHooks = accepted.filter((ref) => ref.type === "hook");
         const discovered =
           acceptedHooks.length > 0 ? acceptedHooks : yield* discoverHookRefs(parsed);
-        const selected = yield* selectInstallRefs(discovered, {
+        const selected = yield* selectFrom(discovered, {
           type,
           selectors: effectiveSelectors,
           all: request.all,
@@ -497,7 +519,7 @@ const planForType = (
         const acceptedKnowledge = accepted.filter((ref) => ref.type === "knowledge");
         const discovered =
           acceptedKnowledge.length > 0 ? acceptedKnowledge : yield* discoverKnowledgeRefs(parsed);
-        const selected = yield* selectInstallRefs(discovered, {
+        const selected = yield* selectFrom(discovered, {
           type,
           selectors: effectiveSelectors,
           all: request.all,
@@ -554,7 +576,7 @@ const planForType = (
         if (discovered.length === 0) {
           yield* finalizeMcpServerInstallIntent(parsed, sourceRequest, discovered);
         }
-        const selected = yield* selectInstallRefs(discovered, {
+        const selected = yield* selectFrom(discovered, {
           type,
           selectors: effectiveSelectors,
           all: request.all,
@@ -630,7 +652,7 @@ const planForType = (
             detail: "No pack was found in the source",
           });
         }
-        const selected = yield* selectInstallRefs(discovered, {
+        const selected = yield* selectFrom(discovered, {
           type,
           selectors: effectiveSelectors,
           all: request.all,
@@ -683,7 +705,8 @@ const isNoMatch = (failure: InstallExtensionsFailure): boolean =>
 /**
  * A locator names a place, not a type. Each installable type is offered the
  * source and the ones that find nothing there simply do not contribute; if no
- * type matches, the locator held nothing AXM can install.
+ * type matches, the locator held nothing AXM can install. A refusal the
+ * selection itself raised is never "nothing here": it surfaces as is.
  */
 const planLocatorInstall = (
   source: string,
@@ -693,8 +716,6 @@ const planLocatorInstall = (
   InstallExtensionsFailure,
   | PrepareInstallRequirements
   | ConfiguredInstallRequirements
-  | SkillSelectionInteraction
-  | SubagentSelectionInteraction
   | InstallSelectionInteraction
   | BundledAxmSkillAsset
 > =>
@@ -720,15 +741,17 @@ const planLocatorInstall = (
         planForType(type, source, request).pipe(
           Effect.map((planned) => Option.some({ type, ...planned })),
           Effect.catch((failure) =>
-            isNoMatch(failure)
-              ? Effect.succeed(
-                  Option.none<{
-                    readonly type: InstallableExtensionType;
-                    readonly plan: Plan<InstallStepRequirements>;
-                    readonly diagnostics: InstallDiagnostics;
-                  }>(),
-                )
-              : Effect.fail(failure),
+            failure._tag === "SelectionRefused"
+              ? Effect.fail(failure.failure)
+              : isNoMatch(failure)
+                ? Effect.succeed(
+                    Option.none<{
+                      readonly type: InstallableExtensionType;
+                      readonly plan: Plan<InstallStepRequirements>;
+                      readonly diagnostics: InstallDiagnostics;
+                    }>(),
+                  )
+                : Effect.fail(failure),
           ),
         ),
       { concurrency: 1 },
@@ -778,8 +801,6 @@ const planRequest = (
   InstallExtensionsFailure,
   | PrepareInstallRequirements
   | ConfiguredInstallRequirements
-  | SkillSelectionInteraction
-  | SubagentSelectionInteraction
   | InstallSelectionInteraction
   | BundledAxmSkillAsset
 > =>
@@ -848,7 +869,9 @@ const planRequest = (
 
     if (type === "locator") return yield* planLocatorInstall(source, request);
 
-    const { plan, diagnostics } = yield* planForType(type, source, request);
+    const { plan, diagnostics } = yield* planForType(type, source, request).pipe(
+      Effect.catchTag("SelectionRefused", (refused) => Effect.fail(refused.failure)),
+    );
     return {
       types: [type],
       plan: { ...plan, name: plan.name },
@@ -870,8 +893,6 @@ export const prepareInstallExtensions: (
   InstallExtensionsFailure,
   | PrepareInstallRequirements
   | ConfiguredInstallRequirements
-  | SkillSelectionInteraction
-  | SubagentSelectionInteraction
   | InstallSelectionInteraction
   | BundledAxmSkillAsset
 > = Effect.fn("InstallExtensions.prepare")(function* (request: InstallExtensionsRequest) {

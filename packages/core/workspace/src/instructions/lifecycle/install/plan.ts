@@ -14,7 +14,10 @@ import { WorkspaceLocation } from "../../../desired-state/index.js";
 import * as Option from "effect/Option";
 
 import { RuleManager } from "../../../materialization/index.js";
-import { buildInstallOperation } from "../../../reconciliation/index.js";
+import {
+  buildInstallOperation,
+  type InstallArtifactPresentation,
+} from "../../../reconciliation/index.js";
 import {
   parseSourceQualifiedRegistrySourcePatternParts,
   type Handle,
@@ -25,7 +28,6 @@ import type { VersionRange } from "@agentxm/extension-model/unstable/version-con
 import { SourceHostProviders, resolveSource } from "../../../resolution/sources/index.js";
 import {
   operationPresentation,
-  type JobStepArtifact,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
@@ -154,13 +156,9 @@ export const planRuleInstall: (
       ...(deferProjections
         ? { enclosingClosure: { projections: [ref.type], postconditions: [] } }
         : {}),
-      installedBefore: ruleManager.isInstalled({
-        target: { type: "rule", name: ref.rule.name },
-      }),
-      buildArtifact: ({ installedBefore }) =>
+      buildArtifact: ({ change }) =>
         Effect.gen(function* () {
           const materialization = yield* ruleManager.aggregateProjectionObservation;
-          const change: JobStepArtifact["change"] = installedBefore ? "updated" : "created";
           const targets = materialization.targets.map((target) => ({
             path: target.path,
             change,
@@ -171,9 +169,8 @@ export const planRuleInstall: (
             scope: location.scope,
             agents: materialization.agents,
             ...(ref.refType === "registry" ? { version: ref.version } : {}),
-            change,
             ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
-          } satisfies JobStepArtifact;
+          } satisfies InstallArtifactPresentation;
         }),
     }),
   );

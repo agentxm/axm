@@ -16,16 +16,25 @@ import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { computeSourceHash } from "../desired-state/index.js";
 import type { KnowledgeLockEntry } from "../desired-state/index.js";
+import { TreeIntegritySchema, type TreeIntegrity } from "../desired-state/index.js";
+import * as Schema from "effect/Schema";
 import { KnowledgeManager } from "../materialization/managers.js";
 import { applyPlannedProjections } from "../projection/index.js";
 import { SourceHostProviders, SourceNotResolvable } from "../resolution/sources/index.js";
 import {
+  AcceptedResolutionWriter,
   DesiredStateWriter,
   SettingsWriter,
+  type AcceptedResolutionWriterService,
   type DesiredStateWriterService,
   type SettingsWriterService,
   type WorkspaceRecordsService,
 } from "../desired-state/index.js";
+import { FootprintRecorderTest } from "../transitions/planning/testing.js";
+import { StepFailure } from "../transitions/planning/index.js";
+import { buildInstallOperation } from "../reconciliation/index.js";
+import { workspaceFailureToStepFailure } from "../reconciliation/failure-rendering.js";
+import type { KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import {
   MockWorkspaceTransactionScope,
@@ -110,6 +119,11 @@ const workspaceRef = (name: string, root: string): WorkspaceKnowledgeRef => ({
   knowledge: { name: decodeExtensionNameSync(name) },
 });
 
+const acceptedTreeIntegrity = (canonicalRoot: string): TreeIntegrity =>
+  existsSync(canonicalRoot)
+    ? computeMaterializedTreeIntegritySync(canonicalRoot)
+    : Schema.decodeUnknownSync(TreeIntegritySchema)(`sha256-tree-v1:${"0".repeat(64)}`);
+
 /** Desired-state and lock overrides for a locally sourced `handbook` bundle. */
 const desiredHandbookReadFacts = (
   workspaceRoot: string,
@@ -123,7 +137,9 @@ const desiredHandbookReadFacts = (
         source: { type: "path" as const, path: decodeRelativePathSync("source") },
         identity: { owner: handle("@acme"), name: extensionName("handbook") },
         resolved: { tree: TEST_CONTENT_IDENTITY },
-        treeIntegrity: computeMaterializedTreeIntegritySync(
+        // The accepted tree, once the canonical package exists; before that,
+        // an integrity no tree can match, so acquisition never reuses it.
+        treeIntegrity: acceptedTreeIntegrity(
           nodePath.join(
             workspaceRoot,
             "agent_extensions",
@@ -154,6 +170,25 @@ const desiredHandbookReadFacts = (
   },
 });
 
+/**
+ * A direct Knowledge install is the shared install recipe over the production
+ * manager: the same closure the lifecycle command runs, so the settings and
+ * accepted-resolution writes the manager causes are the recipe's.
+ */
+const installKnowledge = (ref: KnowledgeExtensionRef) =>
+  Effect.gen(function* () {
+    const manager = yield* KnowledgeManager;
+    const step = buildInstallOperation(manager, {
+      ref,
+      declaration: { name: ref.knowledge.name, versionRange: Option.none() },
+      toStepFailure: workspaceFailureToStepFailure,
+    });
+    if (step.readiness === "error") {
+      return yield* new StepFailure({ category: "internal", detail: step.errorMessage });
+    }
+    return yield* step.run;
+  });
+
 const managerLayer = (
   workspaceRoot: string,
   options: {
@@ -161,6 +196,7 @@ const managerLayer = (
     readonly records?: Partial<WorkspaceRecordsService>;
     readonly settingsWriter?: Partial<SettingsWriterService>;
     readonly desiredStateWriter?: Partial<DesiredStateWriterService>;
+    readonly acceptedResolutionWriter?: Partial<AcceptedResolutionWriterService>;
   } = {},
 ) => {
   const axmDir = nodePath.join(workspaceRoot, ".axm");
@@ -185,6 +221,12 @@ const managerLayer = (
           undeclare: () => Effect.void,
           ...options.desiredStateWriter,
         }),
+        Layer.mock(AcceptedResolutionWriter, {
+          setAccepted: () => Effect.void,
+          removeAccepted: () => Effect.void,
+          ...options.acceptedResolutionWriter,
+        }),
+        FootprintRecorderTest,
       ),
     ),
     Layer.provideMerge(MockWorkspaceTransactionScope(axmDir)),
@@ -217,13 +259,7 @@ describe("KnowledgeManager", () => {
         writeKnowledgePackage(sourceRoot, "handbook", true);
         const written: Array<{ readonly source: string; readonly enabled: boolean }> = [];
 
-        yield* Effect.gen(function* () {
-          const manager = yield* KnowledgeManager;
-          yield* manager.install({
-            ref: workspaceRef("handbook", sourceRoot),
-            versionRange: Option.none(),
-          });
-        }).pipe(
+        yield* installKnowledge(workspaceRef("handbook", sourceRoot)).pipe(
           Effect.provide(
             managerLayer(workspaceRoot, {
               read: {
@@ -321,19 +357,20 @@ describe("KnowledgeManager", () => {
         const canonicalConcept = nodePath.join(canonicalRoot, "src", "concept.md");
         writeFileSync(canonicalConcept, "---\ntype: concept\n---\n# Original concept\n");
 
+        // The accepted-resolution write follows the canonical replacement in
+        // the recipe's transaction; blocking there interrupts the install
+        // with the replacement already on disk.
         const staged = yield* Deferred.make<void>();
         const layer = managerLayer(workspaceRoot, {
-          desiredStateWriter: {
-            declare: () => Deferred.succeed(staged, undefined).pipe(Effect.andThen(Effect.never)),
+          acceptedResolutionWriter: {
+            setAccepted: () =>
+              Deferred.succeed(staged, undefined).pipe(Effect.andThen(Effect.never)),
           },
         });
-        const fiber = yield* Effect.gen(function* () {
-          const manager = yield* KnowledgeManager;
-          yield* manager.install({
-            ref: localRef("handbook", sourceRoot),
-            versionRange: Option.none(),
-          });
-        }).pipe(Effect.provide(layer), Effect.forkChild);
+        const fiber = yield* installKnowledge(localRef("handbook", sourceRoot)).pipe(
+          Effect.provide(layer),
+          Effect.forkChild,
+        );
 
         yield* Deferred.await(staged);
         expect(readFileSync(canonicalConcept, "utf8")).toContain("# Replacement concept");
@@ -645,8 +682,10 @@ describe("KnowledgeManager", () => {
             yield* manager.materializeInstall({ ref: localRef("handbook", validRoot) });
             yield* applyPlannedProjections(manager);
             writeKnowledgePackage(validRoot, "handbook", false);
+            // The accepted tree is intact, so only a forced acquisition
+            // reads the now-invalid source and attempts the replacement.
             yield* manager
-              .materializeInstall({ ref: localRef("handbook", validRoot) })
+              .materializeInstall({ ref: localRef("handbook", validRoot), force: true })
               .pipe(Effect.flip);
           }).pipe(
             Effect.provide(

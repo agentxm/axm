@@ -9,15 +9,10 @@ export default defineConfig({
   root: projectRoot,
   ssr: { resolve: { conditions: ["axm-source", ...defaultServerConditions] } },
   test: {
-    include: [
-      "src/skills/lifecycle/domain/**/*.test.ts",
-      "src/skills/lifecycle/application/**/*.test.ts",
-      "src/subagents/lifecycle/domain/**/*.test.ts",
-      "src/subagents/lifecycle/application/**/*.test.ts",
-    ],
+    include: ["src/lifecycle/install/selection.test.ts"],
     coverage: {
       provider: "v8",
-      include: ["src/skills/lifecycle/domain/**/*.ts", "src/subagents/lifecycle/domain/**/*.ts"],
+      include: ["src/lifecycle/install/selection.ts"],
       exclude: ["**/*.test.ts", "**/*.spec.ts"],
       reportsDirectory: "../../../test-results/policy-quality/coverage",
       reporter: ["text", "json", "json-summary", "html"],

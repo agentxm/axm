@@ -1,6 +1,8 @@
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import { execSync } from "node:child_process";
 import { NativeWriteAuthorityPermissive } from "../../projection/agent-adapters/testing.js";
+import { FootprintRecorderTest } from "../../transitions/planning/testing.js";
+import { recordFootprint } from "../../transitions/settlement/index.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -186,6 +188,7 @@ const makeServices = (
       Layer.mergeAll(
         Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
         NativeWriteAuthorityPermissive,
+        FootprintRecorderTest,
       ),
       WorkspaceReadTest({
         baseDir: path.dirname(axmDir),
@@ -196,28 +199,39 @@ const makeServices = (
           : { lockfile }),
       }),
       Layer.mock(SettingsWriter, {}),
+      // The mocked state writers stand in for durable writes, so they record
+      // the footprint a real write would; the install classifies from it.
       Layer.mock(DesiredStateWriter, {
         declare: (type, args) =>
-          type === "mcp-server" && "resolutionKey" in args
-            ? (setMcpServer?.(args) ?? Effect.void)
-            : Effect.void,
+          recordFootprint({ path: path.join(axmDir, "axm.json"), change: "modified" }).pipe(
+            Effect.andThen(
+              type === "mcp-server" && "resolutionKey" in args
+                ? (setMcpServer?.(args) ?? Effect.void)
+                : Effect.void,
+            ),
+          ),
       }),
       Layer.mock(AcceptedResolutionWriter, {
-        setAccepted: (type, key, entry) => {
-          if (type !== "mcp-server" || entry.identity.owner === undefined) return Effect.void;
-          const lockEntry = {
-            ...entry,
-            identity: { ...entry.identity, owner: entry.identity.owner },
-          };
-          return (
-            setAcceptedMcpServer?.({
-              name: entry.identity.name,
-              resolutionKey: key,
-              lockEntry,
-              versionRange: Option.none(),
-            }) ?? Effect.void
-          );
-        },
+        setAccepted: (type, key, entry) =>
+          recordFootprint({ path: path.join(axmDir, "axm-lock.yaml"), change: "modified" }).pipe(
+            Effect.andThen(
+              Effect.suspend(() => {
+                if (type !== "mcp-server" || entry.identity.owner === undefined) return Effect.void;
+                const lockEntry = {
+                  ...entry,
+                  identity: { ...entry.identity, owner: entry.identity.owner },
+                };
+                return (
+                  setAcceptedMcpServer?.({
+                    name: entry.identity.name,
+                    resolutionKey: key,
+                    lockEntry,
+                    versionRange: Option.none(),
+                  }) ?? Effect.void
+                );
+              }),
+            ),
+          ),
       }),
       Layer.succeed(McpSecretStore, secretStore.service),
       Layer.succeed(SourceHostProviders, sourceProviders),

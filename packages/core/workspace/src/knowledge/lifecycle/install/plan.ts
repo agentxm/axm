@@ -12,13 +12,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { KnowledgeManager } from "../../../materialization/index.js";
-import {
-  extensionRefLifecycleWarnings,
-  extensionRefRegistryLifecycle,
-  targetFromRef,
-  toLabelWithCompanions,
-  toStepKey,
-} from "../../../reconciliation/index.js";
+import { buildInstallOperation } from "../../../reconciliation/index.js";
 import {
   parseSourceQualifiedRegistrySourcePatternParts,
   type Handle,
@@ -150,40 +144,20 @@ export const planKnowledgeInstall: (
   InstallStepRequirements | KnowledgeManager
 > = Effect.fn("InstallExtensions.planKnowledge")(function* (intent: KnowledgeInstallIntent) {
   const manager = yield* KnowledgeManager;
+  // One bundle renders the shared discovery region itself; several bundles in
+  // one operation defer it so the region is rendered once, from the complete
+  // contributor set.
   const deferProjections = intent.deferProjections === true || intent.refs.length > 1;
-  const memberSteps = intent.refs.map(
-    ({ ref, versionRange }): PlannedJobStep<InstallStepRequirements> => {
-      const target = targetFromRef(ref);
-      const packages = ref.refType === "registry" ? ref.packages : [];
-      const base = {
-        key: toStepKey(target),
-        label: toLabelWithCompanions(target, packages),
-        ...(ref.refType === "workspace"
-          ? {}
-          : { sourceBinding: { extensionType: ref.type, target: target.name, ref } }),
-        run: manager.install({ ref, versionRange, deferProjection: deferProjections }).pipe(
-          Effect.mapError(lifecycleStepFailure),
-          Effect.as({
-            result: "success" as const,
-            message: `Installed ${ref.knowledge.name}`,
-          }),
-        ),
-      };
-      const warnings = extensionRefLifecycleWarnings(ref);
-      const registryLifecycle = extensionRefRegistryLifecycle(ref);
-      return warnings.length === 0
-        ? {
-            ...base,
-            readiness: "ready" as const,
-            ...(registryLifecycle === undefined ? {} : { registryLifecycle }),
-          }
-        : {
-            ...base,
-            readiness: "warn" as const,
-            warnMessage: warnings.join("; "),
-            ...(registryLifecycle === undefined ? {} : { registryLifecycle }),
-          };
-    },
+  const memberSteps = intent.refs.map(({ ref, versionRange }) =>
+    buildInstallOperation(manager, {
+      toStepFailure: lifecycleStepFailure,
+      ref,
+      declaration: { name: ref.knowledge.name, versionRange },
+      ...(deferProjections
+        ? { enclosingClosure: { projections: [ref.type], postconditions: [] } }
+        : {}),
+      message: `Installed ${ref.knowledge.name}`,
+    }),
   );
   const projectionSteps: ReadonlyArray<PlannedJobStep<InstallStepRequirements>> =
     deferProjections && intent.deferProjections !== true

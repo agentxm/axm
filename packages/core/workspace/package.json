@@ -191,16 +191,6 @@
       "axm-source": "./src/lifecycle/live.ts",
       "default": "./dist/src/lifecycle/live.js"
     },
-    "./skills/lifecycle/application": {
-      "types": "./dist/src/skills/lifecycle/application/index.d.ts",
-      "axm-source": "./src/skills/lifecycle/application/index.ts",
-      "default": "./dist/src/skills/lifecycle/application/index.js"
-    },
-    "./subagents/lifecycle/application": {
-      "types": "./dist/src/subagents/lifecycle/application/index.d.ts",
-      "axm-source": "./src/subagents/lifecycle/application/index.ts",
-      "default": "./dist/src/subagents/lifecycle/application/index.js"
-    },
     "./discovery": {
       "types": "./dist/src/discovery/index.d.ts",
       "axm-source": "./src/discovery/index.ts",

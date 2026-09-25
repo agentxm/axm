@@ -17,8 +17,7 @@
     "**/build"
   ],
   "mutate": [
-    "packages/core/workspace/src/skills/lifecycle/domain/**/*.ts",
-    "packages/core/workspace/src/subagents/lifecycle/domain/**/*.ts",
+    "packages/core/workspace/src/lifecycle/install/selection.ts",
     "!**/*.test.ts",
     "!**/*.spec.ts"
   ],

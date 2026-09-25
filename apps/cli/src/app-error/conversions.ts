@@ -58,12 +58,7 @@ export const stepFailureToAppError = (failure: StepFailure): AppError =>
  */
 export const toAppError = (error: WorkspaceFailure | AppError): AppError => {
   if (error._tag === "AppError") return error;
-  if (
-    (error._tag === "SkillSelectionUnavailable" ||
-      error._tag === "SubagentSelectionUnavailable" ||
-      error._tag === "InstallSelectionUnavailable") &&
-    error.cause instanceof AppError
-  ) {
+  if (error._tag === "InstallSelectionUnavailable" && error.cause instanceof AppError) {
     return error.cause;
   }
   return stepFailureToAppError(workspaceFailureToStepFailure(error));

@@ -4,15 +4,13 @@ import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
 
-import { ExtensionNameSchema, HandleSchema } from "@agentxm/extension-model/unstable/extensions";
-import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import {
-  SkillSelectionCancelled,
-  SkillSelectionInteraction,
-  SkillSelectionUnavailable,
-} from "@agentxm/workspace/skills/lifecycle/application";
+  InstallSelectionCancelled,
+  InstallSelectionInteraction,
+  InstallSelectionUnavailable,
+  type InstallSelectionCandidate,
+} from "@agentxm/workspace/lifecycle";
 
 import { AppError } from "../app-error/index.js";
 import {
@@ -23,20 +21,13 @@ import {
   type AskFailure,
 } from "../screen/index.js";
 import { TestRenderer } from "../test-support/presenter-test.js";
-import { SkillSelectionLive } from "./extension-selection-interaction-live.js";
+import { InstallSelectionLive } from "./extension-selection-interaction-live.js";
 
-const candidate = (value: string): SkillExtensionRef => {
-  const name = Schema.decodeUnknownSync(ExtensionNameSchema)(value);
-  return {
-    type: "skill",
-    refType: "local",
-    source: { type: "local", path: "/fixture/source" },
-    owner: Schema.decodeUnknownSync(HandleSchema)("@publisher"),
-    name,
-    location: `file:///fixture/source/${name}`,
-    skill: { name, description: Option.some(`Description for ${name}`), metadata: Option.none() },
-  };
-};
+const candidate = (name: string): InstallSelectionCandidate => ({
+  type: "skill",
+  name,
+  description: Option.some(`Description for ${name}`),
+});
 
 const first = candidate("inspect-patch");
 const second = candidate("draft-release");
@@ -44,17 +35,17 @@ const second = candidate("draft-release");
 const harness = () => {
   const renderer = TestRenderer.make();
   return {
-    layer: SkillSelectionLive.pipe(Layer.provide(renderer.layer)),
+    layer: InstallSelectionLive.pipe(Layer.provide(renderer.layer)),
     state: renderer.state,
   };
 };
 
-describe("SkillSelectionLive", () => {
-  it.effect("uses the real bounded Pick and preserves its non-interactive guard", () => {
+describe("InstallSelectionLive", () => {
+  it.effect("uses the real bounded Pick and names the offered type in its guard", () => {
     const test = harness();
     test.state.script.answers.push({ _tag: "Pick", titles: ["draft-release"] });
     return Effect.gen(function* () {
-      const interaction = yield* SkillSelectionInteraction;
+      const interaction = yield* InstallSelectionInteraction;
       const selected = yield* interaction.select([first, second]);
 
       expect(selected).toEqual([second]);
@@ -80,10 +71,10 @@ describe("SkillSelectionLive", () => {
         ask: (ask, guard) => Effect.fail(promptRequired(plain(ask.question), guard)),
       });
       const error = yield* Effect.gen(function* () {
-        const interaction = yield* SkillSelectionInteraction;
+        const interaction = yield* InstallSelectionInteraction;
         return yield* interaction.select([first, second]);
-      }).pipe(Effect.provide(SkillSelectionLive.pipe(Layer.provide(closed))), Effect.flip);
-      expect(error).toBeInstanceOf(SkillSelectionUnavailable);
+      }).pipe(Effect.provide(InstallSelectionLive.pipe(Layer.provide(closed))), Effect.flip);
+      expect(error).toBeInstanceOf(InstallSelectionUnavailable);
       expect(error.cause).toBeInstanceOf(AppError);
       expect(error.cause).toMatchObject({
         code: "usage",
@@ -128,29 +119,47 @@ describe("SkillSelectionLive", () => {
       const screen = yield* Screen.pipe(Effect.provide(renderer.layer));
       const cause = yield* failing;
       const error = yield* Effect.gen(function* () {
-        const interaction = yield* SkillSelectionInteraction;
+        const interaction = yield* InstallSelectionInteraction;
         return yield* interaction.select([first, second]);
       }).pipe(
         Effect.provide(
-          SkillSelectionLive.pipe(
+          InstallSelectionLive.pipe(
             Layer.provide(Layer.succeed(Screen, { ...screen, ask: () => Effect.fail(cause) })),
           ),
         ),
         Effect.flip,
       );
-      expect(error).toBeInstanceOf(SkillSelectionUnavailable);
+      expect(error).toBeInstanceOf(InstallSelectionUnavailable);
       expect(error.cause).toMatchObject({ _tag: "AppError", code: "internal", detail });
       expect(error.cause).toHaveProperty("cause", cause);
     }),
   );
 
-  it.effect("maps cancellation through the skill-owned failure", () => {
+  it.effect("maps cancellation through the shared selection failure", () => {
     const test = harness();
     test.state.script.answers.push({ _tag: "Cancel" });
     return Effect.gen(function* () {
-      const interaction = yield* SkillSelectionInteraction;
+      const interaction = yield* InstallSelectionInteraction;
       const error = yield* interaction.select([first, second]).pipe(Effect.flip);
-      expect(error).toBeInstanceOf(SkillSelectionCancelled);
+      expect(error).toBeInstanceOf(InstallSelectionCancelled);
+    }).pipe(Effect.provide(test.layer));
+  });
+
+  it.effect("names an MCP server list by its own flag", () => {
+    const test = harness();
+    test.state.script.answers.push({ _tag: "Pick", titles: ["filesystem"] });
+    return Effect.gen(function* () {
+      const interaction = yield* InstallSelectionInteraction;
+      yield* interaction.select([
+        { type: "mcp-server", name: "filesystem", description: Option.none() },
+      ]);
+      expect(test.state.script.guards).toEqual([
+        {
+          message: "Select MCP servers to install",
+          guidance:
+            "Name the MCP servers with --mcp, take them all with --all, or rerun without --json.",
+        },
+      ]);
     }).pipe(Effect.provide(test.layer));
   });
 });

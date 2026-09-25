@@ -6,8 +6,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { ConfigError } from "effect/Config";
 import { SourceError } from "effect/ConfigProvider";
-import { SkillSelectionCancelled } from "@agentxm/workspace/skills/lifecycle/application";
-import { SubagentSelectionCancelled } from "@agentxm/workspace/subagents/lifecycle/application";
+import { InstallSelectionCancelled } from "@agentxm/workspace/lifecycle";
 
 import * as Schema from "effect/Schema";
 import * as HttpClient from "effect/unstable/http/HttpClient";
@@ -687,11 +686,7 @@ describe("withCliErrorHandling cancellation", () => {
     ),
   );
 
-  for (const Cancellation of [
-    WorkspaceInitializationCancelled,
-    SkillSelectionCancelled,
-    SubagentSelectionCancelled,
-  ]) {
+  for (const Cancellation of [WorkspaceInitializationCancelled, InstallSelectionCancelled]) {
     it.effect(`maps ${Cancellation.name} to a silent success exit`, () =>
       Effect.gen(function* () {
         const exit = yield* withCliErrorHandling(

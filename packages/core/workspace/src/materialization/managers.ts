@@ -43,7 +43,6 @@ import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/
 import type { RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
-import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 
 // -----------------------------------------------------------------------------
 // Per-type materialization facts
@@ -88,7 +87,7 @@ export interface HookMaterializationFacts extends AcquiredContentFacts {
 /** What a Knowledge materialization observed. */
 export interface KnowledgeMaterializationFacts extends MaterializationFacts {
   readonly acquired: Option.Option<{
-    readonly relativeLocalSource: Option.Option<string>;
+    readonly workspaceRelativeLocalSourcePath: Option.Option<string>;
     readonly sourceHash: SourceHash;
     readonly treeIntegrity?: TreeIntegrity;
   }>;
@@ -405,9 +404,8 @@ export interface KnowledgeManagerService
     ManagerRequirements
   >;
   /**
-   * Catalog refresh, sync, and the atomic install open their own workspace
-   * transaction, so they name the transaction scope alongside the manager's
-   * own requirements.
+   * Catalog refresh and sync open their own workspace transaction, so they
+   * name the transaction scope alongside the manager's own requirements.
    */
   readonly refreshCatalog: () => Effect.Effect<
     void,
@@ -418,15 +416,6 @@ export interface KnowledgeManagerService
     readonly dryRun: boolean;
   }) => Effect.Effect<
     KnowledgeSyncResult,
-    ExtensionManagerFailure,
-    ManagerRequirements | WorkspaceTransactionScope
-  >;
-  readonly install: (args: {
-    readonly ref: KnowledgeExtensionRef;
-    readonly versionRange: Option.Option<VersionRange>;
-    readonly deferProjection?: boolean;
-  }) => Effect.Effect<
-    void,
     ExtensionManagerFailure,
     ManagerRequirements | WorkspaceTransactionScope
   >;

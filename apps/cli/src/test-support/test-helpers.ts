@@ -44,7 +44,7 @@ import type {
   WorkspaceFileWriteLocks,
 } from "@agentxm/workspace/transitions/settlement";
 import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace/transitions/settlement/live";
-import { BundledAxmSkillAssetLive, ExtensionSelectionLive } from "../cli-runtime/index.js";
+import { BundledAxmSkillAssetLive, InstallSelectionLive } from "../cli-runtime/index.js";
 import {
   AxmSkillCandidateGateLive,
   RegistryResolutionPolicyLive,
@@ -722,7 +722,7 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
     // own layers rather than a rehearsal of them. The flags layer's
     // non-interactive default means no prompt ever opens.
     BundledAxmSkillAssetLive,
-    Layer.provide(ExtensionSelectionLive, cliTestContext.baseLayer),
+    Layer.provide(InstallSelectionLive, cliTestContext.baseLayer),
     McpSecretStoreLive,
     // Every command runs inside the operation lifecycle, which opens the
     // journal and footprint recorder once per invocation; a test that drives

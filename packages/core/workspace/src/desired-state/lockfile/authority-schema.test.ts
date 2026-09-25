@@ -207,6 +207,7 @@ describe("authoritative external-resolution lockfile", () => {
   it("round-trips local Pack authority with its declared member list", () => {
     const pack = {
       source: { type: "path", path: "catalog/packs/toolkit" },
+      sourceRoot: "catalog",
       identity: { owner: "@acme", name: "toolkit" },
       resolved: { tree: "sha256-pack-content" },
       treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,

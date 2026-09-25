@@ -9,10 +9,6 @@ import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import { RegistryRequestFailed, registryErrorToProblem } from "@agentxm/registry-client";
 import { StepFailure } from "@agentxm/workspace/transitions/planning";
 import { SettingsWriteError } from "@agentxm/workspace/desired-state";
-import {
-  LifecycleFailureConversionLive,
-  StepFailureConversion,
-} from "@agentxm/workspace/lifecycle";
 import { WorkspaceRestorationIncomplete } from "@agentxm/workspace/transitions/settlement";
 import {
   AxmSkillGateUnavailable,
@@ -23,14 +19,19 @@ import {
   SourceSyntaxInvalid,
   WorkspaceCatalogUnavailable,
 } from "@agentxm/workspace/resolution/sources";
+import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
+import { ExtensionNameSchema, HandleSchema } from "@agentxm/extension-model/unstable/extensions";
+import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
+import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
+import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import {
-  SkillSelectionNotFound,
-  SkillSelectionUnavailable,
-} from "@agentxm/workspace/skills/lifecycle/application";
-import {
-  SubagentSelectionNotFound,
-  SubagentSelectionUnavailable,
-} from "@agentxm/workspace/subagents/lifecycle/application";
+  InstallSelectionInteraction,
+  InstallSelectionUnavailable,
+  LifecycleFailureConversionLive,
+  StepFailureConversion,
+  selectInstallRefs,
+} from "@agentxm/workspace/lifecycle";
 
 import { makeJsonErrorEnvelopeFromAppError } from "../cli-runtime/index.js";
 import { makeAppError } from "./app-error.js";
@@ -119,48 +120,79 @@ describe("the application boundary projection", () => {
   });
 });
 
+const localRef = (name: string) => ({
+  refType: "local" as const,
+  source: { type: "local" as const, path: "/fixture/source" },
+  owner: Schema.decodeUnknownSync(HandleSchema)("@publisher"),
+  name: Schema.decodeUnknownSync(ExtensionNameSchema)(name),
+  location: `file:///fixture/source/${name}`,
+});
+const skillRef = (name: string): SkillExtensionRef => ({
+  ...localRef(name),
+  type: "skill",
+  skill: { name: localRef(name).name, description: Option.none(), metadata: Option.none() },
+});
+const subagentRef = (name: string): SubagentExtensionRef => ({
+  ...localRef(name),
+  type: "subagent",
+  subagent: { name: localRef(name).name, description: Option.none() },
+});
+const neverPrompts = Layer.succeed(InstallSelectionInteraction, {
+  select: () => Effect.die("An explicit selection must not prompt"),
+});
+
 describe("CLI selection failure rendering", () => {
-  it("renders skill facts with the existing error category and recovery", () => {
-    const failure = new SkillSelectionNotFound({
-      requested: ["missing"],
-      available: ["z-last", "a-first"],
-    });
-    expect(isWorkspaceFailure(failure)).toBe(true);
-    expect(toAppError(failure)).toMatchObject({
-      code: "not_found",
-      detail: "No skills matched: missing. Source contains: a-first, z-last",
-      suggestions: [{ description: "Check the skill names or patterns and try again" }],
-    });
-  });
-  it("preserves subagent rendering while its policy reports only facts", () => {
-    const failure = new SubagentSelectionNotFound({
-      requested: ["missing"],
-      available: ["review"],
-    });
-    expect(isWorkspaceFailure(failure)).toBe(true);
-    expect(toAppError(failure)).toMatchObject({
-      code: "internal",
-      detail: "No subagents matched: missing",
-      suggestions: [{ description: "Check the subagent names or patterns and try again." }],
-    });
-  });
-  for (const Unavailable of [SkillSelectionUnavailable, SubagentSelectionUnavailable]) {
-    it(`keeps terminal guidance through ${Unavailable.name}`, () => {
-      const cause = makeAppError({
-        code: "usage",
-        detail: "Terminal unavailable",
-        recover: "Pass an explicit name",
-      });
-      const failure = new Unavailable({ cause });
+  it.effect.each<{
+    readonly type: "skill" | "subagent";
+    readonly refs: ReadonlyArray<ExtensionRef>;
+    readonly detail: string;
+    readonly recover: string;
+  }>([
+    {
+      type: "skill",
+      refs: [skillRef("z-last"), skillRef("a-first")],
+      detail: "No skills matched: missing. Source contains: z-last, a-first",
+      recover: "Check the skill names or patterns and try again",
+    },
+    {
+      type: "subagent",
+      refs: [subagentRef("review")],
+      detail: "No subagents matched: missing. Source contains: review",
+      recover: "Check the subagent names or patterns and try again",
+    },
+  ])("renders an unmatched $type selector as not found", ({ type, refs, detail, recover }) =>
+    Effect.gen(function* () {
+      const failure = yield* selectInstallRefs(refs, {
+        type,
+        selectors: ["missing"],
+        all: false,
+        nonInteractive: true,
+      }).pipe(Effect.provide(neverPrompts), Effect.flip);
+      expect(failure._tag).toBe("ExtensionLifecycleFailed");
+      if (failure._tag !== "ExtensionLifecycleFailed") return;
       expect(isWorkspaceFailure(failure)).toBe(true);
-      expect(toAppError(failure)).toBe(cause);
+      expect(toAppError(failure)).toMatchObject({
+        code: "not_found",
+        detail,
+        suggestions: [{ description: recover }],
+      });
+    }),
+  );
+  it("keeps terminal guidance through InstallSelectionUnavailable", () => {
+    const cause = makeAppError({
+      code: "usage",
+      detail: "Terminal unavailable",
+      recover: "Pass an explicit name",
     });
-    it(`renders ${Unavailable.name} from another interface without requiring CLI errors`, () => {
-      const failure = new Unavailable({ cause: new Error("Connection closed") });
-      expect(toAppError(failure)).toMatchObject({ code: "usage" });
-      expect(toAppError(failure).suggestions).toHaveLength(1);
-    });
-  }
+    const failure = new InstallSelectionUnavailable({ cause });
+    expect(isWorkspaceFailure(failure)).toBe(true);
+    expect(toAppError(failure)).toBe(cause);
+  });
+  it("renders InstallSelectionUnavailable from another interface without requiring CLI errors", () => {
+    const failure = new InstallSelectionUnavailable({ cause: new Error("Connection closed") });
+    expect(toAppError(failure)).toMatchObject({ code: "usage" });
+    expect(toAppError(failure).suggestions).toHaveLength(1);
+  });
 });
 
 const responseFor = (status: number, headers?: Readonly<Record<string, string>>) =>

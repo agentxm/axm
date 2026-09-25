@@ -37,6 +37,7 @@ import {
   type DesiredPackIdentity,
   type DesiredSourceAuthority,
 } from "./desired-identity.js";
+import { packMemberSourceAuthority } from "./pack-member-source-authority.js";
 
 export type DesiredExtensionOrigin =
   | {
@@ -281,43 +282,24 @@ interface PackIdentity {
   readonly constraint?: string;
 }
 
-/** The source a Pack's members inherit: the Pack's own accepted source, or its configured Registry. */
-const packSourceAuthority = (
+/**
+ * The source a Pack's members inherit: the workspace for an authored Pack,
+ * the accepted source view for a held one, else the Pack's configured Registry.
+ */
+const inheritedMemberSourceAuthority = (
   configuredSource: string,
   accepted: PackLockEntry | undefined,
   workspaceFqn: string,
-  baseDir: string,
   registryEndpoint: URL | undefined,
 ): DesiredSourceAuthority | undefined => {
   if (isWorkspaceSourceLocator(configuredSource)) {
     return { authority: "workspace", fqn: workspaceFqn };
   }
-  if (accepted === undefined) {
-    return registryEndpoint === undefined
-      ? undefined
-      : { authority: "registry", endpoint: registryEndpoint };
-  }
-  switch (accepted.source.type) {
-    case "registry":
-      return { authority: "registry", endpoint: accepted.source.url };
-    case "path": {
-      const normalized = configuredSource.replaceAll("\\", "/").replace(/\/$/u, "");
-      const packageSuffix = `/packs/${accepted.identity.name}`;
-      const sourceRoot = normalized.endsWith(packageSuffix)
-        ? normalized.slice(0, -packageSuffix.length)
-        : normalized;
-      const absoluteSourceRoot = sourceRoot.startsWith("/")
-        ? sourceRoot
-        : `${baseDir.replaceAll("\\", "/").replace(/\/$/u, "")}/${sourceRoot.replace(/^\.\//u, "")}`;
-      return { authority: "path", root: absoluteSourceRoot };
-    }
-    case "git":
-      return {
-        authority: "git",
-        url: accepted.source.url,
-        revision: accepted.source.revision ?? "HEAD",
-      };
-  }
+  if (accepted !== undefined)
+    return packMemberSourceAuthority({ kind: "accepted", entry: accepted });
+  return registryEndpoint === undefined
+    ? undefined
+    : { authority: "registry", endpoint: registryEndpoint };
 };
 
 const nodeKey = (type: ExtensionType, name: string): string => `${type}:${name}`;
@@ -893,11 +875,10 @@ export const buildDesiredStateGraph = ({
         defaultRegistry,
       );
       const configuredRegistryEndpoint = registryEndpoints[configuredRegistrySource];
-      const inheritedMemberAuthority = packSourceAuthority(
+      const inheritedMemberAuthority = inheritedMemberSourceAuthority(
         entry.source,
         acceptedPack,
         identity.fqn,
-        baseDir,
         configuredRegistryEndpoint,
       );
       const packOrigin: DesiredPackIdentity = {

@@ -88,7 +88,6 @@ const emptyKnowledgeManager = {
   ...managerLifecycleStubs,
   refreshCatalog: () => Effect.void,
   sync: () => Effect.succeed({ changed: false, warnings: [], artifacts: [] }),
-  install: () => Effect.void,
   projectionPlans: () => Effect.succeed([]),
   isInstalled: () => Effect.succeed(false),
   materializeInstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),

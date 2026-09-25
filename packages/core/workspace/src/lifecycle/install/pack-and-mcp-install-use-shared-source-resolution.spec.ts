@@ -76,6 +76,10 @@ describe("Pack and MCP shared source resolution", () => {
             subject: { kind: "source", source },
           });
           expect(deriveOperationOutcome(yield* applyInstall(request))).toBe("applied");
+          // A disk-sourced MCP server's accepted row is not reachable from
+          // its desired node, so the repeat re-acquires the package and
+          // reports the copy it made; `cli/install/reinstall-is-idempotent`
+          // covers the Registry route.
           expect(deriveOperationOutcome(yield* applyInstall(request))).toBe("applied");
           expect(JSON.stringify(readSettings(created.workspace))).toContain(
             "fixtures/local-server",

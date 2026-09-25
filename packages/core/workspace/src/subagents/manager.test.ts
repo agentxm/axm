@@ -236,8 +236,9 @@ describe("SubagentManager", () => {
           })
           .pipe(Effect.flip);
         expect(error).toMatchObject({
-          _tag: "SubagentInstallStateMissing",
-          kind: "content-identity",
+          _tag: "InstallStateMissing",
+          type: "subagent",
+          name: "planner",
         });
       }).pipe(Effect.provide(makeTestLayer({})));
     });

@@ -177,13 +177,11 @@ export const workspaceFailureToStepFailure = (failure: WorkspaceFailure): StepFa
     case "PackageCopyFailed":
     case "ArchiveIntegrityMismatch":
     case "CreateDestinationExists":
+    case "InstallStateMissing":
     case "RuleDefinitionInvalid":
-    case "RuleInstallStateMissing":
     case "HookDefinitionInvalid":
-    case "HookInstallStateMissing":
     case "SubagentDefinitionInvalid":
     case "SubagentContentUnreadable":
-    case "SubagentInstallStateMissing":
     case "McpInstallStateMissing":
     case "McpLocalNameConflict":
     case "McpCanonicalPathUnsafe":
@@ -193,7 +191,6 @@ export const workspaceFailureToStepFailure = (failure: WorkspaceFailure): StepFa
     case "NativeMcpEntryRetirementFailed":
     case "SkillDefinitionInvalid":
     case "SkillMaterializationFailed":
-    case "SkillInstallStateMissing":
     case "AxmSkillCompatibilityUnavailable":
     case "AxmSkillIncompatible":
     case "PackDefinitionInvalid":
@@ -202,11 +199,9 @@ export const workspaceFailureToStepFailure = (failure: WorkspaceFailure): StepFa
     case "PackStagingFailed":
     case "KnowledgeDefinitionInvalid":
     case "KnowledgeIoFailed":
-    case "KnowledgeInstallStateMissing":
     case "KnowledgeResolutionMissing":
     case "KnowledgeDesiredStateUnreconcilable":
     case "KnowledgeUnavailable":
-    case "KnowledgeObservableContractViolated":
     case "FqnInvalidError":
     case "FrontmatterParseFailure":
     case "SubagentContentError":
@@ -282,10 +277,6 @@ export const workspaceFailureToStepFailure = (failure: WorkspaceFailure): StepFa
     case "PackMemberNotDeclared":
       return authoringFailureToStepFailure(failure);
     case "ExtensionLifecycleFailed":
-    case "SkillSelectionNotFound":
-    case "SubagentSelectionNotFound":
-    case "SkillSelectionUnavailable":
-    case "SubagentSelectionUnavailable":
     case "InstallSelectionUnavailable":
       return lifecycleFailureToStepFailure(failure);
     case "PublishFailed":

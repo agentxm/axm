@@ -16,7 +16,6 @@ import {
   SkillManager,
   artifactAgentIdsFromTargets,
   artifactTargetAgentIds,
-  computeSkillSourceHash,
   groupInstallTargetsByDirectory,
   type InstallableSkillTarget,
 } from "../../../materialization/index.js";
@@ -28,7 +27,11 @@ import {
 } from "../../../resolution/index.js";
 import { RegistryClientFactory } from "@agentxm/registry-client";
 import { CodingAgentRepository } from "../../../projection/index.js";
-import { sanitizeName, type SkillPathSource } from "../../../desired-state/index.js";
+import {
+  sanitizeName,
+  type SkillLockEntry,
+  type SkillPathSource,
+} from "../../../desired-state/index.js";
 import type { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
 import {
   installRefused,
@@ -85,23 +88,11 @@ const skillPathSourceFor = (ref: SkillExtensionRef): SkillPathSource => {
   }
 };
 
-const previousResolvedVersion = (entry: unknown): string | undefined => {
-  if (typeof entry !== "object" || entry === null) return undefined;
-  if (!("source" in entry) || typeof entry.source !== "object" || entry.source === null)
-    return undefined;
-  if (!("type" in entry.source) || entry.source.type !== "registry") return undefined;
-  if (!("resolved" in entry) || typeof entry.resolved !== "object" || entry.resolved === null)
-    return undefined;
-  if (!("version" in entry.resolved) || typeof entry.resolved.version !== "string")
-    return undefined;
-  return entry.resolved.version;
-};
-
-const previousSourceHash = (entry: unknown): string | undefined => {
-  if (typeof entry !== "object" || entry === null) return undefined;
-  if (!("sourceHash" in entry) || typeof entry.sourceHash !== "string") return undefined;
-  return entry.sourceHash;
-};
+/** The version an accepted Registry resolution names; other sources carry none. */
+const acceptedVersion = (entry: SkillLockEntry): string | undefined =>
+  entry.source.type === "registry" && "version" in entry.resolved
+    ? entry.resolved.version
+    : undefined;
 
 interface ReleaseAgeFact {
   readonly minimumAge: string;
@@ -197,14 +188,13 @@ const targetState = (args: { readonly linkPath: string; readonly canonicalSkillS
     return exists ? "different" : "absent";
   });
 
-const inspect = (ref: SkillExtensionRef, installedBefore?: boolean) =>
+const inspect = (ref: SkillExtensionRef) =>
   Effect.gen(function* () {
     const workspaceLocation = yield* WorkspaceLocation;
     const paths = yield* ExtensionPaths;
     const lockfile = yield* LockfileReader;
     const skillManager = yield* SkillManager;
     const agentRepo = yield* CodingAgentRepository;
-    const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
 
     const previousLockEntry = yield* lockfile
@@ -212,21 +202,9 @@ const inspect = (ref: SkillExtensionRef, installedBefore?: boolean) =>
       .pipe(Effect.catch(() => Effect.succeed(Option.none())));
     const previousVersion = Option.match(previousLockEntry, {
       onNone: () => undefined,
-      onSome: previousResolvedVersion,
+      onSome: acceptedVersion,
     });
     const { skillSrcPath } = yield* paths.skillDir(ref.skill.name, skillPathSourceFor(ref));
-    const sourceHashBeforeInstall =
-      Option.match(previousLockEntry, {
-        onNone: () => undefined,
-        onSome: previousSourceHash,
-      }) ??
-      (yield* Effect.gen(function* () {
-        const exists = yield* fs
-          .exists(skillSrcPath)
-          .pipe(Effect.catch(() => Effect.succeed(false)));
-        if (!exists) return undefined;
-        return yield* computeSkillSourceHash(skillSrcPath);
-      }));
     const configuredAgents = yield* agentRepo.getMaterializationAgents();
     const resolvedAgents = yield* Effect.forEach(
       configuredAgents,
@@ -278,15 +256,12 @@ const inspect = (ref: SkillExtensionRef, installedBefore?: boolean) =>
         ? path.relative(workspaceLocation.baseDir, skillSrcPath)
         : firstTarget.path;
 
-    const installed =
-      installedBefore ??
-      (yield* skillManager
-        .isInstalled({ target: { type: "skill", name: ref.skill.name } })
-        .pipe(Effect.catch(() => Effect.succeed(false))));
+    const installed = yield* skillManager
+      .isInstalled({ target: { type: "skill", name: ref.skill.name } })
+      .pipe(Effect.catch(() => Effect.succeed(false)));
     return {
       installed,
       previousVersion,
-      sourceHash: sourceHashBeforeInstall,
       scope: workspaceLocation.scope,
       displayPath: rawDisplayPath,
       agents: artifactAgents,
@@ -302,10 +277,7 @@ const readContent = (ref: SkillExtensionRef) =>
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const { skillSrcPath } = yield* paths.skillDir(ref.skill.name, skillPathSourceFor(ref));
-    return {
-      fileCount: yield* countFiles(fs, path, skillSrcPath),
-      sourceHash: yield* computeSkillSourceHash(skillSrcPath),
-    };
+    return { fileCount: yield* countFiles(fs, path, skillSrcPath) };
   });
 
 const unavailable = (ref: SkillExtensionRef) => (cause: unknown) =>

@@ -23,6 +23,13 @@ import { applyPlannedProjections } from "../projection/index.js";
 import { SourceHostProviders, SourceNotResolvable } from "../resolution/sources/index.js";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import type { Settings } from "../desired-state/index.js";
+import { TreeIntegritySchema, type TreeIntegrity } from "../desired-state/index.js";
+import * as Schema from "effect/Schema";
+
+const acceptedTreeIntegrity = (canonicalRoot: string): TreeIntegrity =>
+  existsSync(canonicalRoot)
+    ? computeMaterializedTreeIntegritySync(canonicalRoot)
+    : Schema.decodeUnknownSync(TreeIntegritySchema)(`sha256-tree-v1:${"0".repeat(64)}`);
 import {
   MockWorkspaceTransactionScope,
   TEST_CONTENT_IDENTITY,
@@ -115,7 +122,9 @@ const makeHookManagerLayer = (
             source: { type: "path" as const, path: decodeRelativePathSync("source-hook") },
             identity: { owner: handle("@acme"), name: extensionName(name) },
             resolved: { tree: TEST_CONTENT_IDENTITY },
-            treeIntegrity: computeMaterializedTreeIntegritySync(
+            // The accepted tree once the canonical package exists; before
+            // that, an integrity no tree can match, so nothing is reused.
+            treeIntegrity: acceptedTreeIntegrity(
               nodePath.join(workspaceRoot, "agent_extensions", "path", "@acme", "hooks", name),
             ),
           },

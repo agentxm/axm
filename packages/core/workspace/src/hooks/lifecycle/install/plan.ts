@@ -14,7 +14,11 @@ import { LockfileReader, WorkspaceLocation } from "../../../desired-state/index.
 import * as Option from "effect/Option";
 
 import { HookManager } from "../../../materialization/index.js";
-import { buildInstallOperation } from "../../../reconciliation/index.js";
+import {
+  buildInstallOperation,
+  forecastInstallChange,
+  type InstallArtifactPresentation,
+} from "../../../reconciliation/index.js";
 import {
   parseSourceQualifiedRegistrySourcePatternParts,
   type Handle,
@@ -37,6 +41,7 @@ import {
   ACQUIRED_EXTENSIONS_DIR,
   acquiredExtensionDisplayPath,
   acquiredExtensionDisplayPathFromLockEntry,
+  type ArtifactChange,
   type ConfiguredAgentOutcome,
   type HookLockEntry,
 } from "../../../desired-state/index.js";
@@ -81,22 +86,20 @@ const hookInstallArtifactPath = (entry: HookLockEntry, scope: JobStepArtifact["s
     entry.identity.name,
   );
 
-/** The artifact an applied hook install reports, from its accepted lock entry. */
+/** What an applied hook install presents, from its accepted lock entry. */
 export const hookInstallArtifact = (args: {
   readonly lockEntry: HookLockEntry;
-  readonly installedBefore: boolean;
   readonly scope: JobStepArtifact["scope"];
   readonly agents: ReadonlyArray<string>;
   readonly targets: ReadonlyArray<JobStepArtifactTarget>;
   readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
-}): JobStepArtifact => {
+}): InstallArtifactPresentation => {
   const version = hookLockEntryVersion(args.lockEntry);
   return {
     path: hookInstallArtifactPath(args.lockEntry, args.scope),
     scope: args.scope,
     agents: args.agents,
     ...(version === undefined ? {} : { version }),
-    change: args.installedBefore ? "updated" : "created",
     ...(args.agentOutcomes === undefined ? {} : { agentOutcomes: args.agentOutcomes }),
     ...(args.targets.length === 0 ? {} : { fileCount: args.targets.length, targets: args.targets }),
   };
@@ -207,6 +210,9 @@ export const planHookInstall: (
             ? []
             : yield* hookManager.configuredAgentOutcomesForRef(ref, "projected");
         const previewPath = hookRefArtifactPath(ref, location.scope);
+        // The planner forecasts the change; execution replaces the forecast
+        // with what the transition observed.
+        const forecast: ArtifactChange = forecastInstallChange({ installedBefore });
         const previewArtifact = {
           path: previewPath,
           scope: location.scope,
@@ -216,7 +222,7 @@ export const planHookInstall: (
           ...(ref.refType === "registry" || ref.refType === "workspace"
             ? { version: ref.version }
             : {}),
-          change: installedBefore ? "updated" : "created",
+          change: forecast,
           agentOutcomes,
           targets: Array.from(
             new Map(
@@ -228,7 +234,7 @@ export const planHookInstall: (
                         outcome.path,
                         {
                           path: outcome.path,
-                          change: installedBefore ? "updated" : "created",
+                          change: forecast,
                           agentIds: agentOutcomes
                             .filter(({ path }) => path === outcome.path)
                             .map(({ agentId }) => agentId),
@@ -246,9 +252,8 @@ export const planHookInstall: (
           ...(deferProjections
             ? { enclosingClosure: { projections: [ref.type], postconditions: [] } }
             : {}),
-          installedBefore: Effect.succeed(installedBefore),
           message: `Installed ${ref.hook.name}`,
-          buildArtifact: ({ installedBefore }) =>
+          buildArtifact: ({ change }) =>
             Effect.gen(function* () {
               const materialization = yield* hookManager.aggregateProjectionObservation;
               const appliedOutcomes =
@@ -260,7 +265,6 @@ export const planHookInstall: (
                 .pipe(Effect.catch(() => Effect.succeed(Option.none())));
               if (Option.isNone(currentLockEntry)) {
                 const path = hookRefArtifactPath(ref, location.scope);
-                const change = installedBefore ? "updated" : "created";
                 return {
                   path,
                   scope: location.scope,
@@ -268,24 +272,19 @@ export const planHookInstall: (
                     ? { version: ref.version }
                     : {}),
                   agents: materialization.agents,
-                  change,
                   agentOutcomes: appliedOutcomes,
                   targets:
                     materialization.targets.length === 0
                       ? [{ path, change }]
                       : materialization.targets.map((target) => ({ ...target, change })),
-                } satisfies JobStepArtifact;
+                } satisfies InstallArtifactPresentation;
               }
               return hookInstallArtifact({
                 lockEntry: currentLockEntry.value,
-                installedBefore,
                 scope: location.scope,
                 agents: materialization.agents,
                 agentOutcomes: appliedOutcomes,
-                targets: materialization.targets.map((target) => ({
-                  ...target,
-                  change: installedBefore ? "updated" : "created",
-                })),
+                targets: materialization.targets.map((target) => ({ ...target, change })),
               });
             }),
         });

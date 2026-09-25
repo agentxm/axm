@@ -213,12 +213,12 @@ const materializeBundledAxmSkill = Effect.gen(function* () {
   yield* accepted.removeAccepted("skill", BUNDLED_AXM_SKILL_NAME);
 });
 
-/** Install the embedded official AXM skill as one rollback-safe transition. */
-export const installBundledAxmSkill: Effect.Effect<
-  void,
-  ExtensionLifecycleFailed,
-  InstallStepRequirements | BundledAxmSkillAsset
-> = Effect.gen(function* () {
+/**
+ * Install the embedded official AXM skill as one rollback-safe transition. It
+ * runs its own transaction outside an operation boundary, so it declares only
+ * what it reads and writes rather than a plan step's requirements.
+ */
+export const installBundledAxmSkill = Effect.gen(function* () {
   const location = yield* WorkspaceLocation;
   const settings = yield* SettingsReader;
   const lockfile = yield* LockfileReader;

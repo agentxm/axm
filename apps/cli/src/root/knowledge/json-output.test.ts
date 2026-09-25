@@ -44,7 +44,6 @@ const stubKnowledgeManager = {
   ...managerLifecycleStubs,
   refreshCatalog: () => Effect.void,
   sync: () => Effect.succeed({ changed: false, warnings: [], artifacts: [] }),
-  install: () => Effect.void,
   projectionPlans: () => Effect.succeed([]),
   isInstalled: () => Effect.succeed(true),
   materializeInstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),

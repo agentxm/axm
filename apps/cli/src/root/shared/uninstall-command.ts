@@ -14,6 +14,7 @@ import * as Option from "effect/Option";
 
 import { UninstallExtensions, type UninstallExtensionsRequest } from "@agentxm/workspace/lifecycle";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
+import { isGlobPattern } from "@agentxm/extension-model/unstable/extensions/name-patterns";
 import {
   deriveOperationOutcome,
   operationPresentation,
@@ -65,7 +66,7 @@ const noOpMessage = (
   alreadyAbsent: boolean,
 ): string => {
   const { plural } = EXTENSION_TYPE_PRESENTATION[type].noun;
-  return alreadyAbsent && !selector.includes("*")
+  return alreadyAbsent && !isGlobPattern(selector)
     ? `No ${plural} uninstalled; ${selector} is not installed.`
     : `No ${plural} uninstalled.`;
 };

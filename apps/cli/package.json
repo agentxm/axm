@@ -84,7 +84,6 @@
     "@agentxm/test-support": "workspace:^",
     "@effect/openapi-generator": "catalog:",
     "@effect/vitest": "catalog:",
-    "@fast-check/vitest": "catalog:",
     "@types/bun": "catalog:",
     "@types/semver": "catalog:",
     "@typescript/native": "catalog:",

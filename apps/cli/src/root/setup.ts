@@ -8,7 +8,7 @@ import { emitResult, Screen, errorDoc } from "../screen/index.js";
 import { processOutcome, withArgvTracking } from "../cli-runtime/index.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { resolveTelemetryMode } from "../telemetry/index.js";
-import { envOption } from "../utils/index.js";
+import { envOption } from "../utils/environment.js";
 import { ExitCode } from "../app-error/index.js";
 import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import * as Effect from "effect/Effect";

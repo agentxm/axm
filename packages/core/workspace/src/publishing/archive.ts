@@ -15,7 +15,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { zipSync, type Zippable } from "fflate";
 import { PublishFailed } from "./errors.js";
-import { expandGlob } from "./internal/glob.js";
+import { expandGlob } from "@agentxm/extension-model/unstable/extensions/name-patterns";
 
 // ZIP timestamps have no timezone. fflate serializes Date's local calendar
 // fields, so construct those fields locally to keep the encoded bytes stable

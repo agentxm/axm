@@ -18,7 +18,10 @@ import {
   sourceResolutionFailureCategory,
   type SourceResolutionFailure,
 } from "./errors.js";
-import { expandGlobs, isGlobPattern } from "./glob.js";
+import {
+  expandGlobs,
+  isGlobPattern,
+} from "@agentxm/extension-model/unstable/extensions/name-patterns";
 import { resolveSource } from "./resolve-source.js";
 import { WorkspaceCatalog } from "./workspace-catalog.js";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";

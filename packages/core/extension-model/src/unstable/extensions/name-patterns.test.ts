@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { fc as FastCheck, it as fastCheckIt } from "@fast-check/vitest";
-import { expandGlob, expandGlobs, isGlobPattern } from "./name-patterns.js";
+import { expandGlob, expandGlobs, isGlobPattern, matchesPattern } from "./name-patterns.js";
 
 const PROPERTY_OPTIONS = { numRuns: 500, seed: 0x41584d };
 
@@ -27,6 +27,14 @@ const referenceMatches = (pattern: string, name: string): boolean => {
 };
 
 describe("extension name patterns", () => {
+  it("matches a complete name with only star as a wildcard", () => {
+    expect(matchesPattern("inspect-*", "inspect-one")).toBe(true);
+    expect(matchesPattern("inspect-*", "pre-inspect-one")).toBe(false);
+    expect(matchesPattern("inspect-?", "inspect-?")).toBe(true);
+    expect(matchesPattern("inspect-?", "inspect-a")).toBe(false);
+    expect(matchesPattern("Inspect-*", "inspect-one")).toBe(false);
+  });
+
   it("matches only the star wildcard; other pattern punctuation stays literal", () => {
     const names = ["inspect-one", "inspect-two", "inspect-?", "inspect-[ab]", "inspect-(x)"];
     expect(expandGlob("inspect-?", names)).toEqual(["inspect-?"]);
@@ -55,6 +63,9 @@ describe("extension name patterns", () => {
     expect(expandGlob(pattern, names)).toEqual(
       names.filter((name) => referenceMatches(pattern, name)),
     );
+    for (const name of names) {
+      expect(matchesPattern(pattern, name)).toBe(referenceMatches(pattern, name));
+    }
   });
 
   it("handles adversarial wildcard patterns without regex backtracking", () => {

@@ -61,7 +61,10 @@ import { settingsRelativePath } from "../../authoring/create/authoring-owner.js"
 import { addToPack } from "./add-to-pack.js";
 import { resolveConfiguredPackSelector } from "./configured-pack-selector.js";
 import { hashContent } from "./hash-content.js";
-import { isSelectorPattern, selectorMatches } from "./glob.js";
+import {
+  isGlobPattern,
+  matchesPattern,
+} from "@agentxm/extension-model/unstable/extensions/name-patterns";
 import {
   PackGraphInvalid,
   PackManifestUnavailable,
@@ -241,7 +244,7 @@ export const preparePackMembership = Effect.fn("ChangePackMembership.prepare")(f
     ),
   );
 
-  const pattern = isSelectorPattern(request.selector);
+  const pattern = isGlobPattern(request.selector);
   const members = yield* request.change === "add"
     ? additions({ pack, packOwner, request, pattern, manifest })
     : removals({ manifest, request, pattern });
@@ -363,7 +366,7 @@ const additions = Effect.fn("ChangePackMembership.additions")(function* (args: {
 
   const requestedFqn = parseExtensionFqnParts(args.request.selector);
   const matched = args.pattern
-    ? candidates.filter((candidate) => selectorMatches(args.request.selector, candidate.name))
+    ? candidates.filter((candidate) => matchesPattern(args.request.selector, candidate.name))
     : requestedFqn !== undefined
       ? candidates.filter(
           (candidate) =>
@@ -418,7 +421,7 @@ const removals = Effect.fn("ChangePackMembership.removals")(function* (args: {
   readonly pattern: boolean;
 }) {
   const matched = Object.entries(args.manifest.dependencies).filter(([fqn]) =>
-    args.pattern ? selectorMatches(args.request.selector, fqn) : fqn === args.request.selector,
+    args.pattern ? matchesPattern(args.request.selector, fqn) : fqn === args.request.selector,
   );
   if (matched.length === 0) {
     return yield* new PackMemberNotDeclared({

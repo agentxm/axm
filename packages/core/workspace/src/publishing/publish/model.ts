@@ -65,7 +65,10 @@ import { isPublishableType, type PublishableType } from "../publishable-types.js
 import type { PublishSourceAssessment } from "../source-state.js";
 import type { ResolvedPublishPreview } from "../authorization.js";
 import { computeIntegrity } from "../internal/integrity.js";
-import { expandGlobs, isGlobPattern } from "../internal/glob.js";
+import {
+  expandGlobs,
+  isGlobPattern,
+} from "@agentxm/extension-model/unstable/extensions/name-patterns";
 import type { PublishSelectionDecision } from "./result.js";
 
 export const selectableTypes: ReadonlyArray<PublishableType> =

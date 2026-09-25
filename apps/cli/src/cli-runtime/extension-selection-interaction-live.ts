@@ -7,29 +7,21 @@
  * a failure.
  */
 
-import type * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
+import {
+  extensionTypePluralLabels,
+  extensionTypePluralSentenceLabels,
+  extensionTypeToPlural,
+} from "@agentxm/extension-model/unstable/extensions";
 import {
   InstallSelectionCancelled,
   InstallSelectionInteraction,
   InstallSelectionUnavailable,
   type InstallSelectionCandidate,
 } from "@agentxm/workspace/lifecycle";
-import {
-  SkillSelectionCancelled,
-  SkillSelectionInteraction,
-  SkillSelectionUnavailable,
-} from "@agentxm/workspace/skills/lifecycle/application";
-import {
-  SubagentSelectionCancelled,
-  SubagentSelectionInteraction,
-  SubagentSelectionUnavailable,
-} from "@agentxm/workspace/subagents/lifecycle/application";
-import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 
 import { makeAppError } from "../app-error/index.js";
 import {
@@ -61,37 +53,52 @@ const selectionUnavailable = (error: AskFailure) => {
 };
 
 /** One candidate as the list offers it: its name, and what it does when it says. */
-const candidateOption = <T>(
-  name: string,
-  description: Option.Option<string>,
-  value: T,
-): PickOption<T> => ({
-  title: name,
-  value,
-  ...(Option.isSome(description) ? { details: [description.value] } : {}),
+const candidateOption = (
+  candidate: InstallSelectionCandidate,
+): PickOption<InstallSelectionCandidate> => ({
+  title: candidate.name,
+  value: candidate,
+  ...(Option.isSome(candidate.description) ? { details: [candidate.description.value] } : {}),
 });
 
-/** The terminal interaction shared by rule, hook, Knowledge, MCP, and Pack installs. */
+/**
+ * How the pick names what it offers. The lifecycle offers one type at a time,
+ * so the first candidate's type names the whole list and the flag that would
+ * have selected from it without a prompt.
+ */
+const selectionSubject = (candidates: ReadonlyArray<InstallSelectionCandidate>) => {
+  const [first] = candidates;
+  if (first === undefined) {
+    return { label: "Extensions", other: "extensions", flag: "their per-type flags" };
+  }
+  const plural = extensionTypeToPlural[first.type];
+  return {
+    label: extensionTypePluralLabels[plural],
+    other: extensionTypePluralSentenceLabels[plural],
+    flag: first.type === "mcp-server" ? "--mcp" : `--${first.type}`,
+  };
+};
+
+/** The terminal's one selection interaction, shared by every installable type. */
 export const InstallSelectionLive = Layer.effect(InstallSelectionInteraction)(
   Effect.gen(function* () {
     const screen = yield* Screen;
     return {
-      select: (candidates: ReadonlyArray<InstallSelectionCandidate>) =>
-        screen
+      select: (candidates: ReadonlyArray<InstallSelectionCandidate>) => {
+        const subject = selectionSubject(candidates);
+        const question = `Select ${subject.other} to install`;
+        return screen
           .ask(
             pickAsk({
-              question: "Select extensions to install",
-              label: "Extensions",
-              noun: { one: "extension", other: "extensions" },
+              question,
+              label: subject.label,
+              noun: { one: subject.other.replace(/s$/, ""), other: subject.other },
               min: 1,
-              options: candidates.map((candidate) =>
-                candidateOption(candidate.name, candidate.description, candidate),
-              ),
+              options: candidates.map(candidateOption),
             }),
             {
-              message: "Select extensions to install",
-              guidance:
-                "Name extensions with their per-type flags, take all with --all, or rerun without --json.",
+              message: question,
+              guidance: `Name the ${subject.other} with ${subject.flag}, take them all with --all, or rerun without --json.`,
             },
           )
           .pipe(
@@ -100,82 +107,8 @@ export const InstallSelectionLive = Layer.effect(InstallSelectionInteraction)(
                 ? new InstallSelectionCancelled({ message: error.message })
                 : new InstallSelectionUnavailable({ cause: selectionUnavailable(error) }),
             ),
-          ),
+          );
+      },
     };
   }),
-);
-
-/** The terminal implements only the skill interaction contract. */
-export const SkillSelectionLive = Layer.effect(SkillSelectionInteraction)(
-  Effect.gen(function* () {
-    const screen = yield* Screen;
-    return {
-      select: (candidates: Array.NonEmptyReadonlyArray<SkillExtensionRef>) =>
-        screen
-          .ask(
-            pickAsk({
-              question: "Select skills to install",
-              label: "Skills",
-              noun: { one: "skill", other: "skills" },
-              min: 1,
-              options: candidates.map((skill) =>
-                candidateOption(skill.skill.name, skill.skill.description, skill),
-              ),
-            }),
-            {
-              message: "Select skills to install",
-              guidance:
-                "Name the skills with --skill, take them all with --all, or rerun without --json.",
-            },
-          )
-          .pipe(
-            Effect.mapError((error) =>
-              error._tag === "QuestionCancelled"
-                ? new SkillSelectionCancelled({ message: error.message })
-                : new SkillSelectionUnavailable({ cause: selectionUnavailable(error) }),
-            ),
-          ),
-    };
-  }),
-);
-
-/** The terminal implements only the subagent interaction contract. */
-export const SubagentSelectionLive = Layer.effect(SubagentSelectionInteraction)(
-  Effect.gen(function* () {
-    const screen = yield* Screen;
-    return {
-      select: (candidates: Array.NonEmptyReadonlyArray<SubagentExtensionRef>) =>
-        screen
-          .ask(
-            pickAsk({
-              question: "Select subagents to install",
-              label: "Subagents",
-              noun: { one: "subagent", other: "subagents" },
-              min: 1,
-              options: candidates.map((subagent) =>
-                candidateOption(subagent.subagent.name, subagent.subagent.description, subagent),
-              ),
-            }),
-            {
-              message: "Select subagents to install",
-              guidance:
-                "Name the subagents with --subagent, take them all with --all, or rerun without --json.",
-            },
-          )
-          .pipe(
-            Effect.mapError((error) =>
-              error._tag === "QuestionCancelled"
-                ? new SubagentSelectionCancelled({ message: error.message })
-                : new SubagentSelectionUnavailable({ cause: selectionUnavailable(error) }),
-            ),
-          ),
-    };
-  }),
-);
-
-/** Root installation composes the two independently usable interfaces. */
-export const ExtensionSelectionLive = Layer.mergeAll(
-  SkillSelectionLive,
-  SubagentSelectionLive,
-  InstallSelectionLive,
 );

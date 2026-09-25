@@ -13,6 +13,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import type * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as ServiceMap from "effect/Context";
 
@@ -41,6 +42,20 @@ export const readFootprint: Effect.Effect<
   never,
   FootprintRecorder
 > = Effect.flatMap(FootprintRecorder, (service) => Ref.get(service.ref));
+
+/**
+ * The footprint reports durable workspace changes; scratch outside the
+ * workspace base (scoped temporary staging) is removed with the invocation
+ * and is not one. Relative paths are taken to be workspace-relative already.
+ */
+export const isWorkspaceFootprint =
+  (path: Path.Path, baseDir: string) =>
+  (observation: FootprintObservation): boolean =>
+    !(
+      path.isAbsolute(observation.path)
+        ? path.relative(baseDir, observation.path)
+        : observation.path
+    ).startsWith("..");
 
 export const makeFootprintRecorder: Effect.Effect<
   ServiceMap.Service.Shape<typeof FootprintRecorder>

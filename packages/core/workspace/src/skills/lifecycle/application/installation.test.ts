@@ -14,9 +14,7 @@ it.effect(
   "another delivery can prepare skill policy and read artifact evidence only after realization",
   () =>
     Effect.gen(function* () {
-      const content = yield* Ref.make(
-        Option.none<{ readonly fileCount: number; readonly sourceHash: string }>(),
-      );
+      const content = yield* Ref.make(Option.none<{ readonly fileCount: number }>());
       const name = decodeExtensionNameSync("review");
       const ref: SkillExtensionRef = {
         type: "skill",
@@ -40,7 +38,6 @@ it.effect(
           Effect.succeed({
             installed: false,
             previousVersion: undefined,
-            sourceHash: undefined,
             scope: "project",
             displayPath: "skills/review",
             agents: ["recipient"],
@@ -65,14 +62,16 @@ it.effect(
         "@example/skills/review@1.2.0 was published less than 24h ago — installing it because you requested this version explicitly",
         "Skipping unknown configured agents: unknown-recipient",
       ]);
-      yield* Ref.set(content, Option.some({ fileCount: 3, sourceHash: "realized-content" }));
-      expect(
-        yield* prepared.buildArtifact({ installedBefore: prepared.installedBefore }),
-      ).toMatchObject({
-        change: "created",
+      yield* Ref.set(content, Option.some({ fileCount: 3 }));
+      // The recipe classifies the change; the presenter reports the targets
+      // as they stood before the install around it.
+      expect(yield* prepared.buildArtifact({ change: "created" })).toMatchObject({
         version: "1.2.0",
         fileCount: 3,
         targets: [{ path: "skills/review", agentIds: ["recipient"], change: "created" }],
+      });
+      expect(yield* prepared.buildArtifact({ change: "unchanged" })).toMatchObject({
+        targets: [{ path: "skills/review", agentIds: ["recipient"], change: "unchanged" }],
       });
     }),
 );

@@ -25,15 +25,6 @@ export class SubagentContentUnreadable extends Data.TaggedError("SubagentContent
   readonly cause: unknown;
 }> {}
 
-/** A lock entry was requested before install recorded the package state. */
-export class SubagentInstallStateMissing extends Data.TaggedError("SubagentInstallStateMissing")<{
-  readonly name: string;
-  readonly kind: "content-identity" | "external-resolution";
-}> {}
-
 /** Every failure the subagent manager constructs. */
 export type SubagentManagerError =
-  | SubagentDefinitionInvalid
-  | SubagentContentUnreadable
-  | SubagentIoFailed
-  | SubagentInstallStateMissing;
+  SubagentDefinitionInvalid | SubagentContentUnreadable | SubagentIoFailed;

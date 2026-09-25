@@ -10,7 +10,7 @@ import YAML from "yaml";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { SkillSelectionInteraction } from "../application/index.js";
+import { InstallSelectionInteraction } from "../../../lifecycle/install/selection.js";
 import {
   applyInstall,
   contentUnder,
@@ -19,20 +19,21 @@ import {
   readSettings,
   type InstallWorld,
 } from "../../../lifecycle/install/test-helpers.js";
-import { writeLocalSkillPackage } from "../../../lifecycle/testing.js";
+import { writeLocalSkillPackage, writeLocalSubagentPackage } from "../../../lifecycle/testing.js";
+import { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
 
 export const specification = defineSpecification({
   requirement: "cli/skills/install/selects-requested-source-skills",
-  title: "Skill installation selects the requested skills from a source",
+  title: "Installation selects the requested extensions from a source",
   statement:
-    "For an installable source containing several skills, a request that names one or more skills shall install exactly the named skills when every name exists in the source, and a request that selects all of them shall install every discovered skill without opening a selection interaction.",
+    "For an installable source containing several extensions of one type, a request that names one or more of them shall install exactly the discovered extensions its names or patterns match, in source order, and shall fail as not found without installing anything when no name matches; a request that selects all of them shall install every discovered extension without opening a selection interaction; and an unattended request that neither names nor selects all shall fail as usage guidance. One policy decides this for every installable type; skills and subagents are the examples here.",
   class: "functional",
   role: "experience",
   goals: ["extension-adoption", "workspace-intent-fidelity"],
   methods: ["decision-table", "example"],
   derivedFrom: [
-    "packages/core/workspace/src/skills/lifecycle/domain/selection.ts",
-    "packages/core/workspace/src/skills/lifecycle/application/index.ts",
+    "packages/core/workspace/src/lifecycle/install/selection.ts",
+    "packages/core/workspace/src/lifecycle/install/install-extensions.ts",
     // The flag spellings that build these requests (`--skill`, repeated
     // `--skill`, `--all`) stay CLI grammar; process evidence for them is
     // apps/cli-e2e/src/cli-commands/skills/install/command.e2e.ts.
@@ -41,15 +42,13 @@ export const specification = defineSpecification({
   supersedes: [],
   assumptions: [],
   openQuestions: [
-    "Does a named skill promise glob matching, and what matching grammar applies?",
-    "Must a request containing both matched and unmatched names fail as a whole or install its matches, and how should a wholly unmatched request be reported?",
-    "Does unattended operation with neither a name selection nor an all selection select every discovered skill?",
+    "Must a request containing both matched and unmatched names install its matches, as it does today, or fail as a whole?",
     "How should an all selection and a name selection be combined or refused when both are supplied?",
   ],
   limitations: [
     {
       limitation:
-        "The source population is a local native .agents/skills tree with three valid uniquely named skills. These examples do not establish discovery or selection through remote Git/Registry providers, collision handling, invalid sibling packages, or an actual interactive terminal session.",
+        "The source populations are local native trees: three uniquely named skills, and two uniquely named subagents. These examples do not establish discovery or selection through remote Git/Registry providers, collision handling, invalid sibling packages, or an actual interactive terminal session, and the remaining installable types are covered by the shared policy's ordinary tests rather than by an example here.",
       retirementCondition:
         "Add distinct source-provider and interaction evidence when those selection conditions are allocated; keep unresolved selector policies explicit until decided.",
     },
@@ -57,6 +56,7 @@ export const specification = defineSpecification({
 });
 
 const sourceSkills = ["draft-changelog", "inspect-patch", "trace-failure"] as const;
+const sourceSubagents = ["reviewer", "planner"] as const;
 
 const skillDocument = (name: string): string =>
   `---\nname: ${name}\ndescription: The ${name} source skill\n---\n\n# ${name}\n\nSource-specific guidance for ${name}.\n`;
@@ -69,6 +69,13 @@ const writeMultiSkillSource = (workspaceRoot: string): string => {
     fs.mkdirSync(skillRoot, { recursive: true });
     fs.writeFileSync(nodePath.join(skillRoot, "SKILL.md"), skillDocument(name));
   }
+  return sourceRoot;
+};
+
+/** A local source root holding two uniquely named subagent packages. */
+const writeMultiSubagentSource = (workspaceRoot: string): string => {
+  const sourceRoot = nodePath.join(workspaceRoot, "subagent-source");
+  for (const name of sourceSubagents) writeLocalSubagentPackage(sourceRoot, { name });
   return sourceRoot;
 };
 
@@ -131,6 +138,12 @@ const selections = [
     names: ["trace-failure", "draft-changelog"],
     all: false,
     selected: ["trace-failure", "draft-changelog"],
+  },
+  {
+    label: "a pattern over the skills",
+    names: ["*-patch", "trace-*"],
+    all: false,
+    selected: ["inspect-patch", "trace-failure"],
   },
   { label: "every discovered skill", names: [], all: true, selected: sourceSkills },
 ] as const;
@@ -220,6 +233,107 @@ describe("Select skills from a supplied source", () => {
     }),
   );
 
+  it.effect.each([
+    {
+      label: "a name that matches no skill",
+      names: ["missing"],
+      nonInteractive: false,
+      category: "not_found",
+      detail:
+        "No skills matched: missing. Source contains: draft-changelog, inspect-patch, trace-failure",
+    },
+    {
+      label: "an unattended request that names nothing",
+      names: [],
+      nonInteractive: true,
+      category: "usage",
+      detail: "--skill or --all is required to select skills when no prompt can open",
+    },
+  ])("$label refuses without installing anything", (row) =>
+    Effect.gen(function* () {
+      const { world, unrelated, before } = yield* worldWithUnrelatedSkill();
+      const source = writeMultiSkillSource(world.workspace.root);
+      const workspaceBefore = world.workspace.snapshot();
+
+      const failure = yield* world.workspace
+        .provide(
+          applyInstall(
+            installRequest({
+              type: "skill",
+              subject: { kind: "source", source },
+              names: row.names,
+              all: false,
+              nonInteractive: row.nonInteractive,
+            }),
+          ),
+        )
+        .pipe(Effect.provide(NodeServices.layer), Effect.flip);
+
+      expect(failure).toBeInstanceOf(ExtensionLifecycleFailed);
+      expect(failure).toMatchObject({ category: row.category, detail: row.detail });
+      expect(world.workspace.snapshot()).toEqual(workspaceBefore);
+      expectUnrelatedPreserved(world, unrelated, before);
+    }),
+  );
+
+  it.effect.each([
+    { label: "one named subagent", names: ["planner"], all: false, selected: ["planner"] },
+    { label: "every discovered subagent", names: [], all: true, selected: sourceSubagents },
+  ])("$label selects through the same policy", (row) =>
+    Effect.gen(function* () {
+      const world = makeInstallWorld();
+      cleanups.push(world.cleanup);
+      const source = writeMultiSubagentSource(world.workspace.root);
+
+      yield* world.workspace
+        .provide(
+          applyInstall(
+            installRequest({
+              type: "subagent",
+              subject: { kind: "source", source },
+              names: row.names,
+              all: row.all,
+            }),
+          ),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+
+      for (const name of sourceSubagents) {
+        const isSelected = row.selected.includes(name);
+        expect(world.workspace.exists(`.claude/agents/${name}.md`), name).toBe(isSelected);
+      }
+    }),
+  );
+
+  it.effect("a subagent name that matches nothing refuses as not found", () =>
+    Effect.gen(function* () {
+      const world = makeInstallWorld();
+      cleanups.push(world.cleanup);
+      const source = writeMultiSubagentSource(world.workspace.root);
+      const workspaceBefore = world.workspace.snapshot();
+
+      const failure = yield* world.workspace
+        .provide(
+          applyInstall(
+            installRequest({
+              type: "subagent",
+              subject: { kind: "source", source },
+              names: ["missing"],
+              all: false,
+            }),
+          ),
+        )
+        .pipe(Effect.provide(NodeServices.layer), Effect.flip);
+
+      expect(failure).toBeInstanceOf(ExtensionLifecycleFailed);
+      expect(failure).toMatchObject({
+        category: "not_found",
+        detail: "No subagents matched: missing. Source contains: planner, reviewer",
+      });
+      expect(world.workspace.snapshot()).toEqual(workspaceBefore);
+    }),
+  );
+
   it.effect("selecting every skill opens no selection interaction even when one is available", () =>
     Effect.gen(function* () {
       const world = makeInstallWorld();
@@ -228,7 +342,7 @@ describe("Select skills from a supplied source", () => {
       const sourceBefore = snapshotDirectory(source);
       // A port that refuses to be opened: the only way this example passes is
       // if the all-selection never asks which skills to take.
-      const refusingSelection = Layer.succeed(SkillSelectionInteraction, {
+      const refusingSelection = Layer.succeed(InstallSelectionInteraction, {
         select: () => Effect.die(new Error("An all selection opened a selection prompt")),
       });
 

@@ -515,23 +515,31 @@ export const packLockEntryToRef = (
           pack: { name: extensionName, dependencies: {} },
         }));
       }
+      // A Pack's source is the view root it and its members were discovered
+      // under, not the Pack's own directory, which `sourcePath` keeps naming.
       if (isPathLockEntry(entry)) {
-        const sourcePath = localLockEntryPath(deps, entry.source.path);
+        const packageDirectory = localLockEntryPath(deps, entry.source.path);
         return Effect.succeed({
           type: "pack" as const,
           refType: "local" as const,
           owner: entry.identity.owner,
           name: entry.identity.name,
           version: entry.manifestVersion,
-          source: { type: "local" as const, path: sourcePath },
-          location: fileHref(sourcePath),
+          source: { type: "local" as const, path: localLockEntryPath(deps, entry.sourceRoot) },
+          location: fileHref(packageDirectory),
           sourcePath: entry.source.path,
           sourceMembers: [],
           pack: { name: extensionName, dependencies: {} },
         });
       }
       if (isGitLockEntry(entry)) {
-        return Effect.map(Effect.succeed(gitBasedSourceFromEntry(entry)), (source) => ({
+        const source: GitBasedSource = {
+          type: "git",
+          url: entry.source.url,
+          ref: Option.fromUndefinedOr(entry.source.revision),
+          subPath: Option.fromUndefinedOr(entry.sourceRoot),
+        };
+        return Effect.succeed({
           type: "pack" as const,
           refType: "git-hosted" as const,
           owner: entry.identity.owner,
@@ -544,7 +552,7 @@ export const packLockEntryToRef = (
           gitCommitSha: entry.resolved.commit,
           sourceMembers: [],
           pack: { name: extensionName, dependencies: {} },
-        }));
+        });
       }
       return Effect.die("Unrecognized lock entry source family");
     },

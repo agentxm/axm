@@ -76,7 +76,9 @@ describe("Pack and MCP shared source resolution", () => {
             subject: { kind: "source", source },
           });
           expect(deriveOperationOutcome(yield* applyInstall(request))).toBe("applied");
-          expect(deriveOperationOutcome(yield* applyInstall(request))).toBe("applied");
+          // The repeat re-acquires the package from disk, but an identical
+          // tree is not a change (see `cli/install/reinstall-is-idempotent`).
+          expect(deriveOperationOutcome(yield* applyInstall(request))).toBe("no-op");
           expect(JSON.stringify(readSettings(created.workspace))).toContain(
             "fixtures/local-server",
           );

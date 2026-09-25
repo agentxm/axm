@@ -12,16 +12,19 @@ import {
   applyInstall,
   entriesUnder,
   installRequest,
+  localLifecycleRows,
   makeInstallWorld,
   previewInstall,
   readSettings,
+  type InstallWorld,
 } from "./test-helpers.js";
+import type { InstallExtensionsRequest } from "./install-extensions.js";
 
 export const specification = defineSpecification({
   requirement: "cli/install/reinstall-is-idempotent",
   title: "Installing an already desired extension at the same constraint is a successful no-op",
   statement:
-    "When a person reinstalls an extension the workspace already desires at the same constraint, the install shall succeed with a no-op outcome and shall not change settings, the lockfile, canonical content, or agent projections; when the installed files differ from the accepted content, the repeated install shall restore the accepted content without changing the accepted resolution.",
+    "When a person reinstalls an extension the workspace already desires at the same constraint — whatever its type, and whether it was requested directly or as a member of a Pack — the install shall succeed with a no-op outcome in which every unit is unchanged, and shall not change settings, the lockfile, canonical content, or agent projections; when the installed files differ from the accepted content, the repeated install shall restore the accepted content without changing the accepted resolution.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition"],
@@ -34,39 +37,91 @@ export const specification = defineSpecification({
   ],
 });
 
+/** Everything a repeated install must leave as it found it. */
+const durableState = (world: InstallWorld) => ({
+  settings: JSON.stringify(readSettings(world.workspace)),
+  lock: world.workspace.readFile("axm-lock.yaml"),
+  canonical: entriesUnder(world.workspace, "agent_extensions"),
+  claude: entriesUnder(world.workspace, ".claude"),
+  agents: entriesUnder(world.workspace, ".agents"),
+  instructions: world.workspace.exists("AGENTS.md") ? world.workspace.readFile("AGENTS.md") : "",
+});
+
+/**
+ * One example per install route. Each publishes or writes its fixture and
+ * returns the request whose repetition must be a no-op.
+ */
+interface RepeatRow {
+  readonly label: string;
+  readonly arrange: (world: InstallWorld) => InstallExtensionsRequest;
+}
+
+const repeatRows: ReadonlyArray<RepeatRow> = [
+  ...localLifecycleRows.map((row): RepeatRow => ({
+    label: `a local ${row.label}`,
+    arrange: (world) => {
+      const source = nodePath.dirname(row.writePackage(world.workspace.root, { name: "repeat" }));
+      return installRequest({ type: row.type, subject: { kind: "source", source } });
+    },
+  })),
+  {
+    label: "a Registry MCP server",
+    arrange: (world) => {
+      world.registry.writeMcp("repeat", [{ version: "1.0.0" }]);
+      return installRequest({
+        type: "mcp-server",
+        subject: { kind: "source", source: "@acme/mcps/repeat@1.0.0" },
+      });
+    },
+  },
+  {
+    label: "a Registry Pack with a skill member",
+    arrange: (world) => {
+      world.registry.writeSkill("member", [{ version: "1.0.0", body: "Member." }]);
+      world.registry.writePack("repeat", [
+        { version: "1.0.0", dependencies: { "@acme/skills/member": "^1.0.0" } },
+      ]);
+      return installRequest({
+        type: "pack",
+        subject: { kind: "source", source: "@acme/packs/repeat@1.0.0" },
+      });
+    },
+  },
+];
+
 describe("Repeat installs are safe", () => {
   const cleanups: Array<() => void> = [];
   afterEach(() => {
     for (const cleanup of cleanups.splice(0)) cleanup();
   });
 
-  it.effect("repeating an install reports an unchanged no-op", () => {
-    const { workspace, cleanup } = makeInstallWorld();
-    cleanups.push(cleanup);
-    const source = nodePath.dirname(
-      writeLocalSkillPackage(workspace.root, { name: "code-review" }),
-    );
-    const request = installRequest({ type: "skill", subject: { kind: "source", source } });
-    return workspace
-      .provide(
-        Effect.gen(function* () {
-          yield* applyInstall(request);
-          const settingsAfterFirst = JSON.stringify(readSettings(workspace));
-          const lockAfterFirst = workspace.readFile("axm-lock.yaml");
-          const canonicalAfterFirst = entriesUnder(workspace, "agent_extensions");
-          const projectionAfterFirst = entriesUnder(workspace, ".claude");
+  it.effect.each(repeatRows)(
+    "repeating the install of $label reports an unchanged no-op",
+    (row) => {
+      const world = makeInstallWorld();
+      cleanups.push(world.cleanup);
+      const request = row.arrange(world);
+      return world.workspace
+        .provide(
+          Effect.gen(function* () {
+            const first = yield* applyInstall(request);
+            expect(deriveOperationOutcome(first)).toBe("applied");
+            const before = durableState(world);
 
-          const repeated = yield* applyInstall(request);
+            const repeated = yield* applyInstall(request);
 
-          expect(deriveOperationOutcome(repeated)).toBe("no-op");
-          expect(JSON.stringify(readSettings(workspace))).toBe(settingsAfterFirst);
-          expect(workspace.readFile("axm-lock.yaml")).toBe(lockAfterFirst);
-          expect(entriesUnder(workspace, "agent_extensions")).toEqual(canonicalAfterFirst);
-          expect(entriesUnder(workspace, ".claude")).toEqual(projectionAfterFirst);
-        }),
-      )
-      .pipe(Effect.provide(NodeServices.layer));
-  });
+            expect(deriveOperationOutcome(repeated)).toBe("no-op");
+            // Every unit, including each Pack member, reports that it changed
+            // nothing; the outcome is derived from those units, never decided.
+            expect(repeated.units.map((unit) => ({ id: unit.id, state: unit.state }))).toEqual(
+              repeated.units.map((unit) => ({ id: unit.id, state: "unchanged" })),
+            );
+            expect(durableState(world)).toEqual(before);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
 
   it.effect("a repeated install restores edited canonical content to the accepted content", () => {
     const { workspace, cleanup } = makeInstallWorld();

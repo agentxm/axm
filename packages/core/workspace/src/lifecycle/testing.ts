@@ -59,8 +59,6 @@ import { withTestRegistryDefault } from "../desired-state/testing.js";
 
 import { ExtensionLifecycleFailed } from "./errors.js";
 import { InstallSelectionInteraction } from "./install/selection.js";
-import { SkillSelectionInteraction } from "../skills/lifecycle/application/index.js";
-import { SubagentSelectionInteraction } from "../subagents/lifecycle/application/index.js";
 import { BundledAxmSkillAsset } from "../skills/lifecycle/install/bundled.js";
 import { StepFailureConversion } from "./step-failure-conversion.js";
 
@@ -259,30 +257,9 @@ export const makeLifecycleFixture = (options: LifecycleFixtureOptions = {}) => {
         return confirmation?.answer ?? "approved";
       }),
   });
-  const selectionCalls: Array<{
-    readonly type: "skill" | "subagent";
-    readonly offered: ReadonlyArray<string>;
-  }> = [];
-  const selection = Layer.mergeAll(
-    Layer.succeed(InstallSelectionInteraction, {
-      select: (candidates) => Effect.succeed(options.select === "none" ? [] : candidates),
-    }),
-    Layer.succeed(SkillSelectionInteraction, {
-      select: (candidates) => {
-        selectionCalls.push({ type: "skill", offered: candidates.map((ref) => ref.skill.name) });
-        return Effect.succeed(options.select === "none" ? [] : candidates);
-      },
-    }),
-    Layer.succeed(SubagentSelectionInteraction, {
-      select: (candidates) => {
-        selectionCalls.push({
-          type: "subagent",
-          offered: candidates.map((ref) => ref.subagent.name),
-        });
-        return Effect.succeed(options.select === "none" ? [] : candidates);
-      },
-    }),
-  );
+  const selection = Layer.succeed(InstallSelectionInteraction, {
+    select: (candidates) => Effect.succeed(options.select === "none" ? [] : candidates),
+  });
   const environment = ConfigProvider.layer(
     ConfigProvider.fromEnv({ env: { AXM_USER_HOME: home } }),
   );
@@ -385,11 +362,6 @@ export const makeLifecycleFixture = (options: LifecycleFixtureOptions = {}) => {
     homeSnapshot: () => snapshotUnder(home),
     /** What the plan interaction port was asked to present and confirm. */
     interactionState: (): ResolvePlanInteractionTestState => interaction.state,
-    /** Every time the fixture was asked which extensions to install. */
-    selectionCalls: (): ReadonlyArray<{
-      readonly type: "skill" | "subagent";
-      readonly offered: ReadonlyArray<string>;
-    }> => selectionCalls,
     provide: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect.pipe(Effect.provide(services)),
     cleanup: () => {
       fs.rmSync(root, { recursive: true, force: true });
@@ -410,7 +382,12 @@ export {
   writeLocalSubagentPackage,
   type LocalPackageFixture,
 } from "./test-packages.js";
-export { makeGitSkillRepository, type GitSkillRepository } from "./test-git.js";
+export {
+  makeGitSkillRepository,
+  serveBareRepository,
+  type GitSkillRepository,
+  type ServedGitRepository,
+} from "./test-git.js";
 export {
   makeLifecycleRegistry,
   type LifecycleRegistry,

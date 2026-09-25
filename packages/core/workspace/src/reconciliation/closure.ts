@@ -95,7 +95,6 @@ export interface ReconciliationClosureArgs<E, R> {
   readonly message: string;
   readonly artifact: JobStepArtifact;
   readonly children: ReadonlyArray<ReconciliationChild<R>>;
-  readonly reportUnchangedWhenChildrenUnchanged?: boolean;
   /** A stale-candidate check that runs under the transition, before any write. */
   readonly preTransition?: Effect.Effect<void, E, R>;
   /** The desired-graph predicate the committed transition must satisfy. */
@@ -169,11 +168,14 @@ export const buildReconciliationClosure = <E, R>(
         const warnings = results.flatMap(({ result }) =>
           result.result === "success" ? (result.warnings ?? []) : [],
         );
+        // A closure changed nothing exactly when every child reported that
+        // it changed nothing; the closure never decides that on its own.
         const allChildrenUnchanged =
-          args.reportUnchangedWhenChildrenUnchanged === true &&
           results.length > 0 &&
           results.every(
-            ({ result }) => result.result === "success" && result.artifact?.change === "unchanged",
+            ({ result }) =>
+              result.result === "success" &&
+              (result.disposition === "unchanged" || result.artifact?.change === "unchanged"),
           );
         const artifact = allChildrenUnchanged
           ? { ...args.artifact, change: "unchanged" as const }
@@ -181,6 +183,7 @@ export const buildReconciliationClosure = <E, R>(
         return {
           result: "success",
           message: args.message,
+          ...(allChildrenUnchanged ? { disposition: "unchanged" as const } : {}),
           artifact: !coverage.applicable ? artifact : { ...artifact, agents: coverage.agents },
           ...(warnings.length === 0 ? {} : { warnings }),
         } satisfies JobStepResult;

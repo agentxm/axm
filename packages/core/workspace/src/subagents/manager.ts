@@ -41,12 +41,8 @@ import {
   subagentContentFilename,
   subagentContentPath,
 } from "../desired-state/index.js";
-import {
-  SubagentContentUnreadable,
-  SubagentDefinitionInvalid,
-  SubagentInstallStateMissing,
-} from "./errors.js";
-import { buildSubagentLockEntry } from "./lock-entry-builder.js";
+import { SubagentContentUnreadable, SubagentDefinitionInvalid } from "./errors.js";
+import { acceptedResolutionFor } from "../materialization/accepted-resolution.js";
 import {
   CodingAgentRepository,
   managedSubagentRenderInput,
@@ -70,10 +66,9 @@ import { copyExtensionDirectory } from "../acquisition/copy-directory.js";
 import { sanitizeName } from "../desired-state/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { removeIfExists } from "../desired-state/index.js";
-import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "../desired-state/index.js";
+import { computeMaterializedTreeIntegrity } from "../desired-state/index.js";
 import { parseSubagentMd } from "@agentxm/extension-content";
 import { configuredSubagentsToDiskRefs } from "../acquisition/materializable-from-disk.js";
-import { validateExactResolvedVersion } from "../desired-state/index.js";
 import {
   reusableCanonicalTree,
   materializeExternalPackageWithTreeIntegrity,
@@ -84,7 +79,6 @@ import { insertManagedFileBanner, type ManagedFileProvenance } from "../projecti
 import { SubagentManager, type SubagentManagerService } from "../materialization/managers.js";
 import { computePackageContentHash } from "../desired-state/index.js";
 import { computeSourceHash, RenderedFilePathSchema } from "../desired-state/index.js";
-import { type SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import {
   MANIFEST_FILENAME,
   SubagentManifestSchema,
@@ -131,19 +125,6 @@ const stripAgentOverrides = (
 // -----------------------------------------------------------------------------
 // Live Layer
 // -----------------------------------------------------------------------------
-
-/**
- * The content identity a subagent acquisition established, in the shape the
- * settings and lockfile writers consume.
- */
-const acquiredState = (
-  materialization: Option.Option<SubagentMaterializationFacts>,
-): { readonly sourceHash: SourceHash; readonly treeIntegrity: TreeIntegrity } | undefined => {
-  if (Option.isNone(materialization)) return undefined;
-  const { sourceHash, treeIntegrity } = materialization.value;
-  if (Option.isNone(sourceHash) || Option.isNone(treeIntegrity)) return undefined;
-  return { sourceHash: sourceHash.value, treeIntegrity: treeIntegrity.value };
-};
 
 export const SubagentManagerLive = Layer.effect(
   SubagentManager,
@@ -382,22 +363,7 @@ export const SubagentManagerLive = Layer.effect(
     ) =>
       Effect.gen(function* () {
         switch (ref.refType) {
-          case "git-hosted": {
-            const packageRoot = yield* acquiredDirectoryForRef(
-              ref,
-              stripFileProtocol(ref.location),
-            );
-            const sourcePath =
-              currentLayout().scope === "project" ? packageRoot : path.join(packageRoot, "src");
-            const targetPath =
-              currentLayout().scope === "project" ? canonicalPath : subagentSrcPath;
-            const isSelfCopy = path.resolve(sourcePath) === path.resolve(targetPath);
-            if (!isSelfCopy) {
-              const materialized = yield* copyToCanonical(sourcePath, targetPath);
-              return materialized.treeIntegrity;
-            }
-            return yield* computeMaterializedTreeIntegrity(targetPath);
-          }
+          case "git-hosted":
           case "local": {
             const packageRoot = yield* acquiredDirectoryForRef(
               ref,
@@ -408,11 +374,9 @@ export const SubagentManagerLive = Layer.effect(
             const targetPath =
               currentLayout().scope === "project" ? canonicalPath : subagentSrcPath;
             const isSelfCopy = path.resolve(sourcePath) === path.resolve(targetPath);
-            if (!isSelfCopy) {
-              const materialized = yield* copyToCanonical(sourcePath, targetPath);
-              return materialized.treeIntegrity;
-            }
-            return yield* computeMaterializedTreeIntegrity(targetPath);
+            if (isSelfCopy) return yield* computeMaterializedTreeIntegrity(targetPath);
+            const materialized = yield* copyToCanonical(sourcePath, targetPath);
+            return materialized.treeIntegrity;
           }
           case "registry": {
             return yield* materializeFromRegistry(ref, canonicalPath, force);
@@ -978,35 +942,15 @@ export const SubagentManagerLive = Layer.effect(
             detail: `Local subagent source path must stay within the workspace root: ${ref.source.path}`,
           });
         }
-        if (ref.refType === "workspace") {
-          return Option.none();
-        }
-        const state = acquiredState(materialization);
-        if (state === undefined) {
-          return yield* new SubagentInstallStateMissing({
-            name: ref.subagent.name,
-            kind: "content-identity",
-          });
-        }
-        const lockEntry = buildSubagentLockEntry(
+        return yield* acceptedResolutionFor({
           ref,
-          state.sourceHash,
-          state.treeIntegrity,
-          workspaceRelativeLocalSourcePath,
-        );
-        if (lockEntry === undefined) {
-          return yield* new SubagentInstallStateMissing({
-            name: ref.subagent.name,
-            kind: "external-resolution",
-          });
-        }
-        if (lockEntry.source.type === "registry" && "version" in lockEntry.resolved) {
-          yield* validateExactResolvedVersion(
-            `subagents.${ref.subagent.name}.resolvedVersion`,
-            lockEntry.resolved.version,
-          );
-        }
-        return Option.some({ key: ref.subagent.name, entry: lockEntry });
+          acquired: Option.map(
+            Option.flatMap(materialization, (facts) =>
+              Option.all({ sourceHash: facts.sourceHash, treeIntegrity: facts.treeIntegrity }),
+            ),
+            (identity) => ({ ...identity, workspaceRelativeLocalSourcePath }),
+          ),
+        });
       }),
 
       withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),

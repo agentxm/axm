@@ -3,10 +3,13 @@ import * as Option from "effect/Option";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { gitHostedSkillArtifactSource } from "./artifact.js";
 
+/** The change the reconciliation recipe classified for one install. */
+export type InstallChange = "created" | "updated" | "unchanged";
+
 export interface SkillInstallationInspection {
   readonly installed: boolean;
+  /** The version the accepted resolution recorded before this install, if any. */
   readonly previousVersion: string | undefined;
-  readonly sourceHash: string | undefined;
   readonly scope: "project" | "user";
   readonly displayPath: string;
   readonly agents: ReadonlyArray<string>;
@@ -23,7 +26,6 @@ export interface SkillInstallationInspection {
 export interface SkillInstallationFacts<E, Preparation, Execution> {
   readonly inspect: (
     ref: SkillExtensionRef,
-    installedBefore?: boolean,
   ) => Effect.Effect<SkillInstallationInspection, E, Preparation>;
   /** Applicable shared release-age evidence, if the source can supply it. */
   readonly releaseAge: (
@@ -34,27 +36,24 @@ export interface SkillInstallationFacts<E, Preparation, Execution> {
     Preparation
   >;
   /** Read after the transition has realized the content, never during preview. */
-  readonly readContent: (ref: SkillExtensionRef) => Effect.Effect<
-    {
-      readonly fileCount: number;
-      readonly sourceHash: string;
-    },
-    E,
-    Execution
-  >;
+  readonly readContent: (
+    ref: SkillExtensionRef,
+  ) => Effect.Effect<{ readonly fileCount: number }, E, Execution>;
 }
 
-/** Install and update share skill policy, including deferred artifact evidence. */
+/**
+ * Install and update share skill policy, including deferred artifact evidence.
+ * Whether the install changed anything is the reconciliation recipe's
+ * classification; the presenter names the paths, agents, and versions around
+ * it, and reports each projection target as it stood before the install.
+ */
 export const prepareSkillInstallation = <E, Preparation, Execution>(
   facts: SkillInstallationFacts<E, Preparation, Execution>,
-  input: {
-    readonly ref: SkillExtensionRef;
-    readonly installedBefore?: boolean;
-  },
+  input: { readonly ref: SkillExtensionRef },
 ) =>
   Effect.gen(function* () {
     const ref = input.ref;
-    const before = yield* facts.inspect(ref, input.installedBefore);
+    const before = yield* facts.inspect(ref);
     const targets = before.targets.map(
       ({ state, ...target }) =>
         ({
@@ -86,36 +85,27 @@ export const prepareSkillInstallation = <E, Preparation, Execution>(
 
     const version = ref.refType === "registry" ? ref.version : undefined;
     return {
-      installedBefore: before.installed,
       warnings,
-      buildArtifact: ({ installedBefore }: { readonly installedBefore: boolean }) =>
+      buildArtifact: ({ change }: { readonly change: InstallChange }) =>
         Effect.gen(function* () {
           const content = yield* facts.readContent(ref);
-          const unchanged =
-            before.previousVersion === version && before.sourceHash === content.sourceHash;
-          const fallbackChange = !installedBefore ? "created" : unchanged ? "unchanged" : "updated";
-          const change =
-            targets.length === 0
-              ? fallbackChange
-              : targets.some((target) => target.change === "created")
-                ? "created"
-                : targets.some((target) => target.change === "updated")
-                  ? "updated"
-                  : fallbackChange === "updated"
-                    ? "updated"
-                    : "unchanged";
           const source = gitHostedSkillArtifactSource(ref);
           return {
             path: before.displayPath.length === 0 ? "." : before.displayPath,
             scope: before.scope,
             agents: before.agents,
             ...(version === undefined ? {} : { version }),
-            change,
             ...(before.previousVersion !== undefined && before.previousVersion !== version
               ? { previousVersion: before.previousVersion }
               : {}),
             fileCount: content.fileCount,
-            ...(targets.length === 0 ? {} : { targets }),
+            ...(targets.length === 0
+              ? {}
+              : {
+                  targets: targets.map((target) =>
+                    change === "unchanged" ? { ...target, change } : target,
+                  ),
+                }),
             ...(source === undefined ? {} : { source }),
           } as const;
         }),

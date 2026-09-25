@@ -6,6 +6,8 @@ export {
   buildMaterializeOperation,
   buildNewExtensionStep,
   buildUninstallOperation,
+  classifyInstallChange,
+  forecastInstallChange,
   extensionRefRegistryLifecycle,
   formatPackageUrlParts,
   targetFromRef,
@@ -17,6 +19,8 @@ export {
   extensionFromStepKey,
   type AuthoredExtensionOperationArgs,
   type CallerStepFailure,
+  type InstallArtifactPresentation,
+  type InstallChange,
   type InstallOperationArgs,
   type MaterializeOperationArgs,
   type NewExtensionOperationArgs,
@@ -28,6 +32,7 @@ export {
   type UnreadablePackageRetirement,
 } from "./extensions/operations.js";
 export { extensionRefLifecycleWarnings } from "../lifecycle/warnings.js";
+export { buildPackMemberStep, type PackMemberRef } from "./extensions/pack-member-step.js";
 
 export { WorkspaceSyncFailed, type WorkspaceSyncCleanupFailure } from "./errors.js";
 export {

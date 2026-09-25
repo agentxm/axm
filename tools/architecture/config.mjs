@@ -45,11 +45,9 @@ export const capabilityElements = [
 
 export const capabilityRoots = [
   "packages/core/workspace/src/mcp-connections/lifecycle/domain",
-  // Enforce the extracted owner policy and contracts. The remaining install,
+  // Enforce the extracted application contracts. The remaining install,
   // projection, and source-acquisition implementations still need migration.
-  "packages/core/workspace/src/skills/lifecycle/domain",
   "packages/core/workspace/src/skills/lifecycle/application",
-  "packages/core/workspace/src/subagents/lifecycle/domain",
   "packages/core/workspace/src/subagents/lifecycle/application",
   "packages/core/extension-model/src",
   "packages/supporting/cli-maintenance/src/official-skill",

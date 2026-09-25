@@ -8,7 +8,6 @@
  */
 
 import * as Option from "effect/Option";
-import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions/common";
 import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
@@ -75,12 +74,26 @@ export interface DesiredPackIdentity {
   readonly fqn: string;
 }
 
-/** The source a Pack member inherits from the Pack that declares it, or is declared with. */
+/**
+ * The source a Pack member inherits from the Pack that declares it, or is
+ * declared with. `packMemberSourceAuthority` is its only producer for inherited
+ * members and documents the canonical spelling of each variant.
+ */
 export type DesiredSourceAuthority =
   | { readonly authority: "workspace"; readonly fqn: string }
   | { readonly authority: "registry"; readonly endpoint: URL }
-  | { readonly authority: "path"; readonly root: string }
-  | { readonly authority: "git"; readonly url: URL; readonly revision: string };
+  | {
+      readonly authority: "path";
+      /** The workspace-relative source view root, as the lock records it. */
+      readonly root: string;
+    }
+  | {
+      readonly authority: "git";
+      readonly url: URL;
+      readonly revision: string;
+      /** The repository subdirectory the source view was rooted at, when one was named. */
+      readonly root: Option.Option<string>;
+    };
 
 /** The fully qualified name an identity carries, when its authority gives it one. */
 export const desiredIdentityFqn = (identity: DesiredNodeIdentity): Option.Option<string> =>
@@ -151,7 +164,10 @@ export const formatDesiredSourceAuthority = (authority: DesiredSourceAuthority):
     case "path":
       return `path:${authority.root}`;
     case "git":
-      return `git:${authority.url.href}#${authority.revision}`;
+      return `git:${authority.url.href}#${authority.revision}${Option.match(authority.root, {
+        onNone: () => "",
+        onSome: (root) => `//${root}`,
+      })}`;
   }
 };
 
@@ -160,30 +176,6 @@ export const sameDesiredSourceAuthority = (
   left: DesiredSourceAuthority,
   right: DesiredSourceAuthority,
 ): boolean => formatDesiredSourceAuthority(left) === formatDesiredSourceAuthority(right);
-
-/** The source authority a resolved source carries. */
-export const desiredSourceAuthorityOf = (source: Source): DesiredSourceAuthority => {
-  switch (source.type) {
-    case "registry":
-      return { authority: "registry", endpoint: source.location };
-    case "local":
-      return { authority: "path", root: source.path };
-    case "git":
-      return {
-        authority: "git",
-        url: source.url,
-        revision: `${Option.getOrElse(source.ref, () => "HEAD")}${Option.match(source.subPath, {
-          onNone: () => "",
-          onSome: (subPath) => `//${subPath}`,
-        })}`,
-      };
-    case "workspace":
-      return {
-        authority: "workspace",
-        fqn: `${source.owner}/${toExtensionTypePlural(source.extensionType)}/${source.name}`,
-      };
-  }
-};
 
 /**
  * The authority a source locator that is neither a workspace nor a Registry

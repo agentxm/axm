@@ -63,15 +63,13 @@ export {
   type MaterializationError,
 } from "../acquisition/errors.js";
 export {
-  HookDefinitionInvalid,
-  HookInstallStateMissing,
-  type HookManagerError,
-} from "../hooks/errors.js";
-export {
-  RuleDefinitionInvalid,
-  RuleInstallStateMissing,
-  type RuleManagerError,
-} from "../instructions/errors.js";
+  acceptedResolutionFor,
+  InstallStateMissing,
+  type AcceptedResolution,
+  type AcquiredContentIdentity,
+} from "./accepted-resolution.js";
+export { HookDefinitionInvalid, type HookManagerError } from "../hooks/errors.js";
+export { RuleDefinitionInvalid, type RuleManagerError } from "../instructions/errors.js";
 export {
   McpAgentSyncRefused,
   McpCanonicalPathUnsafe,
@@ -86,12 +84,10 @@ export {
 export {
   SubagentContentUnreadable,
   SubagentDefinitionInvalid,
-  SubagentInstallStateMissing,
   type SubagentManagerError,
 } from "../subagents/errors.js";
 export {
   SkillDefinitionInvalid,
-  SkillInstallStateMissing,
   SkillMaterializationFailed,
   type SkillManagerError,
 } from "../skills/errors.js";
@@ -105,9 +101,7 @@ export {
 export {
   KnowledgeDefinitionInvalid,
   KnowledgeDesiredStateUnreconcilable,
-  KnowledgeInstallStateMissing,
   KnowledgeIoFailed,
-  KnowledgeObservableContractViolated,
   KnowledgeResolutionMissing,
   KnowledgeUnavailable,
   type KnowledgeManagerError,
@@ -144,7 +138,6 @@ export {
 } from "../mcp-connections/artifact.js";
 
 // Per-type materialization vocabulary
-export { buildSubagentLockEntry } from "../subagents/lock-entry-builder.js";
 export {
   artifactAgentIdsFromTargets,
   artifactTargetAgentIds,

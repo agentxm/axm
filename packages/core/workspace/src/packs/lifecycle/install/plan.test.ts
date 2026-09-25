@@ -278,7 +278,7 @@ describe("pack install graph", () => {
           expect(details).toHaveLength(1);
           expect(details[0]).toContain("@acme/packs/inherited-pack");
           expect(details[0]).toContain("@acme/packs/registry-pack");
-          expect(details[0]).toContain(`path:${inheritedSource}`);
+          expect(details[0]).toContain("path:fixtures/inherited");
           expect(details[0]).toContain(`registry:${registry.source.location}`);
           expect(resolution.units.filter((unit) => unit.state === "committed")).toEqual([]);
           expect(workspace.snapshot()).toEqual(before);

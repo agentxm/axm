@@ -97,12 +97,9 @@ import {
   CanonicalPackageProbeFailed,
   CreateDestinationExists,
   HookDefinitionInvalid,
-  HookInstallStateMissing,
   KnowledgeDefinitionInvalid,
   KnowledgeDesiredStateUnreconcilable,
-  KnowledgeInstallStateMissing,
   KnowledgeIoFailed,
-  KnowledgeObservableContractViolated,
   KnowledgeResolutionMissing,
   KnowledgeUnavailable,
   McpAgentSyncRefused,
@@ -119,14 +116,12 @@ import {
   PackageCopyFailed,
   PackageMaterializationFailed,
   RuleDefinitionInvalid,
-  RuleInstallStateMissing,
   SkillDefinitionInvalid,
-  SkillInstallStateMissing,
+  InstallStateMissing,
   SkillMaterializationFailed,
   StagedPackageInvalid,
   SubagentContentUnreadable,
   SubagentDefinitionInvalid,
-  SubagentInstallStateMissing,
 } from "@agentxm/workspace/materialization";
 import {
   AgentDetectionFailed,
@@ -208,14 +203,6 @@ import {
   StepFailureConversion,
   lifecycleStepFailure,
 } from "@agentxm/workspace/lifecycle";
-import {
-  SkillSelectionNotFound,
-  SkillSelectionUnavailable,
-} from "@agentxm/workspace/skills/lifecycle/application";
-import {
-  SubagentSelectionNotFound,
-  SubagentSelectionUnavailable,
-} from "@agentxm/workspace/subagents/lifecycle/application";
 import {
   WorkspaceConfigurationFailed,
   configurationFailedToStepFailure,
@@ -484,11 +471,7 @@ const representatives: Representatives = {
     new CreateDestinationExists({ subject: "Skill", path: "/w/skills/demo" }),
   ],
   RuleDefinitionInvalid: [new RuleDefinitionInvalid({ detail: "Failed to read rule.json" })],
-  RuleInstallStateMissing: [new RuleInstallStateMissing({ name: "demo", kind: "tree-integrity" })],
   HookDefinitionInvalid: [new HookDefinitionInvalid({ detail: "Hook entrypoint missing" })],
-  HookInstallStateMissing: [
-    new HookInstallStateMissing({ name: "demo", kind: "content-identity" }),
-  ],
   SubagentDefinitionInvalid: [
     new SubagentDefinitionInvalid({ detail: "Workspace subagent source is missing" }),
   ],
@@ -499,9 +482,6 @@ const representatives: Representatives = {
       contentPath: "/w/subagents/demo/src/demo.md",
       cause: ioCause,
     }),
-  ],
-  SubagentInstallStateMissing: [
-    new SubagentInstallStateMissing({ name: "demo", kind: "external-resolution" }),
   ],
   McpInstallStateMissing: [new McpInstallStateMissing({ name: "demo" })],
   McpLocalNameConflict: [
@@ -538,9 +518,7 @@ const representatives: Representatives = {
   SkillMaterializationFailed: [
     new SkillMaterializationFailed({ detail: "Failed to remove skill artifact", cause: ioCause }),
   ],
-  SkillInstallStateMissing: [
-    new SkillInstallStateMissing({ name: "demo", kind: "content-identity" }),
-  ],
+  InstallStateMissing: [new InstallStateMissing({ type: "skill", name: "demo" })],
   AxmSkillCompatibilityUnavailable: [new AxmSkillCompatibilityUnavailable()],
   AxmSkillIncompatible: [new AxmSkillIncompatible({ compatibility: incompatibleAxmSkill })],
   PackDefinitionInvalid: [new PackDefinitionInvalid({ detail: "Workspace pack is missing" })],
@@ -551,13 +529,9 @@ const representatives: Representatives = {
     new KnowledgeDefinitionInvalid({ detail: "Failed to parse knowledge.json" }),
   ],
   KnowledgeIoFailed: [new KnowledgeIoFailed({ detail: "Failed to stage", cause: ioCause })],
-  KnowledgeInstallStateMissing: [
-    new KnowledgeInstallStateMissing({ name: "demo", kind: "staged-tree-integrity" }),
-  ],
   KnowledgeResolutionMissing: [new KnowledgeResolutionMissing({ name: "demo" })],
   KnowledgeDesiredStateUnreconcilable: [new KnowledgeDesiredStateUnreconcilable()],
   KnowledgeUnavailable: [new KnowledgeUnavailable({ detail: "Cannot be restored: demo" })],
-  KnowledgeObservableContractViolated: [new KnowledgeObservableContractViolated({ name: "demo" })],
   FqnInvalidError: [new FqnInvalidError({ input: "not-a-valid-fqn" })],
   FrontmatterParseFailure: [
     new FrontmatterParseFailure({ reason: "YAML frontmatter could not be parsed" }),
@@ -810,14 +784,6 @@ const representatives: Representatives = {
     }),
     new ExtensionLifecycleFailed({ category: "validation" }),
   ],
-  SkillSelectionNotFound: [
-    new SkillSelectionNotFound({ requested: ["missing"], available: ["z-last", "a-first"] }),
-  ],
-  SubagentSelectionNotFound: [
-    new SubagentSelectionNotFound({ requested: ["missing"], available: ["review"] }),
-  ],
-  SkillSelectionUnavailable: [new SkillSelectionUnavailable({ cause: new Error("closed") })],
-  SubagentSelectionUnavailable: [new SubagentSelectionUnavailable({ cause: new Error("closed") })],
   InstallSelectionUnavailable: [new InstallSelectionUnavailable({ cause: new Error("closed") })],
   WorkspaceConfigurationFailed: [
     new WorkspaceConfigurationFailed({

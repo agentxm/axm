@@ -151,7 +151,9 @@ describe("Machine mode never prompts", () => {
 
         const error = getAppError(failure);
         expect(error.code).toBe("usage");
-        expect(error.detail).toContain("Unable to obtain a skill selection");
+        expect(error.detail).toBe(
+          "--skill or --all is required to select skills when no prompt can open",
+        );
         const classified = classifyError(failure, "json");
         expect(classified.exitCode).toBeGreaterThan(0);
         expect(JSON.parse(classified.stdout ?? "")).toMatchObject({ ok: false, code: "usage" });

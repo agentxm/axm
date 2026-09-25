@@ -23,12 +23,6 @@ export class KnowledgeIoFailed extends Data.TaggedError("KnowledgeIoFailed")<{
   readonly cause: unknown;
 }> {}
 
-/** A lock entry was requested before install recorded the package state. */
-export class KnowledgeInstallStateMissing extends Data.TaggedError("KnowledgeInstallStateMissing")<{
-  readonly name: string;
-  readonly kind: "tree-integrity" | "content-identity" | "staged-tree-integrity";
-}> {}
-
 /** An active external Knowledge bundle has no accepted lock resolution. */
 export class KnowledgeResolutionMissing extends Data.TaggedError("KnowledgeResolutionMissing")<{
   readonly name: string;
@@ -48,19 +42,10 @@ export class KnowledgeUnavailable extends Data.TaggedError("KnowledgeUnavailable
   readonly cause?: unknown;
 }> {}
 
-/** An installed Knowledge bundle failed its observable postcondition. */
-export class KnowledgeObservableContractViolated extends Data.TaggedError(
-  "KnowledgeObservableContractViolated",
-)<{
-  readonly name: string;
-}> {}
-
 /** Every failure the Knowledge module constructs. */
 export type KnowledgeManagerError =
   | KnowledgeDefinitionInvalid
   | KnowledgeIoFailed
-  | KnowledgeInstallStateMissing
   | KnowledgeResolutionMissing
   | KnowledgeDesiredStateUnreconcilable
-  | KnowledgeUnavailable
-  | KnowledgeObservableContractViolated;
+  | KnowledgeUnavailable;

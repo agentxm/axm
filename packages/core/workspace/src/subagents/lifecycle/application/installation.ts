@@ -4,6 +4,9 @@ import type * as Option from "effect/Option";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 
+/** The change the reconciliation recipe classified for one install. */
+export type InstallChange = "created" | "updated" | "unchanged";
+
 export interface SubagentProjectionObservation {
   readonly agents: ReadonlyArray<string>;
   readonly targets: ReadonlyArray<{
@@ -12,7 +15,7 @@ export interface SubagentProjectionObservation {
   }>;
 }
 
-export interface SubagentInstallationFacts<E, Preparation, Execution> {
+export interface SubagentInstallationFacts<E, Preparation> {
   readonly workspace: Effect.Effect<
     {
       readonly scope: "project" | "user";
@@ -29,27 +32,23 @@ export interface SubagentInstallationFacts<E, Preparation, Execution> {
     E,
     Preparation
   >;
-  readonly inspect: (ref: SubagentExtensionRef) => Effect.Effect<
-    {
-      readonly previousVersion: string | undefined;
-      readonly sourceHash: string | undefined;
-    },
-    E,
-    Preparation
-  >;
-  readonly isInstalled: (ref: SubagentExtensionRef) => Effect.Effect<boolean, E, Execution>;
-  readonly readContentIdentity: (
+  /** The version the accepted resolution recorded before this install, if any. */
+  readonly previousVersion: (
     ref: SubagentExtensionRef,
-  ) => Effect.Effect<string | undefined, E, Execution>;
+  ) => Effect.Effect<string | undefined, E, Preparation>;
 }
 
 export class SubagentPlacementUnavailable extends Data.TaggedError("SubagentPlacementUnavailable")<{
   readonly reason: string;
 }> {}
 
-/** Subagents require every configured agent to support placement in a user workspace. */
-export const prepareSubagentInstallations = <E, Preparation, Execution>(
-  facts: SubagentInstallationFacts<E, Preparation, Execution>,
+/**
+ * Subagents require every configured agent to support placement in a user
+ * workspace. Whether an install changed anything is the reconciliation
+ * recipe's classification; the presenter names the placements around it.
+ */
+export const prepareSubagentInstallations = <E, Preparation>(
+  facts: SubagentInstallationFacts<E, Preparation>,
   entries: ReadonlyArray<{
     readonly ref: SubagentExtensionRef;
     readonly versionRange: Option.Option<VersionRange>;
@@ -69,42 +68,28 @@ export const prepareSubagentInstallations = <E, Preparation, Execution>(
     return yield* Effect.forEach(entries, (entry) =>
       Effect.gen(function* () {
         const ref = entry.ref;
-        const before = yield* facts.inspect(ref);
+        const previousVersion = yield* facts.previousVersion(ref);
         const version = ref.refType === "registry" ? ref.version : undefined;
         return {
           ...entry,
-          installedBefore: facts.isInstalled(ref),
           buildArtifact: (input: {
-            readonly installedBefore: boolean;
+            readonly change: InstallChange;
             readonly observation: SubagentProjectionObservation;
-          }) =>
-            Effect.gen(function* () {
-              const sourceHash = yield* facts.readContentIdentity(ref);
-              const sameVersion = before.previousVersion === version;
-              const sameSource =
-                before.sourceHash === undefined ||
-                sourceHash === undefined ||
-                before.sourceHash === sourceHash;
-              const change = !input.installedBefore
-                ? "created"
-                : sameVersion && sameSource
-                  ? "unchanged"
-                  : "updated";
-              const targets = input.observation.targets.map(
-                (target) => ({ ...target, change }) as const,
-              );
-              return {
-                path: targets[0]?.path ?? ref.subagent.name,
-                scope: workspace.scope,
-                agents: input.observation.agents,
-                ...(version === undefined ? {} : { version }),
-                change,
-                ...(before.previousVersion !== undefined && before.previousVersion !== version
-                  ? { previousVersion: before.previousVersion }
-                  : {}),
-                ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
-              } as const;
-            }),
+          }) => {
+            const targets = input.observation.targets.map(
+              (target) => ({ ...target, change: input.change }) as const,
+            );
+            return {
+              path: targets[0]?.path ?? ref.subagent.name,
+              scope: workspace.scope,
+              agents: input.observation.agents,
+              ...(version === undefined ? {} : { version }),
+              ...(previousVersion !== undefined && previousVersion !== version
+                ? { previousVersion }
+                : {}),
+              ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
+            } as const;
+          },
         };
       }),
     );

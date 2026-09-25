@@ -40,8 +40,9 @@ import {
   KnowledgeManager,
   PackManager,
 } from "../materialization/index.js";
-import { installMcpServer, type McpServerInstallRequirements } from "./mcps/install-operation.js";
+import type { McpServerInstallRequirements } from "./mcps/install-operation.js";
 import { buildInstallOperation, targetFromRef } from "./extensions/operations.js";
+import { buildPackMemberStep } from "./extensions/pack-member-step.js";
 import {
   makeConfiguredReleaseAgeEvaluation,
   normalizeReleaseAgeRecords,
@@ -75,54 +76,44 @@ import {
 } from "./materialize.js";
 import { SYNC_RECOVERY_IDS, type SyncStepRequirements } from "./plan.js";
 
+/**
+ * The Pack package is re-acquired unconditionally — its manifest is the thing
+ * that diverged. Members are the same step install and update build, acquired
+ * without touching settings because recovery restores what the Pack already
+ * declares; a member whose accepted content is still usable is reused rather
+ * than fetched again, and an agent that cannot accept a member degrades and
+ * reports, as every sync closure does.
+ */
 const recoveryStep = (args: {
   readonly ref: ExtensionRef;
-  readonly isPack: boolean;
   readonly adapter: SyncFailureAdapter;
 }): Effect.Effect<
   PlannedJobStep<SyncStepRequirements | McpServerInstallRequirements>,
   never,
-  SkillManager | SubagentManager | RuleManager | HookManager | KnowledgeManager | PackManager
+  | SkillManager
+  | SubagentManager
+  | RuleManager
+  | HookManager
+  | KnowledgeManager
+  | PackManager
+  | WorkspaceLocation
 > =>
   Effect.gen(function* () {
-    const { ref, isPack, adapter } = args;
-    // Members are acquired without touching settings: recovery restores what the
-    // Pack already declares, and must not change what the operator configured.
-    // Only the Pack package is re-acquired unconditionally — its manifest is the
-    // thing that diverged; a member whose accepted content is still usable is
-    // reused rather than fetched again.
-    const common = {
-      toStepFailure: adapter.toStepFailure,
-      force: isPack,
-      enclosingClosure: { projections: [ref.type], postconditions: [ref.type] },
-    } as const;
-    switch (ref.type) {
-      case "pack":
-        return buildInstallOperation(yield* PackManager, { ...common, ref });
-      case "skill":
-        return buildInstallOperation(yield* SkillManager, { ...common, ref });
-      case "subagent":
-        return buildInstallOperation(yield* SubagentManager, { ...common, ref });
-      case "rule":
-        return buildInstallOperation(yield* RuleManager, { ...common, ref });
-      case "hook":
-        return buildInstallOperation(yield* HookManager, { ...common, ref });
-      case "knowledge":
-        return buildInstallOperation(yield* KnowledgeManager, { ...common, ref });
-      case "mcp-server":
-        return {
-          label: ref.server.name,
-          readiness: "ready",
-          run: installMcpServer({
-            name: "install-mcp-server",
-            args: {
-              ref,
-              nonInteractive: true,
-              force: true,
-            },
-          }).pipe(Effect.mapError(adapter.toStepFailure)),
-        };
+    const { ref, adapter } = args;
+    if (ref.type === "pack") {
+      return buildInstallOperation(yield* PackManager, {
+        toStepFailure: adapter.toStepFailure,
+        force: true,
+        enclosingClosure: { projections: [ref.type], postconditions: [ref.type] },
+        ref,
+      });
     }
+    return yield* buildPackMemberStep({
+      ref,
+      nonInteractive: true,
+      strictAgentSync: false,
+      toStepFailure: adapter.toStepFailure,
+    });
   });
 
 /** A lifecycle refusal carried into sync with its own category and sentence. */
@@ -295,12 +286,12 @@ export const collectConfiguredPackRecovery = (args: {
           }
           const memberRefs = selection.refs.filter((ref) => ref.type !== "pack");
           const packStep = {
-            ...(yield* recoveryStep({ ref: packRef, isPack: true, adapter: args.adapter })),
+            ...(yield* recoveryStep({ ref: packRef, adapter: args.adapter })),
             key,
             label,
           };
           const memberSteps = yield* Effect.forEach(memberRefs, (ref) =>
-            recoveryStep({ ref, isPack: false, adapter: args.adapter }),
+            recoveryStep({ ref, adapter: args.adapter }),
           );
           const acquisitionRefs = yield* Effect.forEach(memberRefs, (ref) =>
             Effect.gen(function* () {

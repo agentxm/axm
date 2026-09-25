@@ -96,14 +96,13 @@ import {
   SubagentScanFailed,
   WorkspaceRootEscape,
 } from "../desired-state/workspace/read-model/errors.js";
-import { HookDefinitionInvalid, HookInstallStateMissing } from "../hooks/errors.js";
-import { RuleDefinitionInvalid, RuleInstallStateMissing } from "../instructions/errors.js";
+import { HookDefinitionInvalid } from "../hooks/errors.js";
+import { RuleDefinitionInvalid } from "../instructions/errors.js";
+import { InstallStateMissing } from "../materialization/accepted-resolution.js";
 import {
   KnowledgeDefinitionInvalid,
   KnowledgeDesiredStateUnreconcilable,
-  KnowledgeInstallStateMissing,
   KnowledgeIoFailed,
-  KnowledgeObservableContractViolated,
   KnowledgeResolutionMissing,
   KnowledgeUnavailable,
 } from "../knowledge/errors.js";
@@ -184,24 +183,8 @@ import {
   SourceSyntaxInvalid,
 } from "../resolution/sources/errors.js";
 import { WorkspaceCatalogUnavailable } from "../resolution/sources/workspace-catalog.js";
-import {
-  SkillDefinitionInvalid,
-  SkillInstallStateMissing,
-  SkillMaterializationFailed,
-} from "../skills/errors.js";
-import {
-  SkillSelectionNotFound,
-  SkillSelectionUnavailable,
-} from "../skills/lifecycle/application/index.js";
-import {
-  SubagentContentUnreadable,
-  SubagentDefinitionInvalid,
-  SubagentInstallStateMissing,
-} from "../subagents/errors.js";
-import {
-  SubagentSelectionNotFound,
-  SubagentSelectionUnavailable,
-} from "../subagents/lifecycle/application/index.js";
+import { SkillDefinitionInvalid, SkillMaterializationFailed } from "../skills/errors.js";
+import { SubagentContentUnreadable, SubagentDefinitionInvalid } from "../subagents/errors.js";
 import {
   LifecyclePostconditionViolated,
   ScaffoldedExtensionUnresolved,
@@ -285,13 +268,11 @@ const workspaceFailureClasses = () =>
     PackageCopyFailed,
     ArchiveIntegrityMismatch,
     CreateDestinationExists,
+    InstallStateMissing,
     RuleDefinitionInvalid,
-    RuleInstallStateMissing,
     HookDefinitionInvalid,
-    HookInstallStateMissing,
     SubagentDefinitionInvalid,
     SubagentContentUnreadable,
-    SubagentInstallStateMissing,
     McpInstallStateMissing,
     McpLocalNameConflict,
     McpCanonicalPathUnsafe,
@@ -301,7 +282,6 @@ const workspaceFailureClasses = () =>
     NativeMcpEntryRetirementFailed,
     SkillDefinitionInvalid,
     SkillMaterializationFailed,
-    SkillInstallStateMissing,
     AxmSkillCompatibilityUnavailable,
     AxmSkillIncompatible,
     PackDefinitionInvalid,
@@ -310,11 +290,9 @@ const workspaceFailureClasses = () =>
     PackStagingFailed,
     KnowledgeDefinitionInvalid,
     KnowledgeIoFailed,
-    KnowledgeInstallStateMissing,
     KnowledgeResolutionMissing,
     KnowledgeDesiredStateUnreconcilable,
     KnowledgeUnavailable,
-    KnowledgeObservableContractViolated,
     FqnInvalidError,
     FrontmatterParseFailure,
     SubagentContentError,
@@ -384,10 +362,6 @@ const workspaceFailureClasses = () =>
     PackMemberNotFound,
     PackMemberNotDeclared,
     ExtensionLifecycleFailed,
-    SkillSelectionNotFound,
-    SubagentSelectionNotFound,
-    SkillSelectionUnavailable,
-    SubagentSelectionUnavailable,
     InstallSelectionUnavailable,
     PublishFailed,
     RegistryAccessFailed,

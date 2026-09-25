@@ -29,8 +29,8 @@ type SourceLockEntry =
   | PackLockEntry;
 
 /**
- * Convert a skill lock entry back to a SourceParams.
- * Inverse of sourceToLockEntry (lock entry optional fields -> Option).
+ * Convert a skill lock entry back to a SourceParams (lock entry optional
+ * fields -> Option).
  *
  * @experimental This API is unstable and may change without notice.
  */

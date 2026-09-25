@@ -1199,19 +1199,19 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Methods: example
 - Source: [`packages/core/workspace/src/mcp-connections/lifecycle/install/warns-when-deprecated.spec.ts`](../packages/core/workspace/src/mcp-connections/lifecycle/install/warns-when-deprecated.spec.ts)
 
-##### Skill installation selects the requested skills from a source
+##### Installation selects the requested extensions from a source
 
 - Requirement: `cli/skills/install/selects-requested-source-skills`
 - Owner: `workspace`
-- Statement: For an installable source containing several skills, a request that names one or more skills shall install exactly the named skills when every name exists in the source, and a request that selects all of them shall install every discovered skill without opening a selection interaction.
+- Statement: For an installable source containing several extensions of one type, a request that names one or more of them shall install exactly the discovered extensions its names or patterns match, in source order, and shall fail as not found without installing anything when no name matches; a request that selects all of them shall install every discovered extension without opening a selection interaction; and an unattended request that neither names nor selects all shall fail as usage guidance. One policy decides this for every installable type; skills and subagents are the examples here.
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: decision-table, example
-- Derived from: `packages/core/workspace/src/skills/lifecycle/domain/selection.ts`, `packages/core/workspace/src/skills/lifecycle/application/index.ts`, `apps/cli-e2e/src/cli-commands/skills/install/command.e2e.ts`
-- Open questions: Does a named skill promise glob matching, and what matching grammar applies?; Must a request containing both matched and unmatched names fail as a whole or install its matches, and how should a wholly unmatched request be reported?; Does unattended operation with neither a name selection nor an all selection select every discovered skill?; How should an all selection and a name selection be combined or refused when both are supplied?
-- Limitation: The source population is a local native .agents/skills tree with three valid uniquely named skills. These examples do not establish discovery or selection through remote Git/Registry providers, collision handling, invalid sibling packages, or an actual interactive terminal session. Retires when: Add distinct source-provider and interaction evidence when those selection conditions are allocated; keep unresolved selector policies explicit until decided.
+- Derived from: `packages/core/workspace/src/lifecycle/install/selection.ts`, `packages/core/workspace/src/lifecycle/install/install-extensions.ts`, `apps/cli-e2e/src/cli-commands/skills/install/command.e2e.ts`
+- Open questions: Must a request containing both matched and unmatched names install its matches, as it does today, or fail as a whole?; How should an all selection and a name selection be combined or refused when both are supplied?
+- Limitation: The source populations are local native trees: three uniquely named skills, and two uniquely named subagents. These examples do not establish discovery or selection through remote Git/Registry providers, collision handling, invalid sibling packages, or an actual interactive terminal session, and the remaining installable types are covered by the shared policy's ordinary tests rather than by an example here. Retires when: Add distinct source-provider and interaction evidence when those selection conditions are allocated; keep unresolved selector policies explicit until decided.
 - Source: [`packages/core/workspace/src/skills/lifecycle/install/selects-requested-source-skills.spec.ts`](../packages/core/workspace/src/skills/lifecycle/install/selects-requested-source-skills.spec.ts)
 
 ##### Uninstall removes direct intent and keeps state another desired route still reaches
@@ -2220,7 +2220,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 
 - Requirement: `cli/install/reinstall-is-idempotent`
 - Owner: `workspace`
-- Statement: When a person reinstalls an extension the workspace already desires at the same constraint, the install shall succeed with a no-op outcome and shall not change settings, the lockfile, canonical content, or agent projections; when the installed files differ from the accepted content, the repeated install shall restore the accepted content without changing the accepted resolution.
+- Statement: When a person reinstalls an extension the workspace already desires at the same constraint — whatever its type, and whether it was requested directly or as a member of a Pack — the install shall succeed with a no-op outcome in which every unit is unchanged, and shall not change settings, the lockfile, canonical content, or agent projections; when the installed files differ from the accepted content, the repeated install shall restore the accepted content without changing the accepted resolution.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`
@@ -2848,6 +2848,20 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Supersedes: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
 - Additional evidence: process via [`apps/cli-e2e/src/root-install.e2e.test.ts`](../apps/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
 - Source: [`packages/core/workspace/src/lifecycle/install/records-accepted-resolution.spec.ts`](../packages/core/workspace/src/lifecycle/install/records-accepted-resolution.spec.ts)
+
+##### Shared Pack members come from one source authority
+
+- Requirement: `cli/install/shared-pack-members-need-one-source-authority`
+- Owner: `workspace`
+- Statement: When install resolves a Pack that declares a member another installed Pack already holds, it shall accept the Pack when both inherit the member from one source view — the same Registry endpoint, the same Git repository, ref, and subdirectory, or the same local directory — and shall refuse it, naming every conflicting declaration, when the authorities differ.
+- Class: functional
+- Role: experience
+- Product goals: `trustworthy-distribution`, `workspace-intent-fidelity`
+- Boundary: process; selection: per-change
+- Boundary rationale: Each Pack is installed through the production install use case from a real local directory or a Git repository served by a throwaway daemon, so the held authority is read back from the lock the earlier install recorded rather than from an in-memory graph.
+- Methods: example
+- Derived from: `cli/install/pack-source-switches-are-member-diffed`
+- Source: [`packages/core/workspace/src/packs/lifecycle/install/shared-pack-members-need-one-source-authority.spec.ts`](../packages/core/workspace/src/packs/lifecycle/install/shared-pack-members-need-one-source-authority.spec.ts)
 
 ##### Installing an accepted identity from another authority is an approved source switch
 

@@ -16,11 +16,5 @@ export class RuleDefinitionInvalid extends Data.TaggedError("RuleDefinitionInval
   readonly cause?: unknown;
 }> {}
 
-/** A lock entry was requested before install recorded the package state. */
-export class RuleInstallStateMissing extends Data.TaggedError("RuleInstallStateMissing")<{
-  readonly name: string;
-  readonly kind: "tree-integrity" | "content-identity";
-}> {}
-
 /** Every failure the rule manager constructs. */
-export type RuleManagerError = RuleDefinitionInvalid | RuleInstallStateMissing;
+export type RuleManagerError = RuleDefinitionInvalid;

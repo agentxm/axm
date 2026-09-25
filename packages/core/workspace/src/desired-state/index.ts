@@ -32,6 +32,7 @@ export { SETTINGS_KNOWN_KEYS } from "./settings/schema.js";
 export {
   gitSourceLockFields,
   pathSourceLockFields,
+  portableGitSourceLockFields,
   registrySourceLockFields,
 } from "./lockfile/entry-fields.js";
 export { LOCK_ENTRY_SCHEMA_BY_TYPE } from "./lockfile/schema.js";
@@ -201,7 +202,6 @@ export {
   desiredIdentityOfRef,
   desiredMcpSourceKey,
   desiredPackageKey,
-  desiredSourceAuthorityOf,
   formatDesiredIdentity,
   formatDesiredSourceAuthority,
   locatorAuthority,
@@ -214,6 +214,10 @@ export {
   type DesiredRegistryBinding,
   type DesiredSourceAuthority,
 } from "./workspace/desired-identity.js";
+export {
+  packMemberSourceAuthority,
+  type PackMemberSourceView,
+} from "./workspace/pack-member-source-authority.js";
 export {
   desiredStateProblemText,
   desiredStateProblemsText,
@@ -275,11 +279,6 @@ export {
   lockEntryToSourceParams,
   printSkillLockSourceLocator,
 } from "./workspace/lock-entry-to-source-params.js";
-export {
-  sourceToLockEntry,
-  type SourceToLockEntryInput,
-} from "./workspace/source-to-lock-entry.js";
-
 // Source metadata
 export { deriveSourceMetaFromLockType, type SourceMeta } from "./workspace/source-metadata.js";
 export {

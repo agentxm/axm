@@ -26,7 +26,7 @@ import type {
 } from "@agentxm/extension-model/unstable/extensions/common";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { ArchiveIntegrityMismatch, PackageMaterializationFailed } from "../acquisition/errors.js";
-import { AcquiredContent, registryContentKey } from "../acquisition/acquired-content.js";
+import { acquiredRegistryPackageFiles } from "../acquisition/acquired-content.js";
 import { copyExtensionDirectory } from "../acquisition/copy-directory.js";
 import {
   recoverCanonicalDirectory,
@@ -93,29 +93,26 @@ export const materializeRegistryPackageWithTreeIntegrity = <E = never>(
       baseDir: args.baseDir,
       canonicalPath: args.destinationPath,
     });
-    const acquired = yield* Effect.serviceOption(AcquiredContent);
+    const acquired = yield* acquiredRegistryPackageFiles({
+      sourceLocation: args.sourceLocation,
+      owner: args.owner,
+      type: args.type,
+      name: args.name,
+      version: args.version,
+      integrity: args.integrity,
+      publisherBindingId: args.publisherBindingId,
+    }).pipe(
+      Effect.mapError(
+        (cause) =>
+          new PackageMaterializationFailed({
+            path: args.destinationPath,
+            step: "prepare-staging",
+            cause,
+          }),
+      ),
+    );
     const source = Option.isSome(acquired)
-      ? yield* Effect.gen(function* () {
-          const key = registryContentKey({
-            sourceLocation: args.sourceLocation,
-            owner: args.owner,
-            type: args.type,
-            name: args.name,
-            version: args.version,
-            integrity: args.integrity,
-            publisherBindingId: args.publisherBindingId,
-          });
-          const files = acquired.value.filesByKey.get(key);
-          if (files === undefined) {
-            return yield* new PackageMaterializationFailed({
-              path: args.destinationPath,
-              step: "prepare-staging",
-              cause:
-                "The selected Registry package was not acquired before the workspace transition",
-            });
-          }
-          return { kind: "prepared", directory: files.directory } as const;
-        })
+      ? ({ kind: "prepared", directory: acquired.value.directory } as const)
       : yield* Effect.gen(function* () {
           const client = yield* (yield* RegistryClientFactory).forLocation(args.sourceLocation);
           // Continuous download progress reaches the lifecycle broadcast throttled:

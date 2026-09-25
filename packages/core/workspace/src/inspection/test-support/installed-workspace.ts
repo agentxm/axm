@@ -61,6 +61,7 @@ import {
   WorkspaceCatalogLive,
 } from "../../projection/live.js";
 import { ConfiguredAgentOutcomesProviderTest } from "../../desired-state/testing.js";
+import { FootprintRecorderTest } from "../../transitions/planning/testing.js";
 import { layer as workspaceStateLayer } from "../../desired-state/live.js";
 
 /** The owner every fixture Registry publishes under. */
@@ -302,7 +303,10 @@ export const makeInstalledWorkspace = (options: InstalledWorkspaceOptions = {}) 
   );
   const sources = Layer.provideMerge(SourceHostProvidersLive, policy);
   const managers = Layer.provideMerge(Layer.mergeAll(SkillManagerLive, PackManagerLive), sources);
-  const composed = Layer.provideMerge(ConfiguredAgentOutcomesProviderTest, managers);
+  const composed = Layer.provideMerge(
+    Layer.mergeAll(ConfiguredAgentOutcomesProviderTest, FootprintRecorderTest),
+    managers,
+  );
 
   return {
     root,

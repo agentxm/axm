@@ -5,6 +5,7 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
 import {
+  extensionTypeForManifestFilename,
   MANIFEST_FILENAME_BY_TYPE,
   ManifestIdentitySchema,
   manifestFilenameForType,
@@ -19,7 +20,6 @@ import {
   DISCOVERY_SKIPPED_DIRECTORIES,
 } from "@agentxm/extension-model/unstable/discovery-walk";
 import {
-  extensionTypes,
   type ExtensionName,
   type ExtensionType,
   type Handle,
@@ -80,9 +80,6 @@ interface SourceSettings {
   readonly owner: Option.Option<Handle>;
   readonly distributionOptOuts: ReadonlySet<string>;
 }
-
-const typeForManifestFilename = (fileName: string): ExtensionType | undefined =>
-  extensionTypes.find((type) => MANIFEST_FILENAME_BY_TYPE[type] === fileName);
 
 const matchesFilter = (
   identity: {
@@ -218,7 +215,7 @@ export const inspectExtensionPackage = (
       ),
     );
     const manifestEntries = entries
-      .filter((entry) => typeForManifestFilename(entry) !== undefined)
+      .filter((entry) => extensionTypeForManifestFilename(entry) !== undefined)
       .sort();
     const manifestFile = manifestEntries[0];
     if (manifestFile === undefined) {
@@ -233,7 +230,7 @@ export const inspectExtensionPackage = (
         detail: `Multiple AXM extension manifests were found at ${directory}: ${manifestEntries.join(", ")}`,
       });
     }
-    const type = typeForManifestFilename(manifestFile);
+    const type = extensionTypeForManifestFilename(manifestFile);
     if (type === undefined) {
       return yield* new SourceNotResolvable({
         category: "internal",
@@ -400,7 +397,9 @@ export const discoverExtensionPackages = (
               }),
           ),
         );
-        const manifests = entries.filter((entry) => typeForManifestFilename(entry) !== undefined);
+        const manifests = entries.filter(
+          (entry) => extensionTypeForManifestFilename(entry) !== undefined,
+        );
         if (manifests.length > 0) {
           const candidate = yield* inspectExtensionPackage(directory, sourceSettings.owner).pipe(
             Effect.provideService(FileSystem.FileSystem, fs),

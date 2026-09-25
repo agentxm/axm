@@ -5,48 +5,29 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import {
   decodeExtensionNameSync,
+  toExtensionTypePlural,
   type ExtensionName,
 } from "@agentxm/extension-model/unstable/extensions/common";
+import { manifestFilenameForType } from "@agentxm/extension-content";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { computePackageContentHash } from "../package-hash.js";
 import { WorkspaceSourceInvalid, type PackageContentHashFailed } from "../errors.js";
 import type { PathTraversalDetected } from "../../utils/path-safety.js";
 import { validatePathSafety } from "../../utils/path-safety.js";
-import {
-  HookManifestSchema,
-  HOOK_MANIFEST_FILENAME,
-} from "@agentxm/extension-model/unstable/hooks/manifest-schema";
+import { HookManifestSchema } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import type { WorkspaceHookRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
-import {
-  KnowledgeManifestSchema,
-  KNOWLEDGE_MANIFEST_FILENAME,
-} from "@agentxm/extension-model/unstable/knowledge/manifest-schema";
+import { KnowledgeManifestSchema } from "@agentxm/extension-model/unstable/knowledge/manifest-schema";
 import type { WorkspaceKnowledgeRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
-import {
-  McpServerManifestSchema,
-  MCP_SERVER_MANIFEST_FILENAME,
-} from "@agentxm/extension-model/unstable/mcps/manifest-schema";
+import { McpServerManifestSchema } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import type { WorkspaceMcpServerRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
-import {
-  PackManifestSchema,
-  PACK_MANIFEST_FILENAME,
-} from "@agentxm/extension-model/unstable/packs/manifest-schema";
+import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import type { WorkspacePackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
-import {
-  RuleManifestSchema,
-  RULE_MANIFEST_FILENAME,
-} from "@agentxm/extension-model/unstable/rules/manifest-schema";
+import { RuleManifestSchema } from "@agentxm/extension-model/unstable/rules/manifest-schema";
 import type { WorkspaceRuleRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
-import {
-  SkillManifestSchema,
-  MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME,
-} from "@agentxm/extension-model/unstable/skills/manifest-schema";
+import { SkillManifestSchema } from "@agentxm/extension-model/unstable/skills/manifest-schema";
 import type { WorkspaceSkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { WorkspaceSource } from "@agentxm/extension-model/unstable/sources/types";
-import {
-  SubagentManifestSchema,
-  MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME,
-} from "@agentxm/extension-model/unstable/subagents/manifest-schema";
+import { SubagentManifestSchema } from "@agentxm/extension-model/unstable/subagents/manifest-schema";
 import type { WorkspaceSubagentRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -70,44 +51,6 @@ type WorkspaceExtensionRef =
   | WorkspaceHookRef
   | WorkspaceKnowledgeRef
   | WorkspacePackRef;
-
-const manifestFilename = (type: ExtensionType): string => {
-  switch (type) {
-    case "skill":
-      return SKILL_MANIFEST_FILENAME;
-    case "mcp-server":
-      return MCP_SERVER_MANIFEST_FILENAME;
-    case "subagent":
-      return SUBAGENT_MANIFEST_FILENAME;
-    case "rule":
-      return RULE_MANIFEST_FILENAME;
-    case "hook":
-      return HOOK_MANIFEST_FILENAME;
-    case "knowledge":
-      return KNOWLEDGE_MANIFEST_FILENAME;
-    case "pack":
-      return PACK_MANIFEST_FILENAME;
-  }
-};
-
-const pluralType = (type: ExtensionType): string => {
-  switch (type) {
-    case "skill":
-      return "skills";
-    case "mcp-server":
-      return "mcps";
-    case "subagent":
-      return "subagents";
-    case "rule":
-      return "rules";
-    case "hook":
-      return "hooks";
-    case "knowledge":
-      return "knowledge";
-    case "pack":
-      return "packs";
-  }
-};
 
 const workspaceSourceError = (
   source: string,
@@ -161,7 +104,7 @@ export const resolveWorkspaceExtensionRef = (args: {
     const canonicalRoot =
       args.layout.scope === "project"
         ? args.layout.authoredRoot(args.expectedType)
-        : path.join(args.layout.acquiredRoot, owner, pluralType(args.expectedType));
+        : path.join(args.layout.acquiredRoot, owner, toExtensionTypePlural(args.expectedType));
     const packageDir = args.staticPackage?.root ?? path.join(canonicalRoot, source.name);
     const containmentRoot =
       args.layout.scope === "project" ? args.layout.projectRoot : args.layout.workspaceRoot;
@@ -180,7 +123,7 @@ export const resolveWorkspaceExtensionRef = (args: {
       );
     }
 
-    const manifestPath = path.join(packageDir, manifestFilename(args.expectedType));
+    const manifestPath = path.join(packageDir, manifestFilenameForType(args.expectedType));
     const rawManifest = yield* fs
       .readFileString(manifestPath)
       .pipe(

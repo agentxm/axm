@@ -24,6 +24,7 @@ import * as Option from "effect/Option";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import type { RegistryClientFactory } from "@agentxm/registry-client";
+import { MANIFEST_FILENAME_BY_TYPE } from "@agentxm/extension-content";
 
 import {
   GitDirectoryComparison,
@@ -113,17 +114,6 @@ const authoredDirectory = {
   hook: "hooks",
   knowledge: "knowledge",
   pack: "packs",
-} as const satisfies Record<PublishableType, string>;
-
-/** The manifest filename each publishable type carries at its package root. */
-const manifestFilename = {
-  skill: "skill.json",
-  "mcp-server": "mcp.json",
-  subagent: "subagent.json",
-  rule: "rule.json",
-  hook: "hook.json",
-  knowledge: "knowledge.json",
-  pack: "pack.json",
 } as const satisfies Record<PublishableType, string>;
 
 /** The settings key each publishable type declares its authored entry under. */
@@ -244,7 +234,7 @@ export const writeAuthoredExtension = (
   const packageDir = nodePath.join(workspaceRoot, authoredDirectory[type], fixture.name);
   fs.mkdirSync(nodePath.join(packageDir, "src"), { recursive: true });
   fs.writeFileSync(
-    nodePath.join(packageDir, manifestFilename[type]),
+    nodePath.join(packageDir, MANIFEST_FILENAME_BY_TYPE[type]),
     `${JSON.stringify(manifestBody(type, fixture, version, description), null, 2)}\n`,
   );
   if (fixture.withoutContent !== true) {

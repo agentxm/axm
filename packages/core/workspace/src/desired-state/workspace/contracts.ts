@@ -30,34 +30,10 @@ import type { ReadModelRecordRow } from "./read-model-record-types.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { ExtensionInventory } from "./read-model/extensions/inventory.js";
 import type { AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
-import type { ExtensionPathSource } from "./extension-paths.js";
 
 // ---------------------------------------------------------------------------
 // CLI-specific types (inlined to avoid circular dependency with CLI)
 // ---------------------------------------------------------------------------
-
-/**
- * Minimal structural discriminant for determining skill path layout.
- *
- * Registry refs carry an owner for the canonical path; all other ref types
- * use the shared external extensions directory.
- */
-export type SkillPathSource = ExtensionPathSource;
-
-/**
- * Computed paths for an installed skill directory.
- */
-export interface SkillDirPaths {
-  readonly canonicalPath: string;
-  readonly skillSrcPath: string;
-}
-
-/**
- * Computed path for an installed pack directory.
- */
-export interface PackDirPath {
-  readonly canonicalPath: string;
-}
 
 export interface SkillExtensionTarget {
   readonly type: "skill";

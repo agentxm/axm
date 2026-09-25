@@ -13,10 +13,9 @@
  * @packageDocumentation
  */
 
-// Settings, lockfile, and schema surfaces
+// Settings and lockfile surfaces
 export * from "./settings/index.js";
 export * from "./lockfile/index.js";
-export * from "./schema/index.js";
 
 // Knowledge discovery configuration
 export {
@@ -63,10 +62,8 @@ export {
 } from "./workspace/extension-paths.js";
 export {
   RenderedFilePathSchema,
-  RenderedFilesMapSchema,
   computeSourceHash,
   type RenderedFilePath,
-  type RenderedFilesMap,
 } from "./workspace/rendered-files.js";
 export { computePackageContentHash } from "./workspace/package-hash.js";
 export {
@@ -77,7 +74,7 @@ export {
   type TreeIntegrity,
 } from "./workspace/materialized-tree.js";
 export { sanitizeName, normalizeExtensionName } from "./workspace/extension-name.js";
-export { computePackPathsForLayout } from "./workspace/pack-paths.js";
+export { computePackPathsForLayout, type PackDirPath } from "./workspace/pack-paths.js";
 export { computePackManifestContentIdentity } from "./workspace/pack-manifest-content-identity.js";
 export {
   MaterializedFileTargetSchema,
@@ -159,13 +156,7 @@ export {
 
 export type { ReadModelRecordRow, PackagingKind } from "./workspace/read-model-record-types.js";
 
-export {
-  getKnowledgeLockEntries,
-  getLockedEntries,
-  lockEntryVersion,
-  type AnyLockEntry,
-  type AnyLockMap,
-} from "./workspace/locked-entries.js";
+export { lockEntryVersion, type AnyLockEntry } from "./workspace/locked-entries.js";
 
 export {
   buildDesiredStateGraph,
@@ -410,7 +401,6 @@ export {
   type SetRuleArgs,
   type SetHookArgs,
   type SetKnowledgeArgs,
-  type PackDirPath,
   type ExtensionTarget,
   type ExtensionTargetFor,
   type LockfileState,

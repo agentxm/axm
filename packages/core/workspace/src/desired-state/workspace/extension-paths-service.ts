@@ -22,15 +22,14 @@ import { LockedSkillMissing } from "./errors.js";
 import { sanitizeName } from "./extension-name.js";
 import { LockfileReader, type LockfileReaderService } from "./lockfile-reader.js";
 import { WorkspaceLocation, type WorkspaceLocationService } from "./location.js";
-import { computePackPathsForLayout } from "./pack-paths.js";
-import type {
-  PackDirPath,
-  SkillDirPaths,
-  SkillPathSource,
-  WorkspaceStateReadFailure,
-} from "./contracts.js";
+import { computePackPathsForLayout, type PackDirPath } from "./pack-paths.js";
+import type { WorkspaceStateReadFailure } from "./contracts.js";
 import { SettingsReader, type SettingsReaderService } from "./settings-reader.js";
-import { computeSkillPathsForLayout } from "./skill-paths.js";
+import {
+  computeSkillPathsForLayout,
+  type SkillDirPaths,
+  type SkillPathSource,
+} from "./skill-paths.js";
 import { extensionPathSourceFromLockEntry } from "./extension-paths.js";
 
 export interface ExtensionPathsService {

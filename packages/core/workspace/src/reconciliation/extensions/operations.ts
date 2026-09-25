@@ -1,5 +1,5 @@
 import type * as FileSystem from "effect/FileSystem";
-import type * as Path from "effect/Path";
+import * as Path from "effect/Path";
 import {
   LifecyclePostconditionViolated,
   ScaffoldedExtensionUnresolved,
@@ -25,6 +25,8 @@ import {
   SettingsWriter,
   AcceptedResolutionWriter,
   DesiredStateReader,
+  WorkspaceLocation,
+  type ArtifactChange,
   type WorkspaceStateReadFailure,
   type WorkspaceStateMutationFailure,
 } from "../../desired-state/index.js";
@@ -57,7 +59,13 @@ import type { ExtensionTarget, ExtensionTargetFor } from "../../desired-state/in
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { evaluateSourceAuthority } from "../../resolution/index.js";
 import { formatDeprecationWarning } from "@agentxm/registry-client";
-import { runWorkspaceTransaction } from "../../transitions/settlement/index.js";
+import {
+  FootprintRecorder,
+  isWorkspaceFootprint,
+  readFootprint,
+  runWorkspaceTransaction,
+  type FootprintObservation,
+} from "../../transitions/settlement/index.js";
 import type {
   WorkspaceTransactionFailure,
   WorkspaceRestorationIncomplete,
@@ -242,6 +250,8 @@ export interface StepFailureAdapter<F = never> {
  */
 export type RecipeRequirements =
   | WorkspaceTransactionScope
+  | FootprintRecorder
+  | WorkspaceLocation
   | FileSystem.FileSystem
   | Path.Path
   | SettingsReader
@@ -270,6 +280,56 @@ const applyManagerProjectionPlans = <F, R>(
         );
 
 // -----------------------------------------------------------------------------
+// Install change classification
+// -----------------------------------------------------------------------------
+
+/** What a kind presents about an install; the recipe decides its `change`. */
+export type InstallArtifactPresentation = Omit<JobStepArtifact, "change">;
+
+/** The changes an install can report; removal belongs to uninstall. */
+export type InstallChange = Exclude<ArtifactChange, "removed">;
+
+/**
+ * Whether an install changed anything, decided once from what the transition
+ * durably wrote: no observed footprint is `unchanged`; a footprint on a target
+ * the workspace already held is `updated`; otherwise `created`. Every kind and
+ * route — direct, Pack member, MCP, recovery — reports through this rule, so a
+ * repeated install is a no-op wherever its writers found nothing to change.
+ */
+export const classifyInstallChange = (args: {
+  readonly installedBefore: boolean;
+  readonly footprint: ReadonlyArray<FootprintObservation>;
+}): InstallChange =>
+  args.footprint.length === 0 ? "unchanged" : args.installedBefore ? "updated" : "created";
+
+/**
+ * The change a planner forecasts before anything runs; execution replaces the
+ * forecast with the observed classification.
+ */
+export const forecastInstallChange = (args: {
+  readonly installedBefore: boolean;
+}): InstallChange => (args.installedBefore ? "updated" : "created");
+
+/** Run one transition and return the durable workspace changes recorded during it. */
+const observeFootprint = <A, E, R>(
+  effect: Effect.Effect<A, E, R>,
+): Effect.Effect<
+  { readonly value: A; readonly footprint: ReadonlyArray<FootprintObservation> },
+  E,
+  R | FootprintRecorder | WorkspaceLocation | Path.Path
+> =>
+  Effect.gen(function* () {
+    const location = yield* WorkspaceLocation;
+    const path = yield* Path.Path;
+    const before = (yield* readFootprint).length;
+    const value = yield* effect;
+    const footprint = (yield* readFootprint)
+      .slice(before)
+      .filter(isWorkspaceFootprint(path, location.baseDir));
+    return { value, footprint };
+  });
+
+// -----------------------------------------------------------------------------
 // Install Operation
 // -----------------------------------------------------------------------------
 
@@ -293,13 +353,15 @@ export interface InstallOperationArgs<
     readonly projections: ReadonlyArray<ExtensionRef["type"]>;
     readonly postconditions: ReadonlyArray<ExtensionRef["type"]>;
   };
-  /** Optional pre-install state probe for artifact change labels. */
-  readonly installedBefore?: Effect.Effect<boolean, CallerStepFailure<F>, R>;
-  /** Optional presenter metadata computed after materialization/settings writes. */
+  /**
+   * Optional presenter metadata computed after the transition settled. The
+   * recipe has already classified `change` from the observed footprint; the
+   * presenter names paths, agents, and versions around it.
+   */
   readonly buildArtifact?: (args: {
-    readonly installedBefore: boolean;
+    readonly change: InstallChange;
     readonly materialization: Option.Option<TMaterialization>;
-  }) => Effect.Effect<JobStepArtifact, CallerStepFailure<F>, R>;
+  }) => Effect.Effect<InstallArtifactPresentation, CallerStepFailure<F>, R>;
   /** Optional outcome message for type-specific install presenters. */
   readonly message?: string;
   /** Explicit destructive source-authority transition used only by demotion. */
@@ -404,90 +466,97 @@ const runInstallOperation = <TRef extends ExtensionRef, TMaterialization, F, R>(
         recovery: authority.fact.recovery,
       });
     }
-    const installedBefore =
-      args.installedBefore === undefined ? false : yield* args.installedBefore;
-    const transaction = yield* runWorkspaceTransaction({
-      transition: Effect.gen(function* () {
-        const cleanupSupersededCanonical =
-          manager.prepareSourceTransition === undefined
-            ? Effect.void
-            : yield* manager.prepareSourceTransition({ ref: args.ref });
-        const materialization = yield* manager.materializeInstall({
-          ref: args.ref,
-          ...(args.force === undefined ? {} : { force: args.force }),
-        });
-        const resolution = yield* manager.acceptedResolution({
-          ref: args.ref,
-          materialization: Option.some(materialization),
-        });
-        if (args.declaration !== undefined) {
-          yield* declareMaterialization({
+    const installedBefore = yield* manager.isInstalled({ target });
+    const { value: transaction, footprint } = yield* observeFootprint(
+      runWorkspaceTransaction({
+        transition: Effect.gen(function* () {
+          const cleanupSupersededCanonical =
+            manager.prepareSourceTransition === undefined
+              ? Effect.void
+              : yield* manager.prepareSourceTransition({ ref: args.ref });
+          const materialization = yield* manager.materializeInstall({
             ref: args.ref,
-            name: args.declaration.name,
-            versionRange: args.declaration.versionRange,
-            resolution,
+            ...(args.force === undefined ? {} : { force: args.force }),
           });
-        }
-        yield* recordMaterialization({ ref: args.ref, name: target.name, resolution });
-        const graph = yield* (yield* DesiredStateReader).graph();
-        const resulting = graph.nodes.find(
-          (node) => node.type === target.type && node.name === target.name,
-        );
-        if (resulting?.enabled === false && manager.materializeDeactivate !== undefined) {
-          yield* manager.materializeDeactivate({ target });
-        }
-        yield* cleanupSupersededCanonical;
-        // Desired state and canonical content are committed; render every
-        // shared aggregate unit once from the complete contributor set.
-        const projectionWarnings =
-          args.enclosingClosure?.projections.includes(target.type) !== true
-            ? yield* applyManagerProjectionPlans(manager)
-            : NO_PROJECTION_WARNINGS;
-        return { installedBefore, materialization, projectionWarnings };
-      }),
-      validate: () =>
-        Effect.gen(function* () {
-          if (args.enclosingClosure?.postconditions.includes(target.type) !== true) {
-            const installed = yield* manager.isInstalled({ target });
-            if (!installed) {
-              return yield* new LifecyclePostconditionViolated({
-                postcondition: "install-observable",
-                targetType: target.type,
-                targetName: target.name,
-              });
-            }
+          const resolution = yield* manager.acceptedResolution({
+            ref: args.ref,
+            materialization: Option.some(materialization),
+          });
+          if (args.declaration !== undefined) {
+            yield* declareMaterialization({
+              ref: args.ref,
+              name: args.declaration.name,
+              versionRange: args.declaration.versionRange,
+              resolution,
+            });
           }
-          if (
-            args.declaration !== undefined &&
-            (manager.isConfigured !== undefined || manager.getConfiguredSource !== undefined)
-          ) {
-            const configured = yield* isConfigured(manager, target);
-            if (!configured) {
-              return yield* new LifecyclePostconditionViolated({
-                postcondition: "install-declared",
-                targetType: target.type,
-                targetName: target.name,
-              });
-            }
+          yield* recordMaterialization({ ref: args.ref, name: target.name, resolution });
+          const graph = yield* (yield* DesiredStateReader).graph();
+          const resulting = graph.nodes.find(
+            (node) => node.type === target.type && node.name === target.name,
+          );
+          if (resulting?.enabled === false && manager.materializeDeactivate !== undefined) {
+            yield* manager.materializeDeactivate({ target });
           }
+          yield* cleanupSupersededCanonical;
+          // Desired state and canonical content are committed; render every
+          // shared aggregate unit once from the complete contributor set.
+          const projectionWarnings =
+            args.enclosingClosure?.projections.includes(target.type) !== true
+              ? yield* applyManagerProjectionPlans(manager)
+              : NO_PROJECTION_WARNINGS;
+          return { materialization, projectionWarnings };
         }),
-    });
-    const artifact =
+        validate: () =>
+          Effect.gen(function* () {
+            if (args.enclosingClosure?.postconditions.includes(target.type) !== true) {
+              const installed = yield* manager.isInstalled({ target });
+              if (!installed) {
+                return yield* new LifecyclePostconditionViolated({
+                  postcondition: "install-observable",
+                  targetType: target.type,
+                  targetName: target.name,
+                });
+              }
+            }
+            if (
+              args.declaration !== undefined &&
+              (manager.isConfigured !== undefined || manager.getConfiguredSource !== undefined)
+            ) {
+              const configured = yield* isConfigured(manager, target);
+              if (!configured) {
+                return yield* new LifecyclePostconditionViolated({
+                  postcondition: "install-declared",
+                  targetType: target.type,
+                  targetName: target.name,
+                });
+              }
+            }
+          }),
+      }),
+    );
+    const change = classifyInstallChange({ installedBefore, footprint });
+    const presentation =
       args.buildArtifact === undefined
         ? undefined
         : yield* args.buildArtifact({
-            installedBefore,
+            change,
             materialization: Option.some(transaction.materialization),
           });
     const registryLifecycle = extensionRefRegistryLifecycle(args.ref);
-    const artifactWithLifecycle =
-      artifact === undefined || registryLifecycle === undefined
-        ? artifact
-        : { ...artifact, registryLifecycle };
+    const artifact: JobStepArtifact | undefined =
+      presentation === undefined
+        ? undefined
+        : {
+            ...presentation,
+            change,
+            ...(registryLifecycle === undefined ? {} : { registryLifecycle }),
+          };
     return {
       result: "success" as const,
       message: args.message ?? "Applied install operation",
-      ...(artifactWithLifecycle === undefined ? {} : { artifact: artifactWithLifecycle }),
+      ...(change === "unchanged" ? { disposition: "unchanged" as const } : {}),
+      ...(artifact === undefined ? {} : { artifact }),
       ...(transaction.projectionWarnings.length === 0
         ? {}
         : { warnings: transaction.projectionWarnings }),
@@ -576,11 +645,10 @@ export const buildAuthoredExtensionStep = <
     label: args.label ?? toLabel(target),
     readiness: "ready",
     ...(args.plannedArtifact === undefined ? {} : { artifact: args.plannedArtifact }),
-    run: (args.allowConfiguredSourceTransition === true
-      ? Effect.void
-      : manager.listMaterializable()
-    ).pipe(
-      Effect.andThen(
+    run: Effect.gen(function* () {
+      if (args.allowConfiguredSourceTransition !== true) yield* manager.listMaterializable();
+      const installedBefore = yield* manager.isInstalled({ target });
+      const { value: transaction, footprint } = yield* observeFootprint(
         runWorkspaceTransaction({
           targets: Array.from(new Set([args.location, ...(args.transactionTargets ?? [])])).sort(),
           transition: Effect.gen(function* () {
@@ -597,8 +665,6 @@ export const buildAuthoredExtensionStep = <
                 targetName: target.name,
               });
             }
-            const installedBefore =
-              args.installedBefore === undefined ? false : yield* args.installedBefore;
             let materialization = Option.none<TMaterialization>();
             if (args.enabled !== false || args.materializeWhenDisabled === true) {
               materialization =
@@ -628,14 +694,12 @@ export const buildAuthoredExtensionStep = <
               // from the complete contributor set.
               return {
                 ref,
-                installedBefore,
                 materialization,
                 projectionWarnings: yield* applyManagerProjectionPlans(manager),
               };
             }
             return {
               ref,
-              installedBefore,
               materialization,
               projectionWarnings: NO_PROJECTION_WARNINGS,
             };
@@ -662,22 +726,19 @@ export const buildAuthoredExtensionStep = <
               }
             }),
         }),
-      ),
-      Effect.flatMap(({ installedBefore, materialization }) =>
-        Effect.gen(function* () {
-          const artifact =
-            args.buildArtifact === undefined
-              ? undefined
-              : yield* args.buildArtifact({ installedBefore, materialization });
-          return {
-            result: "success" as const,
-            message: args.message,
-            ...(artifact === undefined ? {} : { artifact }),
-          } satisfies JobStepResult;
-        }),
-      ),
-      Effect.mapError(args.toStepFailure),
-    ),
+      );
+      const change = classifyInstallChange({ installedBefore, footprint });
+      const presentation =
+        args.buildArtifact === undefined
+          ? undefined
+          : yield* args.buildArtifact({ change, materialization: transaction.materialization });
+      return {
+        result: "success" as const,
+        message: args.message,
+        ...(change === "unchanged" ? { disposition: "unchanged" as const } : {}),
+        ...(presentation === undefined ? {} : { artifact: { ...presentation, change } }),
+      } satisfies JobStepResult;
+    }).pipe(Effect.mapError(args.toStepFailure)),
   } satisfies PlannedJobStep<R | RecipeRequirements>;
 };
 

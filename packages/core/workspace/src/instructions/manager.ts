@@ -24,7 +24,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import { RuleDefinitionInvalid, RuleInstallStateMissing } from "./errors.js";
+import { RuleDefinitionInvalid } from "./errors.js";
+import { acceptedResolutionFor } from "../materialization/accepted-resolution.js";
 import {
   activeContributors,
   applyProjectionPlans,
@@ -57,21 +58,12 @@ import { RuleManager } from "../materialization/managers.js";
 import { RULES_REGION_OWNER } from "../projection/index.js";
 import { parseFrontmatterEffect } from "@agentxm/extension-content";
 import { computePackageContentHash } from "../desired-state/index.js";
-import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "../desired-state/index.js";
-import { type SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
-import type { RuleLockEntry } from "../desired-state/index.js";
-import { validateExactResolvedVersion } from "../desired-state/index.js";
+import { computeMaterializedTreeIntegrity } from "../desired-state/index.js";
 import { MaterializedFileTargetSchema } from "../desired-state/index.js";
-import {
-  gitSourceLockFields,
-  pathSourceLockFields,
-  registrySourceLockFields,
-} from "../desired-state/index.js";
 import { SourceHostProviders, WorkspaceCatalog } from "../resolution/sources/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { removeIfExists } from "../desired-state/index.js";
 import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
-import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import type { MaterializationObservation } from "../materialization/manager-contract.js";
 import { NO_MATERIALIZATION_OBSERVATION } from "../materialization/manager-contract.js";
 import type { RuleMaterializationFacts } from "../materialization/managers.js";
@@ -101,47 +93,6 @@ const RULES_REGION = "rules";
 
 const decodeRuleManifest = Schema.decodeUnknownEffect(RuleManifestSchema);
 const decodeMaterializedTarget = Schema.decodeUnknownSync(MaterializedFileTargetSchema);
-
-const registryRuleLockEntry = (ref: RegistryRuleRef, treeIntegrity: TreeIntegrity): RuleLockEntry =>
-  registrySourceLockFields(
-    ref.source,
-    ref.owner,
-    ref.name,
-    decodeVersionSync(ref.version),
-    Option.getOrElse(ref.integrity, () => ""),
-    ref.publisherBindingId,
-    treeIntegrity,
-  );
-
-const gitRuleLockEntry = (
-  ref: GitHostedRuleRef,
-  contentIdentity: SourceHash,
-  treeIntegrity: TreeIntegrity,
-): RuleLockEntry => ({
-  ...gitSourceLockFields(
-    ref.source,
-    Option.fromUndefinedOr(ref.sourcePath),
-    ref.gitCommitSha,
-    ref.gitTreeSha,
-    ref.owner,
-    ref.name,
-    treeIntegrity,
-  ),
-});
-
-const localRuleLockEntry = (
-  ref: LocalRuleRef,
-  workspaceRelativeLocalSourcePath: Option.Option<string>,
-  contentIdentity: SourceHash,
-  treeIntegrity: TreeIntegrity,
-): RuleLockEntry =>
-  pathSourceLockFields(
-    Option.getOrElse(workspaceRelativeLocalSourcePath, () => ref.source.path),
-    contentIdentity,
-    ref.name,
-    treeIntegrity,
-    ref.owner,
-  );
 
 const normalizeMarkdown = (content: string): string =>
   content
@@ -261,29 +212,29 @@ export const RuleManagerLive = Layer.effect(
       });
 
     const materializeFromExternal = (ref: GitHostedRuleRef | LocalRuleRef) =>
-      Effect.flatMap(acquiredDirectoryForRef(ref, ref.location), (sourceLocation) =>
-        provide(
+      Effect.gen(function* () {
+        const canonicalPath = computeExtensionPathsForLayout(
+          path.join,
+          currentLayout(),
+          ref,
+          RULE_EXTENSION_DIR,
+          ref.rule.name,
+        ).canonicalPath;
+        const sourceLocation = yield* acquiredDirectoryForRef(ref, ref.location);
+        const materialized = yield* provide(
           materializeExternalPackageWithTreeIntegrity({
             baseDir,
-            canonicalPath: computeExtensionPathsForLayout(
-              path.join,
-              currentLayout(),
-              ref,
-              RULE_EXTENSION_DIR,
-              ref.rule.name,
-            ).canonicalPath,
+            canonicalPath,
             sourceLocation,
             copyFailureCode: "validation",
-            copyFailureDetail: (canonicalPath) =>
-              `Failed to copy rule package files to ${canonicalPath}`,
-          }).pipe(
-            Effect.map((materialized) => ({
-              packageRoot: materialized.canonicalPath,
-              treeIntegrity: materialized.treeIntegrity,
-            })),
-          ),
-        ),
-      );
+            copyFailureDetail: (target) => `Failed to copy rule package files to ${target}`,
+          }),
+        );
+        return {
+          packageRoot: materialized.canonicalPath,
+          treeIntegrity: materialized.treeIntegrity,
+        };
+      });
 
     const materializePackage = (ref: RuleExtensionRef, force = false) =>
       Effect.gen(function* () {
@@ -613,45 +564,6 @@ export const RuleManagerLive = Layer.effect(
       } satisfies RuleMaterializationFacts;
     });
 
-    const buildLockEntry = (
-      ref: RuleExtensionRef,
-      materialization: Option.Option<RuleMaterializationFacts>,
-    ): Effect.Effect<Option.Option<RuleLockEntry>, RuleInstallStateMissing> =>
-      Effect.gen(function* () {
-        const state = Option.getOrUndefined(
-          materialization.pipe(Option.flatMap((facts) => facts.acquired)),
-        );
-        switch (ref.refType) {
-          case "registry":
-            return state === undefined
-              ? yield* new RuleInstallStateMissing({ name: ref.rule.name, kind: "tree-integrity" })
-              : Option.some(registryRuleLockEntry(ref, state.treeIntegrity));
-          case "git-hosted":
-            return state === undefined
-              ? yield* new RuleInstallStateMissing({
-                  name: ref.rule.name,
-                  kind: "content-identity",
-                })
-              : Option.some(gitRuleLockEntry(ref, state.sourceHash, state.treeIntegrity));
-          case "local":
-            return state === undefined
-              ? yield* new RuleInstallStateMissing({
-                  name: ref.rule.name,
-                  kind: "content-identity",
-                })
-              : Option.some(
-                  localRuleLockEntry(
-                    ref,
-                    state.workspaceRelativeLocalSourcePath,
-                    state.sourceHash,
-                    state.treeIntegrity,
-                  ),
-                );
-          case "workspace":
-            return Option.none();
-        }
-      });
-
     // Canonical removal only. The shared operation flow re-renders the region
     // after settings and lock removal, once the target has left the graph.
     const withdrawn: RuleMaterializationFacts = {
@@ -743,22 +655,11 @@ export const RuleManagerLive = Layer.effect(
       materializeUninstall,
       materializeDeactivate,
 
-      acceptedResolution: Effect.fn("RuleManager.acceptedResolution")(function* ({
-        ref,
-        materialization,
-      }) {
-        const lockEntry = yield* buildLockEntry(ref, materialization);
-        if (Option.isNone(lockEntry)) {
-          return Option.none();
-        }
-        if (lockEntry.value.source.type === "registry" && "version" in lockEntry.value.resolved) {
-          yield* validateExactResolvedVersion(
-            `rules.${ref.rule.name}.resolvedVersion`,
-            lockEntry.value.resolved.version,
-          );
-        }
-        return Option.some({ key: ref.rule.name, entry: lockEntry.value });
-      }),
+      acceptedResolution: ({ ref, materialization }) =>
+        acceptedResolutionFor({
+          ref,
+          acquired: Option.flatMap(materialization, (facts) => facts.acquired),
+        }),
 
       withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
     } satisfies RuleManagerService;

@@ -70,6 +70,7 @@ export {
   selectInstallRefs,
   type InstallSelectionCandidate,
   type InstallSelectionFailure,
+  type InstallSelectionRequest,
 } from "./install/selection.js";
 export {
   installRefused,
@@ -137,10 +138,6 @@ export {
 
 // Pack graph transitions: the atomic step and its desired-state predicate.
 export { validatePackGraphPostcondition } from "../packs/lifecycle/graph-transition.js";
-export {
-  buildPackMemberInstallStep,
-  type PackMemberRef,
-} from "../packs/lifecycle/member-install-step.js";
 export {
   configuredPackConstraintBlockPlan,
   PACK_CONSTRAINT_CONFLICT_BLOCKER_ID,

@@ -47,6 +47,12 @@ import {
 import { appendWarningsToMessage } from "../../transitions/planning/index.js";
 import type { JobStepResult, Operation } from "../../transitions/planning/index.js";
 import {
+  FootprintRecorder,
+  isWorkspaceFootprint,
+  readFootprint,
+} from "../../transitions/settlement/index.js";
+import { classifyInstallChange } from "../extensions/operations.js";
+import {
   AcceptedResolutionWriter,
   DesiredStateReader,
   DesiredStateWriter,
@@ -554,6 +560,7 @@ const syncConfiguredAgentsOnInstall = (args: {
  */
 export type McpServerInstallRequirements =
   | FileSystem.FileSystem
+  | FootprintRecorder
   | RegistryClientFactory
   | Path.Path
   | WorkspaceLocation
@@ -592,6 +599,9 @@ export const installMcpServer: (
     const path = yield* Path.Path;
     const { ref } = op.args;
     const localName = op.args.declaration?.name ?? op.args.localName ?? ref.server.name;
+    // Everything from here on that durably changes the workspace records a
+    // footprint; the change this install reports is classified from it.
+    const footprintBefore = (yield* readFootprint).length;
 
     const strictAgentSync = Option.getOrElse(op.args.strictAgentSync ?? Option.none(), () => false);
     const env = Option.getOrElse(op.args.env ?? Option.none(), () => ({}));
@@ -770,6 +780,7 @@ export const installMcpServer: (
             });
     const currentMcpServers = yield* settings.entries("mcp-server");
     const currentEntry = currentMcpServers[localName];
+    const installedBefore = existingLocalNode !== undefined || currentEntry !== undefined;
     const secretIdentity = {
       scopeRoot: path.resolve(location.baseDir),
       localName,
@@ -883,7 +894,12 @@ export const installMcpServer: (
     );
 
     const warnings = [...secretWarnings, ...agentSync.warnings];
-    const change = currentEntry === undefined ? "created" : "updated";
+    const change = classifyInstallChange({
+      installedBefore,
+      footprint: (yield* readFootprint)
+        .slice(footprintBefore)
+        .filter(isWorkspaceFootprint(path, location.baseDir)),
+    });
     const agentOutcomes = agentSync.outcomes.flatMap(({ agentId, outcome }) =>
       outcome._tag === "success" || outcome._tag === "fallback"
         ? [
@@ -901,6 +917,7 @@ export const installMcpServer: (
         `Installed ${localName} from ${ref.owner}/mcps/${ref.server.name} (canonical=success, agent-sync=${agentSync.status})`,
         warnings,
       ),
+      ...(change === "unchanged" ? { disposition: "unchanged" as const } : {}),
       artifact: mcpServerArtifact({
         lockEntry,
         scope: location.scope,

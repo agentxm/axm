@@ -75,7 +75,10 @@
               "type": "string",
               "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
             },
-            "members": { "type": "array", "items": { "$ref": "#/definitions/ExtensionFqn" } }
+            "members": { "type": "array", "items": { "$ref": "#/definitions/ExtensionFqn" } },
+            "sourceRoot": {
+              "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+            }
           },
           "required": [
             "source",
@@ -179,7 +182,8 @@
               "type": "string",
               "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
             },
-            "members": { "type": "array", "items": { "$ref": "#/definitions/ExtensionFqn" } }
+            "members": { "type": "array", "items": { "$ref": "#/definitions/ExtensionFqn" } },
+            "sourceRoot": { "type": "string" }
           },
           "required": [
             "source",
@@ -188,7 +192,8 @@
             "treeIntegrity",
             "manifestVersion",
             "manifestContentIdentity",
-            "members"
+            "members",
+            "sourceRoot"
           ],
           "additionalProperties": false
         }

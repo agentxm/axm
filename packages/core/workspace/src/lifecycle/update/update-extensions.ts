@@ -102,10 +102,8 @@ import type { VersionRange } from "@agentxm/extension-model/unstable/version-con
 import { ExtensionLifecycleFailed } from "../errors.js";
 import type { InstallStepRequirements } from "../install/vocabulary.js";
 import type { StepFailureConversion } from "../step-failure-conversion.js";
-import {
-  buildPackMemberInstallStep,
-  type PackMemberRef,
-} from "../../packs/lifecycle/member-install-step.js";
+import { lifecycleStepFailure } from "../step-failure.js";
+import { buildPackMemberStep, type PackMemberRef } from "../../reconciliation/index.js";
 import { withPublisherTrust } from "../publisher-binding.js";
 import { planHookInstall } from "../../hooks/lifecycle/install/plan.js";
 import { planKnowledgeInstall } from "../../knowledge/lifecycle/install/plan.js";
@@ -599,10 +597,11 @@ const prepareTargeted = Effect.fn("UpdateExtensions.prepareTargeted")(function* 
               {
                 concurrency: 1,
                 steps: [
-                  yield* buildPackMemberInstallStep({
+                  yield* buildPackMemberStep({
                     ref: yield* requirePackMemberRef(intent, selected.ref),
-                    graphComplete: true,
                     nonInteractive: request.nonInteractive,
+                    strictAgentSync: true,
+                    toStepFailure: lifecycleStepFailure,
                   }),
                 ],
               },

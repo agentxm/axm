@@ -12,8 +12,6 @@ import type { AppError, AppErrorCode } from "../app-error/index.js";
 import { AppErrorCodes, ExitCode, appErrorCodeForExit, exitCodeFor } from "../app-error/index.js";
 import { isWorkspaceFailure, type WorkspaceFailure } from "@agentxm/workspace/reconciliation";
 import { failureToAppError, toAppError } from "../app-error/conversions.js";
-import type { SkillSelectionCancelled } from "@agentxm/workspace/skills/lifecycle/application";
-import type { SubagentSelectionCancelled } from "@agentxm/workspace/subagents/lifecycle/application";
 import type { InstallSelectionCancelled } from "@agentxm/workspace/lifecycle";
 
 /**
@@ -93,16 +91,14 @@ export type ExpectedCliError =
   | WorkspaceFailure
   | QuestionCancelled
   | WorkspaceInitializationCancelled
-  | SkillSelectionCancelled
-  | SubagentSelectionCancelled
   | InstallSelectionCancelled;
 export type CliRuntimeFoundation = Screen | Verbosity;
 
 /**
  * Resolve the AppError rendering for an expected error. Known typed failures
  * convert through the application-error boundary; cancellation tags
- * (QuestionCancelled, WorkspaceInitializationCancelled,
- * SkillSelectionCancelled, SubagentSelectionCancelled) resolve to none and exit successfully.
+ * (QuestionCancelled, WorkspaceInitializationCancelled, InstallSelectionCancelled)
+ * resolve to none and exit successfully.
  */
 const expectedErrorToAppError = (error: ExpectedCliError): AppError | undefined =>
   error._tag === "AppError" ? error : isWorkspaceFailure(error) ? toAppError(error) : undefined;

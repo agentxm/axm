@@ -45,6 +45,7 @@ import {
   buildAuthoredExtensionStep,
   buildNewExtensionStep,
   type AuthoredExtensionOperationArgs,
+  type InstallArtifactPresentation,
   type NewExtensionOperationArgs,
   type RecipeRequirements,
 } from "../../reconciliation/index.js";
@@ -591,9 +592,8 @@ export const prepareCreateExtension: (
             skill: { name: extensionName, description: Option.none(), metadata: Option.none() },
           },
           target: { type: "skill", name },
-          buildArtifact: ({ installedBefore }) =>
+          buildArtifact: ({ change }) =>
             Effect.gen(function* () {
-              const change: "created" | "updated" = installedBefore ? "updated" : "created";
               const { installable, locations } = yield* skillTargetLocations();
               const agents = artifactAgentIdsFromTargets(installable);
               return {
@@ -601,7 +601,6 @@ export const prepareCreateExtension: (
                 scope: locationService.scope,
                 ...(agents.length > 0 ? { agents } : {}),
                 version: scaffold.version,
-                change,
                 targets: [
                   { path: authoredPath, change },
                   { path: settingsPath, change },
@@ -617,7 +616,7 @@ export const prepareCreateExtension: (
                     };
                   }),
                 ],
-              } satisfies JobStepArtifact;
+              } satisfies InstallArtifactPresentation;
             }),
         });
       case "subagent":
@@ -655,23 +654,19 @@ export const prepareCreateExtension: (
             hook: { name: extensionName },
           },
           target: { type: "hook", name },
-          buildArtifact: () =>
+          buildArtifact: ({ change }) =>
             Effect.gen(function* () {
               // A hook becomes observable through the shared agent hook
               // configurations, so its realized targets are the aggregate
               // projection's, not the package's own files.
               const observation = yield* hook.aggregateProjectionObservation;
-              const targets = observation.targets.map((target) => ({
-                ...target,
-                change: "created" as const,
-              }));
+              const targets = observation.targets.map((target) => ({ ...target, change }));
               return {
                 path: authoredPath,
                 scope: locationService.scope,
                 version: scaffold.version,
-                change: "created",
                 ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
-              } satisfies JobStepArtifact;
+              } satisfies InstallArtifactPresentation;
             }),
         });
       }

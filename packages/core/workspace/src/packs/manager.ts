@@ -107,6 +107,8 @@ const buildExternalSetPackArgs = (args: {
   readonly treeIntegrity: TreeIntegrity;
   readonly contentIdentity: SourceHash;
   readonly workspaceRelativeLocalSourcePath: Option.Option<string>;
+  /** The workspace-relative source view a local Pack and its members were discovered under. */
+  readonly workspaceRelativeLocalSourceRoot: Option.Option<string>;
 }): SetPackArgs => {
   const shared = {
     manifestVersion: args.ref.version,
@@ -132,6 +134,7 @@ const buildExternalSetPackArgs = (args: {
           args.ref.owner,
         ),
         ...shared,
+        sourceRoot: Option.getOrElse(args.workspaceRelativeLocalSourceRoot, () => localSourcePath),
       },
       versionRange: args.versionRange,
     };
@@ -149,6 +152,10 @@ const buildExternalSetPackArgs = (args: {
         args.treeIntegrity,
       ),
       ...shared,
+      ...Option.match(args.ref.source.subPath, {
+        onNone: () => ({}),
+        onSome: (sourceRoot) => ({ sourceRoot }),
+      }),
     },
     versionRange: args.versionRange,
   };
@@ -299,7 +306,15 @@ export const PackManagerLive = Layer.effect(
           ref.refType === "local"
             ? makeWorkspaceRelativeSourcePath(path, baseDir, stripFileProtocol(ref.location))
             : Option.none<string>();
-        if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
+        const workspaceRelativeLocalSourceRoot =
+          ref.refType === "local"
+            ? makeWorkspaceRelativeSourcePath(path, baseDir, ref.source.path)
+            : Option.none<string>();
+        if (
+          ref.refType === "local" &&
+          (Option.isNone(workspaceRelativeLocalSourcePath) ||
+            Option.isNone(workspaceRelativeLocalSourceRoot))
+        ) {
           return yield* new PackDefinitionInvalid({
             detail: `Local Pack source path must stay within the workspace root: ${ref.source.path}`,
           });
@@ -311,6 +326,7 @@ export const PackManagerLive = Layer.effect(
             treeIntegrity: treeIntegrity.value,
             contentIdentity: yield* computePackageContentHash(packDir),
             workspaceRelativeLocalSourcePath,
+            workspaceRelativeLocalSourceRoot,
           }),
         );
       });

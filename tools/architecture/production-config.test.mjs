@@ -18,35 +18,26 @@ for (const [kind, other] of [
   ["skills", "subagents"],
   ["subagents", "skills"],
 ]) {
-  for (const [name, role, code, rule] of [
-    [
-      "domain cannot invoke application",
-      "domain",
-      'export * from "../application/index.js";',
-      "boundaries/dependencies",
-    ],
+  for (const [name, code, rule] of [
     [
       "application cannot acquire source content",
-      "application",
       'import * as FileSystem from "effect/FileSystem"; export { FileSystem };',
       "boundaries/dependencies",
     ],
     [
       "application cannot use its sibling consumer",
-      "application",
-      `export * from "../../../${other}/lifecycle/application/index.js";`,
+      `export * from "../../../${other}/lifecycle/application/installation.js";`,
       "boundaries/dependencies",
     ],
     [
       "application cannot enter unmigrated implementation",
-      "application",
       'export * from "../install/plan.js";',
       "boundaries/no-unknown-dependencies",
     ],
   ]) {
     test(`${kind} ${name}`, async () => {
       const [result] = await eslint.lintText(code, {
-        filePath: `packages/core/workspace/src/${kind}/lifecycle/${role}/${role === "domain" ? "selection" : "index"}.ts`,
+        filePath: `packages/core/workspace/src/${kind}/lifecycle/application/installation.ts`,
       });
       assert.equal(result.fatalErrorCount, 0, JSON.stringify(result.messages));
       assert.ok(
@@ -57,9 +48,9 @@ for (const [kind, other] of [
   }
 }
 
-test("shared extension matching cannot acquire a skill consumer's policy", async () => {
+test("shared extension matching cannot acquire the install selection policy", async () => {
   const [result] = await eslint.lintText(
-    'export { determineSkillsToInstall } from "@agentxm/workspace/skills/lifecycle/application";',
+    'export { selectInstallRefs } from "@agentxm/workspace/lifecycle";',
     { filePath: "packages/core/extension-model/src/unstable/extensions/name-patterns.ts" },
   );
   assert.equal(result.fatalErrorCount, 0, JSON.stringify(result.messages));

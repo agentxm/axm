@@ -2,12 +2,12 @@ import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "@effect/vitest";
 
-import { DesiredStateReader, WorkspaceRecords } from "../../desired-state/index.js";
+import { DesiredStateReader } from "../../desired-state/index.js";
 import { applyInstall, installRequest, makeInstallWorld } from "../install/test-helpers.js";
 import { configuredUpdateRequest } from "./test-helpers.js";
 import { UpdateExtensions } from "./update-extensions.js";
 
-it.effect("shares one installed skill inventory across a configured update sweep", () => {
+it.effect("reads the desired graph once across a configured update sweep", () => {
   const { workspace, registry, cleanup } = makeInstallWorld();
   const names = ["review", "triage"];
   return workspace
@@ -27,17 +27,8 @@ it.effect("shares one installed skill inventory across a configured update sweep
           ]);
         }
 
-        const records = yield* WorkspaceRecords;
         const desiredState = yield* DesiredStateReader;
-        let skillInventoryReads = 0;
         let graphReads = 0;
-        const observed = {
-          ...records,
-          getExtensionInventory: (type, options) =>
-            Effect.sync(() => {
-              if (type === "skill") skillInventoryReads += 1;
-            }).pipe(Effect.andThen(records.getExtensionInventory(type, options))),
-        } satisfies typeof records;
         const observedGraph = {
           ...desiredState,
           graph: (options) =>
@@ -47,12 +38,8 @@ it.effect("shares one installed skill inventory across a configured update sweep
         } satisfies typeof desiredState;
         const candidate = yield* UpdateExtensions.prepare(
           configuredUpdateRequest({ type: "skill" }),
-        ).pipe(
-          Effect.provideService(WorkspaceRecords, observed),
-          Effect.provideService(DesiredStateReader, observedGraph),
-        );
+        ).pipe(Effect.provideService(DesiredStateReader, observedGraph));
         expect(candidate.outcome).toBe("planned");
-        expect(skillInventoryReads).toBe(1);
         expect(graphReads).toBe(1);
       }),
     )

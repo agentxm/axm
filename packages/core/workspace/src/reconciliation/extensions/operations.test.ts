@@ -18,6 +18,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { protectWorkspacePath } from "../../transitions/settlement/index.js";
 import { WorkspaceTransactionScopeTest } from "../../transitions/settlement/testing.js";
+import { FootprintRecorderTest } from "../../transitions/planning/testing.js";
 import { NativeWriteAuthorityPermissive } from "../../projection/agent-adapters/testing.js";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -94,6 +95,7 @@ const grounded = <A, E>(
             lockPath: nodePath.join(transactionDir, "axm-lock.yaml"),
           }),
           NativeWriteAuthorityPermissive,
+          FootprintRecorderTest,
           RegistryTransportTest(FetchHttpClient.layer),
         ).pipe(Layer.provideMerge(NodeServices.layer)),
       ),

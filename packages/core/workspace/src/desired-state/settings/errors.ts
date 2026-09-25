@@ -14,6 +14,6 @@ import * as Data from "effect/Data";
  */
 export class SettingsWriteError extends Data.TaggedError("SettingsWriteError")<{
   readonly path: string;
-  readonly step: "mkdir" | "encode" | "write-temp" | "rename";
+  readonly step: "mkdir" | "encode" | "check-target" | "read-target" | "write-temp" | "rename";
   readonly cause: unknown;
 }> {}

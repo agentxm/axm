@@ -245,6 +245,9 @@ const settingsWriteDetail = (error: SettingsWriteError): string => {
       return `Failed to create directory: ${error.path}`;
     case "encode":
       return `Failed to encode settings: ${causeMessage(error.cause)}`;
+    case "check-target":
+    case "read-target":
+      return `Failed to read the current settings file: ${error.path}`;
     case "write-temp":
       return `Failed to write settings temp file: ${error.path}`;
     case "rename":

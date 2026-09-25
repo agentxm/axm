@@ -28,27 +28,27 @@ import {
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import { sourceToLockEntry } from "../desired-state/index.js";
 import { configuredSkillsToDiskRefs } from "../acquisition/materializable-from-disk.js";
 import { enabledConfiguredEntries } from "../desired-state/index.js";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { SkillMaterializationFacts } from "../materialization/managers.js";
 import type { ExtensionTarget } from "../desired-state/index.js";
 import { sanitizeName } from "../desired-state/index.js";
-import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { computePackageContentHash } from "../desired-state/index.js";
-import type { TreeIntegrity } from "../desired-state/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { removeIfExists } from "../desired-state/index.js";
 import { SkillManager } from "../materialization/managers.js";
-import { SkillDefinitionInvalid, SkillInstallStateMissing } from "./errors.js";
+import {
+  acceptedResolutionFor,
+  InstallStateMissing,
+} from "../materialization/accepted-resolution.js";
+import { SkillDefinitionInvalid } from "./errors.js";
 import {
   CodingAgentRepository,
   applyProjectionPlans,
   planSingletonProjection,
 } from "../projection/index.js";
 import { type AgentId } from "@agentxm/extension-model/unstable/agents/types";
-import { validateExactResolvedVersion } from "../desired-state/index.js";
 import { computeSkillSourceHash } from "./source-hash.js";
 import {
   ensureSkillAgentArtifact,
@@ -63,24 +63,6 @@ import {
   usableAcceptedCanonicalRef,
 } from "../desired-state/index.js";
 import { isObservedInstalled } from "../desired-state/index.js";
-
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
-
-// Build skill lock entry from ref
-const buildSkillLockEntry = (
-  ref: SkillExtensionRef,
-  workspaceRelativeLocalSourcePath: Option.Option<string>,
-  contentIdentity: SourceHash,
-  treeIntegrity: TreeIntegrity,
-) =>
-  sourceToLockEntry({
-    ref,
-    contentIdentity,
-    treeIntegrity,
-    workspaceRelativeLocalSourcePath,
-  });
 
 // -----------------------------------------------------------------------------
 // Live Layer
@@ -191,10 +173,7 @@ export const SkillManagerLive = Layer.effect(
             ? yield* computePackageContentHash(path.dirname(skillSrcPath))
             : yield* computeSkillSourceHash(skillSrcPath);
       if (ref.refType !== "workspace" && materialized.treeIntegrity === undefined) {
-        return yield* new SkillInstallStateMissing({
-          name: ref.skill.name,
-          kind: "tree-integrity",
-        });
+        return yield* new InstallStateMissing({ type: "skill", name: ref.skill.name });
       }
       return {
         sourceHash: Option.some(sourceHash),
@@ -410,40 +389,15 @@ export const SkillManagerLive = Layer.effect(
             detail: `Local skill source path must stay within the workspace root: ${ref.source.path}`,
           });
         }
-        if (ref.refType === "workspace") {
-          return Option.none();
-        }
-        const sourceHash = Option.getOrUndefined(
-          materialization.pipe(Option.flatMap((facts) => facts.sourceHash)),
-        );
-        const treeIntegrity = Option.getOrUndefined(
-          materialization.pipe(Option.flatMap((facts) => facts.treeIntegrity)),
-        );
-        if (sourceHash === undefined || treeIntegrity === undefined) {
-          return yield* new SkillInstallStateMissing({
-            name: ref.skill.name,
-            kind: "content-identity",
-          });
-        }
-        const lockEntry = buildSkillLockEntry(
+        return yield* acceptedResolutionFor({
           ref,
-          workspaceRelativeLocalSourcePath,
-          sourceHash,
-          treeIntegrity,
-        );
-        if (lockEntry === undefined) {
-          return yield* new SkillInstallStateMissing({
-            name: ref.skill.name,
-            kind: "external-resolution",
-          });
-        }
-        if (lockEntry.source.type === "registry" && "version" in lockEntry.resolved) {
-          yield* validateExactResolvedVersion(
-            `skills.${ref.skill.name}.resolvedVersion`,
-            lockEntry.resolved.version,
-          );
-        }
-        return Option.some({ key: ref.skill.name, entry: lockEntry });
+          acquired: Option.map(
+            Option.flatMap(materialization, (facts) =>
+              Option.all({ sourceHash: facts.sourceHash, treeIntegrity: facts.treeIntegrity }),
+            ),
+            (identity) => ({ ...identity, workspaceRelativeLocalSourcePath }),
+          ),
+        });
       }),
 
       withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),

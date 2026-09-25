@@ -320,12 +320,47 @@ export type KnowledgeLockMap = Schema.Schema.Type<typeof KnowledgeLockMapSchema>
 // Pack Lock Entry
 // =============================================================================
 
-/** Lock entry for a Pack from any external source family. @experimental */
-export const PackLockEntrySchema = makeSourceLockUnion(HandleSchema, {
+const packLockFields = {
   manifestVersion: VersionSchema,
   manifestContentIdentity: SourceHashSchema,
   members: Schema.Array(ExtensionFqnSchema),
-}).annotate({
+} satisfies Schema.Struct.Fields;
+
+/**
+ * Lock entry for a Pack from any external source family. @experimental
+ *
+ * A Git or path Pack also records `sourceRoot`: the source view the Pack and
+ * its sourceless members were discovered under, which `source.path` (the
+ * Pack's own directory) does not determine. For Git it is the repository
+ * subdirectory the locator named, absent at the repository root; for a path
+ * source it is the workspace-relative directory the locator named. Pack member
+ * source authority is derived from it.
+ */
+export const PackLockEntrySchema = Schema.Union([
+  Schema.Struct({
+    source: GitSourceLocatorSchema,
+    identity: makeExtensionIdentitySchema(HandleSchema),
+    resolved: GitAcceptedResolutionSchema,
+    treeIntegrity: TreeIntegritySchema,
+    ...packLockFields,
+    sourceRoot: Schema.optional(SourceSubPathSchema),
+  }),
+  Schema.Struct({
+    source: RegistrySourceLocatorSchema,
+    identity: makeExtensionIdentitySchema(HandleSchema),
+    resolved: RegistryAcceptedResolutionSchema,
+    treeIntegrity: TreeIntegritySchema,
+    ...packLockFields,
+  }),
+  Schema.Struct({
+    source: PathSourceLocatorSchema,
+    identity: makeExtensionIdentitySchema(HandleSchema),
+    resolved: PathAcceptedResolutionSchema,
+    treeIntegrity: TreeIntegritySchema,
+    ...packLockFields,
+    sourceRoot: LocalSourceLockPathSchema,
+  }),
+]).annotate({
   identifier: "PackLockEntry",
   title: "Pack Lock Entry",
   description: "Accepted immutable resolution and declared members for a Pack.",
@@ -337,9 +372,7 @@ export const RegistryPackLockEntrySchema = Schema.Struct({
   identity: Schema.Struct({ owner: HandleSchema, name: ExtensionNameSchema }),
   resolved: RegistryAcceptedResolutionSchema,
   treeIntegrity: TreeIntegritySchema,
-  manifestVersion: VersionSchema,
-  manifestContentIdentity: SourceHashSchema,
-  members: Schema.Array(ExtensionFqnSchema),
+  ...packLockFields,
 }).annotate({
   identifier: "RegistryPackLockEntry",
   title: "Registry Pack Lock Entry",

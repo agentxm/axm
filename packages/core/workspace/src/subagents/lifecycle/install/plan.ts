@@ -13,11 +13,7 @@ import * as Effect from "effect/Effect";
 import type * as Config from "effect/Config";
 import * as Option from "effect/Option";
 
-import {
-  NO_MATERIALIZATION_OBSERVATION,
-  SubagentManager,
-  type SubagentMaterializationFacts,
-} from "../../../materialization/index.js";
+import { NO_MATERIALIZATION_OBSERVATION, SubagentManager } from "../../../materialization/index.js";
 import { buildInstallOperation } from "../../../reconciliation/index.js";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
@@ -44,14 +40,9 @@ import {
   type ResolveInstallRequirements,
   type SubagentInstallIntent,
 } from "../../../lifecycle/install/vocabulary.js";
-import {
-  determineSubagentsToInstall,
-  SubagentSelectionInteraction,
-  type SubagentSelectionFailure,
-} from "../application/index.js";
 import { resolveSubagentInstallSource } from "./source.js";
 import { prepareSubagentInstallations } from "../application/installation.js";
-import { makeSubagentInstallationFacts } from "../adapters/installation.js";
+import { subagentInstallationFacts } from "../adapters/installation.js";
 
 /** A subagent source after grammar parsing, before anything is discovered. */
 export interface ParsedSubagentInstallRequest {
@@ -182,7 +173,7 @@ export const discoverSubagentRefs: (
   const sources = yield* SourceHostProviders;
   const discovered = yield* sources
     .find(request.source, {
-      names: request.requestedSubagents,
+      names: request.source.type === "registry" ? request.requestedSubagents : [],
       type: "subagent" as const,
       owner: request.requestedOwner,
       versionRange: request.versionRange,
@@ -207,42 +198,15 @@ export const discoverSubagentRefs: (
   return discovered;
 });
 
-/** Settle which of the discovered subagents this request installs. */
-export const finalizeSubagentInstallIntent: (
+/** The intent the selected subagents become: each with the range its declaration keeps. */
+export const finalizeSubagentInstallIntent = (
   request: ParsedSubagentInstallRequest,
-  discovered: ReadonlyArray<SubagentExtensionRef>,
-) => Effect.Effect<
-  SubagentInstallIntent,
-  ExtensionLifecycleFailed | SubagentSelectionFailure,
-  SubagentSelectionInteraction
-> = Effect.fn("InstallExtensions.finalizeSubagentIntent")(function* (
-  request: ParsedSubagentInstallRequest,
-  discovered: ReadonlyArray<SubagentExtensionRef>,
-) {
-  const [first, ...rest] = discovered;
-  if (first === undefined) {
-    return yield* installRefused({
-      category: "not_found",
-      detail: "No subagents found in source",
-    });
-  }
-  const candidates: Array.NonEmptyReadonlyArray<SubagentExtensionRef> = [first, ...rest];
-  const selected = yield* determineSubagentsToInstall(candidates, {
-    requestedSubagents: request.requestedSubagents,
-    all: request.all,
-    nonInteractive: request.nonInteractive,
-  });
-
-  if (Array.isReadonlyArrayEmpty(selected)) {
-    return { subagentsToInstall: [] } satisfies SubagentInstallIntent;
-  }
-
-  return {
-    subagentsToInstall: selected.map((ref) => ({
-      ref,
-      versionRange: ref.refType === "registry" ? request.versionRange : Option.none<VersionRange>(),
-    })),
-  } satisfies SubagentInstallIntent;
+  selected: ReadonlyArray<SubagentExtensionRef>,
+): SubagentInstallIntent => ({
+  subagentsToInstall: selected.map((ref) => ({
+    ref,
+    versionRange: ref.refType === "registry" ? request.versionRange : Option.none<VersionRange>(),
+  })),
 });
 
 /** The closures a settled subagent intent becomes. */
@@ -254,8 +218,10 @@ export const planSubagentInstall: (
   InstallStepRequirements | SubagentManager
 > = Effect.fn("InstallExtensions.planSubagents")(function* (intent: SubagentInstallIntent) {
   const subagentManager = yield* SubagentManager;
-  const facts = yield* makeSubagentInstallationFacts;
-  const prepared = yield* prepareSubagentInstallations(facts, intent.subagentsToInstall).pipe(
+  const prepared = yield* prepareSubagentInstallations(
+    subagentInstallationFacts,
+    intent.subagentsToInstall,
+  ).pipe(
     Effect.catchTag("SubagentPlacementUnavailable", (error) =>
       installRefused({ category: "validation", detail: error.reason }),
     ),
@@ -266,21 +232,16 @@ export const planSubagentInstall: (
       ref: entry.ref,
       declaration: { name: entry.ref.subagent.name, versionRange: entry.versionRange },
       force: intent.force === true,
-      installedBefore: entry.installedBefore,
-      buildArtifact: ({
-        installedBefore,
-        materialization,
-      }: {
-        readonly installedBefore: boolean;
-        readonly materialization: Option.Option<SubagentMaterializationFacts>;
-      }) =>
-        entry.buildArtifact({
-          installedBefore,
-          observation: Option.match(materialization, {
-            onNone: () => NO_MATERIALIZATION_OBSERVATION,
-            onSome: (facts) => facts.observation,
+      buildArtifact: ({ change, materialization }) =>
+        Effect.succeed(
+          entry.buildArtifact({
+            change,
+            observation: Option.match(materialization, {
+              onNone: () => NO_MATERIALIZATION_OBSERVATION,
+              onSome: (facts) => facts.observation,
+            }),
           }),
-        }),
+        ),
     }),
   );
 

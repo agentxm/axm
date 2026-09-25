@@ -25,16 +25,9 @@ export class SkillMaterializationFailed extends Data.TaggedError("SkillMateriali
   readonly cause: unknown;
 }> {}
 
-/** A lock entry was requested before install recorded the package state. */
-export class SkillInstallStateMissing extends Data.TaggedError("SkillInstallStateMissing")<{
-  readonly name: string;
-  readonly kind: "tree-integrity" | "content-identity" | "external-resolution";
-}> {}
-
 /** Every failure the skill module constructs. */
 export type SkillManagerError =
   | SkillDefinitionInvalid
   | SkillMaterializationFailed
-  | SkillInstallStateMissing
   | AxmSkillCompatibilityUnavailable
   | AxmSkillIncompatible;

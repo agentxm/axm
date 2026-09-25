@@ -18,12 +18,5 @@ export class HookDefinitionInvalid extends Data.TaggedError("HookDefinitionInval
   readonly cause?: unknown;
 }> {}
 
-/** A lock entry was requested before install recorded the package state. */
-export class HookInstallStateMissing extends Data.TaggedError("HookInstallStateMissing")<{
-  readonly name: string;
-  readonly kind: "tree-integrity" | "content-identity";
-}> {}
-
 /** Every failure the hook manager constructs. */
-export type HookManagerError =
-  HookDefinitionInvalid | HookConfigInvalid | HookIoFailed | HookInstallStateMissing;
+export type HookManagerError = HookDefinitionInvalid | HookConfigInvalid | HookIoFailed;

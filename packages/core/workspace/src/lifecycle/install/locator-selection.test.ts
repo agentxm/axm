@@ -122,6 +122,36 @@ describe("root locator install selection", () => {
     });
   });
 
+  it.effect(
+    "surfaces a selector that matched nothing instead of reading it as an empty type",
+    () => {
+      const world = makeInstallWorld();
+      cleanups.push(world.cleanup);
+      const source = writeLocalSkillPackage(world.workspace.root, { name: "code-review" });
+
+      return Effect.gen(function* () {
+        const failure = yield* world.workspace
+          .provide(
+            applyInstall(
+              installRequest({
+                subject: { kind: "source", source },
+                selectors: { skill: ["missing"] },
+                all: false,
+                nonInteractive: true,
+              }),
+            ),
+          )
+          .pipe(Effect.provide(NodeServices.layer), Effect.flip);
+
+        expect(failure).toBeInstanceOf(ExtensionLifecycleFailed);
+        expect(failure).toMatchObject({
+          category: "not_found",
+          detail: "No skills matched: missing. Source contains: code-review",
+        });
+      });
+    },
+  );
+
   it.effect("installs two types from one Git locator source view", () => {
     const world = makeInstallWorld();
     cleanups.push(world.cleanup);

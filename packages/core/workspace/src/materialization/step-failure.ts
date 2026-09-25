@@ -12,6 +12,7 @@ import {
   type FrontmatterParseFailure,
   type SubagentContentError,
 } from "@agentxm/extension-content";
+import { EXTENSION_TYPE_TABLE } from "@agentxm/extension-model/unstable/extensions/common";
 import type { FqnInvalidError } from "@agentxm/extension-model/unstable/extensions/fqn";
 import type { AxmSkillCompatibilityUnavailable } from "@agentxm/cli-maintenance/official-skill/application";
 import type { AxmSkillIncompatible } from "@agentxm/cli-maintenance/official-skill/domain";
@@ -28,14 +29,12 @@ import type {
   PackageMaterializationFailed,
   StagedPackageInvalid,
 } from "../acquisition/errors.js";
-import type { HookDefinitionInvalid, HookInstallStateMissing } from "../hooks/errors.js";
-import type { RuleDefinitionInvalid, RuleInstallStateMissing } from "../instructions/errors.js";
+import type { HookDefinitionInvalid } from "../hooks/errors.js";
+import type { RuleDefinitionInvalid } from "../instructions/errors.js";
 import type {
   KnowledgeDefinitionInvalid,
   KnowledgeDesiredStateUnreconcilable,
-  KnowledgeInstallStateMissing,
   KnowledgeIoFailed,
-  KnowledgeObservableContractViolated,
   KnowledgeResolutionMissing,
   KnowledgeUnavailable,
 } from "../knowledge/errors.js";
@@ -54,17 +53,10 @@ import type {
   PackInstallStateMissing,
   PackStagingFailed,
 } from "../packs/errors.js";
-import type {
-  SkillDefinitionInvalid,
-  SkillInstallStateMissing,
-  SkillMaterializationFailed,
-} from "../skills/errors.js";
-import type {
-  SubagentContentUnreadable,
-  SubagentDefinitionInvalid,
-  SubagentInstallStateMissing,
-} from "../subagents/errors.js";
+import type { SkillDefinitionInvalid, SkillMaterializationFailed } from "../skills/errors.js";
+import type { SubagentContentUnreadable, SubagentDefinitionInvalid } from "../subagents/errors.js";
 import { makeStepFailure, type StepFailure } from "../transitions/planning/plan/errors.js";
+import type { InstallStateMissing } from "./accepted-resolution.js";
 
 /** Every failure package acquisition and the per-type managers construct. */
 export type MaterializationFamilyFailure =
@@ -74,13 +66,11 @@ export type MaterializationFamilyFailure =
   | PackageCopyFailed
   | ArchiveIntegrityMismatch
   | CreateDestinationExists
+  | InstallStateMissing
   | RuleDefinitionInvalid
-  | RuleInstallStateMissing
   | HookDefinitionInvalid
-  | HookInstallStateMissing
   | SubagentDefinitionInvalid
   | SubagentContentUnreadable
-  | SubagentInstallStateMissing
   | McpInstallStateMissing
   | McpLocalNameConflict
   | McpCanonicalPathUnsafe
@@ -90,7 +80,6 @@ export type MaterializationFamilyFailure =
   | NativeMcpEntryRetirementFailed
   | SkillDefinitionInvalid
   | SkillMaterializationFailed
-  | SkillInstallStateMissing
   | AxmSkillCompatibilityUnavailable
   | AxmSkillIncompatible
   | PackDefinitionInvalid
@@ -99,11 +88,9 @@ export type MaterializationFamilyFailure =
   | PackStagingFailed
   | KnowledgeDefinitionInvalid
   | KnowledgeIoFailed
-  | KnowledgeInstallStateMissing
   | KnowledgeResolutionMissing
   | KnowledgeDesiredStateUnreconcilable
   | KnowledgeUnavailable
-  | KnowledgeObservableContractViolated
   | FqnInvalidError
   | FrontmatterParseFailure
   | SubagentContentError;
@@ -146,28 +133,6 @@ const mcpWorkspacePackageDetail = (error: McpWorkspacePackageInvalid): string =>
       return `Workspace MCP server package is missing: ${error.location}`;
     case "unreadable":
       return `Failed to inspect workspace MCP server package: ${error.location}`;
-  }
-};
-
-const skillInstallStateDetail = (error: SkillInstallStateMissing): string => {
-  switch (error.kind) {
-    case "tree-integrity":
-      return `Installed files for skill ${error.name} could not be verified`;
-    case "content-identity":
-      return `Installed content for skill ${error.name} could not be identified`;
-    case "external-resolution":
-      return `Skill ${error.name} has no locked source`;
-  }
-};
-
-const knowledgeInstallStateDetail = (error: KnowledgeInstallStateMissing): string => {
-  switch (error.kind) {
-    case "tree-integrity":
-      return `Installed files for Knowledge bundle ${error.name} could not be verified`;
-    case "content-identity":
-      return `Installed content for Knowledge bundle ${error.name} could not be identified`;
-    case "staged-tree-integrity":
-      return `Prepared files for Knowledge bundle ${error.name} could not be verified`;
   }
 };
 
@@ -229,21 +194,10 @@ export const materializationFailureToStepFailure = (
     case "PackDefinitionInvalid":
     case "KnowledgeDefinitionInvalid":
       return makeStepFailure({ category: "validation", detail: error.detail, cause: error.cause });
-    case "RuleInstallStateMissing":
+    case "InstallStateMissing":
       return makeStepFailure({
         category: "internal",
-        detail:
-          error.kind === "tree-integrity"
-            ? `Installed files for rule ${error.name} could not be verified`
-            : `Installed content for rule ${error.name} could not be identified`,
-      });
-    case "HookInstallStateMissing":
-      return makeStepFailure({
-        category: "internal",
-        detail:
-          error.kind === "tree-integrity"
-            ? `Installed files for hook ${error.name} could not be verified`
-            : `Installed content for hook ${error.name} could not be identified`,
+        detail: `Installed content for ${EXTENSION_TYPE_TABLE[error.type].sentenceLabel} ${error.name} could not be identified`,
       });
     case "SubagentContentUnreadable":
       return makeStepFailure({
@@ -253,14 +207,6 @@ export const materializationFailureToStepFailure = (
           { description: `Ensure the subagent content file exists at ${error.contentPath}.` },
         ],
         cause: error.cause,
-      });
-    case "SubagentInstallStateMissing":
-      return makeStepFailure({
-        category: "internal",
-        detail:
-          error.kind === "content-identity"
-            ? `Installed content for subagent ${error.name} could not be identified`
-            : `Subagent ${error.name} has no locked source`,
       });
     case "McpInstallStateMissing":
       return makeStepFailure({
@@ -307,8 +253,6 @@ export const materializationFailureToStepFailure = (
       });
     case "SkillMaterializationFailed":
       return makeStepFailure({ category: "internal", detail: error.detail, cause: error.cause });
-    case "SkillInstallStateMissing":
-      return makeStepFailure({ category: "internal", detail: skillInstallStateDetail(error) });
     case "AxmSkillCompatibilityUnavailable":
       return makeStepFailure({
         category: "internal",
@@ -335,8 +279,6 @@ export const materializationFailureToStepFailure = (
       });
     case "KnowledgeIoFailed":
       return makeStepFailure({ category: "internal", detail: error.detail, cause: error.cause });
-    case "KnowledgeInstallStateMissing":
-      return makeStepFailure({ category: "internal", detail: knowledgeInstallStateDetail(error) });
     case "KnowledgeResolutionMissing":
       return makeStepFailure({
         category: "conflict",
@@ -350,11 +292,6 @@ export const materializationFailureToStepFailure = (
       });
     case "KnowledgeUnavailable":
       return makeStepFailure({ category: "unavailable", detail: error.detail, cause: error.cause });
-    case "KnowledgeObservableContractViolated":
-      return makeStepFailure({
-        category: "internal",
-        detail: `Installed Knowledge bundle "${error.name}" did not satisfy its observable contract`,
-      });
     case "FqnInvalidError":
       return makeStepFailure({
         category: "validation",

@@ -50,6 +50,53 @@ const awaitGitDaemon = (process: ChildProcess): Promise<void> =>
     });
   });
 
+export interface ServedGitRepository {
+  /** The `git://` URL the daemon serves the repository at. */
+  readonly url: string;
+  /** The bare repository the daemon serves; a working copy pushes here. */
+  readonly repository: string;
+  readonly stop: () => void;
+}
+
+/** Serve a bare clone of `source` over the Git protocol from a throwaway daemon rooted at `root`. */
+export const serveBareRepository = async (options: {
+  readonly root: string;
+  readonly source: string;
+  readonly name: string;
+}): Promise<ServedGitRepository> => {
+  const repository = nodePath.join(options.root, `${options.name}.git`);
+  // `--` ends option parsing, so a fixture path can never be read as a git option.
+  execFileSync("git", ["clone", "--quiet", "--bare", "--", options.source, repository], {
+    cwd: options.root,
+  });
+  const port = await availablePort();
+  const daemon = spawn(
+    "git",
+    [
+      "daemon",
+      "--verbose",
+      "--reuseaddr",
+      "--export-all",
+      `--base-path=${options.root}`,
+      "--listen=127.0.0.1",
+      `--port=${String(port)}`,
+      options.root,
+    ],
+    { stdio: ["ignore", "ignore", "pipe"] },
+  );
+  try {
+    await awaitGitDaemon(daemon);
+  } catch (error) {
+    daemon.kill();
+    throw error;
+  }
+  return {
+    url: `git://127.0.0.1:${String(port)}/${options.name}.git`,
+    repository,
+    stop: () => daemon.kill(),
+  };
+};
+
 export interface GitSkillRepository {
   /** The `git://` URL the daemon serves the repository at. */
   readonly url: string;
@@ -72,7 +119,6 @@ export const makeGitSkillRepository = (options: {
   Effect.promise(async () => {
     const root = fs.mkdtempSync(nodePath.join(os.tmpdir(), "axm-lifecycle-git-"));
     const source = nodePath.join(root, "source");
-    const repository = nodePath.join(root, "extensions.git");
     fs.mkdirSync(source);
     writeLocalSkillPackage(source, {
       name: options.name,
@@ -86,32 +132,16 @@ export const makeGitSkillRepository = (options: {
     git(["add", "."]);
     git(["commit", "--quiet", "-m", "accepted"]);
     const acceptedCommit = git(["rev-parse", "HEAD"]);
-    git(["clone", "--quiet", "--bare", source, repository], root);
-    const port = await availablePort();
-    const daemon = spawn(
-      "git",
-      [
-        "daemon",
-        "--verbose",
-        "--reuseaddr",
-        "--export-all",
-        `--base-path=${root}`,
-        "--listen=127.0.0.1",
-        `--port=${String(port)}`,
-        root,
-      ],
-      { stdio: ["ignore", "ignore", "pipe"] },
+    const served = await serveBareRepository({ root, source, name: "extensions" }).catch(
+      (error: unknown) => {
+        fs.rmSync(root, { recursive: true, force: true });
+        throw error;
+      },
     );
-    try {
-      await awaitGitDaemon(daemon);
-    } catch (error) {
-      daemon.kill();
-      fs.rmSync(root, { recursive: true, force: true });
-      throw error;
-    }
+    const { repository } = served;
     const skillDocument = nodePath.join(source, "vendor", options.name, "src", "SKILL.md");
     return {
-      url: `git://127.0.0.1:${String(port)}/extensions.git`,
+      url: served.url,
       acceptedCommit,
       advance: () => {
         fs.appendFileSync(skillDocument, "\nNew guidance.\n");
@@ -133,7 +163,7 @@ export const makeGitSkillRepository = (options: {
         git(["gc", "--prune=now"], repository);
       },
       cleanup: () => {
-        daemon.kill();
+        served.stop();
         fs.rmSync(root, { recursive: true, force: true });
       },
     };

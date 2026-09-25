@@ -1,7 +1,8 @@
 /**
- * Where a pack member's acquired package sits, and what an install changed
- * about it. Both the member step and the pack planner report the same
- * artifact for the same ref, so a preview and its apply name one path.
+ * Where a pack member's acquired package sits. Both the member step and the
+ * pack planner report the same artifact for the same ref, so a preview and its
+ * apply name one path; what an install changed about it is the reconciliation
+ * recipe's classification, presented here.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -16,6 +17,7 @@ import type { JobStepArtifact } from "../../transitions/planning/index.js";
 import {
   ACQUIRED_EXTENSIONS_DIR,
   acquiredExtensionDisplayPath,
+  type ArtifactChange,
 } from "../../desired-state/index.js";
 
 const USER_SCOPE_ACQUIRED_ROOT = ".axm/workspace/agent_extensions";
@@ -35,14 +37,12 @@ export const registrySourcePath = (ref: ExtensionRef, scope: JobStepArtifact["sc
         ref.name,
       );
 
-/** The artifact one acquired pack member reports. */
+/** The artifact one acquired pack member reports, around the classified change. */
 export const registrySourceArtifact = (args: {
   readonly ref: ExtensionRef;
   readonly scope: JobStepArtifact["scope"];
-  readonly installedBefore: boolean;
+  readonly change: ArtifactChange;
 }): JobStepArtifact => {
-  const change =
-    args.ref.refType === "workspace" ? "unchanged" : args.installedBefore ? "updated" : "created";
   const sourcePath = registrySourcePath(args.ref, args.scope);
   return {
     path: sourcePath,
@@ -50,8 +50,8 @@ export const registrySourceArtifact = (args: {
     ...(args.ref.refType === "registry" || args.ref.refType === "workspace"
       ? { version: args.ref.version }
       : {}),
-    change,
+    change: args.change,
     fileCount: 1,
-    targets: [{ path: sourcePath, change }],
+    targets: [{ path: sourcePath, change: args.change }],
   };
 };

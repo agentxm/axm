@@ -15,7 +15,7 @@ import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { computeSourceHash } from "../desired-state/index.js";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import type { GitSource } from "@agentxm/extension-model/unstable/sources/types";
-import { sourceToLockEntry } from "../desired-state/index.js";
+import { acceptedResolutionFor } from "../materialization/accepted-resolution.js";
 import { extensionName } from "../materialization/test-helpers.js";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { observeCanonicalExtension } from "../desired-state/index.js";
@@ -99,11 +99,15 @@ describe("portable React Router skill acquisition", () => {
       if (materialized.treeIntegrity === undefined) {
         return yield* Effect.die("Expected acquired tree integrity");
       }
-      const lockEntry = sourceToLockEntry({
+      const resolution = yield* acceptedResolutionFor({
         ref,
-        contentIdentity: computeSourceHash("react-router-content"),
-        treeIntegrity: materialized.treeIntegrity,
+        acquired: Option.some({
+          sourceHash: computeSourceHash("react-router-content"),
+          treeIntegrity: materialized.treeIntegrity,
+          workspaceRelativeLocalSourcePath: Option.none(),
+        }),
       });
+      const lockEntry = Option.getOrUndefined(resolution)?.entry;
       expect(lockEntry).toMatchObject({
         source: {
           type: "git",

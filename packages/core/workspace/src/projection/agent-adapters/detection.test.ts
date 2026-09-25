@@ -24,7 +24,7 @@ import {
   detectAgentsForScope,
   detectAgentsInRoot,
 } from "./detection.js";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentDescriptor } from "@agentxm/extension-model/unstable/agents/types";
 
 const home = os.homedir();
@@ -96,7 +96,7 @@ describe("detectAgent", () => {
   it.effect("retains independent project and user detection signals", () =>
     Effect.gen(function* () {
       const result = yield* provideDetectionLayer(
-        detectAgentScopes(AGENTS["claude-code"], testProjectDir),
+        detectAgentScopes(AGENT_DESCRIPTORS["claude-code"], testProjectDir),
         new Set([path.join(testProjectDir, ".claude"), path.join(home, ".claude")]),
       );
 
@@ -106,7 +106,7 @@ describe("detectAgent", () => {
   it.effect("detects a definitive project directory marker", () =>
     Effect.gen(function* () {
       const result = yield* provideDetectionLayer(
-        detectAgent(AGENTS["claude-code"], testProjectDir),
+        detectAgent(AGENT_DESCRIPTORS["claude-code"], testProjectDir),
         new Set([path.join(testProjectDir, ".claude")]),
       );
 
@@ -166,7 +166,7 @@ describe("detectAgent", () => {
   it.effect("does not detect Codex from shared AGENTS.md alone", () =>
     Effect.gen(function* () {
       const result = yield* provideDetectionLayer(
-        detectAgent(AGENTS["codex"], testProjectDir),
+        detectAgent(AGENT_DESCRIPTORS["codex"], testProjectDir),
         new Set([path.join(testProjectDir, "AGENTS.md")]),
       );
 
@@ -177,7 +177,7 @@ describe("detectAgent", () => {
   it.effect("detects an executable marker through the injectable resolver", () =>
     Effect.gen(function* () {
       const result = yield* provideDetectionLayer(
-        detectAgent(AGENTS["codex"], testProjectDir),
+        detectAgent(AGENT_DESCRIPTORS["codex"], testProjectDir),
         new Set(),
         new Set(["codex"]),
       );
@@ -215,7 +215,7 @@ describe("detectAgent", () => {
 
   it.effect("wraps filesystem errors in AgentDetectionFailed", () =>
     Effect.gen(function* () {
-      const error = yield* detectAgent(AGENTS["claude-code"], testProjectDir).pipe(
+      const error = yield* detectAgent(AGENT_DESCRIPTORS["claude-code"], testProjectDir).pipe(
         Effect.provide(
           Layer.mergeAll(
             createFailingFileSystem("Permission denied"),
@@ -240,7 +240,7 @@ describe("detectAgentInRoot", () => {
   it.effect("checks project-scope markers in the supplied root only", () =>
     Effect.gen(function* () {
       const result = yield* provideDetectionLayer(
-        detectAgentInRoot(AGENTS["cursor"], testProjectDir),
+        detectAgentInRoot(AGENT_DESCRIPTORS["cursor"], testProjectDir),
         new Set([path.join(testProjectDir, ".cursor")]),
       );
 

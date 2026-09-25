@@ -26,7 +26,7 @@ import type * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
 import { detectAgentsForScope } from "../../projection/agent-adapters/index.js";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
 import type { PerAgentType } from "@agentxm/extension-model/unstable/extensions/common";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -660,7 +660,7 @@ export const listConfiguredAgents = (
       .filter((id) => request.detected !== true || detectedSet.has(id))
       .map((id): ConfiguredAgentRow => ({
         id,
-        name: AGENTS[id].name,
+        name: AGENT_DESCRIPTORS[id].name,
         configured: configuredSet.has(id),
         detected: detectedSet.has(id),
         instructions: configuredSet.has(id) ? (instructionHealth.get(id) ?? "manual") : "-",

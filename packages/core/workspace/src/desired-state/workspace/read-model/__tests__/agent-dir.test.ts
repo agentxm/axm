@@ -9,7 +9,7 @@ import { expect, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import { buildFixture } from "../__fixtures__/builder.js";
 import { makeDiagnostics, type Warning } from "../diagnostics.js";
@@ -20,12 +20,12 @@ const USER_HOME = "/home/user";
 
 const expectedSkillAgentIdsFor = (agentIds: ReadonlyArray<AgentId>): ReadonlyArray<string> => {
   const observedDirs = agentIds.flatMap((agentId) => {
-    const skills = AGENTS[agentId].skills;
+    const skills = AGENT_DESCRIPTORS[agentId].skills;
     return skills === undefined ? [] : [skills.dir];
   });
   return observedDirs
     .flatMap((observedDir) =>
-      Object.values(AGENTS).flatMap((agent) => {
+      Object.values(AGENT_DESCRIPTORS).flatMap((agent) => {
         const skills = agent.skills;
         return skills !== undefined &&
           [skills.dir, ...skills.additionalReadPaths.map(({ path }) => path)].includes(observedDir)
@@ -38,7 +38,7 @@ const expectedSkillAgentIdsFor = (agentIds: ReadonlyArray<AgentId>): ReadonlyArr
 
 const runScanner = (
   spec: Parameters<typeof buildFixture>[0],
-  options?: { readonly agentRegistry?: typeof AGENTS },
+  options?: { readonly agentRegistry?: typeof AGENT_DESCRIPTORS },
 ) =>
   Effect.gen(function* () {
     const deps = yield* buildFixture(spec);
@@ -80,7 +80,7 @@ layer(Path.layer, { excludeTestServices: true })("agent-dir scanner", (it) => {
 
   it.effect("does not scan the workspace root for an empty skills directory", () =>
     Effect.gen(function* () {
-      const codemakerDescriptor = AGENTS.codemaker;
+      const codemakerDescriptor = AGENT_DESCRIPTORS.codemaker;
       const { occurrences } = yield* runScanner(
         {
           workspaceRoot: WORKSPACE_ROOT,
@@ -95,7 +95,7 @@ layer(Path.layer, { excludeTestServices: true })("agent-dir scanner", (it) => {
         },
         {
           agentRegistry: {
-            ...AGENTS,
+            ...AGENT_DESCRIPTORS,
             codemaker: {
               ...codemakerDescriptor,
               skills: { dir: "", additionalReadPaths: [] },
@@ -215,7 +215,7 @@ layer(Path.layer, { excludeTestServices: true })("agent-dir scanner", (it) => {
 
   it.effect("emits Codex TOML subagent occurrences", () =>
     Effect.gen(function* () {
-      const codexDescriptor = AGENTS.codex;
+      const codexDescriptor = AGENT_DESCRIPTORS.codex;
       const { occurrences } = yield* runScanner(
         {
           workspaceRoot: WORKSPACE_ROOT,
@@ -230,7 +230,7 @@ layer(Path.layer, { excludeTestServices: true })("agent-dir scanner", (it) => {
         },
         {
           agentRegistry: {
-            ...AGENTS,
+            ...AGENT_DESCRIPTORS,
             codex: {
               ...codexDescriptor,
               subagents: { dir: ".agents/agents", scopes: ["user", "project"] },
@@ -254,7 +254,7 @@ layer(Path.layer, { excludeTestServices: true })("agent-dir scanner", (it) => {
       // `.roo/skills`). We override roo's descriptor so its subagents file
       // resolves under `.roo/<agent-file>`, matching what the builder
       // synthesizes.
-      const rooDescriptor = AGENTS["roo"];
+      const rooDescriptor = AGENT_DESCRIPTORS["roo"];
       const fakeAgent = {
         ...rooDescriptor,
         subagents: {
@@ -275,7 +275,7 @@ layer(Path.layer, { excludeTestServices: true })("agent-dir scanner", (it) => {
             },
           },
         },
-        { agentRegistry: { ...AGENTS, roo: fakeAgent } },
+        { agentRegistry: { ...AGENT_DESCRIPTORS, roo: fakeAgent } },
       );
       const fileOccurrences = occurrences.filter(
         (o) => o.type === "subagent" && o.agentId === "roo",

@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import { WorkspaceLayoutError } from "./errors.js";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
 import { ACQUIRED_EXTENSIONS_DIR, LOCK_FILENAME, USER_WORKSPACE_DIRECTORY } from "./constants.js";
@@ -218,7 +218,7 @@ export const resolveProjectWorkspaceLayout = (
     const path = yield* Path.Path;
     const statePaths = resolveProjectWorkspaceStatePaths(path, projectRoot);
     const { runtimeDir, acquiredRoot } = statePaths;
-    const agentRoots = Object.values(AGENTS).flatMap((agent) =>
+    const agentRoots = Object.values(AGENT_DESCRIPTORS).flatMap((agent) =>
       agent.rootDir === undefined ? [] : [path.join(projectRoot, agent.rootDir)],
     );
     const reservedRoots = [runtimeDir, acquiredRoot, ...agentRoots];

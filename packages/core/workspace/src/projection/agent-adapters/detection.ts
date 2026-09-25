@@ -18,7 +18,7 @@ import * as ServiceMap from "effect/Context";
 import { envOption, osHomeDirectory } from "@agentxm/host-primitives";
 import { AgentDetectionFailed } from "./errors.js";
 import { getConfigHome } from "./constants.js";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import type {
   AgentDescriptor,
   AgentDetectionMarker,
@@ -257,7 +257,7 @@ export const detectAgent = (agent: AgentDescriptor, projectDir: string) =>
  * @experimental This API is unstable and may change without notice.
  */
 export const detectAgentsInRoot = (rootDir: string) =>
-  Effect.filter(Object.values(AGENTS), (agent) => detectAgentInRootRaw(agent, rootDir), {
+  Effect.filter(Object.values(AGENT_DESCRIPTORS), (agent) => detectAgentInRootRaw(agent, rootDir), {
     // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed agent descriptor catalog
     concurrency: "unbounded",
   }).pipe(Effect.mapError(wrapDetectionError(`Failed to detect installed agents in ${rootDir}`)));
@@ -280,10 +280,14 @@ export const detectAgents = (projectDir: string) =>
 
 /** Detect all agents while retaining the scope that supplied each signal. */
 export const detectAgentScopeResults = (projectDir: string) =>
-  Effect.forEach(Object.values(AGENTS), (agent) => detectAgentScopes(agent, projectDir), {
-    // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed agent descriptor catalog
-    concurrency: "unbounded",
-  }).pipe(Effect.map((detections) => detections.filter(({ project, user }) => project || user)));
+  Effect.forEach(
+    Object.values(AGENT_DESCRIPTORS),
+    (agent) => detectAgentScopes(agent, projectDir),
+    {
+      // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed agent descriptor catalog
+      concurrency: "unbounded",
+    },
+  ).pipe(Effect.map((detections) => detections.filter(({ project, user }) => project || user)));
 
 /** Detect agents whose structured evidence satisfies one selected scope. */
 export const detectAgentsForScope = (projectDir: string, scope: "project" | "user") =>

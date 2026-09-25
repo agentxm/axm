@@ -20,7 +20,7 @@ import * as Option from "effect/Option";
 import { makeScannerFileSystem, SCANNER_IO_CONCURRENCY } from "../scanners/fs-helpers.js";
 import { at } from "../../../test-helpers.js";
 import { type DiscoveryOptions, getPriorityDirectories, skillsInDir } from "./skills.js";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -935,7 +935,7 @@ describe("skillsInDir", () => {
       }
 
       // Agent dirs derived from registry
-      const agents = Object.values(AGENTS);
+      const agents = Object.values(AGENT_DESCRIPTORS);
       const uniqueAgentDirs = [
         ...new Set(
           agents.flatMap((agent) => (agent.skills === undefined ? [] : [agent.skills.dir])),

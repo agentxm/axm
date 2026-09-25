@@ -8,8 +8,8 @@ import {
   resolveInstructionTargetShape,
   type InstructionTargetResolution,
 } from "./instructions.js";
-import { AGENTS, getAgentIds } from "@agentxm/extension-model/unstable/agents/registry";
-import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_IDS, type AgentId } from "@agentxm/extension-model/unstable/agents/types";
 
 const SOURCE = "AGENTS.md";
 
@@ -72,9 +72,9 @@ const classifyAll = (symlinkSupported: boolean) => {
     adapter: [],
     skip: [],
   };
-  for (const id of getAgentIds()) {
+  for (const id of AGENT_IDS) {
     const resolution = resolveInstructionTarget({
-      instructions: AGENTS[id].instructions,
+      instructions: AGENT_DESCRIPTORS[id].instructions,
       sourceFileName: SOURCE,
       symlinkSupported,
     });
@@ -97,14 +97,14 @@ describe("resolveInstructionTarget", () => {
       byAction.write.length +
       byAction.adapter.length +
       byAction.skip.length;
-    expect(classified).toBe(getAgentIds().length);
+    expect(classified).toBe(AGENT_IDS.length);
     expect(byAction.native.length).toBeGreaterThan(0);
   });
 
   it("targets the agent-native filename for own-file agents", () => {
     expect(
       resolveInstructionTarget({
-        instructions: AGENTS["claude-code"].instructions,
+        instructions: AGENT_DESCRIPTORS["claude-code"].instructions,
         sourceFileName: SOURCE,
         symlinkSupported: true,
       }),
@@ -112,7 +112,7 @@ describe("resolveInstructionTarget", () => {
 
     expect(
       resolveInstructionTarget({
-        instructions: AGENTS["gemini-cli"].instructions,
+        instructions: AGENT_DESCRIPTORS["gemini-cli"].instructions,
         sourceFileName: SOURCE,
         symlinkSupported: true,
       }),
@@ -122,7 +122,7 @@ describe("resolveInstructionTarget", () => {
   it("falls back from symlink to copy when symlinks are unavailable", () => {
     expect(
       resolveInstructionTarget({
-        instructions: AGENTS["claude-code"].instructions,
+        instructions: AGENT_DESCRIPTORS["claude-code"].instructions,
         sourceFileName: SOURCE,
         symlinkSupported: false,
       }),
@@ -132,13 +132,13 @@ describe("resolveInstructionTarget", () => {
   it("treats an own-file convention matching the canonical source as native", () => {
     expect(
       resolveInstructionTargetShape({
-        instructions: AGENTS["claude-code"].instructions,
+        instructions: AGENT_DESCRIPTORS["claude-code"].instructions,
         sourceFileName: "CLAUDE.md",
       }),
     ).toEqual({ action: "native", relativeTarget: "CLAUDE.md" });
     expect(
       resolveInstructionTarget({
-        instructions: AGENTS["claude-code"].instructions,
+        instructions: AGENT_DESCRIPTORS["claude-code"].instructions,
         sourceFileName: "CLAUDE.md",
         symlinkSupported: true,
       }),
@@ -180,7 +180,7 @@ describe("resolveInstructionTarget", () => {
   it("points agents-md agents at the source file itself, honoring a custom name", () => {
     expect(
       resolveInstructionTarget({
-        instructions: AGENTS.codex.instructions,
+        instructions: AGENT_DESCRIPTORS.codex.instructions,
         sourceFileName: "CONTEXT.md",
         symlinkSupported: true,
       }),
@@ -198,7 +198,7 @@ describe("resolveInstructionTarget", () => {
 
     expect(
       resolveInstructionTarget({
-        instructions: AGENTS["aider-desk"].instructions,
+        instructions: AGENT_DESCRIPTORS["aider-desk"].instructions,
         sourceFileName: SOURCE,
         symlinkSupported: true,
       }).action,
@@ -206,8 +206,8 @@ describe("resolveInstructionTarget", () => {
   });
 
   it("agrees with resolveInstructionMechanism for every syncable agent", () => {
-    for (const id of getAgentIds()) {
-      const descriptor = AGENTS[id].instructions;
+    for (const id of AGENT_IDS) {
+      const descriptor = AGENT_DESCRIPTORS[id].instructions;
       if (descriptor === undefined) continue;
       const resolution = resolveInstructionTarget({
         instructions: descriptor,

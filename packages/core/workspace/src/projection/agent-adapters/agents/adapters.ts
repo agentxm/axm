@@ -28,7 +28,7 @@ import {
 } from "../subagents/sync.js";
 import { userScopeRefusal } from "../scope-refusal.js";
 import { addMcpServerFromManifest, removeMcpServerFromManifest } from "../mcps/sync.js";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentDescriptor, AgentId } from "@agentxm/extension-model/unstable/agents/types";
 
 const catalogAgentIds = new Set<string>(CATALOG_AGENT_IDS);
@@ -173,4 +173,5 @@ export const codingAgentFromDescriptor = (descriptor: AgentDescriptor): CodingAg
 };
 
 /** @experimental This API is unstable and may change without notice. */
-export const codingAgentForId = (id: AgentId): CodingAgent => codingAgentFromDescriptor(AGENTS[id]);
+export const codingAgentForId = (id: AgentId): CodingAgent =>
+  codingAgentFromDescriptor(AGENT_DESCRIPTORS[id]);

@@ -18,7 +18,7 @@ import { protectWorkspacePath } from "../../transitions/settlement/index.js";
 import { recordFootprint } from "../../transitions/settlement/index.js";
 import { projectionGeneration } from "../generation.js";
 import { reconcilePatternList } from "../agent-adapters/index.js";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import type {
   AgentDescriptor,
   AgentId,
@@ -310,17 +310,18 @@ interface OwnFileConvention {
  * alias whose agent was removed from configuration without remembering
  * anything. A convention the registry no longer carries is not covered.
  */
-const OWN_FILE_CONVENTIONS: ReadonlyArray<OwnFileConvention> = Object.values(AGENTS).flatMap(
-  (descriptor) =>
-    descriptor.instructions?.kind === "own-file"
-      ? [
-          {
-            agentId: descriptor.id,
-            agentName: descriptor.name,
-            relativeTarget: descriptor.instructions.file,
-          },
-        ]
-      : [],
+const OWN_FILE_CONVENTIONS: ReadonlyArray<OwnFileConvention> = Object.values(
+  AGENT_DESCRIPTORS,
+).flatMap((descriptor) =>
+  descriptor.instructions?.kind === "own-file"
+    ? [
+        {
+          agentId: descriptor.id,
+          agentName: descriptor.name,
+          relativeTarget: descriptor.instructions.file,
+        },
+      ]
+    : [],
 );
 
 /**
@@ -558,7 +559,7 @@ const isSamePath = (path: Path.Path, left: string, right: string): boolean =>
   path.resolve(left) === path.resolve(right);
 
 const findAgentDescriptor = (agentId: string): AgentDescriptor | undefined =>
-  Object.values(AGENTS).find((descriptor) => descriptor.id === agentId);
+  Object.values(AGENT_DESCRIPTORS).find((descriptor) => descriptor.id === agentId);
 
 export type PlannedInstructionItem =
   | {

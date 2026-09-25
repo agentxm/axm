@@ -32,7 +32,7 @@ import * as Array from "effect/Array";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentDescriptor, AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import type { Diagnostics } from "../diagnostics.js";
@@ -241,7 +241,7 @@ const scanSubjectDirectory = (
 const scanAgentDirs = Effect.fn("workspace.read-model.scanner.agent-dir")(function* (
   deps: AgentDirScannerDeps,
 ) {
-  const registry = deps.agentRegistry ?? AGENTS;
+  const registry = deps.agentRegistry ?? AGENT_DESCRIPTORS;
 
   const requests = Object.values(registry).flatMap((descriptor) =>
     subjectsForAgent(descriptor).map((subject) => ({ agentId: descriptor.id, subject })),

@@ -1,6 +1,6 @@
 import { pickAsk, type AskKey, type PickOption } from "../../../screen/ask/ask.js";
 import { initialPickState, reducePick, type PickState } from "../../../screen/ask/pick.js";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import { selectAgentsAsk } from "../../../workspace-initialization-interaction-live.js";
 
 const skill = (title: string, description: string, selected?: true): PickOption<string> => ({
@@ -35,7 +35,7 @@ export const toolkitPick = pickAsk({
 
 /** Setup's agents as the canvas draws them: three found and picked, the rest offered. */
 export const agentsPick = selectAgentsAsk({
-  allAgents: Object.values(AGENTS),
+  allAgents: Object.values(AGENT_DESCRIPTORS),
   detectedIds: ["claude-code", "codex", "cursor", "gemini-cli"],
   projectDetectedIds: ["claude-code", "codex"],
   userDetectedIds: ["cursor", "gemini-cli"],

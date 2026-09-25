@@ -9,14 +9,14 @@
  */
 
 import { codingAgentForId, type CodingAgent } from "../agent-adapters/index.js";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import { AGENT_IDS, isConfigurableAgentId } from "@agentxm/extension-model/unstable/agents/types";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 
 /** The agent every workspace projects onto, whatever it configures. */
 export const UNIVERSAL_AGENT_ID = "universal" as const;
 
-export const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
+export const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENT_DESCRIPTORS, id);
 
 /** Every adapter AXM ships, in catalog order. */
 export const allCodingAgents = (): ReadonlyArray<CodingAgent> =>

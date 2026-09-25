@@ -27,7 +27,7 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import type { FixtureSpec } from "../../__fixtures__/builder.js";
 import {
@@ -61,12 +61,12 @@ const runActual = (s: FixtureSpec) => runScenario(s, (ctx) => ctx.scope("project
 
 const expectedSkillAgentIdsFor = (agentIds: ReadonlyArray<AgentId>): ReadonlyArray<string> => {
   const observedDirs = agentIds.flatMap((agentId) => {
-    const skills = AGENTS[agentId].skills;
+    const skills = AGENT_DESCRIPTORS[agentId].skills;
     return skills === undefined ? [] : [skills.dir];
   });
   return observedDirs
     .flatMap((observedDir) =>
-      Object.values(AGENTS).flatMap((agent) => {
+      Object.values(AGENT_DESCRIPTORS).flatMap((agent) => {
         const skills = agent.skills;
         return skills !== undefined &&
           [skills.dir, ...skills.additionalReadPaths.map(({ path }) => path)].includes(observedDir)

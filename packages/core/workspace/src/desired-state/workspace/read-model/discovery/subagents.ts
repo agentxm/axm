@@ -6,7 +6,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { SubagentScanFailed } from "../errors.js";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentDescriptor, AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import { SCANNER_IO_CONCURRENCY } from "../scanners/fs-helpers.js";
 
@@ -26,7 +26,7 @@ export interface AgentSubagentSummary {
   readonly files: ReadonlyArray<DetectedSubagentFile>;
 }
 
-const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
+const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENT_DESCRIPTORS, id);
 
 const scanKnownAgentSubagentFiles = (agent: AgentDescriptor, projectDir: string) =>
   Effect.gen(function* () {
@@ -64,12 +64,12 @@ const scanKnownAgentSubagentFiles = (agent: AgentDescriptor, projectDir: string)
 
 export const scanAgentSubagentFiles = (agentId: string, projectDir: string) =>
   isKnownAgentId(agentId)
-    ? scanKnownAgentSubagentFiles(AGENTS[agentId], projectDir)
+    ? scanKnownAgentSubagentFiles(AGENT_DESCRIPTORS[agentId], projectDir)
     : Effect.succeed<ReadonlyArray<DetectedSubagentFile>>([]);
 
 export const scanAllSubagentFiles = (projectDir: string) =>
   Effect.gen(function* () {
-    const agentsWithSubagents = Object.values(AGENTS).filter(
+    const agentsWithSubagents = Object.values(AGENT_DESCRIPTORS).filter(
       (agent) => agent.subagents !== undefined,
     );
 

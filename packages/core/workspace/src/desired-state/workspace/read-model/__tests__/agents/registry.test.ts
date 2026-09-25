@@ -7,7 +7,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import { AGENT_IDS, type AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import { absentAll } from "../../__fixtures__/builder.js";
 import { WorkspaceReadModelTest } from "../../__fixtures__/test-layer.js";
@@ -61,7 +61,7 @@ describe("agents/index.ts barrel", () => {
         const readModel = yield* makeWorkspaceReadModel("project");
         const known = yield* readModel.agents.known;
         expect(known.map((agent) => agent.id)).toEqual(
-          Object.values(AGENTS).map((agent) => agent.id),
+          Object.values(AGENT_DESCRIPTORS).map((agent) => agent.id),
         );
       }).pipe(Effect.provide(layer));
     }),

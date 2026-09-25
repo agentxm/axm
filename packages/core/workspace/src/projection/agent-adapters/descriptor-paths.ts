@@ -7,7 +7,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 
 const unsupportedCapability = (agentId: AgentId, capability: string): never => {
@@ -16,7 +16,7 @@ const unsupportedCapability = (agentId: AgentId, capability: string): never => {
 
 /** @experimental */
 export const agentSkillsProjectDir = (agentId: AgentId): string => {
-  const skills = AGENTS[agentId].skills;
+  const skills = AGENT_DESCRIPTORS[agentId].skills;
   if (skills === undefined) {
     return unsupportedCapability(agentId, "skills");
   }
@@ -25,11 +25,11 @@ export const agentSkillsProjectDir = (agentId: AgentId): string => {
 
 /** @experimental */
 export const agentSubagentsProjectDirOptional = (agentId: AgentId): string | undefined =>
-  AGENTS[agentId].subagents?.dir;
+  AGENT_DESCRIPTORS[agentId].subagents?.dir;
 
 /** @experimental */
 export const agentSubagentsProjectDir = (agentId: AgentId): string => {
-  const subagents = AGENTS[agentId].subagents;
+  const subagents = AGENT_DESCRIPTORS[agentId].subagents;
   if (subagents === undefined) {
     return unsupportedCapability(agentId, "subagents");
   }

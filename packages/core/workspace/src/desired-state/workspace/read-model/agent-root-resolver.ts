@@ -15,7 +15,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import { makeDiagnostics, type Warning } from "./diagnostics.js";
 import {
   detectAgentRootCollisions,
@@ -53,7 +53,7 @@ export const AgentRootResolverLive: Layer.Layer<AgentRootResolver, never, Path.P
     const path = yield* Path.Path;
     const state = makeAgentRootResolverState();
     const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);
-    yield* detectAgentRootCollisions(path, Object.values(AGENTS), makeDiagnostics(ref));
+    yield* detectAgentRootCollisions(path, Object.values(AGENT_DESCRIPTORS), makeDiagnostics(ref));
     const collisionWarnings = yield* Ref.get(ref);
     return AgentRootResolver.of({ state, collisionWarnings });
   }).pipe(Effect.withSpan("workspace.read-model.agent-root-resolver.build")),

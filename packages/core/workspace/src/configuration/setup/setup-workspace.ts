@@ -25,7 +25,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import type { AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { ExtensionTypeSchema } from "@agentxm/extension-model/unstable/extensions";
@@ -421,7 +421,7 @@ export const previewOrApplySetupWorkspace = <
 // report
 // -----------------------------------------------------------------------------
 
-const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
+const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENT_DESCRIPTORS, id);
 
 const stepStatus = (status: SetupStatus, hasChange: boolean): SetupPlanStep["status"] =>
   status === "preview" ? "ready" : hasChange ? "applied" : "unchanged";
@@ -506,7 +506,9 @@ export const reportSetupWorkspace = (
     const scopeSupport = setupScopeSupport(scopeAgentIds, scope);
     const agents = [
       ...agentIds.flatMap((id) =>
-        isKnownAgentId(id) ? [{ id: AGENTS[id].id, name: AGENTS[id].name }] : [],
+        isKnownAgentId(id)
+          ? [{ id: AGENT_DESCRIPTORS[id].id, name: AGENT_DESCRIPTORS[id].name }]
+          : [],
       ),
       ...agentIds.filter((id) => !isKnownAgentId(id)).map((id) => ({ id, name: id })),
     ];
@@ -575,7 +577,7 @@ export const reportSetupWorkspace = (
             ...agentIds.flatMap((agentId) => {
               if (!isKnownAgentId(agentId)) return [];
               const resolution = resolveInstructionTarget({
-                instructions: AGENTS[agentId].instructions,
+                instructions: AGENT_DESCRIPTORS[agentId].instructions,
                 sourceFileName: instructions.fileName ?? "AGENTS.md",
                 symlinkSupported: true,
               });

@@ -8,7 +8,7 @@ import { expect, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentDescriptor, AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import { buildFixture } from "../__fixtures__/builder.js";
 import { makeDiagnostics, type Warning } from "../diagnostics.js";
@@ -109,7 +109,7 @@ layer(Path.layer, { excludeTestServices: true })("mcp-config scanner", (it) => {
   it.effect("emits agent-mcp-config occurrences for per-agent mcp.json files", () =>
     Effect.gen(function* () {
       // Use a single agent whose MCP target lives under its native root.
-      const cursor = AGENTS["cursor"];
+      const cursor = AGENT_DESCRIPTORS["cursor"];
       const { occurrences } = yield* runScanner(
         {
           workspaceRoot: WORKSPACE_ROOT,
@@ -137,7 +137,7 @@ layer(Path.layer, { excludeTestServices: true })("mcp-config scanner", (it) => {
 
   it.effect("keeps Claude's universal project .mcp.json target shared", () =>
     Effect.gen(function* () {
-      const claude = AGENTS["claude-code"];
+      const claude = AGENT_DESCRIPTORS["claude-code"];
       const { occurrences } = yield* runScanner(
         {
           workspaceRoot: WORKSPACE_ROOT,
@@ -164,7 +164,7 @@ layer(Path.layer, { excludeTestServices: true })("mcp-config scanner", (it) => {
 
   it.effect("workspace and agent occurrences for the same server name are distinct entries", () =>
     Effect.gen(function* () {
-      const cursor = AGENTS["cursor"];
+      const cursor = AGENT_DESCRIPTORS["cursor"];
       const { occurrences } = yield* runScanner(
         {
           workspaceRoot: WORKSPACE_ROOT,
@@ -183,7 +183,7 @@ layer(Path.layer, { excludeTestServices: true })("mcp-config scanner", (it) => {
             },
           },
         },
-        { agentRegistry: { cursor, "claude-code": AGENTS["claude-code"] } },
+        { agentRegistry: { cursor, "claude-code": AGENT_DESCRIPTORS["claude-code"] } },
       );
       const shared = occurrences.filter((o) => o.name === "shared");
       expect(shared).toHaveLength(2);

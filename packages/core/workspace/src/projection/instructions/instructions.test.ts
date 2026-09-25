@@ -30,7 +30,7 @@ const expectMaintenanceFailed = (
   }
   return failure;
 };
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 
 const gitLocalEnvironmentVariables = [
   "GIT_ALTERNATE_OBJECT_DIRECTORIES",
@@ -1344,7 +1344,7 @@ describe("agent instructions", () => {
   );
 
   it("carries every catalog secondary rules directory onto the descriptor", () => {
-    const secondary = Object.values(AGENTS).flatMap((descriptor) => {
+    const secondary = Object.values(AGENT_DESCRIPTORS).flatMap((descriptor) => {
       const instructions = descriptor.instructions;
       if (instructions === undefined || instructions.kind === "rules-dir") return [];
       return instructions.rulesDir === undefined ? [] : [[descriptor.id, instructions.rulesDir]];

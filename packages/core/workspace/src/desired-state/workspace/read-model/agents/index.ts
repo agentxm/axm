@@ -10,7 +10,7 @@ import * as Array from "effect/Array";
 import type * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import {
   AGENT_IDS,
   CONFIGURABLE_AGENT_IDS,
@@ -47,14 +47,14 @@ export { defineAgentModule } from "./types.js";
 /** Every configurable catalog agent, in canonical order. */
 export const registeredAgentModules: ReadonlyArray<AgentModule<ConfigurableAgentId>> =
   CONFIGURABLE_AGENT_IDS.map((agentId) =>
-    defineAgentModule({ agentId, descriptor: AGENTS[agentId] }),
+    defineAgentModule({ agentId, descriptor: AGENT_DESCRIPTORS[agentId] }),
   );
 
 /** Build the common projector module for one catalog agent. */
 export const getAgentModule = <TId extends ConfigurableAgentId>(id: TId): AgentModule<TId> =>
-  defineAgentModule({ agentId: id, descriptor: AGENTS[id] });
+  defineAgentModule({ agentId: id, descriptor: AGENT_DESCRIPTORS[id] });
 
-const isAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
+const isAgentId = (id: string): id is AgentId => Object.hasOwn(AGENT_DESCRIPTORS, id);
 
 /** Public shape of `ctx.scope(scope).agents`. */
 export interface ScopedAgentsApi {
@@ -117,8 +117,8 @@ export const makeScopedAgentsApi = (deps: ScopedAgentsApiDeps): ScopedAgentsApi 
 
   return {
     list: Effect.succeed(AGENT_IDS),
-    known: Effect.succeed(AGENT_IDS.map((id) => AGENTS[id])),
-    byId: (id) => (isAgentId(id) ? Option.some(AGENTS[id]) : Option.none()),
+    known: Effect.succeed(AGENT_IDS.map((id) => AGENT_DESCRIPTORS[id])),
+    byId: (id) => (isAgentId(id) ? Option.some(AGENT_DESCRIPTORS[id]) : Option.none()),
     declared,
     actual,
     detected,

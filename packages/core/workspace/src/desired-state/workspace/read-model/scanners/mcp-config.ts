@@ -31,7 +31,7 @@ import { parse as parseJson, type ParseError } from "jsonc-parser";
 import { parse as parseToml } from "smol-toml";
 import { parse as parseYaml } from "yaml";
 import { osHomeDirectory } from "@agentxm/host-primitives";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentDescriptor, AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import {
   CONFIGURABLE_AGENTS_BY_ID,
@@ -327,7 +327,7 @@ const scanMcpSurface = (
 const scanMcpConfig = Effect.fn("workspace.read-model.scanner.mcp-config")(function* (
   deps: McpConfigScannerDeps,
 ) {
-  const registry = deps.agentRegistry ?? AGENTS;
+  const registry = deps.agentRegistry ?? AGENT_DESCRIPTORS;
   const cache: McpConfigReadCache = new Map();
   const plans = planMcpSurfaces(deps.scope, registry);
   const occurrences = yield* Effect.forEach(plans, (plan) => scanMcpSurface(deps, plan, cache), {

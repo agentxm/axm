@@ -67,6 +67,7 @@ export type { PendingClosureRestoration } from "./ledger.js";
 
 export {
   FootprintRecorder,
+  isWorkspaceFootprint,
   makeFootprintRecorder,
   readFootprint,
   recordFootprint,

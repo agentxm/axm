@@ -16,8 +16,6 @@ import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { computeSourceHash } from "../desired-state/index.js";
 import type { KnowledgeLockEntry } from "../desired-state/index.js";
-import { TreeIntegritySchema, type TreeIntegrity } from "../desired-state/index.js";
-import * as Schema from "effect/Schema";
 import { KnowledgeManager } from "../materialization/managers.js";
 import { applyPlannedProjections } from "../projection/index.js";
 import { SourceHostProviders, SourceNotResolvable } from "../resolution/sources/index.js";
@@ -119,11 +117,6 @@ const workspaceRef = (name: string, root: string): WorkspaceKnowledgeRef => ({
   knowledge: { name: decodeExtensionNameSync(name) },
 });
 
-const acceptedTreeIntegrity = (canonicalRoot: string): TreeIntegrity =>
-  existsSync(canonicalRoot)
-    ? computeMaterializedTreeIntegritySync(canonicalRoot)
-    : Schema.decodeUnknownSync(TreeIntegritySchema)(`sha256-tree-v1:${"0".repeat(64)}`);
-
 /** Desired-state and lock overrides for a locally sourced `handbook` bundle. */
 const desiredHandbookReadFacts = (
   workspaceRoot: string,
@@ -137,9 +130,7 @@ const desiredHandbookReadFacts = (
         source: { type: "path" as const, path: decodeRelativePathSync("source") },
         identity: { owner: handle("@acme"), name: extensionName("handbook") },
         resolved: { tree: TEST_CONTENT_IDENTITY },
-        // The accepted tree, once the canonical package exists; before that,
-        // an integrity no tree can match, so acquisition never reuses it.
-        treeIntegrity: acceptedTreeIntegrity(
+        treeIntegrity: computeMaterializedTreeIntegritySync(
           nodePath.join(
             workspaceRoot,
             "agent_extensions",
@@ -682,10 +673,8 @@ describe("KnowledgeManager", () => {
             yield* manager.materializeInstall({ ref: localRef("handbook", validRoot) });
             yield* applyPlannedProjections(manager);
             writeKnowledgePackage(validRoot, "handbook", false);
-            // The accepted tree is intact, so only a forced acquisition
-            // reads the now-invalid source and attempts the replacement.
             yield* manager
-              .materializeInstall({ ref: localRef("handbook", validRoot), force: true })
+              .materializeInstall({ ref: localRef("handbook", validRoot) })
               .pipe(Effect.flip);
           }).pipe(
             Effect.provide(

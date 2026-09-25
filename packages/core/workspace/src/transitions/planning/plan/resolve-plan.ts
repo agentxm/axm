@@ -104,6 +104,7 @@ import {
   WorkspaceRestorationIncomplete,
   acquireWorkspaceTransition,
   pendingClosureRestorations,
+  isWorkspaceFootprint,
   readFootprint,
   rollbackWorkspaceClosure,
   runWorkspaceTransaction,
@@ -1063,13 +1064,11 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
     });
   }
   const observedFootprint: ReadonlyArray<OperationFootprintEntry> = (yield* readFootprint)
+    .filter(isWorkspaceFootprint(path, location.baseDir))
     .map((entry) => ({
       path: path.isAbsolute(entry.path) ? path.relative(location.baseDir, entry.path) : entry.path,
       change: entry.change,
-    }))
-    // The footprint reports durable workspace changes; scratch outside the
-    // workspace base (scoped temp staging) is removed with the invocation.
-    .filter((entry) => !entry.path.startsWith(".."));
+    }));
   const footprint =
     observedFootprint.length === 0
       ? undefined

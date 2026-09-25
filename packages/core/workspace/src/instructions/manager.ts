@@ -211,10 +211,7 @@ export const RuleManagerLive = Layer.effect(
         };
       });
 
-    // A disk-sourced package is copied only when the canonical observation
-    // no longer finds the accepted tree; an intact accepted tree is reused,
-    // exactly as a Registry package is.
-    const materializeFromExternal = (ref: GitHostedRuleRef | LocalRuleRef, force: boolean) =>
+    const materializeFromExternal = (ref: GitHostedRuleRef | LocalRuleRef) =>
       Effect.gen(function* () {
         const canonicalPath = computeExtensionPathsForLayout(
           path.join,
@@ -223,17 +220,6 @@ export const RuleManagerLive = Layer.effect(
           RULE_EXTENSION_DIR,
           ref.rule.name,
         ).canonicalPath;
-        const reusable = yield* provide(
-          reusableCanonicalTree({
-            canonicalPath,
-            requested: { refType: ref.refType, name: ref.rule.name },
-            accepted: yield* lockfile.entry("rule", ref.rule.name),
-            force,
-          }),
-        );
-        if (Option.isSome(reusable)) {
-          return { packageRoot: canonicalPath, treeIntegrity: reusable.value };
-        }
         const sourceLocation = yield* acquiredDirectoryForRef(ref, ref.location);
         const materialized = yield* provide(
           materializeExternalPackageWithTreeIntegrity({
@@ -257,7 +243,7 @@ export const RuleManagerLive = Layer.effect(
             return yield* materializeFromRegistry(ref, force);
           case "git-hosted":
           case "local":
-            return yield* materializeFromExternal(ref, force);
+            return yield* materializeFromExternal(ref);
           case "workspace": {
             const expectedPath = computeExtensionPathsForLayout(
               path.join,

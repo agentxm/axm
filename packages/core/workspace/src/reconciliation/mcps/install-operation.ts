@@ -46,7 +46,11 @@ import {
 } from "../../desired-state/index.js";
 import { appendWarningsToMessage } from "../../transitions/planning/index.js";
 import type { JobStepResult, Operation } from "../../transitions/planning/index.js";
-import { FootprintRecorder, readFootprint } from "../../transitions/settlement/index.js";
+import {
+  FootprintRecorder,
+  isWorkspaceFootprint,
+  readFootprint,
+} from "../../transitions/settlement/index.js";
 import { classifyInstallChange } from "../extensions/operations.js";
 import {
   AcceptedResolutionWriter,
@@ -892,7 +896,9 @@ export const installMcpServer: (
     const warnings = [...secretWarnings, ...agentSync.warnings];
     const change = classifyInstallChange({
       installedBefore,
-      footprint: (yield* readFootprint).slice(footprintBefore),
+      footprint: (yield* readFootprint)
+        .slice(footprintBefore)
+        .filter(isWorkspaceFootprint(path, location.baseDir)),
     });
     const agentOutcomes = agentSync.outcomes.flatMap(({ agentId, outcome }) =>
       outcome._tag === "success" || outcome._tag === "fallback"

@@ -317,31 +317,30 @@ export const KnowledgeManagerLive = Layer.effect(
         // Decide against the canonical tree before staging: the staged path
         // never exists, so a decision made there would re-extract every time
         // and revert workspace-owned content on a no-op install.
-        const reusable = yield* provide(
-          reusableCanonicalTree({
-            canonicalPath,
-            requested:
-              ref.refType === "registry"
-                ? {
-                    refType: "registry",
-                    owner: ref.owner,
-                    name: ref.name,
-                    version: ref.version,
-                    publisherBindingId: ref.publisherBindingId,
-                  }
-                : { refType: ref.refType, name: ref.knowledge.name },
-            accepted: yield* lockfile.entry("knowledge", ref.knowledge.name),
-            force,
-          }),
-        );
-        if (Option.isSome(reusable)) {
-          return {
-            root: canonicalPath,
-            sourceHash: yield* provide(computePackageContentHash(canonicalPath)),
-            treeIntegrity: reusable.value,
-            commit: Effect.void,
-            rollback: Effect.void,
-          };
+        if (ref.refType === "registry") {
+          const reusable = yield* provide(
+            reusableCanonicalTree({
+              canonicalPath,
+              requested: {
+                refType: "registry",
+                owner: ref.owner,
+                name: ref.name,
+                version: ref.version,
+                publisherBindingId: ref.publisherBindingId,
+              },
+              accepted: yield* lockfile.entry("knowledge", ref.knowledge.name),
+              force,
+            }),
+          );
+          if (Option.isSome(reusable)) {
+            return {
+              root: canonicalPath,
+              sourceHash: yield* provide(computePackageContentHash(canonicalPath)),
+              treeIntegrity: reusable.value,
+              commit: Effect.void,
+              rollback: Effect.void,
+            };
+          }
         }
         const tempDir = yield* fs.makeTempDirectoryScoped({ prefix: "axm-knowledge-package-" });
         const stagedPath = path.join(tempDir, "staged");
@@ -398,6 +397,11 @@ export const KnowledgeManagerLive = Layer.effect(
         const treeIntegrity = yield* provide(computeMaterializedTreeIntegrity(stagedRoot));
         yield* protectWorkspacePath(canonicalPath);
         const hadCanonical = yield* fs.exists(canonicalPath);
+        // The footprint reports byte changes: replacing a tree with an
+        // identical one is not one, however it was acquired.
+        const previousTreeIntegrity = hadCanonical
+          ? yield* provide(computeMaterializedTreeIntegrity(canonicalPath)).pipe(Effect.option)
+          : Option.none<TreeIntegrity>();
         yield* Effect.uninterruptible(
           Effect.gen(function* () {
             if (hadCanonical) yield* fs.rename(canonicalPath, backupPath);
@@ -420,10 +424,12 @@ export const KnowledgeManagerLive = Layer.effect(
             yield* Ref.set(stageState, { phase: "staged", hadCanonical });
           }),
         );
-        yield* recordFootprint({
-          path: canonicalPath,
-          change: hadCanonical ? "modified" : "created",
-        });
+        if (!Option.contains(previousTreeIntegrity, treeIntegrity)) {
+          yield* recordFootprint({
+            path: canonicalPath,
+            change: hadCanonical ? "modified" : "created",
+          });
+        }
         return {
           root: canonicalPath,
           sourceHash,

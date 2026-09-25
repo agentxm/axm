@@ -201,6 +201,11 @@ export const replaceCanonicalDirectoryWithInspection = <A, E, R>(
             new PackageMaterializationFailed({ path: args.canonicalPath, step: "inspect", cause }),
         ),
       );
+    // The footprint reports byte changes: replacing a tree with an identical
+    // one is not one, however it was acquired.
+    const previousTreeIntegrity = hadCanonical
+      ? yield* computeMaterializedTreeIntegrity(args.canonicalPath).pipe(Effect.option)
+      : Option.none<TreeIntegrity>();
     yield* Effect.uninterruptible(
       Effect.gen(function* () {
         if (hadCanonical) yield* fs.rename(args.canonicalPath, backupPath);
@@ -221,10 +226,19 @@ export const replaceCanonicalDirectoryWithInspection = <A, E, R>(
           new PackageMaterializationFailed({ path: args.canonicalPath, step: "replace", cause }),
       ),
     );
-    yield* recordFootprint({
-      path: args.canonicalPath,
-      change: hadCanonical ? "modified" : "created",
-    });
+    const replacedTreeIntegrity = yield* computeMaterializedTreeIntegrity(args.canonicalPath).pipe(
+      Effect.option,
+    );
+    if (
+      Option.isNone(previousTreeIntegrity) ||
+      Option.isNone(replacedTreeIntegrity) ||
+      previousTreeIntegrity.value !== replacedTreeIntegrity.value
+    ) {
+      yield* recordFootprint({
+        path: args.canonicalPath,
+        change: hadCanonical ? "modified" : "created",
+      });
+    }
 
     return { canonicalPath: args.canonicalPath, inspection };
   });

@@ -444,9 +444,6 @@ export const HookManagerLive = Layer.effect(
         };
       });
 
-    // A disk-sourced package is copied only when the canonical observation
-    // no longer finds the accepted tree; an intact accepted tree is reused,
-    // exactly as a Registry package is.
     const materializeFromExternal = (ref: GitHostedHookRef | LocalHookRef) =>
       Effect.gen(function* () {
         const canonicalPath = computeExtensionPathsForLayout(
@@ -456,17 +453,6 @@ export const HookManagerLive = Layer.effect(
           HOOK_EXTENSION_DIR,
           ref.hook.name,
         ).canonicalPath;
-        const reusable = yield* provide(
-          reusableCanonicalTree({
-            canonicalPath,
-            requested: { refType: ref.refType, name: ref.hook.name },
-            accepted: yield* lockfile.entry("hook", ref.hook.name),
-            force: false,
-          }),
-        );
-        if (Option.isSome(reusable)) {
-          return { packageRoot: canonicalPath, treeIntegrity: reusable.value };
-        }
         const sourceLocation = yield* acquiredDirectoryForRef(ref, ref.location);
         const materialized = yield* provide(
           materializeExternalPackageWithTreeIntegrity({

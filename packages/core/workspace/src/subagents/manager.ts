@@ -376,15 +376,6 @@ export const SubagentManagerLive = Layer.effect(
               currentLayout().scope === "project" ? canonicalPath : subagentSrcPath;
             const isSelfCopy = path.resolve(sourcePath) === path.resolve(targetPath);
             if (isSelfCopy) return yield* computeMaterializedTreeIntegrity(targetPath);
-            // A disk-sourced package is copied only when the canonical
-            // observation no longer finds the accepted tree.
-            const reusable = yield* reusableCanonicalTree({
-              canonicalPath: targetPath,
-              requested: { refType: ref.refType, name: ref.subagent.name },
-              accepted: yield* lockfile.entry("subagent", ref.subagent.name),
-              force,
-            });
-            if (Option.isSome(reusable)) return reusable.value;
             const materialized = yield* copyToCanonical(sourcePath, targetPath);
             return materialized.treeIntegrity;
           }

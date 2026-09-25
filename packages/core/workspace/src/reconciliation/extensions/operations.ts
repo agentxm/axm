@@ -1,5 +1,5 @@
 import type * as FileSystem from "effect/FileSystem";
-import type * as Path from "effect/Path";
+import * as Path from "effect/Path";
 import {
   LifecyclePostconditionViolated,
   ScaffoldedExtensionUnresolved,
@@ -25,6 +25,7 @@ import {
   SettingsWriter,
   AcceptedResolutionWriter,
   DesiredStateReader,
+  WorkspaceLocation,
   type ArtifactChange,
   type WorkspaceStateReadFailure,
   type WorkspaceStateMutationFailure,
@@ -60,6 +61,7 @@ import { evaluateSourceAuthority } from "../../resolution/index.js";
 import { formatDeprecationWarning } from "@agentxm/registry-client";
 import {
   FootprintRecorder,
+  isWorkspaceFootprint,
   readFootprint,
   runWorkspaceTransaction,
   type FootprintObservation,
@@ -249,6 +251,7 @@ export interface StepFailureAdapter<F = never> {
 export type RecipeRequirements =
   | WorkspaceTransactionScope
   | FootprintRecorder
+  | WorkspaceLocation
   | FileSystem.FileSystem
   | Path.Path
   | SettingsReader
@@ -307,18 +310,22 @@ export const forecastInstallChange = (args: {
   readonly installedBefore: boolean;
 }): InstallChange => (args.installedBefore ? "updated" : "created");
 
-/** Run one transition and return the durable changes recorded during it. */
+/** Run one transition and return the durable workspace changes recorded during it. */
 const observeFootprint = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
 ): Effect.Effect<
   { readonly value: A; readonly footprint: ReadonlyArray<FootprintObservation> },
   E,
-  R | FootprintRecorder
+  R | FootprintRecorder | WorkspaceLocation | Path.Path
 > =>
   Effect.gen(function* () {
+    const location = yield* WorkspaceLocation;
+    const path = yield* Path.Path;
     const before = (yield* readFootprint).length;
     const value = yield* effect;
-    const footprint = (yield* readFootprint).slice(before);
+    const footprint = (yield* readFootprint)
+      .slice(before)
+      .filter(isWorkspaceFootprint(path, location.baseDir));
     return { value, footprint };
   });
 

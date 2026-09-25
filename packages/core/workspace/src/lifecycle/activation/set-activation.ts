@@ -524,9 +524,7 @@ const settleLeaf = (request: SetActivationRequest, adapter: SyncFailureAdapter) 
     const agentOutcomes = yield* Effect.gen(function* () {
       if (request.type === "mcp-server" && request.enabled) {
         const mcp = yield* McpServerManager;
-        return (yield* mcp.configuredAgentOutcomes("projected", proposal.after)).filter(
-          (outcome) => outcome.name === name,
-        );
+        return yield* mcp.configuredAgentOutcomes("projected", proposal.after, { names: [name] });
       }
       if (request.type === "hook" && request.enabled) {
         const hook = yield* HookManager;

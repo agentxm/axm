@@ -32,6 +32,7 @@ import {
 } from "../projection/index.js";
 import {
   McpConfigIoFailed,
+  McpSharedTargetConflict,
   removeMcpServerFromManifest,
 } from "../projection/agent-adapters/index.js";
 import { NO_MATERIALIZATION_OBSERVATION } from "../materialization/manager-contract.js";
@@ -357,13 +358,17 @@ export const McpServerManagerLive = Layer.effect(
     const configuredAgentOutcomes: McpServerManagerService["configuredAgentOutcomes"] = (
       state,
       proposedGraph,
+      selection,
     ) =>
       Effect.gen(function* () {
         const configuredAgentIds = yield* settings.configuredAgents;
         const entries = yield* settings.entries("mcp-server");
         const graph = proposedGraph ?? (yield* desiredState.graph());
         const nodes = graph.nodes.filter(
-          (node) => node.type === "mcp-server" && (state === "projected" || node.enabled),
+          (node) =>
+            node.type === "mcp-server" &&
+            (state === "projected" || node.enabled) &&
+            (selection === undefined || selection.names.includes(node.name)),
         );
         return (yield* Effect.forEach(
           nodes,
@@ -379,7 +384,7 @@ export const McpServerManagerLive = Layer.effect(
                     })).pipe(
                       Option.flatMap(({ observation }) => Option.fromUndefinedOr(observation.path)),
                     );
-              const { outcomes } = yield* inspectDesiredMcpServer({
+              const { outcomes, conflict } = yield* inspectDesiredMcpServer({
                 workspaceRoot: baseDir,
                 scope: location.scope,
                 agentIds: configuredAgentIds,
@@ -391,6 +396,11 @@ export const McpServerManagerLive = Layer.effect(
                 }),
                 state,
               });
+              // No write can make a conflicting shared target current, so the
+              // outcome is a refusal, not a projection to plan.
+              if (Option.isSome(conflict)) {
+                return yield* new McpSharedTargetConflict({ reason: conflict.value });
+              }
               return outcomes;
             }),
           { concurrency: 16 },

@@ -15,6 +15,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
@@ -27,7 +28,7 @@ import {
   type WorkspaceStateReadFailure,
   type ExtensionInventory,
 } from "../desired-state/index.js";
-import type { CodingAgentFailure } from "./agent-adapters/index.js";
+import { McpSharedTargetConflict, type CodingAgentFailure } from "./agent-adapters/index.js";
 import type { McpInspectionError } from "./mcps/errors.js";
 import type { CodingAgentRepositoryService } from "./agents/coding-agent-repository.js";
 import { inspectDesiredMcpServer } from "./mcps/inspection.js";
@@ -121,7 +122,14 @@ export const isObservedMaterializationCurrent = <E>({
           }).pipe(
             Effect.provideService(FileSystem.FileSystem, fs),
             Effect.provideService(Path.Path, path),
-            Effect.map(({ current }) => current),
+            // A shared-target conflict has no write that could resolve it, so
+            // it is a planning fact, not a stale projection to rematerialize.
+            Effect.flatMap(({ current, conflict }) =>
+              Option.match(conflict, {
+                onNone: () => Effect.succeed(current),
+                onSome: (reason) => Effect.fail(new McpSharedTargetConflict({ reason })),
+              }),
+            ),
           );
         }
         if (!observed.origins.includes("agent-skill-dir")) return Effect.succeed(false);

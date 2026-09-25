@@ -185,6 +185,8 @@ export interface McpServerManagerService
   readonly configuredAgentOutcomes: (
     state: "projected" | "current",
     proposedGraph?: DesiredStateGraph,
+    /** Only these connections, when a change concerns some rather than all. */
+    selection?: { readonly names: ReadonlyArray<string> },
   ) => Effect.Effect<
     ReadonlyArray<ConfiguredAgentOutcome>,
     ExtensionManagerFailure,

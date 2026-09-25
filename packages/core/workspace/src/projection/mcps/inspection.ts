@@ -86,6 +86,12 @@ export interface DesiredMcpServerInspection {
   readonly outcomes: ReadonlyArray<ConfiguredAgentOutcome>;
   /** Every configured agent either holds the expected entry or cannot represent it. */
   readonly current: boolean;
+  /**
+   * The shared-target conflict that blocks a group of readers, when one does:
+   * the connection has no native shape every reader of that file accepts, so
+   * no write can make it current. Callers that plan writes refuse on it.
+   */
+  readonly conflict: Option.Option<string>;
 }
 
 export interface ManagedAgentMcpServer {
@@ -448,6 +454,7 @@ export const inspectDesiredMcpServer = (
     const manifestRoot = inline
       ? Option.none<string>()
       : yield* findManifestRoot(args.workspaceRoot, args.canonicalPaths);
+    let conflict = Option.none<string>();
     const inspections = yield* Effect.gen(function* () {
       if (!inline && Option.isNone(manifestRoot)) return yield* inspectManagedPresence(args);
       const path = yield* Path.Path;
@@ -471,6 +478,9 @@ export const inspectDesiredMcpServer = (
       if (plan._tag === "invalid") {
         return yield* new McpDefinitionInvalid({ detail: plan.detail, cause: plan.cause });
       }
+      conflict = Option.fromUndefinedOr(
+        plan.agents.flatMap((agent) => (agent._tag === "blocked" ? [agent.reason] : []))[0],
+      );
       return yield* Effect.forEach(plan.agents, (agent) => inspectPlannedAgent(args, agent), {
         concurrency: 16,
       });
@@ -481,6 +491,7 @@ export const inspectDesiredMcpServer = (
         mcpInspectionOutcome({ name: args.node.name, inspection, state }),
       ),
       current: mcpInspectionsCurrent(inspections),
+      conflict,
     };
   });
 

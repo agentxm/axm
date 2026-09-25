@@ -64,7 +64,7 @@ import { alreadyPublishedVersionConflict, nonMonotonicVersionConflict } from "..
 import { isPublishableType, type PublishableType } from "../publishable-types.js";
 import type { PublishSourceAssessment } from "../source-state.js";
 import type { ResolvedPublishPreview } from "../authorization.js";
-import { computeIntegrity } from "../internal/integrity.js";
+import { sha512Integrity } from "@agentxm/host-primitives";
 import {
   expandGlobs,
   isGlobPattern,
@@ -849,7 +849,7 @@ export const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
       validation(`Cannot publish ${selected.fqn}: ${cause.detail}`, { cause }),
     ),
   );
-  const integrity = computeIntegrity(archive);
+  const integrity = sha512Integrity(archive);
   yield* normalizePublishInput({
     declaredIdentity: {
       owner: selected.owner,

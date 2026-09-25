@@ -22,7 +22,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { describe, expect, layer } from "@effect/vitest";
 
-import { computeIntegrity } from "./integrity.js";
+import { computeIntegrity } from "@agentxm/host-primitives";
 import type {
   ExtensionIndex,
   VersionEntry,

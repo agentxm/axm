@@ -15,8 +15,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import { RegistryOperationFailed, type RegistryClientFailure } from "./errors.js";
-import { computeIntegrity } from "./integrity.js";
-import { writeFileAtomic } from "@agentxm/host-primitives";
+import { computeIntegrity, writeFileAtomic } from "@agentxm/host-primitives";
 import { resolveAxmCacheRoot } from "./cache-root.js";
 import { MAX_BUFFERED_ARCHIVE_BYTES, readBufferedArchive } from "./archive-limits.js";
 

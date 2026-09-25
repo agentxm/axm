@@ -2,7 +2,6 @@
  * Tests for registry utility functions.
  */
 
-import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -17,7 +16,6 @@ import { afterEach, beforeEach } from "vitest";
 
 import type { VersionEntry } from "@agentxm/registry-protocol/unstable/registry/schema";
 import { exactVersion, extensionName, handle } from "./test-helpers.js";
-import { computeIntegrity } from "./integrity.js";
 import { extensionDir, extensionLifecycleWarnings, extractZip, pluralizeType } from "./utils.js";
 
 // -----------------------------------------------------------------------------
@@ -80,44 +78,6 @@ describe("extensionLifecycleWarnings", () => {
       ),
     ).toEqual(["@acme/mcps/github@1.0.0 is yanked"]);
   });
-});
-
-// -----------------------------------------------------------------------------
-// computeIntegrity
-// -----------------------------------------------------------------------------
-
-describe("computeIntegrity", () => {
-  it.effect("computes sha512 integrity in SRI format", () =>
-    Effect.gen(function* () {
-      const data = new TextEncoder().encode("hello world");
-      const result = yield* computeIntegrity(data).pipe(Effect.provide(NodeServices.layer));
-      const expected = `sha512-${createHash("sha512").update(data).digest("base64")}`;
-      expect(result).toBe(expected);
-    }),
-  );
-
-  it.effect("returns different integrity for different data", () =>
-    Effect.gen(function* () {
-      const data1 = new TextEncoder().encode("hello");
-      const data2 = new TextEncoder().encode("world");
-      const [result1, result2] = yield* Effect.all([
-        computeIntegrity(data1),
-        computeIntegrity(data2),
-      ]).pipe(Effect.provide(NodeServices.layer));
-      expect(result1).not.toBe(result2);
-    }),
-  );
-
-  it.effect("returns consistent integrity for same data", () =>
-    Effect.gen(function* () {
-      const data = new TextEncoder().encode("test");
-      const [result1, result2] = yield* Effect.all([
-        computeIntegrity(data),
-        computeIntegrity(data),
-      ]).pipe(Effect.provide(NodeServices.layer));
-      expect(result1).toBe(result2);
-    }),
-  );
 });
 
 // -----------------------------------------------------------------------------

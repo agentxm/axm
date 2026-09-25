@@ -27,11 +27,12 @@ import * as Option from "effect/Option";
 import { McpAgentSyncRefused, McpInstallStateMissing } from "./errors.js";
 import {
   applyProjectionPlans,
-  inspectMcpServerAcrossAgents,
+  inspectDesiredMcpServer,
   planSingletonProjection,
 } from "../projection/index.js";
 import {
   McpConfigIoFailed,
+  McpSharedTargetConflict,
   removeMcpServerFromManifest,
 } from "../projection/agent-adapters/index.js";
 import { NO_MATERIALIZATION_OBSERVATION } from "../materialization/manager-contract.js";
@@ -45,7 +46,7 @@ import type {
   McpServerExtensionRef,
   RegistryMcpServerRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
-import type { ConfiguredAgentOutcome, McpServerLockEntry } from "../desired-state/index.js";
+import type { McpServerLockEntry } from "../desired-state/index.js";
 import type { ExtensionTarget, McpServerExtensionTarget } from "../desired-state/index.js";
 import { mcpRegistryResolutionKey } from "../desired-state/index.js";
 import { reusableCanonicalTree } from "../acquisition/canonical-directory.js";
@@ -348,70 +349,60 @@ export const McpServerManagerLive = Layer.effect(
     const materializeUninstall = makeMaterializeRemoval(false);
     const materializeDeactivate = makeMaterializeRemoval(true);
 
-    const configuredAgentOutcomesForEntry: McpServerManagerService["configuredAgentOutcomesForEntry"] =
-      Effect.fn("McpServerManager.configuredAgentOutcomesForEntry")(function* ({
-        name,
-        entry,
-        state,
-      }) {
-        const configuredAgentIds = yield* settings.configuredAgents;
-        const canonical =
-          entry.kind === "inline"
-            ? Option.none<string>()
-            : (yield* acceptedCanonicalObservation({
-                type: "mcp-server",
-                name,
-              })).pipe(
-                Option.flatMap(({ observation }) => Option.fromUndefinedOr(observation.path)),
-              );
-        const inspections = yield* inspectMcpServerAcrossAgents({
-          workspaceRoot: baseDir,
-          scope: location.scope,
-          agentIds: configuredAgentIds,
-          serverName: name,
-          entry: { ...entry, enabled: true },
-          canonicalPaths: Option.match(canonical, { onNone: () => [], onSome: (value) => [value] }),
-          state,
-        });
-        return inspections.map((inspection): ConfiguredAgentOutcome => ({
-          extensionType: "mcp-server",
-          name,
-          agentId: inspection.agentId,
-          outcome:
-            inspection.status === "match"
-              ? state
-              : inspection.status === "unsupported"
-                ? "unsupported"
-                : inspection.status === "blocked"
-                  ? "blocked"
-                  : "failed",
-          reasonCode:
-            inspection.status === "match"
-              ? "supported"
-              : inspection.status === "absent"
-                ? "projection-missing"
-                : inspection.status === "drift"
-                  ? "stale-projection"
-                  : `mcp-${inspection.status}`,
-          reason:
-            inspection.reason ??
-            (inspection.status === "match"
-              ? `${inspection.agentId} has a matching MCP projection.`
-              : inspection.status === "absent"
-                ? `The expected ${inspection.agentId} projection is missing.`
-                : inspection.status === "drift"
-                  ? `The expected ${inspection.agentId} projection is stale.`
-                  : `MCP projection status is ${inspection.status}.`),
-          ...(inspection.path.length === 0 ? {} : { path: inspection.path }),
-        }));
-      });
-
-    const configuredAgentOutcomes: McpServerManagerService["configuredAgentOutcomes"] = (state) =>
+    /**
+     * Every desired MCP connection's per-agent outcome, judged from the
+     * desired-state graph: a Pack-supplied member is judged exactly as a
+     * settings-declared one, and the presence of a raw settings entry decides
+     * nothing.
+     */
+    const configuredAgentOutcomes: McpServerManagerService["configuredAgentOutcomes"] = (
+      state,
+      proposedGraph,
+      selection,
+    ) =>
       Effect.gen(function* () {
+        const configuredAgentIds = yield* settings.configuredAgents;
         const entries = yield* settings.entries("mcp-server");
+        const graph = proposedGraph ?? (yield* desiredState.graph());
+        const nodes = graph.nodes.filter(
+          (node) =>
+            node.type === "mcp-server" &&
+            (state === "projected" || node.enabled) &&
+            (selection === undefined || selection.names.includes(node.name)),
+        );
         return (yield* Effect.forEach(
-          Object.entries(entries).filter(([, entry]) => state === "projected" || entry.enabled),
-          ([name, entry]) => configuredAgentOutcomesForEntry({ name, entry, state }),
+          nodes,
+          (node) =>
+            Effect.gen(function* () {
+              const canonical =
+                node.authority === "inline"
+                  ? Option.none<string>()
+                  : (yield* acceptedCanonicalObservation({
+                      type: "mcp-server",
+                      name: node.name,
+                      desired: node,
+                    })).pipe(
+                      Option.flatMap(({ observation }) => Option.fromUndefinedOr(observation.path)),
+                    );
+              const { outcomes, conflict } = yield* inspectDesiredMcpServer({
+                workspaceRoot: baseDir,
+                scope: location.scope,
+                agentIds: configuredAgentIds,
+                node,
+                entry: entries[node.name],
+                canonicalPaths: Option.match(canonical, {
+                  onNone: () => [],
+                  onSome: (value) => [value],
+                }),
+                state,
+              });
+              // No write can make a conflicting shared target current, so the
+              // outcome is a refusal, not a projection to plan.
+              if (Option.isSome(conflict)) {
+                return yield* new McpSharedTargetConflict({ reason: conflict.value });
+              }
+              return outcomes;
+            }),
           { concurrency: 16 },
         )).flat();
       });
@@ -471,7 +462,6 @@ export const McpServerManagerLive = Layer.effect(
       materializeUninstall,
       materializeDeactivate,
       configuredAgentOutcomes,
-      configuredAgentOutcomesForEntry,
 
       acceptedResolution: Effect.fn("McpServerManager.acceptedResolution")(function* ({
         ref,

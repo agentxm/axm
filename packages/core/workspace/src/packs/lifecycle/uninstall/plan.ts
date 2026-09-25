@@ -35,7 +35,7 @@ import {
   type SyncPolicyFailure,
   proposeDesiredState,
 } from "../../../reconciliation/index.js";
-import { expectedProjectionNamesOf } from "../../../projection/index.js";
+import { expectedProjectionNames } from "../../../projection/index.js";
 import {
   parseExtensionFqnParts,
   type ExtensionFqnParts,
@@ -479,22 +479,11 @@ export const planPackUninstall: (
     }
   });
 
-  const activeNames = (type: ExtensionTarget["type"]) =>
-    new Set(
-      proposal.after.nodes
-        .filter((node) => node.type === type && node.enabled)
-        .map((node) => node.name),
-    );
   const cleanup =
     plannedRetirements.length > 0
       ? Option.none()
       : yield* collectCleanupStep({
-          expectedNames: expectedProjectionNamesOf({
-            skill: activeNames("skill"),
-            subagent: activeNames("subagent"),
-            mcpServer: activeNames("mcp-server"),
-            hook: activeNames("hook"),
-          }),
+          expectedNames: expectedProjectionNames(proposal.after),
           subjects: orderedTargets,
           adapter: {
             toStepFailure: (cause: SyncPolicyFailure) =>

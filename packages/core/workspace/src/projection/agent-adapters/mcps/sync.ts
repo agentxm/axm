@@ -1,33 +1,16 @@
 /**
- * Shared MCP sync helpers for coding-agent service implementations.
+ * Writing MCP connections into agent-native configuration, and withdrawing
+ * them: the writer side of the target plan.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
-import type * as Config from "effect/Config";
-import * as Duration from "effect/Duration";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { managedKeyedBlockNames } from "../managed-regions-keyed-block.js";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import * as Stream from "effect/Stream";
-import * as ChildProcess from "effect/unstable/process/ChildProcess";
-import * as ChildProcessSpawner from "effect/unstable/process/ChildProcessSpawner";
-import { parse, type ParseError } from "jsonc-parser";
-import {
-  CONFIGURABLE_AGENTS_BY_ID,
-  type Agent,
-  type ConfigurableAgentId as CapabilityAgentId,
-  type McpConfig,
-  type McpConfigTarget,
-  type McpEnvExpansion,
-  type McpTransport,
-} from "@agentxm/extension-model/unstable/agent-capabilities";
-import { envOption } from "../environment.js";
-import { getHome } from "../constants.js";
-import { isPathSafe } from "@agentxm/extension-model/unstable/path-types";
+import type { McpConfigTarget } from "@agentxm/extension-model/unstable/agent-capabilities";
 import {
   McpConfigInvalid,
   McpConfigIoFailed,
@@ -40,19 +23,20 @@ import {
   McpServerManifestSchema,
   type McpServerManifest,
 } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
-import { buildAxmMcpMetadata } from "./metadata.js";
-import { AXM_MCP_METADATA_KEY, isAxmManagedMcpEntry } from "./entry-semantics.js";
-import { inferInlineRemoteTransport, projectExpectedEntry } from "./expected-entry.js";
-import { groupConfiguredMcpTargets } from "./targeting.js";
-import {
-  resolveSharedMcpTarget,
-  type SharedMcpTargetMember,
-  type SharedMcpTransport,
-} from "./shared-target.js";
-import { resolveMcpServer, type McpResolution } from "./resolution.js";
-import { NativeWriteAuthority, type NativeWriteRefused } from "../native-write-authority.js";
+import type { NativeWriteAuthority } from "../native-write-authority.js";
 import { removeAgentMcpConfig, writeAgentMcpConfig } from "./config-writer.js";
-import { managedYamlNames } from "../yaml.js";
+import {
+  managedNativeMcpEntryNames,
+  readNativeMcpConfig,
+  resolveAgentMcpConfigTargetPath,
+} from "./native-config.js";
+import {
+  configuredMcpCapability,
+  planMcpServerTargets,
+  type McpAgentTargetPlan,
+  type McpTargetPlan,
+  type McpTargetWrite,
+} from "./target-plan.js";
 import type {
   AddMcpServerArgs,
   McpServerSyncOutcome,
@@ -60,522 +44,6 @@ import type {
   RemoveMcpServerArgs,
 } from "../agents/coding-agent.js";
 import type { McpServerDeclaration } from "./expected-entry.js";
-import { SCANNER_IO_CONCURRENCY } from "../../../desired-state/workspace/read-model/scanners/fs-helpers.js";
-
-/** Failures the JSON config read/write helpers raise. */
-export type McpConfigSyncFailure = McpConfigIoFailed | McpConfigInvalid | NativeWriteRefused;
-
-export interface CliInvocation {
-  readonly command: string;
-  readonly args: ReadonlyArray<string>;
-  readonly timeoutMs: number;
-  readonly cwd: string;
-}
-
-export interface CliInvocationResult {
-  readonly exitCode: number;
-  readonly stdout: string;
-  readonly stderr: string;
-}
-
-type NodePlatform = NodeJS.Platform;
-type AgentMcpCapability = Agent["capabilities"]["mcp-server"];
-type ConfiguredMcpCapability = AgentMcpCapability & {
-  readonly native: Extract<
-    AgentMcpCapability["native"],
-    { readonly transports: ReadonlyArray<McpTransport> }
-  >;
-  readonly axm: {
-    readonly writer: {
-      readonly config: McpConfig;
-    };
-  };
-};
-
-const DEFAULT_SUPPORTED_PLATFORMS = ["darwin", "linux", "win32"] as const;
-
-const JsonMcpConfigSchema = Schema.Struct({
-  servers: Schema.Record(Schema.String, Schema.Unknown),
-});
-type JsonMcpConfig = typeof JsonMcpConfigSchema.Type;
-
-const decodeJsonMcpConfigFromJsonString = Schema.decodeUnknownEffect(
-  Schema.fromJsonString(JsonMcpConfigSchema),
-);
-
-const emptyJsonMcpConfig: JsonMcpConfig = { servers: {} };
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
-const hasMcpConfig = (capability: AgentMcpCapability): capability is ConfiguredMcpCapability =>
-  capability.axm.writer !== null && "transports" in capability.native;
-
-const redactSecrets = (value: string): string =>
-  value
-    .replaceAll(/(token|secret|key|password)\s*[=:]\s*[^\s,]+/gi, "$1=[REDACTED]")
-    .replaceAll(/(bearer)\s+[a-z0-9._-]+/gi, "$1 [REDACTED]");
-
-const hasPathSeparator = (value: string): boolean => value.includes("/") || value.includes("\\");
-
-const getExecutableCandidates = (command: string, pathExt: string): ReadonlyArray<string> => {
-  if (process.platform !== "win32") {
-    return [command];
-  }
-
-  const hasExtension =
-    command.toLowerCase().endsWith(".exe") || command.toLowerCase().endsWith(".cmd");
-  if (hasExtension) {
-    return [command];
-  }
-
-  const extensions = pathExt
-    .split(";")
-    .map((segment) => segment.trim().toLowerCase())
-    .filter((segment) => segment.length > 0);
-  return [command, ...extensions.map((extension) => `${command}${extension}`)];
-};
-
-const checkExecutableAvailable = (
-  command: string,
-): Effect.Effect<boolean, Config.ConfigError, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-
-    if (command.trim().length === 0) {
-      return false;
-    }
-
-    const pathExtOpt = yield* envOption("PATHEXT");
-    const pathExt = Option.getOrElse(pathExtOpt, () => ".EXE;.CMD;.BAT;.COM");
-    const directCandidates = getExecutableCandidates(command, pathExt);
-    if (path.isAbsolute(command) || hasPathSeparator(command)) {
-      const checks = yield* Effect.forEach(
-        directCandidates,
-        (candidate) => fs.exists(candidate).pipe(Effect.catch(() => Effect.succeed(false))),
-        { concurrency: SCANNER_IO_CONCURRENCY },
-      );
-      return checks.some(Boolean);
-    }
-
-    const rawPathOpt = yield* envOption("PATH");
-    const rawPath = Option.getOrElse(rawPathOpt, () => "");
-    if (rawPath.trim().length === 0) {
-      return false;
-    }
-
-    const delimiter = process.platform === "win32" ? ";" : ":";
-    const dirs = rawPath
-      .split(delimiter)
-      .map((segment) => segment.trim())
-      .filter((segment) => segment.length > 0);
-
-    const checks = yield* Effect.forEach(
-      dirs,
-      (dir) =>
-        Effect.forEach(
-          directCandidates,
-          (candidate) =>
-            fs.exists(path.join(dir, candidate)).pipe(Effect.catch(() => Effect.succeed(false))),
-          // PATH directories run in parallel; probe each directory's extensions in order.
-          { concurrency: 1 },
-        ).pipe(Effect.map((results) => results.some(Boolean))),
-      { concurrency: SCANNER_IO_CONCURRENCY },
-    );
-
-    return checks.some(Boolean);
-  });
-
-const unsupportedExecutableReason = (command: string): string =>
-  `${command} CLI executable is unavailable on ${process.platform}; install ${command} and ensure it is on PATH`;
-
-const collectStreamText = <E>(stream: Stream.Stream<Uint8Array, E>): Effect.Effect<string, E> =>
-  Effect.gen(function* () {
-    const chunks = yield* Stream.runCollect(stream);
-    const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
-    const bytes = new Uint8Array(totalLength);
-    let offset = 0;
-
-    for (const chunk of chunks) {
-      bytes.set(chunk, offset);
-      offset += chunk.length;
-    }
-
-    return new TextDecoder("utf-8").decode(bytes);
-  });
-
-export const runCliInvocation = (
-  invocation: CliInvocation,
-): Effect.Effect<CliInvocationResult, McpConfigIoFailed, ChildProcessSpawner.ChildProcessSpawner> =>
-  Effect.gen(function* () {
-    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-    return yield* Effect.gen(function* () {
-      const handle = yield* spawner.spawn(
-        ChildProcess.make(invocation.command, invocation.args, {
-          cwd: invocation.cwd,
-          stdin: "ignore",
-          // Scope close terminates the child with SIGTERM; escalate to
-          // SIGKILL so an unresponsive CLI cannot stall the timeout path.
-          forceKillAfter: Duration.seconds(2),
-        }),
-      );
-      const collected = yield* Effect.all(
-        {
-          stdout: collectStreamText(handle.stdout),
-          stderr: collectStreamText(handle.stderr),
-          exitCode: handle.exitCode.pipe(
-            Effect.map((code) => Number(code)),
-            // A signal-terminated child reports no exit code; preserve the
-            // previous `code ?? 1` convention instead of failing.
-            Effect.catch(() => Effect.succeed(1)),
-          ),
-        },
-        { concurrency: "unbounded" },
-      );
-      return {
-        exitCode: collected.exitCode,
-        stdout: redactSecrets(collected.stdout.trim()),
-        stderr: redactSecrets(collected.stderr.trim()),
-      };
-    }).pipe(
-      Effect.scoped,
-      Effect.mapError(
-        (cause) =>
-          new McpConfigIoFailed({
-            detail: `Failed to execute MCP CLI command: ${invocation.command}`,
-            cause,
-          }),
-      ),
-      Effect.timeoutOrElse({
-        duration: Duration.millis(invocation.timeoutMs),
-        orElse: () =>
-          Effect.succeed({
-            // 124 follows the Unix `timeout(1)` convention; not an `ExitCode`.
-            exitCode: 124,
-            stdout: "",
-            stderr: `Command timed out after ${invocation.timeoutMs}ms`,
-          }),
-      }),
-    );
-  });
-
-const decodeJsonConfig = (
-  configPath: string,
-  raw: string,
-): Effect.Effect<JsonMcpConfig, McpConfigInvalid> =>
-  decodeJsonMcpConfigFromJsonString(raw).pipe(
-    Effect.mapError(
-      (cause) =>
-        new McpConfigInvalid({ detail: `Invalid MCP config format: ${configPath}`, cause }),
-    ),
-  );
-
-const parseJsonObject = (
-  configPath: string,
-  raw: string,
-): Effect.Effect<unknown, McpConfigInvalid> =>
-  Effect.try({
-    try: () => {
-      const errors: Array<ParseError> = [];
-      const parsed: unknown = parse(raw, errors, { allowTrailingComma: true });
-      if (errors.length > 0) throw errors;
-      return parsed;
-    },
-    catch: (cause) =>
-      new McpConfigInvalid({ detail: `Invalid MCP config JSON/JSONC: ${configPath}`, cause }),
-  });
-
-const resolveMcpConfigTargetPath = (
-  workspaceRoot: string,
-  target: McpConfigTarget,
-): Effect.Effect<string, McpConfigInvalid, Path.Path> =>
-  Effect.gen(function* () {
-    const path = yield* Path.Path;
-    const home = yield* getHome;
-    const configPath =
-      target.scope === "user"
-        ? target.path.startsWith("~/")
-          ? path.join(home, target.path.slice(2))
-          : path.resolve(home, target.path)
-        : path.resolve(workspaceRoot, target.path);
-
-    if (target.scope === "project" && !isPathSafe(path, workspaceRoot, configPath)) {
-      return yield* new McpConfigInvalid({
-        detail: `MCP config target escapes workspace root: ${target.path}`,
-      });
-    }
-    return configPath;
-  });
-
-const readOptionalConfig = (
-  configPath: string,
-): Effect.Effect<Option.Option<string>, McpConfigIoFailed, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const exists = yield* fs
-      .exists(configPath)
-      .pipe(
-        Effect.mapError(
-          (cause) =>
-            new McpConfigIoFailed({ detail: `Failed to inspect MCP config: ${configPath}`, cause }),
-        ),
-      );
-    if (!exists) return Option.none();
-    return yield* fs.readFileString(configPath).pipe(
-      Effect.map(Option.some),
-      Effect.mapError(
-        (cause) =>
-          new McpConfigIoFailed({ detail: `Failed to read MCP config: ${configPath}`, cause }),
-      ),
-    );
-  });
-
-const collectManagedJsonServerNames = (
-  configPath: string,
-  raw: string,
-  serversKey: string,
-  declaredServerNames: ReadonlySet<string>,
-): Effect.Effect<ReadonlyArray<string>, McpConfigInvalid> =>
-  Effect.gen(function* () {
-    const parsed = yield* parseJsonObject(configPath, raw);
-    if (!isRecord(parsed)) return [];
-    const servers = parsed[serversKey];
-    if (!isRecord(servers)) return [];
-    return Object.entries(servers).flatMap(([name, entry]) =>
-      isRecord(entry) && isAxmManagedMcpEntry(entry) && !declaredServerNames.has(name)
-        ? [name]
-        : [],
-    );
-  });
-
-const collectManagedTomlServerNames = (
-  raw: string,
-  declaredServerNames: ReadonlySet<string>,
-): ReadonlyArray<string> => {
-  return managedKeyedBlockNames(raw).filter((name) => !declaredServerNames.has(name));
-};
-
-const collectManagedYamlServerNames = (
-  configPath: string,
-  raw: string,
-  serversKey: string,
-  declaredServerNames: ReadonlySet<string>,
-): Effect.Effect<ReadonlyArray<string>, McpConfigInvalid> =>
-  Effect.try({
-    try: () => managedYamlNames(raw, serversKey, isAxmManagedMcpEntry),
-    catch: (cause) =>
-      new McpConfigInvalid({ detail: `Invalid MCP config YAML: ${configPath}`, cause }),
-  }).pipe(Effect.map((names) => names.filter((name) => !declaredServerNames.has(name))));
-
-const upsertJsonConfigServer = (
-  configPath: string,
-  serverName: string,
-  entry: unknown,
-): Effect.Effect<
-  void,
-  McpConfigSyncFailure,
-  FileSystem.FileSystem | Path.Path | NativeWriteAuthority
-> =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const authority = yield* NativeWriteAuthority;
-    const dir = path.dirname(configPath);
-    yield* fs
-      .makeDirectory(dir, { recursive: true })
-      .pipe(
-        Effect.mapError(
-          (cause) =>
-            new McpConfigIoFailed({ detail: `Failed to create config directory: ${dir}`, cause }),
-        ),
-      );
-
-    const exists = yield* fs
-      .exists(configPath)
-      .pipe(
-        Effect.mapError(
-          (cause) =>
-            new McpConfigIoFailed({ detail: `Failed to inspect MCP config: ${configPath}`, cause }),
-        ),
-      );
-    const parsed = exists
-      ? yield* fs.readFileString(configPath).pipe(
-          Effect.mapError(
-            (cause) =>
-              new McpConfigIoFailed({ detail: `Failed to read MCP config: ${configPath}`, cause }),
-          ),
-          Effect.flatMap((raw) => decodeJsonConfig(configPath, raw)),
-        )
-      : emptyJsonMcpConfig;
-    const updated = {
-      ...parsed,
-      servers: {
-        ...parsed.servers,
-        [serverName]: entry,
-      },
-    };
-
-    yield* authority.protect(configPath);
-    const existedBefore = yield* fs
-      .exists(configPath)
-      .pipe(Effect.catch(() => Effect.succeed(false)));
-    yield* fs
-      .writeFileString(configPath, `${JSON.stringify(updated, null, 2)}\n`)
-      .pipe(
-        Effect.mapError(
-          (cause) =>
-            new McpConfigIoFailed({ detail: `Failed to write MCP config: ${configPath}`, cause }),
-        ),
-      );
-    yield* authority.record({
-      path: configPath,
-      change: existedBefore ? "modified" : "created",
-    });
-  });
-
-const removeJsonConfigServer = (
-  configPath: string,
-  serverName: string,
-): Effect.Effect<
-  void,
-  McpConfigSyncFailure,
-  FileSystem.FileSystem | Path.Path | NativeWriteAuthority
-> =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const authority = yield* NativeWriteAuthority;
-    const exists = yield* fs.exists(configPath).pipe(Effect.catch(() => Effect.succeed(false)));
-    if (!exists) {
-      return;
-    }
-
-    const existing = yield* fs
-      .readFileString(configPath)
-      .pipe(
-        Effect.mapError(
-          (cause) =>
-            new McpConfigIoFailed({ detail: `Failed to read MCP config: ${configPath}`, cause }),
-        ),
-      );
-    const parsed = yield* decodeJsonConfig(configPath, existing);
-    const { [serverName]: _, ...rest } = parsed.servers;
-    void _;
-    const updated = {
-      ...parsed,
-      servers: rest,
-    };
-
-    yield* authority.protect(configPath);
-    const existedBefore = yield* fs
-      .exists(configPath)
-      .pipe(Effect.catch(() => Effect.succeed(false)));
-    yield* fs
-      .writeFileString(configPath, `${JSON.stringify(updated, null, 2)}\n`)
-      .pipe(
-        Effect.mapError(
-          (cause) =>
-            new McpConfigIoFailed({ detail: `Failed to write MCP config: ${configPath}`, cause }),
-        ),
-      );
-    yield* authority.record({
-      path: configPath,
-      change: existedBefore ? "modified" : "created",
-    });
-  });
-
-interface CliOutcomeMapping {
-  readonly idempotentPatterns: ReadonlyArray<RegExp>;
-}
-
-const cliResultToOutcome = (
-  result: CliInvocationResult,
-  mapping: CliOutcomeMapping,
-): McpServerSyncOutcome => {
-  if (result.exitCode === 0) {
-    return { _tag: "success" };
-  }
-
-  const stderr = result.stderr.toLowerCase();
-  const combinedOutput = `${result.stdout}\n${result.stderr}`;
-  if (mapping.idempotentPatterns.some((pattern) => pattern.test(combinedOutput))) {
-    return { _tag: "success" };
-  }
-
-  if (
-    stderr.includes("not found") ||
-    stderr.includes("enoent") ||
-    stderr.includes("cli not available")
-  ) {
-    return {
-      _tag: "unsupported",
-      reason: result.stderr.length > 0 ? result.stderr : "CLI executable not available",
-    };
-  }
-
-  if (stderr.includes("auth") || stderr.includes("login") || stderr.includes("permission")) {
-    return {
-      _tag: "disabled",
-      reason: result.stderr,
-    };
-  }
-
-  if (stderr.includes("invalid") || stderr.includes("usage:")) {
-    return {
-      _tag: "misconfigured",
-      reason: result.stderr,
-    };
-  }
-
-  return {
-    _tag: "failed",
-    reason: result.stderr.length > 0 ? result.stderr : `Exit code ${result.exitCode}`,
-  };
-};
-
-const ensurePlatformSupported = (
-  command: string,
-  supportedPlatforms: ReadonlyArray<NodePlatform>,
-): Option.Option<McpServerSyncOutcome> => {
-  const currentPlatform = process.platform;
-  if (supportedPlatforms.includes(currentPlatform)) {
-    return Option.none();
-  }
-
-  return Option.some({
-    _tag: "unsupported",
-    reason: `${command} MCP sync is unsupported on ${currentPlatform}; supported platforms: ${supportedPlatforms.join(", ")}`,
-  });
-};
-
-const replaceTemplate = (value: string, args: AddMcpServerArgs | RemoveMcpServerArgs): string =>
-  value
-    .replaceAll("{workspaceRoot}", args.workspaceRoot)
-    .replaceAll("{serverName}", args.serverName)
-    .replaceAll("{canonicalPath}", "canonicalPath" in args ? args.canonicalPath : "")
-    .replaceAll("{owner}", "owner" in args ? args.owner : "")
-    .replaceAll("{resolvedVersion}", "resolvedVersion" in args ? args.resolvedVersion : "");
-
-export interface MixedStrategyConfig {
-  readonly configPath: string;
-  readonly cliAdd: ReadonlyArray<string>;
-  readonly cliRemove: ReadonlyArray<string>;
-  readonly supportedPlatforms?: ReadonlyArray<NodePlatform>;
-  readonly addIdempotentPatterns?: ReadonlyArray<RegExp>;
-  readonly removeIdempotentPatterns?: ReadonlyArray<RegExp>;
-  readonly timeoutMs?: number;
-}
-
-const ADD_IDEMPOTENT_PATTERNS: ReadonlyArray<RegExp> = [/already exists/i, /already added/i];
-const REMOVE_IDEMPOTENT_PATTERNS: ReadonlyArray<RegExp> = [/not installed/i, /not configured/i];
-
-const entryFromAddArgs = (args: AddMcpServerArgs) => ({
-  [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadata({
-    ext: `${args.owner}/mcps/${args.serverName}`,
-    source: "registry",
-    ref: `${args.owner}/mcps/${args.serverName}`,
-  }),
-});
 
 export interface SyncInlineMcpServerArgs {
   readonly workspaceRoot: string;
@@ -592,36 +60,94 @@ export interface PruneManagedMcpServersArgs {
   readonly dryRun?: boolean;
 }
 
-interface SharedSyncMember {
-  readonly targetMember: SharedMcpTargetMember;
-  readonly envExpansion: McpEnvExpansion | undefined;
+export interface SyncManifestMcpServerArgs extends AddMcpServerArgs {
+  readonly agentIds: ReadonlyArray<string>;
 }
 
-interface SharedSyncAccumulator {
-  readonly targets: Array<McpServerSyncTarget>;
-  readonly warnings: Array<string>;
+export interface ValidateManifestMcpServerTargetsArgs {
+  readonly manifest: McpServerManifest;
+  readonly agentIds: ReadonlyArray<string>;
+  readonly scope: "project" | "user";
+  readonly serverName: string;
+  readonly values: Readonly<Record<string, string>>;
+  readonly enabled: boolean;
 }
 
-const sharedTransportForEntry = (
-  entry: McpServerDeclaration,
-): Effect.Effect<SharedMcpTransport, McpDefinitionInvalid> => {
-  if (entry.command !== undefined) return Effect.succeed("stdio");
-  if (entry.url !== undefined) {
-    const inference = inferInlineRemoteTransport(entry.url);
-    return inference._tag === "supported"
-      ? Effect.succeed(inference.transport)
-      : Effect.fail(
-          new McpDefinitionInvalid({
-            detail: "Invalid inline MCP server URL",
-            cause: inference.reason,
-          }),
-        );
+/** A plan whose readers all accept their shared entries, or the conflict that stops it. */
+const plannedTargets = (
+  plan: McpTargetPlan,
+): Effect.Effect<
+  Extract<McpTargetPlan, { readonly _tag: "planned" }>,
+  McpDefinitionInvalid | McpSharedTargetConflict
+> => {
+  if (plan._tag === "invalid") {
+    return Effect.fail(new McpDefinitionInvalid({ detail: plan.detail, cause: plan.cause }));
   }
-  return Effect.fail(
-    new McpDefinitionInvalid({ detail: "Inline MCP server has no command or URL" }),
-  );
+  const blocked = plan.agents.find((agent) => agent._tag === "blocked");
+  return blocked !== undefined && blocked._tag === "blocked"
+    ? Effect.fail(new McpSharedTargetConflict({ reason: blocked.reason }))
+    : Effect.succeed(plan);
 };
 
+/** Write every planned shared file once and report the targets each agent gained. */
+const applyPlannedWrites = (
+  workspaceRoot: string,
+  serverName: string,
+  writes: ReadonlyArray<McpTargetWrite>,
+): Effect.Effect<
+  ReadonlyMap<string, ReadonlyArray<McpServerSyncTarget>>,
+  CodingAgentFailure,
+  FileSystem.FileSystem | Path.Path | NativeWriteAuthority
+> =>
+  Effect.gen(function* () {
+    const targetsByAgent = new Map<string, Array<McpServerSyncTarget>>();
+    for (const write of writes) {
+      const result = yield* writeAgentMcpConfig({
+        workspaceRoot,
+        serverName,
+        serversKey: write.config.serversKey,
+        target: write.target,
+        entry: write.entry,
+      });
+      for (const agentId of write.agentIds) {
+        const targets = targetsByAgent.get(agentId) ?? [];
+        targets.push(...result.targets);
+        targetsByAgent.set(agentId, targets);
+      }
+    }
+    return targetsByAgent;
+  });
+
+const outcomeForAgent = (
+  agent: McpAgentTargetPlan,
+  targets: ReadonlyArray<McpServerSyncTarget>,
+): McpServerSyncOutcome => {
+  switch (agent._tag) {
+    case "unsupported":
+      return { _tag: "unsupported", reason: agent.reason };
+    case "nothing-runnable":
+      return { _tag: "nothing-runnable", reason: agent.reason };
+    case "blocked":
+      return { _tag: "unsupported", reason: agent.reason };
+    case "needs-input":
+      return { _tag: "needs-input", reason: agent.warnings.join("; ") };
+    case "projected":
+      return agent.shimmed
+        ? {
+            _tag: "fallback",
+            fallbackFrom: "unsupported",
+            reason: agent.warnings.join("; "),
+            targets,
+          }
+        : {
+            _tag: "success",
+            targets,
+            ...(agent.warnings.length > 0 ? { warnings: agent.warnings } : {}),
+          };
+  }
+};
+
+/** Project one inline server into every configured agent that shares its files. */
 export const syncInlineMcpServerToAgents = (
   agentIds: ReadonlyArray<string>,
   args: SyncInlineMcpServerArgs,
@@ -631,131 +157,21 @@ export const syncInlineMcpServerToAgents = (
   FileSystem.FileSystem | Path.Path | NativeWriteAuthority
 > =>
   Effect.gen(function* () {
-    const transport = yield* sharedTransportForEntry(args.entry);
-    const scope = args.scope ?? "project";
-    const terminalOutcomes = new Map<string, McpServerSyncOutcome>();
-    const accumulators = new Map<string, SharedSyncAccumulator>();
-
-    for (const agentId of agentIds) {
-      if (!isCapabilityAgentId(agentId)) {
-        terminalOutcomes.set(agentId, {
-          _tag: "unsupported",
-          reason: agentId + " has no MCP capability catalog entry",
-        });
-        continue;
-      }
-      const capability = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"];
-      if (!hasMcpConfig(capability)) {
-        terminalOutcomes.set(agentId, {
-          _tag: "unsupported",
-          reason: agentId + " does not have MCP config support",
-        });
-        continue;
-      }
-      accumulators.set(agentId, { targets: [], warnings: [] });
-    }
-
-    const groups = groupConfiguredMcpTargets({ agentIds, scope });
-    for (const group of groups) {
-      const members: ReadonlyArray<SharedSyncMember> = group.members.map((targetMember) => {
-        if (!isCapabilityAgentId(targetMember.agentId)) {
-          return { targetMember, envExpansion: undefined };
-        }
-        const capability =
-          CONFIGURABLE_AGENTS_BY_ID[targetMember.agentId].capabilities["mcp-server"];
-        return {
-          targetMember,
-          envExpansion: hasMcpConfig(capability) ? capability.native.mcpEnvExpansion : undefined,
-        };
-      });
-      const resolution = resolveSharedMcpTarget({
-        members: members.map((member) => member.targetMember),
-        transport,
-      });
-      if (resolution._tag === "conflict") {
-        return yield* new McpSharedTargetConflict({ reason: resolution.reason });
-      }
-      const projected = members.map((member) => ({
-        agentId: member.targetMember.agentId,
-        result: projectExpectedEntry({
-          serverName: args.serverName,
-          entry: args.entry,
-          stdio: resolution.config.stdio,
-          remote: resolution.config.remote,
-          activationField: resolution.config.activationField,
-          envExpansion: member.envExpansion,
-        }),
-      }));
-      const unsupported = projected.find((item) => item.result._tag === "unsupported");
-      if (unsupported !== undefined && unsupported.result._tag === "unsupported") {
-        return yield* new McpSharedTargetConflict({
-          reason:
-            unsupported.agentId +
-            " cannot read shared MCP target '" +
-            resolution.path +
-            "': " +
-            unsupported.result.reason,
-        });
-      }
-      const firstProjected = projected[0]?.result;
-      if (firstProjected === undefined || firstProjected._tag !== "projected") {
-        return yield* new McpConfigIoFailed({
-          detail: "Shared MCP target projection produced no entry for " + resolution.path,
-          cause: undefined,
-        });
-      }
-      const writeResult = yield* writeAgentMcpConfig({
-        workspaceRoot: args.workspaceRoot,
+    const plan = yield* plannedTargets(
+      planMcpServerTargets({
+        agentIds,
+        scope: args.scope ?? "project",
         serverName: args.serverName,
-        serversKey: resolution.config.serversKey,
-        target: resolution.target,
-        entry: firstProjected.entry,
-      });
-      for (const item of projected) {
-        if (item.result._tag !== "projected") continue;
-        const accumulator = accumulators.get(item.agentId);
-        if (accumulator === undefined) continue;
-        accumulator.targets.push(...writeResult.targets);
-        accumulator.warnings.push(...item.result.warnings);
-      }
-    }
-
-    return agentIds.map((agentId): McpServerSyncOutcome => {
-      const terminal = terminalOutcomes.get(agentId);
-      if (terminal !== undefined) return terminal;
-      const accumulator = accumulators.get(agentId);
-      if (accumulator === undefined) {
-        return {
-          _tag: "unsupported",
-          reason: agentId + " does not have MCP config support",
-        };
-      }
-      return {
-        _tag: "success",
-        targets: accumulator.targets,
-        ...(accumulator.warnings.length > 0 ? { warnings: accumulator.warnings } : {}),
-      };
-    });
-  });
-
-export const syncInlineMcpServerToAgent = (
-  agentId: string,
-  args: SyncInlineMcpServerArgs,
-): Effect.Effect<
-  McpServerSyncOutcome,
-  CodingAgentFailure,
-  FileSystem.FileSystem | Path.Path | NativeWriteAuthority
-> =>
-  Effect.gen(function* () {
-    const outcomes = yield* syncInlineMcpServerToAgents([agentId], args);
-    return (
-      outcomes[0] ?? {
-        _tag: "unsupported",
-        reason: agentId + " does not have MCP config support",
-      }
+        declaration: args.entry,
+        values: args.entry.env,
+        enabled: args.entry.enabled ?? true,
+      }),
     );
+    const written = yield* applyPlannedWrites(args.workspaceRoot, args.serverName, plan.writes);
+    return plan.agents.map((agent) => outcomeForAgent(agent, written.get(agent.agentId) ?? []));
   });
 
+/** Remove every AXM-managed entry desired state no longer names from one agent's files. */
 export const pruneManagedMcpServersForAgent = (
   agentId: string,
   args: PruneManagedMcpServersArgs,
@@ -765,22 +181,13 @@ export const pruneManagedMcpServersForAgent = (
   FileSystem.FileSystem | Path.Path | NativeWriteAuthority
 > =>
   Effect.gen(function* () {
-    if (!isCapabilityAgentId(agentId)) {
-      return {
-        _tag: "unsupported",
-        reason: `${agentId} has no MCP capability catalog entry`,
-      } as const;
-    }
-
-    const agent: Agent = CONFIGURABLE_AGENTS_BY_ID[agentId];
-    const capability = agent.capabilities["mcp-server"];
-    if (!hasMcpConfig(capability)) {
+    const capability = configuredMcpCapability(agentId);
+    if (capability === undefined) {
       return {
         _tag: "unsupported",
         reason: `${agentId} does not have MCP config support`,
       } as const;
     }
-
     const config = capability.axm.writer.config;
     const targets = config.targets.filter((target) => target.scope === (args.scope ?? "project"));
     const prunedTargets: Array<McpServerSyncTarget> = [];
@@ -788,32 +195,16 @@ export const pruneManagedMcpServersForAgent = (
       targets,
       (target) =>
         Effect.gen(function* () {
-          const configPath = yield* resolveMcpConfigTargetPath(args.workspaceRoot, target);
-          const raw = yield* readOptionalConfig(configPath);
+          const configPath = yield* resolveAgentMcpConfigTargetPath(args.workspaceRoot, target);
+          const raw = yield* readNativeMcpConfig(configPath);
           if (Option.isNone(raw)) return;
-          const staleNames = yield* Effect.gen(function* () {
-            switch (target.format) {
-              case "toml":
-                return collectManagedTomlServerNames(raw.value, args.declaredServerNames);
-              case "yaml":
-                return yield* collectManagedYamlServerNames(
-                  configPath,
-                  raw.value,
-                  config.serversKey,
-                  args.declaredServerNames,
-                );
-              case "json":
-              case "jsonc":
-              case "starlark":
-              case "vscode-settings":
-                return yield* collectManagedJsonServerNames(
-                  configPath,
-                  raw.value,
-                  config.serversKey,
-                  args.declaredServerNames,
-                );
-            }
+          const managed = yield* managedNativeMcpEntryNames({
+            format: target.format,
+            configPath,
+            raw: raw.value,
+            serversKey: config.serversKey,
           });
+          const staleNames = managed.filter((name) => !args.declaredServerNames.has(name));
           if (staleNames.length === 0) return;
           if (args.dryRun !== true) {
             yield* Effect.forEach(
@@ -839,9 +230,6 @@ export const pruneManagedMcpServersForAgent = (
       ...(prunedTargets.length > 0 ? { targets: prunedTargets } : {}),
     } satisfies McpServerSyncOutcome;
   });
-
-const isCapabilityAgentId = (id: string): id is CapabilityAgentId =>
-  id in CONFIGURABLE_AGENTS_BY_ID;
 
 export const decodeMcpServerManifestAt = (
   manifestPath: string,
@@ -876,244 +264,16 @@ export const decodeMcpServerManifestAt = (
     );
   });
 
-const fallbackOutcome = (
-  fallbackFrom: "unsupported" | "disabled",
-  reason: string,
-  targets?: ReadonlyArray<McpServerSyncTarget>,
-): McpServerSyncOutcome => ({
-  _tag: "fallback",
-  fallbackFrom,
-  reason,
-  ...(targets === undefined ? {} : { targets }),
+const manifestDeclaration = (args: {
+  readonly configValues?: Readonly<Record<string, string>> | undefined;
+  readonly enabled?: boolean | undefined;
+}): McpServerDeclaration => ({
+  kind: "configuration",
+  env: args.configValues ?? {},
+  ...(args.enabled === undefined ? {} : { enabled: args.enabled }),
 });
 
-export const addMcpServerMixed = (
-  strategy: MixedStrategyConfig,
-  args: AddMcpServerArgs,
-): Effect.Effect<
-  McpServerSyncOutcome,
-  McpConfigSyncFailure | Config.ConfigError,
-  FileSystem.FileSystem | Path.Path | NativeWriteAuthority | ChildProcessSpawner.ChildProcessSpawner
-> =>
-  Effect.gen(function* () {
-    const platformOutcome = ensurePlatformSupported(
-      strategy.cliAdd[0] ?? "cli",
-      strategy.supportedPlatforms ?? DEFAULT_SUPPORTED_PLATFORMS,
-    );
-    if (Option.isSome(platformOutcome)) {
-      return platformOutcome.value;
-    }
-
-    const executableAvailable = yield* checkExecutableAvailable(strategy.cliAdd[0] ?? "");
-    const cliOutcome = executableAvailable
-      ? yield* runCliInvocation({
-          command: strategy.cliAdd[0] ?? "",
-          args: strategy.cliAdd.slice(1).map((value) => replaceTemplate(value, args)),
-          timeoutMs: strategy.timeoutMs ?? 10_000,
-          cwd: args.workspaceRoot,
-        }).pipe(
-          Effect.map((invocation) =>
-            cliResultToOutcome(invocation, {
-              idempotentPatterns: strategy.addIdempotentPatterns ?? ADD_IDEMPOTENT_PATTERNS,
-            }),
-          ),
-        )
-      : ({
-          _tag: "unsupported",
-          reason: unsupportedExecutableReason(strategy.cliAdd[0] ?? "cli"),
-        } as const);
-    if (cliOutcome._tag === "success") {
-      return cliOutcome;
-    }
-
-    if (cliOutcome._tag === "unsupported") {
-      yield* upsertJsonConfigServer(
-        strategy.configPath.replaceAll("{workspaceRoot}", args.workspaceRoot),
-        args.serverName,
-        entryFromAddArgs(args),
-      );
-      return fallbackOutcome("unsupported", cliOutcome.reason);
-    }
-
-    if (cliOutcome._tag === "disabled") {
-      yield* upsertJsonConfigServer(
-        strategy.configPath.replaceAll("{workspaceRoot}", args.workspaceRoot),
-        args.serverName,
-        entryFromAddArgs(args),
-      );
-      return fallbackOutcome("disabled", cliOutcome.reason);
-    }
-
-    return cliOutcome;
-  });
-
-export const removeMcpServerMixed = (
-  strategy: MixedStrategyConfig,
-  args: RemoveMcpServerArgs,
-): Effect.Effect<
-  McpServerSyncOutcome,
-  McpConfigSyncFailure | Config.ConfigError,
-  FileSystem.FileSystem | Path.Path | NativeWriteAuthority | ChildProcessSpawner.ChildProcessSpawner
-> =>
-  Effect.gen(function* () {
-    const platformOutcome = ensurePlatformSupported(
-      strategy.cliRemove[0] ?? "cli",
-      strategy.supportedPlatforms ?? DEFAULT_SUPPORTED_PLATFORMS,
-    );
-    if (Option.isSome(platformOutcome)) {
-      return platformOutcome.value;
-    }
-
-    const executableAvailable = yield* checkExecutableAvailable(strategy.cliRemove[0] ?? "");
-    const cliOutcome = executableAvailable
-      ? yield* runCliInvocation({
-          command: strategy.cliRemove[0] ?? "",
-          args: strategy.cliRemove.slice(1).map((value) => replaceTemplate(value, args)),
-          timeoutMs: strategy.timeoutMs ?? 10_000,
-          cwd: args.workspaceRoot,
-        }).pipe(
-          Effect.map((invocation) =>
-            cliResultToOutcome(invocation, {
-              idempotentPatterns: strategy.removeIdempotentPatterns ?? REMOVE_IDEMPOTENT_PATTERNS,
-            }),
-          ),
-        )
-      : ({
-          _tag: "unsupported",
-          reason: unsupportedExecutableReason(strategy.cliRemove[0] ?? "cli"),
-        } as const);
-    if (cliOutcome._tag === "success") {
-      return cliOutcome;
-    }
-
-    if (cliOutcome._tag === "unsupported" || cliOutcome._tag === "disabled") {
-      yield* removeJsonConfigServer(
-        strategy.configPath.replaceAll("{workspaceRoot}", args.workspaceRoot),
-        args.serverName,
-      );
-      return fallbackOutcome(cliOutcome._tag, cliOutcome.reason);
-    }
-
-    return cliOutcome;
-  });
-
-export const addMcpServerConfigOnly = (
-  configPathTemplate: string,
-  args: AddMcpServerArgs,
-): Effect.Effect<
-  McpServerSyncOutcome,
-  McpConfigSyncFailure,
-  FileSystem.FileSystem | Path.Path | NativeWriteAuthority
-> =>
-  upsertJsonConfigServer(
-    configPathTemplate.replaceAll("{workspaceRoot}", args.workspaceRoot),
-    args.serverName,
-    entryFromAddArgs(args),
-  ).pipe(Effect.as({ _tag: "success" } as const));
-
-export const removeMcpServerConfigOnly = (
-  configPathTemplate: string,
-  args: RemoveMcpServerArgs,
-): Effect.Effect<
-  McpServerSyncOutcome,
-  McpConfigSyncFailure,
-  FileSystem.FileSystem | Path.Path | NativeWriteAuthority
-> =>
-  removeJsonConfigServer(
-    configPathTemplate.replaceAll("{workspaceRoot}", args.workspaceRoot),
-    args.serverName,
-  ).pipe(Effect.as({ _tag: "success" } as const));
-
-export interface ConfigFirstStrategy {
-  readonly configPath: string;
-  readonly verifyCommand?: ReadonlyArray<string>;
-  readonly supportedPlatforms?: ReadonlyArray<NodePlatform>;
-  readonly timeoutMs?: number;
-}
-
-const prepareConfigFirstVerification = (
-  strategy: ConfigFirstStrategy,
-  args: AddMcpServerArgs | RemoveMcpServerArgs,
-): Effect.Effect<
-  Effect.Effect<McpServerSyncOutcome, McpConfigIoFailed, ChildProcessSpawner.ChildProcessSpawner>,
-  Config.ConfigError,
-  FileSystem.FileSystem | Path.Path
-> =>
-  Effect.gen(function* () {
-    if (strategy.verifyCommand === undefined || strategy.verifyCommand.length === 0) {
-      return Effect.succeed({ _tag: "success" } as const);
-    }
-
-    const platformOutcome = ensurePlatformSupported(
-      strategy.verifyCommand[0] ?? "cli",
-      strategy.supportedPlatforms ?? DEFAULT_SUPPORTED_PLATFORMS,
-    );
-    if (Option.isSome(platformOutcome)) {
-      return Effect.succeed({ _tag: "success" } as const);
-    }
-
-    const executableAvailable = yield* checkExecutableAvailable(strategy.verifyCommand[0] ?? "");
-    if (!executableAvailable) {
-      return Effect.succeed({ _tag: "success" } as const);
-    }
-
-    const command = strategy.verifyCommand;
-    return Effect.gen(function* () {
-      const invocation = yield* runCliInvocation({
-        command: command[0] ?? "",
-        args: command.slice(1).map((value) => replaceTemplate(value, args)),
-        timeoutMs: strategy.timeoutMs ?? 10_000,
-        cwd: args.workspaceRoot,
-      });
-
-      const outcome = cliResultToOutcome(invocation, {
-        idempotentPatterns: [],
-      });
-      if (outcome._tag === "disabled") {
-        return outcome;
-      }
-      if (outcome._tag === "misconfigured" || outcome._tag === "failed") {
-        return outcome;
-      }
-      return { _tag: "success" } as const;
-    });
-  });
-
-export const addMcpServerConfigFirst = (
-  strategy: ConfigFirstStrategy,
-  args: AddMcpServerArgs,
-): Effect.Effect<
-  McpServerSyncOutcome,
-  McpConfigSyncFailure | Config.ConfigError,
-  FileSystem.FileSystem | Path.Path | NativeWriteAuthority | ChildProcessSpawner.ChildProcessSpawner
-> =>
-  Effect.gen(function* () {
-    const verify = yield* prepareConfigFirstVerification(strategy, args);
-    yield* upsertJsonConfigServer(
-      strategy.configPath.replaceAll("{workspaceRoot}", args.workspaceRoot),
-      args.serverName,
-      entryFromAddArgs(args),
-    );
-    return yield* verify;
-  });
-
-export const removeMcpServerConfigFirst = (
-  strategy: ConfigFirstStrategy,
-  args: RemoveMcpServerArgs,
-): Effect.Effect<
-  McpServerSyncOutcome,
-  McpConfigSyncFailure | Config.ConfigError,
-  FileSystem.FileSystem | Path.Path | NativeWriteAuthority | ChildProcessSpawner.ChildProcessSpawner
-> =>
-  Effect.gen(function* () {
-    const verify = yield* prepareConfigFirstVerification(strategy, args);
-    yield* removeJsonConfigServer(
-      strategy.configPath.replaceAll("{workspaceRoot}", args.workspaceRoot),
-      args.serverName,
-    );
-    return yield* verify;
-  });
-
+/** Project one manifest-backed server into one agent's native targets. */
 export const addMcpServerFromManifest = (
   agentId: string,
   args: AddMcpServerArgs,
@@ -1124,175 +284,49 @@ export const addMcpServerFromManifest = (
 > =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    if (!isCapabilityAgentId(agentId)) {
-      return {
-        _tag: "unsupported",
-        reason: `${agentId} has no MCP capability catalog entry`,
-      } as const;
-    }
-
-    const agent: Agent = CONFIGURABLE_AGENTS_BY_ID[agentId];
-    const capability = agent.capabilities["mcp-server"];
-    if (!hasMcpConfig(capability)) {
+    if (configuredMcpCapability(agentId) === undefined) {
       return {
         _tag: "unsupported",
         reason: `${agentId} does not have MCP config support`,
       } as const;
     }
-    const config = capability.axm.writer.config;
-
     const manifest = yield* decodeMcpServerManifestAt(
       path.join(args.canonicalPath, MCP_SERVER_MANIFEST_FILENAME),
     );
-    const resolution = resolveMcpServer({
+    const plan = planMcpServerTargets({
+      agentIds: [agentId],
+      scope: args.scope ?? "project",
+      serverName: args.serverName,
+      declaration: manifestDeclaration(args),
       manifest,
-      localName: args.serverName,
-      capability,
       values: args.configValues ?? {},
       enabled: args.enabled ?? true,
     });
-
-    if (resolution._tag === "nothing-runnable") {
-      return resolution;
+    if (plan._tag === "invalid") {
+      return yield* new McpDefinitionInvalid({ detail: plan.detail, cause: plan.cause });
     }
-    if (resolution._tag === "no-distribution") {
-      return {
-        _tag: "unsupported",
-        reason: resolution.reason,
-      } as const;
-    }
-
-    const targets = config.targets.filter((target) => target.scope === (args.scope ?? "project"));
-    const writeResults = yield* Effect.forEach(
-      targets,
-      (target) =>
-        writeAgentMcpConfig({
-          workspaceRoot: args.workspaceRoot,
-          serverName: args.serverName,
-          serversKey: config.serversKey,
-          target,
-          entry: resolution.entry,
-        }),
-      { concurrency: "unbounded" },
-    );
-    const syncTargets = writeResults.flatMap((result) => result.targets);
-
-    if (resolution._tag === "needs-input") {
-      return {
-        _tag: "needs-input",
-        reason: resolution.warnings.join("; "),
-      } as const;
-    }
-    if (resolution.shimmed) {
-      return {
-        _tag: "fallback",
-        fallbackFrom: "unsupported",
-        reason: resolution.warnings.join("; "),
-        targets: syncTargets,
-      } as const;
-    }
-    return { _tag: "success", targets: syncTargets } as const;
+    const written = yield* applyPlannedWrites(args.workspaceRoot, args.serverName, plan.writes);
+    const agent = plan.agents[0];
+    return agent === undefined
+      ? { _tag: "unsupported", reason: `${agentId} has no MCP config target` }
+      : outcomeForAgent(agent, written.get(agentId) ?? []);
   });
 
-export interface SyncManifestMcpServerArgs extends AddMcpServerArgs {
-  readonly agentIds: ReadonlyArray<string>;
-}
-
-type RunnableMcpResolution = Extract<McpResolution, { readonly _tag: "resolved" | "needs-input" }>;
-type UnavailableMcpResolution = Exclude<McpResolution, RunnableMcpResolution>;
-
-const isRunnableMcpResolution = (resolution: McpResolution): resolution is RunnableMcpResolution =>
-  resolution._tag === "resolved" || resolution._tag === "needs-input";
-
-const isUnavailableMcpResolution = (
-  resolution: McpResolution,
-): resolution is UnavailableMcpResolution => !isRunnableMcpResolution(resolution);
-
-export interface ValidateManifestMcpServerTargetsArgs {
-  readonly manifest: McpServerManifest;
-  readonly agentIds: ReadonlyArray<string>;
-  readonly scope: "project" | "user";
-  readonly serverName: string;
-  readonly values: Readonly<Record<string, string>>;
-  readonly enabled: boolean;
-}
-
-/** Validate that every configured reader of a shared target accepts one representation. */
+/** Refuse a manifest whose shared targets cannot hold one entry every reader accepts. */
 export const validateManifestMcpServerTargets = (
   args: ValidateManifestMcpServerTargetsArgs,
-): Effect.Effect<void, McpSharedTargetConflict> =>
-  Effect.gen(function* () {
-    for (const group of groupConfiguredMcpTargets(args)) {
-      const resolved = group.members.map((member) => {
-        const capability = isCapabilityAgentId(member.agentId)
-          ? CONFIGURABLE_AGENTS_BY_ID[member.agentId].capabilities["mcp-server"]
-          : undefined;
-        return {
-          member,
-          resolution:
-            capability === undefined || !hasMcpConfig(capability)
-              ? ({
-                  _tag: "no-distribution",
-                  reason: "agent does not have MCP config support",
-                } as const)
-              : resolveMcpServer({
-                  manifest: args.manifest,
-                  localName: args.serverName,
-                  capability,
-                  values: args.values,
-                  enabled: args.enabled,
-                }),
-        };
-      });
-      const runnable = resolved.filter(
-        (item): item is typeof item & { readonly resolution: RunnableMcpResolution } =>
-          isRunnableMcpResolution(item.resolution),
-      );
-      if (runnable.length === 0) continue;
-      const unavailable = resolved.find(
-        (item): item is typeof item & { readonly resolution: UnavailableMcpResolution } =>
-          isUnavailableMcpResolution(item.resolution),
-      );
-      if (unavailable !== undefined) {
-        return yield* new McpSharedTargetConflict({
-          reason: `${unavailable.member.agentId} cannot read shared MCP target '${group.path}': ${unavailable.resolution.reason}`,
-        });
-      }
-      const transports = new Set(runnable.map(({ resolution }) => resolution.transport));
-      if (transports.size > 1) {
-        return yield* new McpSharedTargetConflict({
-          reason: `MCP config target '${group.path}' resolves to incompatible transports for ${group.members.map(({ agentId }) => agentId).join(", ")}`,
-        });
-      }
-      const transport = runnable[0]?.resolution.transport;
-      if (transport === undefined) continue;
-      const shared = resolveSharedMcpTarget({ members: group.members, transport });
-      if (shared._tag === "conflict") {
-        return yield* new McpSharedTargetConflict({ reason: shared.reason });
-      }
-      for (const member of group.members) {
-        if (!isCapabilityAgentId(member.agentId)) continue;
-        const capability = CONFIGURABLE_AGENTS_BY_ID[member.agentId].capabilities["mcp-server"];
-        if (!hasMcpConfig(capability)) continue;
-        const sharedCapability: ConfiguredMcpCapability = {
-          ...capability,
-          axm: { ...capability.axm, writer: { config: shared.config } },
-        };
-        const projection = resolveMcpServer({
-          manifest: args.manifest,
-          localName: args.serverName,
-          capability: sharedCapability,
-          values: args.values,
-          enabled: args.enabled,
-        });
-        if (isUnavailableMcpResolution(projection)) {
-          return yield* new McpSharedTargetConflict({
-            reason: `${member.agentId} cannot read shared MCP target '${group.path}': ${projection.reason}`,
-          });
-        }
-      }
-    }
-  });
+): Effect.Effect<void, McpDefinitionInvalid | McpSharedTargetConflict> =>
+  plannedTargets(
+    planMcpServerTargets({
+      agentIds: args.agentIds,
+      scope: args.scope,
+      serverName: args.serverName,
+      declaration: { kind: "configuration", env: args.values, enabled: args.enabled },
+      manifest: args.manifest,
+      values: args.values,
+      enabled: args.enabled,
+    }),
+  ).pipe(Effect.asVoid);
 
 /** Project one manifest-backed server while treating each shared file as one decision. */
 export const syncManifestMcpServerToAgents = (
@@ -1308,178 +342,39 @@ export const syncManifestMcpServerToAgents = (
     const manifest = yield* decodeMcpServerManifestAt(
       path.join(args.canonicalPath, MCP_SERVER_MANIFEST_FILENAME),
     );
-    const scope = args.scope ?? "project";
-    yield* validateManifestMcpServerTargets({
-      manifest,
-      agentIds: args.agentIds,
-      scope,
-      serverName: args.serverName,
-      values: args.configValues ?? {},
-      enabled: args.enabled ?? true,
-    });
-    const terminal = new Map<string, McpServerSyncOutcome>();
-    const accumulated = new Map<
-      string,
-      { readonly targets: Array<McpServerSyncTarget>; readonly warnings: Array<string> }
-    >();
-
-    for (const agentId of args.agentIds) {
-      if (!isCapabilityAgentId(agentId)) {
-        terminal.set(agentId, {
-          _tag: "unsupported",
-          reason: `${agentId} has no MCP capability catalog entry`,
-        });
-        continue;
-      }
-      const capability = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"];
-      if (!hasMcpConfig(capability)) {
-        terminal.set(agentId, {
-          _tag: "unsupported",
-          reason: `${agentId} does not have MCP config support`,
-        });
-        continue;
-      }
-      accumulated.set(agentId, { targets: [], warnings: [] });
-    }
-
-    for (const group of groupConfiguredMcpTargets({ agentIds: args.agentIds, scope })) {
-      const initial = group.members.map((member) => {
-        const capability = isCapabilityAgentId(member.agentId)
-          ? CONFIGURABLE_AGENTS_BY_ID[member.agentId].capabilities["mcp-server"]
-          : undefined;
-        return {
-          member,
-          resolution:
-            capability === undefined || !hasMcpConfig(capability)
-              ? ({
-                  _tag: "no-distribution",
-                  reason: "agent does not have MCP config support",
-                } as const)
-              : resolveMcpServer({
-                  manifest,
-                  localName: args.serverName,
-                  capability,
-                  values: args.configValues ?? {},
-                  enabled: args.enabled ?? true,
-                }),
-        };
-      });
-      const runnable = initial.filter(
-        (item): item is typeof item & { readonly resolution: RunnableMcpResolution } =>
-          isRunnableMcpResolution(item.resolution),
-      );
-      const transports = new Set(runnable.map(({ resolution }) => resolution.transport));
-      if (runnable.length > 0 && runnable.length !== group.members.length) {
-        const unavailable = initial.find(
-          (item): item is typeof item & { readonly resolution: UnavailableMcpResolution } =>
-            isUnavailableMcpResolution(item.resolution),
-        );
-        return yield* new McpSharedTargetConflict({
-          reason: `${unavailable?.member.agentId ?? "one configured agent"} cannot read shared MCP target '${group.path}': ${unavailable?.resolution.reason ?? "no compatible distribution"}`,
-        });
-      }
-      if (transports.size > 1) {
-        return yield* new McpSharedTargetConflict({
-          reason: `MCP config target '${group.path}' resolves to incompatible transports for ${group.members.map(({ agentId }) => agentId).join(", ")}`,
-        });
-      }
-      const transport = runnable[0]?.resolution.transport;
-      if (transport === undefined) {
-        for (const { member, resolution } of initial) {
-          if (isRunnableMcpResolution(resolution)) continue;
-          terminal.set(member.agentId, {
-            _tag: resolution._tag === "nothing-runnable" ? "nothing-runnable" : "unsupported",
-            reason: resolution.reason,
-          });
-        }
-        continue;
-      }
-      const shared = resolveSharedMcpTarget({ members: group.members, transport });
-      if (shared._tag === "conflict") {
-        return yield* new McpSharedTargetConflict({ reason: shared.reason });
-      }
-      const projected = group.members.map((member) => {
-        const capability = isCapabilityAgentId(member.agentId)
-          ? CONFIGURABLE_AGENTS_BY_ID[member.agentId].capabilities["mcp-server"]
-          : undefined;
-        if (capability === undefined || !hasMcpConfig(capability)) {
-          return {
-            member,
-            resolution: {
-              _tag: "no-distribution",
-              reason: "agent does not have MCP config support",
-            } as const,
-          };
-        }
-        const sharedCapability: ConfiguredMcpCapability = {
-          ...capability,
-          axm: { ...capability.axm, writer: { config: shared.config } },
-        };
-        return {
-          member,
-          resolution: resolveMcpServer({
-            manifest,
-            localName: args.serverName,
-            capability: sharedCapability,
-            values: args.configValues ?? {},
-            enabled: args.enabled ?? true,
-          }),
-        };
-      });
-      const unavailable = projected.find(
-        (item): item is typeof item & { readonly resolution: UnavailableMcpResolution } =>
-          isUnavailableMcpResolution(item.resolution),
-      );
-      if (unavailable !== undefined) {
-        return yield* new McpSharedTargetConflict({
-          reason: `${unavailable.member.agentId} cannot read shared MCP target '${group.path}': ${unavailable.resolution.reason}`,
-        });
-      }
-      const first = projected[0]?.resolution;
-      if (
-        first === undefined ||
-        first._tag === "no-distribution" ||
-        first._tag === "nothing-runnable"
-      ) {
-        continue;
-      }
-      const writeResult = yield* writeAgentMcpConfig({
-        workspaceRoot: args.workspaceRoot,
+    const plan = yield* plannedTargets(
+      planMcpServerTargets({
+        agentIds: args.agentIds,
+        scope: args.scope ?? "project",
         serverName: args.serverName,
-        serversKey: shared.config.serversKey,
-        target: shared.target,
-        entry: first.entry,
-      });
-      for (const { member, resolution } of projected) {
-        const state = accumulated.get(member.agentId);
-        if (state === undefined) continue;
-        if (resolution._tag === "needs-input") {
-          terminal.set(member.agentId, {
-            _tag: "needs-input",
-            reason: resolution.warnings.join("; "),
-          });
-          continue;
-        }
-        if (resolution._tag !== "resolved") continue;
-        state.targets.push(...writeResult.targets);
-        state.warnings.push(...resolution.warnings);
-      }
-    }
-
-    return args.agentIds.map((agentId): McpServerSyncOutcome => {
-      const terminalOutcome = terminal.get(agentId);
-      if (terminalOutcome !== undefined) return terminalOutcome;
-      const state = accumulated.get(agentId);
-      if (state === undefined) {
-        return { _tag: "unsupported", reason: `${agentId} does not have MCP config support` };
-      }
-      return {
-        _tag: "success",
-        targets: state.targets,
-        ...(state.warnings.length > 0 ? { warnings: state.warnings } : {}),
-      };
+        declaration: manifestDeclaration(args),
+        manifest,
+        values: args.configValues ?? {},
+        enabled: args.enabled ?? true,
+      }),
+    );
+    const written = yield* applyPlannedWrites(args.workspaceRoot, args.serverName, plan.writes);
+    return plan.agents.map((agent): McpServerSyncOutcome => {
+      const outcome = outcomeForAgent(agent, written.get(agent.agentId) ?? []);
+      // A shim is a resolution detail here, not a fallback: the connection
+      // reached the agent through the representation it accepts.
+      return outcome._tag === "fallback"
+        ? {
+            _tag: "success",
+            ...(outcome.targets === undefined ? {} : { targets: outcome.targets }),
+            ...(outcome.reason.length > 0 ? { warnings: [outcome.reason] } : {}),
+          }
+        : outcome;
     });
   });
+
+const targetsInScope = (
+  agentId: string,
+  scope: "project" | "user",
+): ReadonlyArray<McpConfigTarget> =>
+  configuredMcpCapability(agentId)?.axm.writer.config.targets.filter(
+    (target) => target.scope === scope,
+  ) ?? [];
 
 export const removeMcpServerFromManifest = (
   agentId: string,
@@ -1490,26 +385,16 @@ export const removeMcpServerFromManifest = (
   FileSystem.FileSystem | Path.Path | NativeWriteAuthority
 > =>
   Effect.gen(function* () {
-    if (!isCapabilityAgentId(agentId)) {
-      return {
-        _tag: "unsupported",
-        reason: `${agentId} has no MCP capability catalog entry`,
-      } as const;
-    }
-
-    const agent: Agent = CONFIGURABLE_AGENTS_BY_ID[agentId];
-    const capability = agent.capabilities["mcp-server"];
-    if (!hasMcpConfig(capability)) {
+    const capability = configuredMcpCapability(agentId);
+    if (capability === undefined) {
       return {
         _tag: "unsupported",
         reason: `${agentId} does not have MCP config support`,
       } as const;
     }
     const config = capability.axm.writer.config;
-
-    const targets = config.targets.filter((target) => target.scope === (args.scope ?? "project"));
     const writeResults = yield* Effect.forEach(
-      targets,
+      targetsInScope(agentId, args.scope ?? "project"),
       (target) =>
         removeAgentMcpConfig({
           workspaceRoot: args.workspaceRoot,

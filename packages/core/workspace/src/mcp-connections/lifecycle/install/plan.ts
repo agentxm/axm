@@ -604,7 +604,7 @@ export const planMcpServerInstall: (
         Effect.mapError((cause) =>
           installRefused({
             category: "conflict",
-            detail: cause.reason,
+            detail: cause._tag === "McpSharedTargetConflict" ? cause.reason : cause.detail,
             recover:
               "Use an MCP package whose transport and symbolic inputs are supported by every configured reader of the shared target.",
             cause,

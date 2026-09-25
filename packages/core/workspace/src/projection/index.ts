@@ -181,11 +181,7 @@ export {
   type MaterializationCurrencyFailure,
   type ObservedMaterializationCurrencyArgs,
 } from "./materialization-currency.js";
-export {
-  expectedProjectionNames,
-  expectedProjectionNamesOf,
-  type ExpectedProjectionNames,
-} from "./expected-names.js";
+export { expectedProjectionNames, type ExpectedProjectionNames } from "./expected-names.js";
 
 // Hook agent outcomes
 export { evaluateHookAgentOutcome, type HookOutcomeTarget } from "./hooks/outcomes.js";
@@ -269,12 +265,15 @@ export {
 export type { McpInspectionError } from "./mcps/errors.js";
 export {
   collectManagedAgentMcpServers,
-  inspectAgentMcpServer,
-  inspectMcpServerAcrossAgents,
+  inspectDesiredMcpServer,
+  mcpInspectionOutcome,
+  mcpInspectionsCurrent,
   type AgentMcpInspectionStatus,
   type AgentMcpServerInspection,
   type CollectManagedAgentMcpServersArgs,
-  type InspectAgentMcpServerArgs,
+  type DesiredMcpServerInspection,
+  type DesiredMcpServerSubject,
+  type InspectDesiredMcpServerArgs,
   type ManagedAgentMcpServer,
 } from "./mcps/inspection.js";
 export { diffAgentEntry, type DriftReport } from "./mcps/drift.js";

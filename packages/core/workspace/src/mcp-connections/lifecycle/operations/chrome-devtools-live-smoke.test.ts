@@ -1,40 +1,17 @@
-import * as fs from "node:fs";
-import { NativeWriteAuthorityPermissive } from "../../../projection/agent-adapters/testing.js";
-import * as os from "node:os";
-import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
-import { RegistryTransportTest } from "@agentxm/registry-client/testing";
-import { afterEach, beforeEach, vi } from "vitest";
-import {
-  CodingAgentRepository,
-  type CodingAgentRepositoryService,
-} from "../../../projection/index.js";
-import {
-  TestStepFailureConversion,
-  exactVersion,
-  extensionName,
-  handle,
-} from "../../../lifecycle/test-helpers.js";
-import {
-  AcceptedResolutionWriter,
-  DesiredStateWriter,
-  SettingsWriter,
-} from "../../../desired-state/index.js";
-import { WorkspaceReadTest } from "../../../desired-state/testing.js";
-import { installMcpServer } from "../../../reconciliation/index.js";
-import { makeMemoryMcpSecretStore } from "../../../materialization/testing.js";
-import { uninstallMcpServer } from "./uninstall.js";
+import { afterEach } from "vitest";
+import { deriveOperationOutcome } from "../../../transitions/planning/index.js";
+import { applyInstall, installRequest } from "../../../lifecycle/install/test-helpers.js";
+import { applyUninstall, uninstallRequest } from "../../../lifecycle/uninstall/test-helpers.js";
+import { makeLifecycleFixture } from "../../../lifecycle/testing.js";
 
 const LIVE_SMOKE_ENV = "AXM_RUN_CHROME_DEVTOOLS_MCP_LIVE_SMOKE";
 const LIVE_REGISTRY_URL_ENV = "AXM_CHROME_DEVTOOLS_MCP_REGISTRY_URL";
 const LIVE_VERSION_ENV = "AXM_CHROME_DEVTOOLS_MCP_VERSION";
 const LIVE_NAMESPACE_ENV = "AXM_CHROME_DEVTOOLS_MCP_NAMESPACE";
-const LIVE_INTEGRITY_ENV = "AXM_CHROME_DEVTOOLS_MCP_INTEGRITY";
 
 const isLiveSmokeEnabled = (env: Record<string, string | undefined>): boolean => {
   const raw = env[LIVE_SMOKE_ENV]?.toLowerCase();
@@ -65,110 +42,52 @@ describe("chrome-devtools-mcp live smoke gate", () => {
 
 const describeLiveSmoke = isLiveSmokeEnabled(process.env) ? describe : describe.skip;
 
+// The production install and uninstall routes run against a real Registry:
+// the same lifecycle the CLI drives, over a workspace with no configured
+// agents so nothing is projected beyond settings and the lockfile.
 describeLiveSmoke("chrome-devtools-mcp live smoke", () => {
-  let tmpDir: string;
-
-  beforeEach(() => {
-    tmpDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "chrome-devtools-mcp-live-")));
-  });
-
+  const cleanups: Array<() => void> = [];
   afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-    vi.restoreAllMocks();
+    for (const cleanup of cleanups.splice(0)) cleanup();
   });
 
-  const secretStore = makeMemoryMcpSecretStore();
+  it.effect("installs then uninstalls with live registry fetch when gate is enabled", () => {
+    const liveRegistryUrl = requiredLiveEnv(LIVE_REGISTRY_URL_ENV);
+    const liveVersion = requiredLiveEnv(LIVE_VERSION_ENV);
+    const liveOwner = process.env[LIVE_NAMESPACE_ENV] ?? "@community";
+    const workspace = makeLifecycleFixture({
+      sources: "live",
+      httpClient: FetchHttpClient.layer,
+      settings: {
+        owner: "@acme",
+        agents: [],
+        defaultRegistry: "live",
+        sources: [{ name: "live", type: "registry", location: liveRegistryUrl }],
+      },
+    });
+    cleanups.push(workspace.cleanup);
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          const installed = yield* applyInstall(
+            installRequest({
+              type: "mcp-server",
+              subject: {
+                kind: "source",
+                source: `live:${liveOwner}/mcps/chrome-devtools-mcp@${liveVersion}`,
+              },
+            }),
+          );
+          expect(deriveOperationOutcome(installed)).toBe("applied");
+          expect(workspace.readFile("axm.json")).toContain("chrome-devtools-mcp");
 
-  it.effect("installs then uninstalls with live registry fetch when gate is enabled", () =>
-    Effect.gen(function* () {
-      const base = path.join(tmpDir, "project");
-      const axmDir = path.join(base, ".axm");
-      fs.mkdirSync(axmDir, { recursive: true });
-
-      const mockAgentRepo: CodingAgentRepositoryService = {
-        get: () => Effect.die(new Error("not implemented")),
-        all: Effect.succeed([]),
-        getConfiguredAgents: () => Effect.succeed([]),
-        getMaterializationAgents: () => Effect.succeed([]),
-        getUnknownConfiguredAgentIds: () => Effect.succeed([]),
-      };
-
-      const liveRegistryUrl = requiredLiveEnv(LIVE_REGISTRY_URL_ENV);
-      const liveVersion = requiredLiveEnv(LIVE_VERSION_ENV);
-      const liveProfile = process.env[LIVE_NAMESPACE_ENV] ?? "@community";
-      const liveIntegrity = process.env[LIVE_INTEGRITY_ENV] ?? "";
-
-      const installResult = yield* installMcpServer({
-        name: "install-mcp-server",
-        args: {
-          nonInteractive: true,
-          ref: {
-            type: "mcp-server",
-            refType: "registry",
-
-            publisherBindingId: "hbnd_test",
-            source: {
-              type: "registry",
-              name: "agentxm",
-              location: new URL(liveRegistryUrl),
-              owner: Option.none(),
-            },
-            server: { name: extensionName("chrome-devtools-mcp") },
-            owner: handle(liveProfile),
-            name: extensionName("chrome-devtools-mcp"),
-            version: exactVersion(liveVersion),
-            integrity: liveIntegrity === "" ? Option.none() : Option.some(liveIntegrity),
-            packages: [],
-          },
-          force: false,
-
-          strictAgentSync: Option.some(false),
-        },
-      }).pipe(
-        Effect.provide(
-          Layer.mergeAll(
-            Layer.mergeAll(
-              Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
-              NativeWriteAuthorityPermissive,
-            ),
-            WorkspaceReadTest({ baseDir: base, runtimeDir: axmDir }),
-            Layer.mock(SettingsWriter, {}),
-            Layer.mock(AcceptedResolutionWriter, {}),
-            Layer.mock(DesiredStateWriter, {}),
-            TestStepFailureConversion,
-            secretStore.layer,
-            Layer.succeed(CodingAgentRepository, mockAgentRepo),
-          ),
-        ),
-      );
-
-      expect(installResult.result).toBe("success");
-
-      const uninstallResult = yield* uninstallMcpServer({
-        name: "uninstall-mcp-server",
-        args: {
-          serverName: "chrome-devtools-mcp",
-          strictAgentSync: Option.some(false),
-        },
-      }).pipe(
-        Effect.provide(
-          Layer.mergeAll(
-            Layer.mergeAll(
-              Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
-              NativeWriteAuthorityPermissive,
-            ),
-            WorkspaceReadTest({ baseDir: base, runtimeDir: axmDir }),
-            Layer.mock(SettingsWriter, {}),
-            Layer.mock(AcceptedResolutionWriter, {}),
-            Layer.mock(DesiredStateWriter, {}),
-            TestStepFailureConversion,
-            secretStore.layer,
-            Layer.succeed(CodingAgentRepository, mockAgentRepo),
-          ),
-        ),
-      );
-
-      expect(uninstallResult.result).toBe("success");
-    }),
-  );
+          const uninstalled = yield* applyUninstall(
+            uninstallRequest({ type: "mcp-server", selector: "chrome-devtools-mcp" }),
+          );
+          expect(deriveOperationOutcome(uninstalled)).toBe("applied");
+          expect(workspace.readFile("axm.json")).not.toContain("chrome-devtools-mcp");
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
 });

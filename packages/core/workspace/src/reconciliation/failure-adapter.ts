@@ -23,7 +23,7 @@ import type {
 import type { SourceResolutionFailure } from "../resolution/sources/index.js";
 import type { AcceptedCanonicalRefError } from "../desired-state/index.js";
 import type { InstructionMaintenanceFailure } from "../projection/index.js";
-import type { McpConfigSyncFailure } from "../projection/agent-adapters/index.js";
+import type { NativeFormatFailure } from "../projection/agent-adapters/index.js";
 import type {
   WorkspaceTransactionFailure,
   WorkspaceRestorationIncomplete,
@@ -39,7 +39,7 @@ export type SyncPolicyFailure =
   | ExtensionManagerFailure
   | ExtensionResolutionFailed
   | InstructionMaintenanceFailure
-  | McpConfigSyncFailure
+  | NativeFormatFailure
   | PackDependencyResolutionFailure
   | SourceAuthorityBlocked
   | SourceResolutionFailure

@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { UNCONSTRAINED_DESIRED_NODE } from "../desired-state/index.js";
 import type { DesiredExtensionNode, DesiredStateGraph } from "../desired-state/index.js";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
-import { expectedProjectionNames, expectedProjectionNamesOf } from "./expected-names.js";
+import { expectedProjectionNames } from "./expected-names.js";
 
 const node = (type: ExtensionType, name: string, enabled: boolean): DesiredExtensionNode => ({
   type,
@@ -43,16 +43,5 @@ describe("expected projection names", () => {
 
   it("expects subagents in the Skill container, because that is where their profile lands", () => {
     expect([...expectedProjectionNames(graph).skill].sort()).toEqual(["alpha", "scout"]);
-  });
-
-  it("assembles the same expectation from name sets a caller already holds", () => {
-    expect(
-      expectedProjectionNamesOf({
-        skill: new Set(["alpha"]),
-        subagent: new Set(["scout"]),
-        mcpServer: new Set(["docs"]),
-        hook: new Set(["guard"]),
-      }),
-    ).toEqual(expectedProjectionNames(graph));
   });
 });

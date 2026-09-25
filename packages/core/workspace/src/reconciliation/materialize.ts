@@ -34,20 +34,17 @@ import {
 } from "../materialization/index.js";
 import { installMcpServer, type McpServerInstallRequirements } from "./mcps/install-operation.js";
 import { buildMaterializeOperation, targetFromRef, toStepKey } from "./extensions/operations.js";
-import {
-  enabledConfiguredEntries,
-  isConfiguredEntryEnabled,
-  settingsEntries,
-  type Settings,
-} from "../desired-state/index.js";
+import { settingsEntries, type Settings } from "../desired-state/index.js";
 import {
   acceptedResolutionIncompatibleRecovery,
   acceptedResolutionIncompatibleText,
   canonicalObservationFactText,
   CodingAgentRepository,
-  inspectMcpServerAcrossAgents,
+  expectedProjectionNames,
+  inspectDesiredMcpServer,
   isObservedMaterializationCurrent,
   makeExtensionConstraintInvariantFact,
+  type ExpectedProjectionNames,
   type ProjectionParticipantRequirements,
   type CodingAgentRepositoryService,
 } from "../projection/index.js";
@@ -107,7 +104,6 @@ import {
 import { WorkspaceSyncFailed } from "./errors.js";
 import { workspaceFailureToStepFailure } from "./failure-rendering.js";
 import {
-  isInlineMcpServerEntry,
   SYNC_RECOVERY_IDS,
   buildInlineMcpServerSyncOperation,
   type SyncStepRequirements,
@@ -442,10 +438,8 @@ export interface CollectedMaterializeSteps {
   readonly preparedHookProjection?: PreparedHookProjection;
   readonly knowledgeMayChange: boolean;
   readonly serialMaterialization: boolean;
-  readonly expectedSkillNames: ReadonlySet<string>;
-  readonly expectedSubagentNames: ReadonlySet<string>;
-  readonly expectedMcpServerNames: ReadonlySet<string>;
-  readonly expectedHookNames: ReadonlySet<string>;
+  /** The names the cleanup sweep must treat as expected, from the whole graph. */
+  readonly expectedNames: ExpectedProjectionNames;
   readonly releaseAge: ReleaseAgeOperationEvidence;
   /** Physical inventories used to judge currency in this planning phase. */
   readonly inventoryObservations: ReadonlyArray<{
@@ -503,7 +497,6 @@ export const collectMaterializeSteps = (args: {
     const ruleManager = yield* RuleManager;
     const hookManager = yield* HookManager;
     const knowledgeManager = yield* KnowledgeManager;
-    const mcpServerManager = yield* McpServerManager;
     const agentRepo = yield* CodingAgentRepository;
     const location = yield* WorkspaceLocation;
     const settings = yield* SettingsReader;
@@ -649,28 +642,24 @@ export const collectMaterializeSteps = (args: {
               location: pathToFileURL(files.directory).href,
             } satisfies ExtensionRef;
           }
-          const configuredMcpEntry =
-            node.type === "mcp-server" ? configuredMcpServerEntries[node.name] : undefined;
           const inventoryRead = inventories.get(node.type);
-          const materializationCurrent =
-            configuredMcpEntry === undefined
-              ? yield* isObservedMaterializationCurrent({
-                  location,
-                  records,
-                  ...(inventoryRead === undefined ? {} : { inventory: yield* inventoryRead }),
-                  node,
-                  configuredAgentIds: configuredAgents,
-                  agents: agentRepo,
-                  subagents: subagentManager,
-                  resolvedRef: ref,
-                  fs,
-                  path,
-                })
-              : (yield* mcpServerManager.configuredAgentOutcomesForEntry({
-                  name: node.name,
-                  entry: configuredMcpEntry,
-                  state: "current",
-                })).every(({ outcome }) => outcome === "current" || outcome === "unsupported");
+          // One judge for every node, MCP included: the projection decides
+          // currency from decoded native values, whatever route declared it.
+          const materializationCurrent = yield* isObservedMaterializationCurrent({
+            location,
+            records,
+            ...(inventoryRead === undefined ? {} : { inventory: yield* inventoryRead }),
+            node,
+            ...(node.type === "mcp-server"
+              ? { mcpServerEntry: configuredMcpServerEntries[node.name] }
+              : {}),
+            configuredAgentIds: configuredAgents,
+            agents: agentRepo,
+            subagents: subagentManager,
+            resolvedRef: ref,
+            fs,
+            path,
+          });
           const materialize =
             observation.status !== "usable" || (node.enabled && !materializationCurrent);
           const releaseAge = configuredReleaseAge(resolved);
@@ -816,57 +805,66 @@ export const collectMaterializeSteps = (args: {
       }
     }
 
-    const declaredMcpServerNames = new Set([
-      ...enabledConfiguredEntries(configuredMcpServerEntries).map(([name]) => name),
-      ...mcpServerRefs
-        .filter(({ ref }) => desiredActivation(ref))
-        .map(({ ref }) => ref.server.name),
-    ]);
+    // Inline connections are desired-state nodes like any other; the settings
+    // entry supplies only the transport the node's identity does not carry.
     const inlineMcpServerSteps = yield* Effect.forEach(
-      Object.entries(configuredMcpServerEntries).filter(
-        ([name, entry]) =>
-          isConfiguredEntryEnabled(entry) &&
-          isInlineMcpServerEntry(entry) &&
-          (selection.subjects === undefined ||
-            isSubject(selection, { type: "mcp-server", name })) &&
-          (Option.isNone(selection.type) || selection.type.value === "mcp-server") &&
-          (Option.isNone(selection.target) ||
-            (parseExtensionFqnParts(selection.target.value)?.type === "mcp-server" &&
-              parseExtensionFqnParts(selection.target.value)?.name === name)),
+      selectedDesiredNodes(desiredState, selection).filter(
+        (node) => node.type === "mcp-server" && node.authority === "inline" && node.enabled,
       ),
-      ([name, entry]) =>
+      (node) =>
         Effect.gen(function* () {
-          const inspections = yield* inspectMcpServerAcrossAgents({
+          const entry = configuredMcpServerEntries[node.name];
+          const { inspections, current } = yield* inspectDesiredMcpServer({
             workspaceRoot: location.baseDir,
             scope: location.scope,
             agentIds: configuredAgents,
-            serverName: name,
+            node,
             entry,
+            canonicalPaths: [],
           }).pipe(
             Effect.provideService(FileSystem.FileSystem, fs),
             Effect.provideService(Path.Path, path),
-          );
-          const current = inspections.every(
-            (inspection) => inspection.status === "match" || inspection.status === "unsupported",
           );
           if (current) return Option.none<PlannedJobStep<MaterializeStepRequirements>>();
           const conflicts = inspections.filter((inspection) => inspection.status === "unmanaged");
           if (conflicts.length > 0) {
             return Option.some<PlannedJobStep<MaterializeStepRequirements>>({
-              key: `${SYNC_RECOVERY_IDS.inlineMcpCollision}:${name}`,
-              label: `mcp-server ${name}`,
+              key: `${SYNC_RECOVERY_IDS.inlineMcpCollision}:${node.name}`,
+              label: `mcp-server ${node.name}`,
               readiness: "error",
-              errorMessage: `Inline MCP server ${name} collides with unowned native config at ${conflicts
+              errorMessage: `Inline MCP server ${node.name} collides with unowned native config at ${conflicts
                 .map((inspection) => inspection.path)
-                .join(", ")}; move, remove, or adopt the unowned entry before rerunning axm sync`,
+                .join(", ")}; move or remove the unowned entry before rerunning axm sync`,
             });
+          }
+          const blocked = inspections.filter((inspection) => inspection.status === "blocked");
+          if (blocked.length > 0) {
+            return Option.some<PlannedJobStep<MaterializeStepRequirements>>({
+              key: `${SYNC_RECOVERY_IDS.inlineMcpCollision}:${node.name}`,
+              label: `mcp-server ${node.name}`,
+              readiness: "error",
+              errorMessage: blocked
+                .map((inspection) => `${inspection.agentId}: ${inspection.reason ?? "blocked"}`)
+                .join("; "),
+            });
+          }
+          if (entry === undefined || entry.kind !== "inline") {
+            return Option.none<PlannedJobStep<MaterializeStepRequirements>>();
           }
           return Option.some(
             buildInlineMcpServerSyncOperation({
-              name,
+              name: node.name,
               entry,
               agentIds: configuredAgents,
-              force: inspections.some((inspection) => inspection.status === "drift"),
+              inspectionWarnings: inspections.flatMap((inspection) =>
+                inspection.status === "drift"
+                  ? [
+                      `${inspection.agentId}: drift${
+                        inspection.fields.length > 0 ? ` (${inspection.fields.join(", ")})` : ""
+                      }`,
+                    ]
+                  : [],
+              ),
               location,
               adapter: args.adapter,
             }),
@@ -1000,22 +998,7 @@ export const collectMaterializeSteps = (args: {
         packRecoverySteps.length > 0 || knowledgeRefs.some(({ materialize }) => materialize),
       serialMaterialization: packRecoverySteps.length > 0,
       inventoryObservations,
-      expectedSkillNames: new Set(
-        desiredState.nodes
-          .filter((node) => node.type === "skill" && node.enabled)
-          .map((node) => node.name),
-      ),
-      expectedSubagentNames: new Set(
-        desiredState.nodes
-          .filter((node) => node.type === "subagent" && node.enabled)
-          .map((node) => node.name),
-      ),
-      expectedMcpServerNames: declaredMcpServerNames,
-      expectedHookNames: new Set(
-        desiredState.nodes
-          .filter((node) => node.type === "hook" && node.enabled)
-          .map((node) => node.name),
-      ),
+      expectedNames: expectedProjectionNames(desiredState),
       releaseAge: {
         evaluatedAt: DateTime.formatIso(releaseAgeEvaluation.evaluatedAt),
         holdbacks: normalizeReleaseAgeRecords([

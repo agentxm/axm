@@ -2,20 +2,10 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import {
-  CONFIGURABLE_AGENTS_BY_ID,
-  type Agent,
-  type ConfigurableAgentId,
-  type McpConfig,
-  type McpEnvExpansion,
-} from "@agentxm/extension-model/unstable/agent-capabilities";
-import { isAxmManagedMcpEntry } from "../../../projection/agent-adapters/index.js";
-import { diffAgentEntry } from "../../../projection/index.js";
-import {
-  inferInlineRemoteTransport,
-  projectExpectedEntry,
-  resolveSharedMcpTarget,
-  groupConfiguredMcpTargets,
+  isAxmManagedMcpEntry,
+  planMcpServerTargets,
 } from "../../../projection/agent-adapters/index.js";
+import { diffAgentEntry } from "../../../projection/index.js";
 import type { McpServerEntry } from "../../../desired-state/index.js";
 import type { ActualMcpServer, InstalledMcpServer } from "../../../desired-state/index.js";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
@@ -29,24 +19,6 @@ const relativeToRoot = (root: string, file: string): string => {
   const prefix = root.endsWith("/") ? root : `${root}/`;
   return file.startsWith(prefix) ? file.slice(prefix.length) : file;
 };
-
-type AgentMcpCapability = Agent["capabilities"]["mcp-server"];
-type ConfiguredMcpCapability = AgentMcpCapability & {
-  readonly native: {
-    readonly mcpEnvExpansion?: McpEnvExpansion | undefined;
-  };
-  readonly axm: {
-    readonly writer: {
-      readonly config: McpConfig;
-    };
-  };
-};
-
-const hasMcpConfig = (capability: AgentMcpCapability): capability is ConfiguredMcpCapability =>
-  capability.axm.writer !== null && "transports" in capability.native;
-
-const isCapabilityAgentId = (agentId: string): agentId is ConfigurableAgentId =>
-  agentId in CONFIGURABLE_AGENTS_BY_ID;
 
 const isInlineEntry = (entry: McpServerEntry): boolean =>
   entry.command !== undefined || entry.url !== undefined;
@@ -106,6 +78,10 @@ const configFileMatchesTarget = (configFile: string, targetPath: string): boolea
   configFile.endsWith(`/${targetPath}`) ||
   (targetPath.startsWith("~/") && configFile.endsWith(`/${targetPath.slice(2)}`));
 
+/**
+ * The entry the target plan renders for the file this actual entry lives in,
+ * compared by decoded value: the same plan the writer and the inspector use.
+ */
 const checkActual = (args: {
   readonly row: InstalledMcpServer;
   readonly entry: McpServerEntry;
@@ -113,59 +89,32 @@ const checkActual = (args: {
   readonly configuredAgents: ReadonlySet<string>;
 }): DriftedAgentConfig | undefined => {
   if (args.actual.config === null || args.actual.configFile === null) return undefined;
-  const groups = groupConfiguredMcpTargets({
+  const configFile = args.actual.configFile;
+  const plan = planMcpServerTargets({
     agentIds: [...args.configuredAgents],
     scope: args.row.key.scope,
+    serverName: args.row.key.name,
+    declaration: args.entry,
+    values: args.entry.env,
+    enabled: args.entry.enabled ?? true,
   });
+  if (plan._tag === "invalid") return undefined;
   const agentId =
     args.actual.origin._tag === "agent-mcp-config" ? args.actual.origin.agentId : undefined;
-  const group = groups.find((candidate) => {
-    const [first] = candidate.members;
-    if (first === undefined) return false;
-    if (!configFileMatchesTarget(args.actual.configFile ?? "", first.target.path)) return false;
-    return agentId !== undefined
-      ? candidate.members.some((member) => member.agentId === agentId)
-      : first.target.attribution === "shared";
-  });
-  if (group === undefined) return undefined;
-  const projectionMember =
-    agentId !== undefined
-      ? group.members.find((member) => member.agentId === agentId)
-      : group.members[0];
-  if (projectionMember === undefined || !isCapabilityAgentId(projectionMember.agentId)) {
-    return undefined;
-  }
-  const capability = CONFIGURABLE_AGENTS_BY_ID[projectionMember.agentId].capabilities["mcp-server"];
-  if (!hasMcpConfig(capability)) return undefined;
-  const inference =
-    args.entry.url === undefined ? undefined : inferInlineRemoteTransport(args.entry.url);
-  const transport =
-    args.entry.command !== undefined
-      ? "stdio"
-      : inference?._tag === "supported"
-        ? inference.transport
-        : undefined;
-  if (transport === undefined) return undefined;
-  const resolution = resolveSharedMcpTarget({ members: group.members, transport });
-  if (resolution._tag === "conflict") return undefined;
-  const config = resolution.config;
-  const projected = projectExpectedEntry({
-    serverName: args.row.key.name,
-    entry: args.entry,
-    stdio: config.stdio,
-    remote: config.remote,
-    activationField: config.activationField,
-    envExpansion: capability.native.mcpEnvExpansion,
-  });
-  if (projected._tag !== "projected") return undefined;
-  const drift = diffAgentEntry(projected, args.actual.config);
+  const write = plan.writes.find(
+    (candidate) =>
+      configFileMatchesTarget(configFile, candidate.target.path) &&
+      (agentId !== undefined
+        ? candidate.agentIds.includes(agentId)
+        : candidate.target.attribution === "shared"),
+  );
+  if (write === undefined) return undefined;
+  const drift = diffAgentEntry(
+    { _tag: "projected", entry: write.entry, warnings: [] },
+    args.actual.config,
+  );
   return drift._tag === "drift"
-    ? {
-        row: args.row,
-        actual: args.actual,
-        fields: drift.fields,
-        consumers: group.members.map((member) => member.agentId),
-      }
+    ? { row: args.row, actual: args.actual, fields: drift.fields, consumers: write.agentIds }
     : undefined;
 };
 

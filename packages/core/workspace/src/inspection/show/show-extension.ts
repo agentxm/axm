@@ -23,10 +23,11 @@ import {
   InstallableExtensionTypeSchema,
   type InstallableExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import { inspectMcpServerAcrossAgents } from "../../projection/index.js";
+import { inspectDesiredMcpServer } from "../../projection/index.js";
 import {
   configuredRowsByName,
   ConfiguredAgentOutcomesProvider,
+  DesiredStateReader,
   LockfileReader,
   lockEntryVersion,
   SettingsReader,
@@ -185,34 +186,34 @@ export const ShowExtension = {
     }));
 
     if (request.type === "mcp-server") {
-      const entry = (yield* settings.entries("mcp-server"))[request.name];
-      if (entry !== undefined && enabled !== false) {
-        const inspections = yield* inspectMcpServerAcrossAgents({
+      const desiredState = yield* DesiredStateReader;
+      const graph = yield* desiredState.graph();
+      const desiredNode = graph.nodes.find(
+        (node) => node.type === "mcp-server" && node.name === request.name,
+      );
+      if (desiredNode !== undefined && desiredNode.enabled && enabled !== false) {
+        const { inspections, outcomes } = yield* inspectDesiredMcpServer({
           workspaceRoot: location.baseDir,
           scope: location.scope,
           agentIds: yield* settings.configuredAgents,
-          serverName: request.name,
-          entry,
+          node: desiredNode,
+          entry: (yield* settings.entries("mcp-server"))[request.name],
           canonicalPaths: inventoryRow?.paths ?? [],
         });
-        agents = inspections.map((inspection) => ({
-          agent: inspection.agentId,
-          status:
-            inspection.status === "match"
-              ? "current"
-              : inspection.status === "unsupported"
-                ? "unsupported"
-                : inspection.status === "blocked"
-                  ? "blocked"
-                  : "failed",
-          reasonCode: `mcp-${inspection.status}`,
-          path: inspection.path,
-          fields: [...inspection.fields],
-          warnings: [...inspection.warnings],
-          ...(inspection.reason === undefined ? {} : { reason: inspection.reason }),
-        }));
+        agents = outcomes.map((outcome, index) => {
+          const inspection = inspections[index];
+          return {
+            agent: outcome.agentId,
+            status: outcome.outcome,
+            reasonCode: outcome.reasonCode,
+            ...(outcome.path === undefined ? {} : { path: outcome.path }),
+            fields: [...(inspection?.fields ?? [])],
+            warnings: [...(inspection?.warnings ?? [])],
+            reason: outcome.reason,
+          };
+        });
       }
-      if (entry !== undefined && enabled === false) {
+      if (desiredNode !== undefined && (!desiredNode.enabled || enabled === false)) {
         agents = (yield* settings.configuredAgents).map((agent) => ({
           agent,
           status: "not-applicable" as const,

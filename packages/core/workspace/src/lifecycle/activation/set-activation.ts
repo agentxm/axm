@@ -98,7 +98,6 @@ import {
   DesiredStateReader,
   LockfileReader,
   SettingsReader,
-  settingsEntries,
   SettingsWriter,
   ConfiguredAgentOutcomesProvider,
   type ConfiguredAgentOutcome,
@@ -522,15 +521,10 @@ const settleLeaf = (request: SetActivationRequest, adapter: SyncFailureAdapter) 
           adapter,
           retireUnreachable: false,
         }).pipe(Effect.mapError(conflictFrom(`Cannot prepare ${request.type} activation`)));
-    const entry = settingsEntries["mcp-server"].entry(proposal.settings, name);
     const agentOutcomes = yield* Effect.gen(function* () {
-      if (request.type === "mcp-server" && request.enabled && Option.isSome(entry)) {
+      if (request.type === "mcp-server" && request.enabled) {
         const mcp = yield* McpServerManager;
-        return yield* mcp.configuredAgentOutcomesForEntry({
-          name,
-          entry: entry.value,
-          state: "projected",
-        });
+        return yield* mcp.configuredAgentOutcomes("projected", proposal.after, { names: [name] });
       }
       if (request.type === "hook" && request.enabled) {
         const hook = yield* HookManager;

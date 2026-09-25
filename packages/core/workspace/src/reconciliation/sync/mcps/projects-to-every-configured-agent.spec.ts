@@ -4,15 +4,24 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import { WorkspaceRecords } from "../../../desired-state/index.js";
+import { listMcpServers, ShowExtension } from "../../../inspection/index.js";
+import { deriveOperationOutcome } from "../../../transitions/planning/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { applySync, makeSyncFixture, type SyncFixture } from "../test-helpers.js";
+import {
+  applySync,
+  expectResolved,
+  makeFileRegistry,
+  makeSyncFixture,
+  previewSync,
+  type SyncFixture,
+} from "../test-helpers.js";
 
 export const specification = defineSpecification({
   requirement: "cli/mcps/projects-to-every-configured-agent",
   title: "MCP servers reach every configured agent that can represent them",
   statement:
-    "When an MCP server is configured and enabled, however it entered the workspace — added, authored inline, or adopted from one agent's own native configuration — reconciliation shall write it to the native configuration of every configured agent that can represent it, shall account for every configured agent and report one that cannot represent it as unsupported rather than omitting it, shall write no server that is configured as disabled, and shall remove it from every agent it reached once desired state disables or withdraws it.",
+    "When an MCP server is desired and enabled, however it entered the workspace — added, authored inline, adopted from one agent's own native configuration, or supplied by an installed Pack — reconciliation shall write it to the native configuration of every configured agent that can represent it, shall account for every configured agent and report one that cannot represent it as unsupported rather than omitting it, shall judge whether each agent's entry is current from its decoded native value and report a hand-edited entry as stale under one reason code in every inspection surface, shall repair it without further change on the next run, shall write no server that is configured as disabled, and shall remove it from every agent it reached once desired state disables or withdraws it.",
   class: "functional",
   role: "experience",
   goals: ["agent-interoperability", "workspace-intent-fidelity"],
@@ -28,6 +37,7 @@ export const specification = defineSpecification({
     "Claude Code and Cursor keep distinct project-scope MCP configuration files, so two native files observe two agents.",
     "An unmanaged server declared in one agent's own configuration file is the only shape adoption records, so one such declaration stands for every adopted entry.",
     "Amp is catalogued without MCP configuration support, so it stands for any configured agent that cannot represent a server.",
+    "A Pack that declares one MCP member is the only way a connection reaches desired state without its own settings entry, so one such Pack stands for every Pack-supplied connection.",
   ],
   openQuestions: [],
 });
@@ -233,6 +243,112 @@ describe("MCP servers project to every configured agent", () => {
         )
         .pipe(Effect.provide(NodeServices.layer));
     },
+  );
+
+  /** A Pack whose only member is a Registry MCP server the workspace never declares itself. */
+  const packSuppliedWorkspace = (agents: ReadonlyArray<string>) => {
+    const registry = makeFileRegistry();
+    cleanups.push(registry.cleanup);
+    registry.writeMcp("context", [{ version: "1.0.0" }]);
+    registry.writePack("toolkit", [
+      { version: "1.0.0", dependencies: { "@acme/mcps/context": "^1.0.0" } },
+    ]);
+    const workspace = makeSyncFixture({
+      settings: {
+        owner: "@acme",
+        agents,
+        sources: [registry.source],
+        packs: { toolkit: "test:@acme/packs/toolkit@^1.0.0" },
+      },
+    });
+    cleanups.push(workspace.cleanup);
+    return workspace;
+  };
+
+  const replaceManagedCommand = (content: string, name: string, command: string): string => {
+    const config: unknown = JSON.parse(content);
+    if (typeof config !== "object" || config === null || !("mcpServers" in config)) {
+      throw new Error("Expected a native MCP configuration map");
+    }
+    const servers = config.mcpServers;
+    if (typeof servers !== "object" || servers === null || !(name in servers)) {
+      throw new Error(`Expected a managed ${name} MCP entry`);
+    }
+    const entry: unknown = Reflect.get(servers, name);
+    return `${JSON.stringify(
+      { ...config, mcpServers: { ...servers, [name]: { ...(entry ?? {}), command } } },
+      null,
+      2,
+    )}\n`;
+  };
+
+  it.effect(
+    "sync writes a Pack-supplied server to every configured agent's native configuration",
+    () => {
+      const workspace = packSuppliedWorkspace(bothAgents);
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* applySync();
+
+            for (const file of NATIVE_CONFIGS) {
+              expect(nativeServers(workspace, file), file).toMatchObject({
+                mcpServers: { context: expect.objectContaining({ command: "npx" }) },
+              });
+            }
+            expect(JSON.stringify(workspace.readSettings())).not.toContain("mcpServers");
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
+
+  it.effect(
+    "a hand-edited Pack-supplied entry is stale under one reason code everywhere, and is repaired once",
+    () => {
+      const workspace = packSuppliedWorkspace(["claude-code"]);
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* applySync();
+            expect((yield* previewSync())._tag).toBe("AlreadyReconciled");
+
+            // The operator changed the command by hand. The entry is still
+            // AXM-managed, so this is drift, not an unowned collision.
+            workspace.writeFile(
+              CLAUDE_CODE_CONFIG,
+              replaceManagedCommand(workspace.readFile(CLAUDE_CODE_CONFIG), "context", "python"),
+            );
+
+            const listed = yield* listMcpServers();
+            const row = listed.rows.find((candidate) => candidate.name === "context");
+            expect(row?.status).toBe("drift");
+            expect(
+              row?.agentOutcomes.find((outcome) => outcome.agentId === "claude-code"),
+            ).toMatchObject({ outcome: "failed", reasonCode: "stale-projection" });
+            const shown = yield* ShowExtension.query({ type: "mcp-server", name: "context" });
+            expect(shown.agents.find((agent) => agent.agent === "claude-code")).toMatchObject({
+              status: "failed",
+              reasonCode: "stale-projection",
+              fields: ["command"],
+            });
+
+            const previewed = expectResolved(yield* previewSync());
+            expect(deriveOperationOutcome(previewed)).toBe("previewed");
+            expect(previewed.units.length).toBeGreaterThan(0);
+
+            yield* applySync();
+            expect(nativeServers(workspace, CLAUDE_CODE_CONFIG)).toMatchObject({
+              mcpServers: { context: expect.objectContaining({ command: "npx" }) },
+            });
+            // Repaired means repaired: the next run finds nothing to do.
+            expect((yield* previewSync())._tag).toBe("AlreadyReconciled");
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+    // Three reconciliations plus two inspections over a real Pack install.
+    30_000,
   );
 
   const CONFIGURED_AGENTS = ["claude-code", "cursor", "amp"] as const;

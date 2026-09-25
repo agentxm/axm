@@ -8,7 +8,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { applyEdits, modify, parse, type ParseError } from "jsonc-parser";
+import { applyEdits, modify } from "jsonc-parser";
 import {
   McpConfigInvalid,
   McpConfigIoFailed,
@@ -17,13 +17,17 @@ import {
   WriteBackupRetained,
   type NativeFormatFailure,
 } from "../errors.js";
-import { getHome } from "../constants.js";
-import { isPathSafe } from "@agentxm/extension-model/unstable/path-types";
 import { runWithTransientFileBackup } from "../transient-backup.js";
 import { NativeWriteAuthority } from "../native-write-authority.js";
 import { stringifyToml, stringifyTomlKey } from "../toml.js";
 import { deleteYamlEntry, readYamlEntry, setYamlEntry, setYamlScalar } from "../yaml.js";
-import { isAxmManagedMcpEntry } from "./entry-semantics.js";
+import { isAxmManagedMcpEntry, readAxmMcpMetadata } from "./entry-semantics.js";
+import {
+  decodeJsonMcpConfig,
+  parseTomlMcpEntry,
+  readNativeMcpConfig,
+  resolveAgentMcpConfigTargetPath,
+} from "./native-config.js";
 import type {
   McpActivationField,
   McpConfigTarget,
@@ -61,72 +65,7 @@ export interface AgentMcpConfigWriteResult {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-const parseJsonConfig = (
-  configPath: string,
-  raw: string,
-): Effect.Effect<unknown, McpConfigInvalid> =>
-  Effect.try({
-    try: () => {
-      const errors: Array<ParseError> = [];
-      const parsed: unknown = parse(raw, errors, { allowTrailingComma: true });
-      if (errors.length > 0) {
-        throw errors;
-      }
-      return parsed;
-    },
-    catch: (error) =>
-      new McpConfigInvalid({
-        detail: `Invalid MCP config JSON/JSONC: ${configPath}`,
-        cause: error,
-      }),
-  });
-
-const formatPath = (path: ReadonlyArray<string>) => path.join(".");
-
-const validateServersShape = (
-  configPath: string,
-  parsed: unknown,
-  serversKey: string,
-): Effect.Effect<void, McpConfigInvalid> => {
-  if (!isRecord(parsed)) {
-    return Effect.fail(
-      new McpConfigInvalid({ detail: `Invalid MCP config format: ${configPath}` }),
-    );
-  }
-  const servers = parsed[serversKey];
-  if (servers !== undefined && !isRecord(servers)) {
-    return Effect.fail(
-      new McpConfigInvalid({
-        detail: `Invalid MCP config format: ${configPath} (${formatPath([serversKey])} must be an object)`,
-      }),
-    );
-  }
-  return Effect.void;
-};
-
-const readExisting = (
-  configPath: string,
-): Effect.Effect<string, McpConfigIoFailed, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const exists = yield* fs
-      .exists(configPath)
-      .pipe(
-        Effect.mapError(
-          (cause) =>
-            new McpConfigIoFailed({ detail: `Failed to inspect MCP config: ${configPath}`, cause }),
-        ),
-      );
-    if (!exists) return "";
-    return yield* fs
-      .readFileString(configPath)
-      .pipe(
-        Effect.mapError(
-          (cause) =>
-            new McpConfigIoFailed({ detail: `Failed to read MCP config: ${configPath}`, cause }),
-        ),
-      );
-  });
+const JSON_FORMATTING = { insertSpaces: true, tabSize: 2, eol: "\n" } as const;
 
 const writeIfChanged = (
   configPath: string,
@@ -184,28 +123,6 @@ const writeIfChanged = (
     };
   });
 
-export const resolveAgentMcpConfigTargetPath = (
-  workspaceRoot: string,
-  target: McpConfigTarget,
-): Effect.Effect<string, McpConfigInvalid, Path.Path> =>
-  Effect.gen(function* () {
-    const path = yield* Path.Path;
-    const home = yield* getHome;
-    const base =
-      target.scope === "user"
-        ? target.path.startsWith("~/")
-          ? path.join(home, target.path.slice(2))
-          : path.resolve(home, target.path)
-        : path.resolve(workspaceRoot, target.path);
-
-    if (target.scope === "project" && !isPathSafe(path, workspaceRoot, base)) {
-      return yield* new McpConfigInvalid({
-        detail: `MCP config target escapes workspace root: ${target.path}`,
-      });
-    }
-    return base;
-  });
-
 const upsertJsonLike = (args: {
   readonly configPath: string;
   readonly raw: string;
@@ -215,10 +132,9 @@ const upsertJsonLike = (args: {
 }): Effect.Effect<string, McpConfigInvalid> =>
   Effect.gen(function* () {
     const initial = args.raw.trim().length === 0 ? "{}\n" : args.raw;
-    const parsed = yield* parseJsonConfig(args.configPath, initial);
-    yield* validateServersShape(args.configPath, parsed, args.serversKey);
+    yield* decodeJsonMcpConfig(args.configPath, initial, args.serversKey);
     const edits = modify(initial, [args.serversKey, args.serverName], args.entry, {
-      formattingOptions: { insertSpaces: true, tabSize: 2, eol: "\n" },
+      formattingOptions: JSON_FORMATTING,
     });
     return applyEdits(initial, edits);
   });
@@ -233,11 +149,8 @@ const removeJsonLike = (args: {
 }): Effect.Effect<string, McpConfigInvalid | McpEntryUnmanaged> =>
   Effect.gen(function* () {
     if (args.raw.trim().length === 0) return args.raw;
-    const parsed = yield* parseJsonConfig(args.configPath, args.raw);
-    yield* validateServersShape(args.configPath, parsed, args.serversKey);
-    if (!isRecord(parsed)) return args.raw;
-    const servers = parsed[args.serversKey];
-    const existing = isRecord(servers) ? servers[args.serverName] : undefined;
+    const { servers } = yield* decodeJsonMcpConfig(args.configPath, args.raw, args.serversKey);
+    const existing = servers?.[args.serverName];
     if (existing === undefined) return args.raw;
     if (!isRecord(existing) || !isAxmManagedMcpEntry(existing)) {
       return yield* new McpEntryUnmanaged({
@@ -250,14 +163,14 @@ const removeJsonLike = (args: {
       return applyEdits(
         args.raw,
         modify(args.raw, [args.serversKey, args.serverName, activation.name], activation.disabled, {
-          formattingOptions: { insertSpaces: true, tabSize: 2, eol: "\n" },
+          formattingOptions: JSON_FORMATTING,
         }),
       );
     }
     return applyEdits(
       args.raw,
       modify(args.raw, [args.serversKey, args.serverName], undefined, {
-        formattingOptions: { insertSpaces: true, tabSize: 2, eol: "\n" },
+        formattingOptions: JSON_FORMATTING,
       }),
     );
   });
@@ -315,12 +228,20 @@ const removeYaml = (args: {
 
 const tomlRegion = (serverName: string) => `mcp-server:${serverName}` as const;
 
-const tomlOwner = (serverName: string, entry?: Readonly<Record<string, unknown>>): string => {
-  const metadata = entry?.["x-axm"];
-  return isRecord(metadata) && typeof metadata["ref"] === "string"
-    ? metadata["ref"]
-    : `@agentxm/mcps/${serverName}`;
-};
+/** The owner a TOML fence names: the entry's own AXM ownership record. */
+const tomlOwner = (
+  serverName: string,
+  entry: Readonly<Record<string, unknown>>,
+): Effect.Effect<string, McpConfigInvalid> =>
+  Option.match(readAxmMcpMetadata(entry), {
+    onNone: () =>
+      Effect.fail(
+        new McpConfigInvalid({
+          detail: `MCP entry ${serverName} carries no AXM ownership metadata to fence with`,
+        }),
+      ),
+    onSome: (metadata) => Effect.succeed(metadata.ext),
+  });
 
 const invalidTomlRegion = (serverName: string, state: "malformed" | "unsupported-version") =>
   new McpOwnershipMarkerInvalid({ serverName, state, operation: "modify" });
@@ -330,37 +251,40 @@ const upsertToml = (args: {
   readonly serversKey: string;
   readonly serverName: string;
   readonly entry: Readonly<Record<string, unknown>>;
-}): Effect.Effect<string, McpOwnershipMarkerInvalid> => {
-  const parentHeader = `[${stringifyTomlKey(args.serversKey)}]`;
-  const block = stringifyToml({
-    [args.serversKey]: { [args.serverName]: args.entry },
-  })
-    .split("\n")
-    .filter((line) => line !== parentHeader)
-    .join("\n")
-    .trim();
-  const reconciliation = reconcileKeyedBlock({
-    content: args.raw,
-    region: tomlRegion(args.serverName),
-    owner: tomlOwner(args.serverName, args.entry),
-    rendered: block,
+}): Effect.Effect<string, McpOwnershipMarkerInvalid | McpConfigInvalid> =>
+  Effect.gen(function* () {
+    const parentHeader = `[${stringifyTomlKey(args.serversKey)}]`;
+    const block = stringifyToml({
+      [args.serversKey]: { [args.serverName]: args.entry },
+    })
+      .split("\n")
+      .filter((line) => line !== parentHeader)
+      .join("\n")
+      .trim();
+    const reconciliation = reconcileKeyedBlock({
+      content: args.raw,
+      region: tomlRegion(args.serverName),
+      owner: yield* tomlOwner(args.serverName, args.entry),
+      rendered: block,
+    });
+    return reconciliation.state.state === "malformed" ||
+      reconciliation.state.state === "unsupported-version"
+      ? yield* invalidTomlRegion(args.serverName, reconciliation.state.state)
+      : reconciliation.updated;
   });
-  return reconciliation.state.state === "malformed" ||
-    reconciliation.state.state === "unsupported-version"
-    ? Effect.fail(invalidTomlRegion(args.serverName, reconciliation.state.state))
-    : Effect.succeed(reconciliation.updated);
-};
 
 const removeToml = (args: {
   readonly raw: string;
+  readonly serversKey: string;
   readonly serverName: string;
   readonly disableOnly: boolean;
   readonly activationField: McpActivationField;
 }): Effect.Effect<string, McpOwnershipMarkerInvalid> => {
+  const region = tomlRegion(args.serverName);
   const inspected = reconcileKeyedBlock({
     content: args.raw,
-    region: tomlRegion(args.serverName),
-    owner: tomlOwner(args.serverName),
+    region,
+    owner: "",
     rendered: "",
   });
   if (inspected.state.state === "malformed" || inspected.state.state === "unsupported-version") {
@@ -374,13 +298,18 @@ const removeToml = (args: {
       new RegExp(`^${field} = (?:true|false)$`, "m"),
       `${activation.name} = ${String(activation.disabled)}`,
     );
+    // The block keeps the owner it already names; the fenced entry's own
+    // ownership record is the fallback when the marker carries none.
+    const owner =
+      inspected.state.startMarker.ext ??
+      Option.getOrUndefined(
+        readAxmMcpMetadata(
+          parseTomlMcpEntry(inspected.state.body, args.serversKey, args.serverName),
+        ),
+      )?.ext ??
+      region;
     return Effect.succeed(
-      reconcileKeyedBlock({
-        content: args.raw,
-        region: tomlRegion(args.serverName),
-        owner: inspected.state.startMarker.ext ?? tomlOwner(args.serverName),
-        rendered,
-      }).updated,
+      reconcileKeyedBlock({ content: args.raw, region, owner, rendered }).updated,
     );
   }
   return Effect.succeed(inspected.updated);
@@ -390,6 +319,11 @@ const pickProjectTarget = (
   targets: ReadonlyArray<McpConfigTarget>,
 ): Option.Option<McpConfigTarget> =>
   Option.fromUndefinedOr(targets.find((target) => target.scope === "project"));
+
+const readExisting = (
+  configPath: string,
+): Effect.Effect<string, McpConfigIoFailed, FileSystem.FileSystem> =>
+  readNativeMcpConfig(configPath).pipe(Effect.map(Option.getOrElse(() => "")));
 
 export const writeAgentMcpConfig = (
   args: WriteAgentMcpConfigArgs,
@@ -461,6 +395,7 @@ export const removeAgentMcpConfig = (
             case "toml":
               return yield* removeToml({
                 raw,
+                serversKey: args.serversKey,
                 serverName: args.serverName,
                 disableOnly: args.disableOnly,
                 activationField: args.activationField,

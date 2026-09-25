@@ -27,7 +27,6 @@ import {
   CodingAgentRepository,
   applyPlannedProjections,
   applyProjectionPlans,
-  inspectMcpServerAcrossAgents,
   observeInstructionProjection,
   projectionFactRequiresReconciliation,
   resolveInstructionsConfig,
@@ -46,7 +45,6 @@ import {
 import type { ManagerRequirements } from "../materialization/index.js";
 import type { RecipeRequirements } from "./extensions/operations.js";
 import {
-  StepFailure,
   type Job,
   type JobStepArtifact,
   type JobStepResult,
@@ -170,20 +168,25 @@ const mergeArtifactTargets = (
 // MCP-server projection steps
 // -----------------------------------------------------------------------------
 
-export const isInlineMcpServerEntry = (entry: McpServerEntry): boolean => entry.kind === "inline";
-
+/**
+ * Realize one inline server on every configured agent. Whether the write is
+ * safe, and what drifted, was decided when the plan was assembled: an unowned
+ * collision is a planning-phase blocker and the drift facts arrive as
+ * `inspectionWarnings`, so this step only writes.
+ */
 export const buildInlineMcpServerSyncOperation = ({
   name,
   entry,
   agentIds,
-  force,
+  inspectionWarnings,
   location,
   adapter,
 }: {
   readonly name: string;
   readonly entry: McpServerEntry;
   readonly agentIds: ReadonlyArray<string>;
-  readonly force: boolean;
+  /** What the planning inspection found wrong, per agent. */
+  readonly inspectionWarnings: ReadonlyArray<string>;
   readonly location: WorkspaceLocationService;
   readonly adapter: SyncFailureAdapter;
 }): PlannedJobStep<SyncStepRequirements> => ({
@@ -191,33 +194,6 @@ export const buildInlineMcpServerSyncOperation = ({
   label: `mcp-server ${name}`,
   readiness: "ready",
   run: Effect.gen(function* () {
-    const inspections = yield* inspectMcpServerAcrossAgents({
-      workspaceRoot: location.baseDir,
-      scope: location.scope,
-      agentIds,
-      serverName: name,
-      entry,
-    });
-    const inspectionWarnings = inspections.flatMap((inspection) =>
-      inspection.status === "drift" || inspection.status === "unmanaged"
-        ? [
-            `${inspection.agentId}: ${inspection.status}${
-              inspection.fields.length > 0 ? ` (${inspection.fields.join(", ")})` : ""
-            }`,
-          ]
-        : [],
-    );
-    const hasUnownedCollision = inspections.some((inspection) => inspection.status === "unmanaged");
-    if (hasUnownedCollision && !force) {
-      return {
-        result: "error",
-        message: `Inline MCP server ${name} collides with unowned native config; move, remove, or adopt the unowned entry before rerunning axm sync`,
-        error: new StepFailure({
-          category: "conflict",
-          detail: `Inline MCP server ${name} collides with unowned native config`,
-        }),
-      } satisfies JobStepResult;
-    }
     const batchOutcomes = yield* syncInlineMcpServerToAgents(agentIds, {
       workspaceRoot: location.baseDir,
       serverName: name,

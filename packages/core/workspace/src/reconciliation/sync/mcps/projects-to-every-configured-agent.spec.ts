@@ -347,6 +347,8 @@ describe("MCP servers project to every configured agent", () => {
         )
         .pipe(Effect.provide(NodeServices.layer));
     },
+    // Three reconciliations plus two inspections over a real Pack install.
+    30_000,
   );
 
   const CONFIGURED_AGENTS = ["claude-code", "cursor", "amp"] as const;

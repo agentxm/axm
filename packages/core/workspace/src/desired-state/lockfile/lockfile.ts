@@ -13,6 +13,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { sweepStaleAtomicWriteTemps, writeFileAtomic } from "@agentxm/host-primitives";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
 
@@ -21,8 +22,10 @@ import {
   recordFootprint,
   WorkspaceFileWriteLocks,
 } from "../../transitions/settlement/index.js";
-import { LockfileValidationError, LockfileWriteError } from "./errors.js";
+import { LockfileWriteError } from "./errors.js";
 import { LOCKFILE_VERSION, type Lockfile, LockfileSchema } from "./schema.js";
+import { decodeLockfileBytes, readLockfileBytes } from "../workspace/read-model/state.js";
+import type { LockfileReadError } from "../workspace/read-model/errors.js";
 
 /**
  * Pure lockfile transformation used to batch multiple lockfile updates before
@@ -123,41 +126,14 @@ const applyLockfileSnapshotPatch = (fresh: Lockfile, base: Lockfile, next: Lockf
 
 const readLockfileIfPresent = (
   lockfilePath: string,
-): Effect.Effect<
-  Lockfile | undefined,
-  LockfileValidationError,
-  FileSystem.FileSystem | Path.Path
-> =>
+): Effect.Effect<Lockfile | undefined, LockfileReadError, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const exists = yield* fs
-      .exists(lockfilePath)
-      .pipe(
-        Effect.mapError(
-          (cause) => new LockfileValidationError({ path: lockfilePath, step: "check", cause }),
-        ),
-      );
-    if (!exists) return undefined;
-
-    const raw = yield* fs
-      .readFileString(lockfilePath)
-      .pipe(
-        Effect.mapError(
-          (cause) => new LockfileValidationError({ path: lockfilePath, step: "read", cause }),
-        ),
-      );
-    const parsed = yield* Effect.try({
-      try: (): unknown => YAML.parse(raw),
-      catch: (cause) => new LockfileValidationError({ path: lockfilePath, step: "parse", cause }),
+    const raw = yield* readLockfileBytes(fs, lockfilePath);
+    return yield* Option.match(raw, {
+      onNone: () => Effect.succeed(undefined),
+      onSome: ({ path, bytes }) => decodeLockfileBytes(path, bytes),
     });
-    const decoded = yield* Schema.decodeUnknownEffect(LockfileSchema)(parsed, {
-      onExcessProperty: "error",
-    }).pipe(
-      Effect.mapError(
-        (cause) => new LockfileValidationError({ path: lockfilePath, step: "decode", cause }),
-      ),
-    );
-    return decoded;
   });
 
 const withLockfileLock = <A, E, R>(

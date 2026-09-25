@@ -73,11 +73,10 @@ const loadRawSettingsBytes = Effect.fn("workspace.read-model.state.settings.raw"
   return Option.some<RawSourceBytes>({ path: settingsPath, bytes });
 });
 
-const loadRawLockfileBytes = Effect.fn("workspace.read-model.state.lockfile.raw")(function* (deps: {
-  readonly fs: FileSystem.FileSystem;
-  readonly lockfilePath: string;
-}) {
-  const { fs, lockfilePath } = deps;
+export const readLockfileBytes = Effect.fn("workspace.read-model.state.lockfile.raw")(function* (
+  fs: FileSystem.FileSystem,
+  lockfilePath: string,
+) {
   const exists = yield* fs
     .exists(lockfilePath)
     .pipe(Effect.mapError((cause) => new LockfileIoError({ path: lockfilePath, cause })));
@@ -92,6 +91,28 @@ const loadRawLockfileBytes = Effect.fn("workspace.read-model.state.lockfile.raw"
 // Settings loader (decode pipeline) — sources bytes from the cached raw cell
 // ---------------------------------------------------------------------------
 
+/** Decode settings bytes with the same strict schema policy for every caller. */
+export const decodeSettingsBytes = Effect.fn("workspace.read-model.state.settings.decode")(
+  function* (path: string, bytes: string) {
+    const parsed = yield* Effect.try({
+      try: (): unknown => JSON.parse(bytes),
+      catch: (cause): SettingsParseError => new SettingsParseError({ path, raw: bytes, cause }),
+    });
+    return yield* Schema.decodeUnknownEffect(SettingsSchema)(parsed, {
+      onExcessProperty: "error",
+    }).pipe(
+      Effect.mapError(
+        (error) =>
+          new SettingsDecodeError({
+            path,
+            issues: formatSchemaIssuesToLines(error.issue),
+            raw: parsed,
+          }),
+      ),
+    );
+  },
+);
+
 /** Decode settings from cached raw bytes. Source-independent (Decision 2). */
 const loadSettings = (
   rawCell: Effect.Effect<Option.Option<RawSourceBytes>, SettingsIoError>,
@@ -99,39 +120,16 @@ const loadSettings = (
   Effect.gen(function* () {
     const rawOpt = yield* rawCell;
     if (Option.isNone(rawOpt)) return Option.none<DecodedSettings>();
-    const { path, bytes } = rawOpt.value;
-
-    const parsed = yield* Effect.try({
-      try: (): unknown => JSON.parse(bytes),
-      catch: (cause): SettingsParseError => new SettingsParseError({ path, raw: bytes, cause }),
-    });
-    const decoded = yield* Schema.decodeUnknownEffect(SettingsSchema)(parsed, {
-      onExcessProperty: "error",
-    }).pipe(
-      Effect.mapError((error) => {
-        return new SettingsDecodeError({
-          path,
-          issues: formatSchemaIssuesToLines(error.issue),
-          raw: parsed,
-        });
-      }),
-    );
-    return Option.some(decoded);
+    return Option.some(yield* decodeSettingsBytes(rawOpt.value.path, rawOpt.value.bytes));
   }).pipe(Effect.withSpan("workspace.read-model.state.settings"));
 
 // ---------------------------------------------------------------------------
 // Lockfile loader (decode pipeline) — sources bytes from the cached raw cell
 // ---------------------------------------------------------------------------
 
-/** Decode lockfile from cached raw bytes. Source-independent (Decision 2). */
-const loadLockfile = (
-  rawCell: Effect.Effect<Option.Option<RawSourceBytes>, LockfileIoError>,
-): Effect.Effect<Option.Option<DecodedLockfile>, LockfileReadError> =>
-  Effect.gen(function* () {
-    const rawOpt = yield* rawCell;
-    if (Option.isNone(rawOpt)) return Option.none<DecodedLockfile>();
-    const { path, bytes } = rawOpt.value;
-
+/** Decode lockfile bytes once with the current version gate and strict schema policy. */
+export const decodeLockfileBytes = Effect.fn("workspace.read-model.state.lockfile.decode")(
+  function* (path: string, bytes: string) {
     const parsed = yield* Effect.try({
       try: (): unknown => YAML.parse(bytes),
       catch: (cause): LockfileParseError => new LockfileParseError({ path, raw: bytes, cause }),
@@ -158,7 +156,9 @@ const loadLockfile = (
         );
       }
     }
-    const decoded = yield* Schema.decodeUnknownEffect(LockfileSchema)(parsed).pipe(
+    return yield* Schema.decodeUnknownEffect(LockfileSchema)(parsed, {
+      onExcessProperty: "error",
+    }).pipe(
       Effect.mapError(
         (error) =>
           new LockfileDecodeError({
@@ -168,7 +168,17 @@ const loadLockfile = (
           }),
       ),
     );
-    return Option.some(decoded);
+  },
+);
+
+/** Decode lockfile from cached raw bytes. Source-independent (Decision 2). */
+const loadLockfile = (
+  rawCell: Effect.Effect<Option.Option<RawSourceBytes>, LockfileIoError>,
+): Effect.Effect<Option.Option<DecodedLockfile>, LockfileReadError> =>
+  Effect.gen(function* () {
+    const rawOpt = yield* rawCell;
+    if (Option.isNone(rawOpt)) return Option.none<DecodedLockfile>();
+    return Option.some(yield* decodeLockfileBytes(rawOpt.value.path, rawOpt.value.bytes));
   }).pipe(Effect.withSpan("workspace.read-model.state.lockfile"));
 
 // ---------------------------------------------------------------------------
@@ -188,7 +198,7 @@ export const makeScopedStateApi = (
     const lockfileRaw: ScopedStateLoaders["lockfileRaw"] =
       lockfilePath === null
         ? Effect.succeed(Option.none<RawSourceBytes>())
-        : yield* Effect.cached(loadRawLockfileBytes({ fs, lockfilePath }));
+        : yield* Effect.cached(readLockfileBytes(fs, lockfilePath));
     const lockfile: ScopedStateLoaders["lockfile"] =
       lockfilePath === null
         ? Effect.succeed(Option.none<DecodedLockfile>())

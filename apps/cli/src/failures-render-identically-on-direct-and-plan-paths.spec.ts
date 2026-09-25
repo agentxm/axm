@@ -341,7 +341,7 @@ const representatives: Representatives = {
     new LockfileWriteError({ path: "/w/axm-lock.yaml", step: "rename", cause: ioCause }),
   ],
   LockfileValidationError: [
-    new LockfileValidationError({ path: "/w/axm-lock.yaml", step: "read", cause: ioCause }),
+    new LockfileValidationError({ path: "/w/axm-lock.yaml", step: "probe", cause: ioCause }),
   ],
   LockfileResolvedVersionInvalid: [
     new LockfileResolvedVersionInvalid({ field: "version", value: "^1.2.3", cause: ioCause }),

@@ -22,13 +22,12 @@ export class LockfileWriteError extends Data.TaggedError("LockfileWriteError")<{
 }> {}
 
 /**
- * The on-disk lockfile could not be probed, checked, read, parsed, or
- * decoded. `probe` is the existence probe outside the write path; the other
- * steps come from the read-before-commit path.
+ * The on-disk lockfile could not be probed outside the write path.
+ * Read-before-commit failures use the workspace read-model's typed errors.
  */
 export class LockfileValidationError extends Data.TaggedError("LockfileValidationError")<{
   readonly path: string;
-  readonly step: "probe" | "check" | "read" | "parse" | "decode";
+  readonly step: "probe";
   readonly cause: unknown;
 }> {}
 

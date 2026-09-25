@@ -300,20 +300,8 @@ const lockfileWriteFailure = (error: LockfileWriteError): StepFailure => {
   }
 };
 
-const lockfileValidationDetail = (error: LockfileValidationError): string => {
-  switch (error.step) {
-    case "probe":
-      return `Failed to check if lockfile exists at ${error.path}`;
-    case "check":
-      return `Failed to check the lockfile at ${error.path}. Fix the file's permissions or restore it from version control, then rerun.`;
-    case "read":
-      return `Failed to read the lockfile at ${error.path}. Fix the file's permissions or restore it from version control, then rerun.`;
-    case "parse":
-      return `Failed to parse lockfile at ${error.path}`;
-    case "decode":
-      return `Failed to decode lockfile at ${error.path}`;
-  }
-};
+const lockfileValidationDetail = (error: LockfileValidationError): string =>
+  `Failed to check if lockfile exists at ${error.path}`;
 
 const symlinkCreationDetail = (error: SymlinkCreationError): string => {
   switch (error.step) {

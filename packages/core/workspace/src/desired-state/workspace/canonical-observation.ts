@@ -10,20 +10,13 @@ import {
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
 import { parseSkillMd, readExtensionManifest } from "@agentxm/extension-content";
-import type {
-  HookLockEntry,
-  KnowledgeLockEntry,
-  McpServerLockEntry,
-  PackLockEntry,
-  RuleLockEntry,
-  SkillLockEntry,
-  SubagentLockEntry,
-} from "../lockfile/index.js";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import {
+  isRegistryLockEntry,
   lockEntryMatchesSourceLocator,
   lockEntryToSourceParams,
-} from "./lock-entry-to-source-params.js";
+  type LockEntry,
+} from "./lock-entry.js";
 import type { DesiredConstraintContributor, DesiredExtensionNode } from "./desired-state-graph.js";
 import type { WorkspaceLayout } from "./layout.js";
 import {
@@ -77,30 +70,14 @@ export type CanonicalObservation =
 interface ObserveCanonicalArgs {
   readonly layout: WorkspaceLayout;
   readonly desired: DesiredExtensionNode;
-  readonly accepted: AcceptedExtensionResolution | undefined;
+  readonly accepted: LockEntry | undefined;
 }
-
-export type AcceptedExtensionResolution =
-  | SkillLockEntry
-  | McpServerLockEntry
-  | SubagentLockEntry
-  | RuleLockEntry
-  | HookLockEntry
-  | KnowledgeLockEntry
-  | PackLockEntry;
-
-const isRegistryResolution = (
-  entry: AcceptedExtensionResolution,
-): entry is Extract<
-  AcceptedExtensionResolution,
-  { readonly source: { readonly type: "registry" } }
-> => entry.source.type === "registry";
 
 export const canonicalPathForAcceptedExtension = (
   path: Path.Path,
   layout: WorkspaceLayout,
   desired: DesiredExtensionNode,
-  accepted: AcceptedExtensionResolution | undefined,
+  accepted: LockEntry | undefined,
 ): string | undefined => {
   if (desired.source === undefined) return undefined;
   if (desired.identity.authority === "bundled") {
@@ -195,7 +172,7 @@ const constraintMismatchObservation = (args: {
 /** Whether the canonical tree at `root` is byte-for-byte the accepted one. */
 const observedTreeMatchesAccepted = (
   root: string,
-  accepted: Pick<AcceptedExtensionResolution, "treeIntegrity">,
+  accepted: Pick<LockEntry, "treeIntegrity">,
 ): Effect.Effect<boolean, never, FileSystem.FileSystem | Path.Path> =>
   Effect.map(
     Effect.result(computeMaterializedTreeIntegrity(root)),
@@ -230,7 +207,7 @@ export type RequestedCanonicalRef =
 export const observeAcceptedCanonicalReuse = (args: {
   readonly canonicalPath: string;
   readonly requested: RequestedCanonicalRef;
-  readonly accepted: Option.Option<AcceptedExtensionResolution>;
+  readonly accepted: Option.Option<LockEntry>;
   readonly force: boolean;
 }): Effect.Effect<Option.Option<TreeIntegrity>, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
@@ -241,7 +218,7 @@ export const observeAcceptedCanonicalReuse = (args: {
         return Option.none();
       }
     } else if (
-      isRegistryResolution(accepted) ||
+      isRegistryLockEntry(accepted) ||
       accepted.identity.name !== args.requested.name ||
       (args.requested.owner !== undefined && accepted.identity.owner !== args.requested.owner)
     ) {
@@ -254,12 +231,12 @@ export const observeAcceptedCanonicalReuse = (args: {
 
 const acceptedOriginMatches = (
   desired: DesiredExtensionNode & { readonly source: string },
-  accepted: AcceptedExtensionResolution,
+  accepted: LockEntry,
 ): boolean => {
   const acceptedIdentity =
     desired.type === "mcp-server"
       ? mcpResolutionKey(accepted)
-      : isRegistryResolution(accepted)
+      : isRegistryLockEntry(accepted)
         ? `${accepted.identity.owner}/${toExtensionTypePlural(desired.type)}/${accepted.identity.name}`
         : printSourceParams(lockEntryToSourceParams(accepted));
   return (
@@ -281,7 +258,7 @@ const acceptedOriginMatches = (
  */
 export const observeAcceptedResolution = (
   desired: DesiredExtensionNode,
-  accepted: AcceptedExtensionResolution | undefined,
+  accepted: LockEntry | undefined,
 ): Option.Option<CanonicalObservation> => {
   if (desired.source === undefined) {
     return Option.some({ type: desired.type, name: desired.name, status: "not-applicable" });
@@ -298,14 +275,14 @@ export const observeAcceptedResolution = (
     isConstrained(desired) &&
     !(
       accepted !== undefined &&
-      isRegistryResolution(accepted) &&
+      isRegistryLockEntry(accepted) &&
       satisfiesDesiredConstraint(desired, accepted.resolved.version)
     )
   ) {
     return Option.some(
       constraintMismatchObservation({
         desired,
-        ...(accepted !== undefined && isRegistryResolution(accepted)
+        ...(accepted !== undefined && isRegistryLockEntry(accepted)
           ? { acceptedVersion: accepted.resolved.version }
           : {}),
       }),

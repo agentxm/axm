@@ -29,7 +29,7 @@ import { PathTraversalDetected } from "../desired-state/index.js";
 import {
   computeMaterializedTreeIntegrity,
   observeAcceptedCanonicalReuse,
-  type AcceptedExtensionResolution,
+  type LockEntry,
   type MaterializedTreeInvalid,
   type RequestedCanonicalRef,
   type TreeIntegrity,
@@ -307,7 +307,7 @@ export const createCanonicalDirectory = <E, R>(
 export const reusableCanonicalTree = (args: {
   readonly canonicalPath: string;
   readonly requested: RequestedCanonicalRef;
-  readonly accepted: Option.Option<AcceptedExtensionResolution>;
+  readonly accepted: Option.Option<LockEntry>;
   readonly force: boolean;
 }): Effect.Effect<
   Option.Option<TreeIntegrity>,

@@ -3,6 +3,7 @@ import {
   acquiredExtensionDisplayPathFromLockEntry,
   acquiredRootDisplayPath,
   lockfileDisplayPath,
+  lockEntryVersion,
   settingsDisplayPath,
 } from "../desired-state/index.js";
 import type { McpServerLockEntry } from "../desired-state/index.js";
@@ -12,11 +13,6 @@ import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace
 export const mcpConfigSurface = (scope: WorkspaceScope): string =>
   `${settingsDisplayPath(scope)} / ${lockfileDisplayPath(scope)}`;
 export const MCP_AGENT_CONFIG_SURFACE = ".mcp.json";
-
-export const mcpServerVersion = (entry: McpServerLockEntry): string | undefined =>
-  entry.source.type === "registry" && "version" in entry.resolved
-    ? entry.resolved.version
-    : undefined;
 
 export const mcpServerSourcePath = (scope: WorkspaceScope, entry: McpServerLockEntry): string =>
   acquiredExtensionDisplayPathFromLockEntry(
@@ -112,7 +108,7 @@ export const mcpServerArtifact = (args: {
   readonly targets: ReadonlyArray<JobStepArtifactTarget>;
   readonly agents?: ReadonlyArray<string>;
 }): JobStepArtifact => {
-  const version = args.lockEntry === undefined ? undefined : mcpServerVersion(args.lockEntry);
+  const version = args.lockEntry === undefined ? undefined : lockEntryVersion(args.lockEntry);
 
   return {
     path:

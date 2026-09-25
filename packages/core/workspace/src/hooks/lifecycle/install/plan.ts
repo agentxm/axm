@@ -41,6 +41,7 @@ import {
   acquiredExtensionDisplayPath,
   acquiredExtensionDisplayPathFromLockEntry,
   acquiredRootDisplayPath,
+  lockEntryVersion,
   type ArtifactChange,
   type ConfiguredAgentOutcome,
   type HookLockEntry,
@@ -64,11 +65,6 @@ export interface ParsedHookInstallRequest {
   readonly owner: Option.Option<Handle>;
   readonly versionRange: Option.Option<VersionRange>;
 }
-
-const hookLockEntryVersion = (entry: HookLockEntry): string | undefined =>
-  entry.source.type === "registry" && "version" in entry.resolved
-    ? entry.resolved.version
-    : undefined;
 
 const hookRefArtifactPath = (ref: HookExtensionRef, scope: JobStepArtifact["scope"]): string =>
   ref.refType === "workspace"
@@ -96,7 +92,7 @@ export const hookInstallArtifact = (args: {
   readonly targets: ReadonlyArray<JobStepArtifactTarget>;
   readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
 }): InstallArtifactPresentation => {
-  const version = hookLockEntryVersion(args.lockEntry);
+  const version = lockEntryVersion(args.lockEntry);
   return {
     path: hookInstallArtifactPath(args.lockEntry, args.scope),
     scope: args.scope,

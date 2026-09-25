@@ -76,7 +76,7 @@ import { makePlatformSkillFileAccessor } from "@agentxm/extension-content/lint";
 import { makePlatformPackFileAccessor } from "@agentxm/extension-content/lint";
 import {
   acquiredExtensionDisplayPathFromLockEntry,
-  type ExtensionPathLockEntry,
+  type LockEntry,
 } from "../../../desired-state/index.js";
 import { parseRegistrySourceRef } from "@agentxm/extension-model/unstable/extensions/registry-source";
 import type { SkillLockEntry } from "../../../desired-state/index.js";
@@ -903,7 +903,7 @@ const canonicalPackageRoot = (
     readonly name: string;
     readonly plural: ExtensionTypePlural;
     readonly actual: ReadonlyArray<{ readonly packageRoot: string | null }>;
-    readonly resolved: Option.Option<{ readonly lockEntry: ExtensionPathLockEntry }>;
+    readonly resolved: Option.Option<{ readonly lockEntry: LockEntry }>;
     readonly installationOrigin: { readonly _tag: string };
   },
 ): string | undefined => {
@@ -1029,7 +1029,7 @@ const relativeDisplayRoot = (
 
 const acquiredPackageDisplayRoot = (
   scope: "project" | "user",
-  entry: ExtensionPathLockEntry,
+  entry: LockEntry,
   type: ExtensionTypePlural,
   name: string,
 ): string =>

@@ -7,6 +7,7 @@ import {
   LockfileReader,
   SettingsReader,
   WorkspaceLocation,
+  lockEntryVersion,
 } from "../../../desired-state/index.js";
 
 import * as FileSystem from "effect/FileSystem";
@@ -27,11 +28,7 @@ import {
 } from "../../../resolution/index.js";
 import { RegistryClientFactory } from "@agentxm/registry-client";
 import { CodingAgentRepository } from "../../../projection/index.js";
-import {
-  sanitizeName,
-  type SkillLockEntry,
-  type SkillPathSource,
-} from "../../../desired-state/index.js";
+import { sanitizeName, type SkillPathSource } from "../../../desired-state/index.js";
 import type { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
 import {
   installRefused,
@@ -87,12 +84,6 @@ const skillPathSourceFor = (ref: SkillExtensionRef): SkillPathSource => {
       return { refType: "workspace", owner: ref.owner };
   }
 };
-
-/** The version an accepted Registry resolution names; other sources carry none. */
-const acceptedVersion = (entry: SkillLockEntry): string | undefined =>
-  entry.source.type === "registry" && "version" in entry.resolved
-    ? entry.resolved.version
-    : undefined;
 
 interface ReleaseAgeFact {
   readonly minimumAge: string;
@@ -202,7 +193,7 @@ const inspect = (ref: SkillExtensionRef) =>
       .pipe(Effect.catch(() => Effect.succeed(Option.none())));
     const previousVersion = Option.match(previousLockEntry, {
       onNone: () => undefined,
-      onSome: acceptedVersion,
+      onSome: lockEntryVersion,
     });
     const { skillSrcPath } = yield* paths.skillDir(ref.skill.name, skillPathSourceFor(ref));
     const configuredAgents = yield* agentRepo.getMaterializationAgents();

@@ -255,7 +255,8 @@ export const ShowExtension = {
         name: request.name,
         enabled,
         source,
-        version: lockEntry === undefined ? observedManifestVersion : lockEntryVersion(lockEntry),
+        version:
+          lockEntry === undefined ? observedManifestVersion : (lockEntryVersion(lockEntry) ?? null),
         scope: location.scope,
         locked: lockEntry !== undefined,
       },

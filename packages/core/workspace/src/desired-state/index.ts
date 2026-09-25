@@ -68,7 +68,6 @@ export {
   extensionPathSourceFromLockEntry,
   extensionContentFilename,
   extensionContentPath,
-  type ExtensionPathLockEntry,
   type ExtensionPathSource,
   type ExtensionDirPaths,
 } from "./workspace/extension-paths.js";
@@ -175,8 +174,6 @@ export {
 
 export type { ReadModelRecordRow, PackagingKind } from "./workspace/read-model-record-types.js";
 
-export { lockEntryVersion, type AnyLockEntry } from "./workspace/locked-entries.js";
-
 export {
   buildDesiredStateGraph,
   effectiveDesiredConstraint,
@@ -242,7 +239,6 @@ export {
   canonicalPathForAcceptedExtension,
   desiredConstraintContributors,
   type RequestedCanonicalRef,
-  type AcceptedExtensionResolution,
   type CanonicalConstraintContributor,
   type CanonicalConstraintMismatchObservation,
   type CanonicalObservation,
@@ -272,21 +268,20 @@ export { resolveWorkspaceExtensionRef } from "./workspace/configured-entry-resol
 
 // Lock entry translation
 export {
-  hookLockEntryToRef,
-  knowledgeLockEntryToRef,
-  mcpServerLockEntryToRef,
-  packLockEntryToRef,
-  ruleLockEntryToRef,
-  skillLockEntryToRef,
-  subagentLockEntryToRef,
+  lockEntryToRef,
+  lockEntrySource,
+  lockEntryToSourceParams,
+  lockEntryMatchesSourceLocator,
+  printSkillLockSourceLocator,
+  lockEntryVersion,
+  isRegistryLockEntry,
+  isGitLockEntry,
+  isPathLockEntry,
+  type LockEntry,
+  type LockEntryToRefDeps,
   type LockEntrySourceLookupError,
   type LockEntryToRefError,
-} from "./workspace/lock-entry-to-ref.js";
-export {
-  lockEntryMatchesSourceLocator,
-  lockEntryToSourceParams,
-  printSkillLockSourceLocator,
-} from "./workspace/lock-entry-to-source-params.js";
+} from "./workspace/lock-entry.js";
 // Source metadata
 export { deriveSourceMetaFromLockType, type SourceMeta } from "./workspace/source-metadata.js";
 export {

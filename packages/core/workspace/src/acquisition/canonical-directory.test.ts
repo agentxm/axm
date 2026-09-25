@@ -19,7 +19,7 @@ import * as Schema from "effect/Schema";
 import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import {
   computeMaterializedTreeIntegrity,
-  type AcceptedExtensionResolution,
+  type LockEntry,
   type TreeIntegrity,
 } from "../desired-state/index.js";
 import { exactVersion, extensionName, handle } from "../desired-state/test-helpers.js";
@@ -38,7 +38,7 @@ const requestedReview = {
 
 /** The accepted Registry row for `@acme/hooks/review` at the given version and tree. */
 const acceptedReview = (version: string, treeIntegrity: TreeIntegrity) =>
-  Option.some<AcceptedExtensionResolution>({
+  Option.some<LockEntry>({
     source: { type: "registry", url: new URL("https://registry.agentxm.ai") },
     identity: { owner: handle("@acme"), name: extensionName("review") },
     resolved: {
@@ -626,7 +626,7 @@ describe("package materialization helpers", () => {
         });
         nodeFs.writeFileSync(nodePath.join(sourcePath, "SKILL.md"), "changed source");
         const acceptedTree = yield* computeMaterializedTreeIntegrity(canonicalPath);
-        const accepted = Option.some<AcceptedExtensionResolution>({
+        const accepted = Option.some<LockEntry>({
           source: { type: "path", path: sourcePath },
           identity: { name: extensionName("review") },
           resolved: { tree: Schema.decodeUnknownSync(SourceHashSchema)("sha256-source") },

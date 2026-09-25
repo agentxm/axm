@@ -4,7 +4,6 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as Option from "effect/Option";
 import {
   EXTENSION_TYPE_TABLE,
   toExtensionType,
@@ -21,6 +20,12 @@ import {
   type AbsolutePath,
 } from "@agentxm/extension-model/unstable/path-types";
 import type { WorkspaceLayout } from "./layout.js";
+import {
+  isGitLockEntry,
+  isRegistryLockEntry,
+  lockEntrySource,
+  type LockEntry,
+} from "./lock-entry.js";
 
 export type ExtensionPathSource =
   | {
@@ -49,55 +54,21 @@ export type ExtensionPathSource =
       readonly portable?: boolean;
     };
 
-export type ExtensionPathLockEntry =
-  | {
-      readonly source: { readonly type: "registry"; readonly url: URL };
-      readonly identity: { readonly owner: Handle; readonly name: string };
-    }
-  | {
-      readonly source: { readonly type: "path"; readonly path: string };
-      readonly identity: { readonly owner?: Handle | undefined; readonly name: string };
-    }
-  | {
-      readonly source: {
-        readonly type: "git";
-        readonly url: URL;
-        readonly path?: string | undefined;
-        readonly revision?: string | undefined;
-      };
-      readonly identity: { readonly owner?: Handle | undefined; readonly name: string };
-    };
-
-const isRegistryPathLockEntry = (
-  entry: ExtensionPathLockEntry,
-): entry is Extract<ExtensionPathLockEntry, { readonly source: { readonly type: "registry" } }> =>
-  entry.source.type === "registry";
-
-const isPathPathLockEntry = (
-  entry: ExtensionPathLockEntry,
-): entry is Extract<ExtensionPathLockEntry, { readonly source: { readonly type: "path" } }> =>
-  entry.source.type === "path";
-
 export const extensionPathSourceFromLockEntry = (
-  entry: ExtensionPathLockEntry,
+  entry: LockEntry,
 ): Exclude<ExtensionPathSource, { readonly refType: "workspace" }> => {
-  if (isRegistryPathLockEntry(entry)) {
+  if (isRegistryLockEntry(entry)) {
     return {
       refType: "registry",
       owner: entry.identity.owner,
-      source: {
-        type: "registry",
-        name: "registry",
-        location: entry.source.url,
-        owner: Option.some(entry.identity.owner),
-      },
+      source: lockEntrySource(entry),
     };
   }
-  if (isPathPathLockEntry(entry)) {
+  if (!isGitLockEntry(entry)) {
     return {
       refType: "local",
       ...(entry.identity.owner === undefined ? {} : { owner: entry.identity.owner }),
-      source: { type: "local", path: entry.source.path },
+      source: lockEntrySource(entry),
       sourcePath: entry.source.path,
       portable: entry.identity.owner === undefined,
     };
@@ -105,12 +76,7 @@ export const extensionPathSourceFromLockEntry = (
   return {
     refType: "git-hosted",
     ...(entry.identity.owner === undefined ? {} : { owner: entry.identity.owner }),
-    source: {
-      type: "git",
-      url: entry.source.url,
-      ref: Option.fromUndefinedOr(entry.source.revision),
-      subPath: Option.fromUndefinedOr(entry.source.path),
-    },
+    source: lockEntrySource(entry),
     ...(entry.source.path === undefined ? {} : { sourcePath: entry.source.path }),
     portable: entry.identity.owner === undefined,
   };
@@ -169,7 +135,7 @@ export const acquiredExtensionDisplayPath = (
 /** Render the acquired display path proven by a persisted lock entry. */
 export const acquiredExtensionDisplayPathFromLockEntry = (
   root: string,
-  entry: ExtensionPathLockEntry,
+  entry: LockEntry,
   type: ExtensionTypePlural,
   name: string,
 ): string =>

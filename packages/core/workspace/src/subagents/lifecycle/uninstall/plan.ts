@@ -46,12 +46,8 @@ import {
   acquiredRootDisplayPath,
   lockfileDisplayPath,
   settingsDisplayPath,
+  lockEntryVersion,
 } from "../../../desired-state/index.js";
-
-const resolvedVersion = (entry: SubagentLockEntry | undefined): string | undefined =>
-  entry !== undefined && entry.source.type === "registry" && "version" in entry.resolved
-    ? entry.resolved.version
-    : undefined;
 
 const subagentSourceTarget = (args: {
   readonly name: string;
@@ -98,7 +94,7 @@ const subagentArtifact = (args: {
     ...args.materializedTargets.map((target) => ({ ...target, change: targetChange })),
   ];
   const firstTarget = targets[0];
-  const version = resolvedVersion(args.lockEntry);
+  const version = args.lockEntry === undefined ? undefined : lockEntryVersion(args.lockEntry);
   return {
     path: firstTarget?.path ?? args.name,
     scope: args.scope,

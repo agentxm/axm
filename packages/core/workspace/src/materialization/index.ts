@@ -131,7 +131,6 @@ export {
   mcpConfigSurface,
   mcpServerArtifact,
   mcpServerSourcePath,
-  mcpServerVersion,
   mcpSettingsTarget,
   mcpSourceTarget,
   type AgentMcpConfigOutcome,

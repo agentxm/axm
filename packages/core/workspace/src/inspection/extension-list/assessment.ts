@@ -19,7 +19,7 @@ import { resolveSource, SourceHostProviders } from "../../resolution/sources/ind
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import { lockEntryToSourceParams } from "../../desired-state/index.js";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
-import type { AcceptedExtensionResolution } from "../../desired-state/index.js";
+import type { LockEntry } from "../../desired-state/index.js";
 import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
 import type { ExtensionInventoryLifecycle, ReadModelRecordRow } from "../../desired-state/index.js";
 import {
@@ -70,7 +70,7 @@ export interface ExtensionListItem {
   readonly assessment: ExtensionAssessment;
 }
 
-type AcceptedEntry = AcceptedExtensionResolution;
+type AcceptedEntry = LockEntry;
 
 type RegistryAcceptedEntry = Extract<
   AcceptedEntry,

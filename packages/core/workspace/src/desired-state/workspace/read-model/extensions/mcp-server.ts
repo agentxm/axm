@@ -17,7 +17,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions/common";
 import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/extension-model/unstable/extensions";
 import type { Lockfile, McpServerLockEntry } from "../../../lockfile/schema.js";
-import { lockEntryToSourceParams } from "../../lock-entry-to-source-params.js";
+import { lockEntryToSourceParams } from "../../lock-entry.js";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import { isSourcedMcpServerEntry } from "../../../settings/schema.js";
 import type { McpServerEntry, Settings } from "../../../settings/schema.js";

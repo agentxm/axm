@@ -63,7 +63,7 @@ import type { KnowledgeLockEntry } from "../desired-state/index.js";
 import { SourceHostProviders, WorkspaceCatalog } from "../resolution/sources/index.js";
 import { acquiredDirectoryForRef } from "../acquisition/acquired-content.js";
 import type { KnowledgeMap } from "../desired-state/index.js";
-import { knowledgeLockEntryToRef } from "../desired-state/index.js";
+import { lockEntryToRef } from "../desired-state/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { recordFootprint } from "../transitions/settlement/index.js";
 import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
@@ -732,7 +732,7 @@ export const KnowledgeManagerLive = Layer.effect(
 
     const restoreLockedPackage = (name: string, entry: KnowledgeLockEntry) =>
       Effect.gen(function* () {
-        const ref = yield* knowledgeLockEntryToRef(name, entry, {
+        const ref = yield* lockEntryToRef.knowledge(name, entry, {
           baseDir,
           path,
           scope: location.scope,

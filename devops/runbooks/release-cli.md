@@ -84,19 +84,12 @@ candidate state in the [specification catalog](../../specifications/catalog.md).
 
 ### GitHub Release asset inventory
 
-Each stable GitHub Release contains exactly 20 files:
+The exact asset inventory is `EXPECTED_RELEASE_ASSETS` in
+[`scripts/release-checksums.ts`](../../scripts/release-checksums.ts). It includes
+native binaries, the binaries-only `SHA256SUMS` manifest, and release content:
+installers, generated catalogs, and JSON Schemas.
 
-- five native binaries: `axm-darwin-arm64`, `axm-darwin-x64`,
-  `axm-linux-arm64`, `axm-linux-x64`, and `axm-windows-x64.exe`;
-- the binaries-only `SHA256SUMS` manifest;
-- four installer documents: `install.sh`, `install.ps1`, `install.cmd`, and
-  `install.md`; and
-- ten generated JSON Schemas: `axm-lock.schema.json`,
-  `agent-extensions.schema.json`, `hook.schema.json`, `knowledge.schema.json`,
-  `mcp.schema.json`, `pack.schema.json`, `rule.schema.json`,
-  `settings.schema.json`, `skill.schema.json`, and `subagent.schema.json`.
-
-CI stages the installer and schema files as one exact-commit release-content
+CI stages the installer, catalog, and schema files as one exact-commit release-content
 artifact. Publication downloads that artifact beside the five exact-commit
 binaries, generates `SHA256SUMS` for the binaries only, rejects missing or
 undeclared files, and applies the same immutable upload and integrity read-back

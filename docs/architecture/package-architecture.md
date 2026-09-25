@@ -63,8 +63,9 @@ record owns the choice and its rationale.
 **Strategic domain** answers how distinctive the capability is, and comes from
 placement. `packages/core/` holds the extension-management model AXM exists to
 own. `packages/supporting/` holds necessary but undifferentiated adaptation to
-external systems and native agent surfaces. `packages/generic/` is reserved for
-broadly shared problems an adopted solution would serve better, and is empty.
+external systems and native agent surfaces. `packages/generic/` holds broadly
+shared capabilities that no adopted dependency provides in the forms AXM needs;
+its first occupant is `@agentxm/host-primitives`.
 Nothing authors a `domain:*` tag: `scripts/placement-tags-plugin.ts` derives it
 from the path and rejects a project that authors one or sits outside a tier.
 
@@ -352,6 +353,15 @@ HTTP transport. Publish, authoring, and visibility consume the narrow owner
 subpaths; the authentication command surface is a thin use of the same
 services.
 
+## Generic packages
+
+`packages/generic/` — `domain:generic`. They may depend only on other generic
+packages; every strategic tier may import them subject to the role matrix.
+
+| Package                    | Role              | Owns                                                                                                                                                                                                     |
+| -------------------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@agentxm/host-primitives` | `role:capability` | Atomic single-file replacement and stale temporary-file sweep, SRI digests, the file-location codec, process-environment readers, and user-home / AXM-home resolution; private and bundled into `axm.sh` |
+
 ## Engineering libraries
 
 `tools/` — engineering support. No `domain:*` tag, `role:tooling`, and barred
@@ -416,8 +426,9 @@ consumers may use.
   `*/testing`; tests and specifications do.
 - The two contract packages keep their `./unstable/*` subpaths, and
   `extension-content` additionally exports `./knowledge` and `./lint`.
-- `axm.sh` exports `./app`, `./runtime`, and the generated site content. It
-  publishes no test or harness entry point: specifications inherit the
+- `axm.sh` exports only `./runtime`; its application entry and generated site
+  content are package-internal release inputs. It publishes no test or harness
+  entry point: specifications inherit the
   production boundary of the project that owns them and compose package-owned
   `./testing` ports, so there is nothing for a shared harness to be.
 
@@ -508,15 +519,15 @@ whose decisive verification is a static gate declares literal-only
 requirement; bound evidence supports an owning specification and never replaces
 one.
 
-### No additional complementary tools
+### Complementary tools
 
-The package boundaries give Nx sufficient granularity and the remaining
-composition exceptions fit ordinary ESLint configuration. Do not add
-dependency-cruiser, adopt Knip as an architecture gate, or adopt Nx Enterprise
-Conformance for a TypeScript-only graph. Reconsider only after evidence shows a
-boundary Nx and focused ESLint rules cannot express — numerous durable
-folder-level constraints, or production dependencies in languages ESLint cannot
-inspect.
+The intra-package capability gate in `tools/architecture` uses
+dependency-cruiser for source extraction and JS Boundaries descriptors for
+capability elements over the roots in `tools/architecture/config.mjs`. Knip is
+not an architecture gate, and Nx Enterprise Conformance is not adopted.
+Reconsider the tooling when numerous durable folder-level constraints or
+production dependencies in languages ESLint cannot inspect make these focused
+rules insufficient.
 
 ## Nx workspace conventions
 

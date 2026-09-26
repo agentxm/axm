@@ -918,7 +918,6 @@ export interface EmitOperationResolutionOptions {
    */
   readonly recovery?: ConfirmationRecovery;
   readonly suggestions?: OperationSuggestions;
-  readonly withoutSuggestions?: boolean;
   /** Overrides the derived human headline and is carried in the document. */
   readonly message?: string;
   readonly imports?: {
@@ -1077,7 +1076,6 @@ export const emitNoOpOutcome = (args: {
   readonly planDescription?: string;
   readonly message: string;
   readonly suggestions?: ReadonlyArray<SuggestedAction>;
-  readonly withoutSuggestions?: boolean;
 }) =>
   Effect.gen(function* () {
     const { mode } = yield* OperationLifecycle;
@@ -1093,9 +1091,6 @@ export const emitNoOpOutcome = (args: {
       {
         message: args.message,
         ...(args.suggestions === undefined ? {} : { suggestions: args.suggestions }),
-        ...(args.withoutSuggestions === undefined
-          ? {}
-          : { withoutSuggestions: args.withoutSuggestions }),
       },
     );
   });

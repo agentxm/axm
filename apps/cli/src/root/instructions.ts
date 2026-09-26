@@ -118,7 +118,6 @@ const runInstructions = (
       yield* emitNoOpOutcome({
         planName: PLAN_NAME[candidate.action],
         message: candidate.message,
-        withoutSuggestions: true,
       });
       return;
     }

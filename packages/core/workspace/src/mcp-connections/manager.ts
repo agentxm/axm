@@ -1,6 +1,3 @@
-import { LifecyclePostconditionViolated } from "../transitions/planning/index.js";
-import { usableAcceptedCanonical } from "../desired-state/index.js";
-
 /**
  * MCP server extension manager service.
  *
@@ -47,17 +44,18 @@ import type {
   RegistryMcpServerRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import type { McpServerLockEntry } from "../desired-state/index.js";
-import type { ExtensionTarget, McpServerExtensionTarget } from "../desired-state/index.js";
+import type { McpServerExtensionTarget } from "../desired-state/index.js";
 import { mcpRegistryResolutionKey } from "../desired-state/index.js";
 import { acquireCanonicalForRef } from "../materialization/acquire-canonical.js";
+import {
+  makeBaseManagerMembers,
+  listMaterializableFromDisk,
+} from "../materialization/manager-kit.js";
 import { computeExtensionPathsForLayout } from "../desired-state/index.js";
 import { validateExactResolvedVersion } from "../desired-state/index.js";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
-import { configuredRowsByName } from "../desired-state/index.js";
-import { isObservedInstalled } from "../desired-state/index.js";
 import {
   acceptedCanonicalObservation,
-  prepareAcceptedCanonicalTransition,
   removableAcceptedCanonicalPath,
 } from "../desired-state/index.js";
 import { protectWorkspacePath } from "../transitions/settlement/index.js";
@@ -411,57 +409,27 @@ export const McpServerManagerLive = Layer.effect(
       });
 
     return {
-      isInstalled: Effect.fn("McpServerManager.isInstalled")(function* ({
-        target,
-      }: {
-        readonly target: ExtensionTarget;
-      }) {
-        return yield* isObservedInstalled(records, "mcp-server", target.name);
+      ...makeBaseManagerMembers({
+        type: "mcp-server",
+        spanPrefix: "McpServerManager",
+        records,
+        settings,
+        refName: (ref) => ref.server.name,
+        materializeInstall,
       }),
-
       materializeInstall,
       acquireCanonical: materializeInstall,
-      materializeRetained: ({ target }) =>
-        Effect.gen(function* () {
-          const canonical = yield* usableAcceptedCanonical({
-            type: "mcp-server",
-            name: target.name,
-          });
-          if (Option.isNone(canonical) || canonical.value.ref.type !== "mcp-server") {
-            return yield* new LifecyclePostconditionViolated({
-              postcondition: "materialize-observable",
-              targetType: "mcp-server",
-              targetName: target.name,
-            });
-          }
-          return yield* materializeInstall({ ref: canonical.value.ref });
-        }),
-      prepareSourceTransition: ({ ref }) =>
-        prepareAcceptedCanonicalTransition({
-          type: "mcp-server",
-          name: ref.server.name,
-          ref,
-        }),
-      getConfiguredSource: Effect.fn("McpServerManager.getConfiguredSource")(function* ({
-        target,
-      }) {
-        const configured = yield* settings.entries("mcp-server");
-        return Option.fromUndefinedOr(configured[target.name]?.source);
-      }),
       isConfigured: Effect.fn("McpServerManager.isConfigured")(function* ({ target }) {
         const configured = yield* settings.entries("mcp-server");
         return configured[target.name] !== undefined;
       }),
-      listMaterializable: Effect.fn("McpServerManager.listMaterializable")(function* () {
-        const configured = yield* records
-          .rows("mcp-server")
-
-          .pipe(Effect.map(configuredRowsByName));
-        return yield* configuredMcpServersToDiskRefs(
-          { fs, path, baseDir, scope: location.scope, layout: currentLayout() },
-          configured,
-        );
-      }),
+      listMaterializable: () =>
+        listMaterializableFromDisk({
+          type: "mcp-server",
+          records,
+          toDiskRefs: configuredMcpServersToDiskRefs,
+          env: { fs, path, baseDir, scope: location.scope, layout: currentLayout() },
+        }),
       materializeUninstall,
       materializeDeactivate,
       configuredAgentOutcomes,

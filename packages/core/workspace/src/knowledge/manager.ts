@@ -1,6 +1,3 @@
-import { LifecyclePostconditionViolated } from "../transitions/planning/index.js";
-import { usableAcceptedCanonical } from "../desired-state/index.js";
-
 // @effect-diagnostics anyUnknownInErrorContext:off — schema and filesystem errors are swept into KnowledgeIoFailed inside this manager
 /** Lifecycle manager for isolated Open Knowledge Format bundles. */
 
@@ -49,6 +46,10 @@ import {
   verifyWorkspaceRefLocation,
 } from "../materialization/acquire-canonical.js";
 import {
+  makeBaseManagerMembers,
+  listMaterializableFromAccepted,
+} from "../materialization/manager-kit.js";
+import {
   computeExtensionPathsForLayout,
   observeCanonicalExtension,
   type DesiredExtensionNode,
@@ -64,7 +65,6 @@ import { lockEntryToRef } from "../desired-state/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { recordFootprint } from "../transitions/settlement/index.js";
 import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
-import { usableAcceptedCanonicalRef } from "../desired-state/index.js";
 import type { ManagerRequirements } from "../materialization/manager-contract.js";
 import { NO_MATERIALIZATION_OBSERVATION } from "../materialization/manager-contract.js";
 import type { KnowledgeMaterializationFacts } from "../materialization/managers.js";
@@ -74,12 +74,9 @@ import {
   type KnowledgeManagerService,
   type KnowledgeSyncResult,
 } from "../materialization/managers.js";
-import type { ExtensionTarget } from "../desired-state/index.js";
 import { runWorkspaceTransaction } from "../transitions/settlement/index.js";
-import { isObservedInstalled } from "../desired-state/index.js";
 import {
   acceptedCanonicalObservation,
-  prepareAcceptedCanonicalTransition,
   removableAcceptedCanonicalPath,
 } from "../desired-state/index.js";
 import { protectWorkspacePath } from "../transitions/settlement/index.js";
@@ -834,22 +831,18 @@ export const KnowledgeManagerLive = Layer.effect(
                 validate: () => Effect.void,
               }),
             ),
-      isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>
-        provide(isObservedInstalled(records, "knowledge", target.name)),
+      ...makeBaseManagerMembers({
+        type: "knowledge",
+        spanPrefix: "KnowledgeManager",
+        records,
+        settings,
+        refName: (ref) => ref.knowledge.name,
+        materializeInstall: acquireCanonical,
+        // Retaining canonical Knowledge withdraws its discovery output.
+        retained: ({ target }) => materializeDeactivate({ target }),
+      }),
       materializeInstall: acquireCanonical,
       acquireCanonical,
-      prepareSourceTransition: ({ ref }) =>
-        provide(
-          prepareAcceptedCanonicalTransition({
-            type: "knowledge",
-            name: ref.knowledge.name,
-            ref,
-          }),
-        ),
-      getConfiguredSource: ({ target }) =>
-        settings
-          .entries("knowledge")
-          .pipe(Effect.map((entries) => Option.fromUndefinedOr(entries[target.name]?.source))),
       /**
        * Every enabled entry's accepted canonical package, read from accepted
        * resolution rather than re-resolved from source. Materialization
@@ -858,42 +851,12 @@ export const KnowledgeManagerLive = Layer.effect(
        * an operator and the extension they are authoring.
        */
       listMaterializable: () =>
-        Effect.gen(function* () {
-          const nodes = yield* activeKnowledgeNodes();
-          const refs = yield* Effect.forEach(
-            nodes,
-            (node) =>
-              provide(
-                usableAcceptedCanonicalRef({
-                  type: "knowledge",
-                  name: node.name,
-                }).pipe(
-                  Effect.map(
-                    Option.filter((ref): ref is KnowledgeExtensionRef => ref.type === "knowledge"),
-                  ),
-                ),
-              ),
-            { concurrency: 16 },
-          );
-          return refs.flatMap((ref) => (Option.isSome(ref) ? [ref.value] : []));
+        listMaterializableFromAccepted({
+          type: "knowledge",
+          names: activeKnowledgeNodes().pipe(Effect.map((nodes) => nodes.map((node) => node.name))),
         }),
       materializeUninstall,
       materializeDeactivate,
-      materializeRetained: ({ target }) =>
-        Effect.gen(function* () {
-          const canonical = yield* usableAcceptedCanonical({
-            type: "knowledge",
-            name: target.name,
-          });
-          if (Option.isNone(canonical) || canonical.value.ref.type !== "knowledge") {
-            return yield* new LifecyclePostconditionViolated({
-              postcondition: "materialize-observable",
-              targetType: "knowledge",
-              targetName: target.name,
-            });
-          }
-          return yield* materializeDeactivate({ target });
-        }),
       acceptedResolution: ({ ref, materialization }) =>
         acceptedResolutionFor({
           ref,

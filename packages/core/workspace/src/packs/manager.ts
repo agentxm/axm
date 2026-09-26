@@ -1,6 +1,4 @@
-import { LifecyclePostconditionViolated } from "../transitions/planning/index.js";
 import type { PackManagerService } from "../materialization/managers.js";
-import { usableAcceptedCanonical } from "../desired-state/index.js";
 
 /**
  * Pack manager service.
@@ -36,24 +34,24 @@ import {
   replaceCanonicalDirectoryWithInspection,
 } from "../acquisition/canonical-directory.js";
 import { configuredPacksToDiskRefs } from "../acquisition/materializable-from-disk.js";
+import {
+  makeBaseManagerMembers,
+  listMaterializableFromDisk,
+} from "../materialization/manager-kit.js";
 import type {
   PackRef,
   RegistryPackRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { SourceHostProviders } from "../resolution/sources/index.js";
 import { PackManager, type PackMaterializationFacts } from "../materialization/managers.js";
-import type { ExtensionTarget } from "../desired-state/index.js";
 import { type SetPackArgs } from "../desired-state/index.js";
 import { copyExtensionDirectory } from "../acquisition/copy-directory.js";
 import { computePackPathsForLayout } from "../desired-state/index.js";
 import { removeIfExists } from "../desired-state/index.js";
 import { validateExactResolvedVersion } from "../desired-state/index.js";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
-import { configuredRowsByName } from "../desired-state/index.js";
-import { isObservedInstalled } from "../desired-state/index.js";
 import {
   acceptedCanonicalObservation,
-  prepareAcceptedCanonicalTransition,
   removableAcceptedCanonicalPath,
 } from "../desired-state/index.js";
 import { computePackManifestContentIdentity } from "../desired-state/index.js";
@@ -332,48 +330,26 @@ export const PackManagerLive = Layer.effect(
       });
 
     return {
-      isInstalled: Effect.fn("PackManager.isInstalled")(function* ({
-        target,
-      }: {
-        readonly target: ExtensionTarget;
-      }) {
-        return yield* isObservedInstalled(records, "pack", target.name);
+      ...makeBaseManagerMembers({
+        type: "pack",
+        spanPrefix: "PackManager",
+        records,
+        settings,
+        refName: (ref) => ref.pack.name,
+        materializeInstall,
+        // A Pack restores no content of its own; its members restore theirs.
+        retained: () => Effect.succeed(noContent),
       }),
       materializeInstall,
       acquireCanonical: materializeInstall,
-      prepareSourceTransition: ({ ref }) =>
-        prepareAcceptedCanonicalTransition({
+      listMaterializable: () =>
+        listMaterializableFromDisk({
           type: "pack",
-          name: ref.pack.name,
-          ref,
+          records,
+          toDiskRefs: configuredPacksToDiskRefs,
+          env: { fs, path, baseDir, scope: location.scope, layout: currentLayout() },
         }),
-      getConfiguredSource: Effect.fn("PackManager.getConfiguredSource")(function* ({ target }) {
-        const configured = yield* settings.entries("pack");
-        return Option.fromUndefinedOr(configured[target.name]?.source);
-      }),
-      listMaterializable: Effect.fn("PackManager.listMaterializable")(function* () {
-        const configured = yield* records.rows("pack").pipe(Effect.map(configuredRowsByName));
-        return yield* configuredPacksToDiskRefs(
-          { fs, path, baseDir, scope: location.scope, layout: currentLayout() },
-          configured,
-        );
-      }),
       materializeUninstall,
-      materializeRetained: ({ target }) =>
-        Effect.gen(function* () {
-          const canonical = yield* usableAcceptedCanonical({
-            type: "pack",
-            name: target.name,
-          });
-          if (Option.isNone(canonical) || canonical.value.ref.type !== "pack") {
-            return yield* new LifecyclePostconditionViolated({
-              postcondition: "materialize-observable",
-              targetType: "pack",
-              targetName: target.name,
-            });
-          }
-          return noContent;
-        }),
 
       acceptedResolution: Effect.fn("PackManager.acceptedResolution")(function* ({
         ref,

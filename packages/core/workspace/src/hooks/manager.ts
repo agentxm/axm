@@ -1,6 +1,4 @@
-import { LifecyclePostconditionViolated } from "../transitions/planning/index.js";
 import type { HookManagerService } from "../materialization/managers.js";
-import { usableAcceptedCanonical } from "../desired-state/index.js";
 
 /**
  * Hook manager service.
@@ -64,6 +62,10 @@ import {
   acquireCanonicalForRef,
   verifyWorkspaceRefLocation,
 } from "../materialization/acquire-canonical.js";
+import {
+  makeBaseManagerMembers,
+  listMaterializableFromAccepted,
+} from "../materialization/manager-kit.js";
 import { enabledConfiguredEntries } from "../desired-state/index.js";
 import { computeExtensionPathsForLayout } from "../desired-state/index.js";
 import type { DesiredStateGraph, ConfiguredAgentOutcome } from "../desired-state/index.js";
@@ -76,16 +78,12 @@ import {
   decodeRelativePathSync,
   makeWorkspaceRelativePath,
 } from "@agentxm/extension-model/unstable/path-types";
-import { usableAcceptedCanonicalRef } from "../desired-state/index.js";
 import { NO_MATERIALIZATION_OBSERVATION } from "../materialization/manager-contract.js";
 import type { HookMaterializationFacts } from "../materialization/managers.js";
 import { HookManager } from "../materialization/managers.js";
 import { HOOK_FALLBACKS_REGION_OWNER } from "../projection/index.js";
-import type { ExtensionTarget } from "../desired-state/index.js";
-import { isObservedInstalled } from "../desired-state/index.js";
 import {
   acceptedCanonicalObservation,
-  prepareAcceptedCanonicalTransition,
   removableAcceptedCanonicalPath,
 } from "../desired-state/index.js";
 import { protectWorkspacePath, recordFootprint } from "../transitions/settlement/index.js";
@@ -1027,40 +1025,16 @@ export const HookManagerLive = Layer.effect(
       aggregateProjectionObservation: Ref.get(lastProjection),
       configuredAgentOutcomes,
       configuredAgentOutcomesForRef,
-      isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>
-        isObservedInstalled(records, "hook", target.name).pipe(
-          Effect.withSpan("HookManager.isInstalled"),
-        ),
-
+      ...makeBaseManagerMembers({
+        type: "hook",
+        spanPrefix: "HookManager",
+        records,
+        settings,
+        refName: (ref) => ref.hook.name,
+        materializeInstall,
+      }),
       materializeInstall,
       acquireCanonical: materializeInstall,
-      materializeRetained: ({ target }) =>
-        Effect.gen(function* () {
-          const canonical = yield* usableAcceptedCanonical({
-            type: "hook",
-            name: target.name,
-          });
-          if (Option.isNone(canonical) || canonical.value.ref.type !== "hook") {
-            return yield* new LifecyclePostconditionViolated({
-              postcondition: "materialize-observable",
-              targetType: "hook",
-              targetName: target.name,
-            });
-          }
-          return yield* materializeInstall({ ref: canonical.value.ref });
-        }),
-      prepareSourceTransition: ({ ref }) =>
-        provide(
-          prepareAcceptedCanonicalTransition({
-            type: "hook",
-            name: ref.hook.name,
-            ref,
-          }),
-        ),
-      getConfiguredSource: Effect.fn("HookManager.getConfiguredSource")(function* ({ target }) {
-        const configured = yield* settings.entries("hook");
-        return Option.fromUndefinedOr(configured[target.name]?.source);
-      }),
 
       /**
        * Every enabled entry's accepted canonical package, read from accepted
@@ -1069,20 +1043,17 @@ export const HookManagerLive = Layer.effect(
        * source would put an unrelated configured entry's release age between
        * an operator and the extension they are authoring.
        */
-      listMaterializable: Effect.fn("HookManager.listMaterializable")(function* () {
-        const configured = yield* settings.entries("hook");
-        const refs = yield* Effect.forEach(
-          enabledConfiguredEntries(configured),
-          ([name]) =>
-            provide(
-              usableAcceptedCanonicalRef({ type: "hook", name }).pipe(
-                Effect.map(Option.filter((ref): ref is HookExtensionRef => ref.type === "hook")),
+      listMaterializable: () =>
+        listMaterializableFromAccepted({
+          type: "hook",
+          names: settings
+            .entries("hook")
+            .pipe(
+              Effect.map((configured) =>
+                enabledConfiguredEntries(configured).map(([name]) => name),
               ),
             ),
-          { concurrency: 16 },
-        );
-        return refs.flatMap((ref) => (Option.isSome(ref) ? [ref.value] : []));
-      }),
+        }),
 
       materializeUninstall,
       materializeDeactivate,

@@ -1,6 +1,4 @@
-import { LifecyclePostconditionViolated } from "../transitions/planning/index.js";
 import type { RuleManagerService } from "../materialization/managers.js";
-import { usableAcceptedCanonical } from "../desired-state/index.js";
 
 /**
  * Rule manager service.
@@ -49,6 +47,10 @@ import {
   acquireCanonicalForRef,
   verifyWorkspaceRefLocation,
 } from "../materialization/acquire-canonical.js";
+import {
+  makeBaseManagerMembers,
+  listMaterializableFromAccepted,
+} from "../materialization/manager-kit.js";
 import { enabledConfiguredEntries } from "../desired-state/index.js";
 import { computeExtensionPathsForLayout } from "../desired-state/index.js";
 import type { ProjectionUnitObservation, ResolvedInstructionsConfig } from "../projection/index.js";
@@ -65,12 +67,8 @@ import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/pat
 import type { MaterializationObservation } from "../materialization/manager-contract.js";
 import { NO_MATERIALIZATION_OBSERVATION } from "../materialization/manager-contract.js";
 import type { RuleMaterializationFacts } from "../materialization/managers.js";
-import type { ExtensionTarget } from "../desired-state/index.js";
-import { usableAcceptedCanonicalRef } from "../desired-state/index.js";
-import { isObservedInstalled } from "../desired-state/index.js";
 import {
   acceptedCanonicalObservation,
-  prepareAcceptedCanonicalTransition,
   removableAcceptedCanonicalPath,
 } from "../desired-state/index.js";
 import {
@@ -515,40 +513,16 @@ export const RuleManagerLive = Layer.effect(
     return {
       projectionPlans,
       aggregateProjectionObservation: Ref.get(lastProjection),
-      isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>
-        isObservedInstalled(records, "rule", target.name).pipe(
-          Effect.withSpan("RuleManager.isInstalled"),
-        ),
-
+      ...makeBaseManagerMembers({
+        type: "rule",
+        spanPrefix: "RuleManager",
+        records,
+        settings,
+        refName: (ref) => ref.rule.name,
+        materializeInstall,
+      }),
       materializeInstall,
       acquireCanonical: materializeInstall,
-      materializeRetained: ({ target }) =>
-        Effect.gen(function* () {
-          const canonical = yield* usableAcceptedCanonical({
-            type: "rule",
-            name: target.name,
-          });
-          if (Option.isNone(canonical) || canonical.value.ref.type !== "rule") {
-            return yield* new LifecyclePostconditionViolated({
-              postcondition: "materialize-observable",
-              targetType: "rule",
-              targetName: target.name,
-            });
-          }
-          return yield* materializeInstall({ ref: canonical.value.ref });
-        }),
-      prepareSourceTransition: ({ ref }) =>
-        provide(
-          prepareAcceptedCanonicalTransition({
-            type: "rule",
-            name: ref.rule.name,
-            ref,
-          }),
-        ),
-      getConfiguredSource: Effect.fn("RuleManager.getConfiguredSource")(function* ({ target }) {
-        const configured = yield* settings.entries("rule");
-        return Option.fromUndefinedOr(configured[target.name]?.source);
-      }),
 
       /**
        * Every enabled entry's accepted canonical package, read from accepted
@@ -557,20 +531,17 @@ export const RuleManagerLive = Layer.effect(
        * source would put an unrelated configured entry's release age between
        * an operator and the extension they are authoring.
        */
-      listMaterializable: Effect.fn("RuleManager.listMaterializable")(function* () {
-        const configured = yield* settings.entries("rule");
-        const refs = yield* Effect.forEach(
-          enabledConfiguredEntries(configured),
-          ([name]) =>
-            provide(
-              usableAcceptedCanonicalRef({ type: "rule", name }).pipe(
-                Effect.map(Option.filter((ref): ref is RuleExtensionRef => ref.type === "rule")),
+      listMaterializable: () =>
+        listMaterializableFromAccepted({
+          type: "rule",
+          names: settings
+            .entries("rule")
+            .pipe(
+              Effect.map((configured) =>
+                enabledConfiguredEntries(configured).map(([name]) => name),
               ),
             ),
-          { concurrency: 16 },
-        );
-        return refs.flatMap((ref) => (Option.isSome(ref) ? [ref.value] : []));
-      }),
+        }),
 
       materializeUninstall,
       materializeDeactivate,

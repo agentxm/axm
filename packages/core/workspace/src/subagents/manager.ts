@@ -1,6 +1,3 @@
-import { LifecyclePostconditionViolated } from "../transitions/planning/index.js";
-import { usableAcceptedCanonical } from "../desired-state/index.js";
-
 /**
  * Subagent extension manager service.
  *
@@ -31,7 +28,6 @@ import type { ManagerRequirements } from "../materialization/manager-contract.js
 import type { SubagentMaterializationFacts } from "../materialization/managers.js";
 import type { ExtensionManagerFailure } from "../materialization/errors.js";
 import type { SubagentPathSource } from "../desired-state/index.js";
-import type { ExtensionTarget } from "../desired-state/index.js";
 import {
   computeSubagentPathsForLayout,
   subagentContentFilename,
@@ -69,6 +65,10 @@ import {
   acquireCanonicalForRef,
   verifyWorkspaceRefLocation,
 } from "../materialization/acquire-canonical.js";
+import {
+  makeBaseManagerMembers,
+  listMaterializableFromDisk,
+} from "../materialization/manager-kit.js";
 import { insertManagedFileBanner, type ManagedFileProvenance } from "../projection/index.js";
 import { SubagentManager, type SubagentManagerService } from "../materialization/managers.js";
 import { computePackageContentHash } from "../desired-state/index.js";
@@ -77,11 +77,8 @@ import {
   MANIFEST_FILENAME,
   SubagentManifestSchema,
 } from "@agentxm/extension-model/unstable/subagents/manifest-schema";
-import { configuredRowsByName } from "../desired-state/index.js";
-import { isObservedInstalled } from "../desired-state/index.js";
 import {
   acceptedCanonicalObservation,
-  prepareAcceptedCanonicalTransition,
   removableAcceptedCanonicalPath,
 } from "../desired-state/index.js";
 import { protectWorkspacePath } from "../transitions/settlement/index.js";
@@ -797,14 +794,14 @@ export const SubagentManagerLive = Layer.effect(
 
     return {
       projectionObservation,
-      isInstalled: Effect.fn("SubagentManager.isInstalled")(function* ({
-        target,
-      }: {
-        readonly target: ExtensionTarget;
-      }) {
-        return yield* isObservedInstalled(records, "subagent", target.name);
+      ...makeBaseManagerMembers({
+        type: "subagent",
+        spanPrefix: "SubagentManager",
+        records,
+        settings,
+        refName: (ref) => ref.subagent.name,
+        materializeInstall,
       }),
-
       materializeInstall,
       acquireCanonical: ({ ref, force }) =>
         Effect.gen(function* () {
@@ -826,41 +823,13 @@ export const SubagentManagerLive = Layer.effect(
             observation: { agents: [], targets: [] },
           };
         }),
-      materializeRetained: ({ target }) =>
-        Effect.gen(function* () {
-          const canonical = yield* usableAcceptedCanonical({
-            type: "subagent",
-            name: target.name,
-          });
-          if (Option.isNone(canonical) || canonical.value.ref.type !== "subagent") {
-            return yield* new LifecyclePostconditionViolated({
-              postcondition: "materialize-observable",
-              targetType: "subagent",
-              targetName: target.name,
-            });
-          }
-          return yield* materializeInstall({ ref: canonical.value.ref });
-        }),
-      prepareSourceTransition: ({ ref }) =>
-        prepareAcceptedCanonicalTransition({
+      listMaterializable: () =>
+        listMaterializableFromDisk({
           type: "subagent",
-          name: ref.subagent.name,
-          ref,
+          records,
+          toDiskRefs: configuredSubagentsToDiskRefs,
+          env: { fs, path, baseDir, scope: location.scope, layout: currentLayout() },
         }),
-      getConfiguredSource: Effect.fn("SubagentManager.getConfiguredSource")(function* ({ target }) {
-        const configured = yield* settings.entries("subagent");
-        return Option.fromUndefinedOr(configured[target.name]?.source);
-      }),
-      listMaterializable: Effect.fn("SubagentManager.listMaterializable")(function* () {
-        const configured = yield* records
-          .rows("subagent")
-
-          .pipe(Effect.map(configuredRowsByName));
-        return yield* configuredSubagentsToDiskRefs(
-          { fs, path, baseDir, scope: location.scope, layout: currentLayout() },
-          configured,
-        );
-      }),
       materializeUninstall,
       materializeDeactivate,
 

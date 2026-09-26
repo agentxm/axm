@@ -23,7 +23,20 @@ import {
   applyPlanExecution,
   previewPlanExecution,
   type ConfirmationRecovery,
-} from "./plan-execution.js";
+  type ApplyConfirmation,
+  OperationJournal,
+  makeOperationJournal,
+  type Plan,
+  type ConfiguredAgentOperation,
+  type PlanExecution,
+  StepFailure,
+  type PlanInteractionFailed,
+  deriveOperationOutcome,
+  OperationLifecycle,
+  makeOperationLifecycle,
+  subscribeLossless,
+  type OperationEvent,
+} from "../../../operations/index.js";
 import {
   interactiveOnlyPlanExecution,
   preapprovedPlanExecution,
@@ -37,27 +50,18 @@ import {
   type WorkspaceTransitionLock,
 } from "../../settlement/index.js";
 import { WorkspaceTransactionScopeTest } from "../../settlement/testing.js";
-import { ResolvePlanInteractionTest, type ApplyConfirmation } from "./resolve-plan-interaction.js";
+import { ResolvePlanInteractionTest } from "../testing.js";
 import {
   ConfiguredAgentOutcomesProviderTest,
   WorkspaceReadTest,
 } from "../../../desired-state/testing.js";
-import { WorkspaceRecords } from "../../../desired-state/index.js";
-import { OperationJournal, makeOperationJournal } from "./operation-journal.js";
-import type { Plan } from "./plan.js";
-import type { ConfiguredAgentOperation, PlanExecution } from "./plan-execution.js";
-import type { ExecutionCandidate } from "./execution-candidate.js";
-import { StepFailure, type PlanInteractionFailed } from "./errors.js";
-import { isExecutionCandidateFresh, makeExecutionCandidate } from "./execution-candidate.js";
-import { deriveOperationOutcome } from "./operation-resolution.js";
-import { workspaceTransactionFailureToStepFailure } from "./step-failure-conversions.js";
-import { prepareExecutionCandidate, resolveExecutionCandidate } from "./resolve-plan.js";
 import {
-  OperationLifecycle,
-  makeOperationLifecycle,
-  subscribeLossless,
-  type OperationEvent,
-} from "./operation-events.js";
+  WorkspaceRecords,
+  workspaceTransactionFailureToStepFailure,
+} from "../../../desired-state/index.js";
+import type { ExecutionCandidate } from "./execution-candidate.js";
+import { isExecutionCandidateFresh, makeExecutionCandidate } from "./execution-candidate.js";
+import { prepareExecutionCandidate, resolveExecutionCandidate } from "./resolve-plan.js";
 import { WorkspaceRecordsEmpty } from "./__tests__/plan-spec-support.js";
 import {
   SourceHostProviders,

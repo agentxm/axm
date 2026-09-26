@@ -26,7 +26,7 @@ import {
   PackageUrlSchema,
   type PackageUrlParts,
 } from "@agentxm/extension-model/unstable/packaging/package-url";
-import { StepFailure } from "../transitions/planning/index.js";
+import { StepFailure } from "../operations/index.js";
 
 export const handle = (value: string): Handle => decodeHandleSync(value);
 

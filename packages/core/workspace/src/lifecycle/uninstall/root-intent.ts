@@ -2,8 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import type { ExtensionLifecycleFailed } from "../errors.js";
-import { installRefused } from "../install/vocabulary.js";
+import { type ExtensionLifecycleFailed, installRefused } from "../../operations/index.js";
 import {
   installableExtensionTypePluralSegments,
   isInstallableExtensionTypePlural,

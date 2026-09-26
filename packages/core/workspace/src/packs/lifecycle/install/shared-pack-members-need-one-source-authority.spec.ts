@@ -16,7 +16,7 @@ import {
   type InstallWorld,
 } from "../../../lifecycle/install/test-helpers.js";
 import { serveBareRepository } from "../../../lifecycle/testing.js";
-import { deriveOperationOutcome } from "../../../transitions/planning/index.js";
+import { deriveOperationOutcome } from "../../../operations/index.js";
 
 export const specification = defineSpecification({
   requirement: "cli/install/shared-pack-members-need-one-source-authority",

@@ -3,7 +3,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, describe, expect, it } from "@effect/vitest";
 
 import { DesiredStateReader, WorkspaceRecords } from "../../desired-state/index.js";
-import { deriveOperationOutcome, previewPlanExecution } from "../../transitions/planning/index.js";
+import { deriveOperationOutcome, previewPlanExecution } from "../../operations/index.js";
 import { preapprovedPlanExecution } from "../../transitions/planning/testing.js";
 import { SyncWorkspace } from "./sync-workspace.js";
 import {

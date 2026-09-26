@@ -16,7 +16,7 @@ import {
   recoveryPositional,
   recoverySwitch,
   type OperationResolution,
-} from "@agentxm/workspace/transitions/planning";
+} from "@agentxm/workspace/operations";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";

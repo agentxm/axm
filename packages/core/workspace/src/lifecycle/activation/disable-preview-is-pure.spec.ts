@@ -6,7 +6,7 @@ import { afterEach } from "vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 
-import { ExtensionLifecycleFailed } from "../errors.js";
+import { ExtensionLifecycleFailed } from "../../operations/index.js";
 import type { LifecycleFixture } from "../testing.js";
 import {
   previewActivation,

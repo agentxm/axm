@@ -60,12 +60,15 @@ import {
 } from "../../resolution/index.js";
 import {
   operationPresentation,
-  prepareExecutionCandidate,
-  resolveExecutionCandidate,
-  type ExecutionCandidate,
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
+  ExtensionLifecycleFailed,
+} from "../../operations/index.js";
+import {
+  prepareExecutionCandidate,
+  resolveExecutionCandidate,
+  type ExecutionCandidate,
 } from "../../transitions/planning/index.js";
 import {
   DesiredStateReader,
@@ -80,7 +83,6 @@ import {
 } from "../../desired-state/index.js";
 import { packMemberConflicts, readProposedGraph } from "../../packs/lifecycle/install/plan.js";
 
-import { ExtensionLifecycleFailed } from "../errors.js";
 import { lifecycleStepFailure } from "../step-failure.js";
 import type { InstallStepRequirements } from "../install/vocabulary.js";
 

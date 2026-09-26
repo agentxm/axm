@@ -1,6 +1,6 @@
 import type { Agent } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { installable } from "@agentxm/extension-model/unstable/agent-capabilities";
-import type { ConfiguredAgentOutcome } from "../../desired-state/index.js";
+import type { ConfiguredAgentOutcome } from "../../operations/index.js";
 import type { HookManifest } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 
 export interface HookOutcomeTarget {

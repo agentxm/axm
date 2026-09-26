@@ -7,7 +7,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import { previewPlanExecution } from "../../transitions/planning/index.js";
+import { previewPlanExecution } from "../../operations/index.js";
 import { preapprovedPlanExecution } from "../../transitions/planning/testing.js";
 
 import { UninstallExtensions, type UninstallExtensionsRequest } from "./uninstall-extensions.js";

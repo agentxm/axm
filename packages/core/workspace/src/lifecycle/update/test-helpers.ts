@@ -15,9 +15,9 @@ import * as Option from "effect/Option";
 import {
   previewPlanExecution,
   type OperationResolution,
-} from "../../transitions/planning/index.js";
+  type PlanExecution,
+} from "../../operations/index.js";
 import { preapprovedPlanExecution } from "../../transitions/planning/testing.js";
-import type { PlanExecution } from "../../transitions/planning/index.js";
 
 import type { WorkspaceUpdatableType } from "./configured.js";
 import {

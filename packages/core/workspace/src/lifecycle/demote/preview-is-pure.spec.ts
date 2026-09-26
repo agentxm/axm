@@ -3,10 +3,13 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { countUnitStates, deriveOperationOutcome } from "../../transitions/planning/index.js";
+import {
+  countUnitStates,
+  deriveOperationOutcome,
+  ExtensionLifecycleFailed,
+} from "../../operations/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { ExtensionLifecycleFailed } from "../errors.js";
 import { makeLifecycleFixture, writeLocalSkillPackage, type LifecycleFixture } from "../testing.js";
 import { DEMOTE_RISK_CONDITION_ID } from "./demote-to-external-source.js";
 import { authoringTypes, previewDemote, writeAuthoringPackage } from "./test-helpers.js";

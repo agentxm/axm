@@ -17,7 +17,7 @@ import * as Option from "effect/Option";
 import { acceptedRowKey, desiredReachesAcceptedRow } from "./accepted-reachability.js";
 import { DesiredStateReader } from "./desired-state-reader.js";
 import { WorkspaceRecords } from "./workspace-records.js";
-import { deriveOperationOutcome } from "../../transitions/planning/index.js";
+import { deriveOperationOutcome } from "../../operations/index.js";
 import { makeLifecycleFixture } from "../../lifecycle/testing.js";
 import { applyUninstall, uninstallRequest } from "../../lifecycle/uninstall/test-helpers.js";
 

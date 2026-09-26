@@ -11,10 +11,10 @@ import {
   makeOperationLifecycle,
   subscribeLossless,
   type OperationEvent,
-} from "./operation-events.js";
-import { StepFailure } from "./errors.js";
-import { deriveOperationOutcome } from "./operation-resolution.js";
-import type { Plan } from "./plan.js";
+  StepFailure,
+  deriveOperationOutcome,
+  type Plan,
+} from "../../../operations/index.js";
 import { preapprovedPlanExecution } from "./plan-execution-fixtures.js";
 import { prepareExecutionCandidate, resolveExecutionCandidate } from "./resolve-plan.js";
 

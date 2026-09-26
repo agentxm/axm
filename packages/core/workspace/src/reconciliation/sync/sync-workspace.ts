@@ -38,19 +38,21 @@ import type { McpServerInstallRequirements } from "../index.js";
 import {
   observeUnit,
   OperationJournal,
-  isExecutionCandidateFresh,
-  makeExecutionCandidate,
-  prepareExecutionCandidate,
-  resolveExecutionCandidate,
   ResolvePlanInteraction,
   type ApprovalRecoveryMissing,
   type CandidateFingerprintFailed,
-  type ExecutionCandidate,
   type OperationResolution,
   type Plan,
   type PlanExecution,
   type PlanInteractionFailed,
   type PlannedJobStep,
+} from "../../operations/index.js";
+import {
+  isExecutionCandidateFresh,
+  makeExecutionCandidate,
+  prepareExecutionCandidate,
+  resolveExecutionCandidate,
+  type ExecutionCandidate,
 } from "../../transitions/planning/index.js";
 import { WorkspaceInvariantFacts, type ProjectionInvariantFact } from "../../projection/index.js";
 import {

@@ -21,8 +21,8 @@ import {
   type PlanExecution,
   type RequestedPlanIntent,
   type ResolvedUnit,
-} from "@agentxm/workspace/transitions/planning";
-import type { PlanPolicyId } from "@agentxm/workspace/transitions/planning";
+  type PlanPolicyId,
+} from "@agentxm/workspace/operations";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
   installableExtensionTypes,

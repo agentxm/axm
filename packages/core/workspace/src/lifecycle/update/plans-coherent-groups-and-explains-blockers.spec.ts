@@ -5,7 +5,7 @@ import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { countUnitStates, deriveOperationOutcome } from "../../transitions/planning/index.js";
+import { countUnitStates, deriveOperationOutcome } from "../../operations/index.js";
 import {
   applyInstall,
   installRequest,

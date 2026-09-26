@@ -74,11 +74,8 @@ import {
 import {
   OperationJournal,
   operationPresentation,
-  prepareExecutionCandidate,
-  resolveExecutionCandidate,
   ResolvePlanInteraction,
   type ConfiguredAgentOperation,
-  type ExecutionCandidate,
   type JobStepArtifact,
   type JobStepArtifactReference,
   type JobStepArtifactTarget,
@@ -87,6 +84,13 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
+  type ConfiguredAgentOutcome,
+  ExtensionLifecycleFailed,
+} from "../../operations/index.js";
+import {
+  prepareExecutionCandidate,
+  resolveExecutionCandidate,
+  type ExecutionCandidate,
 } from "../../transitions/planning/index.js";
 import {
   acceptedCanonicalObservation,
@@ -98,12 +102,12 @@ import {
   SettingsReader,
   SettingsWriter,
   ConfiguredAgentOutcomesProvider,
-  type ConfiguredAgentOutcome,
   WorkspaceLocation,
   WorkspaceRecords,
   type DesiredExtensionNode,
   type DesiredStateGraph,
   type AcceptedCanonicalRefError,
+  settingsDisplayPath,
 } from "../../desired-state/index.js";
 import {
   FootprintRecorder,
@@ -111,13 +115,11 @@ import {
   WorkspaceTransactionScope,
 } from "../../transitions/settlement/index.js";
 
-import { ExtensionLifecycleFailed } from "../errors.js";
 import {
   StepFailureConversion,
   withAdaptedStepFailures,
   type LifecycleFailure,
 } from "../step-failure-conversion.js";
-import { settingsDisplayPath } from "../../desired-state/index.js";
 import type { SetActivationExecutionFailure } from "./errors.js";
 
 // -----------------------------------------------------------------------------

@@ -4,9 +4,11 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { CandidateFingerprintFailed } from "./errors.js";
-import type { Plan } from "./plan.js";
-import type { ConfiguredAgentOperation } from "./plan-execution.js";
+import {
+  CandidateFingerprintFailed,
+  type Plan,
+  type ConfiguredAgentOperation,
+} from "../../../operations/index.js";
 
 export interface ExecutionCandidate<Requirements = never, Output = never> {
   readonly id: string;

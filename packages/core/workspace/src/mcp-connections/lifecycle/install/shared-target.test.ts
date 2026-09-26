@@ -4,7 +4,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { injectWriteFaults } from "../../../transitions/settlement/testing.js";
 import { afterEach } from "vitest";
-import { deriveOperationOutcome } from "../../../transitions/planning/index.js";
+import { deriveOperationOutcome } from "../../../operations/index.js";
 import {
   applyInstall,
   installRequest,

@@ -5,11 +5,10 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { deriveOperationOutcome } from "../../transitions/planning/index.js";
+import { deriveOperationOutcome, ExtensionLifecycleFailed } from "../../operations/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 
-import { ExtensionLifecycleFailed } from "../errors.js";
 import {
   makeLifecycleFixture,
   writeLocalHookPackage,

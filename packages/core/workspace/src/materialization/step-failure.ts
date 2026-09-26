@@ -54,7 +54,7 @@ import type {
 } from "../packs/errors.js";
 import type { SkillDefinitionInvalid, SkillMaterializationFailed } from "../skills/errors.js";
 import type { SubagentContentUnreadable, SubagentDefinitionInvalid } from "../subagents/errors.js";
-import { makeStepFailure, type StepFailure } from "../transitions/planning/plan/errors.js";
+import { makeStepFailure, type StepFailure } from "../operations/index.js";
 import type { InstallStateMissing } from "./accepted-resolution.js";
 
 /** Every failure package acquisition and the per-type managers construct. */

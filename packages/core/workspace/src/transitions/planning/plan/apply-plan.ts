@@ -16,17 +16,17 @@
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
-import { StepFailure } from "./errors.js";
-import type {
-  CompletedJobStep,
-  ExecutedPlan,
-  JobStepResult,
-  Job,
-  Plan,
-  PlannedJobStep,
-  UnitBlocking,
-  WarnJobStep,
-} from "./plan.js";
+import {
+  StepFailure,
+  type CompletedJobStep,
+  type ExecutedPlan,
+  type JobStepResult,
+  type Job,
+  type Plan,
+  type PlannedJobStep,
+  type UnitBlocking,
+  type WarnJobStep,
+} from "../../../operations/index.js";
 
 // -----------------------------------------------------------------------------
 // Operation handler type

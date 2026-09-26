@@ -1,4 +1,4 @@
-import { PlanInteractionFailed } from "@agentxm/workspace/transitions/planning";
+import { PlanInteractionFailed } from "@agentxm/workspace/operations";
 /**
  * Shared test helpers for CLI package tests.
  *

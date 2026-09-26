@@ -19,7 +19,7 @@ import {
   type WorkspaceLayout,
   type WorkspaceRecordsService,
 } from "../desired-state/index.js";
-import { LifecyclePostconditionViolated } from "../transitions/planning/index.js";
+import { LifecyclePostconditionViolated } from "../operations/index.js";
 import type { ExtensionManagerFailure } from "./errors.js";
 import type { ManagerRequirements } from "./manager-contract.js";
 

@@ -34,7 +34,7 @@ import {
   type CanonicalDirectoryReplacementError,
   type MaterializedPackage,
 } from "../acquisition/canonical-directory.js";
-import { makeThrottledUnitProgress, observeChildUnit } from "../transitions/planning/index.js";
+import { makeThrottledUnitProgress, observeChildUnit } from "../operations/index.js";
 import {
   computeMaterializedTreeIntegrity,
   type MaterializedTreeInvalid,

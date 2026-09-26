@@ -9,10 +9,7 @@
 import type * as Config from "effect/Config";
 import * as Schema from "effect/Schema";
 import type { ExtensionManagerFailure } from "../materialization/index.js";
-import {
-  FailureSuggestedActionSchema,
-  OperationErrorCategorySchema,
-} from "../transitions/planning/plan/errors.js";
+import { FailureSuggestedActionSchema, OperationErrorCategorySchema } from "../operations/index.js";
 import type { NativeFormatFailure } from "../projection/agent-adapters/index.js";
 
 /**

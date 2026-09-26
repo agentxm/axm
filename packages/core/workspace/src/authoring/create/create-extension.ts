@@ -1,4 +1,9 @@
-import type { AuthorMaterialization } from "../../transitions/planning/index.js";
+import {
+  type AuthorMaterialization,
+  prepareExecutionCandidate,
+  resolveExecutionCandidate,
+  type ExecutionCandidate,
+} from "../../transitions/planning/index.js";
 /**
  * Creating a new authored extension.
  *
@@ -65,20 +70,17 @@ import type {
 } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import {
   operationPresentation,
-  prepareExecutionCandidate,
-  resolveExecutionCandidate,
-  type ExecutionCandidate,
   type JobStepArtifact,
   type JobStepArtifactTarget,
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
-} from "../../transitions/planning/index.js";
+  type CandidateFingerprintFailed,
+} from "../../operations/index.js";
 import { CodingAgentRepository } from "../../projection/index.js";
 import type { CredentialStore } from "@agentxm/registry-access/credentials";
 import type { RegistryUrl } from "@agentxm/registry-client";
 import type { FqnInvalidError } from "@agentxm/extension-model/unstable/extensions";
-import type { CandidateFingerprintFailed } from "../../transitions/planning/index.js";
 import {
   AcceptedResolutionWriter,
   DesiredStateWriter,

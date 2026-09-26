@@ -28,14 +28,19 @@ import {
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {
   operationPresentation,
-  prepareExecutionCandidate,
-  resolveExecutionCandidate,
   type ConfiguredAgentOperation,
-  type ExecutionCandidate,
   type OperationResolution,
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
+  type ExtensionLifecycleFailed,
+  installRefused,
+  InstallSelectionInteraction,
+} from "../../operations/index.js";
+import {
+  prepareExecutionCandidate,
+  resolveExecutionCandidate,
+  type ExecutionCandidate,
 } from "../../transitions/planning/index.js";
 
 import {
@@ -43,7 +48,6 @@ import {
   type ExtensionResolutionFailed,
 } from "../../resolution/index.js";
 
-import type { ExtensionLifecycleFailed } from "../errors.js";
 import { withPublisherTrust } from "../publisher-binding.js";
 import { withSourceSwitches } from "../source-switch.js";
 import {
@@ -94,7 +98,6 @@ import {
 import { resolveRootInstallIntent } from "./root-intent.js";
 import {
   INSTALL_HELD_RELEASE_POLICY,
-  installRefused,
   type InstallExecutionFailure,
   type InstallStepRequirements,
   type PrepareInstallRequirements,
@@ -104,7 +107,6 @@ import { findGitReinstallRefs, pinGitReinstallRef } from "./git-reinstall.js";
 import { SourceHostProviders } from "../../resolution/sources/service.js";
 import { makeLocatorSourceView } from "./git-discovery.js";
 import {
-  InstallSelectionInteraction,
   selectInstallRefs,
   type InstallSelectionFailure,
   type InstallSelectionRequest,

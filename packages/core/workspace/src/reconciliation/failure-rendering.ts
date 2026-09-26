@@ -14,25 +14,27 @@
 
 import type { ConfigError } from "effect/Config";
 
-import type { WorkspaceStateReadFailure } from "../desired-state/index.js";
+import {
+  type WorkspaceStateReadFailure,
+  configErrorToStepFailure,
+  restorationIncompleteToStepFailure,
+  workspaceRestorationErrorToStepFailure,
+  workspaceStateFailureToStepFailure,
+  workspaceStateReadFailureToStepFailure,
+  workspaceTransactionFailureToStepFailure,
+  type WorkspaceStateFailure,
+} from "../desired-state/index.js";
 import type { WriteBackupRetained } from "../projection/agent-adapters/errors.js";
 import type {
   WorkspaceRestorationError,
   WorkspaceRestorationIncomplete,
   WorkspaceTransactionFailure,
 } from "../transitions/settlement/errors.js";
-import { makeStepFailure, type StepFailure } from "../transitions/planning/plan/errors.js";
+import { makeStepFailure, type StepFailure } from "../operations/index.js";
 import {
-  configErrorToStepFailure,
   planExecutionFailureToStepFailure,
-  restorationIncompleteToStepFailure,
-  workspaceRestorationErrorToStepFailure,
-  workspaceStateFailureToStepFailure,
-  workspaceStateReadFailureToStepFailure,
-  workspaceTransactionFailureToStepFailure,
   type PlanExecutionFailure,
-  type WorkspaceStateFailure,
-} from "../transitions/planning/plan/step-failure-conversions.js";
+} from "../transitions/planning/index.js";
 import {
   agentIntegrationFailureToStepFailure,
   type AgentIntegrationFailure,

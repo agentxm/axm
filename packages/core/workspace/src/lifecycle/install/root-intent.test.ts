@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 
-import type { ExtensionLifecycleFailed } from "../errors.js";
+import type { ExtensionLifecycleFailed } from "../../operations/index.js";
 import { resolveRootInstallIntent } from "./root-intent.js";
 
 const guidanceOf = (failure: ExtensionLifecycleFailed): string =>

@@ -32,11 +32,13 @@ import {
 import { buildUninstallOperation } from "../../../reconciliation/index.js";
 import { resolveInstalledIdentifierNameOrInput } from "../../../resolution/sources/index.js";
 import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
-import type {
-  JobStepArtifactTarget,
-  Plan,
-  PlannedJobStep,
-} from "../../../transitions/planning/index.js";
+import {
+  type JobStepArtifactTarget,
+  type Plan,
+  type PlannedJobStep,
+  type ExtensionLifecycleFailed,
+  installRefused,
+} from "../../../operations/index.js";
 import { CodingAgentRepository } from "../../../projection/index.js";
 import {
   acquiredExtensionDisplayPathFromLockEntry,
@@ -46,11 +48,9 @@ import {
   type SkillLockEntry,
 } from "../../../desired-state/index.js";
 
-import type { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
 import { expandGlob } from "@agentxm/extension-model/unstable/extensions/name-patterns";
 import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
 import {
-  installRefused,
   type InstallStepRequirements,
   type ResolveInstallRequirements,
 } from "../../../lifecycle/install/vocabulary.js";

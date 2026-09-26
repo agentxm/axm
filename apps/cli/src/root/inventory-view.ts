@@ -9,8 +9,8 @@ import {
   type ViewColumn,
 } from "../screen/index.js";
 import type { SourcedListRow } from "@agentxm/workspace/inspection";
+import type { ConfiguredAgentOutcome } from "@agentxm/workspace/operations";
 import type {
-  ConfiguredAgentOutcome,
   ExtensionInventory,
   ExtensionInventoryLifecycle,
 } from "@agentxm/workspace/desired-state";

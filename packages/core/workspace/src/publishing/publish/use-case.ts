@@ -58,8 +58,6 @@ import {
   makeOperationJournal,
   observeUnit,
   operationPresentation,
-  prepareExecutionCandidate,
-  resolveExecutionCandidate,
   settleOperation,
   type JobStepResult,
   type OperationBlock,
@@ -68,6 +66,10 @@ import {
   type PlanExecution,
   type PlanRiskCondition,
   type PlannedJobStep,
+} from "../../operations/index.js";
+import {
+  prepareExecutionCandidate,
+  resolveExecutionCandidate,
 } from "../../transitions/planning/index.js";
 import { SettingsReader } from "../../desired-state/index.js";
 import { FootprintRecorder, makeFootprintRecorder } from "../../transitions/settlement/index.js";

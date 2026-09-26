@@ -8,10 +8,7 @@
 
 import * as Schema from "effect/Schema";
 
-import {
-  FailureSuggestedActionSchema,
-  OperationErrorCategorySchema,
-} from "../transitions/planning/plan/errors.js";
+import { FailureSuggestedActionSchema, OperationErrorCategorySchema } from "../operations/index.js";
 
 /**
  * A publish policy step could not proceed. The carried fields mirror the

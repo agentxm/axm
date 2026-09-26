@@ -46,6 +46,11 @@
       "axm-source": "./src/projection/testing.ts",
       "default": "./dist/src/projection/testing.js"
     },
+    "./operations": {
+      "types": "./dist/src/operations/index.d.ts",
+      "axm-source": "./src/operations/index.ts",
+      "default": "./dist/src/operations/index.js"
+    },
     "./transitions/planning": {
       "types": "./dist/src/transitions/planning/index.d.ts",
       "axm-source": "./src/transitions/planning/index.ts",

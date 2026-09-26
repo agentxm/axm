@@ -17,7 +17,7 @@ import {
   OperationErrorCategorySchema,
   OperationPreconditionSchema,
   PlanRiskConditionSchema,
-} from "../../transitions/planning/index.js";
+} from "../../operations/index.js";
 import { PublishVisibilitySchema } from "@agentxm/registry-protocol/unstable/publish";
 import {
   ExtensionNameSchema,

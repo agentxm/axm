@@ -18,7 +18,7 @@ import {
 import type { RegistryClientFailure } from "@agentxm/registry-client";
 import { ConfigError } from "effect/Config";
 import { workspaceFailureToStepFailure } from "../reconciliation/failure-rendering.js";
-import type { OperationErrorCategory, StepFailure } from "../transitions/planning/index.js";
+import type { OperationErrorCategory, StepFailure } from "../operations/index.js";
 
 import { PublishFailed } from "./errors.js";
 

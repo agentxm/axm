@@ -42,18 +42,20 @@ import {
 } from "../../reconciliation/index.js";
 import {
   operationPresentation,
-  prepareExecutionCandidate,
-  resolveExecutionCandidate,
-  type ExecutionCandidate,
   type JobStepArtifactTarget,
   type JobStepResult,
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
+  ExtensionLifecycleFailed,
+} from "../../operations/index.js";
+import {
+  prepareExecutionCandidate,
+  resolveExecutionCandidate,
+  type ExecutionCandidate,
 } from "../../transitions/planning/index.js";
 import { usableAcceptedCanonical, type DesiredExtensionNode } from "../../desired-state/index.js";
 
-import { ExtensionLifecycleFailed } from "../../lifecycle/errors.js";
 import { lifecycleStepFailure } from "../../lifecycle/step-failure.js";
 import type { InstallStepRequirements } from "../../lifecycle/install/vocabulary.js";
 import { validatePackGraphPostcondition } from "./graph-transition.js";

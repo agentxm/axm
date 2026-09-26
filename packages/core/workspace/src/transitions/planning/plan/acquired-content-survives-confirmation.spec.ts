@@ -17,8 +17,7 @@ import {
   type SourceHostProvidersService,
 } from "../../../resolution/sources/service.js";
 import { makeSpecContext, makeSpecWorkspace } from "./__tests__/plan-spec-support.js";
-import { deriveOperationOutcome } from "./operation-resolution.js";
-import type { Plan } from "./plan.js";
+import { deriveOperationOutcome, type Plan } from "../../../operations/index.js";
 import { promptablePlanExecution } from "./plan-execution-fixtures.js";
 import { prepareExecutionCandidate, resolveExecutionCandidate } from "./resolve-plan.js";
 

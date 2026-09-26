@@ -21,7 +21,7 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { ReleaseAgePosture } from "../../resolution/index.js";
-import { previewPlanExecution, type PlanExecution } from "../../transitions/planning/index.js";
+import { previewPlanExecution, type PlanExecution } from "../../operations/index.js";
 import {
   ResolvePlanInteractionTest,
   preapprovedPlanExecution,

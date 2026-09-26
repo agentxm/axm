@@ -9,7 +9,6 @@
  * @packageDocumentation
  */
 
-export { ExtensionLifecycleFailed } from "./errors.js";
 export { formatDeprecationWarning } from "./warnings.js";
 export {
   StepFailureConversion,
@@ -65,16 +64,11 @@ export {
   installSelectorsFor,
 } from "./install/install-extensions.js";
 export {
-  InstallSelectionInteraction,
-  InstallSelectionCancelled,
-  InstallSelectionUnavailable,
   selectInstallRefs,
-  type InstallSelectionCandidate,
   type InstallSelectionFailure,
   type InstallSelectionRequest,
 } from "./install/selection.js";
 export {
-  installRefused,
   type HookInstallIntent,
   type InstallStepRequirements,
   type KnowledgeInstallIntent,

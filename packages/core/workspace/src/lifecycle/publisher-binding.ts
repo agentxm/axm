@@ -21,7 +21,7 @@ import {
   publisherTransitionWarning,
   type PublisherBindingTransition,
 } from "../resolution/index.js";
-import type { Plan, PlanRiskCondition, PlannedJobStep } from "../transitions/planning/index.js";
+import type { Plan, PlanRiskCondition, PlannedJobStep } from "../operations/index.js";
 import {
   acceptedResolutionRef,
   type DesiredStateReader,

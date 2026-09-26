@@ -16,7 +16,7 @@ import {
   isUniversalSkillsDir,
   stripTrailingSeparators,
 } from "@agentxm/extension-model/unstable/extensions/universal-skills-dir";
-import type { JobStepArtifact, JobStepArtifactTarget } from "../transitions/planning/index.js";
+import type { JobStepArtifact, JobStepArtifactTarget } from "../operations/index.js";
 
 export type InstallableSkillTarget = {
   readonly agentId: MaterializationTargetId;

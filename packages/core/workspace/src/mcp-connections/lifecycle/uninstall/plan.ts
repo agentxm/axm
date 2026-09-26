@@ -38,13 +38,13 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "../../../transitions/planning/index.js";
+  type ExtensionLifecycleFailed,
+} from "../../../operations/index.js";
 import {
   acceptedLockedCanonicalPath,
   type McpServerExtensionTarget,
 } from "../../../desired-state/index.js";
 
-import type { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
 import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
 import type { InstallStepRequirements } from "../../../lifecycle/install/vocabulary.js";
 import { makeWorkspaceRetentionPolicy } from "../../../reconciliation/index.js";

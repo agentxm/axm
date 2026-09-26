@@ -9,7 +9,7 @@
 import * as Schema from "effect/Schema";
 import type { PathTraversalDetected, SymlinkCreationError } from "../../desired-state/index.js";
 import type { WorkspaceSnapshotError } from "../../transitions/settlement/index.js";
-import { FailureSuggestedActionSchema } from "../../transitions/planning/plan/errors.js";
+import { FailureSuggestedActionSchema } from "../../operations/index.js";
 
 /**
  * An instruction-projection maintenance step could not proceed. `category`

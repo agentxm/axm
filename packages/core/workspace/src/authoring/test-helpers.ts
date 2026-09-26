@@ -13,7 +13,7 @@ import {
   CreateNameConfigured,
 } from "./authored-package-errors.js";
 import { CreateDestinationExists } from "../materialization/index.js";
-import { StepFailure } from "../transitions/planning/index.js";
+import { StepFailure } from "../operations/index.js";
 import { AuthoringFailed } from "./errors.js";
 
 export const handle = (value: string): Handle => decodeHandleSync(value);

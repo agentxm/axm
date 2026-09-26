@@ -17,7 +17,8 @@ import * as Option from "effect/Option";
 import type { McpConfigTarget } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { MCP_SERVER_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import type { McpInspectionError } from "./errors.js";
-import type { ConfiguredAgentOutcome, McpServerEntry } from "../../desired-state/index.js";
+import type { ConfiguredAgentOutcome } from "../../operations/index.js";
+import type { McpServerEntry } from "../../desired-state/index.js";
 import {
   collectSecretInputNames,
   configuredMcpCapability,

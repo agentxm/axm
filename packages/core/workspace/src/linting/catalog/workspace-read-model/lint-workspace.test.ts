@@ -1,8 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as PlatformError from "effect/PlatformError";
-import { type FixtureSpec } from "../../../desired-state/index.js";
-import { buildFixture } from "../../../desired-state/testing.js";
+import { buildFixture, type FixtureSpec } from "../../../desired-state/testing.js";
 import { buildPackRuleContexts } from "@agentxm/extension-content/lint";
 import { buildSkillRuleContexts } from "@agentxm/extension-content/lint";
 import { emptyCatalogRuleContexts } from "../../catalog-contexts.js";

@@ -46,7 +46,9 @@ import {
   operationPresentation,
   type Plan,
   type PlannedJobStep,
-} from "../../../transitions/planning/index.js";
+  type ExtensionLifecycleFailed,
+  installRefused,
+} from "../../../operations/index.js";
 import {
   desiredPackageKey,
   formatDesiredIdentity,
@@ -59,14 +61,10 @@ import {
   type PackExtensionTarget,
 } from "../../../desired-state/index.js";
 
-import type { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
 import { expandGlob } from "@agentxm/extension-model/unstable/extensions/name-patterns";
 import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
 import { buildAggregateProjectionStep } from "../../../lifecycle/install/aggregate-projection-step.js";
-import {
-  installRefused,
-  type InstallStepRequirements,
-} from "../../../lifecycle/install/vocabulary.js";
+import { type InstallStepRequirements } from "../../../lifecycle/install/vocabulary.js";
 import {
   exclusiveMemberRetentionPolicy,
   makeWorkspaceRetentionPolicy,

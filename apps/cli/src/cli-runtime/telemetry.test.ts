@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Ref from "effect/Ref";
-import { makeOperationLifecycle } from "@agentxm/workspace/transitions/planning";
+import { makeOperationLifecycle } from "@agentxm/workspace/operations";
 
 import { TelemetryClient, type TelemetryClientService } from "../telemetry/index.js";
 import type { TelemetryProperties } from "../telemetry/client.js";

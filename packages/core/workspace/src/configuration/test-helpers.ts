@@ -6,7 +6,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { StepFailure } from "../transitions/planning/index.js";
+import { StepFailure } from "../operations/index.js";
 import { WorkspaceConfigurationFailed } from "./errors.js";
 
 /** Render a failure as the sentence the structural test adapter reports. */

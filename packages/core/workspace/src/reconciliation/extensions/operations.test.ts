@@ -39,10 +39,7 @@ import {
 } from "./operations.js";
 import type { CallerStepFailure } from "./operations.js";
 import { SourceAuthorityBlocked } from "../../resolution/index.js";
-import {
-  StepFailure,
-  type ScaffoldedExtensionUnresolved,
-} from "../../transitions/planning/index.js";
+import { StepFailure, type ScaffoldedExtensionUnresolved } from "../../operations/index.js";
 import { computeSourceHash } from "../../desired-state/index.js";
 import {
   recipeWorkspace,

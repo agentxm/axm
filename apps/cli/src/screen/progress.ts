@@ -17,7 +17,7 @@ import type {
   SettledOutcome,
   UnitFailure,
   UnitState,
-} from "@agentxm/workspace/transitions/planning";
+} from "@agentxm/workspace/operations";
 
 interface ProgressMeasure {
   readonly done: number;

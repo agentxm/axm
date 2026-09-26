@@ -16,7 +16,7 @@ import { makeWorkspaceLocationMock } from "./test-support/test-stubs.js";
 import { withLiveOperation, withOperationLifecycle } from "./operation-lifecycle.js";
 import * as Deferred from "effect/Deferred";
 import * as Fiber from "effect/Fiber";
-import { OperationLifecycle, observeUnit } from "@agentxm/workspace/transitions/planning";
+import { OperationLifecycle, observeUnit } from "@agentxm/workspace/operations";
 import { RegistryRetryObservation } from "@agentxm/registry-client";
 
 let tempDir: string;

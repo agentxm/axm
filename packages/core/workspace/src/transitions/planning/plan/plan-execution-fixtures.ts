@@ -9,12 +9,12 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { PlanPolicyId } from "./plan.js";
 import {
+  type PlanPolicyId,
   applyPlanExecution,
   type ConfirmationRecovery,
   type PlanExecution,
-} from "./plan-execution.js";
+} from "../../../operations/index.js";
 
 const emptyRecovery: ConfirmationRecovery = { command: [], arguments: [] };
 

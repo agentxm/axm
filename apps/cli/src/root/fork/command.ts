@@ -9,7 +9,7 @@ import {
   recoveryOption,
   recoveryPositional,
   recoverySwitch,
-} from "@agentxm/workspace/transitions/planning";
+} from "@agentxm/workspace/operations";
 
 import { Screen } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";

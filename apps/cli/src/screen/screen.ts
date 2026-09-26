@@ -11,10 +11,7 @@ import * as ServiceMap from "effect/Context";
 import * as Terminal from "effect/Terminal";
 
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import {
-  subscribeLossless,
-  type OperationLifecycleService,
-} from "@agentxm/workspace/transitions/planning";
+import { subscribeLossless, type OperationLifecycleService } from "@agentxm/workspace/operations";
 
 import type { AppError } from "../app-error/index.js";
 import { promptAvailability, Verbosity } from "../cli-flags/index.js";

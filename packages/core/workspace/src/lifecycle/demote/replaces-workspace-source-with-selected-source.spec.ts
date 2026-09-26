@@ -6,12 +6,11 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { deriveOperationOutcome } from "../../transitions/planning/index.js";
+import { deriveOperationOutcome, ExtensionLifecycleFailed } from "../../operations/index.js";
 import { LockfileReader } from "../../desired-state/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { snapshotTree } from "../../desired-state/testing.js";
 
-import { ExtensionLifecycleFailed } from "../errors.js";
 import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";
 import { makeFileRegistry, type FileRegistry } from "@agentxm/registry-client/testing";
 import { applyInstall, installRequest, readSettings } from "../install/test-helpers.js";

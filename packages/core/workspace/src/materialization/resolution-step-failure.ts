@@ -27,7 +27,10 @@ import {
   SettingsParseError,
   WorkspaceRootEscape,
 } from "../desired-state/workspace/read-model/errors.js";
-import type { WorkspaceStateReadFailure } from "../desired-state/index.js";
+import {
+  type WorkspaceStateReadFailure,
+  workspaceStateReadFailureToStepFailure,
+} from "../desired-state/index.js";
 import type {
   ExtensionResolutionFailed,
   PackConstraintShadowed,
@@ -47,8 +50,7 @@ import {
   type SourceSyntaxInvalid,
 } from "../resolution/sources/errors.js";
 import type { WorkspaceCatalogUnavailable } from "../resolution/sources/workspace-catalog.js";
-import { workspaceStateReadFailureToStepFailure } from "../transitions/planning/plan/step-failure-conversions.js";
-import { makeStepFailure, type StepFailure } from "../transitions/planning/plan/errors.js";
+import { makeStepFailure, type StepFailure } from "../operations/index.js";
 
 /** Every source, registry, and dependency-resolution failure. */
 export type ResolutionFamilyFailure =

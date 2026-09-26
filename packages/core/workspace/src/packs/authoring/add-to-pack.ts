@@ -19,8 +19,7 @@ import type {
   PackMemberConstraintMap,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { OperationHandler } from "../../transitions/planning/index.js";
-import type { Operation } from "../../transitions/planning/index.js";
-import type { JobStepResult } from "../../transitions/planning/index.js";
+import type { Operation, JobStepResult } from "../../operations/index.js";
 import { SettingsReader, WorkspaceLocation } from "../../desired-state/index.js";
 import {
   WorkspaceTransactionScope,

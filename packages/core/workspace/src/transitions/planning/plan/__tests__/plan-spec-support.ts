@@ -20,10 +20,14 @@ import {
   WorkspaceReadTest,
 } from "../../../../desired-state/testing.js";
 
-import type { PlanInteractionFailed } from "../errors.js";
-import { OperationJournal, makeOperationJournal } from "../operation-journal.js";
-import type { ConfirmationRecovery } from "../plan-execution.js";
-import { ResolvePlanInteractionTest, type ApplyConfirmation } from "../resolve-plan-interaction.js";
+import {
+  type PlanInteractionFailed,
+  OperationJournal,
+  makeOperationJournal,
+  type ConfirmationRecovery,
+  type ApplyConfirmation,
+} from "../../../../operations/index.js";
+import { ResolvePlanInteractionTest } from "../../testing.js";
 
 /** Empty physical inventory for plan cases that do not exercise readback projection. */
 export const WorkspaceRecordsEmpty = Layer.mock(WorkspaceRecords, {

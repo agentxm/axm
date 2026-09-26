@@ -14,11 +14,14 @@
 
 import * as Layer from "effect/Layer";
 
-import { makeStepFailure, type StepFailure } from "../transitions/planning/plan/errors.js";
+import {
+  makeStepFailure,
+  type StepFailure,
+  type ExtensionLifecycleFailed,
+  type InstallSelectionUnavailable,
+} from "../operations/index.js";
 import { workspaceFailureToStepFailure } from "../reconciliation/failure-rendering.js";
 
-import type { ExtensionLifecycleFailed } from "./errors.js";
-import type { InstallSelectionUnavailable } from "./install/selection.js";
 import { StepFailureConversion, type LifecycleFailure } from "./step-failure-conversion.js";
 
 /** Every failure lifecycle policy and extension selection construct. */

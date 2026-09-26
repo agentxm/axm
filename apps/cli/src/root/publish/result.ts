@@ -12,7 +12,7 @@ import { PublishResultSchema, type PublishResult } from "@agentxm/workspace/publ
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 import { emitResult } from "../../screen/index.js";
-import { settleOperation, awaitDrained } from "@agentxm/workspace/transitions/planning";
+import { settleOperation, awaitDrained } from "@agentxm/workspace/operations";
 import { Verbosity } from "../../cli-flags/index.js";
 import {
   type CommandOutcomeSummary,

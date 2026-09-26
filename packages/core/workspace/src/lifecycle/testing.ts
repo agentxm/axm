@@ -17,7 +17,11 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { ReleaseAgePosture } from "../resolution/index.js";
-import { StepFailure } from "../transitions/planning/index.js";
+import {
+  StepFailure,
+  ExtensionLifecycleFailed,
+  InstallSelectionInteraction,
+} from "../operations/index.js";
 import {
   ResolvePlanInteractionTest,
   type ResolvePlanInteractionTestState,
@@ -29,8 +33,6 @@ import {
   withLiveSources,
 } from "../testing/workspace-world.js";
 
-import { ExtensionLifecycleFailed } from "./errors.js";
-import { InstallSelectionInteraction } from "./install/selection.js";
 import { BundledAxmSkillAsset } from "../skills/lifecycle/install/bundled.js";
 import { StepFailureConversion } from "./step-failure-conversion.js";
 

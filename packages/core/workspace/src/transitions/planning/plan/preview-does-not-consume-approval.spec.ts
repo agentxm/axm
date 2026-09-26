@@ -6,10 +6,13 @@ import * as Option from "effect/Option";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { makeSpecContext, makeSpecWorkspace } from "./__tests__/plan-spec-support.js";
-import { countUnitStates, deriveOperationOutcome } from "./operation-resolution.js";
-import type { Plan } from "./plan.js";
+import {
+  countUnitStates,
+  deriveOperationOutcome,
+  type Plan,
+  requestedPlanExecution,
+} from "../../../operations/index.js";
 import { promptablePlanExecution } from "./plan-execution-fixtures.js";
-import { requestedPlanExecution } from "./plan-execution.js";
 import { prepareExecutionCandidate, resolveExecutionCandidate } from "./resolve-plan.js";
 
 export const specification = defineSpecification({

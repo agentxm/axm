@@ -7,7 +7,7 @@ import {
   settingsDisplayPath,
 } from "../desired-state/index.js";
 import type { McpServerLockEntry } from "../desired-state/index.js";
-import type { JobStepArtifact, JobStepArtifactTarget } from "../transitions/planning/index.js";
+import type { JobStepArtifact, JobStepArtifactTarget } from "../operations/index.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 export const mcpConfigSurface = (scope: WorkspaceScope): string =>

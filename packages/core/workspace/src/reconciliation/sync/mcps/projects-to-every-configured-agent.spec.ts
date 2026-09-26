@@ -5,7 +5,7 @@ import { afterEach } from "vitest";
 
 import { WorkspaceRecords } from "../../../desired-state/index.js";
 import { listMcpServers, ShowExtension } from "../../../inspection/index.js";
-import { deriveOperationOutcome } from "../../../transitions/planning/index.js";
+import { deriveOperationOutcome } from "../../../operations/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import {

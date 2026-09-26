@@ -65,7 +65,7 @@ import type {
   RegistrySourceHost,
 } from "@agentxm/extension-model/unstable/sources/types";
 import type { ExtensionIndex, VersionEntry } from "@agentxm/registry-protocol/unstable/registry";
-import { makeThrottledUnitProgress } from "../../../../transitions/planning/plan/operation-events.js";
+import { makeThrottledUnitProgress } from "../../../../operations/index.js";
 import { RegistryIndexMemo } from "./index-memo.js";
 type RegistryProviderRequirements =
   | FileSystem.FileSystem

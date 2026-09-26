@@ -33,15 +33,17 @@ import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace
 import {
   OperationJournal,
   observeUnit,
-  prepareExecutionCandidate,
   ResolvePlanInteraction,
-  resolveExecutionCandidate,
   type JobStepArtifact,
   type JobStepResult,
   type OperationResolution,
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
+} from "../../operations/index.js";
+import {
+  prepareExecutionCandidate,
+  resolveExecutionCandidate,
 } from "../../transitions/planning/index.js";
 import {
   UNIVERSAL_AGENT_ID,

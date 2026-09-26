@@ -12,7 +12,7 @@ import * as Option from "effect/Option";
 
 import { ReleaseAgePosture } from "@agentxm/workspace/resolution";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import { recoverySwitch } from "@agentxm/workspace/transitions/planning";
+import { recoverySwitch } from "@agentxm/workspace/operations";
 
 import { Screen } from "../../screen/index.js";
 import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";

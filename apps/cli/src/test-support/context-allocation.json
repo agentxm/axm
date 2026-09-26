@@ -78,32 +78,32 @@
       "projection": "installed: boolean"
     },
     "configured-agent-outcome": {
-      "path": "packages/core/workspace/src/desired-state/workspace/configured-agent-outcome.ts",
+      "path": "packages/core/workspace/src/operations/configured-agent-outcome.ts",
       "symbol": "ConfiguredAgentOutcomeSchema",
       "projection": "outcome"
     },
     "unit-state": {
-      "path": "packages/core/workspace/src/transitions/planning/plan/operation-resolution.ts",
+      "path": "packages/core/workspace/src/operations/operation-resolution.ts",
       "symbol": "UnitStateSchema"
     },
     "operation-outcome": {
-      "path": "packages/core/workspace/src/transitions/planning/plan/operation-resolution.ts",
+      "path": "packages/core/workspace/src/operations/operation-resolution.ts",
       "symbol": "OperationOutcomeSchema"
     },
     "unit-disposition": {
-      "path": "packages/core/workspace/src/transitions/planning/plan/operation-resolution.ts",
+      "path": "packages/core/workspace/src/operations/operation-resolution.ts",
       "symbol": "UnitDispositionSchema"
     },
     "operation-phase": {
-      "path": "packages/core/workspace/src/transitions/planning/plan/operation-resolution.ts",
+      "path": "packages/core/workspace/src/operations/operation-resolution.ts",
       "symbol": "OperationPhaseSchema"
     },
     "atomicity-class": {
-      "path": "packages/core/workspace/src/transitions/planning/plan/operation-resolution.ts",
+      "path": "packages/core/workspace/src/operations/operation-resolution.ts",
       "symbol": "AtomicityClassSchema"
     },
     "blocking-class": {
-      "path": "packages/core/workspace/src/transitions/planning/plan/plan.ts",
+      "path": "packages/core/workspace/src/operations/plan.ts",
       "symbol": "BlockingClassSchema"
     },
     "operation-error": {

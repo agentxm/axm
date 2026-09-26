@@ -37,8 +37,8 @@ import {
   resolveInstructionTarget,
   type CodingAgentRepositoryService,
 } from "../../projection/index.js";
+import { ArtifactChangeSchema } from "../../operations/index.js";
 import {
-  ArtifactChangeSchema,
   BUNDLED_SKILL_OWNER,
   LOCK_FILENAME,
   acquiredDisplayPath,

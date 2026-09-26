@@ -1,12 +1,13 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
 
-import { StepFailure, deriveOperationOutcome } from "@agentxm/workspace/transitions/planning";
 import {
+  StepFailure,
+  deriveOperationOutcome,
   makeOperationResolution,
   type OperationResolution,
   type ResolvedUnit,
-} from "@agentxm/workspace/transitions/planning";
+} from "@agentxm/workspace/operations";
 import { operationOk, resolutionExitCode } from "./operation-exit-code.js";
 
 const ok = (value: OperationResolution): boolean =>

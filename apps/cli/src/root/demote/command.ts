@@ -6,7 +6,7 @@ import {
   credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,
   recoveryPositional,
-} from "@agentxm/workspace/transitions/planning";
+} from "@agentxm/workspace/operations";
 
 import { ignoreReleaseAgeFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";

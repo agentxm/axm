@@ -52,7 +52,7 @@ import { CredentialStore } from "@agentxm/registry-access/credentials";
 import { CredentialStoreTest } from "@agentxm/registry-access/testing";
 import { RegistryClientFactoryLive, RegistryUrl } from "@agentxm/registry-client";
 import type { FileRegistry } from "@agentxm/registry-client/testing";
-import { StepFailure } from "../../transitions/planning/index.js";
+import { StepFailure } from "../../operations/index.js";
 import {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,

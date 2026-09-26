@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import { ResolvePlanInteraction, type Plan } from "@agentxm/workspace/transitions/planning";
+import { ResolvePlanInteraction, type Plan } from "@agentxm/workspace/operations";
 
 import { TestFlagsLayer } from "../cli-flags/index.js";
 import { handleDemote } from "../root/demote/command.js";

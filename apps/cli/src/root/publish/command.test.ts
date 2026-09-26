@@ -11,12 +11,13 @@ import {
 import {
   StepFailure,
   renderConfirmationRecoveryCommand,
-} from "@agentxm/workspace/transitions/planning";
+  type JobStepResult,
+} from "@agentxm/workspace/operations";
 import {
   extensionTypes,
   extensionTypeToPlural,
 } from "@agentxm/extension-model/unstable/extensions";
-import { applyPlan, type JobStepResult } from "@agentxm/workspace/transitions/planning";
+import { applyPlan } from "@agentxm/workspace/transitions/planning";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";

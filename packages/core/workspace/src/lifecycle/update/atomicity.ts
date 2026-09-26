@@ -21,10 +21,7 @@
  */
 
 import type { HeldReleasePolicy } from "../../resolution/index.js";
-import type {
-  AtomicityClass,
-  PlanExecutionCapabilities,
-} from "../../transitions/planning/index.js";
+import type { AtomicityClass, PlanExecutionCapabilities } from "../../operations/index.js";
 
 /** A workspace-wide update settles each entry independently and undoes none. */
 export const WORKSPACE_UPDATE_ATOMICITY: AtomicityClass = "non-rollbackable";

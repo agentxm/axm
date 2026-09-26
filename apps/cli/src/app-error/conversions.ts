@@ -11,10 +11,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import {
-  OPERATION_ERROR_CATEGORIES,
-  type StepFailure,
-} from "@agentxm/workspace/transitions/planning";
+import { OPERATION_ERROR_CATEGORIES, type StepFailure } from "@agentxm/workspace/operations";
 import {
   isWorkspaceFailure,
   workspaceFailureToStepFailure,

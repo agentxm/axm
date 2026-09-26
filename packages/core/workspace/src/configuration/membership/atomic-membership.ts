@@ -17,11 +17,7 @@ import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 
-import {
-  StepFailure,
-  type JobStepResult,
-  type PlannedJobStep,
-} from "../../transitions/planning/index.js";
+import { StepFailure, type JobStepResult, type PlannedJobStep } from "../../operations/index.js";
 import { SettingsReader, type SettingsReaderService } from "../../desired-state/index.js";
 import {
   WorkspaceTransactionScope,

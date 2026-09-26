@@ -16,7 +16,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { ExtensionLifecycleFailed } from "../errors.js";
+import { ExtensionLifecycleFailed } from "../../operations/index.js";
 import {
   installableExtensionTypePluralSegments,
   InstallableExtensionTypePluralSchema,

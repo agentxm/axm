@@ -26,7 +26,6 @@ export {
   type SourceErrorCategory,
   type SourceResolutionFailure,
 } from "./errors.js";
-export type { CarriedFailureCategory } from "./failure-category.js";
 
 // Provider implementations
 export { createGitSourceHostProvider } from "./providers/git.js";

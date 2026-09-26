@@ -53,7 +53,7 @@ import {
   type OperationMode,
   type OperationPresentation,
   type SettledOutcome,
-} from "@agentxm/workspace/transitions/planning";
+} from "@agentxm/workspace/operations";
 import { CurrentScreenOperationId, Screen } from "./screen/index.js";
 import { WorkspaceLocation } from "@agentxm/workspace/desired-state";
 import {

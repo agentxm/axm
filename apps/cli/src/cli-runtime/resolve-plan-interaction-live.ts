@@ -18,14 +18,14 @@ import {
   type ConfirmAsk,
   type ConfirmChoice,
 } from "../screen/index.js";
-import { PlanInteractionFailed } from "@agentxm/workspace/transitions/planning";
-import { confirmationRecoverySuggestions } from "@agentxm/workspace/transitions/planning";
 import {
+  PlanInteractionFailed,
+  confirmationRecoverySuggestions,
   ResolvePlanInteraction,
   type ApplyConfirmation,
   type Plan,
   type ResolvePlanInteractionService,
-} from "@agentxm/workspace/transitions/planning";
+} from "@agentxm/workspace/operations";
 
 const confirmApplyChangesMessage = "Apply changes?";
 

@@ -4,7 +4,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { deriveOperationOutcome } from "../../../transitions/planning/index.js";
+import { deriveOperationOutcome } from "../../../operations/index.js";
 
 import { CreateExtension } from "../../../authoring/create/create-extension.js";
 import {

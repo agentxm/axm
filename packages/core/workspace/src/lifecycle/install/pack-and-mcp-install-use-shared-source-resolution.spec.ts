@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from "@effect/vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { deriveOperationOutcome } from "../../transitions/planning/index.js";
+import { deriveOperationOutcome } from "../../operations/index.js";
 import {
   applyInstall,
   installRequest,

@@ -9,8 +9,9 @@ import type {
   UnitDisposition,
   UnitState,
   UnitStateCounts,
-} from "@agentxm/workspace/transitions/planning";
-import type { ArtifactChange, ConfiguredAgentOutcome } from "@agentxm/workspace/desired-state";
+  ArtifactChange,
+  ConfiguredAgentOutcome,
+} from "@agentxm/workspace/operations";
 
 import type { Change, Tone } from "./doc.js";
 

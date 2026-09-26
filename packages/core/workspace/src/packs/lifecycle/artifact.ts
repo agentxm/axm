@@ -13,11 +13,10 @@ import {
   type ExtensionType,
   type ExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
-import type { JobStepArtifact } from "../../transitions/planning/index.js";
+import { type JobStepArtifact, type ArtifactChange } from "../../operations/index.js";
 import {
   acquiredExtensionDisplayPath,
   acquiredRootDisplayPath,
-  type ArtifactChange,
 } from "../../desired-state/index.js";
 
 /** The registry directory segment a type's acquired packages live under. */

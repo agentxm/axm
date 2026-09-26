@@ -7,7 +7,7 @@ import {
   type GitDirectoryDifference,
   type GitOperationFailed,
 } from "../resolution/sources/index.js";
-import type { PlanRiskCondition } from "../transitions/planning/index.js";
+import type { PlanRiskCondition } from "../operations/index.js";
 import type { ArchivePlan } from "./archive.js";
 import { isArchivePathIncluded } from "./archive.js";
 

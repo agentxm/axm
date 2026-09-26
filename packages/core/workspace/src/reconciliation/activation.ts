@@ -36,7 +36,7 @@ import {
   projectionPlanExclusionWarnings,
   type ProjectionPlan,
 } from "../projection/index.js";
-import type { JobStepArtifact, PlannedJobStep } from "../transitions/planning/index.js";
+import type { JobStepArtifact, PlannedJobStep } from "../operations/index.js";
 import { WorkspaceSyncFailed } from "./errors.js";
 import type { SyncFailureAdapter } from "./failure-adapter.js";
 import {

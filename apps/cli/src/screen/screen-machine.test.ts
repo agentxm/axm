@@ -7,7 +7,7 @@ import {
   makeOperationLifecycle,
   observeUnit,
   OperationLifecycle,
-} from "@agentxm/workspace/transitions/planning";
+} from "@agentxm/workspace/operations";
 
 import { ProgressEventSchema } from "./machine-events.js";
 import { Screen, ScreenMachine } from "./screen.js";

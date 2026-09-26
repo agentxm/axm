@@ -17,12 +17,11 @@ import {
   resolveSource,
   type SourceResolutionFailure,
 } from "../../resolution/sources/index.js";
-import type { ExtensionLifecycleFailed } from "../errors.js";
+import { type ExtensionLifecycleFailed, installRefused } from "../../operations/index.js";
 import { registryLoginSuggestions } from "./registry-login-suggestion.js";
 import type { RegistryLookupProbe } from "./registry-source-resolution.js";
 import { resolveInstallSource, type LocatorInstallType } from "./source-routing.js";
 import {
-  installRefused,
   sourceResolutionFailureDetail,
   sourceResolutionRefused,
   type ResolvedInstallRef,

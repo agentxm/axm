@@ -5,7 +5,7 @@ import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { McpServerManifestSchema } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
-import { deriveOperationOutcome } from "../../transitions/planning/index.js";
+import { deriveOperationOutcome } from "../../operations/index.js";
 
 import {
   applyExecution,

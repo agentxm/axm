@@ -7,7 +7,7 @@
  */
 
 import * as Schema from "effect/Schema";
-import { FailureSuggestedActionSchema } from "../transitions/planning/plan/errors.js";
+import { FailureSuggestedActionSchema } from "../operations/index.js";
 
 /**
  * An authoring policy step could not proceed. The carried fields mirror the

@@ -45,17 +45,15 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "../../../transitions/planning/index.js";
+  ExtensionLifecycleFailed,
+  installRefused,
+} from "../../../operations/index.js";
 import { CodingAgentRepository } from "../../../projection/index.js";
 import { sanitizeName } from "../../../desired-state/index.js";
 import { runWorkspaceTransaction } from "../../../transitions/settlement/index.js";
 
-import { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
 import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
-import {
-  installRefused,
-  type InstallStepRequirements,
-} from "../../../lifecycle/install/vocabulary.js";
+import { type InstallStepRequirements } from "../../../lifecycle/install/vocabulary.js";
 
 /** One file of the bundled skill's source tree. */
 export interface BundledAxmSkillSourceFile {

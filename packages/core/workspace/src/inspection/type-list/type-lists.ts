@@ -26,11 +26,11 @@ import {
   SettingsReader,
   WorkspaceLocation,
   WorkspaceRecords,
-  type ConfiguredAgentOutcome,
   type ExtensionInventory,
   type ExtensionInventoryRow,
   type WorkspaceStateReadFailure,
 } from "../../desired-state/index.js";
+import { type ConfiguredAgentOutcome } from "../../operations/index.js";
 
 import {
   mcpServerListRows,

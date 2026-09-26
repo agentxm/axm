@@ -13,10 +13,9 @@
 
 import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
-import type { StepFailure } from "../transitions/planning/index.js";
+import type { StepFailure, ExtensionLifecycleFailed } from "../operations/index.js";
 import type { ExtensionManagerFailure } from "../materialization/index.js";
 import type { ExtensionResolutionFailed } from "../resolution/index.js";
-import type { ExtensionLifecycleFailed } from "./errors.js";
 
 /**
  * Every failure a lifecycle operation can surface: the materialization

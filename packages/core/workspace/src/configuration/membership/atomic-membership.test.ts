@@ -3,12 +3,13 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import { applyPlan } from "../../transitions/planning/index.js";
 import {
-  applyPlan,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "../../transitions/planning/index.js";
+  StepFailure,
+} from "../../operations/index.js";
 import { SettingsWriter } from "../../desired-state/index.js";
 import { protectWorkspacePath } from "../../transitions/settlement/index.js";
 import { layer as coreWorkspaceLayer } from "../../desired-state/live.js";
@@ -18,7 +19,6 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "../../transitions/settlement/live.js";
 import * as Option from "effect/Option";
-import { StepFailure } from "../../transitions/planning/index.js";
 import { makeAtomicMembershipSteps } from "./atomic-membership.js";
 import { testToStepFailure, writeMinimalWorkspace } from "../test-helpers.js";
 

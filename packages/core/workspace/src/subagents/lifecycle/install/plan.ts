@@ -13,12 +13,15 @@ import * as Option from "effect/Option";
 
 import { NO_MATERIALIZATION_OBSERVATION, SubagentManager } from "../../../materialization/index.js";
 import { buildInstallOperation } from "../../../reconciliation/index.js";
-import { operationPresentation, type Plan } from "../../../transitions/planning/index.js";
+import {
+  operationPresentation,
+  type Plan,
+  type ExtensionLifecycleFailed,
+  installRefused,
+} from "../../../operations/index.js";
 
-import type { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
 import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
 import {
-  installRefused,
   type InstallStepRequirements,
   type SubagentInstallIntent,
 } from "../../../lifecycle/install/vocabulary.js";

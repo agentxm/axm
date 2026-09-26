@@ -25,16 +25,18 @@ import { expectedProjectionNames } from "../../projection/index.js";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
   operationPresentation,
-  prepareExecutionCandidate,
-  resolveExecutionCandidate,
   type ConfiguredAgentOperation,
-  type ExecutionCandidate,
   type OperationResolution,
   type Plan,
   type PlanExecution,
+  ExtensionLifecycleFailed,
+} from "../../operations/index.js";
+import {
+  prepareExecutionCandidate,
+  resolveExecutionCandidate,
+  type ExecutionCandidate,
 } from "../../transitions/planning/index.js";
 
-import { ExtensionLifecycleFailed } from "../errors.js";
 import {
   parseHookUninstallRequest,
   planHookUninstall,

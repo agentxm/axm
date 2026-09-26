@@ -19,7 +19,7 @@ import * as Data from "effect/Data";
 import * as ServiceMap from "effect/Context";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import type { CarriedFailureCategory } from "./failure-category.js";
+import type { OperationErrorCategory } from "../../operations/index.js";
 
 /**
  * The gate implementation could not produce a verdict. The implementation
@@ -27,7 +27,7 @@ import type { CarriedFailureCategory } from "./failure-category.js";
  * failure without re-rendering it.
  */
 export class AxmSkillGateUnavailable extends Data.TaggedError("AxmSkillGateUnavailable")<{
-  readonly category: CarriedFailureCategory;
+  readonly category: OperationErrorCategory;
   readonly detail: string;
   readonly suggestions?: ReadonlyArray<SuggestedAction>;
   readonly cause?: unknown;

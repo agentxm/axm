@@ -49,17 +49,21 @@ import {
 import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import { SourceHostProviders, resolveSource } from "../../../resolution/sources/index.js";
-import type { RegistryBindingProposal, SourceBindingProposal } from "../../../resolution/index.js";
-import { operationPresentation, type Plan } from "../../../transitions/planning/index.js";
+import {
+  type RegistryBindingProposal,
+  type SourceBindingProposal,
+  operationPresentation,
+  type Plan,
+  ExtensionLifecycleFailed,
+  installRefused,
+} from "../../../operations/index.js";
 import { mcpRegistryResolutionKey } from "../../../desired-state/index.js";
 
-import { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
 import { settleMcpSourceIdentityFor } from "../../source-identity.js";
 import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
 import { registryLoginSuggestions } from "../../../lifecycle/install/registry-login-suggestion.js";
 import { parseRegistryInstallTarget } from "../../../lifecycle/install/registry-install-target.js";
 import {
-  installRefused,
   sourceResolutionRefused,
   type InstallStepRequirements,
   type McpServerInstallIntent,

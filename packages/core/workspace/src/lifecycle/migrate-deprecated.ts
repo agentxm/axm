@@ -14,13 +14,11 @@ import {
   WorkspaceLocation,
   acceptedResolutionRef,
 } from "../desired-state/index.js";
+import { operationPresentation, type PlanExecution, installRefused } from "../operations/index.js";
 import {
-  operationPresentation,
   prepareExecutionCandidate,
   resolveExecutionCandidate,
-  type PlanExecution,
 } from "../transitions/planning/index.js";
-import { installRefused } from "./install/vocabulary.js";
 import type { InstallStepRequirements } from "./install/vocabulary.js";
 import { InstallExtensions } from "./install/install-extensions.js";
 import { UninstallExtensions } from "./uninstall/uninstall-extensions.js";

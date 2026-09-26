@@ -9,7 +9,7 @@ import { afterEach } from "vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { snapshotTree } from "../../desired-state/testing.js";
 
-import { ExtensionLifecycleFailed } from "../../lifecycle/errors.js";
+import { ExtensionLifecycleFailed } from "../../operations/index.js";
 import { applyUnpack, makePackWorld, seedAuthoredPackWorkspace, PACK } from "./test-helpers.js";
 
 export const specification = defineSpecification({

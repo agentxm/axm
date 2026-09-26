@@ -8,12 +8,22 @@
  * @packageDocumentation
  */
 
+import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
 import { ConfiguredAgentOutcomesProvider } from "../../desired-state/index.js";
 import { ConfiguredAgentOutcomesProviderTest } from "../../desired-state/testing.js";
 import { FootprintRecorder, makeFootprintRecorder } from "../settlement/index.js";
-import { OperationJournal, makeOperationJournal } from "./plan/operation-journal.js";
+import {
+  OperationJournal,
+  ResolvePlanInteraction,
+  makeOperationJournal,
+  type ApplyConfirmation,
+  type ConfirmationRecovery,
+  type Plan,
+  type PlanInteractionFailed,
+  type ResolvePlanInteractionService,
+} from "../../operations/index.js";
 
 /**
  * An empty journal for one test invocation, standing in for the
@@ -48,10 +58,51 @@ export const PlanInvocationTest: Layer.Layer<
   ConfiguredAgentOutcomesProviderTest,
 );
 
-export {
-  ResolvePlanInteractionTest,
-  type ResolvePlanInteractionTestState,
-} from "./plan/resolve-plan-interaction.js";
+export interface ResolvePlanInteractionTestState {
+  readonly confirmApplyChangesCalls: Array<ConfirmationRecovery>;
+  readonly presentPlanCalls: Array<{
+    readonly planName: string;
+    readonly mode: "preview" | "apply";
+  }>;
+}
+
+/**
+ * A recording `ResolvePlanInteraction` for tests: it answers availability and
+ * confirmation from the overrides, approving by default, and records every
+ * confirmation request and presented plan.
+ */
+export const ResolvePlanInteractionTest = (overrides?: {
+  readonly isConfirmationAvailable?: boolean;
+  readonly confirmApplyChanges?: (
+    recovery: ConfirmationRecovery,
+  ) => Effect.Effect<ApplyConfirmation, PlanInteractionFailed>;
+  readonly presentPlan?: (
+    plan: Plan<unknown, unknown>,
+    options: { readonly mode: "preview" | "apply" },
+  ) => Effect.Effect<void, PlanInteractionFailed>;
+}) => {
+  const state: ResolvePlanInteractionTestState = {
+    confirmApplyChangesCalls: [],
+    presentPlanCalls: [],
+  };
+
+  const layer = Layer.succeed(ResolvePlanInteraction, {
+    isConfirmationAvailable: Effect.succeed(overrides?.isConfirmationAvailable ?? false),
+    confirmApplyChanges: (recovery) =>
+      Effect.gen(function* () {
+        state.confirmApplyChangesCalls.push(recovery);
+        return yield* overrides?.confirmApplyChanges?.(recovery) ??
+          Effect.succeed("approved" as const);
+      }),
+    presentPlan: (plan, options) =>
+      Effect.gen(function* () {
+        state.presentPlanCalls.push({ planName: plan.name, mode: options.mode });
+        yield* overrides?.presentPlan?.(plan, options) ?? Effect.void;
+      }),
+  } satisfies ResolvePlanInteractionService);
+
+  return { layer, state };
+};
 export {
   interactiveOnlyPlanExecution,
   preapprovedPlanExecution,

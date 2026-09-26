@@ -118,18 +118,25 @@ export {
   type ConfiguredEntryEnabledState,
 } from "./workspace/configured-entry.js";
 
-// Plan-facing workspace vocabulary
-export { ArtifactChangeSchema, type ArtifactChange } from "./workspace/artifact-change.js";
+// Rendering of the state and settlement failure families into the
+// serialized step vocabulary.
 export {
-  ConfiguredAgentOutcomeSchema,
-  type ConfiguredAgentOutcome,
-} from "./workspace/configured-agent-outcome.js";
+  candidateFingerprintFailedToStepFailure,
+  configErrorToStepFailure,
+  restorationIncompleteToStepFailure,
+  workspaceRestorationErrorToStepFailure,
+  workspaceStateFailureToStepFailure,
+  workspaceStateReadFailureToStepFailure,
+  workspaceTransactionFailureToStepFailure,
+  type WorkspaceStateFailure,
+} from "./step-failures.js";
+
+// Plan-facing workspace vocabulary
 export {
   ConfiguredAgentOutcomesProvider,
   ConfiguredAgentOutcomesUnavailable,
   resolveConfiguredAgentOutcomes,
   type ConfiguredAgentOutcomesRequest,
-  type ConfiguredAgentOutcomesFailureCategory,
   type ConfiguredAgentOutcomesForState,
   type ConfiguredAgentOutcomesProviderService,
 } from "./workspace/configured-agent-outcomes-provider.js";
@@ -301,7 +308,10 @@ export {
   type WorkspaceReadModel,
   type WorkspaceReadModelConfigService,
 } from "./workspace/read-model/service.js";
-export { makeScannerFileSystem } from "./workspace/read-model/scanners/fs-helpers.js";
+export {
+  SCANNER_IO_CONCURRENCY,
+  makeScannerFileSystem,
+} from "./workspace/read-model/scanners/fs-helpers.js";
 export {
   AgentRootResolver,
   AgentRootResolverLive,
@@ -344,16 +354,6 @@ export type {
   PackMemberBinding,
 } from "./workspace/read-model/extensions/index.js";
 export { packMemberBindings } from "./workspace/desired-pack-members.js";
-
-// Fixture-spec data shapes: declarative workspace-tree descriptions shared by
-// the read-model fixtures and lint's workspace fixture interpreter. The
-// builder itself lives behind `./testing`.
-export type {
-  FileSpec,
-  FixtureSpec,
-  ScopeFiles,
-  TreeFiles,
-} from "./workspace/read-model/__fixtures__/builder.js";
 
 // Narrow workspace-state services
 export { WorkspaceDocuments, type WorkspaceDocumentsService } from "./workspace/documents.js";

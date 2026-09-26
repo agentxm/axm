@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect";
 import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { deriveOperationOutcome, type PlanExecution } from "../../transitions/planning/index.js";
+import { deriveOperationOutcome, type PlanExecution } from "../../operations/index.js";
 
 import {
   applyExecution,

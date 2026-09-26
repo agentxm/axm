@@ -8,9 +8,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { AcquiredContent } from "../../../acquisition/acquired-content.js";
 import { makeSpecContext, makeSpecWorkspace } from "./__tests__/plan-spec-support.js";
-import { StepFailure } from "./errors.js";
-import { deriveOperationOutcome } from "./operation-resolution.js";
-import type { Plan } from "./plan.js";
+import { StepFailure, deriveOperationOutcome, type Plan } from "../../../operations/index.js";
 import { preapprovedPlanExecution } from "./plan-execution-fixtures.js";
 import { prepareExecutionCandidate, resolveExecutionCandidate } from "./resolve-plan.js";
 

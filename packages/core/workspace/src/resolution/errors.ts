@@ -9,7 +9,7 @@ import * as Data from "effect/Data";
 import * as Schema from "effect/Schema";
 
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
-import { FailureSuggestedActionSchema } from "../transitions/planning/plan/errors.js";
+import { FailureSuggestedActionSchema } from "../operations/index.js";
 
 /**
  * A resolution policy step could not proceed. The carried fields mirror the

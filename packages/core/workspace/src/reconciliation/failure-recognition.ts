@@ -106,8 +106,17 @@ import {
   KnowledgeResolutionMissing,
   KnowledgeUnavailable,
 } from "../knowledge/errors.js";
-import { ExtensionLifecycleFailed } from "../lifecycle/errors.js";
-import { InstallSelectionUnavailable } from "../lifecycle/install/selection.js";
+import {
+  ExtensionLifecycleFailed,
+  InstallSelectionUnavailable,
+  LifecyclePostconditionViolated,
+  ScaffoldedExtensionUnresolved,
+  ApprovalRecoveryMissing,
+  CandidateFingerprintFailed,
+  PlanInteractionFailed,
+  StaleExecutionCandidate,
+  StepFailure,
+} from "../operations/index.js";
 import {
   McpAgentSyncRefused,
   McpCanonicalPathUnsafe,
@@ -184,17 +193,6 @@ import {
 import { WorkspaceCatalogUnavailable } from "../resolution/sources/workspace-catalog.js";
 import { SkillDefinitionInvalid, SkillMaterializationFailed } from "../skills/errors.js";
 import { SubagentContentUnreadable, SubagentDefinitionInvalid } from "../subagents/errors.js";
-import {
-  LifecyclePostconditionViolated,
-  ScaffoldedExtensionUnresolved,
-} from "../transitions/planning/materialization-errors.js";
-import {
-  ApprovalRecoveryMissing,
-  CandidateFingerprintFailed,
-  PlanInteractionFailed,
-  StaleExecutionCandidate,
-  StepFailure,
-} from "../transitions/planning/plan/errors.js";
 import {
   TransitionLockError,
   TransitionLockUnavailable,

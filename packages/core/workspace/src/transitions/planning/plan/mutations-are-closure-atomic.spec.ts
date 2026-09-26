@@ -21,15 +21,19 @@ import {
   WorkspaceReadTest,
 } from "../../../desired-state/testing.js";
 
-import { StepFailure } from "./errors.js";
-import { OperationJournal, makeOperationJournal } from "./operation-journal.js";
-import { deriveOperationOutcome } from "./operation-resolution.js";
-import type { Plan } from "./plan.js";
+import {
+  StepFailure,
+  OperationJournal,
+  makeOperationJournal,
+  deriveOperationOutcome,
+  type Plan,
+  type ApplyConfirmation,
+  type PlanInteractionFailed,
+} from "../../../operations/index.js";
 import { preapprovedPlanExecution, promptablePlanExecution } from "./plan-execution-fixtures.js";
-import { ResolvePlanInteractionTest, type ApplyConfirmation } from "./resolve-plan-interaction.js";
+import { ResolvePlanInteractionTest } from "../testing.js";
 import { prepareExecutionCandidate, resolveExecutionCandidate } from "./resolve-plan.js";
-import { workspaceTransactionFailureToStepFailure } from "./step-failure-conversions.js";
-import type { PlanInteractionFailed } from "./errors.js";
+import { workspaceTransactionFailureToStepFailure } from "../../../desired-state/index.js";
 import { WorkspaceRecordsEmpty } from "./__tests__/plan-spec-support.js";
 
 export const specification = defineSpecification({

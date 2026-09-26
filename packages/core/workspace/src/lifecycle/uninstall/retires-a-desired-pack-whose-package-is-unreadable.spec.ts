@@ -17,7 +17,7 @@ import {
   readSettings,
   type InstallWorld,
 } from "../install/test-helpers.js";
-import { PACK_UNINSTALL_GRAPH_BLOCKER_ID } from "../../packs/lifecycle/uninstall/readiness.js";
+import { PACK_UNINSTALL_GRAPH_BLOCKER_ID } from "../../packs/index.js";
 import { applyUninstall, previewUninstall, uninstallRequest } from "./test-helpers.js";
 
 export const specification = defineSpecification({

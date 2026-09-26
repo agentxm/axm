@@ -3,17 +3,15 @@
  * package, reconcile connection credentials, declare the accepted resolution
  * and settings entry, and project the connection into configured agents.
  *
- * It lives in the reconciliation capability rather than in a feature because
- * four surfaces need it — `axm mcps install`, pack member installation,
- * reconciliation, and the authoring routes that install an MCP server they
- * have just scaffolded, forked, adopted, or imported — and a feature may not
- * import a peer feature. Requirements stay in `R` and failures stay typed in
- * `E`; the caller composes the layer and renders the failure.
+ * The MCP manager serves it as its `installConnection` member, which is how
+ * the kernel's reconciliation and Pack member steps install a connection;
+ * this kind's install plan and authored-package realization call it directly.
+ * Requirements stay in `R` and failures stay typed in `E`; the caller
+ * composes the layer and renders the failure.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Array from "effect/Array";
@@ -24,7 +22,6 @@ import {
   collectSecretInputNames,
   collectRequiredInputNames,
   mcpProjectionInputValues,
-  NativeWriteAuthority,
   readMcpServerManifestAt,
   syncManifestMcpServerToAgents,
 } from "../../projection/agent-adapters/index.js";
@@ -32,19 +29,10 @@ import type { McpServerSyncOutcome } from "../../projection/agent-adapters/index
 import { CodingAgentRepository } from "../../projection/index.js";
 import { mcpRegistryResolutionKey } from "../../desired-state/index.js";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import { RegistryClientFactory } from "@agentxm/registry-client";
 import { acceptedRegistryVersionForRef } from "../../desired-state/index.js";
-import {
-  appendWarningsToMessage,
-  type JobStepResult,
-  type Operation,
-} from "../../operations/index.js";
-import {
-  FootprintRecorder,
-  isWorkspaceFootprint,
-  readFootprint,
-} from "../../transitions/settlement/index.js";
-import { classifyInstallChange } from "../extensions/operations.js";
+import { appendWarningsToMessage, type JobStepResult } from "../../operations/index.js";
+import { isWorkspaceFootprint, readFootprint } from "../../transitions/settlement/index.js";
+import { classifyInstallChange } from "../../reconciliation/index.js";
 import {
   AcceptedResolutionWriter,
   DesiredStateReader,
@@ -56,61 +44,31 @@ import {
 } from "../../desired-state/index.js";
 import { computeExtensionPathsForLayout } from "../../desired-state/index.js";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
-import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import type { McpServerLockEntry } from "../../desired-state/index.js";
 import { mcpResolutionKey } from "../../desired-state/index.js";
 import type { McpServerManifest } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import type { McpServerEntry } from "../../desired-state/index.js";
 import {
   McpServerManager,
+  McpSecretStore,
+  mcpSecretAccount,
+  type ExtensionManagerFailure,
+  type InstallMcpServerOperation,
+  type McpConnectionInstallRequirements,
+  type McpSecretIdentity,
+} from "../../materialization/index.js";
+import {
   agentConfigTargets,
   mcpServerArtifact,
   mcpSettingsTarget,
   mcpSourceTarget,
-} from "../../materialization/index.js";
-import type { ExtensionManagerFailure } from "../../materialization/index.js";
-import { McpAgentSyncRefused, McpRequiredInputsMissing } from "../../materialization/index.js";
-import {
-  McpSecretStore,
-  mcpSecretAccount,
-  type McpSecretIdentity,
-} from "../../materialization/index.js";
+} from "../artifact.js";
+import { McpAgentSyncRefused, McpRequiredInputsMissing } from "../errors.js";
+import { requestedMcpSourceIdentity } from "../source-identity.js";
 
 // -----------------------------------------------------------------------------
-// Operation types
+// Credentials
 // -----------------------------------------------------------------------------
-
-/**
- * Args for the install-mcp-server operation.
- */
-export type InstallMcpServerOperationArgs = {
-  readonly ref: McpServerExtensionRef;
-  readonly sourceIdentity: string;
-  /** Local connection identity and exact agent-native MCP key. */
-  readonly localName?: string;
-  readonly force: boolean;
-  /** Explicit connection declaration; absent when realizing inherited or authored state. */
-  readonly declaration?: { readonly name: string; readonly versionRange: Option.Option<string> };
-  /** When true, enforce strict policy for MCP sync outcomes. */
-  readonly strictAgentSync?: Option.Option<boolean>;
-  /** Resolved MCP input values from `--env KEY=VALUE` flags. */
-  readonly env?: Option.Option<Readonly<Record<string, string>>>;
-  /**
-   * Whether the invoking surface can prompt for missing required inputs.
-   * The transport boundary resolves flag, CI, and TTY state.
-   */
-  readonly nonInteractive: boolean;
-};
-
-/**
- * Add an MCP server to the workspace.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type InstallMcpServerOperation = Operation<
-  "install-mcp-server",
-  InstallMcpServerOperationArgs
->;
 
 type McpSecretPersistenceOutcome =
   | { readonly _tag: "saved"; readonly inputName: string }
@@ -340,26 +298,6 @@ const syncConfiguredAgentsOnInstall = (args: {
 // -----------------------------------------------------------------------------
 
 /**
- * Everything the MCP install operation needs from its composition root.
- */
-export type McpServerInstallRequirements =
-  | FileSystem.FileSystem
-  | FootprintRecorder
-  | RegistryClientFactory
-  | Path.Path
-  | WorkspaceLocation
-  | SettingsReader
-  | SettingsWriter
-  | LockfileReader
-  | DesiredStateReader
-  | DesiredStateWriter
-  | AcceptedResolutionWriter
-  | CodingAgentRepository
-  | NativeWriteAuthority
-  | McpServerManager
-  | McpSecretStore;
-
-/**
  * Install one MCP server: acquire the package (registry archive or the
  * workspace-authored directory), merge the connection's inputs with what the
  * credential store already holds, record the settings entry and the accepted
@@ -371,7 +309,11 @@ export type McpServerInstallRequirements =
  */
 export const installMcpServer: (
   op: InstallMcpServerOperation,
-) => Effect.Effect<JobStepResult, ExtensionManagerFailure, McpServerInstallRequirements> = (op) =>
+) => Effect.Effect<
+  JobStepResult,
+  ExtensionManagerFailure,
+  McpServerManager | McpConnectionInstallRequirements
+> = (op) =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const settings = yield* SettingsReader;
@@ -400,7 +342,7 @@ export const installMcpServer: (
           })
         : undefined;
     const desiredGraph = yield* desiredStateReader.graph();
-    const sourceIdentity = op.args.sourceIdentity;
+    const sourceIdentity = op.args.sourceIdentity ?? (yield* requestedMcpSourceIdentity(ref));
     const existingClosure = desiredGraph.mcpSourceClosures.find(
       (closure) => closure.key === sourceIdentity,
     );

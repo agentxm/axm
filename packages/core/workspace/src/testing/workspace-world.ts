@@ -22,11 +22,11 @@ import {
   McpSecretStoreLive,
   McpServerManagerLive,
   PackManagerLive,
-  ProjectionParticipantsLive,
   RuleManagerLive,
   SkillManagerLive,
   SubagentManagerLive,
-} from "../materialization/live.js";
+} from "../kinds-live.js";
+import { ProjectionParticipantsLive } from "../materialization/live.js";
 import { AgentExecutableResolver } from "../projection/agent-adapters/index.js";
 import {
   CodingAgentRepositoryLive,

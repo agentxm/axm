@@ -29,7 +29,7 @@ import {
   withLiveSources,
 } from "../testing/workspace-world.js";
 
-import { BundledAxmSkillAsset } from "../skills/lifecycle/install/bundled.js";
+import { BundledAxmSkillAsset } from "../skills/index.js";
 import { StepFailureConversionTest } from "../reconciliation/testing.js";
 
 /**

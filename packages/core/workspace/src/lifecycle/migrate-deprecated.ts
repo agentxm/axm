@@ -3,8 +3,8 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { RegistryClientFactory } from "@agentxm/registry-client";
-import type { BundledAxmSkillAsset } from "../skills/lifecycle/install/bundled.js";
-import type { PackUninstallRequirements } from "../packs/lifecycle/uninstall/plan.js";
+import type { BundledAxmSkillAsset } from "../skills/index.js";
+import type { PackUninstallRequirements } from "../packs/index.js";
 import { buildReconciliationClosure, StepFailureConversion } from "../reconciliation/index.js";
 import {
   DesiredStateReader,

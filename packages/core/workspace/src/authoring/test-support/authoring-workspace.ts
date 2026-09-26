@@ -36,7 +36,7 @@ import {
   RuleManagerLive,
   SkillManagerLive,
   SubagentManagerLive,
-} from "../../materialization/live.js";
+} from "../../kinds-live.js";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { previewPlanExecution, type PlanExecution } from "../../operations/index.js";
 import {

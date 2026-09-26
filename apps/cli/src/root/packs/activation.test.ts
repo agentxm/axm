@@ -12,14 +12,16 @@ import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
 import { ProjectionParticipantsLive } from "@agentxm/workspace/materialization/live";
 import { WorkspaceInvariantFactsLive } from "@agentxm/workspace/projection/live";
-import { HookManagerLive } from "@agentxm/workspace/materialization/live";
-import { PackManagerLive } from "@agentxm/workspace/materialization/live";
-import { KnowledgeManagerLive } from "@agentxm/workspace/materialization/live";
-import { McpServerManagerLive } from "@agentxm/workspace/materialization/live";
-import { RuleManagerLive } from "@agentxm/workspace/materialization/live";
-import { SkillManagerLive } from "@agentxm/workspace/materialization/live";
+import {
+  HookManagerLive,
+  KnowledgeManagerLive,
+  McpServerManagerLive,
+  PackManagerLive,
+  RuleManagerLive,
+  SkillManagerLive,
+  SubagentManagerLive,
+} from "@agentxm/workspace/kinds-live";
 import { SourceHostProvidersLive } from "@agentxm/workspace/resolution/sources/live";
-import { SubagentManagerLive } from "@agentxm/workspace/materialization/live";
 
 import {
   computeMaterializedTreeIntegritySync,

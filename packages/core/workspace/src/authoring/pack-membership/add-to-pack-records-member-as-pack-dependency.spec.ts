@@ -8,8 +8,8 @@ import {
   applyExecution,
   authoringWorkspaceLayer,
   type AuthoringWorkspace,
-} from "../../authoring/test-support/authoring-workspace.js";
-import { makePackWorkspace } from "../../authoring/test-support/pack-membership.js";
+} from "../test-support/authoring-workspace.js";
+import { makePackWorkspace } from "../test-support/pack-membership.js";
 import { ChangePackMembership } from "./change-pack-membership.js";
 
 export const specification = defineSpecification({

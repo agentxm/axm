@@ -51,7 +51,7 @@ import {
   packageUrl,
 } from "../test-helpers.js";
 import type { ExtensionManagerFailure, ManagerRequirements } from "../../materialization/index.js";
-import { SkillDefinitionInvalid } from "../../materialization/index.js";
+import { CanonicalPackageProbeFailed } from "../../materialization/index.js";
 import type { RecipeRequirements } from "./operations.js";
 import type {
   RegistrySkillRef,
@@ -506,7 +506,9 @@ describe("buildNewExtensionStep", () => {
         isInstalled: () => Effect.succeed(false),
         materializeInstall: () => Effect.succeed(NO_FACTS),
         listMaterializable: () =>
-          Effect.fail(new SkillDefinitionInvalid({ detail: "invalid pack" })),
+          Effect.fail(
+            new CanonicalPackageProbeFailed({ detail: "invalid pack", cause: undefined }),
+          ),
         acceptedResolution: () => Effect.succeed(Option.none()),
       } satisfies AuthorMaterialization<
         SkillExtensionRef,
@@ -550,7 +552,8 @@ describe("buildNewExtensionStep", () => {
             nodeFs.rmSync(surfacePath(surface), { force: true });
           });
         let listCalls = 0;
-        const fail = () => Effect.fail(new SkillDefinitionInvalid({ detail: failureAt }));
+        const fail = () =>
+          Effect.fail(new CanonicalPackageProbeFailed({ detail: failureAt, cause: undefined }));
         const writes: RecipeWriteFaults = {
           removeAccepted: () => remove("lock"),
           removeEntry: () => remove("settings"),
@@ -661,7 +664,12 @@ describe("buildAuthoredExtensionStep", () => {
           listCalls += 1;
           return listCalls === 1
             ? Effect.succeed([ref])
-            : Effect.fail(new SkillDefinitionInvalid({ detail: String("unexpected preflight") }));
+            : Effect.fail(
+                new CanonicalPackageProbeFailed({
+                  detail: String("unexpected preflight"),
+                  cause: undefined,
+                }),
+              );
         },
         materializeInstall: () => Effect.succeed(NO_FACTS),
         acceptedResolution: () => Effect.succeed(Option.none()),
@@ -891,7 +899,8 @@ describe("buildUninstallOperation", () => {
             yield* protectWorkspacePath(surfacePath(surface));
             nodeFs.rmSync(surfacePath(surface), { force: true });
           });
-        const fail = () => Effect.fail(new SkillDefinitionInvalid({ detail: failureAt }));
+        const fail = () =>
+          Effect.fail(new CanonicalPackageProbeFailed({ detail: failureAt, cause: undefined }));
         const writes: RecipeWriteFaults = {
           removeAccepted: () =>
             Effect.gen(function* () {

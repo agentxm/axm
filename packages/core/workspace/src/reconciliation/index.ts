@@ -42,6 +42,10 @@ export {
 } from "./install-vocabulary.js";
 export { buildAggregateProjectionStep } from "./aggregate-projection-step.js";
 export { buildPackMemberStep, type PackMemberRef } from "./extensions/pack-member-step.js";
+export {
+  registrySourceArtifact,
+  registrySourcePath,
+} from "./extensions/registry-source-artifact.js";
 
 export {
   WorkspaceSyncFailed,
@@ -53,7 +57,6 @@ export {
   withAdaptedStepFailures,
   type StepFailureConversionService,
 } from "./step-failure-conversion.js";
-export { collectConfiguredPackRecovery } from "./configured-pack-recovery.js";
 
 export {
   reconcileAgentOutputs,
@@ -124,13 +127,3 @@ export {
   type KernelFailure,
   type KernelFailureRendering,
 } from "./failure-rendering.js";
-
-export {
-  deleteMcpSecrets,
-  installMcpServer,
-  type InstallMcpServerOperation,
-  type InstallMcpServerOperationArgs,
-  type McpSecretDeletionOutcome,
-  type McpServerInstallRequirements,
-} from "./mcps/install-operation.js";
-export { materializeAuthoredMcpServer } from "./mcps/authored-materialization.js";

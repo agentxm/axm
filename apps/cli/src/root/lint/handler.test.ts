@@ -30,14 +30,17 @@ import {
 } from "../../test-support/presenter-test.js";
 import { asciiGlyphs, paintText } from "../../screen/index.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
-import { HookManagerLive } from "@agentxm/workspace/materialization/live";
+import {
+  HookManagerLive,
+  KnowledgeManagerLive,
+  McpServerManagerLive,
+  PackManagerLive,
+  RuleManagerLive,
+  SkillManagerLive,
+  SubagentManagerLive,
+} from "@agentxm/workspace/kinds-live";
 import { ProjectionParticipantsLive } from "@agentxm/workspace/materialization/live";
-import { KnowledgeManagerLive } from "@agentxm/workspace/materialization/live";
-import { McpServerManagerLive } from "@agentxm/workspace/materialization/live";
-import { PackManagerLive } from "@agentxm/workspace/materialization/live";
-import { RuleManagerLive } from "@agentxm/workspace/materialization/live";
 import { WorkspaceInvariantFactsLive } from "@agentxm/workspace/projection/live";
-import { SkillManagerLive } from "@agentxm/workspace/materialization/live";
 
 import { SourceHostProvidersLive } from "@agentxm/workspace/resolution/sources/live";
 import {
@@ -45,7 +48,6 @@ import {
   RegistryResolutionPolicyLive,
 } from "@agentxm/workspace/resolution/live";
 import { WorkspaceCatalogLive } from "@agentxm/workspace/projection/live";
-import { SubagentManagerLive } from "@agentxm/workspace/materialization/live";
 import type { WorkspaceStateOptions } from "@agentxm/workspace/desired-state";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace/desired-state/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";

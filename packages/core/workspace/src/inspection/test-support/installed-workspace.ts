@@ -39,7 +39,7 @@ import {
   type ExtensionManagerFailure,
 } from "../../materialization/index.js";
 import { buildInstallOperation } from "../../reconciliation/index.js";
-import { PackManagerLive, SkillManagerLive } from "../../materialization/live.js";
+import { PackManagerLive, SkillManagerLive } from "../../kinds-live.js";
 import {
   makeConfiguredReleaseAgeEvaluation,
   ReleaseAgePosture,

@@ -2,7 +2,7 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { McpSecretStore, type McpSecretStoreService } from "../mcp-connections/secret-store.js";
+import { McpSecretStore, type McpSecretStoreService } from "./ports/mcp-secret-store.js";
 
 /** What an in-memory credential store recorded, and the layer that backs it. */
 export interface MemoryMcpSecretStore {

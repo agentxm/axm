@@ -9,7 +9,7 @@ import { deriveOperationOutcome } from "../../operations/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { snapshotTree } from "../../desired-state/testing.js";
 
-import { readSettings } from "../../lifecycle/install/test-helpers.js";
+import { readSettings } from "../install/test-helpers.js";
 import {
   applyUnpack,
   makePackWorld,

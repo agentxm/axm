@@ -4,8 +4,15 @@ import type {
   SynchronizeMaterialization,
   UninstallMaterialization,
 } from "../transitions/planning/index.js";
-import type { ExtensionTargetFor } from "../desired-state/index.js";
-import type { DesiredStateGraph } from "../desired-state/index.js";
+import type {
+  AcceptedResolutionWriter,
+  DesiredStateGraph,
+  DesiredStateWriter,
+  ExtensionTargetFor,
+  LockfileReader,
+  SettingsWriter,
+  WorkspaceLocation,
+} from "../desired-state/index.js";
 /**
  * Per-extension-type manager service tags and the materialization facts each
  * manager reports.
@@ -31,9 +38,13 @@ import type {
   MaterializationObservation,
 } from "./manager-contract.js";
 import type { ExtensionManagerFailure } from "./errors.js";
-import type { ProjectionPlan } from "../projection/index.js";
-import type { ConfiguredAgentOutcome } from "../operations/index.js";
-import type { WorkspaceTransactionScope } from "../transitions/settlement/index.js";
+import type { CodingAgentRepository, ProjectionPlan } from "../projection/index.js";
+import type { ConfiguredAgentOutcome, JobStepResult, Operation } from "../operations/index.js";
+import type {
+  FootprintRecorder,
+  WorkspaceTransactionScope,
+} from "../transitions/settlement/index.js";
+import type { McpSecretStore } from "./ports/mcp-secret-store.js";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import type { TreeIntegrity } from "../desired-state/index.js";
 import type { HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
@@ -148,6 +159,61 @@ export class SkillManager extends ServiceMap.Service<SkillManager, SkillManagerS
   "@agentxm/workspace/materialization/managers/SkillManager",
 ) {}
 
+/**
+ * What installing one MCP connection is asked to do.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface InstallMcpServerOperationArgs {
+  readonly ref: McpServerExtensionRef;
+  /**
+   * The source identity the connection's credentials and lock rows are keyed
+   * by, when the caller already settled it. Absent, the identity of the
+   * requested package itself is used.
+   */
+  readonly sourceIdentity?: string;
+  /** Local connection identity and exact agent-native MCP key. */
+  readonly localName?: string;
+  readonly force: boolean;
+  /** Explicit connection declaration; absent when realizing inherited or authored state. */
+  readonly declaration?: { readonly name: string; readonly versionRange: Option.Option<string> };
+  /** When true, enforce strict policy for MCP sync outcomes. */
+  readonly strictAgentSync?: Option.Option<boolean>;
+  /** Resolved MCP input values from `--env KEY=VALUE` flags. */
+  readonly env?: Option.Option<Readonly<Record<string, string>>>;
+  /**
+   * Whether the invoking surface can prompt for missing required inputs.
+   * The transport boundary resolves flag, CI, and TTY state.
+   */
+  readonly nonInteractive: boolean;
+}
+
+/**
+ * Add an MCP server to the workspace.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type InstallMcpServerOperation = Operation<
+  "install-mcp-server",
+  InstallMcpServerOperationArgs
+>;
+
+/**
+ * Everything installing one MCP connection reads and writes: the manager
+ * requirements, the workspace records the install declares, the agents it
+ * projects into, and the credential store its secret inputs are kept in.
+ */
+export type McpConnectionInstallRequirements =
+  | ManagerRequirements
+  | FootprintRecorder
+  | SettingsWriter
+  | DesiredStateWriter
+  | AcceptedResolutionWriter
+  | LockfileReader
+  | CodingAgentRepository
+  | WorkspaceLocation
+  | McpSecretStore;
+
 export interface McpServerManagerService
   extends
     InstallMaterialization<
@@ -191,6 +257,15 @@ export interface McpServerManagerService
     ExtensionManagerFailure,
     ManagerRequirements
   >;
+  /**
+   * Install one connection: acquire its package, reconcile its credentials,
+   * record its settings entry and accepted resolution, and project it into
+   * every configured agent. Every surface that installs an MCP connection
+   * reaches the installation through this member.
+   */
+  readonly installConnection: (
+    op: InstallMcpServerOperation,
+  ) => Effect.Effect<JobStepResult, ExtensionManagerFailure, McpConnectionInstallRequirements>;
 }
 
 export class McpServerManager extends ServiceMap.Service<

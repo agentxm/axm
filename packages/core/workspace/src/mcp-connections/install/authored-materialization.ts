@@ -4,8 +4,8 @@
  *
  * The authored closure recipe accepts a type-specific materialization because
  * an MCP server's canonical content is realized by the install operation
- * rather than by its manager. Both live in this capability, so every authoring
- * route reaches the same realization without importing a peer feature.
+ * rather than by its manager, so every authoring route reaches the same
+ * realization through this kind.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -13,10 +13,13 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
-import type { McpServerMaterializationFacts } from "../../materialization/index.js";
-import type { ExtensionManagerFailure } from "../../materialization/index.js";
-import { installMcpServer, type McpServerInstallRequirements } from "./install-operation.js";
-import { requestedMcpSourceIdentity } from "../../mcp-connections/source-identity.js";
+import type {
+  ExtensionManagerFailure,
+  McpConnectionInstallRequirements,
+  McpServerManager,
+  McpServerMaterializationFacts,
+} from "../../materialization/index.js";
+import { installMcpServer } from "./install-operation.js";
 
 /**
  * Realize the authored package's canonical content and native projections
@@ -30,20 +33,14 @@ export const materializeAuthoredMcpServer = (args: {
 }): Effect.Effect<
   Option.Option<McpServerMaterializationFacts>,
   ExtensionManagerFailure,
-  McpServerInstallRequirements
+  McpServerManager | McpConnectionInstallRequirements
 > =>
-  requestedMcpSourceIdentity(args.ref).pipe(
-    Effect.flatMap((sourceIdentity) =>
-      installMcpServer({
-        name: "install-mcp-server",
-        args: {
-          ref: args.ref,
-          sourceIdentity,
-          nonInteractive: args.nonInteractive,
-          force: false,
-          env: Option.none(),
-        },
-      }),
-    ),
-    Effect.as(Option.none<McpServerMaterializationFacts>()),
-  );
+  installMcpServer({
+    name: "install-mcp-server",
+    args: {
+      ref: args.ref,
+      nonInteractive: args.nonInteractive,
+      force: false,
+      env: Option.none(),
+    },
+  }).pipe(Effect.as(Option.none<McpServerMaterializationFacts>()));

@@ -13,24 +13,27 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
-import { HookManagerLive, McpSecretStoreLive } from "@agentxm/workspace/materialization/live";
+import {
+  HookManagerLive,
+  KnowledgeManagerLive,
+  McpSecretStoreLive,
+  McpServerManagerLive,
+  PackManagerLive,
+  RuleManagerLive,
+  SkillManagerLive,
+  SubagentManagerLive,
+} from "@agentxm/workspace/kinds-live";
 import { ProjectionParticipantsLive } from "@agentxm/workspace/materialization/live";
-import { KnowledgeManagerLive } from "@agentxm/workspace/materialization/live";
-import { McpServerManagerLive } from "@agentxm/workspace/materialization/live";
-import { PackManagerLive } from "@agentxm/workspace/materialization/live";
 import { computePackManifestContentIdentity } from "@agentxm/workspace/desired-state";
 import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import { RuleManagerLive } from "@agentxm/workspace/materialization/live";
 import { WorkspaceInvariantFactsLive } from "@agentxm/workspace/projection/live";
-import { SkillManagerLive } from "@agentxm/workspace/materialization/live";
 import {
   SourceHostProviders,
   type SourceHostProvidersService,
   SourceNotResolvable,
 } from "@agentxm/workspace/resolution/sources";
 import { SourceHostProvidersLive } from "@agentxm/workspace/resolution/sources/live";
-import { SubagentManagerLive } from "@agentxm/workspace/materialization/live";
 import YAML from "yaml";
 import {
   expectAppliedPlanResult,

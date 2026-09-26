@@ -46,7 +46,7 @@ import {
   retireAgentMcpConfig,
   type AgentMcpConfigEntryRef,
 } from "../../projection/agent-adapters/index.js";
-import { materializeAuthoredMcpServer } from "../../reconciliation/index.js";
+import { materializeAuthoredMcpServer } from "../../mcp-connections/index.js";
 import {
   buildAuthoredExtensionStep,
   type AuthoredExtensionOperationArgs,

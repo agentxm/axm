@@ -14,8 +14,8 @@ import * as Option from "effect/Option";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 import { RegistryProblem, RegistryRequestFailed } from "@agentxm/registry-client";
 
-import { discoverMcpServerRefs } from "../../mcp-connections/lifecycle/install/plan.js";
-import { discoverPackRefs } from "../../packs/lifecycle/install/plan.js";
+import { discoverMcpServerRefs } from "../../mcp-connections/index.js";
+import { discoverPackRefs } from "../../packs/index.js";
 import { kernelFailureToStepFailure } from "../../reconciliation/failure-rendering.js";
 import { GitOperationFailed } from "../../resolution/sources/errors.js";
 import {

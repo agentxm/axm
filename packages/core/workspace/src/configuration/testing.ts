@@ -19,7 +19,7 @@ import { WorkspaceFileWriteLocksLive } from "../transitions/settlement/live.js";
 
 import { AgentExecutableResolver } from "../projection/agent-adapters/index.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import { RuleManagerLive } from "../materialization/live.js";
+import { RuleManagerLive } from "../kinds-live.js";
 import {
   ResolvePlanInteractionTest,
   type ResolvePlanInteractionTestState,

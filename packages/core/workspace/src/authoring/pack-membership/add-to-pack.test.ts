@@ -9,7 +9,7 @@ import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import type { Settings } from "../../desired-state/index.js";
 import { MockWorkspaceTransactionScope, WorkspaceReadTest } from "../../desired-state/testing.js";
-import { handle } from "../../authoring/test-helpers.js";
+import { handle } from "../test-helpers.js";
 import type { AddToPackOperation } from "./add-to-pack.js";
 import { addToPack } from "./add-to-pack.js";
 

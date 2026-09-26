@@ -44,9 +44,9 @@ import {
   SubagentManager,
   type ExtensionManagerFailure,
   type ManagerRequirements,
+  type McpConnectionInstallRequirements,
 } from "../../materialization/index.js";
-import { type McpServerInstallRequirements } from "../../reconciliation/index.js";
-import { relevantPackConstraintProblems } from "../../packs/lifecycle/constraint-gate.js";
+import { relevantPackConstraintProblems } from "../../packs/index.js";
 import {
   prepareActivationRealization,
   proposeDesiredState,
@@ -187,7 +187,7 @@ export type SetActivationRequirements =
   | ManagerRequirements
   | OperationJournal
   | Path.Path
-  | McpServerInstallRequirements
+  | McpConnectionInstallRequirements
   | ProjectionParticipantRequirements
   | RecipeRequirements
   | DesiredStateReader

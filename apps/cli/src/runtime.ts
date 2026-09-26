@@ -50,16 +50,7 @@ import {
   directoryFlag,
 } from "./cli-flags/index.js";
 
-import {
-  HookManagerLive,
-  KnowledgeManagerLive,
-  McpSecretStoreLive,
-  McpServerManagerLive,
-  PackManagerLive,
-  RuleManagerLive,
-  SkillManagerLive,
-  SubagentManagerLive,
-} from "@agentxm/workspace/materialization/live";
+import { ExtensionKindsLive } from "@agentxm/workspace/kinds-live";
 import { ProjectionParticipantsLive } from "@agentxm/workspace/materialization/live";
 import { KnowledgeIndexLive } from "@agentxm/workspace/knowledge/query/live";
 import { WorkspaceInvariantFactsLive } from "@agentxm/workspace/projection/live";
@@ -366,20 +357,9 @@ const makeWorkspaceProgramLayer = (workspace: Omit<WorkspaceStateOptions, "built
     gitDirectoryComparisonLayer,
     CodingAgentRepositoryLive,
     WorkspaceFailureConversionLive,
-    McpSecretStoreLive,
   );
 
-  // Leaf managers are independent. Packs depend on the other managers.
-  const coreExtensions = Layer.mergeAll(
-    RuleManagerLive,
-    HookManagerLive,
-    McpServerManagerLive,
-    SkillManagerLive,
-    SubagentManagerLive,
-    KnowledgeManagerLive,
-    KnowledgeIndexLive,
-  );
-  const extensionsLayer = Layer.provideMerge(PackManagerLive, coreExtensions);
+  const extensionsLayer = Layer.merge(ExtensionKindsLive, KnowledgeIndexLive);
   const fullLayer = Layer.provideMerge(extensionsLayer, workspaceServiceLayer);
   const participantsLayer = Layer.provide(ProjectionParticipantsLive, fullLayer);
   const invariantFactsLayer = Layer.provide(

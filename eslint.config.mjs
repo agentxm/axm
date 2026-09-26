@@ -895,7 +895,6 @@ export default [
       "packages/core/workspace/src/configuration/**/test-helpers.ts",
       "packages/core/workspace/src/linting/**/test-helpers.ts",
       "packages/core/workspace/src/lifecycle/**/test-helpers.ts",
-      "packages/core/workspace/src/packs/**/test-helpers.ts",
       "packages/core/workspace/src/publishing/**/test-helpers.ts",
       "packages/core/workspace/src/reconciliation/sync/**/test-helpers.ts",
       "packages/core/workspace/src/reconciliation/**/test-helpers.ts",
@@ -919,7 +918,11 @@ export default [
           ],
           patterns: [
             {
-              group: ["@agentxm/*/live", "@agentxm/workspace/**/live"],
+              group: [
+                "@agentxm/*/live",
+                "@agentxm/workspace/**/live",
+                "@agentxm/workspace/kinds-live",
+              ],
               message:
                 "Concrete environment-backed Layers compose in application or package composition roots; feature logic keeps service requirements in its Effect environment.",
             },
@@ -981,7 +984,11 @@ export default [
           ],
           patterns: [
             {
-              group: ["@agentxm/*/live", "@agentxm/workspace/**/live"],
+              group: [
+                "@agentxm/*/live",
+                "@agentxm/workspace/**/live",
+                "@agentxm/workspace/kinds-live",
+              ],
               message:
                 "Concrete environment-backed Layers compose in application or package composition roots; feature logic keeps service requirements in its Effect environment.",
             },

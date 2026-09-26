@@ -16,7 +16,7 @@ import {
   type AggregateOwnershipUnitId,
 } from "@agentxm/workspace/projection";
 import { syncRecoveryIdentifiers } from "@agentxm/workspace/reconciliation";
-import { packUninstallRecoveryIdentifiers } from "@agentxm/workspace/lifecycle";
+import { packUninstallRecoveryIdentifiers } from "@agentxm/workspace/packs";
 
 type RecoveryOwner = "sync" | "intent-command" | "direct-correction" | "manual-preservation";
 type StateField =

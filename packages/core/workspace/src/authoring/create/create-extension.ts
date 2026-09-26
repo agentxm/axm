@@ -55,7 +55,7 @@ import {
   type RecipeRequirements,
 } from "../../reconciliation/index.js";
 import { McpSecretStore } from "../../materialization/index.js";
-import { materializeAuthoredMcpServer } from "../../reconciliation/index.js";
+import { materializeAuthoredMcpServer } from "../../mcp-connections/index.js";
 import { configuredMcpCapability } from "../../projection/agent-adapters/index.js";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {

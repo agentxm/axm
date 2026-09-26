@@ -9,9 +9,9 @@ import {
   applyExecution,
   authoringWorkspaceLayer,
   type AuthoringWorkspace,
-} from "../../authoring/test-support/authoring-workspace.js";
-import { SPEC_REGISTRY_SOURCE } from "../../authoring/test-support/accepted-resolutions.js";
-import { makePackWorkspace } from "../../authoring/test-support/pack-membership.js";
+} from "../test-support/authoring-workspace.js";
+import { SPEC_REGISTRY_SOURCE } from "../test-support/accepted-resolutions.js";
+import { makePackWorkspace } from "../test-support/pack-membership.js";
 import { ChangePackMembership } from "./change-pack-membership.js";
 
 export const specification = defineSpecification({
@@ -27,8 +27,8 @@ export const specification = defineSpecification({
   boundaryRationale:
     "The manifest edit and everything it must leave alone — acquired member content, settings, the lockfile — are all observable in a real project directory the membership use case writes through.",
   derivedFrom: [
-    "packages/core/workspace/src/packs/authoring/remove-from-pack.test.ts",
-    "packages/core/workspace/src/packs/authoring/change-pack-membership.ts",
+    "packages/core/workspace/src/authoring/pack-membership/remove-from-pack.test.ts",
+    "packages/core/workspace/src/authoring/pack-membership/change-pack-membership.ts",
   ],
   supersedes: [],
   assumptions: [],

@@ -81,7 +81,7 @@ import {
   type SettingsWriterService,
   type WorkspaceSettingsReadFailure,
 } from "../../desired-state/index.js";
-import { packMemberConflicts, readProposedGraph } from "../../packs/lifecycle/install/plan.js";
+import { packMemberConflicts, readProposedGraph } from "../../packs/index.js";
 
 import { StepFailureConversion } from "../../reconciliation/index.js";
 import type { InstallStepRequirements } from "../../reconciliation/index.js";

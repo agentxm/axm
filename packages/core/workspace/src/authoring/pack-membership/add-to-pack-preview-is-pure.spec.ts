@@ -10,9 +10,9 @@ import {
   authoringWorkspaceEnvironment,
   previewExecution,
   type AuthoringWorkspace,
-} from "../../authoring/test-support/authoring-workspace.js";
-import { makePackWorkspace } from "../../authoring/test-support/pack-membership.js";
-import { ChangePackMembership } from "../../authoring/index.js";
+} from "../test-support/authoring-workspace.js";
+import { makePackWorkspace } from "../test-support/pack-membership.js";
+import { ChangePackMembership } from "../index.js";
 
 export const specification = defineSpecification({
   requirement: "cli/packs/add/preview-is-pure",

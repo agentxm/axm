@@ -2,12 +2,12 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import {
-  PACK_CONSTRAINT_CONFLICT_BLOCKER_ID,
   UpdateExtensions,
   WORKSPACE_UPDATE_ATOMICITY,
   type ConfiguredUpdateSelector,
   type WorkspaceUpdatableType,
 } from "@agentxm/workspace/lifecycle";
+import { PACK_CONSTRAINT_CONFLICT_BLOCKER_ID } from "@agentxm/workspace/packs";
 import { ReleaseAgePosture } from "@agentxm/workspace/resolution";
 import {
   operationPresentation,

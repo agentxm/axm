@@ -57,7 +57,7 @@ import {
 import { usableAcceptedCanonical, type DesiredExtensionNode } from "../../desired-state/index.js";
 
 import { kernelFailureToStepFailure } from "../../reconciliation/index.js";
-import { validatePackGraphPostcondition } from "./graph-transition.js";
+import { validatePackGraphPostcondition } from "../../packs/index.js";
 import {
   desiredPackageKey,
   formatDesiredIdentity,

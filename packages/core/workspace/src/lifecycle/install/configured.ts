@@ -33,7 +33,6 @@ import {
 import {
   decodeExtensionNameSync,
   extensionTypePluralSentenceLabels,
-  parseRegistrySourceRef,
 } from "@agentxm/extension-model/unstable/extensions";
 import {
   installableExtensionTypes,
@@ -46,15 +45,12 @@ import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   ReleaseAgePosture,
-  acceptedPackDependencyResolver,
   ExtensionResolutionFailed,
-  hydrateAcceptedPackRef,
   makeConfiguredReleaseAgeEvaluation,
   normalizeReleaseAgeRecords,
   resolveConfiguredHook,
   resolveConfiguredKnowledge,
   resolveConfiguredMcpServer,
-  prepareConfiguredPack,
   resolveConfiguredRule,
   resolveConfiguredSkill,
   resolveConfiguredSubagent,
@@ -73,37 +69,32 @@ import { resolveSource } from "../../resolution/sources/index.js";
 import * as Result from "effect/Result";
 import {
   SettingsReader,
-  acceptedResolutionRef,
   acquisitionConfiguredEntries,
   effectiveDesiredConstraint,
   type DesiredStateGraph,
 } from "../../desired-state/index.js";
 
-import { planHookInstall } from "../../hooks/lifecycle/install/plan.js";
-import { planKnowledgeInstall } from "../../knowledge/lifecycle/install/plan.js";
-import { planMcpServerInstall } from "../../mcp-connections/lifecycle/install/plan.js";
-import { settleMcpSourceIdentityFor } from "../../mcp-connections/source-identity.js";
+import { planHookInstall } from "../../hooks/index.js";
+import { planKnowledgeInstall } from "../../knowledge/index.js";
+import { planMcpServerInstall, settleMcpSourceIdentityFor } from "../../mcp-connections/index.js";
 import {
-  planPackInstall,
-  readProposedGraph,
   type PackInstallRequirements,
-} from "../../packs/lifecycle/install/plan.js";
-import {
   configuredEntryConstraintBlockPlan,
   configuredPackConstraintBlockPlan,
+  planPackInstall,
+  prepareConfiguredPackIntent,
+  readProposedGraph,
   relevantPackConstraintProblems,
-} from "../../packs/lifecycle/constraint-gate.js";
-import { planRuleInstall } from "../../instructions/lifecycle/install/plan.js";
-import { planSkillInstall } from "../../skills/lifecycle/install/plan.js";
-import { planSubagentInstall } from "../../subagents/lifecycle/install/plan.js";
+} from "../../packs/index.js";
+import { planRuleInstall } from "../../instructions/index.js";
+import { planSkillInstall } from "../../skills/index.js";
+import { planSubagentInstall } from "../../subagents/index.js";
 import { inlineMcpNotApplicablePlan } from "./inline-mcp-operation.js";
 import {
   buildAggregateProjectionStep,
-  INSTALL_HELD_RELEASE_POLICY,
   type InstallStepRequirements,
   type ResolveInstallRequirements,
 } from "../../reconciliation/index.js";
-import type { PackInstallIntent } from "../../packs/index.js";
 import { findGitReinstallRefs, pinGitReinstallRef } from "./git-reinstall.js";
 import { nameFromLabel, StepFailureConversion } from "../../reconciliation/index.js";
 import { withPackRegistryIndexMemo } from "../../resolution/sources/providers/registry/index-memo.js";
@@ -251,87 +242,6 @@ const resolutionFailed =
           detail: `Configured extension "${name}" could not be resolved`,
           cause,
         });
-
-interface ConfiguredPackIntentArgs {
-  readonly name: string;
-  readonly source: string;
-  readonly releaseAgeEvaluation: ReleaseAgeEvaluation;
-  readonly nonInteractive: boolean;
-  readonly forceCanonical?: boolean;
-  readonly deferProjections?: boolean;
-}
-
-/**
- * The intent one configured Pack settles to: an accepted Pack is restored
- * from its accepted archive and replays its accepted members, and any other
- * configured Pack resolves through its configured source. The intent
- * carries the install's declared held-release policy, so a held-back release
- * preserves a complete usable graph or blocks. Install and sync recovery both
- * take their Pack intent from here.
- */
-export const prepareConfiguredPackIntent: (args: ConfiguredPackIntentArgs) => Effect.Effect<
-  Effect.Effect<
-    {
-      readonly intent: PackInstallIntent;
-      readonly releaseAge:
-        | {
-            readonly holdbacks: ReadonlyArray<ReleaseAgeHoldbackRecord>;
-            readonly bypasses: ReadonlyArray<ReleaseAgeBypassRecord>;
-          }
-        | undefined;
-    },
-    ConfiguredInstallFailure,
-    ResolveInstallRequirements
-  >,
-  ConfiguredInstallFailure,
-  ResolveInstallRequirements
-> = Effect.fn("InstallExtensions.prepareConfiguredPackIntent")(function* (
-  args: ConfiguredPackIntentArgs,
-) {
-  const accepted = yield* acceptedResolutionRef({
-    type: "pack",
-    name: args.name,
-  }).pipe(Effect.mapError(resolutionFailed(args.name)));
-
-  const shared = {
-    nonInteractive: args.nonInteractive,
-    releaseAgeEvaluation: args.releaseAgeEvaluation,
-    heldRelease: INSTALL_HELD_RELEASE_POLICY,
-    ...(args.forceCanonical === true ? { forceCanonical: true } : {}),
-    ...(args.deferProjections === true ? { deferProjections: true } : {}),
-  };
-
-  if (Option.isSome(accepted) && accepted.value.type === "pack") {
-    return hydrateAcceptedPackRef(args.name, accepted.value).pipe(
-      Effect.map((packToInstall) => ({
-        intent: {
-          packToInstall,
-          versionRange: Option.fromUndefinedOr(parseRegistrySourceRef(args.source)?.versionRange),
-          dependencyResolver: acceptedPackDependencyResolver(),
-          ...shared,
-        } satisfies PackInstallIntent,
-        releaseAge: undefined,
-      })),
-    );
-  }
-
-  const resolve = yield* prepareConfiguredPack(
-    args.name,
-    args.source,
-    args.releaseAgeEvaluation,
-  ).pipe(Effect.mapError(resolutionFailed(args.name)));
-  return resolve.pipe(
-    Effect.mapError(resolutionFailed(args.name)),
-    Effect.map((resolved) => ({
-      intent: {
-        packToInstall: resolved.ref,
-        versionRange: resolved.versionRange,
-        ...shared,
-      } satisfies PackInstallIntent,
-      releaseAge: "releaseAge" in resolved ? resolved.releaseAge : undefined,
-    })),
-  );
-});
 
 interface CollectPackPlansArgs {
   readonly releaseAgeEvaluation: ReleaseAgeEvaluation;

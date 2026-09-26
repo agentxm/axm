@@ -9,8 +9,8 @@ import {
   applyExecution,
   authoringWorkspaceLayer,
   type AuthoringWorkspace,
-} from "../../authoring/test-support/authoring-workspace.js";
-import { makePackWorkspace } from "../../authoring/test-support/pack-membership.js";
+} from "../test-support/authoring-workspace.js";
+import { makePackWorkspace } from "../test-support/pack-membership.js";
 import { ChangePackMembership } from "./change-pack-membership.js";
 
 export const specification = defineSpecification({
@@ -26,8 +26,8 @@ export const specification = defineSpecification({
   boundaryRationale:
     "Selection is decided by the membership use case over the workspace's own desired state; a real project directory shows both which dependencies the manifest gained and that a refused selection left every byte alone.",
   derivedFrom: [
-    "packages/core/workspace/src/packs/authoring/configured-pack-selector.ts",
-    "packages/core/workspace/src/packs/authoring/change-pack-membership.ts",
+    "packages/core/workspace/src/authoring/pack-membership/configured-pack-selector.ts",
+    "packages/core/workspace/src/authoring/pack-membership/change-pack-membership.ts",
   ],
   supersedes: [],
   assumptions: [],

@@ -250,9 +250,9 @@ describe("module boundary constraints", () => {
     };
   });
 
-  const CORE_CAPABILITY = "packages/core/workspace/src/lifecycle/index.ts";
+  const CORE_CAPABILITY = "packages/core/workspace-kernel/src/planning/index.ts";
   const CORE_CAPABILITY_TEST =
-    "packages/core/workspace/src/resolution/sources/registry-login-suggestion.test.ts";
+    "packages/core/workspace-kernel/src/sources/registry-login-suggestion.test.ts";
   const SUPPORTING_CAPABILITY = "packages/supporting/registry-access/src/authentication/index.ts";
   const SUPPORTING_INTEGRATION = "packages/supporting/registry-client/src/index.ts";
   const APPLICATION = "apps/cli/src/main.ts";
@@ -274,14 +274,14 @@ describe("module boundary constraints", () => {
         SUPPORTING_CAPABILITY,
       ),
     ).toEqual([]);
-    expect(await boundaryViolations('import "@agentxm/workspace/lifecycle";', APPLICATION)).toEqual(
-      [],
-    );
+    expect(
+      await boundaryViolations('import "@agentxm/workspace-features/lifecycle";', APPLICATION),
+    ).toEqual([]);
   });
 
   it("forbids supporting from depending on core beyond the contract seams", async () => {
     const violations = await boundaryViolations(
-      'import "@agentxm/workspace/desired-state";',
+      'import "@agentxm/workspace-kernel/workspace-state";',
       SUPPORTING_CAPABILITY,
     );
     expect(violations.map((violation) => violation.ruleId)).toEqual([
@@ -331,7 +331,7 @@ describe("module boundary constraints", () => {
   it("confines end-to-end suites to engineering libraries", async () => {
     expect(await boundaryViolations('import "@agentxm/client-e2e-utils";', E2E)).toEqual([]);
     expect(
-      (await boundaryViolations('import "@agentxm/workspace/lifecycle";', E2E)).map(
+      (await boundaryViolations('import "@agentxm/workspace-features/lifecycle";', E2E)).map(
         (violation) => violation.ruleId,
       ),
     ).toEqual(["@nx/enforce-module-boundaries"]);
@@ -339,7 +339,7 @@ describe("module boundary constraints", () => {
 
   it("forbids deep imports past a package's declared public API", async () => {
     const violations = await boundaryViolations(
-      'import "@agentxm/workspace/desired-state/src/index.js";',
+      'import "@agentxm/workspace-kernel/workspace-state/src/index.js";',
       CORE_CAPABILITY,
     );
     expect(violations.map((violation) => violation.ruleId)).toContain("no-restricted-imports");
@@ -382,7 +382,7 @@ describe("module boundary constraints", () => {
     expect(
       rules(
         await boundaryViolations(
-          'import { SettingsWriter } from "@agentxm/workspace/desired-state";',
+          'import { SettingsWriter } from "@agentxm/workspace-kernel/workspace-state";',
           HANDLER,
         ),
       ),
@@ -390,7 +390,7 @@ describe("module boundary constraints", () => {
     expect(
       rules(
         await boundaryViolations(
-          'import { prepareExecutionCandidate } from "@agentxm/workspace/transitions/planning";',
+          'import { prepareExecutionCandidate } from "@agentxm/workspace-kernel/planning";',
           HANDLER,
         ),
       ),
@@ -398,14 +398,14 @@ describe("module boundary constraints", () => {
     expect(
       rules(
         await boundaryViolations(
-          'import { resolveSource } from "@agentxm/workspace/resolution/sources";',
+          'import { resolveSource } from "@agentxm/workspace-kernel/sources";',
           HANDLER,
         ),
       ),
     ).toEqual(["@typescript-eslint/no-restricted-imports"]);
     expect(
       await boundaryViolations(
-        'import type { Plan } from "@agentxm/workspace/operations";\nimport { operationPresentation } from "@agentxm/workspace/operations";\nimport { handleInstall } from "@agentxm/workspace/lifecycle";',
+        'import type { Plan } from "@agentxm/workspace-kernel/operations";\nimport { operationPresentation } from "@agentxm/workspace-kernel/operations";\nimport { handleInstall } from "@agentxm/workspace-features/lifecycle";',
         HANDLER,
       ),
     ).toEqual([]);

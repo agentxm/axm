@@ -79,7 +79,6 @@
     "@agentxm/specification-metadata": "workspace:*",
     "@agentxm/workspace-kernel": "workspace:*",
     "@boundaries/elements": "catalog:",
-    "@dagrejs/graphlib": "catalog:",
     "@effect/eslint-plugin": "catalog:",
     "@effect/language-service": "catalog:",
     "@effect/tsgo": "catalog:",

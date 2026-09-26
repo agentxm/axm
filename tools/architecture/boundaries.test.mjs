@@ -11,25 +11,25 @@ import { capabilityBoundaries } from "./boundaries.mjs";
 const elements = [
   {
     type: "frontstage",
-    pattern: "packages/*/workspace/src/skills",
+    pattern: "packages/*/catalog/src/skills",
     capture: ["strategy"],
     partialMatch: false,
   },
   {
     type: "frontstage",
-    pattern: "packages/*/workspace/src/subagents",
+    pattern: "packages/*/catalog/src/subagents",
     capture: ["strategy"],
     partialMatch: false,
   },
   {
     type: "backstage",
-    pattern: "packages/*/workspace/src/resolution",
+    pattern: "packages/*/catalog/src/resolution",
     capture: ["strategy"],
     partialMatch: false,
   },
   {
     type: "backstage",
-    pattern: "packages/*/workspace/src/state",
+    pattern: "packages/*/catalog/src/state",
     capture: ["strategy"],
     partialMatch: false,
   },
@@ -48,22 +48,22 @@ const elements = [
 ];
 
 const paths = {
-  skillPolicy: "packages/core/workspace/src/skills/domain/select.ts",
-  skillApplication: "packages/core/workspace/src/skills/application/index.ts",
-  skillAdapter: "packages/core/workspace/src/skills/adapters/fs/index.ts",
-  skillComposition: "packages/core/workspace/src/skills/composition/index.ts",
-  skillTest: "packages/core/workspace/src/skills/application/select.test.ts",
-  skillUnclassified: "packages/core/workspace/src/skills/unclassified.ts",
-  subagentApplication: "packages/core/workspace/src/subagents/application/index.ts",
-  resolutionPolicy: "packages/core/workspace/src/resolution/domain/index.ts",
-  resolutionPrivate: "packages/core/workspace/src/resolution/domain/private.ts",
-  resolutionApplication: "packages/core/workspace/src/resolution/application/index.ts",
-  resolutionAdapter: "packages/core/workspace/src/resolution/adapters/registry/index.ts",
-  resolutionComposition: "packages/core/workspace/src/resolution/composition/index.ts",
-  statePolicy: "packages/core/workspace/src/state/domain/index.ts",
+  skillPolicy: "packages/core/catalog/src/skills/domain/select.ts",
+  skillApplication: "packages/core/catalog/src/skills/application/index.ts",
+  skillAdapter: "packages/core/catalog/src/skills/adapters/fs/index.ts",
+  skillComposition: "packages/core/catalog/src/skills/composition/index.ts",
+  skillTest: "packages/core/catalog/src/skills/application/select.test.ts",
+  skillUnclassified: "packages/core/catalog/src/skills/unclassified.ts",
+  subagentApplication: "packages/core/catalog/src/subagents/application/index.ts",
+  resolutionPolicy: "packages/core/catalog/src/resolution/domain/index.ts",
+  resolutionPrivate: "packages/core/catalog/src/resolution/domain/private.ts",
+  resolutionApplication: "packages/core/catalog/src/resolution/application/index.ts",
+  resolutionAdapter: "packages/core/catalog/src/resolution/adapters/registry/index.ts",
+  resolutionComposition: "packages/core/catalog/src/resolution/composition/index.ts",
+  statePolicy: "packages/core/catalog/src/state/domain/index.ts",
   billingApplication: "packages/supporting/commerce/src/billing/application/index.ts",
   genericPolicy: "packages/generic/primitives/src/ids/domain/index.ts",
-  unknown: "packages/core/workspace/src/unregistered/domain/index.ts",
+  unknown: "packages/core/catalog/src/unregistered/domain/index.ts",
 };
 
 let root;

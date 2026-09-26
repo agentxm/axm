@@ -37,7 +37,7 @@ for (const [kind, other] of [
   ]) {
     test(`${kind} ${name}`, async () => {
       const [result] = await eslint.lintText(code, {
-        filePath: `packages/core/workspace/src/${kind}/lifecycle/application/installation.ts`,
+        filePath: `packages/core/extension-kinds/src/${kind}/lifecycle/application/installation.ts`,
       });
       assert.equal(result.fatalErrorCount, 0, JSON.stringify(result.messages));
       assert.ok(
@@ -50,7 +50,7 @@ for (const [kind, other] of [
 
 test("shared extension matching cannot acquire the install selection policy", async () => {
   const [result] = await eslint.lintText(
-    'export { selectInstallRefs } from "@agentxm/workspace/lifecycle";',
+    'export { selectInstallRefs } from "@agentxm/workspace-features/lifecycle";',
     { filePath: "packages/core/extension-model/src/unstable/extensions/name-patterns.ts" },
   );
   assert.equal(result.fatalErrorCount, 0, JSON.stringify(result.messages));

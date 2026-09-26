@@ -17,6 +17,7 @@ import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
+import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
 import {
   previewCapabilityFlag,
   previewableCapabilities,
@@ -39,8 +40,7 @@ const sourceArgument = (type?: InstallableExtensionType) =>
   );
 
 const selectorFlag = (type: InstallableExtensionType) => {
-  const flag = type === "mcp-server" ? "mcp" : type;
-  return Flag.String(flag).pipe(
+  return Flag.String(EXTENSION_TYPE_PRESENTATION[type].selectorFlag).pipe(
     Flag.withDescription(
       `Select a ${extensionTypeSentenceLabels[type].toLowerCase()} by name or glob; repeatable`,
     ),
@@ -119,7 +119,7 @@ const finishCommand = <Name extends string, Input, ContextInput, E, R>(
         command:
           type === undefined
             ? "axm install ./extensions --skill review --rule safe-shell"
-            : `axm ${extensionTypeToPlural[type]} install ./extensions --${type === "mcp-server" ? "mcp" : type} example`,
+            : `axm ${extensionTypeToPlural[type]} install ./extensions --${EXTENSION_TYPE_PRESENTATION[type].selectorFlag} example`,
         description: "Install an explicit selection from one source locator",
       },
       {

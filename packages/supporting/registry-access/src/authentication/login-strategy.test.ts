@@ -35,4 +35,50 @@ describe("selectLoginStrategy", () => {
     expect(selectLoginStrategy(defaultOptions, { CI: "1" })).toBe("device-code");
     expect(selectLoginStrategy(defaultOptions, { CODESPACES: "true" })).toBe("device-code");
   });
+
+  it("uses device code on Linux with no display and no BROWSER", () => {
+    expect(selectLoginStrategy(defaultOptions, { platform: "linux", isWSL: false })).toBe(
+      "device-code",
+    );
+  });
+
+  it("keeps loopback on Linux when BROWSER names a browser", () => {
+    expect(
+      selectLoginStrategy(defaultOptions, { platform: "linux", isWSL: false, BROWSER: "w3m" }),
+    ).toBe("loopback");
+  });
+
+  it("keeps loopback on Linux with an X11 or Wayland display", () => {
+    expect(
+      selectLoginStrategy(defaultOptions, { platform: "linux", isWSL: false, DISPLAY: ":0" }),
+    ).toBe("loopback");
+    expect(
+      selectLoginStrategy(defaultOptions, {
+        platform: "linux",
+        isWSL: false,
+        WAYLAND_DISPLAY: "wayland-0",
+      }),
+    ).toBe("loopback");
+  });
+
+  it("keeps loopback under WSL, which opens the Windows browser", () => {
+    expect(selectLoginStrategy(defaultOptions, { platform: "linux", isWSL: true })).toBe(
+      "loopback",
+    );
+  });
+
+  it("keeps loopback on macOS and Windows without a display variable", () => {
+    expect(selectLoginStrategy(defaultOptions, { platform: "darwin" })).toBe("loopback");
+    expect(selectLoginStrategy(defaultOptions, { platform: "win32" })).toBe("loopback");
+  });
+
+  it("uses device code over SSH without a display even when BROWSER is set", () => {
+    expect(
+      selectLoginStrategy(defaultOptions, {
+        platform: "linux",
+        SSH_CONNECTION: "1 2 3 4",
+        BROWSER: "w3m",
+      }),
+    ).toBe("device-code");
+  });
 });

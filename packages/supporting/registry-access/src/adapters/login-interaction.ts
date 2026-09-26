@@ -9,8 +9,11 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Encoding from "effect/Encoding";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as ServiceMap from "effect/Context";
+import * as Stdio from "effect/Stdio";
 import * as Stream from "effect/Stream";
 import * as ChildProcess from "effect/unstable/process/ChildProcess";
 import type { ChildProcessSpawner as ChildProcessSpawnerService } from "effect/unstable/process/ChildProcessSpawner";
@@ -20,6 +23,7 @@ import {
   DeviceLoginInteraction,
   type DeviceLoginInteractionService,
 } from "../authentication/device-login.js";
+import { envOption, isSSH } from "./environment.js";
 
 interface CommandInvocation {
   readonly command: string;
@@ -120,15 +124,66 @@ const clipboardCommands = (text: string): ReadonlyArray<CommandInvocation> => {
   }
 };
 
+/** The terminal multiplexer between AXM and the terminal a person types on, if any. */
+type TerminalMultiplexer = "tmux" | "screen";
+
+const ESC = "\u001b";
+
+/**
+ * The OSC 52 sequence that asks the terminal emulator to put `text` on its
+ * own clipboard. Inside a multiplexer the sequence is wrapped in the
+ * multiplexer's DCS passthrough, which forwards it to the outer terminal when
+ * the multiplexer allows passthrough (tmux `allow-passthrough`); that forward
+ * is best-effort.
+ */
+export const osc52Sequence = (text: string, multiplexer?: TerminalMultiplexer): string => {
+  const osc52 = `${ESC}]52;c;${Encoding.encodeBase64(text)}\u0007`;
+  switch (multiplexer) {
+    case "tmux":
+      return `${ESC}Ptmux;${osc52.replaceAll(ESC, `${ESC}${ESC}`)}${ESC}\\`;
+    case "screen":
+      return `${ESC}P${osc52}${ESC}\\`;
+    case undefined:
+      return osc52;
+  }
+};
+
+const terminalMultiplexer = Effect.map(
+  Effect.all([envOption("TMUX"), envOption("STY")]),
+  ([tmux, sty]): TerminalMultiplexer | undefined =>
+    Option.isSome(tmux) ? "tmux" : Option.isSome(sty) ? "screen" : undefined,
+);
+
+/**
+ * Copy through the terminal itself, so over SSH the text lands on the
+ * clipboard of the machine the person types on rather than the remote host's.
+ * The terminal acknowledges nothing, so a sequence written to a terminal
+ * counts as copied; with no terminal on stdout there is nowhere to send it.
+ */
+const copyThroughTerminal = (stdio: Stdio.Stdio, text: string): Effect.Effect<boolean> =>
+  Effect.gen(function* () {
+    if (!(yield* stdio.stdoutIsTerminal)) return false;
+    const multiplexer = yield* terminalMultiplexer;
+    yield* Stream.run(Stream.make(osc52Sequence(text, multiplexer)), stdio.stdout());
+    return true;
+  }).pipe(Effect.catch(() => Effect.succeed(false)));
+
 const makeInteraction: Effect.Effect<
   DeviceLoginInteractionService,
   never,
-  ChildProcessSpawner.ChildProcessSpawner
+  ChildProcessSpawner.ChildProcessSpawner | Stdio.Stdio
 > = Effect.gen(function* () {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+  const stdio = yield* Stdio.Stdio;
   const impl: DeviceLoginInteractionService = {
     openBrowser: (url) => tryCommands(spawner, browserCommands(url)),
-    copyToClipboard: (text) => tryCommands(spawner, clipboardCommands(text)),
+    copyToClipboard: (text) =>
+      isSSH.pipe(
+        Effect.catch(() => Effect.succeed(false)),
+        Effect.flatMap((remote) =>
+          remote ? copyThroughTerminal(stdio, text) : tryCommands(spawner, clipboardCommands(text)),
+        ),
+      ),
   };
   return impl;
 });

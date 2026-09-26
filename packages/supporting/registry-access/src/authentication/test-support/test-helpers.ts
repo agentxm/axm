@@ -10,6 +10,7 @@
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions/handle";
@@ -166,6 +167,8 @@ export const makeAuthPorts = (options: AuthPortsOptions = {}) => {
     Layer.provide(CredentialStoreSessionLive, credentialStore),
     PendingDeviceLoginStoreTest(options.pending),
     Layer.succeed(AuthEnvironment, ConfigProvider.fromEnvRecord(options.environment ?? {})),
+    // Host detection reads no real file, so no example observes the host's own WSL.
+    FileSystem.layerNoop({}),
   );
 
   return {
@@ -183,7 +186,7 @@ export const makeAuthPorts = (options: AuthPortsOptions = {}) => {
 /**
  * A presenter that consumes the pending device-login document, the way the
  * application's renderer-backed presenter does under machine output: the
- * browser, clipboard, and human presentation steps must not run afterwards.
+ * browser and human presentation steps must not run afterwards.
  */
 export const machineOutputPresenter = {
   tryEmitPendingDeviceLogin: () => Effect.succeed(true),

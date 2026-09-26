@@ -102,6 +102,21 @@ Timeout remains retryable and preserves the pending request. Denial and expiry
 are distinct terminal outcomes and clear it. These states are part of the JSON
 contract, so update schemas, tests, help, and telemetry together.
 
+`selectLoginStrategy` stays pure; `loginStrategyEnvironment` assembles its
+facts. Interactive sign-in chooses the device code where no browser can open:
+SSH without a display (a `BROWSER` setting does not override this), CI,
+Codespaces, and Linux other than WSL with none of `DISPLAY`,
+`WAYLAND_DISPLAY`, or `BROWSER`.
+
+Device sign-in never writes to the clipboard on its own. The wait's `c` key
+copies the handoff link (`handoffUrl`), which for device sign-in already
+carries the code. Over SSH the copy is an OSC 52 sequence written to stdout, so
+it reaches the clipboard of the terminal the person types on; inside tmux or
+GNU screen it is wrapped in their DCS passthrough, which is best-effort (tmux
+forwards it only with `allow-passthrough`). A written sequence counts as
+copied because terminals acknowledge nothing; without a terminal on stdout the
+wait reports that nothing was copied.
+
 ## Signed out
 
 Being signed out is one result with one rendering: code `auth_required`, exit

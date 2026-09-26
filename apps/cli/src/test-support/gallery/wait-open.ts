@@ -31,11 +31,6 @@ export const deviceSignIn: WaitView = {
         { text: "https://agentxm.ai/device", copyable: true },
       ],
     },
-    {
-      _tag: "paragraph",
-      tone: "warn",
-      text: "Only continue if you started this sign-in with AXM.",
-    },
   ],
   expiresAtMs: EXPIRES_AT_MS,
 };

@@ -36,7 +36,6 @@ const makeLayers = (opts?: {
   const deviceAuthorizations: Array<string> = [];
   const interaction = DeviceLoginInteractionTest({
     openBrowser: () => Effect.succeed(opts?.browserOpens ?? false),
-    copyToClipboard: () => Effect.succeed(true),
   });
 
   const authClientLayer = AuthClientTest({
@@ -102,7 +101,8 @@ describe("runDeviceLogin", () => {
     return runDeviceLogin(REGISTRY_URL).pipe(
       Effect.provide(layer),
       Effect.map(() => {
-        expect(interactionState.copyToClipboardCalls).toEqual(["ABCD-1234"]);
+        // Nothing reaches the clipboard unless the person asks during the wait.
+        expect(interactionState.copyToClipboardCalls).toEqual([]);
         expect(interactionState.openBrowserCalls).toEqual([
           "https://auth.agentxm.ai/device?user_code=ABCD-1234",
         ]);
@@ -114,7 +114,6 @@ describe("runDeviceLogin", () => {
             verificationUriComplete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
             userCode: "ABCD-1234",
             browserOpened: true,
-            copiedToClipboard: true,
           },
         ]);
         expect(presenterState.loginSuccesses).toEqual([
@@ -131,7 +130,7 @@ describe("runDeviceLogin", () => {
       Effect.provide(layer),
       Effect.map(() => {
         expect(interactionState.openBrowserCalls).toEqual([]);
-        expect(interactionState.copyToClipboardCalls).toEqual(["ABCD-1234"]);
+        expect(interactionState.copyToClipboardCalls).toEqual([]);
         expect(presenterState.handoffs[0]).toMatchObject({
           _tag: "DeviceLogin",
           userCode: "ABCD-1234",
@@ -175,61 +174,6 @@ describe("runDeviceLogin", () => {
       }
     }).pipe(Effect.provide(layer));
   });
-
-  it.effect("reports clipboard copy failure through the presentation", () => {
-    const presenter = AuthLoginPresenterTest();
-    const interaction = DeviceLoginInteractionTest({
-      openBrowser: () => Effect.succeed(true),
-      copyToClipboard: () => Effect.succeed(false),
-    });
-
-    const authClientLayer = AuthClientTest({
-      initiateDeviceFlow: () =>
-        Effect.succeed({
-          device_code: "dc-123",
-          user_code: "ABCD-1234",
-          verification_uri: "https://auth.agentxm.ai/device",
-          verification_uri_complete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
-          interval: 5,
-          expires_in: 600,
-        }),
-      pollDeviceToken: () =>
-        Effect.succeed({
-          access_token: "axm_ses_new",
-          refresh_token: "axm_ref_new",
-          expires_at: DateTime.makeUnsafe("2099-06-01T00:00:00Z"),
-        }),
-      getMe: () =>
-        Effect.succeed({
-          userHandle: handle("@alice"),
-          tokenType: "session",
-          authority: "account" as const,
-          permissions: null,
-          resourceRestrictions: null,
-          expiresAt: null,
-          approvedAt: null,
-        }),
-    });
-
-    const layer = Layer.mergeAll(
-      presenter.layer,
-      interaction.layer,
-      CredentialStoreTest(),
-      PendingDeviceLoginStoreTest(),
-      authClientLayer,
-    );
-
-    return runDeviceLogin(REGISTRY_URL).pipe(
-      Effect.provide(layer),
-      Effect.map(() => {
-        expect(presenter.state.handoffs[0]).toMatchObject({
-          _tag: "DeviceLogin",
-          userCode: "ABCD-1234",
-          copiedToClipboard: false,
-        });
-      }),
-    );
-  });
 });
 
 describe("resumable device login", () => {
@@ -247,14 +191,14 @@ describe("resumable device login", () => {
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("performs side effects and notes approval on the human path", () => {
+  it.effect("opens a browser and notes approval on the human path", () => {
     const { layer, presenterState, interactionState } = makeLayers({ browserOpens: true });
 
     return Effect.gen(function* () {
       const result = yield* initiateDeviceLogin(REGISTRY_URL);
       expect(result.status).toBe("pending-human");
       expect(presenterState.pendingEmissions).toHaveLength(1);
-      expect(interactionState.copyToClipboardCalls).toEqual(["ABCD-1234"]);
+      expect(interactionState.copyToClipboardCalls).toEqual([]);
       expect(interactionState.openBrowserCalls).toEqual([
         "https://auth.agentxm.ai/device?user_code=ABCD-1234",
       ]);

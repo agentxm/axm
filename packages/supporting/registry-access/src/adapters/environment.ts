@@ -12,6 +12,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { RegistryAccessFailed } from "../authentication/errors.js";
+import type { LoginStrategyEnvironment } from "../authentication/login-strategy.js";
 
 /**
  * Reads the live process environment on every lookup. Effect's own
@@ -119,12 +120,19 @@ export const loginStrategyEnvironment = Effect.gen(function* () {
     SSH_TTY: envOption("SSH_TTY"),
     DISPLAY: envOption("DISPLAY"),
     WAYLAND_DISPLAY: envOption("WAYLAND_DISPLAY"),
+    BROWSER: envOption("BROWSER"),
     CI: envOption("CI"),
     CODESPACES: envOption("CODESPACES"),
   });
-  return Object.fromEntries(
+  const variables = Object.fromEntries(
     Object.entries(env).flatMap(([key, value]) =>
       Option.isSome(value) ? [[key, value.value] as const] : [],
     ),
   );
+  const platform = process.platform;
+  return {
+    ...variables,
+    platform,
+    isWSL: platform === "linux" && (yield* isWSL),
+  } satisfies LoginStrategyEnvironment;
 });

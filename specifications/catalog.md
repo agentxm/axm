@@ -392,6 +392,20 @@ People and agents can understand invalid workspace state and recover it through 
 - Limitation: The HTTP evidence does not establish visual rendering or a real identity-provider round trip. Retires when: Record browser verification of the provider, callback, and terminal result.
 - Source: [`packages/supporting/registry-access/src/authentication/browser-completion-follows-credential-persistence.spec.ts`](../packages/supporting/registry-access/src/authentication/browser-completion-follows-credential-persistence.spec.ts)
 
+##### Device sign-in leaves the clipboard alone unless asked
+
+- Requirement: `cli/login/device-sign-in-copies-only-on-request`
+- Owner: `registry-access`
+- Statement: Device sign-in shall not write to the clipboard unless the person asks for a copy while the sign-in waits.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/supporting/registry-access/src/authentication/device-login.ts`
+- Assumptions: The copy a person asks for runs through the application's wait, which this capability does not drive; the examples observe that the sign-in itself never copies.
+- Source: [`packages/supporting/registry-access/src/authentication/device-sign-in-copies-only-on-request.spec.ts`](../packages/supporting/registry-access/src/authentication/device-sign-in-copies-only-on-request.spec.ts)
+
 ##### A name gives way last, and keeps what tells it apart
 
 - Requirement: `cli/names-yield-width-last`
@@ -1894,6 +1908,22 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 ### Goal: platform-reach
 
 AXM works on every supported operating system, runtime, shell, and filesystem.
+
+#### Functional
+
+##### Interactive sign-in chooses the device code where no browser can open
+
+- Requirement: `cli/login/chooses-device-code-where-no-browser-can-open`
+- Owner: `registry-access`
+- Statement: When interactive sign-in names no flow, AXM shall choose device-code sign-in and say why over SSH without a display, in CI, in Codespaces, and on Linux other than WSL when none of DISPLAY, WAYLAND_DISPLAY, or BROWSER is set, and shall otherwise choose browser sign-in; a BROWSER setting shall not make an SSH session without a display choose browser sign-in.
+- Class: functional
+- Role: experience
+- Product goals: `platform-reach`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/supporting/registry-access/src/authentication/login-strategy.ts`, `packages/supporting/registry-access/src/authentication/login.ts`
+- Assumptions: The host operating system and WSL are read from the running process and /proc/version; the examples supply those facts directly to the selection.
+- Source: [`packages/supporting/registry-access/src/authentication/chooses-device-code-where-no-browser-can-open.spec.ts`](../packages/supporting/registry-access/src/authentication/chooses-device-code-where-no-browser-can-open.spec.ts)
 
 #### Quality
 

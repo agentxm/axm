@@ -38,7 +38,6 @@ import {
   authProgressUnitId,
   deviceCodeFallbackNote,
   existingSessionNote,
-  handoffCopyValue,
   handoffWaitView,
   loginSuccessDoc,
   loginSuccessSuggestions,
@@ -111,7 +110,7 @@ export const AuthLoginPresenterLive = Layer.effect(
           return yield* screen
             .wait(view, observeChildUnit({ id: view.subject, label: view.label }, awaited), {
               open: interaction.openBrowser(handoffUrl(handoff)),
-              copy: interaction.copyToClipboard(handoffCopyValue(handoff)),
+              copy: interaction.copyToClipboard(handoffUrl(handoff)),
             })
             .pipe(
               // Stopping a wait is the capability's own abandonment, so nothing

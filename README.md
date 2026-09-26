@@ -227,15 +227,18 @@ axm token --output token    # Write only the current token to stdout
 ```
 
 `axm login` starts a local loopback PKCE flow, prints a manual authorization
-URL, and then tries to open your browser. SSH, CI, and Codespaces automatically
-use device-code sign-in; pass `--device-code` to select that flow explicitly.
-Device-code sign-in opens a complete authorization link when possible and also
-shows the clean fallback page plus the one-time code. Retrying the command
-reuses the same unexpired request; use `--restart` only when you intentionally
-want to replace it. `axm login --device-code --wait-for-human 300` starts or
-reuses the request and waits up to 300 seconds in the same command; a bounded
-wait always uses device-code sign-in. Never enter
-a code that another person or website gave you.
+URL, and then tries to open your browser. SSH without a display, CI,
+Codespaces, and Linux with none of `DISPLAY`, `WAYLAND_DISPLAY`, or `BROWSER`
+set (WSL excepted) automatically use device-code sign-in and say why; pass
+`--device-code` to select that flow explicitly. Device-code sign-in shows the
+one-time code, the link that already carries it, the plain verification page,
+and the expiry. It never touches your clipboard on its own: press `c` while it
+waits to copy the link — over SSH, through the terminal (OSC 52) to the
+clipboard of the machine you are typing on. Retrying the command reuses the
+same unexpired request; use `--restart` only when you intentionally want to
+replace it. `axm login --device-code --wait-for-human 300` starts or reuses the
+request and waits up to 300 seconds in the same command; a bounded wait always
+uses device-code sign-in.
 
 `axm token create --output token` writes only a new token to stdout for a
 pipe; `axm help environment` shows a guarded recipe for storing it.

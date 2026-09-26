@@ -76,7 +76,6 @@ const deviceHandoff = {
   userCode: "ABCD-1234",
   expiresAtMs: Date.parse("2099-01-01T00:00:00.000Z"),
   browserOpened: true,
-  copiedToClipboard: true,
 } as const satisfies HumanHandoff;
 
 const loopbackHandoff = {
@@ -103,14 +102,23 @@ const loginSuccessSuggestions = [
 
 const makeHuman = () => {
   const renderer = TestRenderer.make();
+  const copied: Array<string> = [];
   const dependencies = Layer.merge(
     renderer.layer,
-    Layer.succeed(DeviceLoginInteraction, noInteraction),
+    Layer.succeed(DeviceLoginInteraction, {
+      ...noInteraction,
+      copyToClipboard: (text) =>
+        Effect.sync(() => {
+          copied.push(text);
+          return true;
+        }),
+    }),
   );
   return {
     layer: Layer.provideMerge(AuthLoginPresenterLive, dependencies),
     state: renderer.state,
     logs: logsByTag(renderer.state),
+    copied,
   };
 };
 
@@ -196,7 +204,7 @@ describe("AuthLoginPresenterLive", () => {
       }).pipe(Effect.provide(Layer.provide(AuthLoginPresenterLive, dependencies)));
     }),
   );
-  it.effect("parks on the device handoff with its code, both links, and its warnings", () => {
+  it.effect("parks on the device handoff with its code and both links", () => {
     const { layer, state, logs } = makeHuman();
 
     return Effect.gen(function* () {
@@ -207,9 +215,6 @@ describe("AuthLoginPresenterLive", () => {
       expect(logs.info).toEqual([
         "Sign in to AgentXM.ai with a one-time code.",
         "One-time code: ABCD-1234",
-        "The code was copied to your clipboard.",
-        "Only continue if you started this sign-in with AXM.",
-        "Never enter a code that another person or website gave you. If that happened, cancel.",
       ]);
       // Both pages travel as suggestions, so an agent reaches what a person does.
       expect(state.suggestions).toEqual([
@@ -225,18 +230,17 @@ describe("AuthLoginPresenterLive", () => {
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("omits the clipboard line when that side effect did not happen", () => {
-    const { layer, logs } = makeHuman();
+  it.effect("copies the pre-filled link, not the code, only when the person asks", () => {
+    const { layer, state, copied } = makeHuman();
 
     return Effect.gen(function* () {
       const presenter = yield* AuthLoginPresenter;
-      yield* presenter.awaitHuman(
-        { ...deviceHandoff, browserOpened: false, copiedToClipboard: false },
-        Effect.void,
-      );
+      yield* presenter.awaitHuman(deviceHandoff, Effect.void);
+      expect(copied).toEqual([]);
 
-      expect(logs.info).not.toContain("The code was copied to your clipboard.");
-      expect(logs.info).toContain("Only continue if you started this sign-in with AXM.");
+      state.waitScript.actions.push(["copy"]);
+      yield* presenter.awaitHuman(deviceHandoff, Effect.void);
+      expect(copied).toEqual(["https://auth.agentxm.ai/device?user_code=ABCD-1234"]);
     }).pipe(Effect.provide(layer));
   });
 

@@ -14,11 +14,11 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import type { Version } from "@agentxm/extension-model/unstable/version-constraints";
 import {
-  computeIntegrity,
   RegistryClientFactory,
   extractZip,
   withBufferedArchiveBudget,
 } from "@agentxm/registry-client";
+import { computeIntegrity } from "@agentxm/host-primitives";
 import type { GetExtensionPackageArgs, RegistryClientFailure } from "@agentxm/registry-client";
 import type {
   ExtensionName,

@@ -14,6 +14,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import { isWithinOrEqual } from "@agentxm/extension-model/unstable/path-types";
 import {
   resolveWorkspaceExtensionRef,
   type SkillEntry,
@@ -76,11 +77,6 @@ interface ResolvedContainer {
   readonly path: string;
   readonly agentId: string;
 }
-
-const isWithin = (path: Path.Path, parent: string, child: string): boolean => {
-  const relative = path.relative(path.resolve(parent), path.resolve(child));
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
-};
 
 const groupContainers = (
   containers: ReadonlyArray<ResolvedContainer>,
@@ -177,7 +173,7 @@ export const observeAgentOutputs = (
           const canonicalTarget = yield* fs
             .realPath(resolvedTarget)
             .pipe(Effect.orElseSucceed(() => resolvedTarget));
-          if (ownershipRoots.some((root) => isWithin(path, root, canonicalTarget))) {
+          if (ownershipRoots.some((root) => isWithinOrEqual(path, root, canonicalTarget))) {
             proof = "storage-root-symlink";
           }
         } else {

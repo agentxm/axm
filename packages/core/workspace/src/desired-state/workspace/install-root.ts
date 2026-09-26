@@ -18,6 +18,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import { isStrictlyWithin } from "@agentxm/extension-model/unstable/path-types";
 import {
   extensionTypes,
   isExtensionTypePlural,
@@ -124,7 +125,7 @@ const isIdentityPrefix = (segments: ReadonlyArray<string>) => {
 export interface ObserveInstallRootArgs {
   readonly layout: WorkspaceLayout;
   readonly graph: DesiredStateGraph;
-  readonly locks: LockfileReaderService;
+  readonly locks: Pick<LockfileReaderService, "entries">;
 }
 
 /**
@@ -177,10 +178,7 @@ export const observeInstallRoot = ({ layout, graph, locks }: ObserveInstallRootA
       );
 
     const leadsToLockedPath = (directory: string) =>
-      [...lockedPaths.keys()].some((locked) => {
-        const relative = path.relative(directory, locked);
-        return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
-      });
+      [...lockedPaths.keys()].some((locked) => isStrictlyWithin(path, directory, locked));
 
     const visit = (
       directory: string,

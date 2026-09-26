@@ -2,10 +2,10 @@ import { planDesiredStateGraph } from "../../../projection/index.js";
 import type { DesiredStateGraph, DesiredStateProblem } from "../../../desired-state/index.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
-  workspaceCanonicalRoot,
-  workspaceLockfilePath,
-  workspaceSettingsPath,
-} from "../../../lifecycle/workspace-paths.js";
+  acquiredRootDisplayPath,
+  lockfileDisplayPath,
+  settingsDisplayPath,
+} from "../../../desired-state/index.js";
 
 /** Recovery-conformance identity for Pack uninstall planning on an incomplete graph. */
 export const PACK_UNINSTALL_GRAPH_BLOCKER_ID =
@@ -104,8 +104,8 @@ const locationsFor = (
   scope: WorkspaceScope,
 ): ReadonlyArray<string> => {
   if ("path" in problem && problem.path !== undefined) return [problem.path];
-  if ("pack" in problem) return [workspaceSettingsPath(scope), workspaceLockfilePath(scope)];
-  return [workspaceSettingsPath(scope), `${workspaceCanonicalRoot(scope)}/*/packs/*/pack.json`];
+  if ("pack" in problem) return [settingsDisplayPath(scope), lockfileDisplayPath(scope)];
+  return [settingsDisplayPath(scope), `${acquiredRootDisplayPath(scope)}/*/packs/*/pack.json`];
 };
 
 const factFor = (
@@ -174,8 +174,8 @@ export const planPackUninstallGraphReadiness = (
           {
             problemType: "unknown" as const,
             packs: selectedPacks.map(normalizedPack),
-            authoritativeLocations: [workspaceSettingsPath(scope), workspaceLockfilePath(scope)],
-            detail: `Pack ${selectedPacks.map(normalizedPack).join(", ")}: desired-state graph is incomplete; authoritative locations: ${workspaceSettingsPath(scope)}, ${workspaceLockfilePath(scope)}`,
+            authoritativeLocations: [settingsDisplayPath(scope), lockfileDisplayPath(scope)],
+            detail: `Pack ${selectedPacks.map(normalizedPack).join(", ")}: desired-state graph is incomplete; authoritative locations: ${settingsDisplayPath(scope)}, ${lockfileDisplayPath(scope)}`,
           },
         ]
       : decision.problems.map((problem) => factFor(problem, selectedPacks, scope));

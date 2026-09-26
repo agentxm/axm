@@ -5,11 +5,11 @@ import * as nodePath from "node:path";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { discover } from "../discover.js";
+import { snapshotTree } from "../../desired-state/testing.js";
 import {
   makeRecordedRegistryPort,
   makeTemporaryProject,
   registryFactoryForClient,
-  snapshotDirectory,
 } from "../test-helpers.js";
 
 export const specification = defineSpecification({
@@ -62,7 +62,7 @@ describe("Dependency-backed companion discovery", () => {
         },
       ],
     });
-    const before = snapshotDirectory(project.root);
+    const before = snapshotTree(project.root);
     const registry = makeRecordedRegistryPort(() => ({
       body: {
         results: [
@@ -119,7 +119,7 @@ describe("Dependency-backed companion discovery", () => {
           ]),
         },
       });
-      expect(snapshotDirectory(project.root)).toEqual(before);
+      expect(snapshotTree(project.root)).toEqual(before);
     }).pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(project.cleanup)));
   });
 
@@ -145,7 +145,7 @@ describe("Dependency-backed companion discovery", () => {
       agentExtensions: [{ ref: "@acme/skills/vite-review" }],
     });
     const requested = nodePath.join(project.root, "packages", "app");
-    const before = snapshotDirectory(project.root);
+    const before = snapshotTree(project.root);
     const viteCompanion = {
       ref: "@acme/skills/vite-review",
       source: { type: "registry", url: "https://registry.agentxm.ai" },
@@ -209,7 +209,7 @@ describe("Dependency-backed companion discovery", () => {
           ],
         },
       });
-      expect(snapshotDirectory(project.root)).toEqual(before);
+      expect(snapshotTree(project.root)).toEqual(before);
     }).pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(project.cleanup)));
   });
 });

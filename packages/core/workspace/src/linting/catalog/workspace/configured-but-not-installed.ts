@@ -14,7 +14,7 @@ import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sour
 import type { DesiredExtensionNode } from "../../../desired-state/index.js";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "@agentxm/extension-content/lint";
-import { canonicalDisplayRoot, settingsDisplayPath } from "./display-paths.js";
+import { acquiredRootDisplayPath, settingsDisplayPath } from "../../../desired-state/index.js";
 import { observationsReportedBy } from "./canonical-observation-findings.js";
 
 const RULE_ID = "workspace/configured-but-not-installed";
@@ -39,7 +39,7 @@ const findingFor = (
     severity: "error",
     message: declaresWorkspaceSource(desired)
       ? `${label} '${desired.name}' declares a workspace source, but its authored canonical package is missing from the configured authored root.`
-      : `${label} '${desired.name}' is desired, but its canonical content is missing from ${canonicalDisplayRoot(scope)}.`,
+      : `${label} '${desired.name}' is desired, but its canonical content is missing from ${acquiredRootDisplayPath(scope)}.`,
     location: { file: settingsDisplayPath(scope) },
   };
 };

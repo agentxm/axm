@@ -60,7 +60,7 @@ export {
 } from "./native-write-authority.js";
 
 // Constants (path helpers)
-export { getHome, getConfigHome } from "./constants.js";
+export { getConfigHome } from "./constants.js";
 
 // Catalog-derived agent path helpers
 export {
@@ -77,7 +77,6 @@ export {
   type AddMcpServerArgs,
   type AddSubagentArgs,
   type CodingAgent,
-  type McpServerSyncFallbackSource,
   type McpServerSyncOutcome,
   type McpServerSyncTarget,
   type NativeArtifactChange,
@@ -196,10 +195,13 @@ export {
 } from "./mcps/resolution.js";
 export {
   removeAgentMcpConfig,
+  retireAgentMcpConfig,
   writeAgentMcpConfig,
+  type AgentMcpConfigEntryRef,
   type AgentMcpConfigWriteResult,
   type AgentMcpConfigWriteTarget,
   type RemoveAgentMcpConfigArgs,
+  type RetireAgentMcpConfigArgs,
   type WriteAgentMcpConfigArgs,
 } from "./mcps/config-writer.js";
 export {
@@ -209,13 +211,20 @@ export {
   parseTomlMcpEntry,
   readNativeMcpConfig,
   readNativeMcpEntry,
+  readNativeMcpServers,
   resolveAgentMcpConfigTargetPath,
   type DecodedJsonMcpConfig,
   type NativeMcpConfigRead,
 } from "./mcps/native-config.js";
-export { collectSecretInputNames, mcpProjectionInputValues } from "./mcps/inputs.js";
 export {
-  configuredMcpCapability,
+  collectRequiredInputNames,
+  collectSecretInputNames,
+  manifestInputs,
+  mcpProjectionInputValues,
+  type ManifestInput,
+} from "./mcps/inputs.js";
+export { decodeMcpServerManifestAt, readMcpServerManifestAt } from "./mcps/manifest.js";
+export {
   planMcpServerTargets,
   type McpAgentTargetPlan,
   type McpTargetPlan,
@@ -230,10 +239,15 @@ export {
   type SharedMcpTargetResolution,
   type SharedMcpTransport,
 } from "./mcps/shared-target.js";
-export { groupConfiguredMcpTargets, type McpTargetGroup } from "./mcps/targeting.js";
 export {
-  addMcpServerFromManifest,
-  decodeMcpServerManifestAt,
+  configuredMcpCapability,
+  groupConfiguredMcpTargets,
+  isConfigurableAgentId,
+  isConfiguredMcpCapability,
+  type ConfiguredMcpCapability,
+  type McpTargetGroup,
+} from "./mcps/targeting.js";
+export {
   pruneManagedMcpServersForAgent,
   removeMcpServerFromManifest,
   syncInlineMcpServerToAgents,

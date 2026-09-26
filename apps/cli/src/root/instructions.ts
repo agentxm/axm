@@ -7,7 +7,7 @@ import {
   ManageInstructions,
   type InstructionsStatus,
 } from "@agentxm/workspace/configuration";
-import { emitOperationResolution } from "../operation-output.js";
+import { emitNoOpOutcome, emitOperationResolution } from "../operation-output.js";
 import { scopeFlag } from "../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../runtime.js";
 import {
@@ -17,7 +17,6 @@ import {
   withCommandCapabilities,
 } from "./shared/command-capabilities.js";
 import { withLiveOperation, withOperationLifecycle } from "../operation-lifecycle.js";
-import { emitNoOpOutcome } from "./shared/no-op-output.js";
 import { makePlanInvocation } from "./shared/confirmation-recovery.js";
 import { failureToAppError } from "../app-error/conversions.js";
 
@@ -119,7 +118,6 @@ const runInstructions = (
       yield* emitNoOpOutcome({
         planName: PLAN_NAME[candidate.action],
         message: candidate.message,
-        withoutSuggestions: true,
       });
       return;
     }

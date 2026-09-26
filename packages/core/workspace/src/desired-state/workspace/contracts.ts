@@ -26,38 +26,14 @@ import type {
   SubagentLockEntry,
 } from "../lockfile/index.js";
 import type { SourceHostConfig } from "../settings/index.js";
-import type { ReadModelRecordRow } from "./read-model-record-types.js";
+import type { WorkspaceRecordRow } from "./read-model/records.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { ExtensionInventory } from "./read-model/extensions/inventory.js";
 import type { AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
-import type { ExtensionPathSource } from "./extension-paths.js";
 
 // ---------------------------------------------------------------------------
 // CLI-specific types (inlined to avoid circular dependency with CLI)
 // ---------------------------------------------------------------------------
-
-/**
- * Minimal structural discriminant for determining skill path layout.
- *
- * Registry refs carry an owner for the canonical path; all other ref types
- * use the shared external extensions directory.
- */
-export type SkillPathSource = ExtensionPathSource;
-
-/**
- * Computed paths for an installed skill directory.
- */
-export interface SkillDirPaths {
-  readonly canonicalPath: string;
-  readonly skillSrcPath: string;
-}
-
-/**
- * Computed path for an installed pack directory.
- */
-export interface PackDirPath {
-  readonly canonicalPath: string;
-}
 
 export interface SkillExtensionTarget {
   readonly type: "skill";
@@ -163,15 +139,15 @@ export interface WorkspaceReadModelRecords {
   ) => Effect.Effect<ExtensionInventory, WorkspaceStateReadFailure>;
   /**
    * Every read-model row for one extension type, tagged with its lifecycle
-   * (`configured` / `implicit` / `unmanaged`).
+   * (`configured` / `implicit` / `leftover` / `undeclared` / `unmanaged`).
    *
    * Total over `InstallableExtensionType` and non-throwing: a type whose
    * workspace has no entries yields an empty array. Narrow with the helpers in
-   * `read-model-record-rows.ts` rather than adding a per-type accessor.
+   * `read-model/records.ts` rather than adding a per-type accessor.
    */
   readonly rows: (
     type: InstallableExtensionType,
-  ) => Effect.Effect<ReadonlyArray<ReadModelRecordRow>, WorkspaceStateReadFailure>;
+  ) => Effect.Effect<ReadonlyArray<WorkspaceRecordRow>, WorkspaceStateReadFailure>;
 }
 
 // ---------------------------------------------------------------------------

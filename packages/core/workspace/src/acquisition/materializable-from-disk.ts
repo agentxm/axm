@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect";
-import { stripFileProtocol } from "@agentxm/registry-client";
+import { fromFileLocation } from "@agentxm/host-primitives";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -15,7 +15,7 @@ import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/
 import type { SourceHostConfig } from "../desired-state/index.js";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { lockEntryMatchesSourceLocator } from "../desired-state/index.js";
-import { skillLockEntryToRef } from "../desired-state/index.js";
+import { lockEntryToRef } from "../desired-state/index.js";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import { resolveWorkspaceExtensionRef } from "../desired-state/index.js";
@@ -99,33 +99,37 @@ export const configuredSkillsToDiskRefs = (
         return Effect.succeed(Option.none<SkillExtensionRef>());
       }
 
-      return skillLockEntryToRef(settingsName, lockEntry, {
-        baseDir: env.baseDir,
-        path: env.path,
-        scope: env.scope,
-        getConfiguredSourceByName: accepted.getConfiguredSourceByName,
-      }).pipe(
-        Effect.flatMap((ref) => {
-          if (ref.refType !== "git-hosted") {
-            return Effect.succeed(Option.none<SkillExtensionRef>());
-          }
-          const skillFile = env.path.join(
-            stripFileProtocol(ref.location),
-            ...(ref.portable === true ? [] : ["src"]),
-            "SKILL.md",
-          );
-          return env.fs.exists(skillFile).pipe(
-            Effect.mapError(
-              (cause) =>
-                new CanonicalPackageProbeFailed({
-                  detail: `Failed to inspect canonical skill content for "${settingsName}"`,
-                  cause,
-                }),
-            ),
-            Effect.map((exists) => (exists ? Option.some(ref) : Option.none<SkillExtensionRef>())),
-          );
-        }),
-      );
+      return lockEntryToRef
+        .skill(settingsName, lockEntry, {
+          baseDir: env.baseDir,
+          path: env.path,
+          scope: env.scope,
+          getConfiguredSourceByName: accepted.getConfiguredSourceByName,
+        })
+        .pipe(
+          Effect.flatMap((ref) => {
+            if (ref.refType !== "git-hosted") {
+              return Effect.succeed(Option.none<SkillExtensionRef>());
+            }
+            const skillFile = env.path.join(
+              fromFileLocation(ref.location),
+              ...(ref.portable === true ? [] : ["src"]),
+              "SKILL.md",
+            );
+            return env.fs.exists(skillFile).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new CanonicalPackageProbeFailed({
+                    detail: `Failed to inspect canonical skill content for "${settingsName}"`,
+                    cause,
+                  }),
+              ),
+              Effect.map((exists) =>
+                exists ? Option.some(ref) : Option.none<SkillExtensionRef>(),
+              ),
+            );
+          }),
+        );
     },
     { concurrency: SCANNER_IO_CONCURRENCY },
   ).pipe(Effect.map((refs) => refs.filter(Option.isSome).map((ref) => ref.value)));

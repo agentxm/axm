@@ -4,8 +4,10 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { extensionTypeToPlural } from "@agentxm/extension-model/unstable/extensions";
+import { installableExtensionTypes } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type { InstallExtensionSelectors } from "@agentxm/workspace/lifecycle";
+import { installSelectorsFor } from "@agentxm/workspace/lifecycle";
 import { ReleaseAgePosture } from "@agentxm/workspace/resolution";
 import {
   protectedRecoveryValue,
@@ -16,6 +18,7 @@ import {
 
 import { makeAppError } from "../../app-error/index.js";
 import { Screen } from "../../screen/index.js";
+import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
 import { runInstallCommand } from "../shared/install-command.js";
 import { handleWorkspaceInstall } from "./workspace-install-handler.js";
 
@@ -38,8 +41,8 @@ const commandSegments = (type: Option.Option<InstallableExtensionType>): Readonl
   });
 
 const selectedEntries = (selectors: InstallExtensionSelectors) =>
-  Object.entries(selectors).flatMap(([type, names]) =>
-    (names ?? []).map((name) => ({ type, name })),
+  installableExtensionTypes.flatMap((type) =>
+    installSelectorsFor(selectors, type).map((name) => ({ type, name })),
   );
 
 const validateGrammar = (args: InstallHandlerArgs) =>
@@ -131,7 +134,10 @@ export const handleInstall = (args: InstallHandlerArgs) =>
         recoverySwitch("--bundled", args.bundled),
         recoverySwitch("--ignore-release-age", ignoreReleaseAge),
         ...selected.map(({ type, name }) =>
-          recoveryOption(`--${type === "mcp-server" ? "mcp" : type}`, publicRecoveryValue(name)),
+          recoveryOption(
+            `--${EXTENSION_TYPE_PRESENTATION[type].selectorFlag}`,
+            publicRecoveryValue(name),
+          ),
         ),
         ...Option.match(args.localName, {
           onNone: () => [],

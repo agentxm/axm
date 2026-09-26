@@ -176,9 +176,9 @@ describe("Adding a coding agent", () => {
         : null;
       const authoredBefore = fixture.snapshotOf("skills");
       const lockBefore = fixture.readLockfileText();
-      const nativeBefore = fixture
-        .snapshotOf(".opencode")
-        .filter(([relative]) => relative !== "skills" && !relative.startsWith("skills/"));
+      const nativeBefore = Object.entries(fixture.snapshotOf(".opencode")).filter(
+        ([relative]) => relative !== "skills" && !relative.startsWith("skills/"),
+      );
 
       return Effect.gen(function* () {
         yield* addAgent(fixture, "opencode");
@@ -194,9 +194,9 @@ describe("Adding a coding agent", () => {
         // The new agent's directory gained Skills and nothing else: no hook
         // representation was invented for a surface it does not declare.
         expect(
-          fixture
-            .snapshotOf(".opencode")
-            .filter(([relative]) => relative !== "skills" && !relative.startsWith("skills/")),
+          Object.entries(fixture.snapshotOf(".opencode")).filter(
+            ([relative]) => relative !== "skills" && !relative.startsWith("skills/"),
+          ),
         ).toEqual(nativeBefore);
         expect(fixture.exists(".opencode/settings.json")).toBe(false);
         expect(

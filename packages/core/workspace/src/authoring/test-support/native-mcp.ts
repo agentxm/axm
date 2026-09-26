@@ -14,6 +14,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import type { NativeMcpDiscovery } from "../import/import-native-extension.js";
+import { configuredMcpCapability } from "../../projection/agent-adapters/index.js";
 import type { AuthoringWorkspace } from "./authoring-workspace.js";
 
 /** Public, non-secret values; these fixtures do not exercise secret policy. */
@@ -92,11 +93,22 @@ export const nativeMcpDiscovery = (
       env: {},
       entries: NATIVE_MCP_FILES.filter((relative) =>
         Object.hasOwn(readNativeMcpServers(workspace, relative), name),
-      ).map((relative) => ({
-        filePath: `${workspace.root}/${relative}`,
-        serversKey: "mcpServers",
-        name,
-      })),
+      ).map((relative) => {
+        const agentId = relative === ".mcp.json" ? "claude-code" : "cursor";
+        const config = configuredMcpCapability(agentId)?.axm.writer.config;
+        const target = config?.targets.find(
+          (candidate) => candidate.scope === "project" && candidate.path === relative,
+        );
+        if (config === undefined || target === undefined) {
+          throw new Error(`Missing native MCP target for ${relative}`);
+        }
+        return {
+          filePath: `${workspace.root}/${relative}`,
+          serversKey: config.serversKey,
+          name,
+          target,
+        };
+      }),
     },
   ],
   conflicts: [],

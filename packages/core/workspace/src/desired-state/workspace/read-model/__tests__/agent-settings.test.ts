@@ -8,7 +8,7 @@ import { expect, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import { buildFixture } from "../__fixtures__/builder.js";
 import { makeDiagnostics, type Warning } from "../diagnostics.js";
 import { makeAgentSettingsScanner } from "../scanners/agent-settings.js";
@@ -18,7 +18,7 @@ const USER_HOME = "/home/user";
 
 const runScanner = (
   spec: Parameters<typeof buildFixture>[0],
-  options?: { readonly agentRegistry?: typeof AGENTS },
+  options?: { readonly agentRegistry?: typeof AGENT_DESCRIPTORS },
 ) =>
   Effect.gen(function* () {
     const deps = yield* buildFixture(spec);

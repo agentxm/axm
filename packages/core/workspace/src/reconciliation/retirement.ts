@@ -3,6 +3,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
+import { isWithinOrEqual } from "@agentxm/extension-model/unstable/path-types";
 import {
   extensionTypes,
   toExtensionTypePlural,
@@ -12,6 +13,7 @@ import {
   DesiredStateReader,
   LockfileReader,
   WorkspaceLocation,
+  lockfileDisplayPath,
   computeExtensionPathsForLayout,
   extensionPathSourceFromLockEntry,
   computeMaterializedTreeIntegrity,
@@ -126,7 +128,7 @@ export const collectUnreachableRetirement = (
     if (retired.length === 0)
       return Option.none<PlannedJobStep<SyncStepRequirements | LockfileReader>>();
     const artifact = {
-      path: location.scope === "project" ? "axm-lock.yaml" : ".axm/workspace/axm-lock.yaml",
+      path: lockfileDisplayPath(location.scope),
       scope: location.scope,
       change: "updated" as const,
       references: retired
@@ -232,11 +234,6 @@ export const collectUnreachableRetirement = (
       ),
     });
   });
-
-const isWithinOrEqual = (path: Path.Path, parent: string, child: string) => {
-  const relative = path.relative(parent, child);
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
-};
 
 /** `@owner/plural/name` for a well-formed installed package path. */
 const leftoverIdentity = (entry: InstalledPackageEntry) =>

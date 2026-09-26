@@ -42,6 +42,7 @@ import type {
 import { registrySourceArtifact } from "../../packs/lifecycle/artifact.js";
 import { extensionRefLifecycleWarnings } from "../../lifecycle/warnings.js";
 import { installMcpServer, type McpServerInstallRequirements } from "../mcps/install-operation.js";
+import { requestedMcpSourceIdentity } from "../../mcp-connections/source-identity.js";
 import {
   buildInstallOperation,
   extensionRefRegistryLifecycle,
@@ -175,16 +176,22 @@ export const buildPackMemberStep: (
           { type: "mcp-server", name: ref.server.name },
           ref.refType === "registry" ? ref.packages : [],
         ),
-        run: installMcpServer({
-          name: "install-mcp-server",
-          args: {
-            ref,
-            nonInteractive: args.nonInteractive,
-            force: args.force === true,
-            strictAgentSync: Option.some(args.strictAgentSync),
-            env: Option.none(),
-          },
-        }).pipe(Effect.mapError(toStepFailure)),
+        run: requestedMcpSourceIdentity(ref).pipe(
+          Effect.flatMap((sourceIdentity) =>
+            installMcpServer({
+              name: "install-mcp-server",
+              args: {
+                ref,
+                sourceIdentity,
+                nonInteractive: args.nonInteractive,
+                force: args.force === true,
+                strictAgentSync: Option.some(args.strictAgentSync),
+                env: Option.none(),
+              },
+            }),
+          ),
+          Effect.mapError(toStepFailure),
+        ),
       };
       const warnings = extensionRefLifecycleWarnings(ref);
       const registryLifecycle = extensionRefRegistryLifecycle(ref);

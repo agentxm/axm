@@ -10,13 +10,13 @@ import * as Array from "effect/Array";
 import type * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
+import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import {
-  AGENT_IDS,
+  MATERIALIZATION_TARGET_IDS,
   CONFIGURABLE_AGENT_IDS,
-  isConfigurableAgentId,
   type AgentDescriptor,
-  type AgentId,
+  type MaterializationTargetId,
   type ConfigurableAgentId,
 } from "@agentxm/extension-model/unstable/agents/types";
 import type { SettingsReadError } from "../errors.js";
@@ -47,24 +47,25 @@ export { defineAgentModule } from "./types.js";
 /** Every configurable catalog agent, in canonical order. */
 export const registeredAgentModules: ReadonlyArray<AgentModule<ConfigurableAgentId>> =
   CONFIGURABLE_AGENT_IDS.map((agentId) =>
-    defineAgentModule({ agentId, descriptor: AGENTS[agentId] }),
+    defineAgentModule({ agentId, descriptor: AGENT_DESCRIPTORS[agentId] }),
   );
 
 /** Build the common projector module for one catalog agent. */
 export const getAgentModule = <TId extends ConfigurableAgentId>(id: TId): AgentModule<TId> =>
-  defineAgentModule({ agentId: id, descriptor: AGENTS[id] });
+  defineAgentModule({ agentId: id, descriptor: AGENT_DESCRIPTORS[id] });
 
-const isAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
+const isAgentId = (id: string): id is MaterializationTargetId =>
+  Object.hasOwn(AGENT_DESCRIPTORS, id);
 
 /** Public shape of `ctx.scope(scope).agents`. */
 export interface ScopedAgentsApi {
-  readonly list: Effect.Effect<ReadonlyArray<AgentId>>;
+  readonly list: Effect.Effect<ReadonlyArray<MaterializationTargetId>>;
   readonly known: Effect.Effect<ReadonlyArray<AgentDescriptor>>;
   readonly byId: (id: string) => Option.Option<AgentDescriptor>;
   readonly declared: (
-    id: AgentId,
+    id: MaterializationTargetId,
   ) => Effect.Effect<Option.Option<DeclaredAgent>, SettingsReadError>;
-  readonly actual: (id: AgentId) => Effect.Effect<Option.Option<ActualAgent>>;
+  readonly actual: (id: MaterializationTargetId) => Effect.Effect<Option.Option<ActualAgent>>;
   readonly detected: Effect.Effect<ReadonlyArray<DetectedAgent>, Config.ConfigError>;
 }
 
@@ -72,7 +73,7 @@ export interface ScopedAgentsApi {
 export interface ScopedAgentsApiDeps {
   readonly scope: Scope;
   readonly settings: Effect.Effect<Option.Option<DeclaredSettingsShape>, SettingsReadError>;
-  readonly presence: Effect.Effect<ReadonlySet<AgentId>, Config.ConfigError>;
+  readonly presence: Effect.Effect<ReadonlySet<MaterializationTargetId>, Config.ConfigError>;
   readonly observations: Effect.Effect<AgentScannerObservations>;
 }
 
@@ -80,12 +81,12 @@ export interface ScopedAgentsApiDeps {
 export const makeScopedAgentsApi = (deps: ScopedAgentsApiDeps): ScopedAgentsApi => {
   const { scope, settings, presence, observations } = deps;
 
-  const declared = (id: AgentId) =>
+  const declared = (id: MaterializationTargetId) =>
     isConfigurableAgentId(id)
       ? settings.pipe(Effect.map((decoded) => getAgentModule(id).declared(scope, decoded)))
       : Effect.succeed(Option.none<DeclaredAgent>());
 
-  const actual = (id: AgentId) =>
+  const actual = (id: MaterializationTargetId) =>
     isConfigurableAgentId(id)
       ? observations.pipe(Effect.map((obs) => getAgentModule(id).actual(scope, obs)))
       : Effect.succeed(Option.none<ActualAgent>());
@@ -116,9 +117,9 @@ export const makeScopedAgentsApi = (deps: ScopedAgentsApiDeps): ScopedAgentsApi 
   );
 
   return {
-    list: Effect.succeed(AGENT_IDS),
-    known: Effect.succeed(AGENT_IDS.map((id) => AGENTS[id])),
-    byId: (id) => (isAgentId(id) ? Option.some(AGENTS[id]) : Option.none()),
+    list: Effect.succeed(MATERIALIZATION_TARGET_IDS),
+    known: Effect.succeed(MATERIALIZATION_TARGET_IDS.map((id) => AGENT_DESCRIPTORS[id])),
+    byId: (id) => (isAgentId(id) ? Option.some(AGENT_DESCRIPTORS[id]) : Option.none()),
     declared,
     actual,
     detected,

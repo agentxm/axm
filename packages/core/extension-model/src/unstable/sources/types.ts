@@ -51,7 +51,7 @@ export type SourceType = Schema.Schema.Type<typeof SourceTypeSchema>;
 /**
  * Ref type discriminator for extension ref hosting categories.
  *
- * - `"git-hosted"` - Git-based sources (GitHub, GitLab, Bitbucket, AzureRepos, Git)
+ * - `"git-hosted"` - Git-based sources, including the built-in forges
  * - `"registry"` - Package registry source
  * - `"local"` - Local filesystem path source
  * - `"workspace"` - Intrinsic managed workspace package
@@ -76,19 +76,7 @@ export const RefTypeSchema = Schema.Literals([
  */
 export type RefType = Schema.Schema.Type<typeof RefTypeSchema>;
 
-const noSlashSegmentMessage = "Expected non-empty segment without '/' characters";
 const noTraversalSegmentMessage = "Expected subpath without '..' traversal segments";
-
-export const SourceSegmentSchema = Schema.NonEmptyString.pipe(
-  Schema.check(
-    Schema.makeFilter((value: string) => (value.includes("/") ? noSlashSegmentMessage : undefined)),
-  ),
-).annotate({
-  identifier: "SourceSegment",
-  title: "Source Segment",
-  description:
-    "A non-empty path segment without slash characters, used for owner/repo identifiers.",
-});
 
 export const SourceRefSchema = Schema.NonEmptyString;
 
@@ -119,64 +107,6 @@ export const SourceSubPathSchema = Schema.NonEmptyString.pipe(
   identifier: "SourceSubPath",
   title: "Source Subpath",
   description: "A non-empty repository subpath without empty or '..' traversal segments.",
-});
-
-const GitHostedSourceParamFields = {
-  sourceName: Schema.optional(Schema.String),
-  owner: SourceNamespaceSchema,
-  repo: SourceSegmentSchema,
-  ref: Schema.OptionFromOptionalKey(SourceRefSchema),
-  subPath: Schema.OptionFromOptionalKey(SourceSubPathSchema),
-} satisfies Schema.Struct.Fields;
-
-export const GitHostedSourceParamPartsSchema = Schema.Struct(GitHostedSourceParamFields).annotate({
-  identifier: "GitHostedSourceParamParts",
-  title: "Git Hosted Source Params",
-  description: "Parameters for a git-hosted source: owner, repo, optional ref and sub-path.",
-});
-
-export type GitHostedSourceParamParts = Schema.Schema.Type<typeof GitHostedSourceParamPartsSchema>;
-
-const AzureReposSourceParamFields = {
-  sourceName: Schema.optional(Schema.String),
-  organization: SourceSegmentSchema,
-  project: SourceSegmentSchema,
-  repo: SourceSegmentSchema,
-  ref: Schema.OptionFromOptionalKey(SourceRefSchema),
-  subPath: Schema.OptionFromOptionalKey(SourceSubPathSchema),
-} satisfies Schema.Struct.Fields;
-
-export const AzureReposSourceParamPartsSchema = Schema.Struct(AzureReposSourceParamFields).annotate(
-  {
-    identifier: "AzureReposSourceParamParts",
-    title: "Azure Repos Source Params",
-    description:
-      "Parameters for an Azure Repos source: organization, project, repo, optional ref and sub-path.",
-  },
-);
-
-export type AzureReposSourceParamParts = Schema.Schema.Type<
-  typeof AzureReposSourceParamPartsSchema
->;
-
-export const GitHubSourceParamsSchema = Schema.Struct({
-  type: Schema.Literal("github"),
-  ...GitHostedSourceParamFields,
-});
-
-export const GitLabSourceParamsSchema = Schema.Struct({
-  type: Schema.Literal("gitlab"),
-  ...GitHostedSourceParamFields,
-});
-
-export const BitbucketSourceParamsSchema = Schema.Struct({
-  type: Schema.Literal("bitbucket"),
-  ...GitHostedSourceParamFields,
-});
-
-export const AzureReposSourceParamsSchema = Schema.Struct({
-  type: Schema.Literal("azurerepos"),
-  ...AzureReposSourceParamFields,
 });
 
 // =============================================================================
@@ -225,51 +155,6 @@ export type SourceHost =
 // -----------------------------------------------------------------------------
 // SourceParams — coordinates within a source
 // -----------------------------------------------------------------------------
-
-/** @experimental */
-export interface GitHubSourceParams {
-  readonly type: "github";
-  readonly sourceName?: string | undefined;
-  readonly owner: string;
-  readonly repo: string;
-  readonly ref: Option.Option<string>;
-  readonly subPath: Option.Option<string>;
-  readonly cloneUrl?: Option.Option<string>;
-}
-
-/** @experimental */
-export interface GitLabSourceParams {
-  readonly type: "gitlab";
-  readonly sourceName?: string | undefined;
-  readonly owner: string;
-  readonly repo: string;
-  readonly ref: Option.Option<string>;
-  readonly subPath: Option.Option<string>;
-  readonly cloneUrl?: Option.Option<string>;
-}
-
-/** @experimental */
-export interface BitbucketSourceParams {
-  readonly type: "bitbucket";
-  readonly sourceName?: string | undefined;
-  readonly owner: string;
-  readonly repo: string;
-  readonly ref: Option.Option<string>;
-  readonly subPath: Option.Option<string>;
-  readonly cloneUrl?: Option.Option<string>;
-}
-
-/** @experimental */
-export interface AzureReposSourceParams {
-  readonly type: "azurerepos";
-  readonly sourceName?: string | undefined;
-  readonly organization: string;
-  readonly project: string;
-  readonly repo: string;
-  readonly ref: Option.Option<string>;
-  readonly subPath: Option.Option<string>;
-  readonly cloneUrl?: Option.Option<string>;
-}
 
 /** @experimental */
 export interface GitSourceParams {

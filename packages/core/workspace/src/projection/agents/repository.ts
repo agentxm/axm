@@ -12,7 +12,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { codingAgentForId, type CodingAgent } from "../agent-adapters/index.js";
 import { SettingsReader } from "../../desired-state/index.js";
-import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
@@ -28,7 +28,8 @@ const configuredAgentIds = () =>
   SettingsReader.pipe(Effect.flatMap((settings) => settings.configuredAgents));
 
 export const DefaultCodingAgentRepository: CodingAgentRepositoryService = {
-  get: (id: AgentId): Effect.Effect<CodingAgent> => Effect.succeed(codingAgentForId(id)),
+  get: (id: MaterializationTargetId): Effect.Effect<CodingAgent> =>
+    Effect.succeed(codingAgentForId(id)),
   all: Effect.sync(allCodingAgents),
   getConfiguredAgents: () => configuredAgentIds().pipe(Effect.map(configuredCodingAgents)),
   getMaterializationAgents: () =>

@@ -39,6 +39,7 @@
   },
   "dependencies": {
     "@agentxm/extension-model": "workspace:^",
+    "@agentxm/host-primitives": "workspace:^",
     "@agentxm/registry-protocol": "workspace:^",
     "effect": "catalog:",
     "fflate": "catalog:"

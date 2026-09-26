@@ -2,14 +2,19 @@ import { Command } from "effect/unstable/cli";
 import { groupCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import { makeExtensionShowCommand } from "../shared/extension-show.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
-import { disableCommand } from "./disable.js";
-import { enableCommand } from "./enable.js";
-import { installCommand } from "./install/command.js";
+import { makeActivationCommands } from "../activation-handler.js";
+import { hooksInstallCommand as installCommand } from "../install/command.js";
 import { listCommand } from "./list.js";
 import { newCommand } from "./new.js";
 import { hooksPublishCommand as publishCommand } from "../publish/per-type-command.js";
-import { uninstallCommand } from "./uninstall/command.js";
-import { updateCommand } from "./update.js";
+import { makePerTypeUninstallCommand } from "../shared/uninstall-command.js";
+import { makePerTypeUpdateCommand } from "../update/per-type-command.js";
+
+const updateCommand = makePerTypeUpdateCommand("hook");
+
+const uninstallCommand = makePerTypeUninstallCommand("hook");
+
+const { enableCommand, disableCommand } = makeActivationCommands("hook");
 
 const showCommand = makeExtensionShowCommand({
   type: "hook",

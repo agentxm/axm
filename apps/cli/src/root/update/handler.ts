@@ -21,6 +21,7 @@ import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/sugges
 
 import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";
 import {
+  emitNoOpOutcome,
   emitOperationResolution,
   operationResolutionSummary,
   retryCanHelp,
@@ -32,7 +33,6 @@ import {
   retrySuggestion,
   type PlanInvocation,
 } from "../shared/confirmation-recovery.js";
-import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 import { INSPECT_INSTALLED } from "../suggested-actions.js";
 import { handleWorkspaceUpdate } from "./workspace-update-handler.js";

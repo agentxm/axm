@@ -16,7 +16,7 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
-import { envOption } from "../internal/environment.js";
+import { envOption } from "@agentxm/host-primitives";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import { decodeAgentExtensions, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageReader } from "./types.js";

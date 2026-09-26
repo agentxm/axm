@@ -19,7 +19,7 @@
  */
 
 import * as Option from "effect/Option";
-import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import type { Scope } from "../types.js";
 import type {
   ActualAgent,
@@ -31,7 +31,7 @@ import type {
 } from "./types.js";
 
 export const defaultDeclared = (
-  agentId: AgentId,
+  agentId: MaterializationTargetId,
   scope: Scope,
   settings: Option.Option<DeclaredSettingsShape>,
 ): Option.Option<DeclaredAgent> => {
@@ -42,7 +42,7 @@ export const defaultDeclared = (
 };
 
 export const defaultActual = (
-  agentId: AgentId,
+  agentId: MaterializationTargetId,
   scope: Scope,
   observations: AgentScannerObservations,
 ): Option.Option<ActualAgent> => {
@@ -68,7 +68,7 @@ export const defaultActual = (
 };
 
 export const defaultDetected = (
-  agentId: AgentId,
+  agentId: MaterializationTargetId,
   scope: Scope,
   declared: Option.Option<DeclaredAgent>,
   present: boolean,

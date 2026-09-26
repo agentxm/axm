@@ -19,16 +19,7 @@ import type * as Semaphore from "effect/Semaphore";
 import { formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
-import type {
-  HookLockEntry,
-  KnowledgeLockEntry,
-  Lockfile,
-  McpServerLockEntry,
-  PackLockEntry,
-  RuleLockEntry,
-  SkillLockEntry,
-  SubagentLockEntry,
-} from "../lockfile/schema.js";
+import type { HookLockEntry, Lockfile, RuleLockEntry } from "../lockfile/schema.js";
 import type {
   HookEntry,
   RuleEntry,
@@ -46,7 +37,7 @@ import {
 import { DesiredStateReader, type DesiredStateReaderService } from "./desired-state-reader.js";
 import { SettingsReader, type SettingsReaderService } from "./settings-reader.js";
 import { lockEntries, settingsEntries, type EntriesAccessor } from "./entry-accessors.js";
-import { lockEntryToSourceParams } from "./lock-entry-to-source-params.js";
+import { isRegistryLockEntry, lockEntryToSourceParams, type LockEntry } from "./lock-entry.js";
 import type {
   SetHookArgs,
   SetKnowledgeArgs,
@@ -96,20 +87,6 @@ const registryLocator = (
   versionRange: Option.Option<string>,
 ): string => `${sourceName}:${Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn}`;
 
-type ExternalLockEntry =
-  | SkillLockEntry
-  | PackLockEntry
-  | McpServerLockEntry
-  | SubagentLockEntry
-  | RuleLockEntry
-  | HookLockEntry
-  | KnowledgeLockEntry;
-
-const isRegistryLockEntry = (
-  entry: ExternalLockEntry,
-): entry is Extract<ExternalLockEntry, { readonly source: { readonly type: "registry" } }> =>
-  entry.source.type === "registry";
-
 const configuredRegistryName = (
   sources: ReadonlyArray<SourceHostConfig>,
   url: URL,
@@ -122,7 +99,7 @@ const declarationSource = (
   sources: ReadonlyArray<SourceHostConfig>,
   defaultRegistry: string,
   type: InstallableExtensionType,
-  lockEntry: ExternalLockEntry,
+  lockEntry: LockEntry,
   versionRange: Option.Option<string>,
 ): string =>
   isRegistryLockEntry(lockEntry)
@@ -150,7 +127,7 @@ export const makeDesiredStateWriter = (
   const serialized = mutex.withPermits(1);
   const sourceFor = (
     type: InstallableExtensionType,
-    lockEntry: ExternalLockEntry,
+    lockEntry: LockEntry,
     versionRange: Option.Option<string>,
   ) =>
     Effect.gen(function* () {

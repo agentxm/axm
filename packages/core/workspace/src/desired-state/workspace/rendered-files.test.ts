@@ -5,11 +5,7 @@
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
-import {
-  RenderedFilesMapSchema,
-  RenderedFilePathSchema,
-  computeSourceHash,
-} from "./rendered-files.js";
+import { RenderedFilePathSchema, computeSourceHash } from "./rendered-files.js";
 import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 
 describe("computeSourceHash", () => {
@@ -77,50 +73,6 @@ describe("RenderedFilePathSchema", () => {
 
   it("rejects escaping relative paths", () => {
     const result = Schema.decodeUnknownResult(RenderedFilePathSchema)("../outside.md");
-    expect(Result.isFailure(result)).toBe(true);
-  });
-});
-
-describe("RenderedFilesMapSchema", () => {
-  it("decodes a valid map structure", () => {
-    const input = {
-      "claude-code": [{ path: ".claude/skills/my-skill.md" }],
-      cursor: [{ path: ".cursor/skills/my-skill.md" }],
-    };
-    const result = Schema.decodeUnknownResult(RenderedFilesMapSchema)(input);
-    expect(Result.isSuccess(result)).toBe(true);
-  });
-
-  it("decodes an empty map", () => {
-    const result = Schema.decodeUnknownResult(RenderedFilesMapSchema)({});
-    expect(Result.isSuccess(result)).toBe(true);
-  });
-
-  it("roundtrips through encode/decode", () => {
-    const input = {
-      "claude-code": [{ path: ".claude/skills/my-skill.md" }],
-    };
-    const decoded = Schema.decodeUnknownResult(RenderedFilesMapSchema)(input);
-    expect(Result.isSuccess(decoded)).toBe(true);
-    if (Result.isSuccess(decoded)) {
-      const encoded = Schema.encodeUnknownResult(RenderedFilesMapSchema)(decoded.success);
-      expect(Result.isSuccess(encoded)).toBe(true);
-      if (Result.isSuccess(encoded)) {
-        expect(encoded.success).toEqual(input);
-      }
-    }
-  });
-
-  it("rejects invalid structure", () => {
-    const result = Schema.decodeUnknownResult(RenderedFilesMapSchema)("not-a-record");
-    expect(Result.isFailure(result)).toBe(true);
-  });
-
-  it("rejects entries missing the path field", () => {
-    const input = {
-      "claude-code": [{ notPath: "something" }],
-    };
-    const result = Schema.decodeUnknownResult(RenderedFilesMapSchema)(input);
     expect(Result.isFailure(result)).toBe(true);
   });
 });

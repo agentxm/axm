@@ -14,7 +14,7 @@ import * as Effect from "effect/Effect";
 import type * as Config from "effect/Config";
 import * as Option from "effect/Option";
 
-import { envOption } from "../utils/environment.js";
+import { envOption } from "@agentxm/host-primitives";
 import { jsonFlag } from "./json-flag.js";
 import { isNonInteractive } from "./non-interactive.js";
 

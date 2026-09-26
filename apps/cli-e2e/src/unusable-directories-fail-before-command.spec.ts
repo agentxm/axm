@@ -3,7 +3,7 @@ import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeDirectoryFixture, unattendedProjectSetup } from "./test-support/directory-harness.js";
-import { snapshotWorkspaceContent } from "./test-support/workspace-fixtures.js";
+import { snapshotTree } from "@agentxm/test-support";
 
 export const specification = defineSpecification({
   requirement: "cli/unusable-directories-fail-before-command",
@@ -35,12 +35,12 @@ describe("Unusable directories fail before the command runs", () => {
           fs.mkdirSync(target);
           fs.chmodSync(target, 0o600);
         }
-        const before = snapshotWorkspaceContent(fixture.invoking);
+        const before = snapshotTree(fixture.invoking);
         const result = await fixture.run(["-C", target, ...unattendedProjectSetup]);
         expect(result.exitCode, result.stdout + result.stderr).toBe(2);
         const document: unknown = JSON.parse(result.stdout);
         expect(document).toMatchObject({ ok: false, code: "usage" });
-        expect(snapshotWorkspaceContent(fixture.invoking)).toEqual(before);
+        expect(snapshotTree(fixture.invoking)).toEqual(before);
         expect(fs.existsSync(path.join(target, "axm.json"))).toBe(false);
         if (kind === "missing") expect(fs.existsSync(target)).toBe(false);
         if (kind === "file") expect(fs.readFileSync(target, "utf8")).toBe("file");

@@ -200,7 +200,6 @@ export {
   instructionProjectionRemovalEffects,
   observeInstructionProjection,
   probeSymlinkSupport,
-  reconcileInstructionTargets,
   removeInstructionsGitignore,
   removeManagedInstructionTargets,
   resolveInstructionMechanism,
@@ -232,14 +231,18 @@ export {
 // other's feature.
 export {
   activeInstructionsConfig,
+  applyInstructionSurfacePlans,
   disableInstructionManagement,
   instructionReconciliationReadiness,
+  instructionReadinessDetail,
   instructionStateIsCurrent,
   observeInstructions,
-  reconcileInstructionTransition,
+  reconcileInstructions,
+  reconcileInstructionAliases,
   removeInstructionTargetsFor,
   type DisabledInstructionManagement,
   type InstructionReadinessFailure,
+  type InstructionsReconciliation,
 } from "./instructions/reconciliation.js";
 
 // Knowledge discovery region and instruction entry

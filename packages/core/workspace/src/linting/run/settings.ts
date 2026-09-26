@@ -11,7 +11,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { reconcileInstructionTargets, resolveInstructionsConfig } from "../../projection/index.js";
+import { reconcileInstructions, resolveInstructionsConfig } from "../../projection/index.js";
 import type { LintConfig } from "@agentxm/extension-content/lint";
 import { composePath } from "@agentxm/extension-content/lint";
 import type { Settings } from "../../desired-state/index.js";
@@ -120,7 +120,7 @@ export const applyDeterminedRepairs = (args: {
     if (Option.isNone(args.settings)) return none;
     const instructionFiles = args.settings.value.instructionFiles;
     if (instructionFiles === undefined || instructionFiles === false) return none;
-    yield* reconcileInstructionTargets({
+    yield* reconcileInstructions({
       workspaceRoot: args.workspaceRoot,
       scope: args.scope,
       configuredAgents: args.settings.value.agents ?? [],

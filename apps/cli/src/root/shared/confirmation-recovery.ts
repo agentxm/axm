@@ -24,9 +24,13 @@ import {
 } from "@agentxm/workspace/transitions/planning";
 import type { PlanPolicyId } from "@agentxm/workspace/transitions/planning";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
+import {
+  installableExtensionTypes,
+  isInstallableExtensionType,
+} from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { WorkspaceLocation } from "@agentxm/workspace/desired-state";
 import { extensionFromStepKey } from "@agentxm/workspace/reconciliation";
+import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
 
 export const makeConfirmationRecovery = (
   command: ReadonlyArray<string>,
@@ -147,22 +151,13 @@ const typedUnit = (unit: ResolvedUnit<unknown>) => extensionFromStepKey(unit.id)
 
 const INSTALL_SELECTION_FLAGS = new Set([
   "--all",
-  "--skill",
-  "--mcp",
-  "--subagent",
-  "--rule",
-  "--hook",
-  "--knowledge",
-  "--pack",
+  ...installableExtensionTypes.map((type) => `--${EXTENSION_TYPE_PRESENTATION[type].selectorFlag}`),
 ]);
 
 const isInstallSelection = (argument: ConfirmationRecoveryArgument): boolean =>
   argument._tag !== "Positional" &&
   INSTALL_SELECTION_FLAGS.has(argument.flag) &&
   (argument._tag === "Option" || argument.enabled);
-
-const installSelectorFlag = (type: ExtensionType): string =>
-  `--${type === "mcp-server" ? "mcp" : type}`;
 
 /**
  * An install replayed for the units that did not settle. An invocation that
@@ -179,7 +174,7 @@ export const narrowInstallSelection = (
   if (
     unsettled.length === 0 ||
     !recovery.arguments.some(isInstallSelection) ||
-    !units.every((unit) => unit !== undefined)
+    !units.every((unit) => unit !== undefined && isInstallableExtensionType(unit.type))
   ) {
     return recovery;
   }
@@ -187,8 +182,15 @@ export const narrowInstallSelection = (
     ...recovery,
     arguments: [
       ...recovery.arguments.filter((argument) => !isInstallSelection(argument)),
-      ...units.map((unit) =>
-        recoveryOption(installSelectorFlag(unit.type), publicRecoveryValue(unit.name)),
+      ...units.flatMap((unit) =>
+        unit !== undefined && isInstallableExtensionType(unit.type)
+          ? [
+              recoveryOption(
+                `--${EXTENSION_TYPE_PRESENTATION[unit.type].selectorFlag}`,
+                publicRecoveryValue(unit.name),
+              ),
+            ]
+          : [],
       ),
     ],
   };

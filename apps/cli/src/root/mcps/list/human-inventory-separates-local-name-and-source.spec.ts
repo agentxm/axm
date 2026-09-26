@@ -6,9 +6,9 @@ import { afterEach } from "vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { makeSpecWorkspace } from "../../../test-support/install-harness.js";
-import { makeSpecRegistry } from "../../../test-support/registry-fixture.js";
+import { makeFileRegistry } from "@agentxm/registry-client/testing";
 import { handleInstall } from "../../install/handler.js";
-import { handleListMcpServers } from "../list.js";
+import { handleList } from "../list.js";
 
 export const specification = defineSpecification({
   requirement: "cli/mcps/list/human-inventory-separates-local-name-and-source",
@@ -33,7 +33,7 @@ describe("List locally named MCP connections for a person", () => {
 
   const setup = () =>
     Effect.gen(function* () {
-      const registry = makeSpecRegistry();
+      const registry = makeFileRegistry();
       registry.writeMcp("context", [{ version: "1.0.0" }]);
       const workspace = makeSpecWorkspace({ settings: { sources: [registry.source] } });
       cleanups.push(workspace.cleanup, registry.cleanup);
@@ -58,7 +58,7 @@ describe("List locally named MCP connections for a person", () => {
     Effect.gen(function* () {
       const workspace = yield* setup();
 
-      yield* handleListMcpServers().pipe(Effect.provide(workspace.layer));
+      yield* handleList().pipe(Effect.provide(workspace.layer));
 
       expect(workspace.rendererState.tables[0]?.items).toEqual(
         expect.arrayContaining([

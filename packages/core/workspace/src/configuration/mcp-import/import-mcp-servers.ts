@@ -16,6 +16,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import { NativeWriteAuthority } from "../../projection/agent-adapters/index.js";
 
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
@@ -38,6 +39,7 @@ import {
   SettingsWriter,
   WorkspaceLocation,
   WorkspaceRecords,
+  settingsDisplayPath,
 } from "../../desired-state/index.js";
 import {
   FootprintRecorder,
@@ -55,9 +57,6 @@ import { preflightMcpImports, type McpImportPreflight } from "./preflight.js";
 
 const plural = (count: number, singular: string): string =>
   `${String(count)} ${singular}${count === 1 ? "" : "s"}`;
-
-const settingsDisplayPath = (scope: WorkspaceScope): string =>
-  scope === "project" ? "axm.json" : ".axm/workspace/axm.json";
 
 export interface ImportMcpServersCandidate {
   readonly _tag: "ImportMcpServers";
@@ -79,11 +78,9 @@ export const prepareImportMcpServers = (): Effect.Effect<
   Effect.gen(function* () {
     const settings = yield* SettingsReader;
     const location = yield* WorkspaceLocation;
-    const fileSystem = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
     const now = yield* DateTime.now;
     const configured = yield* settings.entries("mcp-server");
-    const discovery = yield* collectMcpImportSources(location, settings, fileSystem, path);
+    const discovery = yield* collectMcpImportSources(location, settings);
     const normalized = preflightMcpImports({
       configuredNames: new Set(Object.keys(configured)),
       now,
@@ -128,6 +125,7 @@ const importArtifact = (
 export type ImportMcpServersRequirements =
   | ConfiguredAgentOutcomesProvider
   | FileSystem.FileSystem
+  | NativeWriteAuthority
   | FootprintRecorder
   | OperationJournal
   | Path.Path
@@ -155,9 +153,6 @@ export const previewOrApplyImportMcpServers = (
 > =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
-    const settings = yield* SettingsReader;
-    const settingsWriter = yield* SettingsWriter;
-    const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const artifact = importArtifact(candidate, location.baseDir, path);
     const conflictSteps = candidate.preflight.conflicts.map(
@@ -176,12 +171,7 @@ export const previewOrApplyImportMcpServers = (
               readiness: "ready",
               message: `Candidates: ${candidate.preflight.candidates.map((entry) => entry.name).join(", ")}`,
               artifact,
-              run: applyMcpImport(
-                candidate.preflight.candidates,
-                settings,
-                settingsWriter,
-                fileSystem,
-              ).pipe(
+              run: applyMcpImport(candidate.preflight.candidates).pipe(
                 Effect.mapError((failure) =>
                   failure instanceof WorkspaceConfigurationFailed
                     ? configurationFailedToStepFailure(failure)

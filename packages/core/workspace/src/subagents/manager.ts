@@ -1,6 +1,3 @@
-import { LifecyclePostconditionViolated } from "../transitions/planning/index.js";
-import { usableAcceptedCanonical } from "../desired-state/index.js";
-
 /**
  * Subagent extension manager service.
  *
@@ -12,10 +9,9 @@ import { usableAcceptedCanonical } from "../desired-state/index.js";
  */
 
 import * as FileSystem from "effect/FileSystem";
-import { stripFileProtocol } from "@agentxm/registry-client";
+import { fromFileLocation } from "@agentxm/host-primitives";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
-import { extensionRefLifecycleWarnings } from "../lifecycle/warnings.js";
 import * as Ref from "effect/Ref";
 import {
   LockfileReader,
@@ -27,15 +23,11 @@ import {
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import type {
-  SubagentExtensionRef,
-  RegistrySubagentRef,
-} from "@agentxm/extension-model/unstable/extensions/refs/subagent";
+import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import type { ManagerRequirements } from "../materialization/manager-contract.js";
 import type { SubagentMaterializationFacts } from "../materialization/managers.js";
 import type { ExtensionManagerFailure } from "../materialization/errors.js";
 import type { SubagentPathSource } from "../desired-state/index.js";
-import type { ExtensionTarget } from "../desired-state/index.js";
 import {
   computeSubagentPathsForLayout,
   subagentContentFilename,
@@ -70,11 +62,13 @@ import { computeMaterializedTreeIntegrity } from "../desired-state/index.js";
 import { parseSubagentMd } from "@agentxm/extension-content";
 import { configuredSubagentsToDiskRefs } from "../acquisition/materializable-from-disk.js";
 import {
-  reusableCanonicalTree,
-  materializeExternalPackageWithTreeIntegrity,
-} from "../acquisition/canonical-directory.js";
-import { materializeRegistryPackageWithTreeIntegrity } from "../materialization/registry-materialization.js";
-import { acquiredDirectoryForRef } from "../acquisition/acquired-content.js";
+  acquireCanonicalForRef,
+  verifyWorkspaceRefLocation,
+} from "../materialization/acquire-canonical.js";
+import {
+  makeBaseManagerMembers,
+  listMaterializableFromDisk,
+} from "../materialization/manager-kit.js";
 import { insertManagedFileBanner, type ManagedFileProvenance } from "../projection/index.js";
 import { SubagentManager, type SubagentManagerService } from "../materialization/managers.js";
 import { computePackageContentHash } from "../desired-state/index.js";
@@ -83,11 +77,8 @@ import {
   MANIFEST_FILENAME,
   SubagentManifestSchema,
 } from "@agentxm/extension-model/unstable/subagents/manifest-schema";
-import { configuredRowsByName } from "../desired-state/index.js";
-import { isObservedInstalled } from "../desired-state/index.js";
 import {
   acceptedCanonicalObservation,
-  prepareAcceptedCanonicalTransition,
   removableAcceptedCanonicalPath,
 } from "../desired-state/index.js";
 import { protectWorkspacePath } from "../transitions/settlement/index.js";
@@ -305,54 +296,6 @@ export const SubagentManagerLive = Layer.effect(
         return { rawContent, parsed };
       });
 
-    // Copy source to canonical location
-    const copyToCanonical = (sourcePath: string, targetPath: string) =>
-      materializeExternalPackageWithTreeIntegrity({
-        baseDir,
-        canonicalPath: targetPath,
-        sourceLocation: sourcePath,
-        copyFailureCode: "internal",
-        copyFailureDetail: (target) => `Failed to copy subagent files to ${target}`,
-      });
-
-    // Materialize from registry
-    const materializeFromRegistry = (
-      ref: RegistrySubagentRef,
-      canonicalPath: string,
-      force: boolean,
-    ) =>
-      Effect.gen(function* () {
-        const reusable = yield* reusableCanonicalTree({
-          canonicalPath,
-          requested: {
-            refType: "registry",
-            owner: ref.owner,
-            name: ref.name,
-            version: ref.version,
-            publisherBindingId: ref.publisherBindingId,
-          },
-          accepted: yield* lockfile.entry("subagent", ref.subagent.name),
-          force,
-        });
-        if (Option.isSome(reusable)) return reusable.value;
-        const materialized = yield* materializeRegistryPackageWithTreeIntegrity({
-          baseDir,
-          destinationPath: canonicalPath,
-          sourceLocation: ref.source.location,
-          owner: ref.owner,
-          type: "subagent",
-          name: ref.name,
-          version: ref.version,
-          integrity: ref.integrity,
-          publisherBindingId: ref.publisherBindingId,
-          lifecycleWarnings: extensionRefLifecycleWarnings(ref),
-          messages: {
-            integrityMismatchDetail: `Integrity mismatch for ${ref.name}@${ref.version}`,
-          },
-        });
-        return materialized.treeIntegrity;
-      });
-
     // Materialize canonical source for any ref type
     const materializeCanonical = (
       ref: SubagentExtensionRef,
@@ -362,51 +305,47 @@ export const SubagentManagerLive = Layer.effect(
       force = false,
     ) =>
       Effect.gen(function* () {
-        switch (ref.refType) {
-          case "git-hosted":
-          case "local": {
-            const packageRoot = yield* acquiredDirectoryForRef(
-              ref,
-              stripFileProtocol(ref.location),
-            );
-            const sourcePath =
-              currentLayout().scope === "project" ? packageRoot : path.join(packageRoot, "src");
-            const targetPath =
-              currentLayout().scope === "project" ? canonicalPath : subagentSrcPath;
-            const isSelfCopy = path.resolve(sourcePath) === path.resolve(targetPath);
-            if (isSelfCopy) return yield* computeMaterializedTreeIntegrity(targetPath);
-            const materialized = yield* copyToCanonical(sourcePath, targetPath);
-            return materialized.treeIntegrity;
+        if (ref.refType === "workspace") {
+          yield* verifyWorkspaceRefLocation({
+            ref,
+            scope: location.scope,
+            canonicalPath,
+            invalid: (detail) => new SubagentDefinitionInvalid({ detail }),
+          });
+          const exists = yield* fs.exists(subagentSrcPath).pipe(
+            Effect.mapError(
+              (cause) =>
+                new SubagentIoFailed({
+                  detail: `Failed to inspect workspace subagent source: ${subagentSrcPath}`,
+                  cause,
+                }),
+            ),
+          );
+          if (!exists) {
+            return yield* new SubagentDefinitionInvalid({
+              detail: `Workspace subagent source is missing: ${subagentSrcPath}`,
+            });
           }
-          case "registry": {
-            return yield* materializeFromRegistry(ref, canonicalPath, force);
-          }
-          case "workspace": {
-            if (
-              ref.scope !== location.scope ||
-              path.resolve(ref.location) !== path.resolve(canonicalPath)
-            ) {
-              return yield* new SubagentDefinitionInvalid({
-                detail: `Invalid workspace subagent source location: ${ref.location}`,
-              });
-            }
-            const exists = yield* fs.exists(subagentSrcPath).pipe(
-              Effect.mapError(
-                (cause) =>
-                  new SubagentIoFailed({
-                    detail: `Failed to inspect workspace subagent source: ${subagentSrcPath}`,
-                    cause,
-                  }),
-              ),
-            );
-            if (!exists) {
-              return yield* new SubagentDefinitionInvalid({
-                detail: `Workspace subagent source is missing: ${subagentSrcPath}`,
-              });
-            }
-            return yield* computeMaterializedTreeIntegrity(canonicalPath);
-          }
+          return yield* computeMaterializedTreeIntegrity(canonicalPath);
         }
+        const materialized = yield* acquireCanonicalForRef({
+          ref,
+          type: "subagent",
+          baseDir,
+          canonicalPath,
+          accepted: yield* lockfile.entry("subagent", ref.subagent.name),
+          force,
+          copyFailure: {
+            code: "internal",
+            detail: (target) => `Failed to copy subagent files to ${target}`,
+          },
+          external: {
+            sourcePath: (packageRoot) =>
+              currentLayout().scope === "project" ? packageRoot : path.join(packageRoot, "src"),
+            targetPath: currentLayout().scope === "project" ? canonicalPath : subagentSrcPath,
+          },
+        });
+        return materialized.treeIntegrity;
       });
 
     const materializeInstall: SubagentManagerService["materializeInstall"] = Effect.fn(
@@ -855,14 +794,14 @@ export const SubagentManagerLive = Layer.effect(
 
     return {
       projectionObservation,
-      isInstalled: Effect.fn("SubagentManager.isInstalled")(function* ({
-        target,
-      }: {
-        readonly target: ExtensionTarget;
-      }) {
-        return yield* isObservedInstalled(records, "subagent", target.name);
+      ...makeBaseManagerMembers({
+        type: "subagent",
+        spanPrefix: "SubagentManager",
+        records,
+        settings,
+        refName: (ref) => ref.subagent.name,
+        materializeInstall,
       }),
-
       materializeInstall,
       acquireCanonical: ({ ref, force }) =>
         Effect.gen(function* () {
@@ -884,41 +823,13 @@ export const SubagentManagerLive = Layer.effect(
             observation: { agents: [], targets: [] },
           };
         }),
-      materializeRetained: ({ target }) =>
-        Effect.gen(function* () {
-          const canonical = yield* usableAcceptedCanonical({
-            type: "subagent",
-            name: target.name,
-          });
-          if (Option.isNone(canonical) || canonical.value.ref.type !== "subagent") {
-            return yield* new LifecyclePostconditionViolated({
-              postcondition: "materialize-observable",
-              targetType: "subagent",
-              targetName: target.name,
-            });
-          }
-          return yield* materializeInstall({ ref: canonical.value.ref });
-        }),
-      prepareSourceTransition: ({ ref }) =>
-        prepareAcceptedCanonicalTransition({
+      listMaterializable: () =>
+        listMaterializableFromDisk({
           type: "subagent",
-          name: ref.subagent.name,
-          ref,
+          records,
+          toDiskRefs: configuredSubagentsToDiskRefs,
+          env: { fs, path, baseDir, scope: location.scope, layout: currentLayout() },
         }),
-      getConfiguredSource: Effect.fn("SubagentManager.getConfiguredSource")(function* ({ target }) {
-        const configured = yield* settings.entries("subagent");
-        return Option.fromUndefinedOr(configured[target.name]?.source);
-      }),
-      listMaterializable: Effect.fn("SubagentManager.listMaterializable")(function* () {
-        const configured = yield* records
-          .rows("subagent")
-
-          .pipe(Effect.map(configuredRowsByName));
-        return yield* configuredSubagentsToDiskRefs(
-          { fs, path, baseDir, scope: location.scope, layout: currentLayout() },
-          configured,
-        );
-      }),
       materializeUninstall,
       materializeDeactivate,
 
@@ -934,7 +845,7 @@ export const SubagentManagerLive = Layer.effect(
             ? makeWorkspaceRelativeSourcePath(
                 path,
                 baseDir,
-                ref.sourcePath ?? stripFileProtocol(ref.location),
+                ref.sourcePath ?? fromFileLocation(ref.location),
               )
             : Option.none();
         if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {

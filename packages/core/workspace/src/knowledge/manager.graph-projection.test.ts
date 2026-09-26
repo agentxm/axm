@@ -13,6 +13,7 @@ import * as nodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
 import * as Effect from "effect/Effect";
+import { treeIntegrityOfSync } from "../desired-state/test-support/tree-integrity-sync.js";
 import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "../transitions/settlement/live.js";
 import * as Option from "effect/Option";
@@ -30,13 +31,12 @@ import {
 } from "../desired-state/index.js";
 import { WorkspaceReadTest, MockWorkspaceTransactionScope } from "../desired-state/testing.js";
 import { exactVersion } from "../desired-state/test-helpers.js";
-import { CodingAgentRepositoryLive, NativeWriteAuthorityLive } from "../projection/live.js";
 import {
-  WorkspaceCatalogTestLive,
-  computeMaterializedTreeIntegritySync,
-  extensionName,
-  handle,
-} from "../materialization/test-helpers.js";
+  CodingAgentRepositoryLive,
+  NativeWriteAuthorityLive,
+  WorkspaceCatalogLive,
+} from "../projection/live.js";
+import { extensionName, handle } from "../materialization/test-helpers.js";
 import type { KnowledgeMap } from "../desired-state/index.js";
 import { KnowledgeManagerLive } from "./manager.js";
 
@@ -80,7 +80,7 @@ const localLock = (baseDir: string, name: string) => ({
     integrity: "sha512-stub",
     publisherBindingId: "hbnd_test",
   },
-  treeIntegrity: computeMaterializedTreeIntegritySync(
+  treeIntegrity: treeIntegrityOfSync(
     nodePath.join(baseDir, "agent_extensions", "registry", OWNER, "knowledge", name),
   ),
 });
@@ -126,7 +126,7 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
   }) => {
     const axmDir = nodePath.join(baseDir, ".axm");
     return KnowledgeManagerLive.pipe(
-      Layer.provideMerge(WorkspaceCatalogTestLive),
+      Layer.provideMerge(WorkspaceCatalogLive),
       Layer.provideMerge(CodingAgentRepositoryLive),
       Layer.provideMerge(
         Layer.mergeAll(

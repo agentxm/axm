@@ -7,9 +7,11 @@ import type { DetectedPackage } from "./types.js";
 
 interface DetectedPackageInput {
   readonly type: PackageType;
-  readonly namespace?: string;
+  readonly namespace?: string | undefined;
   readonly name: string;
-  readonly version?: string;
+  readonly version?: string | undefined;
+  readonly qualifiers?: Readonly<Record<string, string>> | undefined;
+  readonly subpath?: string | undefined;
   readonly source: string;
 }
 
@@ -25,8 +27,8 @@ export const makeDetectedPackage = (
       input.namespace === undefined || input.namespace === "" ? null : input.namespace,
       input.name,
       input.version ?? null,
-      null,
-      null,
+      input.qualifiers ?? null,
+      input.subpath ?? null,
     );
     return Option.some({
       purl: decodePurl(purl.toString()),

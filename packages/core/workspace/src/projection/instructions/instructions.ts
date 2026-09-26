@@ -12,16 +12,16 @@ import { makeScannerFileSystem, type InstructionsConfig } from "../../desired-st
 import { createSymlink } from "../../desired-state/index.js";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 import { DISCOVERY_SKIPPED_DIRECTORIES } from "@agentxm/extension-model/unstable/discovery-walk";
-import { AXM_DIR_NAME } from "../../desired-state/index.js";
+import { AXM_DIR_NAME } from "@agentxm/host-primitives";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { protectWorkspacePath } from "../../transitions/settlement/index.js";
 import { recordFootprint } from "../../transitions/settlement/index.js";
 import { projectionGeneration } from "../generation.js";
 import { reconcilePatternList } from "../agent-adapters/index.js";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import type {
   AgentDescriptor,
-  AgentId,
+  MaterializationTargetId,
   AgentInstructionsDescriptor,
 } from "@agentxm/extension-model/unstable/agents/types";
 
@@ -78,7 +78,7 @@ export type ObservedInstructionForm =
 
 export interface InstructionStatusItem {
   readonly root: string;
-  readonly agentId: AgentId;
+  readonly agentId: MaterializationTargetId;
   readonly agentName: string;
   readonly sourceFile: string;
   readonly targetFile: string;
@@ -299,7 +299,7 @@ const isSymlink = (entry: string) =>
   });
 
 interface OwnFileConvention {
-  readonly agentId: AgentId;
+  readonly agentId: MaterializationTargetId;
   readonly agentName: string;
   readonly relativeTarget: string;
 }
@@ -310,17 +310,18 @@ interface OwnFileConvention {
  * alias whose agent was removed from configuration without remembering
  * anything. A convention the registry no longer carries is not covered.
  */
-const OWN_FILE_CONVENTIONS: ReadonlyArray<OwnFileConvention> = Object.values(AGENTS).flatMap(
-  (descriptor) =>
-    descriptor.instructions?.kind === "own-file"
-      ? [
-          {
-            agentId: descriptor.id,
-            agentName: descriptor.name,
-            relativeTarget: descriptor.instructions.file,
-          },
-        ]
-      : [],
+const OWN_FILE_CONVENTIONS: ReadonlyArray<OwnFileConvention> = Object.values(
+  AGENT_DESCRIPTORS,
+).flatMap((descriptor) =>
+  descriptor.instructions?.kind === "own-file"
+    ? [
+        {
+          agentId: descriptor.id,
+          agentName: descriptor.name,
+          relativeTarget: descriptor.instructions.file,
+        },
+      ]
+    : [],
 );
 
 /**
@@ -558,7 +559,7 @@ const isSamePath = (path: Path.Path, left: string, right: string): boolean =>
   path.resolve(left) === path.resolve(right);
 
 const findAgentDescriptor = (agentId: string): AgentDescriptor | undefined =>
-  Object.values(AGENTS).find((descriptor) => descriptor.id === agentId);
+  Object.values(AGENT_DESCRIPTORS).find((descriptor) => descriptor.id === agentId);
 
 export type PlannedInstructionItem =
   | {
@@ -573,14 +574,14 @@ export type PlannedInstructionItem =
       readonly action: "skip";
       readonly reason: InstructionSkipReason;
       readonly root: string;
-      readonly agentId: AgentId;
+      readonly agentId: MaterializationTargetId;
       readonly agentName: string;
       readonly sourcePath: string;
     }
   | {
       readonly action: "native" | "write" | "adapter";
       readonly root: string;
-      readonly agentId: AgentId;
+      readonly agentId: MaterializationTargetId;
       readonly agentName: string;
       readonly sourcePath: string;
       readonly targetPath: string;
@@ -918,9 +919,6 @@ const managedGitignoreRegionState = (content: string): ManagedGitignoreRegionSta
   return reconciliation.value.state.state;
 };
 
-const hasManagedRegion = (content: string): boolean =>
-  managedGitignoreRegionState(content) === "complete";
-
 const reconcileGitignorePatterns = (content: string, patterns: ReadonlyArray<string>) =>
   Option.getOrThrowWith(
     reconcilePatternList({
@@ -939,6 +937,24 @@ const instructionGitignorePath = (workspaceRoot: string) =>
     return path.join(workspaceRoot, ".gitignore");
   });
 
+const unsafeGitignoreRegionFailure = (
+  state: "malformed" | "unsupported-version",
+  filePath: string,
+): InstructionMaintenanceFailed =>
+  new InstructionMaintenanceFailed({
+    category: "conflict",
+    detail:
+      state === "unsupported-version"
+        ? `Instruction aliases use a newer AXM ownership marker; upgrade AXM before modifying ${filePath}`
+        : `Instruction reconciliation found malformed AXM ownership markers: ${filePath}`,
+    suggestions: [
+      {
+        description: "Inspect instruction-file ownership and drift",
+        cmd: "axm instructions",
+      },
+    ],
+  });
+
 export const assertInstructionsGitignoreSafe = (workspaceRoot: string) =>
   Effect.gen(function* () {
     const filePath = yield* instructionGitignorePath(workspaceRoot);
@@ -947,19 +963,7 @@ export const assertInstructionsGitignoreSafe = (workspaceRoot: string) =>
     if (state !== "malformed" && state !== "unsupported-version") {
       return;
     }
-    return yield* new InstructionMaintenanceFailed({
-      category: "conflict",
-      detail:
-        state === "unsupported-version"
-          ? `Instruction aliases use a newer AXM ownership marker; upgrade AXM before modifying ${filePath}`
-          : `Instruction reconciliation found malformed AXM ownership markers: ${filePath}`,
-      suggestions: [
-        {
-          description: "Inspect instruction-file ownership and drift",
-          cmd: "axm instructions",
-        },
-      ],
-    });
+    return yield* unsafeGitignoreRegionFailure(state, filePath);
   });
 
 const workspaceRelativeGitPath = (args: {
@@ -1098,57 +1102,96 @@ const uniqueEffects = (
   return [...byPath.values()].sort((left, right) => left.path.localeCompare(right.path));
 };
 
-/** Exact durable paths a reconciliation from this observation will touch. */
-export const instructionProjectionEffects = (
+export type PlannedInstructionChange =
+  | {
+      readonly kind: "target";
+      readonly item: InstructionStatusItem;
+      readonly change: "created" | "updated";
+    }
+  | { readonly kind: "stale"; readonly item: InstructionStatusItem; readonly change: "removed" }
+  | {
+      readonly kind: "owned-alias";
+      readonly item: InstructionStatusItem;
+      readonly change: "removed";
+    }
+  | { readonly kind: "gitignore"; readonly path: string; readonly change: "created" | "updated" };
+
+/** One decision for preview and apply; see docs/architecture/workspace/instruction-files.md:
+ * a dry run names exactly the targets a real run would write and remove. */
+export const plannedInstructionChanges = (
   snapshot: InstructionProjectionSnapshot,
-): ReadonlyArray<InstructionProjectionEffect> =>
-  uniqueEffects([
-    ...snapshot.status.items.flatMap((item): ReadonlyArray<InstructionProjectionEffect> => {
+  mode: "reconcile" | "remove",
+): ReadonlyArray<PlannedInstructionChange> => {
+  const stale: ReadonlyArray<PlannedInstructionChange> = snapshot.status.staleTargets.map(
+    (item) => ({
+      kind: "stale",
+      item,
+      change: "removed",
+    }),
+  );
+  if (mode === "remove") {
+    return [
+      ...snapshot.status.items.flatMap((item): ReadonlyArray<PlannedInstructionChange> =>
+        isProjectedTarget(item) &&
+        (item.ownership === "owned-current" || item.ownership === "owned-drift") &&
+        item.sourceFile !== item.targetFile
+          ? [{ kind: "owned-alias", item, change: "removed" }]
+          : [],
+      ),
+      ...stale,
+      ...(snapshot.gitignore.managed
+        ? [
+            {
+              kind: "gitignore" as const,
+              path: snapshot.gitignore.file,
+              change: "updated" as const,
+            },
+          ]
+        : []),
+    ];
+  }
+  return [
+    ...stale,
+    ...snapshot.status.items.flatMap((item): ReadonlyArray<PlannedInstructionChange> => {
       if (!isProjectedTarget(item) || item.health === "missing-source") return [];
       if (item.ownership === "unowned") return [];
       if (item.ownership === "owned-current" && item.observedForm !== "broken-link") return [];
       return [
         {
-          path: item.targetFile,
+          kind: "target",
+          item,
           change: item.observedForm === "none" ? "created" : "updated",
         },
       ];
     }),
-    ...snapshot.status.staleTargets.map((item) => ({
-      path: item.targetFile,
-      change: "removed" as const,
-    })),
     ...(snapshot.gitignore.current
       ? []
       : [
           {
+            kind: "gitignore" as const,
             path: snapshot.gitignore.file,
             change: snapshot.gitignore.present ? ("updated" as const) : ("created" as const),
           },
         ]),
-  ]);
+  ];
+};
+
+const instructionChangeEffect = (change: PlannedInstructionChange): InstructionProjectionEffect =>
+  change.kind === "gitignore"
+    ? { path: change.path, change: change.change }
+    : { path: change.item.targetFile, change: change.change };
+
+/** Exact durable paths a reconciliation from this observation will touch. */
+export const instructionProjectionEffects = (
+  snapshot: InstructionProjectionSnapshot,
+): ReadonlyArray<InstructionProjectionEffect> =>
+  uniqueEffects(plannedInstructionChanges(snapshot, "reconcile").map(instructionChangeEffect));
 
 /** Exact durable paths disabling this observed projection will touch. */
 export const instructionProjectionRemovalEffects = (
   snapshot: InstructionProjectionSnapshot,
 ): ReadonlyArray<InstructionProjectionEffect> =>
-  uniqueEffects([
-    ...snapshot.status.items.flatMap((item): ReadonlyArray<InstructionProjectionEffect> =>
-      isProjectedTarget(item) &&
-      item.ownership !== "absent" &&
-      item.ownership !== "unowned" &&
-      item.sourceFile !== item.targetFile
-        ? [{ path: item.targetFile, change: "removed" }]
-        : [],
-    ),
-    ...snapshot.status.staleTargets.map((item) => ({
-      path: item.targetFile,
-      change: "removed" as const,
-    })),
-    ...(snapshot.gitignore.managed
-      ? [{ path: snapshot.gitignore.file, change: "updated" as const }]
-      : []),
-  ]);
+  uniqueEffects(plannedInstructionChanges(snapshot, "remove").map(instructionChangeEffect));
 
 export interface ObserveInstructionProjectionArgs {
   readonly workspaceRoot: string;
@@ -1240,6 +1283,23 @@ const unownedInstructionTargets = (
 ): ReadonlyArray<InstructionStatusItem> =>
   status.items.filter((item) => isProjectedTarget(item) && item.ownership === "unowned");
 
+const unownedTargetsFailure = (
+  blockers: ReadonlyArray<InstructionStatusItem>,
+  action: "overwrite" | "remove",
+): InstructionMaintenanceFailed =>
+  new InstructionMaintenanceFailed({
+    category: "conflict",
+    detail: `Instruction ${action === "overwrite" ? "reconciliation would overwrite" : "cleanup would remove"} files with unknown ownership: ${blockers
+      .map((item) => item.targetFile)
+      .join(", ")}`,
+    suggestions: [
+      {
+        description: "Inspect instruction-file ownership and drift",
+        cmd: "axm instructions",
+      },
+    ],
+  });
+
 /**
  * Whether every projected target with a canonical source is current, no owned
  * residue remains, and the managed `.gitignore` region matches. Rows whose
@@ -1265,18 +1325,7 @@ export const assertInstructionTargetsSafe = (
   Effect.gen(function* () {
     const blockers = unownedInstructionTargets(status);
     if (blockers.length === 0) return;
-    return yield* new InstructionMaintenanceFailed({
-      category: "conflict",
-      detail: `Instruction reconciliation would overwrite files with unknown ownership: ${blockers
-        .map((item) => item.targetFile)
-        .join(", ")}`,
-      suggestions: [
-        {
-          description: "Inspect instruction-file ownership and drift",
-          cmd: "axm instructions",
-        },
-      ],
-    });
+    return yield* unownedTargetsFailure(blockers, "overwrite");
   });
 
 // -----------------------------------------------------------------------------
@@ -1352,58 +1401,28 @@ export const removeManagedInstructionTargets = (args: {
     const { status } = args.snapshot;
     const blockers = unownedInstructionTargets(status);
     if (blockers.length > 0) {
-      return yield* new InstructionMaintenanceFailed({
-        category: "conflict",
-        detail: `Instruction cleanup would remove files with unknown ownership: ${blockers
-          .map((item) => item.targetFile)
-          .join(", ")}`,
-        suggestions: [
-          {
-            description: "Inspect instruction-file ownership and drift",
-            cmd: "axm instructions",
-          },
-        ],
-      });
+      return yield* unownedTargetsFailure(blockers, "remove");
     }
-    const removable = [
-      ...status.items.filter(
-        (item) =>
-          isProjectedTarget(item) &&
-          (item.ownership === "owned-current" || item.ownership === "owned-drift") &&
-          item.sourceFile !== item.targetFile,
-      ),
-      ...status.staleTargets,
-    ].map((item) => item.targetFile);
+    const removable = plannedInstructionChanges(args.snapshot, "remove").flatMap((change) =>
+      change.kind === "owned-alias" || change.kind === "stale" ? [change.item.targetFile] : [],
+    );
     if (!args.dryRun) {
       yield* Effect.forEach(removable, removeTargetFile, { concurrency: 1, discard: true });
     }
     return removable;
   });
 
-/**
- * Bring one projected target to its desired form. The snapshot row decides:
- * `unowned` is never touched; an `owned-current` target is accepted in
- * whichever form it has — a symlink that resolves to the source (writing
- * through it would overwrite the source) or a current copy — so a checkout
- * whose symlink support changes between runs never churns and status and sync
- * agree on what "current" means; everything else is (re)written.
- */
-const syncOneTarget = (args: {
+/** Write one target already selected by plannedInstructionChanges. */
+const writeOneTarget = (args: {
   readonly item: InstructionStatusItem;
   readonly sourceContent: string;
   readonly sourceFileName: string;
-  readonly dryRun: boolean;
 }) =>
   Effect.gen(function* () {
     const { item } = args;
-    if (item.ownership === "unowned") return Option.none<string>();
-    if (item.ownership === "owned-current" && item.observedForm !== "broken-link") {
-      return Option.none<string>();
-    }
-    if (args.dryRun) return Option.some(item.targetFile);
     if (item.mechanism === "symlink") {
-      yield* createSymlink({ target: item.sourceFile, link: item.targetFile }).pipe();
-      return Option.some(item.targetFile);
+      yield* createSymlink({ target: item.sourceFile, link: item.targetFile });
+      return;
     }
     yield* writeFile(
       item.targetFile,
@@ -1413,13 +1432,11 @@ const syncOneTarget = (args: {
         content: args.sourceContent,
       }),
     );
-    return Option.some(item.targetFile);
   });
 
 const writeGitignoreRegion = (args: {
   readonly workspaceRoot: string;
   readonly patterns: ReadonlyArray<string>;
-  readonly dryRun: boolean;
 }) =>
   Effect.gen(function* () {
     const gitManaged = yield* isGitManaged(args.workspaceRoot);
@@ -1429,30 +1446,13 @@ const writeGitignoreRegion = (args: {
     const current = yield* readFileOption(filePath);
     const state = Option.isSome(current) ? managedGitignoreRegionState(current.value) : "absent";
     if (state === "malformed" || state === "unsupported-version") {
-      return yield* new InstructionMaintenanceFailed({
-        category: "conflict",
-        detail:
-          state === "unsupported-version"
-            ? `Instruction aliases use a newer AXM ownership marker; upgrade AXM before modifying ${filePath}`
-            : `Instruction reconciliation found malformed AXM ownership markers: ${filePath}`,
-        suggestions: [
-          {
-            description: "Inspect instruction-file ownership and drift",
-            cmd: "axm instructions",
-          },
-        ],
-      });
-    }
-    if (args.patterns.length === 0 && Option.isNone(current)) return Option.none<string>();
-    if (args.patterns.length === 0 && Option.isSome(current) && !hasManagedRegion(current.value)) {
-      return Option.none<string>();
+      return yield* unsafeGitignoreRegionFailure(state, filePath);
     }
     const next = reconcileGitignorePatterns(
       Option.getOrElse(current, () => ""),
       args.patterns,
     ).updated;
-    if (Option.isSome(current) && current.value === next) return Option.none<string>();
-    if (!args.dryRun) yield* writeFile(filePath, next);
+    yield* writeFile(filePath, next);
     return Option.some(filePath);
   });
 
@@ -1464,10 +1464,15 @@ export const removeInstructionsGitignore = (args: {
   InstructionMaintenanceFailure,
   FileSystem.FileSystem | Path.Path
 > =>
-  writeGitignoreRegion({
-    workspaceRoot: args.workspaceRoot,
-    patterns: [],
-    dryRun: args.dryRun,
+  Effect.gen(function* () {
+    if (!(yield* isGitManaged(args.workspaceRoot))) return Option.none<string>();
+    const filePath = yield* instructionGitignorePath(args.workspaceRoot);
+    const content = yield* readFileOption(filePath);
+    if (Option.isNone(content)) return Option.none<string>();
+    const state = managedGitignoreRegionState(content.value);
+    if (state === "absent") return Option.none<string>();
+    if (args.dryRun && state === "complete") return Option.some(filePath);
+    return yield* writeGitignoreRegion({ workspaceRoot: args.workspaceRoot, patterns: [] });
   });
 
 /**
@@ -1476,7 +1481,7 @@ export const removeInstructionsGitignore = (args: {
  * an ignore entry is never dropped while the file it covers remains, so a
  * removed alias is not exposed to Git between steps.
  */
-const applyInstructionProjection = (args: {
+export const applyInstructionProjection = (args: {
   readonly workspaceRoot: string;
   readonly config: ResolvedInstructionsConfig;
   readonly snapshot: InstructionProjectionSnapshot;
@@ -1487,48 +1492,52 @@ const applyInstructionProjection = (args: {
   FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
-    const path = yield* Path.Path;
     const { snapshot } = args;
-    const removed = snapshot.status.staleTargets.map((item) => item.targetFile);
-    if (!args.dryRun) {
-      yield* Effect.forEach(removed, removeTargetFile, { concurrency: 1, discard: true });
-    }
-    const writes = yield* Effect.forEach(
-      snapshot.status.items.filter(isProjectedTarget),
+    const changes = plannedInstructionChanges(snapshot, "reconcile");
+    const removed = changes.flatMap((change) =>
+      change.kind === "stale" ? [change.item.targetFile] : [],
+    );
+    const targets = changes.flatMap((change) => (change.kind === "target" ? [change.item] : []));
+    const gitignore = changes.find((change) => change.kind === "gitignore");
+    const written = [
+      ...targets.map((item) => item.targetFile),
+      ...(gitignore?.kind === "gitignore" ? [gitignore.path] : []),
+    ];
+    if (args.dryRun) return { written, removed };
+    yield* Effect.forEach(removed, removeTargetFile, { concurrency: 1, discard: true });
+    yield* Effect.forEach(
+      targets,
       (item) =>
         Effect.gen(function* () {
           const sourceContent = yield* readFileOption(item.sourceFile);
-          if (Option.isNone(sourceContent)) return Option.none<string>();
-          return yield* syncOneTarget({
+          if (Option.isNone(sourceContent)) {
+            return yield* new InstructionMaintenanceFailed({
+              category: "internal",
+              detail: `Instruction source disappeared before projection: ${item.sourceFile}`,
+            });
+          }
+          yield* writeOneTarget({
             item,
             sourceContent: sourceContent.value,
             sourceFileName: args.config.fileName,
-            dryRun: args.dryRun,
           });
         }),
-      { concurrency: 16 },
+      { concurrency: 16, discard: true },
     );
-    const patterns = desiredGitignorePatterns({
-      enabled: args.config.gitignoreAliases,
-      path,
-      workspaceRoot: args.workspaceRoot,
-      plan: snapshot.plan,
-    });
-    const gitignoreWrite = yield* writeGitignoreRegion({
-      workspaceRoot: args.workspaceRoot,
-      patterns,
-      dryRun: args.dryRun,
-    });
-    return {
-      written: [
-        ...writes.filter(Option.isSome).map((item) => item.value),
-        ...Option.match(gitignoreWrite, { onNone: () => [], onSome: (value) => [value] }),
-      ],
-      removed,
-    };
+    if (gitignore?.kind === "gitignore") {
+      const path = yield* Path.Path;
+      const patterns = desiredGitignorePatterns({
+        enabled: args.config.gitignoreAliases,
+        path,
+        workspaceRoot: args.workspaceRoot,
+        plan: snapshot.plan,
+      });
+      yield* writeGitignoreRegion({ workspaceRoot: args.workspaceRoot, patterns });
+    }
+    return { written, removed };
   });
 
-const syncResult = (args: {
+export const syncResult = (args: {
   readonly snapshot: InstructionProjectionSnapshot;
   readonly written: ReadonlyArray<string>;
   readonly removed: ReadonlyArray<string>;
@@ -1573,40 +1582,4 @@ export const syncInstructions = (
           symlinkSupported: snapshot.symlinkSupported,
         });
     return syncResult({ snapshot: observed, ...applied });
-  });
-
-/**
- * The reconciliation `axm sync`, `axm lint --fix`, and instruction-file
- * transitions share: refuse on any unowned planned target or unsafe
- * `.gitignore` region before touching anything, apply the desired state, then
- * prove from a fresh observation that it was reached.
- */
-export const reconcileInstructionTargets = (
-  args: ObserveInstructionProjectionArgs,
-): Effect.Effect<
-  InstructionsSyncResult,
-  InstructionMaintenanceFailure,
-  FileSystem.FileSystem | Path.Path
-> =>
-  Effect.gen(function* () {
-    const snapshot = yield* observeInstructionProjection(args);
-    yield* assertInstructionTargetsSafe(snapshot.status);
-    yield* assertInstructionsGitignoreSafe(args.workspaceRoot);
-    const applied = yield* applyInstructionProjection({
-      workspaceRoot: args.workspaceRoot,
-      config: args.config,
-      snapshot,
-      dryRun: false,
-    });
-    const after = yield* observeInstructionProjection({
-      ...args,
-      symlinkSupported: snapshot.symlinkSupported,
-    });
-    if (!instructionProjectionIsCurrent(after)) {
-      return yield* new InstructionMaintenanceFailed({
-        category: "internal",
-        detail: "Instruction reconciliation did not reach the desired state",
-      });
-    }
-    return syncResult({ snapshot: after, ...applied });
   });

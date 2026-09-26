@@ -30,7 +30,7 @@ import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryFinding, AdvisoryRule, LintFinding } from "@agentxm/extension-content/lint";
 import { type SkillLockEntry } from "../../../desired-state/index.js";
 import { EMPTY_LINT_FINDINGS } from "./helpers/empty.js";
-import { lockfileDisplayPath } from "./display-paths.js";
+import { lockfileDisplayPath } from "../../../desired-state/index.js";
 import { deferringNodes } from "./canonical-observation-findings.js";
 
 const RULE_ID = "workspace/skills-integrity-valid";

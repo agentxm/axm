@@ -20,7 +20,7 @@ import * as Result from "effect/Result";
 import { PublishFailed } from "./errors.js";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
 import type { BuildZipArchiveOptions } from "./archive.js";
-import { expandGlobs } from "./internal/glob.js";
+import { expandGlobs } from "@agentxm/extension-model/unstable/extensions/name-patterns";
 import { manifestFilenameForType } from "@agentxm/extension-content";
 
 /** @experimental This API is unstable and may change without notice. */

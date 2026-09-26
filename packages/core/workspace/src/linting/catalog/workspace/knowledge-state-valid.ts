@@ -7,7 +7,7 @@ import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "@agentxm/extension-content/lint";
 import { canonicalObservationFactText } from "../../../projection/index.js";
 import { observationsReportedBy } from "./canonical-observation-findings.js";
-import { canonicalDisplayRoot, settingsDisplayPath } from "./display-paths.js";
+import { acquiredRootDisplayPath, settingsDisplayPath } from "../../../desired-state/index.js";
 
 const RULE_ID = "workspace/knowledge-state-valid";
 
@@ -31,11 +31,7 @@ export const knowledgeStateValidRule: AdvisoryRule<WorkspaceRuleContext> = {
             resolvedNames.has(key.name) ||
             !actual.contentRoot
               .replaceAll("\\", "/")
-              .includes(
-                context.subject.scope === "project"
-                  ? "/agent_extensions/"
-                  : "/.axm/workspace/agent_extensions/",
-              )
+              .includes(`/${acquiredRootDisplayPath(context.subject.scope)}/`)
               ? []
               : [
                   {
@@ -43,7 +39,7 @@ export const knowledgeStateValidRule: AdvisoryRule<WorkspaceRuleContext> = {
                     ruleId: RULE_ID,
                     severity: "error",
                     message: `Knowledge bundle '${key.name}' has canonical content without an accepted AXM ownership fact.`,
-                    location: { file: canonicalDisplayRoot(context.subject.scope) },
+                    location: { file: acquiredRootDisplayPath(context.subject.scope) },
                   },
                 ],
           );

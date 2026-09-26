@@ -70,12 +70,13 @@ const stateServicesOver = (
   // that needs it and never published to consumers.
   const shared = Layer.effect(WorkspaceStateShared, makeWorkspaceStateShared);
   const documents = Layer.provideMerge(FilesystemWorkspaceDocuments, location);
+  const base = Layer.provideMerge(
+    Layer.provide(DesiredStateReaderLive, FilesystemPackManifests),
+    Layer.provideMerge(Layer.provide(SettingsReaderLive, shared), documents),
+  );
   const readers = Layer.provideMerge(
-    Layer.mergeAll(WorkspaceRecordsLive, LockfileReaderLive),
-    Layer.provideMerge(
-      Layer.provide(DesiredStateReaderLive, FilesystemPackManifests),
-      Layer.provideMerge(Layer.provide(SettingsReaderLive, shared), documents),
-    ),
+    WorkspaceRecordsLive,
+    Layer.provideMerge(LockfileReaderLive, base),
   );
   const withPaths = Layer.provideMerge(ExtensionPathsLive, readers);
   return Layer.provideMerge(

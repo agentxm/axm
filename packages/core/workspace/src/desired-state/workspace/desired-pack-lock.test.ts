@@ -143,6 +143,26 @@ describe("validateDesiredPackLock", () => {
     }).pipe(Effect.provide(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer))),
   );
 
+  it.effect("accepts unrecognised Pack manifest fields when semantic identity matches", () =>
+    Effect.gen(function* () {
+      const { baseDir, canonical } = setupCanonicalPack();
+      const layout = yield* resolveProjectWorkspaceLayout(decodeAbsolutePathSync(baseDir), {});
+      fs.writeFileSync(
+        path.join(canonical, "pack.json"),
+        JSON.stringify({ ...manifest, extra: 1 }),
+      );
+
+      const validated = yield* validateDesiredPackLock({
+        manifests: yield* PackManifests,
+        layout,
+        graph: externalPackGraph,
+        lockfile: lockfile(),
+      });
+      expect(validated.problems).toEqual([]);
+      expect(validated.invalidPacks.size).toBe(0);
+    }).pipe(Effect.provide(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer))),
+  );
+
   it.effect(
     "rejects a Pack manifest semantic change without treating other files as authority",
     () =>

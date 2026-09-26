@@ -16,7 +16,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import {
   CodingAgentRepository,
@@ -112,7 +112,9 @@ export const observeUserScope = (
     };
   });
 
-const instructionPath = (descriptor: (typeof AGENTS)[keyof typeof AGENTS]): string | undefined => {
+const instructionPath = (
+  descriptor: (typeof AGENT_DESCRIPTORS)[keyof typeof AGENT_DESCRIPTORS],
+): string | undefined => {
   const instructions = descriptor.instructions;
   if (instructions === undefined) return undefined;
   switch (instructions.kind) {
@@ -138,7 +140,7 @@ export const observeProjectAgentContent = (args: {
     const path = yield* Path.Path;
 
     const instructionAgents = new Map<string, Set<string>>();
-    for (const descriptor of Object.values(AGENTS)) {
+    for (const descriptor of Object.values(AGENT_DESCRIPTORS)) {
       const relative = instructionPath(descriptor);
       if (relative === undefined) continue;
       const agents = instructionAgents.get(relative) ?? new Set<string>();

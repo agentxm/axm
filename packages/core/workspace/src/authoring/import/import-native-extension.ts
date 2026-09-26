@@ -33,11 +33,14 @@ import {
   copyExtensionDirectory,
   createCanonicalDirectory,
   recoverCanonicalDirectory,
-  retireNativeMcpEntry,
   type ExtensionManagerFailure,
   type ManagerRequirements,
-  type NativeMcpEntryRef,
 } from "../../materialization/index.js";
+import {
+  NativeWriteAuthority,
+  retireAgentMcpConfig,
+  type AgentMcpConfigEntryRef,
+} from "../../projection/agent-adapters/index.js";
 import { materializeAuthoredMcpServer } from "../../reconciliation/index.js";
 import {
   buildAuthoredExtensionStep,
@@ -154,7 +157,7 @@ export interface NativeMcpCandidate {
   /** Connection inputs the declaration carries. */
   readonly env: Readonly<Record<string, string>>;
   /** Every native declaration of this connection, across agent config files. */
-  readonly entries: ReadonlyArray<NativeMcpEntryRef>;
+  readonly entries: ReadonlyArray<AgentMcpConfigEntryRef>;
 }
 
 /** What the workspace discovered about its unmanaged native MCP connections. */
@@ -186,6 +189,7 @@ export type ImportNativeExtensionRequest =
 export type ImportNativeExtensionRequirements =
   | ManagerRequirements
   | RecipeRequirements
+  | McpServerManager
   | AcceptedResolutionWriter
   | DesiredStateWriter
   | SettingsReader
@@ -385,7 +389,11 @@ interface SettledConversion {
       ) => Effect.Effect<void, AuthoringStepFailure, FileSystem.FileSystem | Path.Path>)
     | undefined;
   /** Retire the native declaration the managed package replaced. */
-  readonly retireNative: Effect.Effect<void, AuthoringStepFailure, FileSystem.FileSystem>;
+  readonly retireNative: Effect.Effect<
+    void,
+    AuthoringStepFailure,
+    FileSystem.FileSystem | Path.Path | NativeWriteAuthority
+  >;
 }
 
 /**
@@ -457,6 +465,7 @@ const mcpConversion = Effect.fn("ImportNativeExtension.mcpConversion")(function*
   readonly request: ImportNativeMcpServerRequest;
   readonly owner: Handle;
   readonly name: ExtensionName;
+  readonly workspaceRoot: string;
 }) {
   const { candidate, url, headers } = yield* selectNativeMcpCandidate(args.request.discovery);
   const manifest = convertedMcpManifest({
@@ -497,7 +506,17 @@ const mcpConversion = Effect.fn("ImportNativeExtension.mcpConversion")(function*
           );
       }),
     validate: undefined,
-    retireNative: Effect.forEach(entries, retireNativeMcpEntry, { discard: true }),
+    retireNative: Effect.forEach(
+      entries,
+      (entry) =>
+        retireAgentMcpConfig({
+          workspaceRoot: args.workspaceRoot,
+          serverName: entry.name,
+          serversKey: entry.serversKey,
+          target: entry.target,
+        }),
+      { discard: true },
+    ),
   } satisfies SettledConversion;
 });
 
@@ -557,7 +576,12 @@ export const prepareImportNativeExtension: (
 
   const settled: SettledConversion =
     request.type === "mcp-server"
-      ? yield* mcpConversion({ request, owner: target.owner, name })
+      ? yield* mcpConversion({
+          request,
+          owner: target.owner,
+          name,
+          workspaceRoot: location.baseDir,
+        })
       : yield* nativeConversion({ request, target });
 
   const enabled =

@@ -19,7 +19,10 @@
  */
 
 import type * as Option from "effect/Option";
-import type { AgentDescriptor, AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import type {
+  AgentDescriptor,
+  MaterializationTargetId,
+} from "@agentxm/extension-model/unstable/agents/types";
 import type {
   AgentDirOccurrence,
   AgentSettingsOccurrence,
@@ -52,7 +55,7 @@ export type AgentSubjectType = "skill" | "subagent";
  */
 export interface DeclaredAgent {
   readonly scope: Scope;
-  readonly agentId: AgentId;
+  readonly agentId: MaterializationTargetId;
 }
 
 // ---------------------------------------------------------------------------
@@ -70,7 +73,7 @@ export interface DeclaredAgent {
  */
 export interface ActualAgent {
   readonly scope: Scope;
-  readonly agentId: AgentId;
+  readonly agentId: MaterializationTargetId;
   readonly agentDirOccurrences: ReadonlyArray<AgentDirOccurrence>;
   readonly agentSettingsOccurrences: ReadonlyArray<AgentSettingsOccurrence>;
   readonly mcpConfigOccurrences: ReadonlyArray<McpConfigOccurrence>;
@@ -100,7 +103,7 @@ export type DetectionStatus = "managed-and-present" | "managed-not-present" | "u
 
 export interface DetectedAgent {
   readonly scope: Scope;
-  readonly agentId: AgentId;
+  readonly agentId: MaterializationTargetId;
   readonly status: DetectionStatus;
   readonly present: boolean;
   readonly declared: Option.Option<DeclaredAgent>;
@@ -137,7 +140,7 @@ export interface AgentScannerObservations {
  * without depending on the full Settings schema.
  */
 export interface DeclaredSettingsShape {
-  readonly agents?: ReadonlyArray<AgentId>;
+  readonly agents?: ReadonlyArray<MaterializationTargetId>;
 }
 
 // ---------------------------------------------------------------------------
@@ -149,7 +152,7 @@ export interface DeclaredSettingsShape {
  * configuration belongs in the capability catalog, not phantom read-model
  * types.
  */
-export interface AgentModule<TId extends AgentId = AgentId> {
+export interface AgentModule<TId extends MaterializationTargetId = MaterializationTargetId> {
   readonly agentId: TId;
   readonly subjects: ReadonlyArray<AgentSubjectType>;
   readonly declared: (
@@ -176,7 +179,7 @@ export interface AgentModule<TId extends AgentId = AgentId> {
  * Inputs to `defineAgentModule`. The factory derives `subjects` from the
  * descriptor so registration does not repeat scanner-relevant subject data.
  */
-export interface DefineAgentModuleInput<TId extends AgentId> {
+export interface DefineAgentModuleInput<TId extends MaterializationTargetId> {
   readonly agentId: TId;
   readonly descriptor: AgentDescriptor;
 }
@@ -199,7 +202,7 @@ const subjectsFromDescriptor = (descriptor: AgentDescriptor): ReadonlyArray<Agen
  *
  * The registry creates these modules directly from the canonical catalog.
  */
-export const defineAgentModule = <TId extends AgentId>(
+export const defineAgentModule = <TId extends MaterializationTargetId>(
   input: DefineAgentModuleInput<TId>,
 ): AgentModule<TId> => {
   const { agentId, descriptor } = input;

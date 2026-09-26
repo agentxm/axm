@@ -1,15 +1,16 @@
 /**
- * Tests for the AGENTS registry.
+ * Tests for the derived agent descriptors.
  *
  * Uses dynamic tests that iterate over the registry automatically,
  * ensuring all agents are validated without hardcoding agent lists.
  */
 
 import { describe, expect, it } from "vitest";
-import { AGENTS, getAgentIds } from "./registry.js";
+import { AGENT_DESCRIPTORS } from "./registry.js";
+import { MATERIALIZATION_TARGET_IDS } from "./types.js";
 
-describe("AGENTS registry", () => {
-  const agents = Object.values(AGENTS);
+describe("derived agent descriptors", () => {
+  const agents = Object.values(AGENT_DESCRIPTORS);
   const skillAgents = agents.filter(
     (agent): agent is typeof agent & { readonly skills: NonNullable<typeof agent.skills> } =>
       agent.skills !== undefined,
@@ -33,8 +34,8 @@ describe("AGENTS registry", () => {
     },
   );
 
-  it.each(agents)("agent $id id exists in AGENTS registry", (config) => {
-    expect(AGENTS[config.id]).toBe(config);
+  it.each(agents)("agent $id id exists in the descriptor record", (config) => {
+    expect(AGENT_DESCRIPTORS[config.id]).toBe(config);
   });
 
   it("contains at least 30 agents", () => {
@@ -67,19 +68,15 @@ describe("AGENTS registry", () => {
   });
 });
 
-describe("getAgentIds", () => {
-  it("returns array of agent IDs", () => {
-    const ids = getAgentIds();
-    expect(Array.isArray(ids)).toBe(true);
-    expect(ids).toContain("claude-code");
-    expect(ids).toContain("cursor");
-    expect(ids).toContain("codex");
-    expect(ids).toContain("universal");
+describe("MATERIALIZATION_TARGET_IDS", () => {
+  it("contains the descriptor IDs", () => {
+    expect(MATERIALIZATION_TARGET_IDS).toContain("claude-code");
+    expect(MATERIALIZATION_TARGET_IDS).toContain("cursor");
+    expect(MATERIALIZATION_TARGET_IDS).toContain("codex");
+    expect(MATERIALIZATION_TARGET_IDS).toContain("universal");
   });
 
-  it("returns same count as AGENTS registry", () => {
-    const ids = getAgentIds();
-    const entryCount = Object.keys(AGENTS).length;
-    expect(ids.length).toBe(entryCount);
+  it("has the same count as the descriptor record", () => {
+    expect(MATERIALIZATION_TARGET_IDS.length).toBe(Object.keys(AGENT_DESCRIPTORS).length);
   });
 });

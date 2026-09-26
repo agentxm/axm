@@ -46,12 +46,13 @@ import {
   disableInstructionManagement,
   instructionProjectionEffects,
   instructionProjectionRemovalEffects,
+  instructionReadinessDetail,
   instructionReconciliationReadiness,
   instructionStateIsCurrent,
   InstructionMaintenanceFailed,
   observeInstructions,
   observeProjectionPlans,
-  reconcileInstructionTransition,
+  reconcileInstructions,
   removeInstructionTargetsFor,
   resolveInstructionsConfig,
   type InstructionProjectionEffect,
@@ -64,6 +65,7 @@ import {
   SettingsWriter,
   WorkspaceLocation,
   WorkspaceRecords,
+  settingsDisplayPath,
   type InstructionsConfig,
   type WorkspaceStateReadFailure,
 } from "../../desired-state/index.js";
@@ -180,9 +182,6 @@ export interface ManageInstructionsCandidate {
   readonly scope: WorkspaceScope;
 }
 
-const settingsDisplayPath = (scope: WorkspaceScope): string =>
-  scope === "project" ? "axm.json" : ".axm/workspace/axm.json";
-
 /**
  * The transition's artifact: the settings file that records the choice, plus
  * every instruction file the reconciliation touches, workspace-relative.
@@ -222,12 +221,6 @@ const rawConfigMatches = (
   );
 };
 
-/**
- * The one readiness gate every instruction transition passes. It is stated
- * here because it decides whether AXM may write at all: an unowned target or
- * an unrecognized `.gitignore` region means the workspace holds a file AXM
- * did not create, and reconciliation stops before it can overwrite it.
- */
 const reconciliationGate = (
   snapshot: InstructionProjectionSnapshot,
 ): Effect.Effect<
@@ -236,16 +229,17 @@ const reconciliationGate = (
   WorkspaceLocation | FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
-    const failure = yield* instructionReconciliationReadiness({ snapshot });
+    const location = yield* WorkspaceLocation;
+    const failure = yield* instructionReconciliationReadiness({
+      snapshot,
+      workspaceRoot: location.baseDir,
+    });
     return Option.map(
       failure,
       (readiness) =>
         new WorkspaceConfigurationFailed({
           category: "conflict",
-          detail:
-            readiness._tag === "InstructionMaintenanceFailed"
-              ? readiness.detail
-              : "Instruction reconciliation cannot proceed against the current workspace",
+          detail: instructionReadinessDetail(readiness),
           cause: readiness,
         }),
     );
@@ -422,11 +416,6 @@ const transitionEffect = (
   });
 
 /**
- * Serialize the instruction-projection failures the transition can surface.
- * Ownership refusals keep the sentence the projection chose; the rest are
- * workspace-change failures the shared conversion already renders.
- */
-/**
  * Serialize whatever the recorded transition failed with. The refusals this
  * feature and the projection decide keep their own sentence and category;
  * anything the kernel could not complete is an internal step failure that
@@ -484,7 +473,12 @@ const transitionStep = (
               detail: "Enabling instruction management has no configuration to record",
             });
           }
-          yield* reconcileInstructionTransition({
+          const location = yield* WorkspaceLocation;
+          const settings = yield* SettingsReader;
+          yield* reconcileInstructions({
+            workspaceRoot: location.baseDir,
+            scope: location.scope,
+            configuredAgents: yield* settings.configuredAgents,
             config,
             ...(Option.isSome(candidate.supersededConfig)
               ? { preflightConfig: candidate.supersededConfig.value }

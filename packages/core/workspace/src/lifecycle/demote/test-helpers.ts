@@ -150,34 +150,6 @@ export const writeAuthoringPackage = (
 };
 
 /**
- * Every file and symlink under a directory, by relative path and content. A
- * projected extension is a symlink into canonical content, so a snapshot that
- * followed links would compare the same bytes twice and miss a relinking.
- */
-export const snapshotContent = (base: string): ReadonlyArray<readonly [string, string]> => {
-  if (!fs.existsSync(base)) return [];
-  const entries: Array<readonly [string, string]> = [];
-  const walk = (directory: string): void => {
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-      const absolute = nodePath.join(directory, entry.name);
-      const relative = nodePath.relative(base, absolute);
-      if (entry.isSymbolicLink()) {
-        entries.push([relative, `symlink:${fs.readlinkSync(absolute)}`]);
-        continue;
-      }
-      if (entry.isDirectory()) {
-        entries.push([relative, "directory"]);
-        walk(absolute);
-        continue;
-      }
-      entries.push([relative, fs.readFileSync(absolute, "utf8")]);
-    }
-  };
-  walk(base);
-  return entries.sort((left, right) => left[0].localeCompare(right[0]));
-};
-
-/**
  * Expand a published version archive into a directory, so an example can
  * compare realized canonical content against the bytes the Registry serves
  * without shelling out to an archiver.

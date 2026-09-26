@@ -19,9 +19,11 @@ import { TreeIntegritySchema } from "../workspace/materialized-tree.js";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
 import { LockfileSchema, type Lockfile, type SkillLockEntry } from "./schema.js";
+import { LockfileDecodeError, LockfileVersionUnsupported } from "../workspace/read-model/errors.js";
 import {
   applyLockfileUpdates,
   commitLockfileSnapshotUpdate,
+  commitLockfileSnapshotUpdateAtPath,
   commitLockfileUpdates,
   writeLockfile,
 } from "./lockfile.js";
@@ -125,6 +127,31 @@ describe("lockfile", () => {
         const result = yield* commitLockfileSnapshotUpdate(axmDir, base, next);
         expect(result.skills["review"]).toEqual(localEntry("../new"));
         expect(result.skills["independent"]).toEqual(localEntry("../independent", "independent"));
+      }),
+    ),
+  );
+
+  it.effect.each([
+    {
+      fault: "an unrecognised key",
+      raw: "lockfileVersion: 8\nskills: {}\nextra: 1\n",
+      error: LockfileDecodeError,
+    },
+    {
+      fault: "an unsupported version",
+      raw: "lockfileVersion: 9\nskills: {}\n",
+      error: LockfileVersionUnsupported,
+    },
+  ])("refuses a commit reread with $fault without changing the file", ({ raw, error }) =>
+    run(
+      Effect.gen(function* () {
+        const target = path.join(root, "axm-lock.yaml");
+        const base: Lockfile = { lockfileVersion: 8, skills: {} };
+        fs.writeFileSync(target, raw);
+
+        const failure = yield* Effect.flip(commitLockfileSnapshotUpdateAtPath(target, base, base));
+        expect(failure).toBeInstanceOf(error);
+        expect(fs.readFileSync(target, "utf8")).toBe(raw);
       }),
     ),
   );

@@ -13,12 +13,8 @@
  */
 
 import {
-  CONFIGURABLE_AGENTS_BY_ID,
-  type Agent,
-  type ConfigurableAgentId,
   type McpConfig,
   type McpConfigTarget,
-  type McpTransport,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { McpServerManifest } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import {
@@ -32,33 +28,11 @@ import {
   type SharedMcpTargetMember,
   type SharedMcpTransport,
 } from "./shared-target.js";
-import { groupConfiguredMcpTargets } from "./targeting.js";
-
-type AgentMcpCapability = Agent["capabilities"]["mcp-server"];
-type ConfiguredMcpCapability = AgentMcpCapability & {
-  readonly native: Extract<
-    AgentMcpCapability["native"],
-    { readonly transports: ReadonlyArray<McpTransport> }
-  >;
-  readonly axm: {
-    readonly writer: {
-      readonly config: McpConfig;
-    };
-  };
-};
-
-const hasMcpConfig = (capability: AgentMcpCapability): capability is ConfiguredMcpCapability =>
-  capability.axm.writer !== null && "transports" in capability.native;
-
-const isCapabilityAgentId = (agentId: string): agentId is ConfigurableAgentId =>
-  agentId in CONFIGURABLE_AGENTS_BY_ID;
-
-/** The MCP capability of an agent that can write native configuration, if it can. */
-export const configuredMcpCapability = (agentId: string): ConfiguredMcpCapability | undefined => {
-  if (!isCapabilityAgentId(agentId)) return undefined;
-  const capability = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"];
-  return hasMcpConfig(capability) ? capability : undefined;
-};
+import {
+  configuredMcpCapability,
+  groupConfiguredMcpTargets,
+  isConfigurableAgentId,
+} from "./targeting.js";
 
 export interface PlanMcpServerTargetsArgs {
   readonly agentIds: ReadonlyArray<string>;
@@ -338,7 +312,7 @@ export const planMcpServerTargets = (args: PlanMcpServerTargetsArgs): McpTargetP
   const agents = args.agentIds.map((agentId): McpAgentTargetPlan => {
     const planned = byAgent.get(agentId);
     if (planned !== undefined) return planned;
-    if (!isCapabilityAgentId(agentId)) {
+    if (!isConfigurableAgentId(agentId)) {
       return {
         _tag: "unsupported",
         agentId,

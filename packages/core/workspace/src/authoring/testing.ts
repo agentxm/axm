@@ -20,6 +20,7 @@
  */
 
 import * as fs from "node:fs";
+import { snapshotPath } from "../desired-state/testing.js";
 import * as os from "node:os";
 import * as nodePath from "node:path";
 
@@ -86,31 +87,8 @@ export const makeAuthoringWorkspace = (
     agents: settings.agents ?? [],
   });
 
-  const snapshot = (relativePath = "."): Readonly<Record<string, string>> => {
-    const target = absolute(relativePath);
-    const entries: Record<string, string> = {};
-    if (!fs.existsSync(target)) return entries;
-    if (!fs.statSync(target).isDirectory()) {
-      entries["."] = `file:${fs.readFileSync(target).toString("base64")}`;
-      return entries;
-    }
-    const visit = (directory: string): void => {
-      for (const entry of fs
-        .readdirSync(directory, { withFileTypes: true })
-        .sort((left, right) => left.name.localeCompare(right.name, "en"))) {
-        const child = nodePath.join(directory, entry.name);
-        const relative = nodePath.relative(target, child);
-        if (entry.isDirectory()) {
-          entries[relative] = "directory";
-          visit(child);
-        } else {
-          entries[relative] = `file:${fs.readFileSync(child).toString("base64")}`;
-        }
-      }
-    };
-    visit(target);
-    return entries;
-  };
+  const snapshot = (relativePath = "."): Readonly<Record<string, string>> =>
+    snapshotPath(absolute(relativePath));
 
   return {
     root,

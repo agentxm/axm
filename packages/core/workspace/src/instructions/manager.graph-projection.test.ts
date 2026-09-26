@@ -17,6 +17,7 @@ import * as nodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
 import * as Effect from "effect/Effect";
+import { treeIntegrityOfSync } from "../desired-state/test-support/tree-integrity-sync.js";
 import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "../transitions/settlement/live.js";
 import * as Option from "effect/Option";
@@ -25,17 +26,17 @@ import * as Schema from "effect/Schema";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { RulesLockMapSchema, type RulesLockMap } from "../desired-state/index.js";
-import {
-  WorkspaceCatalogTestLive,
-  computeMaterializedTreeIntegritySync,
-} from "../materialization/test-helpers.js";
 import { SourceHostProviders } from "../resolution/sources/index.js";
 import { RuleManager } from "../materialization/managers.js";
 import { applyPlannedProjections, observeProjectionPlans } from "../projection/index.js";
 import type { SourceHostProvidersService } from "../resolution/sources/index.js";
 import type { DesiredExtensionNode, DesiredStateGraph } from "../desired-state/index.js";
 import { WorkspaceReadTest, MockWorkspaceTransactionScope } from "../desired-state/testing.js";
-import { CodingAgentRepositoryLive, NativeWriteAuthorityLive } from "../projection/live.js";
+import {
+  CodingAgentRepositoryLive,
+  NativeWriteAuthorityLive,
+  WorkspaceCatalogLive,
+} from "../projection/live.js";
 import { RuleManagerLive } from "./manager.js";
 
 const OWNER = "@acme";
@@ -59,7 +60,7 @@ const registryLock = (baseDir: string, name: string, version = "1.0.0") => ({
     integrity: "sha512-stub",
     publisherBindingId: "hbnd_test",
   },
-  treeIntegrity: computeMaterializedTreeIntegritySync(
+  treeIntegrity: treeIntegrityOfSync(
     nodePath.join(baseDir, "agent_extensions", "registry", OWNER, "rules", name),
   ),
 });
@@ -185,7 +186,7 @@ describe("RuleManager graph-derived region projection", () => {
   }) => {
     const axmDir = nodePath.join(baseDir, ".axm");
     return RuleManagerLive.pipe(
-      Layer.provideMerge(WorkspaceCatalogTestLive),
+      Layer.provideMerge(WorkspaceCatalogLive),
       Layer.provideMerge(CodingAgentRepositoryLive),
       Layer.provideMerge(
         WorkspaceReadTest({

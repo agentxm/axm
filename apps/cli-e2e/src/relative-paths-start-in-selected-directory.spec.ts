@@ -4,9 +4,9 @@ import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeDirectoryFixture, unattendedProjectSetup } from "./test-support/directory-harness.js";
-import { snapshotWorkspaceContent } from "./test-support/workspace-fixtures.js";
+import { snapshotTree } from "@agentxm/test-support";
 import { makeEnvironmentProcessFixture } from "./test-support/environment-process-fixture.js";
-import { makeSpecRegistry } from "./test-support/registry-fixture.js";
+import { publishSkill } from "./test-support/published-registry.js";
 import { writeLocalSkillPackage } from "./test-support/spec-file-store.js";
 
 export const specification = defineSpecification({
@@ -45,7 +45,7 @@ describe("Relative paths start in the selected directory", () => {
         minimumReleaseAge: "0s",
       };
       fs.writeFileSync(path.join(fixture.selected, "axm.json"), JSON.stringify(settings));
-      const before = snapshotWorkspaceContent(fixture.invoking);
+      const before = snapshotTree(fixture.invoking);
       const applied = await fixture.run([
         "-C",
         "../selected",
@@ -67,27 +67,25 @@ describe("Relative paths start in the selected directory", () => {
       const document: unknown = JSON.parse(lint.stdout);
       expect(document).toMatchObject({ result: { findings: expect.any(Array) } });
       expect(lint.stdout).not.toContain("workspace/settings-schema-valid");
-      expect(snapshotWorkspaceContent(fixture.invoking)).toEqual(before);
+      expect(snapshotTree(fixture.invoking)).toEqual(before);
     } finally {
       fixture.cleanup();
     }
   });
   it("uses the Registry selected by settings in the selected directory", async () => {
     const fixture = makeEnvironmentProcessFixture();
-    const selectedRegistry = makeSpecRegistry();
-    const invokingRegistry = makeSpecRegistry();
     try {
-      selectedRegistry.writeSkill("environment-directory", [
-        { version: "1.0.0", body: "Selected execution directory source" },
-      ]);
-      invokingRegistry.writeSkill("environment-directory", [
-        { version: "1.0.0", body: "Invoking directory distractor source" },
-      ]);
-      fs.cpSync(selectedRegistry.root, path.join(fixture.selected, "registry"), {
-        recursive: true,
+      await publishSkill({
+        registryLocation: pathToFileURL(path.join(fixture.selected, "registry")).href,
+        owner: "@acme",
+        name: "environment-directory",
+        body: "Selected execution directory source",
       });
-      fs.cpSync(invokingRegistry.root, path.join(fixture.invoking, "registry"), {
-        recursive: true,
+      await publishSkill({
+        registryLocation: pathToFileURL(path.join(fixture.invoking, "registry")).href,
+        owner: "@acme",
+        name: "environment-directory",
+        body: "Invoking directory distractor source",
       });
       fs.writeFileSync(
         path.join(fixture.selected, "axm.json"),
@@ -103,7 +101,7 @@ describe("Relative paths start in the selected directory", () => {
           ],
         }),
       );
-      const before = snapshotWorkspaceContent(fixture.invoking);
+      const before = snapshotTree(fixture.invoking);
       const result = await fixture.run([
         "-C",
         "../selected",
@@ -122,10 +120,8 @@ describe("Relative paths start in the selected directory", () => {
       );
       expect(acquired).toContain("Selected execution directory source");
       expect(acquired).not.toContain("Invoking directory distractor source");
-      expect(snapshotWorkspaceContent(fixture.invoking)).toEqual(before);
+      expect(snapshotTree(fixture.invoking)).toEqual(before);
     } finally {
-      selectedRegistry.cleanup();
-      invokingRegistry.cleanup();
       fixture.cleanup();
     }
   });

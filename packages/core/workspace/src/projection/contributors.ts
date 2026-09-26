@@ -29,7 +29,7 @@ import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle
 import {
   desiredStateProblemsText,
   observeCanonicalExtension,
-  type AcceptedExtensionResolution,
+  type LockEntry,
   type DesiredExtensionNode,
   type DesiredStateGraph,
   type WorkspaceLayout,
@@ -80,7 +80,7 @@ export const activeNodesOfType = (
 export const contributorForNode = (args: {
   readonly layout: WorkspaceLayout;
   readonly node: DesiredExtensionNode;
-  readonly accepted: AcceptedExtensionResolution | undefined;
+  readonly accepted: LockEntry | undefined;
 }): Effect.Effect<
   AggregateContributor,
   | AuthoredContributorUnsupported
@@ -134,7 +134,7 @@ export const activeContributors = (args: {
   readonly layout: WorkspaceLayout;
   readonly type: ExtensionType;
   readonly graph: DesiredStateGraph;
-  readonly accepted: Readonly<Record<string, AcceptedExtensionResolution>>;
+  readonly accepted: Readonly<Record<string, LockEntry>>;
 }): Effect.Effect<
   ReadonlyArray<AggregateContributor>,
   | DesiredStateIncomplete

@@ -12,6 +12,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
+import { isPathSafe } from "@agentxm/extension-model/unstable/path-types";
 
 // -----------------------------------------------------------------------------
 // Path Validation
@@ -42,8 +43,7 @@ const validatePath = (
   if (Result.isFailure(decodeRelativeManifestPath(rawPath))) return Option.none();
   // Resolve and check within basePath
   const resolved = path.resolve(basePath, rawPath);
-  const normalizedBase = path.resolve(basePath);
-  if (!resolved.startsWith(normalizedBase + path.sep) && resolved !== normalizedBase) {
+  if (!isPathSafe(path, basePath, resolved)) {
     return Option.none();
   }
   // Return parent directory of the skill path
@@ -102,8 +102,7 @@ const validateDirPath = (
 ): Option.Option<string> => {
   if (Result.isFailure(decodeRelativeManifestPath(rawPath))) return Option.none();
   const resolved = path.resolve(basePath, rawPath);
-  const normalizedBase = path.resolve(basePath);
-  if (!resolved.startsWith(normalizedBase + path.sep) && resolved !== normalizedBase) {
+  if (!isPathSafe(path, basePath, resolved)) {
     return Option.none();
   }
   return Option.some(resolved);
@@ -210,6 +209,7 @@ export const parsePluginManifests = (
   Effect.gen(function* () {
     const [marketplaceDirs, pluginDirs] = yield* Effect.all(
       [parseMarketplaceJson(basePath), parsePluginJson(basePath)],
+      // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed two-way join of marketplace and plugin manifest parsers
       { concurrency: "unbounded" },
     );
     return Array.dedupe([...marketplaceDirs, ...pluginDirs]);

@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { makeLifecycleRegistry } from "../testing.js";
+import { makeFileRegistry } from "@agentxm/registry-client/testing";
 import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
@@ -211,7 +211,7 @@ describe("Uninstall effect reporting", () => {
     it.effect(
       `names an alternate acquired source segment in ${scope} scope for a Pack and its exclusive member`,
       () => {
-        const registry = makeLifecycleRegistry();
+        const registry = makeFileRegistry();
         cleanups.push(registry.cleanup);
         const world = makeInstallWorld({
           registry,

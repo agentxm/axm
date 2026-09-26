@@ -1,13 +1,9 @@
 /**
  * Configured-agent-outcomes provider port.
  *
- * The plan pipeline reports per-agent lifecycle outcomes against the generic
- * `configuredAgentLifecycleOutcomes` derivation. A per-type manager may know
- * the effective outcomes more precisely (today the hook manager reads agent
- * hook surfaces directly), so the state layer declares only this optional
- * port keyed by extension type; the application composes the implementations.
- * An absent provider — or an absent entry for a type — degrades to the
- * generic derivation, matching the plan pipeline's existing fallback.
+ * One resolution rule overlays effective outcomes from a per-type manager on
+ * the generic lifecycle derivation. An absent provider entry, an empty result
+ * for a row, or a disabled/absent target retains the generic result.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -16,8 +12,10 @@ import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as ServiceMap from "effect/Context";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import type { ConfiguredAgentOutcome } from "./configured-agent-outcome.js";
+import { configuredAgentLifecycleOutcomes } from "./configured-agent-outcomes.js";
 
 /**
  * Failure category vocabulary for a provider failure. The literals are the
@@ -72,3 +70,69 @@ export class ConfiguredAgentOutcomesProvider extends ServiceMap.Service<
 >()(
   "@agentxm/workspace/desired-state/workspace/configured-agent-outcomes-provider/ConfiguredAgentOutcomesProvider",
 ) {}
+
+export interface ConfiguredAgentOutcomesRequest {
+  readonly type: ExtensionType;
+  readonly state: "projected" | "current";
+  readonly scope: WorkspaceScope;
+  readonly agentIds: ReadonlyArray<string>;
+  readonly rows: ReadonlyArray<{
+    readonly name: string;
+    readonly targetState: "enabled" | "disabled" | "absent";
+    readonly installed: boolean;
+    readonly observedAgentIds?: ReadonlyArray<string>;
+  }>;
+}
+
+/** Generic outcomes for all rows in one requested extension family. */
+export const genericConfiguredAgentOutcomes = (
+  request: ConfiguredAgentOutcomesRequest,
+): ReadonlyMap<string, ReadonlyArray<ConfiguredAgentOutcome>> =>
+  new Map(
+    request.rows.map(
+      (row) =>
+        [
+          row.name,
+          configuredAgentLifecycleOutcomes({
+            type: request.type,
+            name: row.name,
+            agentIds: request.agentIds,
+            scope: request.scope,
+            state: request.state,
+            targetState: row.targetState,
+            installed: row.installed,
+            ...(row.observedAgentIds === undefined
+              ? {}
+              : { observedAgentIds: row.observedAgentIds }),
+          }),
+        ] as const,
+    ),
+  );
+
+/** Resolve a type's rows with at most one manager read. Provider failures stay typed. */
+export const resolveConfiguredAgentOutcomes = (
+  provider: ConfiguredAgentOutcomesProviderService,
+  request: ConfiguredAgentOutcomesRequest,
+): Effect.Effect<
+  ReadonlyMap<string, ReadonlyArray<ConfiguredAgentOutcome>>,
+  ConfiguredAgentOutcomesUnavailable
+> =>
+  Effect.gen(function* () {
+    const generic = new Map(genericConfiguredAgentOutcomes(request));
+    const override = provider.byExtensionType[request.type];
+    if (override === undefined || !request.rows.some((row) => row.targetState === "enabled")) {
+      return generic;
+    }
+    const byName = new Map<string, Array<ConfiguredAgentOutcome>>();
+    for (const outcome of yield* override(request.state)) {
+      const values = byName.get(outcome.name) ?? [];
+      values.push(outcome);
+      byName.set(outcome.name, values);
+    }
+    for (const row of request.rows) {
+      if (row.targetState !== "enabled") continue;
+      const outcomes = byName.get(row.name);
+      if (outcomes !== undefined && outcomes.length > 0) generic.set(row.name, outcomes);
+    }
+    return generic;
+  });

@@ -13,9 +13,9 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { PackageURL } from "packageurl-js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAgentExtensions, decodePurl, readFileOptional } from "./reader-io.js";
+import { decodeAgentExtensions, readFileOptional } from "./reader-io.js";
+import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const hackageType = Schema.decodeUnknownSync(PackageTypeSchema)("hackage");
@@ -78,9 +78,13 @@ const parseCabalBuildDepends = (
       if (seen.has(parsed.name)) continue;
       seen.add(parsed.name);
 
-      const purl = new PackageURL("hackage", null, parsed.name, parsed.version ?? null, null, null);
-      const purlParts = decodePurl(purl.toString());
-      results.push({ purl: purlParts, type: hackageType, source });
+      const detected = makeDetectedPackage({
+        type: hackageType,
+        name: parsed.name,
+        version: parsed.version,
+        source,
+      });
+      if (Option.isSome(detected)) results.push(detected.value);
     }
   }
 
@@ -139,9 +143,13 @@ const parseStackYaml = (content: string, source: string): ReadonlyArray<Detected
           if (parsed === undefined) continue;
           if (seen.has(parsed.name)) continue;
           seen.add(parsed.name);
-          const purl = new PackageURL("hackage", null, parsed.name, parsed.version, null, null);
-          const purlParts = decodePurl(purl.toString());
-          results.push({ purl: purlParts, type: hackageType, source });
+          const detected = makeDetectedPackage({
+            type: hackageType,
+            name: parsed.name,
+            version: parsed.version,
+            source,
+          });
+          if (Option.isSome(detected)) results.push(detected.value);
         }
         inExtraDeps = false;
       }
@@ -167,9 +175,13 @@ const parseStackYaml = (content: string, source: string): ReadonlyArray<Detected
       if (parsed === undefined) continue;
       if (seen.has(parsed.name)) continue;
       seen.add(parsed.name);
-      const purl = new PackageURL("hackage", null, parsed.name, parsed.version, null, null);
-      const purlParts = decodePurl(purl.toString());
-      results.push({ purl: purlParts, type: hackageType, source });
+      const detected = makeDetectedPackage({
+        type: hackageType,
+        name: parsed.name,
+        version: parsed.version,
+        source,
+      });
+      if (Option.isSome(detected)) results.push(detected.value);
     }
   }
 

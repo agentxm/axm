@@ -112,11 +112,10 @@ import {
   McpAgentSyncRefused,
   McpCanonicalPathUnsafe,
   McpInstallStateMissing,
-  McpLocalNameConflict,
   McpRequiredInputsMissing,
   McpWorkspacePackageInvalid,
 } from "../mcp-connections/errors.js";
-import { NativeMcpEntryRetirementFailed } from "../mcp-connections/native-entry.js";
+import { McpConnectionConflict } from "../mcp-connections/lifecycle/domain/source-admission.js";
 import {
   PackGraphInvalid,
   PackManifestUnavailable,
@@ -274,12 +273,11 @@ const workspaceFailureClasses = () =>
     SubagentDefinitionInvalid,
     SubagentContentUnreadable,
     McpInstallStateMissing,
-    McpLocalNameConflict,
+    McpConnectionConflict,
     McpCanonicalPathUnsafe,
     McpWorkspacePackageInvalid,
     McpRequiredInputsMissing,
     McpAgentSyncRefused,
-    NativeMcpEntryRetirementFailed,
     SkillDefinitionInvalid,
     SkillMaterializationFailed,
     AxmSkillCompatibilityUnavailable,

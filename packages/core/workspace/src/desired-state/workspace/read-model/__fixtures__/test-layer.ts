@@ -20,7 +20,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
-import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import { AgentRootResolver, AgentRootResolverLive } from "../agent-root-resolver.js";
 import {
   AgentPresenceProbe,
@@ -91,7 +91,7 @@ export const WorkspaceReadModelTest = (
       const probeLayer = Layer.succeed(
         AgentPresenceProbe,
         options.probe?.(fs, deps.path) ?? {
-          detect: () => Effect.succeed(new Set<AgentId>()),
+          detect: () => Effect.succeed(new Set<MaterializationTargetId>()),
         },
       );
       return Layer.mergeAll(

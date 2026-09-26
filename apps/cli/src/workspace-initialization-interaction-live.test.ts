@@ -5,7 +5,7 @@ import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import { nonInteractiveFlag } from "./cli-flags/index.js";
 import { plain, Screen, OutputWriteFailed, type Ask } from "./screen/index.js";
 import { TestRenderer } from "./test-support/presenter-test.js";
@@ -44,7 +44,7 @@ const selectAgents = (options: {
   Effect.gen(function* () {
     const interaction = yield* WorkspaceInitializationInteraction;
     return yield* interaction.selectAgents({
-      allAgents: [AGENTS["claude-code"], AGENTS["codex"]],
+      allAgents: [AGENT_DESCRIPTORS["claude-code"], AGENT_DESCRIPTORS["codex"]],
       detectedIds: options.projectDetectedIds ?? [],
       projectDetectedIds: options.projectDetectedIds ?? [],
       userDetectedIds: [],

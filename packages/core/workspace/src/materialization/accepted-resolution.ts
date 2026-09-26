@@ -2,11 +2,10 @@
  * The accepted resolution an install records for an acquired extension: the
  * lock entry composed from the ref's source and identity and the content
  * identity acquisition established, keyed by the extension's configured name.
- *
  * Skills, subagents, rules, hooks, and Knowledge bundles record the same
  * skeleton and raise the same failure when acquisition left nothing to
- * record. MCP servers and packs key and shape their entries differently and
- * keep their own.
+ * record. The MCP manager builds its distinct lock entries with the shared
+ * entry-fields helpers; packs also retain their own entry shape.
  *
  * @experimental This API is unstable and may change without notice.
  */

@@ -9,24 +9,14 @@
  */
 
 import * as FileSystem from "effect/FileSystem";
-import { stripFileProtocol } from "@agentxm/registry-client";
+import { fromFileLocation } from "@agentxm/host-primitives";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { SkillMaterializationFailed } from "./errors.js";
-import {
-  materializeExternalPackageWithTreeIntegrity,
-  reusableCanonicalTree,
-} from "../acquisition/canonical-directory.js";
-import { materializeRegistryPackageWithTreeIntegrity } from "../materialization/registry-materialization.js";
-import { extensionRefLifecycleWarnings } from "../lifecycle/warnings.js";
+import { acquireCanonicalForRef } from "../materialization/acquire-canonical.js";
 import { validatePathSafety } from "../desired-state/index.js";
-import {
-  computeMaterializedTreeIntegrity,
-  type RequestedCanonicalRef,
-  type SkillLockEntry,
-  type TreeIntegrity,
-} from "../desired-state/index.js";
+import { type SkillLockEntry, type TreeIntegrity } from "../desired-state/index.js";
 import { copyExtensionDirectory } from "../acquisition/copy-directory.js";
 import { acquiredDirectoryForRef } from "../acquisition/acquired-content.js";
 import type {
@@ -40,30 +30,6 @@ import { createSymlink } from "../desired-state/index.js";
 import { protectWorkspacePath } from "../transitions/settlement/index.js";
 import { validateAxmSkillCandidate } from "../resolution/index.js";
 
-const replaceExternalCanonical = (
-  baseDir: string,
-  copyTarget: string,
-  requested: RequestedCanonicalRef,
-  reuse: CanonicalReuseContext,
-) =>
-  Effect.gen(function* () {
-    const reusable = yield* reusableCanonicalTree({
-      canonicalPath: copyTarget,
-      requested,
-      accepted: reuse.accepted,
-      force: reuse.force,
-    });
-    if (Option.isSome(reusable)) return reusable.value;
-    const materialized = yield* materializeExternalPackageWithTreeIntegrity({
-      baseDir,
-      canonicalPath: copyTarget,
-      sourceLocation: reuse.sourcePath,
-      copyFailureCode: "internal",
-      copyFailureDetail: (target) => `Failed to copy skill files to ${target}`,
-    });
-    return materialized.treeIntegrity;
-  });
-
 /**
  * Git-hosted and local skills share one shape: the package is already on disk,
  * so the canonical tree is either the same directory or a copy of it.
@@ -73,7 +39,7 @@ const materializeFromDisk = (
   sanitizedName: string,
   baseDir: string,
   layout: WorkspaceLayout,
-  reuse: Omit<CanonicalReuseContext, "sourcePath">,
+  reuse: CanonicalReuseContext,
 ) =>
   Effect.gen(function* () {
     const pathService = yield* Path.Path;
@@ -84,7 +50,7 @@ const materializeFromDisk = (
       sanitizedName,
     );
     yield* validatePathSafety(pathService, baseDir, canonicalPath);
-    const packageRoot = yield* acquiredDirectoryForRef(ref, stripFileProtocol(ref.location));
+    const packageRoot = yield* acquiredDirectoryForRef(ref, fromFileLocation(ref.location));
     const sourceSkillPath =
       ref.portable === true ? packageRoot : pathService.join(packageRoot, "src");
     yield* validateAxmSkillCandidate({
@@ -92,16 +58,20 @@ const materializeFromDisk = (
       packageRoot,
       skillSourcePath: sourceSkillPath,
     });
-    const isSelfCopy = pathService.resolve(packageRoot) === pathService.resolve(canonicalPath);
-    const treeIntegrity = isSelfCopy
-      ? yield* computeMaterializedTreeIntegrity(canonicalPath)
-      : yield* replaceExternalCanonical(
-          baseDir,
-          canonicalPath,
-          { refType: ref.refType, name: ref.skill.name },
-          { ...reuse, sourcePath: packageRoot },
-        );
-    return { skillSrcPath, treeIntegrity };
+    const acquired = yield* acquireCanonicalForRef({
+      ref,
+      type: "skill",
+      baseDir,
+      canonicalPath,
+      accepted: reuse.accepted,
+      force: reuse.force,
+      copyFailure: {
+        code: "internal",
+        detail: (target) => `Failed to copy skill files to ${target}`,
+      },
+      external: { reuse: true },
+    });
+    return { skillSrcPath, treeIntegrity: acquired.treeIntegrity };
   });
 
 const materializeRegistry = (
@@ -109,7 +79,7 @@ const materializeRegistry = (
   sanitizedName: string,
   baseDir: string,
   layout: WorkspaceLayout,
-  reuse: Omit<CanonicalReuseContext, "sourcePath">,
+  reuse: CanonicalReuseContext,
 ) =>
   Effect.scoped(
     Effect.gen(function* () {
@@ -123,39 +93,16 @@ const materializeRegistry = (
       );
       yield* validatePathSafety(pathService, baseDir, canonicalPath);
 
-      const reusable = yield* reusableCanonicalTree({
+      const acquired = yield* acquireCanonicalForRef({
+        ref,
+        type: "skill",
+        baseDir,
         canonicalPath,
-        requested: {
-          refType: "registry",
-          owner: ref.owner,
-          name: ref.name,
-          version: ref.version,
-          publisherBindingId: ref.publisherBindingId,
-        },
         accepted: reuse.accepted,
         force: reuse.force,
-      });
-      if (Option.isSome(reusable)) {
-        yield* validateAxmSkillCandidate({
-          ref,
-          packageRoot: canonicalPath,
-          skillSourcePath: skillSrcPath,
-        });
-        return { skillSrcPath, treeIntegrity: reusable.value };
-      }
-      const materialized = yield* materializeRegistryPackageWithTreeIntegrity({
-        baseDir,
-        destinationPath: canonicalPath,
-        sourceLocation: ref.source.location,
-        owner: ref.owner,
-        type: "skill",
-        name: ref.name,
-        version: ref.version,
-        integrity: ref.integrity,
-        publisherBindingId: ref.publisherBindingId,
-        lifecycleWarnings: extensionRefLifecycleWarnings(ref),
-        messages: {
-          integrityMismatchDetail: `Integrity mismatch for ${ref.name}@${ref.version}`,
+        copyFailure: {
+          code: "internal",
+          detail: (target) => `Failed to copy skill files to ${target}`,
         },
         validate: (stagingPath) =>
           validateAxmSkillCandidate({
@@ -164,7 +111,15 @@ const materializeRegistry = (
             skillSourcePath: pathService.join(stagingPath, "src"),
           }).pipe(Effect.asVoid),
       });
-      return { skillSrcPath, treeIntegrity: materialized.treeIntegrity };
+      if (acquired.reused) {
+        yield* validateAxmSkillCandidate({
+          ref,
+          packageRoot: canonicalPath,
+          skillSourcePath: skillSrcPath,
+        });
+        return { skillSrcPath, treeIntegrity: acquired.treeIntegrity };
+      }
+      return { skillSrcPath, treeIntegrity: acquired.treeIntegrity };
     }),
   );
 
@@ -187,8 +142,6 @@ export type CanonicalReuseContext = {
   readonly force: boolean;
   /** The accepted resolution the canonical tree may be kept for. */
   readonly accepted: Option.Option<SkillLockEntry>;
-  /** Where the already-on-disk package to copy lives. */
-  readonly sourcePath: string;
 };
 
 export interface MaterializedSkillCanonical {
@@ -203,7 +156,7 @@ export const materializeSkillCanonical = (args: {
   readonly sanitizedName: string;
   readonly baseDir: string;
   readonly layout: WorkspaceLayout;
-  readonly reuse?: Omit<CanonicalReuseContext, "sourcePath">;
+  readonly reuse?: CanonicalReuseContext;
 }) => {
   switch (args.ref.refType) {
     case "git-hosted":

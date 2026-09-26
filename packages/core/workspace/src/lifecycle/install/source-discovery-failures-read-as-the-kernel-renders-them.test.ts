@@ -14,13 +14,8 @@ import * as Option from "effect/Option";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 import { RegistryProblem, RegistryRequestFailed } from "@agentxm/registry-client";
 
-import { discoverHookRefs } from "../../hooks/lifecycle/install/plan.js";
-import { discoverRuleRefs } from "../../instructions/lifecycle/install/plan.js";
-import { discoverKnowledgeRefs } from "../../knowledge/lifecycle/install/plan.js";
 import { discoverMcpServerRefs } from "../../mcp-connections/lifecycle/install/plan.js";
 import { discoverPackRefs } from "../../packs/lifecycle/install/plan.js";
-import { discoverSkillRefs } from "../../skills/lifecycle/install/plan.js";
-import { discoverSubagentRefs } from "../../subagents/lifecycle/install/plan.js";
 import { workspaceFailureToStepFailure } from "../../reconciliation/failure-rendering.js";
 import { GitOperationFailed } from "../../resolution/sources/errors.js";
 import {
@@ -30,6 +25,7 @@ import {
 import type { SourceResolutionFailure } from "../../resolution/sources/index.js";
 import type { ExtensionLifecycleFailed } from "../errors.js";
 import { makeLifecycleFixture } from "../testing.js";
+import { discoverInstallRefs } from "./request.js";
 import type { ResolveInstallRequirements } from "./vocabulary.js";
 
 const registry: RegistrySource = {
@@ -67,58 +63,19 @@ type Discovery = Effect.Effect<
 const discoveries = (
   source: RegistrySource | typeof git,
 ): ReadonlyArray<readonly [string, Discovery]> => [
-  [
-    "skill",
-    discoverSkillRefs({
-      source,
-      versionRange: Option.none(),
-      requestedSkills: ["review"],
-      requestedOwner: Option.none(),
-      resolutionProbes: [],
-      all: false,
-      force: false,
-      nonInteractive: true,
-    }).pipe(Effect.asVoid),
-  ],
-  [
-    "subagent",
-    discoverSubagentRefs({
-      source,
-      versionRange: Option.none(),
-      requestedSubagents: ["review"],
-      requestedOwner: Option.none(),
-      resolutionProbes: [],
-      all: false,
-      nonInteractive: true,
-    }).pipe(Effect.asVoid),
-  ],
-  [
-    "rule",
-    discoverRuleRefs({
-      source,
-      names: [],
-      owner: Option.none(),
-      versionRange: Option.none(),
-    }).pipe(Effect.asVoid),
-  ],
-  [
-    "hook",
-    discoverHookRefs({
-      source,
-      names: [],
-      owner: Option.none(),
-      versionRange: Option.none(),
-    }).pipe(Effect.asVoid),
-  ],
-  [
-    "knowledge",
-    discoverKnowledgeRefs({
-      source,
-      names: [],
-      owner: Option.none(),
-      versionRange: Option.none(),
-    }).pipe(Effect.asVoid),
-  ],
+  ...(["skill", "subagent", "rule", "hook", "knowledge"] as const).map(
+    (type) =>
+      [
+        type,
+        discoverInstallRefs(type, {
+          source,
+          names: ["review"],
+          owner: Option.none(),
+          versionRange: Option.none(),
+          resolutionProbes: [],
+        }).pipe(Effect.asVoid),
+      ] as const,
+  ),
   [
     "mcp-server",
     discoverMcpServerRefs({

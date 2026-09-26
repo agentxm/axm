@@ -137,6 +137,7 @@ const resolveBareHandle = Effect.fn("ViewExtension.resolveBareHandle")(function*
           registrySourceName: defaultRegistry,
         }),
       ).pipe(Effect.result),
+    // eslint-disable-next-line axm-policy/no-unbounded-io -- one probe per fixed installable extension type
     { concurrency: "unbounded" },
   );
   const matches = attempts.flatMap((result): ReadonlyArray<ResolvedIdentifier> =>

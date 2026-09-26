@@ -189,8 +189,5 @@ export {
   type ExtensionInventory,
   type ExtensionInventoryClassification,
   type ExtensionInventoryLifecycle,
-  type ExtensionInventoryObservation,
   type ExtensionInventoryRow,
-  type LifecycleInventoryCandidate,
-  type ProjectExtensionInventoryInput,
 } from "./inventory.js";

@@ -7,7 +7,7 @@ import { afterEach, beforeEach } from "vitest";
 
 import { makeWorkspaceHandlerTestContext } from "../../test-support/test-helpers.js";
 import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
-import { handleListRule } from "./list.js";
+import { handleList } from "./list.js";
 
 describe("rules list", () => {
   let tempDir: string;
@@ -32,7 +32,7 @@ describe("rules list", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListRule();
+        yield* handleList();
 
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 1,

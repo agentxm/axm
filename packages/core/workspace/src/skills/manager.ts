@@ -1,6 +1,4 @@
-import { LifecyclePostconditionViolated } from "../transitions/planning/index.js";
 import type { SkillManagerService } from "../materialization/managers.js";
-import { usableAcceptedCanonical } from "../desired-state/index.js";
 
 /**
  * Skill extension manager service.
@@ -13,7 +11,7 @@ import { usableAcceptedCanonical } from "../desired-state/index.js";
  */
 
 import * as FileSystem from "effect/FileSystem";
-import { stripFileProtocol } from "@agentxm/registry-client";
+import { fromFileLocation } from "@agentxm/host-primitives";
 import * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
@@ -29,10 +27,14 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
 import { configuredSkillsToDiskRefs } from "../acquisition/materializable-from-disk.js";
+import {
+  makeBaseManagerMembers,
+  listMaterializableFromAccepted,
+  listMaterializableFromDisk,
+} from "../materialization/manager-kit.js";
 import { enabledConfiguredEntries } from "../desired-state/index.js";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { SkillMaterializationFacts } from "../materialization/managers.js";
-import type { ExtensionTarget } from "../desired-state/index.js";
 import { sanitizeName } from "../desired-state/index.js";
 import { computePackageContentHash } from "../desired-state/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
@@ -48,7 +50,7 @@ import {
   applyProjectionPlans,
   planSingletonProjection,
 } from "../projection/index.js";
-import { type AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import { type MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import { computeSkillSourceHash } from "./source-hash.js";
 import {
   ensureSkillAgentArtifact,
@@ -58,11 +60,8 @@ import {
 import { configuredRowsByName } from "../desired-state/index.js";
 import {
   acceptedCanonicalObservation,
-  prepareAcceptedCanonicalTransition,
   removableAcceptedCanonicalPath,
-  usableAcceptedCanonicalRef,
 } from "../desired-state/index.js";
-import { isObservedInstalled } from "../desired-state/index.js";
 
 // -----------------------------------------------------------------------------
 // Live Layer
@@ -106,6 +105,7 @@ export const SkillManagerLive = Layer.effect(
           agent
             .resolveEffectiveSkillsDir({ workspaceRoot: baseDir })
             .pipe(Effect.map((outcome) => ({ agent, outcome }))),
+        // eslint-disable-next-line axm-policy/no-unbounded-io -- configured agents are a subset of the fixed agent catalog
         { concurrency: "unbounded" },
       );
 
@@ -119,7 +119,10 @@ export const SkillManagerLive = Layer.effect(
         });
       }
 
-      const installTargets: Array<{ readonly agentId: AgentId; readonly dir: string }> = [];
+      const installTargets: Array<{
+        readonly agentId: MaterializationTargetId;
+        readonly dir: string;
+      }> = [];
       for (const { agent, outcome } of resolved) {
         if (outcome._tag === "supported") {
           installTargets.push({ agentId: agent.id, dir: path.normalize(outcome.dir) });
@@ -127,7 +130,7 @@ export const SkillManagerLive = Layer.effect(
       }
       const locations = new Map<
         string,
-        { readonly dir: string; readonly agentIds: Array<AgentId> }
+        { readonly dir: string; readonly agentIds: Array<MaterializationTargetId> }
       >();
       for (const target of installTargets) {
         const existing = locations.get(target.dir);
@@ -212,6 +215,7 @@ export const SkillManagerLive = Layer.effect(
             agent
               .resolveEffectiveSkillsDir({ workspaceRoot: baseDir })
               .pipe(Effect.map((outcome) => ({ agent, outcome }))),
+          // eslint-disable-next-line axm-policy/no-unbounded-io -- configured agents are a subset of the fixed agent catalog
           { concurrency: "unbounded" },
         );
 
@@ -273,14 +277,14 @@ export const SkillManagerLive = Layer.effect(
     const materializeDeactivate = makeMaterializeRemoval(true);
 
     return {
-      isInstalled: Effect.fn("SkillManager.isInstalled")(function* ({
-        target,
-      }: {
-        readonly target: ExtensionTarget;
-      }) {
-        return yield* isObservedInstalled(records, "skill", target.name);
+      ...makeBaseManagerMembers({
+        type: "skill",
+        spanPrefix: "SkillManager",
+        records,
+        settings,
+        refName: (ref) => ref.skill.name,
+        materializeInstall,
       }),
-
       materializeInstall,
       acquireCanonical: ({ ref, force }) =>
         Effect.gen(function* () {
@@ -304,27 +308,7 @@ export const SkillManagerLive = Layer.effect(
             observation: { agents: [], targets: [] },
           };
         }),
-      materializeRetained: ({ target }) =>
-        Effect.gen(function* () {
-          const canonical = yield* usableAcceptedCanonical({
-            type: "skill",
-            name: target.name,
-          });
-          if (Option.isNone(canonical) || canonical.value.ref.type !== "skill") {
-            return yield* new LifecyclePostconditionViolated({
-              postcondition: "materialize-observable",
-              targetType: "skill",
-              targetName: target.name,
-            });
-          }
-          return yield* materializeInstall({ ref: canonical.value.ref });
-        }),
-      prepareSourceTransition: ({ ref }) =>
-        prepareAcceptedCanonicalTransition({
-          type: "skill",
-          name: ref.skill.name,
-          ref,
-        }),
+      // Bundled skills declare their source through origin, not source.
       getConfiguredSource: Effect.fn("SkillManager.getConfiguredSource")(function* ({ target }) {
         const configured = yield* settings.entries("skill");
         const entry = configured[target.name];
@@ -344,25 +328,24 @@ export const SkillManagerLive = Layer.effect(
             ([name]) => configuredEntries[name]?.origin !== "bundled",
           ),
         );
-        const workspaceRefs = yield* configuredSkillsToDiskRefs(
-          { fs, path, baseDir, scope: location.scope, layout: currentLayout() },
-          configuredWithoutBundled,
-        );
-        const trustedRefs = yield* Effect.forEach(
-          enabledConfiguredEntries(configured),
-          ([name]) =>
-            configuredEntries[name]?.origin === "bundled"
-              ? Effect.succeed(Option.none<SkillExtensionRef>())
-              : usableAcceptedCanonicalRef({ type: "skill", name }).pipe(
-                  Effect.map(
-                    Option.filter((ref): ref is SkillExtensionRef => ref.type === "skill"),
-                  ),
-                ),
-          { concurrency: 16 },
-        );
+        const workspaceRefs = yield* listMaterializableFromDisk({
+          type: "skill",
+          records,
+          configured: configuredWithoutBundled,
+          toDiskRefs: configuredSkillsToDiskRefs,
+          env: { fs, path, baseDir, scope: location.scope, layout: currentLayout() },
+        });
+        const trustedRefs = yield* listMaterializableFromAccepted({
+          type: "skill",
+          names: Effect.succeed(
+            enabledConfiguredEntries(configured)
+              .filter(([name]) => configuredEntries[name]?.origin !== "bundled")
+              .map(([name]) => name),
+          ),
+        });
         const refsByName = new Map(workspaceRefs.map((ref) => [ref.skill.name, ref]));
         for (const ref of trustedRefs) {
-          if (Option.isSome(ref)) refsByName.set(ref.value.skill.name, ref.value);
+          refsByName.set(ref.skill.name, ref);
         }
         return [...refsByName.values()];
       }),
@@ -381,7 +364,7 @@ export const SkillManagerLive = Layer.effect(
             ? makeWorkspaceRelativeSourcePath(
                 path,
                 baseDir,
-                ref.sourcePath ?? stripFileProtocol(ref.location),
+                ref.sourcePath ?? fromFileLocation(ref.location),
               )
             : Option.none();
         if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {

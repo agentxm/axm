@@ -6,7 +6,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { makeDirectoryFixture } from "./test-support/directory-harness.js";
 import { ErrorEnvelope } from "./test-support/machine-documents.js";
-import { snapshotWorkspaceContent } from "./test-support/workspace-fixtures.js";
+import { snapshotTree } from "@agentxm/test-support";
 
 export const specification = defineSpecification({
   requirement: "cli/version/argument-errors-offer-runnable-recovery",
@@ -91,7 +91,7 @@ describe("Version argument recovery", () => {
       const manifestBefore = readManifest(fixture.invoking);
       if (typeof manifestBefore !== "object" || manifestBefore === null)
         throw new Error("Expected the authored fixture manifest");
-      const before = snapshotWorkspaceContent(fixture.invoking);
+      const before = snapshotTree(fixture.invoking);
       const flags = ["--json", "--non-interactive"];
 
       const failure = await fixture.run(["version", handle, row.bump, ...row.extra, ...flags]);
@@ -100,7 +100,7 @@ describe("Version argument recovery", () => {
       const parsed: unknown = JSON.parse(failure.stdout);
       const error = decodeError(parsed);
       expect(error).toMatchObject({ ok: false, code: "usage" });
-      expect(snapshotWorkspaceContent(fixture.invoking)).toEqual(before);
+      expect(snapshotTree(fixture.invoking)).toEqual(before);
       const suggestion = error.suggestions?.find((candidate) => candidate.cmd !== undefined);
       if (suggestion?.cmd === undefined) throw new Error("Expected a runnable correction command");
       const command = suggestion.cmd.split(" ");
@@ -121,9 +121,7 @@ describe("Version argument recovery", () => {
         Object.fromEntries(
           Object.entries(snapshot).filter(([relative]) => relative !== manifestPath),
         );
-      expect(withoutManifest(snapshotWorkspaceContent(fixture.invoking))).toEqual(
-        withoutManifest(before),
-      );
+      expect(withoutManifest(snapshotTree(fixture.invoking))).toEqual(withoutManifest(before));
     } finally {
       fixture.cleanup();
     }

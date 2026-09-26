@@ -1,7 +1,12 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
 import { McpServerManifestSchema } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
-import { collectSecretInputNames, mcpProjectionInputValues } from "./inputs.js";
+import {
+  collectRequiredInputNames,
+  collectSecretInputNames,
+  manifestInputs,
+  mcpProjectionInputValues,
+} from "./inputs.js";
 
 const manifest = Schema.decodeUnknownSync(McpServerManifestSchema)({
   owner: "@acme",
@@ -22,6 +27,12 @@ const manifest = Schema.decodeUnknownSync(McpServerManifestSchema)({
           { name: "API_TOKEN", isRequired: true, isSecret: true },
           { name: "REGION", isRequired: false },
         ],
+        runtimeArguments: [
+          { type: "named", name: "--profile", isRequired: true },
+          { type: "positional", valueHint: "INPUT_PATH", isRequired: true, isSecret: true },
+          { type: "positional", value: "fixed" },
+        ],
+        packageArguments: [{ type: "named", name: "--optional", isRequired: true, default: "x" }],
       },
     ],
     remotes: [
@@ -29,7 +40,10 @@ const manifest = Schema.decodeUnknownSync(McpServerManifestSchema)({
         type: "streamable-http",
         url: "https://mcp.acme.test/{TENANT}",
         headers: [{ name: "Authorization", value: "Bearer {SESSION}", isSecret: true }],
-        variables: { TENANT: { isRequired: true, isSecret: false } },
+        variables: {
+          TENANT: { isRequired: true, isSecret: false },
+          SESSION: { isSecret: true, default: "session-ref" },
+        },
       },
     ],
   },
@@ -37,7 +51,31 @@ const manifest = Schema.decodeUnknownSync(McpServerManifestSchema)({
 
 describe("MCP projection input values", () => {
   it("collects every secret input by the name a value is supplied under", () => {
-    expect([...collectSecretInputNames(manifest)].sort()).toEqual(["API_TOKEN", "Authorization"]);
+    expect([...collectSecretInputNames(manifest)].sort()).toEqual([
+      "API_TOKEN",
+      "Authorization",
+      "INPUT_PATH",
+      "SESSION",
+    ]);
+  });
+
+  it("enumerates all five input classes and skips unnamed positional literals", () => {
+    expect(manifestInputs(manifest).map((input) => input.name)).toEqual([
+      "API_TOKEN",
+      "REGION",
+      "--profile",
+      "INPUT_PATH",
+      "--optional",
+      "Authorization",
+      "TENANT",
+      "SESSION",
+    ]);
+    expect([...collectRequiredInputNames(manifest)].sort()).toEqual([
+      "--profile",
+      "API_TOKEN",
+      "INPUT_PATH",
+      "TENANT",
+    ]);
   });
 
   it("supplies every secret as its reference and keeps configured values", () => {

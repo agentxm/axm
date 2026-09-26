@@ -70,6 +70,7 @@
   "dependencies": {
     "@agentxm/cli-maintenance": "workspace:^",
     "@agentxm/extension-model": "workspace:^",
+    "@agentxm/host-primitives": "workspace:^",
     "@agentxm/registry-access": "workspace:^",
     "@agentxm/registry-client": "workspace:^",
     "@agentxm/registry-protocol": "workspace:^",
@@ -84,7 +85,6 @@
     "@agentxm/test-support": "workspace:^",
     "@effect/openapi-generator": "catalog:",
     "@effect/vitest": "catalog:",
-    "@fast-check/vitest": "catalog:",
     "@types/bun": "catalog:",
     "@types/semver": "catalog:",
     "@typescript/native": "catalog:",

@@ -25,7 +25,7 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 
 import type { RegistryClient } from "./client.js";
 import { createRegistryClient } from "./client.js";
-import { stripFileProtocol } from "./fs-helpers.js";
+import { fromFileLocation } from "@agentxm/host-primitives";
 import { RegistryUrl } from "./registry-url.js";
 
 export interface RegistryClientFactoryService {
@@ -44,7 +44,7 @@ export class RegistryClientFactory extends ServiceMap.Service<
 
 /** The location a client is constructed over: a native path for `file:`, else the URL as written. */
 const clientLocation = (location: URL | string): string =>
-  stripFileProtocol(location instanceof URL ? location.href : location);
+  fromFileLocation(location instanceof URL ? location.href : location);
 
 export const makeRegistryClientFactory = (services: {
   readonly httpClient: HttpClient.HttpClient;

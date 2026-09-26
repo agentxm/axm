@@ -1,21 +1,20 @@
 /** AXM application-home and workspace path resolution. */
 
-import * as os from "node:os";
-import * as Config from "effect/Config";
+import type * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import { ACQUIRED_EXTENSIONS_DIR, LOCK_FILENAME, USER_WORKSPACE_DIRECTORY } from "./constants.js";
 import {
-  ACQUIRED_EXTENSIONS_DIR,
   AXM_DIR_NAME,
-  LOCK_FILENAME,
-  USER_WORKSPACE_DIRECTORY,
-} from "./constants.js";
+  resolveUserAxmHome as resolveHostUserAxmHome,
+  resolveUserAxmHomePure,
+  resolveUserHome as resolveHostUserHome,
+} from "@agentxm/host-primitives";
 import { makeAbsolutePath, type AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
-export { AXM_DIR_NAME, USER_WORKSPACE_DIRECTORY } from "./constants.js";
+export { USER_WORKSPACE_DIRECTORY } from "./constants.js";
 
 export interface LocatedWorkspace {
   readonly scope: WorkspaceScope;
@@ -27,16 +26,6 @@ export interface LocatedWorkspace {
   readonly acquiredRoot: AbsolutePath;
 }
 
-const axmUserHomeConfig = Config.option(Config.String("AXM_USER_HOME"));
-
-export const resolveUserHomePure = (configuredHome: string | undefined): string =>
-  configuredHome ?? os.homedir();
-
-export const resolveUserAxmHomePure = (
-  pathJoin: (...segments: ReadonlyArray<string>) => string,
-  homeDir: string,
-): string => pathJoin(homeDir, AXM_DIR_NAME);
-
 export const resolveUserWorkspaceRootPure = (
   pathJoin: (...segments: ReadonlyArray<string>) => string,
   homeDir: string,
@@ -45,15 +34,15 @@ export const resolveUserWorkspaceRootPure = (
 export const resolveUserHome = (): Effect.Effect<AbsolutePath, Config.ConfigError, Path.Path> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const configuredHome = yield* axmUserHomeConfig;
-    return makeAbsolutePath(path, resolveUserHomePure(Option.getOrUndefined(configuredHome)));
+    const home = yield* resolveHostUserHome();
+    return makeAbsolutePath(path, home);
   });
 
 export const resolveUserAxmHome = (): Effect.Effect<AbsolutePath, Config.ConfigError, Path.Path> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const home = yield* resolveUserHome();
-    return makeAbsolutePath(path, resolveUserAxmHomePure(path.join, home));
+    const home = yield* resolveHostUserAxmHome();
+    return makeAbsolutePath(path, home);
   });
 
 export const resolveUserWorkspaceRoot = (): Effect.Effect<

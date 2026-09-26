@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import { userScopeRefusal, type UserScopedExtension } from "./scope-refusal.js";
 import {
   CONFIGURABLE_AGENT_IDS,
@@ -14,7 +14,7 @@ import {
  * asked for a scope.
  */
 const scopesFor = (id: ConfigurableAgentId): ReadonlyArray<string> | undefined => {
-  const descriptor = AGENTS[id];
+  const descriptor = AGENT_DESCRIPTORS[id];
   return descriptor.subagents?.scopes;
 };
 
@@ -41,12 +41,12 @@ describe("userScopeRefusal", () => {
   for (const type of ["subagents"] satisfies ReadonlyArray<UserScopedExtension>) {
     it(`names AXM as the limitation for agents with a native user-scope ${type} surface`, () => {
       const messages = declaringUserScope().map((id) => {
-        const name = AGENTS[id].name;
+        const name = AGENT_DESCRIPTORS[id].name;
         return [id, userScopeRefusal({ agentId: id, agentName: name, type })] as const;
       });
       expect(messages.length).toBeGreaterThan(0);
       for (const [id, message] of messages) {
-        const name = AGENTS[id].name;
+        const name = AGENT_DESCRIPTORS[id].name;
         expect(message).toBe(
           `AXM manages only the project-scope ${type} directory for ${name}; ${name} supports user-scope ${type} natively but AXM has not modeled that location`,
         );

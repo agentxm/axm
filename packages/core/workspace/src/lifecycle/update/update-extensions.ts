@@ -108,6 +108,7 @@ import { withPublisherTrust } from "../publisher-binding.js";
 import { planHookInstall } from "../../hooks/lifecycle/install/plan.js";
 import { planKnowledgeInstall } from "../../knowledge/lifecycle/install/plan.js";
 import { planMcpServerInstall } from "../../mcp-connections/lifecycle/install/plan.js";
+import { settleMcpSourceIdentityFor } from "../../mcp-connections/source-identity.js";
 import { planPackInstall } from "../../packs/lifecycle/install/plan.js";
 import { planRuleInstall } from "../../instructions/lifecycle/install/plan.js";
 import { planSkillInstall } from "../../skills/lifecycle/install/plan.js";
@@ -117,7 +118,7 @@ import { buildWorkspaceUpdatePlan, type WorkspaceUpdatableType } from "./configu
 import { resolveConfiguredUpdateSelection, type ConfiguredUpdateSelector } from "./selector.js";
 import { resolveRootUpdateIntent, type RootUpdateIntent } from "./root-request.js";
 import { wrapTargetedUpdatePlan } from "./targeted-plan.js";
-import { nameFromLabel } from "../../reconciliation/index.js";
+import { nameFromLabel, workspaceFailureToStepFailure } from "../../reconciliation/index.js";
 import { desiredPackageKey } from "../../desired-state/index.js";
 
 // -----------------------------------------------------------------------------
@@ -422,9 +423,21 @@ const planResolvedTarget = Effect.fn("UpdateExtensions.planResolvedTarget")(func
       const desiredState = yield* DesiredStateReader;
       const graph = yield* desiredState.graph();
       const desired = desiredNodeForIntent(graph, intent);
+      const localName = decodeExtensionNameSync(desired?.name ?? ref.server.name);
+      const sourceIdentity = yield* settleMcpSourceIdentityFor(graph, ref, localName).pipe(
+        Effect.mapError(
+          (cause) =>
+            new ExtensionLifecycleFailed({
+              category: "conflict",
+              detail: workspaceFailureToStepFailure(cause).detail,
+              cause,
+            }),
+        ),
+      );
       return yield* planMcpServerInstall({
         ref,
-        localName: decodeExtensionNameSync(desired?.name ?? ref.server.name),
+        localName,
+        sourceIdentity,
         versionRange: Option.map(versionRange, (range) => range),
         force: false,
         nonInteractive: args.nonInteractive,

@@ -439,6 +439,29 @@ describe("makeScopedStateApi.lockfile", () => {
     }),
   );
 
+  it.effect("fails with LockfileDecodeError for an unrecognised lockfile key", () =>
+    Effect.gen(function* () {
+      const counters = yield* makeCounters;
+      const raw = "lockfileVersion: 8\nskills: {}\nextra: 1\n";
+      const fs = buildFs(
+        {
+          readers: { [LOCKFILE_PATH]: () => Effect.succeed(raw) },
+          missing: new Set(),
+          existsFails: new Set(),
+        },
+        counters,
+      );
+      const api = yield* makeApi("project", fs);
+
+      const err = yield* Effect.flip(api.lockfile);
+      expect(err).toBeInstanceOf(LockfileDecodeError);
+      if (err._tag === "LockfileDecodeError") {
+        expect(err.path).toBe(LOCKFILE_PATH);
+        expect(err.issues.some((issue) => issue.includes("extra"))).toBe(true);
+      }
+    }),
+  );
+
   it.effect.each([
     { observedVersion: 5, direction: "older" },
     { observedVersion: 9, direction: "newer" },

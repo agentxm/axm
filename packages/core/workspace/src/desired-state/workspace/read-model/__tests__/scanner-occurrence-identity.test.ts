@@ -16,7 +16,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import { buildFixture, resolveFixtureProjectLayout } from "../__fixtures__/builder.js";
 import {
   makeAgentDirOccurrence,
@@ -220,8 +220,8 @@ describe("scanner occurrence identity", () => {
             scope: "project",
             diagnostics: diag,
             agentRegistry: {
-              "claude-code": AGENTS["claude-code"],
-              codex: AGENTS.codex,
+              "claude-code": AGENT_DESCRIPTORS["claude-code"],
+              codex: AGENT_DESCRIPTORS.codex,
             },
           });
           const all: ReadonlyArray<ScannerOccurrence> = [...canonical, ...agentDir];
@@ -281,8 +281,8 @@ describe("scanner occurrence identity", () => {
             scope: "project",
             diagnostics: diag,
             agentRegistry: {
-              "claude-code": AGENTS["claude-code"],
-              codex: AGENTS.codex,
+              "claude-code": AGENT_DESCRIPTORS["claude-code"],
+              codex: AGENT_DESCRIPTORS.codex,
             },
           });
           const all: ReadonlyArray<ScannerOccurrence> = [...canonical, ...agentDir];
@@ -330,8 +330,8 @@ describe("scanner occurrence identity", () => {
             scope: "project",
             diagnostics: diag,
             agentRegistry: {
-              "claude-code": AGENTS["claude-code"],
-              cursor: AGENTS.cursor,
+              "claude-code": AGENT_DESCRIPTORS["claude-code"],
+              cursor: AGENT_DESCRIPTORS.cursor,
             },
           });
           const sharedOccurrences = occurrences.filter((o) => o.name === "shared");

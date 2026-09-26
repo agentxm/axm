@@ -13,10 +13,9 @@
  * @packageDocumentation
  */
 
-// Settings, lockfile, and schema surfaces
+// Settings and lockfile surfaces
 export * from "./settings/index.js";
 export * from "./lockfile/index.js";
-export * from "./schema/index.js";
 
 // Knowledge discovery configuration
 export {
@@ -25,7 +24,19 @@ export {
 } from "./knowledge/discovery-config.js";
 
 // Path safety
-export { safeChildPath, validatePathSafety, PathTraversalDetected } from "./utils/path-safety.js";
+export { validatePathSafety, PathTraversalDetected } from "./utils/path-safety.js";
+
+// Workspace-relative display paths
+export {
+  USER_WORKSPACE_DISPLAY_ROOT,
+  workspaceFileDisplayPath,
+  settingsDisplayPath,
+  lockfileDisplayPath,
+  acquiredRootDisplayPath,
+  acquiredDisplayPath,
+  authoredDisplayPath,
+  workspaceDisplayPath,
+} from "./workspace/display-paths.js";
 
 // Additional settings and lockfile vocabulary consumed beyond the barrels
 export { SETTINGS_KNOWN_KEYS } from "./settings/schema.js";
@@ -57,16 +68,13 @@ export {
   extensionPathSourceFromLockEntry,
   extensionContentFilename,
   extensionContentPath,
-  type ExtensionPathLockEntry,
   type ExtensionPathSource,
   type ExtensionDirPaths,
 } from "./workspace/extension-paths.js";
 export {
   RenderedFilePathSchema,
-  RenderedFilesMapSchema,
   computeSourceHash,
   type RenderedFilePath,
-  type RenderedFilesMap,
 } from "./workspace/rendered-files.js";
 export { computePackageContentHash } from "./workspace/package-hash.js";
 export {
@@ -77,8 +85,15 @@ export {
   type TreeIntegrity,
 } from "./workspace/materialized-tree.js";
 export { sanitizeName, normalizeExtensionName } from "./workspace/extension-name.js";
-export { computePackPathsForLayout } from "./workspace/pack-paths.js";
+export { computePackPathsForLayout, type PackDirPath } from "./workspace/pack-paths.js";
 export { computePackManifestContentIdentity } from "./workspace/pack-manifest-content-identity.js";
+export {
+  observePackManifest,
+  PackManifests,
+  type LocatedPackManifest,
+  type PackManifestObservation,
+  type PackManifestsPort,
+} from "./workspace/pack-manifests.js";
 export {
   MaterializedFileTargetSchema,
   type MaterializedFileTarget,
@@ -112,6 +127,8 @@ export {
 export {
   ConfiguredAgentOutcomesProvider,
   ConfiguredAgentOutcomesUnavailable,
+  resolveConfiguredAgentOutcomes,
+  type ConfiguredAgentOutcomesRequest,
   type ConfiguredAgentOutcomesFailureCategory,
   type ConfiguredAgentOutcomesForState,
   type ConfiguredAgentOutcomesProviderService,
@@ -125,12 +142,10 @@ export {
   type WorkspaceLayout,
 } from "./workspace/layout.js";
 export {
-  AXM_DIR_NAME,
   USER_WORKSPACE_DIRECTORY,
   getProjectRuntimeDir,
   locateWorkspace,
   resolveUserAxmHome,
-  resolveUserAxmHomePure,
   resolveUserHome,
   resolveUserWorkspaceRoot,
   resolveUserWorkspaceRootPure,
@@ -154,20 +169,11 @@ export {
   unmanagedRecordRows,
   unmanagedRowsByName,
   type ConfiguredRecordRow,
-  type ImplicitRecordRow,
   type InstalledRecordRow,
   type UnmanagedRecordRow,
-} from "./workspace/read-model-record-rows.js";
-
-export type { ReadModelRecordRow, PackagingKind } from "./workspace/read-model-record-types.js";
-
-export {
-  getKnowledgeLockEntries,
-  getLockedEntries,
-  lockEntryVersion,
-  type AnyLockEntry,
-  type AnyLockMap,
-} from "./workspace/locked-entries.js";
+  WorkspaceRecordRowSchema,
+  type WorkspaceRecordRow,
+} from "./workspace/read-model/records.js";
 
 export {
   buildDesiredStateGraph,
@@ -234,7 +240,6 @@ export {
   canonicalPathForAcceptedExtension,
   desiredConstraintContributors,
   type RequestedCanonicalRef,
-  type AcceptedExtensionResolution,
   type CanonicalConstraintContributor,
   type CanonicalConstraintMismatchObservation,
   type CanonicalObservation,
@@ -264,23 +269,20 @@ export { resolveWorkspaceExtensionRef } from "./workspace/configured-entry-resol
 
 // Lock entry translation
 export {
-  hookLockEntryToRef,
-  knowledgeLockEntryToRef,
-  mcpServerLockEntryToRef,
-  packLockEntryToRef,
-  ruleLockEntryToRef,
-  skillLockEntryToRef,
-  subagentLockEntryToRef,
+  lockEntryToRef,
+  lockEntrySource,
+  lockEntryToSourceParams,
+  lockEntryMatchesSourceLocator,
+  printSkillLockSourceLocator,
+  lockEntryVersion,
+  isRegistryLockEntry,
+  isGitLockEntry,
+  isPathLockEntry,
+  type LockEntry,
+  type LockEntryToRefDeps,
   type LockEntrySourceLookupError,
   type LockEntryToRefError,
-} from "./workspace/lock-entry-to-ref.js";
-export {
-  lockEntryMatchesSourceLocator,
-  lockEntryToSourceParams,
-  printSkillLockSourceLocator,
-} from "./workspace/lock-entry-to-source-params.js";
-// Source metadata
-export { deriveSourceMetaFromLockType, type SourceMeta } from "./workspace/source-metadata.js";
+} from "./workspace/lock-entry.js";
 export {
   mcpRegistryResolutionKey,
   mcpResolutionKey,
@@ -313,10 +315,7 @@ export {
   type ExtensionInventory,
   type ExtensionInventoryClassification,
   type ExtensionInventoryLifecycle,
-  type ExtensionInventoryObservation,
   type ExtensionInventoryRow,
-  type LifecycleInventoryCandidate,
-  type ProjectExtensionInventoryInput,
 } from "./workspace/read-model/extensions/inventory.js";
 export {
   getPriorityDirectories,
@@ -412,7 +411,6 @@ export {
   type SetRuleArgs,
   type SetHookArgs,
   type SetKnowledgeArgs,
-  type PackDirPath,
   type ExtensionTarget,
   type ExtensionTargetFor,
   type LockfileState,

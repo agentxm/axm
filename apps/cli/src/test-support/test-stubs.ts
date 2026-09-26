@@ -5,7 +5,12 @@ import * as Ref from "effect/Ref";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
-import { TreeIntegritySchema, computeSourceHash } from "@agentxm/workspace/desired-state";
+import {
+  TreeIntegritySchema,
+  computeSourceHash,
+  type TreeIntegrity,
+} from "@agentxm/workspace/desired-state";
+import { treeIntegrityOf } from "@agentxm/workspace/desired-state/testing";
 import { NO_MATERIALIZATION_OBSERVATION } from "@agentxm/workspace/materialization";
 import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 
@@ -427,38 +432,8 @@ export const computePackageContentHashSync = (packageDir: string): string => {
 };
 
 /** Compute the strict v7 lock identity for a materialized test package tree. */
-export const computeMaterializedTreeIntegritySync = (root: string): string => {
-  const files: Array<{ readonly relativePath: string; readonly absolutePath: string }> = [];
-  const walk = (directory: string, relativeDirectory: string): void => {
-    const entries = fs
-      .readdirSync(directory, { withFileTypes: true })
-      .sort((left, right) => left.name.localeCompare(right.name, "en"));
-    for (const entry of entries) {
-      const relativePath =
-        relativeDirectory.length === 0 ? entry.name : `${relativeDirectory}/${entry.name}`;
-      const absolutePath = path.join(directory, entry.name);
-      if (entry.isSymbolicLink()) throw new Error(`Unexpected symlink: ${relativePath}`);
-      if (entry.isDirectory()) walk(absolutePath, relativePath);
-      else if (entry.isFile()) files.push({ relativePath, absolutePath });
-      else throw new Error(`Unexpected filesystem entry: ${relativePath}`);
-    }
-  };
-  walk(root, "");
-  const hash = crypto.createHash("sha256");
-  const frame = (bytes: Uint8Array): void => {
-    const length = Buffer.alloc(8);
-    length.writeBigUInt64BE(BigInt(bytes.byteLength));
-    hash.update(length);
-    hash.update(bytes);
-  };
-  frame(Buffer.from("agentxm-materialized-tree"));
-  frame(Buffer.from("1"));
-  for (const file of files) {
-    frame(Buffer.from(file.relativePath, "utf8"));
-    frame(fs.readFileSync(file.absolutePath));
-  }
-  return Schema.decodeUnknownSync(TreeIntegritySchema)(`sha256-tree-v1:${hash.digest("hex")}`);
-};
+export const computeMaterializedTreeIntegritySync = (root: string): TreeIntegrity =>
+  Effect.runSync(treeIntegrityOf(root));
 
 /**
  * Write a project-authored OKF knowledge package under the default

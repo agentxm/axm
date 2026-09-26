@@ -5,13 +5,15 @@ import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import {
   assertInstructionTargetsSafe,
+  instructionProjectionEffects,
   instructionProjectionIsCurrent,
+  instructionProjectionRemovalEffects,
   observeInstructionProjection,
   probeSymlinkSupport,
-  reconcileInstructionTargets,
   removeManagedInstructionTargets,
   removeInstructionsGitignore,
   resolveInstructionMechanism,
@@ -19,6 +21,7 @@ import {
   type InstructionStatusItem,
   type ResolvedInstructionsConfig,
 } from "./instructions.js";
+import { reconcileInstructions } from "./reconciliation.js";
 import type { InstructionMaintenanceFailed, InstructionMaintenanceFailure } from "./errors.js";
 
 /** Narrow a typed failure to the maintenance family before asserting fields. */
@@ -30,7 +33,7 @@ const expectMaintenanceFailed = (
   }
   return failure;
 };
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 
 const gitLocalEnvironmentVariables = [
   "GIT_ALTERNATE_OBJECT_DIRECTORIES",
@@ -760,7 +763,7 @@ describe("agent instructions", () => {
           symlinkSupported: false,
         });
         yield* assertInstructionTargetsSafe(status);
-        const result = yield* reconcileInstructionTargets({
+        const result = yield* reconcileInstructions({
           workspaceRoot: tempDir,
           scope: "project",
           configuredAgents: ["claude-code"],
@@ -784,7 +787,7 @@ describe("agent instructions", () => {
         fs.writeFileSync(path.join(tempDir, "CLAUDE.md"), privateNotes);
 
         const result = yield* Effect.result(
-          reconcileInstructionTargets({
+          reconcileInstructions({
             workspaceRoot: tempDir,
             scope: "project",
             configuredAgents: ["claude-code", "gemini-cli"],
@@ -946,6 +949,94 @@ describe("agent instructions", () => {
             }),
           ),
         ).toBe(true);
+      }),
+    ),
+  );
+
+  it.effect("names the same changed paths in previews and applied instruction runs", () =>
+    run(
+      Effect.gen(function* () {
+        fs.mkdirSync(path.join(tempDir, ".git"));
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# First\n");
+        yield* sync({
+          configuredAgents: ["claude-code", "gemini-cli", "junie"],
+          config: IGNORED,
+          symlinkSupported: false,
+        });
+
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Second\n");
+        fs.rmSync(path.join(tempDir, "GEMINI.md"));
+        const agents = ["claude-code", "gemini-cli"];
+        const before = yield* observe({
+          configuredAgents: agents,
+          config: IGNORED,
+          symlinkSupported: false,
+        });
+        const effects = instructionProjectionEffects(before);
+        const expectedWritten = effects
+          .filter((effect) => effect.change !== "removed")
+          .map((effect) => effect.path)
+          .sort();
+        const expectedRemoved = effects
+          .filter((effect) => effect.change === "removed")
+          .map((effect) => effect.path)
+          .sort();
+        expect(expectedWritten).toEqual(
+          expect.arrayContaining([
+            path.join(tempDir, "CLAUDE.md"),
+            path.join(tempDir, "GEMINI.md"),
+            path.join(tempDir, ".gitignore"),
+          ]),
+        );
+        expect(expectedRemoved).toContain(path.join(tempDir, ".junie", "AGENTS.md"));
+
+        const preview = yield* sync({
+          configuredAgents: agents,
+          config: IGNORED,
+          symlinkSupported: false,
+          dryRun: true,
+        });
+        expect([...preview.written].sort()).toEqual(expectedWritten);
+        expect([...preview.removed].sort()).toEqual(expectedRemoved);
+        const applied = yield* sync({
+          configuredAgents: agents,
+          config: IGNORED,
+          symlinkSupported: false,
+        });
+        expect([...applied.written].sort()).toEqual(expectedWritten);
+        expect([...applied.removed].sort()).toEqual(expectedRemoved);
+
+        const removal = yield* observe({
+          configuredAgents: agents,
+          config: IGNORED,
+          symlinkSupported: false,
+        });
+        const removalEffects = instructionProjectionRemovalEffects(removal);
+        const removable = removalEffects
+          .filter((effect) => effect.change === "removed")
+          .map((effect) => effect.path)
+          .sort();
+        expect(removalEffects).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ path: path.join(tempDir, ".gitignore"), change: "updated" }),
+          ]),
+        );
+        const removalPreview = yield* removeManagedInstructionTargets({
+          snapshot: removal,
+          dryRun: true,
+        });
+        expect([...removalPreview].sort()).toEqual(removable);
+        const removalApplied = yield* removeManagedInstructionTargets({
+          snapshot: removal,
+          dryRun: false,
+        });
+        expect([...removalApplied].sort()).toEqual(removable);
+        expect(
+          yield* removeInstructionsGitignore({ workspaceRoot: tempDir, dryRun: true }),
+        ).toEqual(Option.some(path.join(tempDir, ".gitignore")));
+        expect(
+          yield* removeInstructionsGitignore({ workspaceRoot: tempDir, dryRun: false }),
+        ).toEqual(Option.some(path.join(tempDir, ".gitignore")));
       }),
     ),
   );
@@ -1118,7 +1209,7 @@ describe("agent instructions", () => {
             symlinkSupported: true,
           });
 
-          const result = yield* reconcileInstructionTargets({
+          const result = yield* reconcileInstructions({
             workspaceRoot: tempDir,
             scope: "project",
             configuredAgents: ["claude-code"],
@@ -1141,7 +1232,7 @@ describe("agent instructions", () => {
           fs.writeFileSync(path.join(tempDir, ".gitignore"), malformed);
 
           const refused = yield* Effect.result(
-            reconcileInstructionTargets({
+            reconcileInstructions({
               workspaceRoot: tempDir,
               scope: "project",
               configuredAgents: ["claude-code"],
@@ -1250,7 +1341,7 @@ describe("agent instructions", () => {
           observedForm: "symlink",
         });
         const refused = yield* Effect.result(
-          reconcileInstructionTargets({
+          reconcileInstructions({
             workspaceRoot: tempDir,
             scope: "project",
             configuredAgents: ["gemini-cli"],
@@ -1275,7 +1366,7 @@ describe("agent instructions", () => {
         expect([...removed].sort()).toEqual(
           [path.join(tempDir, "CLAUDE.md"), path.join(tempDir, "GEMINI.md")].sort(),
         );
-        const result = yield* reconcileInstructionTargets({
+        const result = yield* reconcileInstructions({
           workspaceRoot: tempDir,
           scope: "project",
           configuredAgents: ["gemini-cli"],
@@ -1344,7 +1435,7 @@ describe("agent instructions", () => {
   );
 
   it("carries every catalog secondary rules directory onto the descriptor", () => {
-    const secondary = Object.values(AGENTS).flatMap((descriptor) => {
+    const secondary = Object.values(AGENT_DESCRIPTORS).flatMap((descriptor) => {
       const instructions = descriptor.instructions;
       if (instructions === undefined || instructions.kind === "rules-dir") return [];
       return instructions.rulesDir === undefined ? [] : [[descriptor.id, instructions.rulesDir]];

@@ -5373,6 +5373,19 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: golden-output, example
 - Source: [`packages/core/workspace/src/desired-state/settings/saving-settings-preserves-authored-formatting.spec.ts`](../packages/core/workspace/src/desired-state/settings/saving-settings-preserves-authored-formatting.spec.ts)
 
+##### Inventory reports as leftover exactly the installed packages desired state no longer reaches
+
+- Requirement: `workspace-inventory/leftover-follows-desired-state-reachability`
+- Owner: `workspace`
+- Statement: When an installed package in the install root is reached by no desired route, the workspace inventory shall classify it as leftover; it shall classify as leftover no package a desired route reaches and none while desired state is incomplete; and the packages it names as leftover shall be the packages the install-root observation names, so list, lint and sync agree.
+- Class: functional
+- Role: interface
+- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `cli/sync/removes-leftover-installed-packages`, `cli/lint/reports-installed-but-not-configured`, `cli/lock-state-never-creates-reachability`
+- Source: [`packages/core/workspace/src/desired-state/workspace/read-model/leftover-follows-desired-state-reachability.spec.ts`](../packages/core/workspace/src/desired-state/workspace/read-model/leftover-follows-desired-state-reachability.spec.ts)
+
 ##### Incomplete workspace observations identify unreadable paths
 
 - Requirement: `workspace-inventory/unreadable-paths-remain-visible`
@@ -5386,6 +5399,25 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Source: [`packages/core/workspace/src/desired-state/workspace/read-model/workspace-inventory-reports-unreadable-paths.spec.ts`](../packages/core/workspace/src/desired-state/workspace/read-model/workspace-inventory-reports-unreadable-paths.spec.ts)
 
 ## Supporting system behavior
+
+### Goal: agent-interoperability
+
+Configured extensions realize correctly and completely for every configured coding agent's native surfaces.
+
+#### Functional
+
+##### Shared instruction-surface writes update owned aliases
+
+- Requirement: `workspace/instructions/aliases-follow-shared-surface-writes`
+- Owner: `workspace`
+- Statement: When an operation rewrites a contributed region of the canonical instruction file while instruction-file management is enabled, AXM shall leave every owned alias current in that same operation and shall refuse the operation before writing when an alias target is unowned or the managed ignore region is unrecognizable.
+- Class: functional
+- Role: supporting
+- Product goals: `agent-interoperability`, `workspace-intent-fidelity`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Lifecycle operations and scoped sync write real workspace files; the examples inspect the canonical file and alias after the same transaction.
+- Methods: example
+- Source: [`packages/core/workspace/src/projection/instructions/aliases-follow-shared-surface-writes.spec.ts`](../packages/core/workspace/src/projection/instructions/aliases-follow-shared-surface-writes.spec.ts)
 
 ### Goal: dependable-change-process
 

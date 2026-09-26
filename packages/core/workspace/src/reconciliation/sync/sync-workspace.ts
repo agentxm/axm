@@ -338,12 +338,16 @@ export const prepareSyncWorkspace = (
               expectedNames: collected.expectedNames,
               adapter: conversion,
             });
-        const instructionStep: Option.Option<SyncPlanStep> = selectionTouches(selection, "rule")
-          ? yield* collectInstructionStep({
-              projectionFacts: ruleProjectionFacts,
-              adapter: conversion,
-            })
-          : Option.none();
+        const instructionStep: Option.Option<SyncPlanStep> =
+          selectionTouches(selection, "rule") ||
+          selectionTouches(selection, "hook") ||
+          selectionTouches(selection, "knowledge")
+            ? yield* collectInstructionStep({
+                projectionFacts: ruleProjectionFacts,
+                touchesRule: selectionTouches(selection, "rule"),
+                adapter: conversion,
+              })
+            : Option.none();
         const retirementStep = !collected.cleanupSafe
           ? Option.none<SyncPlanStep>()
           : yield* collectUnreachableRetirement(

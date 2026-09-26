@@ -358,14 +358,14 @@
           {
             "name": "uninstall",
             "aliases": [],
-            "description": "Uninstall a skill from agents",
+            "description": "Uninstall a skill",
             "arguments": [
               {
                 "name": "name",
                 "aliases": [],
                 "type": "string",
                 "required": true,
-                "description": "Name of the skill to uninstall"
+                "description": "Name or glob of the skill to uninstall"
               }
             ],
             "options": [
@@ -388,11 +388,11 @@
             "globalOptions": [],
             "examples": [
               {
-                "command": "axm skills uninstall my-skill",
+                "command": "axm skills uninstall code-review",
                 "description": "Remove a skill you no longer need"
               },
               {
-                "command": "axm skills uninstall my-skill --preview",
+                "command": "axm skills uninstall code-review --preview",
                 "description": "Check what would be removed first"
               }
             ],
@@ -582,7 +582,7 @@
             ],
             "globalOptions": [],
             "examples": [
-              { "command": "axm skills update", "description": "Update every configured skill" },
+              { "command": "axm skills update", "description": "Update configured skills" },
               {
                 "command": "axm skills update --name code-review",
                 "description": "Update one skill by name"
@@ -721,13 +721,10 @@
             ],
             "globalOptions": [],
             "examples": [
-              {
-                "command": "axm skills enable code-review",
-                "description": "Re-enable a skill you previously disabled"
-              },
+              { "command": "axm skills enable code-review", "description": "Enable a skill" },
               {
                 "command": "axm skills enable code-review --preview",
-                "description": "Preview the change before enabling"
+                "description": "Preview enable effects"
               }
             ],
             "subcommands": []
@@ -771,13 +768,10 @@
             ],
             "globalOptions": [],
             "examples": [
+              { "command": "axm skills disable code-review", "description": "Disable a skill" },
               {
-                "command": "axm skills disable code-review",
-                "description": "Temporarily disable a skill without removing it"
-              },
-              {
-                "command": "axm skills disable code-review --scope user",
-                "description": "Disable for user-scope configuration"
+                "command": "axm skills disable code-review --preview",
+                "description": "Preview disable effects"
               }
             ],
             "subcommands": []
@@ -1118,14 +1112,14 @@
           {
             "name": "uninstall",
             "aliases": [],
-            "description": "Uninstall an MCP server",
+            "description": "Uninstall a MCP server",
             "arguments": [
               {
                 "name": "name",
                 "aliases": [],
                 "type": "string",
                 "required": true,
-                "description": "Name of the MCP server to uninstall"
+                "description": "Name or glob of the MCP server to uninstall"
               }
             ],
             "options": [
@@ -1148,11 +1142,11 @@
             "globalOptions": [],
             "examples": [
               {
-                "command": "axm mcps uninstall my-server",
-                "description": "Remove an MCP server you no longer need"
+                "command": "axm mcps uninstall context",
+                "description": "Remove a MCP server you no longer need"
               },
               {
-                "command": "axm mcps uninstall my-server --preview",
+                "command": "axm mcps uninstall context --preview",
                 "description": "Check what would be removed first"
               }
             ],
@@ -1222,7 +1216,7 @@
           {
             "name": "enable",
             "aliases": [],
-            "description": "Enable a disabled MCP server",
+            "description": "Enable a previously disabled MCP server",
             "arguments": [
               {
                 "name": "name",
@@ -1246,7 +1240,7 @@
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Display plan without applying"
+                "description": "Show what would change without enabling"
               },
               {
                 "name": "ignore-release-age",
@@ -1258,10 +1252,10 @@
             ],
             "globalOptions": [],
             "examples": [
-              { "command": "axm mcps enable context", "description": "Enable an MCP server" },
+              { "command": "axm mcps enable context", "description": "Enable a MCP server" },
               {
                 "command": "axm mcps enable context --preview",
-                "description": "Preview enabling an MCP server"
+                "description": "Preview enable effects"
               }
             ],
             "subcommands": []
@@ -1269,7 +1263,7 @@
           {
             "name": "disable",
             "aliases": [],
-            "description": "Disable an MCP server",
+            "description": "Disable a MCP server without uninstalling it",
             "arguments": [
               {
                 "name": "name",
@@ -1293,7 +1287,7 @@
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Display plan without applying"
+                "description": "Show what would change without disabling"
               },
               {
                 "name": "ignore-release-age",
@@ -1305,10 +1299,10 @@
             ],
             "globalOptions": [],
             "examples": [
-              { "command": "axm mcps disable context", "description": "Disable an MCP server" },
+              { "command": "axm mcps disable context", "description": "Disable a MCP server" },
               {
                 "command": "axm mcps disable context --preview",
-                "description": "Preview disabling an MCP server"
+                "description": "Preview disable effects"
               }
             ],
             "subcommands": []
@@ -1316,7 +1310,7 @@
           {
             "name": "update",
             "aliases": [],
-            "description": "Update MCP servers",
+            "description": "Update configured MCP servers to the newest versions their sources offer",
             "arguments": [],
             "options": [
               {
@@ -1331,7 +1325,7 @@
                 "aliases": [],
                 "type": "choice",
                 "required": false,
-                "description": "Update in project (default) or user-level configuration",
+                "description": "Update MCP servers in project (default) or user-level configuration",
                 "choices": [{ "value": "project" }, { "value": "user" }]
               },
               {
@@ -1354,7 +1348,7 @@
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Display plan without applying"
+                "description": "Show available updates without applying them"
               },
               {
                 "name": "ignore-release-age",
@@ -1377,7 +1371,7 @@
               },
               {
                 "command": "axm mcps update --preview",
-                "description": "Preview MCP server updates"
+                "description": "Preview MCP servers updates"
               }
             ],
             "subcommands": []
@@ -1623,14 +1617,14 @@
           {
             "name": "uninstall",
             "aliases": [],
-            "description": "Uninstall a subagent from agents",
+            "description": "Uninstall a subagent",
             "arguments": [
               {
                 "name": "name",
                 "aliases": [],
                 "type": "string",
                 "required": true,
-                "description": "Name of the subagent to uninstall"
+                "description": "Name or glob of the subagent to uninstall"
               }
             ],
             "options": [
@@ -1653,11 +1647,11 @@
             "globalOptions": [],
             "examples": [
               {
-                "command": "axm subagents uninstall my-subagent",
+                "command": "axm subagents uninstall researcher",
                 "description": "Remove a subagent you no longer need"
               },
               {
-                "command": "axm subagents uninstall my-subagent --preview",
+                "command": "axm subagents uninstall researcher --preview",
                 "description": "Check what would be removed first"
               }
             ],
@@ -1847,10 +1841,7 @@
             ],
             "globalOptions": [],
             "examples": [
-              {
-                "command": "axm subagents update",
-                "description": "Update every configured subagent"
-              },
+              { "command": "axm subagents update", "description": "Update configured subagents" },
               {
                 "command": "axm subagents update --name researcher",
                 "description": "Update one subagent by name"
@@ -2088,13 +2079,10 @@
             ],
             "globalOptions": [],
             "examples": [
-              {
-                "command": "axm subagents enable researcher",
-                "description": "Re-enable a subagent you previously disabled"
-              },
+              { "command": "axm subagents enable researcher", "description": "Enable a subagent" },
               {
                 "command": "axm subagents enable researcher --preview",
-                "description": "Preview the change before enabling"
+                "description": "Preview enable effects"
               }
             ],
             "subcommands": []
@@ -2102,7 +2090,7 @@
           {
             "name": "disable",
             "aliases": [],
-            "description": "Disable an installed subagent without removing it",
+            "description": "Disable a subagent without uninstalling it",
             "arguments": [
               {
                 "name": "name",
@@ -2140,11 +2128,11 @@
             "examples": [
               {
                 "command": "axm subagents disable researcher",
-                "description": "Temporarily disable a subagent without removing it"
+                "description": "Disable a subagent"
               },
               {
-                "command": "axm subagents disable researcher --scope user",
-                "description": "Disable for user-scope configuration"
+                "command": "axm subagents disable researcher --preview",
+                "description": "Preview disable effects"
               }
             ],
             "subcommands": []
@@ -2288,7 +2276,7 @@
                 "aliases": [],
                 "type": "string",
                 "required": true,
-                "description": "Name of the rule"
+                "description": "Name or glob of the rule to uninstall"
               }
             ],
             "options": [
@@ -2312,7 +2300,11 @@
             "examples": [
               {
                 "command": "axm rules uninstall commit-style",
-                "description": "Uninstall a rule by name"
+                "description": "Remove a rule you no longer need"
+              },
+              {
+                "command": "axm rules uninstall commit-style --preview",
+                "description": "Check what would be removed first"
               }
             ],
             "subcommands": []
@@ -2334,7 +2326,8 @@
             ],
             "globalOptions": [],
             "examples": [
-              { "command": "axm rules list", "description": "Inventory detected rules" }
+              { "command": "axm rules list", "description": "Inventory detected rules" },
+              { "command": "axm rules list --scope user", "description": "Check user-level rules" }
             ],
             "subcommands": []
           },
@@ -2377,14 +2370,14 @@
           {
             "name": "enable",
             "aliases": [],
-            "description": "Enable a rule",
+            "description": "Enable a previously disabled rule",
             "arguments": [
               {
                 "name": "name",
                 "aliases": [],
                 "type": "string",
                 "required": true,
-                "description": "Name of the rule"
+                "description": "Name of the rule to enable"
               }
             ],
             "options": [
@@ -2413,9 +2406,10 @@
             ],
             "globalOptions": [],
             "examples": [
+              { "command": "axm rules enable commit-style", "description": "Enable a rule" },
               {
-                "command": "axm rules enable commit-style",
-                "description": "Enable a configured rule"
+                "command": "axm rules enable commit-style --preview",
+                "description": "Preview enable effects"
               }
             ],
             "subcommands": []
@@ -2430,7 +2424,7 @@
                 "aliases": [],
                 "type": "string",
                 "required": true,
-                "description": "Name of the rule"
+                "description": "Name of the rule to disable"
               }
             ],
             "options": [
@@ -2459,9 +2453,10 @@
             ],
             "globalOptions": [],
             "examples": [
+              { "command": "axm rules disable commit-style", "description": "Disable a rule" },
               {
-                "command": "axm rules disable commit-style",
-                "description": "Disable a configured rule"
+                "command": "axm rules disable commit-style --preview",
+                "description": "Preview disable effects"
               }
             ],
             "subcommands": []
@@ -2469,14 +2464,14 @@
           {
             "name": "update",
             "aliases": [],
-            "description": "Update configured rules",
+            "description": "Update configured rules to the newest versions their sources offer",
             "arguments": [
               {
                 "name": "source",
                 "aliases": [],
                 "type": "string",
                 "required": false,
-                "description": "Filter to rules matching a name or source"
+                "description": "Filter to rules matching a name or source (owner/repo, path, or URL)"
               }
             ],
             "options": [
@@ -2485,7 +2480,7 @@
                 "aliases": [],
                 "type": "choice",
                 "required": false,
-                "description": "Update in project (default) or user-level configuration",
+                "description": "Update rules in project (default) or user-level configuration",
                 "choices": [{ "value": "project" }, { "value": "user" }]
               },
               {
@@ -2501,7 +2496,7 @@
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Show what would change without updating"
+                "description": "Show available updates without applying them"
               },
               {
                 "name": "ignore-release-age",
@@ -2515,8 +2510,16 @@
             "examples": [
               { "command": "axm rules update", "description": "Update configured rules" },
               {
-                "command": "axm rules update --name commit-*",
-                "description": "Update only rules matching a glob"
+                "command": "axm rules update --name commit-style",
+                "description": "Update one rule by name"
+              },
+              {
+                "command": "axm rules update owner/repo",
+                "description": "Update only rules from one source"
+              },
+              {
+                "command": "axm rules update --preview",
+                "description": "Preview available updates"
               }
             ],
             "subcommands": []
@@ -2789,7 +2792,7 @@
                 "aliases": [],
                 "type": "string",
                 "required": true,
-                "description": "Name of the hooks package"
+                "description": "Name or glob of the hooks package to uninstall"
               }
             ],
             "options": [
@@ -2813,7 +2816,11 @@
             "examples": [
               {
                 "command": "axm hooks uninstall workspace-baseline",
-                "description": "Uninstall a hooks package by name"
+                "description": "Remove a hooks package you no longer need"
+              },
+              {
+                "command": "axm hooks uninstall workspace-baseline --preview",
+                "description": "Check what would be removed first"
               }
             ],
             "subcommands": []
@@ -2835,7 +2842,11 @@
             ],
             "globalOptions": [],
             "examples": [
-              { "command": "axm hooks list", "description": "Inventory detected hooks packages" }
+              { "command": "axm hooks list", "description": "Inventory detected hooks packages" },
+              {
+                "command": "axm hooks list --scope user",
+                "description": "Check user-level hooks packages"
+              }
             ],
             "subcommands": []
           },
@@ -2878,14 +2889,14 @@
           {
             "name": "enable",
             "aliases": [],
-            "description": "Enable a hooks package",
+            "description": "Enable a previously disabled hooks package",
             "arguments": [
               {
                 "name": "name",
                 "aliases": [],
                 "type": "string",
                 "required": true,
-                "description": "Name of the hooks package"
+                "description": "Name of the hooks package to enable"
               }
             ],
             "options": [
@@ -2916,7 +2927,11 @@
             "examples": [
               {
                 "command": "axm hooks enable workspace-baseline",
-                "description": "Enable a configured hooks package"
+                "description": "Enable a hooks package"
+              },
+              {
+                "command": "axm hooks enable workspace-baseline --preview",
+                "description": "Preview enable effects"
               }
             ],
             "subcommands": []
@@ -2924,14 +2939,14 @@
           {
             "name": "disable",
             "aliases": [],
-            "description": "Disable a hooks package without removing sync-once targets",
+            "description": "Disable a hooks package without uninstalling it",
             "arguments": [
               {
                 "name": "name",
                 "aliases": [],
                 "type": "string",
                 "required": true,
-                "description": "Name of the hooks package"
+                "description": "Name of the hooks package to disable"
               }
             ],
             "options": [
@@ -2963,6 +2978,10 @@
               {
                 "command": "axm hooks disable workspace-baseline",
                 "description": "Disable a hooks package"
+              },
+              {
+                "command": "axm hooks disable workspace-baseline --preview",
+                "description": "Preview disable effects"
               }
             ],
             "subcommands": []
@@ -2970,14 +2989,14 @@
           {
             "name": "update",
             "aliases": [],
-            "description": "Update configured hooks packages",
+            "description": "Update configured hooks packages to the newest versions their sources offer",
             "arguments": [
               {
                 "name": "source",
                 "aliases": [],
                 "type": "string",
                 "required": false,
-                "description": "Filter to hooks packages matching a name or source"
+                "description": "Filter to hooks packages matching a name or source (owner/repo, path, or URL)"
               }
             ],
             "options": [
@@ -2986,7 +3005,7 @@
                 "aliases": [],
                 "type": "choice",
                 "required": false,
-                "description": "Update in project (default) or user-level configuration",
+                "description": "Update hooks packages in project (default) or user-level configuration",
                 "choices": [{ "value": "project" }, { "value": "user" }]
               },
               {
@@ -3002,7 +3021,7 @@
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Show what would change without updating"
+                "description": "Show available updates without applying them"
               },
               {
                 "name": "ignore-release-age",
@@ -3016,8 +3035,16 @@
             "examples": [
               { "command": "axm hooks update", "description": "Update configured hooks packages" },
               {
-                "command": "axm hooks update --name workspace-*",
-                "description": "Update only hooks packages matching a glob"
+                "command": "axm hooks update --name workspace-baseline",
+                "description": "Update one hooks package by name"
+              },
+              {
+                "command": "axm hooks update owner/repo",
+                "description": "Update only hooks packages from one source"
+              },
+              {
+                "command": "axm hooks update --preview",
+                "description": "Preview available updates"
               }
             ],
             "subcommands": []
@@ -3259,14 +3286,14 @@
           {
             "name": "update",
             "aliases": [],
-            "description": "Update configured Knowledge bundles",
+            "description": "Update configured knowledge bundles to the newest versions their sources offer",
             "arguments": [
               {
                 "name": "source",
                 "aliases": [],
                 "type": "string",
                 "required": false,
-                "description": "Filter to Knowledge bundles matching a name or source"
+                "description": "Filter to knowledge bundles matching a name or source (owner/repo, path, or URL)"
               }
             ],
             "options": [
@@ -3275,7 +3302,7 @@
                 "aliases": [],
                 "type": "choice",
                 "required": false,
-                "description": "Use project (default) or user knowledge state",
+                "description": "Update knowledge bundles in project (default) or user-level configuration",
                 "choices": [{ "value": "project" }, { "value": "user" }]
               },
               {
@@ -3283,7 +3310,7 @@
                 "aliases": [],
                 "type": "string",
                 "required": false,
-                "description": "Update only specific Knowledge bundles by name or glob pattern",
+                "description": "Update only specific knowledge bundles by name or glob pattern",
                 "variadic": { "min": 0 }
               },
               {
@@ -3291,7 +3318,7 @@
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Display plan without applying"
+                "description": "Show available updates without applying them"
               },
               {
                 "name": "ignore-release-age",
@@ -3304,12 +3331,20 @@
             "globalOptions": [],
             "examples": [
               {
-                "command": "axm knowledge update --preview",
-                "description": "Preview Knowledge bundle updates"
+                "command": "axm knowledge update",
+                "description": "Update configured knowledge bundles"
               },
               {
                 "command": "axm knowledge update --name platform",
-                "description": "Update one Knowledge bundle"
+                "description": "Update one knowledge bundle by name"
+              },
+              {
+                "command": "axm knowledge update owner/repo",
+                "description": "Update only knowledge bundles from one source"
+              },
+              {
+                "command": "axm knowledge update --preview",
+                "description": "Preview available updates"
               }
             ],
             "subcommands": []
@@ -3317,14 +3352,14 @@
           {
             "name": "uninstall",
             "aliases": [],
-            "description": "Uninstall a Knowledge bundle",
+            "description": "Uninstall a knowledge bundle",
             "arguments": [
               {
                 "name": "name",
                 "aliases": [],
                 "type": "string",
                 "required": true,
-                "description": "Configured Knowledge bundle name"
+                "description": "Name or glob of the knowledge bundle to uninstall"
               }
             ],
             "options": [
@@ -3333,7 +3368,7 @@
                 "aliases": [],
                 "type": "choice",
                 "required": false,
-                "description": "Use project (default) or user knowledge state",
+                "description": "Uninstall from project (default) or user-level configuration",
                 "choices": [{ "value": "project" }, { "value": "user" }]
               },
               {
@@ -3341,14 +3376,18 @@
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Display plan without applying"
+                "description": "Show what would be removed without making changes"
               }
             ],
             "globalOptions": [],
             "examples": [
               {
+                "command": "axm knowledge uninstall platform",
+                "description": "Remove a knowledge bundle you no longer need"
+              },
+              {
                 "command": "axm knowledge uninstall platform --preview",
-                "description": "Preview removing one Knowledge bundle"
+                "description": "Check what would be removed first"
               }
             ],
             "subcommands": []
@@ -3356,7 +3395,7 @@
           {
             "name": "list",
             "aliases": [],
-            "description": "List installed knowledge bundles",
+            "description": "List detected knowledge bundles and their lifecycle classification",
             "arguments": [],
             "options": [
               {
@@ -3364,13 +3403,20 @@
                 "aliases": [],
                 "type": "choice",
                 "required": false,
-                "description": "Use project (default) or user knowledge state",
+                "description": "List knowledge bundles from project (default) or user-level configuration",
                 "choices": [{ "value": "project" }, { "value": "user" }]
               }
             ],
             "globalOptions": [],
             "examples": [
-              { "command": "axm knowledge list", "description": "List installed knowledge bundles" }
+              {
+                "command": "axm knowledge list",
+                "description": "Inventory detected knowledge bundles"
+              },
+              {
+                "command": "axm knowledge list --scope user",
+                "description": "Check user-level knowledge bundles"
+              }
             ],
             "subcommands": []
           },
@@ -3814,14 +3860,14 @@
           {
             "name": "enable",
             "aliases": [],
-            "description": "Include a knowledge bundle in discovery",
+            "description": "Enable a previously disabled knowledge bundle",
             "arguments": [
               {
                 "name": "name",
                 "aliases": [],
                 "type": "string",
                 "required": true,
-                "description": "Configured knowledge bundle name"
+                "description": "Name of the knowledge bundle to enable"
               }
             ],
             "options": [
@@ -3830,7 +3876,7 @@
                 "aliases": [],
                 "type": "choice",
                 "required": false,
-                "description": "Use project (default) or user knowledge state",
+                "description": "Enable in project (default) or user-level configuration",
                 "choices": [{ "value": "project" }, { "value": "user" }]
               },
               {
@@ -3838,7 +3884,7 @@
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Display plan without applying"
+                "description": "Show what would change without enabling"
               },
               {
                 "name": "ignore-release-age",
@@ -3852,7 +3898,11 @@
             "examples": [
               {
                 "command": "axm knowledge enable platform",
-                "description": "Restore a bundle to discovery and search"
+                "description": "Enable a knowledge bundle"
+              },
+              {
+                "command": "axm knowledge enable platform --preview",
+                "description": "Preview enable effects"
               }
             ],
             "subcommands": []
@@ -3860,14 +3910,14 @@
           {
             "name": "disable",
             "aliases": [],
-            "description": "Exclude a knowledge bundle from discovery while keeping it installed",
+            "description": "Disable a knowledge bundle without uninstalling it",
             "arguments": [
               {
                 "name": "name",
                 "aliases": [],
                 "type": "string",
                 "required": true,
-                "description": "Configured knowledge bundle name"
+                "description": "Name of the knowledge bundle to disable"
               }
             ],
             "options": [
@@ -3876,7 +3926,7 @@
                 "aliases": [],
                 "type": "choice",
                 "required": false,
-                "description": "Use project (default) or user knowledge state",
+                "description": "Disable in project (default) or user-level configuration",
                 "choices": [{ "value": "project" }, { "value": "user" }]
               },
               {
@@ -3884,7 +3934,7 @@
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Display plan without applying"
+                "description": "Show what would change without disabling"
               },
               {
                 "name": "ignore-release-age",
@@ -3898,7 +3948,11 @@
             "examples": [
               {
                 "command": "axm knowledge disable platform",
-                "description": "Keep a bundle installed but exclude it from discovery"
+                "description": "Disable a knowledge bundle"
+              },
+              {
+                "command": "axm knowledge disable platform --preview",
+                "description": "Preview disable effects"
               }
             ],
             "subcommands": []
@@ -4052,14 +4106,14 @@
           {
             "name": "enable",
             "aliases": [],
-            "description": "Enable a pack without changing locked versions",
+            "description": "Enable a previously disabled pack",
             "arguments": [
               {
                 "name": "name",
                 "aliases": [],
                 "type": "string",
                 "required": true,
-                "description": "Name of the pack"
+                "description": "Name of the pack to enable"
               }
             ],
             "options": [
@@ -4068,7 +4122,7 @@
                 "aliases": [],
                 "type": "choice",
                 "required": false,
-                "description": "Use project (default) or user-level configuration",
+                "description": "Enable in project (default) or user-level configuration",
                 "choices": [{ "value": "project" }, { "value": "user" }]
               },
               {
@@ -4076,7 +4130,7 @@
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Show what would change without applying"
+                "description": "Show what would change without enabling"
               },
               {
                 "name": "ignore-release-age",
@@ -4088,9 +4142,10 @@
             ],
             "globalOptions": [],
             "examples": [
+              { "command": "axm packs enable frontend-tools", "description": "Enable a pack" },
               {
                 "command": "axm packs enable frontend-tools --preview",
-                "description": "Preview enable effects and dependency provenance"
+                "description": "Preview enable effects"
               }
             ],
             "subcommands": []
@@ -4098,14 +4153,14 @@
           {
             "name": "disable",
             "aliases": [],
-            "description": "Disable a pack without changing locked versions",
+            "description": "Disable a pack without uninstalling it",
             "arguments": [
               {
                 "name": "name",
                 "aliases": [],
                 "type": "string",
                 "required": true,
-                "description": "Name of the pack"
+                "description": "Name of the pack to disable"
               }
             ],
             "options": [
@@ -4114,7 +4169,7 @@
                 "aliases": [],
                 "type": "choice",
                 "required": false,
-                "description": "Use project (default) or user-level configuration",
+                "description": "Disable in project (default) or user-level configuration",
                 "choices": [{ "value": "project" }, { "value": "user" }]
               },
               {
@@ -4122,7 +4177,7 @@
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Show what would change without applying"
+                "description": "Show what would change without disabling"
               },
               {
                 "name": "ignore-release-age",
@@ -4134,9 +4189,10 @@
             ],
             "globalOptions": [],
             "examples": [
+              { "command": "axm packs disable frontend-tools", "description": "Disable a pack" },
               {
                 "command": "axm packs disable frontend-tools --preview",
-                "description": "Preview disable effects and dependency provenance"
+                "description": "Preview disable effects"
               }
             ],
             "subcommands": []
@@ -4223,7 +4279,7 @@
                 "aliases": [],
                 "type": "string",
                 "required": true,
-                "description": "Name or glob pattern of the pack to uninstall"
+                "description": "Name or glob of the pack to uninstall"
               }
             ],
             "options": [
@@ -4246,16 +4302,12 @@
             "globalOptions": [],
             "examples": [
               {
-                "command": "axm packs uninstall my-pack",
-                "description": "Remove a pack and its orphaned extensions"
+                "command": "axm packs uninstall frontend-tools",
+                "description": "Remove a pack you no longer need"
               },
               {
-                "command": "axm packs uninstall my-pack --preview",
+                "command": "axm packs uninstall frontend-tools --preview",
                 "description": "Check what would be removed first"
-              },
-              {
-                "command": "axm packs uninstall acme-*",
-                "description": "Remove all packs matching a pattern"
               }
             ],
             "subcommands": []

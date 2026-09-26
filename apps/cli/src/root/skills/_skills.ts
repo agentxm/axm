@@ -2,16 +2,21 @@ import { Command } from "effect/unstable/cli";
 import { makeExtensionShowCommand } from "../shared/extension-show.js";
 import { groupCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 
-import { installCommand } from "./install/command.js";
-import { uninstallCommand } from "./uninstall/command.js";
+import { skillsInstallCommand as installCommand } from "../install/command.js";
+import { makePerTypeUninstallCommand } from "../shared/uninstall-command.js";
 import { listCommand } from "./list.js";
-import { updateCommand } from "./update/command.js";
+import { makePerTypeUpdateCommand } from "../update/per-type-command.js";
 import { newCommand } from "./new.js";
-import { enableCommand } from "./enable.js";
-import { disableCommand } from "./disable.js";
+import { makeActivationCommands } from "../activation-handler.js";
 import { skillsPublishCommand as publishCommand } from "../publish/per-type-command.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
 import { skillsImportCommand as importCommand } from "../import/command.js";
+
+const updateCommand = makePerTypeUpdateCommand("skill");
+
+const uninstallCommand = makePerTypeUninstallCommand("skill");
+
+const { enableCommand, disableCommand } = makeActivationCommands("skill");
 
 const showCommand = makeExtensionShowCommand({
   type: "skill",

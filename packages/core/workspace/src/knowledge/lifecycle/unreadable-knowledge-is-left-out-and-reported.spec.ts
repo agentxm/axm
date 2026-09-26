@@ -83,13 +83,10 @@ describe("An unreadable Knowledge bundle", () => {
     });
 
   const canonicalRoot = (workspace: LifecycleFixture, name: string): string => {
-    const match = workspace
-      .snapshot()
-      .map(([relative]) => relative)
-      .find(
-        (relative) =>
-          relative.startsWith("agent_extensions") && relative.endsWith(`${nodePath.sep}${name}`),
-      );
+    const match = Object.keys(workspace.snapshot()).find(
+      (relative) =>
+        relative.startsWith("agent_extensions") && relative.endsWith(`${nodePath.sep}${name}`),
+    );
     if (match === undefined) throw new Error(`No canonical package for ${name}`);
     return nodePath.join(workspace.root, match);
   };

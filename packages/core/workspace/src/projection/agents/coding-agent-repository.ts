@@ -17,12 +17,12 @@
 import type * as Effect from "effect/Effect";
 import * as ServiceMap from "effect/Context";
 import type { CodingAgent } from "../agent-adapters/index.js";
-import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import type { SettingsReader, WorkspaceSettingsReadFailure } from "../../desired-state/index.js";
 
 /** Repository for coding-agent implementations. */
 export interface CodingAgentRepositoryService {
-  readonly get: (id: AgentId) => Effect.Effect<CodingAgent>;
+  readonly get: (id: MaterializationTargetId) => Effect.Effect<CodingAgent>;
   readonly all: Effect.Effect<ReadonlyArray<CodingAgent>>;
   readonly getConfiguredAgents: () => Effect.Effect<
     ReadonlyArray<CodingAgent>,

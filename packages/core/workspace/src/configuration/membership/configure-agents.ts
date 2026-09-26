@@ -26,7 +26,7 @@ import type * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
 import { detectAgentsForScope } from "../../projection/agent-adapters/index.js";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
 import type { PerAgentType } from "@agentxm/extension-model/unstable/extensions/common";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -57,6 +57,7 @@ import {
   SettingsWriter,
   WorkspaceLocation,
   WorkspaceRecords,
+  settingsDisplayPath,
   type WorkspaceStateReadFailure,
 } from "../../desired-state/index.js";
 import {
@@ -85,10 +86,6 @@ export type ConfigureAgentsFailure =
 
 /** Every failure resolving a prepared membership change can surface. */
 export type MembershipExecutionFailure = WorkspaceConfigurationExecutionFailure;
-
-/** Stable workspace-relative path of the settings file membership is recorded in. */
-const settingsDisplayPath = (scope: WorkspaceScope): string =>
-  scope === "project" ? "axm.json" : ".axm/workspace/axm.json";
 
 const membershipArtifact = (
   scope: WorkspaceScope,
@@ -660,7 +657,7 @@ export const listConfiguredAgents = (
       .filter((id) => request.detected !== true || detectedSet.has(id))
       .map((id): ConfiguredAgentRow => ({
         id,
-        name: AGENTS[id].name,
+        name: AGENT_DESCRIPTORS[id].name,
         configured: configuredSet.has(id),
         detected: detectedSet.has(id),
         instructions: configuredSet.has(id) ? (instructionHealth.get(id) ?? "manual") : "-",

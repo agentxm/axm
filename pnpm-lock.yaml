@@ -333,6 +333,9 @@ importers:
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../../packages/core/extension-model
+      '@agentxm/host-primitives':
+        specifier: workspace:^
+        version: link:../../packages/generic/host-primitives
       '@agentxm/registry-access':
         specifier: workspace:^
         version: link:../../packages/supporting/registry-access
@@ -370,9 +373,6 @@ importers:
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.0.0-rc.117(effect@4.0.0-rc.117)(vitest@5.0.1)
-      '@fast-check/vitest':
-        specifier: 'catalog:'
-        version: 0.5.0(vitest@5.0.1)
       '@types/bun':
         specifier: 'catalog:'
         version: 1.3.14
@@ -409,6 +409,9 @@ importers:
       '@agentxm/specification-metadata':
         specifier: workspace:^
         version: link:../../tools/specification-metadata
+      '@agentxm/test-support':
+        specifier: workspace:*
+        version: link:../../tools/test-support
       '@napi-rs/keyring':
         specifier: ^1.3.0
         version: 1.3.0
@@ -553,6 +556,9 @@ importers:
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../extension-model
+      '@agentxm/host-primitives':
+        specifier: workspace:^
+        version: link:../../generic/host-primitives
       '@agentxm/registry-access':
         specifier: workspace:^
         version: link:../../supporting/registry-access
@@ -596,6 +602,9 @@ importers:
       '@agentxm/specification-metadata':
         specifier: workspace:^
         version: link:../../../tools/specification-metadata
+      '@agentxm/test-support':
+        specifier: workspace:^
+        version: link:../../../tools/test-support
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0-rc.117(effect@4.0.0-rc.117)(redis@6.2.1)
@@ -624,11 +633,36 @@ importers:
         specifier: 'catalog:'
         version: 5.0.1(@types/node@24.13.6)(@vitest/coverage-v8@5.0.1)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
 
+  packages/generic/host-primitives:
+    dependencies:
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.117
+    devDependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.117(effect@4.0.0-rc.117)(redis@6.2.1)
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.117(effect@4.0.0-rc.117)(vitest@5.0.1)
+      '@typescript/native':
+        specifier: 'catalog:'
+        version: typescript@7.0.2
+      typescript:
+        specifier: 'catalog:'
+        version: '@typescript/typescript6@6.0.2'
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.1(@types/node@24.13.6)(@vitest/coverage-v8@5.0.1)(vite@8.3.0(@types/node@24.13.6)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
+
   packages/supporting/cli-maintenance:
     dependencies:
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../../core/extension-model
+      '@agentxm/host-primitives':
+        specifier: workspace:^
+        version: link:../../generic/host-primitives
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.117
@@ -666,6 +700,9 @@ importers:
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../../core/extension-model
+      '@agentxm/host-primitives':
+        specifier: workspace:^
+        version: link:../../generic/host-primitives
       '@agentxm/registry-client':
         specifier: workspace:^
         version: link:../registry-client
@@ -712,6 +749,9 @@ importers:
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../../core/extension-model
+      '@agentxm/host-primitives':
+        specifier: workspace:^
+        version: link:../../generic/host-primitives
       '@agentxm/registry-protocol':
         specifier: workspace:^
         version: link:../../core/registry-protocol

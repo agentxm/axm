@@ -18,8 +18,11 @@ import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
-import type { AgentDescriptor, AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
+import type {
+  AgentDescriptor,
+  MaterializationTargetId,
+} from "@agentxm/extension-model/unstable/agents/types";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import type { Diagnostics } from "../diagnostics.js";
 import type { Scope } from "../types.js";
@@ -50,7 +53,7 @@ export interface AgentSettingsScannerDeps {
   readonly workspaceRoot: string;
   readonly scope: Scope;
   readonly diagnostics: Diagnostics;
-  readonly agentRegistry?: Readonly<Record<AgentId, AgentDescriptor>>;
+  readonly agentRegistry?: Readonly<Record<MaterializationTargetId, AgentDescriptor>>;
   readonly rootResolverState?: AgentRootResolverState;
 }
 
@@ -69,7 +72,7 @@ const scanAgentSettings = Effect.fn("workspace.read-model.scanner.agent-settings
   deps: AgentSettingsScannerDeps,
 ) {
   const { fs, path, workspaceRoot, scope, diagnostics } = deps;
-  const registry = deps.agentRegistry ?? AGENTS;
+  const registry = deps.agentRegistry ?? AGENT_DESCRIPTORS;
   const rootResolverState = deps.rootResolverState ?? makeAgentRootResolverState();
 
   const occurrences = yield* Effect.forEach(

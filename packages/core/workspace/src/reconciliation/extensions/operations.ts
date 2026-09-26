@@ -4,7 +4,7 @@ import {
   LifecyclePostconditionViolated,
   ScaffoldedExtensionUnresolved,
 } from "../../transitions/planning/index.js";
-import { stripFileProtocol } from "@agentxm/registry-client";
+import { fromFileLocation } from "@agentxm/host-primitives";
 /**
  * Shared extension closure recipes — install, materialize, uninstall, and the
  * authored-package transition.
@@ -29,6 +29,7 @@ import {
   type ArtifactChange,
   type WorkspaceStateReadFailure,
   type WorkspaceStateMutationFailure,
+  type WorkspaceSettingsReadFailure,
 } from "../../desired-state/index.js";
 import { declareMaterialization, recordMaterialization } from "./declaration.js";
 import * as Option from "effect/Option";
@@ -42,7 +43,10 @@ import type {
 } from "../../transitions/planning/index.js";
 
 import { SourceAuthorityBlocked } from "../../resolution/index.js";
-import { applyProjectionPlans, projectionPlanExclusionWarnings } from "../../projection/index.js";
+import {
+  applyInstructionSurfacePlans,
+  type InstructionMaintenanceFailure,
+} from "../../projection/index.js";
 import type { StepFailure } from "../../transitions/planning/index.js";
 import type {
   JobStepArtifact,
@@ -212,6 +216,8 @@ export interface UninstallRetentionPolicy<F = never, R = never> {
 export type CallerStepFailure<F = never> =
   | WorkspaceStateReadFailure
   | WorkspaceStateMutationFailure
+  | WorkspaceSettingsReadFailure
+  | InstructionMaintenanceFailure
   | WorkspaceTransactionFailure
   | WorkspaceRestorationIncomplete
   | SourceAuthorityBlocked
@@ -253,16 +259,14 @@ const NO_PROJECTION_WARNINGS: ReadonlyArray<string> = [];
  */
 const applyManagerProjectionPlans = <F, R>(
   manager: MaterializationProjection<F, R>,
-): Effect.Effect<ReadonlyArray<string>, F, R> =>
+): Effect.Effect<
+  ReadonlyArray<string>,
+  F | WorkspaceSettingsReadFailure | InstructionMaintenanceFailure,
+  R | FileSystem.FileSystem | Path.Path | SettingsReader | WorkspaceLocation
+> =>
   manager.projectionPlans === undefined
     ? Effect.succeed(NO_PROJECTION_WARNINGS)
-    : manager
-        .projectionPlans()
-        .pipe(
-          Effect.flatMap((plans) =>
-            applyProjectionPlans(plans).pipe(Effect.as(projectionPlanExclusionWarnings(plans))),
-          ),
-        );
+    : manager.projectionPlans().pipe(Effect.flatMap(applyInstructionSurfacePlans));
 
 // -----------------------------------------------------------------------------
 // Install change classification
@@ -320,7 +324,7 @@ const observeFootprint = <A, E, R>(
 
 /** Mutable source inputs are part of the candidate, even before first acceptance. */
 const sourceMaterialPaths = (ref: ExtensionRef): ReadonlyArray<string> =>
-  ref.refType === "local" || ref.refType === "workspace" ? [stripFileProtocol(ref.location)] : [];
+  ref.refType === "local" || ref.refType === "workspace" ? [fromFileLocation(ref.location)] : [];
 
 export interface InstallOperationArgs<
   TRef extends ExtensionRef,

@@ -13,10 +13,10 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { PackageURL } from "packageurl-js";
-import { envWithDefault } from "../internal/environment.js";
+import { envWithDefault } from "@agentxm/host-primitives";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAgentExtensions, decodePurl, readFileOptional } from "./reader-io.js";
+import { decodeAgentExtensions, readFileOptional } from "./reader-io.js";
+import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const gemType = Schema.decodeUnknownSync(PackageTypeSchema)("gem");
@@ -65,10 +65,7 @@ const parseGemfileLine = (line: string, source: string): DetectedPackage | undef
 
   const version = versionStr !== undefined && isExactVersion(versionStr) ? versionStr : undefined;
 
-  const purl = new PackageURL("gem", null, name, version ?? null, null, null);
-  const purlParts = decodePurl(purl.toString());
-
-  return { purl: purlParts, type: gemType, source };
+  return Option.getOrUndefined(makeDetectedPackage({ type: gemType, name, version, source }));
 };
 
 /**
@@ -113,10 +110,8 @@ const parseGemspec = (content: string, source: string): ReadonlyArray<DetectedPa
     const versionStr = match[2];
     const version = versionStr !== undefined && isExactVersion(versionStr) ? versionStr : undefined;
 
-    const purl = new PackageURL("gem", null, name, version ?? null, null, null);
-    const purlParts = decodePurl(purl.toString());
-
-    results.push({ purl: purlParts, type: gemType, source });
+    const detected = makeDetectedPackage({ type: gemType, name, version, source });
+    if (Option.isSome(detected)) results.push(detected.value);
   }
 
   return results;

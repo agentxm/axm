@@ -8,7 +8,7 @@
  */
 
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import { stripFileProtocol } from "@agentxm/registry-client";
+import { fromFileLocation } from "@agentxm/host-primitives";
 
 // -----------------------------------------------------------------------------
 // Display Name
@@ -23,7 +23,7 @@ import { stripFileProtocol } from "@agentxm/registry-client";
  * Extract the last path segment from a location string.
  */
 const basenamePure = (location: string): string => {
-  const stripped = stripFileProtocol(location);
+  const stripped = fromFileLocation(location);
   return stripped.split("/").pop() ?? stripped;
 };
 

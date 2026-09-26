@@ -21,6 +21,7 @@ import { SYNC_PRESENTATION } from "@agentxm/workspace/reconciliation";
 import { makeAppError } from "../../app-error/index.js";
 import { toAppError } from "../../app-error/conversions.js";
 import {
+  emitNoOpOutcome,
   emitOperationResolution,
   retryCanHelp,
   type OperationSuggestions,
@@ -30,7 +31,6 @@ import {
   makePlanInvocation,
   retrySuggestion,
 } from "../shared/confirmation-recovery.js";
-import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
 export interface HandleSyncArgs {

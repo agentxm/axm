@@ -6,6 +6,7 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
+import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 
 import { resolveSource } from "./resolve-source.js";
 import { WorkspaceCatalogTest } from "./testing.js";
@@ -76,6 +77,7 @@ describe("resolveSource", () => {
       if (source.type === "git") {
         expect(source.url.href).toBe("https://github.com/acme/extensions.git");
         expect(Option.getOrNull(source.subPath)).toBe("mcps/server");
+        expect(printSourceParams(source)).toBe("github:acme/extensions//mcps/server");
       }
     }),
   );

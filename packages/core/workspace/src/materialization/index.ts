@@ -20,9 +20,6 @@ export {
   type MaterializationObservation,
 } from "./manager-contract.js";
 
-// The seven managers under one lookup, for use cases that decide the
-// extension type at runtime.
-
 // Manager service tags and the facts each manager reports
 export {
   HookManager,
@@ -74,13 +71,13 @@ export {
   McpAgentSyncRefused,
   McpCanonicalPathUnsafe,
   McpInstallStateMissing,
-  McpLocalNameConflict,
   McpRequiredInputsMissing,
   McpWorkspacePackageInvalid,
   type McpAgentSyncFault,
   type McpManagerError,
   type McpWorkspacePackageFault,
 } from "../mcp-connections/errors.js";
+export { McpConnectionConflict } from "../mcp-connections/lifecycle/domain/source-admission.js";
 export {
   SubagentContentUnreadable,
   SubagentDefinitionInvalid,
@@ -111,11 +108,6 @@ export {
 // port, and the artifact/target vocabulary the plan step reports.
 
 export {
-  NativeMcpEntryRetirementFailed,
-  retireNativeMcpEntry,
-  type NativeMcpEntryRef,
-} from "../mcp-connections/native-entry.js";
-export {
   MCP_SECRET_SERVICE,
   McpSecretStore,
   mcpSecretAccount,
@@ -131,7 +123,6 @@ export {
   mcpConfigSurface,
   mcpServerArtifact,
   mcpServerSourcePath,
-  mcpServerVersion,
   mcpSettingsTarget,
   mcpSourceTarget,
   type AgentMcpConfigOutcome,

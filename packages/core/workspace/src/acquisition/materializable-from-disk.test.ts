@@ -4,16 +4,13 @@ import * as nodePath from "node:path";
 import { expect, layer } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
 import * as Effect from "effect/Effect";
+import { treeIntegrityOfSync } from "../desired-state/test-support/tree-integrity-sync.js";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
-import {
-  computeMaterializedTreeIntegritySync,
-  extensionName,
-  handle,
-} from "../materialization/test-helpers.js";
+import { extensionName, handle } from "../materialization/test-helpers.js";
 import {
   configuredMcpServersToDiskRefs,
   configuredSkillsToDiskRefs,
@@ -120,8 +117,12 @@ layer(NodeServices.layer, { excludeTestServices: true })(
               name: "review",
               source: "@acme/skills/review",
               enabled: true,
-              packagingKind: "native",
-              lifecycle: "configured",
+              scope: "project",
+              installed: true,
+              agents: [],
+              origins: [],
+              paths: [],
+              classification: { kind: "lifecycle", lifecycle: "configured" },
             },
           }),
           configuredMcpServersToDiskRefs(env, {
@@ -130,8 +131,12 @@ layer(NodeServices.layer, { excludeTestServices: true })(
               name: "browser",
               source: "@acme/mcps/browser",
               enabled: true,
-              packagingKind: "native",
-              lifecycle: "configured",
+              scope: "project",
+              installed: true,
+              agents: [],
+              origins: [],
+              paths: [],
+              classification: { kind: "lifecycle", lifecycle: "configured" },
             },
           }),
           configuredSubagentsToDiskRefs(env, {
@@ -140,8 +145,12 @@ layer(NodeServices.layer, { excludeTestServices: true })(
               name: "planner",
               source: "@acme/subagents/planner",
               enabled: true,
-              packagingKind: "native",
-              lifecycle: "configured",
+              scope: "project",
+              installed: true,
+              agents: [],
+              origins: [],
+              paths: [],
+              classification: { kind: "lifecycle", lifecycle: "configured" },
             },
           }),
         ]);
@@ -169,8 +178,12 @@ layer(NodeServices.layer, { excludeTestServices: true })(
                 name: "quality",
                 source: "github:qualitymd/quality.md",
                 enabled: true,
-                packagingKind: "non-native",
-                lifecycle: "configured",
+                scope: "project",
+                installed: true,
+                agents: [],
+                origins: [],
+                paths: [],
+                classification: { kind: "lifecycle", lifecycle: "configured" },
               },
             },
             {
@@ -182,7 +195,7 @@ layer(NodeServices.layer, { excludeTestServices: true })(
                   },
                   identity: { owner: handle("@acme"), name: extensionName("quality") },
                   resolved: { commit: "commit-1", tree: "tree-1" },
-                  treeIntegrity: computeMaterializedTreeIntegritySync(packageRoot),
+                  treeIntegrity: treeIntegrityOfSync(packageRoot),
                 },
               },
               getConfiguredSources: () => Effect.succeed([]),
@@ -216,8 +229,12 @@ layer(NodeServices.layer, { excludeTestServices: true })(
                 name: "quality",
                 source: "github:new-owner/quality.md",
                 enabled: true,
-                packagingKind: "non-native",
-                lifecycle: "configured",
+                scope: "project",
+                installed: true,
+                agents: [],
+                origins: [],
+                paths: [],
+                classification: { kind: "lifecycle", lifecycle: "configured" },
               },
             },
             {
@@ -229,7 +246,7 @@ layer(NodeServices.layer, { excludeTestServices: true })(
                   },
                   identity: { owner: handle("@acme"), name: extensionName("quality") },
                   resolved: { commit: "commit-1", tree: "tree-1" },
-                  treeIntegrity: computeMaterializedTreeIntegritySync(packageRoot),
+                  treeIntegrity: treeIntegrityOfSync(packageRoot),
                 },
               },
               getConfiguredSources: () => Effect.succeed([]),
@@ -251,8 +268,12 @@ layer(NodeServices.layer, { excludeTestServices: true })(
             name: "stale",
             source: "@acme/subagents/stale",
             enabled: true,
-            packagingKind: "native",
-            lifecycle: "configured",
+            scope: "project",
+            installed: true,
+            agents: [],
+            origins: [],
+            paths: [],
+            classification: { kind: "lifecycle", lifecycle: "configured" },
           },
         });
 
@@ -292,8 +313,12 @@ layer(NodeServices.layer, { excludeTestServices: true })(
             name: "browser",
             source: "@acme/mcps/browser",
             enabled: false,
-            packagingKind: "native",
-            lifecycle: "configured",
+            scope: "project",
+            installed: true,
+            agents: [],
+            origins: [],
+            paths: [],
+            classification: { kind: "lifecycle", lifecycle: "configured" },
           },
         });
 

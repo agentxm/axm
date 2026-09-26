@@ -19,7 +19,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../test-support/install-harness.js";
 import { writeAuthoredSkill } from "../test-support/publish-harness.js";
 import { makeSetupSpecContext } from "../test-support/setup-harness.js";
-import { snapshotWorkspaceContent } from "../test-support/workspace-fixtures.js";
+import { snapshotTree } from "@agentxm/test-support";
 
 export const specification = defineSpecification({
   requirement: "cli/machine-mode-never-prompts",
@@ -135,7 +135,7 @@ describe("Machine mode never prompts", () => {
         });
         cleanups.push(workspace.cleanup);
         const source = writeTwoSkillSource(workspace.root);
-        const before = snapshotWorkspaceContent(workspace.root);
+        const before = snapshotTree(workspace.root);
 
         const failure = yield* handleInstall({
           type: Option.some("skill"),
@@ -158,7 +158,7 @@ describe("Machine mode never prompts", () => {
         expect(classified.exitCode).toBeGreaterThan(0);
         expect(JSON.parse(classified.stdout ?? "")).toMatchObject({ ok: false, code: "usage" });
         expect(workspace.rendererState.results).toEqual([]);
-        expect(snapshotWorkspaceContent(workspace.root)).toEqual(before);
+        expect(snapshotTree(workspace.root)).toEqual(before);
       }),
   );
 
@@ -175,7 +175,7 @@ describe("Machine mode never prompts", () => {
         });
         cleanups.push(workspace.cleanup);
         const source = writeMcpSourceWithRequiredInput(workspace.root);
-        const before = snapshotWorkspaceContent(workspace.root);
+        const before = snapshotTree(workspace.root);
 
         yield* handleInstall({
           type: Option.some("mcp-server"),
@@ -211,7 +211,7 @@ describe("Machine mode never prompts", () => {
           cmd: "--env API_TOKEN=<value>",
         });
         expect(workspace.promptState.confirmCalls).toEqual([]);
-        expect(snapshotWorkspaceContent(workspace.root)).toEqual(before);
+        expect(snapshotTree(workspace.root)).toEqual(before);
       }),
   );
 
@@ -264,7 +264,7 @@ describe("Machine mode never prompts", () => {
           name: "review",
           body: "Replacement guidance.",
         });
-        const before = snapshotWorkspaceContent(workspace.root);
+        const before = snapshotTree(workspace.root);
 
         yield* handleDemote({
           fqn: "@acme/skills/review",
@@ -287,7 +287,7 @@ describe("Machine mode never prompts", () => {
             },
           },
         });
-        expect(snapshotWorkspaceContent(workspace.root)).toEqual(before);
+        expect(snapshotTree(workspace.root)).toEqual(before);
       }),
   );
 

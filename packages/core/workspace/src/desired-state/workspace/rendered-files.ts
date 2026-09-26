@@ -1,8 +1,7 @@
 /**
  * Rendered files tracking utilities for extension-managed output files.
  *
- * Provides schemas and hashing for tracking which files an extension has
- * rendered, keyed by agent ID. Used as a lockfile mixin.
+ * Provides a path schema and hashing for extension-managed output files.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -31,36 +30,6 @@ export const RenderedFilePathSchema = RelativePathSchema.pipe(Schema.brand("Rend
  * @experimental This API is unstable and may change without notice.
  */
 export type RenderedFilePath = Schema.Schema.Type<typeof RenderedFilePathSchema>;
-
-/**
- * Schema for a single rendered file entry.
- *
- * @experimental This API is unstable and may change without notice.
- */
-const RenderedFileEntrySchema = Schema.Struct({
-  path: RenderedFilePathSchema,
-});
-
-/**
- * Schema for the rendered files map — a record keyed by agent ID,
- * where each value is an array of rendered file entries.
- *
- * Used as a lockfile mixin to track which files have been rendered
- * per agent.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const RenderedFilesMapSchema = Schema.Record(
-  Schema.String,
-  Schema.Array(RenderedFileEntrySchema),
-);
-
-/**
- * Inferred type for the rendered files map.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type RenderedFilesMap = Schema.Schema.Type<typeof RenderedFilesMapSchema>;
 
 const decodeSourceHash = Schema.decodeUnknownSync(SourceHashSchema);
 

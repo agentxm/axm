@@ -13,7 +13,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { envWithDefault } from "../internal/environment.js";
+import { envWithDefault } from "@agentxm/host-primitives";
 import { makeDetectedPackage } from "./detected-package.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";

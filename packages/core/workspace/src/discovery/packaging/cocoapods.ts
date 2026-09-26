@@ -11,14 +11,9 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { PackageURL } from "packageurl-js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import {
-  decodeAgentExtensions,
-  decodePurl,
-  parseJsonOptional,
-  readFileOptional,
-} from "./reader-io.js";
+import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const cocoapodsType = Schema.decodeUnknownSync(PackageTypeSchema)("cocoapods");
@@ -42,13 +37,12 @@ const podToPurl = (
   const name = parts[0];
   if (name === undefined || name.length === 0) return undefined;
 
-  const subpath = parts.length > 1 ? parts.slice(1).join("/") : null;
+  const subpath = parts.length > 1 ? parts.slice(1).join("/") : undefined;
   const resolvedVersion = version !== undefined && isExactVersion(version) ? version : undefined;
 
-  const purl = new PackageURL("cocoapods", null, name, resolvedVersion ?? null, null, subpath);
-  const purlParts = decodePurl(purl.toString());
-
-  return { purl: purlParts, type: cocoapodsType, source };
+  return Option.getOrUndefined(
+    makeDetectedPackage({ type: cocoapodsType, name, version: resolvedVersion, subpath, source }),
+  );
 };
 
 /**

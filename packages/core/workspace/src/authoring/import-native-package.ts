@@ -4,7 +4,11 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
 
-import { manifestFilenameForType, manifestSchemaForType } from "@agentxm/extension-content";
+import {
+  MANIFEST_FILENAMES,
+  manifestFilenameForType,
+  manifestSchemaForType,
+} from "@agentxm/extension-content";
 import type { ExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions/common";
 import { parseFrontmatterEffect, type FrontmatterParseFailure } from "@agentxm/extension-content";
 import { copyExtensionDirectory } from "../materialization/index.js";
@@ -15,16 +19,6 @@ import {
   NativeImportUnsupported,
 } from "./authored-package-errors.js";
 const NATIVE_IMPORT_VERSION = "0.1.0";
-const MANIFEST_FILENAMES = new Set([
-  "skill.json",
-  "mcp.json",
-  "subagent.json",
-  "rule.json",
-  "hook.json",
-  "knowledge.json",
-  "pack.json",
-]);
-
 export interface ImportNativeExtensionPackageArgs {
   readonly sourcePath: string;
   readonly targetDir: string;

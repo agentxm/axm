@@ -26,8 +26,12 @@ import {
   mcpServerArtifact,
   mcpSourceTarget,
 } from "../../../materialization/index.js";
-import { deleteMcpSecrets, readMcpServerManifest } from "../../../reconciliation/index.js";
-import { collectSecretInputNames } from "../../../projection/agent-adapters/index.js";
+import { deleteMcpSecrets } from "../../../reconciliation/index.js";
+import {
+  collectSecretInputNames,
+  readMcpServerManifestAt,
+} from "../../../projection/agent-adapters/index.js";
+import type { McpServerManifest } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import { buildUninstallOperation } from "../../../reconciliation/index.js";
 import {
   appendWarningsToMessage,
@@ -45,10 +49,7 @@ import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
 import type { InstallStepRequirements } from "../../../lifecycle/install/vocabulary.js";
 import { makeWorkspaceRetentionPolicy } from "../../../reconciliation/index.js";
 import type { McpServerUninstallIntent } from "../../../lifecycle/uninstall/vocabulary.js";
-import {
-  workspaceLockfilePath,
-  workspaceSettingsPath,
-} from "../../../lifecycle/workspace-paths.js";
+import { lockfileDisplayPath, settingsDisplayPath } from "../../../desired-state/index.js";
 import { desiredMcpSourceKey } from "../../../desired-state/index.js";
 
 /** One local connection name is removed at a time. */
@@ -95,14 +96,26 @@ export const planMcpServerUninstall: (
           type: "mcp-server",
           name: target.name,
         }).pipe(Effect.catch(() => Effect.succeed(Option.none())));
-        const manifest = yield* Option.match(canonicalPath, {
-          onNone: () => Effect.succeed(Option.none()),
-          onSome: (root) => readMcpServerManifest(root),
+        const manifestRead = yield* Option.match(canonicalPath, {
+          onNone: () =>
+            Effect.succeed({ manifest: Option.none<McpServerManifest>(), warning: undefined }),
+          // Removal still proceeds when an acquired manifest is unreadable,
+          // but the operator must know that stored credentials may remain.
+          onSome: (root) =>
+            readMcpServerManifestAt(root).pipe(
+              Effect.match({
+                onFailure: () => ({
+                  manifest: Option.none<McpServerManifest>(),
+                  warning: `MCP manifest for ${target.name} could not be read; stored credentials may remain`,
+                }),
+                onSuccess: (manifest) => ({ manifest, warning: undefined }),
+              }),
+            ),
         });
         const result = yield* step.run;
         if (result.result !== "success") return result;
         const unchanged = result.disposition === "unchanged";
-        const secretNames = Option.match(manifest, {
+        const secretNames = Option.match(manifestRead.manifest, {
           onNone: () => new Set<string>(),
           onSome: collectSecretInputNames,
         });
@@ -110,7 +123,7 @@ export const planMcpServerUninstall: (
         const remainsDesired = remaining.nodes.some(
           (node) => node.type === "mcp-server" && node.name === target.name,
         );
-        const secretDeletionWarnings =
+        const deletionWarnings =
           unchanged ||
           remainsDesired ||
           desiredNode === undefined ||
@@ -130,6 +143,10 @@ export const planMcpServerUninstall: (
                     ]
                   : [],
               );
+        const secretDeletionWarnings = [
+          ...(manifestRead.warning === undefined ? [] : [manifestRead.warning]),
+          ...deletionWarnings,
+        ];
         const sourceTarget =
           lockEntry?.source.type === "registry"
             ? mcpSourceTarget(location.scope, lockEntry, "removed")
@@ -147,8 +164,8 @@ export const planMcpServerUninstall: (
             targets: unchanged
               ? []
               : [
-                  { path: workspaceLockfilePath(location.scope), change: "updated" },
-                  { path: workspaceSettingsPath(location.scope), change: "updated" },
+                  { path: lockfileDisplayPath(location.scope), change: "updated" },
+                  { path: settingsDisplayPath(location.scope), change: "updated" },
                   ...(sourceTarget === undefined ? [] : [sourceTarget]),
                 ],
           }),

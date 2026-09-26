@@ -76,14 +76,11 @@ describe("Reconciliation reports an unreadable Knowledge bundle", () => {
 
           // The acquired copy of one bundle loses its format version: AXM can
           // no longer read it, and so cannot publish it into AGENTS.md.
-          const canonical = workspace
-            .snapshot()
-            .map(([relative]) => relative)
-            .find(
-              (relative) =>
-                relative.startsWith("agent_extensions") &&
-                relative.endsWith(`${nodePath.sep}other-notes`),
-            );
+          const canonical = Object.keys(workspace.snapshot()).find(
+            (relative) =>
+              relative.startsWith("agent_extensions") &&
+              relative.endsWith(`${nodePath.sep}other-notes`),
+          );
           if (canonical === undefined) throw new Error("No canonical package for other-notes");
           fs.writeFileSync(
             nodePath.join(workspace.root, canonical, "src", "index.md"),

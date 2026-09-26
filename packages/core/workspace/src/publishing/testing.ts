@@ -16,6 +16,7 @@
  */
 
 import * as fs from "node:fs";
+import { snapshotTree } from "../desired-state/testing.js";
 import * as nodePath from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -24,6 +25,7 @@ import * as Option from "effect/Option";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import type { RegistryClientFactory } from "@agentxm/registry-client";
+import { MANIFEST_FILENAME_BY_TYPE } from "@agentxm/extension-content";
 
 import {
   GitDirectoryComparison,
@@ -61,16 +63,6 @@ export interface PublishTarget {
   readonly storedFiles: () => ReadonlyArray<string>;
 }
 
-const walkFiles = (root: string, directory: string): ReadonlyArray<string> =>
-  fs.existsSync(directory)
-    ? fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-        const absolute = nodePath.join(directory, entry.name);
-        return entry.isDirectory()
-          ? walkFiles(root, absolute)
-          : [nodePath.relative(root, absolute).split(nodePath.sep).join("/")];
-      })
-    : [];
-
 /**
  * An empty `file://` Registry inside `workspaceRoot`, as the publish target.
  * It starts with no extensions at all, so a conflict a test needs must be
@@ -85,7 +77,10 @@ export const makePublishTarget = (
   return {
     root,
     url: pathToFileURL(root).href,
-    storedFiles: () => [...walkFiles(root, root)].sort(),
+    storedFiles: () =>
+      Object.entries(snapshotTree(root))
+        .filter(([, value]) => value.startsWith("file:"))
+        .map(([relative]) => relative.split(nodePath.sep).join("/")),
   };
 };
 
@@ -113,17 +108,6 @@ const authoredDirectory = {
   hook: "hooks",
   knowledge: "knowledge",
   pack: "packs",
-} as const satisfies Record<PublishableType, string>;
-
-/** The manifest filename each publishable type carries at its package root. */
-const manifestFilename = {
-  skill: "skill.json",
-  "mcp-server": "mcp.json",
-  subagent: "subagent.json",
-  rule: "rule.json",
-  hook: "hook.json",
-  knowledge: "knowledge.json",
-  pack: "pack.json",
 } as const satisfies Record<PublishableType, string>;
 
 /** The settings key each publishable type declares its authored entry under. */
@@ -244,7 +228,7 @@ export const writeAuthoredExtension = (
   const packageDir = nodePath.join(workspaceRoot, authoredDirectory[type], fixture.name);
   fs.mkdirSync(nodePath.join(packageDir, "src"), { recursive: true });
   fs.writeFileSync(
-    nodePath.join(packageDir, manifestFilename[type]),
+    nodePath.join(packageDir, MANIFEST_FILENAME_BY_TYPE[type]),
     `${JSON.stringify(manifestBody(type, fixture, version, description), null, 2)}\n`,
   );
   if (fixture.withoutContent !== true) {

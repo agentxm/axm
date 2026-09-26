@@ -4,15 +4,20 @@ import { LearnMore, formatLearnMore } from "../../formatter.js";
 import { groupCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import { makeExtensionShowCommand } from "../shared/extension-show.js";
 import { addCommand } from "./add.js";
-import { disableCommand } from "./disable.js";
-import { enableCommand } from "./enable.js";
+import { makeActivationCommands } from "../activation-handler.js";
 import { importCommand } from "./import.js";
-import { installCommand } from "./install/command.js";
+import { mcpsInstallCommand as installCommand } from "../install/command.js";
 import { listCommand } from "./list.js";
 import { newCommand } from "./new.js";
 import { mcpsPublishCommand as publishCommand } from "../publish/per-type-command.js";
-import { uninstallCommand } from "./uninstall/command.js";
-import { updateCommand } from "./update.js";
+import { makePerTypeUninstallCommand } from "../shared/uninstall-command.js";
+import { makePerTypeUpdateCommand } from "../update/per-type-command.js";
+
+const updateCommand = makePerTypeUpdateCommand("mcp-server");
+
+const uninstallCommand = makePerTypeUninstallCommand("mcp-server");
+
+const { enableCommand, disableCommand } = makeActivationCommands("mcp-server");
 
 const showCommand = makeExtensionShowCommand({
   type: "mcp-server",

@@ -11,15 +11,14 @@ import { ExtensionLifecycleFailed } from "../errors.js";
 import { applyInstall, installRequest } from "../install/test-helpers.js";
 import {
   makeLifecycleFixture,
-  makeLifecycleRegistry,
   writeLocalHookPackage,
   writeLocalKnowledgePackage,
   writeLocalRulePackage,
   writeLocalSkillPackage,
   writeLocalSubagentPackage,
   type LifecycleFixture,
-  type LifecycleRegistry,
 } from "../testing.js";
+import { makeFileRegistry, type FileRegistry } from "@agentxm/registry-client/testing";
 import { previewUninstall, uninstallRequest } from "./test-helpers.js";
 import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions/common";
 
@@ -76,7 +75,7 @@ interface UninstallRow {
   /** Publishes the package and returns the source an install would name. */
   readonly source: (args: {
     readonly workspace: LifecycleFixture;
-    readonly registry: LifecycleRegistry;
+    readonly registry: FileRegistry;
   }) => string;
   /** The selector the removal names. */
   readonly selector: string;
@@ -173,8 +172,8 @@ describe("Uninstall preview purity", () => {
     }
   });
 
-  const world = (): { workspace: LifecycleFixture; registry: LifecycleRegistry } => {
-    const registry = makeLifecycleRegistry();
+  const world = (): { workspace: LifecycleFixture; registry: FileRegistry } => {
+    const registry = makeFileRegistry();
     cleanups.push(registry.cleanup);
     const workspace = makeLifecycleFixture({
       sources: "live",

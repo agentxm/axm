@@ -105,11 +105,8 @@ and [async coordination](../../agent_extensions/registry/@craigsmitham/knowledge
 
 ### Reviewed unbounded concurrency
 
-The [exact-site inventory](../../scripts/unbounded-concurrency-sites.ts)
-records retained literals. The [source-hygiene check](../../scripts/verify-source-hygiene.ts)
-rejects both new and removed sites until each change is reviewed and the
-inventory is updated. Its [tests](../../scripts/verify-source-hygiene.test.ts)
-cover replacement and relocation, not only a total count. Retained sites still
-need the workload rationale above; the inventory is not a policy for new work.
-ESLint also rejects literal unbounded concurrency in the remediated I/O
-surfaces.
+The ESLint rule `axm-policy/no-unbounded-io` covers production source under
+`{apps,packages,tools}/**/src`. Every retained literal has an inline disable
+directive explaining the fixed catalog or fixed-arity join that bounds its
+workload. A new literal requires the same workload review and site-specific
+rationale.

@@ -175,6 +175,7 @@ const materializeBundledAxmSkill = Effect.gen(function* () {
       agent
         .resolveEffectiveSkillsDir({ workspaceRoot: location.baseDir })
         .pipe(Effect.map((outcome) => ({ agentId: agent.id, outcome }))),
+    // eslint-disable-next-line axm-policy/no-unbounded-io -- configured agents are a subset of the fixed agent catalog
     { concurrency: "unbounded" },
   );
   const misconfigured = resolvedAgents.filter(({ outcome }) => outcome._tag === "misconfigured");
@@ -202,6 +203,7 @@ const materializeBundledAxmSkill = Effect.gen(function* () {
         sanitizedName: BUNDLED_AXM_SKILL_NAME,
         baseDir: location.baseDir,
       }),
+    // eslint-disable-next-line axm-policy/no-unbounded-io -- distinct target directories come from the fixed agent catalog
     { concurrency: "unbounded" },
   );
 
@@ -263,6 +265,7 @@ export const installBundledAxmSkill = Effect.gen(function* () {
               : [],
           ),
         ),
+    // eslint-disable-next-line axm-policy/no-unbounded-io -- configured agents are a subset of the fixed agent catalog
     { concurrency: "unbounded" },
   ).pipe(
     Effect.map((paths) => paths.flat()),

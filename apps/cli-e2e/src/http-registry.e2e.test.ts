@@ -12,6 +12,7 @@ import {
 import { startHttpRegistry, type HttpRegistry } from "./e2e/http-registry-server.js";
 import { createTempDir, runCli } from "./e2e/utils.js";
 import { ptyIsSupported, runCliUnderPty } from "./pty.js";
+import { initWorkspace, publishExtension } from "./test-support/published-registry.js";
 
 /**
  * Publish and install over the HTTP registry transport.
@@ -129,16 +130,6 @@ const newArgsFor = (type: MatrixExtensionType): ReadonlyArray<string> => {
 
 const settingsPathIn = (workspacePath: string) => path.join(workspacePath, "axm.json");
 
-const configureRegistry = (workspacePath: string, location: string) => {
-  const settingsPath = settingsPathIn(workspacePath);
-  const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-  settings.defaultRegistry = "test";
-  settings.sources = [{ name: "test", type: "registry", location }];
-  settings.owner = OWNER;
-  settings.minimumReleaseAge = "0s";
-  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-};
-
 const configureMinimumReleaseAge = (workspacePath: string, value: string) => {
   const settingsPath = settingsPathIn(workspacePath);
   const settings: unknown = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
@@ -153,15 +144,6 @@ const structuredPlanResult = (stdout: string): Record<string, unknown> => {
     throw new Error("Expected structured plan result");
   }
   return output["result"];
-};
-
-const initWorkspace = async (workspacePath: string, location: string) => {
-  const setup = await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
-    cwd: workspacePath,
-    env: registryEnv(location),
-  });
-  expect(setup.exitCode, setup.stderr).toBe(0);
-  configureRegistry(workspacePath, location);
 };
 
 const snapshotDir = (rootDir: string): Readonly<Record<string, string>> => {
@@ -185,32 +167,20 @@ const snapshotDir = (rootDir: string): Readonly<Record<string, string>> => {
   return files;
 };
 
-/** Scaffold one extension in a throwaway workspace and publish it to `location`. */
-const scaffoldAndPublish = async (
+/** Publish one matrix row through the same CLI fixture as file-registry examples. */
+const scaffoldAndPublish = (
   location: string,
   plural: string,
   type: MatrixExtensionType,
   name: string,
-) => {
-  const workspace = createTempDir();
-  try {
-    await initWorkspace(workspace.path, location);
-
-    const created = await runCli([plural, "new", name, "--owner", OWNER, ...newArgsFor(type)], {
-      cwd: workspace.path,
-      env: registryEnv(location),
-    });
-    expect(created.exitCode, created.stderr).toBe(0);
-
-    const published = await runCli([plural, "publish", `${OWNER}/${plural}/${name}`], {
-      cwd: workspace.path,
-      env: registryEnv(location),
-    });
-    expect(published.exitCode, published.stderr).toBe(0);
-  } finally {
-    workspace.cleanup();
-  }
-};
+) =>
+  publishExtension({
+    registryLocation: location,
+    owner: OWNER,
+    plural,
+    name,
+    newArgs: newArgsFor(type),
+  });
 
 describe("HTTP registry transport", () => {
   it("answers for every extension type with a publish row or a stated reason", () => {
@@ -223,7 +193,7 @@ describe("HTTP registry transport", () => {
     const name = "private-route-policy";
 
     try {
-      await initWorkspace(workspace.path, registry.url);
+      await initWorkspace(workspace.path, registry.url, OWNER);
       const created = await runCli(["skills", "new", name, "--owner", OWNER], {
         cwd: workspace.path,
         env: registryEnv(registry.url),
@@ -334,7 +304,7 @@ describe("HTTP registry transport", () => {
     const env = registryEnv(registry.url);
 
     try {
-      await initWorkspace(publisher.path, registry.url);
+      await initWorkspace(publisher.path, registry.url, OWNER);
       const created = await runCli(["skills", "new", "review", "--owner", OWNER], {
         cwd: publisher.path,
         env,
@@ -348,7 +318,7 @@ describe("HTTP registry transport", () => {
       const firstPublished = registry.publishes[0];
       if (firstPublished === undefined) throw new Error("Expected first published skill version");
 
-      await initWorkspace(consumer.path, registry.url);
+      await initWorkspace(consumer.path, registry.url, OWNER);
       const installed = await runCli(["install", `${OWNER}/skills/review`], {
         cwd: consumer.path,
         env,
@@ -440,7 +410,7 @@ describe("HTTP registry transport", () => {
     const workspace = createTempDir();
 
     try {
-      await initWorkspace(workspace.path, registry.url);
+      await initWorkspace(workspace.path, registry.url, OWNER);
       const createReview = await runCli(["skills", "new", "review", "--owner", OWNER], {
         cwd: workspace.path,
         env: registryEnv(registry.url),
@@ -512,7 +482,7 @@ describe("HTTP registry transport", () => {
       const workspace = createTempDir();
 
       try {
-        await initWorkspace(workspace.path, registry.url);
+        await initWorkspace(workspace.path, registry.url, OWNER);
         const created = await runCli(
           ["skills", "new", `blocked-${publishPreviewMode}`, "--owner", OWNER],
           { cwd: workspace.path, env: registryEnv(registry.url) },
@@ -554,7 +524,7 @@ describe("HTTP registry transport", () => {
     const workspace = createTempDir();
 
     try {
-      await initWorkspace(workspace.path, registry.url);
+      await initWorkspace(workspace.path, registry.url, OWNER);
       const created = await runCli(
         ["skills", "new", "preview-service-unavailable", "--owner", OWNER],
         { cwd: workspace.path, env: registryEnv(registry.url) },
@@ -614,7 +584,7 @@ describe("HTTP registry transport", () => {
     const workspace = createTempDir();
 
     try {
-      await initWorkspace(workspace.path, registry.url);
+      await initWorkspace(workspace.path, registry.url, OWNER);
       const createdSkill = await runCli(["skills", "new", "pack-member", "--owner", OWNER], {
         cwd: workspace.path,
         env: registryEnv(registry.url),
@@ -656,7 +626,7 @@ describe("HTTP registry transport", () => {
     const workspace = createTempDir();
 
     try {
-      await initWorkspace(workspace.path, registry.url);
+      await initWorkspace(workspace.path, registry.url, OWNER);
       for (const name of ["retry-first", "retry-second"]) {
         const created = await runCli(["skills", "new", name, "--owner", OWNER], {
           cwd: workspace.path,
@@ -733,7 +703,7 @@ describe("HTTP registry transport", () => {
       });
 
     try {
-      await initWorkspace(workspace.path, registry.url);
+      await initWorkspace(workspace.path, registry.url, OWNER);
       const created = await runCli(["skills", "new", "ambiguous", "--owner", OWNER], {
         cwd: workspace.path,
         env: registryEnv(registry.url),
@@ -803,7 +773,7 @@ describe("HTTP registry transport", () => {
     const workspace = createTempDir();
 
     try {
-      await initWorkspace(workspace.path, registry.url);
+      await initWorkspace(workspace.path, registry.url, OWNER);
       for (const name of ["failing-member", "independent-member"]) {
         const created = await runCli(["skills", "new", name, "--owner", OWNER], {
           cwd: workspace.path,
@@ -882,8 +852,8 @@ describe("HTTP registry transport", () => {
       await scaffoldAndPublish(registry.url, "skills", "skill", name);
       await scaffoldAndPublish(`file://${fileRegistry.path}`, "skills", "skill", name);
 
-      await initWorkspace(httpWorkspace.path, registry.url);
-      await initWorkspace(fileWorkspace.path, `file://${fileRegistry.path}`);
+      await initWorkspace(httpWorkspace.path, registry.url, OWNER);
+      await initWorkspace(fileWorkspace.path, `file://${fileRegistry.path}`, OWNER);
 
       const httpInstall = await runCli(["install", fqn], {
         cwd: httpWorkspace.path,
@@ -916,7 +886,7 @@ describe("HTTP registry transport", () => {
     const consumer = createTempDir();
     try {
       await scaffoldAndPublish(registry.url, "skills", "skill", "slow-index-pipe");
-      await initWorkspace(consumer.path, registry.url);
+      await initWorkspace(consumer.path, registry.url, OWNER);
       registry.failNextIndex("skills/slow-index-pipe");
 
       const result = await runCli(["install", `${OWNER}/skills/slow-index-pipe`], {
@@ -939,7 +909,7 @@ describe("HTTP registry transport", () => {
     const home = createTempDir();
     try {
       await scaffoldAndPublish(registry.url, "skills", "skill", "slow-index-terminal");
-      await initWorkspace(consumer.path, registry.url);
+      await initWorkspace(consumer.path, registry.url, OWNER);
       registry.failNextIndex("skills/slow-index-terminal");
 
       const result = await runCliUnderPty(
@@ -977,7 +947,7 @@ describe("HTTP registry transport", () => {
     const env = registryEnv(registry.url);
 
     try {
-      await initWorkspace(publisher.path, registry.url);
+      await initWorkspace(publisher.path, registry.url, OWNER);
       const created = await runCli(["skills", "new", name, "--owner", OWNER], {
         cwd: publisher.path,
         env,
@@ -996,7 +966,7 @@ describe("HTTP registry transport", () => {
       registry.yank(OWNER, "skills", name, "3.0.0");
 
       for (const consumer of [latestConsumer, exactConsumer, anonymousConsumer, nonOwnerConsumer]) {
-        await initWorkspace(consumer.path, registry.url);
+        await initWorkspace(consumer.path, registry.url, OWNER);
       }
 
       const latestRequestOffset = registry.requests.length;
@@ -1092,7 +1062,7 @@ describe("HTTP registry transport", () => {
 
     try {
       await scaffoldAndPublish(registry.url, "skills", "skill", name);
-      await initWorkspace(consumer.path, registry.url);
+      await initWorkspace(consumer.path, registry.url, OWNER);
       const requestOffset = registry.requests.length;
       const installed = await runCli(["install", fqn], {
         cwd: consumer.path,

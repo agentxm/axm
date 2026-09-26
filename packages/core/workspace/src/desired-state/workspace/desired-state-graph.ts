@@ -13,7 +13,6 @@ import {
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import type { Settings } from "../settings/index.js";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
@@ -636,17 +635,6 @@ export const isRequiredByAnotherOrigin = (
   excluding: Iterable<string>,
 ): boolean => originsOutsidePacks(node, excluding).length > 0;
 
-const parsePackManifest = (raw: string) => {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return undefined;
-  }
-  const decoded = Schema.decodeUnknownResult(PackManifestSchema)(parsed);
-  return Result.isSuccess(decoded) ? decoded.success : undefined;
-};
-
 export const buildDesiredStateGraph = ({
   manifests,
   baseDir,
@@ -905,8 +893,8 @@ export const buildDesiredStateGraph = ({
       const prospective = prospectivePacksByIdentity.get(identity.fqn);
       const manifest = yield* prospective === undefined
         ? Effect.gen(function* () {
-            const contents = yield* document.contents;
-            if (contents === undefined) {
+            const observed = yield* document.manifest;
+            if (observed.status === "unavailable") {
               if (packEnabled) {
                 problems.push({
                   type: "pack-manifest-unavailable",
@@ -917,15 +905,17 @@ export const buildDesiredStateGraph = ({
               return undefined;
             }
 
-            const decoded = parsePackManifest(contents);
-            if (decoded === undefined && packEnabled) {
-              problems.push({
-                type: "pack-manifest-invalid",
-                pack: identity.fqn,
-                path: manifestPath,
-              });
+            if (observed.status === "invalid") {
+              if (packEnabled) {
+                problems.push({
+                  type: "pack-manifest-invalid",
+                  pack: identity.fqn,
+                  path: manifestPath,
+                });
+              }
+              return undefined;
             }
-            return decoded;
+            return observed.manifest;
           })
         : Effect.succeed({
             owner: prospective.owner,

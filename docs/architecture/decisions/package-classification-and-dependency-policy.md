@@ -27,8 +27,11 @@ own fails for the same reason. Placement and tag can therefore never disagree.
 `core` is the distinctive extension-management model AXM exists to own.
 `supporting` is necessary but undifferentiated adaptation to external systems
 and native agent surfaces. `generic` is for broadly shared problems where an
-adopted solution would otherwise win; it is empty, because the adopted
-dependencies already cover those needs.
+adopted solution would otherwise win. `@agentxm/host-primitives` is its first
+occupant: three copies of the atomic-write kernel and six readers of
+`AXM_USER_HOME` showed that the supporting-to-core boundary was manufacturing
+duplication, while no adopted dependency covered the Effect-typed forms needed
+here.
 
 **Technical role is authored.** Every production project declares exactly one
 of `role:contract`, `role:integration`, `role:capability`, `role:feature`, or
@@ -42,15 +45,15 @@ integration may be core.
 [`eslint.config.mjs`](../../../eslint.config.mjs), every matching constraint is
 applied, and a dependency is legal only when it satisfies all of them.
 
-| Source role   | May depend on                                        |
-| ------------- | ---------------------------------------------------- |
-| `application` | feature, capability, integration, contract           |
-| `feature`     | capability, integration, contract                    |
-| `capability`  | capability, integration, contract                    |
-| `integration` | integration, contract, and `scope:extension-content` |
-| `contract`    | contract                                             |
-| `e2e`         | tooling and contract only                            |
-| `tooling`     | any library                                          |
+| Source role   | May depend on                                                                 |
+| ------------- | ----------------------------------------------------------------------------- |
+| `application` | feature, capability, integration, contract                                    |
+| `feature`     | capability, integration, contract                                             |
+| `capability`  | capability, integration, contract                                             |
+| `integration` | integration, contract, `scope:extension-content`, and `scope:host-primitives` |
+| `contract`    | contract                                                                      |
+| `e2e`         | tooling and contract only                                                     |
+| `tooling`     | any library                                                                   |
 
 | Source domain | May depend on                                                                                        |
 | ------------- | ---------------------------------------------------------------------------------------------------- |
@@ -175,12 +178,13 @@ weakens it for every supporting package, not only the one that asked.
 - Reclassifying a package means moving its directory, which changes its
   `repository.directory`, its relative imports, and its TypeScript reference
   paths in the same reviewed change.
-- `packages/generic/` has no projects. The glob stays in
-  `pnpm-workspace.yaml` so the tier is available without a migration.
-- Creating a package needs no dependency-matrix edit: placement and one
-  `role:*` tag settle its permissions. Per-package `scope:*` tags exist for
-  selection, and must not be used in `depConstraints` to rebuild an exact
-  adjacency list.
+- `packages/generic/` holds `@agentxm/host-primitives`. The `generic` to
+  `generic` rule is exercised by
+  [`scripts/source-boundary-lint.test.ts`](../../../scripts/source-boundary-lint.test.ts).
+- Creating a package ordinarily needs no dependency-matrix edit: placement and
+  one `role:*` tag settle its permissions. Narrow `scope:*` exceptions admit
+  `extension-content` and `host-primitives` to integrations; they do not rebuild
+  an exact adjacency list.
 - `@nx/dependency-checks` keeps each buildable package's manifest in agreement
   with what it imports, so a legal graph edge still fails lint when it is
   undeclared.
@@ -202,9 +206,11 @@ workflow.
 
 ## Reconsideration
 
-Reconsider when a genuinely generic capability appears and `packages/generic/`
-gains its first occupant, when a second production application needs the
-libraries and `role:application` stops meaning "the CLI", when a package's
+The first-occupant trigger fired when `@agentxm/host-primitives` entered
+`packages/generic/`. The domain matrix remains unchanged; the role matrix has
+the narrow integration exception recorded above. Reconsider when a second
+production application needs the libraries and `role:application` stops meaning
+"the CLI", when a package's
 strategic classification changes as a deliberate strategy decision, or when
 Nx's constraint model can express the composition-root and handler boundaries
 directly and the focused ESLint overrides become redundant. When superseded,

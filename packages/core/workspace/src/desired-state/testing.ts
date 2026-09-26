@@ -9,12 +9,16 @@
  * @packageDocumentation
  */
 
+import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
+import * as ByteSize from "effect/ByteSize";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
-import type * as FileSystem from "effect/FileSystem";
-import type * as Path from "effect/Path";
+import * as Option from "effect/Option";
+import * as Path from "effect/Path";
+import * as PlatformError from "effect/PlatformError";
 
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 import {
@@ -25,6 +29,11 @@ import { WorkspaceTransactionScopeTest } from "../transitions/settlement/testing
 import { ConfiguredAgentOutcomesProvider } from "./workspace/configured-agent-outcomes-provider.js";
 import { LOCK_FILENAME } from "./workspace/constants.js";
 import { WorkspaceLocation } from "./workspace/location.js";
+import {
+  computeMaterializedTreeIntegrity,
+  type MaterializedTreeInvalid,
+  type TreeIntegrity,
+} from "./workspace/materialized-tree.js";
 
 export * from "./workspace/test-stubs.js";
 
@@ -44,6 +53,119 @@ export const withTestRegistryDefault = <Settings extends Readonly<object>>(
     ? { defaultRegistry: "test", ...settings }
     : settings;
 };
+
+/** A byte-preserving snapshot of a fixture tree, including empty directories and links. */
+export const snapshotTree = (root: string): Readonly<Record<string, string>> => {
+  if (!fs.existsSync(root)) return {};
+  const entries: Array<readonly [string, string]> = [];
+  const walk = (directory: string): void => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const absolute = nodePath.join(directory, entry.name);
+      const relative = nodePath.relative(root, absolute);
+      if (entry.isSymbolicLink()) {
+        entries.push([relative, `symlink:${fs.readlinkSync(absolute)}`]);
+      } else if (entry.isDirectory()) {
+        entries.push([relative, "directory"]);
+        walk(absolute);
+      } else {
+        entries.push([relative, `file:${fs.readFileSync(absolute).toString("base64")}`]);
+      }
+    }
+  };
+  walk(root);
+  return Object.fromEntries(entries.sort(([left], [right]) => left.localeCompare(right, "en")));
+};
+
+/** The same encoding for one fixture path; an absent path has no snapshot. */
+export const snapshotPath = (absolute: string): Readonly<Record<string, string>> => {
+  let stat: fs.Stats;
+  try {
+    stat = fs.lstatSync(absolute);
+  } catch (error) {
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
+      return {};
+    }
+    throw error;
+  }
+  if (stat.isSymbolicLink()) return { ".": `symlink:${fs.readlinkSync(absolute)}` };
+  if (stat.isDirectory()) return snapshotTree(absolute);
+  return { ".": `file:${fs.readFileSync(absolute).toString("base64")}` };
+};
+
+const fileErrorTag = (cause: unknown): PlatformError.SystemErrorTag => {
+  const code =
+    typeof cause === "object" && cause !== null && "code" in cause ? cause.code : undefined;
+  if (code === "ENOENT") return "NotFound";
+  if (code === "EEXIST") return "AlreadyExists";
+  if (code === "EACCES" || code === "EPERM") return "PermissionDenied";
+  return "Unknown";
+};
+
+const syncFileCall = <A>(method: string, target: string, run: () => A) =>
+  Effect.try({
+    try: run,
+    catch: (cause) =>
+      PlatformError.systemError({
+        _tag: fileErrorTag(cause),
+        module: "FileSystem",
+        method,
+        pathOrDescriptor: target,
+        cause,
+      }),
+  });
+
+const fileInfo = (target: string): FileSystem.File.Info => {
+  const stat = fs.statSync(target);
+  const type: FileSystem.File.Type = stat.isDirectory()
+    ? "Directory"
+    : stat.isFile()
+      ? "File"
+      : stat.isBlockDevice()
+        ? "BlockDevice"
+        : stat.isCharacterDevice()
+          ? "CharacterDevice"
+          : stat.isFIFO()
+            ? "FIFO"
+            : stat.isSocket()
+              ? "Socket"
+              : "Unknown";
+  return {
+    type,
+    mtime: Option.some(stat.mtime),
+    atime: Option.some(stat.atime),
+    birthtime: Option.some(stat.birthtime),
+    dev: Number(stat.dev),
+    ino: Option.some(Number(stat.ino)),
+    mode: Number(stat.mode),
+    nlink: Option.some(Number(stat.nlink)),
+    uid: Option.some(Number(stat.uid)),
+    gid: Option.some(Number(stat.gid)),
+    rdev: Option.some(Number(stat.rdev)),
+    size: ByteSize.bytes(stat.size),
+    blksize: Option.some(ByteSize.bytes(stat.blksize)),
+    blocks: Option.some(Number(stat.blocks)),
+  };
+};
+
+/** Synchronous native reads for production integrity checks in fixture setup. */
+export const SyncNodeFileSystem: Layer.Layer<FileSystem.FileSystem> = Layer.succeed(
+  FileSystem.FileSystem,
+  FileSystem.make({
+    ...FileSystem.makeNoop({}),
+    readDirectory: (target) => syncFileCall("readDirectory", target, () => fs.readdirSync(target)),
+    stat: (target) => syncFileCall("stat", target, () => fileInfo(target)),
+    readLink: (target) => syncFileCall("readLink", target, () => fs.readlinkSync(target)),
+    readFile: (target) => syncFileCall("readFile", target, () => fs.readFileSync(target)),
+  }),
+);
+
+/** Hash a fixture package with the production materialized-tree contract. */
+export const treeIntegrityOf = (
+  root: string,
+): Effect.Effect<TreeIntegrity, MaterializedTreeInvalid> =>
+  computeMaterializedTreeIntegrity(root).pipe(
+    Effect.provide(Layer.merge(SyncNodeFileSystem, Path.layer)),
+  );
 
 /**
  * A transaction scope over the located workspace with the given admission —

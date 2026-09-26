@@ -19,11 +19,11 @@ import {
   detectAgentScopeResults,
   type AgentScopeDetection,
 } from "../../projection/agent-adapters/index.js";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
+import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import {
-  isConfigurableAgentId,
   type AgentDescriptor,
-  type AgentId,
+  type MaterializationTargetId,
   type ConfigurableAgentId,
 } from "@agentxm/extension-model/unstable/agents/types";
 import { WorkspaceConfigurationFailed } from "../errors.js";
@@ -95,7 +95,8 @@ const INSTRUCTION_SOURCE_CANDIDATES = [
   ".cursorrules",
 ] as const;
 
-const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
+const isKnownAgentId = (id: string): id is MaterializationTargetId =>
+  Object.hasOwn(AGENT_DESCRIPTORS, id);
 
 const isKnownConfigurableAgentId = (id: string): id is ConfigurableAgentId =>
   isKnownAgentId(id) && isConfigurableAgentId(id);
@@ -110,10 +111,10 @@ const allAgentDescriptors = (
   // catalog suggestion name the same agent — so the offer is ordered by first
   // mention and carries each agent once.
   const preferred = [...new Set(preferredIds)].flatMap((id) =>
-    isKnownConfigurableAgentId(id) ? [AGENTS[id]] : [],
+    isKnownConfigurableAgentId(id) ? [AGENT_DESCRIPTORS[id]] : [],
   );
   const preferredSet = new Set(preferred.map((agent) => agent.id));
-  const remaining = Object.values(AGENTS).filter(
+  const remaining = Object.values(AGENT_DESCRIPTORS).filter(
     (agent) => isConfigurableAgentId(agent.id) && !preferredSet.has(agent.id),
   );
   return [...preferred, ...remaining];
@@ -154,7 +155,7 @@ const setupAgentCandidates = (args: {
 
   return [...new Set(relevantIds)].flatMap((id) => {
     if (!isKnownConfigurableAgentId(id)) return [];
-    const agent = AGENTS[id];
+    const agent = AGENT_DESCRIPTORS[id];
     const detection = detectionsById.get(id);
     const projectDetected = detection?.project ?? false;
     const userDetected = detection?.user ?? false;
@@ -298,6 +299,7 @@ const instructionSourceChoices = (workspaceRoot: string, defaultFileName: string
             content,
           } satisfies SetupInstructionSourceChoice;
         }),
+      // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed instruction-source filename list
       { concurrency: "unbounded" },
     );
   });
@@ -459,7 +461,7 @@ const selectSetupAgents = (args: {
     );
     if (requested !== undefined && requested.length > 0) {
       const selected = requested.flatMap((id) =>
-        isKnownConfigurableAgentId(id) ? [AGENTS[id]] : [],
+        isKnownConfigurableAgentId(id) ? [AGENT_DESCRIPTORS[id]] : [],
       );
       return {
         selectedAgents: selected,
@@ -492,7 +494,7 @@ const selectSetupAgents = (args: {
     const defaultIds = [...new Set([...configuredIds, ...strongDetectedIds, ...suggestedIds])];
     if (nonInteractive || args.options.yes === true || args.options.preview === true) {
       const selectedAgents = defaultIds.flatMap((id) =>
-        isKnownConfigurableAgentId(id) ? [AGENTS[id]] : [],
+        isKnownConfigurableAgentId(id) ? [AGENT_DESCRIPTORS[id]] : [],
       );
       return {
         selectedAgents,
@@ -517,7 +519,7 @@ const selectSetupAgents = (args: {
         })
       : yield* SELECT_AGENTS_PROMPT_MISSING;
     const selectedAgents = selectedIds.flatMap((id) =>
-      isKnownConfigurableAgentId(id) ? [AGENTS[id]] : [],
+      isKnownConfigurableAgentId(id) ? [AGENT_DESCRIPTORS[id]] : [],
     );
     return {
       selectedAgents,

@@ -1,13 +1,9 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Result from "effect/Result";
-import * as Schema from "effect/Schema";
 import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
 import type { Lockfile } from "../lockfile/schema.js";
 import { observeAcceptedResolution } from "./canonical-observation.js";
 import { lockEntries } from "./entry-accessors.js";
-import { computePackManifestContentIdentity } from "./pack-manifest-content-identity.js";
-import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import type {
   DesiredStateGraph,
   DesiredStateProblem,
@@ -24,10 +20,6 @@ interface ValidateDesiredPackLockArgs {
   readonly layout: WorkspaceLayout;
   readonly prospectivePacks?: ReadonlyArray<ProspectivePackRef>;
 }
-
-const decodeManifest = Schema.decodeUnknownSync(PackManifestSchema, {
-  onExcessProperty: "error",
-});
 
 /** What validating the accepted Pack state found. */
 export interface DesiredPackLockValidation {
@@ -103,19 +95,10 @@ export const validateDesiredPackLock = ({
         workspace: { layout },
       });
       const manifestPath = document.path;
-      const observedManifest = yield* Effect.gen(function* () {
-        const contents = yield* document.contents;
-        if (contents === undefined) return undefined;
-        const decoded = Result.try({
-          try: () => decodeManifest(JSON.parse(contents)),
-          catch: () => undefined,
-        });
-        return Result.isSuccess(decoded) ? decoded.success : undefined;
-      });
+      const observed = yield* document.manifest;
+      const observedManifest = observed.status === "decoded" ? observed.manifest : undefined;
       const observedContentIdentity =
-        observedManifest === undefined
-          ? undefined
-          : computePackManifestContentIdentity(observedManifest);
+        observed.status === "decoded" ? observed.contentIdentity : undefined;
       if (
         observedManifest === undefined ||
         observedContentIdentity !== entry.manifestContentIdentity

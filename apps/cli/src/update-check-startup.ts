@@ -24,7 +24,7 @@ import type { AvailableUpdate } from "@agentxm/cli-maintenance/self-update/domai
 
 import { isAgentSession } from "./cli-flags/index.js";
 import { Screen } from "./screen/index.js";
-import { ciEnabled } from "./utils/environment.js";
+import { ciEnabled } from "@agentxm/host-primitives";
 
 // -----------------------------------------------------------------------------
 // Skip detection from argv

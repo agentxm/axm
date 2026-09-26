@@ -44,6 +44,7 @@ import { VersionSchema, type Version } from "@agentxm/extension-model/unstable/v
 import {
   checkForbiddenSourceEntries,
   enforceArchiveSizeLimit,
+  manifestFilenameForType,
   normalizePublishInput,
   validateArchive,
 } from "@agentxm/extension-content";
@@ -64,8 +65,11 @@ import { alreadyPublishedVersionConflict, nonMonotonicVersionConflict } from "..
 import { isPublishableType, type PublishableType } from "../publishable-types.js";
 import type { PublishSourceAssessment } from "../source-state.js";
 import type { ResolvedPublishPreview } from "../authorization.js";
-import { computeIntegrity } from "../internal/integrity.js";
-import { expandGlobs, isGlobPattern } from "../internal/glob.js";
+import { sha512Integrity } from "@agentxm/host-primitives";
+import {
+  expandGlobs,
+  isGlobPattern,
+} from "@agentxm/extension-model/unstable/extensions/name-patterns";
 import type { PublishSelectionDecision } from "./result.js";
 
 export const selectableTypes: ReadonlyArray<PublishableType> =
@@ -107,16 +111,6 @@ interface ValidationDetail {
 
 const validation = (detail: string, over?: ValidationDetail) =>
   new PublishFailed({ category: "validation", detail, ...over });
-
-export const manifestFilename: Readonly<Record<PublishableType, string>> = {
-  skill: "skill.json",
-  "mcp-server": "mcp.json",
-  subagent: "subagent.json",
-  rule: "rule.json",
-  hook: "hook.json",
-  knowledge: "knowledge.json",
-  pack: "pack.json",
-};
 
 export const CandidateManifestSchema = Schema.Struct({
   owner: HandleSchema,
@@ -317,7 +311,7 @@ export const identityFromManagedPackage = Effect.fn("Publish.identityFromManaged
 
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const manifestPath = path.join(extensionDir, manifestFilename[entry.type]);
+    const manifestPath = path.join(extensionDir, manifestFilenameForType(entry.type));
     const raw = yield* fs.readFileString(manifestPath).pipe(Effect.option);
     if (Option.isNone(raw)) return undefined;
     const json = yield* Effect.sync((): unknown => {
@@ -466,7 +460,7 @@ export const selectEntries = Effect.fn("Publish.selectEntries")(function* (
       if (packDir === undefined) {
         return yield* validation(`Cannot read dependencies for ${pack.fqn}`);
       }
-      const manifestPath = path.join(packDir, manifestFilename.pack);
+      const manifestPath = path.join(packDir, manifestFilenameForType("pack"));
       const raw = yield* fs
         .readFileString(manifestPath)
         .pipe(
@@ -736,7 +730,7 @@ export const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
       }),
     );
   }
-  const manifestPath = path.join(extensionDir, manifestFilename[selected.type]);
+  const manifestPath = path.join(extensionDir, manifestFilenameForType(selected.type));
   const manifestJson = yield* fs.readFileString(manifestPath).pipe(
     Effect.flatMap((content) =>
       Effect.try({
@@ -846,7 +840,7 @@ export const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
       validation(`Cannot publish ${selected.fqn}: ${cause.detail}`, { cause }),
     ),
   );
-  const integrity = computeIntegrity(archive);
+  const integrity = sha512Integrity(archive);
   yield* normalizePublishInput({
     declaredIdentity: {
       owner: selected.owner,

@@ -8,7 +8,7 @@ import { Screen, headlineDoc } from "../../screen/index.js";
 import { deriveOperationOutcome, observeUnit } from "@agentxm/workspace/transitions/planning";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
-import { emitOperationResolution } from "../../operation-output.js";
+import { emitNoOpOutcome, emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 import { makePublicPositionalPlanInvocation } from "../shared/confirmation-recovery.js";
 import {
@@ -16,7 +16,6 @@ import {
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { SyncWorkspace } from "@agentxm/workspace/reconciliation/sync";
 import { buildPermissionSuggestions } from "./permission-suggestions.js";
 import { failureToAppError, toAppError } from "../../app-error/conversions.js";

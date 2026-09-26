@@ -9,7 +9,7 @@ import {
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeDirectoryFixture } from "./test-support/directory-harness.js";
 import { writeLocalSkillPackage } from "./test-support/spec-file-store.js";
-import { snapshotWorkspaceContent } from "./test-support/workspace-fixtures.js";
+import { snapshotTree } from "@agentxm/test-support";
 
 export const specification = defineSpecification({
   requirement: "cli/installed-state-stays-in-selected-scope",
@@ -81,8 +81,8 @@ describe("Installed state stays in the selected scope", () => {
           scope === "project" ? "user" : "project",
         ]);
         expect(otherInstall.exitCode, otherInstall.stdout + otherInstall.stderr).toBe(0);
-        const beforeWorkspace = snapshotWorkspaceContent(otherWorkspace);
-        const beforeNative = snapshotWorkspaceContent(otherNative);
+        const beforeWorkspace = snapshotTree(otherWorkspace);
+        const beforeNative = snapshotTree(otherNative);
         const name = `${scope}-review`;
         const source = writeLocalSkillPackage(fixture.root, { name });
         const sourceText = fs.readFileSync(path.join(source, "src", "SKILL.md"), "utf8");
@@ -127,14 +127,14 @@ describe("Installed state stays in the selected scope", () => {
               fs.readFileSync(path.join(selectedNative, "skills", name, "SKILL.md"), "utf8"),
             ).toBe(sourceText);
           }
-          expect(snapshotWorkspaceContent(otherWorkspace)).toEqual(beforeWorkspace);
-          expect(snapshotWorkspaceContent(otherNative)).toEqual(beforeNative);
+          expect(snapshotTree(otherWorkspace)).toEqual(beforeWorkspace);
+          expect(snapshotTree(otherNative)).toEqual(beforeNative);
         }
         const removed = await run(["uninstall", `@acme/skills/${name}`, "--scope", scope]);
         expect(removed.exitCode, removed.stdout + removed.stderr).toBe(0);
         expect(fs.existsSync(path.join(selectedNative, "skills", name))).toBe(false);
-        expect(snapshotWorkspaceContent(otherWorkspace)).toEqual(beforeWorkspace);
-        expect(snapshotWorkspaceContent(otherNative)).toEqual(beforeNative);
+        expect(snapshotTree(otherWorkspace)).toEqual(beforeWorkspace);
+        expect(snapshotTree(otherNative)).toEqual(beforeNative);
       } finally {
         fixture.cleanup();
       }
@@ -239,8 +239,8 @@ describe("Agent membership and instruction files stay in the selected scope", ()
     it(`${selection} agent commands use only the selected configuration without installed extensions`, async () => {
       const fixture = await makeConfigurationScopeFixture(selection);
       try {
-        const selectedBefore = snapshotWorkspaceContent(fixture.selectedNative);
-        const otherBefore = snapshotWorkspaceContent(fixture.otherNative);
+        const selectedBefore = snapshotTree(fixture.selectedNative);
+        const otherBefore = snapshotTree(fixture.otherNative);
 
         const listed = await fixture.run(["agents", "list"]);
 
@@ -250,8 +250,8 @@ describe("Agent membership and instruction files stay in the selected scope", ()
         expect(list.configured).toEqual(fixture.expectedSettings.agents);
         if (fixture.scope === "user") expect(list.detected).toContain("gemini-cli");
         else expect(list.detected).not.toContain("gemini-cli");
-        expect(snapshotWorkspaceContent(fixture.selectedNative)).toEqual(selectedBefore);
-        expect(snapshotWorkspaceContent(fixture.otherNative)).toEqual(otherBefore);
+        expect(snapshotTree(fixture.selectedNative)).toEqual(selectedBefore);
+        expect(snapshotTree(fixture.otherNative)).toEqual(otherBefore);
 
         const permissionFilesBefore = ["project", "user"].map((scope) =>
           fs.readFileSync(
@@ -280,13 +280,13 @@ describe("Agent membership and instruction files stay in the selected scope", ()
           ...fixture.expectedSettings,
           agents: [...fixture.expectedSettings.agents, "opencode"],
         });
-        expect(snapshotWorkspaceContent(fixture.otherNative)).toEqual(otherBefore);
+        expect(snapshotTree(fixture.otherNative)).toEqual(otherBefore);
 
         const removed = await fixture.run(["agents", "remove", "opencode"]);
 
         expect(removed.exitCode, removed.stdout + removed.stderr).toBe(0);
         expect(fixture.readSettings()).toEqual(fixture.expectedSettings);
-        expect(snapshotWorkspaceContent(fixture.otherNative)).toEqual(otherBefore);
+        expect(snapshotTree(fixture.otherNative)).toEqual(otherBefore);
       } finally {
         fixture.cleanup();
       }
@@ -308,16 +308,16 @@ describe("Agent membership and instruction files stay in the selected scope", ()
         expect(otherEnable.exitCode, otherEnable.stdout + otherEnable.stderr).toBe(0);
         const otherAlias = path.join(fixture.otherNative, "CLAUDE.md");
         expect(fs.readFileSync(otherAlias, "utf8")).toContain(fixture.bodies[fixture.otherScope]);
-        const otherBefore = snapshotWorkspaceContent(fixture.otherNative);
-        const beforeRead = snapshotWorkspaceContent(fixture.selectedNative);
+        const otherBefore = snapshotTree(fixture.otherNative);
+        const beforeRead = snapshotTree(fixture.selectedNative);
 
         const disabled = await fixture.run(["instructions"]);
 
         expect(disabled.exitCode, disabled.stdout + disabled.stderr).toBe(0);
         const disabledJson: unknown = JSON.parse(disabled.stdout);
         expect(decodeInstructionScopeResult(disabledJson).result).toMatchObject({ enabled: false });
-        expect(snapshotWorkspaceContent(fixture.selectedNative)).toEqual(beforeRead);
-        expect(snapshotWorkspaceContent(fixture.otherNative)).toEqual(otherBefore);
+        expect(snapshotTree(fixture.selectedNative)).toEqual(beforeRead);
+        expect(snapshotTree(fixture.otherNative)).toEqual(otherBefore);
 
         const enabled = await fixture.run([
           "instructions",
@@ -332,8 +332,8 @@ describe("Agent membership and instruction files stay in the selected scope", ()
           ...fixture.expectedSettings,
           instructionFiles: { fileName: fixture.sources[fixture.scope], gitignoreAliases: false },
         });
-        expect(snapshotWorkspaceContent(fixture.otherNative)).toEqual(otherBefore);
-        const enabledBeforeRead = snapshotWorkspaceContent(fixture.selectedNative);
+        expect(snapshotTree(fixture.otherNative)).toEqual(otherBefore);
+        const enabledBeforeRead = snapshotTree(fixture.selectedNative);
 
         const inspected = await fixture.run(["instructions"]);
 
@@ -353,8 +353,8 @@ describe("Agent membership and instruction files stay in the selected scope", ()
         );
         expect(alias.targetFile).toBe(path.join(fixture.selectedNative, "CLAUDE.md"));
         expect(fs.readFileSync(alias.targetFile, "utf8")).toContain(fixture.bodies[fixture.scope]);
-        expect(snapshotWorkspaceContent(fixture.selectedNative)).toEqual(enabledBeforeRead);
-        expect(snapshotWorkspaceContent(fixture.otherNative)).toEqual(otherBefore);
+        expect(snapshotTree(fixture.selectedNative)).toEqual(enabledBeforeRead);
+        expect(snapshotTree(fixture.otherNative)).toEqual(otherBefore);
 
         const turnedOff = await fixture.run(["instructions", "disable"]);
 
@@ -362,7 +362,7 @@ describe("Agent membership and instruction files stay in the selected scope", ()
         expect(fixture.readSettings()).toEqual(fixture.expectedSettings);
         expect(fs.existsSync(alias.targetFile)).toBe(false);
         expect(fs.readFileSync(alias.sourceFile, "utf8")).toBe(fixture.bodies[fixture.scope]);
-        expect(snapshotWorkspaceContent(fixture.otherNative)).toEqual(otherBefore);
+        expect(snapshotTree(fixture.otherNative)).toEqual(otherBefore);
       } finally {
         fixture.cleanup();
       }

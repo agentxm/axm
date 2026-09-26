@@ -8,7 +8,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { stripFileProtocol } from "@agentxm/registry-client";
+import { fromFileLocation } from "@agentxm/host-primitives";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import {
@@ -29,7 +29,7 @@ import { PathTraversalDetected } from "../desired-state/index.js";
 import {
   computeMaterializedTreeIntegrity,
   observeAcceptedCanonicalReuse,
-  type AcceptedExtensionResolution,
+  type LockEntry,
   type MaterializedTreeInvalid,
   type RequestedCanonicalRef,
   type TreeIntegrity,
@@ -307,7 +307,7 @@ export const createCanonicalDirectory = <E, R>(
 export const reusableCanonicalTree = (args: {
   readonly canonicalPath: string;
   readonly requested: RequestedCanonicalRef;
-  readonly accepted: Option.Option<AcceptedExtensionResolution>;
+  readonly accepted: Option.Option<LockEntry>;
   readonly force: boolean;
 }): Effect.Effect<
   Option.Option<TreeIntegrity>,
@@ -348,7 +348,7 @@ export const materializeExternalPackageWithTreeIntegrity = <E = never>(
 
     yield* validatePathSafety(path, args.baseDir, args.canonicalPath);
 
-    const sourcePath = stripFileProtocol(args.sourceLocation);
+    const sourcePath = fromFileLocation(args.sourceLocation);
     const isSelfCopy = path.resolve(sourcePath) === path.resolve(args.canonicalPath);
     if (isSelfCopy) {
       return {

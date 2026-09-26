@@ -33,6 +33,10 @@ Enabled extension capabilities may contribute independently managed content:
 
 AXM composes those contributions deterministically and reconciles them through
 the ordinary workspace lifecycle and sync boundaries.
+After any capability writes its contributed region, instruction-file management
+refreshes owned aliases from the complete canonical file in the same operation.
+An unowned alias target or malformed managed ignore region blocks the write;
+scoped Hook and Knowledge sync also repairs stale aliases.
 
 ## Configuration and commands
 

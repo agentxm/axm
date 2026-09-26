@@ -6,7 +6,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import {
   AgentExecutableResolver,
   AgentExecutableResolverLive,
@@ -14,7 +14,7 @@ import {
 } from "./detection.js";
 import { AgentPresenceProbe, AgentPresenceProbeLive } from "./agent-presence.js";
 import { codingAgentForId } from "./agents/adapters.js";
-import { envOption } from "./environment.js";
+import { envOption } from "@agentxm/host-primitives";
 
 const sourceError = new ConfigProvider.SourceError({ message: "source unavailable" });
 const unavailable = ConfigProvider.layer(ConfigProvider.make(() => Effect.fail(sourceError)));
@@ -23,7 +23,7 @@ describe("agent environment configuration", () => {
   it.effect("uses injected XDG configuration for user detection", () =>
     Effect.gen(function* () {
       const probes: string[] = [];
-      const result = yield* detectAgentScopes(AGENTS.devin, "/project").pipe(
+      const result = yield* detectAgentScopes(AGENT_DESCRIPTORS.devin, "/project").pipe(
         Effect.provide(
           Layer.mergeAll(
             FileSystem.layerNoop({
@@ -45,7 +45,9 @@ describe("agent environment configuration", () => {
 
   it.effect("preserves XDG source failure through detection and presence", () =>
     Effect.gen(function* () {
-      const direct = yield* detectAgentScopes(AGENTS.devin, "/project").pipe(Effect.flip);
+      const direct = yield* detectAgentScopes(AGENT_DESCRIPTORS.devin, "/project").pipe(
+        Effect.flip,
+      );
       expect(direct._tag).toBe("ConfigError");
       expect(direct.cause).toBe(sourceError);
       const probe = yield* AgentPresenceProbe;

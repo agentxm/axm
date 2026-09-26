@@ -5,11 +5,11 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
 import {
+  extensionTypeForManifestFilename,
   MANIFEST_FILENAME_BY_TYPE,
   ManifestIdentitySchema,
-  manifestFilenameForType,
-  manifestSchemaForType,
   parseSkillMd,
+  readExtensionManifest,
   validateManifestHasNoAgentsField,
   type ExtensionManifest,
   type ManifestIdentity,
@@ -19,7 +19,6 @@ import {
   DISCOVERY_SKIPPED_DIRECTORIES,
 } from "@agentxm/extension-model/unstable/discovery-walk";
 import {
-  extensionTypes,
   type ExtensionName,
   type ExtensionType,
   type Handle,
@@ -80,9 +79,6 @@ interface SourceSettings {
   readonly owner: Option.Option<Handle>;
   readonly distributionOptOuts: ReadonlySet<string>;
 }
-
-const typeForManifestFilename = (fileName: string): ExtensionType | undefined =>
-  extensionTypes.find((type) => MANIFEST_FILENAME_BY_TYPE[type] === fileName);
 
 const matchesFilter = (
   identity: {
@@ -183,19 +179,6 @@ const readSourceSettings = (
     };
   });
 
-const withDefaultOwner = (raw: unknown, defaultOwner: Option.Option<Handle>): unknown => {
-  if (
-    Option.isSome(defaultOwner) &&
-    typeof raw === "object" &&
-    raw !== null &&
-    !Array.isArray(raw) &&
-    !Object.hasOwn(raw, "owner")
-  ) {
-    return { ...raw, owner: defaultOwner.value };
-  }
-  return raw;
-};
-
 export const inspectExtensionPackage = (
   directory: string,
   defaultOwner: Option.Option<Handle> = Option.none(),
@@ -206,7 +189,6 @@ export const inspectExtensionPackage = (
 > =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
     const entries = yield* fs.readDirectory(directory).pipe(
       Effect.mapError(
         (cause) =>
@@ -218,7 +200,7 @@ export const inspectExtensionPackage = (
       ),
     );
     const manifestEntries = entries
-      .filter((entry) => typeForManifestFilename(entry) !== undefined)
+      .filter((entry) => extensionTypeForManifestFilename(entry) !== undefined)
       .sort();
     const manifestFile = manifestEntries[0];
     if (manifestFile === undefined) {
@@ -233,68 +215,27 @@ export const inspectExtensionPackage = (
         detail: `Multiple AXM extension manifests were found at ${directory}: ${manifestEntries.join(", ")}`,
       });
     }
-    const type = typeForManifestFilename(manifestFile);
+    const type = extensionTypeForManifestFilename(manifestFile);
     if (type === undefined) {
       return yield* new SourceNotResolvable({
         category: "internal",
         detail: `Manifest type could not be determined for ${manifestFile}`,
       });
     }
-    const manifestPath = path.join(directory, manifestFile);
-    const text = yield* fs.readFileString(manifestPath).pipe(
-      Effect.mapError(
-        (cause) =>
-          new SourceNotResolvable({
-            category: "validation",
-            detail: `AXM manifest could not be read: ${manifestPath}`,
-            cause,
-          }),
-      ),
-    );
-    const parsed = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(
-      text,
+    const { fileName, raw, manifest, identity } = yield* readExtensionManifest(
+      directory,
+      type,
+      Option.isSome(defaultOwner) ? { defaultOwner: defaultOwner.value } : undefined,
     ).pipe(
-      Effect.mapError(
-        (cause) =>
-          new SourceNotResolvable({
-            category: "validation",
-            detail: `AXM manifest contains invalid JSON: ${manifestPath}`,
-            cause,
-          }),
-      ),
-    );
-    const raw = withDefaultOwner(parsed, defaultOwner);
-    yield* Effect.fromResult(validateManifestHasNoAgentsField(manifestFile, raw)).pipe(
       Effect.mapError(
         (cause) => new SourceNotResolvable({ category: "validation", detail: cause.detail, cause }),
       ),
     );
-    const manifest = yield* Schema.decodeUnknownEffect(manifestSchemaForType(type))(raw).pipe(
+    yield* Effect.fromResult(validateManifestHasNoAgentsField(fileName, raw)).pipe(
       Effect.mapError(
-        (cause) =>
-          new SourceNotResolvable({
-            category: "validation",
-            detail: `AXM manifest does not conform to ${manifestFile}: ${manifestPath}`,
-            cause,
-          }),
+        (cause) => new SourceNotResolvable({ category: "validation", detail: cause.detail, cause }),
       ),
     );
-    const identity = yield* Schema.decodeUnknownEffect(ManifestIdentitySchema)(manifest).pipe(
-      Effect.mapError(
-        (cause) =>
-          new SourceNotResolvable({
-            category: "validation",
-            detail: `AXM manifest identity is invalid: ${manifestPath}`,
-            cause,
-          }),
-      ),
-    );
-    if (identity.type !== type || manifestFilenameForType(identity.type) !== manifestFile) {
-      return yield* new SourceNotResolvable({
-        category: "validation",
-        detail: `AXM manifest filename and declared type disagree: ${manifestPath}`,
-      });
-    }
     return { kind: "manifest", directory, identity, manifest };
   });
 
@@ -400,7 +341,9 @@ export const discoverExtensionPackages = (
               }),
           ),
         );
-        const manifests = entries.filter((entry) => typeForManifestFilename(entry) !== undefined);
+        const manifests = entries.filter(
+          (entry) => extensionTypeForManifestFilename(entry) !== undefined,
+        );
         if (manifests.length > 0) {
           const candidate = yield* inspectExtensionPackage(directory, sourceSettings.owner).pipe(
             Effect.provideService(FileSystem.FileSystem, fs),

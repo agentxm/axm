@@ -6,7 +6,7 @@ import * as Result from "effect/Result";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "@agentxm/extension-content/lint";
-import { lockfileDisplayPath } from "./display-paths.js";
+import { lockfileDisplayPath } from "../../../desired-state/index.js";
 
 const RULE_ID = "workspace/lockfile-valid";
 

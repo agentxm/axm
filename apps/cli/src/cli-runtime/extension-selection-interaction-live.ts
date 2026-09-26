@@ -24,6 +24,7 @@ import {
 } from "@agentxm/workspace/lifecycle";
 
 import { makeAppError } from "../app-error/index.js";
+import { EXTENSION_TYPE_PRESENTATION } from "../root/extension-type-presentation.js";
 import {
   Screen,
   askFailureFields,
@@ -75,7 +76,7 @@ const selectionSubject = (candidates: ReadonlyArray<InstallSelectionCandidate>) 
   return {
     label: extensionTypePluralLabels[plural],
     other: extensionTypePluralSentenceLabels[plural],
-    flag: first.type === "mcp-server" ? "--mcp" : `--${first.type}`,
+    flag: `--${EXTENSION_TYPE_PRESENTATION[first.type].selectorFlag}`,
   };
 };
 

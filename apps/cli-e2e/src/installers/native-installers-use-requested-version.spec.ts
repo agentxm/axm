@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeInstallerSelectionFixture } from "../test-support/installer-selection-fixture.js";
-import { snapshotWorkspaceContent } from "../test-support/workspace-fixtures.js";
+import { snapshotTree } from "@agentxm/test-support";
 
 export const specification = defineSpecification({
   requirement: "system/installability/native-installers-use-requested-version",
@@ -49,7 +49,7 @@ describe.skipIf(process.platform === "win32")("Exact installer release", () => {
       Effect.promise(async (signal) => {
         const fixture = makeInstallerSelectionFixture();
         try {
-          const before = snapshotWorkspaceContent(fixture.platformHome);
+          const before = snapshotTree(fixture.platformHome);
           const result = await fixture.install(fixture.selectedVersion, signal);
           expect(result.exitCode, result.stdout + result.stderr).toBe(0);
           const base = `https://github.com/agentxm/axm/releases/download/cli-v${fixture.selectedVersion}`;
@@ -59,7 +59,7 @@ describe.skipIf(process.platform === "win32")("Exact installer release", () => {
           expect(fs.readFileSync(path.join(fixture.applicationHome, ".axm/bin/axm"))).toEqual(
             fixture.selectedBytes,
           );
-          expect(snapshotWorkspaceContent(fixture.platformHome)).toEqual(before);
+          expect(snapshotTree(fixture.platformHome)).toEqual(before);
         } finally {
           fixture.cleanup();
         }

@@ -5,7 +5,6 @@
  * and dispatch to correct provider by source type.
  */
 
-import { createHash } from "node:crypto";
 import { execSync, type ExecSyncOptions } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -22,6 +21,7 @@ import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import type * as Scope from "effect/Scope";
 import { describe, expect, it } from "@effect/vitest";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
+import { sha512Integrity } from "@agentxm/host-primitives";
 
 import type { ExtensionIndex, VersionEntry } from "@agentxm/registry-protocol/unstable/registry";
 import type { FindOptions } from "@agentxm/extension-model/unstable/sources/source-host-provider";
@@ -78,11 +78,6 @@ const createTestZip = (fileName: string, content: string): Uint8Array => {
   } finally {
     rmSync(dir, { recursive: true });
   }
-};
-
-const computeIntegrity = (data: Uint8Array): string => {
-  const b64 = createHash("sha512").update(data).digest("base64");
-  return `sha512-${b64}`;
 };
 
 /** Run an effect with SourceHostProviders service and NodeContext wired up. */
@@ -160,7 +155,7 @@ describe("registry meta-provider owner routing", () => {
     const skillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "my-skill");
 
     const archive = createTestZip("SKILL.md", "content");
-    const integrity = computeIntegrity(archive);
+    const integrity = sha512Integrity(archive);
 
     return runWithService(
       [
@@ -229,7 +224,7 @@ describe("registry meta-provider owner routing", () => {
     );
 
     const archive = createTestZip("SKILL.md", "content");
-    const integrity = computeIntegrity(archive);
+    const integrity = sha512Integrity(archive);
 
     return runWithService(
       [

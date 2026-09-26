@@ -5,13 +5,10 @@ import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
-  classifyUnboundedConcurrencySites,
   findAxmEnvironmentContractViolations,
   findControlBytes,
   findSourceHygieneViolations,
   findTestTaxonomyViolations,
-  countUnboundedConcurrencySites,
-  findUnboundedConcurrencySites,
   formatAxmEnvironmentContractViolation,
   formatTestTaxonomyViolation,
   formatViolation,
@@ -183,75 +180,6 @@ describe("findAxmEnvironmentContractViolations", () => {
         formatAxmEnvironmentContractViolation,
       ),
     ).toEqual([]);
-  });
-});
-
-describe("countUnboundedConcurrencySites", () => {
-  it("counts production literals while excluding tests and generated clients", () => {
-    const repoRoot = createRepoFixture({
-      "packages/core/workspace/project.json": project("workspace", "role:capability"),
-      "packages/core/workspace/src/desired-state/one.ts":
-        'const options = { concurrency: "unbounded" };\n',
-      "apps/cli/project.json": project("cli", "role:application"),
-      "apps/cli/src/two.ts": 'const options = { concurrency: "unbounded" };\n',
-      "packages/core/workspace/src/desired-state/one.test.ts":
-        'const options = { concurrency: "unbounded" };\n',
-      "packages/core/workspace/src/desired-state/__generated__/client.ts":
-        'const options = { concurrency: "unbounded" };\n',
-    });
-
-    expect(countUnboundedConcurrencySites(workspaceFromProjectFiles(repoRoot))).toBe(2);
-  });
-
-  it("rejects a replacement site even when the global count stays constant", () => {
-    const beforeRoot = createRepoFixture({
-      "packages/core/workspace/project.json": project("workspace", "role:capability"),
-      "packages/core/workspace/src/one.ts":
-        'const preceding = 1;\nconst original = { concurrency: "unbounded" };\nconst following = 2;\n',
-    });
-    const afterRoot = createRepoFixture({
-      "packages/core/workspace/project.json": project("workspace", "role:capability"),
-      "packages/core/workspace/src/one.ts": 'const replacement = { concurrency: "unbounded" };\n',
-    });
-    const before = findUnboundedConcurrencySites(workspaceFromProjectFiles(beforeRoot));
-    const after = findUnboundedConcurrencySites(workspaceFromProjectFiles(afterRoot));
-
-    expect(before).toHaveLength(1);
-    expect(after).toHaveLength(1);
-    expect(
-      classifyUnboundedConcurrencySites(
-        after,
-        before.map((site) => site.signature),
-      ),
-    ).toEqual({
-      added: after,
-      removed: before.map((site) => site.signature),
-    });
-  });
-
-  it("keeps a site stable when unrelated lines are inserted elsewhere", () => {
-    const originalRoot = createRepoFixture({
-      "packages/core/workspace/project.json": project("workspace", "role:capability"),
-      "packages/core/workspace/src/one.ts":
-        'const preceding = 1;\nconst original = { concurrency: "unbounded" };\nconst following = 2;\n',
-    });
-    const shiftedRoot = createRepoFixture({
-      "packages/core/workspace/project.json": project("workspace", "role:capability"),
-      "packages/core/workspace/src/one.ts":
-        'const unrelated = 0;\n\nconst preceding = 1;\nconst original = { concurrency: "unbounded" };\nconst following = 2;\n',
-    });
-    const original = findUnboundedConcurrencySites(workspaceFromProjectFiles(originalRoot));
-    const shifted = findUnboundedConcurrencySites(workspaceFromProjectFiles(shiftedRoot));
-
-    expect(
-      classifyUnboundedConcurrencySites(
-        shifted,
-        original.map((site) => site.signature),
-      ),
-    ).toEqual({
-      added: [],
-      removed: [],
-    });
   });
 });
 

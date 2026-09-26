@@ -105,10 +105,9 @@ import {
   McpAgentSyncRefused,
   McpCanonicalPathUnsafe,
   McpInstallStateMissing,
-  McpLocalNameConflict,
+  McpConnectionConflict,
   McpRequiredInputsMissing,
   McpWorkspacePackageInvalid,
-  NativeMcpEntryRetirementFailed,
   PackArchiveFetchFailed,
   PackDefinitionInvalid,
   PackInstallStateMissing,
@@ -341,7 +340,7 @@ const representatives: Representatives = {
     new LockfileWriteError({ path: "/w/axm-lock.yaml", step: "rename", cause: ioCause }),
   ],
   LockfileValidationError: [
-    new LockfileValidationError({ path: "/w/axm-lock.yaml", step: "read", cause: ioCause }),
+    new LockfileValidationError({ path: "/w/axm-lock.yaml", step: "probe", cause: ioCause }),
   ],
   LockfileResolvedVersionInvalid: [
     new LockfileResolvedVersionInvalid({ field: "version", value: "^1.2.3", cause: ioCause }),
@@ -484,8 +483,8 @@ const representatives: Representatives = {
     }),
   ],
   McpInstallStateMissing: [new McpInstallStateMissing({ name: "demo" })],
-  McpLocalNameConflict: [
-    new McpLocalNameConflict({
+  McpConnectionConflict: [
+    new McpConnectionConflict({
       localName: "demo",
       requestedIdentity: "@a/mcps/demo",
       owningIdentity: "@b/mcps/demo",
@@ -506,13 +505,6 @@ const representatives: Representatives = {
   ],
   McpAgentSyncRefused: [
     new McpAgentSyncRefused({ serverName: "demo", fault: "unknown-agents", agentIds: ["x"] }),
-  ],
-  NativeMcpEntryRetirementFailed: [
-    new NativeMcpEntryRetirementFailed({
-      category: "conflict",
-      detail: "The native entry changed since AXM wrote it.",
-      filePath: "/w/.mcp.json",
-    }),
   ],
   SkillDefinitionInvalid: [new SkillDefinitionInvalid({ detail: "Invalid skills directory" })],
   SkillMaterializationFailed: [
@@ -1249,11 +1241,6 @@ describe("A failure reads the same on the direct and plan paths", () => {
         recover: "Rename.",
       }),
       new CreateNameConfigured({ subject: "Skill", name: "demo" }),
-      new NativeMcpEntryRetirementFailed({
-        category: "conflict",
-        detail: "The native entry changed.",
-        filePath: "/w/.mcp.json",
-      }),
     ]) {
       expect(rendered(viaPlanStep(authoringStepFailure(failure)))).toEqual(
         rendered(toAppError(failure)),

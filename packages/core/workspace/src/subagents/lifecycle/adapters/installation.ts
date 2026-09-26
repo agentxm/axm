@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import {
   LockfileReader,
   WorkspaceLocation,
-  type SubagentLockEntry,
+  lockEntryVersion,
 } from "../../../desired-state/index.js";
 
 import * as Option from "effect/Option";
@@ -13,12 +13,6 @@ import {
   type InstallStepRequirements,
 } from "../../../lifecycle/install/vocabulary.js";
 import type { SubagentInstallationFacts } from "../application/installation.js";
-
-/** The version an accepted Registry resolution names; other sources carry none. */
-const acceptedVersion = (entry: SubagentLockEntry): string | undefined =>
-  entry.source.type === "registry" && "version" in entry.resolved
-    ? entry.resolved.version
-    : undefined;
 
 export const subagentInstallationFacts: SubagentInstallationFacts<
   ExtensionLifecycleFailed,
@@ -51,6 +45,7 @@ export const subagentInstallationFacts: SubagentInstallationFacts<
                 : { agentId: agent.id, state: outcome._tag, reason: outcome.reason },
             ),
           ),
+      // eslint-disable-next-line axm-policy/no-unbounded-io -- configured agents are a subset of the fixed agent catalog
       { concurrency: "unbounded" },
     ).pipe(
       Effect.mapError((cause) =>
@@ -69,6 +64,6 @@ export const subagentInstallationFacts: SubagentInstallationFacts<
       const entry = yield* lockfile
         .entry("subagent", ref.subagent.name)
         .pipe(Effect.catch(() => Effect.succeed(Option.none())));
-      return Option.match(entry, { onNone: () => undefined, onSome: acceptedVersion });
+      return Option.match(entry, { onNone: () => undefined, onSome: lockEntryVersion });
     }),
 };

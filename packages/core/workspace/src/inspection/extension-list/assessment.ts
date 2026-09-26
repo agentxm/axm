@@ -19,9 +19,9 @@ import { resolveSource, SourceHostProviders } from "../../resolution/sources/ind
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import { lockEntryToSourceParams } from "../../desired-state/index.js";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
-import type { AcceptedExtensionResolution } from "../../desired-state/index.js";
+import type { LockEntry } from "../../desired-state/index.js";
 import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
-import type { ExtensionInventoryLifecycle, ReadModelRecordRow } from "../../desired-state/index.js";
+import type { ExtensionInventoryLifecycle, WorkspaceRecordRow } from "../../desired-state/index.js";
 import {
   DesiredStateReader,
   desiredStateProblemText,
@@ -70,7 +70,7 @@ export interface ExtensionListItem {
   readonly assessment: ExtensionAssessment;
 }
 
-type AcceptedEntry = AcceptedExtensionResolution;
+type AcceptedEntry = LockEntry;
 
 type RegistryAcceptedEntry = Extract<
   AcceptedEntry,
@@ -83,12 +83,7 @@ const isRegistryAcceptedEntry = (entry: AcceptedEntry): entry is RegistryAccepte
 const isGitAcceptedEntry = (entry: AcceptedEntry): entry is GitAcceptedEntry =>
   entry.source.type === "git";
 
-const recordSource = (row: ReadModelRecordRow | undefined): string | undefined => {
-  if (row === undefined) return undefined;
-  const source = row.source;
-  if (source === undefined) return undefined;
-  return typeof source === "string" ? source : Option.getOrUndefined(source);
-};
+const recordSource = (row: WorkspaceRecordRow | undefined): string | undefined => row?.source;
 
 const inventoryKey = (type: string, name: string): string => `${type}:${name}`;
 
@@ -98,8 +93,9 @@ export const collectExtensionListItems = Effect.fn("Workspace.collectExtensionLi
     const records = yield* WorkspaceRecords;
     const inventory = yield* records.getInventory(type === undefined ? {} : { type });
     const types = type === undefined ? installableExtensionTypes : [type];
-    const rowsByKey = new Map<string, ReadModelRecordRow>();
+    const rowsByKey = new Map<string, WorkspaceRecordRow>();
     const rowsByType = yield* Effect.forEach(types, (itemType) => records.rows(itemType), {
+      // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed installable extension-type catalog
       concurrency: "unbounded",
     });
     for (const row of rowsByType.flat()) {

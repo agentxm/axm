@@ -1,5 +1,12 @@
 import { describe, expect, it } from "@effect/vitest";
 import { extensionTypes } from "@agentxm/extension-model/unstable/extensions/common";
+import * as Effect from "effect/Effect";
+import {
+  ConfiguredAgentOutcomesUnavailable,
+  resolveConfiguredAgentOutcomes,
+  type ConfiguredAgentOutcomesRequest,
+} from "./configured-agent-outcomes-provider.js";
+import type { ConfiguredAgentOutcome } from "./configured-agent-outcome.js";
 import {
   configuredAgentLifecycleOutcomes,
   EXTENSION_CONFIGURED_AGENT_POLICY,
@@ -82,4 +89,85 @@ describe("configuredAgentLifecycleOutcomes", () => {
       ).toMatchObject([{ agentId: "claude-code", outcome: "not-applicable" }]);
     }
   });
+});
+
+const request = {
+  type: "mcp-server",
+  state: "current",
+  scope: "project",
+  agentIds: ["claude-code"],
+  rows: [
+    { name: "active", targetState: "enabled", installed: true, observedAgentIds: ["claude-code"] },
+    { name: "second", targetState: "enabled", installed: true, observedAgentIds: ["claude-code"] },
+    { name: "disabled", targetState: "disabled", installed: true, observedAgentIds: [] },
+  ],
+} as const satisfies ConfiguredAgentOutcomesRequest;
+
+const providerOutcome = (name: string): ConfiguredAgentOutcome => ({
+  extensionType: "mcp-server",
+  name,
+  agentId: "claude-code",
+  outcome: "blocked",
+  reasonCode: "provider-observed",
+  reason: "Manager observed a blocked projection.",
+});
+
+describe("resolveConfiguredAgentOutcomes", () => {
+  it.effect("uses one provider read for enabled rows and generic outcomes for disabled rows", () =>
+    Effect.gen(function* () {
+      let calls = 0;
+      const outcomes = yield* resolveConfiguredAgentOutcomes(
+        {
+          byExtensionType: {
+            "mcp-server": () =>
+              Effect.sync(() => {
+                calls += 1;
+                return [providerOutcome("active"), providerOutcome("disabled")];
+              }),
+          },
+        },
+        request,
+      );
+      expect(calls).toBe(1);
+      expect(outcomes.get("active")).toMatchObject([{ reasonCode: "provider-observed" }]);
+      expect(outcomes.get("second")).toMatchObject([{ outcome: "current" }]);
+      expect(outcomes.get("disabled")).toMatchObject([
+        { outcome: "not-applicable", reasonCode: "extension-disabled" },
+      ]);
+    }),
+  );
+
+  it.effect("falls back when the provider has no result for an enabled row", () =>
+    Effect.gen(function* () {
+      const outcomes = yield* resolveConfiguredAgentOutcomes(
+        {
+          byExtensionType: { "mcp-server": () => Effect.succeed([]) },
+        },
+        request,
+      );
+      expect(outcomes.get("active")).toMatchObject([{ outcome: "current" }]);
+    }),
+  );
+
+  it.effect("preserves typed provider failures for the caller to handle", () =>
+    Effect.gen(function* () {
+      const failure = yield* Effect.flip(
+        resolveConfiguredAgentOutcomes(
+          {
+            byExtensionType: {
+              "mcp-server": () =>
+                Effect.fail(
+                  new ConfiguredAgentOutcomesUnavailable({
+                    category: "network",
+                    detail: "Manager read failed",
+                  }),
+                ),
+            },
+          },
+          request,
+        ),
+      );
+      expect(failure.category).toBe("network");
+    }),
+  );
 });

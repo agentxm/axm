@@ -17,7 +17,7 @@ import {
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
-import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import {
   AbsolutePathSchema,
   type AbsolutePath,
@@ -150,7 +150,7 @@ export const makeCanonicalOccurrence = (
 export interface MakeAgentDirOccurrenceInput {
   readonly scope: Scope;
   readonly type: AgentDirSubjectType;
-  readonly agentId: AgentId;
+  readonly agentId: MaterializationTargetId;
   readonly name: string;
   readonly contentLocation: string;
   /**
@@ -209,7 +209,7 @@ export interface MakeWorkspaceMcpConfigOccurrenceInput {
 
 export interface MakeAgentMcpConfigOccurrenceInput {
   readonly scope: Scope;
-  readonly agentId: AgentId;
+  readonly agentId: MaterializationTargetId;
   readonly name: string;
   readonly contentLocation: string;
   readonly config?: Readonly<Record<string, unknown>>;
@@ -243,7 +243,7 @@ export const makeAgentMcpConfigOccurrence = (
 
 export interface MakeAgentSettingsOccurrenceInput {
   readonly scope: Scope;
-  readonly agentId: AgentId;
+  readonly agentId: MaterializationTargetId;
   readonly contentLocation: string;
 }
 

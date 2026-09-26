@@ -15,10 +15,10 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/Context";
-import { envOption } from "./environment.js";
+import { envOption, osHomeDirectory } from "@agentxm/host-primitives";
 import { AgentDetectionFailed } from "./errors.js";
-import { getConfigHome, getHome } from "./constants.js";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { getConfigHome } from "./constants.js";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import type {
   AgentDescriptor,
   AgentDetectionMarker,
@@ -129,7 +129,7 @@ const resolveUserDetectionPath = (marker: string) =>
       return p.join(configHome, marker.slice("$XDG_CONFIG_HOME/".length));
     }
 
-    const home = yield* getHome;
+    const home = yield* osHomeDirectory;
     if (marker === "~") return home;
     if (marker.startsWith("~/")) return p.join(home, marker.slice("~/".length));
     return p.join(home, marker);
@@ -198,6 +198,7 @@ const detectScopeRaw = (
             resolved,
           })),
         ),
+      // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed marker list for one agent descriptor
       { concurrency: "unbounded" },
     );
 
@@ -224,9 +225,10 @@ export interface AgentScopeDetection {
 /** Detect project and user evidence independently for one agent. */
 export const detectAgentScopes = (agent: AgentDescriptor, projectDir: string) =>
   Effect.gen(function* () {
-    const home = yield* getHome;
+    const home = yield* osHomeDirectory;
     const [project, user] = yield* Effect.all(
       [detectAgentInRootRaw(agent, projectDir), detectScopeRaw(agent.detection.user, home, "user")],
+      // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed two-way join of project and user scopes
       { concurrency: "unbounded" },
     );
     return { agent, project, user } satisfies AgentScopeDetection;
@@ -255,7 +257,8 @@ export const detectAgent = (agent: AgentDescriptor, projectDir: string) =>
  * @experimental This API is unstable and may change without notice.
  */
 export const detectAgentsInRoot = (rootDir: string) =>
-  Effect.filter(Object.values(AGENTS), (agent) => detectAgentInRootRaw(agent, rootDir), {
+  Effect.filter(Object.values(AGENT_DESCRIPTORS), (agent) => detectAgentInRootRaw(agent, rootDir), {
+    // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed agent descriptor catalog
     concurrency: "unbounded",
   }).pipe(Effect.mapError(wrapDetectionError(`Failed to detect installed agents in ${rootDir}`)));
 
@@ -277,9 +280,14 @@ export const detectAgents = (projectDir: string) =>
 
 /** Detect all agents while retaining the scope that supplied each signal. */
 export const detectAgentScopeResults = (projectDir: string) =>
-  Effect.forEach(Object.values(AGENTS), (agent) => detectAgentScopes(agent, projectDir), {
-    concurrency: "unbounded",
-  }).pipe(Effect.map((detections) => detections.filter(({ project, user }) => project || user)));
+  Effect.forEach(
+    Object.values(AGENT_DESCRIPTORS),
+    (agent) => detectAgentScopes(agent, projectDir),
+    {
+      // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed agent descriptor catalog
+      concurrency: "unbounded",
+    },
+  ).pipe(Effect.map((detections) => detections.filter(({ project, user }) => project || user)));
 
 /** Detect agents whose structured evidence satisfies one selected scope. */
 export const detectAgentsForScope = (projectDir: string, scope: "project" | "user") =>

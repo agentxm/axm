@@ -300,20 +300,8 @@ const lockfileWriteFailure = (error: LockfileWriteError): StepFailure => {
   }
 };
 
-const lockfileValidationDetail = (error: LockfileValidationError): string => {
-  switch (error.step) {
-    case "probe":
-      return `Failed to check if lockfile exists at ${error.path}`;
-    case "check":
-      return `Failed to check the lockfile at ${error.path}. Fix the file's permissions or restore it from version control, then rerun.`;
-    case "read":
-      return `Failed to read the lockfile at ${error.path}. Fix the file's permissions or restore it from version control, then rerun.`;
-    case "parse":
-      return `Failed to parse lockfile at ${error.path}`;
-    case "decode":
-      return `Failed to decode lockfile at ${error.path}`;
-  }
-};
+const lockfileValidationDetail = (error: LockfileValidationError): string =>
+  `Failed to check if lockfile exists at ${error.path}`;
 
 const symlinkCreationDetail = (error: SymlinkCreationError): string => {
   switch (error.step) {
@@ -586,14 +574,6 @@ export const candidateFingerprintFailedToStepFailure = (
     detail: `Failed to fingerprint execution material at ${error.target}`,
     cause: error.cause,
   });
-
-/**
- * Translate a provider failure: the implementation chose the category and
- * wording at construction, so the fields carry over 1:1.
- */
-export const configuredAgentOutcomesUnavailableToStepFailure = (
-  error: ConfiguredAgentOutcomesUnavailable,
-): StepFailure => workspaceStateFailureToStepFailure(error);
 
 /** Every plan-execution failure the kernel constructs. */
 export type PlanExecutionFailure =

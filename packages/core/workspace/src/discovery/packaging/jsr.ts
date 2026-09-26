@@ -16,15 +16,10 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { PackageURL } from "packageurl-js";
-import { envOption } from "../internal/environment.js";
+import { envOption } from "@agentxm/host-primitives";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import {
-  decodeAgentExtensions,
-  decodePurl,
-  parseJsonOptional,
-  readFileOptional,
-} from "./reader-io.js";
+import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const jsrType = Schema.decodeUnknownSync(PackageTypeSchema)("jsr");
@@ -117,9 +112,14 @@ const extractJsrImports = (
     const version =
       parsed.version !== undefined && isExactVersion(parsed.version) ? parsed.version : undefined;
 
-    const purl = new PackageURL("jsr", parsed.scope, parsed.name, version ?? null, null, null);
-    const purlParts = decodePurl(purl.toString());
-    results.push({ purl: purlParts, type: jsrType, source });
+    const detected = makeDetectedPackage({
+      type: jsrType,
+      namespace: parsed.scope,
+      name: parsed.name,
+      version,
+      source,
+    });
+    if (Option.isSome(detected)) results.push(detected.value);
   }
 
   return results;

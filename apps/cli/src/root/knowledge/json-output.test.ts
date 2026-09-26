@@ -19,7 +19,7 @@ import {
   expectAppliedPlanResult,
   makeWorkspaceHandlerTestContext,
 } from "../../test-support/test-helpers.js";
-import { setKnowledgeEnabled } from "./activation.js";
+import { handleActivation } from "../activation-handler.js";
 import { handleKnowledgeLint } from "./lint.js";
 import { handleKnowledgeConceptGet } from "./concepts/get.js";
 import { handleKnowledgeConceptSearch } from "./concepts/search.js";
@@ -27,7 +27,7 @@ import { handleKnowledgeConceptStatus } from "./concepts/status.js";
 import { handleKnowledgeConceptResolve } from "./concepts/resolve.js";
 import { handleKnowledgeConceptRelated } from "./concepts/related.js";
 import { handleKnowledgeConceptQuery } from "./concepts/query.js";
-import { handleKnowledgeList } from "./list.js";
+import { handleList as handleKnowledgeList } from "./list.js";
 import { paintText } from "../../screen/index.js";
 import { KnowledgeManager } from "@agentxm/workspace/materialization";
 import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
@@ -417,9 +417,11 @@ describe("knowledge JSON output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* setKnowledgeEnabled("platform", false, false).pipe(
-          Effect.provide(knowledgeActivationLayer),
-        );
+        yield* handleActivation("knowledge", {
+          name: "platform",
+          enabled: false,
+          preview: false,
+        }).pipe(Effect.provide(knowledgeActivationLayer));
 
         expect(rendererState.results).toHaveLength(1);
         expectAppliedPlanResult(rendererState.results[0]?.data, {
@@ -441,9 +443,11 @@ describe("knowledge JSON output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* setKnowledgeEnabled("platform", true, false).pipe(
-          Effect.provide(knowledgeActivationLayer),
-        );
+        yield* handleActivation("knowledge", {
+          name: "platform",
+          enabled: true,
+          preview: false,
+        }).pipe(Effect.provide(knowledgeActivationLayer));
 
         expect(logs.success).toEqual(["Enabled 1 knowledge bundle"]);
       }),

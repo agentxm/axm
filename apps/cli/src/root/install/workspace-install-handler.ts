@@ -15,6 +15,7 @@ import type { InstallableExtensionType } from "@agentxm/extension-model/unstable
 import { recoverySwitch } from "@agentxm/workspace/transitions/planning";
 
 import { Screen } from "../../screen/index.js";
+import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
 import { runInstallCommand } from "../shared/install-command.js";
 
 export type WorkspaceInstallableType = InstallableExtensionType;
@@ -24,24 +25,7 @@ const configuredInstallCommand = (
 ): ReadonlyArray<string> =>
   Option.match(type, {
     onNone: () => ["install"],
-    onSome: (value) => {
-      switch (value) {
-        case "skill":
-          return ["skills", "install"];
-        case "mcp-server":
-          return ["mcps", "install"];
-        case "subagent":
-          return ["subagents", "install"];
-        case "rule":
-          return ["rules", "install"];
-        case "hook":
-          return ["hooks", "install"];
-        case "knowledge":
-          return ["knowledge", "install"];
-        case "pack":
-          return ["packs", "install"];
-      }
-    },
+    onSome: (value) => [EXTENSION_TYPE_PRESENTATION[value].route, "install"],
   });
 
 export interface WorkspaceInstallFlags {

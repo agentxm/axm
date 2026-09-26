@@ -32,6 +32,7 @@ import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensi
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { PackLockEntry } from "../lockfile/schema.js";
+import { isGitLockEntry, isPathLockEntry } from "./lock-entry.js";
 import type { DesiredSourceAuthority } from "./desired-identity.js";
 
 /** The ref no Git locator named: the repository's default branch head. */
@@ -48,19 +49,11 @@ export type PackMemberSourceView =
       readonly baseDir: string;
     };
 
-type GitPackLockEntry = Extract<PackLockEntry, { readonly source: { readonly type: "git" } }>;
-type PathPackLockEntry = Extract<PackLockEntry, { readonly source: { readonly type: "path" } }>;
-
-const isGitPackLockEntry = (entry: PackLockEntry): entry is GitPackLockEntry =>
-  entry.source.type === "git";
-const isPathPackLockEntry = (entry: PackLockEntry): entry is PathPackLockEntry =>
-  entry.source.type === "path";
-
 /** The source authority the members of one Pack source view inherit. */
 export const packMemberSourceAuthority = (view: PackMemberSourceView): DesiredSourceAuthority => {
   if (view.kind === "accepted") {
     const { entry } = view;
-    if (isGitPackLockEntry(entry)) {
+    if (isGitLockEntry(entry)) {
       return {
         authority: "git",
         url: entry.source.url,
@@ -68,7 +61,7 @@ export const packMemberSourceAuthority = (view: PackMemberSourceView): DesiredSo
         root: Option.fromUndefinedOr(entry.sourceRoot),
       };
     }
-    if (isPathPackLockEntry(entry)) return { authority: "path", root: entry.sourceRoot };
+    if (isPathLockEntry(entry)) return { authority: "path", root: entry.sourceRoot };
     return { authority: "registry", endpoint: entry.source.url };
   }
   const { source } = view;

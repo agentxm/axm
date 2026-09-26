@@ -4,15 +4,20 @@ import { LearnMore, formatLearnMore } from "../../formatter.js";
 import { knowledgePublishCommand as publishCommand } from "../publish/per-type-command.js";
 import { groupCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import { makeExtensionShowCommand } from "../shared/extension-show.js";
-import { disableCommand } from "./disable.js";
-import { enableCommand } from "./enable.js";
-import { installCommand } from "./install/command.js";
+import { makeActivationCommands } from "../activation-handler.js";
+import { knowledgeInstallCommand as installCommand } from "../install/command.js";
 import { lintCommand } from "./lint.js";
 import { listCommand } from "./list.js";
 import { newCommand } from "./new.js";
 import { conceptsCommand } from "./concepts/_concepts.js";
-import { uninstallCommand } from "./uninstall/command.js";
-import { updateCommand } from "./update.js";
+import { makePerTypeUninstallCommand } from "../shared/uninstall-command.js";
+import { makePerTypeUpdateCommand } from "../update/per-type-command.js";
+
+const updateCommand = makePerTypeUpdateCommand("knowledge");
+
+const uninstallCommand = makePerTypeUninstallCommand("knowledge");
+
+const { enableCommand, disableCommand } = makeActivationCommands("knowledge");
 
 const showCommand = makeExtensionShowCommand({
   type: "knowledge",

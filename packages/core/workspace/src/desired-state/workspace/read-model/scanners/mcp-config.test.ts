@@ -7,7 +7,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import { makeDiagnostics, type Warning } from "../diagnostics.js";
 import { makeMcpConfigScanner } from "./mcp-config.js";
 
@@ -42,7 +42,7 @@ describe("makeMcpConfigScanner", () => {
             workspaceRoot,
             scope: "project",
             diagnostics: makeDiagnostics(ref),
-            agentRegistry: { "claude-code": AGENTS["claude-code"] },
+            agentRegistry: { "claude-code": AGENT_DESCRIPTORS["claude-code"] },
           });
 
           const names = occurrences.map((occurrence) => occurrence.name);
@@ -78,7 +78,7 @@ describe("makeMcpConfigScanner", () => {
             workspaceRoot,
             scope: "project",
             diagnostics: makeDiagnostics(ref),
-            agentRegistry: { codex: AGENTS.codex },
+            agentRegistry: { codex: AGENT_DESCRIPTORS.codex },
           });
 
           expect(occurrences).toMatchObject([
@@ -122,7 +122,10 @@ describe("makeMcpConfigScanner", () => {
             workspaceRoot,
             scope: "project",
             diagnostics: makeDiagnostics(warnings),
-            agentRegistry: { codex: AGENTS.codex, "claude-code": AGENTS["claude-code"] },
+            agentRegistry: {
+              codex: AGENT_DESCRIPTORS.codex,
+              "claude-code": AGENT_DESCRIPTORS["claude-code"],
+            },
           });
 
           expect(occurrences.map((occurrence) => occurrence.name)).toEqual(["valid-server"]);

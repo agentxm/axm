@@ -11,6 +11,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import { isStrictlyWithin } from "@agentxm/extension-model/unstable/path-types";
 import * as Stream from "effect/Stream";
 import { ChildProcess } from "effect/unstable/process";
 import { createHash } from "node:crypto";
@@ -31,9 +32,8 @@ interface IndexEntry {
   readonly path: string;
 }
 
-// Deliberately duplicated from the CLI-destined environment module: a feature
-// package may not depend on application utilities, and this snapshot helper is
-// within the sanctioned duplication budget for small pure functions.
+// The linting feature owns this filtered environment snapshot for its child
+// processes; configuration-backed host readers serve a different boundary.
 // eslint-disable-next-line no-restricted-properties -- Centralized env var access point; callers filter the snapshot before passing it to child processes
 const readEnvironment = (): Readonly<Record<string, string | undefined>> => ({ ...process.env });
 
@@ -186,6 +186,7 @@ const readIndexEntries = (gitRoot: string) =>
         stderr: collectText(handle.stderr),
         exitCode: handle.exitCode,
       },
+      // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed three-way join of scoped child stdout, stderr, and exit
       { concurrency: "unbounded" },
     );
     if (result.exitCode !== 0) {
@@ -230,6 +231,7 @@ const readIndexBlobs = (args: {
         stderr: collectText(handle.stderr),
         exitCode: handle.exitCode,
       },
+      // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed three-way join of scoped child stdout, stderr, and exit
       { concurrency: "unbounded" },
     );
   }).pipe(
@@ -258,8 +260,7 @@ const writeIndexEntry = (args: {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const destination = path.resolve(args.workspaceRoot, args.entry.path);
-    const relative = path.relative(args.workspaceRoot, destination);
-    if (relative.length === 0 || relative.startsWith("..") || path.isAbsolute(relative)) {
+    if (!isStrictlyWithin(path, args.workspaceRoot, destination)) {
       return yield* stagedSnapshotError({
         detail: `Git index path escapes the staged workspace: ${args.entry.path}`,
       });

@@ -1,71 +1,14 @@
-import { withLiveOperation } from "../../operation-lifecycle.js";
-import { Command, Flag } from "effect/unstable/cli";
-import * as Effect from "effect/Effect";
-import { emitResult, inventoryDoc, type ViewColumn } from "../../screen/index.js";
-import { ExtensionInventorySchema } from "@agentxm/workspace/desired-state";
-import { listRules, type SourcedListRow } from "@agentxm/workspace/inspection";
-import { withArgvTracking } from "../../cli-runtime/index.js";
-import { scopeFlag } from "../../cli-flags/scope-flag.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
-import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
-import {
-  inventoryActivation,
-  inventoryAgentOutcomes,
-  inventoryLifecycle,
-  inventorySummary,
-} from "../inventory-view.js";
+import { listRules } from "@agentxm/workspace/inspection";
 
-const RuleListColumns = [
-  { header: "Name", priority: "required", value: (row: SourcedListRow) => row.name },
-  { header: "State", value: (row: SourcedListRow) => inventoryLifecycle(row) },
-  { header: "Activation", value: (row: SourcedListRow) => inventoryActivation(row) },
-  { header: "Source", value: (row: SourcedListRow) => row.source },
-  {
-    header: "Locked",
-    priority: "optional",
-    value: (row: SourcedListRow) => (row.locked ? "yes" : "no"),
-  },
-  {
-    header: "Agent outcomes",
-    priority: "optional",
-    value: (row: SourcedListRow) => inventoryAgentOutcomes(row.agentOutcomes),
-  },
-] satisfies ReadonlyArray<ViewColumn<SourcedListRow>>;
+import { sourcedListColumns } from "../inventory-view.js";
+import { inventoryList, makePerTypeListCommand } from "../shared/list-command.js";
 
-export const handleListRule = Effect.fn("ListRule.handle")(function* () {
-  const { inventory, rows } = yield* withLiveOperation(
-    { command: "rules.list", name: "Inspect rules", mode: "preview" },
-    listRules(),
-  );
-  yield* emitResult(inventory, ExtensionInventorySchema, () =>
-    inventoryDoc({
-      rows,
-      columns: RuleListColumns,
-      summary: inventorySummary(inventory, "rule"),
-      empty: "No rules found",
-    }),
-  );
+const { handler, command } = makePerTypeListCommand({
+  type: "rule",
+  ...inventoryList("rule", () => listRules()),
+  columns: sourcedListColumns,
+  agentFilter: false,
 });
 
-const listConfig = {
-  scope: scopeFlag.pipe(
-    Flag.withDescription("List rules from project (default) or user-level configuration"),
-  ),
-} as const;
-
-export const listCommand = Command.make("list", listConfig, ({ scope }) =>
-  handleListRule().pipe(
-    withWorkspace({ scope, allowUninitialized: true }),
-    withRuntime("rules list"),
-  ),
-).pipe(
-  withArgvTracking(listConfig),
-  withCommandCapabilities(readOnlyCapabilities()),
-  Command.withDescription("List detected rules and their lifecycle classification"),
-  Command.withExamples([
-    {
-      command: "axm rules list",
-      description: "Inventory detected rules",
-    },
-  ]),
-);
+export const handleList = handler;
+export const listCommand = command;

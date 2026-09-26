@@ -52,7 +52,7 @@ import {
   writeKnowledgeExtension,
   writeWorkspaceFiles,
 } from "../../test-support/test-stubs.js";
-import { handleListMcpServers } from "../mcps/list.js";
+import { handleList as handleListMcpServers } from "../mcps/list.js";
 import { injectWriteFaults } from "@agentxm/workspace/transitions/settlement/testing";
 import { handleSync } from "./handler.js";
 import { LifecycleFailureConversionLive } from "@agentxm/workspace/lifecycle";
@@ -1553,6 +1553,42 @@ describe("root sync handler", { timeout: 15_000 }, () => {
         expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "release"))).toBe(true);
         expect(fs.readFileSync(path.join(tempDir, "CLAUDE.md"), "utf8")).toBe("# Human-owned\n");
       }),
+  );
+
+  it.effect("reconciles stale aliases in a hook-scoped sync", () =>
+    Effect.gen(function* () {
+      const { provide, rendererState } = makeLayers({
+        machine: true,
+        wsOptions: { projectRoot: tempDir },
+      });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), { agents: ["claude-code"] });
+      writeSettings(tempDir, {
+        agents: ["claude-code"],
+        instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
+      });
+      fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+      fs.writeFileSync(
+        path.join(tempDir, "CLAUDE.md"),
+        "<!-- axm:file v=1 ext=@agentxm/rules/managed-file src=AGENTS.md -->\n\n# Old copy\n",
+      );
+
+      yield* provide(handleSync({ preview: true, type: Option.some("hook") }));
+      const preview = expectRecord(
+        property(expectRecord(rendererState.results[0]?.data), "result"),
+      );
+      const instruction = planResultUnits(preview).find(
+        (step) => property(expectRecord(step), "label") === "instruction files",
+      );
+      expect(instruction).toBeDefined();
+      expect(
+        property(expectRecord(property(expectRecord(instruction), "artifact")), "managedRegions"),
+      ).toEqual([]);
+      expect(fs.readFileSync(path.join(tempDir, "CLAUDE.md"), "utf8")).toContain("# Old copy");
+
+      yield* provide(handleSync({ preview: false, type: Option.some("hook") }));
+      expect(fs.readFileSync(path.join(tempDir, "CLAUDE.md"), "utf8")).toContain("# Workspace");
+      expect(fs.readFileSync(path.join(tempDir, "CLAUDE.md"), "utf8")).not.toContain("# Old copy");
+    }),
   );
 
   it.effect("names stale aliases in the instruction preview and removes them on apply", () =>

@@ -81,6 +81,7 @@ import type { ExtensionLifecycleFailed } from "../errors.js";
 import { planHookInstall } from "../../hooks/lifecycle/install/plan.js";
 import { planKnowledgeInstall } from "../../knowledge/lifecycle/install/plan.js";
 import { planMcpServerInstall } from "../../mcp-connections/lifecycle/install/plan.js";
+import { settleMcpSourceIdentityFor } from "../../mcp-connections/source-identity.js";
 import {
   planPackInstall,
   readProposedGraph,
@@ -104,7 +105,7 @@ import {
   type ResolveInstallRequirements,
 } from "./vocabulary.js";
 import { findGitReinstallRefs, pinGitReinstallRef } from "./git-reinstall.js";
-import { nameFromLabel } from "../../reconciliation/index.js";
+import { nameFromLabel, workspaceFailureToStepFailure } from "../../reconciliation/index.js";
 import { withPackRegistryIndexMemo } from "../../resolution/sources/providers/registry/index-memo.js";
 
 /** Which extension types a configured-entry sweep covers. */
@@ -688,12 +689,29 @@ const collectSimpleTypePlans = (
               (force ? pinGitReinstallRef(resolved.ref, name) : Effect.succeed(resolved.ref)).pipe(
                 Effect.flatMap((ref) =>
                   ref.type === "mcp-server"
-                    ? planMcpServerInstall({
-                        ref,
-                        localName: decodeExtensionNameSync(name),
-                        versionRange: resolved.versionRange,
-                        force,
-                        nonInteractive,
+                    ? Effect.gen(function* () {
+                        const localName = decodeExtensionNameSync(name);
+                        const sourceIdentity = yield* settleMcpSourceIdentityFor(
+                          graph,
+                          ref,
+                          localName,
+                        ).pipe(
+                          Effect.mapError((cause) =>
+                            installRefused({
+                              category: "conflict",
+                              detail: workspaceFailureToStepFailure(cause).detail,
+                              cause,
+                            }),
+                          ),
+                        );
+                        return yield* planMcpServerInstall({
+                          ref,
+                          localName,
+                          sourceIdentity,
+                          versionRange: resolved.versionRange,
+                          force,
+                          nonInteractive,
+                        });
                       })
                     : Effect.fail(
                         installRefused({

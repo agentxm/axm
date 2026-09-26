@@ -19,7 +19,7 @@ import * as Schema from "effect/Schema";
 
 import { SettingsSchema } from "../settings/index.js";
 import { buildDesiredStateGraph, type DesiredStateGraph } from "./desired-state-graph.js";
-import type { PackManifestsPort } from "./pack-manifests.js";
+import { observePackManifest, type PackManifestsPort } from "./pack-manifests.js";
 
 /** The skill both Packs require and the workspace pins. */
 export const SHARED_MEMBER = {
@@ -178,16 +178,18 @@ const scenarioPackManifests: PackManifestsPort = {
     return {
       path: `/workspace/${relativePath}`,
       relativePath,
-      contents: Effect.succeed(
-        pack === undefined || owner !== SHARED_MEMBER.owner
-          ? undefined
-          : JSON.stringify({
-              owner,
-              type: "pack",
-              name,
-              version: PACK_VERSION,
-              dependencies: { [SHARED_MEMBER.fqn]: pack.range },
-            }),
+      manifest: Effect.succeed(
+        observePackManifest(
+          pack === undefined || owner !== SHARED_MEMBER.owner
+            ? undefined
+            : JSON.stringify({
+                owner,
+                type: "pack",
+                name,
+                version: PACK_VERSION,
+                dependencies: { [SHARED_MEMBER.fqn]: pack.range },
+              }),
+        ),
       ),
     };
   },

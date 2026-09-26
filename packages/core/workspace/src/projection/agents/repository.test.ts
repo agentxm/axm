@@ -4,7 +4,6 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { NativeWriteAuthorityPermissive } from "../agent-adapters/testing.js";
 import { SettingsReader } from "../../desired-state/index.js";
-import { handle } from "../test-helpers.js";
 import { DefaultCodingAgentRepository } from "./repository.js";
 
 const withWorkspace = (configuredAgents: ReadonlyArray<string>) =>
@@ -15,37 +14,6 @@ const withWorkspace = (configuredAgents: ReadonlyArray<string>) =>
   );
 
 describe("DefaultCodingAgentRepository", () => {
-  it.effect("returns fallback MCP contract for configured agents without custom adapter", () =>
-    Effect.gen(function* () {
-      const [agent] = yield* DefaultCodingAgentRepository.getConfiguredAgents();
-      expect(agent?.id).toBe("adal");
-      if (!agent) {
-        throw new Error("Expected configured agent");
-      }
-
-      const addOutcome = yield* agent.addMcpServer({
-        workspaceRoot: "/workspace",
-        serverName: "chrome-devtools-mcp",
-        canonicalPath: "/workspace/agent_extensions/registry/@mcp/mcps/chrome-devtools-mcp",
-        owner: handle("@mcp"),
-        resolvedVersion: "1.0.0",
-      });
-      expect(addOutcome).toEqual({
-        _tag: "unsupported",
-        reason: "MCP add is not supported for adal",
-      });
-
-      const removeOutcome = yield* agent.removeMcpServer({
-        workspaceRoot: "/workspace",
-        serverName: "chrome-devtools-mcp",
-      });
-      expect(removeOutcome).toEqual({
-        _tag: "unsupported",
-        reason: "MCP remove is not supported for adal",
-      });
-    }).pipe(Effect.provide(withWorkspace(["adal"]))),
-  );
-
   it.effect("returns configured known agents", () =>
     Effect.gen(function* () {
       const agents = yield* DefaultCodingAgentRepository.getConfiguredAgents();

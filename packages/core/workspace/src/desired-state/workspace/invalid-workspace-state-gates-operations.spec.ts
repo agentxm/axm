@@ -134,6 +134,12 @@ const lockfileContentRows: ReadonlyArray<FaultRow> = [
     write: (target: string) => fs.writeFileSync(target, 'lockfileVersion: "six"\nskills: {}\n'),
     tag: "LockfileDecodeError",
   },
+  {
+    fault: "a project lockfile with an unrecognised key",
+    write: (target: string) =>
+      fs.writeFileSync(target, `lockfileVersion: ${LOCKFILE_VERSION}\nskills: {}\nextra: 1\n`),
+    tag: "LockfileDecodeError",
+  },
 ].map((entry): FaultRow => ({
   fault: entry.fault,
   file: "project-lockfile",

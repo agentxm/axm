@@ -17,21 +17,33 @@ import type {
   McpServerManifest,
 } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 
-const maybeSecretInputName = (
+const inputName = (
   input: McpRegistryInput | McpRegistryKeyValueInput | McpRegistryArgument,
 ): string | undefined => {
-  if (input.isSecret !== true) return undefined;
   if ("name" in input) return input.name;
   if ("valueHint" in input) return input.valueHint;
   return undefined;
 };
 
-/** Every input the manifest marks secret, by the name a value is supplied under. */
-export const collectSecretInputNames = (manifest: McpServerManifest): ReadonlySet<string> => {
-  const names = new Set<string>();
+export interface ManifestInput {
+  readonly name: string;
+  readonly isSecret: boolean;
+  readonly isRequired: boolean;
+  readonly hasValue: boolean;
+}
+
+/** Enumerate named inputs across package and remote manifest transports. */
+export const manifestInputs = (manifest: McpServerManifest): ReadonlyArray<ManifestInput> => {
+  const inputs: Array<ManifestInput> = [];
   const add = (input: McpRegistryInput | McpRegistryKeyValueInput | McpRegistryArgument) => {
-    const name = maybeSecretInputName(input);
-    if (name !== undefined) names.add(name);
+    const name = inputName(input);
+    if (name === undefined) return;
+    inputs.push({
+      name,
+      isSecret: input.isSecret === true,
+      isRequired: input.isRequired === true,
+      hasValue: input.value !== undefined || input.default !== undefined,
+    });
   };
 
   for (const pkg of manifest.server.packages ?? []) {
@@ -43,12 +55,33 @@ export const collectSecretInputNames = (manifest: McpServerManifest): ReadonlySe
   for (const remote of manifest.server.remotes ?? []) {
     for (const input of remote.headers ?? []) add(input);
     for (const [name, input] of Object.entries(remote.variables ?? {})) {
-      if (input.isSecret === true) names.add(name);
+      inputs.push({
+        name,
+        isSecret: input.isSecret === true,
+        isRequired: input.isRequired === true,
+        hasValue: input.value !== undefined || input.default !== undefined,
+      });
     }
   }
 
-  return names;
+  return inputs;
 };
+
+/** Every input the manifest marks secret, by the name a value is supplied under. */
+export const collectSecretInputNames = (manifest: McpServerManifest): ReadonlySet<string> =>
+  new Set(
+    manifestInputs(manifest)
+      .filter((input) => input.isSecret)
+      .map((input) => input.name),
+  );
+
+/** Required named inputs without a value or default in the manifest. */
+export const collectRequiredInputNames = (manifest: McpServerManifest): ReadonlySet<string> =>
+  new Set(
+    manifestInputs(manifest)
+      .filter((input) => input.isRequired && !input.hasValue)
+      .map((input) => input.name),
+  );
 
 /**
  * The values a projection renders from: the connection's configured env with

@@ -31,6 +31,7 @@ import {
   type ManagerRequirements,
 } from "../materialization/index.js";
 import {
+  applyInstructionSurfacePlans,
   applyProjectionPlans,
   projectionPlanExclusionWarnings,
   type ProjectionPlan,
@@ -157,8 +158,9 @@ const reconcileAggregateProjections = (
     if (types.has("rule")) plans.push(...(yield* (yield* RuleManager).projectionPlans()));
     if (types.has("hook")) plans.push(...(yield* (yield* HookManager).projectionPlans()));
     if (types.has("knowledge")) plans.push(...(yield* (yield* KnowledgeManager).projectionPlans()));
-    yield* applyProjectionPlans(plans);
-    return projectionPlanExclusionWarnings(plans);
+    return types.has("rule") || types.has("hook") || types.has("knowledge")
+      ? yield* applyInstructionSurfacePlans(plans)
+      : yield* applyProjectionPlans(plans).pipe(Effect.as(projectionPlanExclusionWarnings(plans)));
   });
 
 const runStep = <R>(step: PlannedJobStep<R>) =>

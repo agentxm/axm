@@ -18,21 +18,8 @@ import {
 } from "./errors.js";
 import type { PathTraversalDetected } from "../utils/path-safety.js";
 import type { WorkspaceSnapshotError } from "../../transitions/settlement/index.js";
-import {
-  hookLockEntryToRef,
-  knowledgeLockEntryToRef,
-  mcpServerLockEntryToRef,
-  packLockEntryToRef,
-  ruleLockEntryToRef,
-  skillLockEntryToRef,
-  subagentLockEntryToRef,
-  type LockEntryToRefError,
-} from "./lock-entry-to-ref.js";
-import {
-  observeCanonicalExtension,
-  type AcceptedExtensionResolution,
-  type CanonicalObservation,
-} from "./canonical-observation.js";
+import { lockEntryToRef, type LockEntry, type LockEntryToRefError } from "./lock-entry.js";
+import { observeCanonicalExtension, type CanonicalObservation } from "./canonical-observation.js";
 import {
   computeExtensionPathsForLayout,
   extensionPathSourceFromLockEntry,
@@ -43,7 +30,6 @@ import { resolveWorkspaceExtensionRef } from "./configured-entry-resolution/work
 import type { DesiredExtensionNode } from "./desired-state-graph.js";
 import { DesiredStateReader } from "./desired-state-reader.js";
 import { LockfileReader } from "./lockfile-reader.js";
-import type { LockEntryByType } from "./entry-accessors.js";
 import { SettingsReader, type SettingsReaderService } from "./settings-reader.js";
 import type { WorkspaceStateReadFailure } from "./contracts.js";
 import { WorkspaceLocation, type WorkspaceLocationService } from "./location.js";
@@ -67,7 +53,7 @@ export type AcceptedCanonicalRefError =
 
 export interface AcceptedCanonicalObservation {
   readonly desired: DesiredExtensionNode;
-  readonly accepted?: AcceptedExtensionResolution;
+  readonly accepted?: LockEntry;
   readonly observation: CanonicalObservation;
 }
 
@@ -174,26 +160,15 @@ const lockRefDeps = (
 const missingAccepted = (label: string, name: string) =>
   new AcceptedResolutionMissing({ label, name });
 
-type LockRefDeps = ReturnType<typeof lockRefDeps>;
-
-/** Each type's lock-row translation, with the label its missing row reports. */
-const lockEntryRefs: {
-  readonly [T in InstallableExtensionType]: {
-    readonly label: string;
-    readonly toRef: (
-      name: string,
-      entry: LockEntryByType[T],
-      deps: LockRefDeps,
-    ) => Effect.Effect<ExtensionRef, LockEntryToRefError>;
-  };
-} = {
-  skill: { label: "Skill", toRef: skillLockEntryToRef },
-  "mcp-server": { label: "MCP", toRef: mcpServerLockEntryToRef },
-  subagent: { label: "Subagent", toRef: subagentLockEntryToRef },
-  rule: { label: "Rule", toRef: ruleLockEntryToRef },
-  hook: { label: "Hook", toRef: hookLockEntryToRef },
-  knowledge: { label: "Knowledge", toRef: knowledgeLockEntryToRef },
-  pack: { label: "Pack", toRef: packLockEntryToRef },
+/** The label a missing accepted row reports for each extension type. */
+const lockEntryLabels: Record<InstallableExtensionType, string> = {
+  skill: "Skill",
+  "mcp-server": "MCP",
+  subagent: "Subagent",
+  rule: "Rule",
+  hook: "Hook",
+  knowledge: "Knowledge",
+  pack: "Pack",
 };
 
 const refFromAcceptedResolution = <T extends InstallableExtensionType>(
@@ -209,9 +184,8 @@ const refFromAcceptedResolution = <T extends InstallableExtensionType>(
     const location = yield* WorkspaceLocation;
     const settings = yield* SettingsReader;
     const entry = yield* (yield* LockfileReader).acceptedEntry(type, name);
-    const translation = lockEntryRefs[type];
-    if (Option.isNone(entry)) return yield* missingAccepted(translation.label, name);
-    return yield* translation.toRef(name, entry.value, lockRefDeps(location, settings, path));
+    if (Option.isNone(entry)) return yield* missingAccepted(lockEntryLabels[type], name);
+    return yield* lockEntryToRef[type](name, entry.value, lockRefDeps(location, settings, path));
   });
 
 /** Reconstruct a ref directly from accepted lock authority without desired reachability. */

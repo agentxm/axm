@@ -8,8 +8,6 @@
  * lockfile, canonical content, agent projections, and rendered results.
  */
 
-import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
 
 import * as ConfigProvider from "effect/ConfigProvider";
@@ -19,7 +17,13 @@ import * as Layer from "effect/Layer";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
-import { makeMemoryFileSystem, type MemoryFileStore, withoutNativeIo } from "@agentxm/test-support";
+import {
+  makeMemoryFileSystem,
+  makeNativeFileStore,
+  snapshotTree,
+  type FileStore,
+  withoutNativeIo,
+} from "@agentxm/test-support";
 
 import {
   humanScreenLayer,
@@ -130,7 +134,7 @@ export interface SpecWorkspaceOptions {
   readonly registryUrl?: string;
 }
 
-export type SpecFileStore = MemoryFileStore;
+export type SpecFileStore = FileStore;
 
 export interface SpecWorkspaceStorage {
   readonly root: string;
@@ -138,32 +142,6 @@ export interface SpecWorkspaceStorage {
 }
 
 export type SpecWorkspaceInput = string | SpecWorkspaceStorage;
-
-const makeNativeFileStore = (): SpecFileStore => ({
-  exists: fs.existsSync,
-  makeDirectory: (target) => void fs.mkdirSync(target, { recursive: true }),
-  makeTempDirectory: (prefix) => fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix))),
-  readDirectory: (target) =>
-    fs.readdirSync(target, { withFileTypes: true }).map((entry) => ({
-      name: entry.name,
-      type: entry.isSymbolicLink() ? "symlink" : entry.isDirectory() ? "directory" : "file",
-    })),
-  readFile: (target) => new Uint8Array(fs.readFileSync(target)),
-  readFileString: (target) => fs.readFileSync(target, "utf8"),
-  readLink: fs.readlinkSync,
-  realPath: fs.realpathSync,
-  remove: (target) => void fs.rmSync(target, { recursive: true, force: true }),
-  type: (target) => {
-    try {
-      const entry = fs.lstatSync(target);
-      if (entry.isSymbolicLink()) return "symlink";
-      return entry.isDirectory() ? "directory" : "file";
-    } catch {
-      return undefined;
-    }
-  },
-  writeFile: fs.writeFileSync,
-});
 
 export const resolveSpecWorkspaceStorage = (workspace: SpecWorkspaceInput): SpecWorkspaceStorage =>
   typeof workspace === "string" ? { root: workspace, files: makeNativeFileStore() } : workspace;
@@ -374,33 +352,8 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
       walk(start);
       return entries.sort();
     },
-    snapshotContent: (relativePath: string): Readonly<Record<string, string>> => {
-      const start = path.join(root, relativePath);
-      if (!files.exists(start)) return {};
-      const entries: Array<readonly [string, string]> = [];
-      const walk = (directory: string, relativeDirectory: string): void => {
-        for (const entry of [...files.readDirectory(directory)].sort((left, right) =>
-          left.name.localeCompare(right.name, "en"),
-        )) {
-          const relative =
-            relativeDirectory.length === 0 ? entry.name : `${relativeDirectory}/${entry.name}`;
-          const target = path.join(directory, entry.name);
-          if (entry.type === "directory") {
-            entries.push([relative, "directory"]);
-            walk(target, relative);
-          } else if (entry.type === "symlink") {
-            entries.push([relative, `symlink:${files.readLink(target)}`]);
-          } else {
-            entries.push([
-              relative,
-              `file:${Buffer.from(files.readFile(target)).toString("base64")}`,
-            ]);
-          }
-        }
-      };
-      walk(start, "");
-      return Object.fromEntries(entries);
-    },
+    snapshotContent: (relativePath: string): Readonly<Record<string, string>> =>
+      snapshotTree(path.join(root, relativePath), files),
     transitionCounts: transitionWorld?.counts,
     cleanup: (): void => {
       files.remove(root);

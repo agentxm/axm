@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import { toFileLocation } from "@agentxm/host-primitives";
 
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
@@ -76,7 +77,7 @@ const searchRootFor = (source: ExternalSource, basePath: string) =>
 const sourceRefDetails = (source: ExternalSource, basePath: string, directory: string) =>
   Effect.gen(function* () {
     const sourcePath = yield* relativeDir(basePath, directory);
-    const location = `file://${directory}`;
+    const location = toFileLocation(directory);
     switch (source.type) {
       case "local":
         return {

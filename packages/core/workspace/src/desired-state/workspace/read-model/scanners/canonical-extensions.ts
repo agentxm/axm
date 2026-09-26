@@ -38,7 +38,11 @@ import {
   ExtensionTypeSchema,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import { HandleSchema, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import { MANIFEST_FILENAME_BY_TYPE } from "@agentxm/extension-content";
+import {
+  extensionTypeForManifestFilename,
+  MANIFEST_FILENAME_BY_TYPE,
+  MANIFEST_FILENAMES,
+} from "@agentxm/extension-content";
 import { parseSkillMd } from "@agentxm/extension-content";
 import { DISCOVERY_SKIPPED_DIRECTORIES } from "@agentxm/extension-model/unstable/discovery-walk";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
@@ -145,8 +149,6 @@ const buildOccurrence = (
     return occurrence;
   });
 
-const manifestFilenames = new Set<string>(Object.values(MANIFEST_FILENAME_BY_TYPE));
-
 const ScannableManifestIdentitySchema = Schema.Struct({
   owner: HandleSchema,
   type: ExtensionTypeSchema,
@@ -159,36 +161,15 @@ interface ScannableManifestIdentity {
   readonly name: ReturnType<typeof decodeExtensionNameSync>;
 }
 
-const extensionTypeForManifest = (filename: string): ExtensionType | undefined => {
-  switch (filename) {
-    case "skill.json":
-      return "skill";
-    case "mcp.json":
-      return "mcp-server";
-    case "subagent.json":
-      return "subagent";
-    case "rule.json":
-      return "rule";
-    case "hook.json":
-      return "hook";
-    case "knowledge.json":
-      return "knowledge";
-    case "pack.json":
-      return "pack";
-    default:
-      return undefined;
-  }
-};
-
 const readNativeIdentity = (
   deps: CanonicalExtensionsScannerDeps,
   dir: string,
   entries: ReadonlyArray<string>,
 ): Effect.Effect<Option.Option<ScannableManifestIdentity>> =>
   Effect.gen(function* () {
-    const filename = entries.find((entry) => manifestFilenames.has(entry));
+    const filename = entries.find((entry) => MANIFEST_FILENAMES.has(entry));
     if (filename === undefined) return Option.none();
-    const filenameType = extensionTypeForManifest(filename);
+    const filenameType = extensionTypeForManifestFilename(filename);
     if (filenameType === undefined) return Option.none();
     const raw = yield* readTextFile(
       SCANNER_NAME,

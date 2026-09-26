@@ -16,6 +16,7 @@
 
 import { createHash } from "node:crypto";
 import * as fs from "node:fs";
+import { snapshotPath, snapshotTree } from "../desired-state/testing.js";
 import * as os from "node:os";
 import * as nodePath from "node:path";
 import { inflateRawSync } from "node:zlib";
@@ -156,64 +157,6 @@ const recordingFileSystemLayer = (
     }),
   );
 
-/** The workspace state a preview of a publishing command must not touch. */
-export const WORKSPACE_PROTECTED_STATE: ReadonlyArray<string> = [
-  "axm.json",
-  "axm-lock.yaml",
-  "agent_extensions",
-  "skills",
-  "subagents",
-  "mcps",
-  "rules",
-  "hooks",
-  "knowledge",
-  "packs",
-  ".claude",
-  ".agents",
-  ".mcp.json",
-  "AGENTS.md",
-  "CLAUDE.md",
-];
-
-/** Publish also protects the target Registry it would upload to. */
-export const PUBLISH_PROTECTED_STATE: ReadonlyArray<string> = [
-  ...WORKSPACE_PROTECTED_STATE,
-  "registry",
-];
-
-export type ProtectedStateSnapshot = Readonly<Record<string, Readonly<Record<string, string>>>>;
-
-const snapshotDirectory = (root: string): Readonly<Record<string, string>> => {
-  const entries: Array<readonly [string, string]> = [];
-  const walk = (directory: string, relativeDirectory: string): void => {
-    for (const entry of fs
-      .readdirSync(directory, { withFileTypes: true })
-      .sort((left, right) => left.name.localeCompare(right.name, "en"))) {
-      const relative =
-        relativeDirectory.length === 0 ? entry.name : `${relativeDirectory}/${entry.name}`;
-      const target = nodePath.join(directory, entry.name);
-      if (entry.isSymbolicLink()) {
-        entries.push([relative, `symlink:${fs.readlinkSync(target)}`]);
-      } else if (entry.isDirectory()) {
-        entries.push([relative, "directory"]);
-        walk(target, relative);
-      } else {
-        entries.push([relative, `file:${Buffer.from(fs.readFileSync(target)).toString("base64")}`]);
-      }
-    }
-  };
-  walk(root, "");
-  return Object.fromEntries(entries);
-};
-
-const snapshotPath = (absolute: string): Readonly<Record<string, string>> => {
-  if (!fs.existsSync(absolute)) return {};
-  const entry = fs.lstatSync(absolute);
-  if (entry.isSymbolicLink()) return { ".": `symlink:${fs.readlinkSync(absolute)}` };
-  if (entry.isDirectory()) return snapshotDirectory(absolute);
-  return { ".": `file:${Buffer.from(fs.readFileSync(absolute)).toString("base64")}` };
-};
-
 const isWithin = (root: string, candidate: string): boolean => {
   const relative = nodePath.relative(root, candidate);
   return relative === "" || (!relative.startsWith("..") && !nodePath.isAbsolute(relative));
@@ -343,15 +286,13 @@ export const makePublishWorld = (options: PublishWorldOptions = {}) => {
     interactionState: () => interaction.state,
     /** Exact content of every declared protected path, missing ones as empty. */
     snapshotProtectedState: (
-      protectedPaths: ReadonlyArray<string> = PUBLISH_PROTECTED_STATE,
-    ): ProtectedStateSnapshot =>
+      protectedPaths: ReadonlyArray<string>,
+    ): Readonly<Record<string, Readonly<Record<string, string>>>> =>
       Object.fromEntries(
         protectedPaths.map((relative) => [relative, snapshotPath(nodePath.join(root, relative))]),
       ),
     /** Every recorded write whose target lies beneath a protected path. */
-    protectedWrites: (
-      protectedPaths: ReadonlyArray<string> = PUBLISH_PROTECTED_STATE,
-    ): ReadonlyArray<FileSystemWriteEvent> =>
+    protectedWrites: (protectedPaths: ReadonlyArray<string>): ReadonlyArray<FileSystemWriteEvent> =>
       writes.filter((event) =>
         event.paths.some((path) =>
           protectedPaths.some((relative) =>
@@ -360,7 +301,7 @@ export const makePublishWorld = (options: PublishWorldOptions = {}) => {
         ),
       ),
     /** Exact content of the whole Registry, for a "nothing changed" comparison. */
-    snapshotRegistry: (): Readonly<Record<string, string>> => snapshotDirectory(target.root),
+    snapshotRegistry: (): Readonly<Record<string, string>> => snapshotTree(target.root),
     /** The bytes the Registry actually holds for one published version. */
     archive: (name: string, version = "1.0.0", plural = "skills"): Uint8Array =>
       fs.readFileSync(

@@ -42,11 +42,10 @@ import type {
   McpAgentSyncRefused,
   McpCanonicalPathUnsafe,
   McpInstallStateMissing,
-  McpLocalNameConflict,
   McpRequiredInputsMissing,
   McpWorkspacePackageInvalid,
 } from "../mcp-connections/errors.js";
-import type { NativeMcpEntryRetirementFailed } from "../mcp-connections/native-entry.js";
+import type { McpConnectionConflict } from "../mcp-connections/lifecycle/domain/source-admission.js";
 import type {
   PackArchiveFetchFailed,
   PackDefinitionInvalid,
@@ -72,12 +71,11 @@ export type MaterializationFamilyFailure =
   | SubagentDefinitionInvalid
   | SubagentContentUnreadable
   | McpInstallStateMissing
-  | McpLocalNameConflict
+  | McpConnectionConflict
   | McpCanonicalPathUnsafe
   | McpWorkspacePackageInvalid
   | McpRequiredInputsMissing
   | McpAgentSyncRefused
-  | NativeMcpEntryRetirementFailed
   | SkillDefinitionInvalid
   | SkillMaterializationFailed
   | AxmSkillCompatibilityUnavailable
@@ -116,12 +114,8 @@ const mcpAgentSyncDetail = (error: McpAgentSyncRefused): string => {
   switch (error.fault) {
     case "unknown-agents":
       return `Unknown configured agents in strict mode: ${error.agentIds.join(", ")}`;
-    case "misconfigured":
-      return `MCP server ${error.serverName} could not be synced to configured agents`;
     case "failed":
       return `MCP server ${error.serverName} sync failed in strict mode`;
-    default:
-      return `MCP server ${error.serverName} sync disabled for required configured agents`;
   }
 };
 
@@ -213,7 +207,7 @@ export const materializationFailureToStepFailure = (
         category: "internal",
         detail: `Installed files for MCP server ${error.name} could not be verified`,
       });
-    case "McpLocalNameConflict":
+    case "McpConnectionConflict":
       return makeStepFailure({
         category: "conflict",
         detail: `Local MCP name "${error.localName}" is already owned by a different source`,
@@ -244,12 +238,6 @@ export const materializationFailureToStepFailure = (
       return makeStepFailure({
         category: error.fault === "unknown-agents" ? "not_found" : "internal",
         detail: mcpAgentSyncDetail(error),
-      });
-    case "NativeMcpEntryRetirementFailed":
-      return makeStepFailure({
-        category: error.category,
-        detail: error.detail,
-        cause: error.cause,
       });
     case "SkillMaterializationFailed":
       return makeStepFailure({ category: "internal", detail: error.detail, cause: error.cause });

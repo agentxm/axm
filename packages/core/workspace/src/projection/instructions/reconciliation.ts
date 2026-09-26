@@ -4,11 +4,9 @@
  * whether AXM may write at all, the transaction-scoped transition that
  * reconciles every alias, and the removal that turns management off.
  *
- * These facts live in the projection capability rather than in a feature
- * because more than one use case reconciles instruction files: managing the
- * instruction configuration itself, and activating or deactivating a rule
- * (whose projection contributes to the same alias set). A feature may not
- * import a peer feature, so the shared facts belong underneath both.
+ * These facts live in the projection capability because Rules, Hooks, and
+ * Knowledge all contribute to the canonical instruction file. Every writer
+ * reconciles the aliases after its shared region changes.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -17,6 +15,11 @@ import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
+import {
+  applyProjectionPlans,
+  projectionPlanExclusionWarnings,
+  type ProjectionPlan,
+} from "../planning.js";
 
 import {
   SettingsReader,
@@ -28,6 +31,7 @@ import {
 
 import { InstructionMaintenanceFailed, type InstructionMaintenanceFailure } from "./errors.js";
 import {
+  applyInstructionProjection,
   assertInstructionTargetsSafe,
   assertInstructionsGitignoreSafe,
   instructionProjectionIsCurrent,
@@ -35,9 +39,10 @@ import {
   removeInstructionsGitignore,
   removeManagedInstructionTargets,
   resolveInstructionsConfig,
-  syncInstructions,
+  syncResult,
   type InstructionProjectionSnapshot,
   type InstructionsSyncResult,
+  type ObserveInstructionProjectionArgs,
   type ResolvedInstructionsConfig,
 } from "./instructions.js";
 
@@ -86,6 +91,11 @@ export const instructionStateIsCurrent = (snapshot: InstructionProjectionSnapsho
 /** The typed failure a readiness preflight can surface. */
 export type InstructionReadinessFailure = InstructionMaintenanceFailure;
 
+export const instructionReadinessDetail = (failure: InstructionReadinessFailure): string =>
+  failure._tag === "InstructionMaintenanceFailed"
+    ? failure.detail
+    : "Instruction reconciliation cannot proceed against the current workspace";
+
 /**
  * The one readiness gate every instruction transition passes. It decides
  * whether AXM may write at all: an unowned target or an unrecognized
@@ -94,18 +104,18 @@ export type InstructionReadinessFailure = InstructionMaintenanceFailure;
  */
 export const instructionReconciliationReadiness = (args: {
   readonly snapshot: InstructionProjectionSnapshot;
+  readonly workspaceRoot: string;
 }): Effect.Effect<
   Option.Option<InstructionReadinessFailure>,
   never,
-  FileSystem.FileSystem | Path.Path | WorkspaceLocation
+  FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
-    const location = yield* WorkspaceLocation;
     const result = yield* Effect.result(
       Effect.all(
         [
           assertInstructionTargetsSafe(args.snapshot.status),
-          assertInstructionsGitignoreSafe(location.baseDir),
+          assertInstructionsGitignoreSafe(args.workspaceRoot),
         ],
         { concurrency: 1, discard: true },
       ),
@@ -134,45 +144,102 @@ export const removeInstructionTargetsFor = (args: {
     return yield* removeManagedInstructionTargets({ snapshot, dryRun: false });
   });
 
-/**
- * Runs inside the workspace transaction: preflight against a fresh
- * observation (the plan's readiness check ran before the transaction opened),
- * apply the transition, reconcile, and verify from the sync's own readback.
- */
-export const reconcileInstructionTransition = <A, E, R = never>(args: {
-  readonly config: ResolvedInstructionsConfig;
+export interface InstructionsReconciliation<A> extends InstructionsSyncResult {
+  readonly transition: A;
+}
+
+type ReconcileInstructionsArgs = ObserveInstructionProjectionArgs & {
   readonly preflightConfig?: ResolvedInstructionsConfig;
-  readonly transition: Effect.Effect<A, E, R>;
-}): Effect.Effect<
-  A,
-  E | WorkspaceSettingsReadFailure | InstructionMaintenanceFailure,
-  R | FileSystem.FileSystem | Path.Path | SettingsReader | WorkspaceLocation
-> =>
-  Effect.gen(function* () {
-    const location = yield* WorkspaceLocation;
-    const settings = yield* SettingsReader;
-    const agents = yield* settings.configuredAgents;
-    const preflight = yield* observeInstructions({
+};
+
+/** Gate, transition, apply, and read back one instruction projection. */
+export function reconcileInstructions<A, E, R>(
+  args: ReconcileInstructionsArgs & { readonly transition: Effect.Effect<A, E, R> },
+): Effect.Effect<
+  InstructionsReconciliation<A>,
+  E | InstructionMaintenanceFailure,
+  R | FileSystem.FileSystem | Path.Path
+>;
+export function reconcileInstructions(
+  args: ReconcileInstructionsArgs & { readonly transition?: undefined },
+): Effect.Effect<
+  InstructionsReconciliation<void>,
+  InstructionMaintenanceFailure,
+  FileSystem.FileSystem | Path.Path
+>;
+export function reconcileInstructions(
+  args: ReconcileInstructionsArgs & {
+    readonly transition?: Effect.Effect<unknown, unknown, unknown> | undefined;
+  },
+): Effect.Effect<InstructionsReconciliation<unknown>, unknown, unknown> {
+  return Effect.gen(function* () {
+    const preflight = yield* observeInstructionProjection({
+      ...args,
       config: args.preflightConfig ?? args.config,
     });
     yield* assertInstructionTargetsSafe(preflight.status);
-    yield* assertInstructionsGitignoreSafe(location.baseDir);
-    const transitionResult = yield* args.transition;
-    const syncResult: InstructionsSyncResult = yield* syncInstructions({
-      workspaceRoot: location.baseDir,
-      scope: location.scope,
-      configuredAgents: agents,
+    yield* assertInstructionsGitignoreSafe(args.workspaceRoot);
+    const transition = yield* args.transition ?? Effect.void;
+    const snapshot =
+      args.transition === undefined && args.preflightConfig === undefined
+        ? preflight
+        : yield* observeInstructionProjection({
+            ...args,
+            symlinkSupported: preflight.symlinkSupported,
+          });
+    const applied = yield* applyInstructionProjection({
+      workspaceRoot: args.workspaceRoot,
       config: args.config,
+      snapshot,
       dryRun: false,
     });
-    if (!instructionProjectionIsCurrent(syncResult.snapshot)) {
+    const after = yield* observeInstructionProjection({
+      ...args,
+      symlinkSupported: preflight.symlinkSupported,
+    });
+    if (!instructionProjectionIsCurrent(after)) {
       return yield* new InstructionMaintenanceFailed({
         category: "internal",
         detail: "Instruction reconciliation did not reach the desired state",
       });
     }
-    return transitionResult;
-  }).pipe(Effect.withSpan("Instructions.reconcileTransition"));
+    return { ...syncResult({ snapshot: after, ...applied }), transition };
+  }).pipe(Effect.withSpan("Instructions.reconcile"));
+}
+
+/** Bring owned aliases current after a shared-surface write, when management is enabled. */
+export const reconcileInstructionAliases = (): Effect.Effect<
+  Option.Option<InstructionsSyncResult>,
+  WorkspaceSettingsReadFailure | InstructionMaintenanceFailure,
+  FileSystem.FileSystem | Path.Path | SettingsReader | WorkspaceLocation
+> =>
+  Effect.gen(function* () {
+    const config = yield* activeInstructionsConfig();
+    if (Option.isNone(config)) return Option.none<InstructionsSyncResult>();
+    const location = yield* WorkspaceLocation;
+    const settings = yield* SettingsReader;
+    const result = yield* reconcileInstructions({
+      workspaceRoot: location.baseDir,
+      scope: location.scope,
+      configuredAgents: yield* settings.configuredAgents,
+      config: config.value,
+    });
+    return Option.some<InstructionsSyncResult>(result);
+  });
+
+/** Apply shared instruction-surface regions, then the aliases depending on their content. */
+export const applyInstructionSurfacePlans = <E, R>(
+  plans: ReadonlyArray<ProjectionPlan<void, E, R>>,
+): Effect.Effect<
+  ReadonlyArray<string>,
+  E | WorkspaceSettingsReadFailure | InstructionMaintenanceFailure,
+  R | FileSystem.FileSystem | Path.Path | SettingsReader | WorkspaceLocation
+> =>
+  Effect.gen(function* () {
+    yield* applyProjectionPlans(plans);
+    yield* reconcileInstructionAliases();
+    return projectionPlanExclusionWarnings(plans);
+  });
 
 /** What disabling instruction management removed. */
 export interface DisabledInstructionManagement {

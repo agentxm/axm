@@ -1,18 +1,14 @@
-import { withLiveOperation } from "../../operation-lifecycle.js";
-import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import { emitResult, inventoryDoc, type ViewColumn } from "../../screen/index.js";
 import {
   listMcpServers,
   mcpServerListDocument,
   McpServerListQueryResultSchema,
   type McpServerListRow,
 } from "@agentxm/workspace/inspection";
-import { withArgvTracking } from "../../cli-runtime/index.js";
-import { scopeFlag } from "../../cli-flags/scope-flag.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
-import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
+import { type ViewColumn } from "../../screen/index.js";
+import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
 import { inventoryAgentOutcomes, inventoryLifecycle, inventorySummary } from "../inventory-view.js";
+import { makePerTypeListCommand } from "../shared/list-command.js";
 
 const McpServerListColumns = [
   { header: "Local name", priority: "required", value: (row: McpServerListRow) => row.localName },
@@ -28,42 +24,19 @@ const McpServerListColumns = [
   },
 ] satisfies ReadonlyArray<ViewColumn<McpServerListRow>>;
 
-export const handleListMcpServers = Effect.fn("ListMcpServers.handle")(function* () {
-  const { inventory, rows } = yield* withLiveOperation(
-    { command: "mcps.list", name: "Inspect MCP servers", mode: "preview" },
-    listMcpServers(),
-  );
-  const output = mcpServerListDocument({ inventory, rows });
-  yield* emitResult(output, McpServerListQueryResultSchema, () =>
-    inventoryDoc({
+const { handler, command } = makePerTypeListCommand({
+  type: "mcp-server",
+  query: () =>
+    Effect.map(listMcpServers(), ({ inventory, rows }) => ({
+      document: mcpServerListDocument({ inventory, rows }),
       rows,
-      columns: McpServerListColumns,
-      summary: inventorySummary(inventory, "MCP server"),
-      empty: "No MCP servers found",
-    }),
-  );
+    })),
+  schema: McpServerListQueryResultSchema,
+  columns: McpServerListColumns,
+  summary: (document) =>
+    inventorySummary(document, EXTENSION_TYPE_PRESENTATION["mcp-server"].noun.singular),
+  agentFilter: false,
 });
 
-const listConfig = {
-  scope: scopeFlag.pipe(
-    Flag.withDescription("List MCP servers from project (default) or user-level configuration"),
-  ),
-} as const;
-
-export const listCommand = Command.make("list", listConfig, ({ scope }) =>
-  handleListMcpServers().pipe(
-    withWorkspace({ scope, allowUninitialized: true }),
-    withRuntime("mcps list"),
-  ),
-).pipe(
-  withArgvTracking(listConfig),
-  withCommandCapabilities(readOnlyCapabilities()),
-  Command.withDescription("List detected MCP servers and their lifecycle classification"),
-  Command.withExamples([
-    { command: "axm mcps list", description: "Inventory detected MCP servers" },
-    {
-      command: "axm mcps list --scope user",
-      description: "Check user-level MCP servers",
-    },
-  ]),
-);
+export const handleList = handler;
+export const listCommand = command;

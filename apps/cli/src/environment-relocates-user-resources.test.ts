@@ -33,7 +33,7 @@ import { InstallMeta } from "@agentxm/cli-maintenance/self-update/adapters/nativ
 import { InstallMetaLive } from "@agentxm/cli-maintenance/self-update/composition/native";
 
 import { makeApplicationHomeFixture } from "./test-support/application-home-fixture.js";
-import { snapshotWorkspaceContent } from "./test-support/workspace-fixtures.js";
+import { snapshotTree } from "@agentxm/test-support";
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -96,7 +96,7 @@ describe("Application-resource home", () => {
         fs.mkdirSync(path.dirname(target), { recursive: true });
         fs.writeFileSync(target, JSON.stringify(content));
       }
-      const platformBefore = snapshotWorkspaceContent(fixture.platformHome);
+      const platformBefore = snapshotTree(fixture.platformHome);
       const platform = Layer.mergeAll(
         NodeServices.layer,
         ConfigProvider.layer(
@@ -137,7 +137,7 @@ describe("Application-resource home", () => {
         // The reviewed promise is containment in the selected home. The exact
         // restricted credential subdirectory remains a documented conflict.
         expect(
-          Object.values(snapshotWorkspaceContent(fixture.applicationHome)).some(
+          Object.values(snapshotTree(fixture.applicationHome)).some(
             (value) =>
               value.startsWith("file:") &&
               Buffer.from(value.slice(5), "base64").toString("utf8").includes("fixture-access"),
@@ -149,7 +149,7 @@ describe("Application-resource home", () => {
         expect(fs.existsSync(path.join(fixture.applicationHome, ".axm/install-meta.json"))).toBe(
           true,
         );
-        expect(snapshotWorkspaceContent(fixture.platformHome)).toEqual(platformBefore);
+        expect(snapshotTree(fixture.platformHome)).toEqual(platformBefore);
       }).pipe(Effect.provide(services), Effect.ensuring(Effect.sync(fixture.cleanup)));
     },
   );

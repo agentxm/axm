@@ -143,6 +143,7 @@ export const evaluateAllCatalogs = (args: {
         evaluateContexts(catalogs.knowledge, args.contexts.knowledge, args.config),
         evaluateContexts(catalogs.workspace, args.contexts.workspace, args.config),
       ],
+      // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed extension-type catalog
       { concurrency: "unbounded" },
     );
     return {

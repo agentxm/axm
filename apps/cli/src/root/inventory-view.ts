@@ -1,6 +1,14 @@
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 
-import { ABSENT, agentOutcome, count, type Text, type Tint } from "../screen/index.js";
+import {
+  ABSENT,
+  agentOutcome,
+  count,
+  type Text,
+  type Tint,
+  type ViewColumn,
+} from "../screen/index.js";
+import type { SourcedListRow } from "@agentxm/workspace/inspection";
 import type {
   ConfiguredAgentOutcome,
   ExtensionInventory,
@@ -58,7 +66,36 @@ export const inventoryAgentOutcomes = (outcomes: ReadonlyArray<ConfiguredAgentOu
     ? "none"
     : outcomes.map(({ agentId, outcome }) => `${agentId}: ${agentOutcome(outcome)}`).join(", ");
 
-export const inventorySummary = (inventory: ExtensionInventory, label: string): string => {
+/** Shared sourced-row presentation for Hooks and Rules. */
+export const sourcedListColumns = [
+  { header: "Name", priority: "required", value: (row: SourcedListRow) => row.name },
+  { header: "State", value: (row: SourcedListRow) => inventoryLifecycle(row) },
+  { header: "Activation", value: (row: SourcedListRow) => inventoryActivation(row) },
+  { header: "Source", value: (row: SourcedListRow) => row.source },
+  {
+    header: "Locked",
+    priority: "optional",
+    value: (row: SourcedListRow) => (row.locked ? "yes" : "no"),
+  },
+  {
+    header: "Agent outcomes",
+    priority: "optional",
+    value: (row: SourcedListRow) => inventoryAgentOutcomes(row.agentOutcomes),
+  },
+] satisfies ReadonlyArray<ViewColumn<SourcedListRow>>;
+
+type InventoryCounts = Pick<
+  ExtensionInventory,
+  | "count"
+  | "configuredCount"
+  | "implicitCount"
+  | "installedCount"
+  | "leftoverCount"
+  | "undeclaredCount"
+  | "unmanagedCount"
+> & { readonly items: ReadonlyArray<unknown> };
+
+export const inventorySummary = (inventory: InventoryCounts, label: string): string => {
   const parts = [
     inventory.configuredCount === 0
       ? undefined

@@ -8,7 +8,7 @@ import { canonicalObservationFactText } from "../../../projection/index.js";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "@agentxm/extension-content/lint";
 import { observationsReportedBy } from "./canonical-observation-findings.js";
-import { lockfileDisplayPath } from "./display-paths.js";
+import { lockfileDisplayPath } from "../../../desired-state/index.js";
 
 const RULE_ID = "workspace/skills-lockfile-aligned";
 

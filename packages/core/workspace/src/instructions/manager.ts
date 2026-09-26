@@ -1,6 +1,4 @@
-import { LifecyclePostconditionViolated } from "../transitions/planning/index.js";
 import type { RuleManagerService } from "../materialization/managers.js";
-import { usableAcceptedCanonical } from "../desired-state/index.js";
 
 /**
  * Rule manager service.
@@ -9,7 +7,6 @@ import { usableAcceptedCanonical } from "../desired-state/index.js";
  */
 
 import * as Effect from "effect/Effect";
-import { extensionRefLifecycleWarnings } from "../lifecycle/warnings.js";
 import * as Ref from "effect/Ref";
 import {
   DesiredStateReader,
@@ -19,7 +16,7 @@ import {
   WorkspaceRecords,
 } from "../desired-state/index.js";
 
-import { stripFileProtocol } from "@agentxm/registry-client";
+import { fromFileLocation } from "@agentxm/host-primitives";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -34,10 +31,8 @@ import {
   type ProjectionRenderInput,
   reconcileManagedRegionFile,
   projectionGeneration,
-  assertInstructionTargetsSafe,
-  assertInstructionsGitignoreSafe,
-  observeInstructionProjection,
-  reconcileInstructionTargets,
+  activeInstructionsConfig,
+  observeInstructions,
   resolveInstructionsConfig,
 } from "../projection/index.js";
 import {
@@ -47,14 +42,16 @@ import {
 } from "../projection/agent-adapters/index.js";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import {
-  reusableCanonicalTree,
-  materializeExternalPackageWithTreeIntegrity,
-} from "../acquisition/canonical-directory.js";
+  acquireCanonicalForRef,
+  verifyWorkspaceRefLocation,
+} from "../materialization/acquire-canonical.js";
+import {
+  makeBaseManagerMembers,
+  listMaterializableFromAccepted,
+} from "../materialization/manager-kit.js";
 import { enabledConfiguredEntries } from "../desired-state/index.js";
-import { materializeRegistryPackageWithTreeIntegrity } from "../materialization/registry-materialization.js";
-import { acquiredDirectoryForRef } from "../acquisition/acquired-content.js";
 import { computeExtensionPathsForLayout } from "../desired-state/index.js";
-import type { ProjectionUnitObservation, ResolvedInstructionsConfig } from "../projection/index.js";
+import type { ProjectionUnitObservation } from "../projection/index.js";
 import { RuleManager } from "../materialization/managers.js";
 import { RULES_REGION_OWNER } from "../projection/index.js";
 import { parseFrontmatterEffect } from "@agentxm/extension-content";
@@ -68,12 +65,8 @@ import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/pat
 import type { MaterializationObservation } from "../materialization/manager-contract.js";
 import { NO_MATERIALIZATION_OBSERVATION } from "../materialization/manager-contract.js";
 import type { RuleMaterializationFacts } from "../materialization/managers.js";
-import type { ExtensionTarget } from "../desired-state/index.js";
-import { usableAcceptedCanonicalRef } from "../desired-state/index.js";
-import { isObservedInstalled } from "../desired-state/index.js";
 import {
   acceptedCanonicalObservation,
-  prepareAcceptedCanonicalTransition,
   removableAcceptedCanonicalPath,
 } from "../desired-state/index.js";
 import {
@@ -83,12 +76,7 @@ import {
   RuleManifestSchema,
   type RuleManifest,
 } from "@agentxm/extension-model/unstable/rules/manifest-schema";
-import {
-  type GitHostedRuleRef,
-  type LocalRuleRef,
-  type RegistryRuleRef,
-  type RuleExtensionRef,
-} from "@agentxm/extension-model/unstable/extensions/refs/rule";
+import type { RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
 
 const RULES_REGION = "rules";
 
@@ -142,7 +130,6 @@ export const RuleManagerLive = Layer.effect(
     const sources = yield* SourceHostProviders;
     const catalog = yield* WorkspaceCatalog;
     const baseDir = location.baseDir;
-    const workspaceScope = location.scope;
 
     // The workspace state ports and source integration are this layer's own
     // dependencies; the platform stays in `R` for every member.
@@ -161,7 +148,7 @@ export const RuleManagerLive = Layer.effect(
     // state commits, so the closure reads back what the render projected.
     const lastProjection = yield* Ref.make(NO_MATERIALIZATION_OBSERVATION);
 
-    const materializeFromRegistry = (ref: RegistryRuleRef, force: boolean) =>
+    const materializePackage = (ref: RuleExtensionRef, force = false) =>
       Effect.gen(function* () {
         const canonicalPath = computeExtensionPathsForLayout(
           path.join,
@@ -170,101 +157,30 @@ export const RuleManagerLive = Layer.effect(
           RULE_EXTENSION_DIR,
           ref.name,
         ).canonicalPath;
-        const reusable = yield* provide(
-          reusableCanonicalTree({
+        if (ref.refType === "workspace") {
+          yield* verifyWorkspaceRefLocation({
+            ref,
+            scope: location.scope,
             canonicalPath,
-            requested: {
-              refType: "registry",
-              owner: ref.owner,
-              name: ref.name,
-              version: ref.version,
-              publisherBindingId: ref.publisherBindingId,
-            },
-            accepted: yield* lockfile.entry("rule", ref.rule.name),
-            force: force,
-          }),
-        );
-        if (Option.isSome(reusable)) {
-          return { packageRoot: canonicalPath, treeIntegrity: reusable.value };
+            invalid: (detail) => new RuleDefinitionInvalid({ detail }),
+          });
+          return {
+            packageRoot: ref.location,
+            treeIntegrity: yield* provide(computeMaterializedTreeIntegrity(ref.location)),
+          };
         }
-        const materialized = yield* provide(
-          materializeRegistryPackageWithTreeIntegrity({
-            baseDir,
-            destinationPath: canonicalPath,
-            sourceLocation: ref.source.location,
-            owner: ref.owner,
-            type: "rule",
-            name: ref.name,
-            version: ref.version,
-            integrity: ref.integrity,
-            publisherBindingId: ref.publisherBindingId,
-            lifecycleWarnings: extensionRefLifecycleWarnings(ref),
-            messages: {
-              integrityMismatchDetail: `Integrity mismatch for rule:${ref.name}@${ref.version}`,
-            },
-          }),
-        );
-        return {
-          packageRoot: materialized.canonicalPath,
-          treeIntegrity: materialized.treeIntegrity,
-        };
-      });
-
-    const materializeFromExternal = (ref: GitHostedRuleRef | LocalRuleRef) =>
-      Effect.gen(function* () {
-        const canonicalPath = computeExtensionPathsForLayout(
-          path.join,
-          currentLayout(),
+        return yield* acquireCanonicalForRef({
           ref,
-          RULE_EXTENSION_DIR,
-          ref.rule.name,
-        ).canonicalPath;
-        const sourceLocation = yield* acquiredDirectoryForRef(ref, ref.location);
-        const materialized = yield* provide(
-          materializeExternalPackageWithTreeIntegrity({
-            baseDir,
-            canonicalPath,
-            sourceLocation,
-            copyFailureCode: "validation",
-            copyFailureDetail: (target) => `Failed to copy rule package files to ${target}`,
-          }),
-        );
-        return {
-          packageRoot: materialized.canonicalPath,
-          treeIntegrity: materialized.treeIntegrity,
-        };
-      });
-
-    const materializePackage = (ref: RuleExtensionRef, force = false) =>
-      Effect.gen(function* () {
-        switch (ref.refType) {
-          case "registry":
-            return yield* materializeFromRegistry(ref, force);
-          case "git-hosted":
-          case "local":
-            return yield* materializeFromExternal(ref);
-          case "workspace": {
-            const expectedPath = computeExtensionPathsForLayout(
-              path.join,
-              currentLayout(),
-              ref,
-              RULE_EXTENSION_DIR,
-              ref.name,
-            ).canonicalPath;
-            if (
-              ref.scope !== location.scope ||
-              path.resolve(ref.location) !== path.resolve(expectedPath)
-            ) {
-              return yield* new RuleDefinitionInvalid({
-                detail: `Invalid workspace rule source location: ${ref.location}`,
-              });
-            }
-            return {
-              packageRoot: ref.location,
-              treeIntegrity: yield* provide(computeMaterializedTreeIntegrity(ref.location)),
-            };
-          }
-        }
+          type: "rule",
+          baseDir,
+          canonicalPath,
+          accepted: yield* lockfile.entry("rule", ref.rule.name),
+          force,
+          copyFailure: {
+            code: "validation",
+            detail: (target) => `Failed to copy rule package files to ${target}`,
+          },
+        });
       });
 
     const readManifest = (packageRoot: string) =>
@@ -305,21 +221,6 @@ export const RuleManagerLive = Layer.effect(
           relative: relative.value,
           absolute: path.resolve(baseDir, relative.value),
         };
-      });
-
-    const activeInstructions = () =>
-      Effect.gen(function* () {
-        const config = yield* settings.instructionsConfig;
-        if (Option.isNone(config) || config.value === false) {
-          return Option.none<{
-            readonly config: ResolvedInstructionsConfig;
-            readonly agents: ReadonlyArray<string>;
-          }>();
-        }
-        return Option.some({
-          config: resolveInstructionsConfig(config.value),
-          agents: yield* settings.configuredAgents,
-        });
       });
 
     const readRuleBody = (packageRoot: string) =>
@@ -410,10 +311,6 @@ export const RuleManagerLive = Layer.effect(
     const reconcileRulesRegion = (args: {
       readonly input: ProjectionRenderInput<RenderedRuleContributor>;
       readonly target: { readonly relative: string; readonly absolute: string };
-      readonly instructions: Option.Option<{
-        readonly config: ResolvedInstructionsConfig;
-        readonly agents: ReadonlyArray<string>;
-      }>;
       readonly dryRun?: boolean;
     }) =>
       Effect.gen(function* () {
@@ -431,21 +328,6 @@ export const RuleManagerLive = Layer.effect(
             JSON.stringify(contributor.manifest),
           ]),
         ]);
-        const instructions = args.instructions;
-        if (args.dryRun !== true && Option.isSome(instructions)) {
-          yield* provide(
-            Effect.gen(function* () {
-              const snapshot = yield* observeInstructionProjection({
-                workspaceRoot: baseDir,
-                scope: workspaceScope,
-                configuredAgents: instructions.value.agents,
-                config: instructions.value.config,
-              });
-              yield* assertInstructionTargetsSafe(snapshot.status);
-              yield* assertInstructionsGitignoreSafe(baseDir);
-            }),
-          );
-        }
         const reconciliation = yield* provide(
           reconcileManagedRegionFile({
             targetPath: target.absolute,
@@ -482,16 +364,14 @@ export const RuleManagerLive = Layer.effect(
           };
         }
 
-        const instructionItems = Option.isSome(instructions)
-          ? (yield* provide(
-              reconcileInstructionTargets({
-                workspaceRoot: baseDir,
-                scope: workspaceScope,
-                configuredAgents: instructions.value.agents,
-                config: instructions.value.config,
-              }),
-            )).snapshot.status.items
-          : [];
+        const instructionItems = yield* provide(
+          Effect.gen(function* () {
+            const config = yield* activeInstructionsConfig();
+            return Option.isSome(config)
+              ? (yield* observeInstructions({ config: config.value })).status.items
+              : [];
+          }),
+        );
 
         const materialization = ruleMaterializationObservation(target.relative, instructionItems);
         yield* Ref.set(lastProjection, materialization);
@@ -501,7 +381,6 @@ export const RuleManagerLive = Layer.effect(
     const makeRulesProjectionPlan = () =>
       Effect.gen(function* () {
         const target = yield* sourceFileTarget();
-        const instructions = yield* activeInstructions();
         const graph = yield* desiredState.graph();
         const locked = yield* lockfile.entries("rule");
         return yield* planAggregateProjection({
@@ -516,11 +395,10 @@ export const RuleManagerLive = Layer.effect(
             ),
           adapter: {
             observe: (input) =>
-              reconcileRulesRegion({ input, target, instructions, dryRun: true }).pipe(
+              reconcileRulesRegion({ input, target, dryRun: true }).pipe(
                 Effect.map(({ projectionUnitObservation }) => projectionUnitObservation),
               ),
-            apply: (input) =>
-              reconcileRulesRegion({ input, target, instructions }).pipe(Effect.asVoid),
+            apply: (input) => reconcileRulesRegion({ input, target }).pipe(Effect.asVoid),
           },
         });
       });
@@ -541,7 +419,7 @@ export const RuleManagerLive = Layer.effect(
           ? makeWorkspaceRelativeSourcePath(
               path,
               baseDir,
-              ref.sourcePath ?? stripFileProtocol(ref.location),
+              ref.sourcePath ?? fromFileLocation(ref.location),
             )
           : Option.none<string>();
       if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
@@ -594,40 +472,16 @@ export const RuleManagerLive = Layer.effect(
     return {
       projectionPlans,
       aggregateProjectionObservation: Ref.get(lastProjection),
-      isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>
-        isObservedInstalled(records, "rule", target.name).pipe(
-          Effect.withSpan("RuleManager.isInstalled"),
-        ),
-
+      ...makeBaseManagerMembers({
+        type: "rule",
+        spanPrefix: "RuleManager",
+        records,
+        settings,
+        refName: (ref) => ref.rule.name,
+        materializeInstall,
+      }),
       materializeInstall,
       acquireCanonical: materializeInstall,
-      materializeRetained: ({ target }) =>
-        Effect.gen(function* () {
-          const canonical = yield* usableAcceptedCanonical({
-            type: "rule",
-            name: target.name,
-          });
-          if (Option.isNone(canonical) || canonical.value.ref.type !== "rule") {
-            return yield* new LifecyclePostconditionViolated({
-              postcondition: "materialize-observable",
-              targetType: "rule",
-              targetName: target.name,
-            });
-          }
-          return yield* materializeInstall({ ref: canonical.value.ref });
-        }),
-      prepareSourceTransition: ({ ref }) =>
-        provide(
-          prepareAcceptedCanonicalTransition({
-            type: "rule",
-            name: ref.rule.name,
-            ref,
-          }),
-        ),
-      getConfiguredSource: Effect.fn("RuleManager.getConfiguredSource")(function* ({ target }) {
-        const configured = yield* settings.entries("rule");
-        return Option.fromUndefinedOr(configured[target.name]?.source);
-      }),
 
       /**
        * Every enabled entry's accepted canonical package, read from accepted
@@ -636,20 +490,17 @@ export const RuleManagerLive = Layer.effect(
        * source would put an unrelated configured entry's release age between
        * an operator and the extension they are authoring.
        */
-      listMaterializable: Effect.fn("RuleManager.listMaterializable")(function* () {
-        const configured = yield* settings.entries("rule");
-        const refs = yield* Effect.forEach(
-          enabledConfiguredEntries(configured),
-          ([name]) =>
-            provide(
-              usableAcceptedCanonicalRef({ type: "rule", name }).pipe(
-                Effect.map(Option.filter((ref): ref is RuleExtensionRef => ref.type === "rule")),
+      listMaterializable: () =>
+        listMaterializableFromAccepted({
+          type: "rule",
+          names: settings
+            .entries("rule")
+            .pipe(
+              Effect.map((configured) =>
+                enabledConfiguredEntries(configured).map(([name]) => name),
               ),
             ),
-          { concurrency: 16 },
-        );
-        return refs.flatMap((ref) => (Option.isSome(ref) ? [ref.value] : []));
-      }),
+        }),
 
       materializeUninstall,
       materializeDeactivate,

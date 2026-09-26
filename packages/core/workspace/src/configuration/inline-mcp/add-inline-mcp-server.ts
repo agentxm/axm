@@ -19,13 +19,11 @@ import {
   NativeWriteAuthority,
   syncInlineMcpServerToAgents,
   type McpServerSyncTarget,
-  type CodingAgentFailure,
 } from "../../projection/agent-adapters/index.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
   OperationJournal,
   ResolvePlanInteraction,
-  StepFailure,
   operationPresentation,
   prepareExecutionCandidate,
   resolveExecutionCandidate,
@@ -43,6 +41,7 @@ import {
   SettingsWriter,
   WorkspaceLocation,
   WorkspaceRecords,
+  settingsDisplayPath,
   type WorkspaceStateReadFailure,
 } from "../../desired-state/index.js";
 import {
@@ -55,6 +54,7 @@ import {
   workspaceChangeFailedToStepFailure,
   type WorkspaceConfigurationExecutionFailure,
 } from "../errors.js";
+import { workspaceFailureToStepFailure } from "../../reconciliation/failure-rendering.js";
 import type { InlineMcpDefinition } from "../mcp-import/preflight.js";
 import {
   makeInlineMcpDefinition,
@@ -66,59 +66,6 @@ import {
 
 const plural = (count: number, singular: string): string =>
   `${String(count)} ${singular}${count === 1 ? "" : "s"}`;
-
-const settingsDisplayPath = (scope: WorkspaceScope): string =>
-  scope === "project" ? "axm.json" : ".axm/workspace/axm.json";
-
-/**
- * Serialize a native-format failure. Every member of the family names the
- * fact that stopped it, so the sentence carries over rather than being
- * replaced by a generic one the person cannot act on.
- */
-const nativeFailureToStepFailure = (failure: CodingAgentFailure): StepFailure => {
-  switch (failure._tag) {
-    case "ConfigError":
-      return new StepFailure({
-        category: "internal",
-        detail: "Agent configuration could not be read",
-        cause: failure,
-      });
-    case "McpEntryUnmanaged":
-      return new StepFailure({
-        category: "conflict",
-        detail: `MCP server ${failure.serverName} in ${failure.configPath} is not AXM-managed`,
-        cause: failure,
-      });
-    case "McpOwnershipMarkerInvalid":
-      return new StepFailure({
-        category: "conflict",
-        detail: `MCP server ${failure.serverName} carries ${failure.state} AXM ownership markers`,
-        cause: failure,
-      });
-    case "McpSharedTargetConflict":
-      return new StepFailure({ category: "conflict", detail: failure.reason, cause: failure });
-    case "NativeWriteRefused":
-      return new StepFailure({
-        category: "conflict",
-        detail: `Native MCP configuration at ${failure.path} could not be protected`,
-        cause: failure,
-      });
-    case "TransientBackupFailed":
-      return new StepFailure({
-        category: "internal",
-        detail: "A native MCP configuration backup could not be taken",
-        cause: failure,
-      });
-    case "WriteBackupRetained":
-      return new StepFailure({
-        category: "internal",
-        detail: `${nativeFailureToStepFailure(failure.failure).detail}; the original content is preserved at ${failure.backupPath}`,
-        cause: failure,
-      });
-    default:
-      return new StepFailure({ category: "conflict", detail: failure.detail, cause: failure });
-  }
-};
 
 export interface AddInlineMcpServerRequest {
   readonly name: string;
@@ -283,7 +230,7 @@ const projectStep = (
       serverName: candidate.name,
       entry,
       scope: location.scope,
-    }).pipe(Effect.mapError(nativeFailureToStepFailure));
+    }).pipe(Effect.mapError(workspaceFailureToStepFailure));
     const warningDetails = outcomes.flatMap((outcome, index) => {
       const agentId = agentIds[index] ?? "unknown";
       return outcome._tag === "success"

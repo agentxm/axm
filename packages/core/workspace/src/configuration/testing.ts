@@ -12,38 +12,26 @@ import { WorkspaceTransactionScopesLive } from "../transitions/settlement/live.j
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as fs from "node:fs";
-import * as os from "node:os";
-import * as nodePath from "node:path";
-
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "../transitions/settlement/live.js";
-import * as Option from "effect/Option";
-import * as HttpClient from "effect/unstable/http/HttpClient";
-import { RegistryClientFactoryTest } from "@agentxm/registry-client/testing";
 
 import { AgentExecutableResolver } from "../projection/agent-adapters/index.js";
-import { SourceHostProviders } from "../resolution/sources/index.js";
-import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { RuleManagerLive } from "../materialization/live.js";
 import {
-  PlanInvocationTest,
   ResolvePlanInteractionTest,
   type ResolvePlanInteractionTestState,
 } from "../transitions/planning/testing.js";
 import { ProjectionParticipants, emptyProjectionParticipants } from "../projection/index.js";
-import {
-  CodingAgentRepositoryLive,
-  NativeWriteAuthorityLive,
-  WorkspaceCatalogLive,
-  WorkspaceInvariantFactsLive,
-} from "../projection/live.js";
-import { layer as WorkspaceLayerLive } from "../desired-state/live.js";
-import { withTestRegistryDefault } from "../desired-state/testing.js";
+import { CodingAgentRepositoryLive, WorkspaceInvariantFactsLive } from "../projection/live.js";
 
+import {
+  makeWorkspaceDirectories,
+  makeWorkspaceWorld,
+  refusingSourceProviders,
+} from "../testing/workspace-world.js";
 import {
   WorkspaceInitializationInteractionTest,
   type WorkspaceInitializationInteractionTestState,
@@ -75,126 +63,35 @@ export interface ConfigurationFixtureOptions {
  * leave the user scope alone.
  */
 export const makeConfigurationFixture = (options: ConfigurationFixtureOptions = {}) => {
-  const scope = options.scope ?? "project";
-  const root = fs.realpathSync(fs.mkdtempSync(nodePath.join(os.tmpdir(), "axm-configuration-")));
-  const home = fs.realpathSync(
-    fs.mkdtempSync(nodePath.join(os.tmpdir(), "axm-configuration-home-")),
-  );
-  const workspaceRoot = scope === "user" ? nodePath.join(home, ".axm", "workspace") : root;
-  fs.mkdirSync(nodePath.join(root, ".axm"), { recursive: true });
-  fs.mkdirSync(nodePath.join(home, ".axm", "workspace"), { recursive: true });
-
-  const writeUnder = (base: string) => (relativePath: string, contents: string) => {
-    const file = nodePath.join(base, relativePath);
-    fs.mkdirSync(nodePath.dirname(file), { recursive: true });
-    fs.writeFileSync(file, contents);
-  };
-  const writeFile = writeUnder(root);
-  const writeHomeFile = writeUnder(home);
-  const readFile = (relativePath: string): string =>
-    fs.readFileSync(nodePath.join(root, relativePath), "utf8");
-  const exists = (relativePath: string): boolean =>
-    fs.existsSync(nodePath.join(root, relativePath));
-
-  /** Every file, symlink, and directory under a root, so purity can be proven. */
-  const snapshotUnder = (base: string): ReadonlyArray<readonly [string, string]> => {
-    const entries: Array<readonly [string, string]> = [];
-    const walk = (directory: string) => {
-      for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-        const absolute = nodePath.join(directory, entry.name);
-        const relative = nodePath.relative(base, absolute);
-        if (entry.isSymbolicLink()) {
-          entries.push([relative, `symlink:${fs.readlinkSync(absolute)}`]);
-          continue;
-        }
-        if (entry.isDirectory()) {
-          entries.push([relative, "directory"]);
-          walk(absolute);
-          continue;
-        }
-        entries.push([relative, fs.readFileSync(absolute, "utf8")]);
-      }
-    };
-    walk(base);
-    return entries.sort((left, right) => left[0].localeCompare(right[0]));
-  };
-
-  if (options.settings !== undefined) {
-    fs.writeFileSync(
-      nodePath.join(workspaceRoot, "axm.json"),
-      JSON.stringify({ agents: [], ...withTestRegistryDefault(options.settings) }, null, 2),
-    );
-    // JSON is valid YAML, so the lockfile fixture needs no emitter.
-    fs.writeFileSync(
-      nodePath.join(workspaceRoot, "axm-lock.yaml"),
-      JSON.stringify({ lockfileVersion: 8, skills: {}, ...options.lockfile }),
-    );
-  }
-  for (const [relativePath, contents] of Object.entries(options.files ?? {})) {
-    writeFile(relativePath, contents);
-  }
-  for (const [relativePath, contents] of Object.entries(options.homeFiles ?? {})) {
-    writeHomeFile(relativePath, contents);
-  }
-
   const interaction = ResolvePlanInteractionTest();
-  const environment = ConfigProvider.layer(
-    ConfigProvider.fromEnv({ env: { AXM_USER_HOME: home } }),
-  );
-  // Configuration flows never fetch a source; a fixture that could would be
-  // describing a different use case.
-  const sourceProviders = Layer.succeed(SourceHostProviders, {
-    find: () => Effect.succeed([]),
-    resolveNamedRegistry: () => Effect.die("no named registry in this fixture"),
-    fetch: () => Effect.die("no source fetch in this fixture"),
-    acquireForTransition: () => Effect.die("no source acquisition in this fixture"),
-    cloneUrl: () => Option.none(),
-    origin: () => "fixture",
-  });
-  // No configuration flow reaches a network; a fixture that could would be
-  // describing a different use case.
-  const transport = Layer.succeed(
-    HttpClient.HttpClient,
-    HttpClient.make(() => Effect.die("no HTTP request in this fixture")),
-  );
-  // Configuration flows plan their own rule projection through the rule
-  // manager; the aggregate participant registry is a reconciliation concern
-  // these fixtures do not exercise, so it is present but empty.
+  // Configuration owns a Rule manager but has no aggregate participant registry.
   const participants = Layer.succeed(ProjectionParticipants, emptyProjectionParticipants);
-  const installedExecutables = new Set(options.installedExecutables ?? []);
-  const executables = Layer.succeed(AgentExecutableResolver, {
-    exists: (name: string) => Effect.succeed(installedExecutables.has(name)),
+  const world = makeWorkspaceWorld({
+    prefix: "axm-configuration-",
+    scope: options.scope,
+    settings: options.settings,
+    lockfile: options.lockfile,
+    files: options.files,
+    homeFiles: options.homeFiles,
+    installedExecutables: options.installedExecutables,
+    ports: Layer.mergeAll(interaction.layer, participants, refusingSourceProviders),
   });
-  // One environment, built outward: the workspace state and the ports over
-  // it, then the projection services that read them, then the rule manager
-  // that reads both. `provideMerge` keeps every layer's output in the result,
-  // so a service a manager keeps in `R` is still there when it is reached.
-  const base = Layer.provideMerge(
-    Layer.mergeAll(
-      WorkspaceLayerLive({
-        scope,
-        projectRoot: decodeAbsolutePathSync(root),
-        allowUninitialized: options.settings === undefined,
-      }),
-      CodingAgentRepositoryLive,
-      NativeWriteAuthorityLive,
-      participants,
-      sourceProviders,
-      transport,
-      RegistryClientFactoryTest(transport),
-      interaction.layer,
-      executables,
-      PlanInvocationTest,
-    ),
-    environment,
-  );
-  const withProjection = Layer.provideMerge(
-    Layer.mergeAll(WorkspaceInvariantFactsLive, WorkspaceCatalogLive),
-    base,
-  );
-  const services = Layer.provideMerge(RuleManagerLive, withProjection).pipe(
-    Layer.provideMerge(WorkspaceFileWriteLocksLive),
-  );
+  const services = Layer.provideMerge(
+    RuleManagerLive,
+    Layer.provideMerge(WorkspaceInvariantFactsLive, world.projection),
+  ).pipe(Layer.provideMerge(WorkspaceFileWriteLocksLive));
+  const {
+    root,
+    home,
+    workspaceRoot,
+    writeFile,
+    writeHomeFile,
+    readFile,
+    exists,
+    snapshot,
+    homeSnapshot,
+    cleanup,
+  } = world;
 
   return {
     root,
@@ -205,16 +102,13 @@ export const makeConfigurationFixture = (options: ConfigurationFixtureOptions = 
     readFile,
     exists,
     /** Every file under the project root. */
-    snapshot: () => snapshotUnder(root),
+    snapshot,
     /** Every file under the pinned user home. */
-    homeSnapshot: () => snapshotUnder(home),
+    homeSnapshot,
     /** What the plan interaction port was asked to present and confirm. */
     interactionState: (): ResolvePlanInteractionTestState => interaction.state,
     provide: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect.pipe(Effect.provide(services)),
-    cleanup: () => {
-      fs.rmSync(root, { recursive: true, force: true });
-      fs.rmSync(home, { recursive: true, force: true });
-    },
+    cleanup,
   };
 };
 
@@ -243,44 +137,23 @@ export interface SetupFixtureOptions {
  * every claim about what setup asked.
  */
 export const makeSetupFixture = (options: SetupFixtureOptions = {}) => {
-  const root = fs.realpathSync(fs.mkdtempSync(nodePath.join(os.tmpdir(), "axm-setup-")));
-  const home = fs.realpathSync(fs.mkdtempSync(nodePath.join(os.tmpdir(), "axm-setup-home-")));
-
-  const writeUnder = (base: string) => (relativePath: string, contents: string) => {
-    const file = nodePath.join(base, relativePath);
-    fs.mkdirSync(nodePath.dirname(file), { recursive: true });
-    fs.writeFileSync(file, contents);
-  };
-  const writeFile = writeUnder(root);
-  const writeHomeFile = writeUnder(home);
-  for (const [relativePath, contents] of Object.entries(options.files ?? {})) {
-    writeFile(relativePath, contents);
-  }
-  for (const [relativePath, contents] of Object.entries(options.homeFiles ?? {})) {
-    writeHomeFile(relativePath, contents);
-  }
-
-  const snapshotUnder = (base: string): ReadonlyArray<readonly [string, string]> => {
-    const entries: Array<readonly [string, string]> = [];
-    const walk = (directory: string) => {
-      for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-        const absolute = nodePath.join(directory, entry.name);
-        const relative = nodePath.relative(base, absolute);
-        if (entry.isSymbolicLink()) {
-          entries.push([relative, `symlink:${fs.readlinkSync(absolute)}`]);
-          continue;
-        }
-        if (entry.isDirectory()) {
-          entries.push([relative, "directory"]);
-          walk(absolute);
-          continue;
-        }
-        entries.push([relative, fs.readFileSync(absolute, "utf8")]);
-      }
-    };
-    walk(base);
-    return entries.sort((left, right) => left[0].localeCompare(right[0]));
-  };
+  const directories = makeWorkspaceDirectories({
+    prefix: "axm-setup-",
+    bare: true,
+    files: options.files,
+    homeFiles: options.homeFiles,
+  });
+  const {
+    root,
+    home,
+    writeFile,
+    writeHomeFile,
+    readFile,
+    exists,
+    snapshot,
+    homeSnapshot,
+    cleanup,
+  } = directories;
 
   const interaction = WorkspaceInitializationInteractionTest({
     ...(options.selectAgents === undefined
@@ -310,20 +183,16 @@ export const makeSetupFixture = (options: SetupFixtureOptions = {}) => {
     home,
     writeFile,
     writeHomeFile,
-    readFile: (relativePath: string): string =>
-      fs.readFileSync(nodePath.join(root, relativePath), "utf8"),
-    exists: (relativePath: string): boolean => fs.existsSync(nodePath.join(root, relativePath)),
+    readFile,
+    exists,
     /** Every file under the bare project directory. */
-    snapshot: () => snapshotUnder(root),
+    snapshot,
     /** Every file under the pinned user home. */
-    homeSnapshot: () => snapshotUnder(home),
+    homeSnapshot,
     /** What the initialization interaction port was asked. */
     promptState: () => interaction.state,
     provide: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect.pipe(Effect.provide(services)),
-    cleanup: () => {
-      fs.rmSync(root, { recursive: true, force: true });
-      fs.rmSync(home, { recursive: true, force: true });
-    },
+    cleanup,
   };
 };
 

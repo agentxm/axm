@@ -6,22 +6,35 @@
 
 import {
   CONFIGURABLE_AGENTS_BY_ID,
+  isConfigurableAgentId,
   type Agent,
-  type ConfigurableAgentId,
   type McpConfig,
+  type McpTransport,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { SharedMcpTargetMember } from "./shared-target.js";
 
-const isConfigurableAgentId = (agentId: string): agentId is ConfigurableAgentId =>
-  Object.hasOwn(CONFIGURABLE_AGENTS_BY_ID, agentId);
+export { isConfigurableAgentId };
 
 type AgentMcpCapability = Agent["capabilities"]["mcp-server"];
-type ConfiguredMcpCapability = AgentMcpCapability & {
+export type ConfiguredMcpCapability = AgentMcpCapability & {
+  readonly native: Extract<
+    AgentMcpCapability["native"],
+    { readonly transports: ReadonlyArray<McpTransport> }
+  >;
   readonly axm: { readonly writer: { readonly config: McpConfig } };
 };
 
-const hasMcpConfig = (capability: AgentMcpCapability): capability is ConfiguredMcpCapability =>
-  capability.axm.writer !== null;
+export const isConfiguredMcpCapability = (
+  capability: AgentMcpCapability,
+): capability is ConfiguredMcpCapability =>
+  capability.axm.writer !== null && "transports" in capability.native;
+
+/** The native MCP capability for an agent whose configuration AXM can write. */
+export const configuredMcpCapability = (agentId: string): ConfiguredMcpCapability | undefined => {
+  if (!isConfigurableAgentId(agentId)) return undefined;
+  const capability = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"];
+  return isConfiguredMcpCapability(capability) ? capability : undefined;
+};
 
 export interface McpTargetGroup {
   readonly key: string;
@@ -40,7 +53,7 @@ export const groupConfiguredMcpTargets = (args: {
   for (const agentId of args.agentIds) {
     if (!isConfigurableAgentId(agentId)) continue;
     const capability = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"];
-    if (!hasMcpConfig(capability)) continue;
+    if (!isConfiguredMcpCapability(capability)) continue;
     for (const target of capability.axm.writer.config.targets) {
       if (target.scope !== args.scope) continue;
       const key = `${target.scope}:${target.path}`;

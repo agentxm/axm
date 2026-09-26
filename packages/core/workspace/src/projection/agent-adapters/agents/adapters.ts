@@ -18,8 +18,7 @@ import {
   type ConfigurableAgentId as CatalogAgentId,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { type CodingAgent } from "./coding-agent.js";
-import { envOption } from "../environment.js";
-import { getHome } from "../constants.js";
+import { envOption, osHomeDirectory } from "@agentxm/host-primitives";
 import {
   addRooSubagent,
   addSubagentViaResolve,
@@ -28,9 +27,11 @@ import {
   removeSubagentViaResolve,
 } from "../subagents/sync.js";
 import { userScopeRefusal } from "../scope-refusal.js";
-import { addMcpServerFromManifest, removeMcpServerFromManifest } from "../mcps/sync.js";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
-import type { AgentDescriptor, AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
+import type {
+  AgentDescriptor,
+  MaterializationTargetId,
+} from "@agentxm/extension-model/unstable/agents/types";
 
 const catalogAgentIds = new Set<string>(CATALOG_AGENT_IDS);
 
@@ -43,7 +44,9 @@ interface AgentRuntimeOverride {
 }
 
 /** Runtime deviations from the catalog descriptor, keyed by agent id. */
-export const AGENT_RUNTIME_OVERRIDES: Readonly<Partial<Record<AgentId, AgentRuntimeOverride>>> = {
+export const AGENT_RUNTIME_OVERRIDES: Readonly<
+  Partial<Record<MaterializationTargetId, AgentRuntimeOverride>>
+> = {
   "claude-code": { skillsDirectoryEnvironment: "AXM_CLAUDE_SKILLS_DIR" },
   "gemini-cli": { skillsDirectoryEnvironment: "AXM_GEMINI_CLI_SKILLS_DIR" },
   "kiro-cli": { subagentRenderAgentId: "kiro" },
@@ -93,20 +96,6 @@ export const codingAgentFromDescriptor = (descriptor: AgentDescriptor): CodingAg
           dir: path.resolve(workspaceRoot, descriptor.skills.dir),
         } as const;
       }),
-    addMcpServer: descriptorSupports(descriptor, "mcp-server")
-      ? (args) => addMcpServerFromManifest(descriptor.id, args)
-      : () =>
-          Effect.succeed({
-            _tag: "unsupported",
-            reason: `MCP add is not supported for ${descriptor.id}`,
-          } as const),
-    removeMcpServer: descriptorSupports(descriptor, "mcp-server")
-      ? (args) => removeMcpServerFromManifest(descriptor.id, args)
-      : () =>
-          Effect.succeed({
-            _tag: "unsupported",
-            reason: `MCP remove is not supported for ${descriptor.id}`,
-          } as const),
     resolveEffectiveSubagentsDir: ({ workspaceRoot, scope }) =>
       Effect.gen(function* () {
         if (descriptor.subagents === undefined || !descriptorSupports(descriptor, "subagent")) {
@@ -127,7 +116,7 @@ export const codingAgentFromDescriptor = (descriptor: AgentDescriptor): CodingAg
         }
         const path = yield* Path.Path;
         if (scope === "user") {
-          const home = yield* getHome;
+          const home = yield* osHomeDirectory;
           return {
             _tag: "supported",
             dir: path.join(home, descriptor.subagents.dir),
@@ -174,4 +163,5 @@ export const codingAgentFromDescriptor = (descriptor: AgentDescriptor): CodingAg
 };
 
 /** @experimental This API is unstable and may change without notice. */
-export const codingAgentForId = (id: AgentId): CodingAgent => codingAgentFromDescriptor(AGENTS[id]);
+export const codingAgentForId = (id: MaterializationTargetId): CodingAgent =>
+  codingAgentFromDescriptor(AGENT_DESCRIPTORS[id]);

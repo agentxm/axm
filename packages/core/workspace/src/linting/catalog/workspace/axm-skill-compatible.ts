@@ -5,7 +5,7 @@ import * as Result from "effect/Result";
 
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryRule } from "@agentxm/extension-content/lint";
-import { canonicalDisplayRoot } from "./display-paths.js";
+import { acquiredRootDisplayPath } from "../../../desired-state/index.js";
 import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
 import { formatAxmSkillCompatibilityTarget } from "@agentxm/cli-maintenance/official-skill/adapters/cli";
 
@@ -31,7 +31,7 @@ export const axmSkillCompatibleRule: AdvisoryRule<WorkspaceRuleContext> = {
               file:
                 context.subject.scope === "project"
                   ? "skills/axm"
-                  : `${canonicalDisplayRoot(context.subject.scope)}/@agentxm/skills/axm`,
+                  : `${acquiredRootDisplayPath(context.subject.scope)}/@agentxm/skills/axm`,
             },
           },
         ];
@@ -51,7 +51,7 @@ export const axmSkillCompatibleRule: AdvisoryRule<WorkspaceRuleContext> = {
             file:
               context.subject.scope === "project"
                 ? "skills/axm"
-                : `${canonicalDisplayRoot(context.subject.scope)}/@agentxm/skills/axm`,
+                : `${acquiredRootDisplayPath(context.subject.scope)}/@agentxm/skills/axm`,
           },
         },
       ];

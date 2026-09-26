@@ -13,10 +13,10 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { PackageURL } from "packageurl-js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAgentExtensions, decodePurl, readFileOptional } from "./reader-io.js";
+import { decodeAgentExtensions, readFileOptional } from "./reader-io.js";
 import { parseTomlDocument, tomlStringEntries, tomlTable, type TomlTable } from "./toml.js";
+import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const juliaType = Schema.decodeUnknownSync(PackageTypeSchema)("julia");
@@ -36,9 +36,8 @@ const parseDepsSection = (document: TomlTable, source: string): ReadonlyArray<De
     if (!UUID_PATTERN.test(value)) continue;
 
     // Julia deps are always versionless (identified by UUID)
-    const purl = new PackageURL("julia", null, name, null, null, null);
-    const purlParts = decodePurl(purl.toString());
-    results.push({ purl: purlParts, type: juliaType, source });
+    const detected = makeDetectedPackage({ type: juliaType, name, source });
+    if (Option.isSome(detected)) results.push(detected.value);
   }
 
   return results;

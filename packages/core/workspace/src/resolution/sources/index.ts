@@ -101,7 +101,6 @@ export {
 } from "./package-sources.js";
 
 // Locator utilities
-export { fileUrlToPath } from "./file-url.js";
 
 // Git acquisition
 export { findGitRoot, isGitManaged } from "./git/detect.js";

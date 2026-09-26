@@ -25,11 +25,12 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
-import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
+import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import type { AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { ExtensionTypeSchema } from "@agentxm/extension-model/unstable/extensions";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
+import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 import { isGitManaged } from "../../resolution/sources/index.js";
 import {
   CodingAgentRepository,
@@ -37,9 +38,10 @@ import {
   type CodingAgentRepositoryService,
 } from "../../projection/index.js";
 import {
-  AXM_DIR_NAME,
   ArtifactChangeSchema,
+  BUNDLED_SKILL_OWNER,
   LOCK_FILENAME,
+  acquiredDisplayPath,
   resolveUserWorkspaceRoot,
   scanAllSubagentFiles,
   setupScopeSupport,
@@ -48,6 +50,7 @@ import {
   type Settings,
   type WorkspaceStateOptions,
 } from "../../desired-state/index.js";
+import { AXM_DIR_NAME } from "@agentxm/host-primitives";
 import {
   runWorkspaceTransaction,
   WorkspaceTransactionScope,
@@ -272,8 +275,8 @@ export const prepareSetupWorkspace = (
         : path.join(request.projectRoot, AXM_DIR_NAME);
     const settingsPath =
       request.scope === "user"
-        ? path.join(userWorkspaceRoot, "axm.json")
-        : path.join(request.projectRoot, "axm.json");
+        ? path.join(userWorkspaceRoot, SETTINGS_FILENAME)
+        : path.join(request.projectRoot, SETTINGS_FILENAME);
     const settingsExist = yield* fileSystem.exists(settingsPath).pipe(
       Effect.mapError(
         (cause) =>
@@ -320,7 +323,7 @@ export const prepareSetupWorkspace = (
           scope: request.scope,
           agents: [],
           scopeSupport: setupScopeSupport([], request.scope),
-          settingsPath: request.scope === "user" ? settingsPath : "axm.json",
+          settingsPath: request.scope === "user" ? settingsPath : SETTINGS_FILENAME,
           telemetryEnabled: false,
         },
       } satisfies SetupApprovalRequired;
@@ -421,7 +424,8 @@ export const previewOrApplySetupWorkspace = <
 // report
 // -----------------------------------------------------------------------------
 
-const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
+const isKnownAgentId = (id: string): id is MaterializationTargetId =>
+  Object.hasOwn(AGENT_DESCRIPTORS, id);
 
 const stepStatus = (status: SetupStatus, hasChange: boolean): SetupPlanStep["status"] =>
   status === "preview" ? "ready" : hasChange ? "applied" : "unchanged";
@@ -454,9 +458,7 @@ export const previewAgentDefault = (
 };
 
 const bundledSkillDisplayPath = (scope: WorkspaceScope): string =>
-  scope === "project"
-    ? "agent_extensions/registry/@agentxm/skills/axm"
-    : ".axm/workspace/agent_extensions/registry/@agentxm/skills/axm";
+  acquiredDisplayPath(scope, `registry/${BUNDLED_SKILL_OWNER}/skills/axm`);
 
 /** Every failure describing the settled setup can surface. */
 export type SetupReportFailure =
@@ -506,11 +508,13 @@ export const reportSetupWorkspace = (
     const scopeSupport = setupScopeSupport(scopeAgentIds, scope);
     const agents = [
       ...agentIds.flatMap((id) =>
-        isKnownAgentId(id) ? [{ id: AGENTS[id].id, name: AGENTS[id].name }] : [],
+        isKnownAgentId(id)
+          ? [{ id: AGENT_DESCRIPTORS[id].id, name: AGENT_DESCRIPTORS[id].name }]
+          : [],
       ),
       ...agentIds.filter((id) => !isKnownAgentId(id)).map((id) => ({ id, name: id })),
     ];
-    const settingsPath = scope === "user" ? location.settingsPath : "axm.json";
+    const settingsPath = scope === "user" ? location.settingsPath : SETTINGS_FILENAME;
     const instructionsValue = settings.instructionFiles;
     const instructions =
       instructionsValue === undefined
@@ -575,7 +579,7 @@ export const reportSetupWorkspace = (
             ...agentIds.flatMap((agentId) => {
               if (!isKnownAgentId(agentId)) return [];
               const resolution = resolveInstructionTarget({
-                instructions: AGENTS[agentId].instructions,
+                instructions: AGENT_DESCRIPTORS[agentId].instructions,
                 sourceFileName: instructions.fileName ?? "AGENTS.md",
                 symlinkSupported: true,
               });

@@ -13,15 +13,14 @@ import { workspaceWithAuthoredExtension } from "../activation/test-helpers.js";
 import { applyInstall, installRequest } from "../install/test-helpers.js";
 import {
   makeLifecycleFixture,
-  makeLifecycleRegistry,
   writeLocalHookPackage,
   writeLocalKnowledgePackage,
   writeLocalRulePackage,
   writeLocalSkillPackage,
   writeLocalSubagentPackage,
   type LifecycleFixture,
-  type LifecycleRegistry,
 } from "../testing.js";
+import { makeFileRegistry, type FileRegistry } from "@agentxm/registry-client/testing";
 import { applyUninstall, uninstallRequest } from "./test-helpers.js";
 
 export const specification = defineSpecification({
@@ -83,8 +82,8 @@ describe("Uninstall preserves unowned state", () => {
     for (const cleanup of cleanups.splice(0)) cleanup();
   });
 
-  const world = (): { workspace: LifecycleFixture; registry: LifecycleRegistry } => {
-    const registry = makeLifecycleRegistry();
+  const world = (): { workspace: LifecycleFixture; registry: FileRegistry } => {
+    const registry = makeFileRegistry();
     cleanups.push(registry.cleanup);
     const workspace = makeLifecycleFixture({
       sources: "live",

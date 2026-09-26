@@ -3,35 +3,20 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
-import * as Schema from "effect/Schema";
 import * as semver from "semver";
 import { computeMaterializedTreeIntegrity } from "./materialized-tree.js";
 import {
   toExtensionTypePlural,
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
-import { HookManifestSchema } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
-import { KnowledgeManifestSchema } from "@agentxm/extension-model/unstable/knowledge";
-import { McpServerManifestSchema } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
-import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
-import { RuleManifestSchema } from "@agentxm/extension-model/unstable/rules/manifest-schema";
-import { parseSkillMd } from "@agentxm/extension-content";
-import { SkillManifestSchema } from "@agentxm/extension-model/unstable/skills/manifest-schema";
-import { SubagentManifestSchema } from "@agentxm/extension-model/unstable/subagents/manifest-schema";
-import type {
-  HookLockEntry,
-  KnowledgeLockEntry,
-  McpServerLockEntry,
-  PackLockEntry,
-  RuleLockEntry,
-  SkillLockEntry,
-  SubagentLockEntry,
-} from "../lockfile/index.js";
+import { parseSkillMd, readExtensionManifest } from "@agentxm/extension-content";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import {
+  isRegistryLockEntry,
   lockEntryMatchesSourceLocator,
   lockEntryToSourceParams,
-} from "./lock-entry-to-source-params.js";
+  type LockEntry,
+} from "./lock-entry.js";
 import type { DesiredConstraintContributor, DesiredExtensionNode } from "./desired-state-graph.js";
 import type { WorkspaceLayout } from "./layout.js";
 import {
@@ -85,43 +70,14 @@ export type CanonicalObservation =
 interface ObserveCanonicalArgs {
   readonly layout: WorkspaceLayout;
   readonly desired: DesiredExtensionNode;
-  readonly accepted: AcceptedExtensionResolution | undefined;
+  readonly accepted: LockEntry | undefined;
 }
-
-export type AcceptedExtensionResolution =
-  | SkillLockEntry
-  | McpServerLockEntry
-  | SubagentLockEntry
-  | RuleLockEntry
-  | HookLockEntry
-  | KnowledgeLockEntry
-  | PackLockEntry;
-
-const isRegistryResolution = (
-  entry: AcceptedExtensionResolution,
-): entry is Extract<
-  AcceptedExtensionResolution,
-  { readonly source: { readonly type: "registry" } }
-> => entry.source.type === "registry";
-
-const MANIFEST_CONTRACTS = {
-  skill: { filename: "skill.json", schema: SkillManifestSchema },
-  "mcp-server": { filename: "mcp.json", schema: McpServerManifestSchema },
-  subagent: { filename: "subagent.json", schema: SubagentManifestSchema },
-  rule: { filename: "rule.json", schema: RuleManifestSchema },
-  hook: { filename: "hook.json", schema: HookManifestSchema },
-  knowledge: { filename: "knowledge.json", schema: KnowledgeManifestSchema },
-  pack: { filename: "pack.json", schema: PackManifestSchema },
-} as const satisfies Record<
-  ExtensionType,
-  { readonly filename: string; readonly schema: Schema.Top }
->;
 
 export const canonicalPathForAcceptedExtension = (
   path: Path.Path,
   layout: WorkspaceLayout,
   desired: DesiredExtensionNode,
-  accepted: AcceptedExtensionResolution | undefined,
+  accepted: LockEntry | undefined,
 ): string | undefined => {
   if (desired.source === undefined) return undefined;
   if (desired.identity.authority === "bundled") {
@@ -164,14 +120,6 @@ const hasRequiredPayload = (
     case "mcp-server":
     case "pack":
       return Effect.succeed(true);
-  }
-};
-
-const parseJson = (raw: string): unknown | undefined => {
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return undefined;
   }
 };
 
@@ -224,7 +172,7 @@ const constraintMismatchObservation = (args: {
 /** Whether the canonical tree at `root` is byte-for-byte the accepted one. */
 const observedTreeMatchesAccepted = (
   root: string,
-  accepted: Pick<AcceptedExtensionResolution, "treeIntegrity">,
+  accepted: Pick<LockEntry, "treeIntegrity">,
 ): Effect.Effect<boolean, never, FileSystem.FileSystem | Path.Path> =>
   Effect.map(
     Effect.result(computeMaterializedTreeIntegrity(root)),
@@ -259,7 +207,7 @@ export type RequestedCanonicalRef =
 export const observeAcceptedCanonicalReuse = (args: {
   readonly canonicalPath: string;
   readonly requested: RequestedCanonicalRef;
-  readonly accepted: Option.Option<AcceptedExtensionResolution>;
+  readonly accepted: Option.Option<LockEntry>;
   readonly force: boolean;
 }): Effect.Effect<Option.Option<TreeIntegrity>, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
@@ -270,7 +218,7 @@ export const observeAcceptedCanonicalReuse = (args: {
         return Option.none();
       }
     } else if (
-      isRegistryResolution(accepted) ||
+      isRegistryLockEntry(accepted) ||
       accepted.identity.name !== args.requested.name ||
       (args.requested.owner !== undefined && accepted.identity.owner !== args.requested.owner)
     ) {
@@ -283,12 +231,12 @@ export const observeAcceptedCanonicalReuse = (args: {
 
 const acceptedOriginMatches = (
   desired: DesiredExtensionNode & { readonly source: string },
-  accepted: AcceptedExtensionResolution,
+  accepted: LockEntry,
 ): boolean => {
   const acceptedIdentity =
     desired.type === "mcp-server"
       ? mcpResolutionKey(accepted)
-      : isRegistryResolution(accepted)
+      : isRegistryLockEntry(accepted)
         ? `${accepted.identity.owner}/${toExtensionTypePlural(desired.type)}/${accepted.identity.name}`
         : printSourceParams(lockEntryToSourceParams(accepted));
   return (
@@ -310,7 +258,7 @@ const acceptedOriginMatches = (
  */
 export const observeAcceptedResolution = (
   desired: DesiredExtensionNode,
-  accepted: AcceptedExtensionResolution | undefined,
+  accepted: LockEntry | undefined,
 ): Option.Option<CanonicalObservation> => {
   if (desired.source === undefined) {
     return Option.some({ type: desired.type, name: desired.name, status: "not-applicable" });
@@ -327,14 +275,14 @@ export const observeAcceptedResolution = (
     isConstrained(desired) &&
     !(
       accepted !== undefined &&
-      isRegistryResolution(accepted) &&
+      isRegistryLockEntry(accepted) &&
       satisfiesDesiredConstraint(desired, accepted.resolved.version)
     )
   ) {
     return Option.some(
       constraintMismatchObservation({
         desired,
-        ...(accepted !== undefined && isRegistryResolution(accepted)
+        ...(accepted !== undefined && isRegistryLockEntry(accepted)
           ? { acceptedVersion: accepted.resolved.version }
           : {}),
       }),
@@ -411,24 +359,16 @@ export const observeCanonicalExtension = ({
       };
     }
 
-    const contract = MANIFEST_CONTRACTS[desired.type];
-    const manifestPath = path.join(root, contract.filename);
-    const manifestExists = yield* fs.exists(manifestPath).pipe(Effect.orElseSucceed(() => false));
-    if (!manifestExists) {
-      return { type: desired.type, name: desired.name, status: "incomplete", path: root };
+    const read = yield* readExtensionManifest(root, desired.type).pipe(Effect.result);
+    if (Result.isFailure(read)) {
+      return {
+        type: desired.type,
+        name: desired.name,
+        status: read.failure.code === "manifest_missing" ? "incomplete" : "corrupt",
+        path: root,
+      };
     }
-    const raw = yield* fs.readFileString(manifestPath).pipe(Effect.result);
-    if (Result.isFailure(raw)) {
-      return { type: desired.type, name: desired.name, status: "corrupt", path: root };
-    }
-    const parsed = parseJson(raw.success);
-    if (parsed === undefined) {
-      return { type: desired.type, name: desired.name, status: "corrupt", path: root };
-    }
-    const decoded = Schema.decodeUnknownResult(contract.schema)(parsed);
-    if (Result.isFailure(decoded)) {
-      return { type: desired.type, name: desired.name, status: "corrupt", path: root };
-    }
+    const parsed = read.success.raw;
     const expectedOwner = bundled
       ? "@agentxm"
       : workspaceAuthored

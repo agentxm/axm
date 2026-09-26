@@ -3,7 +3,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeDirectoryFixture } from "./test-support/directory-harness.js";
 import { writeMalformedWorkspaceState } from "./test-support/malformed-workspace-fixture.js";
-import { snapshotWorkspaceContent } from "./test-support/workspace-fixtures.js";
+import { snapshotTree } from "@agentxm/test-support";
 
 export const specification = defineSpecification({
   requirement: "cli/version-output-identifies-running-release",
@@ -61,7 +61,7 @@ describe("CLI release identity", () => {
         try {
           if (state === "malformed populated")
             writeMalformedWorkspaceState(fixture.invoking, fixture.home);
-          const before = snapshotWorkspaceContent(fixture.root);
+          const before = snapshotTree(fixture.root);
           const result = await fixture.run(flags);
           expect(result.exitCode, result.stdout + result.stderr).toBe(0);
           expect(result.stderr).toBe("");
@@ -71,7 +71,7 @@ describe("CLI release identity", () => {
           } else {
             expect(result.stdout.trim()).toBe(expectedVersion);
           }
-          expect(snapshotWorkspaceContent(fixture.root)).toEqual(before);
+          expect(snapshotTree(fixture.root)).toEqual(before);
         } finally {
           fixture.cleanup();
         }

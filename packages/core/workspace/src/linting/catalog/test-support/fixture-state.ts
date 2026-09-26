@@ -1,5 +1,5 @@
-import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { FileSpec, FixtureSpec, ScopeFiles } from "../../../desired-state/index.js";
 import type { WorkspaceState } from "./interpret-ops.js";
 
@@ -46,10 +46,10 @@ const addTreeFile = (
 
 const addAgentSkillArtifact = (
   agentDirs: Record<string, Record<string, string | FileSpec>>,
-  agentId: AgentId,
+  agentId: MaterializationTargetId,
   relativePath: string,
 ): void => {
-  const agent = AGENTS[agentId];
+  const agent = AGENT_DESCRIPTORS[agentId];
   const skills = agent.skills;
   if (skills === undefined) return;
   const agentRoot = agentRootForSkillsDir(skills.dir);
@@ -67,7 +67,8 @@ const addAgentSkillArtifact = (
   addTreeFile(tree, materializedPath);
 };
 
-const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
+const isKnownAgentId = (id: string): id is MaterializationTargetId =>
+  Object.hasOwn(AGENT_DESCRIPTORS, id);
 
 const fileSpecFor = (raw: unknown): FileSpec | undefined => {
   if (raw === undefined) return undefined;
@@ -81,7 +82,7 @@ export const scopeFilesFromWorkspaceState = (state: WorkspaceState): ScopeFiles 
   const axmExtensions: Record<string, string | FileSpec> = {};
   const agentDirs: Record<string, Record<string, string | FileSpec>> = {};
   const agentSettings: Record<string, FileSpec> = {};
-  const agents = Object.values(AGENTS);
+  const agents = Object.values(AGENT_DESCRIPTORS);
 
   const addExistingPath = (relativePath: string): void => {
     const acquiredPrefix = "agent_extensions/";

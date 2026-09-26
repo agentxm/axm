@@ -11,7 +11,7 @@ import { makeSpecWorkspace, writeLocalSkillPackage } from "../test-support/insta
 import { TestRenderer } from "../test-support/presenter-test.js";
 import { writeAuthoredSkill } from "../test-support/publish-harness.js";
 import { humanScreenLayer, makeRecordingStreams } from "../test-support/screen-harness.js";
-import { snapshotWorkspaceContent } from "../test-support/workspace-fixtures.js";
+import { snapshotTree } from "@agentxm/test-support";
 import { ResolvePlanInteractionLive } from "./resolve-plan-interaction-live.js";
 import { Screen, OutputWriteFailed } from "../screen/index.js";
 
@@ -102,7 +102,7 @@ describe("ResolvePlanInteractionLive", () => {
           name: "review",
           body: "Replacement guidance.",
         });
-        const before = snapshotWorkspaceContent(workspace.root);
+        const before = snapshotTree(workspace.root);
 
         yield* handleDemote({
           fqn: "@acme/skills/review",
@@ -124,7 +124,7 @@ describe("ResolvePlanInteractionLive", () => {
         expect(output).toContain("axm demote --yes @acme/skills/review");
         expect(output).not.toContain("Interactive prompt required");
         expect(output).not.toContain("Apply changes?");
-        expect(snapshotWorkspaceContent(workspace.root)).toEqual(before);
+        expect(snapshotTree(workspace.root)).toEqual(before);
       }),
   );
 

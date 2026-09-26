@@ -19,7 +19,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { computeIntegrity } from "./integrity.js";
+import { computeIntegrity } from "@agentxm/host-primitives";
 import { makeArchiveCache } from "./archive-cache.js";
 import { resolveAxmCacheRootPure } from "./cache-root.js";
 import { MAX_BUFFERED_ARCHIVE_BYTES } from "./archive-limits.js";

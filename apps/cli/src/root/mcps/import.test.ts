@@ -16,15 +16,22 @@ import { handleMcpsImport } from "./import.js";
 describe("mcps import output", () => {
   let tempDir: string;
   let originalCwd: string;
+  let originalHome: string | undefined;
 
   beforeEach(() => {
     originalCwd = process.cwd();
+    originalHome = process.env["HOME"];
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "mcps-import-test-"));
     process.chdir(tempDir);
   });
 
   afterEach(() => {
     process.chdir(originalCwd);
+    if (originalHome === undefined) {
+      delete process.env["HOME"];
+    } else {
+      process.env["HOME"] = originalHome;
+    }
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
@@ -131,6 +138,65 @@ describe("mcps import output", () => {
         expect(settings.mcpServers.demo.env).toEqual({ DEMO_TOKEN: "${DEMO_TOKEN}" });
         expect(settings.mcpServers.demo).not.toHaveProperty("agents");
         expect(JSON.stringify(settings)).not.toContain("secret-value");
+      }),
+    );
+  });
+
+  it.effect("adopts a JSONC entry without discarding nearby comments", () => {
+    const { provide, rendererState } = makeLayers({ machine: true });
+    writeWorkspaceFiles(path.join(tempDir, ".axm"));
+    fs.writeFileSync(
+      path.join(tempDir, "axm.json"),
+      JSON.stringify({ agents: ["pochi"], mcpServers: {} }),
+    );
+    fs.mkdirSync(path.join(tempDir, ".pochi"), { recursive: true });
+    const configPath = path.join(tempDir, ".pochi", "config.jsonc");
+    fs.writeFileSync(
+      configPath,
+      '{\n  // Keep this user comment\n  "mcp": {\n    "demo": { "command": "node", "args": ["server.js"] }\n  }\n}\n',
+    );
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleMcpsImport({ preview: false });
+
+        expect(rendererState.results[0]?.data).toMatchObject({
+          result: { imports: { imported: 1, skipped: 0, conflicting: 0 } },
+        });
+        const updated = fs.readFileSync(configPath, "utf8");
+        expect(updated).toContain("// Keep this user comment");
+        expect(updated).toContain('"x-axm"');
+        expect(updated).toContain('"source": "inline"');
+      }),
+    );
+  });
+
+  it.effect("adopts a home-relative YAML target in user scope", () => {
+    const homeDir = path.join(tempDir, "home");
+    process.env["HOME"] = homeDir;
+    writeWorkspaceFiles(path.join(homeDir, ".axm"), { scope: "user", agents: ["hermes"] });
+    fs.mkdirSync(path.join(homeDir, ".hermes"), { recursive: true });
+    const configPath = path.join(homeDir, ".hermes", "config.yaml");
+    fs.writeFileSync(
+      configPath,
+      "# Keep this user comment\nmcp_servers:\n  demo:\n    command: node\n    args: [server.js]\n",
+    );
+    const { provide, rendererState } = makeLayers({
+      machine: true,
+      wsOptions: { scope: "user", projectRoot: tempDir },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleMcpsImport({ preview: false, scope: "user" });
+
+        expect(rendererState.results[0]?.data).toMatchObject({
+          result: { imports: { imported: 1, skipped: 0, conflicting: 0 } },
+        });
+        const updated = fs.readFileSync(configPath, "utf8");
+        expect(updated).toContain("# Keep this user comment");
+        expect(updated).toContain("x-axm:");
+        expect(fs.existsSync(path.join(tempDir, ".hermes", "config.yaml"))).toBe(false);
       }),
     );
   });

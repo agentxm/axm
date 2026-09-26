@@ -12,7 +12,6 @@
 
 import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
-import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 
 import {
@@ -22,7 +21,6 @@ import {
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { inspectDesiredMcpServer, type McpInspectionError } from "../../projection/index.js";
 import {
-  ConfiguredAgentOutcomesProvider,
   DesiredStateReader,
   LockfileReader,
   SettingsReader,
@@ -138,15 +136,12 @@ export const listSubagents = Effect.fn("Inspection.listSubagents")(function* (re
 });
 
 const sourcedRows = (
-  type: "rule" | "hook",
   inventory: ExtensionInventory,
   configured: Readonly<Record<string, { readonly source?: string | undefined } | undefined>>,
   locked: Readonly<Record<string, unknown>>,
-  outcomesFor: (row: ExtensionInventoryRow) => ReadonlyArray<ConfiguredAgentOutcome>,
 ): TypeListResult<SourcedListRow> => {
   const rows = inventory.items.map((row): SourcedListRow => ({
     ...baseRow(row),
-    agentOutcomes: outcomesFor(row),
     source: configured[row.name]?.source ?? row.origins.join(", "),
     locked: locked[row.name] !== undefined,
   }));
@@ -157,7 +152,6 @@ const sourcedRows = (
       return {
         source: derived?.source ?? row.origins.join(", "),
         locked: derived?.locked ?? false,
-        ...(type === "hook" ? { agentOutcomes: derived?.agentOutcomes ?? row.agentOutcomes } : {}),
       };
     }),
     rows,
@@ -170,29 +164,17 @@ export const listRules = Effect.fn("Inspection.listRules")(function* () {
   const inventory = yield* inventoryFor("rule", []);
   const configured = yield* settings.entries("rule");
   const locked = yield* lockfile.entries("rule");
-  return sourcedRows("rule", inventory, configured, locked, (row) => row.agentOutcomes);
+  return sourcedRows(inventory, configured, locked);
 });
 
-/**
- * Hooks: when a hook is not disabled, the effective per-agent outcomes a
- * refining provider observes replace the generic read-model derivation.
- */
+/** Hooks consume the resolved per-agent outcomes carried by inventory rows. */
 export const listHooks = Effect.fn("Inspection.listHooks")(function* () {
   const settings = yield* SettingsReader;
   const lockfile = yield* LockfileReader;
   const inventory = yield* inventoryFor("hook", []);
   const configured = yield* settings.entries("hook");
   const locked = yield* lockfile.entries("hook");
-  const provider = yield* Effect.serviceOption(ConfiguredAgentOutcomesProvider);
-  const refine = Option.flatMap(provider, (service) =>
-    Option.fromUndefinedOr(service.byExtensionType["hook"]),
-  );
-  const effective = Option.isSome(refine) ? yield* refine.value("current") : [];
-  return sourcedRows("hook", inventory, configured, locked, (row) =>
-    row.enabled === false
-      ? row.agentOutcomes
-      : effective.filter((outcome) => outcome.name === row.name),
-  );
+  return sourcedRows(inventory, configured, locked);
 });
 
 /**

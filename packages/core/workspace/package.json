@@ -186,11 +186,6 @@
       "axm-source": "./src/lifecycle/testing.ts",
       "default": "./dist/src/lifecycle/testing.js"
     },
-    "./lifecycle/live": {
-      "types": "./dist/src/lifecycle/live.d.ts",
-      "axm-source": "./src/lifecycle/live.ts",
-      "default": "./dist/src/lifecycle/live.js"
-    },
     "./discovery": {
       "types": "./dist/src/discovery/index.d.ts",
       "axm-source": "./src/discovery/index.ts",
@@ -261,6 +256,7 @@
     "@agentxm/cli-maintenance": "workspace:^",
     "@agentxm/extension-content": "workspace:^",
     "@agentxm/extension-model": "workspace:^",
+    "@agentxm/host-primitives": "workspace:^",
     "@agentxm/registry-protocol": "workspace:^",
     "effect": "catalog:",
     "jsonc-parser": "catalog:",
@@ -277,6 +273,7 @@
   },
   "devDependencies": {
     "@agentxm/specification-metadata": "workspace:^",
+    "@agentxm/test-support": "workspace:^",
     "@effect/platform-node": "catalog:",
     "@effect/vitest": "catalog:",
     "@fast-check/vitest": "catalog:",

@@ -26,7 +26,6 @@ import {
 import { inspectDesiredMcpServer } from "../../projection/index.js";
 import {
   configuredRowsByName,
-  ConfiguredAgentOutcomesProvider,
   DesiredStateReader,
   LockfileReader,
   lockEntryVersion,
@@ -139,6 +138,7 @@ export const ShowExtension = {
         lockfile.acceptedEntry(request.type, request.name),
         records.getExtensionInventory(request.type, {}),
       ],
+      // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed two-way join of accepted lock entry and inventory
       { concurrency: "unbounded" },
     );
 
@@ -225,36 +225,14 @@ export const ShowExtension = {
       }
     }
 
-    // A hook that is not disabled reports the outcomes a refining provider
-    // observes on the agents' own surfaces, in place of the generic derivation.
-    if (request.type === "hook" && enabled !== false && inventoryRow !== undefined) {
-      const provider = yield* Effect.serviceOption(ConfiguredAgentOutcomesProvider);
-      const refine = Option.flatMap(provider, (service) =>
-        Option.fromUndefinedOr(service.byExtensionType["hook"]),
-      );
-      if (Option.isSome(refine)) {
-        const outcomes = (yield* refine.value("current")).filter(
-          ({ name }) => name === request.name,
-        );
-        agents = outcomes.map(({ agentId, outcome, reasonCode, mechanism, path, reason }) => ({
-          agent: agentId,
-          status: outcome,
-          reasonCode,
-          ...(path === undefined ? {} : { path }),
-          fields: [],
-          warnings: [],
-          reason: mechanism === undefined ? reason : `${mechanism}: ${reason}`,
-        }));
-      }
-    }
-
     return {
       item: {
         type: request.type,
         name: request.name,
         enabled,
         source,
-        version: lockEntry === undefined ? observedManifestVersion : lockEntryVersion(lockEntry),
+        version:
+          lockEntry === undefined ? observedManifestVersion : (lockEntryVersion(lockEntry) ?? null),
         scope: location.scope,
         locked: lockEntry !== undefined,
       },

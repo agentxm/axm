@@ -42,16 +42,12 @@ import {
 import { makeWorkspaceRetentionPolicy } from "../../../reconciliation/index.js";
 import type { SubagentUninstallIntent } from "../../../lifecycle/uninstall/vocabulary.js";
 import {
-  workspaceCanonicalPath,
-  workspaceCanonicalRoot,
-  workspaceLockfilePath,
-  workspaceSettingsPath,
-} from "../../../lifecycle/workspace-paths.js";
-
-const resolvedVersion = (entry: SubagentLockEntry | undefined): string | undefined =>
-  entry !== undefined && entry.source.type === "registry" && "version" in entry.resolved
-    ? entry.resolved.version
-    : undefined;
+  acquiredDisplayPath,
+  acquiredRootDisplayPath,
+  lockfileDisplayPath,
+  settingsDisplayPath,
+  lockEntryVersion,
+} from "../../../desired-state/index.js";
 
 const subagentSourceTarget = (args: {
   readonly name: string;
@@ -60,10 +56,10 @@ const subagentSourceTarget = (args: {
   readonly scope: JobStepArtifact["scope"];
 }): JobStepArtifactTarget =>
   args.lockEntry === undefined
-    ? { path: workspaceCanonicalPath(args.scope, args.name), change: args.change }
+    ? { path: acquiredDisplayPath(args.scope, args.name), change: args.change }
     : {
         path: acquiredExtensionDisplayPathFromLockEntry(
-          workspaceCanonicalRoot(args.scope),
+          acquiredRootDisplayPath(args.scope),
           args.lockEntry,
           "subagents",
           args.name,
@@ -87,8 +83,8 @@ const subagentArtifact = (args: {
   const targetChange: JobStepArtifactTarget["change"] =
     args.change === "removed" ? "removed" : "unchanged";
   const targets: ReadonlyArray<JobStepArtifactTarget> = [
-    { path: workspaceLockfilePath(args.scope), change: args.lockfileChange },
-    { path: workspaceSettingsPath(args.scope), change: "updated" },
+    { path: lockfileDisplayPath(args.scope), change: args.lockfileChange },
+    { path: settingsDisplayPath(args.scope), change: "updated" },
     subagentSourceTarget({
       name: args.name,
       lockEntry: args.lockEntry,
@@ -98,7 +94,7 @@ const subagentArtifact = (args: {
     ...args.materializedTargets.map((target) => ({ ...target, change: targetChange })),
   ];
   const firstTarget = targets[0];
-  const version = resolvedVersion(args.lockEntry);
+  const version = args.lockEntry === undefined ? undefined : lockEntryVersion(args.lockEntry);
   return {
     path: firstTarget?.path ?? args.name,
     scope: args.scope,

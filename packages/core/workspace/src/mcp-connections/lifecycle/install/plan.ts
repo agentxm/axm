@@ -17,7 +17,6 @@ import {
   WorkspaceLocation,
   desiredStateProblemText,
   effectiveDesiredConstraint,
-  isSourcedDesiredExtension,
   type DesiredConstraintProposal,
   type DesiredStateGraph,
 } from "../../../desired-state/index.js";
@@ -31,17 +30,17 @@ import * as Schema from "effect/Schema";
 import {
   extensionRefRegistryLifecycle,
   installMcpServer,
-  readMcpServerManifest,
+  workspaceFailureToStepFailure,
 } from "../../../reconciliation/index.js";
 import { materializeRegistryPackage } from "../../../materialization/index.js";
-import { stripFileProtocol } from "@agentxm/registry-client";
-import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
+import { fromFileLocation } from "@agentxm/host-primitives";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
-import { validateManifestMcpServerTargets } from "../../../projection/agent-adapters/index.js";
 import {
-  CONFIGURABLE_AGENTS_BY_ID,
-  type ConfigurableAgentId,
-} from "@agentxm/extension-model/unstable/agent-capabilities";
+  configuredMcpCapability,
+  decodeMcpServerManifestAt,
+  validateManifestMcpServerTargets,
+} from "../../../projection/agent-adapters/index.js";
+import { MCP_SERVER_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import {
   ExtensionNameSchema,
   type ExtensionName,
@@ -49,14 +48,13 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
-import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import { SourceHostProviders, resolveSource } from "../../../resolution/sources/index.js";
 import type { RegistryBindingProposal, SourceBindingProposal } from "../../../resolution/index.js";
 import { operationPresentation, type Plan } from "../../../transitions/planning/index.js";
-import { desiredMcpSourceKey, mcpRegistryResolutionKey } from "../../../desired-state/index.js";
+import { mcpRegistryResolutionKey } from "../../../desired-state/index.js";
 
 import { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
-import { admitMcpLocalName } from "../domain/source-admission.js";
+import { settleMcpSourceIdentityFor } from "../../source-identity.js";
 import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
 import { registryLoginSuggestions } from "../../../lifecycle/install/registry-login-suggestion.js";
 import { parseRegistryInstallTarget } from "../../../lifecycle/install/registry-install-target.js";
@@ -116,9 +114,6 @@ export const parseMcpEnvInputs = (
     }
     return parsed;
   });
-
-const isConfigurableAgentId = (agentId: string): agentId is ConfigurableAgentId =>
-  agentId in CONFIGURABLE_AGENTS_BY_ID;
 
 const decodeLocalName = (value: string): Effect.Effect<ExtensionName, ExtensionLifecycleFailed> =>
   Schema.decodeUnknownEffect(ExtensionNameSchema)(value).pipe(
@@ -254,25 +249,6 @@ const selectMcpSourceConstraint = (
   },
 ): Effect.Effect<Option.Option<string>, ExtensionLifecycleFailed> =>
   Effect.gen(function* () {
-    const localConnection = graph.nodes.find(
-      (node) => node.type === "mcp-server" && node.name === input.localName,
-    );
-    yield* admitMcpLocalName({
-      localName: input.localName,
-      sourceIdentity: input.sourceIdentity,
-      localConnection:
-        localConnection === undefined
-          ? undefined
-          : {
-              sourceIdentity: isSourcedDesiredExtension(localConnection)
-                ? desiredMcpSourceKey(localConnection.identity)
-                : null,
-            },
-    }).pipe(
-      Effect.mapError((cause) =>
-        installRefused({ category: "conflict", detail: cause.reason, cause }),
-      ),
-    );
     const declaration: DesiredConstraintProposal = Option.isSome(input.versionRange)
       ? {
           source: "settings",
@@ -451,29 +427,6 @@ export const finalizeMcpServerInstallIntent: (
       });
     }
     const localName = Option.getOrElse(request.localName, () => ref.server.name);
-    const requestedIdentity = yield* Effect.gen(function* () {
-      if (sourceRequest.source.type === "registry") {
-        return mcpRegistryResolutionKey({
-          authority: sourceRequest.source.location,
-          owner: ref.owner,
-          name: ref.server.name,
-        });
-      }
-      if (sourceRequest.source.type !== "local") return printSourceParams(sourceRequest.source);
-      if (ref.refType !== "local") {
-        return yield* installRefused({
-          category: "internal",
-          detail: "Local MCP source resolved to a non-local package reference",
-        });
-      }
-      const location = yield* WorkspaceLocation;
-      const path = yield* Path.Path;
-      const localPath = sourceRequest.source.path;
-      return Option.getOrElse(
-        makeWorkspaceRelativeSourcePath(path, location.baseDir, stripFileProtocol(ref.location)),
-        () => localPath,
-      );
-    });
     const desiredState = yield* DesiredStateReader;
     const graph = yield* desiredState.graph().pipe(
       Effect.mapError((cause) =>
@@ -484,33 +437,29 @@ export const finalizeMcpServerInstallIntent: (
         }),
       ),
     );
-    const existingLocalNode = graph.nodes.find(
-      (node) => node.type === "mcp-server" && node.name === localName,
+    const sourceIdentity = yield* settleMcpSourceIdentityFor(
+      graph,
+      ref,
+      localName,
+      sourceRequest.source,
+    ).pipe(
+      Effect.mapError((cause) =>
+        installRefused({
+          category: "conflict",
+          detail: workspaceFailureToStepFailure(cause).detail,
+          cause,
+        }),
+      ),
     );
-    // A local source is one source however it is spelled: the connection
-    // keeps the key the existing declaration already carries.
-    const existingLocalIdentity =
-      existingLocalNode?.identity.authority === "path" ? existingLocalNode.identity : undefined;
-    const identity = yield* sourceRequest.source.type === "local" &&
-    ref.refType === "local" &&
-    existingLocalIdentity !== undefined
-      ? Effect.gen(function* () {
-          const location = yield* WorkspaceLocation;
-          const path = yield* Path.Path;
-          return path.resolve(location.baseDir, existingLocalIdentity.locator) ===
-            path.resolve(stripFileProtocol(ref.location))
-            ? desiredMcpSourceKey(existingLocalIdentity)
-            : requestedIdentity;
-        })
-      : Effect.succeed(requestedIdentity);
     yield* selectMcpSourceConstraint(graph, {
       localName,
-      sourceIdentity: identity,
+      sourceIdentity,
       versionRange: request.versionRange,
     });
     return {
       ref,
       localName,
+      sourceIdentity,
       versionRange: request.versionRange,
       force: request.force,
       nonInteractive: request.nonInteractive,
@@ -541,11 +490,8 @@ export const planMcpServerInstall: (
       ),
     );
     const refused = configuredAgents.flatMap((agentId) => {
-      if (!isConfigurableAgentId(agentId)) {
-        return [`${agentId}: no MCP capability catalog entry`];
-      }
-      const capability = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"];
-      if (capability.axm.writer === null || !("transports" in capability.native)) {
+      const capability = configuredMcpCapability(agentId);
+      if (capability === undefined) {
         return [`${agentId}: no MCP config support`];
       }
       return capability.axm.writer.config.targets.some((target) => target.scope === location.scope)
@@ -587,17 +533,21 @@ export const planMcpServerInstall: (
                 },
               });
             })
-          : stripFileProtocol(ref.location);
-      const manifest = yield* readMcpServerManifest(manifestPath);
-      if (Option.isNone(manifest)) {
-        return yield* installRefused({
-          category: "validation",
-          detail: `Cannot read MCP manifest for ${intent.localName}`,
-        });
-      }
+          : fromFileLocation(ref.location);
+      const manifest = yield* decodeMcpServerManifestAt(
+        path.join(manifestPath, MCP_SERVER_MANIFEST_FILENAME),
+      ).pipe(
+        Effect.mapError((cause) =>
+          installRefused({
+            category: "validation",
+            detail: `Cannot read MCP manifest for ${intent.localName}: ${workspaceFailureToStepFailure(cause).detail}`,
+            cause,
+          }),
+        ),
+      );
       const entries = yield* settings.entries("mcp-server");
       yield* validateManifestMcpServerTargets({
-        manifest: manifest.value,
+        manifest,
         agentIds: yield* settings.configuredAgents,
         scope: location.scope,
         serverName: intent.localName,
@@ -672,6 +622,7 @@ export const planMcpServerInstall: (
               args: {
                 ref: intent.ref,
                 localName: intent.localName,
+                sourceIdentity: intent.sourceIdentity,
                 nonInteractive: intent.nonInteractive,
                 force: intent.force,
                 declaration: { name: intent.localName, versionRange: intent.versionRange },

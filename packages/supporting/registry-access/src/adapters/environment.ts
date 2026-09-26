@@ -11,6 +11,7 @@ import * as ServiceMap from "effect/Context";
 import * as FileSystem from "effect/FileSystem";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { ciEnabled } from "@agentxm/host-primitives";
 import { RegistryAccessFailed } from "../authentication/errors.js";
 import type { LoginStrategyEnvironment } from "../authentication/login-strategy.js";
 
@@ -105,8 +106,7 @@ export const isWSL = Effect.gen(function* () {
 /** Returns true if CI env var is set. */
 export const isCI: Effect.Effect<boolean, RegistryAccessFailed> = Effect.map(
   envOption("CI"),
-  (value) =>
-    Option.exists(value, (raw) => raw.length > 0 && raw !== "0" && raw.toLowerCase() !== "false"),
+  (value) => Option.exists(value, ciEnabled),
 );
 
 /**

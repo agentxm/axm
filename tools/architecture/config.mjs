@@ -30,6 +30,12 @@ export const capabilityElements = [
   },
   {
     type: "backstage",
+    pattern: "packages/*/host-primitives/src",
+    capture: ["strategy"],
+    partialMatch: false,
+  },
+  {
+    type: "backstage",
     pattern: "packages/*/cli-maintenance/src/official-skill",
     capture: ["strategy"],
     partialMatch: false,
@@ -50,6 +56,7 @@ export const capabilityRoots = [
   "packages/core/workspace/src/skills/lifecycle/application",
   "packages/core/workspace/src/subagents/lifecycle/application",
   "packages/core/extension-model/src",
+  "packages/generic/host-primitives/src",
   "packages/supporting/cli-maintenance/src/official-skill",
   "packages/supporting/cli-maintenance/src/self-update",
 ];
@@ -71,4 +78,5 @@ export const capabilityFileDescriptors = [
     category: "domain-api",
   },
   { pattern: "packages/core/extension-model/src/**/*", category: "domain" },
+  { pattern: "packages/generic/host-primitives/src/**/*", category: "adapter" },
 ];

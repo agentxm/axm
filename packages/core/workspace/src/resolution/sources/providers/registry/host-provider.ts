@@ -40,7 +40,7 @@ import {
   sourceResolutionFailureCategory,
   type SourceResolutionFailure,
 } from "../../errors.js";
-import { computeIntegrity } from "../../integrity.js";
+import { computeIntegrity } from "@agentxm/host-primitives";
 import {
   decodeExtensionNameSync,
   toExtensionTypePlural,

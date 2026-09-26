@@ -13,53 +13,26 @@
  */
 
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as nodePath from "node:path";
 
-import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { WorkspaceFileWriteLocksLive } from "../../transitions/settlement/live.js";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
-import { AgentExecutableResolver } from "../../projection/agent-adapters/index.js";
-import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import {
-  HookManagerLive,
-  KnowledgeManagerLive,
-  McpSecretStoreLive,
-  McpServerManagerLive,
-  PackManagerLive,
-  ProjectionParticipantsLive,
-  RuleManagerLive,
-  SkillManagerLive,
-  SubagentManagerLive,
-} from "../../materialization/live.js";
 import { ReleaseAgePosture } from "../../resolution/index.js";
-import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
-import { AxmSkillCandidateGateLive, RegistryResolutionPolicyLive } from "../../resolution/live.js";
-import { SourceHostProvidersLive } from "../../resolution/sources/live.js";
 import { previewPlanExecution, type PlanExecution } from "../../transitions/planning/index.js";
 import {
   ResolvePlanInteractionTest,
   preapprovedPlanExecution,
   type ResolvePlanInteractionTestState,
 } from "../../transitions/planning/testing.js";
-import { PlanInvocationTest } from "../../transitions/planning/testing.js";
 import {
-  CodingAgentRepositoryLive,
-  NativeWriteAuthorityLive,
-  WorkspaceCatalogLive,
-  WorkspaceInvariantFactsLive,
-} from "../../projection/live.js";
-import { layer as WorkspaceLayerLive } from "../../desired-state/live.js";
-import { withTestRegistryDefault } from "../../desired-state/testing.js";
-import {
-  makeFileRegistry,
-  RegistryClientFactoryTest,
-  type FileRegistry,
-} from "@agentxm/registry-client/testing";
+  makeWorkspaceWorld,
+  withAllManagers,
+  withLiveSources,
+} from "../../testing/workspace-world.js";
+import { makeFileRegistry, type FileRegistry } from "@agentxm/registry-client/testing";
 
 import { SyncStepFailureConversionTest } from "./testing.js";
 import { SyncWorkspace, type SyncWorkspaceCandidate } from "./sync-workspace.js";
@@ -94,135 +67,39 @@ export interface SyncFixtureOptions {
  * user scope alone.
  */
 export const makeSyncFixture = (options: SyncFixtureOptions = {}) => {
-  const scope = options.scope ?? "project";
-  const root = fs.realpathSync(fs.mkdtempSync(nodePath.join(os.tmpdir(), "axm-sync-")));
-  const home = fs.realpathSync(fs.mkdtempSync(nodePath.join(os.tmpdir(), "axm-sync-home-")));
-  const workspaceRoot = scope === "user" ? nodePath.join(home, ".axm", "workspace") : root;
-  fs.mkdirSync(nodePath.join(root, ".axm"), { recursive: true });
-  fs.mkdirSync(nodePath.join(home, ".axm", "workspace"), { recursive: true });
-
-  const writeFile = (relativePath: string, contents: string): void => {
-    const file = nodePath.join(root, relativePath);
-    fs.mkdirSync(nodePath.dirname(file), { recursive: true });
-    fs.writeFileSync(file, contents);
-  };
-  const readFile = (relativePath: string): string =>
-    fs.readFileSync(nodePath.join(root, relativePath), "utf8");
-  const exists = (relativePath: string): boolean =>
-    fs.existsSync(nodePath.join(root, relativePath));
-  const remove = (relativePath: string): void => {
-    fs.rmSync(nodePath.join(root, relativePath), { recursive: true, force: true });
-  };
-
-  /** Every file, symlink, and directory under a root, so purity can be proven. */
-  const snapshotUnder = (base: string): ReadonlyArray<readonly [string, string]> => {
-    const entries: Array<readonly [string, string]> = [];
-    const walk = (directory: string): void => {
-      for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-        const absolute = nodePath.join(directory, entry.name);
-        const relative = nodePath.relative(base, absolute);
-        if (entry.isSymbolicLink()) {
-          entries.push([relative, `symlink:${fs.readlinkSync(absolute)}`]);
-          continue;
-        }
-        if (entry.isDirectory()) {
-          entries.push([relative, "directory"]);
-          walk(absolute);
-          continue;
-        }
-        entries.push([relative, fs.readFileSync(absolute, "utf8")]);
-      }
-    };
-    walk(base);
-    return entries.sort((left, right) => left[0].localeCompare(right[0]));
-  };
-
-  const writeSettings = (settings: Readonly<Record<string, unknown>>): void => {
-    fs.writeFileSync(
-      nodePath.join(workspaceRoot, "axm.json"),
-      `${JSON.stringify({ agents: [], ...withTestRegistryDefault(settings) }, null, 2)}\n`,
-    );
-  };
-
-  if (options.settings !== undefined) {
-    writeSettings(options.settings);
-    // JSON is valid YAML, so the lockfile fixture needs no emitter.
-    fs.writeFileSync(
-      nodePath.join(workspaceRoot, "axm-lock.yaml"),
-      JSON.stringify({ lockfileVersion: 8, skills: {}, ...options.lockfile }),
-    );
-  }
-  for (const [relativePath, contents] of Object.entries(options.files ?? {})) {
-    writeFile(relativePath, contents);
-  }
-
   const interaction = ResolvePlanInteractionTest();
-  const environment = ConfigProvider.layer(
-    ConfigProvider.fromEnv({ env: { AXM_USER_HOME: home } }),
-  );
-  const transport = Layer.succeed(
-    HttpClient.HttpClient,
-    options.httpClient ?? HttpClient.make(() => Effect.die("no HTTP request in this fixture")),
-  );
-  const installedExecutables = new Set(options.installedExecutables ?? []);
-  const executables = Layer.succeed(AgentExecutableResolver, {
-    exists: (name: string) => Effect.succeed(installedExecutables.has(name)),
-  });
-
-  // One environment, built outward: the workspace state and the ports over it,
-  // then the projection services that read them, then the managers that read
-  // both.
-  const base = Layer.provideMerge(
-    Layer.mergeAll(
-      WorkspaceLayerLive({
-        scope,
-        projectRoot: decodeAbsolutePathSync(root),
-        allowUninitialized: options.settings === undefined,
-      }),
-      CodingAgentRepositoryLive,
-      NativeWriteAuthorityLive,
-      transport,
-      RegistryClientFactoryTest(transport),
+  const world = makeWorkspaceWorld({
+    prefix: "axm-sync-",
+    scope: options.scope,
+    settings: options.settings,
+    lockfile: options.lockfile,
+    files: options.files,
+    installedExecutables: options.installedExecutables,
+    httpClient:
+      options.httpClient === undefined
+        ? undefined
+        : Layer.succeed(HttpClient.HttpClient, options.httpClient),
+    ports: Layer.mergeAll(
       interaction.layer,
-      executables,
       SyncStepFailureConversionTest,
       Layer.succeed(ReleaseAgePosture, "enforce"),
-      PlanInvocationTest,
     ),
-    environment,
-  );
-  const withProjection = Layer.provideMerge(WorkspaceCatalogLive, base);
-  // Reconciliation acquires from real sources, so the production resolution
-  // layer composes over the same workspace catalog.
-  const liveSourceProviders = Layer.provide(
-    SourceHostProvidersLive,
-    Layer.mergeAll(
-      withProjection,
-      Layer.provide(
-        AxmSkillCandidateGateLive,
-        makeAxmSkillCompatibilityPolicyLayer("0.0.0-fixture"),
-      ),
-      RegistryResolutionPolicyLive,
-    ),
-  );
-  const withSources = Layer.provideMerge(liveSourceProviders, withProjection);
-  const leafManagers = Layer.provideMerge(
-    Layer.mergeAll(
-      RuleManagerLive,
-      HookManagerLive,
-      KnowledgeManagerLive,
-      SkillManagerLive,
-      SubagentManagerLive,
-      McpSecretStoreLive,
-    ),
-    withSources,
-  );
-  const withMcp = Layer.provideMerge(McpServerManagerLive, leafManagers);
-  const withPack = Layer.provideMerge(PackManagerLive, withMcp);
-  const withParticipants = Layer.provideMerge(ProjectionParticipantsLive, withPack);
-  const services = Layer.provideMerge(WorkspaceInvariantFactsLive, withParticipants).pipe(
-    Layer.provideMerge(WorkspaceFileWriteLocksLive),
-  );
+  });
+  const services = withAllManagers(withLiveSources(world.projection, "0.0.0-fixture"));
+  const {
+    root,
+    home,
+    workspaceRoot,
+    writeFile,
+    writeSettings,
+    readFile,
+    exists,
+    remove,
+    readSettings,
+    snapshot,
+    homeSnapshot,
+    cleanup,
+  } = world;
 
   return {
     root,
@@ -234,24 +111,15 @@ export const makeSyncFixture = (options: SyncFixtureOptions = {}) => {
     exists,
     remove,
     /** The settings document, as the product wrote it. */
-    readSettings: (): Readonly<Record<string, unknown>> => {
-      const parsed: unknown = JSON.parse(readFile("axm.json"));
-      if (typeof parsed !== "object" || parsed === null) {
-        throw new Error("Expected the workspace settings document to be an object");
-      }
-      return { ...parsed };
-    },
+    readSettings,
     /** Every file under the project root. */
-    snapshot: () => snapshotUnder(root),
+    snapshot,
     /** Every file under the pinned user home. */
-    homeSnapshot: () => snapshotUnder(home),
+    homeSnapshot,
     /** What the plan interaction port was asked to present and confirm. */
     interactionState: (): ResolvePlanInteractionTestState => interaction.state,
     provide: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect.pipe(Effect.provide(services)),
-    cleanup: () => {
-      fs.rmSync(root, { recursive: true, force: true });
-      fs.rmSync(home, { recursive: true, force: true });
-    },
+    cleanup,
   };
 };
 

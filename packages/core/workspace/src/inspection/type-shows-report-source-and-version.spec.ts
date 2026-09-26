@@ -4,6 +4,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { ManifestIdentitySchema } from "@agentxm/extension-content";
 import { defineSpecification } from "@agentxm/specification-metadata";
+import { makeFileRegistry } from "@agentxm/registry-client/testing";
 
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
@@ -20,7 +21,6 @@ import {
 } from "./testing.js";
 import {
   installRegistrySkill,
-  makeFileRegistry,
   makeInstalledWorkspace,
 } from "./test-support/installed-workspace.js";
 
@@ -134,7 +134,7 @@ describe("Installed extension detail", () => {
   // fails if a shown extension ever stops reporting what it was installed from.
   it.effect("reports an installation's accepted version", () => {
     const registry = makeFileRegistry();
-    registry.publishSkill("review", [{ version: "1.2.3", body: "Review instructions." }]);
+    registry.writeSkill("review", [{ version: "1.2.3", body: "Review instructions." }]);
     const workspace = makeInstalledWorkspace({ sources: [registry.source] });
     return workspace
       .provide(

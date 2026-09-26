@@ -17,15 +17,14 @@ import { preapprovedPlanExecution } from "../../transitions/planning/testing.js"
 
 import {
   makeLifecycleFixture,
-  makeLifecycleRegistry,
   writeLocalHookPackage,
   writeLocalKnowledgePackage,
   writeLocalRulePackage,
   writeLocalSkillPackage,
   writeLocalSubagentPackage,
   type LifecycleFixture,
-  type LifecycleRegistry,
 } from "../testing.js";
+import { makeFileRegistry, type FileRegistry } from "@agentxm/registry-client/testing";
 import {
   InstallExtensions,
   type InstallExtensionsRequest,
@@ -74,7 +73,7 @@ export const applyInstall = (request: InstallExtensionsRequest) =>
 /** A workspace that can resolve real sources, with a Registry to publish into. */
 export interface InstallWorld {
   readonly workspace: LifecycleFixture;
-  readonly registry: LifecycleRegistry;
+  readonly registry: FileRegistry;
   readonly cleanup: () => void;
 }
 
@@ -87,11 +86,11 @@ export const makeInstallWorld = (
     readonly settings?: Readonly<Record<string, unknown>>;
     readonly scope?: "project" | "user";
     /** Reuse a Registry another workspace already published into. */
-    readonly registry?: LifecycleRegistry;
+    readonly registry?: FileRegistry;
   } = {},
 ): InstallWorld => {
   const owned = options.registry === undefined;
-  const registry = options.registry ?? makeLifecycleRegistry();
+  const registry = options.registry ?? makeFileRegistry();
   const workspace = makeLifecycleFixture({
     ...(options.scope === undefined ? {} : { scope: options.scope }),
     sources: "live",
@@ -252,16 +251,15 @@ export const entriesUnder = (
   workspace: LifecycleFixture,
   directory: string,
 ): ReadonlyArray<string> =>
-  workspace
-    .snapshot()
-    .map(([relative]) => relative)
-    .filter((relative) => relative === directory || relative.startsWith(`${directory}/`));
+  Object.keys(workspace.snapshot()).filter(
+    (relative) => relative === directory || relative.startsWith(`${directory}/`),
+  );
 
 /** Workspace-relative path and content of everything under one directory. */
 export const contentUnder = (
   workspace: LifecycleFixture,
   directory: string,
 ): ReadonlyArray<readonly [string, string]> =>
-  workspace
-    .snapshot()
-    .filter(([relative]) => relative === directory || relative.startsWith(`${directory}/`));
+  Object.entries(workspace.snapshot()).filter(
+    ([relative]) => relative === directory || relative.startsWith(`${directory}/`),
+  );

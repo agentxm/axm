@@ -70,6 +70,12 @@ export const CONFIGURABLE_AGENT_IDS = [
 /** @experimental This API is unstable and may change without notice. */
 export type ConfigurableAgentId = (typeof CONFIGURABLE_AGENT_IDS)[number];
 
+const configurableAgentIdSet = new Set<string>(CONFIGURABLE_AGENT_IDS);
+
+/** @experimental This API is unstable and may change without notice. */
+export const isConfigurableAgentId = (id: string): id is ConfigurableAgentId =>
+  configurableAgentIdSet.has(id);
+
 /** @experimental This API is unstable and may change without notice. */
 export const HOSTED_AGENT_IDS = ["chatgpt", "claude-ai", "cowork", "gemini-app"] as const;
 

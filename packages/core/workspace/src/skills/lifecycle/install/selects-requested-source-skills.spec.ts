@@ -113,7 +113,9 @@ const configuredSkills = (world: InstallWorld): Readonly<Record<string, unknown>
  * every other skill in the source is absent from all four.
  */
 const expectSelection = (world: InstallWorld, selected: ReadonlyArray<string>): void => {
-  const canonical = contentUnder(world.workspace, "agent_extensions").map(([, body]) => body);
+  const canonical = contentUnder(world.workspace, "agent_extensions")
+    .filter(([path]) => path.endsWith("/SKILL.md"))
+    .map(([path]) => world.workspace.readFile(path));
   const settings = configuredSkills(world);
   const resolutions = acceptedSkillResolutions(world);
   for (const name of sourceSkills) {

@@ -6,7 +6,8 @@ import { afterEach } from "vitest";
 import { countUnitStates, deriveOperationOutcome } from "../../../transitions/planning/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { makeLifecycleFixture, makeLifecycleRegistry } from "../../../lifecycle/testing.js";
+import { makeLifecycleFixture } from "../../../lifecycle/testing.js";
+import { makeFileRegistry } from "@agentxm/registry-client/testing";
 import { applyInstall, installRequest } from "../../../lifecycle/install/test-helpers.js";
 import {
   applyUpdate,
@@ -40,7 +41,7 @@ describe("Update a shared MCP source closure", () => {
   });
 
   it.effect("advances one lock resolution and refreshes every local projection", () => {
-    const registry = makeLifecycleRegistry();
+    const registry = makeFileRegistry();
     cleanups.push(registry.cleanup);
     registry.writeMcp("context", [{ version: "1.0.0" }]);
     const workspace = makeLifecycleFixture({

@@ -4,6 +4,13 @@ import * as DateTime from "effect/DateTime";
 import { preflightMcpImports } from "./preflight.js";
 
 const now = DateTime.makeUnsafe("2026-08-05T00:00:00Z");
+const target = (filePath: string) =>
+  ({
+    scope: "project",
+    path: filePath,
+    format: "json",
+    attribution: "shared",
+  }) as const;
 
 describe("MCP import preflight", () => {
   it("deduplicates identical candidates and sorts the result deterministically", () => {
@@ -14,20 +21,18 @@ describe("MCP import preflight", () => {
         {
           filePath: "/workspace/.cursor/mcp.json",
           serversKey: "mcpServers",
-          config: {
-            mcpServers: {
-              zebra: { command: "node", args: ["zebra.js"] },
-              alpha: { command: "node", args: ["alpha.js"], env: { TOKEN: "secret" } },
-            },
+          target: target(".cursor/mcp.json"),
+          servers: {
+            zebra: { command: "node", args: ["zebra.js"] },
+            alpha: { command: "node", args: ["alpha.js"], env: { TOKEN: "secret" } },
           },
         },
         {
           filePath: "/workspace/.mcp.json",
           serversKey: "mcpServers",
-          config: {
-            mcpServers: {
-              alpha: { command: ["node", "alpha.js"], env: { TOKEN: "different-secret" } },
-            },
+          target: target(".mcp.json"),
+          servers: {
+            alpha: { command: ["node", "alpha.js"], env: { TOKEN: "different-secret" } },
           },
         },
       ],
@@ -52,19 +57,17 @@ describe("MCP import preflight", () => {
         {
           filePath: "/workspace/.mcp.json",
           serversKey: "mcpServers",
-          config: {
-            mcpServers: {
-              demo: { command: "node", args: ["one.js"], env: { TOKEN: "first-secret" } },
-            },
+          target: target(".mcp.json"),
+          servers: {
+            demo: { command: "node", args: ["one.js"], env: { TOKEN: "first-secret" } },
           },
         },
         {
           filePath: "/workspace/.cursor/mcp.json",
           serversKey: "mcpServers",
-          config: {
-            mcpServers: {
-              demo: { command: "node", args: ["two.js"], env: { TOKEN: "second-secret" } },
-            },
+          target: target(".cursor/mcp.json"),
+          servers: {
+            demo: { command: "node", args: ["two.js"], env: { TOKEN: "second-secret" } },
           },
         },
       ],
@@ -89,15 +92,14 @@ describe("MCP import preflight", () => {
         {
           filePath: "/workspace/.mcp.json",
           serversKey: "mcpServers",
-          config: {
-            mcpServers: {
-              configured: { command: "node" },
-              literal: {
-                url: "https://example.test/mcp",
-                headers: { Authorization: "Bearer private-token" },
-              },
-              unsupported: { transport: "websocket" },
+          target: target(".mcp.json"),
+          servers: {
+            configured: { command: "node" },
+            literal: {
+              url: "https://example.test/mcp",
+              headers: { Authorization: "Bearer private-token" },
             },
+            unsupported: { transport: "websocket" },
           },
         },
       ],
@@ -125,11 +127,10 @@ describe("MCP import preflight", () => {
         {
           filePath: "/workspace/.mcp.json",
           serversKey: "mcpServers",
-          config: {
-            mcpServers: {
-              referenced: { url: "https://${MCP_USER}:${MCP_PASSWORD}@example.test/mcp" },
-              unsupported: { url: "file:///workspace/server.sock" },
-            },
+          target: target(".mcp.json"),
+          servers: {
+            referenced: { url: "https://${MCP_USER}:${MCP_PASSWORD}@example.test/mcp" },
+            unsupported: { url: "file:///workspace/server.sock" },
           },
         },
       ],
@@ -152,12 +153,11 @@ describe("MCP import preflight", () => {
         {
           filePath: "/workspace/.mcp.json",
           serversKey: "mcpServers",
-          config: {
-            mcpServers: {
-              argument: { command: "server", args: ["--api-key", "private-argument"] },
-              field: { command: "server", token: "private-field" },
-              referenced: { command: "server", args: ["--token=${MCP_TOKEN}"] },
-            },
+          target: target(".mcp.json"),
+          servers: {
+            argument: { command: "server", args: ["--api-key", "private-argument"] },
+            field: { command: "server", token: "private-field" },
+            referenced: { command: "server", args: ["--token=${MCP_TOKEN}"] },
           },
         },
       ],

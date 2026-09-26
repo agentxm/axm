@@ -10,8 +10,9 @@
 import type * as Config from "effect/Config";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
-import { AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
+import { toFileLocation } from "@agentxm/host-primitives";
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
+import { MATERIALIZATION_TARGET_IDS } from "@agentxm/extension-model/unstable/agents/types";
 import { parsePluginManifests } from "./plugin-manifests.js";
 import { parseSkillMd } from "@agentxm/extension-content";
 import type { Skill } from "@agentxm/extension-content";
@@ -23,7 +24,7 @@ import {
   DISCOVERY_MAX_DEPTH,
   DISCOVERY_SKIPPED_DIRECTORIES,
 } from "@agentxm/extension-model/unstable/discovery-walk";
-import { envOption } from "../../../utils/environment.js";
+import { envOption } from "@agentxm/host-primitives";
 import { SCANNER_IO_CONCURRENCY } from "../scanners/fs-helpers.js";
 
 /**
@@ -45,7 +46,7 @@ export interface DiscoveredSkill {
 const makeDiscoveredSkill = (skill: Skill, fullPath: string): DiscoveredSkill => ({
   type: "skill",
   skill,
-  location: `file://${fullPath}`,
+  location: toFileLocation(fullPath),
 });
 
 /**
@@ -87,8 +88,8 @@ const STATIC_PRIORITY_DIRECTORIES: readonly string[] = [
  */
 export const getPriorityDirectories = (): ReadonlyArray<string> => {
   const agentDirs = Array.dedupe(
-    AGENT_IDS.flatMap((id) => {
-      const skills = AGENTS[id].skills;
+    MATERIALIZATION_TARGET_IDS.flatMap((id) => {
+      const skills = AGENT_DESCRIPTORS[id].skills;
       return skills === undefined
         ? []
         : [skills.dir, ...skills.additionalReadPaths.map(({ path }) => path)];

@@ -298,6 +298,20 @@ describe("module boundary constraints", () => {
     expect(integrationToCapability[0]?.message).toContain("role:integration");
   });
 
+  it("lets integrations use generic host primitives without opening other capabilities", async () => {
+    expect(
+      await boundaryViolations('import "@agentxm/host-primitives";', SUPPORTING_INTEGRATION),
+    ).toEqual([]);
+    expect(
+      (
+        await boundaryViolations(
+          'import "@agentxm/cli-maintenance/official-skill/domain";',
+          SUPPORTING_INTEGRATION,
+        )
+      ).map((violation) => violation.ruleId),
+    ).toEqual(["@nx/enforce-module-boundaries"]);
+  });
+
   it("keeps engineering libraries out of runtime while tests may compose them", async () => {
     expect(
       (await boundaryViolations('import "@agentxm/test-support";', CORE_CAPABILITY)).map(
@@ -332,7 +346,7 @@ describe("module boundary constraints", () => {
   });
 
   it("confines the generic domain to itself", async () => {
-    // No generic package exists yet. Inspect the effective configuration for
+    // The fixture path keeps this rule independent of host-primitives. Inspect the effective configuration for
     // production and test files, not every partial block in the flat config.
     const eslint = new ESLint({ cwd: repoRoot });
     for (const [file, allowed] of [

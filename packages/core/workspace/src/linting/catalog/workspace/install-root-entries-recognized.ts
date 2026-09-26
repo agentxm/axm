@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import type { AdvisoryRule, LintFinding } from "@agentxm/extension-content/lint";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
-import { workspaceDisplayPath } from "./display-paths.js";
+import { workspaceDisplayPath } from "../../../desired-state/index.js";
 import { EMPTY_LINT_FINDINGS } from "./helpers/empty.js";
 
 const RULE_ID = "workspace/install-root-entries-recognized";

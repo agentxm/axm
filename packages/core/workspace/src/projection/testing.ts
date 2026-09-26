@@ -13,7 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { codingAgentForId } from "./agent-adapters/index.js";
-import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
@@ -40,7 +40,7 @@ import { WorkspaceInvariantFacts, type ProjectionInvariantFact } from "./invaria
 export const makeCodingAgentRepository = (
   configuredAgentIds: ReadonlyArray<string>,
 ): CodingAgentRepositoryService => ({
-  get: (id: AgentId) => Effect.succeed(codingAgentForId(id)),
+  get: (id: MaterializationTargetId) => Effect.succeed(codingAgentForId(id)),
   all: Effect.sync(allCodingAgents),
   getConfiguredAgents: () => Effect.succeed(configuredCodingAgents(configuredAgentIds)),
   getMaterializationAgents: () => Effect.succeed(materializationCodingAgents(configuredAgentIds)),

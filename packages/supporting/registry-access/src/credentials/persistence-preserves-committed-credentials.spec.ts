@@ -213,7 +213,7 @@ describe("Committed credential integrity", () => {
         const failedFs: FileSystem.FileSystem = {
           ...fixture.fs,
           writeFileString: (path, content, options) =>
-            point !== "rename" && path.endsWith("/credentials.json")
+            point !== "rename" && path.startsWith(`${fixture.file}.tmp.`)
               ? fixture.fs
                   .writeFileString(path, content.slice(0, 9), options)
                   .pipe(

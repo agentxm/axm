@@ -12,15 +12,14 @@ import type { InstallableExtensionType } from "@agentxm/extension-model/unstable
 import { ExtensionLifecycleFailed } from "../errors.js";
 import {
   makeLifecycleFixture,
-  makeLifecycleRegistry,
   writeLocalHookPackage,
   writeLocalKnowledgePackage,
   writeLocalRulePackage,
   writeLocalSkillPackage,
   writeLocalSubagentPackage,
   type LifecycleFixture,
-  type LifecycleRegistry,
 } from "../testing.js";
+import { makeFileRegistry, type FileRegistry } from "@agentxm/registry-client/testing";
 import { applyInstall, installRequest, previewInstall, makeInstallWorld } from "./test-helpers.js";
 
 export const specification = defineSpecification({
@@ -65,7 +64,7 @@ interface PreviewRow {
   /** Publishes the package and returns the source the request names. */
   readonly source: (args: {
     readonly workspace: LifecycleFixture;
-    readonly registry: LifecycleRegistry;
+    readonly registry: FileRegistry;
   }) => string;
   /** A workspace-relative projection path a realized install would create. */
   readonly unrealized: ReadonlyArray<string>;
@@ -76,7 +75,7 @@ interface PreviewRow {
    */
   readonly unresolvable: (args: {
     readonly workspace: LifecycleFixture;
-    readonly registry: LifecycleRegistry;
+    readonly registry: FileRegistry;
   }) => string;
 }
 
@@ -151,8 +150,8 @@ describe("Install preview purity", () => {
     }
   });
 
-  const world = (): { workspace: LifecycleFixture; registry: LifecycleRegistry } => {
-    const registry = makeLifecycleRegistry();
+  const world = (): { workspace: LifecycleFixture; registry: FileRegistry } => {
+    const registry = makeFileRegistry();
     cleanups.push(registry.cleanup);
     const workspace = makeLifecycleFixture({
       sources: "live",

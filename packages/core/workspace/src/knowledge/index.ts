@@ -5,5 +5,16 @@
  * @packageDocumentation
  */
 
-export type { KnowledgeInstallIntent } from "./lifecycle/install/plan.js";
-export type { KnowledgeUninstallIntent } from "./lifecycle/uninstall/plan.js";
+export {
+  KnowledgeDefinitionInvalid,
+  KnowledgeDesiredStateUnreconcilable,
+  KnowledgeIoFailed,
+  KnowledgeResolutionMissing,
+  KnowledgeUnavailable,
+} from "./errors.js";
+export { planKnowledgeInstall, type KnowledgeInstallIntent } from "./lifecycle/install/plan.js";
+export {
+  parseKnowledgeUninstallRequest,
+  planKnowledgeUninstall,
+  type KnowledgeUninstallIntent,
+} from "./lifecycle/uninstall/plan.js";

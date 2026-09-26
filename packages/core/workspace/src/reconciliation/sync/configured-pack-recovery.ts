@@ -30,7 +30,7 @@ import * as Path from "effect/Path";
 
 import { OperationRequestBudget } from "@agentxm/registry-client";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
-import { sourceRefContentKey } from "../acquisition/acquired-content.js";
+import { sourceRefContentKey } from "../../acquisition/acquired-content.js";
 import { formatFqn } from "@agentxm/extension-model/unstable/extensions/fqn";
 import {
   SkillManager,
@@ -38,20 +38,22 @@ import {
   RuleManager,
   HookManager,
   KnowledgeManager,
+  McpServerManager,
   PackManager,
-} from "../materialization/index.js";
-import type { McpServerInstallRequirements } from "./mcps/install-operation.js";
-import { buildInstallOperation, targetFromRef } from "./extensions/operations.js";
-import { buildPackMemberStep } from "./extensions/pack-member-step.js";
+  type McpConnectionInstallRequirements,
+} from "../../materialization/index.js";
 import {
   makeConfiguredReleaseAgeEvaluation,
   normalizeReleaseAgeRecords,
-} from "../resolution/index.js";
-import { prepareConfiguredPackIntent } from "../lifecycle/install/configured.js";
-import type { ExtensionLifecycleFailed, PlannedJobStep } from "../operations/index.js";
-import { readProposedGraph, selectPackGraph } from "../packs/lifecycle/install/plan.js";
-import { acceptedResolutionIncompatibleText } from "../projection/index.js";
-import { withPackRegistryIndexMemo } from "../resolution/sources/providers/registry/index-memo.js";
+} from "../../resolution/index.js";
+import type { ExtensionLifecycleFailed, PlannedJobStep } from "../../operations/index.js";
+import {
+  prepareConfiguredPackIntent,
+  readProposedGraph,
+  selectPackGraph,
+} from "../../packs/index.js";
+import { acceptedResolutionIncompatibleText } from "../../projection/index.js";
+import { withPackRegistryIndexMemo } from "../../resolution/sources/providers/registry/index-memo.js";
 import {
   acceptedCanonicalObservation,
   acceptedLockedResolutionRef,
@@ -61,20 +63,24 @@ import {
   SettingsReader,
   WorkspaceLocation,
   type DesiredStateGraph,
-} from "../desired-state/index.js";
+} from "../../desired-state/index.js";
 
-import { buildReconciliationClosure } from "./closure.js";
-import { WorkspaceSyncFailed } from "./errors.js";
-import type { SyncPolicyFailure } from "./errors.js";
-import type { StepFailureConversionService } from "./step-failure-conversion.js";
 import {
+  buildInstallOperation,
+  buildPackMemberStep,
+  buildReconciliationClosure,
   recoverableExternalPackName,
   scopedProblems,
+  SYNC_RECOVERY_IDS,
+  targetFromRef,
+  WorkspaceSyncFailed,
   type ConfiguredEntryResolutionRequirements,
   type ConfiguredPackRecovery,
+  type StepFailureConversionService,
+  type SyncPolicyFailure,
   type SyncSelection,
-} from "./materialize.js";
-import { SYNC_RECOVERY_IDS, type SyncStepRequirements } from "./plan.js";
+  type SyncStepRequirements,
+} from "../index.js";
 
 /**
  * The Pack package is re-acquired unconditionally — its manifest is the thing
@@ -88,13 +94,14 @@ const recoveryStep = (args: {
   readonly ref: ExtensionRef;
   readonly adapter: StepFailureConversionService;
 }): Effect.Effect<
-  PlannedJobStep<SyncStepRequirements | McpServerInstallRequirements>,
+  PlannedJobStep<SyncStepRequirements | McpConnectionInstallRequirements>,
   never,
   | SkillManager
   | SubagentManager
   | RuleManager
   | HookManager
   | KnowledgeManager
+  | McpServerManager
   | PackManager
   | WorkspaceLocation
 > =>
@@ -129,7 +136,7 @@ const recoveryRefused = (failure: ExtensionLifecycleFailed): WorkspaceSyncFailed
     cause: failure,
   });
 
-type RecoveryStep = PlannedJobStep<SyncStepRequirements | McpServerInstallRequirements>;
+type RecoveryStep = PlannedJobStep<SyncStepRequirements | McpConnectionInstallRequirements>;
 
 /** A recovery closure refused before any write, naming why. */
 const blockedRecoveryStep = (args: {
@@ -161,8 +168,9 @@ export const collectConfiguredPackRecovery = (args: {
   | RuleManager
   | HookManager
   | KnowledgeManager
+  | McpServerManager
   | PackManager
-  | McpServerInstallRequirements
+  | McpConnectionInstallRequirements
 > =>
   Effect.gen(function* () {
     const settings = yield* SettingsReader;

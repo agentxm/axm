@@ -28,7 +28,6 @@ export {
 
 export {
   buildZipArchive,
-  isArchivePathIncluded,
   planZipArchive,
   type ArchivePlan,
   type ArchivePlanFile,

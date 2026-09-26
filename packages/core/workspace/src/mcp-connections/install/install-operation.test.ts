@@ -1,4 +1,6 @@
-import { exactVersion, extensionName, handle } from "../test-helpers.js";
+import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
+import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
+import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { execSync } from "node:child_process";
 import { NativeWriteAuthorityPermissive } from "../../projection/agent-adapters/testing.js";
 import { FootprintRecorderTest } from "../../transitions/planning/testing.js";
@@ -50,10 +52,10 @@ import {
 import { makeCodingAgentStub } from "./test-helpers.js";
 import type { McpSecretStoreService } from "../../materialization/index.js";
 import { McpSecretStore, mcpSecretAccount } from "../../materialization/index.js";
-import type { InstallMcpServerOperation } from "./install-operation.js";
+import type { InstallMcpServerOperation } from "../../materialization/index.js";
 import { installMcpServer } from "./install-operation.js";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
-import { McpServerManagerLive } from "../../materialization/live.js";
+import { McpServerManagerLive } from "../manager.js";
 
 /**
  * A credential store that keeps what it is given, but refuses the one value
@@ -124,9 +126,9 @@ const acceptedCanonicalTrees = (
         ).pipe(Effect.orDie);
         mcpServers[mcpRegistryResolutionKey({ authority, owner, name })] = {
           source: { type: "registry", url: new URL(authority) },
-          identity: { owner: handle(owner), name: extensionName(name) },
+          identity: { owner: decodeHandleSync(owner), name: decodeExtensionNameSync(name) },
           resolved: {
-            version: exactVersion("1.0.0"),
+            version: decodeVersionSync("1.0.0"),
             integrity: "sha512-stub",
             publisherBindingId: "hbnd_test",
           },
@@ -269,10 +271,10 @@ const makeRegistryRef = (
       location: new URL(overrides.location ?? "file:///tmp/reg"),
       owner: Option.none(),
     },
-    server: { name: extensionName(name) },
-    owner: handle(overrides.owner ?? "@community"),
-    name: extensionName(name),
-    version: exactVersion(overrides.version ?? "1.0.0"),
+    server: { name: decodeExtensionNameSync(name) },
+    owner: decodeHandleSync(overrides.owner ?? "@community"),
+    name: decodeExtensionNameSync(name),
+    version: decodeVersionSync(overrides.version ?? "1.0.0"),
     integrity: Option.fromUndefinedOr(overrides.integrity || undefined),
     packages: [],
   };
@@ -300,7 +302,7 @@ const makeUnsafeRegistryRef = (
       location: new URL(overrides.location ?? "file:///tmp/reg"),
       owner: Option.none(),
     },
-    server: { name: extensionName(name) },
+    server: { name: decodeExtensionNameSync(name) },
     // Assertion needed: this test intentionally constructs an invalid ref to hit runtime guards.
     owner: (overrides.owner ?? "@community") as unknown as RegistryMcpServerRef["owner"],
     // Assertion needed: this test intentionally constructs an invalid ref to hit runtime guards.

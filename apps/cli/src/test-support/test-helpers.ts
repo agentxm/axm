@@ -72,7 +72,7 @@ import {
   RuleManagerLive,
   SkillManagerLive,
   SubagentManagerLive,
-} from "@agentxm/workspace/materialization/live";
+} from "@agentxm/workspace/kinds-live";
 export {
   HookManagerLive,
   KnowledgeManagerLive,

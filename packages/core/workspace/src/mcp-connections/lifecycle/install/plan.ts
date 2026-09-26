@@ -29,9 +29,9 @@ import * as Schema from "effect/Schema";
 
 import {
   extensionRefRegistryLifecycle,
-  installMcpServer,
   kernelFailureToStepFailure,
 } from "../../../reconciliation/index.js";
+import { installMcpServer } from "../../install/install-operation.js";
 import { materializeRegistryPackage } from "../../../materialization/index.js";
 import { fromFileLocation } from "@agentxm/host-primitives";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";

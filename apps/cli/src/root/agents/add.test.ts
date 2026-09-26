@@ -32,8 +32,8 @@ import {
   RuleManager,
   SkillManager,
   SubagentManager,
-  SkillDefinitionInvalid,
 } from "@agentxm/workspace/materialization";
+import { SkillDefinitionInvalid } from "@agentxm/workspace/skills";
 const cursorSuggestion = {
   description: "Allow AXM in Cursor by adding `axm` to `.cursor/sandbox.json`",
   url: "https://cursor.com/docs/cli/reference/permissions.md",
@@ -54,6 +54,7 @@ const emptyMcpServerManager = {
   listMaterializable: () => Effect.succeed([]),
   materializeUninstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   configuredAgentOutcomes: () => Effect.succeed([]),
+  installConnection: () => Effect.die(new Error("not installed in this test")),
 } satisfies ServiceMap.Service.Shape<typeof McpServerManager>;
 
 const emptyHookManager = {

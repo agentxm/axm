@@ -32,7 +32,7 @@ import {
 } from "./shared/command-capabilities.js";
 import { setupResultDoc, setupTitleDoc } from "./setup/view.js";
 import { AXM_SKILL_VERSION } from "../__generated__/bundled-axm-skill.js";
-import { installBundledAxmSkill } from "@agentxm/workspace/lifecycle";
+import { installBundledAxmSkill } from "@agentxm/workspace/skills";
 
 /**
  * Setup applies a documented unattended candidate when explicitly asked to,

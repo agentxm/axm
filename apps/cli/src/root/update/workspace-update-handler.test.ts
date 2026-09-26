@@ -15,7 +15,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 
-import { PACK_CONSTRAINT_CONFLICT_BLOCKER_ID } from "@agentxm/workspace/lifecycle";
+import { PACK_CONSTRAINT_CONFLICT_BLOCKER_ID } from "@agentxm/workspace/packs";
 import { StepFailure, recoverySwitch, type ResolvedUnit } from "@agentxm/workspace/operations";
 
 import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";

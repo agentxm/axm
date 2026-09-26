@@ -956,7 +956,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Derived from: `cli/packs/authored-packs-expand-membership`
 - Supersedes: `cli/packs/authored-packs-expand-membership`
 - Additional evidence: process via [`apps/cli-e2e/src/packs.e2e.test.ts`](../apps/cli-e2e/src/packs.e2e.test.ts) — Runs pack authoring, membership editing, publish, install, unpack, and uninstall through the real CLI process against a file Registry, proving argv parsing, confirmation flows, exit codes, and on-disk manifest and workspace state that in-memory execution cannot observe.
-- Source: [`packages/core/workspace/src/packs/authoring/add-to-pack-records-member-as-pack-dependency.spec.ts`](../packages/core/workspace/src/packs/authoring/add-to-pack-records-member-as-pack-dependency.spec.ts)
+- Source: [`packages/core/workspace/src/authoring/pack-membership/add-to-pack-records-member-as-pack-dependency.spec.ts`](../packages/core/workspace/src/authoring/pack-membership/add-to-pack-records-member-as-pack-dependency.spec.ts)
 
 ##### Pack add selects the requested members without confusing shared names
 
@@ -969,8 +969,8 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Boundary: memory; selection: per-change
 - Boundary rationale: Selection is decided by the membership use case over the workspace's own desired state; a real project directory shows both which dependencies the manifest gained and that a refused selection left every byte alone.
 - Methods: example, decision-table
-- Derived from: `packages/core/workspace/src/packs/authoring/configured-pack-selector.ts`, `packages/core/workspace/src/packs/authoring/change-pack-membership.ts`
-- Source: [`packages/core/workspace/src/packs/authoring/add-to-pack-selects-members-without-ambiguity.spec.ts`](../packages/core/workspace/src/packs/authoring/add-to-pack-selects-members-without-ambiguity.spec.ts)
+- Derived from: `packages/core/workspace/src/authoring/pack-membership/configured-pack-selector.ts`, `packages/core/workspace/src/authoring/pack-membership/change-pack-membership.ts`
+- Source: [`packages/core/workspace/src/authoring/pack-membership/add-to-pack-selects-members-without-ambiguity.spec.ts`](../packages/core/workspace/src/authoring/pack-membership/add-to-pack-selects-members-without-ambiguity.spec.ts)
 
 ##### Creating a pack records workspace authorship with an empty dependency graph
 
@@ -999,8 +999,8 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Boundary: memory; selection: per-change
 - Boundary rationale: The manifest edit and everything it must leave alone — acquired member content, settings, the lockfile — are all observable in a real project directory the membership use case writes through.
 - Methods: example, decision-table
-- Derived from: `packages/core/workspace/src/packs/authoring/remove-from-pack.test.ts`, `packages/core/workspace/src/packs/authoring/change-pack-membership.ts`
-- Source: [`packages/core/workspace/src/packs/authoring/remove-from-pack-removes-only-selected-dependencies.spec.ts`](../packages/core/workspace/src/packs/authoring/remove-from-pack-removes-only-selected-dependencies.spec.ts)
+- Derived from: `packages/core/workspace/src/authoring/pack-membership/remove-from-pack.test.ts`, `packages/core/workspace/src/authoring/pack-membership/change-pack-membership.ts`
+- Source: [`packages/core/workspace/src/authoring/pack-membership/remove-from-pack-removes-only-selected-dependencies.spec.ts`](../packages/core/workspace/src/authoring/pack-membership/remove-from-pack-removes-only-selected-dependencies.spec.ts)
 
 ##### Unpack keeps members installed as direct declarations
 
@@ -1012,7 +1012,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Source: [`packages/core/workspace/src/packs/lifecycle/unpack-promotes-members-without-overwriting-direct-intent.spec.ts`](../packages/core/workspace/src/packs/lifecycle/unpack-promotes-members-without-overwriting-direct-intent.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/unpack/unpack-promotes-members-without-overwriting-direct-intent.spec.ts`](../packages/core/workspace/src/lifecycle/unpack/unpack-promotes-members-without-overwriting-direct-intent.spec.ts)
 
 ##### Unpack refuses missing packs and members without usable resolutions
 
@@ -1024,7 +1024,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Source: [`packages/core/workspace/src/packs/lifecycle/unpack-refuses-incomplete-membership.spec.ts`](../packages/core/workspace/src/packs/lifecycle/unpack-refuses-incomplete-membership.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/unpack/unpack-refuses-incomplete-membership.spec.ts`](../packages/core/workspace/src/lifecycle/unpack/unpack-refuses-incomplete-membership.spec.ts)
 
 ##### Creating a rule records editable workspace content
 
@@ -2454,7 +2454,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary rationale: Purity is a property of the membership use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
 - Derived from: `cli/packs/add/records-member-as-pack-dependency`
-- Source: [`packages/core/workspace/src/packs/authoring/add-to-pack-preview-is-pure.spec.ts`](../packages/core/workspace/src/packs/authoring/add-to-pack-preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/authoring/pack-membership/add-to-pack-preview-is-pure.spec.ts`](../packages/core/workspace/src/authoring/pack-membership/add-to-pack-preview-is-pure.spec.ts)
 
 ##### Pack creation preview describes the scaffold without creating any state
 
@@ -2482,7 +2482,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary rationale: Purity is a property of the membership use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
 - Derived from: `cli/packs/add/records-member-as-pack-dependency`
-- Source: [`packages/core/workspace/src/packs/authoring/remove-from-pack-preview-is-pure.spec.ts`](../packages/core/workspace/src/packs/authoring/remove-from-pack-preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/authoring/pack-membership/remove-from-pack-preview-is-pure.spec.ts`](../packages/core/workspace/src/authoring/pack-membership/remove-from-pack-preview-is-pure.spec.ts)
 
 ##### Pack unpack preview describes the promotions without changing any state
 
@@ -2495,7 +2495,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `cli/install/preview-is-pure`
-- Source: [`packages/core/workspace/src/packs/lifecycle/unpack-preview-is-pure.spec.ts`](../packages/core/workspace/src/packs/lifecycle/unpack-preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/unpack/unpack-preview-is-pure.spec.ts`](../packages/core/workspace/src/lifecycle/unpack/unpack-preview-is-pure.spec.ts)
 
 ##### A preview reads the same with or without advance approval and spends none of it
 
@@ -5905,7 +5905,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/core/workspace/src/mcp-connections/secret-store.ts`, `apps/cli-e2e/src/mcp-secrets.keychain.e2e.test.ts`
+- Derived from: `packages/core/workspace/src/materialization/ports/mcp-secret-store.ts`, `apps/cli-e2e/src/mcp-secrets.keychain.e2e.test.ts`
 - Open questions: When the credential store cannot persist a required secret, must installation fail, or may it complete with a warning and require the secret to be supplied later? The current statement promises storage; the controlled unavailable-store case establishes disclosure safety, not satisfaction of storage.
 - Limitation: Default scenarios control the credential-store port. The separately selected platform execution exercises the actual system keychain only on its recorded host and access context; other operating systems and access policies remain unverified. Retires when: Run the same credential lifecycle against disposable keychain entries on each supported operating system.
 - Additional evidence: platform via [`apps/cli-e2e/src/mcp-secrets.keychain.e2e.test.ts`](../apps/cli-e2e/src/mcp-secrets.keychain.e2e.test.ts) — Runs the built CLI's real MCP install, stored-input reload and secret replacement in its declared Node runtime against the host OS keychain, preserving host HOME for native access while isolating AXM_USER_HOME and project state. A subprocess loads the shipped identity build artifacts only to derive disposable cleanup identities, without a product source dependency in the test project. Producer and observer use the same runtime application identity across separate processes. Workspace/local/source/input namespaces are isolated and read back natively; a finally block deletes exactly the known disposable entries, requires affirmative deletion for every attempted write, and retains an independent cleanup journal on failure. This establishes only the recorded host and access context, not cross-application access, unavailable-keychain policy or every supported operating system.

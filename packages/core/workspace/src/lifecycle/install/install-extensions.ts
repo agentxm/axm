@@ -57,15 +57,15 @@ import {
   observeInstructions,
 } from "../../projection/index.js";
 import { WorkspaceLocation } from "../../desired-state/index.js";
-import { planHookInstall } from "../../hooks/lifecycle/install/plan.js";
-import { planKnowledgeInstall } from "../../knowledge/lifecycle/install/plan.js";
+import { planHookInstall } from "../../hooks/index.js";
+import { planKnowledgeInstall } from "../../knowledge/index.js";
 import {
   discoverMcpServerRefs,
   finalizeMcpServerInstallIntent,
   parseMcpServerInstallRequest,
   planMcpServerInstall,
   resolveMcpServerSourceRequest,
-} from "../../mcp-connections/lifecycle/install/plan.js";
+} from "../../mcp-connections/index.js";
 import {
   discoverPackRefs,
   finalizePackInstallIntent,
@@ -73,17 +73,15 @@ import {
   parsePackInstallRequest,
   planPackInstall,
   resolvePackSourceRequest,
-} from "../../packs/lifecycle/install/plan.js";
-import { planRuleInstall } from "../../instructions/lifecycle/install/plan.js";
+} from "../../packs/index.js";
+import { planRuleInstall } from "../../instructions/index.js";
 import {
-  planSkillInstall,
   buildCompanionPackagesSection,
-} from "../../skills/lifecycle/install/plan.js";
-import { planSubagentInstall } from "../../subagents/lifecycle/install/plan.js";
-import {
   BundledAxmSkillAsset,
   planBundledAxmSkillInstall,
-} from "../../skills/lifecycle/install/bundled.js";
+  planSkillInstall,
+} from "../../skills/index.js";
+import { planSubagentInstall } from "../../subagents/index.js";
 import { buildConfiguredInstallPlan, type ConfiguredInstallRequirements } from "./configured.js";
 import {
   discoverInstallRefs,

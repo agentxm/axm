@@ -106,31 +106,26 @@ import {
   StepFailureConversion,
   type StepFailureConversionService,
 } from "../../reconciliation/index.js";
-import { settleMcpSourceIdentityFor } from "../../mcp-connections/source-identity.js";
-import type { InstallStepRequirements } from "../../reconciliation/index.js";
-import type { HookInstallIntent } from "../../hooks/index.js";
-import type { KnowledgeInstallIntent } from "../../knowledge/index.js";
-import type { McpServerInstallIntent } from "../../mcp-connections/index.js";
-import type { PackInstallIntent } from "../../packs/index.js";
-import type { RuleInstallIntent } from "../../instructions/index.js";
-import type { SkillInstallIntent } from "../../skills/index.js";
-import type { SubagentInstallIntent } from "../../subagents/index.js";
-import { planHookInstall } from "../../hooks/lifecycle/install/plan.js";
-import { planKnowledgeInstall } from "../../knowledge/lifecycle/install/plan.js";
-import { planMcpServerInstall } from "../../mcp-connections/lifecycle/install/plan.js";
 import {
-  planPackInstall,
-  readProposedGraph,
-  type PackInstallRequirements,
-} from "../../packs/lifecycle/install/plan.js";
-import { planRuleInstall } from "../../instructions/lifecycle/install/plan.js";
-import { planSkillInstall } from "../../skills/lifecycle/install/plan.js";
-import { planSubagentInstall } from "../../subagents/lifecycle/install/plan.js";
+  type McpServerInstallIntent,
+  planMcpServerInstall,
+  settleMcpSourceIdentityFor,
+} from "../../mcp-connections/index.js";
+import type { InstallStepRequirements } from "../../reconciliation/index.js";
+import { type HookInstallIntent, planHookInstall } from "../../hooks/index.js";
+import { type KnowledgeInstallIntent, planKnowledgeInstall } from "../../knowledge/index.js";
 import {
   configuredEntryConstraintBlockPlan,
   configuredPackConstraintBlockPlan,
+  type PackInstallIntent,
+  type PackInstallRequirements,
   packUpdateGroups,
-} from "../../packs/lifecycle/constraint-gate.js";
+  planPackInstall,
+  readProposedGraph,
+} from "../../packs/index.js";
+import { planRuleInstall, type RuleInstallIntent } from "../../instructions/index.js";
+import { planSkillInstall, type SkillInstallIntent } from "../../skills/index.js";
+import { planSubagentInstall, type SubagentInstallIntent } from "../../subagents/index.js";
 import {
   WORKSPACE_UPDATE_EXECUTION_CAPABILITIES,
   WORKSPACE_UPDATE_HELD_RELEASE_POLICY,

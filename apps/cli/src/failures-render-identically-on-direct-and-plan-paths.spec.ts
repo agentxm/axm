@@ -98,33 +98,37 @@ import {
   ArchiveIntegrityMismatch,
   CanonicalPackageProbeFailed,
   CreateDestinationExists,
-  HookDefinitionInvalid,
+  PackageCopyFailed,
+  PackageMaterializationFailed,
+  InstallStateMissing,
+  StagedPackageInvalid,
+  type ExtensionKindFailure,
+} from "@agentxm/workspace/materialization";
+import { HookDefinitionInvalid } from "@agentxm/workspace/hooks";
+import { RuleDefinitionInvalid } from "@agentxm/workspace/instructions";
+import {
   KnowledgeDefinitionInvalid,
   KnowledgeDesiredStateUnreconcilable,
   KnowledgeIoFailed,
   KnowledgeResolutionMissing,
   KnowledgeUnavailable,
+} from "@agentxm/workspace/knowledge";
+import {
   McpAgentSyncRefused,
   McpCanonicalPathUnsafe,
   McpInstallStateMissing,
   McpConnectionConflict,
   McpRequiredInputsMissing,
   McpWorkspacePackageInvalid,
+} from "@agentxm/workspace/mcp-connections";
+import {
   PackArchiveFetchFailed,
   PackDefinitionInvalid,
   PackInstallStateMissing,
   PackStagingFailed,
-  PackageCopyFailed,
-  PackageMaterializationFailed,
-  RuleDefinitionInvalid,
-  SkillDefinitionInvalid,
-  InstallStateMissing,
-  SkillMaterializationFailed,
-  StagedPackageInvalid,
-  SubagentContentUnreadable,
-  SubagentDefinitionInvalid,
-  type ExtensionKindFailure,
-} from "@agentxm/workspace/materialization";
+} from "@agentxm/workspace/packs";
+import { SkillDefinitionInvalid, SkillMaterializationFailed } from "@agentxm/workspace/skills";
+import { SubagentContentUnreadable, SubagentDefinitionInvalid } from "@agentxm/workspace/subagents";
 import {
   AgentDetectionFailed,
   HookConfigInvalid,

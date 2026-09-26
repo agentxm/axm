@@ -1,17 +1,6 @@
-import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import type { CodingAgent } from "../../projection/agent-adapters/index.js";
 import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
-export const expectRecord = (
-  value: unknown,
-  message = "Expected object record",
-): Readonly<Record<string, unknown>> => {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new Error(message);
-  }
-
-  return Object.fromEntries(Object.entries(value));
-};
 
 export const makeCodingAgentStub = (
   id: MaterializationTargetId,

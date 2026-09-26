@@ -2,11 +2,11 @@
  * @agentxm/workspace/materialization public API.
  *
  * The materialization capability: the per-extension-type manager contract and
- * service tags, the per-type failure families, canonical package staging and
- * swap, registry-backed acquisition, and the install, materialize, uninstall,
- * and authored-package closure recipes that compose a manager into one plan
- * step. Environment-backed manager layers live behind `./live`; in-memory
- * managers for feature tests live behind `./testing`.
+ * service tags each extension kind implements, the kernel failure families and
+ * the brand every kind failure carries, the MCP credential port, canonical
+ * package staging and swap, and registry-backed acquisition. The kinds'
+ * manager layers live behind `./kinds-live`; the projection participants
+ * layer lives behind `./live`; deterministic doubles live behind `./testing`.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -38,6 +38,9 @@ export {
   type KnowledgeManagerService,
   type KnowledgeMaterializationFacts,
   type KnowledgeSyncResult,
+  type InstallMcpServerOperation,
+  type InstallMcpServerOperationArgs,
+  type McpConnectionInstallRequirements,
   type McpServerMaterializationFacts,
   type McpServerManagerService,
   type PackMaterializationFacts,
@@ -71,37 +74,8 @@ export {
   type AcceptedResolution,
   type AcquiredContentIdentity,
 } from "./accepted-resolution.js";
-export { HookDefinitionInvalid } from "../hooks/errors.js";
-export { RuleDefinitionInvalid } from "../instructions/errors.js";
-export {
-  McpAgentSyncRefused,
-  McpCanonicalPathUnsafe,
-  McpConnectionConflict,
-  McpInstallStateMissing,
-  McpRequiredInputsMissing,
-  McpWorkspacePackageInvalid,
-  type McpAgentSyncFault,
-  type McpWorkspacePackageFault,
-} from "../mcp-connections/errors.js";
-export { SubagentContentUnreadable, SubagentDefinitionInvalid } from "../subagents/errors.js";
-export { SkillDefinitionInvalid, SkillMaterializationFailed } from "../skills/errors.js";
-export {
-  PackArchiveFetchFailed,
-  PackDefinitionInvalid,
-  PackInstallStateMissing,
-  PackStagingFailed,
-} from "../packs/errors.js";
-export {
-  KnowledgeDefinitionInvalid,
-  KnowledgeDesiredStateUnreconcilable,
-  KnowledgeIoFailed,
-  KnowledgeResolutionMissing,
-  KnowledgeUnavailable,
-} from "../knowledge/errors.js";
 
-// MCP server installation: the operation four surfaces share, its credential
-// port, and the artifact/target vocabulary the plan step reports.
-
+// The credential port MCP connection installs persist secrets through.
 export {
   MCP_SECRET_SERVICE,
   McpSecretStore,
@@ -110,20 +84,9 @@ export {
   type McpSecretIdentity,
   type McpSecretStoreService,
   type McpSecretWriteOutcome,
-} from "../mcp-connections/secret-store.js";
-export {
-  MCP_AGENT_CONFIG_SURFACE,
-  agentConfigTarget,
-  agentConfigTargets,
-  mcpConfigSurface,
-  mcpServerArtifact,
-  mcpServerSourcePath,
-  mcpSettingsTarget,
-  mcpSourceTarget,
-  type AgentMcpConfigOutcome,
-} from "../mcp-connections/artifact.js";
+} from "./ports/mcp-secret-store.js";
 
-// Per-type materialization vocabulary
+// The artifact a skill materialization reports across its agent targets
 export {
   artifactAgentIdsFromTargets,
   artifactTargetAgentIds,
@@ -131,9 +94,7 @@ export {
   skillArtifactFromTargets,
   type InstallableSkillTarget,
   type InstallableSkillTargetLocation,
-} from "../skills/skill-artifact.js";
-export { computeSkillSourceHash } from "../skills/source-hash.js";
-export { ensureSkillAgentArtifact, removeSkillAgentArtifact } from "../skills/materialization.js";
+} from "./skill-artifact.js";
 
 // Canonical package staging, copy, reuse, and on-disk materializability
 export {

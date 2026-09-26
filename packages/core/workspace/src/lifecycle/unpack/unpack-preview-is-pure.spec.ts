@@ -10,11 +10,7 @@ import {
 } from "../../operations/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import {
-  applyInstall,
-  installRequest,
-  readSettings,
-} from "../../lifecycle/install/test-helpers.js";
+import { applyInstall, installRequest, readSettings } from "../install/test-helpers.js";
 import { makePackWorld, previewUnpack, type PackWorld } from "./test-helpers.js";
 
 export const specification = defineSpecification({

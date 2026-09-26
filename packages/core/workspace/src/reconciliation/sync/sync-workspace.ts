@@ -28,13 +28,13 @@ import {
 import type {
   HookManager,
   PackManager,
+  McpConnectionInstallRequirements,
   McpServerManager,
   KnowledgeManager,
   RuleManager,
   SkillManager,
   SubagentManager,
 } from "../../materialization/index.js";
-import type { McpServerInstallRequirements } from "../index.js";
 import {
   observeUnit,
   OperationJournal,
@@ -70,11 +70,8 @@ import type {
   WorkspaceTransitionAcquireFailure,
 } from "../../transitions/settlement/index.js";
 
-import {
-  collectLeftoverRetirement,
-  collectUnreachableRetirement,
-  collectConfiguredPackRecovery,
-} from "../index.js";
+import { collectLeftoverRetirement, collectUnreachableRetirement } from "../index.js";
+import { collectConfiguredPackRecovery } from "./configured-pack-recovery.js";
 import { StepFailureConversion, WorkspaceSyncFailed, type SyncPolicyFailure } from "../index.js";
 import {
   collectMaterializeSteps,
@@ -104,7 +101,7 @@ export type SyncWorkspaceRequirements =
   | LockfileReader
   | KnowledgeManager
   | McpServerManager
-  | McpServerInstallRequirements
+  | McpConnectionInstallRequirements
   | RuleManager
   | SkillManager
   | SubagentManager

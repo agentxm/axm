@@ -121,6 +121,46 @@
       "axm-source": "./src/reconciliation/testing.ts",
       "default": "./dist/src/reconciliation/testing.js"
     },
+    "./skills": {
+      "types": "./dist/src/skills/index.d.ts",
+      "axm-source": "./src/skills/index.ts",
+      "default": "./dist/src/skills/index.js"
+    },
+    "./subagents": {
+      "types": "./dist/src/subagents/index.d.ts",
+      "axm-source": "./src/subagents/index.ts",
+      "default": "./dist/src/subagents/index.js"
+    },
+    "./mcp-connections": {
+      "types": "./dist/src/mcp-connections/index.d.ts",
+      "axm-source": "./src/mcp-connections/index.ts",
+      "default": "./dist/src/mcp-connections/index.js"
+    },
+    "./hooks": {
+      "types": "./dist/src/hooks/index.d.ts",
+      "axm-source": "./src/hooks/index.ts",
+      "default": "./dist/src/hooks/index.js"
+    },
+    "./instructions": {
+      "types": "./dist/src/instructions/index.d.ts",
+      "axm-source": "./src/instructions/index.ts",
+      "default": "./dist/src/instructions/index.js"
+    },
+    "./knowledge": {
+      "types": "./dist/src/knowledge/index.d.ts",
+      "axm-source": "./src/knowledge/index.ts",
+      "default": "./dist/src/knowledge/index.js"
+    },
+    "./packs": {
+      "types": "./dist/src/packs/index.d.ts",
+      "axm-source": "./src/packs/index.ts",
+      "default": "./dist/src/packs/index.js"
+    },
+    "./kinds-live": {
+      "types": "./dist/src/kinds-live.d.ts",
+      "axm-source": "./src/kinds-live.ts",
+      "default": "./dist/src/kinds-live.js"
+    },
     "./configuration": {
       "types": "./dist/src/configuration/index.d.ts",
       "axm-source": "./src/configuration/index.ts",

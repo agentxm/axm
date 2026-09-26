@@ -36,36 +36,21 @@ import {
   type ExecutionCandidate,
 } from "../../transitions/planning/index.js";
 
-import {
-  parseHookUninstallRequest,
-  planHookUninstall,
-} from "../../hooks/lifecycle/uninstall/plan.js";
-import {
-  parseKnowledgeUninstallRequest,
-  planKnowledgeUninstall,
-} from "../../knowledge/lifecycle/uninstall/plan.js";
+import { parseHookUninstallRequest, planHookUninstall } from "../../hooks/index.js";
+import { parseKnowledgeUninstallRequest, planKnowledgeUninstall } from "../../knowledge/index.js";
 import {
   parseMcpServerUninstallRequest,
   planMcpServerUninstall,
-} from "../../mcp-connections/lifecycle/uninstall/plan.js";
+} from "../../mcp-connections/index.js";
 import {
   finalizePackUninstallIntent,
   parsePackUninstallSelectors,
   planPackUninstall,
   type PackUninstallRequirements,
-} from "../../packs/lifecycle/uninstall/plan.js";
-import {
-  parseRuleUninstallRequest,
-  planRuleUninstall,
-} from "../../instructions/lifecycle/uninstall/plan.js";
-import {
-  parseSkillUninstallRequest,
-  planSkillUninstall,
-} from "../../skills/lifecycle/uninstall/plan.js";
-import {
-  parseSubagentUninstallRequest,
-  planSubagentUninstall,
-} from "../../subagents/lifecycle/uninstall/plan.js";
+} from "../../packs/index.js";
+import { parseRuleUninstallRequest, planRuleUninstall } from "../../instructions/index.js";
+import { parseSkillUninstallRequest, planSkillUninstall } from "../../skills/index.js";
+import { parseSubagentUninstallRequest, planSubagentUninstall } from "../../subagents/index.js";
 import type { InstallExecutionFailure, PrepareInstallRequirements } from "../install/vocabulary.js";
 import { resolveRootUninstallIntent } from "./root-intent.js";
 import { refuseUndesiredInstalledTarget, typedUninstallSubject } from "./undesired-target.js";

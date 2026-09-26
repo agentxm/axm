@@ -12,7 +12,7 @@ import {
 import { preapprovedPlanExecution } from "../../transitions/planning/testing.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { BundledAxmSkillAsset } from "../../skills/lifecycle/install/bundled.js";
+import { BundledAxmSkillAsset } from "../../skills/index.js";
 import { makeLifecycleFixture } from "../testing.js";
 import { applyInstall, installRequest } from "../install/test-helpers.js";
 import { UpdateExtensions } from "./update-extensions.js";

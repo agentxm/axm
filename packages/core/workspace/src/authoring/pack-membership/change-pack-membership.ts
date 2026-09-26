@@ -59,7 +59,7 @@ import {
 } from "../../desired-state/index.js";
 import type { WorkspaceTransactionScope } from "../../transitions/settlement/index.js";
 
-import { settingsRelativePath } from "../../authoring/create/authoring-owner.js";
+import { settingsRelativePath } from "../create/authoring-owner.js";
 import { addToPack } from "./add-to-pack.js";
 import { resolveConfiguredPackSelector } from "./configured-pack-selector.js";
 import { hashContent } from "./hash-content.js";

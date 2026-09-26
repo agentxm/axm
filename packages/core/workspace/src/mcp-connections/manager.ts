@@ -22,6 +22,7 @@ import {
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { McpAgentSyncRefused, McpInstallStateMissing } from "./errors.js";
+import { installMcpServer } from "./install/install-operation.js";
 import {
   applyProjectionPlans,
   inspectDesiredMcpServer,
@@ -408,7 +409,7 @@ export const McpServerManagerLive = Layer.effect(
         )).flat();
       });
 
-    return {
+    const service: McpServerManagerService = {
       ...makeBaseManagerMembers({
         type: "mcp-server",
         spanPrefix: "McpServerManager",
@@ -491,6 +492,11 @@ export const McpServerManagerLive = Layer.effect(
         }
         return Effect.succeed([removal.value.resolutionKey.value]);
       },
-    } satisfies McpServerManagerService;
+
+      // The install operation acquires through this same manager.
+      installConnection: (op) =>
+        installMcpServer(op).pipe(Effect.provideService(McpServerManager, service)),
+    };
+    return service;
   }),
 );

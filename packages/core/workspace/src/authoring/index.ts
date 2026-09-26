@@ -99,7 +99,7 @@ export {
   type PackMembershipRequest,
   type PackMembershipRequirements,
   type PackMembershipUnchanged,
-} from "../packs/authoring/change-pack-membership.js";
+} from "./pack-membership/change-pack-membership.js";
 export {
   PackGraphInvalid,
   PackManifestUnavailable,
@@ -114,7 +114,7 @@ export {
   PackSelectorNotAPack,
   PackSourceMissing,
   type PackMembershipError,
-} from "../packs/authoring/membership-errors.js";
+} from "./pack-membership/membership-errors.js";
 
 // Forking a managed package into workspace authorship
 export {

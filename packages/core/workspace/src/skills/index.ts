@@ -5,5 +5,19 @@
  * @packageDocumentation
  */
 
-export type { SkillInstallIntent } from "./lifecycle/install/plan.js";
-export type { SkillUninstallIntent } from "./lifecycle/uninstall/plan.js";
+export { SkillDefinitionInvalid, SkillMaterializationFailed } from "./errors.js";
+export {
+  buildCompanionPackagesSection,
+  planSkillInstall,
+  type SkillInstallIntent,
+} from "./lifecycle/install/plan.js";
+export {
+  BundledAxmSkillAsset,
+  installBundledAxmSkill,
+  planBundledAxmSkillInstall,
+} from "./lifecycle/install/bundled.js";
+export {
+  parseSkillUninstallRequest,
+  planSkillUninstall,
+  type SkillUninstallIntent,
+} from "./lifecycle/uninstall/plan.js";

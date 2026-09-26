@@ -21,12 +21,9 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
-import {
-  McpServerManager,
-  mcpServerArtifact,
-  mcpSourceTarget,
-} from "../../../materialization/index.js";
-import { deleteMcpSecrets } from "../../../reconciliation/index.js";
+import { McpServerManager } from "../../../materialization/index.js";
+import { mcpServerArtifact, mcpSourceTarget } from "../../artifact.js";
+import { deleteMcpSecrets } from "../../install/install-operation.js";
 import {
   collectSecretInputNames,
   readMcpServerManifestAt,

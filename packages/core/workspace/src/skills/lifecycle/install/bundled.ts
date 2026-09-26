@@ -28,10 +28,8 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
-import {
-  ensureSkillAgentArtifact,
-  replaceCanonicalDirectory,
-} from "../../../materialization/index.js";
+import { replaceCanonicalDirectory } from "../../../materialization/index.js";
+import { ensureSkillAgentArtifact } from "../../materialization.js";
 import {
   AXM_SKILL_CLI_VERSION_METADATA_KEY,
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,

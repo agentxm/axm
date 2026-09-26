@@ -17,7 +17,7 @@ import {
   type McpSecretEraseOutcome,
   type McpSecretStoreService,
   type McpSecretWriteOutcome,
-} from "./secret-store.js";
+} from "../materialization/index.js";
 
 interface KeyringEntry {
   readonly getPassword: () => string | null;

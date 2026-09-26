@@ -8,7 +8,7 @@
 
 import * as Layer from "effect/Layer";
 
-import { BundledAxmSkillAsset } from "@agentxm/workspace/lifecycle";
+import { BundledAxmSkillAsset } from "@agentxm/workspace/skills";
 
 import {
   AXM_SKILL_CLI_VERSION,

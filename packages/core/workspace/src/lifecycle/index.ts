@@ -1,9 +1,9 @@
 /**
  * Extension-lifecycle feature: install, update, uninstall, enable, and
  * disable policy across root and type-specific command forms — configured
- * entry resolution, the install and uninstall use cases every command
- * spelling routes through, and the per-type lifecycle operations. The environment-backed per-type manager
- * layers live behind `./live`.
+ * entry resolution, and the install, update, uninstall, unpack, and demote use
+ * cases every command spelling routes through. The per-type planners belong
+ * to each extension kind.
  *
  * @experimental All exports from this module are unstable and may change without notice.
  * @packageDocumentation
@@ -82,40 +82,6 @@ export {
 } from "./install/configured.js";
 export { inlineMcpNotApplicablePlan } from "./install/inline-mcp-operation.js";
 
-// The per-type install planners every install and update route shares.
-export { planHookInstall } from "../hooks/lifecycle/install/plan.js";
-export { planKnowledgeInstall } from "../knowledge/lifecycle/install/plan.js";
-export {
-  parseMcpEnvInputs,
-  planMcpServerInstall,
-} from "../mcp-connections/lifecycle/install/plan.js";
-export { planPackInstall, type PackInstallRequirements } from "../packs/lifecycle/install/plan.js";
-export { planRuleInstall } from "../instructions/lifecycle/install/plan.js";
-export { planSkillInstall } from "../skills/lifecycle/install/plan.js";
-export { planSubagentInstall } from "../subagents/lifecycle/install/plan.js";
-
-// The bundled official AXM skill, and the asset port the application fills.
-export {
-  BUNDLED_AXM_SKILL_AUTHORED_BLOCKER,
-  BundledAxmSkillAsset,
-  bundledAxmSkillCanonicalPath,
-  inspectBundledAxmSkillReadiness,
-  installBundledAxmSkill,
-  type BundledAxmSkillAssetService,
-  type BundledAxmSkillReadiness,
-  type BundledAxmSkillSourceFile,
-} from "../skills/lifecycle/install/bundled.js";
-
-// Pack graph transitions: the atomic step and its desired-state predicate.
-export { validatePackGraphPostcondition } from "../packs/lifecycle/graph-transition.js";
-export {
-  configuredPackConstraintBlockPlan,
-  PACK_CONSTRAINT_CONFLICT_BLOCKER_ID,
-  packUpdateGroups,
-  relevantPackConstraintProblems,
-  type PackUpdateGroup,
-} from "../packs/lifecycle/constraint-gate.js";
-
 // Uninstall: withdrawing extensions, as one use case behind every spelling.
 export { MigrateDeprecated } from "./migrate-deprecated.js";
 export {
@@ -134,34 +100,11 @@ export {
   type RootUninstallableType,
 } from "./uninstall/root-intent.js";
 
-export {
-  PACK_UNINSTALL_GRAPH_BLOCKER_ID,
-  packUninstallRecoveryIdentifiers,
-  planPackUninstallGraphReadiness,
-  type PackRetirement,
-  type PackUninstallGraphReadiness,
-} from "../packs/lifecycle/uninstall/readiness.js";
-export {
-  type PackUninstallIntent,
-  type PackUninstallRequirements,
-  type ResolvedPackUninstallTarget,
-} from "../packs/lifecycle/uninstall/plan.js";
-
-// Skill lifecycle operations
-export { getSkillDisplayName } from "../skills/lifecycle/utils.js";
-
 // Update: the atomicity a workspace-wide sweep declares.
 export {
   WORKSPACE_UPDATE_ATOMICITY,
   WORKSPACE_UPDATE_EXECUTION_CAPABILITIES,
 } from "./update/atomicity.js";
-
-// Pack lifecycle operations
-export {
-  expandPackInstallRefsWithReleaseAge,
-  type ReleaseAgeAwarePackExpansion,
-} from "../packs/lifecycle/expansion.js";
-export { validateExactPackDependencyVersions } from "../packs/lifecycle/resolved-dependency.js";
 
 // Update: advancing what the workspace already accepted, for a named
 // extension or for the configured entries as a whole.
@@ -218,7 +161,7 @@ export {
   type PromoteAuthoredPackRequest,
   type PromoteAuthoredPackRequirements,
   type PromotedPackMember,
-} from "../packs/lifecycle/promote-authored-pack.js";
+} from "./unpack/promote-authored-pack.js";
 
 // Demote: returning a workspace-authored package to an external source.
 export {

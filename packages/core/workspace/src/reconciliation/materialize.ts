@@ -2,9 +2,9 @@
  * Desired-state materialization planning: select desired nodes, judge
  * observed-materialization currency, and assemble the per-extension
  * materialize steps of a sync plan. Configured-entry resolution comes from
- * the resolution capability and the MCP server install operation from the
- * materialization capability, so this feature reaches for a capability rather
- * than asking the application to hand it another feature's policy.
+ * the resolution capability and MCP server installation from the MCP
+ * manager's port, so this module reaches for a capability rather than asking
+ * the application to hand it another feature's policy.
  *
  * @experimental All exports from this module are unstable and may change without notice.
  */
@@ -30,9 +30,10 @@ import {
   SkillManager,
   SubagentManager,
   skillArtifactFromTargets,
+  type McpConnectionInstallRequirements,
+  type McpServerManagerService,
   type PreparedHookProjection,
 } from "../materialization/index.js";
-import { installMcpServer, type McpServerInstallRequirements } from "./mcps/install-operation.js";
 import {
   buildMaterializeOperation,
   extensionRefRegistryLifecycle,
@@ -221,7 +222,9 @@ export const recoverableExternalPackName = (
   return node.name;
 };
 
-export interface ConfiguredPackRecovery<R = SyncStepRequirements | McpServerInstallRequirements> {
+export interface ConfiguredPackRecovery<
+  R = SyncStepRequirements | McpConnectionInstallRequirements,
+> {
   readonly packNames: ReadonlySet<string>;
   readonly releaseAge: Plan["releaseAge"];
   readonly steps: ReadonlyArray<PlannedJobStep<R>>;
@@ -312,18 +315,20 @@ const subagentSyncArtifact = (args: {
  * run is non-interactive because reconciliation must not stop to prompt.
  */
 const buildMcpServerSyncOperation = ({
+  manager,
   ref,
   sourceIdentity,
   force,
   transitionLabel,
   adapter,
 }: {
+  readonly manager: McpServerManagerService;
   readonly ref: McpServerExtensionRef;
   readonly sourceIdentity: string;
   readonly force: boolean;
   readonly transitionLabel: string;
   readonly adapter: StepFailureConversionService;
-}): PlannedJobStep<SyncStepRequirements | McpServerInstallRequirements> => {
+}): PlannedJobStep<SyncStepRequirements | McpConnectionInstallRequirements> => {
   const target = targetFromRef(ref);
   const lifecycleWarnings = extensionRefLifecycleWarnings(ref);
   const registryLifecycle = extensionRefRegistryLifecycle(ref);
@@ -335,15 +340,17 @@ const buildMcpServerSyncOperation = ({
       : { readiness: "warn" as const, warnMessage: lifecycleWarnings.join("; ") }),
     ...(registryLifecycle === undefined ? {} : { registryLifecycle }),
     ...(ref.refType === "workspace" || !force ? {} : { acquisitionRefs: [ref] }),
-    run: installMcpServer({
-      name: "install-mcp-server",
-      args: {
-        ref,
-        sourceIdentity,
-        nonInteractive: true,
-        force,
-      },
-    }).pipe(Effect.mapError(adapter.toStepFailure)),
+    run: manager
+      .installConnection({
+        name: "install-mcp-server",
+        args: {
+          ref,
+          sourceIdentity,
+          nonInteractive: true,
+          force,
+        },
+      })
+      .pipe(Effect.mapError(adapter.toStepFailure)),
   };
 };
 
@@ -444,7 +451,7 @@ const resolveDesiredNodeRef = (
  * when currency is judged by reading a unit back.
  */
 type MaterializeStepRequirements =
-  SyncStepRequirements | ProjectionParticipantRequirements | McpServerInstallRequirements;
+  SyncStepRequirements | ProjectionParticipantRequirements | McpConnectionInstallRequirements;
 
 /**
  * What one materialize collection reports to the plan assembler: the steps it
@@ -498,7 +505,7 @@ export const collectMaterializeSteps = (args: {
   | McpServerManager
   | KnowledgeManager
   | McpServerManager
-  | McpServerInstallRequirements
+  | McpConnectionInstallRequirements
   | Path.Path
   | ProjectionParticipantRequirements
   | RuleManager
@@ -1051,6 +1058,7 @@ export const collectMaterializeSteps = (args: {
           .map(({ ref, sourceIdentity, force, transitionLabel }) =>
             desiredActivation(ref)
               ? buildMcpServerSyncOperation({
+                  manager: mcpManager,
                   ref,
                   sourceIdentity,
                   force,

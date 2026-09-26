@@ -39,7 +39,7 @@ import {
   RuleManagerLive,
   SkillManagerLive,
   SubagentManagerLive,
-} from "@agentxm/workspace/materialization/live";
+} from "@agentxm/workspace/kinds-live";
 const stubKnowledgeManager = {
   ...managerLifecycleStubs,
   refreshCatalog: () => Effect.void,

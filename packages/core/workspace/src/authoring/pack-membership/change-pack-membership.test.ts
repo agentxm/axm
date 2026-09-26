@@ -4,12 +4,12 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { afterEach } from "vitest";
 import { isExecutionCandidateFresh } from "../../transitions/planning/index.js";
-import { makePackWorkspace } from "../../authoring/test-support/pack-membership.js";
+import { makePackWorkspace } from "../test-support/pack-membership.js";
 import {
   applyExecution,
   authoringWorkspaceLayer,
   previewExecution,
-} from "../../authoring/test-support/authoring-workspace.js";
+} from "../test-support/authoring-workspace.js";
 import { ChangePackMembership } from "./change-pack-membership.js";
 
 describe("pack membership candidate identity", () => {

@@ -14,7 +14,7 @@ import {
   computeMaterializedTreeIntegrity,
   WorkspaceLocation,
 } from "../desired-state/index.js";
-import { isArchivePathIncluded } from "../publishing/index.js";
+import { isArchivePathIncluded } from "../acquisition/archive-paths.js";
 import { SourceHostProviders } from "../resolution/sources/index.js";
 import { fromFileLocation } from "@agentxm/host-primitives";
 import {

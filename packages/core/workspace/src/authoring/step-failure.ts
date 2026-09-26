@@ -30,7 +30,7 @@ import {
   PackSelectorAmbiguous,
   PackSelectorNotAPack,
   PackSourceMissing,
-} from "../packs/authoring/membership-errors.js";
+} from "./pack-membership/membership-errors.js";
 import { kernelFailureDetail, renderKernelFailure } from "../reconciliation/failure-rendering.js";
 
 import { AuthoringFailed } from "./errors.js";

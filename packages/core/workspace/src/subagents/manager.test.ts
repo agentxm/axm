@@ -5,7 +5,11 @@
  * uninstall removing rendered files, and settings/lockfile CRUD.
  */
 
-import { UNCONSTRAINED_DESIRED_NODE } from "../desired-state/index.js";
+import {
+  UNCONSTRAINED_DESIRED_NODE,
+  type SubagentLockEntry,
+  type Settings,
+} from "../desired-state/index.js";
 import { NativeWriteAuthorityPermissive } from "../projection/agent-adapters/testing.js";
 import * as nodeFs from "node:fs";
 import * as nodeOs from "node:os";
@@ -21,24 +25,20 @@ import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import type { LocalSubagentRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import type { AddSubagentArgs, CodingAgent } from "../projection/agent-adapters/index.js";
-import { SubagentManager } from "../materialization/managers.js";
+import { SubagentManager } from "../materialization/index.js";
 import { CodingAgentRepository } from "../projection/index.js";
 import {
   WorkspaceReadTest,
   MockWorkspaceTransactionScope,
   TEST_CONTENT_IDENTITY,
   TEST_TREE_INTEGRITY,
-} from "../desired-state/testing.js";
-import { SubagentManagerLive } from "./manager.js";
-import type { SubagentLockEntry } from "../desired-state/index.js";
-import type { Settings } from "../desired-state/index.js";
-import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
-import {
   describeTestFailure,
   exactVersion,
   extensionName,
   handle,
-} from "../materialization/test-helpers.js";
+} from "../desired-state/testing.js";
+import { SubagentManagerLive } from "./manager.js";
+import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 
 // ---------------------------------------------------------------------------
 // Test helpers

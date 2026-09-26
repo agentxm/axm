@@ -22,9 +22,9 @@ import type {
   McpOwnershipMarkerInvalid,
   McpSharedTargetConflict,
   SubagentIoFailed,
-} from "../projection/agent-adapters/errors.js";
-import type { NativeWriteRefused } from "../projection/agent-adapters/native-write-authority.js";
-import type { TransientBackupFailed } from "../projection/agent-adapters/transient-backup.js";
+  NativeWriteRefused,
+  TransientBackupFailed,
+} from "../projection/agent-adapters/index.js";
 import { makeStepFailure, type StepFailure } from "../operations/index.js";
 
 /** Every agent-integration failure, beside a retained write backup that wraps one. */

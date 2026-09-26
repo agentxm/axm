@@ -14,13 +14,9 @@ import { LockfileSchema } from "../../desired-state/index.js";
 import { deriveOperationOutcome } from "../../operations/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { writeLocalSkillPackage } from "../testing.js";
-import {
-  applyInstall,
-  installRequest,
-  localLifecycleRows,
-  makeInstallWorld,
-} from "./test-helpers.js";
+import { writeLocalSkillPackage } from "../../testing/local-packages.js";
+import { localLifecycleRows } from "./test-helpers.js";
+import { applyInstall, installRequest, makeInstallWorld } from "../../testing/install-world.js";
 
 export const specification = defineSpecification({
   requirement: "cli/install/records-accepted-resolution",

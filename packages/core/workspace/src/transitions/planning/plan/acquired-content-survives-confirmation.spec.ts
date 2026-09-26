@@ -11,11 +11,11 @@ import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/exten
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { SourceNotResolvable } from "../../../resolution/sources/errors.js";
 import {
+  SourceNotResolvable,
   SourceHostProviders,
   type SourceHostProvidersService,
-} from "../../../resolution/sources/service.js";
+} from "../../../resolution/sources/index.js";
 import { makeSpecContext, makeSpecWorkspace } from "./__tests__/plan-spec-support.js";
 import { deriveOperationOutcome, type Plan } from "../../../operations/index.js";
 import { promptablePlanExecution } from "./plan-execution-fixtures.js";

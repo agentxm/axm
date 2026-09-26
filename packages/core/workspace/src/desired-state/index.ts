@@ -49,9 +49,12 @@ export {
 export { LOCK_ENTRY_SCHEMA_BY_TYPE } from "./lockfile/schema.js";
 
 // Extension path and identity vocabulary
-export { ACQUIRED_EXTENSIONS_DIR, LOCK_FILENAME } from "./workspace/constants.js";
 export {
+  ACQUIRED_EXTENSIONS_DIR,
   isInstallRootStagingName,
+  LOCK_FILENAME,
+} from "./workspace/constants.js";
+export {
   observeInstallRoot,
   type InstallRootEntry,
   type InstallRootInventory,
@@ -61,11 +64,9 @@ export {
 } from "./workspace/install-root.js";
 export {
   acquiredExtensionDisplayPath,
-  acquiredExtensionDisplayPathFromLockEntry,
   BUNDLED_SKILL_OWNER,
   bundledSkillCanonicalRoot,
   computeExtensionPathsForLayout,
-  extensionPathSourceFromLockEntry,
   extensionContentFilename,
   extensionContentPath,
   type ExtensionPathSource,
@@ -276,6 +277,8 @@ export { resolveWorkspaceExtensionRef } from "./workspace/configured-entry-resol
 
 // Lock entry translation
 export {
+  acquiredExtensionDisplayPathFromLockEntry,
+  extensionPathSourceFromLockEntry,
   lockEntryToRef,
   lockEntrySource,
   lockEntryToSourceParams,
@@ -321,6 +324,7 @@ export {
   ExtensionInventoryLifecycleSchema,
   ExtensionInventoryRowSchema,
   ExtensionInventorySchema,
+  countExtensionInventory,
   projectExtensionInventory,
   type ExtensionInventory,
   type ExtensionInventoryClassification,

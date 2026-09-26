@@ -1,5 +1,10 @@
 import * as fs from "node:fs";
-import { UNCONSTRAINED_DESIRED_NODE } from "../desired-state/index.js";
+import {
+  UNCONSTRAINED_DESIRED_NODE,
+  computeSourceHash,
+  observeCanonicalExtension,
+  resolveProjectWorkspaceLayout,
+} from "../desired-state/index.js";
 import * as os from "node:os";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -12,14 +17,11 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
-import { computeSourceHash } from "../desired-state/index.js";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import type { GitSource } from "@agentxm/extension-model/unstable/sources/types";
-import { acceptedResolutionFor } from "../materialization/accepted-resolution.js";
-import { extensionName } from "../materialization/test-helpers.js";
+import { acceptedResolutionFor } from "../materialization/index.js";
+import { extensionName } from "../desired-state/testing.js";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
-import { observeCanonicalExtension } from "../desired-state/index.js";
-import { resolveProjectWorkspaceLayout } from "../desired-state/index.js";
 import type { GitHostedSkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { materializeSkillCanonical } from "./materialization.js";
 

@@ -11,7 +11,7 @@ import * as Option from "effect/Option";
 import { LOCKFILE_VERSION, type SkillLockEntry } from "../lockfile/schema.js";
 import type { GitHostedSkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
-import { exactVersion, extensionName, handle } from "../test-helpers.js";
+import { exactVersion, extensionName, handle } from "../testing.js";
 import { prepareAcceptedCanonicalTransition } from "./accepted-canonical-ref.js";
 import { TEST_TREE_INTEGRITY } from "./test-stubs.js";
 import { WorkspaceStateLive } from "../live.js";

@@ -1,12 +1,5 @@
 import {
-  decodeExtensionNameSync,
-  type ExtensionName,
-} from "@agentxm/extension-model/unstable/extensions";
-import { decodeHandleSync, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import {
   decodeVersionRangeSync,
-  decodeVersionSync,
-  type Version,
   type VersionRange,
 } from "@agentxm/extension-model/unstable/version-constraints";
 
@@ -58,11 +51,5 @@ export const stringProperty = (value: unknown, key: string, message?: string): s
   }
   return field;
 };
-
-export const handle = (value: string): Handle => decodeHandleSync(value);
-
-export const extensionName = (value: string): ExtensionName => decodeExtensionNameSync(value);
-
-export const exactVersion = (value: string): Version => decodeVersionSync(value);
 
 export const versionRange = (value: string): VersionRange => decodeVersionRangeSync(value);

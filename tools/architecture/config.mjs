@@ -60,6 +60,25 @@ export const capabilityRoots = [
   "packages/supporting/cli-maintenance/src/official-skill",
   "packages/supporting/cli-maintenance/src/self-update",
 ];
+
+// The cycle gate cruises every workspace slice; the capability roots inside
+// the workspace are already covered by it.
+export const cycleRoots = [
+  "packages/core/workspace/src",
+  ...capabilityRoots.filter((root) => !root.startsWith("packages/core/workspace/src/")),
+];
+
+// The cruise follows imports into supporting packages that are not gated here
+// (their own cycles are out of scope), so file cycles are judged from the roots.
+export const cycleRootPath = `^(?:${cycleRoots.join("|")})/`;
+
+// Folder cycles count only between slices. Sub-folders inside one slice are
+// organisational (lifecycle/install and lifecycle/uninstall may cycle), so the
+// folder rule matches slice folders at both ends, naming the nested slices
+// (tools/architecture/slices.mjs) explicitly.
+export const sliceFolder =
+  "^packages/core/workspace/src/(?:transitions/(?:planning|settlement)|projection/agent-adapters|resolution/sources|knowledge/query|[^/]+)$";
+
 export const capabilitySourceFiles = capabilityRoots.map(
   (root) => `${root}/**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}`,
 );

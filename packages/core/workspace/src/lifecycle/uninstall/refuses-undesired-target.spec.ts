@@ -11,8 +11,8 @@ import {
 } from "../../operations/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { applyInstall, installRequest, makeInstallWorld } from "../install/test-helpers.js";
-import { writeLocalSkillPackage } from "../testing.js";
+import { applyInstall, installRequest, makeInstallWorld } from "../../testing/install-world.js";
+import { writeLocalSkillPackage } from "../../testing/local-packages.js";
 import { applyUninstall, previewUninstall, uninstallRequest } from "./test-helpers.js";
 
 export const specification = defineSpecification({

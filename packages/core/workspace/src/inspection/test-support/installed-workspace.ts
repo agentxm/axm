@@ -39,7 +39,7 @@ import {
   type ExtensionManagerFailure,
 } from "../../materialization/index.js";
 import { buildInstallOperation } from "../../reconciliation/index.js";
-import { PackManagerLive, SkillManagerLive } from "../../kinds-live.js";
+import { withKindManagers } from "../../testing/workspace-world.js";
 import {
   makeConfiguredReleaseAgeEvaluation,
   ReleaseAgePosture,
@@ -119,7 +119,7 @@ export const makeInstalledWorkspace = (options: InstalledWorkspaceOptions = {}) 
     projection,
   );
   const sources = Layer.provideMerge(SourceHostProvidersLive, policy);
-  const managers = Layer.provideMerge(Layer.mergeAll(SkillManagerLive, PackManagerLive), sources);
+  const managers = withKindManagers(sources);
   const composed = Layer.provideMerge(
     Layer.mergeAll(ConfiguredAgentOutcomesProviderTest, FootprintRecorderTest),
     managers,

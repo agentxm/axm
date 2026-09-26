@@ -16,17 +16,19 @@ import { RegistryProblem, RegistryRequestFailed } from "@agentxm/registry-client
 
 import { discoverMcpServerRefs } from "../../mcp-connections/index.js";
 import { discoverPackRefs } from "../../packs/index.js";
-import { kernelFailureToStepFailure } from "../../reconciliation/failure-rendering.js";
-import { GitOperationFailed } from "../../resolution/sources/errors.js";
 import {
+  kernelFailureToStepFailure,
+  type ResolveInstallRequirements,
+} from "../../reconciliation/index.js";
+import {
+  GitOperationFailed,
   SourceHostProviders,
   type SourceHostProvidersService,
-} from "../../resolution/sources/service.js";
-import type { SourceResolutionFailure } from "../../resolution/sources/index.js";
+  type SourceResolutionFailure,
+} from "../../resolution/sources/index.js";
 import type { ExtensionLifecycleFailed } from "../../operations/index.js";
 import { makeLifecycleFixture } from "../testing.js";
 import { discoverInstallRefs } from "./request.js";
-import type { ResolveInstallRequirements } from "../../reconciliation/index.js";
 
 const registry: RegistrySource = {
   type: "registry",

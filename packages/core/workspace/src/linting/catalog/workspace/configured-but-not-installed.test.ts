@@ -1,19 +1,22 @@
 import * as Effect from "effect/Effect";
-import { UNCONSTRAINED_DESIRED_NODE } from "../../../desired-state/index.js";
+import {
+  UNCONSTRAINED_DESIRED_NODE,
+  type CanonicalObservation,
+  type DesiredExtensionNode,
+} from "../../../desired-state/index.js";
 import * as Layer from "effect/Layer";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
-import type { CanonicalObservation, DesiredExtensionNode } from "../../../desired-state/index.js";
 import { NoProjectionParticipants } from "../../../projection/testing.js";
 import {
   applySync,
   makeFileRegistry,
   makeSyncFixture,
   type SyncFixture,
-} from "../../../reconciliation/sync/test-helpers.js";
+} from "../../../testing/sync-fixture.js";
 import { queryLintWorkspace } from "../../index.js";
 import { OfflineHttpClient } from "../../test-helpers.js";
 import { lintWorkspaceServices } from "../../testing.js";

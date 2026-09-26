@@ -3,7 +3,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "@effect/vitest";
 
 import { DesiredStateReader } from "../../desired-state/index.js";
-import { applyInstall, installRequest, makeInstallWorld } from "../install/test-helpers.js";
+import { applyInstall, installRequest, makeInstallWorld } from "../../testing/install-world.js";
 import { configuredUpdateRequest } from "./test-helpers.js";
 import { UpdateExtensions } from "./update-extensions.js";
 

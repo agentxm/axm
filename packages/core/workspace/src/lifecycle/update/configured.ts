@@ -26,8 +26,7 @@ import * as Effect from "effect/Effect";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import { OperationRequestBudget } from "@agentxm/registry-client";
-import type { RegistryClientFactory } from "@agentxm/registry-client";
+import { OperationRequestBudget, type RegistryClientFactory } from "@agentxm/registry-client";
 import type * as Config from "effect/Config";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
@@ -72,6 +71,7 @@ import {
   type DesiredStateGraph,
   type WorkspaceSettingsReadFailure,
   type WorkspaceStateReadFailure,
+  desiredMcpSourceKey,
 } from "../../desired-state/index.js";
 import {
   installableExtensionTypes,
@@ -93,8 +93,9 @@ import {
   SourceHostProviders,
   WorkspaceCatalog,
   resolveSource,
+  listRemoteRefs,
+  withPackRegistryIndexMemo,
 } from "../../resolution/sources/index.js";
-import { listRemoteRefs } from "../../resolution/sources/git/operations.js";
 import { extensionTypePluralSentenceLabels } from "@agentxm/extension-model/unstable/extensions";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { inlineMcpNotApplicablePlan } from "../install/inline-mcp-operation.js";
@@ -131,12 +132,10 @@ import {
   WORKSPACE_UPDATE_HELD_RELEASE_POLICY,
 } from "./atomicity.js";
 import { assessGitSelector } from "./git-selector.js";
-import { withPackRegistryIndexMemo } from "../../resolution/sources/providers/registry/index-memo.js";
 import {
   AXM_SKILL_BUNDLED_APPLY_COMMAND,
   AXM_SKILL_FQN,
 } from "@agentxm/cli-maintenance/official-skill/domain";
-import { desiredMcpSourceKey } from "../../desired-state/index.js";
 
 export type WorkspaceUpdatableType = InstallableExtensionType;
 

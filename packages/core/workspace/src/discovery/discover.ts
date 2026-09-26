@@ -24,8 +24,10 @@ import type {
 } from "@agentxm/registry-protocol/unstable/registry/discover-schema";
 import { detectPackages } from "./packaging/detect.js";
 import { packageDetectors, packageReaders } from "./packaging/index.js";
-import type { PackageUrlParts } from "@agentxm/extension-model/unstable/packaging/package-url";
-import { PackageUrlSchema } from "@agentxm/extension-model/unstable/packaging/package-url";
+import {
+  type PackageUrlParts,
+  PackageUrlSchema,
+} from "@agentxm/extension-model/unstable/packaging/package-url";
 import { readLocalRecommendations } from "./packaging/read.js";
 import {
   AGENTXM_REGISTRY_URL,
@@ -33,7 +35,7 @@ import {
   type AgentExtensionSource,
 } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
 import type { GitSource, LocalSource } from "@agentxm/extension-model/unstable/sources/types";
-import { findLocalOrGitExtensionPackagesFromSource } from "../resolution/sources/package-sources.js";
+import { findLocalOrGitExtensionPackagesFromSource } from "../resolution/sources/index.js";
 
 export interface DiscoverResultEntry {
   readonly ref: string;

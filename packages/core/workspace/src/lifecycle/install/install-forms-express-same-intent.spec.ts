@@ -6,15 +6,14 @@ import { afterEach } from "vitest";
 import { deriveOperationOutcome } from "../../operations/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { writeLocalSkillPackage } from "../testing.js";
+import { writeLocalSkillPackage } from "../../testing/local-packages.js";
+import { contentUnder, readSettings } from "./test-helpers.js";
 import {
   applyInstall,
-  contentUnder,
   installRequest,
   makeInstallWorld,
-  readSettings,
   type InstallWorld,
-} from "./test-helpers.js";
+} from "../../testing/install-world.js";
 
 export const specification = defineSpecification({
   requirement: "cli/install-forms-express-same-intent",

@@ -8,7 +8,7 @@ import { SkillLockEntrySchema } from "../lockfile/index.js";
 import { installableExtensionTypes } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { TreeIntegritySchema } from "./materialized-tree.js";
 import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
-import { exactVersion, extensionName, handle } from "../test-helpers.js";
+import { exactVersion, extensionName, handle } from "../testing.js";
 import type { SourceHostConfig } from "../settings/index.js";
 import {
   lockEntryToRef,

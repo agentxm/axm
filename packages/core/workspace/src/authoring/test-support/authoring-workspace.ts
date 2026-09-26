@@ -13,7 +13,7 @@
  */
 
 import * as fs from "node:fs";
-import { snapshotPath } from "../../desired-state/testing.js";
+import { snapshotPath, withTestRegistryDefault } from "../../desired-state/testing.js";
 import * as os from "node:os";
 import * as nodePath from "node:path";
 
@@ -28,15 +28,7 @@ import { RegistryClientFactoryLive, RegistryUrl } from "@agentxm/registry-client
 import { AxmSkillCandidateGateLive, RegistryResolutionPolicyLive } from "../../resolution/live.js";
 import { SourceHostProvidersLive, WorkspaceCatalogLive } from "../../resolution/sources/live.js";
 import { makeMemoryMcpSecretStore } from "../../materialization/testing.js";
-import {
-  HookManagerLive,
-  KnowledgeManagerLive,
-  McpServerManagerLive,
-  PackManagerLive,
-  RuleManagerLive,
-  SkillManagerLive,
-  SubagentManagerLive,
-} from "../../kinds-live.js";
+import { withKindManagers } from "../../testing/workspace-world.js";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { previewPlanExecution, type PlanExecution } from "../../operations/index.js";
 import {
@@ -46,7 +38,6 @@ import {
 } from "../../transitions/planning/testing.js";
 import { CodingAgentRepositoryLive, NativeWriteAuthorityLive } from "../../projection/live.js";
 import { layer as workspaceStateLayer } from "../../desired-state/live.js";
-import { withTestRegistryDefault } from "../../desired-state/testing.js";
 
 /** Settings an authoring specification seeds its workspace with. */
 export interface AuthoringWorkspaceSettings {
@@ -192,18 +183,7 @@ export const authoringWorkspaceEnvironment = (workspace: AuthoringWorkspace) => 
     projection,
   );
   const sources = Layer.provideMerge(SourceHostProvidersLive, policy);
-  const managers = Layer.provideMerge(
-    Layer.mergeAll(
-      SkillManagerLive,
-      SubagentManagerLive,
-      RuleManagerLive,
-      HookManagerLive,
-      KnowledgeManagerLive,
-      McpServerManagerLive,
-      PackManagerLive,
-    ),
-    sources,
-  );
+  const managers = withKindManagers(sources);
   // MCP connection secrets stay in memory: a specification must never reach
   // the developer's real credential store, and an in-memory store answers the
   // same typed outcomes the real one does.

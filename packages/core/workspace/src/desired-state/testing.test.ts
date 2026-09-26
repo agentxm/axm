@@ -10,7 +10,7 @@ import {
   computeMaterializedTreeIntegrity,
   MaterializedTreeInvalid,
 } from "./workspace/materialized-tree.js";
-import { treeIntegrityOfSync } from "./test-support/tree-integrity-sync.js";
+import { treeIntegrityOfSync } from "./testing.js";
 
 it.effect("hashes fixture trees with the production materialized-tree algorithm", () =>
   Effect.gen(function* () {

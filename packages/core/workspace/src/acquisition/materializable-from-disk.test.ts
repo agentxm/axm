@@ -4,13 +4,12 @@ import * as nodePath from "node:path";
 import { expect, layer } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
 import * as Effect from "effect/Effect";
-import { treeIntegrityOfSync } from "../desired-state/test-support/tree-integrity-sync.js";
+import { treeIntegrityOfSync, extensionName, handle } from "../desired-state/testing.js";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
-import { extensionName, handle } from "../materialization/test-helpers.js";
 import {
   configuredMcpServersToDiskRefs,
   configuredSkillsToDiskRefs,

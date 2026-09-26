@@ -31,7 +31,8 @@ import {
   projectExtensionInventory,
   type ExtensionInventory,
 } from "./read-model/extensions/inventory.js";
-import { projectWorkspaceRecords, type WorkspaceRecordRow } from "./read-model/records.js";
+import { projectWorkspaceRecords } from "./read-model/record-projection.js";
+import type { WorkspaceRecordRow } from "./read-model/records.js";
 import type { LockfileReadError, SettingsReadError } from "./read-model/errors.js";
 import { readScopedModel } from "./state-cells.js";
 

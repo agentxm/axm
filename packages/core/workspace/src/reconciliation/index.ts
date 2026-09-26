@@ -32,9 +32,11 @@ export {
   type UnreadablePackageRetirement,
 } from "./extensions/operations.js";
 export {
+  configuredEntryResolutionRefused,
   INSTALL_HELD_RELEASE_POLICY,
   sourceResolutionFailureDetail,
   sourceResolutionRefused,
+  type ConfiguredInstallFailure,
   type InstallStepRequirements,
   type PackRecoveryDependencyResolver,
   type ResolvedInstallRef,

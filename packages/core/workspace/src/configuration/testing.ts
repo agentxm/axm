@@ -1,4 +1,7 @@
-import { WorkspaceTransactionScopesLive } from "../transitions/settlement/live.js";
+import {
+  WorkspaceTransactionScopesLive,
+  WorkspaceFileWriteLocksLive,
+} from "../transitions/settlement/live.js";
 /**
  * @agentxm/workspace/configuration deterministic fixtures and ports.
  *
@@ -15,11 +18,9 @@ import { WorkspaceTransactionScopesLive } from "../transitions/settlement/live.j
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { WorkspaceFileWriteLocksLive } from "../transitions/settlement/live.js";
 
 import { AgentExecutableResolver } from "../projection/agent-adapters/index.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import { RuleManagerLive } from "../kinds-live.js";
 import {
   ResolvePlanInteractionTest,
   type ResolvePlanInteractionTestState,
@@ -31,6 +32,7 @@ import {
   makeWorkspaceDirectories,
   makeWorkspaceWorld,
   refusingSourceProviders,
+  withKindManagers,
 } from "../testing/workspace-world.js";
 import {
   WorkspaceInitializationInteractionTest,
@@ -64,7 +66,7 @@ export interface ConfigurationFixtureOptions {
  */
 export const makeConfigurationFixture = (options: ConfigurationFixtureOptions = {}) => {
   const interaction = ResolvePlanInteractionTest();
-  // Configuration owns a Rule manager but has no aggregate participant registry.
+  // The fixture provides the kinds' managers but no aggregate participant registry.
   const participants = Layer.succeed(ProjectionParticipants, emptyProjectionParticipants);
   const world = makeWorkspaceWorld({
     prefix: "axm-configuration-",
@@ -76,8 +78,7 @@ export const makeConfigurationFixture = (options: ConfigurationFixtureOptions = 
     installedExecutables: options.installedExecutables,
     ports: Layer.mergeAll(interaction.layer, participants, refusingSourceProviders),
   });
-  const services = Layer.provideMerge(
-    RuleManagerLive,
+  const services = withKindManagers(
     Layer.provideMerge(WorkspaceInvariantFactsLive, world.projection),
   ).pipe(Layer.provideMerge(WorkspaceFileWriteLocksLive));
   const {

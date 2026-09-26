@@ -8,16 +8,14 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import { DesiredStateReader } from "../../desired-state/index.js";
 import { applyActivation } from "../activation/test-helpers.js";
 
+import { contentUnder, localLifecycleRows, readSettings } from "../install/test-helpers.js";
 import {
   applyInstall,
-  contentUnder,
   installRequest,
-  localLifecycleRows,
   makeInstallWorld,
-  readSettings,
   type InstallWorld,
-} from "../install/test-helpers.js";
-import { writeLocalSkillPackage } from "../testing.js";
+} from "../../testing/install-world.js";
+import { writeLocalSkillPackage } from "../../testing/local-packages.js";
 import { applyUninstall, uninstallRequest } from "./test-helpers.js";
 
 export const specification = defineSpecification({

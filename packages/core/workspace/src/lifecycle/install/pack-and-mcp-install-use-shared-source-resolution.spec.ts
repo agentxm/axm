@@ -8,13 +8,13 @@ import { afterEach, describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { deriveOperationOutcome } from "../../operations/index.js";
+import { readSettings } from "./test-helpers.js";
 import {
   applyInstall,
   installRequest,
   makeInstallWorld,
-  readSettings,
   type InstallWorld,
-} from "./test-helpers.js";
+} from "../../testing/install-world.js";
 
 export const specification = defineSpecification({
   requirement: "install/pack-and-mcp-use-shared-source-resolution",

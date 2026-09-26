@@ -21,14 +21,14 @@ import {
 } from "@agentxm/extension-model/unstable/agents/types";
 import type { SettingsReadError } from "../errors.js";
 import type { Scope } from "../types.js";
-import {
-  defineAgentModule,
-  type ActualAgent,
-  type AgentModule,
-  type AgentScannerObservations,
-  type DeclaredAgent,
-  type DeclaredSettingsShape,
-  type DetectedAgent,
+import { defineAgentModule } from "./shared.js";
+import type {
+  ActualAgent,
+  AgentModule,
+  AgentScannerObservations,
+  DeclaredAgent,
+  DeclaredSettingsShape,
+  DetectedAgent,
 } from "./types.js";
 
 export type {
@@ -42,7 +42,7 @@ export type {
   DetectionStatus,
 } from "./types.js";
 
-export { defineAgentModule } from "./types.js";
+export { defineAgentModule } from "./shared.js";
 
 /** Every configurable catalog agent, in canonical order. */
 export const registeredAgentModules: ReadonlyArray<AgentModule<ConfigurableAgentId>> =

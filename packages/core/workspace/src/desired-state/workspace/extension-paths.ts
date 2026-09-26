@@ -20,12 +20,6 @@ import {
   type AbsolutePath,
 } from "@agentxm/extension-model/unstable/path-types";
 import type { WorkspaceLayout } from "./layout.js";
-import {
-  isGitLockEntry,
-  isRegistryLockEntry,
-  lockEntrySource,
-  type LockEntry,
-} from "./lock-entry.js";
 
 export type ExtensionPathSource =
   | {
@@ -53,34 +47,6 @@ export type ExtensionPathSource =
       readonly sourcePath?: string;
       readonly portable?: boolean;
     };
-
-export const extensionPathSourceFromLockEntry = (
-  entry: LockEntry,
-): Exclude<ExtensionPathSource, { readonly refType: "workspace" }> => {
-  if (isRegistryLockEntry(entry)) {
-    return {
-      refType: "registry",
-      owner: entry.identity.owner,
-      source: lockEntrySource(entry),
-    };
-  }
-  if (!isGitLockEntry(entry)) {
-    return {
-      refType: "local",
-      ...(entry.identity.owner === undefined ? {} : { owner: entry.identity.owner }),
-      source: lockEntrySource(entry),
-      sourcePath: entry.source.path,
-      portable: entry.identity.owner === undefined,
-    };
-  }
-  return {
-    refType: "git-hosted",
-    ...(entry.identity.owner === undefined ? {} : { owner: entry.identity.owner }),
-    source: lockEntrySource(entry),
-    ...(entry.source.path === undefined ? {} : { sourcePath: entry.source.path }),
-    portable: entry.identity.owner === undefined,
-  };
-};
 
 export interface ExtensionDirPaths {
   readonly canonicalPath: AbsolutePath;
@@ -131,15 +97,6 @@ export const acquiredExtensionDisplayPath = (
     name,
   ].join("/");
 };
-
-/** Render the acquired display path proven by a persisted lock entry. */
-export const acquiredExtensionDisplayPathFromLockEntry = (
-  root: string,
-  entry: LockEntry,
-  type: ExtensionTypePlural,
-  name: string,
-): string =>
-  acquiredExtensionDisplayPath(root, extensionPathSourceFromLockEntry(entry), type, name);
 
 const extensionPathsAt = (
   join: (...paths: string[]) => string,

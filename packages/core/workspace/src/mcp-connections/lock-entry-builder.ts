@@ -3,11 +3,12 @@ import * as Option from "effect/Option";
 import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 
-import type { McpServerLockEntry, TreeIntegrity } from "../desired-state/index.js";
 import {
+  type McpServerLockEntry,
+  type TreeIntegrity,
   gitSourceLockFields,
   pathSourceLockFields,
-} from "../desired-state/lockfile/entry-fields.js";
+} from "../desired-state/index.js";
 
 export const buildExternalMcpServerLockEntry = (args: {
   readonly ref: Exclude<McpServerExtensionRef, { readonly refType: "registry" | "workspace" }>;

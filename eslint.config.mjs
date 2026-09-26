@@ -2,6 +2,7 @@ import effectEslint from "@effect/eslint-plugin";
 import nxPlugin from "@nx/eslint-plugin";
 import * as jsoncParser from "jsonc-eslint-parser";
 import { capabilityBoundaries } from "./tools/architecture/boundaries.mjs";
+import { sliceBoundaries } from "./tools/architecture/slices.mjs";
 import {
   capabilityElements,
   capabilityFileDescriptors,
@@ -566,6 +567,7 @@ export default [
             ...moduleBoundaryOptions.allow,
             "./tools/architecture/boundaries.mjs",
             "./tools/architecture/config.mjs",
+            "./tools/architecture/slices.mjs",
           ],
           depConstraints: moduleBoundaryConstraints({ production: true }),
         },
@@ -896,7 +898,6 @@ export default [
       "packages/core/workspace/src/linting/**/test-helpers.ts",
       "packages/core/workspace/src/lifecycle/**/test-helpers.ts",
       "packages/core/workspace/src/publishing/**/test-helpers.ts",
-      "packages/core/workspace/src/reconciliation/sync/**/test-helpers.ts",
       "packages/core/workspace/src/reconciliation/**/test-helpers.ts",
       // Plan-family fixtures, excluded from the library build: the plan
       // specifications observe the real transaction scope over a temporary
@@ -1193,4 +1194,5 @@ export default [
     capabilitySourceFiles,
     capabilityFileDescriptors,
   ),
+  ...sliceBoundaries(import.meta.dirname, { ignores: capabilitySourceFiles }),
 ];

@@ -28,12 +28,11 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 
 import { acceptedRowKey, desiredReachesAcceptedRow } from "./accepted-reachability.js";
+import { isInstallRootStagingName } from "./constants.js";
 import type { DesiredStateGraph } from "./desired-state-graph.js";
 import { sanitizeName } from "./extension-name.js";
-import {
-  computeExtensionPathsForLayout,
-  extensionPathSourceFromLockEntry,
-} from "./extension-paths.js";
+import { computeExtensionPathsForLayout } from "./extension-paths.js";
+import { extensionPathSourceFromLockEntry } from "./lock-entry.js";
 import type { WorkspaceLayout } from "./layout.js";
 import type { LockfileReaderService } from "./lockfile-reader.js";
 
@@ -69,10 +68,6 @@ export interface InstallRootInventory {
   readonly leftovers: ReadonlyArray<InstalledPackageEntry>;
   readonly unrecognized: ReadonlyArray<UnrecognizedInstallRootEntry>;
 }
-
-/** AXM's own interrupted replacement directories beside a canonical package. */
-export const isInstallRootStagingName = (name: string): boolean =>
-  name.endsWith(".axm-staging") || name.endsWith(".axm-backup");
 
 const PLATFORM_METADATA_FILES: ReadonlySet<string> = new Set([".DS_Store", "Thumbs.db"]);
 

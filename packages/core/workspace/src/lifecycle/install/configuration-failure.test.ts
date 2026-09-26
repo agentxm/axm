@@ -6,7 +6,7 @@ import * as Effect from "effect/Effect";
 import { configuredUpdateRequest } from "../update/test-helpers.js";
 import { UpdateExtensions } from "../update/update-extensions.js";
 import { InstallExtensions } from "./install-extensions.js";
-import { installRequest, makeInstallWorld } from "./test-helpers.js";
+import { installRequest, makeInstallWorld } from "../../testing/install-world.js";
 
 const registry = {
   name: "test",

@@ -30,7 +30,6 @@ import {
   type ExtensionInventoryRow,
   type WorkspaceStateReadFailure,
 } from "../../desired-state/index.js";
-import { type ConfiguredAgentOutcome } from "../../operations/index.js";
 
 import {
   mcpServerListRows,
@@ -38,15 +37,7 @@ import {
   type McpServerMachineSource,
   type McpServerResolution,
 } from "./mcp-servers.js";
-
-/** Facts every per-type list row carries. */
-export interface TypeListRow {
-  readonly name: string;
-  readonly lifecycle: ExtensionInventoryRow["classification"]["lifecycle"];
-  readonly enabled: boolean | null;
-  readonly agents: ReadonlyArray<string>;
-  readonly agentOutcomes: ReadonlyArray<ConfiguredAgentOutcome>;
-}
+import type { TypeListRow } from "./type-list-row.js";
 
 export interface SkillListRow extends TypeListRow {
   /** The accepted source kind, or `detected` when nothing is locked. */

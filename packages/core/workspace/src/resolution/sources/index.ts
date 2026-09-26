@@ -95,9 +95,12 @@ export {
 export {
   acquireExternalSource,
   findExtensionPackagesFromSource,
+  findLocalOrGitExtensionPackagesFromSource,
   type AcquiredExternalSource,
   type ResolvedExtensionPackage,
 } from "./package-sources.js";
+export { discoverConventionRefs } from "./providers/convention-discovery.js";
+export { withPackRegistryIndexMemo } from "./providers/registry/index-memo.js";
 
 // Locator utilities
 
@@ -113,6 +116,7 @@ export {
   shallowClone,
   type GitDirectoryComparisonResult,
   type GitDirectoryDifference,
+  type GitRemoteRefs,
 } from "./git/operations.js";
 export {
   GitDirectoryComparison,

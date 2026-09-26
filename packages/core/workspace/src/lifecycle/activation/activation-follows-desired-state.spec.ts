@@ -9,19 +9,11 @@ import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import {
-  applyInstall,
-  contentUnder,
-  installRequest,
-  localLifecycleRows,
-  makeInstallWorld,
-} from "../install/test-helpers.js";
+import { contentUnder, localLifecycleRows } from "../install/test-helpers.js";
+import { applyInstall, installRequest, makeInstallWorld } from "../../testing/install-world.js";
 import { DesiredStateReader, WorkspaceRecords } from "../../desired-state/index.js";
-import {
-  makeLifecycleFixture,
-  writeAgentSkillDirectory,
-  type LifecycleFixture,
-} from "../testing.js";
+import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";
+import { writeAgentSkillDirectory } from "../../testing/local-packages.js";
 import { applyActivation, workspaceWithAuthoredExtension } from "./test-helpers.js";
 
 export const specification = defineSpecification({

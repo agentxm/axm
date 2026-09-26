@@ -13,7 +13,6 @@ import {
 import { AXM_DIR_NAME } from "@agentxm/host-primitives";
 import { ACQUIRED_EXTENSIONS_DIR, USER_WORKSPACE_DIRECTORY } from "./constants.js";
 import type { WorkspaceLayout } from "./layout.js";
-import type { WorkspaceLocationService } from "./location.js";
 
 export const USER_WORKSPACE_DISPLAY_ROOT = `${AXM_DIR_NAME}/${USER_WORKSPACE_DIRECTORY}`;
 
@@ -36,7 +35,7 @@ export const acquiredDisplayPath = (scope: WorkspaceScope, relativePath: string)
 /** Where a workspace-authored package of this type and name sits. */
 export const authoredDisplayPath = (
   path: Path.Path,
-  location: WorkspaceLocationService,
+  location: { readonly baseDir: string; readonly scope: WorkspaceScope },
   layout: WorkspaceLayout,
   type: ExtensionType,
   name: string,

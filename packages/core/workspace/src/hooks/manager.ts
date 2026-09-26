@@ -1,4 +1,15 @@
-import type { HookManagerService } from "../materialization/managers.js";
+import {
+  type HookManagerService,
+  acceptedResolutionFor,
+  type ExtensionManagerFailure,
+  NO_MATERIALIZATION_OBSERVATION,
+  type HookMaterializationFacts,
+  HookManager,
+  acquireCanonicalForRef,
+  verifyWorkspaceRefLocation,
+  makeBaseManagerMembers,
+  listMaterializableFromAccepted,
+} from "../materialization/index.js";
 
 /**
  * Hook manager service.
@@ -34,8 +45,6 @@ import * as RcMap from "effect/RcMap";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import { HookDefinitionInvalid } from "./errors.js";
-import { acceptedResolutionFor } from "../materialization/accepted-resolution.js";
-import type { ExtensionManagerFailure } from "../materialization/errors.js";
 import {
   activeContributors,
   applyProjectionPlans,
@@ -45,6 +54,8 @@ import {
   projectionGeneration,
   evaluateHookAgentOutcome,
   resolveInstructionsConfig,
+  type ProjectionUnitObservation,
+  HOOK_FALLBACKS_REGION_OWNER,
 } from "../projection/index.js";
 import {
   HookConfigInvalid,
@@ -65,26 +76,13 @@ import {
   installable,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
-import {
-  acquireCanonicalForRef,
-  verifyWorkspaceRefLocation,
-} from "../materialization/acquire-canonical.js";
-import {
-  makeBaseManagerMembers,
-  listMaterializableFromAccepted,
-} from "../materialization/manager-kit.js";
 import type { ConfiguredAgentOutcome } from "../operations/index.js";
-import type { ProjectionUnitObservation } from "../projection/index.js";
 import { SourceHostProviders, WorkspaceCatalog } from "../resolution/sources/index.js";
-import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import {
+  makeWorkspaceRelativeSourcePath,
   decodeRelativePathSync,
   makeWorkspaceRelativePath,
 } from "@agentxm/extension-model/unstable/path-types";
-import { NO_MATERIALIZATION_OBSERVATION } from "../materialization/manager-contract.js";
-import type { HookMaterializationFacts } from "../materialization/managers.js";
-import { HookManager } from "../materialization/managers.js";
-import { HOOK_FALLBACKS_REGION_OWNER } from "../projection/index.js";
 import { protectWorkspacePath, recordFootprint } from "../transitions/settlement/index.js";
 import {
   HOOK_EXTENSION_DIR,

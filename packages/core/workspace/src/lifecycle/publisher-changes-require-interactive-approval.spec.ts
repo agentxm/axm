@@ -30,7 +30,7 @@ import {
   type RegistrySubagentVersion,
 } from "@agentxm/registry-client/testing";
 import { InstallExtensions, type InstallExtensionsRequest } from "./install/install-extensions.js";
-import { installRequest } from "./install/test-helpers.js";
+import { installRequest } from "../testing/install-world.js";
 import { UpdateExtensions, type UpdateRequest } from "./update/update-extensions.js";
 import { configuredUpdateRequest, targetedUpdateRequest } from "./update/test-helpers.js";
 

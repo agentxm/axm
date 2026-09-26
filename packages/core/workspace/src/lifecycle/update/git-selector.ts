@@ -2,7 +2,7 @@
 
 import * as Semver from "semver";
 
-import type { GitRemoteRefs } from "../../resolution/sources/git/operations.js";
+import type { GitRemoteRefs } from "../../resolution/sources/index.js";
 
 export type GitSelectorAssessment =
   | { readonly kind: "branch" }

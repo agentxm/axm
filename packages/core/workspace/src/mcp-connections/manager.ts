@@ -17,11 +17,31 @@ import {
   SettingsReader,
   WorkspaceLocation,
   WorkspaceRecords,
+  type McpServerLockEntry,
+  type McpServerExtensionTarget,
+  mcpRegistryResolutionKey,
+  computeExtensionPathsForLayout,
+  validateExactResolvedVersion,
+  acceptedCanonicalObservation,
+  removableAcceptedCanonicalPath,
+  computeMaterializedTreeIntegrity,
+  type MaterializedTreeInvalid,
+  type TreeIntegrity,
+  acceptedRowKey,
+  computePackageContentHash,
+  desiredMcpSourceKey,
+  mcpResolutionKey,
+  registrySourceLockFields,
 } from "../desired-state/index.js";
 
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { McpAgentSyncRefused, McpInstallStateMissing } from "./errors.js";
+import {
+  McpAgentSyncRefused,
+  McpInstallStateMissing,
+  McpCanonicalPathUnsafe,
+  McpWorkspacePackageInvalid,
+} from "./errors.js";
 import { installMcpServer } from "./install/install-operation.js";
 import {
   applyProjectionPlans,
@@ -33,52 +53,28 @@ import {
   McpSharedTargetConflict,
   removeMcpServerFromManifest,
 } from "../projection/agent-adapters/index.js";
-import { NO_MATERIALIZATION_OBSERVATION } from "../materialization/manager-contract.js";
 import {
+  NO_MATERIALIZATION_OBSERVATION,
   McpServerManager,
   type McpServerManagerService,
   type McpServerMaterializationFacts,
-} from "../materialization/managers.js";
+  acquireCanonicalForRef,
+  makeBaseManagerMembers,
+  listMaterializableFromDisk,
+} from "../materialization/index.js";
 import type {
   McpServerExtensionRef,
   RegistryMcpServerRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
-import type { McpServerLockEntry } from "../desired-state/index.js";
-import type { McpServerExtensionTarget } from "../desired-state/index.js";
-import { mcpRegistryResolutionKey } from "../desired-state/index.js";
-import { acquireCanonicalForRef } from "../materialization/acquire-canonical.js";
-import {
-  makeBaseManagerMembers,
-  listMaterializableFromDisk,
-} from "../materialization/manager-kit.js";
-import { computeExtensionPathsForLayout } from "../desired-state/index.js";
-import { validateExactResolvedVersion } from "../desired-state/index.js";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
-import {
-  acceptedCanonicalObservation,
-  removableAcceptedCanonicalPath,
-} from "../desired-state/index.js";
 import { protectWorkspacePath } from "../transitions/settlement/index.js";
-import {
-  computeMaterializedTreeIntegrity,
-  type MaterializedTreeInvalid,
-  type TreeIntegrity,
-} from "../desired-state/index.js";
 import { SourceHostProviders } from "../resolution/sources/index.js";
 import { fromFileLocation } from "@agentxm/host-primitives";
 import {
   isPathSafe,
   makeWorkspaceRelativeSourcePath,
 } from "@agentxm/extension-model/unstable/path-types";
-import {
-  acceptedRowKey,
-  computePackageContentHash,
-  desiredMcpSourceKey,
-  mcpResolutionKey,
-} from "../desired-state/index.js";
-import { registrySourceLockFields } from "../desired-state/index.js";
 import { buildExternalMcpServerLockEntry } from "./lock-entry-builder.js";
-import { McpCanonicalPathUnsafe, McpWorkspacePackageInvalid } from "./errors.js";
 import {
   configuredMcpServersToDiskRefs,
   copyExtensionDirectory,

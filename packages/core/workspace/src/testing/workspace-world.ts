@@ -191,7 +191,12 @@ export const withLiveSources = <P>(
   return Layer.provideMerge(sourceProviders, projection);
 };
 
-export const withAllManagers = <P>(layer: ReturnType<typeof withLiveSources<P>>) => {
+/**
+ * Every kind's manager over the given services. The leaf managers are
+ * independent; the MCP and Pack managers drive their members through them.
+ * The caller chooses where MCP credentials live.
+ */
+export const withKindManagers = <A, E, R>(services: Layer.Layer<A, E, R>) => {
   const leafManagers = Layer.provideMerge(
     Layer.mergeAll(
       RuleManagerLive,
@@ -199,13 +204,18 @@ export const withAllManagers = <P>(layer: ReturnType<typeof withLiveSources<P>>)
       KnowledgeManagerLive,
       SkillManagerLive,
       SubagentManagerLive,
-      McpSecretStoreLive,
     ),
-    layer,
+    services,
   );
-  const withMcp = Layer.provideMerge(McpServerManagerLive, leafManagers);
-  const withPack = Layer.provideMerge(PackManagerLive, withMcp);
-  const withParticipants = Layer.provideMerge(ProjectionParticipantsLive, withPack);
+  return Layer.provideMerge(
+    PackManagerLive,
+    Layer.provideMerge(McpServerManagerLive, leafManagers),
+  );
+};
+
+export const withAllManagers = <P>(layer: ReturnType<typeof withLiveSources<P>>) => {
+  const managers = withKindManagers(Layer.provideMerge(McpSecretStoreLive, layer));
+  const withParticipants = Layer.provideMerge(ProjectionParticipantsLive, managers);
   return Layer.provideMerge(WorkspaceInvariantFactsLive, withParticipants).pipe(
     Layer.provideMerge(WorkspaceFileWriteLocksLive),
   );

@@ -1,7 +1,7 @@
 import * as Option from "effect/Option";
 import { describe, expect, it, vi } from "@effect/vitest";
 import type { GitHostedSkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import { extensionName, handle } from "../resolution/sources/test-helpers.js";
+import { extensionName, handle } from "../desired-state/testing.js";
 import { sourceRefContentKey } from "./acquired-content.js";
 
 describe("sourceRefContentKey", () => {

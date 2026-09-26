@@ -13,13 +13,13 @@ import {
   ExtensionLifecycleFailed,
 } from "../operations/index.js";
 import { preapprovedPlanExecution } from "../transitions/planning/testing.js";
+import { readSettings } from "./install/test-helpers.js";
 import {
   applyInstall,
   installRequest,
   makeInstallWorld,
-  readSettings,
-} from "./install/test-helpers.js";
-import type { InstallWorld } from "./install/test-helpers.js";
+  type InstallWorld,
+} from "../testing/install-world.js";
 import { MigrateDeprecated } from "./migrate-deprecated.js";
 
 export const specification = defineSpecification({

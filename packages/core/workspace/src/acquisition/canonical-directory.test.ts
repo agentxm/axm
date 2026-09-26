@@ -22,7 +22,7 @@ import {
   type LockEntry,
   type TreeIntegrity,
 } from "../desired-state/index.js";
-import { exactVersion, extensionName, handle } from "../desired-state/test-helpers.js";
+import { exactVersion, extensionName, handle } from "../desired-state/testing.js";
 
 class InjectedFailure extends Data.TaggedError("InjectedFailure")<{
   readonly detail: string;

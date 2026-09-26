@@ -212,14 +212,14 @@
       "default": "./dist/src/knowledge/query/testing.js"
     },
     "./reconciliation/sync": {
-      "types": "./dist/src/reconciliation/sync/index.d.ts",
-      "axm-source": "./src/reconciliation/sync/index.ts",
-      "default": "./dist/src/reconciliation/sync/index.js"
+      "types": "./dist/src/sync/index.d.ts",
+      "axm-source": "./src/sync/index.ts",
+      "default": "./dist/src/sync/index.js"
     },
     "./reconciliation/sync/testing": {
-      "types": "./dist/src/reconciliation/sync/testing.d.ts",
-      "axm-source": "./src/reconciliation/sync/testing.ts",
-      "default": "./dist/src/reconciliation/sync/testing.js"
+      "types": "./dist/src/sync/testing.d.ts",
+      "axm-source": "./src/sync/testing.ts",
+      "default": "./dist/src/sync/testing.js"
     },
     "./authoring": {
       "types": "./dist/src/authoring/index.d.ts",

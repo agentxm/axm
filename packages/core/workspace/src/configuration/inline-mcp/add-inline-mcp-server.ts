@@ -56,7 +56,7 @@ import {
   workspaceChangeFailedToStepFailure,
   type WorkspaceConfigurationExecutionFailure,
 } from "../errors.js";
-import { kernelFailureToStepFailure } from "../../reconciliation/failure-rendering.js";
+import { kernelFailureToStepFailure } from "../../reconciliation/index.js";
 import type { InlineMcpDefinition } from "../mcp-import/preflight.js";
 import {
   makeInlineMcpDefinition,

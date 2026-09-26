@@ -42,12 +42,12 @@ import {
   extensionTypeForManifestFilename,
   MANIFEST_FILENAME_BY_TYPE,
   MANIFEST_FILENAMES,
+  parseSkillMd,
 } from "@agentxm/extension-content";
-import { parseSkillMd } from "@agentxm/extension-content";
 import { DISCOVERY_SKIPPED_DIRECTORIES } from "@agentxm/extension-model/unstable/discovery-walk";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import type { Diagnostics } from "../diagnostics.js";
-import { isInstallRootStagingName } from "../../install-root.js";
+import { isInstallRootStagingName } from "../../constants.js";
 import type { WorkspaceLayout } from "../../layout.js";
 import {
   childEntries,

@@ -15,7 +15,7 @@ import { interactiveOnlyPlanExecution } from "../../transitions/planning/testing
 import { makeLifecycleFixture } from "../testing.js";
 import { makeFileRegistry } from "@agentxm/registry-client/testing";
 import { InstallExtensions, type InstallExtensionsRequest } from "./install-extensions.js";
-import { installRequest, previewInstall } from "./test-helpers.js";
+import { installRequest, previewInstall } from "../../testing/install-world.js";
 
 export const specification = defineSpecification({
   requirement: "cli/install/pack-source-switches-are-member-diffed",

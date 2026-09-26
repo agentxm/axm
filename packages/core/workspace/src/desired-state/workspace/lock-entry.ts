@@ -16,6 +16,7 @@ import {
   formatFqn,
   toExtensionTypePlural,
   type ExtensionName,
+  type ExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
@@ -46,7 +47,7 @@ import type {
   RegistrySource,
   SourceParams,
 } from "@agentxm/extension-model/unstable/sources/types";
-import { acquiredExtensionDisplayPathFromLockEntry } from "./extension-paths.js";
+import { acquiredExtensionDisplayPath, type ExtensionPathSource } from "./extension-paths.js";
 import { acquiredRootDisplayPath } from "./display-paths.js";
 import type { LockEntryByType } from "./entry-accessors.js";
 
@@ -154,6 +155,43 @@ export function lockEntrySource(entry: LockEntry): RegistrySource | GitBasedSour
     };
   return { type: "local", path: entry.source.path };
 }
+
+export const extensionPathSourceFromLockEntry = (
+  entry: LockEntry,
+): Exclude<ExtensionPathSource, { readonly refType: "workspace" }> => {
+  if (isRegistryLockEntry(entry)) {
+    return {
+      refType: "registry",
+      owner: entry.identity.owner,
+      source: lockEntrySource(entry),
+    };
+  }
+  if (!isGitLockEntry(entry)) {
+    return {
+      refType: "local",
+      ...(entry.identity.owner === undefined ? {} : { owner: entry.identity.owner }),
+      source: lockEntrySource(entry),
+      sourcePath: entry.source.path,
+      portable: entry.identity.owner === undefined,
+    };
+  }
+  return {
+    refType: "git-hosted",
+    ...(entry.identity.owner === undefined ? {} : { owner: entry.identity.owner }),
+    source: lockEntrySource(entry),
+    ...(entry.source.path === undefined ? {} : { sourcePath: entry.source.path }),
+    portable: entry.identity.owner === undefined,
+  };
+};
+
+/** Render the acquired display path proven by a persisted lock entry. */
+export const acquiredExtensionDisplayPathFromLockEntry = (
+  root: string,
+  entry: LockEntry,
+  type: ExtensionTypePlural,
+  name: string,
+): string =>
+  acquiredExtensionDisplayPath(root, extensionPathSourceFromLockEntry(entry), type, name);
 
 const lockEntryLocation = (
   deps: LockEntryToRefDeps,

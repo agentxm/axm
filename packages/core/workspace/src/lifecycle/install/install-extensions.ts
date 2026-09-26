@@ -100,8 +100,7 @@ import {
   type ResolveInstallRequirements,
 } from "../../reconciliation/index.js";
 import { findGitReinstallRefs, pinGitReinstallRef } from "./git-reinstall.js";
-import { SourceHostProviders } from "../../resolution/sources/service.js";
-import { formatRegistryProbe } from "../../resolution/sources/index.js";
+import { SourceHostProviders, formatRegistryProbe } from "../../resolution/sources/index.js";
 import { makeLocatorSourceView } from "./git-discovery.js";
 import {
   selectInstallRefs,

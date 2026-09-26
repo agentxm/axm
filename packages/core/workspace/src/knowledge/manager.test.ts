@@ -1,26 +1,8 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { UNCONSTRAINED_DESIRED_NODE } from "../desired-state/index.js";
-import { tmpdir } from "node:os";
-import * as nodePath from "node:path";
-import { pathToFileURL } from "node:url";
-import * as NodeServices from "@effect/platform-node/NodeServices";
-import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
-import { describe, expect, it } from "@effect/vitest";
-import * as Effect from "effect/Effect";
-import { treeIntegrityOfSync } from "../desired-state/test-support/tree-integrity-sync.js";
-import * as Deferred from "effect/Deferred";
-import * as Fiber from "effect/Fiber";
-import * as Layer from "effect/Layer";
-import { WorkspaceFileWriteLocksLive } from "../transitions/settlement/live.js";
-import * as Option from "effect/Option";
-import { RegistryTransportTest } from "@agentxm/registry-client/testing";
-import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
-import { computeSourceHash } from "../desired-state/index.js";
-import type { KnowledgeLockEntry } from "../desired-state/index.js";
-import { KnowledgeManager } from "../materialization/managers.js";
-import { applyPlannedProjections } from "../projection/index.js";
-import { SourceHostProviders, SourceNotResolvable } from "../resolution/sources/index.js";
 import {
+  UNCONSTRAINED_DESIRED_NODE,
+  computeSourceHash,
+  type KnowledgeLockEntry,
   AcceptedResolutionWriter,
   DesiredStateWriter,
   SettingsWriter,
@@ -29,31 +11,46 @@ import {
   type SettingsWriterService,
   type WorkspaceRecordsService,
 } from "../desired-state/index.js";
-import { FootprintRecorderTest } from "../transitions/planning/testing.js";
-import { StepFailure } from "../operations/index.js";
-import { buildInstallOperation } from "../reconciliation/index.js";
-import { kernelFailureToStepFailure } from "../reconciliation/failure-rendering.js";
-import type { KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
-import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
+import { tmpdir } from "node:os";
+import * as nodePath from "node:path";
+import { pathToFileURL } from "node:url";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
+import { describe, expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
 import {
+  treeIntegrityOfSync,
   MockWorkspaceTransactionScope,
   readModelRecordStubs,
   TEST_CONTENT_IDENTITY,
   WorkspaceReadTest,
   type WorkspaceReadTestFacts,
-} from "../desired-state/testing.js";
-import { CodingAgentRepositoryLive, NativeWriteAuthorityLive } from "../projection/live.js";
-import {
   describeTestFailure,
   exactVersion,
   extensionName,
   handle,
-} from "../materialization/test-helpers.js";
-import { KnowledgeManagerLive } from "./manager.js";
+} from "../desired-state/testing.js";
+import * as Deferred from "effect/Deferred";
+import * as Fiber from "effect/Fiber";
+import * as Layer from "effect/Layer";
+import { WorkspaceFileWriteLocksLive } from "../transitions/settlement/live.js";
+import * as Option from "effect/Option";
+import { RegistryTransportTest } from "@agentxm/registry-client/testing";
+import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
+import { KnowledgeManager } from "../materialization/index.js";
+import { applyPlannedProjections } from "../projection/index.js";
+import { SourceHostProviders, SourceNotResolvable } from "../resolution/sources/index.js";
+import { FootprintRecorderTest } from "../transitions/planning/testing.js";
+import { StepFailure } from "../operations/index.js";
+import { buildInstallOperation, kernelFailureToStepFailure } from "../reconciliation/index.js";
 import type {
+  KnowledgeExtensionRef,
   LocalKnowledgeRef,
   WorkspaceKnowledgeRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
+import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
+import { CodingAgentRepositoryLive, NativeWriteAuthorityLive } from "../projection/live.js";
+import { KnowledgeManagerLive } from "./manager.js";
 import { WorkspaceCatalogLive } from "../resolution/sources/live.js";
 
 const writeKnowledgePackage = (

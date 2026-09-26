@@ -390,11 +390,11 @@ const adversarialContracts = [
   ],
   [
     "older-lockfile-gate-names-reacceptance",
-    "packages/core/workspace/src/reconciliation/sync/lockfile-rejections-name-recovery-routes.spec.ts",
+    "packages/core/workspace/src/sync/lockfile-rejections-name-recovery-routes.spec.ts",
   ],
   [
     "newer-lockfile-gate-names-upgrade",
-    "packages/core/workspace/src/desired-state/workspace/invalid-workspace-state-gates-operations.spec.ts",
+    "packages/core/workspace/src/reconciliation/invalid-workspace-state-gates-operations.spec.ts",
   ],
   // A local source is mutable: that specification installs one, changes its
   // content, restores it, and shows the recorded identity return to its

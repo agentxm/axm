@@ -12,7 +12,7 @@ import {
 } from "../../resolution/sources/index.js";
 import { ExtensionLifecycleFailed } from "../../operations/index.js";
 import { makeLifecycleFixture } from "../testing.js";
-import { makeInstallWorld } from "./test-helpers.js";
+import { makeInstallWorld } from "../../testing/install-world.js";
 import {
   discoverInstallRefs,
   parseLocatorInstallRequest,

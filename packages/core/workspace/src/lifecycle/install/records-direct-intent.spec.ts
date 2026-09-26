@@ -16,21 +16,21 @@ import {
   sharedMemberBody,
   sharedMemberOutsidePinFact,
   sharedMemberSettings,
-} from "../../desired-state/workspace/test-helpers.js";
+} from "../../desired-state/testing.js";
 import {
   writeLocalHookPackage,
   writeLocalKnowledgePackage,
   writeLocalRulePackage,
   writeLocalSkillPackage,
   writeLocalSubagentPackage,
-} from "../testing.js";
+} from "../../testing/local-packages.js";
+import { readSettings } from "./test-helpers.js";
 import {
   applyInstall,
   installRequest,
   makeInstallWorld,
-  readSettings,
   type InstallWorld,
-} from "./test-helpers.js";
+} from "../../testing/install-world.js";
 
 export const specification = defineSpecification({
   requirement: "cli/install/records-direct-intent",

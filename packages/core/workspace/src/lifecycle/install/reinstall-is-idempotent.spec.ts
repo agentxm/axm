@@ -7,17 +7,15 @@ import { afterEach } from "vitest";
 import { deriveOperationOutcome } from "../../operations/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { writeLocalSkillPackage } from "../testing.js";
+import { writeLocalSkillPackage } from "../../testing/local-packages.js";
+import { entriesUnder, localLifecycleRows, readSettings } from "./test-helpers.js";
 import {
   applyInstall,
-  entriesUnder,
   installRequest,
-  localLifecycleRows,
   makeInstallWorld,
   previewInstall,
-  readSettings,
   type InstallWorld,
-} from "./test-helpers.js";
+} from "../../testing/install-world.js";
 import type { InstallExtensionsRequest } from "./install-extensions.js";
 
 export const specification = defineSpecification({

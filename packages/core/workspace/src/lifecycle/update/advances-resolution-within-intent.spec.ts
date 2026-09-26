@@ -9,23 +9,16 @@ import { countUnitStates, deriveOperationOutcome } from "../../operations/index.
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { ReleaseAgePosture } from "../../resolution/index.js";
 
-import {
-  makeGitSkillRepository,
-  makeLifecycleFixture,
-  writeLocalSkillPackage,
-  type LifecycleFixture,
-} from "../testing.js";
+import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";
+import { makeGitSkillRepository } from "../../testing/git-repositories.js";
+import { writeLocalSkillPackage } from "../../testing/local-packages.js";
 import {
   makeFileRegistry,
   type FileRegistry,
   type RegistrySkillVersion,
 } from "@agentxm/registry-client/testing";
-import {
-  applyInstall,
-  installRequest,
-  makeInstallWorld,
-  readSettings,
-} from "../install/test-helpers.js";
+import { readSettings } from "../install/test-helpers.js";
+import { applyInstall, installRequest, makeInstallWorld } from "../../testing/install-world.js";
 import {
   SHARED_MEMBER,
   SHARED_MEMBER_PACKS,
@@ -37,7 +30,7 @@ import {
   sharedMemberBody,
   sharedMemberSettings,
   sharedSubagentSettings,
-} from "../../desired-state/workspace/test-helpers.js";
+} from "../../desired-state/testing.js";
 import {
   applyUpdate,
   configuredUpdateRequest,

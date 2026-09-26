@@ -1,5 +1,9 @@
 import * as nodeFs from "node:fs";
-import { UNCONSTRAINED_DESIRED_NODE } from "./desired-state-graph.js";
+import {
+  UNCONSTRAINED_DESIRED_NODE,
+  type DesiredExtensionNode,
+  type DesiredStateGraph,
+} from "./desired-state-graph.js";
 import * as nodeOs from "node:os";
 import * as nodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -9,8 +13,7 @@ import * as Path from "effect/Path";
 import { afterEach, beforeEach } from "vitest";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 
-import { handle } from "../test-helpers.js";
-import type { DesiredExtensionNode, DesiredStateGraph } from "./desired-state-graph.js";
+import { handle } from "../testing.js";
 import { observeInstallRoot } from "./install-root.js";
 import { resolveProjectWorkspaceLayout } from "./layout.js";
 

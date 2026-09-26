@@ -11,7 +11,7 @@ import type {
 } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { LocalSubagentRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import { TreeIntegritySchema } from "../desired-state/index.js";
-import { exactVersion, extensionName, handle } from "./test-helpers.js";
+import { exactVersion, extensionName, handle } from "../desired-state/testing.js";
 import { acceptedResolutionFor } from "./accepted-resolution.js";
 
 const sourceHash = Schema.decodeUnknownSync(SourceHashSchema)("sha256-content");

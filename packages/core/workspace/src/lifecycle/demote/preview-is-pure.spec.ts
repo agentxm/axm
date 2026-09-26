@@ -10,7 +10,8 @@ import {
 } from "../../operations/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { makeLifecycleFixture, writeLocalSkillPackage, type LifecycleFixture } from "../testing.js";
+import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";
+import { writeLocalSkillPackage } from "../../testing/local-packages.js";
 import { DEMOTE_RISK_CONDITION_ID } from "./demote-to-external-source.js";
 import { authoringTypes, previewDemote, writeAuthoringPackage } from "./test-helpers.js";
 

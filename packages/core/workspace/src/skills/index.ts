@@ -9,6 +9,7 @@ export { SkillDefinitionInvalid, SkillMaterializationFailed } from "./errors.js"
 export {
   buildCompanionPackagesSection,
   planSkillInstall,
+  planSkillInstallationStep,
   type SkillInstallIntent,
 } from "./lifecycle/install/plan.js";
 export {

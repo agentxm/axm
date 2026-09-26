@@ -13,7 +13,8 @@ import { snapshotTree } from "../../desired-state/testing.js";
 
 import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";
 import { makeFileRegistry, type FileRegistry } from "@agentxm/registry-client/testing";
-import { applyInstall, installRequest, readSettings } from "../install/test-helpers.js";
+import { readSettings } from "../install/test-helpers.js";
+import { applyInstall, installRequest } from "../../testing/install-world.js";
 import {
   applyDemote,
   authoringTypes,

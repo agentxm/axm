@@ -3,8 +3,11 @@ import * as Effect from "effect/Effect";
 
 import type { AdvisoryFinding, LintRule } from "@agentxm/extension-content/lint";
 import * as Option from "effect/Option";
-import { buildDesiredStateGraph, makeWorkspaceReadModel } from "../../../../desired-state/index.js";
-import type { PackManifestsPort } from "../../../../desired-state/workspace/pack-manifests.js";
+import {
+  buildDesiredStateGraph,
+  makeWorkspaceReadModel,
+  type PackManifestsPort,
+} from "../../../../desired-state/index.js";
 import { WorkspaceReadModelTest, type ScopeFiles } from "../../../../desired-state/testing.js";
 import type { WorkspaceRuleContext } from "../../../workspace-context.js";
 

@@ -17,12 +17,11 @@ import { RegistryClientFactory } from "@agentxm/registry-client";
 import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import { resolveSource, SourceHostProviders } from "../../resolution/sources/index.js";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
-import { lockEntryToSourceParams } from "../../desired-state/index.js";
-import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
-import type { LockEntry } from "../../desired-state/index.js";
-import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
-import type { ExtensionInventoryLifecycle, WorkspaceRecordRow } from "../../desired-state/index.js";
 import {
+  lockEntryToSourceParams,
+  type LockEntry,
+  type ExtensionInventoryLifecycle,
+  type WorkspaceRecordRow,
   DesiredStateReader,
   desiredStateProblemText,
   effectiveDesiredConstraint,
@@ -30,9 +29,11 @@ import {
   WorkspaceRecords,
   type DesiredStateGraph,
 } from "../../desired-state/index.js";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
+import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
 import { checkCurrency } from "../version-currency/check-currency.js";
 import { WorkspaceInspectionFailed } from "../errors.js";
-import { kernelFailureToStepFailure } from "../../reconciliation/failure-rendering.js";
+import { kernelFailureToStepFailure } from "../../reconciliation/index.js";
 
 export type ExtensionListFilter = "all" | "outdated" | "deprecated";
 

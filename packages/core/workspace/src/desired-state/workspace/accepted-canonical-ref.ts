@@ -1,13 +1,22 @@
-import { extensionRefName } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
+import {
+  extensionRefName,
+  type ExtensionRef,
+} from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import * as Effect from "effect/Effect";
-import { BUNDLED_SKILL_OWNER, bundledSkillCanonicalRoot } from "./extension-paths.js";
+import {
+  BUNDLED_SKILL_OWNER,
+  bundledSkillCanonicalRoot,
+  computeExtensionPathsForLayout,
+} from "./extension-paths.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
-import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
+import {
+  decodeExtensionNameSync,
+  toExtensionTypePlural,
+} from "@agentxm/extension-model/unstable/extensions/common";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
   AcceptedResolutionMissing,
@@ -17,15 +26,17 @@ import {
   type WorkspaceSourceInvalid,
 } from "./errors.js";
 import type { PathTraversalDetected } from "../utils/path-safety.js";
-import type { WorkspaceSnapshotError } from "../../transitions/settlement/index.js";
-import { lockEntryToRef, type LockEntry, type LockEntryToRefError } from "./lock-entry.js";
-import { observeCanonicalExtension, type CanonicalObservation } from "./canonical-observation.js";
 import {
-  computeExtensionPathsForLayout,
+  type WorkspaceSnapshotError,
+  protectWorkspacePath,
+} from "../../transitions/settlement/index.js";
+import {
   extensionPathSourceFromLockEntry,
-} from "./extension-paths.js";
-import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions/common";
-import { protectWorkspacePath } from "../../transitions/settlement/index.js";
+  lockEntryToRef,
+  type LockEntry,
+  type LockEntryToRefError,
+} from "./lock-entry.js";
+import { observeCanonicalExtension, type CanonicalObservation } from "./canonical-observation.js";
 import { resolveWorkspaceExtensionRef } from "./configured-entry-resolution/workspace-ref.js";
 import type { DesiredExtensionNode } from "./desired-state-graph.js";
 import { DesiredStateReader } from "./desired-state-reader.js";

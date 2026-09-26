@@ -30,7 +30,7 @@ import {
   type SkillDirPaths,
   type SkillPathSource,
 } from "./skill-paths.js";
-import { extensionPathSourceFromLockEntry } from "./extension-paths.js";
+import { extensionPathSourceFromLockEntry } from "./lock-entry.js";
 
 export interface ExtensionPathsService {
   /** Skill directory paths. Without a source, the accepted lock entry decides the layout. */

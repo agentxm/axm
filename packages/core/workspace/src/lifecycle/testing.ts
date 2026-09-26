@@ -17,11 +17,7 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { ReleaseAgePosture } from "../resolution/index.js";
-import {
-  StepFailure,
-  ExtensionLifecycleFailed,
-  InstallSelectionInteraction,
-} from "../operations/index.js";
+import { InstallSelectionInteraction } from "../operations/index.js";
 import {
   ResolvePlanInteractionTest,
   type ResolvePlanInteractionTestState,
@@ -34,7 +30,7 @@ import {
 } from "../testing/workspace-world.js";
 
 import { BundledAxmSkillAsset } from "../skills/lifecycle/install/bundled.js";
-import { StepFailureConversion } from "./step-failure-conversion.js";
+import { StepFailureConversionTest } from "../reconciliation/testing.js";
 
 /**
  * The official skill as a running executable carries it. The generator that
@@ -77,44 +73,6 @@ export const bundledAxmSkillAsset = (
     runningCliVersion: options.runningCliVersion ?? version,
   });
 };
-
-/**
- * Render a failure as the sentence a structural fixture reports. Examples that
- * use this fixture assert on the producer's own sentence, not on the kernel's
- * rendering of it.
- */
-const describeFailure = (failure: unknown): string => {
-  if (failure instanceof ExtensionLifecycleFailed) return failure.detail ?? failure.category;
-  if (typeof failure === "object" && failure !== null) {
-    for (const key of ["detail", "subject", "message"] as const) {
-      if (key in failure) {
-        const candidate = Reflect.get(failure, key);
-        if (typeof candidate === "string" && candidate.length > 0) return candidate;
-      }
-    }
-    if ("cause" in failure && failure.cause !== undefined && failure.cause !== failure) {
-      return describeFailure(failure.cause);
-    }
-  }
-  return String(failure);
-};
-
-/**
- * Structural stand-in for the kernel's failure conversion: the feature's own
- * failure maps 1:1; anything else keeps its detail sentence under an
- * `internal` category.
- */
-const TestStepFailureConversion = Layer.succeed(StepFailureConversion, {
-  toStepFailure: (failure: unknown) =>
-    failure instanceof ExtensionLifecycleFailed
-      ? new StepFailure({
-          category: failure.category,
-          detail: failure.detail ?? failure.category,
-          ...(failure.suggestions === undefined ? {} : { suggestions: failure.suggestions }),
-          ...(failure.cause === undefined ? {} : { cause: failure.cause }),
-        })
-      : new StepFailure({ category: "internal", detail: describeFailure(failure), cause: failure }),
-});
 
 export interface LifecycleFixtureOptions {
   readonly scope?: WorkspaceScope;
@@ -190,7 +148,7 @@ export const makeLifecycleFixture = (options: LifecycleFixtureOptions = {}) => {
     ports: Layer.mergeAll(
       interaction.layer,
       selection,
-      TestStepFailureConversion,
+      StepFailureConversionTest,
       Layer.succeed(ReleaseAgePosture, "enforce"),
       bundledAxmSkillAsset(),
     ),

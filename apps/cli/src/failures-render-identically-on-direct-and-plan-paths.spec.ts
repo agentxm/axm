@@ -198,17 +198,16 @@ import {
   ScaffoldNameInvalid,
   authoringStepFailure,
 } from "@agentxm/workspace/authoring";
-import { StepFailureConversion } from "@agentxm/workspace/lifecycle";
 import {
   WorkspaceConfigurationFailed,
   configurationFailureToStepFailure,
 } from "@agentxm/workspace/configuration";
 import {
-  ReconciliationFailureConversionLive,
-  SyncStepFailureConversion,
+  StepFailureConversion,
   WorkspaceSyncFailed,
   kernelFailureToStepFailure,
 } from "@agentxm/workspace/reconciliation";
+import { KernelFailureConversionLive } from "@agentxm/workspace/reconciliation/live";
 
 import { AppError } from "./app-error/index.js";
 import { stepFailureToAppError, toAppError } from "./app-error/conversions.js";
@@ -1243,7 +1242,7 @@ describe("A failure reads the same on the direct and plan paths", () => {
 
   it.effect("renders a reconciliation plan step the same way through the provided conversion", () =>
     Effect.gen(function* () {
-      const conversion = yield* SyncStepFailureConversion;
+      const conversion = yield* StepFailureConversion;
       const failures = [
         new WorkspaceSyncFailed({ category: "conflict", detail: "Owned by another writer." }),
         new InstructionMaintenanceFailed({ category: "internal", detail: "AGENTS.md failed." }),
@@ -1261,7 +1260,7 @@ describe("A failure reads the same on the direct and plan paths", () => {
           rendered(toAppError(failure)),
         );
       }
-    }).pipe(Effect.provide(ReconciliationFailureConversionLive)),
+    }).pipe(Effect.provide(KernelFailureConversionLive)),
   );
 
   it("renders authoring and configuration plan steps the same way", () => {

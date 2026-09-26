@@ -11,6 +11,18 @@ import * as Schema from "effect/Schema";
 import type { ExtensionManagerFailure } from "../materialization/index.js";
 import { FailureSuggestedActionSchema, OperationErrorCategorySchema } from "../operations/index.js";
 import type { NativeFormatFailure } from "../projection/agent-adapters/index.js";
+import type { InstructionMaintenanceFailure } from "../projection/index.js";
+import type { AcceptedCanonicalRefError } from "../desired-state/index.js";
+import type {
+  ExtensionResolutionFailed,
+  PackDependencyResolutionFailure,
+  SourceAuthorityBlocked,
+} from "../resolution/index.js";
+import type { SourceResolutionFailure } from "../resolution/sources/index.js";
+import type {
+  WorkspaceTransactionFailure,
+  WorkspaceRestorationIncomplete,
+} from "../transitions/settlement/index.js";
 
 /**
  * A workspace reconciliation policy step could not proceed. `category` and `detail`
@@ -29,3 +41,17 @@ export class WorkspaceSyncFailed extends Schema.TaggedError<WorkspaceSyncFailed>
 /** Every failure the rendered-file cleanup sweep surfaces. */
 export type WorkspaceSyncCleanupFailure =
   WorkspaceSyncFailed | ExtensionManagerFailure | NativeFormatFailure | Config.ConfigError;
+
+/** Every typed failure the sync policy surfaces. */
+export type SyncPolicyFailure =
+  | WorkspaceTransactionFailure
+  | WorkspaceRestorationIncomplete
+  | AcceptedCanonicalRefError
+  | ExtensionManagerFailure
+  | ExtensionResolutionFailed
+  | InstructionMaintenanceFailure
+  | NativeFormatFailure
+  | PackDependencyResolutionFailure
+  | SourceAuthorityBlocked
+  | SourceResolutionFailure
+  | WorkspaceSyncCleanupFailure;

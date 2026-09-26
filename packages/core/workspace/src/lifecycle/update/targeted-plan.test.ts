@@ -13,7 +13,7 @@ import { SettingsWriter } from "../../desired-state/index.js";
 import { resolveTargetedUpdateContext } from "../../resolution/index.js";
 
 import { kernelFailureToStepFailure } from "../../reconciliation/index.js";
-import type { InstallStepRequirements } from "../../reconciliation/index.js";
+import type { InstallStepRequirements, StepFailureConversion } from "../../reconciliation/index.js";
 import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";
 import { TARGETED_UPDATE_STALE_DETAIL, wrapTargetedUpdatePlan } from "./targeted-plan.js";
 
@@ -40,8 +40,9 @@ describe("targeted update transaction", () => {
   });
 
   /** The workspace, its transaction scope, and the platform, over the temp root. */
-  const provide = <A, E>(effect: Effect.Effect<A, E, InstallStepRequirements | SettingsWriter>) =>
-    workspace.provide(effect).pipe(Effect.provide(NodeServices.layer));
+  const provide = <A, E>(
+    effect: Effect.Effect<A, E, InstallStepRequirements | SettingsWriter | StepFailureConversion>,
+  ) => workspace.provide(effect).pipe(Effect.provide(NodeServices.layer));
 
   const planWithStep = (run: Effect.Effect<JobStepResult, StepFailure>) =>
     ({

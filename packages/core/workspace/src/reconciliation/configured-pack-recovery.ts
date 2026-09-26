@@ -65,7 +65,8 @@ import {
 
 import { buildReconciliationClosure } from "./closure.js";
 import { WorkspaceSyncFailed } from "./errors.js";
-import type { SyncFailureAdapter, SyncPolicyFailure } from "./failure-adapter.js";
+import type { SyncPolicyFailure } from "./errors.js";
+import type { StepFailureConversionService } from "./step-failure-conversion.js";
 import {
   recoverableExternalPackName,
   scopedProblems,
@@ -85,7 +86,7 @@ import { SYNC_RECOVERY_IDS, type SyncStepRequirements } from "./plan.js";
  */
 const recoveryStep = (args: {
   readonly ref: ExtensionRef;
-  readonly adapter: SyncFailureAdapter;
+  readonly adapter: StepFailureConversionService;
 }): Effect.Effect<
   PlannedJobStep<SyncStepRequirements | McpServerInstallRequirements>,
   never,
@@ -149,7 +150,7 @@ const blockedRecoveryStep = (args: {
  */
 export const collectConfiguredPackRecovery = (args: {
   readonly selection: SyncSelection;
-  readonly adapter: SyncFailureAdapter;
+  readonly adapter: StepFailureConversionService;
   readonly graph: DesiredStateGraph;
 }): Effect.Effect<
   ConfiguredPackRecovery | undefined,

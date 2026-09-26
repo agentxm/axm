@@ -83,7 +83,7 @@ import {
 } from "../../desired-state/index.js";
 import { packMemberConflicts, readProposedGraph } from "../../packs/lifecycle/install/plan.js";
 
-import { kernelFailureToStepFailure } from "../../reconciliation/index.js";
+import { StepFailureConversion } from "../../reconciliation/index.js";
 import type { InstallStepRequirements } from "../../reconciliation/index.js";
 
 // -----------------------------------------------------------------------------
@@ -224,6 +224,7 @@ const replacementStep = Effect.fn("Demote.replacementStep")(function* (
   name: string,
   source: string,
 ) {
+  const conversion = yield* StepFailureConversion;
   const evaluation = yield* makeConfiguredReleaseAgeEvaluation();
   const desiredState = yield* DesiredStateReader;
   const graph = yield* desiredState.graph();
@@ -250,7 +251,7 @@ const replacementStep = Effect.fn("Demote.replacementStep")(function* (
   const selectionRange = effective.success.range;
   // The one place source authority is deliberately overridden.
   const common = {
-    toStepFailure: kernelFailureToStepFailure,
+    toStepFailure: conversion.toStepFailure,
     sourceReplacements: [{ type, name }],
   } as const;
 
@@ -350,6 +351,7 @@ const replacementStep = Effect.fn("Demote.replacementStep")(function* (
  * replacement package, and freeze the execution candidate.
  */
 const settleDemotion = Effect.fn("Demote.prepare")(function* (request: DemoteRequest) {
+  const conversion = yield* StepFailureConversion;
   const location = yield* WorkspaceLocation;
   const layout = yield* Ref.get(location.layout);
   const settings = yield* SettingsReader;
@@ -402,7 +404,7 @@ const settleDemotion = Effect.fn("Demote.prepare")(function* (request: DemoteReq
             const result = yield* operation.run;
             if (wasDisabled) {
               yield* restoreDisabledState(settingsWriter, parsed.type, parsed.name).pipe(
-                Effect.mapError(kernelFailureToStepFailure),
+                Effect.mapError(conversion.toStepFailure),
               );
             }
             // The authored copy is what demotion gives up. Its absence is not

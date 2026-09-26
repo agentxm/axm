@@ -2,15 +2,10 @@
  * @agentxm/workspace/reconciliation/sync deterministic test ports.
  *
  * A reconciliation runs over a real workspace and the real per-type managers,
- * so this module does not answer for those. What it supplies is a structural
- * conversion from sync's typed failures into the kernel's `StepFailure`, the
- * plan-invocation services every sync plan opens once per run, and the
- * request a sweep is admitted with.
- *
- * The conversion here preserves the failure's own category and detail rather
- * than rendering it, so an example asserting on a refused step reads the
- * feature's sentence and not the kernel's rendering of it. Production source
- * never imports this module.
+ * so this module does not answer for those. What it supplies is the
+ * plan-invocation services every sync plan opens once per run, with the
+ * kernel's structural step-failure conversion, and the request a sweep is
+ * admitted with. Production source never imports this module.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -22,59 +17,15 @@ import * as Option from "effect/Option";
 import type { ConfiguredAgentOutcomesProvider } from "../../desired-state/index.js";
 import { ConfiguredAgentOutcomesProviderTest } from "../../desired-state/testing.js";
 import type { FootprintRecorder } from "../../transitions/settlement/index.js";
-import {
-  OPERATION_ERROR_CATEGORIES,
-  OperationJournal,
-  StepFailure,
-  type OperationErrorCategory,
-  type ResolvePlanInteraction,
-} from "../../operations/index.js";
+import type { OperationJournal, ResolvePlanInteraction } from "../../operations/index.js";
 import {
   PlanInvocationTest,
   ResolvePlanInteractionTest,
 } from "../../transitions/planning/testing.js";
 
-import { SyncStepFailureConversion, type SyncPolicyFailure } from "../index.js";
+import type { StepFailureConversion } from "../index.js";
+import { StepFailureConversionTest } from "../testing.js";
 import type { SyncWorkspaceRequest } from "./sync-workspace.js";
-
-const isCategory = (value: unknown): value is OperationErrorCategory =>
-  typeof value === "string" &&
-  OPERATION_ERROR_CATEGORIES.some((category): boolean => category === value);
-
-/**
- * The failure's own category and detail, carried through structurally.
- *
- * Every failure in `SyncPolicyFailure` already names why it refused and in
- * what sentence; a test conversion that replaced either would make the
- * example assert on the conversion instead of on the feature. A failure that
- * carries neither becomes an `internal` step failure with its own string
- * form, which is a visible defect rather than a silent default.
- */
-export const structuralSyncStepFailure = (failure: SyncPolicyFailure): StepFailure => {
-  const carried: unknown = failure;
-  const detail =
-    typeof carried === "object" &&
-    carried !== null &&
-    "detail" in carried &&
-    typeof carried.detail === "string"
-      ? carried.detail
-      : String(carried);
-  const category =
-    typeof carried === "object" && carried !== null && "category" in carried
-      ? carried.category
-      : undefined;
-  return new StepFailure({
-    category: isCategory(category) ? category : "internal",
-    detail,
-    cause: failure,
-  });
-};
-
-/** The sync failure conversion, bound to {@link structuralSyncStepFailure}. */
-export const SyncStepFailureConversionTest: Layer.Layer<SyncStepFailureConversion> = Layer.succeed(
-  SyncStepFailureConversion,
-  { toStepFailure: structuralSyncStepFailure },
-);
 
 /**
  * The services every sync run opens once per invocation, plus the interaction
@@ -90,7 +41,7 @@ export interface SyncPortsTest {
     | FootprintRecorder
     | OperationJournal
     | ResolvePlanInteraction
-    | SyncStepFailureConversion
+    | StepFailureConversion
   >;
   /** Every plan presentation and confirmation the run asked for. */
   readonly interaction: ReturnType<typeof ResolvePlanInteractionTest>["state"];
@@ -104,7 +55,7 @@ export const makeSyncPortsTest = (): SyncPortsTest => {
       PlanInvocationTest,
       interaction.layer,
       ConfiguredAgentOutcomesProviderTest,
-      SyncStepFailureConversionTest,
+      StepFailureConversionTest,
     ),
     interaction: interaction.state,
   };

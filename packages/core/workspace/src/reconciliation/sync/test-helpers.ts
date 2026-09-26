@@ -34,7 +34,7 @@ import {
 } from "../../testing/workspace-world.js";
 import { makeFileRegistry, type FileRegistry } from "@agentxm/registry-client/testing";
 
-import { SyncStepFailureConversionTest } from "./testing.js";
+import { StepFailureConversionTest } from "../testing.js";
 import { SyncWorkspace, type SyncWorkspaceCandidate } from "./sync-workspace.js";
 import { syncRequest } from "./testing.js";
 import type { SyncWorkspaceRequest } from "./sync-workspace.js";
@@ -81,7 +81,7 @@ export const makeSyncFixture = (options: SyncFixtureOptions = {}) => {
         : Layer.succeed(HttpClient.HttpClient, options.httpClient),
     ports: Layer.mergeAll(
       interaction.layer,
-      SyncStepFailureConversionTest,
+      StepFailureConversionTest,
       Layer.succeed(ReleaseAgePosture, "enforce"),
     ),
   });

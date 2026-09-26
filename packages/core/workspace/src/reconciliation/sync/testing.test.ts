@@ -6,26 +6,14 @@ import * as Option from "effect/Option";
 
 import { OperationJournal } from "../../operations/index.js";
 
-import { WorkspaceSyncFailed } from "../index.js";
-import { SyncStepFailureConversion } from "../index.js";
-import { makeSyncPortsTest, structuralSyncStepFailure, syncRequest } from "./testing.js";
+import { StepFailureConversion, WorkspaceSyncFailed } from "../index.js";
+import { makeSyncPortsTest, syncRequest } from "./testing.js";
 
 describe("./testing.js", () => {
-  it("carries a sync failure's own category and detail into the step failure", () => {
-    const failure = new WorkspaceSyncFailed({
-      category: "conflict",
-      detail: "A managed region on AGENTS.md is owned by another writer.",
-    });
-    const stepFailure = structuralSyncStepFailure(failure);
-    expect(stepFailure.category).toBe("conflict");
-    expect(stepFailure.detail).toBe("A managed region on AGENTS.md is owned by another writer.");
-    expect(stepFailure.cause).toBe(failure);
-  });
-
   it.effect("composes the services every sync run opens once per invocation", () => {
     const ports = makeSyncPortsTest();
     return Effect.gen(function* () {
-      const conversion = yield* SyncStepFailureConversion;
+      const conversion = yield* StepFailureConversion;
       expect(
         conversion.toStepFailure(
           new WorkspaceSyncFailed({ category: "validation", detail: "Nothing to reconcile." }),

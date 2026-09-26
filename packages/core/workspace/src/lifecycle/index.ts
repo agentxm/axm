@@ -9,13 +9,6 @@
  * @packageDocumentation
  */
 
-export {
-  StepFailureConversion,
-  withAdaptedStepFailures,
-  type LifecycleFailure,
-  type StepFailureConversionService,
-} from "./step-failure-conversion.js";
-
 // Activation: enable and disable for every extension type, as one use case.
 export {
   prepareSetActivation,

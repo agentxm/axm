@@ -2,11 +2,10 @@
  * Extension-manager-backed implementation of the workspace-state
  * `ConfiguredAgentOutcomesProvider` port.
  *
- * Materialization registers this provider beside its projection participants.
  * Extension managers own the effective per-agent outcome facts; application
- * composition wires this layer over the managers, supplying its own failure
- * serialization so plan resolutions embed byte-identical step failures on
- * either side of the seam.
+ * composition wires this layer over the managers and the step-failure
+ * conversion it provides, so plan resolutions embed byte-identical step
+ * failures on either side of the seam.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -25,8 +24,8 @@ import {
   SettingsReader,
   WorkspaceLocation,
 } from "../desired-state/index.js";
-import { StepFailureConversion } from "../lifecycle/step-failure-conversion.js";
-import { HookManager, McpServerManager } from "./managers.js";
+import { HookManager, McpServerManager } from "../materialization/index.js";
+import { StepFailureConversion } from "./step-failure-conversion.js";
 export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
   ConfiguredAgentOutcomesProvider,
   Effect.gen(function* () {

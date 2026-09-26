@@ -62,7 +62,7 @@ import { SourceHostProvidersLive } from "@agentxm/workspace/resolution/sources/l
 export { SourceHostProvidersLive };
 import { workspaceInvariantFactsLive } from "./workspace-invariant-facts-live.js";
 export { KnowledgeIndexLive };
-export { ConfiguredAgentOutcomesProviderLive } from "@agentxm/workspace/materialization/live";
+export { ConfiguredAgentOutcomesProviderLive } from "@agentxm/workspace/reconciliation/live";
 import {
   HookManagerLive,
   KnowledgeManagerLive,
@@ -86,7 +86,6 @@ import {
   WorkspaceFailureConversionLive,
   isWorkspaceFailure,
 } from "../app-error/failure-catalog.js";
-import { ReconciliationFailureConversionLive } from "@agentxm/workspace/reconciliation";
 import { ExecutionDirectory } from "../execution-directory.js";
 import { ReleaseAgePosture } from "@agentxm/workspace/resolution";
 import { WorkspaceInitializationInteractionLive } from "../workspace-initialization-interaction-live.js";
@@ -716,7 +715,6 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
     Layer.provide(SourceHostProvidersLive, Layer.merge(cliTestContext.baseLayer, wsLayer)),
     KnowledgeIndexLive,
     WorkspaceFailureConversionLive,
-    ReconciliationFailureConversionLive,
     // The official skill the executable carries, and the terminal selection
     // port, exactly as the runtime composes them: a test drives the product's
     // own layers rather than a rehearsal of them. The flags layer's

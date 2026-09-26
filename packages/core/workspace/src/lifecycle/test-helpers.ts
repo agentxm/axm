@@ -1,12 +1,11 @@
 /**
  * Shared helpers for extension-lifecycle internal tests: decode shortcuts,
- * deterministic tree integrity, a coding-agent stub, a structural failure
- * adapter for tests against temporary workspaces.
+ * deterministic tree integrity, and a coding-agent stub for tests against
+ * temporary workspaces.
  */
 
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import type { CodingAgent } from "../projection/agent-adapters/index.js";
 import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import {
@@ -20,8 +19,6 @@ import {
   type Version,
   type VersionRange,
 } from "@agentxm/extension-model/unstable/version-constraints";
-import { StepFailure, ExtensionLifecycleFailed } from "../operations/index.js";
-import { StepFailureConversion } from "./step-failure-conversion.js";
 
 export const handle = (value: string): Handle => decodeHandleSync(value);
 
@@ -76,45 +73,4 @@ export const makeCodingAgentStub = (
       warnings: [],
     }),
   ...overrides,
-});
-
-/** Render a failure as the sentence the structural test adapter reports. */
-export const describeTestFailure = (failure: unknown): string => {
-  if (failure instanceof ExtensionLifecycleFailed) return failure.detail ?? failure.category;
-  if (typeof failure === "object" && failure !== null) {
-    for (const key of ["detail", "subject", "message"] as const) {
-      if (key in failure) {
-        const candidate = Reflect.get(failure, key);
-        if (typeof candidate === "string" && candidate.length > 0) return candidate;
-      }
-    }
-    if ("cause" in failure && failure.cause !== undefined && failure.cause !== failure) {
-      return describeTestFailure(failure.cause);
-    }
-  }
-  return String(failure);
-};
-
-/**
- * Structural stand-in for the kernel's failure conversion: the feature's own
- * failure maps 1:1; anything else keeps its detail sentence under an
- * `internal` category. Tests that use it assert on the producer's own
- * sentence, not on the kernel's rendering of it.
- */
-export const testFailureToStepFailure = (failure: unknown): StepFailure =>
-  failure instanceof ExtensionLifecycleFailed
-    ? new StepFailure({
-        category: failure.category,
-        detail: failure.detail ?? failure.category,
-        ...(failure.suggestions === undefined ? {} : { suggestions: failure.suggestions }),
-        ...(failure.cause === undefined ? {} : { cause: failure.cause }),
-      })
-    : new StepFailure({
-        category: "internal",
-        detail: describeTestFailure(failure),
-        cause: failure,
-      });
-
-export const TestStepFailureConversion = Layer.succeed(StepFailureConversion, {
-  toStepFailure: testFailureToStepFailure,
 });

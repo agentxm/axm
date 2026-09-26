@@ -51,8 +51,8 @@ import {
   type OperationPresentation,
   type Plan,
   type PlannedJobStep,
-} from "../transitions/planning/index.js";
-import type { ReleaseAgeOperationEvidence } from "../resolution/index.js";
+  type ReleaseAgeOperationEvidence,
+} from "../operations/index.js";
 import type { WorkspaceTransactionScope } from "../transitions/settlement/index.js";
 import {
   SettingsReader,

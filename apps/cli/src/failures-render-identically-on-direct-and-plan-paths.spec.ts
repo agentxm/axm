@@ -11,9 +11,20 @@ import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/sugges
 import {
   prepareExecutionCandidate,
   resolveExecutionCandidate,
+} from "@agentxm/workspace/transitions/planning";
+import {
   type FailureInput,
   type Plan,
-} from "@agentxm/workspace/transitions/planning";
+  ApprovalRecoveryMissing,
+  CandidateFingerprintFailed,
+  LifecyclePostconditionViolated,
+  PlanInteractionFailed,
+  ScaffoldedExtensionUnresolved,
+  StaleExecutionCandidate,
+  StepFailure,
+  ExtensionLifecycleFailed,
+  InstallSelectionUnavailable,
+} from "@agentxm/workspace/operations";
 import { preapprovedPlanExecution } from "@agentxm/workspace/transitions/planning/testing";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
@@ -40,15 +51,6 @@ import {
   SignedOut,
 } from "@agentxm/registry-access/authentication";
 import { PublishFailed } from "@agentxm/workspace/publishing";
-import {
-  ApprovalRecoveryMissing,
-  CandidateFingerprintFailed,
-  LifecyclePostconditionViolated,
-  PlanInteractionFailed,
-  ScaffoldedExtensionUnresolved,
-  StaleExecutionCandidate,
-  StepFailure,
-} from "@agentxm/workspace/transitions/planning";
 import {
   TransitionLockError,
   TransitionLockUnavailable,
@@ -196,8 +198,6 @@ import {
   authoringStepFailure,
 } from "@agentxm/workspace/authoring";
 import {
-  ExtensionLifecycleFailed,
-  InstallSelectionUnavailable,
   LifecycleFailureConversionLive,
   StepFailureConversion,
   lifecycleStepFailure,

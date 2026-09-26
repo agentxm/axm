@@ -46,9 +46,8 @@ import {
   releaseAgeExemptionForIdentity,
   releaseAgeRecord,
   releaseAgeRecords,
-  type ReleaseAgeBypassRecord,
-  type ReleaseAgeHoldbackRecord,
 } from "./release-age-policy.js";
+import { type ReleaseAgeBypassRecord, type ReleaseAgeHoldbackRecord } from "../operations/index.js";
 import type { ResolvedPackDependencyMap } from "./resolved-pack-dependency.js";
 import type { SourceAuthorityBlockedFact } from "./source-authority.js";
 

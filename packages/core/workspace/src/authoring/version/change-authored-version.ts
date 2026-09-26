@@ -37,15 +37,17 @@ import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sour
 import { VersionSchema, type Version } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   operationPresentation,
-  prepareExecutionCandidate,
-  resolveExecutionCandidate,
   type CandidateFingerprintFailed,
-  type ExecutionCandidate,
   type JobStepArtifact,
   type JobStepResult,
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
+} from "../../operations/index.js";
+import {
+  prepareExecutionCandidate,
+  resolveExecutionCandidate,
+  type ExecutionCandidate,
 } from "../../transitions/planning/index.js";
 import {
   AcceptedResolutionWriter,

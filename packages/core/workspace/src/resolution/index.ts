@@ -26,11 +26,6 @@ export {
 
 export {
   type HeldReleasePolicy,
-  type ReleaseAgeBypassRecord,
-  type ReleaseAgeHoldbackRecord,
-  type ReleaseAgeOperationEvidence,
-  type ReleaseAgeRecord,
-  type ReleaseAgeRecordBase,
   type ReleaseAgeRecordSubject,
   formatMinimumReleaseAgeSeconds,
   isVersionEntryEligibleAt,
@@ -69,8 +64,6 @@ export {
   type SourceAuthorityTarget,
 } from "./source-authority.js";
 
-export { type SourceBindingProposal } from "./source-switch.js";
-
 // Configured-entry vocabulary and resolution.
 export {
   type ConfiguredEntryFailureReason,
@@ -104,7 +97,6 @@ export {
   publisherTransitionWarning,
   registryBindingProposal,
   type PublisherBindingTransition,
-  type RegistryBindingProposal,
 } from "./publisher-binding.js";
 
 // Pack dependency resolution.

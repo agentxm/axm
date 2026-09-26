@@ -26,7 +26,7 @@ import {
   type InstalledPackageEntry,
 } from "../desired-state/index.js";
 import { protectWorkspacePath, runWorkspaceTransaction } from "../transitions/settlement/index.js";
-import type { PlannedJobStep } from "../transitions/planning/index.js";
+import type { PlannedJobStep } from "../operations/index.js";
 import { WorkspaceSyncFailed } from "./errors.js";
 import type { SyncFailureAdapter } from "./failure-adapter.js";
 import type { SyncStepRequirements } from "./plan.js";

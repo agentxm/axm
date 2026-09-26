@@ -5,7 +5,7 @@ import { ConfigureAgents } from "@agentxm/workspace/configuration";
 import { acceptWarningsFlag, ignoreReleaseAgeFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { Screen, headlineDoc } from "../../screen/index.js";
-import { deriveOperationOutcome, observeUnit } from "@agentxm/workspace/transitions/planning";
+import { deriveOperationOutcome, observeUnit } from "@agentxm/workspace/operations";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
 import { emitNoOpOutcome, emitOperationResolution } from "../../operation-output.js";

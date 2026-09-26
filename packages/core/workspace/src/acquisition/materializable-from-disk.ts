@@ -22,7 +22,7 @@ import { resolveWorkspaceExtensionRef } from "../desired-state/index.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { WorkspaceLayout } from "../desired-state/index.js";
 import { enabledConfiguredEntries } from "../desired-state/index.js";
-import { SCANNER_IO_CONCURRENCY } from "../desired-state/workspace/read-model/scanners/fs-helpers.js";
+import { SCANNER_IO_CONCURRENCY } from "../desired-state/index.js";
 
 type DiskRefError =
   | LockEntryToRefError

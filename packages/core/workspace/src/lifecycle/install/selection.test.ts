@@ -10,13 +10,13 @@ import type { RuleExtensionRef } from "@agentxm/extension-model/unstable/extensi
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 
-import { ExtensionLifecycleFailed } from "../errors.js";
 import {
+  ExtensionLifecycleFailed,
   InstallSelectionCancelled,
   InstallSelectionInteraction,
   InstallSelectionUnavailable,
-  selectInstallRefs,
-} from "./selection.js";
+} from "../../operations/index.js";
+import { selectInstallRefs } from "./selection.js";
 
 const localRef = (value: string) => {
   const name = Schema.decodeUnknownSync(ExtensionNameSchema)(value);

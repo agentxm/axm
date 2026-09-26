@@ -32,7 +32,7 @@ import type {
 } from "./manager-contract.js";
 import type { ExtensionManagerFailure } from "./errors.js";
 import type { ProjectionPlan } from "../projection/index.js";
-import type { ConfiguredAgentOutcome } from "../desired-state/index.js";
+import type { ConfiguredAgentOutcome } from "../operations/index.js";
 import type { WorkspaceTransactionScope } from "../transitions/settlement/index.js";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import type { TreeIntegrity } from "../desired-state/index.js";

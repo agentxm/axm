@@ -4,7 +4,7 @@ import { it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { OperationJournal } from "../../transitions/planning/index.js";
+import { OperationJournal } from "../../operations/index.js";
 
 import { WorkspaceSyncFailed } from "../index.js";
 import { SyncStepFailureConversion } from "../index.js";

@@ -2,7 +2,7 @@ import type * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
-import type { JobStepResult, PlannedJobStep } from "../../transitions/planning/index.js";
+import type { JobStepResult, PlannedJobStep } from "../../operations/index.js";
 import {
   HookManager,
   KnowledgeManager,

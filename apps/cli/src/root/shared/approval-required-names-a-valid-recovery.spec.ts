@@ -26,7 +26,7 @@ import {
   recoverySwitch,
   protectedRecoveryValue,
   type ResolvedUnit,
-} from "@agentxm/workspace/transitions/planning";
+} from "@agentxm/workspace/operations";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../../test-support/install-harness.js";
 import { writeAuthoredSkill } from "../../test-support/publish-harness.js";
 import { admitRecoveryArgv } from "../../test-support/recovery-argv-admission.js";

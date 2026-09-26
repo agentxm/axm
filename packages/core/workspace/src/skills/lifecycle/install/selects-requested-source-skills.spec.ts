@@ -10,7 +10,10 @@ import YAML from "yaml";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { InstallSelectionInteraction } from "../../../lifecycle/install/selection.js";
+import {
+  InstallSelectionInteraction,
+  ExtensionLifecycleFailed,
+} from "../../../operations/index.js";
 import {
   applyInstall,
   contentUnder,
@@ -20,7 +23,6 @@ import {
   type InstallWorld,
 } from "../../../lifecycle/install/test-helpers.js";
 import { writeLocalSkillPackage, writeLocalSubagentPackage } from "../../../lifecycle/testing.js";
-import { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
 
 export const specification = defineSpecification({
   requirement: "cli/skills/install/selects-requested-source-skills",

@@ -17,7 +17,7 @@ import {
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { LockfileReader, observeInstallRoot } from "../../desired-state/index.js";
 
-import { ExtensionLifecycleFailed } from "../errors.js";
+import { ExtensionLifecycleFailed } from "../../operations/index.js";
 
 /** The single extension a literal uninstall selector names. */
 export interface UninstallSubject {

@@ -11,8 +11,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
+import type * as Effect from "effect/Effect";
 import * as ServiceMap from "effect/Context";
 import type { PlanInteractionFailed } from "./errors.js";
 import type { ConfirmationRecovery } from "./plan-execution.js";
@@ -48,44 +47,3 @@ export class ResolvePlanInteraction extends ServiceMap.Service<
 >()(
   "@agentxm/workspace/transitions/planning/plan/resolve-plan-interaction/ResolvePlanInteraction",
 ) {}
-
-export interface ResolvePlanInteractionTestState {
-  readonly confirmApplyChangesCalls: Array<ConfirmationRecovery>;
-  readonly presentPlanCalls: Array<{
-    readonly planName: string;
-    readonly mode: "preview" | "apply";
-  }>;
-}
-
-export const ResolvePlanInteractionTest = (overrides?: {
-  readonly isConfirmationAvailable?: boolean;
-  readonly confirmApplyChanges?: (
-    recovery: ConfirmationRecovery,
-  ) => Effect.Effect<ApplyConfirmation, PlanInteractionFailed>;
-  readonly presentPlan?: (
-    plan: Plan<unknown, unknown>,
-    options: { readonly mode: "preview" | "apply" },
-  ) => Effect.Effect<void, PlanInteractionFailed>;
-}) => {
-  const state: ResolvePlanInteractionTestState = {
-    confirmApplyChangesCalls: [],
-    presentPlanCalls: [],
-  };
-
-  const layer = Layer.succeed(ResolvePlanInteraction, {
-    isConfirmationAvailable: Effect.succeed(overrides?.isConfirmationAvailable ?? false),
-    confirmApplyChanges: (recovery) =>
-      Effect.gen(function* () {
-        state.confirmApplyChangesCalls.push(recovery);
-        return yield* overrides?.confirmApplyChanges?.(recovery) ??
-          Effect.succeed("approved" as const);
-      }),
-    presentPlan: (plan, options) =>
-      Effect.gen(function* () {
-        state.presentPlanCalls.push({ planName: plan.name, mode: options.mode });
-        yield* overrides?.presentPlan?.(plan, options) ?? Effect.void;
-      }),
-  } satisfies ResolvePlanInteractionService);
-
-  return { layer, state };
-};

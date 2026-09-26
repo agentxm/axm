@@ -18,10 +18,10 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "../../../transitions/planning/index.js";
+  type ExtensionLifecycleFailed,
+} from "../../../operations/index.js";
 import { applyInstructionSurfacePlans } from "../../../projection/index.js";
 
-import type { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
 import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
 import {
   type InstallStepRequirements,

@@ -11,7 +11,7 @@ import { afterEach } from "vitest";
 import YAML from "yaml";
 
 import { LockfileSchema } from "../../desired-state/index.js";
-import { deriveOperationOutcome } from "../../transitions/planning/index.js";
+import { deriveOperationOutcome } from "../../operations/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { writeLocalSkillPackage } from "../testing.js";

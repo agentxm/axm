@@ -34,11 +34,7 @@ import {
   type ManagerRequirements,
   type MaterializationObservation,
 } from "../../materialization/index.js";
-import type {
-  JobStepArtifact,
-  PlannedJobStep,
-  StepFailure,
-} from "../../transitions/planning/index.js";
+import type { JobStepArtifact, PlannedJobStep, StepFailure } from "../../operations/index.js";
 import { registrySourceArtifact } from "../../packs/lifecycle/artifact.js";
 import { extensionRefLifecycleWarnings } from "../../lifecycle/warnings.js";
 import { installMcpServer, type McpServerInstallRequirements } from "../mcps/install-operation.js";

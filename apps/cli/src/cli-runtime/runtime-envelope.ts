@@ -12,7 +12,7 @@ import type { AppError, AppErrorCode } from "../app-error/index.js";
 import { AppErrorCodes, ExitCode, appErrorCodeForExit, exitCodeFor } from "../app-error/index.js";
 import { isWorkspaceFailure, type WorkspaceFailure } from "@agentxm/workspace/reconciliation";
 import { failureToAppError, toAppError } from "../app-error/conversions.js";
-import type { InstallSelectionCancelled } from "@agentxm/workspace/lifecycle";
+import type { InstallSelectionCancelled } from "@agentxm/workspace/operations";
 
 /**
  * Structural shape of the workspace configuration feature's typed

@@ -9,7 +9,7 @@ import {
   type JobStepArtifact,
   type Plan,
   type ResolvedUnit,
-} from "@agentxm/workspace/transitions/planning";
+} from "@agentxm/workspace/operations";
 
 import { operationDoc, planDoc } from "./operation-view.js";
 import { paintText } from "./screen/paint-text.js";

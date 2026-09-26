@@ -34,8 +34,11 @@ import { mcpRegistryResolutionKey } from "../../desired-state/index.js";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { RegistryClientFactory } from "@agentxm/registry-client";
 import { acceptedRegistryVersionForRef } from "../../desired-state/index.js";
-import { appendWarningsToMessage } from "../../transitions/planning/index.js";
-import type { JobStepResult, Operation } from "../../transitions/planning/index.js";
+import {
+  appendWarningsToMessage,
+  type JobStepResult,
+  type Operation,
+} from "../../operations/index.js";
 import {
   FootprintRecorder,
   isWorkspaceFootprint,

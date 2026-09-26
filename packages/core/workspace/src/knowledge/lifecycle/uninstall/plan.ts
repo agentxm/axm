@@ -25,19 +25,20 @@ import * as Path from "effect/Path";
 import { KnowledgeManager } from "../../../materialization/index.js";
 import { buildUninstallOperation } from "../../../reconciliation/index.js";
 import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
-import type { Plan, PlannedJobStep } from "../../../transitions/planning/index.js";
+import {
+  type Plan,
+  type PlannedJobStep,
+  ExtensionLifecycleFailed,
+  installRefused,
+} from "../../../operations/index.js";
 import { resolveInstructionsConfig } from "../../../projection/index.js";
 import {
   acceptedCanonicalObservation,
   type KnowledgeExtensionTarget,
 } from "../../../desired-state/index.js";
 
-import { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
 import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
-import {
-  installRefused,
-  type InstallStepRequirements,
-} from "../../../lifecycle/install/vocabulary.js";
+import { type InstallStepRequirements } from "../../../lifecycle/install/vocabulary.js";
 import { makeWorkspaceRetentionPolicy } from "../../../reconciliation/index.js";
 import type { KnowledgeUninstallIntent } from "../../../lifecycle/uninstall/vocabulary.js";
 

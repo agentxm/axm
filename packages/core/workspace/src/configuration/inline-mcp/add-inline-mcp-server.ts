@@ -25,14 +25,16 @@ import {
   OperationJournal,
   ResolvePlanInteraction,
   operationPresentation,
-  prepareExecutionCandidate,
-  resolveExecutionCandidate,
   type JobStepArtifact,
   type JobStepResult,
   type OperationResolution,
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
+} from "../../operations/index.js";
+import {
+  prepareExecutionCandidate,
+  resolveExecutionCandidate,
 } from "../../transitions/planning/index.js";
 import {
   ConfiguredAgentOutcomesProvider,

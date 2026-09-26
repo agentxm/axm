@@ -21,24 +21,22 @@ import * as Option from "effect/Option";
 import { NO_MATERIALIZATION_OBSERVATION, SubagentManager } from "../../../materialization/index.js";
 import { buildUninstallOperation } from "../../../reconciliation/index.js";
 import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
-import type {
-  JobStepArtifact,
-  JobStepArtifactTarget,
-  Plan,
-} from "../../../transitions/planning/index.js";
+import {
+  type JobStepArtifact,
+  type JobStepArtifactTarget,
+  type Plan,
+  type ExtensionLifecycleFailed,
+  installRefused,
+} from "../../../operations/index.js";
 import {
   acquiredExtensionDisplayPathFromLockEntry,
   type SubagentExtensionTarget,
   type SubagentLockEntry,
 } from "../../../desired-state/index.js";
 
-import type { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
 import { expandGlob } from "@agentxm/extension-model/unstable/extensions/name-patterns";
 import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
-import {
-  installRefused,
-  type InstallStepRequirements,
-} from "../../../lifecycle/install/vocabulary.js";
+import { type InstallStepRequirements } from "../../../lifecycle/install/vocabulary.js";
 import { makeWorkspaceRetentionPolicy } from "../../../reconciliation/index.js";
 import type { SubagentUninstallIntent } from "../../../lifecycle/uninstall/vocabulary.js";
 import {

@@ -58,16 +58,18 @@ import {
   resolveConfiguredRule,
   resolveConfiguredSkill,
   resolveConfiguredSubagent,
+} from "../../resolution/index.js";
+import {
   type ReleaseAgeBypassRecord,
   type ReleaseAgeHoldbackRecord,
-} from "../../resolution/index.js";
-import { resolveSource } from "../../resolution/sources/index.js";
-import {
   operationPresentation,
   type ConfiguredAgentOperation,
   type Plan,
   type PlannedJobStep,
-} from "../../transitions/planning/index.js";
+  type ExtensionLifecycleFailed,
+  installRefused,
+} from "../../operations/index.js";
+import { resolveSource } from "../../resolution/sources/index.js";
 import * as Result from "effect/Result";
 import {
   SettingsReader,
@@ -77,7 +79,6 @@ import {
   type DesiredStateGraph,
 } from "../../desired-state/index.js";
 
-import type { ExtensionLifecycleFailed } from "../errors.js";
 import { planHookInstall } from "../../hooks/lifecycle/install/plan.js";
 import { planKnowledgeInstall } from "../../knowledge/lifecycle/install/plan.js";
 import { planMcpServerInstall } from "../../mcp-connections/lifecycle/install/plan.js";
@@ -99,7 +100,6 @@ import { buildAggregateProjectionStep } from "./aggregate-projection-step.js";
 import { inlineMcpNotApplicablePlan } from "./inline-mcp-operation.js";
 import {
   INSTALL_HELD_RELEASE_POLICY,
-  installRefused,
   type InstallStepRequirements,
   type PackInstallIntent,
   type ResolveInstallRequirements,

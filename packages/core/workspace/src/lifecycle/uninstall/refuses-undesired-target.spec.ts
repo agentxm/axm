@@ -7,10 +7,10 @@ import type { InstallableExtensionType } from "@agentxm/extension-model/unstable
 import {
   deriveOperationOutcome,
   type OperationResolution,
-} from "../../transitions/planning/index.js";
+  ExtensionLifecycleFailed,
+} from "../../operations/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { ExtensionLifecycleFailed } from "../errors.js";
 import { applyInstall, installRequest, makeInstallWorld } from "../install/test-helpers.js";
 import { writeLocalSkillPackage } from "../testing.js";
 import { applyUninstall, previewUninstall, uninstallRequest } from "./test-helpers.js";

@@ -5,7 +5,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 import YAML from "yaml";
 
-import { countUnitStates, deriveOperationOutcome } from "../../transitions/planning/index.js";
+import { countUnitStates, deriveOperationOutcome } from "../../operations/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { ReleaseAgePosture } from "../../resolution/index.js";
 

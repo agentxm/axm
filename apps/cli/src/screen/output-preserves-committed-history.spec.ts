@@ -3,10 +3,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
-import {
-  makeOperationLifecycle,
-  type OperationEvent,
-} from "@agentxm/workspace/transitions/planning";
+import { makeOperationLifecycle, type OperationEvent } from "@agentxm/workspace/operations";
 import { FrameLive } from "./frame.js";
 import { Screen, ScreenLive } from "./screen.js";
 import { makeTestOutputStreams } from "./streams.js";

@@ -3,7 +3,13 @@ import * as Path from "effect/Path";
 import {
   LifecyclePostconditionViolated,
   ScaffoldedExtensionUnresolved,
-} from "../../transitions/planning/index.js";
+  type ArtifactChange,
+  type StepFailure,
+  type JobStepArtifact,
+  type JobStepResult,
+  type PlannedJobStep,
+  type RegistryBindingProposal,
+} from "../../operations/index.js";
 import { fromFileLocation } from "@agentxm/host-primitives";
 /**
  * Shared extension closure recipes — install, materialize, uninstall, and the
@@ -26,10 +32,13 @@ import {
   AcceptedResolutionWriter,
   DesiredStateReader,
   WorkspaceLocation,
-  type ArtifactChange,
   type WorkspaceStateReadFailure,
   type WorkspaceStateMutationFailure,
   type WorkspaceSettingsReadFailure,
+  type ExtensionTarget,
+  type ExtensionTargetFor,
+  desiredIdentityOfRef,
+  desiredPackageKey,
 } from "../../desired-state/index.js";
 import { declareMaterialization, recordMaterialization } from "./declaration.js";
 import * as Option from "effect/Option";
@@ -47,19 +56,11 @@ import {
   applyInstructionSurfacePlans,
   type InstructionMaintenanceFailure,
 } from "../../projection/index.js";
-import type { StepFailure } from "../../transitions/planning/index.js";
-import type {
-  JobStepArtifact,
-  JobStepResult,
-  PlannedJobStep,
-} from "../../transitions/planning/index.js";
-import type { RegistryBindingProposal } from "../../resolution/index.js";
 import {
   extensionRefName,
   type ExtensionRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { PackageUrlParts } from "@agentxm/extension-model/unstable/packaging/package-url";
-import type { ExtensionTarget, ExtensionTargetFor } from "../../desired-state/index.js";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { evaluateSourceAuthority } from "../../resolution/index.js";
 import { extensionRefLifecycleWarnings } from "../../lifecycle/warnings.js";
@@ -80,7 +81,6 @@ import {
   toExtensionTypePlural,
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/common";
-import { desiredIdentityOfRef, desiredPackageKey } from "../../desired-state/index.js";
 
 // -----------------------------------------------------------------------------
 // Target Helpers

@@ -17,7 +17,7 @@ import {
   stepFailureWithCause,
   unitIdOf,
   type OperationJournalState,
-} from "../../transitions/planning/index.js";
+} from "../../operations/index.js";
 import type { PreviewPublicationSetResponse } from "@agentxm/registry-protocol/unstable/registry";
 
 import { PublishFailed } from "../errors.js";

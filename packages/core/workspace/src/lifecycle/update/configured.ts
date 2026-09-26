@@ -40,8 +40,6 @@ import {
   ReleaseAgePosture,
   releaseAgeRecord,
   releaseAgeRecords,
-  type ReleaseAgeBypassRecord,
-  type ReleaseAgeRecord,
   resolveConfiguredHook,
   resolveConfiguredKnowledge,
   resolveConfiguredMcpServer,
@@ -51,13 +49,17 @@ import {
   resolveConfiguredSkill,
   resolveConfiguredSubagent,
 } from "../../resolution/index.js";
-import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import {
+  type ReleaseAgeBypassRecord,
+  type ReleaseAgeRecord,
   observeUnit,
   operationPresentation,
   type Plan,
   type PlannedJobStep,
-} from "../../transitions/planning/index.js";
+  type JobStepResult,
+  ExtensionLifecycleFailed,
+} from "../../operations/index.js";
+import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import {
   DesiredStateReader,
   SettingsReader,
@@ -95,14 +97,12 @@ import {
 import { listRemoteRefs } from "../../resolution/sources/git/operations.js";
 import { extensionTypePluralSentenceLabels } from "@agentxm/extension-model/unstable/extensions";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
-import type { JobStepResult } from "../../transitions/planning/index.js";
 import { inlineMcpNotApplicablePlan } from "../install/inline-mcp-operation.js";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
 
 import { toTypedLabel, workspaceFailureToStepFailure } from "../../reconciliation/index.js";
 import { settleMcpSourceIdentityFor } from "../../mcp-connections/source-identity.js";
-import { ExtensionLifecycleFailed } from "../errors.js";
 import { lifecycleStepFailure } from "../step-failure.js";
 import { StepFailureConversion } from "../step-failure-conversion.js";
 import type {

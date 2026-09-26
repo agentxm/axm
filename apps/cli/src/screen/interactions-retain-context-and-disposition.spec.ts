@@ -13,7 +13,7 @@ import {
   makeOperationLifecycle,
   ResolvePlanInteraction,
   type Plan,
-} from "@agentxm/workspace/transitions/planning";
+} from "@agentxm/workspace/operations";
 import { ResolvePlanInteractionLive } from "../cli-runtime/resolve-plan-interaction-live.js";
 
 import { TestFlagsLayer } from "../cli-flags/index.js";

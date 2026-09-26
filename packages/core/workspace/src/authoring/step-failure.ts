@@ -11,8 +11,11 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { ScaffoldedExtensionUnresolved } from "../transitions/planning/materialization-errors.js";
-import { makeStepFailure, type StepFailure } from "../transitions/planning/plan/errors.js";
+import {
+  type ScaffoldedExtensionUnresolved,
+  makeStepFailure,
+  type StepFailure,
+} from "../operations/index.js";
 import type { ExtensionManagerFailure } from "../materialization/errors.js";
 import type {
   PackGraphInvalid,

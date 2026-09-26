@@ -25,15 +25,17 @@ import { validateExactResolvedVersion } from "../../../desired-state/index.js";
 import type { Version } from "@agentxm/extension-model/unstable/version-constraints";
 import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { SourceHostProviders } from "../../../resolution/sources/index.js";
-import { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
+import {
+  ExtensionLifecycleFailed,
+  type Operation,
+  type JobStepResult,
+} from "../../../operations/index.js";
 import { sourceResolutionRefused } from "../../../lifecycle/install/vocabulary.js";
 import {
   StepFailureConversion,
   type StepFailureConversionService,
 } from "../../../lifecycle/step-failure-conversion.js";
 import type { OperationHandler } from "../../../transitions/planning/index.js";
-import type { Operation } from "../../../transitions/planning/index.js";
-import type { JobStepResult } from "../../../transitions/planning/index.js";
 import { copyExtensionDirectory } from "../../../materialization/index.js";
 import { computePackPathsForLayout } from "../../../desired-state/index.js";
 import {

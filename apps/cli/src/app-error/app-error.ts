@@ -9,7 +9,7 @@ import {
   type FailureMetadata,
   type FailureProblem,
   type FailureSuggestedAction,
-} from "@agentxm/workspace/transitions/planning";
+} from "@agentxm/workspace/operations";
 
 /**
  * Named exit codes for the CLI. `Success` is the only exit code without an

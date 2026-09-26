@@ -4897,7 +4897,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Boundary: memory; selection: per-change
 - Boundary rationale: The attempt is stated by the producer on the published event; which work retries, and how often, belongs to each producer's request policy and is not decided here.
 - Methods: contract, example
-- Derived from: `cli/machine-progress-events-follow-the-lifecycle-schema`, `packages/supporting/registry-client/src/request-policy.test.ts`, `packages/supporting/registry-client/src/remote-client.test.ts`, `packages/core/workspace/src/transitions/planning/plan/operation-events.test.ts`
+- Derived from: `cli/machine-progress-events-follow-the-lifecycle-schema`, `packages/supporting/registry-client/src/request-policy.test.ts`, `packages/supporting/registry-client/src/remote-client.test.ts`, `packages/core/workspace/src/operations/operation-events.test.ts`
 - Limitation: Examples drive the published schema, the projector, and the active presentation over an authored event log. A registry download that a transport failure actually retries is witnessed by ordinary tests in the registry client, not decided here. Retires when: Bind producer evidence here when a retrying producer's own attempt reporting is allocated its own obligation.
 - Source: [`apps/cli/src/screen/retried-work-names-the-attempt-in-flight.spec.ts`](../apps/cli/src/screen/retried-work-names-the-attempt-in-flight.spec.ts)
 

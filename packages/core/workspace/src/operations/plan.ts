@@ -24,8 +24,8 @@ import {
   EXTENSION_TYPE_TABLE,
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/common";
-import type { ArtifactChange } from "../../../desired-state/index.js";
-import type { ConfiguredAgentOutcome } from "../../../desired-state/index.js";
+import type { ArtifactChange } from "./artifact-change.js";
+import type { ConfiguredAgentOutcome } from "./configured-agent-outcome.js";
 import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import type { ArchivalView } from "@agentxm/extension-model/unstable/extensions/archival";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
@@ -33,7 +33,7 @@ import type {
   RegistryBindingProposal,
   ReleaseAgeOperationEvidence,
   SourceBindingProposal,
-} from "../../../resolution/index.js";
+} from "./evidence.js";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 export const PlanPolicyIds = ["accept-warnings"] as const;

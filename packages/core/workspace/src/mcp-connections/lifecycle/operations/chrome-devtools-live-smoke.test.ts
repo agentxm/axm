@@ -3,7 +3,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { afterEach } from "vitest";
-import { deriveOperationOutcome } from "../../../transitions/planning/index.js";
+import { deriveOperationOutcome } from "../../../operations/index.js";
 import { applyInstall, installRequest } from "../../../lifecycle/install/test-helpers.js";
 import { applyUninstall, uninstallRequest } from "../../../lifecycle/uninstall/test-helpers.js";
 import { makeLifecycleFixture } from "../../../lifecycle/testing.js";

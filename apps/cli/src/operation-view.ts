@@ -16,7 +16,7 @@ import {
   type PlannedJobStep,
   type ResolvedUnit,
   type UnitState,
-} from "@agentxm/workspace/transitions/planning";
+} from "@agentxm/workspace/operations";
 
 import { Verbosity, type VerbosityLevel } from "./cli-flags/index.js";
 import {

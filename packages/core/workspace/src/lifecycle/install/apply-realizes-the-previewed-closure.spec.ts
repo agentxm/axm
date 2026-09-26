@@ -3,7 +3,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { deriveOperationOutcome } from "../../transitions/planning/index.js";
+import { deriveOperationOutcome } from "../../operations/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { writeLocalSkillPackage } from "../testing.js";

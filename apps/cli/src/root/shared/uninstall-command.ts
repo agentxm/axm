@@ -16,10 +16,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { UninstallExtensions, type UninstallExtensionsRequest } from "@agentxm/workspace/lifecycle";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { isGlobPattern } from "@agentxm/extension-model/unstable/extensions/name-patterns";
-import {
-  deriveOperationOutcome,
-  operationPresentation,
-} from "@agentxm/workspace/transitions/planning";
+import { deriveOperationOutcome, operationPresentation } from "@agentxm/workspace/operations";
 
 import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";

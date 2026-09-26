@@ -16,7 +16,7 @@ import {
   makeOperationLifecycle,
   subscribeLossless,
   type OperationEvent,
-} from "../../transitions/planning/index.js";
+} from "../../operations/index.js";
 import {
   applyInstall,
   entriesUnder,

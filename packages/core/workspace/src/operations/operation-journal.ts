@@ -20,7 +20,7 @@ import * as Ref from "effect/Ref";
 import * as ServiceMap from "effect/Context";
 
 import type { CompletedJobStep, OperationPresentation, PlanRiskCondition } from "./plan.js";
-import type { ReleaseAgeOperationEvidence } from "../../../resolution/index.js";
+import type { ReleaseAgeOperationEvidence } from "./evidence.js";
 import type { OperationPrecondition } from "./plan.js";
 import type { OperationAtomicity, OperationPhase, ResolvedUnit } from "./operation-resolution.js";
 

@@ -8,9 +8,8 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { ExtensionLifecycleFailed } from "../errors.js";
+import { ExtensionLifecycleFailed, deriveOperationOutcome } from "../../operations/index.js";
 import { writeLocalRulePackage, writeLocalSkillPackage } from "../testing.js";
-import { deriveOperationOutcome } from "../../transitions/planning/index.js";
 import { applyInstall, installRequest, makeInstallWorld } from "./test-helpers.js";
 
 const availablePort = (): Promise<number> =>

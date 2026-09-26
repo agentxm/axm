@@ -32,17 +32,10 @@ import {
   StaleExecutionCandidate,
   StepFailure,
   makeStepFailure,
-} from "./errors.js";
-import { applyPlan } from "./apply-plan.js";
-import {
-  isExecutionCandidateFresh,
-  makeExecutionCandidate,
-  type ExecutionCandidate,
-} from "./execution-candidate.js";
-import { augmentPlanWithReconciliation } from "../operations/augment-plan.js";
-import { scanPlanReadiness } from "../operations/scan-plan-readiness.js";
-import type { CompletedJobStep, ExecutedPlan, Plan, PlannedJobStep } from "./plan.js";
-import {
+  type CompletedJobStep,
+  type ExecutedPlan,
+  type Plan,
+  type PlannedJobStep,
   declaredAtomicity,
   executedUnits,
   makeOperationResolution,
@@ -53,14 +46,34 @@ import {
   type OperationPhase,
   type OperationResolution,
   type ResolvedUnit,
-} from "./operation-resolution.js";
-import {
   OperationJournal,
   appendResolvedUnit,
   appendStartedUnit,
   recordJournalPhase,
   recordOperationJournal,
-} from "./operation-journal.js";
+  CurrentOperationUnit,
+  observeUnit,
+  publishOperationEvent,
+  publishPhaseStarted,
+  publishWaitEnded,
+  publishWaiting,
+  type UnitFailure,
+  type ConfiguredAgentOutcome,
+  InterruptionSignalSource,
+  ResolvePlanInteraction,
+  confirmationRecoverySuggestions,
+  namedPolicyRecoverySuggestions,
+  type ConfiguredAgentOperation,
+  type PlanExecution,
+} from "../../../operations/index.js";
+import { applyPlan } from "./apply-plan.js";
+import {
+  isExecutionCandidateFresh,
+  makeExecutionCandidate,
+  type ExecutionCandidate,
+} from "./execution-candidate.js";
+import { augmentPlanWithReconciliation } from "../operations/augment-plan.js";
+import { scanPlanReadiness } from "../operations/scan-plan-readiness.js";
 import {
   MAX_ACQUIRED_TREE_BYTES,
   OperationRequestBudget,
@@ -80,15 +93,6 @@ import { resolutionFailureToStepFailure } from "../../../materialization/resolut
 import { isSourceResolutionFailure } from "../../../resolution/sources/errors.js";
 
 import {
-  CurrentOperationUnit,
-  observeUnit,
-  publishOperationEvent,
-  publishPhaseStarted,
-  publishWaitEnded,
-  publishWaiting,
-  type UnitFailure,
-} from "./operation-events.js";
-import {
   ConfiguredAgentOutcomesProvider,
   LockfileReader,
   SettingsReader,
@@ -96,8 +100,12 @@ import {
   WorkspaceRecords,
   configuredAgentLifecycleOutcomes,
   resolveConfiguredAgentOutcomes,
-  type ConfiguredAgentOutcome,
   type ConfiguredAgentOutcomesProviderService,
+  candidateFingerprintFailedToStepFailure,
+  configErrorToStepFailure,
+  restorationIncompleteToStepFailure,
+  workspaceStateReadFailureToStepFailure,
+  workspaceTransactionFailureToStepFailure,
 } from "../../../desired-state/index.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
@@ -112,21 +120,6 @@ import {
   settleWorkspaceClosure,
   withWorkspaceClosure,
 } from "../../settlement/index.js";
-import { InterruptionSignalSource } from "./interruption-signal.js";
-import { ResolvePlanInteraction } from "./resolve-plan-interaction.js";
-import {
-  confirmationRecoverySuggestions,
-  namedPolicyRecoverySuggestions,
-  type ConfiguredAgentOperation,
-  type PlanExecution,
-} from "./plan-execution.js";
-import {
-  candidateFingerprintFailedToStepFailure,
-  configErrorToStepFailure,
-  restorationIncompleteToStepFailure,
-  workspaceStateReadFailureToStepFailure,
-  workspaceTransactionFailureToStepFailure,
-} from "./step-failure-conversions.js";
 
 /** Publish a phase transition to the lifecycle stream and the journal. */
 const enterPhase = (phase: OperationPhase): Effect.Effect<void, never, OperationJournal> =>

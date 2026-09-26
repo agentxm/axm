@@ -24,7 +24,7 @@ import {
   makeStepFailure,
   type OperationErrorCategory,
   type StepFailure,
-} from "../transitions/planning/plan/errors.js";
+} from "../operations/index.js";
 
 import type { PublishFailed } from "./errors.js";
 

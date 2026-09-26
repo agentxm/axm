@@ -8,7 +8,7 @@ import type {
   ApprovalRecoveryMissing,
   CandidateFingerprintFailed,
   PlanInteractionFailed,
-} from "../../transitions/planning/index.js";
+} from "../../operations/index.js";
 import type {
   LockfileValidationError,
   WorkspaceSettingsReadFailure,

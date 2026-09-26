@@ -10,22 +10,21 @@ import * as Option from "effect/Option";
 
 import {
   StepFailure,
-  prepareExecutionCandidate,
-  resolveExecutionCandidate,
   type JobStepResult,
   type PlannedJobStep,
+  ExtensionLifecycleFailed,
+  installRefused,
+} from "../../operations/index.js";
+import {
+  prepareExecutionCandidate,
+  resolveExecutionCandidate,
 } from "../../transitions/planning/index.js";
 import { preapprovedPlanExecution } from "../../transitions/planning/testing.js";
 import { protectWorkspacePath } from "../../transitions/settlement/index.js";
 
-import { ExtensionLifecycleFailed } from "../../lifecycle/errors.js";
-import {
-  installRefused,
-  type InstallStepRequirements,
-} from "../../lifecycle/install/vocabulary.js";
+import { type InstallStepRequirements } from "../../lifecycle/install/vocabulary.js";
 import { makeLifecycleFixture, type LifecycleFixture } from "../../lifecycle/testing.js";
 import { makeWorkspaceUpdatePlan } from "../../lifecycle/update/configured.js";
-import {} from "./graph-transition.js";
 
 /**
  * Register a target with the enclosing transition before writing it, the way

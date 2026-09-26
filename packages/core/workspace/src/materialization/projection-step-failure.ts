@@ -9,7 +9,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { makeStepFailure, type StepFailure } from "../transitions/planning/plan/errors.js";
+import { makeStepFailure, type StepFailure } from "../operations/index.js";
 import type { ProjectionError } from "../projection/errors.js";
 import type { InstructionMaintenanceFailed } from "../projection/instructions/errors.js";
 

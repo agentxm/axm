@@ -14,7 +14,7 @@ import * as Option from "effect/Option";
 import * as ServiceMap from "effect/Context";
 import type * as CliCommand from "effect/unstable/cli/Command";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import type { FailureSuggestedAction } from "@agentxm/workspace/transitions/planning";
+import type { FailureSuggestedAction } from "@agentxm/workspace/operations";
 import { WorkspaceLocation } from "@agentxm/workspace/desired-state";
 import { isWorkspaceFailure } from "@agentxm/workspace/reconciliation";
 import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";

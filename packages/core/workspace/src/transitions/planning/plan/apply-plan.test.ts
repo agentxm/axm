@@ -14,8 +14,12 @@ import * as Fiber from "effect/Fiber";
 import * as Option from "effect/Option";
 import { at } from "../test-helpers.js";
 import { applyPlan } from "./apply-plan.js";
-import { StepFailure } from "./errors.js";
-import type { Plan, PlannedJobStep } from "./plan.js";
+import {
+  StepFailure,
+  executedUnits,
+  type Plan,
+  type PlannedJobStep,
+} from "../../../operations/index.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -466,6 +470,90 @@ describe("applyPlan interruption boundaries", () => {
       expect(Exit.isSuccess(exit)).toBe(false);
       expect(started).toEqual(["parked"]);
       expect(settled).toEqual([]);
+    }),
+  );
+});
+
+describe("executedUnits over an applied plan", () => {
+  it.effect(
+    "C-10: a unit prevented by a sibling failure resolves blocked with a machine-readable reference",
+    () =>
+      Effect.gen(function* () {
+        const plan: Plan<never, never> = {
+          _tag: "Plan",
+          name: "Update skills",
+          description: Option.none(),
+          jobs: [
+            {
+              concurrency: 1,
+              steps: [
+                {
+                  readiness: "ready",
+                  label: "a",
+                  run: Effect.succeed({
+                    result: "error",
+                    message: "integrity mismatch",
+                    error: new StepFailure({ category: "conflict", detail: "integrity mismatch" }),
+                  }),
+                },
+                {
+                  readiness: "ready",
+                  label: "b",
+                  run: Effect.succeed({ result: "success", message: "updated" }),
+                },
+              ],
+            },
+          ],
+        };
+        const executed = yield* applyPlan(plan);
+        const units = executedUnits(executed);
+        expect(units[0]?.state).toBe("failed");
+        expect(units[1]?.state).toBe("blocked");
+        expect(units[1]?.blocking?.class).toBe("operation-aborted");
+        expect(units[1]?.blocking?.reference).toBe("a");
+      }),
+  );
+
+  it.effect("J-UPD-01: best-effort siblings terminate in states of their own", () =>
+    Effect.gen(function* () {
+      const plan: Plan<never, never> = {
+        _tag: "Plan",
+        name: "Update skills",
+        description: Option.none(),
+        executionCapabilities: { rollback: "non-rollbackable" },
+        jobs: [
+          {
+            concurrency: 1,
+            executionPolicy: "best-effort",
+            steps: [
+              {
+                readiness: "ready",
+                label: "a",
+                run: Effect.succeed({
+                  result: "error",
+                  message: "integrity mismatch for a",
+                  error: new StepFailure({
+                    category: "conflict",
+                    detail: "integrity mismatch for a",
+                  }),
+                }),
+              },
+              {
+                readiness: "ready",
+                label: "b",
+                run: Effect.succeed({
+                  result: "success",
+                  message: "updated",
+                  artifact: { path: "b", scope: "project", change: "updated" },
+                }),
+              },
+            ],
+          },
+        ],
+      };
+      const executed = yield* applyPlan(plan);
+      const units = executedUnits(executed);
+      expect(units.map((entry) => entry.state)).toEqual(["failed", "committed"]);
     }),
   );
 });

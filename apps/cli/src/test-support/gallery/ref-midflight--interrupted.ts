@@ -5,7 +5,7 @@ import {
   operationPresentation,
   type JobStepArtifact,
   type ResolvedUnit,
-} from "@agentxm/workspace/transitions/planning";
+} from "@agentxm/workspace/operations";
 
 import { operationDoc } from "../../operation-view.js";
 

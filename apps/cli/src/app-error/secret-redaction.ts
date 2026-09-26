@@ -10,7 +10,7 @@ import {
   redactRegistryValue,
 } from "@agentxm/registry-client";
 
-import type { FailureMetadata } from "@agentxm/workspace/transitions/planning";
+import type { FailureMetadata } from "@agentxm/workspace/operations";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 /** Redact URL userinfo in addition to the general credential shapes. */

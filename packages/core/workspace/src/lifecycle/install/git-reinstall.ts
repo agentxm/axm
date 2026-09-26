@@ -16,7 +16,8 @@ import type { GitSource } from "@agentxm/extension-model/unstable/sources/types"
 import { DesiredStateReader, acceptedLockedResolutionRef } from "../../desired-state/index.js";
 import { hydrateAcceptedPackRef } from "../../resolution/index.js";
 import { SourceHostProviders } from "../../resolution/sources/index.js";
-import { installRefused, sourceResolutionRefused } from "./vocabulary.js";
+import { installRefused } from "../../operations/index.js";
+import { sourceResolutionRefused } from "./vocabulary.js";
 
 const sameGitLocator = (left: GitSource, right: GitSource): boolean =>
   left.url.href === right.url.href &&

@@ -18,7 +18,7 @@
  */
 
 import type { TargetedUpdateBlocker, TargetedUpdatePublicContext } from "../../resolution/index.js";
-import type { BlockingClass } from "../../transitions/planning/index.js";
+import type { BlockingClass } from "../../operations/index.js";
 
 import { TARGETED_UPDATE_STALE_DETAIL } from "./targeted-plan.js";
 

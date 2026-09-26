@@ -25,7 +25,7 @@ import type {
 } from "../projection/agent-adapters/errors.js";
 import type { NativeWriteRefused } from "../projection/agent-adapters/native-write-authority.js";
 import type { TransientBackupFailed } from "../projection/agent-adapters/transient-backup.js";
-import { makeStepFailure, type StepFailure } from "../transitions/planning/plan/errors.js";
+import { makeStepFailure, type StepFailure } from "../operations/index.js";
 
 /** Every agent-integration failure, beside a retained write backup that wraps one. */
 export type AgentIntegrationFailure =

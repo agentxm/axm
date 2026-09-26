@@ -21,7 +21,7 @@ import {
   InstallSelectionInteraction,
   InstallSelectionUnavailable,
   type InstallSelectionCandidate,
-} from "@agentxm/workspace/lifecycle";
+} from "@agentxm/workspace/operations";
 
 import { makeAppError } from "../app-error/index.js";
 import { EXTENSION_TYPE_PRESENTATION } from "../root/extension-type-presentation.js";

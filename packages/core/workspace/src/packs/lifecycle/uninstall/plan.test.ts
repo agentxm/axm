@@ -18,7 +18,7 @@ import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach } from "vitest";
 
-import { deriveOperationOutcome } from "../../../transitions/planning/index.js";
+import { deriveOperationOutcome } from "../../../operations/index.js";
 import { preapprovedPlanExecution } from "../../../transitions/planning/testing.js";
 import {
   desiredPackageKey,

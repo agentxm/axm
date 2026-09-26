@@ -29,13 +29,9 @@ import {
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { SettingsReader } from "../../desired-state/index.js";
 
-import type { ExtensionLifecycleFailed } from "../errors.js";
+import { type ExtensionLifecycleFailed, installRefused } from "../../operations/index.js";
 import { registryLoginSuggestions } from "./registry-login-suggestion.js";
-import {
-  installRefused,
-  sourceResolutionFailureDetail,
-  sourceResolutionRefused,
-} from "./vocabulary.js";
+import { sourceResolutionFailureDetail, sourceResolutionRefused } from "./vocabulary.js";
 
 type RegistrySourceProbeRequirements = SettingsReader | RegistryClientFactory;
 

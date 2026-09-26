@@ -14,6 +14,15 @@ import {
   SettingsReader,
   WorkspaceLocation,
   WorkspaceRecords,
+  computePackageContentHash,
+  computeMaterializedTreeIntegrity,
+  enabledConfiguredEntries,
+  computeExtensionPathsForLayout,
+  type DesiredStateGraph,
+  validatePathSafety,
+  MaterializedFileTargetSchema,
+  acceptedCanonicalObservation,
+  removableAcceptedCanonicalPath,
 } from "../desired-state/index.js";
 
 import { fromFileLocation } from "@agentxm/host-primitives";
@@ -55,8 +64,6 @@ import {
   type HooksWriter,
   installable,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
-import { computePackageContentHash } from "../desired-state/index.js";
-import { computeMaterializedTreeIntegrity } from "../desired-state/index.js";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import {
   acquireCanonicalForRef,
@@ -66,12 +73,8 @@ import {
   makeBaseManagerMembers,
   listMaterializableFromAccepted,
 } from "../materialization/manager-kit.js";
-import { enabledConfiguredEntries } from "../desired-state/index.js";
-import { computeExtensionPathsForLayout } from "../desired-state/index.js";
-import type { DesiredStateGraph, ConfiguredAgentOutcome } from "../desired-state/index.js";
+import type { ConfiguredAgentOutcome } from "../operations/index.js";
 import type { ProjectionUnitObservation } from "../projection/index.js";
-import { validatePathSafety } from "../desired-state/index.js";
-import { MaterializedFileTargetSchema } from "../desired-state/index.js";
 import { SourceHostProviders, WorkspaceCatalog } from "../resolution/sources/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import {
@@ -82,10 +85,6 @@ import { NO_MATERIALIZATION_OBSERVATION } from "../materialization/manager-contr
 import type { HookMaterializationFacts } from "../materialization/managers.js";
 import { HookManager } from "../materialization/managers.js";
 import { HOOK_FALLBACKS_REGION_OWNER } from "../projection/index.js";
-import {
-  acceptedCanonicalObservation,
-  removableAcceptedCanonicalPath,
-} from "../desired-state/index.js";
 import { protectWorkspacePath, recordFootprint } from "../transitions/settlement/index.js";
 import {
   HOOK_EXTENSION_DIR,

@@ -7,7 +7,7 @@
  * application already resolved for the invocation.
  */
 
-import type { OperationPrecondition } from "../transitions/planning/index.js";
+import type { OperationPrecondition } from "../operations/index.js";
 import type { PublishVisibility } from "@agentxm/registry-protocol/unstable/publish";
 import type { PublicationVisibilityInput } from "@agentxm/registry-protocol/unstable/registry";
 import type { PublishExtensionArgs } from "@agentxm/registry-client";

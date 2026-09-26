@@ -10,7 +10,7 @@
  */
 
 import * as Effect from "effect/Effect";
-import type { Plan } from "../plan/plan.js";
+import type { Plan } from "../../../operations/index.js";
 import type { LockfileState } from "../../../desired-state/index.js";
 
 // -----------------------------------------------------------------------------

@@ -3,10 +3,13 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { countUnitStates, deriveOperationOutcome } from "../../transitions/planning/index.js";
+import {
+  countUnitStates,
+  deriveOperationOutcome,
+  ExtensionLifecycleFailed,
+} from "../../operations/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { ExtensionLifecycleFailed } from "../../lifecycle/errors.js";
 import {
   applyInstall,
   installRequest,

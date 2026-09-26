@@ -8,7 +8,7 @@ import {
   deriveOperationOutcome,
   previewPlanExecution,
   type PlanExecution,
-} from "../../transitions/planning/index.js";
+} from "../../operations/index.js";
 import { preapprovedPlanExecution } from "../../transitions/planning/testing.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 

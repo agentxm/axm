@@ -22,7 +22,7 @@ import {
   type OperationPresentation,
   type OperationResolution,
   type ResolvedUnit,
-} from "@agentxm/workspace/transitions/planning";
+} from "@agentxm/workspace/operations";
 
 export const updatePresentation: OperationPresentation = operationPresentation({
   imperative: "update",

@@ -44,13 +44,14 @@ import type {
   WorkspaceCatalog,
 } from "../../resolution/sources/index.js";
 import { workspaceFailureToStepFailure } from "../../reconciliation/failure-rendering.js";
-import type {
-  ApprovalRecoveryMissing,
-  CandidateFingerprintFailed,
-  OperationJournal,
-  PlanInteractionFailed,
-  ResolvePlanInteraction,
-} from "../../transitions/planning/index.js";
+import {
+  type ApprovalRecoveryMissing,
+  type CandidateFingerprintFailed,
+  type OperationJournal,
+  type PlanInteractionFailed,
+  type ResolvePlanInteraction,
+  ExtensionLifecycleFailed,
+} from "../../operations/index.js";
 import type { CodingAgentRepository, WorkspaceInvariantFacts } from "../../projection/index.js";
 import type {
   AcceptedCanonicalRefError,
@@ -74,8 +75,6 @@ import type {
   WorkspaceTransactionScope,
   WorkspaceTransitionAcquireFailure,
 } from "../../transitions/settlement/index.js";
-
-import { ExtensionLifecycleFailed } from "../errors.js";
 
 // -----------------------------------------------------------------------------
 // Requirements
@@ -159,28 +158,6 @@ export type PrepareInstallRequirements =
 // -----------------------------------------------------------------------------
 // Failures
 // -----------------------------------------------------------------------------
-
-/**
- * Refuse an install or uninstall with the category, wording, and recovery the
- * feature decided. The application converts the carried fields into its error
- * envelope verbatim, so the producer owns the refusal rather than the shell.
- */
-export const installRefused = (fields: {
-  readonly category: ExtensionLifecycleFailed["category"];
-  readonly detail: string;
-  readonly recover?: string;
-  readonly cmd?: string;
-  readonly suggestions?: ExtensionLifecycleFailed["suggestions"];
-  readonly cause?: unknown;
-}): ExtensionLifecycleFailed =>
-  new ExtensionLifecycleFailed({
-    category: fields.category,
-    detail: fields.detail,
-    ...(fields.recover === undefined ? {} : { recover: fields.recover }),
-    ...(fields.cmd === undefined ? {} : { cmd: fields.cmd }),
-    ...(fields.suggestions === undefined ? {} : { suggestions: fields.suggestions }),
-    ...(fields.cause === undefined ? {} : { cause: fields.cause }),
-  });
 
 /**
  * Refuse an install because a source could not be resolved or read. The

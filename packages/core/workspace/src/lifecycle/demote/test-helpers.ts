@@ -13,7 +13,7 @@ import * as nodePath from "node:path";
 import * as Effect from "effect/Effect";
 import { unzipSync } from "fflate";
 
-import { previewPlanExecution } from "../../transitions/planning/index.js";
+import { previewPlanExecution } from "../../operations/index.js";
 import { preapprovedPlanExecution } from "../../transitions/planning/testing.js";
 
 import {

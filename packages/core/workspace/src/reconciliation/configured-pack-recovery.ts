@@ -48,7 +48,7 @@ import {
   normalizeReleaseAgeRecords,
 } from "../resolution/index.js";
 import { prepareConfiguredPackIntent } from "../lifecycle/install/configured.js";
-import type { ExtensionLifecycleFailed } from "../lifecycle/errors.js";
+import type { ExtensionLifecycleFailed, PlannedJobStep } from "../operations/index.js";
 import { readProposedGraph, selectPackGraph } from "../packs/lifecycle/install/plan.js";
 import { acceptedResolutionIncompatibleText } from "../projection/index.js";
 import { withPackRegistryIndexMemo } from "../resolution/sources/providers/registry/index-memo.js";
@@ -62,7 +62,6 @@ import {
   WorkspaceLocation,
   type DesiredStateGraph,
 } from "../desired-state/index.js";
-import type { PlannedJobStep } from "../transitions/planning/index.js";
 
 import { buildReconciliationClosure } from "./closure.js";
 import { WorkspaceSyncFailed } from "./errors.js";

@@ -19,7 +19,7 @@ import {
   workspaceWithAuthoredExtension,
 } from "../../lifecycle/activation/test-helpers.js";
 import type { LifecycleFixture } from "../../lifecycle/testing.js";
-import { deriveOperationOutcome } from "../../transitions/planning/index.js";
+import { deriveOperationOutcome } from "../../operations/index.js";
 
 export const specification = defineSpecification({
   requirement: "workspace/instructions/aliases-follow-shared-surface-writes",

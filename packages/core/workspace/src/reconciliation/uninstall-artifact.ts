@@ -21,7 +21,7 @@ import type {
   JobStepArtifact,
   JobStepArtifactReference,
   JobStepArtifactTarget,
-} from "../transitions/planning/index.js";
+} from "../operations/index.js";
 import { proposeDesiredState, type DesiredStateProposal } from "./proposed-state.js";
 import { WorkspaceSyncFailed } from "./errors.js";
 import { acceptedRowKey, sameDesiredIdentity } from "../desired-state/index.js";

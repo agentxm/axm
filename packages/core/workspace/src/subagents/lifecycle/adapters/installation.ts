@@ -7,11 +7,8 @@ import {
 
 import * as Option from "effect/Option";
 import { CodingAgentRepository } from "../../../projection/index.js";
-import type { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
-import {
-  installRefused,
-  type InstallStepRequirements,
-} from "../../../lifecycle/install/vocabulary.js";
+import { type ExtensionLifecycleFailed, installRefused } from "../../../operations/index.js";
+import { type InstallStepRequirements } from "../../../lifecycle/install/vocabulary.js";
 import type { SubagentInstallationFacts } from "../application/installation.js";
 
 export const subagentInstallationFacts: SubagentInstallationFacts<

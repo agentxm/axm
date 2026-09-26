@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import type { InstallStepRequirements } from "./vocabulary.js";
 import * as Option from "effect/Option";
 
-import type { JobStepResult, Plan } from "../../transitions/planning/index.js";
+import type { JobStepResult, Plan } from "../../operations/index.js";
 import { toTypedLabel } from "../../reconciliation/index.js";
 
 export const inlineMcpNotApplicablePlan = (

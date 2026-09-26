@@ -62,10 +62,20 @@ import {
   resolveTargetedUpdateContext,
   type ExtensionResolutionFailed,
   type HeldReleasePolicy,
-  type ReleaseAgeOperationEvidence,
   type TargetedUpdateContext,
   type TargetedUpdatePublicContext,
 } from "../../resolution/index.js";
+import {
+  type ReleaseAgeOperationEvidence,
+  makeOperationResolution,
+  operationPresentation,
+  type CandidateFingerprintFailed,
+  type ConfiguredAgentOperation,
+  type OperationResolution,
+  type Plan,
+  type PlanExecution,
+  ExtensionLifecycleFailed,
+} from "../../operations/index.js";
 import {
   SourceHostProviders,
   WorkspaceCatalog,
@@ -73,16 +83,9 @@ import {
   type SourceResolutionFailure,
 } from "../../resolution/sources/index.js";
 import {
-  makeOperationResolution,
-  operationPresentation,
   prepareExecutionCandidate,
   resolveExecutionCandidate,
-  type CandidateFingerprintFailed,
-  type ConfiguredAgentOperation,
   type ExecutionCandidate,
-  type OperationResolution,
-  type Plan,
-  type PlanExecution,
 } from "../../transitions/planning/index.js";
 import {
   DesiredStateReader,
@@ -99,7 +102,6 @@ import type { WorkspaceTransactionScope } from "../../transitions/settlement/ind
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 
-import { ExtensionLifecycleFailed } from "../errors.js";
 import type { InstallStepRequirements } from "../install/vocabulary.js";
 import type { StepFailureConversion } from "../step-failure-conversion.js";
 import { lifecycleStepFailure } from "../step-failure.js";

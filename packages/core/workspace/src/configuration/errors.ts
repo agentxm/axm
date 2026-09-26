@@ -9,16 +9,14 @@
  */
 
 import * as Schema from "effect/Schema";
-import type {
-  ApprovalRecoveryMissing,
-  CandidateFingerprintFailed,
-  PlanInteractionFailed,
-} from "../transitions/planning/index.js";
 import {
+  type ApprovalRecoveryMissing,
+  type CandidateFingerprintFailed,
+  type PlanInteractionFailed,
   FailureSuggestedActionSchema,
   makeStepFailure,
   type StepFailure,
-} from "../transitions/planning/plan/errors.js";
+} from "../operations/index.js";
 import type {
   InvalidAgentId,
   LockfileValidationError,

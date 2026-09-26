@@ -28,22 +28,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions";
-
-/**
- * The Registry identity a step proposes to accept. Trust classification
- * compares it with the accepted resolution for the same configured target,
- * so a change of publisher is identified from structured data rather than
- * from warning text.
- */
-export interface RegistryBindingProposal {
-  readonly extensionType: ExtensionType;
-  /** The configured (local) name whose accepted resolution the step replaces. */
-  readonly target: string;
-  readonly owner: string;
-  readonly packageName: string;
-  readonly version: string;
-  readonly publisherBindingId: string;
-}
+import type { RegistryBindingProposal } from "../operations/index.js";
 
 export interface PublisherBindingTransition {
   readonly extensionType: ExtensionType;

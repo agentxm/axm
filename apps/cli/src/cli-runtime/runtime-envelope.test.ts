@@ -6,7 +6,11 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { ConfigError } from "effect/Config";
 import { SourceError } from "effect/ConfigProvider";
-import { InstallSelectionCancelled } from "@agentxm/workspace/lifecycle";
+import {
+  InstallSelectionCancelled,
+  StepFailure,
+  makeOperationResolution,
+} from "@agentxm/workspace/operations";
 
 import * as Schema from "effect/Schema";
 import * as HttpClient from "effect/unstable/http/HttpClient";
@@ -27,7 +31,6 @@ import {
   writeExpectedCliError,
 } from "./runtime-envelope.js";
 import { emitOperationResolution } from "../operation-output.js";
-import { StepFailure, makeOperationResolution } from "@agentxm/workspace/transitions/planning";
 
 /**
  * Structural stand-in for the workspace configuration feature's typed

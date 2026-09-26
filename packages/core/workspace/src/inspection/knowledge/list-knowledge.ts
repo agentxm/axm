@@ -23,12 +23,14 @@ import {
 } from "../../projection/index.js";
 import {
   configuredAgentLifecycleOutcomes,
-  ConfiguredAgentOutcomeSchema,
   SettingsReader,
   WorkspaceLocation,
   WorkspaceRecords,
-  type ConfiguredAgentOutcome,
 } from "../../desired-state/index.js";
+import {
+  ConfiguredAgentOutcomeSchema,
+  type ConfiguredAgentOutcome,
+} from "../../operations/index.js";
 
 import { WorkspaceInspectionFailed } from "../errors.js";
 

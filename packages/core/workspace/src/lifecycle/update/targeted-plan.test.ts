@@ -3,11 +3,15 @@ import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import type { JobStepResult, Plan, StepFailure } from "../../transitions/planning/index.js";
+import {
+  type JobStepResult,
+  type Plan,
+  type StepFailure,
+  ExtensionLifecycleFailed,
+} from "../../operations/index.js";
 import { SettingsWriter } from "../../desired-state/index.js";
 import { resolveTargetedUpdateContext } from "../../resolution/index.js";
 
-import { ExtensionLifecycleFailed } from "../errors.js";
 import { lifecycleStepFailure } from "../step-failure.js";
 import type { InstallStepRequirements } from "../install/vocabulary.js";
 import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";

@@ -65,9 +65,14 @@ import {
   resolveConfiguredRule,
   resolveConfiguredSkill,
   resolveConfiguredSubagent,
-  type ReleaseAgeOperationEvidence,
   type ResolvedConfiguredEntry,
 } from "../resolution/index.js";
+import {
+  type ReleaseAgeOperationEvidence,
+  type JobStepArtifact,
+  type Plan,
+  type PlannedJobStep,
+} from "../operations/index.js";
 import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import {
   sanitizeName,
@@ -102,11 +107,6 @@ import {
   toExtensionTypePlural,
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
-import {
-  type JobStepArtifact,
-  type Plan,
-  type PlannedJobStep,
-} from "../transitions/planning/index.js";
 import { WorkspaceSyncFailed } from "./errors.js";
 import { workspaceFailureToStepFailure } from "./failure-rendering.js";
 import {

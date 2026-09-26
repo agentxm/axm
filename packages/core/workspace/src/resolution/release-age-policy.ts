@@ -12,6 +12,11 @@ import type {
 } from "@agentxm/extension-model/unstable/extensions/release-age";
 import type { VersionEntry } from "@agentxm/registry-protocol/unstable/registry/schema";
 
+import type {
+  ReleaseAgeBypassRecord,
+  ReleaseAgeHoldbackRecord,
+  ReleaseAgeRecord,
+} from "../operations/index.js";
 import { ExtensionResolutionFailed } from "./errors.js";
 
 /**
@@ -37,34 +42,6 @@ export const releaseAgeExemptionForIdentity = (
   }
   return evaluation.mode === "ignore" ? { bypassCause: "ignore-flag" } : undefined;
 };
-
-export interface ReleaseAgeRecordBase {
-  readonly reason: "minimum-release-age";
-  readonly target: string;
-  readonly dependencyPath: ReadonlyArray<string>;
-  readonly requestedRange?: string;
-  readonly currentVersion?: string;
-  readonly selectedVersion?: string;
-  readonly candidateVersion: string;
-  readonly publishedAt: string;
-  readonly eligibleAt: string;
-  readonly minimumReleaseAgeSeconds: number;
-}
-
-export type ReleaseAgeHoldbackRecord = ReleaseAgeRecordBase;
-
-export type ReleaseAgeBypassRecord = ReleaseAgeRecordBase &
-  (
-    | {
-        readonly bypassCause: "exclude";
-        readonly exemptionScope: "project" | "user";
-      }
-    | {
-        readonly bypassCause: "ignore-flag";
-      }
-  );
-
-export type ReleaseAgeRecord = ReleaseAgeHoldbackRecord | ReleaseAgeBypassRecord;
 
 /** Who a release-age record is about, and the ranges and versions the operation read. */
 export interface ReleaseAgeRecordSubject {
@@ -132,12 +109,6 @@ export const releaseAgeRecords = (
             : [releaseAgeRecord(subject, selection.newerHeld, selectedVersion)],
         bypasses: [],
       };
-
-export interface ReleaseAgeOperationEvidence {
-  readonly evaluatedAt: string;
-  readonly holdbacks: ReadonlyArray<ReleaseAgeHoldbackRecord>;
-  readonly bypasses: ReadonlyArray<ReleaseAgeBypassRecord>;
-}
 
 const releaseAgeRecordKey = (record: ReleaseAgeRecord): string =>
   [

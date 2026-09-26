@@ -9,7 +9,7 @@
  */
 
 import type { AdvisoryFinding, LintFinding } from "@agentxm/extension-content/lint";
-import type { Operation } from "../../../../transitions/planning/index.js";
+import type { Operation } from "../../../../operations/index.js";
 
 /** Shared empty AdvisoryFinding array. */
 export const EMPTY_ADVISORY_FINDINGS: ReadonlyArray<AdvisoryFinding> = [];

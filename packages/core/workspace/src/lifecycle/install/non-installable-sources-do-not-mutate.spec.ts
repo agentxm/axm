@@ -6,7 +6,7 @@ import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { ExtensionLifecycleFailed } from "../errors.js";
+import { ExtensionLifecycleFailed } from "../../operations/index.js";
 import { applyInstall, installRequest, makeInstallWorld, readSettings } from "./test-helpers.js";
 
 export const specification = defineSpecification({

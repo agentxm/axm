@@ -9,7 +9,7 @@ import { afterEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
-import type { PlanExecution } from "../../transitions/planning/index.js";
+import type { PlanExecution } from "../../operations/index.js";
 import { interactiveOnlyPlanExecution } from "../../transitions/planning/testing.js";
 
 import { makeLifecycleFixture } from "../testing.js";

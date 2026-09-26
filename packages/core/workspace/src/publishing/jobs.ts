@@ -1,4 +1,4 @@
-import type { Job, PlannedJobStep } from "../transitions/planning/index.js";
+import type { Job, PlannedJobStep } from "../operations/index.js";
 import type { PublishableType } from "./publishable-types.js";
 
 /** The selection facts one publish candidate contributes to job planning. */

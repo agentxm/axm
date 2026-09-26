@@ -6,7 +6,7 @@ import { afterEach } from "vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 
-import { deriveOperationOutcome } from "../../transitions/planning/index.js";
+import { deriveOperationOutcome } from "../../operations/index.js";
 import { applyUpdate, targetedUpdateRequest } from "../update/test-helpers.js";
 import {
   SHARED_MEMBER,

@@ -13,7 +13,7 @@
 
 import type { FqnInvalidError } from "@agentxm/extension-model/unstable/extensions/fqn";
 import type { FrontmatterParseFailure, SubagentContentError } from "@agentxm/extension-content";
-import type { LifecyclePostconditionViolated } from "../transitions/planning/index.js";
+import type { LifecyclePostconditionViolated } from "../operations/index.js";
 import type { MaterializationError } from "../acquisition/errors.js";
 import type { SourceAuthorityBlocked } from "../resolution/index.js";
 import type { SourceResolutionFailure } from "../resolution/sources/index.js";

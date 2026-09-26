@@ -10,7 +10,7 @@ import {
   type OperationErrorCategory,
   type OperationResolution,
   type ResolvedUnit,
-} from "@agentxm/workspace/transitions/planning";
+} from "@agentxm/workspace/operations";
 
 import { LockfileIoError, LockfileVersionUnsupported } from "@agentxm/workspace/desired-state";
 import { workspaceFailureToStepFailure } from "@agentxm/workspace/reconciliation";

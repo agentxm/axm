@@ -10,7 +10,7 @@ import {
   deriveOperationOutcome,
   type JobStepArtifactTarget,
   type ResolvedUnit,
-} from "../../../transitions/planning/index.js";
+} from "../../../operations/index.js";
 
 import { CreateExtension } from "../../../authoring/create/create-extension.js";
 import {

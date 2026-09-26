@@ -37,13 +37,15 @@ import {
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import {
   operationPresentation,
-  prepareExecutionCandidate,
-  resolveExecutionCandidate,
-  type ExecutionCandidate,
   type PackMembershipDelta,
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
+} from "../../operations/index.js";
+import {
+  prepareExecutionCandidate,
+  resolveExecutionCandidate,
+  type ExecutionCandidate,
 } from "../../transitions/planning/index.js";
 import {
   DesiredStateReader,

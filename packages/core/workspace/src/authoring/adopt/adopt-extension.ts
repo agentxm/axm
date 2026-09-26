@@ -1,4 +1,9 @@
-import type { AuthorMaterialization } from "../../transitions/planning/index.js";
+import {
+  type AuthorMaterialization,
+  prepareExecutionCandidate,
+  resolveExecutionCandidate,
+  type ExecutionCandidate,
+} from "../../transitions/planning/index.js";
 /**
  * Adopting an acquired package into workspace authorship.
  *
@@ -57,15 +62,12 @@ import {
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {
   operationPresentation,
-  prepareExecutionCandidate,
-  resolveExecutionCandidate,
   type CandidateFingerprintFailed,
-  type ExecutionCandidate,
   type JobStepArtifact,
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
-} from "../../transitions/planning/index.js";
+} from "../../operations/index.js";
 import type { CodingAgentRepository } from "../../projection/index.js";
 import {
   DesiredStateReader,

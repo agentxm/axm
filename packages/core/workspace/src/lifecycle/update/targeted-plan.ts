@@ -28,7 +28,8 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "../../transitions/planning/index.js";
+  ExtensionLifecycleFailed,
+} from "../../operations/index.js";
 import { WorkspaceLocation } from "../../desired-state/index.js";
 import type { WorkspaceTransactionScope } from "../../transitions/settlement/index.js";
 import {
@@ -37,7 +38,6 @@ import {
   type TargetedUpdateContextFailure,
 } from "../../resolution/index.js";
 
-import { ExtensionLifecycleFailed } from "../errors.js";
 import type { InstallStepRequirements } from "../install/vocabulary.js";
 
 export const TARGETED_UPDATE_STALE_DETAIL =

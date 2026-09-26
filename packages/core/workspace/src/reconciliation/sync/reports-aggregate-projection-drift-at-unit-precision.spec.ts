@@ -4,7 +4,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import type { ResolvedUnit } from "../../transitions/planning/index.js";
+import type { ResolvedUnit } from "../../operations/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import {

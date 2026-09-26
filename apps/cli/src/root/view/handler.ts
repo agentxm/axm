@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { observeUnit } from "@agentxm/workspace/transitions/planning";
+import { observeUnit } from "@agentxm/workspace/operations";
 import {
   resolveViewHandle,
   resolveViewRegistry,

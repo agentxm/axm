@@ -1,5 +1,5 @@
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
-import type { ConfiguredAgentOutcome } from "./configured-agent-outcome.js";
+import type { ConfiguredAgentOutcome } from "../../operations/index.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { setupScopeSupportOutcomes } from "./setup-scope-support.js";
 

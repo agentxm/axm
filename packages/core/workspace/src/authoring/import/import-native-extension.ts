@@ -1,4 +1,9 @@
-import type { AuthorMaterialization } from "../../transitions/planning/index.js";
+import {
+  type AuthorMaterialization,
+  prepareExecutionCandidate,
+  resolveExecutionCandidate,
+  type ExecutionCandidate,
+} from "../../transitions/planning/index.js";
 /**
  * Importing native, unmanaged content as an authored AXM package.
  *
@@ -73,16 +78,13 @@ import {
 } from "../../resolution/sources/index.js";
 import {
   operationPresentation,
-  prepareExecutionCandidate,
-  resolveExecutionCandidate,
   type CandidateFingerprintFailed,
-  type ExecutionCandidate,
   type JobStepArtifact,
   type JobStepArtifactTarget,
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
-} from "../../transitions/planning/index.js";
+} from "../../operations/index.js";
 import type { CodingAgentRepository } from "../../projection/index.js";
 import {
   AcceptedResolutionWriter,

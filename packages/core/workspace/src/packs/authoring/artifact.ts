@@ -1,5 +1,5 @@
 import type { Handle } from "@agentxm/extension-model/unstable/extensions";
-import type { JobStepArtifact, JobStepArtifactTarget } from "../../transitions/planning/index.js";
+import type { JobStepArtifact, JobStepArtifactTarget } from "../../operations/index.js";
 import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { acquiredDisplayPath } from "../../desired-state/index.js";
 

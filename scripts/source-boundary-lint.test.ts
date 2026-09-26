@@ -405,7 +405,7 @@ describe("module boundary constraints", () => {
     ).toEqual(["@typescript-eslint/no-restricted-imports"]);
     expect(
       await boundaryViolations(
-        'import type { Plan } from "@agentxm/workspace/transitions/planning";\nimport { operationPresentation } from "@agentxm/workspace/transitions/planning";\nimport { handleInstall } from "@agentxm/workspace/lifecycle";',
+        'import type { Plan } from "@agentxm/workspace/operations";\nimport { operationPresentation } from "@agentxm/workspace/operations";\nimport { handleInstall } from "@agentxm/workspace/lifecycle";',
         HANDLER,
       ),
     ).toEqual([]);

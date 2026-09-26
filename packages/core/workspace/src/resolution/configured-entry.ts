@@ -15,7 +15,7 @@ import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extens
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import type { NamedRegistryResolution } from "@agentxm/extension-model/unstable/sources/source-host-provider";
-import type { ReleaseAgeBypassRecord, ReleaseAgeHoldbackRecord } from "./release-age-policy.js";
+import type { ReleaseAgeBypassRecord, ReleaseAgeHoldbackRecord } from "../operations/index.js";
 
 export type ConfiguredEntryFailureReason =
   | "entry-malformed"

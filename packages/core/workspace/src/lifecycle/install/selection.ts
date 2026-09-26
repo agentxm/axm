@@ -8,8 +8,6 @@
  * interaction port.
  */
 
-import * as Context from "effect/Context";
-import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
@@ -25,37 +23,16 @@ import {
   type ExtensionRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 
-import type { ExtensionLifecycleFailed } from "../errors.js";
-import { installRefused } from "./vocabulary.js";
-
-export interface InstallSelectionCandidate {
-  readonly type: InstallableExtensionType;
-  readonly name: string;
-  readonly description: Option.Option<string>;
-}
-
-export class InstallSelectionCancelled extends Data.TaggedError("InstallSelectionCancelled")<{
-  readonly message: string;
-}> {}
-
-export class InstallSelectionUnavailable extends Data.TaggedError("InstallSelectionUnavailable")<{
-  readonly cause?: unknown;
-}> {}
+import {
+  InstallSelectionInteraction,
+  installRefused,
+  type ExtensionLifecycleFailed,
+  type InstallSelectionCancelled,
+  type InstallSelectionUnavailable,
+} from "../../operations/index.js";
 
 export type InstallSelectionFailure =
   ExtensionLifecycleFailed | InstallSelectionCancelled | InstallSelectionUnavailable;
-
-export class InstallSelectionInteraction extends Context.Service<
-  InstallSelectionInteraction,
-  {
-    readonly select: (
-      candidates: ReadonlyArray<InstallSelectionCandidate>,
-    ) => Effect.Effect<
-      ReadonlyArray<InstallSelectionCandidate>,
-      InstallSelectionCancelled | InstallSelectionUnavailable
-    >;
-  }
->()("@agentxm/workspace/lifecycle/install/InstallSelectionInteraction") {}
 
 const extensionRefDescription = (ref: ExtensionRef): Option.Option<string> =>
   ref.type === "skill"

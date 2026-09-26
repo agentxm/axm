@@ -17,23 +17,20 @@ import {
 import { isArchivePathIncluded } from "../publishing/index.js";
 import { SourceHostProviders } from "../resolution/sources/index.js";
 import { fromFileLocation } from "@agentxm/host-primitives";
-import type {
-  JobStepArtifact,
-  PackMemberSourceSwitchEndpoint,
-  PackMemberSourceSwitchEvidence,
-  Plan,
-  PlanRiskCondition,
-  PlannedJobStep,
-  SourceSwitchEndpoint,
-  SourceSwitchEvidence,
-  SourceSwitchFamily,
-} from "../transitions/planning/index.js";
-import type { ExtensionLifecycleFailed } from "./errors.js";
 import {
+  type JobStepArtifact,
+  type PackMemberSourceSwitchEndpoint,
+  type PackMemberSourceSwitchEvidence,
+  type Plan,
+  type PlanRiskCondition,
+  type PlannedJobStep,
+  type SourceSwitchEndpoint,
+  type SourceSwitchEvidence,
+  type SourceSwitchFamily,
+  type ExtensionLifecycleFailed,
   installRefused,
-  sourceResolutionRefused,
-  type PrepareInstallRequirements,
-} from "./install/vocabulary.js";
+} from "../operations/index.js";
+import { sourceResolutionRefused, type PrepareInstallRequirements } from "./install/vocabulary.js";
 
 export const SOURCE_SWITCH_CONDITION_ID = "source-authority-change";
 const SOURCE_SWITCH_STATE_CONDITION_ID = "source-switch-current-state";

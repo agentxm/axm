@@ -20,7 +20,7 @@ import {
   deriveOperationOutcome,
   operationPresentation,
   type ConfirmationRecoveryArgument,
-} from "@agentxm/workspace/transitions/planning";
+} from "@agentxm/workspace/operations";
 
 import {
   setCommandSemanticProperties,

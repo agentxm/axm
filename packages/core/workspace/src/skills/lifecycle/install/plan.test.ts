@@ -12,7 +12,7 @@ import {
   deriveOperationOutcome,
   previewPlanExecution,
   type OperationResolution,
-} from "../../../transitions/planning/index.js";
+} from "../../../operations/index.js";
 import { preapprovedPlanExecution } from "../../../transitions/planning/testing.js";
 import {
   AcceptedResolutionWriter,

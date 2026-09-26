@@ -6,10 +6,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import {
-  deriveOperationOutcome,
-  type OperationResolution,
-} from "../../transitions/planning/index.js";
+import { deriveOperationOutcome, type OperationResolution } from "../../operations/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import {

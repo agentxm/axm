@@ -3,7 +3,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
 import { DiscoverExtensions, DiscoverOutputSchema } from "@agentxm/workspace/discovery";
-import { observeUnit } from "@agentxm/workspace/transitions/planning";
+import { observeUnit } from "@agentxm/workspace/operations";
 
 import { emitResult } from "../../screen/index.js";
 import { discoverDoc } from "./view.js";

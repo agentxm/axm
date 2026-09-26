@@ -2,7 +2,6 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { applyPlan } from "./apply-plan.js";
 import { StepFailure } from "./errors.js";
 import {
   countUnitStates,
@@ -14,7 +13,7 @@ import {
   type OperationResolution,
   type ResolvedUnit,
 } from "./operation-resolution.js";
-import type { Job, Plan } from "./plan.js";
+import type { Job } from "./plan.js";
 
 const unit = (
   id: string,
@@ -262,88 +261,6 @@ describe("plannedUnits", () => {
 });
 
 describe("executedUnits", () => {
-  it.effect(
-    "C-10: a unit prevented by a sibling failure resolves blocked with a machine-readable reference",
-    () =>
-      Effect.gen(function* () {
-        const plan: Plan<never, never> = {
-          _tag: "Plan",
-          name: "Update skills",
-          description: Option.none(),
-          jobs: [
-            {
-              concurrency: 1,
-              steps: [
-                {
-                  readiness: "ready",
-                  label: "a",
-                  run: Effect.succeed({
-                    result: "error",
-                    message: "integrity mismatch",
-                    error: new StepFailure({ category: "conflict", detail: "integrity mismatch" }),
-                  }),
-                },
-                {
-                  readiness: "ready",
-                  label: "b",
-                  run: Effect.succeed({ result: "success", message: "updated" }),
-                },
-              ],
-            },
-          ],
-        };
-        const executed = yield* applyPlan(plan);
-        const units = executedUnits(executed);
-        expect(units[0]?.state).toBe("failed");
-        expect(units[1]?.state).toBe("blocked");
-        expect(units[1]?.blocking?.class).toBe("operation-aborted");
-        expect(units[1]?.blocking?.reference).toBe("a");
-      }),
-  );
-
-  it.effect("J-UPD-01: best-effort siblings terminate in states of their own", () =>
-    Effect.gen(function* () {
-      const plan: Plan<never, never> = {
-        _tag: "Plan",
-        name: "Update skills",
-        description: Option.none(),
-        executionCapabilities: { rollback: "non-rollbackable" },
-        jobs: [
-          {
-            concurrency: 1,
-            executionPolicy: "best-effort",
-            steps: [
-              {
-                readiness: "ready",
-                label: "a",
-                run: Effect.succeed({
-                  result: "error",
-                  message: "integrity mismatch for a",
-                  error: new StepFailure({
-                    category: "conflict",
-                    detail: "integrity mismatch for a",
-                  }),
-                }),
-              },
-              {
-                readiness: "ready",
-                label: "b",
-                run: Effect.succeed({
-                  result: "success",
-                  message: "updated",
-                  artifact: { path: "b", scope: "project", change: "updated" },
-                }),
-              },
-            ],
-          },
-        ],
-      };
-      const executed = yield* applyPlan(plan);
-      const units = executedUnits(executed);
-      expect(units.map((entry) => entry.state)).toEqual(["failed", "committed"]);
-    }),
-  );
-
   it("C-13: an unchanged artifact resolves unchanged; skipped work resolves skipped", () => {
     const units = executedUnits({
       _tag: "ExecutedPlan",

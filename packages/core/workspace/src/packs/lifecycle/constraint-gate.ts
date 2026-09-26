@@ -10,7 +10,7 @@ import {
 } from "../../desired-state/index.js";
 import type { ExtensionConstraintInvariantFact } from "../../projection/index.js";
 import { toTypedLabel } from "../../reconciliation/index.js";
-import { operationPresentation, type Plan } from "../../transitions/planning/index.js";
+import { operationPresentation, type Plan } from "../../operations/index.js";
 
 import type { InstallStepRequirements } from "../../lifecycle/install/vocabulary.js";
 import { desiredPackageKey } from "../../desired-state/index.js";

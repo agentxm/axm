@@ -7,7 +7,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 import YAML from "yaml";
 
-import { deriveOperationOutcome } from "../../transitions/planning/index.js";
+import { deriveOperationOutcome } from "../../operations/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import {
   SHARED_MEMBER,

@@ -14,7 +14,7 @@ import {
   recoveryOption,
   recoveryPositional,
   recoverySwitch,
-} from "@agentxm/workspace/transitions/planning";
+} from "@agentxm/workspace/operations";
 import { SyncWorkspace } from "@agentxm/workspace/reconciliation/sync";
 import { SYNC_PRESENTATION } from "@agentxm/workspace/reconciliation";
 

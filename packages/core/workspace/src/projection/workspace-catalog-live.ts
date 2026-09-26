@@ -35,20 +35,16 @@ import {
   makeScannerFileSystem,
   skillsInDir,
   type DiscoveredSkill,
-} from "../desired-state/index.js";
-import {
   configuredRowsByName,
   installedRowsByName,
   unmanagedRowsByName,
-} from "../desired-state/index.js";
-import {
   DesiredStateReader,
   SettingsReader,
   WorkspaceLocation,
   WorkspaceRecords,
   type WorkspaceStateReadFailure,
+  workspaceStateReadFailureToStepFailure,
 } from "../desired-state/index.js";
-import { workspaceStateReadFailureToStepFailure } from "../transitions/planning/plan/step-failure-conversions.js";
 import { CodingAgentRepository } from "./agents/coding-agent-repository.js";
 
 const sortNames = (names: ReadonlyArray<string>): ReadonlyArray<string> =>

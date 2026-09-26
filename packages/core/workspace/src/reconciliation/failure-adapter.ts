@@ -28,7 +28,7 @@ import type {
   WorkspaceTransactionFailure,
   WorkspaceRestorationIncomplete,
 } from "../transitions/settlement/index.js";
-import type { StepFailure } from "../transitions/planning/index.js";
+import type { StepFailure } from "../operations/index.js";
 import type { WorkspaceSyncCleanupFailure } from "./errors.js";
 
 /** Every typed failure the sync policy hands to the conversion. */

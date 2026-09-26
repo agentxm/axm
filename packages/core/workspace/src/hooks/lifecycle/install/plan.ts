@@ -9,7 +9,15 @@
  */
 
 import * as Effect from "effect/Effect";
-import { LockfileReader, WorkspaceLocation } from "../../../desired-state/index.js";
+import {
+  LockfileReader,
+  WorkspaceLocation,
+  acquiredExtensionDisplayPath,
+  acquiredExtensionDisplayPathFromLockEntry,
+  acquiredRootDisplayPath,
+  lockEntryVersion,
+  type HookLockEntry,
+} from "../../../desired-state/index.js";
 
 import * as Option from "effect/Option";
 
@@ -28,22 +36,15 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "../../../transitions/planning/index.js";
-import { applyInstructionSurfacePlans } from "../../../projection/index.js";
-import {
-  acquiredExtensionDisplayPath,
-  acquiredExtensionDisplayPathFromLockEntry,
-  acquiredRootDisplayPath,
-  lockEntryVersion,
   type ArtifactChange,
   type ConfiguredAgentOutcome,
-  type HookLockEntry,
-} from "../../../desired-state/index.js";
+  type ExtensionLifecycleFailed,
+  installRefused,
+} from "../../../operations/index.js";
+import { applyInstructionSurfacePlans } from "../../../projection/index.js";
 
-import type { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
 import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
 import {
-  installRefused,
   type HookInstallIntent,
   type InstallStepRequirements,
 } from "../../../lifecycle/install/vocabulary.js";

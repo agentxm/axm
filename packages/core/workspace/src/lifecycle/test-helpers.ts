@@ -20,8 +20,7 @@ import {
   type Version,
   type VersionRange,
 } from "@agentxm/extension-model/unstable/version-constraints";
-import { StepFailure } from "../transitions/planning/index.js";
-import { ExtensionLifecycleFailed } from "./errors.js";
+import { StepFailure, ExtensionLifecycleFailed } from "../operations/index.js";
 import { StepFailureConversion } from "./step-failure-conversion.js";
 
 export const handle = (value: string): Handle => decodeHandleSync(value);

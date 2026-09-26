@@ -30,7 +30,7 @@ import {
   type WorkspaceRecordsService,
 } from "../desired-state/index.js";
 import { FootprintRecorderTest } from "../transitions/planning/testing.js";
-import { StepFailure } from "../transitions/planning/index.js";
+import { StepFailure } from "../operations/index.js";
 import { buildInstallOperation } from "../reconciliation/index.js";
 import { workspaceFailureToStepFailure } from "../reconciliation/failure-rendering.js";
 import type { KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";

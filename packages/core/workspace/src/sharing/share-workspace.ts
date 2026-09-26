@@ -26,7 +26,7 @@ import {
   recoveryOption,
   recoveryPositional,
   renderConfirmationRecoveryCommand,
-} from "../transitions/planning/index.js";
+} from "../operations/index.js";
 
 export class ShareFailed extends Schema.TaggedError<ShareFailed>()("ShareFailed", {
   category: Schema.Literal("validation"),

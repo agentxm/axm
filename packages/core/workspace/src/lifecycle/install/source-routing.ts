@@ -12,14 +12,14 @@ import {
   routeUrlInput,
   type SourceResolutionFailure,
 } from "../../resolution/sources/index.js";
-import type { ExtensionLifecycleFailed } from "../errors.js";
+import { type ExtensionLifecycleFailed, installRefused } from "../../operations/index.js";
 import {
   resolveConfiguredRegistrySource,
   resolveDefaultRegistrySourceByName,
   type InstallableRegistryType,
   type RegistryResolutionOptions,
 } from "./registry-source-resolution.js";
-import { installRefused, type ResolveInstallRequirements } from "./vocabulary.js";
+import { type ResolveInstallRequirements } from "./vocabulary.js";
 
 export type LocatorInstallType = InstallableRegistryType;
 

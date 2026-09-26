@@ -56,12 +56,10 @@ import {
   type ResolvedUnit,
   type StepFailure,
   stepFailureRetryCanHelp,
-} from "@agentxm/workspace/transitions/planning";
-import { operationExitCode, operationOk } from "./operation-exit-code.js";
-import {
   ArtifactChangeSchema,
   ConfiguredAgentOutcomeSchema,
-} from "@agentxm/workspace/desired-state";
+} from "@agentxm/workspace/operations";
+import { operationExitCode, operationOk } from "./operation-exit-code.js";
 import {
   AppErrorCodeSchema,
   ExitCode,

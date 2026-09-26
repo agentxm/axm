@@ -5,7 +5,7 @@ import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
+import { ExtensionLifecycleFailed } from "../../../operations/index.js";
 import {
   applyInstall,
   installRequest,

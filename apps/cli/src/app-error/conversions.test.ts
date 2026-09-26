@@ -7,7 +7,11 @@ import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
 import { RegistryRequestFailed, registryErrorToProblem } from "@agentxm/registry-client";
-import { StepFailure } from "@agentxm/workspace/transitions/planning";
+import {
+  StepFailure,
+  InstallSelectionInteraction,
+  InstallSelectionUnavailable,
+} from "@agentxm/workspace/operations";
 import { SettingsWriteError } from "@agentxm/workspace/desired-state";
 import { WorkspaceRestorationIncomplete } from "@agentxm/workspace/transitions/settlement";
 import {
@@ -26,8 +30,6 @@ import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import {
-  InstallSelectionInteraction,
-  InstallSelectionUnavailable,
   LifecycleFailureConversionLive,
   StepFailureConversion,
   selectInstallRefs,

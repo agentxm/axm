@@ -1086,8 +1086,15 @@ export default [
                 "Handlers do not write workspace state; call the owning feature or capability application API.",
             },
             {
+              name: "@agentxm/workspace/operations",
+              importNames: ["Plan", "PlannedJobStep"],
+              allowTypeImports: true,
+              message:
+                "Handlers do not construct or execute plans; call Feature.prepare and Feature.previewOrApply.",
+            },
+            {
               name: "@agentxm/workspace/transitions/planning",
-              importNames: ["Plan", "PlannedJobStep", "prepareExecutionCandidate"],
+              importNames: ["prepareExecutionCandidate"],
               allowTypeImports: true,
               message:
                 "Handlers do not construct or execute plans; call Feature.prepare and Feature.previewOrApply.",

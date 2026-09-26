@@ -10,7 +10,7 @@ import {
   SourceHostProviders,
   type SourceHostProvidersService,
 } from "../../resolution/sources/index.js";
-import { ExtensionLifecycleFailed } from "../errors.js";
+import { ExtensionLifecycleFailed } from "../../operations/index.js";
 import { makeLifecycleFixture } from "../testing.js";
 import { makeInstallWorld } from "./test-helpers.js";
 import {

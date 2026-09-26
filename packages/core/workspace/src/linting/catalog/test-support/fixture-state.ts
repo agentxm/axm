@@ -1,6 +1,6 @@
 import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
-import type { FileSpec, FixtureSpec, ScopeFiles } from "../../../desired-state/index.js";
+import type { FileSpec, FixtureSpec, ScopeFiles } from "../../../desired-state/testing.js";
 import type { WorkspaceState } from "./interpret-ops.js";
 
 const pathSegments = (relativePath: string): ReadonlyArray<string> =>

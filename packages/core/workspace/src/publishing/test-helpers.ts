@@ -65,7 +65,7 @@ import {
   previewPlanExecution,
   type PlanExecution,
   type PlanPolicyId,
-} from "../transitions/planning/index.js";
+} from "../operations/index.js";
 import { PlanInvocationTest, ResolvePlanInteractionTest } from "../transitions/planning/testing.js";
 import { layer as WorkspaceStateLayer } from "../desired-state/live.js";
 import * as NodeServices from "@effect/platform-node/NodeServices";

@@ -17,15 +17,13 @@ import {
   ResolvePlanInteraction,
   type OperationOutcome,
   type ResolvePlanInteractionService,
-} from "@agentxm/workspace/transitions/planning";
-import {
   credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,
   recoveryOption,
   recoveryPositional,
   recoverySwitch,
   renderConfirmationRecoveryCommand,
-} from "@agentxm/workspace/transitions/planning";
+} from "@agentxm/workspace/operations";
 import {
   PublishExtensions,
   normalizePublishResult,

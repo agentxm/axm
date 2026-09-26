@@ -17,8 +17,7 @@ import {
   type DesiredExtensionNode,
 } from "../../desired-state/index.js";
 
-import type { ExtensionLifecycleFailed } from "../../lifecycle/errors.js";
-import { installRefused } from "../../lifecycle/install/vocabulary.js";
+import { type ExtensionLifecycleFailed, installRefused } from "../../operations/index.js";
 import { desiredPackageKey } from "../../desired-state/index.js";
 
 interface RequiredPack {

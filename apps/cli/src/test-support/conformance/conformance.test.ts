@@ -22,7 +22,7 @@ import {
   OperationEventSchema,
   type OperationEvent,
   type OperationLifecycleService,
-} from "@agentxm/workspace/transitions/planning";
+} from "@agentxm/workspace/operations";
 
 import type { Doc } from "../../screen/doc.js";
 import { FrameLive } from "../../screen/frame.js";

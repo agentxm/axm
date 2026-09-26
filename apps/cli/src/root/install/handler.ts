@@ -14,7 +14,7 @@ import {
   publicRecoveryValue,
   recoveryOption,
   recoverySwitch,
-} from "@agentxm/workspace/transitions/planning";
+} from "@agentxm/workspace/operations";
 
 import { makeAppError } from "../../app-error/index.js";
 import { Screen } from "../../screen/index.js";

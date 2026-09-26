@@ -10,7 +10,7 @@ import {
   countUnitStates,
   deriveOperationOutcome,
   previewPlanExecution,
-} from "../../transitions/planning/index.js";
+} from "../../operations/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import {

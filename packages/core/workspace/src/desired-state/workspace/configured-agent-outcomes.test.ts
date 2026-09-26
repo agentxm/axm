@@ -6,7 +6,7 @@ import {
   resolveConfiguredAgentOutcomes,
   type ConfiguredAgentOutcomesRequest,
 } from "./configured-agent-outcomes-provider.js";
-import type { ConfiguredAgentOutcome } from "./configured-agent-outcome.js";
+import type { ConfiguredAgentOutcome } from "../../operations/index.js";
 import {
   configuredAgentLifecycleOutcomes,
   EXTENSION_CONFIGURED_AGENT_POLICY,

@@ -71,23 +71,25 @@ import {
   PackDependencyMissing,
   PackDependencyUnsatisfied,
   type PackMemberRangeResolver,
-  type ReleaseAgeBypassRecord,
-  type ReleaseAgeHoldbackRecord,
   type SourceAuthorityBlockedFact,
   type WorkspacePackDependencyResolver,
 } from "../../../resolution/index.js";
+import {
+  type ReleaseAgeBypassRecord,
+  type ReleaseAgeHoldbackRecord,
+  operationPresentation,
+  type JobStepArtifactTarget,
+  type Plan,
+  type PlannedJobStep,
+  type ExtensionLifecycleFailed,
+  installRefused,
+} from "../../../operations/index.js";
 import {
   SourceHostProviders,
   resolveSource,
   sourceResolutionFailureCategory,
   type SourceResolutionFailure,
 } from "../../../resolution/sources/index.js";
-import {
-  operationPresentation,
-  type JobStepArtifactTarget,
-  type Plan,
-  type PlannedJobStep,
-} from "../../../transitions/planning/index.js";
 import {
   acceptedLockedCanonicalPath,
   acceptedLockedResolutionRef,
@@ -107,7 +109,6 @@ import {
   type SubagentExtensionTarget,
 } from "../../../desired-state/index.js";
 
-import type { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
 import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
 import { buildAggregateProjectionStep } from "../../../lifecycle/install/aggregate-projection-step.js";
 import { parseRegistryInstallTarget } from "../../../lifecycle/install/registry-install-target.js";
@@ -117,7 +118,6 @@ import {
   type RegistryLookupProbe,
 } from "../../../lifecycle/install/registry-source-resolution.js";
 import {
-  installRefused,
   sourceResolutionFailureDetail,
   sourceResolutionRefused,
   type InstallStepRequirements,

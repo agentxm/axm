@@ -4,7 +4,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import { deriveOperationOutcome } from "../../transitions/planning/index.js";
+import { deriveOperationOutcome } from "../../operations/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { applyInstall, installRequest, makeInstallWorld } from "../install/test-helpers.js";

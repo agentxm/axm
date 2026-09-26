@@ -28,7 +28,7 @@ import {
   StepFailure,
   type OperationErrorCategory,
   type ResolvePlanInteraction,
-} from "../../transitions/planning/index.js";
+} from "../../operations/index.js";
 import {
   PlanInvocationTest,
   ResolvePlanInteractionTest,

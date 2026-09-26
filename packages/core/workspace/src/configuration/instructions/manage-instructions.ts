@@ -31,8 +31,6 @@ import {
   OperationJournal,
   ResolvePlanInteraction,
   StepFailure,
-  prepareExecutionCandidate,
-  resolveExecutionCandidate,
   type JobStepArtifact,
   type JobStepResult,
   type OperationPresentation,
@@ -40,6 +38,10 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
+} from "../../operations/index.js";
+import {
+  prepareExecutionCandidate,
+  resolveExecutionCandidate,
 } from "../../transitions/planning/index.js";
 import {
   applyPlannedProjections,

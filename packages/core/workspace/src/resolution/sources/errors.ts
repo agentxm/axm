@@ -17,7 +17,7 @@ import * as Data from "effect/Data";
 import { ConfigError } from "effect/Config";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { isRegistryClientFailure, type RegistryClientFailure } from "@agentxm/registry-client";
-import type { OperationErrorCategory } from "../../transitions/planning/plan/errors.js";
+import type { OperationErrorCategory } from "../../operations/index.js";
 import { AxmSkillGateUnavailable } from "./axm-skill-gate.js";
 import { WorkspaceCatalogUnavailable } from "./workspace-catalog.js";
 

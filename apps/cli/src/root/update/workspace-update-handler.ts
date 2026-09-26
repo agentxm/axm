@@ -14,10 +14,10 @@ import {
   publicRecoveryValue,
   recoveryOption,
   recoverySwitch,
-} from "@agentxm/workspace/transitions/planning";
+  type ConfirmationRecovery,
+} from "@agentxm/workspace/operations";
 
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import type { ConfirmationRecovery } from "@agentxm/workspace/transitions/planning";
 
 import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";
 import {

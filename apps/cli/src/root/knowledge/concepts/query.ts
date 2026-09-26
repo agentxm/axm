@@ -6,7 +6,7 @@ import {
   KnowledgeConceptQueryPageSchema,
   KnowledgeDiscovery,
 } from "@agentxm/workspace/knowledge/query";
-import { observeUnit } from "@agentxm/workspace/transitions/planning";
+import { observeUnit } from "@agentxm/workspace/operations";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 import { ABSENT, emitResult, inventoryDoc, type ViewColumn } from "../../../screen/index.js";

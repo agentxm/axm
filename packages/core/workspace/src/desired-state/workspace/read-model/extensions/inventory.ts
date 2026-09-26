@@ -2,7 +2,7 @@ import * as Schema from "effect/Schema";
 import {
   ConfiguredAgentOutcomeSchema,
   type ConfiguredAgentOutcome,
-} from "../../configured-agent-outcome.js";
+} from "../../../../operations/index.js";
 import { WorkspaceRecordRowSchema, type WorkspaceRecordRow } from "../records.js";
 import type { ExtensionInventoryLifecycle } from "../records.js";
 export {

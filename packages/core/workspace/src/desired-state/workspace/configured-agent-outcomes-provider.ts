@@ -14,32 +14,8 @@ import * as ServiceMap from "effect/Context";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import type { ConfiguredAgentOutcome } from "./configured-agent-outcome.js";
+import type { ConfiguredAgentOutcome, OperationErrorCategory } from "../../operations/index.js";
 import { configuredAgentLifecycleOutcomes } from "./configured-agent-outcomes.js";
-
-/**
- * Failure category vocabulary for a provider failure. The literals are the
- * same strings as the plan pipeline's `OperationErrorCategory` and the CLI's
- * `AppErrorCode`; the conversion sites in those packages assert the parity at
- * compile time by assigning this type to theirs.
- */
-export type ConfiguredAgentOutcomesFailureCategory =
-  | "issues"
-  | "usage"
-  | "not_found"
-  | "auth"
-  | "forbidden"
-  | "conflict"
-  | "rate_limit"
-  | "network"
-  | "validation"
-  | "internal"
-  | "unavailable"
-  | "quota"
-  | "auth_required"
-  | "auth_expired"
-  | "auth_denied"
-  | "timeout";
 
 /**
  * A provider could not produce its outcomes. The implementation owns the
@@ -49,7 +25,7 @@ export type ConfiguredAgentOutcomesFailureCategory =
 export class ConfiguredAgentOutcomesUnavailable extends Data.TaggedError(
   "ConfiguredAgentOutcomesUnavailable",
 )<{
-  readonly category: ConfiguredAgentOutcomesFailureCategory;
+  readonly category: OperationErrorCategory;
   readonly detail: string;
   readonly suggestions?: ReadonlyArray<SuggestedAction>;
   readonly cause?: unknown;

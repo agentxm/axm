@@ -7,9 +7,12 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { deriveOperationOutcome, previewPlanExecution } from "../transitions/planning/index.js";
+import {
+  deriveOperationOutcome,
+  previewPlanExecution,
+  ExtensionLifecycleFailed,
+} from "../operations/index.js";
 import { preapprovedPlanExecution } from "../transitions/planning/testing.js";
-import { ExtensionLifecycleFailed } from "./errors.js";
 import {
   applyInstall,
   installRequest,

@@ -114,12 +114,8 @@ const mcpAgentSyncDetail = (error: McpAgentSyncRefused): string => {
   switch (error.fault) {
     case "unknown-agents":
       return `Unknown configured agents in strict mode: ${error.agentIds.join(", ")}`;
-    case "misconfigured":
-      return `MCP server ${error.serverName} could not be synced to configured agents`;
     case "failed":
       return `MCP server ${error.serverName} sync failed in strict mode`;
-    default:
-      return `MCP server ${error.serverName} sync disabled for required configured agents`;
   }
 };
 

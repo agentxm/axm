@@ -62,12 +62,8 @@ export class McpRequiredInputsMissing extends Data.TaggedError("McpRequiredInput
 export type McpAgentSyncFault =
   /** Settings name agents AXM does not know, and the caller asked for strict sync. */
   | "unknown-agents"
-  /** An agent's native configuration cannot represent the connection. */
-  | "misconfigured"
   /** An agent write failed and the caller asked for strict sync. */
-  | "failed"
-  /** An agent AXM requires refused the connection and the caller asked for strict sync. */
-  | "disabled";
+  | "failed";
 
 /** Projecting an MCP connection into the configured agents could not settle. */
 export class McpAgentSyncRefused extends Data.TaggedError("McpAgentSyncRefused")<{

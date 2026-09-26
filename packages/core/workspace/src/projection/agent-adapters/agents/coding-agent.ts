@@ -1,9 +1,8 @@
 /**
  * The per-agent native adapter contract.
  *
- * A `CodingAgent` knows one agent's native surfaces: where its skills live,
- * how its MCP configuration is written, and how a subagent document is
- * rendered and published. Every input crosses as plain data — rendered
+ * A `CodingAgent` knows one agent's native surfaces: where its skills live
+ * and how a subagent document is rendered and published. Every input crosses as plain data — rendered
  * entries, ownership metadata, banner text — so the adapter never depends on
  * workspace state or projection policy. Which agents are projection targets
  * is a core decision made elsewhere.
@@ -135,8 +134,6 @@ export type SubagentSyncOutcome =
 // MCP types
 // ---------------------------------------------------------------------------
 
-export type McpServerSyncFallbackSource = "unsupported" | "disabled";
-
 export interface McpServerSyncTarget {
   readonly path: string;
   readonly change: NativeArtifactChange;
@@ -150,43 +147,25 @@ export type McpServerSyncOutcome =
     }
   | {
       readonly _tag: "fallback";
-      readonly fallbackFrom: McpServerSyncFallbackSource;
       readonly reason: string;
       readonly targets?: ReadonlyArray<McpServerSyncTarget>;
       readonly warnings?: ReadonlyArray<string>;
     }
   | { readonly _tag: "unsupported"; readonly reason: string }
-  | { readonly _tag: "disabled"; readonly reason: string }
   | { readonly _tag: "nothing-runnable"; readonly reason: string }
   | { readonly _tag: "needs-input"; readonly reason: string }
-  | { readonly _tag: "misconfigured"; readonly reason: string }
   | { readonly _tag: "failed"; readonly reason: string };
 
 /**
  * Agent-specific extension installation behavior.
  *
- * Each coding agent knows how to resolve its skills directory,
- * manage MCP server configuration entries, and manage subagent files.
+ * Each coding agent knows how to resolve its skills directory and manage subagent files.
  */
 export interface CodingAgent {
   readonly id: MaterializationTargetId;
   readonly resolveEffectiveSkillsDir: (
     args: ResolveSkillsDirArgs,
   ) => Effect.Effect<ResolveSkillsDirOutcome, CodingAgentFailure, Path.Path>;
-  readonly addMcpServer: (
-    args: AddMcpServerArgs,
-  ) => Effect.Effect<
-    McpServerSyncOutcome,
-    CodingAgentFailure,
-    FileSystem.FileSystem | Path.Path | NativeWriteAuthority
-  >;
-  readonly removeMcpServer: (
-    args: RemoveMcpServerArgs,
-  ) => Effect.Effect<
-    McpServerSyncOutcome,
-    CodingAgentFailure,
-    FileSystem.FileSystem | Path.Path | NativeWriteAuthority
-  >;
   readonly resolveEffectiveSubagentsDir: (
     args: ResolveSubagentsDirArgs,
   ) => Effect.Effect<

@@ -89,8 +89,6 @@ const makeMockCodingAgent = (
 ): CodingAgent => ({
   id,
   resolveEffectiveSkillsDir: () => Effect.succeed({ _tag: "unsupported", reason: "not used" }),
-  addMcpServer: () => Effect.succeed({ _tag: "unsupported", reason: "not used" }),
-  removeMcpServer: () => Effect.succeed({ _tag: "unsupported", reason: "not used" }),
   resolveEffectiveSubagentsDir: () =>
     Effect.succeed({
       _tag: "supported",

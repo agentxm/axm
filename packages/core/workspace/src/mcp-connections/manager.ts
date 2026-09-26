@@ -310,12 +310,7 @@ export const McpServerManagerLive = Layer.effect(
                         ? Effect.void
                         : new McpAgentSyncRefused({
                             serverName: target.name,
-                            fault:
-                              outcome._tag === "disabled"
-                                ? "disabled"
-                                : outcome._tag === "misconfigured"
-                                  ? "misconfigured"
-                                  : "failed",
+                            fault: "failed",
                             agentIds: [agentId],
                           }),
                     ),

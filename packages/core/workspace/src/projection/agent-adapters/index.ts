@@ -77,7 +77,6 @@ export {
   type AddMcpServerArgs,
   type AddSubagentArgs,
   type CodingAgent,
-  type McpServerSyncFallbackSource,
   type McpServerSyncOutcome,
   type McpServerSyncTarget,
   type NativeArtifactChange,
@@ -242,7 +241,6 @@ export {
   type McpTargetGroup,
 } from "./mcps/targeting.js";
 export {
-  addMcpServerFromManifest,
   decodeMcpServerManifestAt,
   pruneManagedMcpServersForAgent,
   removeMcpServerFromManifest,

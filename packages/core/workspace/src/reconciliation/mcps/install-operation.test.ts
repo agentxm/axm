@@ -849,8 +849,6 @@ describe("installMcpServer", () => {
     const stubAgent = (id: CodingAgent["id"]): CodingAgent =>
       makeCodingAgentStub(id, {
         resolveEffectiveSkillsDir: () => Effect.succeed({ _tag: "supported", dir: "/tmp" }),
-        addMcpServer: () => Effect.succeed({ _tag: "unsupported", reason: "not called" }),
-        removeMcpServer: () => Effect.succeed({ _tag: "success" }),
       });
 
     const getConfiguredAgentsMock = vi.fn<

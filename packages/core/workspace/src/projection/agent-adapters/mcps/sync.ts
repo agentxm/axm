@@ -135,7 +135,6 @@ const outcomeForAgent = (
       return agent.shimmed
         ? {
             _tag: "fallback",
-            fallbackFrom: "unsupported",
             reason: agent.warnings.join("; "),
             targets,
           }
@@ -272,45 +271,6 @@ const manifestDeclaration = (args: {
   env: args.configValues ?? {},
   ...(args.enabled === undefined ? {} : { enabled: args.enabled }),
 });
-
-/** Project one manifest-backed server into one agent's native targets. */
-export const addMcpServerFromManifest = (
-  agentId: string,
-  args: AddMcpServerArgs,
-): Effect.Effect<
-  McpServerSyncOutcome,
-  CodingAgentFailure,
-  FileSystem.FileSystem | Path.Path | NativeWriteAuthority
-> =>
-  Effect.gen(function* () {
-    const path = yield* Path.Path;
-    if (configuredMcpCapability(agentId) === undefined) {
-      return {
-        _tag: "unsupported",
-        reason: `${agentId} does not have MCP config support`,
-      } as const;
-    }
-    const manifest = yield* decodeMcpServerManifestAt(
-      path.join(args.canonicalPath, MCP_SERVER_MANIFEST_FILENAME),
-    );
-    const plan = planMcpServerTargets({
-      agentIds: [agentId],
-      scope: args.scope ?? "project",
-      serverName: args.serverName,
-      declaration: manifestDeclaration(args),
-      manifest,
-      values: args.configValues ?? {},
-      enabled: args.enabled ?? true,
-    });
-    if (plan._tag === "invalid") {
-      return yield* new McpDefinitionInvalid({ detail: plan.detail, cause: plan.cause });
-    }
-    const written = yield* applyPlannedWrites(args.workspaceRoot, args.serverName, plan.writes);
-    const agent = plan.agents[0];
-    return agent === undefined
-      ? { _tag: "unsupported", reason: `${agentId} has no MCP config target` }
-      : outcomeForAgent(agent, written.get(agentId) ?? []);
-  });
 
 /** Refuse a manifest whose shared targets cannot hold one entry every reader accepts. */
 export const validateManifestMcpServerTargets = (

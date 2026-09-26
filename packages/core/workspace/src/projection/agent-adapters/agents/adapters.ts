@@ -27,7 +27,6 @@ import {
   removeSubagentViaResolve,
 } from "../subagents/sync.js";
 import { userScopeRefusal } from "../scope-refusal.js";
-import { addMcpServerFromManifest, removeMcpServerFromManifest } from "../mcps/sync.js";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import type {
   AgentDescriptor,
@@ -97,20 +96,6 @@ export const codingAgentFromDescriptor = (descriptor: AgentDescriptor): CodingAg
           dir: path.resolve(workspaceRoot, descriptor.skills.dir),
         } as const;
       }),
-    addMcpServer: descriptorSupports(descriptor, "mcp-server")
-      ? (args) => addMcpServerFromManifest(descriptor.id, args)
-      : () =>
-          Effect.succeed({
-            _tag: "unsupported",
-            reason: `MCP add is not supported for ${descriptor.id}`,
-          } as const),
-    removeMcpServer: descriptorSupports(descriptor, "mcp-server")
-      ? (args) => removeMcpServerFromManifest(descriptor.id, args)
-      : () =>
-          Effect.succeed({
-            _tag: "unsupported",
-            reason: `MCP remove is not supported for ${descriptor.id}`,
-          } as const),
     resolveEffectiveSubagentsDir: ({ workspaceRoot, scope }) =>
       Effect.gen(function* () {
         if (descriptor.subagents === undefined || !descriptorSupports(descriptor, "subagent")) {

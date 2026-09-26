@@ -20,8 +20,6 @@ export const makeCodingAgentStub = (
   id,
   resolveEffectiveSkillsDir: ({ workspaceRoot }) =>
     Effect.succeed({ _tag: "supported", dir: `${workspaceRoot}/.${id}/skills` }),
-  addMcpServer: () => Effect.succeed({ _tag: "unsupported", reason: "stub" }),
-  removeMcpServer: () => Effect.succeed({ _tag: "unsupported", reason: "stub" }),
   resolveEffectiveSubagentsDir: ({ workspaceRoot }) =>
     Effect.succeed({
       _tag: "supported",

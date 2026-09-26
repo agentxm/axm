@@ -376,15 +376,6 @@ const redactSettingsEnv = (
   return redacted;
 };
 
-const REQUIRED_AGENT_IDS: ReadonlySet<MaterializationTargetId> = new Set<MaterializationTargetId>([
-  "claude-code",
-  "opencode",
-  "github-copilot-cli",
-  "cursor",
-  "gemini-cli",
-  "codex",
-]);
-
 interface AgentOutcome {
   readonly agentId: MaterializationTargetId;
   readonly outcome: McpServerSyncOutcome;
@@ -403,11 +394,7 @@ const formatAgentSyncWarning = (
 ): string => {
   const warningMessage = outcomes
     .map(({ agentId, outcome }) =>
-      outcome._tag === "success"
-        ? `${agentId}:success`
-        : outcome._tag === "fallback"
-          ? `${agentId}:fallback(${outcome.fallbackFrom}):${outcome.reason}`
-          : `${agentId}:${outcome.reason}`,
+      outcome._tag === "success" ? `${agentId}:success` : `${agentId}:${outcome.reason}`,
     )
     .join(", ");
 
@@ -418,16 +405,8 @@ const summarizeAgentSync = (
   outcomes: ReadonlyArray<AgentOutcome>,
   warnings: ReadonlyArray<string>,
 ): AgentSyncSummary => {
-  const degraded = outcomes.some(
-    ({ outcome }) => outcome._tag === "failed" || outcome._tag === "fallback",
-  );
-  const details = outcomes.map(({ agentId, outcome }) =>
-    outcome._tag === "success"
-      ? `${agentId}:success`
-      : outcome._tag === "fallback"
-        ? `${agentId}:fallback:${outcome.fallbackFrom}`
-        : `${agentId}:${outcome._tag}`,
-  );
+  const degraded = outcomes.some(({ outcome }) => outcome._tag === "failed");
+  const details = outcomes.map(({ agentId, outcome }) => `${agentId}:${outcome._tag}`);
 
   return {
     status: degraded ? "degraded" : "green",
@@ -500,15 +479,6 @@ const syncConfiguredAgentsOnInstall = (args: {
       }));
     }
 
-    const misconfigured = Array.filter(outcomes, ({ outcome }) => outcome._tag === "misconfigured");
-    if (misconfigured.length > 0) {
-      return yield* new McpAgentSyncRefused({
-        serverName: args.serverName,
-        fault: "misconfigured",
-        agentIds: misconfigured.map(({ agentId }) => agentId),
-      });
-    }
-
     const failed = Array.filter(outcomes, ({ outcome }) => outcome._tag === "failed");
     if (args.strict && failed.length > 0) {
       return yield* new McpAgentSyncRefused({
@@ -518,31 +488,13 @@ const syncConfiguredAgentsOnInstall = (args: {
       });
     }
 
-    const strictDisabledFailures = Array.filter(
-      outcomes,
-      ({ agentId, outcome }) =>
-        (outcome._tag === "disabled" ||
-          (outcome._tag === "fallback" && outcome.fallbackFrom === "disabled")) &&
-        args.strict &&
-        REQUIRED_AGENT_IDS.has(agentId),
-    );
-    if (strictDisabledFailures.length > 0) {
-      return yield* new McpAgentSyncRefused({
-        serverName: args.serverName,
-        fault: "disabled",
-        agentIds: strictDisabledFailures.map(({ agentId }) => agentId),
-      });
-    }
-
     const warningOutcomes = Array.filter(
       outcomes,
       ({ outcome }) =>
         outcome._tag === "unsupported" ||
-        outcome._tag === "disabled" ||
         outcome._tag === "nothing-runnable" ||
         outcome._tag === "needs-input" ||
-        outcome._tag === "failed" ||
-        outcome._tag === "fallback",
+        outcome._tag === "failed",
     );
     if (warningOutcomes.length > 0) {
       warnings.push(formatAgentSyncWarning(args.serverName, warningOutcomes));
@@ -901,7 +853,7 @@ export const installMcpServer: (
         .filter(isWorkspaceFootprint(path, location.baseDir)),
     });
     const agentOutcomes = agentSync.outcomes.flatMap(({ agentId, outcome }) =>
-      outcome._tag === "success" || outcome._tag === "fallback"
+      outcome._tag === "success"
         ? [
             {
               agentId,

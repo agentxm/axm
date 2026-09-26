@@ -7,6 +7,7 @@ import * as semver from "semver";
 import { publint } from "publint";
 import { formatMessage } from "publint/utils";
 import { RELEASE_PACKAGES } from "./release-shared.js";
+import { requireFullSha } from "./release-identity.js";
 import { capture, run } from "./release-command.js";
 import { contentIntegrity } from "./release-publication.js";
 import { packCliPackage } from "./cli-package.js";
@@ -157,7 +158,7 @@ export const produceReleaseCohort = async (
   commit: string,
   outputDirectory: string,
 ): Promise<ReleaseCohortManifest> => {
-  if (!/^[0-9a-f]{40}$/u.test(commit)) throw new Error("Expected an exact release commit SHA.");
+  requireFullSha(commit, "Release commit");
   mkdirSync(outputDirectory, { recursive: true });
   const staging = mkdtempSync(join(outputDirectory, ".pack-"));
   try {

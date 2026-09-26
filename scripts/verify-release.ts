@@ -10,7 +10,7 @@
  * evidence targets rather than owning duplicate test outcomes.
  */
 
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -25,16 +25,23 @@ if (candidate === undefined || candidate.length === 0) {
   process.exit(1);
 }
 
+const headSha = execFileSync("git", ["rev-parse", "HEAD"], {
+  cwd: repoRoot,
+  encoding: "utf8",
+}).trim();
+
 const phases: ReadonlyArray<{ readonly label: string; readonly command: readonly string[] }> = [
   {
-    label: `Validate candidate tag ${candidate}`,
+    label: `Validate candidate tag ${candidate} at HEAD`,
     command: [
       "exec",
       "nx",
       "run",
-      "axm:validate-release-tag",
+      "axm:resolve-release-meta",
       "--outputStyle=static",
-      `--args=${candidate}`,
+      "--",
+      candidate,
+      headSha,
     ],
   },
   {

@@ -9,7 +9,8 @@ import {
   readBuiltDeclarationSubjects,
 } from "./declared-type-dependencies.js";
 import { packReleaseCohort } from "./release-packages.js";
-import { RELEASE_PACKAGES, readPackageVersion } from "./release-shared.js";
+import { readPackageVersion } from "./release-identity.js";
+import { RELEASE_PACKAGES } from "./release-shared.js";
 
 class ArtifactVerificationFailure extends Data.TaggedError("ArtifactVerificationFailure")<{
   readonly message: string;

@@ -190,6 +190,9 @@ to every release asset. The content assets do not change the installers'
 
 5. Let GitHub Actions finish the publish.
 
+   The `source` job runs [`resolve:release-source`](../../scripts/resolve-release-source.ts)
+   to determine eligibility, mode, tag, and exact commit. That script owns the
+   release-commit subject grammar and recovery lookup.
    The publication workflow validates the exact release commit and successful
    merged-revision CI run, downloads and validates its binaries, installer and
    schema content, npm tarballs, metadata, and checksums, and preflights every
@@ -403,8 +406,8 @@ maintainer. It does not provide a local or placeholder-package publisher.
 
 ## Notes
 
-- If the tag version and package manifest versions do not match, publishing
-  fails fast.
+- If the tag version and package manifest versions do not match, the source
+  resolver rejects the run before any job with publication credentials starts.
 - Candidate-generation failures leave no developer checkout to clean because
   the runner is ephemeral. The workflow summary identifies the last resolved
   source, candidate, tag, branch, and pull request state.

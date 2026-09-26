@@ -211,15 +211,6 @@
         "cwd": "."
       }
     },
-    "validate-release-tag": {
-      "executor": "nx:run-commands",
-      "cache": false,
-      "dependsOn": ["^build"],
-      "options": {
-        "command": "bun scripts/validate-release-tag.ts",
-        "cwd": "."
-      }
-    },
     "resolve-release-meta": {
       "executor": "nx:run-commands",
       "cache": false,

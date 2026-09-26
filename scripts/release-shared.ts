@@ -5,6 +5,11 @@ import { parseSkillMd } from "@agentxm/extension-content";
 
 import { capture, run, tryCapture } from "./release-command.js";
 import {
+  readPackageVersion,
+  readPackageVersionAtRef,
+  validateReleaseVersion,
+} from "./release-identity.js";
+import {
   type ReleasePackage,
   gitRefSnapshot,
   resolveReleaseCohort,
@@ -61,12 +66,6 @@ export const RELEASE_PROCESS_ENV = {
   NX_TASKS_RUNNER_DYNAMIC_OUTPUT: "false",
 };
 
-const RELEASE_TAG_PREFIX = "cli-v";
-const SEMVER_IDENTIFIER_PATTERN = "[0-9A-Za-z-]+";
-const SEMVER_VERSION_REGEX = new RegExp(
-  `^(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)(?:-(?:${SEMVER_IDENTIFIER_PATTERN})(?:\\.${SEMVER_IDENTIFIER_PATTERN})*)?(?:\\+(?:${SEMVER_IDENTIFIER_PATTERN})(?:\\.${SEMVER_IDENTIFIER_PATTERN})*)?$`,
-);
-
 const isRecord = (value: unknown): value is Record<PropertyKey, unknown> =>
   value != null && typeof value === "object";
 
@@ -80,26 +79,6 @@ export const fail = (message: string): never => {
 
 export const runNx = (...args: readonly string[]) =>
   run("pnpm", ["exec", "nx", ...args, "--outputStyle=static"], RELEASE_PROCESS_ENV);
-
-const readVersionFromJson = (content: string, source: string): string => {
-  const parsed: unknown = JSON.parse(content);
-  if (!isRecord(parsed)) {
-    return fail(`Expected ${source} to contain a JSON object.`);
-  }
-
-  const version = Reflect.get(parsed, "version");
-  if (typeof version !== "string") {
-    return fail(`Expected ${source} to contain a string version field.`);
-  }
-
-  return version;
-};
-
-export const readPackageVersion = (path: string): string =>
-  readVersionFromJson(readFileSync(path, "utf8"), path);
-
-export const readPackageVersionAtRef = (ref: string, path: string): string =>
-  readVersionFromJson(git("show", `${ref}:${path}`), `${ref}:${path}`);
 
 export interface GeneratedAxmSkillCompatibility extends AxmSkillCompatibilityDeclaration {
   readonly version: string;
@@ -406,29 +385,6 @@ export const requireReleaseCommitMessage = (tag: string) => {
   }
 };
 
-export const validateReleaseVersion = (version: string, source: string = version): string => {
-  if (SEMVER_VERSION_REGEX.test(version)) {
-    return version;
-  }
-
-  return fail(`Release tag version is not valid semver: ${source}`);
-};
-
-export const releaseTagFromVersion = (version: string): string =>
-  `${RELEASE_TAG_PREFIX}${validateReleaseVersion(version)}`;
-
-export const validateReleaseTag = (tag: string): string => {
-  if (!tag.startsWith(RELEASE_TAG_PREFIX)) {
-    return fail(`Release tag must use the ${RELEASE_TAG_PREFIX}{VERSION} format: ${tag}`);
-  }
-
-  validateReleaseVersion(tag.slice(RELEASE_TAG_PREFIX.length), tag);
-  return tag;
-};
-
-export const releaseVersionFromTag = (tag: string): string =>
-  validateReleaseVersion(validateReleaseTag(tag).slice(RELEASE_TAG_PREFIX.length), tag);
-
 export const currentHeadSha = (): string => git("rev-parse", "HEAD");
 
 export const parseGitHubRuns = (value: string): GitHubRun[] => {
@@ -638,33 +594,4 @@ export const requireNoExistingGitHubRelease = (tag: string) => {
   if (result.ok) {
     fail(`GitHub release ${tag} already exists.`);
   }
-};
-
-const escapeRegex = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-export const releaseCommitSubjectPattern = (tag: string): string =>
-  `^release: ${escapeRegex(tag)}(?: \\(#[0-9]+\\))?$`;
-
-export const releaseCommitOnOriginMain = (tag: string): string => {
-  const output = git(
-    "log",
-    "origin/main",
-    "--format=%H",
-    "--perl-regexp",
-    "--grep",
-    releaseCommitSubjectPattern(tag),
-    "-n",
-    "2",
-  );
-
-  const matches = output.split("\n").filter((value) => value.length > 0);
-  if (matches.length === 0) {
-    fail(`No release commit found on origin/main for ${tag}.`);
-  }
-
-  if (matches.length > 1) {
-    fail(`Multiple release commits found on origin/main for ${tag}. Resolve the ambiguity first.`);
-  }
-
-  return matches[0] ?? fail(`No release commit found on origin/main for ${tag}.`);
 };

@@ -49,6 +49,10 @@ jobs:
       documentation: ${{ steps.classify.outputs.documentation }}
       cli-e2e: ${{ steps.classify.outputs.cli_e2e }}
       release-artifacts: ${{ steps.classify.outputs.release_artifacts }}
+      release-preparation: ${{ steps.classify.outputs.release_preparation }}
+      required-jobs: ${{ steps.classify.outputs.required_jobs }}
+      specification-verdict: ${{ steps.classify.outputs.specification_verdict }}
+      extension-lint: ${{ steps.classify.outputs.extension_lint }}
       selection: ${{ steps.classify.outputs.selection }}
       windows: ${{ steps.classify.outputs.windows }}
       workflow: ${{ steps.classify.outputs.workflow }}
@@ -81,21 +85,13 @@ jobs:
         env:
           BASE_SHA: ${{ steps.set-shas.outputs.base }}
           EVENT_NAME: ${{ github.event_name }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
           HEAD_SHA: ${{ steps.set-shas.outputs.head }}
           REF_NAME: ${{ github.ref }}
         run: |
-          release_artifacts=false
-          subject="$(git show -s --format=%s "$HEAD_SHA")"
-          if [[ "$subject" =~ ^release:\ (cli-v[^[:space:]]+)(\ \(\#[0-9]+\))?$ ]]; then
-            release_tag="${BASH_REMATCH[1]}"
-            if [[ "$EVENT_NAME:$REF_NAME" == "push:refs/heads/main" ||
-              "$EVENT_NAME:$REF_NAME" == "workflow_dispatch:refs/tags/${release_tag}" ]]; then
-              release_artifacts=true
-            fi
-          fi
           pnpm --config.verify-deps-before-run=warn run classify:ci -- \
-            --base "$BASE_SHA" --head "$HEAD_SHA" \
-            --release-artifacts "$release_artifacts"
+            --base "$BASE_SHA" --head "$HEAD_SHA"
 
   workflow-validation:
     name: Workflow security
@@ -126,7 +122,7 @@ jobs:
     needs: classify
     if: >-
       (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
-      needs.classify.outputs.code == 'true'
+      needs.classify.outputs.specification-verdict == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -148,7 +144,7 @@ jobs:
     needs: classify
     if: >-
       (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
-      needs.classify.outputs.code == 'true'
+      needs.classify.outputs.extension-lint == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -215,34 +211,13 @@ jobs:
           restore-keys: |
             axm-ci-pnpm-v1-${{ runner.os }}-${{ runner.arch }}-
 
-      - name: Determine release verification mode
-        id: release-mode
-        env:
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
-          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
-          HEAD_SHA: ${{ needs.classify.outputs.head }}
-          EVENT_NAME: ${{ github.event_name }}
-        run: |
-          release_preparation=false
-          release_subject="release: ${HEAD_REF#release/}"
-          if [[ "$EVENT_NAME" == "pull_request" ]] &&
-            [[ "$HEAD_REPOSITORY" == "$GITHUB_REPOSITORY" ]] &&
-            [[ "$HEAD_REF" =~ ^release/cli-v[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.-]+)?$ ]] &&
-            git log --format=%s "main..$HEAD_SHA" | grep --fixed-strings --line-regexp --quiet -- "$release_subject"; then
-            release_preparation=true
-          elif [[ "$EVENT_NAME" == "merge_group" ]] &&
-            git log --format=%s "main..$HEAD_SHA" | grep --extended-regexp --line-regexp --quiet -- 'release: cli-v[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.-]+)?( \(#[0-9]+\))?'; then
-            release_preparation=true
-          fi
-          echo "release_preparation=$release_preparation" >> "$GITHUB_OUTPUT"
-
       - name: Verify affected changes
         id: verify
         env:
           pnpm_config_store_dir: ${{ runner.temp }}/axm-ci-cache/pnpm-store
           NX_PARALLEL: "3"
           VITEST_MAX_WORKERS: "2"
-          AXM_RELEASE_PREPARATION: ${{ steps.release-mode.outputs.release_preparation }}
+          AXM_RELEASE_PREPARATION: ${{ needs.classify.outputs.release-preparation }}
           NX_BASE: ${{ needs.classify.outputs.base }}
           NX_HEAD: ${{ needs.classify.outputs.head }}
         run: |
@@ -754,37 +729,24 @@ jobs:
         env:
           RESULTS: >-
             ${{ toJSON(needs) }}
-          EVENT_NAME: ${{ github.event_name }}
-          DOCS_CHANGED: ${{ needs.classify.outputs.documentation }}
-          SOURCE_SELECTED: ${{ needs.classify.outputs.code }}
-          CLI_E2E_SELECTED: ${{ needs.classify.outputs.cli-e2e }}
-          WINDOWS_SELECTED: ${{ needs.classify.outputs.windows }}
-          RELEASE_ARTIFACTS_SELECTED: ${{ needs.classify.outputs.release-artifacts }}
-          WORKFLOW_SECURITY_SELECTED: ${{ needs.classify.outputs.workflow-security }}
+          REQUIRED_JOBS: ${{ needs.classify.outputs.required-jobs }}
         run: |
-          if [[ "$EVENT_NAME" == "pull_request" || "$EVENT_NAME" == "merge_group" ]]; then
-            expected=(classify secrets)
-            [[ "$DOCS_CHANGED" == "true" ]] && expected+=(documentation)
-            [[ "$WORKFLOW_SECURITY_SELECTED" == "true" ]] && expected+=(workflow-validation)
-            [[ "$SOURCE_SELECTED" == "true" ]] && expected+=(specification-verdict extension-lint verify-pr)
-            [[ "$CLI_E2E_SELECTED" == "true" ]] && expected+=(verify-e2e)
-            [[ "$WINDOWS_SELECTED" == "true" ]] && expected+=(windows-workspace)
-          elif [[ "$EVENT_NAME" == "schedule" ]]; then
-            expected=(classify secrets verify-main verify-e2e windows-workspace)
-          elif [[ "$RELEASE_ARTIFACTS_SELECTED" == "true" ]]; then
-            expected=(classify secrets verify-main verify-e2e windows-workspace binary-smoke release-content npm-cohort)
-          elif [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
-            expected=(classify secrets verify-main verify-e2e windows-workspace)
-          else
-            expected=(classify secrets)
+          if [[ -z "$REQUIRED_JOBS" ]]; then
+            echo "::error title=Required CI failed::classification did not publish the required job list"
+            exit 1
+          fi
+          if ! jq -e 'type == "array" and length > 0 and all(.[]; type == "string" and length > 0)' \
+            <<<"$REQUIRED_JOBS" >/dev/null; then
+            echo "::error title=Required CI failed::classification published an invalid required job list"
+            exit 1
           fi
           expected_failures=""
-          for job in "${expected[@]}"; do
+          while IFS= read -r job; do
             result=$(jq -r --arg job "$job" '.[$job].result // "missing"' <<<"$RESULTS")
             if [[ "$result" != "success" ]]; then
               expected_failures+="- \`$job\`: $result"$'\n'
             fi
-          done
+          done < <(jq -r '.[]' <<<"$REQUIRED_JOBS")
           failures=$(jq -r '
             to_entries[]
             | select(.value.result != "success" and .value.result != "skipped")

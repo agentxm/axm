@@ -11,7 +11,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { execFileSync, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 
@@ -51,123 +51,6 @@ const readWorkflow = (): {
 };
 
 describe("aggregate required verification", () => {
-  it.each([
-    {
-      event: "pull_request",
-      ref: "release/cli-v0.30.2",
-      repository: "agentxm/axm",
-      subject: "release: cli-v0.30.2",
-      prepared: true,
-    },
-    {
-      event: "pull_request",
-      ref: "feature/example",
-      repository: "agentxm/axm",
-      subject: "release: cli-v0.30.2",
-      prepared: false,
-    },
-    {
-      event: "pull_request",
-      ref: "release/cli-v0.30.2",
-      repository: "example/fork",
-      subject: "release: cli-v0.30.2",
-      prepared: false,
-    },
-    {
-      event: "merge_group",
-      ref: "",
-      repository: "",
-      subject: "release: cli-v0.30.2 (#327)",
-      prepared: true,
-    },
-    {
-      event: "merge_group",
-      ref: "",
-      repository: "",
-      subject: "Improve workspace policy (#328)",
-      prepared: false,
-    },
-    {
-      event: "merge_group",
-      ref: "",
-      repository: "",
-      subject: "release: cli-v0.30.2 unreviewed suffix (#327)",
-      prepared: false,
-    },
-  ])(
-    "selects prepared-release verification for $event: $subject ($repository, $ref)",
-    (scenario) => {
-      const job = readWorkflow().jobs["verify-pr"];
-      if (
-        typeof job !== "object" ||
-        job === null ||
-        !("steps" in job) ||
-        !Array.isArray(job.steps)
-      ) {
-        throw new Error("The proposed-change job must declare steps.");
-      }
-      const steps: ReadonlyArray<unknown> = job.steps;
-      const step = steps.find(
-        (candidate) =>
-          typeof candidate === "object" &&
-          candidate !== null &&
-          "name" in candidate &&
-          candidate.name === "Determine release verification mode",
-      );
-      if (
-        typeof step !== "object" ||
-        step === null ||
-        !("run" in step) ||
-        typeof step.run !== "string"
-      ) {
-        throw new Error("The release verification mode must declare a shell command.");
-      }
-      const directory = fs.mkdtempSync(path.join(tmpdir(), "axm-ci-release-mode-"));
-      const environment = {
-        PATH: process.env["PATH"],
-        GIT_CONFIG_NOSYSTEM: "1",
-        GIT_CONFIG_GLOBAL: "/dev/null",
-        GIT_TERMINAL_PROMPT: "0",
-      };
-      const git = (...args: string[]) =>
-        execFileSync("git", args, { cwd: directory, env: environment, encoding: "utf8" }).trim();
-      try {
-        git("init", "--quiet", "--initial-branch=main");
-        git("config", "user.name", "CI release-mode fixture");
-        git("config", "user.email", "ci-release-mode@example.invalid");
-        git("commit", "--quiet", "--allow-empty", "-m", "Base");
-        git("checkout", "--quiet", "-b", "candidate");
-        git("commit", "--quiet", "--allow-empty", "-m", scenario.subject);
-        const output = path.join(directory, "output");
-        const result = spawnSync(
-          "bash",
-          ["--noprofile", "--norc", "-euo", "pipefail", "-c", step.run],
-          {
-            cwd: directory,
-            env: {
-              ...environment,
-              EVENT_NAME: scenario.event,
-              HEAD_REF: scenario.ref,
-              HEAD_REPOSITORY: scenario.repository,
-              HEAD_SHA: git("rev-parse", "HEAD"),
-              GITHUB_REPOSITORY: "agentxm/axm",
-              GITHUB_OUTPUT: output,
-            },
-            encoding: "utf8",
-            timeout: 5_000,
-          },
-        );
-        expect(result.error).toBeUndefined();
-        expect(result.status, result.stderr).toBe(0);
-        expect(fs.readFileSync(output, "utf8").trim()).toBe(
-          `release_preparation=${scenario.prepared}`,
-        );
-      } finally {
-        fs.rmSync(directory, { recursive: true, force: true });
-      }
-    },
-  );
-
   it("continuous integration runs for every pull request", () => {
     expect(JSON.stringify(readWorkflow().on)).toContain("pull_request");
   });
@@ -231,8 +114,8 @@ describe("aggregate required verification", () => {
     }
     expect(gate).toContain('.[$job].result // "missing"');
     expect(gate).toContain('[[ "$result" != "success" ]]');
-    expect(gate).toContain("verify-pr");
-    expect(gate).toContain('"merge_group"');
+    expect(gate).toContain("REQUIRED_JOBS");
+    expect(JSON.stringify(aggregate)).toContain("needs.classify.outputs.required-jobs");
   });
 
   it("derives one broad-fallback affected range for PR classification and verification", () => {
@@ -244,90 +127,65 @@ describe("aggregate required verification", () => {
     expect(serialized).toContain("steps.set-shas.outputs.head");
   });
 
-  it.each(["pull_request", "merge_group", "push", "schedule", "workflow_dispatch"])(
-    "requires successful E2E partition completion whenever selected for %s",
-    (event) => {
-      const jobs = readWorkflow().jobs;
-      const required = jobs["required"];
-      if (
-        typeof required !== "object" ||
-        required === null ||
-        !("steps" in required) ||
-        !Array.isArray(required.steps)
-      ) {
-        throw new Error("Required CI must declare its aggregation step.");
-      }
-      const step: unknown = required.steps.find(
-        (value: unknown) => typeof value === "object" && value !== null && "run" in value,
+  it("requires every published job to succeed", () => {
+    const jobs = readWorkflow().jobs;
+    const required = jobs["required"];
+    if (
+      typeof required !== "object" ||
+      required === null ||
+      !("steps" in required) ||
+      !Array.isArray(required.steps)
+    ) {
+      throw new Error("Required CI must declare its aggregation step.");
+    }
+    const step: unknown = required.steps.find(
+      (value: unknown) => typeof value === "object" && value !== null && "run" in value,
+    );
+    if (
+      typeof step !== "object" ||
+      step === null ||
+      !("run" in step) ||
+      typeof step.run !== "string"
+    ) {
+      throw new Error("Required CI must execute its aggregation script.");
+    }
+    const runScript = step.run;
+    const directory = fs.mkdtempSync(path.join(tmpdir(), "axm-required-gate-"));
+    const run = (
+      requiredJobs: string,
+      results: Readonly<Record<string, { readonly result: string }>>,
+    ) => {
+      const execution = spawnSync("bash", ["-e", "-o", "pipefail", "-c", runScript], {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          REQUIRED_JOBS: requiredJobs,
+          RESULTS: JSON.stringify(results),
+          GITHUB_STEP_SUMMARY: path.join(directory, "summary.md"),
+        },
+      });
+      if (execution.error !== undefined) throw execution.error;
+      return execution;
+    };
+    try {
+      const allSuccess = Object.fromEntries(
+        Object.keys(jobs)
+          .filter((job) => job !== "required")
+          .map((job) => [job, { result: "success" }]),
       );
-      if (
-        typeof step !== "object" ||
-        step === null ||
-        !("run" in step) ||
-        typeof step.run !== "string"
-      ) {
-        throw new Error("Required CI must execute its aggregation script.");
+      for (const result of ["success", "failure", "cancelled", "skipped", "missing"]) {
+        const results = { ...allSuccess };
+        if (result === "missing") delete results["verify-e2e"];
+        else results["verify-e2e"] = { result };
+        const execution = run('["classify","secrets","verify-e2e"]', results);
+        expect(execution.status, `${result}\n${execution.stdout}${execution.stderr}`).toBe(
+          result === "success" ? 0 : 1,
+        );
       }
-      const directory = fs.mkdtempSync(path.join(tmpdir(), "axm-e2e-gate-"));
-      try {
-        for (const result of ["success", "failure", "cancelled", "skipped", "missing"]) {
-          const results = Object.fromEntries(
-            Object.keys(jobs)
-              .filter((job) => job !== "required" && (job !== "verify-e2e" || result !== "missing"))
-              .map((job) => [job, { result: job === "verify-e2e" ? result : "success" }]),
-          );
-          const execution = spawnSync("bash", ["-e", "-o", "pipefail", "-c", step.run], {
-            encoding: "utf8",
-            env: {
-              ...process.env,
-              EVENT_NAME: event,
-              DOCS_CHANGED: "false",
-              SOURCE_SELECTED: "true",
-              CLI_E2E_SELECTED: "true",
-              RELEASE_ARTIFACTS_SELECTED: event === "push" ? "true" : "false",
-              WINDOWS_SELECTED: "true",
-              WORKFLOW_SECURITY_SELECTED: "false",
-              RESULTS: JSON.stringify(results),
-              GITHUB_STEP_SUMMARY: path.join(directory, "summary.md"),
-            },
-          });
-          if (execution.error !== undefined) throw execution.error;
-          expect(
-            execution.status,
-            `${event}: ${result}\n${execution.stdout}${execution.stderr}`,
-          ).toBe(result === "success" ? 0 : 1);
-        }
-      } finally {
-        fs.rmSync(directory, { recursive: true, force: true });
-      }
-    },
-  );
-
-  it.each(["pull_request", "merge_group"])(
-    "accepts inapplicable heavyweight jobs for a documentation-only %s",
-    (event) => {
-      const jobs = readWorkflow().jobs;
-      const required = jobs["required"];
-      if (
-        typeof required !== "object" ||
-        required === null ||
-        !("steps" in required) ||
-        !Array.isArray(required.steps)
-      ) {
-        throw new Error("Required CI must declare its aggregation step.");
-      }
-      const step: unknown = required.steps.find(
-        (value: unknown) => typeof value === "object" && value !== null && "run" in value,
-      );
-      if (
-        typeof step !== "object" ||
-        step === null ||
-        !("run" in step) ||
-        typeof step.run !== "string"
-      ) {
-        throw new Error("Required CI must execute its aggregation script.");
-      }
-      const results = Object.fromEntries(
+      expect(run("", allSuccess).status).toBe(1);
+      expect(run("not JSON", allSuccess).status).toBe(1);
+      expect(run("[]", allSuccess).status).toBe(1);
+      const documentationOnly = Object.fromEntries(
         Object.keys(jobs)
           .filter((job) => job !== "required")
           .map((job) => [
@@ -339,30 +197,11 @@ describe("aggregate required verification", () => {
             },
           ]),
       );
-      const directory = fs.mkdtempSync(path.join(tmpdir(), "axm-docs-gate-"));
-      try {
-        const execution = spawnSync("bash", ["-e", "-o", "pipefail", "-c", step.run], {
-          encoding: "utf8",
-          env: {
-            ...process.env,
-            EVENT_NAME: event,
-            DOCS_CHANGED: "true",
-            SOURCE_SELECTED: "false",
-            CLI_E2E_SELECTED: "false",
-            RELEASE_ARTIFACTS_SELECTED: "false",
-            WINDOWS_SELECTED: "false",
-            WORKFLOW_SECURITY_SELECTED: "false",
-            RESULTS: JSON.stringify(results),
-            GITHUB_STEP_SUMMARY: path.join(directory, "summary.md"),
-          },
-        });
-        if (execution.error !== undefined) throw execution.error;
-        expect(execution.status, execution.stdout + execution.stderr).toBe(0);
-      } finally {
-        fs.rmSync(directory, { recursive: true, force: true });
-      }
-    },
-  );
+      expect(run('["classify","secrets","documentation"]', documentationOnly).status).toBe(0);
+    } finally {
+      fs.rmSync(directory, { recursive: true, force: true });
+    }
+  });
 
   it("isolates queue cancellation and uses the tested revision in cache keys", () => {
     const workflow = readWorkflow();
@@ -375,6 +214,12 @@ describe("aggregate required verification", () => {
   it("routes proposed-change jobs from the classifier outputs", () => {
     const jobs = readWorkflow().jobs;
     expect(JSON.stringify(jobs["verify-pr"])).toContain("needs.classify.outputs.code");
+    expect(JSON.stringify(jobs["specification-verdict"])).toContain(
+      "needs.classify.outputs.specification-verdict",
+    );
+    expect(JSON.stringify(jobs["extension-lint"])).toContain(
+      "needs.classify.outputs.extension-lint",
+    );
     expect(JSON.stringify(jobs["verify-e2e"])).toContain("needs.classify.outputs.cli-e2e");
     expect(JSON.stringify(jobs["windows-workspace"])).toContain("needs.classify.outputs.windows");
     expect(JSON.stringify(jobs["workflow-validation"])).toContain(
@@ -384,8 +229,11 @@ describe("aggregate required verification", () => {
 
   it("builds publication artifacts only for a canonical release commit", () => {
     const jobs = readWorkflow().jobs;
-    expect(JSON.stringify(jobs["classify"])).toContain("git show -s --format=%s");
-    expect(JSON.stringify(jobs["classify"])).toContain("--release-artifacts");
+    expect(JSON.stringify(jobs["classify"])).toContain("HEAD_REF");
+    expect(JSON.stringify(jobs["classify"])).toContain("HEAD_REPOSITORY");
+    expect(JSON.stringify(jobs["verify-pr"])).toContain(
+      "needs.classify.outputs.release-preparation",
+    );
     for (const job of ["binary-smoke", "release-content", "npm-cohort"]) {
       expect(JSON.stringify(jobs[job])).toContain(
         "needs.classify.outputs.release-artifacts == 'true'",

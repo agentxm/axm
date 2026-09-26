@@ -69,12 +69,17 @@ jobs:
       tooling_sha: ${{ steps.source.outputs.tooling_sha }}
       ci_run_id: ${{ steps.source.outputs.ci_run_id }}
     steps:
-      - name: Checkout declared source
+      - name: Checkout trusted publication tooling
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || (inputs.mode == 'bootstrap-prerelease' || inputs.mode == 'branch-preview') && inputs.source_sha || 'main' }}
+          ref: main
+
+      - name: Set up repository toolchain
+        uses: ./.github/actions/setup-workspace
+        with:
+          install: "false"
 
       - name: Resolve exact publication source
         id: source
@@ -89,101 +94,7 @@ jobs:
           REQUESTED_MODE: ${{ inputs.mode }}
           SOURCE_SHA: ${{ inputs.source_sha }}
           SOURCE_REF: ${{ inputs.source_ref }}
-        run: |
-          set -euo pipefail
-          eligible=false
-          mode="${REQUESTED_MODE:-stable-auto}"
-          tag=""
-          sha="$(git rev-parse HEAD)"
-          tooling_sha="$sha"
-          ci_run_id=""
-
-          if [[ "$EVENT_NAME" == workflow_run ]]; then
-            if [[ "$CI_CONCLUSION" != success || "$CI_EVENT" != push || "$CI_HEAD_BRANCH" != main ]]; then
-              printf 'eligible=false\nmode=stable-auto\ntag=\nsha=%s\ntooling_sha=%s\nci_run_id=\n' \
-                "$sha" "$tooling_sha" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-            if [[ "$sha" != "$CI_HEAD_SHA" ]]; then
-              echo "Workflow-run checkout differs from the completed CI revision."
-              exit 1
-            fi
-            subject="$(git show -s --format=%s HEAD)"
-            if [[ "$subject" != "release: cli-v"* ]]; then
-              printf 'eligible=false\nmode=stable-auto\ntag=\nsha=%s\ntooling_sha=%s\nci_run_id=\n' \
-                "$sha" "$tooling_sha" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-            if [[ "$subject" =~ ^release:\ (cli-v[^[:space:]]+)(\ \(\#[0-9]+\))?$ ]]; then
-              tag="${BASH_REMATCH[1]}"
-            else
-              echo "Release-like commit has a noncanonical subject: $subject"
-              exit 1
-            fi
-            ci_run_id="$CI_RUN_ID"
-            eligible=true
-          elif [[ "$mode" == stable-recovery ]]; then
-            if [[ -z "$RELEASE_TAG" ]]; then
-              echo "stable-recovery requires release_tag."
-              exit 1
-            fi
-            tag="$RELEASE_TAG"
-            git fetch origin main --no-tags
-            matches=()
-            while IFS=$'\t' read -r commit subject; do
-              if [[ "$subject" =~ ^release:\ (cli-v[^[:space:]]+)(\ \(\#[0-9]+\))?$ ]] &&
-                [[ "${BASH_REMATCH[1]}" == "$tag" ]]; then
-                matches+=("$commit")
-              fi
-            done < <(git log origin/main --format='%H%x09%s')
-            if [[ "${#matches[@]}" -ne 1 ]]; then
-              echo "Expected exactly one canonical release commit for $tag on origin/main."
-              exit 1
-            fi
-            sha="${matches[0]}"
-            git checkout --detach "$sha"
-            eligible=true
-          elif [[ "$mode" == bootstrap-prerelease ]]; then
-            if [[ ! "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ || "$sha" != "$SOURCE_SHA" ]]; then
-              echo "bootstrap-prerelease requires the exact checked-out source_sha."
-              exit 1
-            fi
-            git fetch origin main --no-tags
-            if [[ "$(git rev-parse origin/main)" != "$sha" ]]; then
-              echo "Bootstrap prereleases may be published only from current main."
-              exit 1
-            fi
-            eligible=true
-          elif [[ "$mode" == branch-preview ]]; then
-            if [[ ! "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ || "$sha" != "$SOURCE_SHA" ]]; then
-              echo "branch-preview requires the exact checked-out source_sha."
-              exit 1
-            fi
-            if [[ ! "$SOURCE_REF" =~ ^[a-zA-Z0-9][a-zA-Z0-9/_-]*$ || "$SOURCE_REF" == main ]]; then
-              echo "branch-preview requires an explicit non-main branch name."
-              exit 1
-            fi
-            git fetch origin "$SOURCE_REF" --no-tags
-            if [[ "$(git rev-parse FETCH_HEAD)" != "$sha" ]]; then
-              echo "Branch preview requires the exact current branch head."
-              exit 1
-            fi
-            eligible=true
-          else
-            echo "Unknown publication mode: $mode"
-            exit 1
-          fi
-
-          if [[ -n "$tag" ]]; then
-            version="${tag#cli-v}"
-            manifest_version="$(jq -r '.version' apps/cli/package.json)"
-            if [[ "$manifest_version" != "$version" ]]; then
-              echo "Release tag $tag differs from package version $manifest_version."
-              exit 1
-            fi
-          fi
-          printf 'eligible=%s\nmode=%s\ntag=%s\nsha=%s\ntooling_sha=%s\nci_run_id=%s\n' \
-            "$eligible" "$mode" "$tag" "$sha" "$tooling_sha" "$ci_run_id" >> "$GITHUB_OUTPUT"
+        run: pnpm --config.verify-deps-before-run=warn run resolve:release-source
 
       - name: Report publication selection
         if: always()

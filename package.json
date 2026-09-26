@@ -9,6 +9,7 @@
     "axm": "bun --conditions=axm-source apps/cli/src/main.ts",
     "axm:local": "./scripts/axm-local",
     "classify:ci": "bun scripts/classify-ci-changes.ts",
+    "resolve:release-source": "bun scripts/resolve-release-source.ts",
     "check:ci-toolchain": "node scripts/check-ci-toolchain.mjs",
     "test:report": "scripts/with-allure-report.sh pnpm run test",
     "test:report:open": "pnpm exec nx run axm:allure-report-open",

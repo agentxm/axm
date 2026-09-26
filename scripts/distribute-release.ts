@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 import * as Effect from "effect/Effect";
 import * as ConfigProvider from "effect/ConfigProvider";
 import { validateReleaseCohort } from "./release-packages.js";
+import { requireFullSha, requireStableVersion } from "./release-identity.js";
 import { RELEASE_PACKAGES, RELEASE_REPO } from "./release-shared.js";
 import {
   capture,
@@ -45,15 +46,10 @@ const assets = resolve("release-assets");
 const npmCohort = resolve("release-npm");
 const releaseCommit = process.argv[4];
 const preflightOnly = process.argv.includes("--preflight");
-if (
-  version === undefined ||
-  tag !== `cli-v${version}` ||
-  releaseCommit === undefined ||
-  !/^[0-9a-f]{40}$/u.test(releaseCommit)
-)
+if (version === undefined || tag !== `cli-v${version}` || releaseCommit === undefined)
   throw new Error("Expected <version> <cli-vVERSION> <release-commit>.");
-if (!/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u.test(version))
-  throw new Error("Expected a stable release version in major.minor.patch form.");
+requireFullSha(releaseCommit, "Release commit");
+requireStableVersion(version);
 guardPublicationVersion(version, null, "candidate");
 
 const npmAuthentication = await Effect.runPromise(

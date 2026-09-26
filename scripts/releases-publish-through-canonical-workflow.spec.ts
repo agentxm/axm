@@ -67,11 +67,6 @@ const withPublicationSource = (
     git("config", "user.name", "Publication source fixture");
     git("remote", "add", "origin", remote);
     fs.mkdirSync(path.join(checkout, "apps", "cli"), { recursive: true });
-    const source = readReleaseWorkflow().jobs["source"];
-    const script = source?.steps.find(
-      (step) => step.name === "Resolve exact publication source",
-    )?.run;
-    if (script === undefined) throw new Error("The publication source guard must be executable.");
     use({
       commit: (subject, version = "1.2.3") => {
         fs.writeFileSync(
@@ -94,22 +89,27 @@ const withPublicationSource = (
       },
       select: (input) => {
         fs.writeFileSync(outputPath, "");
-        const result = spawnSync("bash", ["--noprofile", "--norc", "-c", script], {
-          cwd: checkout,
-          env: {
-            ...environment,
-            GITHUB_OUTPUT: outputPath,
-            EVENT_NAME: "workflow_run",
-            CI_CONCLUSION: "success",
-            CI_EVENT: "push",
-            CI_HEAD_BRANCH: "main",
-            CI_HEAD_SHA: git("rev-parse", "HEAD"),
-            CI_RUN_ID: "42",
-            ...input,
+        const result = spawnSync(
+          "bun",
+          [path.join(repoRoot, "scripts", "resolve-release-source.ts")],
+          {
+            cwd: checkout,
+            env: {
+              ...environment,
+              GITHUB_OUTPUT: outputPath,
+              RUNNER_TEMP: directory,
+              EVENT_NAME: "workflow_run",
+              CI_CONCLUSION: "success",
+              CI_EVENT: "push",
+              CI_HEAD_BRANCH: "main",
+              CI_HEAD_SHA: git("rev-parse", "HEAD"),
+              CI_RUN_ID: "42",
+              ...input,
+            },
+            encoding: "utf8",
+            timeout: 10_000,
           },
-          encoding: "utf8",
-          timeout: 10_000,
-        });
+        );
         if (result.error !== undefined) throw result.error;
         const selected = Object.fromEntries(
           fs
@@ -198,13 +198,10 @@ describe("Canonical release workflow", () => {
       expect(source.if).toContain("workflow_run.conclusion == 'success'");
       expect(source.if).toContain("workflow_run.event == 'push'");
       expect(source.if).toContain("workflow_run.head_branch == 'main'");
-      expect(
-        source.steps.some(
-          (step) =>
-            step.run?.includes("git log origin/main") === true &&
-            step.run.includes("Expected exactly one canonical release commit"),
-        ),
-      ).toBe(true);
+      expect(source.steps[0]?.with?.["ref"]).toBe("main");
+      expect(source.steps.some((step) => step.run?.includes("run resolve:release-source"))).toBe(
+        true,
+      );
       expect(workflow.jobs["release"]?.needs).toBe("source");
       expect(workflow.jobs["release"]?.steps[0]?.with?.["ref"]).toBe(
         "${{ needs.source.outputs.tooling_sha }}",
@@ -276,6 +273,22 @@ describe("Canonical release workflow", () => {
         const mismatch = select({ CI_HEAD_SHA: "0".repeat(40) });
         expect(mismatch.status, mismatch.output).not.toBe(0);
         expect(mismatch.selected["eligible"]).not.toBe("true");
+      }),
+    ),
+  );
+
+  it.effect("uses trusted current-main tooling for an earlier successful release commit", () =>
+    Effect.sync(() =>
+      withPublicationSource(({ commit, select }) => {
+        const released = commit("release: cli-v1.2.3");
+        const tooling = commit("Improve publication tooling", "1.2.4");
+        const result = select({ CI_HEAD_SHA: released });
+        expect(result.status, result.output).toBe(0);
+        expect(result.selected).toMatchObject({
+          eligible: "true",
+          sha: released,
+          tooling_sha: tooling,
+        });
       }),
     ),
   );
@@ -372,8 +385,9 @@ describe("Canonical release workflow", () => {
   it.effect("requires an exact current branch head for branch preview", () =>
     Effect.sync(() =>
       withPublicationSource(({ commit, branch, checkout, select }) => {
-        commit("Main source");
+        const main = commit("Main source");
         const head = branch("codex/preview");
+        checkout(main);
         const input = {
           EVENT_NAME: "workflow_dispatch",
           REQUESTED_MODE: "branch-preview",
@@ -382,12 +396,12 @@ describe("Canonical release workflow", () => {
         const accepted = select({ ...input, SOURCE_SHA: head });
         expect(accepted.status, accepted.output).toBe(0);
         expect(accepted.selected["sha"]).toBe(head);
+        expect(accepted.selected["tooling_sha"]).toBe(main);
         for (const sourceRef of ["main", "missing", "codex/../preview"]) {
           const rejected = select({ ...input, SOURCE_REF: sourceRef, SOURCE_SHA: head });
           expect(rejected.status, rejected.output).not.toBe(0);
         }
-        checkout("main");
-        const wrongHead = select({ ...input, SOURCE_SHA: head });
+        const wrongHead = select({ ...input, SOURCE_SHA: main });
         expect(wrongHead.status, wrongHead.output).not.toBe(0);
       }),
     ),

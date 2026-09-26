@@ -6,6 +6,7 @@ import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as semver from "semver";
+import { requireStableVersion } from "./release-identity.js";
 
 export class SupersededRelease extends Error {
   constructor(
@@ -46,8 +47,7 @@ export const releaseCohortTarballPath = (
   prefix: string,
   version: string,
 ): string => {
-  if (!/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u.test(version))
-    throw new Error("Expected a stable release version in major.minor.patch form.");
+  requireStableVersion(version);
   const expectedFilename = `${prefix}${version}.tgz`;
   if (basename(expectedFilename) !== expectedFilename)
     throw new Error("Release tarball name must be a basename.");

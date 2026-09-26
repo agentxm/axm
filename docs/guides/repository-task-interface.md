@@ -269,8 +269,8 @@ benchmarks, release mutations, artifact/download operations, external install
 verification, and projection observations run fresh.
 
 The root command tests use the runtime prepared by `axm:test` and pass
-`--excludeTaskDependencies` to their nested release-tag and metadata target
-invocations. Rebuilding those prerequisites inside a concurrent test wave can
+`--excludeTaskDependencies` to its nested release metadata target invocation.
+Rebuilding those prerequisites inside a concurrent test wave can
 delete `dist` files while another project imports them. The tests disable cache
 reuse for the nested invocation and check that the prepared runtime file keeps
 its inode and modification time. The standalone targets declare `^build`;
@@ -356,7 +356,7 @@ launchers, and host adapters. These boundaries are intentional:
 | Boundary                                                              | Reason                                                                                                                          |
 | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `axm` and `axm:local`                                                 | Launch the source CLI, optionally against an external workspace                                                                 |
-| `classify:ci`                                                         | Run before workspace dependencies exist; their host jobs lower `verifyDepsBeforeRun` to `warn` only for these source-only tasks |
+| `classify:ci`, `resolve:release-source`                               | Run before workspace dependencies exist; their host jobs lower `verifyDepsBeforeRun` to `warn` only for these source-only tasks |
 | `test:spec`, `verify:artifact`, `verify:release`, `verify:deployment` | Resolve an exact subject, then invoke the target that owns the evidence                                                         |
 | `*:report` through `scripts/with-allure-report.sh`                    | Generate evidence even when the preceding gate fails; an Nx dependent would be skipped                                          |
 | `lint-staged`                                                         | Operate on the Git index, which Nx affected selection does not represent                                                        |
@@ -383,6 +383,8 @@ artifacts; installed and published consumers retain the artifact boundary.
   those stages.
 - CI owns job topology, platform matrices, credentials, and always-run report
   collection, but not a second repository task graph.
+- The change classifier publishes the required job list; the aggregate
+  `required` job only reads results.
 
 ## Gaps
 

@@ -27,6 +27,8 @@ export const declareMaterialization = <TRef extends ExtensionRef>(args: {
     const writer = yield* SettingsWriter;
     const reader = yield* SettingsReader;
     const { ref, name } = args;
+    // The MCP install operation declares its connection row. This generic
+    // declaration path still serves source transitions such as demote.
     // Inline and workspace MCP definitions already carry their desired authority.
     if (ref.type === "mcp-server" && ref.refType !== "registry") return;
     const source = Option.match(args.resolution, {

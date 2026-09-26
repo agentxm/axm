@@ -72,7 +72,10 @@ import { SourceHostProviders } from "../resolution/sources/index.js";
 import { copyExtensionDirectory } from "../acquisition/copy-directory.js";
 import { replaceCanonicalDirectoryWithInspection } from "../acquisition/canonical-directory.js";
 import { fromFileLocation } from "@agentxm/host-primitives";
-import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
+import {
+  isPathSafe,
+  makeWorkspaceRelativeSourcePath,
+} from "@agentxm/extension-model/unstable/path-types";
 import {
   acceptedRowKey,
   computePackageContentHash,
@@ -81,7 +84,7 @@ import {
 } from "../desired-state/index.js";
 import { registrySourceLockFields } from "../desired-state/index.js";
 import { buildExternalMcpServerLockEntry } from "./lock-entry-builder.js";
-import { McpWorkspacePackageInvalid } from "./errors.js";
+import { McpCanonicalPathUnsafe, McpWorkspacePackageInvalid } from "./errors.js";
 
 // Build lock entry from registry ref
 const buildMcpServerLockEntry = (
@@ -135,15 +138,29 @@ export const McpServerManagerLive = Layer.effect(
           "mcps",
           ref.name,
         ).canonicalPath;
-        if (
-          ref.scope !== location.scope ||
-          path.resolve(ref.location) !== path.resolve(expected) ||
-          !(yield* fs.exists(ref.location).pipe(Effect.orElseSucceed(() => false)))
-        ) {
+        if (ref.scope !== location.scope || path.resolve(ref.location) !== path.resolve(expected)) {
           return yield* new McpWorkspacePackageInvalid({
             serverName: ref.server.name,
             location: ref.location,
             fault: "outside-workspace",
+          });
+        }
+        const exists = yield* fs.exists(ref.location).pipe(
+          Effect.mapError(
+            (cause) =>
+              new McpWorkspacePackageInvalid({
+                serverName: ref.server.name,
+                location: ref.location,
+                fault: "unreadable",
+                cause,
+              }),
+          ),
+        );
+        if (!exists) {
+          return yield* new McpWorkspacePackageInvalid({
+            serverName: ref.server.name,
+            location: ref.location,
+            fault: "missing",
           });
         }
         return acquired(Option.none());
@@ -206,6 +223,10 @@ export const McpServerManagerLive = Layer.effect(
       }
 
       const registryRef = ref;
+      yield* validateExactResolvedVersion(
+        `mcpServers.${registryRef.server.name}.resolvedVersion`,
+        registryRef.version,
+      );
       const canonicalPath = computeExtensionPathsForLayout(
         path.join,
         currentLayout(),
@@ -213,6 +234,12 @@ export const McpServerManagerLive = Layer.effect(
         "mcps",
         registryRef.name,
       ).canonicalPath;
+      if (!isPathSafe(path, baseDir, canonicalPath)) {
+        return yield* new McpCanonicalPathUnsafe({
+          serverName: registryRef.name,
+          canonicalPath,
+        });
+      }
 
       const lockedEntry = yield* lockfile.entry(
         "mcp-server",
@@ -470,10 +497,6 @@ export const McpServerManagerLive = Layer.effect(
           return yield* new McpInstallStateMissing({ name: ref.server.name });
         }
         if (ref.refType === "registry") {
-          yield* validateExactResolvedVersion(
-            `mcpServers.${ref.server.name}.resolvedVersion`,
-            ref.version,
-          );
           const entry = buildMcpServerLockEntry(ref, treeIntegrity.value);
           return Option.some({
             key: mcpRegistryResolutionKey({

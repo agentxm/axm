@@ -185,6 +185,7 @@ export type CreatableExtensionType = CreateExtensionRequest["type"];
 export type CreateExtensionRequirements =
   | ManagerRequirements
   | RecipeRequirements
+  | McpServerManager
   | AcceptedResolutionWriter
   | DesiredStateWriter
   | SettingsReader

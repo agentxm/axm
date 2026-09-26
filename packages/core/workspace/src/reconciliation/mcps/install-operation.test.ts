@@ -53,6 +53,7 @@ import { McpSecretStore, mcpSecretAccount } from "../../materialization/index.js
 import type { InstallMcpServerOperation } from "./install-operation.js";
 import { installMcpServer } from "./install-operation.js";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
+import { McpServerManagerLive } from "../../materialization/live.js";
 
 /**
  * A credential store that keeps what it is given, but refuses the one value
@@ -186,58 +187,62 @@ const makeServices = (
   };
 
   return {
-    layer: Layer.mergeAll(
+    layer: Layer.provideMerge(
+      McpServerManagerLive,
       Layer.mergeAll(
-        Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
-        NativeWriteAuthorityPermissive,
-        FootprintRecorderTest,
+        Layer.mergeAll(
+          Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
+          NativeWriteAuthorityPermissive,
+          FootprintRecorderTest,
+        ),
+        WorkspaceReadTest({
+          baseDir: path.dirname(axmDir),
+          runtimeDir: axmDir,
+          settings: { agents: [] },
+          ...(lockfile === undefined
+            ? { acceptedResolutions: acceptedCanonicalTrees(path.dirname(axmDir)) }
+            : { lockfile }),
+        }),
+        Layer.mock(SettingsWriter, {}),
+        // The mocked state writers stand in for durable writes, so they record
+        // the footprint a real write would; the install classifies from it.
+        Layer.mock(DesiredStateWriter, {
+          declare: (type, args) =>
+            recordFootprint({ path: path.join(axmDir, "axm.json"), change: "modified" }).pipe(
+              Effect.andThen(
+                type === "mcp-server" && "resolutionKey" in args
+                  ? (setMcpServer?.(args) ?? Effect.void)
+                  : Effect.void,
+              ),
+            ),
+        }),
+        Layer.mock(AcceptedResolutionWriter, {
+          setAccepted: (type, key, entry) =>
+            recordFootprint({ path: path.join(axmDir, "axm-lock.yaml"), change: "modified" }).pipe(
+              Effect.andThen(
+                Effect.suspend(() => {
+                  if (type !== "mcp-server" || entry.identity.owner === undefined)
+                    return Effect.void;
+                  const lockEntry = {
+                    ...entry,
+                    identity: { ...entry.identity, owner: entry.identity.owner },
+                  };
+                  return (
+                    setAcceptedMcpServer?.({
+                      name: entry.identity.name,
+                      resolutionKey: key,
+                      lockEntry,
+                      versionRange: Option.none(),
+                    }) ?? Effect.void
+                  );
+                }),
+              ),
+            ),
+        }),
+        Layer.succeed(McpSecretStore, secretStore.service),
+        Layer.succeed(SourceHostProviders, sourceProviders),
+        Layer.succeed(CodingAgentRepository, agentRepo ?? defaultAgentRepo),
       ),
-      WorkspaceReadTest({
-        baseDir: path.dirname(axmDir),
-        runtimeDir: axmDir,
-        settings: { agents: [] },
-        ...(lockfile === undefined
-          ? { acceptedResolutions: acceptedCanonicalTrees(path.dirname(axmDir)) }
-          : { lockfile }),
-      }),
-      Layer.mock(SettingsWriter, {}),
-      // The mocked state writers stand in for durable writes, so they record
-      // the footprint a real write would; the install classifies from it.
-      Layer.mock(DesiredStateWriter, {
-        declare: (type, args) =>
-          recordFootprint({ path: path.join(axmDir, "axm.json"), change: "modified" }).pipe(
-            Effect.andThen(
-              type === "mcp-server" && "resolutionKey" in args
-                ? (setMcpServer?.(args) ?? Effect.void)
-                : Effect.void,
-            ),
-          ),
-      }),
-      Layer.mock(AcceptedResolutionWriter, {
-        setAccepted: (type, key, entry) =>
-          recordFootprint({ path: path.join(axmDir, "axm-lock.yaml"), change: "modified" }).pipe(
-            Effect.andThen(
-              Effect.suspend(() => {
-                if (type !== "mcp-server" || entry.identity.owner === undefined) return Effect.void;
-                const lockEntry = {
-                  ...entry,
-                  identity: { ...entry.identity, owner: entry.identity.owner },
-                };
-                return (
-                  setAcceptedMcpServer?.({
-                    name: entry.identity.name,
-                    resolutionKey: key,
-                    lockEntry,
-                    versionRange: Option.none(),
-                  }) ?? Effect.void
-                );
-              }),
-            ),
-          ),
-      }),
-      Layer.succeed(McpSecretStore, secretStore.service),
-      Layer.succeed(SourceHostProviders, sourceProviders),
-      Layer.succeed(CodingAgentRepository, agentRepo ?? defaultAgentRepo),
     ),
   };
 };

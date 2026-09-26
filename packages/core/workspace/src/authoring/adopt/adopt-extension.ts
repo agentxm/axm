@@ -125,6 +125,7 @@ export interface AdoptExtensionRequest {
 export type AdoptExtensionRequirements =
   | ManagerRequirements
   | RecipeRequirements
+  | McpServerManager
   | AcceptedResolutionWriter
   | DesiredStateWriter
   | SettingsReader

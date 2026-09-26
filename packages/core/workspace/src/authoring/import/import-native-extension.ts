@@ -189,6 +189,7 @@ export type ImportNativeExtensionRequest =
 export type ImportNativeExtensionRequirements =
   | ManagerRequirements
   | RecipeRequirements
+  | McpServerManager
   | AcceptedResolutionWriter
   | DesiredStateWriter
   | SettingsReader

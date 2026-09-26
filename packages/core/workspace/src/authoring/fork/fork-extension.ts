@@ -143,6 +143,7 @@ export interface ForkExtensionRequest {
 export type ForkExtensionRequirements =
   | ManagerRequirements
   | RecipeRequirements
+  | McpServerManager
   | AcceptedResolutionWriter
   | DesiredStateWriter
   | SettingsReader

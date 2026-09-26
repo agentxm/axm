@@ -17,7 +17,11 @@ import type * as Scope from "effect/Scope";
 import type { RegistryClientFactory } from "@agentxm/registry-client";
 
 import type { NativeWriteAuthority } from "../../projection/agent-adapters/index.js";
-import type { ManagerRequirements, McpSecretStore } from "../../materialization/index.js";
+import type {
+  ManagerRequirements,
+  McpSecretStore,
+  McpServerManager,
+} from "../../materialization/index.js";
 import type { RecipeRequirements } from "../../reconciliation/index.js";
 import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions";
 import type { HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
@@ -88,6 +92,7 @@ import { ExtensionLifecycleFailed } from "../errors.js";
 export type InstallStepRequirements =
   | ManagerRequirements
   | RecipeRequirements
+  | McpServerManager
   | McpSecretStore
   | CodingAgentRepository
   | LockfileReader

@@ -202,7 +202,8 @@ import features, kernel slices import only lower slices, and
 single-unit library exports its root `.`. A sliced library
 (`@agentxm/workspace-kernel`, `@agentxm/extension-kinds`,
 `@agentxm/workspace-features`, `@agentxm/registry-access`) exports one
-`./<slice>` per `src/<slice>/` folder and no root; `@agentxm/extension-kinds`
+`./<slice>` per slice folder under `src/` (a test-support folder such as
+`workspace-features/src/testing/` is not exported) and no root; `@agentxm/extension-kinds`
 adds a package-level `./live` and `@agentxm/registry-access` a package-level
 `./testing`. Each entry may add at most `/live` (the composed
 Layer) and `/testing` (the seam its consumers' specifications and tests are

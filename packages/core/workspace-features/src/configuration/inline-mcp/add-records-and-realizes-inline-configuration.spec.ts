@@ -21,7 +21,7 @@ export const specification = defineSpecification({
     "cli/mcps/inline-lifecycle-is-idempotent",
     "cli/mcps/projects-to-every-configured-agent",
     "cli/mcps/inline-entries-are-authoritative-as-authored",
-    "packages/core/workspace/src/configuration/inline-mcp/add-inline-mcp-server.ts",
+    "packages/core/workspace-features/src/configuration/inline-mcp/add-inline-mcp-server.ts",
     "apps/cli/help/topics/mcps.md",
   ],
   supersedes: [],

@@ -15,8 +15,9 @@ import {
   manifestFilenameForType,
   manifestSchemaForType,
   type ManifestIdentity,
+  parseFrontmatterEffect,
+  type FrontmatterParseFailure,
 } from "@agentxm/extension-content";
-import { parseFrontmatterEffect, type FrontmatterParseFailure } from "@agentxm/extension-content";
 import type {
   ExtensionFqnParts,
   ExtensionName,

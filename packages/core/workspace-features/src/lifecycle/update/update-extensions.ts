@@ -52,6 +52,7 @@ import type {
 import {
   decodeVersionRangeSync,
   versionSatisfiesRange,
+  type VersionRange,
 } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   ReleaseAgePosture,
@@ -96,11 +97,11 @@ import {
   type ConfiguredAgentOutcomesProvider,
   type DesiredStateGraph,
   type LockfileValidationError,
+  desiredPackageKey,
 } from "@agentxm/workspace-kernel/workspace-state";
 import type { WorkspaceTransactionScope } from "@agentxm/workspace-kernel/settlement";
 
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
-import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 
 import {
   StepFailureConversion,
@@ -125,7 +126,6 @@ import { buildWorkspaceUpdatePlan, type WorkspaceUpdatableType } from "./configu
 import { resolveConfiguredUpdateSelection, type ConfiguredUpdateSelector } from "./selector.js";
 import { resolveRootUpdateIntent, type RootUpdateIntent } from "./root-request.js";
 import { wrapTargetedUpdatePlan } from "./targeted-plan.js";
-import { desiredPackageKey } from "@agentxm/workspace-kernel/workspace-state";
 
 // -----------------------------------------------------------------------------
 // Request

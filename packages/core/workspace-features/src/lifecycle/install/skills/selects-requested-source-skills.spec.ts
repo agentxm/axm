@@ -36,8 +36,8 @@ export const specification = defineSpecification({
   goals: ["extension-adoption", "workspace-intent-fidelity"],
   methods: ["decision-table", "example"],
   derivedFrom: [
-    "packages/core/workspace/src/lifecycle/install/selection.ts",
-    "packages/core/workspace/src/lifecycle/install/install-extensions.ts",
+    "packages/core/workspace-features/src/lifecycle/install/selection.ts",
+    "packages/core/workspace-features/src/lifecycle/install/install-extensions.ts",
     // The flag spellings that build these requests (`--skill`, repeated
     // `--skill`, `--all`) stay CLI grammar; process evidence for them is
     // apps/cli-e2e/src/cli-commands/skills/install/command.e2e.ts.

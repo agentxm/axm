@@ -16,6 +16,8 @@ import {
   SettingsReader,
   WorkspaceLocation,
   WorkspaceRecords,
+  acceptedCanonicalObservation,
+  type KnowledgeExtensionTarget,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import * as FileSystem from "effect/FileSystem";
@@ -37,10 +39,6 @@ import {
   installRefused,
 } from "@agentxm/workspace-kernel/operations";
 import { resolveInstructionsConfig } from "@agentxm/workspace-kernel/projection";
-import {
-  acceptedCanonicalObservation,
-  type KnowledgeExtensionTarget,
-} from "@agentxm/workspace-kernel/workspace-state";
 
 /** One knowledge-bundle removal. */
 export interface KnowledgeUninstallIntent {

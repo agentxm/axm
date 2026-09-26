@@ -17,9 +17,10 @@ import {
   RegistryClientFactory,
   extractZip,
   withBufferedArchiveBudget,
+  type GetExtensionPackageArgs,
+  type RegistryClientFailure,
 } from "@agentxm/registry-client";
 import { computeIntegrity } from "@agentxm/host-primitives";
-import type { GetExtensionPackageArgs, RegistryClientFailure } from "@agentxm/registry-client";
 import type {
   ExtensionName,
   ExtensionType,

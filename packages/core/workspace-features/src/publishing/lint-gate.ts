@@ -2,21 +2,19 @@ import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import { PublishFailed } from "./errors.js";
-import { makePlatformPackFileAccessor } from "@agentxm/extension-content/lint";
-import { makePlatformSkillFileAccessor } from "@agentxm/extension-content/lint";
-import { platformCanonicalLintConfig } from "@agentxm/extension-content/lint";
-import { composePath } from "@agentxm/extension-content/lint";
-import type {
-  HookRuleContext,
-  KnowledgeRuleContext,
-  McpServerRuleContext,
-  PackRuleContext,
-  SkillRuleContext,
-  SubagentRuleContext,
-  RuleRuleContext,
-} from "@agentxm/extension-content/lint";
-import { evaluateContexts } from "@agentxm/extension-content/lint";
 import {
+  makePlatformPackFileAccessor,
+  makePlatformSkillFileAccessor,
+  platformCanonicalLintConfig,
+  composePath,
+  type HookRuleContext,
+  type KnowledgeRuleContext,
+  type McpServerRuleContext,
+  type PackRuleContext,
+  type SkillRuleContext,
+  type SubagentRuleContext,
+  type RuleRuleContext,
+  evaluateContexts,
   hookRules,
   publishKnowledgeRules as knowledgeRules,
   mcpServerRules,
@@ -24,8 +22,8 @@ import {
   skillRules,
   ruleRules,
   subagentRules,
+  type LintFinding,
 } from "@agentxm/extension-content/lint";
-import type { LintFinding } from "@agentxm/extension-content/lint";
 
 interface PublishLintPlatform {
   readonly fs: FileSystem.FileSystem;

@@ -11,18 +11,19 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { bundledSkillCanonicalRoot } from "@agentxm/workspace-kernel/workspace-state";
-import * as ServiceMap from "effect/Context";
-import * as Effect from "effect/Effect";
-import * as Ref from "effect/Ref";
 import {
+  bundledSkillCanonicalRoot,
   AcceptedResolutionWriter,
   LockfileReader,
   SettingsReader,
   SettingsWriter,
   WorkspaceLocation,
   type WorkspaceLayout,
+  sanitizeName,
 } from "@agentxm/workspace-kernel/workspace-state";
+import * as ServiceMap from "effect/Context";
+import * as Effect from "effect/Effect";
+import * as Ref from "effect/Ref";
 
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -46,7 +47,6 @@ import {
   installRefused,
 } from "@agentxm/workspace-kernel/operations";
 import { CodingAgentRepository } from "@agentxm/workspace-kernel/projection";
-import { sanitizeName } from "@agentxm/workspace-kernel/workspace-state";
 import { runWorkspaceTransaction } from "@agentxm/workspace-kernel/settlement";
 
 import {

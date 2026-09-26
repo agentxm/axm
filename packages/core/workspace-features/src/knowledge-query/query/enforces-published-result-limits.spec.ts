@@ -19,7 +19,7 @@ export const specification = defineSpecification({
   methods: ["decision-table", "example"],
   derivedFrom: [
     "apps/cli/help/topics/knowledge.md",
-    "packages/core/workspace/src/knowledge/query/query/request.ts",
+    "packages/core/workspace-features/src/knowledge-query/query/request.ts",
   ],
   supersedes: [],
   assumptions: [],

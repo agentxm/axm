@@ -28,12 +28,13 @@ import {
   type GetExtensionsByOwnerArgs,
   type GetExtensionsByOwnerResponse,
 } from "@agentxm/registry-client";
-import type { ExtensionIndex, VersionEntry } from "@agentxm/registry-protocol/unstable/registry";
-import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {
+  type ExtensionIndex,
+  type VersionEntry,
   PUBLICATION_SET_CONTRACT,
   publicationSetDigest,
 } from "@agentxm/registry-protocol/unstable/registry";
+import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { RegistrySkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { RegistryMcpServerRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import type { RegistryPackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";

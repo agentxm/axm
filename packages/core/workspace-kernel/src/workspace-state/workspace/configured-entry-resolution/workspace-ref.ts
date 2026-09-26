@@ -6,6 +6,7 @@ import {
   decodeExtensionNameSync,
   toExtensionTypePlural,
   type ExtensionName,
+  type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import { manifestFilenameForType, readExtensionManifest } from "@agentxm/extension-content";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
@@ -21,7 +22,6 @@ import type { WorkspaceRuleRef } from "@agentxm/extension-model/unstable/extensi
 import type { WorkspaceSkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { WorkspaceSource } from "@agentxm/extension-model/unstable/sources/types";
 import type { WorkspaceSubagentRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
-import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { WorkspaceLayout } from "../layout.js";
 

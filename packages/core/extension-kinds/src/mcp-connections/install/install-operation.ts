@@ -24,16 +24,12 @@ import {
   mcpProjectionInputValues,
   readMcpServerManifestAt,
   syncManifestMcpServerToAgents,
+  type McpServerSyncOutcome,
 } from "@agentxm/workspace-kernel/agent-adapters";
-import type { McpServerSyncOutcome } from "@agentxm/workspace-kernel/agent-adapters";
 import { CodingAgentRepository } from "@agentxm/workspace-kernel/projection";
-import { mcpRegistryResolutionKey } from "@agentxm/workspace-kernel/workspace-state";
-import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import { acceptedRegistryVersionForRef } from "@agentxm/workspace-kernel/workspace-state";
-import { appendWarningsToMessage, type JobStepResult } from "@agentxm/workspace-kernel/operations";
-import { isWorkspaceFootprint, readFootprint } from "@agentxm/workspace-kernel/settlement";
-import { classifyInstallChange } from "@agentxm/workspace-kernel/reconciliation";
 import {
+  mcpRegistryResolutionKey,
+  acceptedRegistryVersionForRef,
   AcceptedResolutionWriter,
   DesiredStateReader,
   DesiredStateWriter,
@@ -41,13 +37,17 @@ import {
   SettingsReader,
   SettingsWriter,
   WorkspaceLocation,
+  computeExtensionPathsForLayout,
+  type McpServerLockEntry,
+  mcpResolutionKey,
+  type McpServerEntry,
 } from "@agentxm/workspace-kernel/workspace-state";
-import { computeExtensionPathsForLayout } from "@agentxm/workspace-kernel/workspace-state";
+import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
+import { appendWarningsToMessage, type JobStepResult } from "@agentxm/workspace-kernel/operations";
+import { isWorkspaceFootprint, readFootprint } from "@agentxm/workspace-kernel/settlement";
+import { classifyInstallChange } from "@agentxm/workspace-kernel/reconciliation";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
-import type { McpServerLockEntry } from "@agentxm/workspace-kernel/workspace-state";
-import { mcpResolutionKey } from "@agentxm/workspace-kernel/workspace-state";
 import type { McpServerManifest } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
-import type { McpServerEntry } from "@agentxm/workspace-kernel/workspace-state";
 import {
   McpServerManager,
   McpSecretStore,

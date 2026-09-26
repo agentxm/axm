@@ -13,6 +13,12 @@ import {
   DesiredStateReader,
   LockfileReader,
   WorkspaceLocation,
+  acquiredExtensionDisplayPathFromLockEntry,
+  type HookExtensionTarget,
+  type HookLockEntry,
+  acquiredRootDisplayPath,
+  lockfileDisplayPath,
+  settingsDisplayPath,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import * as Option from "effect/Option";
@@ -31,17 +37,6 @@ import {
   type ExtensionLifecycleFailed,
   installRefused,
 } from "@agentxm/workspace-kernel/operations";
-import {
-  acquiredExtensionDisplayPathFromLockEntry,
-  type HookExtensionTarget,
-  type HookLockEntry,
-} from "@agentxm/workspace-kernel/workspace-state";
-
-import {
-  acquiredRootDisplayPath,
-  lockfileDisplayPath,
-  settingsDisplayPath,
-} from "@agentxm/workspace-kernel/workspace-state";
 
 /** One hooks-package removal. */
 export interface HookUninstallIntent {

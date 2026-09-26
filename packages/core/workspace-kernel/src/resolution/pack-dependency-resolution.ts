@@ -13,14 +13,12 @@ import * as Result from "effect/Result";
 import * as semver from "semver";
 
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
-import type {
-  ExtensionName,
-  ExtensionType,
-  Handle,
-  PackMemberConstraintMap,
-  PackMemberRegistrySource,
-} from "@agentxm/extension-model/unstable/extensions";
 import {
+  type ExtensionName,
+  type ExtensionType,
+  type Handle,
+  type PackMemberConstraintMap,
+  type PackMemberRegistrySource,
   formatFqn,
   parseFqnOrThrow,
   toExtensionTypePlural,

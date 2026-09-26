@@ -36,7 +36,7 @@ export const specification = defineSpecification({
   boundaryRationale:
     "Forking is a decision of the authoring use case: it reads a real package from a real directory and publishes a real canonical package, so a temporary project workspace observes every byte the operation copied, rewrote, and left alone.",
   derivedFrom: [
-    "packages/core/workspace/src/authoring/fork-package.test.ts",
+    "packages/core/workspace-features/src/authoring/fork-package.test.ts",
     "apps/cli/src/root/fork/command.ts",
   ],
   supersedes: [],

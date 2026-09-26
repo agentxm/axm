@@ -36,7 +36,7 @@ export const specification = defineSpecification({
   boundary: "memory",
   boundaryRationale:
     "Ownership is one decision the authoring feature makes over the selected scope's settings, so each row is observable in a real project directory: the owner the manifest carries, the owner the settings record, and the byte-identical tree a refusal leaves behind.",
-  derivedFrom: ["packages/core/workspace/src/authoring/create/authoring-owner.ts"],
+  derivedFrom: ["packages/core/workspace-features/src/authoring/create/authoring-owner.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

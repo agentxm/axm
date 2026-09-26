@@ -7,8 +7,11 @@ import { describe, expect, it } from "vitest";
 import { ConfigError } from "effect/Config";
 import { SourceError } from "effect/ConfigProvider";
 
-import { RegistryProblem, RegistryRequestFailed } from "@agentxm/registry-client";
-import type { RegistryErrorCategory } from "@agentxm/registry-client";
+import {
+  RegistryProblem,
+  RegistryRequestFailed,
+  type RegistryErrorCategory,
+} from "@agentxm/registry-client";
 
 import { PublishFailed } from "./errors.js";
 import { aggregatePublishFailure, publishCause } from "./failure.js";

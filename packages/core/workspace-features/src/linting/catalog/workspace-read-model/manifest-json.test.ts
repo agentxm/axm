@@ -1,7 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import type { PackFileAccessor } from "@agentxm/extension-content/lint";
-import { isManifestJsonParseFailure } from "@agentxm/extension-content/lint";
+import { type PackFileAccessor, isManifestJsonParseFailure } from "@agentxm/extension-content/lint";
 import { readManifestJson } from "./manifest-json.js";
 
 const encoder = new TextEncoder();

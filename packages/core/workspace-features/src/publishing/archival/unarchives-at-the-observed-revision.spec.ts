@@ -26,7 +26,7 @@ export const specification = defineSpecification({
   methods: ["example", "contract"],
   derivedFrom: [
     "apps/cli/src/root/lifecycle/command.ts",
-    "packages/core/workspace/src/publishing/lifecycle/archival.ts",
+    "packages/core/workspace-features/src/publishing/lifecycle/archival.ts",
   ],
   supersedes: [],
   assumptions: [],

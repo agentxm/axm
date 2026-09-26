@@ -1,7 +1,10 @@
 import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlement/live";
 import * as fs from "node:fs";
 import { WorkspaceFailureConversionLive } from "../../app-error/failure-catalog.js";
-import { MockWorkspaceTransactionScope } from "@agentxm/workspace-kernel/workspace-state/testing";
+import {
+  MockWorkspaceTransactionScope,
+  ConfiguredAgentOutcomesProviderTest,
+} from "@agentxm/workspace-kernel/workspace-state/testing";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { NativeWriteAuthorityPermissive } from "@agentxm/workspace-kernel/agent-adapters/testing";
 import * as os from "node:os";
@@ -11,14 +14,15 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
-import { CodingAgentRepository } from "@agentxm/workspace-kernel/projection";
+import {
+  CodingAgentRepository,
+  type CodingAgentRepositoryService,
+} from "@agentxm/workspace-kernel/projection";
 import { codingAgentForId } from "@agentxm/workspace-kernel/agent-adapters";
-import type { CodingAgentRepositoryService } from "@agentxm/workspace-kernel/projection";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
 import type { WorkspaceStateOptions } from "@agentxm/workspace-kernel/workspace-state";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace-kernel/workspace-state/live";
-import { ConfiguredAgentOutcomesProviderTest } from "@agentxm/workspace-kernel/workspace-state/testing";
 import { ResolvePlanInteractionTest } from "@agentxm/workspace-kernel/planning/testing";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";

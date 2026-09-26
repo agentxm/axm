@@ -21,7 +21,7 @@ export const specification = defineSpecification({
   role: "interface",
   goals: ["trustworthy-distribution", "machine-automation"],
   methods: ["example", "contract"],
-  derivedFrom: ["packages/core/workspace/src/publishing/publish/use-case.ts"],
+  derivedFrom: ["packages/core/workspace-features/src/publishing/publish/use-case.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

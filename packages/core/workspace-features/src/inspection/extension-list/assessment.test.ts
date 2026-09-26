@@ -6,18 +6,18 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
-import { TreeIntegritySchema } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  TreeIntegritySchema,
+  LOCKFILE_VERSION,
+  type Lockfile,
+  type Settings,
+} from "@agentxm/workspace-kernel/workspace-state";
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {
   SourceHostProviders,
   type SourceHostProvidersService,
 } from "@agentxm/workspace-kernel/sources";
 import { assessExtensionListItems, type ExtensionListItem } from "./assessment.js";
-import {
-  LOCKFILE_VERSION,
-  type Lockfile,
-  type Settings,
-} from "@agentxm/workspace-kernel/workspace-state";
 import {
   WorkspaceReadTest,
   type WorkspaceReadTestFacts,

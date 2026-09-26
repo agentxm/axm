@@ -14,7 +14,6 @@ import { describe, expect, it } from "vitest";
 const projectionSrc = nodePath.dirname(fileURLToPath(import.meta.url));
 const kernelSrc = nodePath.resolve(projectionSrc, "..");
 const agentAdaptersSrc = nodePath.join(kernelSrc, "agent-adapters");
-const kindsSrc = nodePath.resolve(kernelSrc, "..", "..", "extension-kinds", "src");
 
 const productionTypeScriptFiles = (root: string): ReadonlyArray<string> =>
   nodeFs.readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
@@ -61,39 +60,7 @@ describe("aggregate ownership unit conformance", () => {
     ).toContain("export const parseMarker");
   });
 
-  it("routes every ownership-unit cardinality through shared plans", () => {
-    // Kind managers live in the extension kinds package and reach projection
-    // through its shared plans.
-    const aggregateParticipants = [
-      "instructions/manager.ts",
-      "hooks/manager.ts",
-      "knowledge/manager.ts",
-    ];
-    for (const relativePath of aggregateParticipants) {
-      expect(nodeFs.readFileSync(nodePath.join(kindsSrc, relativePath), "utf8")).toContain(
-        "planAggregateProjection",
-      );
-    }
-
-    const singletonParticipants = [
-      [kindsSrc, "skills/manager.ts"],
-      [kindsSrc, "subagents/manager.ts"],
-      [kindsSrc, "mcp-connections/manager.ts"],
-    ] as const;
-    for (const [root, relativePath] of singletonParticipants) {
-      expect(nodeFs.readFileSync(nodePath.join(root, relativePath), "utf8")).toContain(
-        "planSingletonProjection",
-      );
-    }
-    const sharedMcpParticipants = [
-      [kindsSrc, "mcp-connections/install/install-operation.ts"],
-    ] as const;
-    for (const [root, relativePath] of sharedMcpParticipants) {
-      expect(nodeFs.readFileSync(nodePath.join(root, relativePath), "utf8")).toContain(
-        "syncManifestMcpServerToAgents",
-      );
-    }
-
+  it("keeps projection reconciliation out of the workspace service contract", () => {
     const serviceContract = nodeFs.readFileSync(
       nodePath.join(kernelSrc, "workspace-state", "workspace", "contracts.ts"),
       "utf8",

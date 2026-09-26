@@ -90,8 +90,8 @@ const planFamily = {
   liveness: "progress",
   livenessCoverage: [
     "apps/cli/src/screen/machine-progress-events-follow-the-lifecycle-schema.spec.ts",
-    "packages/core/workspace/src/transitions/planning/plan/long-running-operations-emit-lifecycle-events.spec.ts",
-    "packages/core/workspace/src/transitions/planning/plan/resolve-plan.test.ts",
+    "packages/core/workspace-kernel/src/planning/plan/long-running-operations-emit-lifecycle-events.spec.ts",
+    "packages/core/workspace-kernel/src/planning/plan/resolve-plan.test.ts",
     "apps/cli-e2e/src/cli-commands/structured-output.e2e.ts",
   ],
   schemaNames: ["PlanResolutionDocumentSchema"],
@@ -391,7 +391,7 @@ const discoverFamily = defineResultFamily({
   rationale: "Discovery is a read query with registry availability metadata.",
   commandCoverage: [
     "apps/cli/src/root/discover/handler.test.ts",
-    "packages/core/workspace/src/discovery/discover/reports-companions-for-detected-dependencies.spec.ts",
+    "packages/core/workspace-features/src/discovery/discover/reports-companions-for-detected-dependencies.spec.ts",
   ],
 });
 
@@ -607,8 +607,8 @@ const knowledgeConceptResolveFamily = defineResultFamily({
   scenarios: ["resolved", "ambiguous", "not found", "corpus changing"],
   rationale: "Concept resolution returns one identity or bounded candidates.",
   commandCoverage: [
-    "packages/core/workspace/src/knowledge/query/graph/resolves-exact-reference.spec.ts",
-    "packages/core/workspace/src/knowledge/query/graph/requires-explicit-fuzzy-resolution.spec.ts",
+    "packages/core/workspace-features/src/knowledge-query/graph/resolves-exact-reference.spec.ts",
+    "packages/core/workspace-features/src/knowledge-query/graph/requires-explicit-fuzzy-resolution.spec.ts",
   ],
 });
 
@@ -639,7 +639,7 @@ const knowledgeConceptRelatedFamily = defineResultFamily({
   scenarios: ["related concepts", "empty", "missing root", "corpus changing"],
   rationale: "Related traversal returns bounded graph results and corpus identity.",
   commandCoverage: [
-    "packages/core/workspace/src/knowledge/query/graph/traverses-authored-links.spec.ts",
+    "packages/core/workspace-features/src/knowledge-query/graph/traverses-authored-links.spec.ts",
   ],
 });
 
@@ -761,7 +761,7 @@ const shareFamily = defineResultFamily({
   scenarios: ["available origin", "unavailable origin", "missing origin", "empty selection"],
   rationale:
     "Share is a read-only repository query that reports the live origin and exact typed install selection.",
-  commandCoverage: ["packages/core/workspace/src/sharing/share-workspace.spec.ts"],
+  commandCoverage: ["packages/core/workspace-features/src/sharing/share-workspace.spec.ts"],
 });
 
 const upgradeFamily = defineResultFamily({
@@ -810,7 +810,7 @@ const visibilityEvaluationFamily = defineResultFamily({
   rationale:
     "Visibility status reports repository intent and authoritative Registry state without mutation.",
   commandCoverage: [
-    "packages/core/workspace/src/publishing/visibility/status-reports-repository-intent-and-registry-evaluation.spec.ts",
+    "packages/core/workspace-features/src/publishing/visibility/status-reports-repository-intent-and-registry-evaluation.spec.ts",
   ],
 });
 
@@ -830,8 +830,8 @@ const visibilityMutationFamily = defineResultFamily({
     "Visibility administration reports the conditional whole-Extension mutation and resulting revision.",
   humanOutputKind: "mutation",
   commandCoverage: [
-    "packages/core/workspace/src/publishing/visibility/set-uses-explicit-intent-and-observed-revision.spec.ts",
-    "packages/core/workspace/src/publishing/visibility/reconcile-applies-declared-repository-intent.spec.ts",
+    "packages/core/workspace-features/src/publishing/visibility/set-uses-explicit-intent-and-observed-revision.spec.ts",
+    "packages/core/workspace-features/src/publishing/visibility/reconcile-applies-declared-repository-intent.spec.ts",
   ],
 });
 
@@ -851,8 +851,8 @@ const lifecycleTransitionFamily = defineResultFamily({
     "Deprecation administration reports the authoritative conditional Registry transition without a local workspace artifact.",
   humanOutputKind: "mutation",
   commandCoverage: [
-    "packages/core/workspace/src/publishing/deprecation/updates-guidance-at-the-observed-revision.spec.ts",
-    "packages/core/workspace/src/publishing/deprecation/removes-guidance-at-the-observed-revision.spec.ts",
+    "packages/core/workspace-features/src/publishing/deprecation/updates-guidance-at-the-observed-revision.spec.ts",
+    "packages/core/workspace-features/src/publishing/deprecation/removes-guidance-at-the-observed-revision.spec.ts",
   ],
 });
 
@@ -872,8 +872,8 @@ const archivalTransitionFamily = defineResultFamily({
     "Archival administration reports the authoritative conditional Registry transition without a local workspace artifact.",
   humanOutputKind: "mutation",
   commandCoverage: [
-    "packages/core/workspace/src/publishing/archival/archives-at-the-observed-revision.spec.ts",
-    "packages/core/workspace/src/publishing/archival/unarchives-at-the-observed-revision.spec.ts",
+    "packages/core/workspace-features/src/publishing/archival/archives-at-the-observed-revision.spec.ts",
+    "packages/core/workspace-features/src/publishing/archival/unarchives-at-the-observed-revision.spec.ts",
   ],
 });
 

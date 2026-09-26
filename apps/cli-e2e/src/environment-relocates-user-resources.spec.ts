@@ -20,7 +20,7 @@ export const specification = defineSpecification({
   methods: ["example", "decision-table"],
   derivedFrom: [
     "apps/cli/help/topics/environment.md",
-    "packages/core/workspace/src/desired-state/workspace/paths.test.ts",
+    "packages/core/workspace-kernel/src/workspace-state/workspace/paths.test.ts",
     "packages/supporting/registry-access/src/credentials/credential-store.test.ts",
     "packages/supporting/registry-access/src/authentication/pending-device-login-store.test.ts",
     "apps/cli/src/install-meta/install-meta.test.ts",

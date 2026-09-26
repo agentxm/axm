@@ -16,8 +16,9 @@ const collectProductionFiles = (directory: string): ReadonlyArray<string> =>
 
 describe("accepted-resolution authority boundary", () => {
   const productionFiles = [
-    "packages/core/workspace/src/transitions/planning",
-    "packages/core/workspace/src/desired-state",
+    "packages/core/workspace-kernel/src/operations",
+    "packages/core/workspace-kernel/src/planning",
+    "packages/core/workspace-kernel/src/workspace-state",
     "apps/cli/src",
   ].flatMap((directory) => collectProductionFiles(path.join(repoRoot, directory)));
 
@@ -34,12 +35,12 @@ describe("accepted-resolution authority boundary", () => {
 
   it("keeps workspace locking compatible with the Bun-distributed CLI", () => {
     const lockingSources = [
-      "packages/core/workspace/src/transitions/settlement/transaction.ts",
-      "packages/core/workspace/src/transitions/settlement/transition-lock.ts",
+      "packages/core/workspace-kernel/src/settlement/transaction.ts",
+      "packages/core/workspace-kernel/src/settlement/transition-lock.ts",
       "packages/generic/host-primitives/src/atomic-write.ts",
     ].map((source) => fs.readFileSync(path.join(repoRoot, source), "utf8"));
     const kernelPackages = [
-      "packages/core/workspace/package.json",
+      "packages/core/workspace-kernel/package.json",
       "packages/generic/host-primitives/package.json",
     ].map((manifest) => fs.readFileSync(path.join(repoRoot, manifest), "utf8"));
 
@@ -53,7 +54,10 @@ describe("accepted-resolution authority boundary", () => {
 
   it("keeps history, projection, authored, and pack-membership fields out of lock schema", () => {
     const source = fs.readFileSync(
-      path.join(repoRoot, "packages/core/workspace/src/desired-state/lockfile/schema.ts"),
+      path.join(
+        repoRoot,
+        "packages/core/workspace-kernel/src/workspace-state/desired/lockfile/schema.ts",
+      ),
       "utf8",
     );
     for (const forbidden of [

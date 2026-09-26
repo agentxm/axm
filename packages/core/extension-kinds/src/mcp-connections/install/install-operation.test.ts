@@ -24,35 +24,34 @@ import type { CodingAgent } from "@agentxm/workspace-kernel/agent-adapters";
 import {
   SettingsWriteError,
   type WorkspaceSettingsReadFailure,
-} from "@agentxm/workspace-kernel/workspace-state";
-import type {
-  WorkspaceLockfileMutationFailure,
-  WorkspaceStateMutationFailure,
-} from "@agentxm/workspace-kernel/workspace-state";
-import {
+  type WorkspaceLockfileMutationFailure,
+  type WorkspaceStateMutationFailure,
   AcceptedResolutionWriter,
   DesiredStateWriter,
   SettingsWriter,
   type SetMcpServerArgs,
+  computeMaterializedTreeIntegrity,
+  mcpRegistryResolutionKey,
+  mcpWorkspaceSourceKey,
+  type McpServerLockEntry,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type {
   McpServerExtensionRef,
   RegistryMcpServerRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
-import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
-import type { SourceHostProvidersService } from "@agentxm/workspace-kernel/sources";
-import { WorkspaceReadTest } from "@agentxm/workspace-kernel/workspace-state/testing";
 import {
-  computeMaterializedTreeIntegrity,
-  mcpRegistryResolutionKey,
-  mcpWorkspaceSourceKey,
-  type McpServerLockEntry,
-} from "@agentxm/workspace-kernel/workspace-state";
+  SourceHostProviders,
+  type SourceHostProvidersService,
+} from "@agentxm/workspace-kernel/sources";
+import { WorkspaceReadTest } from "@agentxm/workspace-kernel/workspace-state/testing";
 import { makeCodingAgentStub } from "./test-helpers.js";
-import type { McpSecretStoreService } from "@agentxm/workspace-kernel/materialization";
-import { McpSecretStore, mcpSecretAccount } from "@agentxm/workspace-kernel/materialization";
-import type { InstallMcpServerOperation } from "@agentxm/workspace-kernel/materialization";
+import {
+  type McpSecretStoreService,
+  McpSecretStore,
+  mcpSecretAccount,
+  type InstallMcpServerOperation,
+} from "@agentxm/workspace-kernel/materialization";
 import { installMcpServer } from "./install-operation.js";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import { McpServerManagerLive } from "../manager.js";

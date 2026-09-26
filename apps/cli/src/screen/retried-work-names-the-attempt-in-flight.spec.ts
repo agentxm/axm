@@ -26,7 +26,7 @@ export const specification = defineSpecification({
     "cli/machine-progress-events-follow-the-lifecycle-schema",
     "packages/supporting/registry-client/src/request-policy.test.ts",
     "packages/supporting/registry-client/src/remote-client.test.ts",
-    "packages/core/workspace/src/operations/operation-events.test.ts",
+    "packages/core/workspace-kernel/src/operations/operation-events.test.ts",
   ],
   supersedes: [],
   assumptions: [],

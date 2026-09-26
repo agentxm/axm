@@ -35,7 +35,7 @@ export const specification = defineSpecification({
   goals: ["workspace-intent-fidelity", "machine-automation", "actionable-diagnostics"],
   methods: ["example"],
   derivedFrom: [
-    "packages/core/workspace/src/inspection/packs/show-pack.ts",
+    "packages/core/workspace-features/src/inspection/packs/show-pack.ts",
     "apps/cli-e2e/src/scope-consistency.e2e.test.ts",
   ],
   supersedes: [],

@@ -36,10 +36,10 @@ import {
   SettingsReader,
   usableAcceptedCanonicalFrom,
   WorkspaceLocation,
+  desiredPackageKey,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import { PackInspectionRefused } from "../errors.js";
-import { desiredPackageKey } from "@agentxm/workspace-kernel/workspace-state";
 
 const PackMemberSchema = Schema.Struct({
   fqn: Schema.String,

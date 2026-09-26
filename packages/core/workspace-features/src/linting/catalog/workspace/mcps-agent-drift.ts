@@ -6,8 +6,8 @@ import {
   planMcpServerTargets,
 } from "@agentxm/workspace-kernel/agent-adapters";
 import { diffAgentEntry } from "@agentxm/workspace-kernel/projection";
-import type { McpServerEntry } from "@agentxm/workspace-kernel/workspace-state";
 import type {
+  McpServerEntry,
   ActualMcpServer,
   InstalledMcpServer,
 } from "@agentxm/workspace-kernel/workspace-state";

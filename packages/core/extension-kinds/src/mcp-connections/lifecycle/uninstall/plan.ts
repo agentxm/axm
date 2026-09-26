@@ -15,6 +15,11 @@ import {
   DesiredStateReader,
   LockfileReader,
   WorkspaceLocation,
+  acceptedLockedCanonicalPath,
+  type McpServerExtensionTarget,
+  lockfileDisplayPath,
+  settingsDisplayPath,
+  desiredMcpSourceKey,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import * as FileSystem from "effect/FileSystem";
@@ -42,16 +47,6 @@ import {
   type PlannedJobStep,
   type ExtensionLifecycleFailed,
 } from "@agentxm/workspace-kernel/operations";
-import {
-  acceptedLockedCanonicalPath,
-  type McpServerExtensionTarget,
-} from "@agentxm/workspace-kernel/workspace-state";
-
-import {
-  lockfileDisplayPath,
-  settingsDisplayPath,
-} from "@agentxm/workspace-kernel/workspace-state";
-import { desiredMcpSourceKey } from "@agentxm/workspace-kernel/workspace-state";
 
 /** One MCP connection removal. */
 export interface McpServerUninstallIntent {

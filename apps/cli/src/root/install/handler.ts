@@ -4,10 +4,14 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { extensionTypeToPlural } from "@agentxm/extension-model/unstable/extensions";
-import { installableExtensionTypes } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import type { InstallExtensionSelectors } from "@agentxm/workspace-features/lifecycle";
-import { installSelectorsFor } from "@agentxm/workspace-features/lifecycle";
+import {
+  installableExtensionTypes,
+  type InstallableExtensionType,
+} from "@agentxm/extension-model/unstable/extensions/installable-types";
+import {
+  type InstallExtensionSelectors,
+  installSelectorsFor,
+} from "@agentxm/workspace-features/lifecycle";
 import { ReleaseAgePosture } from "@agentxm/workspace-kernel/resolution";
 import {
   protectedRecoveryValue,

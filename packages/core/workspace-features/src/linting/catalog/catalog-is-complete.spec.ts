@@ -18,8 +18,8 @@ export const specification = defineSpecification({
     "Rule identity, default severity, and input scope are properties of the composed catalog itself; reading them needs nothing but the catalog.",
   methods: ["contract", "decision-table"],
   derivedFrom: [
-    "packages/core/workspace/src/linting/catalog/catalog-metadata.test.ts",
-    "packages/core/workspace/src/desired-state/settings/generated-schema.test.ts",
+    "packages/core/workspace-features/src/linting/catalog/catalog-metadata.test.ts",
+    "packages/core/workspace-kernel/src/workspace-state/desired/settings/generated-schema.test.ts",
   ],
   supersedes: [],
   assumptions: [],

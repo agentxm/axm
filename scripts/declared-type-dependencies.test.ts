@@ -12,7 +12,7 @@ import {
 const subject = (overrides: Partial<DeclarationSubject> = {}): DeclarationSubject => ({
   packageName: "@fixture/workspace-sync",
   manifestPath: "packages/fixture/workspace-sync/package.json",
-  declared: new Set(["@agentxm/workspace"]),
+  declared: new Set(["@agentxm/workspace-kernel"]),
   declarations: [],
   ...overrides,
 });
@@ -20,18 +20,18 @@ const subject = (overrides: Partial<DeclarationSubject> = {}): DeclarationSubjec
 describe("emitted declaration references", () => {
   it("reads every module-specifier position a declaration file uses", () => {
     const declaration = [
-      'import type { A } from "@agentxm/workspace/desired-state";',
+      'import type { A } from "@agentxm/workspace-kernel/workspace-state";',
       'export declare const a: import("@agentxm/registry-client").RegistryProblem;',
       'export * from "@agentxm/extension-model/unstable/extensions";',
-      'import "@agentxm/workspace/projection/agent-adapters";',
-      'declare module "@agentxm/workspace/resolution/sources" {}',
+      'import "@agentxm/workspace-kernel/agent-adapters";',
+      'declare module "@agentxm/workspace-kernel/sources" {}',
       '/// <reference types="@agentxm/extension-content" />',
     ].join("\n");
     expect([...referencedGuardedPackages(declaration)].sort()).toEqual([
       "@agentxm/extension-content",
       "@agentxm/extension-model",
       "@agentxm/registry-client",
-      "@agentxm/workspace",
+      "@agentxm/workspace-kernel",
     ]);
   });
 
@@ -44,10 +44,10 @@ describe("emitted declaration references", () => {
       " * not that bundle's loader.",
       " */",
       '// Superseded by "@agentxm/registry-client".',
-      'const url = "https://example.test/from \\"@agentxm/workspace/resolution/sources\\"";',
-      'import type { A } from "@agentxm/workspace/desired-state";',
+      'const url = "https://example.test/from \\"@agentxm/workspace-kernel/sources\\"";',
+      'import type { A } from "@agentxm/workspace-kernel/workspace-state";',
     ].join("\n");
-    expect([...referencedGuardedPackages(declaration)]).toEqual(["@agentxm/workspace"]);
+    expect([...referencedGuardedPackages(declaration)]).toEqual(["@agentxm/workspace-kernel"]);
   });
 
   it("keeps offsets stable while blanking comments", () => {
@@ -110,7 +110,7 @@ describe("undeclared type dependencies", () => {
             {
               path: "packages/fixture/workspace-sync/dist/src/index.d.ts",
               text: [
-                'import type { A } from "@agentxm/workspace/desired-state";',
+                'import type { A } from "@agentxm/workspace-kernel/workspace-state";',
                 'import type { B } from "@fixture/workspace-sync";',
                 'import type { C } from "effect/Effect";',
               ].join("\n"),

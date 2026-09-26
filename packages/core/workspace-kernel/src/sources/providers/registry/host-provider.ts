@@ -30,7 +30,11 @@ import {
   type GetExtensionIndexArgs,
   type GetExtensionsByOwnerArgs,
 } from "@agentxm/registry-client";
-import { packagesToPackageUrlParts } from "@agentxm/registry-protocol/unstable/registry";
+import {
+  packagesToPackageUrlParts,
+  type ExtensionIndex,
+  type VersionEntry,
+} from "@agentxm/registry-protocol/unstable/registry";
 import { AxmSkillCandidateGate } from "../../axm-skill-gate.js";
 import { RegistryResolutionPolicy } from "../../registry-resolution-policy.js";
 import { resolveVersionEntry } from "@agentxm/extension-model/unstable/version-constraints/version-selection";
@@ -64,7 +68,6 @@ import type {
   RegistrySource,
   RegistrySourceHost,
 } from "@agentxm/extension-model/unstable/sources/types";
-import type { ExtensionIndex, VersionEntry } from "@agentxm/registry-protocol/unstable/registry";
 import { makeThrottledUnitProgress } from "../../../operations/index.js";
 import { RegistryIndexMemo } from "./index-memo.js";
 type RegistryProviderRequirements =

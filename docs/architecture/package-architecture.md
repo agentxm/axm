@@ -307,17 +307,17 @@ orchestration, typed failures, typed result, and the specifications that state
 its promises. It depends on contracts, capabilities, and integrations through
 their public service APIs, and never on another feature module.
 
-| Module                                   | Role           | Use cases it owns                                                                                                                                        |
-| ---------------------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@agentxm/workspace/reconciliation/sync` | `role:feature` | Scope selection, shared reconciliation invocation, convergence and reconciliation outcomes                                                               |
-| `@agentxm/workspace/linting`             | `role:feature` | Workspace facts, lint rules, findings, normalization, and bounded fix planning                                                                           |
-| `@agentxm/workspace/lifecycle`           | `role:feature` | Install, update, uninstall, enable, disable, demote, and Pack unpacking across root and type-specific forms                                              |
-| `@agentxm/workspace/authoring`           | `role:feature` | New, fork, native import, adopt identity policy, version, and authored Pack membership                                                                   |
-| `@agentxm/workspace/publishing`          | `role:feature` | Publish selection, publication validation, archive planning, authentication requirements, upload settlement, recovery, visibility, yank, and deprecation |
-| `@agentxm/workspace/discovery`           | `role:feature` | Project package detectors, local extension declarations, Registry recommendations, and discovery results                                                 |
-| `@agentxm/workspace/configuration`       | `role:feature` | Setup, configured-agent membership, instruction management, and inline workspace capabilities such as MCP servers                                        |
-| `@agentxm/workspace/inspection`          | `role:feature` | List, view, show, Pack inventory, and update-availability assessment                                                                                     |
-| `@agentxm/workspace/knowledge/query`     | `role:feature` | Knowledge concept resolution, retrieval, search, related concepts, and status                                                                            |
+| Module                                        | Role           | Use cases it owns                                                                                                                                        |
+| --------------------------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@agentxm/workspace-features/sync`            | `role:feature` | Scope selection, shared reconciliation invocation, convergence and reconciliation outcomes                                                               |
+| `@agentxm/workspace-features/linting`         | `role:feature` | Workspace facts, lint rules, findings, normalization, and bounded fix planning                                                                           |
+| `@agentxm/workspace-features/lifecycle`       | `role:feature` | Install, update, uninstall, enable, disable, demote, and Pack unpacking across root and type-specific forms                                              |
+| `@agentxm/workspace-features/authoring`       | `role:feature` | New, fork, native import, adopt identity policy, version, and authored Pack membership                                                                   |
+| `@agentxm/workspace-features/publishing`      | `role:feature` | Publish selection, publication validation, archive planning, authentication requirements, upload settlement, recovery, visibility, yank, and deprecation |
+| `@agentxm/workspace-features/discovery`       | `role:feature` | Project package detectors, local extension declarations, Registry recommendations, and discovery results                                                 |
+| `@agentxm/workspace-features/configuration`   | `role:feature` | Setup, configured-agent membership, instruction management, and inline workspace capabilities such as MCP servers                                        |
+| `@agentxm/workspace-features/inspection`      | `role:feature` | List, view, show, Pack inventory, and update-availability assessment                                                                                     |
+| `@agentxm/workspace-features/knowledge-query` | `role:feature` | Knowledge concept resolution, retrieval, search, related concepts, and status                                                                            |
 
 Each exposes an application API of the shape `prepare(request) → Candidate` and
 `previewOrApply(candidate, execution) → OperationResolution`, with typed

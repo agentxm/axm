@@ -26,7 +26,7 @@ export const specification = defineSpecification({
   boundary: "memory",
   boundaryRationale:
     "The manifest, the body, the declaration, and the instruction projection are all written by the creation use case over the workspace-state services; a real project directory observes each one.",
-  derivedFrom: ["packages/core/workspace/src/authoring/create/scaffolds/rule.ts"],
+  derivedFrom: ["packages/core/workspace-features/src/authoring/create/scaffolds/rule.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

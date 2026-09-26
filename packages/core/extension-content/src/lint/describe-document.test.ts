@@ -1,8 +1,10 @@
 import { describe, expect, it } from "@effect/vitest";
 import { extensionTypes } from "@agentxm/extension-model/unstable/extensions/common";
-import { LOCKFILE_NAME } from "@agentxm/extension-model/unstable/workspace-files";
+import {
+  LOCKFILE_NAME,
+  SETTINGS_FILENAME,
+} from "@agentxm/extension-model/unstable/workspace-files";
 import { MANIFEST_FILENAME_BY_TYPE } from "../packaging/manifest-policy.js";
-import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 import { describeSchemaDocument, UNKNOWN_DOCUMENT_LABEL } from "./describe-document.js";
 
 describe("describeSchemaDocument", () => {

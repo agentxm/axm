@@ -31,7 +31,7 @@ export const specification = defineSpecification({
     "Reconciliation is what judges currency; running it over a real workspace shows exactly which bytes it leaves alone and which it regenerates.",
   methods: ["decision-table", "example"],
   derivedFrom: [
-    "packages/core/workspace/src/configuration/instructions/instruction-copy-currency.test.ts",
+    "packages/core/workspace-features/src/configuration/instructions/instruction-copy-currency.test.ts",
   ],
   supersedes: [],
   assumptions: [],
@@ -41,11 +41,11 @@ export const specification = defineSpecification({
       limitation:
         "The supporting lint cross-check — that a rewritten managed body produces no `workspace/projection-ownership-valid` finding — is not exercised here: a reconciliation cannot import the lint feature, and lint cannot produce a validly generated document without running one. The reconciliation side of the same fact is exercised: the rewritten body is reported as nothing to reconcile.",
       retirementCondition:
-        "`@agentxm/workspace/linting` gains a test that runs its ownership rule over a generated document whose body was rewritten and whose marker and generation record are intact.",
+        "`@agentxm/workspace-features/linting` gains a test that runs its ownership rule over a generated document whose body was rewritten and whose marker and generation record are intact.",
     },
     {
       limitation:
-        "The instruction-copy currency rows run beside the instruction-management use case that owns them, in `packages/core/workspace/src/configuration/instructions/instruction-copy-currency.test.ts`; a reconciliation cannot reach that feature. They establish copy currency on a host filesystem with symlink creation refused, not Windows permissions, native symlink probing, or Windows filesystem behavior; the dedicated Windows instruction suite supplies that evidence separately.",
+        "The instruction-copy currency rows run beside the instruction-management use case that owns them, in `packages/core/workspace-features/src/configuration/instructions/instruction-copy-currency.test.ts`; a reconciliation cannot reach that feature. They establish copy currency on a host filesystem with symlink creation refused, not Windows permissions, native symlink probing, or Windows filesystem behavior; the dedicated Windows instruction suite supplies that evidence separately.",
       retirementCondition:
         "Retain the same instruction-copy currency observations through real symlink-unavailable environments on each supported platform, alongside separately attributable Windows execution.",
     },

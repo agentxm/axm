@@ -2,7 +2,7 @@
  * The reconciliation witness for `cli/unreadable-knowledge-is-left-out-and-reported`.
  *
  * The specification lives in
- * `packages/core/workspace/src/lifecycle/uninstall/knowledge/unreadable-knowledge-is-left-out-and-reported.spec.ts`,
+ * `packages/core/workspace-features/src/lifecycle/uninstall/knowledge/unreadable-knowledge-is-left-out-and-reported.spec.ts`,
  * where the removal that first surfaces the omission runs. Its statement
  * obliges every command that writes or inspects the instructions file to
  * report the omission; a reconciliation is one of them, and a lifecycle

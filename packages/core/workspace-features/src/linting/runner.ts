@@ -30,13 +30,15 @@ import type * as Config from "effect/Config";
  */
 
 import * as Effect from "effect/Effect";
-import { composePath } from "@agentxm/extension-content/lint";
-import type { LintConfig } from "@agentxm/extension-content/lint";
-import { platformCanonicalLintConfig } from "@agentxm/extension-content/lint";
-import type { Evaluated } from "@agentxm/extension-content/lint";
-import { evaluateContexts } from "@agentxm/extension-content/lint";
+import {
+  composePath,
+  type LintConfig,
+  platformCanonicalLintConfig,
+  type Evaluated,
+  evaluateContexts,
+  type LintFinding,
+} from "@agentxm/extension-content/lint";
 import type { LintInput, LintJsonDocument, LintJsonFinding } from "./json-schema.js";
-import type { LintFinding } from "@agentxm/extension-content/lint";
 
 import {
   CATALOG_GROUP_ORDER,

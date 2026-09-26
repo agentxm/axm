@@ -28,7 +28,7 @@ export const specification = defineSpecification({
   goals: ["safe-repetition", "workspace-intent-fidelity"],
   boundary: "process",
   boundaryRationale:
-    "Separate Node processes overlap while using the published transition and transaction boundaries of @agentxm/workspace/transitions/settlement, which is where a change's write window is opened and closed.",
+    "Separate Node processes overlap while using the published transition and transaction boundaries of @agentxm/workspace-kernel/settlement and @agentxm/workspace-kernel/settlement/live, which is where a change's write window is opened and closed.",
   methods: ["example"],
   derivedFrom: [],
   supersedes: [],

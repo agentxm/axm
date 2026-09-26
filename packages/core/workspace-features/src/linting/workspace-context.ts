@@ -19,23 +19,19 @@ import type {
   AgentOutputInventory,
   WorkspaceOwnershipIssue,
   InstructionProjectionSnapshot,
+  ProjectionInvariantFact,
 } from "@agentxm/workspace-kernel/projection";
-import type { ProjectionInvariantFact } from "@agentxm/workspace-kernel/projection";
 import type {
   CanonicalObservation,
   InstallRootInventory,
+  DesiredExtensionNode,
+  DesiredStateGraph,
+  LockfileReadError,
+  SettingsReadError,
+  WorkspaceReadModel,
 } from "@agentxm/workspace-kernel/workspace-state";
 import type { AuthoredPackageObservation } from "./run/authored-packages.js";
 import type { AgentContentEntry, UserScopeObservation } from "./run/agent-scopes.js";
-import type {
-  DesiredExtensionNode,
-  DesiredStateGraph,
-} from "@agentxm/workspace-kernel/workspace-state";
-import type {
-  LockfileReadError,
-  SettingsReadError,
-} from "@agentxm/workspace-kernel/workspace-state";
-import type { WorkspaceReadModel } from "@agentxm/workspace-kernel/workspace-state";
 import { type AxmSkillCompatibility } from "@agentxm/cli-maintenance/official-skill/domain";
 
 /**

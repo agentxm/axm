@@ -14,6 +14,14 @@ import {
   LockfileReader,
   WorkspaceLocation,
   WorkspaceRecords,
+  acquiredExtensionDisplayPathFromLockEntry,
+  type SubagentExtensionTarget,
+  type SubagentLockEntry,
+  acquiredDisplayPath,
+  acquiredRootDisplayPath,
+  lockfileDisplayPath,
+  settingsDisplayPath,
+  lockEntryVersion,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import * as Option from "effect/Option";
@@ -36,20 +44,8 @@ import {
   type ExtensionLifecycleFailed,
   installRefused,
 } from "@agentxm/workspace-kernel/operations";
-import {
-  acquiredExtensionDisplayPathFromLockEntry,
-  type SubagentExtensionTarget,
-  type SubagentLockEntry,
-} from "@agentxm/workspace-kernel/workspace-state";
 
 import { expandGlob } from "@agentxm/extension-model/unstable/extensions/name-patterns";
-import {
-  acquiredDisplayPath,
-  acquiredRootDisplayPath,
-  lockfileDisplayPath,
-  settingsDisplayPath,
-  lockEntryVersion,
-} from "@agentxm/workspace-kernel/workspace-state";
 
 /** One subagent removal. */
 export interface SubagentUninstallIntent {

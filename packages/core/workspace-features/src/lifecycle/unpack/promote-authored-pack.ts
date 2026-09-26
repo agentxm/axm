@@ -36,6 +36,11 @@ import {
   type SettingsWriterService,
   type WorkspaceLayout,
   type WorkspaceLocationService,
+  usableAcceptedCanonical,
+  type DesiredExtensionNode,
+  desiredPackageKey,
+  formatDesiredIdentity,
+  type DesiredNodeIdentity,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import * as Option from "effect/Option";
@@ -56,17 +61,8 @@ import {
   resolveExecutionCandidate,
   type ExecutionCandidate,
 } from "@agentxm/workspace-kernel/planning";
-import {
-  usableAcceptedCanonical,
-  type DesiredExtensionNode,
-} from "@agentxm/workspace-kernel/workspace-state";
 
 import { validatePackGraphPostcondition } from "@agentxm/extension-kinds/packs";
-import {
-  desiredPackageKey,
-  formatDesiredIdentity,
-  type DesiredNodeIdentity,
-} from "@agentxm/workspace-kernel/workspace-state";
 
 // -----------------------------------------------------------------------------
 // Request and candidate

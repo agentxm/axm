@@ -35,7 +35,7 @@ export const specification = defineSpecification({
   methods: ["example"],
   derivedFrom: [
     "apps/cli/src/root/shared/extension-show.test.ts",
-    "packages/core/workspace/src/inspection/show/show-extension.ts",
+    "packages/core/workspace-features/src/inspection/show/show-extension.ts",
   ],
   supersedes: [],
   assumptions: [],

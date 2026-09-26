@@ -69,7 +69,10 @@ import {
   redactCredentialBearingLocator,
 } from "./app-error/index.js";
 import { SerializedErrorCauseSchema, serializeErrorCauseChain } from "./app-error/cause-chain.js";
-import { formatMinimumReleaseAgeSeconds } from "@agentxm/workspace-kernel/resolution";
+import {
+  formatMinimumReleaseAgeSeconds,
+  type TargetedUpdatePublicContext,
+} from "@agentxm/workspace-kernel/resolution";
 import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import { ArchivalViewSchema } from "@agentxm/extension-model/unstable/extensions/archival";
 import { CatalogExtensionTypeSchema } from "@agentxm/extension-model/unstable/extension-types";
@@ -77,7 +80,6 @@ import { CatalogExtensionTypeSchema } from "@agentxm/extension-model/unstable/ex
 import { operationDoc, resolutionAgentCoverage, unsettledUnits } from "./operation-view.js";
 import { emitResult, count, type Doc } from "./screen/index.js";
 import { currentWorkspaceScoping, suggestionsForScope } from "./root/shared/scoped-command.js";
-import type { TargetedUpdatePublicContext } from "@agentxm/workspace-kernel/resolution";
 
 export const PLAN_RESULT_CONTRACT = "plan-result-v3";
 

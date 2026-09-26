@@ -10,12 +10,11 @@
 import type * as Config from "effect/Config";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import { toFileLocation } from "@agentxm/host-primitives";
+import { toFileLocation, envOption } from "@agentxm/host-primitives";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import { MATERIALIZATION_TARGET_IDS } from "@agentxm/extension-model/unstable/agents/types";
 import { parsePluginManifests } from "./plugin-manifests.js";
-import { parseSkillMd } from "@agentxm/extension-content";
-import type { Skill } from "@agentxm/extension-content";
+import { parseSkillMd, type Skill } from "@agentxm/extension-content";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -24,7 +23,6 @@ import {
   DISCOVERY_MAX_DEPTH,
   DISCOVERY_SKIPPED_DIRECTORIES,
 } from "@agentxm/extension-model/unstable/discovery-walk";
-import { envOption } from "@agentxm/host-primitives";
 import { SCANNER_IO_CONCURRENCY } from "../scanners/fs-helpers.js";
 
 /**

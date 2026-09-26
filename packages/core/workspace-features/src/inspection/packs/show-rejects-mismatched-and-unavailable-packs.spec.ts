@@ -16,7 +16,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["workspace-intent-fidelity", "machine-automation", "actionable-diagnostics"],
   methods: ["example"],
-  derivedFrom: ["packages/core/workspace/src/inspection/packs/show-pack.ts"],
+  derivedFrom: ["packages/core/workspace-features/src/inspection/packs/show-pack.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

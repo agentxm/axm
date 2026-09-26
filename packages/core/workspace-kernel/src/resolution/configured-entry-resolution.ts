@@ -21,8 +21,8 @@ import {
   extensionTypeSentenceLabels,
   parseSourceQualifiedRegistrySourcePatternParts,
   toExtensionTypePlural,
+  type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
-import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";

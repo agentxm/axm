@@ -36,7 +36,9 @@ export const specification = defineSpecification({
   boundaryRationale:
     "Reachability is decided where desired state is read: the settings entries and the accepted resolutions are both on disk, and the records built from them are what every command downstream consults.",
   methods: ["decision-table", "contract"],
-  derivedFrom: ["packages/core/workspace/src/sync/lock-only-rows-are-never-acquired.test.ts"],
+  derivedFrom: [
+    "packages/core/workspace-features/src/sync/lock-only-rows-are-never-acquired.test.ts",
+  ],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

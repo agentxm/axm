@@ -64,46 +64,46 @@
       "symbol": "McpTransportSchema"
     },
     "inventory-lifecycle": {
-      "path": "packages/core/workspace/src/desired-state/workspace/read-model/extensions/inventory.ts",
+      "path": "packages/core/workspace-kernel/src/workspace-state/observed/extensions/inventory.ts",
       "symbol": "ExtensionInventoryLifecycleSchema"
     },
     "inventory-activation": {
-      "path": "packages/core/workspace/src/desired-state/workspace/read-model/extensions/inventory.ts",
+      "path": "packages/core/workspace-kernel/src/workspace-state/observed/extensions/inventory.ts",
       "symbol": "ExtensionInventoryRowSchema",
       "projection": "enabled: boolean | null"
     },
     "inventory-materialization": {
-      "path": "packages/core/workspace/src/desired-state/workspace/read-model/extensions/inventory.ts",
+      "path": "packages/core/workspace-kernel/src/workspace-state/observed/extensions/inventory.ts",
       "symbol": "ExtensionInventoryRowSchema",
       "projection": "installed: boolean"
     },
     "configured-agent-outcome": {
-      "path": "packages/core/workspace/src/operations/configured-agent-outcome.ts",
+      "path": "packages/core/workspace-kernel/src/operations/configured-agent-outcome.ts",
       "symbol": "ConfiguredAgentOutcomeSchema",
       "projection": "outcome"
     },
     "unit-state": {
-      "path": "packages/core/workspace/src/operations/operation-resolution.ts",
+      "path": "packages/core/workspace-kernel/src/operations/operation-resolution.ts",
       "symbol": "UnitStateSchema"
     },
     "operation-outcome": {
-      "path": "packages/core/workspace/src/operations/operation-resolution.ts",
+      "path": "packages/core/workspace-kernel/src/operations/operation-resolution.ts",
       "symbol": "OperationOutcomeSchema"
     },
     "unit-disposition": {
-      "path": "packages/core/workspace/src/operations/operation-resolution.ts",
+      "path": "packages/core/workspace-kernel/src/operations/operation-resolution.ts",
       "symbol": "UnitDispositionSchema"
     },
     "operation-phase": {
-      "path": "packages/core/workspace/src/operations/operation-resolution.ts",
+      "path": "packages/core/workspace-kernel/src/operations/operation-resolution.ts",
       "symbol": "OperationPhaseSchema"
     },
     "atomicity-class": {
-      "path": "packages/core/workspace/src/operations/operation-resolution.ts",
+      "path": "packages/core/workspace-kernel/src/operations/operation-resolution.ts",
       "symbol": "AtomicityClassSchema"
     },
     "blocking-class": {
-      "path": "packages/core/workspace/src/operations/plan.ts",
+      "path": "packages/core/workspace-kernel/src/operations/plan.ts",
       "symbol": "BlockingClassSchema"
     },
     "operation-error": {
@@ -146,17 +146,17 @@
       "projection": "installerAvailability.state"
     },
     "knowledge-readiness": {
-      "path": "packages/core/workspace/src/knowledge/query/documents.ts",
+      "path": "packages/core/workspace-features/src/knowledge-query/documents.ts",
       "symbol": "KnowledgeConceptStatusOutputSchema",
       "projection": "readiness"
     },
     "knowledge-health": {
-      "path": "packages/core/workspace/src/knowledge/query/documents.ts",
+      "path": "packages/core/workspace-features/src/knowledge-query/documents.ts",
       "symbol": "KnowledgeConceptStatusOutputSchema",
       "projection": "health.status"
     },
     "knowledge-collisions": {
-      "path": "packages/core/workspace/src/knowledge/query/documents.ts",
+      "path": "packages/core/workspace-features/src/knowledge-query/documents.ts",
       "symbol": "KnowledgeConceptStatusOutputSchema",
       "projection": "scopeCollisions.state"
     }

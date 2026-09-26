@@ -19,6 +19,7 @@ import {
   effectiveDesiredConstraint,
   type DesiredConstraintProposal,
   type DesiredStateGraph,
+  mcpRegistryResolutionKey,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import * as FileSystem from "effect/FileSystem";
@@ -51,7 +52,12 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
-import { SourceHostProviders, resolveSource } from "@agentxm/workspace-kernel/sources";
+import {
+  SourceHostProviders,
+  resolveSource,
+  parseRegistryInstallTarget,
+  registryLoginSuggestions,
+} from "@agentxm/workspace-kernel/sources";
 import {
   type RegistryBindingProposal,
   type SourceBindingProposal,
@@ -60,13 +66,8 @@ import {
   ExtensionLifecycleFailed,
   installRefused,
 } from "@agentxm/workspace-kernel/operations";
-import { mcpRegistryResolutionKey } from "@agentxm/workspace-kernel/workspace-state";
 
 import { settleMcpSourceIdentityFor } from "../../source-identity.js";
-import {
-  parseRegistryInstallTarget,
-  registryLoginSuggestions,
-} from "@agentxm/workspace-kernel/sources";
 
 /** One MCP connection, its local name, and the inputs the request supplied. */
 export interface McpServerInstallIntent {

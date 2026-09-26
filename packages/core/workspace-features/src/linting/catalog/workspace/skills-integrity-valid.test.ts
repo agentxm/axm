@@ -1,12 +1,14 @@
 import { describe, expect, it } from "@effect/vitest";
-import { desiredConstraintOf } from "@agentxm/workspace-kernel/workspace-state/testing";
+import {
+  desiredConstraintOf,
+  WorkspaceReadModelTest,
+} from "@agentxm/workspace-kernel/workspace-state/testing";
 import * as Effect from "effect/Effect";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
-import { makeWorkspaceReadModel } from "@agentxm/workspace-kernel/workspace-state";
-import { WorkspaceReadModelTest } from "@agentxm/workspace-kernel/workspace-state/testing";
-import type {
-  CanonicalObservation,
-  DesiredExtensionNode,
+import {
+  makeWorkspaceReadModel,
+  type CanonicalObservation,
+  type DesiredExtensionNode,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { emptyWorkspaceState, type WorkspaceState } from "../test-support/interpret-ops.js";
 import { scopeFilesFromWorkspaceState } from "../test-support/fixture-state.js";

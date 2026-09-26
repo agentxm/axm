@@ -5,8 +5,8 @@ import {
   lockfileDisplayPath,
   lockEntryVersion,
   settingsDisplayPath,
+  type McpServerLockEntry,
 } from "@agentxm/workspace-kernel/workspace-state";
-import type { McpServerLockEntry } from "@agentxm/workspace-kernel/workspace-state";
 import type { JobStepArtifact, JobStepArtifactTarget } from "@agentxm/workspace-kernel/operations";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 

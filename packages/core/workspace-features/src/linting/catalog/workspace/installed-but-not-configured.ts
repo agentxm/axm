@@ -4,9 +4,11 @@ import {
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import type { AdvisoryRule, LintFinding } from "@agentxm/extension-content/lint";
-import type { InstalledPackageEntry } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  type InstalledPackageEntry,
+  workspaceDisplayPath,
+} from "@agentxm/workspace-kernel/workspace-state";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
-import { workspaceDisplayPath } from "@agentxm/workspace-kernel/workspace-state";
 import { EMPTY_LINT_FINDINGS } from "./helpers/empty.js";
 
 const RULE_ID = "workspace/installed-but-not-configured";

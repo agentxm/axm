@@ -22,7 +22,18 @@
 
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
-import { WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  WorkspaceLocation,
+  DesiredStateReader,
+  desiredStateProblemsText,
+  effectiveDesiredConstraint,
+  SettingsReader,
+  type DesiredConstraintConflict,
+  type SettingsReaderService,
+  SettingsWriter,
+  type SettingsWriterService,
+  type WorkspaceSettingsReadFailure,
+} from "@agentxm/workspace-kernel/workspace-state";
 
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -74,17 +85,6 @@ import {
   resolveExecutionCandidate,
   type ExecutionCandidate,
 } from "@agentxm/workspace-kernel/planning";
-import {
-  DesiredStateReader,
-  desiredStateProblemsText,
-  effectiveDesiredConstraint,
-  SettingsReader,
-  type DesiredConstraintConflict,
-  type SettingsReaderService,
-  SettingsWriter,
-  type SettingsWriterService,
-  type WorkspaceSettingsReadFailure,
-} from "@agentxm/workspace-kernel/workspace-state";
 import { packMemberConflicts, readProposedGraph } from "@agentxm/extension-kinds/packs";
 
 // -----------------------------------------------------------------------------

@@ -143,7 +143,7 @@ describe("bootstrap cohort manifests", () => {
     const stamped: unknown = JSON.parse(
       stampBootstrapCohortReferences(
         JSON.stringify({
-          name: "@agentxm/workspace",
+          name: "@agentxm/workspace-kernel",
           version: "0.30.2",
           dependencies: {
             "@agentxm/extension-content": "workspace:^",
@@ -154,7 +154,7 @@ describe("bootstrap cohort manifests", () => {
       ),
     );
     expect(stamped).toEqual({
-      name: "@agentxm/workspace",
+      name: "@agentxm/workspace-kernel",
       version: "0.30.2",
       dependencies: {
         "@agentxm/extension-content": preview,

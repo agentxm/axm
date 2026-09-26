@@ -19,34 +19,10 @@ import {
   shallowFetchCommit,
 } from "./operations.js";
 import { GitOperationFailed } from "../errors.js";
+import { isolatedGitEnv } from "../testing.js";
 
 describe("git", () => {
   let tempDir: string;
-
-  const isolatedGitEnv = (): Record<string, string | undefined> => {
-    const env = { ...process.env };
-    for (const name of [
-      "GIT_ALTERNATE_OBJECT_DIRECTORIES",
-      "GIT_COMMON_DIR",
-      "GIT_CONFIG",
-      "GIT_CONFIG_COUNT",
-      "GIT_CONFIG_PARAMETERS",
-      "GIT_DIR",
-      "GIT_GRAFT_FILE",
-      "GIT_IMPLICIT_WORK_TREE",
-      "GIT_INDEX_FILE",
-      "GIT_INTERNAL_SUPER_PREFIX",
-      "GIT_NO_REPLACE_OBJECTS",
-      "GIT_OBJECT_DIRECTORY",
-      "GIT_PREFIX",
-      "GIT_REPLACE_REF_BASE",
-      "GIT_SHALLOW_FILE",
-      "GIT_WORK_TREE",
-    ]) {
-      delete env[name];
-    }
-    return env;
-  };
 
   beforeEach(() => {
     // Create a unique temp directory for each test
@@ -64,7 +40,7 @@ describe("git", () => {
   const createLocalRepo = async (repoPath: string): Promise<void> => {
     fs.mkdirSync(repoPath, { recursive: true });
     const { execSync } = await import("node:child_process");
-    const gitOptions = { cwd: repoPath, env: isolatedGitEnv(), stdio: "pipe" } as const;
+    const gitOptions = { cwd: repoPath, env: isolatedGitEnv(process.env), stdio: "pipe" } as const;
     execSync("git init", gitOptions);
     execSync("git config user.email 'test@test.com'", gitOptions);
     execSync("git config user.name 'Test'", gitOptions);
@@ -105,7 +81,7 @@ if (!refs.branches.includes("main")) process.exitCode = 2;
       execFileSync(process.execPath, ["--input-type=module", "-e", program, operationsUrl], {
         cwd: process.cwd(),
         env: {
-          ...isolatedGitEnv(),
+          ...isolatedGitEnv(process.env),
           PATH: `${binDir}${path.delimiter}${process.env["PATH"] ?? ""}`,
           HTTPS_PROXY: "proxy-sentinel",
           SSH_AUTH_SOCK: "ssh-sentinel",
@@ -168,7 +144,7 @@ if (failure.operation !== "list-remote-refs" || !failure.detail.includes("deadli
         execFileSync(process.execPath, ["--input-type=module", "-e", program, operationsUrl], {
           cwd: process.cwd(),
           env: {
-            ...isolatedGitEnv(),
+            ...isolatedGitEnv(process.env),
             PATH: `${binDir}${path.delimiter}${process.env["PATH"] ?? ""}`,
             AXM_GIT_PROBE_PID: pidPath,
           },
@@ -212,7 +188,11 @@ if (failure.operation !== "list-remote-refs" || !failure.detail.includes("deadli
         // Add a new file and commit
         const { execSync } = yield* Effect.promise(() => import("node:child_process"));
         fs.writeFileSync(path.join(repoPath, "new-file.md"), "# New File");
-        const gitOptions = { cwd: repoPath, env: isolatedGitEnv(), stdio: "pipe" } as const;
+        const gitOptions = {
+          cwd: repoPath,
+          env: isolatedGitEnv(process.env),
+          stdio: "pipe",
+        } as const;
         execSync("git add .", gitOptions);
         execSync("git commit -m 'Add new file'", gitOptions);
 
@@ -233,7 +213,11 @@ if (failure.operation !== "list-remote-refs" || !failure.detail.includes("deadli
         fs.mkdirSync(subDir);
         fs.writeFileSync(path.join(subDir, "file.txt"), "content");
         const { execSync } = yield* Effect.promise(() => import("node:child_process"));
-        const gitOptions = { cwd: repoPath, env: isolatedGitEnv(), stdio: "pipe" } as const;
+        const gitOptions = {
+          cwd: repoPath,
+          env: isolatedGitEnv(process.env),
+          stdio: "pipe",
+        } as const;
         execSync("git add .", gitOptions);
         execSync("git commit -m 'Add subdir'", gitOptions);
 
@@ -277,7 +261,11 @@ if (failure.operation !== "list-remote-refs" || !failure.detail.includes("deadli
         const checkout = path.join(tempDir, "checkout");
         yield* Effect.promise(() => createLocalRepo(source));
         const { execSync } = yield* Effect.promise(() => import("node:child_process"));
-        const gitOptions = { cwd: source, env: isolatedGitEnv(), stdio: "pipe" } as const;
+        const gitOptions = {
+          cwd: source,
+          env: isolatedGitEnv(process.env),
+          stdio: "pipe",
+        } as const;
         const recorded = execSync("git rev-parse HEAD", {
           ...gitOptions,
           encoding: "utf8",
@@ -287,7 +275,7 @@ if (failure.operation !== "list-remote-refs" || !failure.detail.includes("deadli
         execSync("git commit -m 'Advance branch'", gitOptions);
         execSync(`git clone --bare "${source}" "${remote}"`, {
           cwd: tempDir,
-          env: isolatedGitEnv(),
+          env: isolatedGitEnv(process.env),
           stdio: "pipe",
         });
         fs.mkdirSync(checkout);
@@ -308,7 +296,11 @@ if (failure.operation !== "list-remote-refs" || !failure.detail.includes("deadli
         const checkout = path.join(tempDir, "checkout");
         yield* Effect.promise(() => createLocalRepo(source));
         const { execSync } = yield* Effect.promise(() => import("node:child_process"));
-        const gitOptions = { cwd: source, env: isolatedGitEnv(), stdio: "pipe" } as const;
+        const gitOptions = {
+          cwd: source,
+          env: isolatedGitEnv(process.env),
+          stdio: "pipe",
+        } as const;
         execSync("git checkout -b temporary", gitOptions);
         fs.writeFileSync(path.join(source, "temporary.md"), "temporary\n");
         execSync("git add .", gitOptions);
@@ -319,22 +311,22 @@ if (failure.operation !== "list-remote-refs" || !failure.detail.includes("deadli
         }).trim();
         execSync(`git clone --bare "${source}" "${remote}"`, {
           cwd: tempDir,
-          env: isolatedGitEnv(),
+          env: isolatedGitEnv(process.env),
           stdio: "pipe",
         });
         execSync("git update-ref -d refs/heads/temporary", {
           cwd: remote,
-          env: isolatedGitEnv(),
+          env: isolatedGitEnv(process.env),
           stdio: "pipe",
         });
         execSync("git reflog expire --expire=now --all", {
           cwd: remote,
-          env: isolatedGitEnv(),
+          env: isolatedGitEnv(process.env),
           stdio: "pipe",
         });
         execSync("git gc --prune=now", {
           cwd: remote,
-          env: isolatedGitEnv(),
+          env: isolatedGitEnv(process.env),
           stdio: "pipe",
         });
         fs.mkdirSync(checkout);
@@ -357,17 +349,17 @@ if (failure.operation !== "list-remote-refs" || !failure.detail.includes("deadli
         const { execSync } = yield* Effect.promise(() => import("node:child_process"));
         execSync("git tag v1.0.0", {
           cwd: source,
-          env: isolatedGitEnv(),
+          env: isolatedGitEnv(process.env),
           stdio: "pipe",
         });
         execSync("git tag v2.0.0", {
           cwd: source,
-          env: isolatedGitEnv(),
+          env: isolatedGitEnv(process.env),
           stdio: "pipe",
         });
         execSync(`git clone --bare "${source}" "${remote}"`, {
           cwd: tempDir,
-          env: isolatedGitEnv(),
+          env: isolatedGitEnv(process.env),
           stdio: "pipe",
         });
 
@@ -390,7 +382,11 @@ if (failure.operation !== "list-remote-refs" || !failure.detail.includes("deadli
         fs.writeFileSync(path.join(packagePath, "src", "SKILL.md"), "committed body\n");
         fs.writeFileSync(path.join(packagePath, "old.md"), "removed later\n");
         const { execSync } = yield* Effect.promise(() => import("node:child_process"));
-        const gitOptions = { cwd: repoPath, env: isolatedGitEnv(), stdio: "pipe" } as const;
+        const gitOptions = {
+          cwd: repoPath,
+          env: isolatedGitEnv(process.env),
+          stdio: "pipe",
+        } as const;
         execSync("git add .", gitOptions);
         execSync("git commit -m 'Add package'", gitOptions);
 
@@ -435,7 +431,7 @@ if (failure.operation !== "list-remote-refs" || !failure.detail.includes("deadli
         const { execSync } = yield* Effect.promise(() => import("node:child_process"));
         execSync("git init", {
           cwd: repoPath,
-          env: isolatedGitEnv(),
+          env: isolatedGitEnv(process.env),
           stdio: "pipe",
         });
         fs.writeFileSync(path.join(repoPath, "skill.json"), "uncommitted\n");

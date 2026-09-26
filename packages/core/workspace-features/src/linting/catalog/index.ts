@@ -5,19 +5,19 @@
  * @packageDocumentation
  */
 
-import type {
-  LintCatalogGroup,
-  LintCatalogRuleMetadata,
-  LintCatalogView,
+import {
+  type LintCatalogGroup,
+  type LintCatalogRuleMetadata,
+  type LintCatalogView,
+  skillRules,
+  packRules,
+  subagentRules,
+  mcpServerRules,
+  hookRules,
+  ruleRules,
+  knowledgeRules,
+  type LintRule,
 } from "@agentxm/extension-content/lint";
-import { skillRules } from "@agentxm/extension-content/lint";
-import { packRules } from "@agentxm/extension-content/lint";
-import { subagentRules } from "@agentxm/extension-content/lint";
-import { mcpServerRules } from "@agentxm/extension-content/lint";
-import { hookRules } from "@agentxm/extension-content/lint";
-import { ruleRules } from "@agentxm/extension-content/lint";
-import { knowledgeRules } from "@agentxm/extension-content/lint";
-import type { LintRule } from "@agentxm/extension-content/lint";
 import { workspaceRules } from "./workspace.js";
 import { repositoryWorkspaceRules } from "./workspace.js";
 export { liveOnlyWorkspaceRules, repositoryWorkspaceRules, workspaceRules } from "./workspace.js";

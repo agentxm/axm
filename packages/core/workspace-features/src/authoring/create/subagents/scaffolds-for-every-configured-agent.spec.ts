@@ -33,7 +33,7 @@ export const specification = defineSpecification({
   boundaryRationale:
     "Creation is decided and executed inside extension-authoring over the workspace-state services; a real project directory observes the renderings an author would see without running the built CLI.",
   derivedFrom: [
-    "packages/core/workspace/src/authoring/create/create-extension.ts",
+    "packages/core/workspace-features/src/authoring/create/create-extension.ts",
     "cli/skills/new/scaffolds-for-every-configured-agent",
   ],
   supersedes: [],

@@ -26,7 +26,7 @@ export const specification = defineSpecification({
   derivedFrom: [
     "apps/cli/src/root/skills/list.test.ts",
     "cli/list/reports-the-cross-type-inventory",
-    "packages/core/workspace/src/inspection/type-list/type-lists.ts",
+    "packages/core/workspace-features/src/inspection/type-list/type-lists.ts",
   ],
   supersedes: [],
   assumptions: [],

@@ -14,7 +14,7 @@ export const specification = defineSpecification({
   goals: ["actionable-diagnostics"],
   methods: ["example"],
   derivedFrom: [
-    "packages/core/workspace/src/configuration/membership/validate-agent-ids.ts",
+    "packages/core/workspace-features/src/configuration/membership/validate-agent-ids.ts",
     "cli/agent-selection-is-membership-or-filter",
   ],
   supersedes: [],

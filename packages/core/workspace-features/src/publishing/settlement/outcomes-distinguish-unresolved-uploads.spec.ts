@@ -31,7 +31,7 @@ export const specification = defineSpecification({
   methods: ["example", "contract"],
   derivedFrom: [
     "apps/cli/src/root/publish/command.test.ts",
-    "packages/core/workspace/src/publishing/settlement.test.ts",
+    "packages/core/workspace-features/src/publishing/settlement.test.ts",
   ],
   supersedes: [],
   assumptions: [],

@@ -29,7 +29,7 @@ export const specification = defineSpecification({
   derivedFrom: [
     "apps/cli/help/topics/settings.md",
     "apps/cli/src/runtime.ts",
-    "packages/core/workspace/src/desired-state/workspace/settings-reader.ts",
+    "packages/core/workspace-kernel/src/workspace-state/workspace/settings-reader.ts",
     "packages/supporting/registry-access/src/credentials/token-resolution.ts",
   ],
   supersedes: [

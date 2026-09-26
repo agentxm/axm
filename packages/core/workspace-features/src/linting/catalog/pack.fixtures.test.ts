@@ -20,11 +20,14 @@ import * as nodeFs from "node:fs";
 import * as nodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { platformCanonicalLintConfig } from "@agentxm/extension-content/lint";
-import type { PackRuleContext } from "@agentxm/extension-content/lint";
-import { evaluateContexts } from "@agentxm/extension-content/lint";
-import { makeVftPackFileAccessor, type PackVFTNode } from "@agentxm/extension-content/lint";
-import { packRules } from "@agentxm/extension-content/lint";
+import {
+  platformCanonicalLintConfig,
+  type PackRuleContext,
+  evaluateContexts,
+  makeVftPackFileAccessor,
+  type PackVFTNode,
+  packRules,
+} from "@agentxm/extension-content/lint";
 
 // -----------------------------------------------------------------------------
 // Fixture loader

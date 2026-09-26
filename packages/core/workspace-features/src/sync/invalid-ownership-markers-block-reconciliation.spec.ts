@@ -28,9 +28,9 @@ export const specification = defineSpecification({
   limitations: [
     {
       limitation:
-        "The statement no longer carries the lint half of the rule — that a workspace lint run reports the invalid ownership as `workspace/projection-ownership-valid` and leaves the document untouched. A reconciliation specification cannot witness a peer feature's finding, and no ordinary test in `@agentxm/workspace/linting` exercises that rule against an unvalidatable marker yet; the rule's identity and severity are meanwhile owned by cli/lint/catalog-is-complete and lint's no-mutation obligation by cli/lint/reports-facts-without-mutation.",
+        "The statement no longer carries the lint half of the rule — that a workspace lint run reports the invalid ownership as `workspace/projection-ownership-valid` and leaves the document untouched. A reconciliation specification cannot witness a peer feature's finding, and no ordinary test in `@agentxm/workspace-features/linting` exercises that rule against an unvalidatable marker yet; the rule's identity and severity are meanwhile owned by cli/lint/catalog-is-complete and lint's no-mutation obligation by cli/lint/reports-facts-without-mutation.",
       retirementCondition:
-        "`@agentxm/workspace/linting` carries an ordinary test that runs the real workspace lint over a document whose ownership marker cannot be validated and asserts the `workspace/projection-ownership-valid` finding with the document unchanged.",
+        "`@agentxm/workspace-features/linting` carries an ordinary test that runs the real workspace lint over a document whose ownership marker cannot be validated and asserts the `workspace/projection-ownership-valid` finding with the document unchanged.",
     },
   ],
   openQuestions: [],

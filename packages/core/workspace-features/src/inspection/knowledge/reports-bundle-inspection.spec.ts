@@ -16,7 +16,7 @@ export const specification = defineSpecification({
   goals: ["knowledge-access", "machine-automation", "actionable-diagnostics"],
   methods: ["example"],
   derivedFrom: [
-    "packages/core/workspace/src/inspection/knowledge/list-knowledge.ts",
+    "packages/core/workspace-features/src/inspection/knowledge/list-knowledge.ts",
     "apps/cli-e2e/src/knowledge.e2e.test.ts",
   ],
   supersedes: [],

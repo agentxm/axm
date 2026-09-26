@@ -31,7 +31,7 @@ export const specification = defineSpecification({
   boundary: "memory",
   boundaryRationale:
     "The manifest, the entrypoint, the declaration, and the agent hook configuration are all written by the creation use case over the workspace-state services; a real project directory observes each one.",
-  derivedFrom: ["packages/core/workspace/src/authoring/create/scaffolds/hook.ts"],
+  derivedFrom: ["packages/core/workspace-features/src/authoring/create/scaffolds/hook.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

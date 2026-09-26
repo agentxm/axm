@@ -88,12 +88,12 @@ harness:
   `@nx/enforce-module-boundaries` rejects a same-project import by package name,
   and that import would load the package's built `dist`, which stays stale
   until the package is rebuilt. Import other packages by package
-  name (`@agentxm/workspace/transitions/planning`), never by a relative path
+  name (`@agentxm/workspace-kernel/planning`), never by a relative path
   into their `src`.
 - **`./testing` port.** Test doubles, fixtures, and deterministic execution
   stubs that a specification needs from a _different_ package come from that
-  package's `./testing` subpath (`@agentxm/workspace/desired-state/testing`,
-  `@agentxm/workspace/transitions/planning/testing`). A package that owes a seam to its
+  package's `./testing` subpath (`@agentxm/workspace-kernel/workspace-state/testing`,
+  `@agentxm/workspace-kernel/planning/testing`). A package that owes a seam to its
   consumers' specifications exports it there deliberately.
 - **Owner-local fixtures.** Fixtures for the owning package's own
   specifications live beside them (`./testing.js`, `./test-helpers.js`) and stay

@@ -116,7 +116,6 @@ import {
   McpRequiredInputsMissing,
   McpWorkspacePackageInvalid,
 } from "../mcp-connections/errors.js";
-import { NativeMcpEntryRetirementFailed } from "../mcp-connections/native-entry.js";
 import {
   PackGraphInvalid,
   PackManifestUnavailable,
@@ -279,7 +278,6 @@ const workspaceFailureClasses = () =>
     McpWorkspacePackageInvalid,
     McpRequiredInputsMissing,
     McpAgentSyncRefused,
-    NativeMcpEntryRetirementFailed,
     SkillDefinitionInvalid,
     SkillMaterializationFailed,
     AxmSkillCompatibilityUnavailable,

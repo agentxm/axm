@@ -11,8 +11,12 @@ import { parse as parseToml } from "smol-toml";
 import type { McpConfigTarget } from "@agentxm/extension-model/unstable/agent-capabilities";
 import * as Layer from "effect/Layer";
 import { parseYaml, readYamlEntry } from "../yaml.js";
-import { NativeWriteAuthorityPermissive } from "../testing.js";
-import { removeAgentMcpConfig, writeAgentMcpConfig } from "./config-writer.js";
+import { makeRecordingNativeWriteAuthority, NativeWriteAuthorityPermissive } from "../testing.js";
+import {
+  removeAgentMcpConfig,
+  retireAgentMcpConfig,
+  writeAgentMcpConfig,
+} from "./config-writer.js";
 
 /** The ownership record every projected entry carries; a TOML fence names its ext. */
 const ownedBy = (name: string) => ({
@@ -43,6 +47,144 @@ const withFailingConfigWrite = <A, E, R>(effect: Effect.Effect<A, E, R>, configP
   }).pipe(Effect.provide(Layer.merge(NodeServices.layer, NativeWriteAuthorityPermissive)));
 
 describe("agent MCP config writer", () => {
+  const retirement = (workspaceRoot: string, target: McpConfigTarget) =>
+    retireAgentMcpConfig({
+      workspaceRoot,
+      serverName: "context",
+      serversKey: "mcpServers",
+      target,
+    });
+
+  it.effect("retires only the converted JSONC entry and records the native write", () =>
+    Effect.gen(function* () {
+      const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-retire-jsonc-"));
+      try {
+        const configPath = nodePath.join(workspaceRoot, "agent.jsonc");
+        writeFileSync(
+          configPath,
+          '{\n  // keep this comment\n  "mcpServers": { "context": { "command": "node" }, "other": { "command": "other" } },\n  "unrelated": true\n}\n',
+        );
+        const target: McpConfigTarget = {
+          scope: "project",
+          path: "agent.jsonc",
+          format: "jsonc",
+          attribution: "agent",
+        };
+        const recording = yield* makeRecordingNativeWriteAuthority;
+
+        const result = yield* retirement(workspaceRoot, target).pipe(
+          Effect.provide(Layer.merge(NodeServices.layer, recording.layer)),
+        );
+
+        const raw = readFileSync(configPath, "utf8");
+        expect(raw).toContain("// keep this comment");
+        expect(raw).toContain('"other"');
+        expect(raw).toContain('"unrelated": true');
+        expect(raw).not.toContain('"context"');
+        expect(result.targets).toEqual([{ path: "agent.jsonc", change: "updated" }]);
+        expect(yield* recording.observed).toEqual({
+          protectedPaths: [configPath],
+          records: [{ path: configPath, change: "modified" }],
+        });
+      } finally {
+        rmSync(workspaceRoot, { recursive: true, force: true });
+      }
+    }),
+  );
+
+  it.effect("treats an already absent converted entry as settled", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-retire-absent-"));
+        try {
+          const configPath = nodePath.join(workspaceRoot, "agent.json");
+          const original = '{\n  "mcpServers": {}\n}\n';
+          writeFileSync(configPath, original);
+          const result = yield* retirement(workspaceRoot, {
+            scope: "project",
+            path: "agent.json",
+            format: "json",
+            attribution: "agent",
+          });
+          expect(result.targets).toEqual([]);
+          expect(readFileSync(configPath, "utf8")).toBe(original);
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
+  it.effect("treats a missing native config as already retired", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-retire-missing-"));
+        try {
+          const result = yield* retirement(workspaceRoot, {
+            scope: "project",
+            path: "agent.json",
+            format: "json",
+            attribution: "agent",
+          });
+          expect(result.targets).toEqual([]);
+          expect(existsSync(nodePath.join(workspaceRoot, "agent.json"))).toBe(false);
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
+  it.effect("reports malformed JSON without replacing the native file", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-retire-invalid-"));
+        try {
+          const configPath = nodePath.join(workspaceRoot, "agent.json");
+          writeFileSync(configPath, "{ not json");
+          const failure = yield* retirement(workspaceRoot, {
+            scope: "project",
+            path: "agent.json",
+            format: "json",
+            attribution: "agent",
+          }).pipe(Effect.flip);
+          expect(failure._tag).toBe("McpConfigInvalid");
+          expect(readFileSync(configPath, "utf8")).toBe("{ not json");
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
+  it.effect("retires a YAML entry while preserving surrounding comments", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-retire-yaml-"));
+        try {
+          const configPath = nodePath.join(workspaceRoot, "agent.yaml");
+          writeFileSync(
+            configPath,
+            "# keep this comment\nmcpServers:\n  context:\n    command: node\n  other:\n    command: other\n",
+          );
+          const result = yield* retirement(workspaceRoot, {
+            scope: "project",
+            path: "agent.yaml",
+            format: "yaml",
+            attribution: "agent",
+          });
+          const raw = readFileSync(configPath, "utf8");
+          expect(raw).toContain("# keep this comment");
+          expect(raw).toContain("other:");
+          expect(raw).not.toContain("context:");
+          expect(result.targets).toEqual([{ path: "agent.yaml", change: "updated" }]);
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
   it.effect(
     "updates JSONC config while preserving unrelated content without a workspace backup",
     () =>

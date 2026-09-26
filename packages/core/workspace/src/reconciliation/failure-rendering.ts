@@ -188,7 +188,6 @@ export const workspaceFailureToStepFailure = (failure: WorkspaceFailure): StepFa
     case "McpWorkspacePackageInvalid":
     case "McpRequiredInputsMissing":
     case "McpAgentSyncRefused":
-    case "NativeMcpEntryRetirementFailed":
     case "SkillDefinitionInvalid":
     case "SkillMaterializationFailed":
     case "AxmSkillCompatibilityUnavailable":

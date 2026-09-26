@@ -196,10 +196,13 @@ export {
 } from "./mcps/resolution.js";
 export {
   removeAgentMcpConfig,
+  retireAgentMcpConfig,
   writeAgentMcpConfig,
+  type AgentMcpConfigEntryRef,
   type AgentMcpConfigWriteResult,
   type AgentMcpConfigWriteTarget,
   type RemoveAgentMcpConfigArgs,
+  type RetireAgentMcpConfigArgs,
   type WriteAgentMcpConfigArgs,
 } from "./mcps/config-writer.js";
 export {

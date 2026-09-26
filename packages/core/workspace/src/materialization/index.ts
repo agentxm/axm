@@ -111,11 +111,6 @@ export {
 // port, and the artifact/target vocabulary the plan step reports.
 
 export {
-  NativeMcpEntryRetirementFailed,
-  retireNativeMcpEntry,
-  type NativeMcpEntryRef,
-} from "../mcp-connections/native-entry.js";
-export {
   MCP_SECRET_SERVICE,
   McpSecretStore,
   mcpSecretAccount,

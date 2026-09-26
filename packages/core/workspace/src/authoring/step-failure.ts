@@ -14,7 +14,6 @@
 import type { ScaffoldedExtensionUnresolved } from "../transitions/planning/materialization-errors.js";
 import { makeStepFailure, type StepFailure } from "../transitions/planning/plan/errors.js";
 import type { ExtensionManagerFailure } from "../materialization/errors.js";
-import type { NativeMcpEntryRetirementFailed } from "../mcp-connections/native-entry.js";
 import type {
   PackGraphInvalid,
   PackManifestUnavailable,
@@ -293,7 +292,6 @@ export type AuthoringStepFailure =
   | ScaffoldedExtensionUnresolved
   | AuthoredPackageError
   | AuthoringFailed
-  | NativeMcpEntryRetirementFailed
   | StepFailure;
 
 /**

@@ -53,6 +53,21 @@ export interface RemoveAgentMcpConfigArgs {
   readonly disableOnly: boolean;
 }
 
+/** One native MCP declaration discovered for conversion into a package. */
+export interface AgentMcpConfigEntryRef {
+  readonly filePath: string;
+  readonly serversKey: McpServersKey;
+  readonly name: string;
+  readonly target: McpConfigTarget;
+}
+
+export interface RetireAgentMcpConfigArgs {
+  readonly workspaceRoot: string;
+  readonly serverName: string;
+  readonly serversKey: McpServersKey;
+  readonly target: McpConfigTarget;
+}
+
 export interface AgentMcpConfigWriteTarget {
   readonly path: string;
   readonly change: NativeArtifactChange;
@@ -175,6 +190,23 @@ const removeJsonLike = (args: {
     );
   });
 
+const retireJsonLike = (args: {
+  readonly configPath: string;
+  readonly raw: string;
+  readonly serversKey: string;
+  readonly serverName: string;
+}): Effect.Effect<string, McpConfigInvalid> =>
+  Effect.gen(function* () {
+    const { servers } = yield* decodeJsonMcpConfig(args.configPath, args.raw, args.serversKey);
+    if (servers?.[args.serverName] === undefined) return args.raw;
+    return applyEdits(
+      args.raw,
+      modify(args.raw, [args.serversKey, args.serverName], undefined, {
+        formattingOptions: JSON_FORMATTING,
+      }),
+    );
+  });
+
 const mapYamlError = (configPath: string, error: unknown): McpConfigInvalid =>
   new McpConfigInvalid({
     detail: `Invalid MCP config YAML: ${configPath}`,
@@ -224,6 +256,20 @@ const removeYaml = (args: {
     },
     catch: (error) =>
       error instanceof McpEntryUnmanaged ? error : mapYamlError(args.configPath, error),
+  });
+
+const retireYaml = (args: {
+  readonly configPath: string;
+  readonly raw: string;
+  readonly serversKey: string;
+  readonly serverName: string;
+}): Effect.Effect<string, McpConfigInvalid> =>
+  Effect.try({
+    try: () =>
+      readYamlEntry(args.raw, args.serversKey, args.serverName) === undefined
+        ? args.raw
+        : deleteYamlEntry(args.raw, args.serversKey, args.serverName),
+    catch: (error) => mapYamlError(args.configPath, error),
   });
 
 const tomlRegion = (serverName: string) => `mcp-server:${serverName}` as const;
@@ -424,6 +470,52 @@ export const removeAgentMcpConfig = (
           }
         });
         return yield* writeIfChanged(configPath, target.path, raw, next);
+      }),
+    );
+  });
+
+/** Retire a converted declaration regardless of ownership, preserving its native file. */
+export const retireAgentMcpConfig = (
+  args: RetireAgentMcpConfigArgs,
+): Effect.Effect<
+  AgentMcpConfigWriteResult,
+  NativeFormatFailure,
+  FileSystem.FileSystem | Path.Path | NativeWriteAuthority
+> =>
+  Effect.gen(function* () {
+    const configPath = yield* resolveAgentMcpConfigTargetPath(args.workspaceRoot, args.target);
+    const authority = yield* NativeWriteAuthority;
+    return yield* authority.withExclusiveWrite(
+      configPath,
+      Effect.gen(function* () {
+        const raw = yield* readExisting(configPath);
+        if (raw.length === 0) return { targets: [] };
+        const next = yield* Effect.gen(function* () {
+          switch (args.target.format) {
+            case "toml":
+              return yield* new McpConfigInvalid({
+                detail: "TOML MCP entries are fenced regions and are not retired in place",
+              });
+            case "yaml":
+              return yield* retireYaml({
+                configPath,
+                raw,
+                serversKey: args.serversKey,
+                serverName: args.serverName,
+              });
+            case "json":
+            case "jsonc":
+            case "starlark":
+            case "vscode-settings":
+              return yield* retireJsonLike({
+                configPath,
+                raw,
+                serversKey: args.serversKey,
+                serverName: args.serverName,
+              });
+          }
+        });
+        return yield* writeIfChanged(configPath, args.target.path, raw, next);
       }),
     );
   });

@@ -46,7 +46,6 @@ import type {
   McpRequiredInputsMissing,
   McpWorkspacePackageInvalid,
 } from "../mcp-connections/errors.js";
-import type { NativeMcpEntryRetirementFailed } from "../mcp-connections/native-entry.js";
 import type {
   PackArchiveFetchFailed,
   PackDefinitionInvalid,
@@ -77,7 +76,6 @@ export type MaterializationFamilyFailure =
   | McpWorkspacePackageInvalid
   | McpRequiredInputsMissing
   | McpAgentSyncRefused
-  | NativeMcpEntryRetirementFailed
   | SkillDefinitionInvalid
   | SkillMaterializationFailed
   | AxmSkillCompatibilityUnavailable
@@ -244,12 +242,6 @@ export const materializationFailureToStepFailure = (
       return makeStepFailure({
         category: error.fault === "unknown-agents" ? "not_found" : "internal",
         detail: mcpAgentSyncDetail(error),
-      });
-    case "NativeMcpEntryRetirementFailed":
-      return makeStepFailure({
-        category: error.category,
-        detail: error.detail,
-        cause: error.cause,
       });
     case "SkillMaterializationFailed":
       return makeStepFailure({ category: "internal", detail: error.detail, cause: error.cause });

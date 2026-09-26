@@ -7,9 +7,9 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
+import { snapshotTree } from "../../desired-state/testing.js";
 
 import { ExtensionLifecycleFailed } from "../../lifecycle/errors.js";
-import { snapshotContent } from "../../lifecycle/demote/test-helpers.js";
 import { applyUnpack, makePackWorld, seedAuthoredPackWorkspace, PACK } from "./test-helpers.js";
 
 export const specification = defineSpecification({
@@ -58,7 +58,7 @@ describe("Unpack refusal", () => {
           if (fault === "unreadable-pack") {
             world.workspace.writeFile(`packs/${PACK}/pack.json`, "{ invalid");
           }
-          const before = snapshotContent(root);
+          const before = snapshotTree(root);
 
           const failure = yield* applyUnpack({
             name: fault === "missing-pack" ? "absent" : PACK,
@@ -68,7 +68,7 @@ describe("Unpack refusal", () => {
           if (failure instanceof ExtensionLifecycleFailed) {
             expect(failure.category).toBe(category);
           }
-          expect(snapshotContent(root)).toEqual(before);
+          expect(snapshotTree(root)).toEqual(before);
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));

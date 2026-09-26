@@ -8,7 +8,7 @@ import { afterEach } from "vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { makeSetupSpecContext } from "../../test-support/setup-harness.js";
-import { snapshotWorkspaceContent } from "../../test-support/workspace-fixtures.js";
+import { snapshotTree } from "@agentxm/test-support";
 import { handleSetup } from "../setup.js";
 
 export const specification = defineSpecification({
@@ -42,7 +42,7 @@ describe("Workspace initialization", () => {
       // The scope this run does not select must come out of it untouched.
       const otherRoot = scope === "project" ? context.home : context.root;
       fs.writeFileSync(path.join(otherRoot, "keep.txt"), "Unrelated scope content");
-      const beforeOther = snapshotWorkspaceContent(otherRoot);
+      const beforeOther = snapshotTree(otherRoot);
 
       return Effect.gen(function* () {
         yield* handleSetup({ scope, scopeExplicit: true, agents: ["claude-code"], yes: true });
@@ -63,7 +63,7 @@ describe("Workspace initialization", () => {
             path.join(workspaceRoot, "agent_extensions/registry/@agentxm/skills/axm/src/SKILL.md"),
           ),
         ).toBe(true);
-        expect(snapshotWorkspaceContent(otherRoot)).toEqual(beforeOther);
+        expect(snapshotTree(otherRoot)).toEqual(beforeOther);
         expect(context.rendererState.results.at(-1)?.data).toMatchObject({
           result: { status: "initialized", changed: true, defaultSkillInstalled: true, scope },
         });

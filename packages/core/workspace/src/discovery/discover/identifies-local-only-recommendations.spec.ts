@@ -11,11 +11,11 @@ import * as TestClock from "effect/testing/TestClock";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { discover } from "../discover.js";
+import { snapshotTree } from "../../desired-state/testing.js";
 import {
   makeRecordedRegistryPort,
   makeTemporaryProject,
   registryFactoryForClient,
-  snapshotDirectory,
 } from "../test-helpers.js";
 
 export const specification = defineSpecification({
@@ -141,7 +141,7 @@ describe("Local-only discovery", () => {
         },
       ],
     });
-    const before = snapshotDirectory(project.root);
+    const before = snapshotTree(project.root);
     const registry = makeRecordedRegistryPort(() => ({ body: { results: [] } }));
     return Effect.gen(function* () {
       const client = yield* registry.client;
@@ -172,7 +172,7 @@ describe("Local-only discovery", () => {
         ],
       });
       expect(registry.requests).toEqual([]);
-      expect(snapshotDirectory(project.root)).toEqual(before);
+      expect(snapshotTree(project.root)).toEqual(before);
     }).pipe(
       Effect.provide(NodeServices.layer),
       Effect.ensuring(

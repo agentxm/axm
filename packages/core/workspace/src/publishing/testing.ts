@@ -16,6 +16,7 @@
  */
 
 import * as fs from "node:fs";
+import { snapshotTree } from "../desired-state/testing.js";
 import * as nodePath from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -62,16 +63,6 @@ export interface PublishTarget {
   readonly storedFiles: () => ReadonlyArray<string>;
 }
 
-const walkFiles = (root: string, directory: string): ReadonlyArray<string> =>
-  fs.existsSync(directory)
-    ? fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-        const absolute = nodePath.join(directory, entry.name);
-        return entry.isDirectory()
-          ? walkFiles(root, absolute)
-          : [nodePath.relative(root, absolute).split(nodePath.sep).join("/")];
-      })
-    : [];
-
 /**
  * An empty `file://` Registry inside `workspaceRoot`, as the publish target.
  * It starts with no extensions at all, so a conflict a test needs must be
@@ -86,7 +77,10 @@ export const makePublishTarget = (
   return {
     root,
     url: pathToFileURL(root).href,
-    storedFiles: () => [...walkFiles(root, root)].sort(),
+    storedFiles: () =>
+      Object.entries(snapshotTree(root))
+        .filter(([, value]) => value.startsWith("file:"))
+        .map(([relative]) => relative.split(nodePath.sep).join("/")),
   };
 };
 

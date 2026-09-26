@@ -25,8 +25,9 @@ import {
   readNativeMcpServers,
   writeNativeRemoteMcp,
 } from "./test-support/mcp-package-import-fixture.js";
-import { snapshotProtectedState, writeWorkspaceState } from "./test-support/protected-state.js";
-import { snapshotWorkspaceContent } from "./test-support/workspace-fixtures.js";
+import { snapshotProtectedState } from "@agentxm/test-support";
+import { writeWorkspaceState } from "./test-support/protected-state.js";
+import { snapshotTree } from "@agentxm/test-support";
 
 export const executionBinding = defineExecutionBinding({
   requirements: ["cli/authoring-uses-project-workspace"],
@@ -47,21 +48,21 @@ describe("Authoring commands use the project workspace", () => {
         throw new Error("Setup did not create an object-shaped settings file");
       }
       fs.writeFileSync(settingsPath, JSON.stringify({ ...settings, owner: "@acme" }));
-      const beforeProject = snapshotWorkspaceContent(fixture.selected);
-      const beforeHome = snapshotWorkspaceContent(fixture.home);
+      const beforeProject = snapshotTree(fixture.selected);
+      const beforeHome = snapshotTree(fixture.home);
       const args = ["skills", "new", "scope-authored", "--owner", "@acme", "--json"];
       const refused = await fixture.run(["-C", fixture.selected, ...args, "--scope", "user"]);
       expect(refused.exitCode, refused.stdout + refused.stderr).toBe(2);
       expect(refused.stdout + refused.stderr).toContain("Unrecognized flag: --scope");
-      expect(snapshotWorkspaceContent(fixture.selected)).toEqual(beforeProject);
-      expect(snapshotWorkspaceContent(fixture.home)).toEqual(beforeHome);
+      expect(snapshotTree(fixture.selected)).toEqual(beforeProject);
+      expect(snapshotTree(fixture.home)).toEqual(beforeHome);
       const created = await fixture.run(["-C", fixture.selected, ...args]);
       expect(created.exitCode, created.stdout + created.stderr).toBe(0);
       expect(
         fs.existsSync(path.join(fixture.selected, "skills", "scope-authored", "skill.json")),
       ).toBe(true);
-      expect(snapshotWorkspaceContent(fixture.invoking)).toEqual({});
-      expect(snapshotWorkspaceContent(fixture.home)).toEqual(beforeHome);
+      expect(snapshotTree(fixture.invoking)).toEqual({});
+      expect(snapshotTree(fixture.home)).toEqual(beforeHome);
     } finally {
       fixture.cleanup();
     }
@@ -82,7 +83,7 @@ describe("Authoring commands use the project workspace", () => {
         expect(readNativeMcpServers(fixture.selected)["native-context"]).toEqual(importedRemote);
         const beforeProject = snapshotProtectedState(fixture.selected);
         const beforeUser = snapshotProtectedState(userRoot);
-        const beforeInvoking = snapshotWorkspaceContent(fixture.invoking);
+        const beforeInvoking = snapshotTree(fixture.invoking);
 
         const refused = await fixture.importPackage([
           "--scope",
@@ -97,7 +98,7 @@ describe("Authoring commands use the project workspace", () => {
         expect(failure.detail).toContain("project-workspace");
         expect(snapshotProtectedState(fixture.selected)).toEqual(beforeProject);
         expect(snapshotProtectedState(userRoot)).toEqual(beforeUser);
-        expect(snapshotWorkspaceContent(fixture.invoking)).toEqual(beforeInvoking);
+        expect(snapshotTree(fixture.invoking)).toEqual(beforeInvoking);
 
         const created = await fixture.importPackage(["--scope", "project"]);
         expect(created.exitCode, created.stdout + created.stderr).toBe(0);
@@ -106,7 +107,7 @@ describe("Authoring commands use the project workspace", () => {
           name: "context",
         });
         expect(snapshotProtectedState(userRoot)).toEqual(beforeUser);
-        expect(snapshotWorkspaceContent(fixture.invoking)).toEqual(beforeInvoking);
+        expect(snapshotTree(fixture.invoking)).toEqual(beforeInvoking);
       } finally {
         fixture.cleanup();
       }

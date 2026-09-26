@@ -273,6 +273,7 @@
   },
   "devDependencies": {
     "@agentxm/specification-metadata": "workspace:^",
+    "@agentxm/test-support": "workspace:^",
     "@effect/platform-node": "catalog:",
     "@effect/vitest": "catalog:",
     "@fast-check/vitest": "catalog:",

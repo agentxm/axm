@@ -6,14 +6,13 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
+import { WORKSPACE_PROTECTED_STATE, type ProtectedStateSnapshot } from "@agentxm/test-support";
 
 import {
-  PUBLISH_PROTECTED_STATE,
   makePublishWorld,
   publishDocument,
   requestFor,
   runPublish,
-  type ProtectedStateSnapshot,
   type PublishWorld,
 } from "./test-helpers.js";
 
@@ -57,6 +56,8 @@ export const specification = defineSpecification({
   ],
   openQuestions: [],
 });
+
+const PUBLISH_PROTECTED_STATE = [...WORKSPACE_PROTECTED_STATE, "registry"];
 
 /** A remote Registry that answers reads and dies on anything that would write. */
 const readOnlyRegistry = HttpClient.make((request) => {

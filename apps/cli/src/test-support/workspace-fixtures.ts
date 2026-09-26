@@ -52,35 +52,3 @@ export const pinSpecUserHome = (): PinnedUserHome => {
     },
   };
 };
-
-/**
- * Exact content snapshot of a directory tree: relative path mapped to
- * `"directory"`, `"symlink:<target>"`, or `"file:<base64 bytes>"`. Two
- * snapshots are equal only when every path and every byte is unchanged. A
- * missing root snapshots as empty.
- */
-export const snapshotWorkspaceContent = (root: string): Readonly<Record<string, string>> => {
-  const snapshot: Record<string, string> = {};
-  if (!fs.existsSync(root)) {
-    return snapshot;
-  }
-  const visit = (directory: string): void => {
-    const entries = fs
-      .readdirSync(directory, { withFileTypes: true })
-      .sort((left, right) => left.name.localeCompare(right.name, "en"));
-    for (const entry of entries) {
-      const absolute = path.join(directory, entry.name);
-      const relative = path.relative(root, absolute);
-      if (entry.isSymbolicLink()) {
-        snapshot[relative] = `symlink:${fs.readlinkSync(absolute)}`;
-      } else if (entry.isDirectory()) {
-        snapshot[relative] = "directory";
-        visit(absolute);
-      } else {
-        snapshot[relative] = `file:${fs.readFileSync(absolute).toString("base64")}`;
-      }
-    }
-  };
-  visit(root);
-  return snapshot;
-};

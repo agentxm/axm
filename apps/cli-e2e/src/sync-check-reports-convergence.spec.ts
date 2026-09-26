@@ -7,7 +7,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { makeDirectoryFixture, unattendedProjectSetup } from "./test-support/directory-harness.js";
-import { snapshotProtectedState } from "./test-support/protected-state.js";
+import { snapshotProtectedState } from "@agentxm/test-support";
 
 export const specification = defineSpecification({
   requirement: "cli/sync/check-reports-convergence",

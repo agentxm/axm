@@ -13,6 +13,7 @@
  */
 
 import * as fs from "node:fs";
+import { snapshotTree } from "../desired-state/testing.js";
 import * as os from "node:os";
 import * as nodePath from "node:path";
 
@@ -43,7 +44,7 @@ export interface DiscoveryProject {
   /** Writes one text file, creating the directories it needs. */
   readonly writeFile: (relativePath: string, contents: string) => void;
   /** Every file under the project, path and content, sorted by path. */
-  readonly snapshot: () => ReadonlyArray<readonly [string, string]>;
+  readonly snapshot: () => Readonly<Record<string, string>>;
   readonly cleanup: () => void;
 }
 
@@ -60,26 +61,9 @@ export const makeDiscoveryProject = (): DiscoveryProject => {
     writeJson: (relativePath, value) =>
       writeFile(relativePath, `${JSON.stringify(value, null, 2)}\n`),
     writeFile,
-    snapshot: () => snapshotDirectory(root),
+    snapshot: () => snapshotTree(root),
     cleanup: () => fs.rmSync(root, { recursive: true, force: true }),
   };
-};
-
-/**
- * Directory content snapshot. Taking one before and after a query is how a
- * read-only pipeline is shown to have written nothing, rather than asserted to.
- */
-export const snapshotDirectory = (root: string): ReadonlyArray<readonly [string, string]> => {
-  const entries: Array<readonly [string, string]> = [];
-  const walk = (directory: string): void => {
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-      const absolute = nodePath.join(directory, entry.name);
-      if (entry.isDirectory()) walk(absolute);
-      else entries.push([nodePath.relative(root, absolute), fs.readFileSync(absolute, "utf8")]);
-    }
-  };
-  walk(root);
-  return entries.sort((left, right) => left[0].localeCompare(right[0]));
 };
 
 export interface DiscoveryRegistryPort {

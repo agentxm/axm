@@ -14,6 +14,7 @@
  */
 
 import * as fs from "node:fs";
+import { snapshotTree } from "@agentxm/test-support";
 import * as os from "node:os";
 import * as nodePath from "node:path";
 
@@ -83,29 +84,6 @@ export const makeAgentMembershipFixture = (options: AgentMembershipFixtureOption
     writeFile(relativePath, contents);
   }
 
-  /** Every entry under a root: files by contents, links by target. */
-  const snapshotUnder = (base: string): ReadonlyArray<readonly [string, string]> => {
-    const entries: Array<readonly [string, string]> = [];
-    const walk = (directory: string): void => {
-      for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-        const child = nodePath.join(directory, entry.name);
-        const relative = nodePath.relative(base, child);
-        if (entry.isSymbolicLink()) {
-          entries.push([relative, `symlink:${fs.readlinkSync(child)}`]);
-          continue;
-        }
-        if (entry.isDirectory()) {
-          entries.push([relative, "directory"]);
-          walk(child);
-          continue;
-        }
-        entries.push([relative, fs.readFileSync(child, "utf8")]);
-      }
-    };
-    if (fs.existsSync(base)) walk(base);
-    return entries.sort((left, right) => left[0].localeCompare(right[0]));
-  };
-
   const context = makeWorkspaceHandlerTestContext({
     ...(options.machine === undefined ? {} : { machine: options.machine }),
     flags: { nonInteractive: true },
@@ -170,9 +148,9 @@ export const makeAgentMembershipFixture = (options: AgentMembershipFixtureOption
     },
     readLockfileText: (): string => fs.readFileSync(absolute("axm-lock.yaml"), "utf8"),
     /** Every entry under the project root. */
-    snapshot: () => snapshotUnder(root),
+    snapshot: () => snapshotTree(root),
     /** Every entry under one workspace-relative directory. */
-    snapshotOf: (relativePath: string) => snapshotUnder(absolute(relativePath)),
+    snapshotOf: (relativePath: string) => snapshotTree(absolute(relativePath)),
     rendererState: context.rendererState,
     provide: Effect.provide(layer),
     cleanup: () => {

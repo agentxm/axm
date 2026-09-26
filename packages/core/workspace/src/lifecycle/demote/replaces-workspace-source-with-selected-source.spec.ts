@@ -9,6 +9,7 @@ import { afterEach } from "vitest";
 import { deriveOperationOutcome } from "../../transitions/planning/index.js";
 import { LockfileReader } from "../../desired-state/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
+import { snapshotTree } from "../../desired-state/testing.js";
 
 import { ExtensionLifecycleFailed } from "../errors.js";
 import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";
@@ -18,7 +19,6 @@ import {
   applyDemote,
   authoringTypes,
   extractArchive,
-  snapshotContent,
   writeAuthoringPackage,
   writePackageFile,
   type AuthoringType,
@@ -148,10 +148,10 @@ describe("Demoting workspace authorship", () => {
             );
             fs.cpSync(replacement, expectedPackage, { recursive: true });
           }
-          const expectedContent = snapshotContent(expectedPackage);
-          const sourceBefore = snapshotContent(registry?.root ?? replacement);
+          const expectedContent = snapshotTree(expectedPackage);
+          const sourceBefore = snapshotTree(registry?.root ?? replacement);
           const neighborSource = writeAuthoringPackage(workspace.root, authoringTypes[0], NEIGHBOR);
-          const neighborSourceBefore = snapshotContent(neighborSource);
+          const neighborSourceBefore = snapshotTree(neighborSource);
 
           return workspace
             .provide(
@@ -164,7 +164,7 @@ describe("Demoting workspace authorship", () => {
                   workspace.root,
                   `agent_extensions/path/@acme/skills/${NEIGHBOR}`,
                 );
-                const neighborContentBefore = snapshotContent(neighborCanonical);
+                const neighborContentBefore = snapshotTree(neighborCanonical);
                 const neighborLockBefore = yield* lockfile.entry("skill", NEIGHBOR);
                 expect(neighborLockBefore).toBeDefined();
                 const neighborSettingsBefore = neighborDeclaration(workspace);
@@ -200,15 +200,15 @@ describe("Demoting workspace authorship", () => {
                     ? `agent_extensions/registry/@acme/${row.plural}/${REVIEW}/${row.manifest}`
                     : `agent_extensions/path/@acme/${row.plural}/${REVIEW}/${row.manifest}`;
                 expect(
-                  snapshotContent(nodePath.dirname(nodePath.join(workspace.root, canonical))),
+                  snapshotTree(nodePath.dirname(nodePath.join(workspace.root, canonical))),
                 ).toEqual(expectedContent);
 
                 // The selected source itself, and the unrelated installed
                 // package, are untouched.
-                expect(snapshotContent(expectedPackage)).toEqual(expectedContent);
-                expect(snapshotContent(registry?.root ?? replacement)).toEqual(sourceBefore);
-                expect(snapshotContent(neighborSource)).toEqual(neighborSourceBefore);
-                expect(snapshotContent(neighborCanonical)).toEqual(neighborContentBefore);
+                expect(snapshotTree(expectedPackage)).toEqual(expectedContent);
+                expect(snapshotTree(registry?.root ?? replacement)).toEqual(sourceBefore);
+                expect(snapshotTree(neighborSource)).toEqual(neighborSourceBefore);
+                expect(snapshotTree(neighborCanonical)).toEqual(neighborContentBefore);
                 expect(yield* lockfile.entry("skill", NEIGHBOR)).toEqual(neighborLockBefore);
                 expect(neighborDeclaration(workspace)).toEqual(neighborSettingsBefore);
 
@@ -287,7 +287,7 @@ describe("Demoting workspace authorship", () => {
         .provide(
           Effect.gen(function* () {
             yield* authoredPackMember(registry, workspace);
-            const before = snapshotContent(workspace.root);
+            const before = snapshotTree(workspace.root);
 
             const failure = yield* applyDemote({
               fqn: `@acme/skills/${REVIEW}`,
@@ -299,7 +299,7 @@ describe("Demoting workspace authorship", () => {
               expect(failure.category).toBe("conflict");
               expect(failure.detail).toContain("unsatisfiable");
             }
-            expect(snapshotContent(workspace.root)).toEqual(before);
+            expect(snapshotTree(workspace.root)).toEqual(before);
           }),
         )
         .pipe(Effect.provide(NodeServices.layer));
@@ -314,7 +314,7 @@ describe("Demoting workspace authorship", () => {
       });
       writeAuthoringPackage(workspace.root, authoringTypes[0], REVIEW, { parent: "skills" });
       const replacement = writeAuthoringPackage(workspace.root, authoringTypes[0], REVIEW);
-      const before = snapshotContent(workspace.root);
+      const before = snapshotTree(workspace.root);
       return workspace
         .provide(
           Effect.gen(function* () {
@@ -327,7 +327,7 @@ describe("Demoting workspace authorship", () => {
             if (failure instanceof ExtensionLifecycleFailed) {
               expect(failure.category).toBe(fault === "workspace-source" ? "usage" : "conflict");
             }
-            expect(snapshotContent(workspace.root)).toEqual(before);
+            expect(snapshotTree(workspace.root)).toEqual(before);
           }),
         )
         .pipe(Effect.provide(NodeServices.layer));

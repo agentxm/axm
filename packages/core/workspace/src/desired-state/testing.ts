@@ -69,19 +69,19 @@ export const snapshotTree = (root: string): Readonly<Record<string, string>> => 
 };
 
 /** The same encoding for one fixture path; an absent path has no snapshot. */
-export const snapshotPath = (absolute: string): string | undefined => {
+export const snapshotPath = (absolute: string): Readonly<Record<string, string>> => {
   let stat: fs.Stats;
   try {
     stat = fs.lstatSync(absolute);
   } catch (error) {
     if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
-      return undefined;
+      return {};
     }
     throw error;
   }
-  if (stat.isSymbolicLink()) return `symlink:${fs.readlinkSync(absolute)}`;
-  if (stat.isDirectory()) return "directory";
-  return `file:${fs.readFileSync(absolute).toString("base64")}`;
+  if (stat.isSymbolicLink()) return { ".": `symlink:${fs.readlinkSync(absolute)}` };
+  if (stat.isDirectory()) return snapshotTree(absolute);
+  return { ".": `file:${fs.readFileSync(absolute).toString("base64")}` };
 };
 
 /**

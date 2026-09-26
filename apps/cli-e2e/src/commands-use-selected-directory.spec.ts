@@ -3,7 +3,7 @@ import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeDirectoryFixture, unattendedProjectSetup } from "./test-support/directory-harness.js";
-import { snapshotWorkspaceContent } from "./test-support/workspace-fixtures.js";
+import { snapshotTree } from "@agentxm/test-support";
 
 export const specification = defineSpecification({
   requirement: "cli/commands-use-selected-directory",
@@ -32,7 +32,7 @@ describe("Commands use the selected working directory", () => {
       const fixture = makeDirectoryFixture();
       try {
         fs.writeFileSync(path.join(fixture.invoking, "NOTES.md"), "invoking workspace\n");
-        const before = snapshotWorkspaceContent(fixture.invoking);
+        const before = snapshotTree(fixture.invoking);
         const alias = path.join(fixture.root, "alias");
         if (form === "symlink") fs.symlinkSync(fixture.selected, alias, "dir");
         const flags =
@@ -46,8 +46,8 @@ describe("Commands use the selected working directory", () => {
         expect(result.exitCode, result.stdout + result.stderr).toBe(0);
         const expected = form === "default" ? fixture.invoking : fixture.selected;
         expect(fs.existsSync(path.join(expected, "axm.json"))).toBe(true);
-        if (form !== "default") expect(snapshotWorkspaceContent(fixture.invoking)).toEqual(before);
-        else expect(snapshotWorkspaceContent(fixture.selected)).toEqual({});
+        if (form !== "default") expect(snapshotTree(fixture.invoking)).toEqual(before);
+        else expect(snapshotTree(fixture.selected)).toEqual({});
       } finally {
         fixture.cleanup();
       }

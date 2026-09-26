@@ -10,6 +10,7 @@
  */
 
 import * as fs from "node:fs";
+import { snapshotTree } from "../../desired-state/testing.js";
 import * as os from "node:os";
 import * as nodePath from "node:path";
 
@@ -147,18 +148,7 @@ export const makeKnowledgeFixtureWorkspace = (
     fs.readFileSync(nodePath.join(root, relativePath), "utf8");
 
   /** Every file under the workspace, so a read-only operation can be shown to write nothing. */
-  const snapshot = (): ReadonlyArray<readonly [string, string]> => {
-    const entries: Array<readonly [string, string]> = [];
-    const walk = (directory: string) => {
-      for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-        const absolute = nodePath.join(directory, entry.name);
-        if (entry.isDirectory()) walk(absolute);
-        else entries.push([nodePath.relative(root, absolute), fs.readFileSync(absolute, "utf8")]);
-      }
-    };
-    walk(root);
-    return entries.sort((left, right) => left[0].localeCompare(right[0]));
-  };
+  const snapshot = () => snapshotTree(root);
 
   const layer = makeKnowledgeFixtureLayer(root, home, options.scope ?? "project");
   return {

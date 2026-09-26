@@ -12,87 +12,23 @@
 
 import * as path from "node:path";
 import { expect } from "vitest";
+import {
+  WORKSPACE_PROTECTED_STATE,
+  snapshotProtectedState as snapshotProtectedStateAtRoot,
+  type ProtectedStateSnapshot,
+} from "@agentxm/test-support";
 
 import { type FileSystemWriteEvent } from "./test-helpers.js";
 
-import {
-  resolveSpecWorkspaceStorage,
-  type SpecFileStore,
-  type SpecWorkspaceInput,
-} from "./install-harness.js";
+import { resolveSpecWorkspaceStorage, type SpecWorkspaceInput } from "./install-harness.js";
 
-/** Exact content of one protected path: a directory tree, a single file, or nothing. */
-const encodeBase64 = (bytes: Uint8Array): string => Buffer.from(bytes).toString("base64");
-
-const snapshotDirectory = (
-  files: SpecFileStore,
-  root: string,
-): Readonly<Record<string, string>> => {
-  const entries: Array<readonly [string, string]> = [];
-  const walk = (directory: string, relativeDirectory: string): void => {
-    for (const entry of [...files.readDirectory(directory)].sort((left, right) =>
-      left.name.localeCompare(right.name, "en"),
-    )) {
-      const relative =
-        relativeDirectory.length === 0 ? entry.name : `${relativeDirectory}/${entry.name}`;
-      const target = path.join(directory, entry.name);
-      if (entry.type === "directory") {
-        entries.push([relative, "directory"]);
-        walk(target, relative);
-      } else if (entry.type === "symlink") {
-        entries.push([relative, `symlink:${files.readLink(target)}`]);
-      } else {
-        entries.push([relative, `file:${encodeBase64(files.readFile(target))}`]);
-      }
-    }
-  };
-  walk(root, "");
-  return Object.fromEntries(entries);
-};
-
-const snapshotPath = (files: SpecFileStore, absolute: string): Readonly<Record<string, string>> => {
-  const type = files.type(absolute);
-  if (type === undefined) return {};
-  if (type === "symlink") return { ".": `symlink:${files.readLink(absolute)}` };
-  if (type === "directory") return snapshotDirectory(files, absolute);
-  return { ".": `file:${encodeBase64(files.readFile(absolute))}` };
-};
-
-/** The workspace state a preview of a workspace-changing command must not touch. */
-export const WORKSPACE_PROTECTED_STATE: ReadonlyArray<string> = [
-  "axm.json",
-  "axm-lock.yaml",
-  "agent_extensions",
-  "skills",
-  "subagents",
-  "mcps",
-  "rules",
-  "hooks",
-  "knowledge",
-  "packs",
-  ".claude",
-  ".agents",
-  ".cursor",
-  ".codex",
-  ".gemini",
-  ".github",
-  ".mcp.json",
-  "AGENTS.md",
-  "CLAUDE.md",
-  ".gitignore",
-];
-
-export type ProtectedStateSnapshot = Readonly<Record<string, Readonly<Record<string, string>>>>;
-
-/** Exact content of every declared protected path, missing paths included as empty. */
+/** Resolve the CLI fixture's memory or disk store before taking the shared snapshot. */
 export const snapshotProtectedState = (
   workspace: SpecWorkspaceInput,
   protectedPaths: ReadonlyArray<string> = WORKSPACE_PROTECTED_STATE,
 ): ProtectedStateSnapshot => {
   const { root, files } = resolveSpecWorkspaceStorage(workspace);
-  return Object.fromEntries(
-    protectedPaths.map((relative) => [relative, snapshotPath(files, path.join(root, relative))]),
-  );
+  return snapshotProtectedStateAtRoot(root, protectedPaths, files);
 };
 
 const isWithin = (root: string, candidate: string): boolean => {

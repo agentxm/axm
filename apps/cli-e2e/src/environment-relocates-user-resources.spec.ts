@@ -4,7 +4,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeEnvironmentProcessFixture } from "./test-support/environment-process-fixture.js";
 import { makeInstallerSelectionFixture } from "./test-support/installer-selection-fixture.js";
-import { snapshotWorkspaceContent } from "./test-support/workspace-fixtures.js";
+import { snapshotTree } from "@agentxm/test-support";
 
 export const specification = defineSpecification({
   requirement: "cli/environment-relocates-user-resources",
@@ -55,7 +55,7 @@ describe("Application-resource home", () => {
     async () => {
       const fixture = makeInstallerSelectionFixture();
       try {
-        const before = snapshotWorkspaceContent(fixture.platformHome);
+        const before = snapshotTree(fixture.platformHome);
         const result = await fixture.install(fixture.selectedVersion, AbortSignal.timeout(30_000));
         expect(result.exitCode, result.stdout + result.stderr).toBe(0);
         const executable = path.join(fixture.applicationHome, ".axm/bin/axm");
@@ -64,7 +64,7 @@ describe("Application-resource home", () => {
           fs.readFileSync(path.join(fixture.applicationHome, ".axm/install-meta.json"), "utf8"),
         );
         expect(metadata).toMatchObject({ method: "script", executablePath: executable });
-        expect(snapshotWorkspaceContent(fixture.platformHome)).toEqual(before);
+        expect(snapshotTree(fixture.platformHome)).toEqual(before);
       } finally {
         fixture.cleanup();
       }
@@ -82,8 +82,8 @@ describe("Application-resource home", () => {
       // Establish that runtime precondition before comparing application writes.
       const warmup = await fixture.run(["--version"]);
       expect(warmup.exitCode, warmup.stdout + warmup.stderr).toBe(0);
-      const platformBefore = snapshotWorkspaceContent(fixture.platformHome);
-      const projectBefore = snapshotWorkspaceContent(fixture.invoking);
+      const platformBefore = snapshotTree(fixture.platformHome);
+      const projectBefore = snapshotTree(fixture.invoking);
       const result = await fixture.run([
         "setup",
         "--scope",
@@ -99,8 +99,8 @@ describe("Application-resource home", () => {
         fs.readFileSync(path.join(fixture.applicationHome, ".axm/workspace/axm.json"), "utf8"),
       );
       expect(settings).toMatchObject({ agents: ["claude-code"] });
-      expect(snapshotWorkspaceContent(fixture.platformHome)).toEqual(platformBefore);
-      expect(snapshotWorkspaceContent(fixture.invoking)).toEqual(projectBefore);
+      expect(snapshotTree(fixture.platformHome)).toEqual(platformBefore);
+      expect(snapshotTree(fixture.invoking)).toEqual(projectBefore);
     } finally {
       fixture.cleanup();
     }

@@ -26,7 +26,8 @@ import { handleList } from "./list/command.js";
 import { handleSync } from "./sync/handler.js";
 
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../test-support/install-harness.js";
-import { pinSpecUserHome, snapshotWorkspaceContent } from "../test-support/workspace-fixtures.js";
+import { pinSpecUserHome } from "../test-support/workspace-fixtures.js";
+import { snapshotTree } from "@agentxm/test-support";
 
 /**
  * The resolved user home is captured by the first workspace construction in
@@ -291,8 +292,8 @@ const decisionTable = faultRows.flatMap((row) =>
 );
 
 const workspaceStates = (workspace: SpecWorkspace) => ({
-  project: snapshotWorkspaceContent(workspace.root),
-  user: snapshotWorkspaceContent(userHome.home),
+  project: snapshotTree(workspace.root),
+  user: snapshotTree(userHome.home),
 });
 
 describe("Invalid workspace state gates operations", () => {

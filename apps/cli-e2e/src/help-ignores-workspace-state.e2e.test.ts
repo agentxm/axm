@@ -13,7 +13,7 @@ import { defineExecutionBinding } from "@agentxm/specification-metadata";
 
 import { makeDirectoryFixture } from "./test-support/directory-harness.js";
 import { writeMalformedWorkspaceState } from "./test-support/malformed-workspace-fixture.js";
-import { snapshotWorkspaceContent } from "./test-support/workspace-fixtures.js";
+import { snapshotTree } from "@agentxm/test-support";
 
 export const executionBinding = defineExecutionBinding({
   requirements: ["cli/command-help-is-complete"],
@@ -37,12 +37,12 @@ describe("Help ignores workspace state", () => {
         expect(clean.stdout).toContain(["axm", ...command].join(" "));
         expect(clean.stdout.length).toBeGreaterThan(0);
         writeMalformedWorkspaceState(fixture.invoking, fixture.home);
-        const before = snapshotWorkspaceContent(fixture.root);
+        const before = snapshotTree(fixture.root);
         const malformed = await fixture.run(args);
         expect(malformed.exitCode, malformed.stdout + malformed.stderr).toBe(0);
         expect(malformed.stdout).toBe(clean.stdout);
         expect(malformed.stderr).toBe(clean.stderr);
-        expect(snapshotWorkspaceContent(fixture.root)).toEqual(before);
+        expect(snapshotTree(fixture.root)).toEqual(before);
       } finally {
         fixture.cleanup();
       }

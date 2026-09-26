@@ -20,7 +20,7 @@ import { handleInstall } from "../root/install/handler.js";
 import type { TelemetryHostObservation } from "../telemetry/index.js";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "./install-harness.js";
 import { writeWorkspaceFiles } from "./test-stubs.js";
-import { snapshotWorkspaceContent } from "./workspace-fixtures.js";
+import { snapshotTree } from "@agentxm/test-support";
 
 export const sensitiveSentinels = [
   "SYNTHETIC_EXTENSION_CONTENT_71",
@@ -127,7 +127,7 @@ export const makeTelemetryOperation = () => {
       return {
         exit,
         exitCode,
-        files: snapshotWorkspaceContent(workspace.root),
+        files: snapshotTree(workspace.root),
         docs: JSON.stringify(workspace.rendererState.docs),
         settings: workspace.readFile("axm.json"),
         lock: workspace.exists("axm-lock.yaml") ? workspace.readFile("axm-lock.yaml") : null,

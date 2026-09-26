@@ -17,9 +17,10 @@ it("snapshots directories, binary files, and broken links without losing bytes",
       nested: "directory",
       [nodePath.join("nested", "binary")]: "file:AP8K",
     });
-    expect(snapshotPath(nodePath.join(root, "link"))).toBe("symlink:missing");
-    expect(snapshotPath(nodePath.join(root, "nested", "binary"))).toBe("file:AP8K");
-    expect(snapshotPath(nodePath.join(root, "missing"))).toBeUndefined();
+    expect(snapshotPath(nodePath.join(root, "link"))).toEqual({ ".": "symlink:missing" });
+    expect(snapshotPath(nodePath.join(root, "nested", "binary"))).toEqual({ ".": "file:AP8K" });
+    expect(snapshotPath(nodePath.join(root, "nested"))).toEqual({ binary: "file:AP8K" });
+    expect(snapshotPath(nodePath.join(root, "missing"))).toEqual({});
     expect(snapshotTree(nodePath.join(root, "missing"))).toEqual({});
   } finally {
     fs.rmSync(root, { recursive: true, force: true });

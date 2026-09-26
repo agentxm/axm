@@ -23,6 +23,7 @@
  */
 
 import * as fs from "node:fs";
+import { snapshotTree } from "../desired-state/testing.js";
 import * as os from "node:os";
 import * as nodePath from "node:path";
 
@@ -121,7 +122,7 @@ export interface LintWorkspaceFixture {
    * directory as `directory`, a symbolic link as `symlink:<target>`. A lint
    * run that changed anything — including a link's target — changes this.
    */
-  readonly snapshot: () => ReadonlyArray<readonly [string, string]>;
+  readonly snapshot: () => Readonly<Record<string, string>>;
   /** Every workspace-facing service a lint run over this workspace reads through. */
   readonly layer: LintWorkspaceServices;
   readonly cleanup: () => void;
@@ -190,27 +191,7 @@ export const makeLintWorkspace = (
     );
   };
 
-  const snapshot = (): ReadonlyArray<readonly [string, string]> => {
-    const entries: Array<readonly [string, string]> = [];
-    const walk = (directory: string): void => {
-      for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-        const child = nodePath.join(directory, entry.name);
-        const relative = nodePath.relative(root, child);
-        if (entry.isSymbolicLink()) {
-          entries.push([relative, `symlink:${fs.readlinkSync(child)}`]);
-          continue;
-        }
-        if (entry.isDirectory()) {
-          entries.push([relative, "directory"]);
-          walk(child);
-          continue;
-        }
-        entries.push([relative, fs.readFileSync(child, "utf8")]);
-      }
-    };
-    walk(root);
-    return entries.sort((left, right) => left[0].localeCompare(right[0]));
-  };
+  const snapshot = () => snapshotTree(root);
 
   const layer = lintWorkspaceServices({
     workspaceRoot: root,

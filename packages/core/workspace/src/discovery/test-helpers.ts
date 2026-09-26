@@ -121,17 +121,3 @@ export const makeTemporaryProject = (): TemporaryProject => {
     cleanup: () => fs.rmSync(root, { recursive: true, force: true }),
   };
 };
-
-/** Directory content snapshot, so a read-only pipeline can be shown to write nothing. */
-export const snapshotDirectory = (root: string): ReadonlyArray<readonly [string, string]> => {
-  const entries: Array<readonly [string, string]> = [];
-  const walk = (directory: string) => {
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-      const absolute = nodePath.join(directory, entry.name);
-      if (entry.isDirectory()) walk(absolute);
-      else entries.push([nodePath.relative(root, absolute), fs.readFileSync(absolute, "utf8")]);
-    }
-  };
-  walk(root);
-  return entries.sort((left, right) => left[0].localeCompare(right[0]));
-};

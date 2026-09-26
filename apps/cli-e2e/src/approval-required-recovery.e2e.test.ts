@@ -19,7 +19,7 @@ import { makeDirectoryFixture } from "./test-support/directory-harness.js";
 import { PlanResolutionDocument } from "./test-support/machine-documents.js";
 import { writeAuthoredSkill } from "./test-support/protected-state.js";
 import { writeLocalSkillPackage } from "./test-support/spec-file-store.js";
-import { snapshotWorkspaceContent } from "./test-support/workspace-fixtures.js";
+import { snapshotTree } from "@agentxm/test-support";
 
 export const executionBinding = defineExecutionBinding({
   requirements: ["cli/approval-required-names-a-valid-recovery"],
@@ -64,8 +64,8 @@ describe("Advance-approval recovery over the built CLI", () => {
         path.join(fixture.invoking, "unrelated.txt"),
         "Unrelated workspace content.\n",
       );
-      const sourceBefore = snapshotWorkspaceContent(replacement);
-      const before = snapshotWorkspaceContent(fixture.invoking);
+      const sourceBefore = snapshotTree(replacement);
+      const before = snapshotTree(fixture.invoking);
       const blocked = await fixture.run([
         "demote",
         FQN,
@@ -82,7 +82,7 @@ describe("Advance-approval recovery over the built CLI", () => {
         counts: { committed: 0 },
         blocking: { class: "approval-required", subject: "replace-workspace-authority" },
       });
-      expect(snapshotWorkspaceContent(fixture.invoking)).toEqual(before);
+      expect(snapshotTree(fixture.invoking)).toEqual(before);
       const recovery = blockedDocument.result.blocking?.escape?.cmd;
       if (recovery === undefined) throw new Error("Expected an emitted demote recovery command");
       const argv = argvOf(recovery);
@@ -102,11 +102,9 @@ describe("Advance-approval recovery over the built CLI", () => {
       expect(settings).toMatchObject({ skills: { review: "./vendor/review" } });
       expect(fs.existsSync(path.join(fixture.invoking, "skills/review"))).toBe(false);
       expect(
-        snapshotWorkspaceContent(
-          path.join(fixture.invoking, "agent_extensions/path/@acme/skills/review"),
-        ),
+        snapshotTree(path.join(fixture.invoking, "agent_extensions/path/@acme/skills/review")),
       ).toEqual(sourceBefore);
-      expect(snapshotWorkspaceContent(replacement)).toEqual(sourceBefore);
+      expect(snapshotTree(replacement)).toEqual(sourceBefore);
       expect(fs.readFileSync(path.join(fixture.invoking, "unrelated.txt"), "utf8")).toBe(
         "Unrelated workspace content.\n",
       );

@@ -7,9 +7,9 @@ import { afterEach } from "vitest";
 
 import { deriveOperationOutcome } from "../../transitions/planning/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
+import { snapshotTree } from "../../desired-state/testing.js";
 
 import { readSettings } from "../../lifecycle/install/test-helpers.js";
-import { snapshotContent } from "../../lifecycle/demote/test-helpers.js";
 import {
   applyUnpack,
   makePackWorld,
@@ -52,7 +52,7 @@ describe("Unpacking a pack", () => {
               world,
               direct ? { skills: { review: directEntry } } : {},
             );
-            const membersBefore = snapshotContent(
+            const membersBefore = snapshotTree(
               nodePath.join(world.workspace.root, MEMBER_CANONICAL),
             );
 
@@ -71,7 +71,7 @@ describe("Unpacking a pack", () => {
             expect(JSON.stringify(settings)).not.toContain(`"${PACK}"`);
             // Member content and accepted resolutions are inherited, not
             // re-acquired: nothing under the members' canonical root moved.
-            expect(snapshotContent(nodePath.join(world.workspace.root, MEMBER_CANONICAL))).toEqual(
+            expect(snapshotTree(nodePath.join(world.workspace.root, MEMBER_CANONICAL))).toEqual(
               membersBefore,
             );
             const lock = world.workspace.readFile("axm-lock.yaml");

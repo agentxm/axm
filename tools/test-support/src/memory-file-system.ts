@@ -12,7 +12,7 @@ export interface MemoryFileSystemCall {
 
 export type MemoryFileType = "directory" | "file" | "symlink";
 
-export interface MemoryFileStore {
+export interface FileStore {
   readonly exists: (target: string) => boolean;
   readonly makeDirectory: (target: string) => void;
   readonly makeTempDirectory: (prefix: string) => string;
@@ -32,7 +32,7 @@ export interface MemoryFileSystem {
   readonly calls: ReadonlyArray<MemoryFileSystemCall>;
   readonly failures: ReadonlyArray<string>;
   readonly fileSystem: FileSystem.FileSystem;
-  readonly files: MemoryFileStore;
+  readonly files: FileStore;
 }
 
 const errorTag = (cause: unknown): PlatformError.SystemErrorTag => {
@@ -185,7 +185,7 @@ export const makeMemoryFileSystem = (): MemoryFileSystem => {
       throw new Error("Memory filesystem does not implement watch");
     },
   });
-  const files: MemoryFileStore = {
+  const files: FileStore = {
     exists: (target) => volume.existsSync(target),
     makeDirectory: (target) => void volume.mkdirSync(target, { recursive: true }),
     makeTempDirectory: (prefix) => {

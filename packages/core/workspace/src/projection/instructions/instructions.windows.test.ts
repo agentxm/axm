@@ -4,11 +4,8 @@ import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import {
-  observeInstructionProjection,
-  reconcileInstructionTargets,
-  removeManagedInstructionTargets,
-} from "./instructions.js";
+import { observeInstructionProjection, removeManagedInstructionTargets } from "./instructions.js";
+import { reconcileInstructions } from "./reconciliation.js";
 
 const run = <A, E>(effect: Effect.Effect<A, E, NodeServices.NodeServices>) =>
   effect.pipe(Effect.provide(NodeServices.layer));
@@ -39,7 +36,7 @@ describe("Windows instruction-file materialization", () => {
             } as const;
             fs.writeFileSync(sourcePath, "# Windows workspace\n");
 
-            const first = yield* reconcileInstructionTargets(args);
+            const first = yield* reconcileInstructions(args);
             expect(first.written).toContain(targetPath);
             expect(fs.lstatSync(targetPath).isSymbolicLink()).toBe(false);
             expect(fs.readFileSync(targetPath, "utf8")).toContain("# Windows workspace");
@@ -50,11 +47,11 @@ describe("Windows instruction-file materialization", () => {
               "\\",
             );
 
-            const unchanged = yield* reconcileInstructionTargets(args);
+            const unchanged = yield* reconcileInstructions(args);
             expect(unchanged.written).toEqual([]);
 
             fs.writeFileSync(sourcePath, "# Refreshed Windows workspace\n");
-            const refreshed = yield* reconcileInstructionTargets(args);
+            const refreshed = yield* reconcileInstructions(args);
             expect(refreshed.written).toContain(targetPath);
             expect(fs.readFileSync(targetPath, "utf8")).toContain("# Refreshed Windows workspace");
             expect(fs.readFileSync(sourcePath, "utf8")).toBe("# Refreshed Windows workspace\n");

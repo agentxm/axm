@@ -937,6 +937,24 @@ const instructionGitignorePath = (workspaceRoot: string) =>
     return path.join(workspaceRoot, ".gitignore");
   });
 
+const unsafeGitignoreRegionFailure = (
+  state: "malformed" | "unsupported-version",
+  filePath: string,
+): InstructionMaintenanceFailed =>
+  new InstructionMaintenanceFailed({
+    category: "conflict",
+    detail:
+      state === "unsupported-version"
+        ? `Instruction aliases use a newer AXM ownership marker; upgrade AXM before modifying ${filePath}`
+        : `Instruction reconciliation found malformed AXM ownership markers: ${filePath}`,
+    suggestions: [
+      {
+        description: "Inspect instruction-file ownership and drift",
+        cmd: "axm instructions",
+      },
+    ],
+  });
+
 export const assertInstructionsGitignoreSafe = (workspaceRoot: string) =>
   Effect.gen(function* () {
     const filePath = yield* instructionGitignorePath(workspaceRoot);
@@ -945,19 +963,7 @@ export const assertInstructionsGitignoreSafe = (workspaceRoot: string) =>
     if (state !== "malformed" && state !== "unsupported-version") {
       return;
     }
-    return yield* new InstructionMaintenanceFailed({
-      category: "conflict",
-      detail:
-        state === "unsupported-version"
-          ? `Instruction aliases use a newer AXM ownership marker; upgrade AXM before modifying ${filePath}`
-          : `Instruction reconciliation found malformed AXM ownership markers: ${filePath}`,
-      suggestions: [
-        {
-          description: "Inspect instruction-file ownership and drift",
-          cmd: "axm instructions",
-        },
-      ],
-    });
+    return yield* unsafeGitignoreRegionFailure(state, filePath);
   });
 
 const workspaceRelativeGitPath = (args: {
@@ -1440,19 +1446,7 @@ const writeGitignoreRegion = (args: {
     const current = yield* readFileOption(filePath);
     const state = Option.isSome(current) ? managedGitignoreRegionState(current.value) : "absent";
     if (state === "malformed" || state === "unsupported-version") {
-      return yield* new InstructionMaintenanceFailed({
-        category: "conflict",
-        detail:
-          state === "unsupported-version"
-            ? `Instruction aliases use a newer AXM ownership marker; upgrade AXM before modifying ${filePath}`
-            : `Instruction reconciliation found malformed AXM ownership markers: ${filePath}`,
-        suggestions: [
-          {
-            description: "Inspect instruction-file ownership and drift",
-            cmd: "axm instructions",
-          },
-        ],
-      });
+      return yield* unsafeGitignoreRegionFailure(state, filePath);
     }
     const next = reconcileGitignorePatterns(
       Option.getOrElse(current, () => ""),
@@ -1487,7 +1481,7 @@ export const removeInstructionsGitignore = (args: {
  * an ignore entry is never dropped while the file it covers remains, so a
  * removed alias is not exposed to Git between steps.
  */
-const applyInstructionProjection = (args: {
+export const applyInstructionProjection = (args: {
   readonly workspaceRoot: string;
   readonly config: ResolvedInstructionsConfig;
   readonly snapshot: InstructionProjectionSnapshot;
@@ -1543,7 +1537,7 @@ const applyInstructionProjection = (args: {
     return { written, removed };
   });
 
-const syncResult = (args: {
+export const syncResult = (args: {
   readonly snapshot: InstructionProjectionSnapshot;
   readonly written: ReadonlyArray<string>;
   readonly removed: ReadonlyArray<string>;
@@ -1588,40 +1582,4 @@ export const syncInstructions = (
           symlinkSupported: snapshot.symlinkSupported,
         });
     return syncResult({ snapshot: observed, ...applied });
-  });
-
-/**
- * The reconciliation `axm sync`, `axm lint --fix`, and instruction-file
- * transitions share: refuse on any unowned planned target or unsafe
- * `.gitignore` region before touching anything, apply the desired state, then
- * prove from a fresh observation that it was reached.
- */
-export const reconcileInstructionTargets = (
-  args: ObserveInstructionProjectionArgs,
-): Effect.Effect<
-  InstructionsSyncResult,
-  InstructionMaintenanceFailure,
-  FileSystem.FileSystem | Path.Path
-> =>
-  Effect.gen(function* () {
-    const snapshot = yield* observeInstructionProjection(args);
-    yield* assertInstructionTargetsSafe(snapshot.status);
-    yield* assertInstructionsGitignoreSafe(args.workspaceRoot);
-    const applied = yield* applyInstructionProjection({
-      workspaceRoot: args.workspaceRoot,
-      config: args.config,
-      snapshot,
-      dryRun: false,
-    });
-    const after = yield* observeInstructionProjection({
-      ...args,
-      symlinkSupported: snapshot.symlinkSupported,
-    });
-    if (!instructionProjectionIsCurrent(after)) {
-      return yield* new InstructionMaintenanceFailed({
-        category: "internal",
-        detail: "Instruction reconciliation did not reach the desired state",
-      });
-    }
-    return syncResult({ snapshot: after, ...applied });
   });

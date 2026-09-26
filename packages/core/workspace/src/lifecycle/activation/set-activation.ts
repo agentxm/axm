@@ -67,9 +67,10 @@ import {
 import {
   activeInstructionsConfig,
   CodingAgentRepository,
+  instructionReadinessDetail,
   instructionReconciliationReadiness,
   observeInstructions,
-  reconcileInstructionTransition,
+  reconcileInstructions,
   type ProjectionParticipantRequirements,
   type ResolvedInstructionsConfig,
 } from "../../projection/index.js";
@@ -414,7 +415,11 @@ const instructionGate = (): Effect.Effect<
       return { config, blocked: Option.none<ExtensionLifecycleFailed>() };
     }
     const snapshot = yield* observeInstructions({ config: config.value });
-    const readiness = yield* instructionReconciliationReadiness({ snapshot });
+    const location = yield* WorkspaceLocation;
+    const readiness = yield* instructionReconciliationReadiness({
+      snapshot,
+      workspaceRoot: location.baseDir,
+    });
     return {
       config,
       blocked: Option.map(
@@ -422,10 +427,7 @@ const instructionGate = (): Effect.Effect<
         (failure) =>
           new ExtensionLifecycleFailed({
             category: "conflict",
-            detail:
-              failure._tag === "InstructionMaintenanceFailed"
-                ? failure.detail
-                : "Instruction reconciliation cannot proceed against the current workspace",
+            detail: instructionReadinessDetail(failure),
             cause: failure,
           }),
       ),
@@ -774,10 +776,18 @@ const activationStep = (
         transition: Option.match(candidate.instructions, {
           onNone: () => transition,
           onSome: (config) =>
-            reconcileInstructionTransition({
-              config,
-              transition: transition.pipe(Effect.map((realized) => realized.warnings)),
-            }).pipe(Effect.map((warnings): ActivationRealized => ({ warnings, artifacts: [] }))),
+            Effect.gen(function* () {
+              const location = yield* WorkspaceLocation;
+              const settings = yield* SettingsReader;
+              const result = yield* reconcileInstructions({
+                workspaceRoot: location.baseDir,
+                scope: location.scope,
+                configuredAgents: yield* settings.configuredAgents,
+                config,
+                transition: transition.pipe(Effect.map((realized) => realized.warnings)),
+              });
+              return { warnings: result.transition, artifacts: [] } satisfies ActivationRealized;
+            }),
         }),
         validate: () =>
           candidate.type === "pack"

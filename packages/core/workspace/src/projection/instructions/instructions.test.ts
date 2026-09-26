@@ -14,7 +14,6 @@ import {
   instructionProjectionRemovalEffects,
   observeInstructionProjection,
   probeSymlinkSupport,
-  reconcileInstructionTargets,
   removeManagedInstructionTargets,
   removeInstructionsGitignore,
   resolveInstructionMechanism,
@@ -22,6 +21,7 @@ import {
   type InstructionStatusItem,
   type ResolvedInstructionsConfig,
 } from "./instructions.js";
+import { reconcileInstructions } from "./reconciliation.js";
 import type { InstructionMaintenanceFailed, InstructionMaintenanceFailure } from "./errors.js";
 
 /** Narrow a typed failure to the maintenance family before asserting fields. */
@@ -763,7 +763,7 @@ describe("agent instructions", () => {
           symlinkSupported: false,
         });
         yield* assertInstructionTargetsSafe(status);
-        const result = yield* reconcileInstructionTargets({
+        const result = yield* reconcileInstructions({
           workspaceRoot: tempDir,
           scope: "project",
           configuredAgents: ["claude-code"],
@@ -787,7 +787,7 @@ describe("agent instructions", () => {
         fs.writeFileSync(path.join(tempDir, "CLAUDE.md"), privateNotes);
 
         const result = yield* Effect.result(
-          reconcileInstructionTargets({
+          reconcileInstructions({
             workspaceRoot: tempDir,
             scope: "project",
             configuredAgents: ["claude-code", "gemini-cli"],
@@ -1209,7 +1209,7 @@ describe("agent instructions", () => {
             symlinkSupported: true,
           });
 
-          const result = yield* reconcileInstructionTargets({
+          const result = yield* reconcileInstructions({
             workspaceRoot: tempDir,
             scope: "project",
             configuredAgents: ["claude-code"],
@@ -1232,7 +1232,7 @@ describe("agent instructions", () => {
           fs.writeFileSync(path.join(tempDir, ".gitignore"), malformed);
 
           const refused = yield* Effect.result(
-            reconcileInstructionTargets({
+            reconcileInstructions({
               workspaceRoot: tempDir,
               scope: "project",
               configuredAgents: ["claude-code"],
@@ -1341,7 +1341,7 @@ describe("agent instructions", () => {
           observedForm: "symlink",
         });
         const refused = yield* Effect.result(
-          reconcileInstructionTargets({
+          reconcileInstructions({
             workspaceRoot: tempDir,
             scope: "project",
             configuredAgents: ["gemini-cli"],
@@ -1366,7 +1366,7 @@ describe("agent instructions", () => {
         expect([...removed].sort()).toEqual(
           [path.join(tempDir, "CLAUDE.md"), path.join(tempDir, "GEMINI.md")].sort(),
         );
-        const result = yield* reconcileInstructionTargets({
+        const result = yield* reconcileInstructions({
           workspaceRoot: tempDir,
           scope: "project",
           configuredAgents: ["gemini-cli"],

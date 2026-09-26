@@ -30,8 +30,7 @@ import {
   observeInstructionProjection,
   projectionFactRequiresReconciliation,
   resolveInstructionsConfig,
-  assertInstructionTargetsSafe,
-  assertInstructionsGitignoreSafe,
+  instructionReconciliationReadiness,
   instructionProjectionEffects,
   instructionProjectionIsCurrent,
   type ExpectedProjectionNames,
@@ -579,21 +578,16 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
     instructionProjectionIsCurrent(snapshot);
   if (current) return Option.none<PlannedJobStep<SyncStepRequirements>>();
 
-  const readiness = yield* Effect.result(
-    Effect.all(
-      [
-        assertInstructionTargetsSafe(snapshot.status),
-        assertInstructionsGitignoreSafe(location.baseDir),
-      ],
-      { concurrency: 1, discard: true },
-    ),
-  );
-  if (readiness._tag === "Failure") {
+  const readiness = yield* instructionReconciliationReadiness({
+    snapshot,
+    workspaceRoot: location.baseDir,
+  });
+  if (Option.isSome(readiness)) {
     return Option.some<PlannedJobStep<SyncStepRequirements>>({
       key: SYNC_RECOVERY_IDS.instructionReconcile,
       readiness: "error",
       label: "instruction files",
-      errorMessage: args.adapter.toStepFailure(readiness.failure).detail,
+      errorMessage: args.adapter.toStepFailure(readiness.value).detail,
     });
   }
 

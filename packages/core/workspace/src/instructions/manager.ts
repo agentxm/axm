@@ -31,10 +31,7 @@ import {
   type ProjectionRenderInput,
   reconcileManagedRegionFile,
   projectionGeneration,
-  assertInstructionTargetsSafe,
-  assertInstructionsGitignoreSafe,
-  observeInstructionProjection,
-  reconcileInstructionTargets,
+  reconcileInstructions,
   resolveInstructionsConfig,
 } from "../projection/index.js";
 import {
@@ -351,20 +348,6 @@ export const RuleManagerLive = Layer.effect(
           ]),
         ]);
         const instructions = args.instructions;
-        if (args.dryRun !== true && Option.isSome(instructions)) {
-          yield* provide(
-            Effect.gen(function* () {
-              const snapshot = yield* observeInstructionProjection({
-                workspaceRoot: baseDir,
-                scope: workspaceScope,
-                configuredAgents: instructions.value.agents,
-                config: instructions.value.config,
-              });
-              yield* assertInstructionTargetsSafe(snapshot.status);
-              yield* assertInstructionsGitignoreSafe(baseDir);
-            }),
-          );
-        }
         const reconciliation = yield* provide(
           reconcileManagedRegionFile({
             targetPath: target.absolute,
@@ -403,7 +386,7 @@ export const RuleManagerLive = Layer.effect(
 
         const instructionItems = Option.isSome(instructions)
           ? (yield* provide(
-              reconcileInstructionTargets({
+              reconcileInstructions({
                 workspaceRoot: baseDir,
                 scope: workspaceScope,
                 configuredAgents: instructions.value.agents,

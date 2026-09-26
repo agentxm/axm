@@ -62,7 +62,7 @@ import {
 } from "@agentxm/workspace/desired-state/testing";
 import { WorkspaceStateLive } from "@agentxm/workspace/desired-state/live";
 import { WorkspaceInvariantFactsLive } from "@agentxm/workspace/projection/live";
-import { ProjectionParticipantsLive } from "@agentxm/workspace/materialization/live";
+import { ProjectionParticipantsLive } from "@agentxm/workspace/reconciliation/live";
 
 /**
  * The workspace-facts layer over the registered projection participants, for

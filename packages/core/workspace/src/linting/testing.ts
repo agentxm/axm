@@ -13,7 +13,7 @@
  * extension types contribute projections is a fact this package may not
  * invent — `@agentxm/workspace/linting` does not depend on the materialization
  * managers — so the caller states it, either with the real registry from
- * `@agentxm/workspace/materialization/live` or with a deliberate stand-in from
+ * `@agentxm/workspace/reconciliation/live` or with a deliberate stand-in from
  * `@agentxm/workspace/projection/testing`.
  *
  * Production source never imports this module.

@@ -26,7 +26,7 @@ import {
   SkillManagerLive,
   SubagentManagerLive,
 } from "../kinds-live.js";
-import { ProjectionParticipantsLive } from "../materialization/live.js";
+import { ProjectionParticipantsLive } from "../reconciliation/live.js";
 import { AgentExecutableResolver } from "../projection/agent-adapters/index.js";
 import {
   CodingAgentRepositoryLive,

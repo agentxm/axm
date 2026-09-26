@@ -5,9 +5,9 @@
  * service tags each extension kind implements, the kernel failure families and
  * the brand every kind failure carries, the materialization capabilities a
  * workspace transition drives, the MCP credential port, and registry-backed
- * acquisition. The kinds'
- * manager layers live behind `./kinds-live`; the projection participants
- * layer lives behind `./live`; deterministic doubles live behind `./testing`.
+ * acquisition. The kinds' manager layers live behind `./kinds-live`, and the
+ * projection participants layer lives behind `./reconciliation/live`;
+ * deterministic doubles live behind `./testing`.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation

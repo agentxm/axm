@@ -32,7 +32,7 @@ import {
 } from "../../desired-state/index.js";
 import { checkCurrency } from "../version-currency/check-currency.js";
 import { WorkspaceInspectionFailed } from "../errors.js";
-import { workspaceFailureToStepFailure } from "../../reconciliation/failure-rendering.js";
+import { kernelFailureToStepFailure } from "../../reconciliation/failure-rendering.js";
 
 export type ExtensionListFilter = "all" | "outdated" | "deprecated";
 
@@ -223,7 +223,7 @@ const gitAssessment = Effect.fn("Workspace.gitExtensionAssessment")(function* (
   if (source._tag === "Failure") {
     return {
       state: "unknown",
-      reason: workspaceFailureToStepFailure(source.failure).detail,
+      reason: kernelFailureToStepFailure(source.failure).detail,
     } satisfies ExtensionAssessment;
   }
   const refs = yield* providers
@@ -237,7 +237,7 @@ const gitAssessment = Effect.fn("Workspace.gitExtensionAssessment")(function* (
   if (refs._tag === "Failure") {
     return {
       state: "unknown",
-      reason: workspaceFailureToStepFailure(refs.failure).detail,
+      reason: kernelFailureToStepFailure(refs.failure).detail,
     } satisfies ExtensionAssessment;
   }
   const match = refs.success.find(

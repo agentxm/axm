@@ -104,7 +104,6 @@ import type { VersionRange } from "@agentxm/extension-model/unstable/version-con
 
 import type { InstallStepRequirements } from "../install/vocabulary.js";
 import type { StepFailureConversion } from "../step-failure-conversion.js";
-import { lifecycleStepFailure } from "../step-failure.js";
 import { buildPackMemberStep, type PackMemberRef } from "../../reconciliation/index.js";
 import { withPublisherTrust } from "../publisher-binding.js";
 import { planHookInstall } from "../../hooks/lifecycle/install/plan.js";
@@ -120,7 +119,7 @@ import { buildWorkspaceUpdatePlan, type WorkspaceUpdatableType } from "./configu
 import { resolveConfiguredUpdateSelection, type ConfiguredUpdateSelector } from "./selector.js";
 import { resolveRootUpdateIntent, type RootUpdateIntent } from "./root-request.js";
 import { wrapTargetedUpdatePlan } from "./targeted-plan.js";
-import { nameFromLabel, workspaceFailureToStepFailure } from "../../reconciliation/index.js";
+import { nameFromLabel, kernelFailureToStepFailure } from "../../reconciliation/index.js";
 import { desiredPackageKey } from "../../desired-state/index.js";
 
 // -----------------------------------------------------------------------------
@@ -431,7 +430,7 @@ const planResolvedTarget = Effect.fn("UpdateExtensions.planResolvedTarget")(func
           (cause) =>
             new ExtensionLifecycleFailed({
               category: "conflict",
-              detail: workspaceFailureToStepFailure(cause).detail,
+              detail: kernelFailureToStepFailure(cause).detail,
               cause,
             }),
         ),
@@ -616,7 +615,7 @@ const prepareTargeted = Effect.fn("UpdateExtensions.prepareTargeted")(function* 
                     ref: yield* requirePackMemberRef(intent, selected.ref),
                     nonInteractive: request.nonInteractive,
                     strictAgentSync: true,
-                    toStepFailure: lifecycleStepFailure,
+                    toStepFailure: kernelFailureToStepFailure,
                   }),
                 ],
               },

@@ -104,8 +104,14 @@ export {
 } from "./retention-policy.js";
 
 export { ReconciliationFailureConversionLive, syncFailureRendering } from "./layer.js";
-export { workspaceFailureToStepFailure, type WorkspaceFailure } from "./failure-rendering.js";
-export { isWorkspaceFailure } from "./failure-recognition.js";
+export {
+  isKernelFailure,
+  kernelFailureDetail,
+  kernelFailureToStepFailure,
+  renderKernelFailure,
+  type KernelFailure,
+  type KernelFailureRendering,
+} from "./failure-rendering.js";
 
 export {
   deleteMcpSecrets,

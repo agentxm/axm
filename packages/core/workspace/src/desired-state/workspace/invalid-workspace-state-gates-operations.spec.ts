@@ -13,7 +13,7 @@ import { afterEach } from "vitest";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { workspaceFailureToStepFailure } from "../../reconciliation/index.js";
+import { kernelFailureToStepFailure } from "../../reconciliation/index.js";
 import { LOCKFILE_VERSION } from "../lockfile/schema.js";
 import { WorkspaceStateLive } from "../live.js";
 import { WorkspaceRecords } from "./workspace-records.js";
@@ -263,7 +263,7 @@ describe("Invalid workspace state gates operations", () => {
 
         const record = failureRecord(failure);
         expect(record["_tag"]).toBe(row.tag);
-        expect(workspaceFailureToStepFailure(failure).category).toBe(row.category);
+        expect(kernelFailureToStepFailure(failure).category).toBe(row.category);
         expect(record["path"]).toBe(faultPath);
         expect(recoveryFor(row.tag, record)).toBe(row.recovery);
         row.expect?.(record);

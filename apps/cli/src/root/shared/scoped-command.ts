@@ -16,7 +16,7 @@ import type * as CliCommand from "effect/unstable/cli/Command";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import type { FailureSuggestedAction } from "@agentxm/workspace/operations";
 import { WorkspaceLocation } from "@agentxm/workspace/desired-state";
-import { isWorkspaceFailure } from "@agentxm/workspace/reconciliation";
+import { isWorkspaceFailure } from "../../app-error/failure-catalog.js";
 import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { AppError } from "../../app-error/index.js";
 import { toAppError } from "../../app-error/conversions.js";

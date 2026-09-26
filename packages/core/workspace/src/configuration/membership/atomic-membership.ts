@@ -26,7 +26,7 @@ import {
 
 import {
   WorkspaceConfigurationFailed,
-  configurationFailedToStepFailure,
+  configurationFailureToStepFailure,
   workspaceChangeFailedToStepFailure,
 } from "../errors.js";
 
@@ -111,7 +111,7 @@ const verifyTransition = (
         ? transition.agentIds.filter((agentId) => !configured.has(agentId))
         : transition.agentIds.filter((agentId) => configured.has(agentId));
     if (unmet.length === 0) return;
-    return yield* configurationFailedToStepFailure(
+    return yield* configurationFailureToStepFailure(
       new WorkspaceConfigurationFailed({
         category: "internal",
         detail:

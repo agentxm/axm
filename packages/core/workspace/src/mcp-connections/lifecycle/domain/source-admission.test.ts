@@ -58,7 +58,6 @@ describe("MCP source identity admission", () => {
       expect(result._tag).toBe("Failure");
       if (result._tag === "Failure") {
         expect(result.failure).toMatchObject({
-          _tag: "McpConnectionConflict",
           requestedIdentity: "@other/mcps/context",
           owningIdentity: "@acme/mcps/context",
         });

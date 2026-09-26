@@ -22,7 +22,13 @@ export {
   NativeImportUnsupported,
   type AuthoredPackageError,
 } from "./authored-package-errors.js";
-export { authoringStepFailure, type AuthoringStepFailure } from "./step-failure.js";
+export {
+  authoringFailureToStepFailure,
+  authoringStepFailure,
+  isAuthoringFamilyFailure,
+  type AuthoringFamilyFailure,
+  type AuthoringStepFailure,
+} from "./step-failure.js";
 
 export { forkExtensionPackage, type ForkExtensionPackageArgs } from "./fork-package.js";
 export {

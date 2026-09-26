@@ -27,6 +27,7 @@ import {
   RuleManager,
   SkillManager,
   SubagentManager,
+  failureTag,
 } from "../../../materialization/index.js";
 import {
   buildUninstallOperation,
@@ -62,7 +63,7 @@ import {
 } from "../../../desired-state/index.js";
 
 import { expandGlob } from "@agentxm/extension-model/unstable/extensions/name-patterns";
-import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
+import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
 import { buildAggregateProjectionStep } from "../../../lifecycle/install/aggregate-projection-step.js";
 import { type InstallStepRequirements } from "../../../lifecycle/install/vocabulary.js";
 import {
@@ -368,7 +369,7 @@ export const planPackUninstall: (
     }),
   );
 
-  const retentionPolicy = makeWorkspaceRetentionPolicy(desiredState, lifecycleStepFailure);
+  const retentionPolicy = makeWorkspaceRetentionPolicy(desiredState, kernelFailureToStepFailure);
 
   const allTargets = new Map<string, ExtensionTarget>();
   for (const pack of intent.packsToUninstall) {
@@ -428,7 +429,7 @@ export const planPackUninstall: (
         const retirement = retirementByPackName.get(target.name);
         return buildUninstallOperation(packManager, retentionPolicy, {
           target,
-          toStepFailure: lifecycleStepFailure,
+          toStepFailure: kernelFailureToStepFailure,
           ...(retirement === undefined
             ? {}
             : {
@@ -443,34 +444,34 @@ export const planPackUninstall: (
       }
       case "skill":
         return buildUninstallOperation(skillManager, exclusiveMemberRetentionPolicy, {
-          toStepFailure: lifecycleStepFailure,
+          toStepFailure: kernelFailureToStepFailure,
           target,
         });
       case "mcp-server":
         return buildUninstallOperation(mcpServerManager, exclusiveMemberRetentionPolicy, {
-          toStepFailure: lifecycleStepFailure,
+          toStepFailure: kernelFailureToStepFailure,
           target,
         });
       case "subagent":
         return buildUninstallOperation(subagentManager, exclusiveMemberRetentionPolicy, {
-          toStepFailure: lifecycleStepFailure,
+          toStepFailure: kernelFailureToStepFailure,
           target,
         });
       case "rule":
         return buildUninstallOperation(ruleManager, exclusiveMemberRetentionPolicy, {
-          toStepFailure: lifecycleStepFailure,
+          toStepFailure: kernelFailureToStepFailure,
           target,
           enclosingClosure: { projections: [target.type] },
         });
       case "hook":
         return buildUninstallOperation(hookManager, exclusiveMemberRetentionPolicy, {
-          toStepFailure: lifecycleStepFailure,
+          toStepFailure: kernelFailureToStepFailure,
           target,
           enclosingClosure: { projections: [target.type] },
         });
       case "knowledge":
         return buildUninstallOperation(knowledgeManager, exclusiveMemberRetentionPolicy, {
-          toStepFailure: lifecycleStepFailure,
+          toStepFailure: kernelFailureToStepFailure,
           target,
           enclosingClosure: { projections: [target.type] },
         });
@@ -485,10 +486,10 @@ export const planPackUninstall: (
           subjects: orderedTargets,
           adapter: {
             toStepFailure: (cause: SyncPolicyFailure) =>
-              lifecycleStepFailure(
+              kernelFailureToStepFailure(
                 installRefused({
                   category: "conflict",
-                  detail: ("detail" in cause ? cause.detail : undefined) ?? cause._tag,
+                  detail: ("detail" in cause ? cause.detail : undefined) ?? failureTag(cause),
                   cause,
                 }),
               ),
@@ -510,7 +511,7 @@ export const planPackUninstall: (
       ? ""
       : ` (${plannedRetirements.length} pack${plannedRetirements.length === 1 ? "" : "s"} unregistered without removing package content)`;
   const graphStep = yield* buildReconciliationClosure({
-    toStepFailure: lifecycleStepFailure,
+    toStepFailure: kernelFailureToStepFailure,
     label: `${intent.packsToUninstall.length} pack${intent.packsToUninstall.length === 1 ? "" : "s"}`,
     message: `Uninstalled ${intent.packsToUninstall.length} pack${intent.packsToUninstall.length === 1 ? "" : "s"} and ${depTargets.length} exclusive member${depTargets.length === 1 ? "" : "s"}${registrationOnly}`,
     artifact: {

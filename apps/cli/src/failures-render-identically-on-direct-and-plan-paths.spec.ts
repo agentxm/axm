@@ -123,6 +123,7 @@ import {
   StagedPackageInvalid,
   SubagentContentUnreadable,
   SubagentDefinitionInvalid,
+  type ExtensionKindFailure,
 } from "@agentxm/workspace/materialization";
 import {
   AgentDetectionFailed,
@@ -197,26 +198,26 @@ import {
   ScaffoldNameInvalid,
   authoringStepFailure,
 } from "@agentxm/workspace/authoring";
-import {
-  LifecycleFailureConversionLive,
-  StepFailureConversion,
-  lifecycleStepFailure,
-} from "@agentxm/workspace/lifecycle";
+import { StepFailureConversion } from "@agentxm/workspace/lifecycle";
 import {
   WorkspaceConfigurationFailed,
-  configurationFailedToStepFailure,
+  configurationFailureToStepFailure,
 } from "@agentxm/workspace/configuration";
 import {
   ReconciliationFailureConversionLive,
   SyncStepFailureConversion,
-  isWorkspaceFailure,
   WorkspaceSyncFailed,
-  workspaceFailureToStepFailure,
-  type WorkspaceFailure,
+  kernelFailureToStepFailure,
 } from "@agentxm/workspace/reconciliation";
 
 import { AppError } from "./app-error/index.js";
 import { stepFailureToAppError, toAppError } from "./app-error/conversions.js";
+import {
+  WorkspaceFailureConversionLive,
+  isWorkspaceFailure,
+  workspaceFailureToStepFailure,
+  type WorkspaceFailure,
+} from "./app-error/failure-catalog.js";
 import { JsonErrorEnvelopeSchema, classifyError } from "./cli-runtime/index.js";
 import { withOperationLifecycle } from "./operation-lifecycle.js";
 import { PlanResolutionResultSchema, emitOperationResolution } from "./operation-output.js";
@@ -285,15 +286,45 @@ const registryMetadata = {
   response: { status: 503, requestId: "req_1", problemCode: "service_unavailable" },
 } as const;
 
+/**
+ * The failures extension kinds construct. The kernel renders each from the
+ * rendering data its brand carries, without naming the kind.
+ */
+type KindFailure =
+  | RuleDefinitionInvalid
+  | HookDefinitionInvalid
+  | SubagentDefinitionInvalid
+  | SubagentContentUnreadable
+  | McpInstallStateMissing
+  | McpConnectionConflict
+  | McpCanonicalPathUnsafe
+  | McpWorkspacePackageInvalid
+  | McpRequiredInputsMissing
+  | McpAgentSyncRefused
+  | SkillDefinitionInvalid
+  | SkillMaterializationFailed
+  | PackDefinitionInvalid
+  | PackInstallStateMissing
+  | PackArchiveFetchFailed
+  | PackStagingFailed
+  | KnowledgeDefinitionInvalid
+  | KnowledgeIoFailed
+  | KnowledgeResolutionMissing
+  | KnowledgeDesiredStateUnreconcilable
+  | KnowledgeUnavailable;
+
+/** Every tagged failure the catalog renders: its named families and each kind's failures. */
+type RenderedFailure = Exclude<WorkspaceFailure, ExtensionKindFailure> | KindFailure;
+
 type Representatives = {
-  readonly [Tag in WorkspaceFailure["_tag"]]: readonly [
-    Extract<WorkspaceFailure, { readonly _tag: Tag }>,
-    ...Array<Extract<WorkspaceFailure, { readonly _tag: Tag }>>,
+  readonly [Tag in RenderedFailure["_tag"]]: readonly [
+    Extract<RenderedFailure, { readonly _tag: Tag }>,
+    ...Array<Extract<RenderedFailure, { readonly _tag: Tag }>>,
   ];
 };
 
 /**
- * One or more representative failures for every tag the kernel renders. The
+ * One or more representative failures for every tag the catalog renders. The
  * table is keyed by tag, so a rendered family without a representative is a
  * compile error rather than an untested row.
  */
@@ -872,7 +903,7 @@ const representatives: Representatives = {
   ],
 };
 
-const rows: ReadonlyArray<WorkspaceFailure> = Object.values(representatives).flat();
+const rows: ReadonlyArray<RenderedFailure> = Object.values(representatives).flat();
 
 /** Every field an operator reads from a reported failure, whichever path reported it. */
 interface OperatorView {
@@ -1205,9 +1236,9 @@ describe("A failure reads the same on the direct and plan paths", () => {
       for (const failure of failures) {
         const direct = rendered(toAppError(failure));
         expect(rendered(viaPlanStep(conversion.toStepFailure(failure)))).toEqual(direct);
-        expect(rendered(viaPlanStep(lifecycleStepFailure(failure)))).toEqual(direct);
+        expect(rendered(viaPlanStep(kernelFailureToStepFailure(failure)))).toEqual(direct);
       }
-    }).pipe(Effect.provide(LifecycleFailureConversionLive)),
+    }).pipe(Effect.provide(WorkspaceFailureConversionLive)),
   );
 
   it.effect("renders a reconciliation plan step the same way through the provided conversion", () =>
@@ -1252,7 +1283,7 @@ describe("A failure reads the same on the direct and plan paths", () => {
       recover: "Pass an agent ID.",
       cmd: "axm agents add claude-code",
     });
-    expect(rendered(viaPlanStep(configurationFailedToStepFailure(configuration)))).toEqual(
+    expect(rendered(viaPlanStep(configurationFailureToStepFailure(configuration)))).toEqual(
       rendered(toAppError(configuration)),
     );
   });

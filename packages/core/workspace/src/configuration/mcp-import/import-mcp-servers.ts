@@ -50,7 +50,7 @@ import {
 
 import {
   WorkspaceConfigurationFailed,
-  configurationFailedToStepFailure,
+  configurationFailureToStepFailure,
   workspaceChangeFailedToStepFailure,
   type WorkspaceConfigurationExecutionFailure,
 } from "../errors.js";
@@ -176,7 +176,7 @@ export const previewOrApplyImportMcpServers = (
               run: applyMcpImport(candidate.preflight.candidates).pipe(
                 Effect.mapError((failure) =>
                   failure instanceof WorkspaceConfigurationFailed
-                    ? configurationFailedToStepFailure(failure)
+                    ? configurationFailureToStepFailure(failure)
                     : workspaceChangeFailedToStepFailure(failure),
                 ),
                 Effect.as({

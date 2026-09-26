@@ -28,7 +28,7 @@ import type {
   WorkspaceTransactionFailure,
   WorkspaceTransitionAcquireFailure,
 } from "../transitions/settlement/index.js";
-import { workspaceFailureToStepFailure } from "../reconciliation/failure-rendering.js";
+import { kernelFailureDetail, renderKernelFailure } from "../reconciliation/failure-rendering.js";
 
 /**
  * Every failure resolving a prepared change through the plan pipeline can
@@ -60,14 +60,22 @@ export class WorkspaceConfigurationFailed extends Schema.TaggedError<WorkspaceCo
   },
 ) {}
 
+/** Every failure the configuration feature constructs. */
+export type ConfigurationFamilyFailure = WorkspaceConfigurationFailed;
+
+/** Whether an untyped failure is one the configuration feature constructs. */
+export const isConfigurationFamilyFailure = (
+  failure: unknown,
+): failure is ConfigurationFamilyFailure => failure instanceof WorkspaceConfigurationFailed;
+
 /**
  * Render a workspace configuration failure. The producer already chose the
  * category and the sentence, so both carry over unchanged, `recover` and
  * `cmd` lead the suggestions, and the failure reads the same whether it
  * surfaced from a step or from `prepare`.
  */
-export const configurationFailedToStepFailure = (
-  failure: WorkspaceConfigurationFailed,
+export const configurationFailureToStepFailure = (
+  failure: ConfigurationFamilyFailure,
 ): StepFailure =>
   makeStepFailure({
     category: failure.category,
@@ -90,9 +98,15 @@ export type WorkspaceChangeFailure =
   | WorkspaceStateMutationFailure
   | WorkspaceTransactionFailure;
 
+/** The sentence a transition's deciding failure reads with inside a configuration change. */
+const configurationFailureDetail = (failure: unknown): string | undefined =>
+  isConfigurationFamilyFailure(failure)
+    ? configurationFailureToStepFailure(failure).detail
+    : kernelFailureDetail(failure);
+
 /**
  * Serialize a workspace change failure into the plan-step vocabulary: the
  * same rendering the command boundary projects for that failure.
  */
 export const workspaceChangeFailedToStepFailure = (failure: WorkspaceChangeFailure): StepFailure =>
-  workspaceFailureToStepFailure(failure);
+  renderKernelFailure(failure, { detailOf: configurationFailureDetail });

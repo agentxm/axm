@@ -49,7 +49,7 @@ import {
 } from "../../../desired-state/index.js";
 
 import { expandGlob } from "@agentxm/extension-model/unstable/extensions/name-patterns";
-import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
+import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
 import {
   type InstallStepRequirements,
   type ResolveInstallRequirements,
@@ -164,7 +164,7 @@ export const planSkillUninstall: (
   const skillManager = yield* SkillManager;
   const agentRepo = yield* CodingAgentRepository;
   const path = yield* Path.Path;
-  const retentionPolicy = makeWorkspaceRetentionPolicy(desiredState, lifecycleStepFailure);
+  const retentionPolicy = makeWorkspaceRetentionPolicy(desiredState, kernelFailureToStepFailure);
 
   const configuredAgents = yield* agentRepo.getMaterializationAgents().pipe(
     Effect.mapError((cause) =>
@@ -248,7 +248,7 @@ export const planSkillUninstall: (
 
         const step = buildUninstallOperation(skillManager, retentionPolicy, {
           target,
-          toStepFailure: lifecycleStepFailure,
+          toStepFailure: kernelFailureToStepFailure,
           // The settlement says what the removal withdrew, so a package
           // retained for a pack — or one that was never there — is reported
           // from the settlement rather than read out of a sentence.

@@ -11,7 +11,7 @@ import {
   type ManagerRequirements,
 } from "../../materialization/index.js";
 import { applyInstructionSurfacePlans, type ProjectionPlan } from "../../projection/index.js";
-import { lifecycleStepFailure } from "../step-failure.js";
+import { kernelFailureToStepFailure } from "../../reconciliation/index.js";
 import type { InstallStepRequirements } from "./vocabulary.js";
 
 /**
@@ -57,7 +57,7 @@ export const buildAggregateProjectionStep = (args: {
         }
         return yield* applyInstructionSurfacePlans(plans);
       }).pipe(
-        Effect.mapError(lifecycleStepFailure),
+        Effect.mapError(kernelFailureToStepFailure),
         Effect.map((warnings): JobStepResult => ({
           result: "success",
           message: "Rendered shared aggregate units from the complete contributor set",

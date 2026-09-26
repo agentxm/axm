@@ -32,7 +32,7 @@ import {
 import { FootprintRecorderTest } from "../transitions/planning/testing.js";
 import { StepFailure } from "../operations/index.js";
 import { buildInstallOperation } from "../reconciliation/index.js";
-import { workspaceFailureToStepFailure } from "../reconciliation/failure-rendering.js";
+import { kernelFailureToStepFailure } from "../reconciliation/failure-rendering.js";
 import type { KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import {
@@ -166,7 +166,7 @@ const installKnowledge = (ref: KnowledgeExtensionRef) =>
     const step = buildInstallOperation(manager, {
       ref,
       declaration: { name: ref.knowledge.name, versionRange: Option.none() },
-      toStepFailure: workspaceFailureToStepFailure,
+      toStepFailure: kernelFailureToStepFailure,
     });
     if (step.readiness === "error") {
       return yield* new StepFailure({ category: "internal", detail: step.errorMessage });

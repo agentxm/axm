@@ -12,6 +12,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import { rootCommand } from "../app.js";
+import { AppError } from "../app-error/index.js";
 import { ScopedRoutesLive } from "./shared/scoped-command.js";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
@@ -1664,8 +1665,8 @@ describe("setup.handler", () => {
             agents: ["claude-code"],
           }).pipe(Effect.flip);
 
-          expect(error._tag).toBe("AppError");
-          if (error._tag === "AppError") {
+          expect(error).toBeInstanceOf(AppError);
+          if (error instanceof AppError) {
             expect(error.detail).toContain("Failed to read AXM workspace ignore file");
           }
           expect(fs.existsSync(path.join(tempDir, "axm.json"))).toBe(false);
@@ -1719,7 +1720,7 @@ describe("setup.handler", () => {
           fs.writeFileSync(path.join(tempDir, "axm-lock.yaml"), "lockfileVersion: 8\nskills: {}\n");
 
           const error = yield* handleSetup({ scope: "project" }).pipe(Effect.flip);
-          expect(error._tag).toBe("AppError");
+          expect(error).toBeInstanceOf(AppError);
         }),
       );
     });

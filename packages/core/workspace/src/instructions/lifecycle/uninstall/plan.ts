@@ -19,7 +19,7 @@ import {
 } from "../../../operations/index.js";
 import { DesiredStateReader, type RuleExtensionTarget } from "../../../desired-state/index.js";
 
-import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
+import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
 import { type InstallStepRequirements } from "../../../lifecycle/install/vocabulary.js";
 import { makeWorkspaceRetentionPolicy } from "../../../reconciliation/index.js";
 import type { RuleUninstallIntent } from "../../../lifecycle/uninstall/vocabulary.js";
@@ -64,7 +64,7 @@ export const planRuleUninstall: (
 > = Effect.fn("UninstallExtensions.planRules")(function* (intent: RuleUninstallIntent) {
   const desiredState = yield* DesiredStateReader;
   const ruleManager = yield* RuleManager;
-  const retentionPolicy = makeWorkspaceRetentionPolicy(desiredState, lifecycleStepFailure);
+  const retentionPolicy = makeWorkspaceRetentionPolicy(desiredState, kernelFailureToStepFailure);
   return {
     _tag: "Plan",
     name: "Uninstall rule",
@@ -75,7 +75,7 @@ export const planRuleUninstall: (
         steps: intent.targets.map((target) =>
           buildUninstallOperation(ruleManager, retentionPolicy, {
             target,
-            toStepFailure: lifecycleStepFailure,
+            toStepFailure: kernelFailureToStepFailure,
           }),
         ),
       },

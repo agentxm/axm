@@ -43,7 +43,7 @@ import type {
   SourceResolutionFailure,
   WorkspaceCatalog,
 } from "../../resolution/sources/index.js";
-import { workspaceFailureToStepFailure } from "../../reconciliation/failure-rendering.js";
+import { kernelFailureToStepFailure } from "../../reconciliation/failure-rendering.js";
 import {
   type ApprovalRecoveryMissing,
   type CandidateFingerprintFailed,
@@ -170,7 +170,7 @@ export const sourceResolutionRefused = (
   cause: SourceResolutionFailure,
   suggestions: NonNullable<ExtensionLifecycleFailed["suggestions"]> = [],
 ): ExtensionLifecycleFailed => {
-  const rendered = workspaceFailureToStepFailure(cause);
+  const rendered = kernelFailureToStepFailure(cause);
   const carried = [...(rendered.suggestions ?? []), ...suggestions];
   return new ExtensionLifecycleFailed({
     category: rendered.category,
@@ -185,7 +185,7 @@ export const sourceResolutionRefused = (
 
 /** The sentence a source-resolution failure reads with, for probe evidence. */
 export const sourceResolutionFailureDetail = (cause: SourceResolutionFailure): string =>
-  workspaceFailureToStepFailure(cause).detail;
+  kernelFailureToStepFailure(cause).detail;
 
 // -----------------------------------------------------------------------------
 // Per-type resolved intents

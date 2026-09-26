@@ -1,19 +1,50 @@
 /**
- * The workspace failure rendering: every typed failure the kernel constructs
- * or carries renders into the one `StepFailure` a plan step settles with and
- * the application boundary projects, so a failure reads the same on both
- * paths.
+ * The kernel failure rendering: every typed failure the workspace kernel
+ * constructs or carries renders into the one `StepFailure` a plan step settles
+ * with and the application boundary projects, so a failure reads the same on
+ * both paths.
  *
- * Each family's wording lives once, beside its owner; this module only routes
- * a failure to its family. The reconciliation capability owns the route
- * because its failure-conversion Layer is the boundary adapter every feature
- * plan and the application share.
+ * Each family's wording lives once, beside its owner; this module only
+ * recognizes a kernel failure and routes it to its family. A failure an
+ * extension kind constructs renders structurally from the rendering data its
+ * brand carries, so the kernel names no kind. Feature families render beside
+ * their features, and the application composes them with this rendering into
+ * its one catalog.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { ConfigError } from "effect/Config";
+import { ConfigError } from "effect/Config";
 
+import { FqnInvalidError } from "@agentxm/extension-model/unstable/extensions/fqn";
+import { FrontmatterParseFailure, SubagentContentError } from "@agentxm/extension-content";
+import { AxmSkillCompatibilityUnavailable } from "@agentxm/cli-maintenance/official-skill/application";
+import { AxmSkillIncompatible } from "@agentxm/cli-maintenance/official-skill/domain";
+import {
+  RegistryOperationFailed,
+  RegistryProblem,
+  RegistryRequestFailed,
+} from "@agentxm/registry-client";
+import {
+  AuthExchangeFailed,
+  AuthInteractionAbandoned,
+  AuthTokenPolicyRequired,
+  DeviceAuthorizationPending,
+  DeviceLoginCodeExpired,
+  DeviceLoginDenied,
+  RegistryAccessFailed,
+  SignedOut,
+  type RegistryAccessFailure,
+} from "@agentxm/registry-access/authentication";
+
+import {
+  ArchiveIntegrityMismatch,
+  CanonicalPackageProbeFailed,
+  CreateDestinationExists,
+  PackageCopyFailed,
+  PackageMaterializationFailed,
+  StagedPackageInvalid,
+} from "../acquisition/errors.js";
 import {
   type WorkspaceStateReadFailure,
   configErrorToStepFailure,
@@ -24,21 +55,53 @@ import {
   workspaceTransactionFailureToStepFailure,
   type WorkspaceStateFailure,
 } from "../desired-state/index.js";
-import type { WriteBackupRetained } from "../projection/agent-adapters/errors.js";
-import type {
-  WorkspaceRestorationError,
-  WorkspaceRestorationIncomplete,
-  WorkspaceTransactionFailure,
-} from "../transitions/settlement/errors.js";
-import { makeStepFailure, type StepFailure } from "../operations/index.js";
 import {
-  planExecutionFailureToStepFailure,
-  type PlanExecutionFailure,
-} from "../transitions/planning/index.js";
+  LockfileResolvedVersionInvalid,
+  LockfileValidationError,
+  LockfileWriteError,
+} from "../desired-state/lockfile/errors.js";
+import { SettingsWriteError } from "../desired-state/settings/errors.js";
+import { PathTraversalDetected } from "../desired-state/utils/path-safety.js";
+import { ConfiguredAgentOutcomesUnavailable } from "../desired-state/workspace/configured-agent-outcomes-provider.js";
+import {
+  AcceptedResolutionMissing,
+  CanonicalPathRemovalError,
+  DesiredPackGraphIncomplete,
+  InlineExtensionSourceMissing,
+  InvalidAgentId,
+  LockEntryEndpointConflict,
+  LockEntryNameInvalid,
+  LockedSkillMissing,
+  PackageContentHashFailed,
+  SettingsEntryMissing,
+  SupersededCanonicalRemovalFailed,
+  SymlinkCreationError,
+  WorkspaceLayoutError,
+  WorkspaceNotInitialized,
+  WorkspaceSourceInvalid,
+} from "../desired-state/workspace/errors.js";
+import { MaterializedTreeInvalid } from "../desired-state/workspace/materialized-tree.js";
+import {
+  LockfileDecodeError,
+  LockfileIoError,
+  LockfileParseError,
+  LockfileVersionUnsupported,
+  SettingsDecodeError,
+  SettingsIoError,
+  SettingsParseError,
+  SkillDiscoveryRootInvalid,
+  SubagentScanFailed,
+  WorkspaceRootEscape,
+} from "../desired-state/workspace/read-model/errors.js";
+import { InstallStateMissing } from "../materialization/accepted-resolution.js";
 import {
   agentIntegrationFailureToStepFailure,
   type AgentIntegrationFailure,
 } from "../materialization/agent-integration-step-failure.js";
+import {
+  isExtensionKindFailure,
+  type ExtensionKindFailure,
+} from "../materialization/kind-failure.js";
 import {
   projectionErrorToStepFailure,
   type ProjectionFamilyFailure,
@@ -52,27 +115,81 @@ import {
   type MaterializationFamilyFailure,
 } from "../materialization/step-failure.js";
 import {
-  authoringFailureToStepFailure,
-  type AuthoringFamilyFailure,
-} from "../authoring/step-failure.js";
+  ApprovalRecoveryMissing,
+  CandidateFingerprintFailed,
+  ExtensionLifecycleFailed,
+  InstallSelectionUnavailable,
+  LifecyclePostconditionViolated,
+  PlanInteractionFailed,
+  ScaffoldedExtensionUnresolved,
+  StaleExecutionCandidate,
+  StepFailure,
+  makeStepFailure,
+} from "../operations/index.js";
 import {
-  configurationFailedToStepFailure,
-  type WorkspaceConfigurationFailed,
-} from "../configuration/errors.js";
+  AgentDetectionFailed,
+  HookConfigInvalid,
+  HookIoFailed,
+  McpConfigInvalid,
+  McpConfigIoFailed,
+  McpDefinitionInvalid,
+  McpEntryUnmanaged,
+  McpOwnershipMarkerInvalid,
+  McpSharedTargetConflict,
+  SubagentIoFailed,
+  WriteBackupRetained,
+} from "../projection/agent-adapters/errors.js";
+import { NativeWriteRefused } from "../projection/agent-adapters/native-write-authority.js";
+import { TransientBackupFailed } from "../projection/agent-adapters/transient-backup.js";
 import {
-  lifecycleFailureToStepFailure,
-  type LifecycleFamilyFailure,
-} from "../lifecycle/step-failure.js";
+  AuthoredContributorUnsupported,
+  ContributorIdentityInvalid,
+  ContributorTreeMismatch,
+  ContributorUnresolved,
+  DesiredStateIncomplete,
+  ManagedRegionViolation,
+  ProjectionIoFailed,
+  ProjectionTargetUnsupported,
+} from "../projection/errors.js";
+import { InstructionMaintenanceFailed } from "../projection/instructions/errors.js";
 import {
-  publishFailureToStepFailure,
-  type PublishFamilyFailure,
-} from "../publishing/step-failure.js";
+  ExtensionResolutionFailed,
+  PackConstraintShadowed,
+  PackDependencyConflict,
+  PackDependencyInvalid,
+  PackDependencyMissing,
+  PackDependencyUnsatisfied,
+  SourceAuthorityBlocked,
+} from "../resolution/errors.js";
+import { AxmSkillGateUnavailable } from "../resolution/sources/axm-skill-gate.js";
+import {
+  GitOperationFailed,
+  SourceHostNotConfigured,
+  SourceNetworkFailure,
+  SourceNotResolvable,
+  SourceSyntaxInvalid,
+} from "../resolution/sources/errors.js";
+import { WorkspaceCatalogUnavailable } from "../resolution/sources/workspace-catalog.js";
+import {
+  TransitionLockError,
+  TransitionLockUnavailable,
+  WorkspaceDirectoryError,
+  WorkspaceRestorationError,
+  WorkspaceRestorationIncomplete,
+  WorkspaceSnapshotError,
+  WorkspaceTransitionCompromised,
+  type WorkspaceTransactionFailure,
+} from "../transitions/settlement/errors.js";
+import {
+  planExecutionFailureToStepFailure,
+  type PlanExecutionFailure,
+} from "../transitions/planning/index.js";
 
-import type { WorkspaceSyncFailed } from "./errors.js";
-import { isWorkspaceFailure } from "./failure-recognition.js";
+import { WorkspaceSyncFailed } from "./errors.js";
+import { registryAccessFailureToStepFailure } from "./registry-access-step-failure.js";
 
-/** Every typed failure the workspace kernel renders. */
-export type WorkspaceFailure =
+/** Every typed failure the workspace kernel constructs or carries. */
+export type KernelFailure =
   | StepFailure
   | ConfigError
   | WorkspaceStateReadFailure
@@ -86,15 +203,161 @@ export type WorkspaceFailure =
   | WriteBackupRetained
   | ProjectionFamilyFailure
   | ResolutionFamilyFailure
-  | AuthoringFamilyFailure
-  | LifecycleFamilyFailure
-  | PublishFamilyFailure
-  | WorkspaceConfigurationFailed
+  | RegistryAccessFailure
+  | ExtensionLifecycleFailed
+  | InstallSelectionUnavailable
   | WorkspaceSyncFailed;
 
+/**
+ * Every kernel class whose instances this module renders. The list is built
+ * when a failure is recognized, not at module load: several of these modules
+ * render through this capability, so their classes are read only after every
+ * module has loaded. A failure an extension kind constructs is recognized by
+ * its brand instead.
+ */
+const kernelFailureClasses = () =>
+  [
+    StepFailure,
+    ConfigError,
+    SettingsIoError,
+    SettingsParseError,
+    SettingsDecodeError,
+    LockfileIoError,
+    LockfileParseError,
+    LockfileDecodeError,
+    LockfileVersionUnsupported,
+    WorkspaceRootEscape,
+    SettingsWriteError,
+    LockfileWriteError,
+    LockfileValidationError,
+    LockfileResolvedVersionInvalid,
+    WorkspaceLayoutError,
+    WorkspaceNotInitialized,
+    LockedSkillMissing,
+    SettingsEntryMissing,
+    InvalidAgentId,
+    DesiredPackGraphIncomplete,
+    CanonicalPathRemovalError,
+    SymlinkCreationError,
+    LockEntryNameInvalid,
+    LockEntryEndpointConflict,
+    AcceptedResolutionMissing,
+    InlineExtensionSourceMissing,
+    SupersededCanonicalRemovalFailed,
+    PackageContentHashFailed,
+    WorkspaceSourceInvalid,
+    SkillDiscoveryRootInvalid,
+    SubagentScanFailed,
+    MaterializedTreeInvalid,
+    PathTraversalDetected,
+    ConfiguredAgentOutcomesUnavailable,
+    WorkspaceSnapshotError,
+    WorkspaceDirectoryError,
+    TransitionLockError,
+    TransitionLockUnavailable,
+    WorkspaceTransitionCompromised,
+    WorkspaceRestorationError,
+    WorkspaceRestorationIncomplete,
+    StaleExecutionCandidate,
+    CandidateFingerprintFailed,
+    ApprovalRecoveryMissing,
+    PlanInteractionFailed,
+    LifecyclePostconditionViolated,
+    ScaffoldedExtensionUnresolved,
+    PackageMaterializationFailed,
+    StagedPackageInvalid,
+    CanonicalPackageProbeFailed,
+    PackageCopyFailed,
+    ArchiveIntegrityMismatch,
+    CreateDestinationExists,
+    InstallStateMissing,
+    AxmSkillCompatibilityUnavailable,
+    AxmSkillIncompatible,
+    FqnInvalidError,
+    FrontmatterParseFailure,
+    SubagentContentError,
+    AgentDetectionFailed,
+    HookConfigInvalid,
+    HookIoFailed,
+    TransientBackupFailed,
+    SubagentIoFailed,
+    McpConfigInvalid,
+    McpConfigIoFailed,
+    McpEntryUnmanaged,
+    McpOwnershipMarkerInvalid,
+    McpDefinitionInvalid,
+    McpSharedTargetConflict,
+    NativeWriteRefused,
+    WriteBackupRetained,
+    DesiredStateIncomplete,
+    AuthoredContributorUnsupported,
+    ContributorIdentityInvalid,
+    ContributorUnresolved,
+    ContributorTreeMismatch,
+    ProjectionTargetUnsupported,
+    ManagedRegionViolation,
+    ProjectionIoFailed,
+    InstructionMaintenanceFailed,
+    SourceSyntaxInvalid,
+    SourceHostNotConfigured,
+    SourceNotResolvable,
+    SourceNetworkFailure,
+    GitOperationFailed,
+    WorkspaceCatalogUnavailable,
+    AxmSkillGateUnavailable,
+    RegistryProblem,
+    RegistryRequestFailed,
+    RegistryOperationFailed,
+    ExtensionResolutionFailed,
+    SourceAuthorityBlocked,
+    PackDependencyInvalid,
+    PackDependencyConflict,
+    PackConstraintShadowed,
+    PackDependencyMissing,
+    PackDependencyUnsatisfied,
+    RegistryAccessFailed,
+    SignedOut,
+    AuthTokenPolicyRequired,
+    DeviceLoginDenied,
+    DeviceLoginCodeExpired,
+    DeviceAuthorizationPending,
+    AuthInteractionAbandoned,
+    AuthExchangeFailed,
+    ExtensionLifecycleFailed,
+    InstallSelectionUnavailable,
+    WorkspaceSyncFailed,
+  ] as const;
+
+// The recognized failures and the rendered union are the same set: a family
+// the kernel renders but cannot recognize, or the reverse, is a compile error
+// here.
+type RecognizedFailure =
+  InstanceType<ReturnType<typeof kernelFailureClasses>[number]> | ExtensionKindFailure;
+const _recognizesEveryRenderedFailure = (failure: KernelFailure): RecognizedFailure => failure;
+const _rendersEveryRecognizedFailure = (failure: RecognizedFailure): KernelFailure => failure;
+void _recognizesEveryRenderedFailure;
+void _rendersEveryRecognizedFailure;
+
+/** Whether an untyped failure is one the workspace kernel renders. */
+export const isKernelFailure = (failure: unknown): failure is KernelFailure =>
+  isExtensionKindFailure(failure) ||
+  kernelFailureClasses().some((failureClass) => failure instanceof failureClass);
+
+/**
+ * What a rendering needs from its composer: the sentence a transition's
+ * deciding failure reads with. The kernel reads its own families; a composer
+ * that also renders feature families supplies a reader over all of them.
+ */
+export interface KernelFailureRendering {
+  readonly detailOf: (failure: unknown) => string | undefined;
+}
+
 /** A retained write backup reads as its inner failure plus where the original survives. */
-const writeBackupRetainedFailure = (error: WriteBackupRetained): StepFailure => {
-  const inner = workspaceFailureToStepFailure(error.failure);
+const writeBackupRetainedFailure = (
+  error: WriteBackupRetained,
+  rendering: KernelFailureRendering,
+): StepFailure => {
+  const inner = renderKernelFailure(error.failure, rendering);
   return makeStepFailure({
     category: inner.category,
     title: inner.title,
@@ -108,15 +371,15 @@ const writeBackupRetainedFailure = (error: WriteBackupRetained): StepFailure => 
   });
 };
 
-/** A transition's deciding failure reads as it renders wherever else it surfaces. */
-const decidingFailureDetail = (failure: unknown): string | undefined =>
-  isWorkspaceFailure(failure) ? workspaceFailureToStepFailure(failure).detail : undefined;
-
 /**
- * Render one workspace failure. A `StepFailure` is already rendered and
- * passes through unchanged.
+ * Render one kernel failure within a composer's rendering. A `StepFailure` is
+ * already rendered and passes through unchanged.
  */
-export const workspaceFailureToStepFailure = (failure: WorkspaceFailure): StepFailure => {
+export const renderKernelFailure = (
+  failure: KernelFailure,
+  rendering: KernelFailureRendering,
+): StepFailure => {
+  if (isExtensionKindFailure(failure)) return materializationFailureToStepFailure(failure);
   switch (failure._tag) {
     case "StepFailure":
       return failure;
@@ -165,7 +428,7 @@ export const workspaceFailureToStepFailure = (failure: WorkspaceFailure): StepFa
     case "WorkspaceRestorationError":
       return workspaceRestorationErrorToStepFailure(failure);
     case "WorkspaceRestorationIncomplete":
-      return restorationIncompleteToStepFailure(failure, decidingFailureDetail);
+      return restorationIncompleteToStepFailure(failure, rendering.detailOf);
     case "StaleExecutionCandidate":
     case "CandidateFingerprintFailed":
     case "ApprovalRecoveryMissing":
@@ -180,29 +443,8 @@ export const workspaceFailureToStepFailure = (failure: WorkspaceFailure): StepFa
     case "ArchiveIntegrityMismatch":
     case "CreateDestinationExists":
     case "InstallStateMissing":
-    case "RuleDefinitionInvalid":
-    case "HookDefinitionInvalid":
-    case "SubagentDefinitionInvalid":
-    case "SubagentContentUnreadable":
-    case "McpInstallStateMissing":
-    case "McpConnectionConflict":
-    case "McpCanonicalPathUnsafe":
-    case "McpWorkspacePackageInvalid":
-    case "McpRequiredInputsMissing":
-    case "McpAgentSyncRefused":
-    case "SkillDefinitionInvalid":
-    case "SkillMaterializationFailed":
     case "AxmSkillCompatibilityUnavailable":
     case "AxmSkillIncompatible":
-    case "PackDefinitionInvalid":
-    case "PackInstallStateMissing":
-    case "PackArchiveFetchFailed":
-    case "PackStagingFailed":
-    case "KnowledgeDefinitionInvalid":
-    case "KnowledgeIoFailed":
-    case "KnowledgeResolutionMissing":
-    case "KnowledgeDesiredStateUnreconcilable":
-    case "KnowledgeUnavailable":
     case "FqnInvalidError":
     case "FrontmatterParseFailure":
     case "SubagentContentError":
@@ -221,7 +463,7 @@ export const workspaceFailureToStepFailure = (failure: WorkspaceFailure): StepFa
     case "NativeWriteRefused":
       return agentIntegrationFailureToStepFailure(failure);
     case "WriteBackupRetained":
-      return writeBackupRetainedFailure(failure);
+      return writeBackupRetainedFailure(failure, rendering);
     case "DesiredStateIncomplete":
     case "AuthoredContributorUnsupported":
     case "ContributorIdentityInvalid":
@@ -250,37 +492,6 @@ export const workspaceFailureToStepFailure = (failure: WorkspaceFailure): StepFa
     case "PackDependencyMissing":
     case "PackDependencyUnsatisfied":
       return resolutionFailureToStepFailure(failure);
-    case "AuthoringFailed":
-    case "CreateNameConfigured":
-    case "CreateDestinationInspectionFailed":
-    case "ForkPackageInvalid":
-    case "ForkPackageConflict":
-    case "ForkPackageFailed":
-    case "NativeImportUnsupported":
-    case "NativeImportInvalid":
-    case "NativeImportConflict":
-    case "NativeImportFailed":
-    case "AuthoringOwnerRequired":
-    case "AuthoringOwnerMismatch":
-    case "ScaffoldNameInvalid":
-    case "AuthoringScopeUnsupported":
-    case "PackSelectorNotAPack":
-    case "PackNotConfigured":
-    case "PackSelectorAmbiguous":
-    case "PackSourceMissing":
-    case "PackNotAuthored":
-    case "PackOwnerUnconfigured":
-    case "PackManifestUnavailable":
-    case "PackGraphInvalid":
-    case "PackMemberAmbiguous":
-    case "PackMemberUnmanaged":
-    case "PackMemberNotFound":
-    case "PackMemberNotDeclared":
-      return authoringFailureToStepFailure(failure);
-    case "ExtensionLifecycleFailed":
-    case "InstallSelectionUnavailable":
-      return lifecycleFailureToStepFailure(failure);
-    case "PublishFailed":
     case "RegistryAccessFailed":
     case "SignedOut":
     case "AuthTokenPolicyRequired":
@@ -289,9 +500,27 @@ export const workspaceFailureToStepFailure = (failure: WorkspaceFailure): StepFa
     case "DeviceAuthorizationPending":
     case "AuthInteractionAbandoned":
     case "AuthExchangeFailed":
-      return publishFailureToStepFailure(failure);
-    case "WorkspaceConfigurationFailed":
-      return configurationFailedToStepFailure(failure);
+      return registryAccessFailureToStepFailure(failure);
+    case "ExtensionLifecycleFailed":
+      return makeStepFailure({
+        category: failure.category,
+        title: failure.title,
+        detail: failure.detail,
+        metadata: failure.metadata,
+        retryable: failure.retryable,
+        recover: failure.recover,
+        cmd: failure.cmd,
+        suggestions: failure.suggestions,
+        cause: failure.cause,
+      });
+    case "InstallSelectionUnavailable":
+      return makeStepFailure({
+        category: "usage",
+        detail: "Unable to obtain an extension selection",
+        recover:
+          "Name the extensions with their per-type flags, take them all with --all, or use an interactive terminal.",
+        cause: failure.cause,
+      });
     case "WorkspaceSyncFailed":
       return makeStepFailure({
         category: failure.category,
@@ -301,3 +530,14 @@ export const workspaceFailureToStepFailure = (failure: WorkspaceFailure): StepFa
       });
   }
 };
+
+/** The sentence a kernel failure reads with, or none for a failure the kernel does not render. */
+export const kernelFailureDetail = (failure: unknown): string | undefined =>
+  isKernelFailure(failure) ? kernelFailureToStepFailure(failure).detail : undefined;
+
+/**
+ * Render one kernel failure on its own, where the kernel's families are every
+ * failure the caller can carry.
+ */
+export const kernelFailureToStepFailure = (failure: KernelFailure): StepFailure =>
+  renderKernelFailure(failure, { detailOf: kernelFailureDetail });

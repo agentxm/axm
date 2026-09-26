@@ -27,7 +27,7 @@ import {
 } from "../../../operations/index.js";
 import { applyInstructionSurfacePlans } from "../../../projection/index.js";
 
-import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
+import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
 import {
   type InstallStepRequirements,
   type RuleInstallIntent,
@@ -49,7 +49,7 @@ export const planRuleInstall: (
   const deferProjections = intent.deferProjections === true || intent.refs.length > 1;
   const memberSteps = intent.refs.map(({ ref, versionRange }) =>
     buildInstallOperation(ruleManager, {
-      toStepFailure: lifecycleStepFailure,
+      toStepFailure: kernelFailureToStepFailure,
       ref,
       declaration: { name: ref.rule.name, versionRange },
       ...(deferProjections
@@ -84,7 +84,7 @@ export const planRuleInstall: (
               .projectionPlans()
               .pipe(Effect.flatMap(applyInstructionSurfacePlans))
               .pipe(
-                Effect.mapError(lifecycleStepFailure),
+                Effect.mapError(kernelFailureToStepFailure),
                 Effect.as({
                   result: "success",
                   message: "Rendered installed Rules from the complete contributor set",

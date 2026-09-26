@@ -1,4 +1,4 @@
-import { lifecycleStepFailure } from "../step-failure.js";
+import { kernelFailureToStepFailure } from "../../reconciliation/index.js";
 import {
   buildReconciliationClosure,
   type ReconciliationChild,
@@ -112,7 +112,7 @@ export const wrapTargetedUpdatePlan = (args: {
       change: "updated" as const,
     };
     const builtStep = yield* buildReconciliationClosure({
-      toStepFailure: lifecycleStepFailure,
+      toStepFailure: kernelFailureToStepFailure,
       label: args.context.public.target.fqn,
       message: `Updated ${args.context.public.target.fqn}`,
       artifact,

@@ -315,7 +315,7 @@ describe("HookManager graph-derived unit projection", () => {
     return Effect.gen(function* () {
       const manager = yield* HookManager;
       const error = yield* applyPlannedProjections(manager).pipe(Effect.flip);
-      expect(error._tag).toBe("DesiredStateIncomplete");
+      expect(error).toMatchObject({ _tag: "DesiredStateIncomplete" });
       expect(nodeFs.existsSync(settingsPath)).toBe(false);
     }).pipe(Effect.provide(layer));
   });

@@ -2,23 +2,28 @@
  * The application boundary's projection of rendered failures into the
  * CLI-facing `AppError` envelope.
  *
- * The workspace kernel recognizes and renders every typed failure it
- * constructs or carries once, into a `StepFailure`; a plan step settles with
- * the same value. This module projects the rendered failure into the
- * envelope and adds only what the application itself supplied, so a failure
- * reads the same whether it surfaced here or inside a plan.
+ * The failure catalog recognizes and renders every typed failure the
+ * workspace kernel and its features construct or carry once, into a
+ * `StepFailure`; a plan step settles with the same value. This module
+ * projects the rendered failure into the envelope and adds only what the
+ * application itself supplied, so a failure reads the same whether it
+ * surfaced here or inside a plan.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
-import { OPERATION_ERROR_CATEGORIES, type StepFailure } from "@agentxm/workspace/operations";
+import {
+  InstallSelectionUnavailable,
+  OPERATION_ERROR_CATEGORIES,
+  type StepFailure,
+} from "@agentxm/workspace/operations";
+
+import { AppError, makeAppError, type AppErrorCode } from "./app-error.js";
 import {
   isWorkspaceFailure,
   workspaceFailureToStepFailure,
   type WorkspaceFailure,
-} from "@agentxm/workspace/reconciliation";
-
-import { AppError, makeAppError, type AppErrorCode } from "./app-error.js";
+} from "./failure-catalog.js";
 
 // The kernel's serialized category vocabulary and the CLI's AppErrorCode must
 // stay the same strings; divergence is a compile error here, at the boundary
@@ -54,8 +59,8 @@ export const stepFailureToAppError = (failure: StepFailure): AppError =>
  * that guidance is what the terminal prints.
  */
 export const toAppError = (error: WorkspaceFailure | AppError): AppError => {
-  if (error._tag === "AppError") return error;
-  if (error._tag === "InstallSelectionUnavailable" && error.cause instanceof AppError) {
+  if (error instanceof AppError) return error;
+  if (error instanceof InstallSelectionUnavailable && error.cause instanceof AppError) {
     return error.cause;
   }
   return stepFailureToAppError(workspaceFailureToStepFailure(error));

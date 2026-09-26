@@ -32,7 +32,7 @@ import {
   type HookLockEntry,
 } from "../../../desired-state/index.js";
 
-import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
+import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
 import { type InstallStepRequirements } from "../../../lifecycle/install/vocabulary.js";
 import { makeWorkspaceRetentionPolicy } from "../../../reconciliation/index.js";
 import type { HookUninstallIntent } from "../../../lifecycle/uninstall/vocabulary.js";
@@ -104,7 +104,7 @@ export const planHookUninstall: (
   const desiredState = yield* DesiredStateReader;
   const lockfile = yield* LockfileReader;
   const hookManager = yield* HookManager;
-  const retentionPolicy = makeWorkspaceRetentionPolicy(desiredState, lifecycleStepFailure);
+  const retentionPolicy = makeWorkspaceRetentionPolicy(desiredState, kernelFailureToStepFailure);
 
   const steps = yield* Effect.forEach(intent.targets, (target) =>
     Effect.gen(function* () {
@@ -113,7 +113,7 @@ export const planHookUninstall: (
         .pipe(Effect.catch(() => Effect.succeed(Option.none())));
       return buildUninstallOperation(hookManager, retentionPolicy, {
         target,
-        toStepFailure: lifecycleStepFailure,
+        toStepFailure: kernelFailureToStepFailure,
         buildArtifact: ({ settlement }) => {
           const retained = settlement.canonical !== "removed";
           const targets = hookUninstallArtifactTargets(

@@ -678,7 +678,7 @@ describe("installMcpServer", () => {
 
         expect(result._tag).toBe("Failure");
         if (result._tag === "Failure") {
-          expect(result.failure._tag).toBe("McpRequiredInputsMissing");
+          expect(result.failure).toMatchObject({ _tag: "McpRequiredInputsMissing" });
           expect(result.failure).toMatchObject({
             localName: "my-server",
             inputNames: ["REGION"],
@@ -722,7 +722,7 @@ describe("installMcpServer", () => {
         );
         expect(result._tag).toBe("Failure");
         if (result._tag === "Failure") {
-          expect(result.failure._tag).toBe("McpRequiredInputsMissing");
+          expect(result.failure).toMatchObject({ _tag: "McpRequiredInputsMissing" });
           expect(result.failure).toMatchObject({ inputNames: ["--profile"] });
         }
       }),
@@ -740,7 +740,8 @@ describe("installMcpServer", () => {
           ),
         );
         expect(result._tag).toBe("Failure");
-        if (result._tag === "Failure") expect(result.failure._tag).toBe("McpConfigInvalid");
+        if (result._tag === "Failure")
+          expect(result.failure).toMatchObject({ _tag: "McpConfigInvalid" });
       }),
     );
   });
@@ -838,7 +839,7 @@ describe("installMcpServer", () => {
           ),
         );
 
-        expect(error._tag).toBe("SettingsWriteError");
+        expect(error).toMatchObject({ _tag: "SettingsWriteError" });
       }),
     );
 
@@ -887,7 +888,7 @@ describe("installMcpServer", () => {
         expect(result.result).toBe("error");
         expect(setMcpServerFn).not.toHaveBeenCalled();
         if (result.result === "error") {
-          expect(result.error._tag).toBe("LockfileResolvedVersionInvalid");
+          expect(result.error).toMatchObject({ _tag: "LockfileResolvedVersionInvalid" });
         }
       }),
     );
@@ -911,7 +912,7 @@ describe("installMcpServer", () => {
 
         expect(result.result).toBe("error");
         if (result.result === "error") {
-          expect(result.error._tag).toBe("ArchiveIntegrityMismatch");
+          expect(result.error).toMatchObject({ _tag: "ArchiveIntegrityMismatch" });
         }
       }),
     );
@@ -934,7 +935,7 @@ describe("installMcpServer", () => {
 
         expect(result.result).toBe("error");
         if (result.result === "error") {
-          expect(result.error._tag).toBe("McpCanonicalPathUnsafe");
+          expect(result.error).toMatchObject({ _tag: "McpCanonicalPathUnsafe" });
         }
       }),
     );

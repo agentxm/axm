@@ -11,9 +11,8 @@
 
 export { PublishFailed } from "./errors.js";
 export {
-  publishFailedToStepFailure,
+  isPublishFamilyFailure,
   publishFailureToStepFailure,
-  registryAccessFailureToStepFailure,
   type PublishFamilyFailure,
 } from "./step-failure.js";
 

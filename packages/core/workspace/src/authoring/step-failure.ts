@@ -4,7 +4,7 @@
  * an authoring closure serializes any failure into the plan-step vocabulary.
  *
  * The authoring family renders here once. Every other family an authoring
- * step can surface renders through the workspace failure rendering, so an
+ * step can surface renders through the kernel failure rendering, so an
  * authoring step reports the same category, sentence, and recovery a command
  * boundary would print for the same failure.
  *
@@ -17,7 +17,7 @@ import {
   type StepFailure,
 } from "../operations/index.js";
 import type { ExtensionManagerFailure } from "../materialization/errors.js";
-import type {
+import {
   PackGraphInvalid,
   PackManifestUnavailable,
   PackMemberAmbiguous,
@@ -31,17 +31,17 @@ import type {
   PackSelectorNotAPack,
   PackSourceMissing,
 } from "../packs/authoring/membership-errors.js";
-import { workspaceFailureToStepFailure } from "../reconciliation/failure-rendering.js";
+import { kernelFailureDetail, renderKernelFailure } from "../reconciliation/failure-rendering.js";
 
-import type { AuthoringFailed } from "./errors.js";
-import type {
+import { AuthoringFailed } from "./errors.js";
+import {
   AuthoringOwnerMismatch,
   AuthoringOwnerRequired,
   AuthoringScopeUnsupported,
   ScaffoldNameInvalid,
 } from "./create/errors.js";
-import type {
-  AuthoredPackageError,
+import {
+  type AuthoredPackageError,
   CreateDestinationInspectionFailed,
   CreateNameConfigured,
   ForkPackageConflict,
@@ -81,6 +81,58 @@ export type AuthoringFamilyFailure =
   | PackMemberUnmanaged
   | PackMemberNotFound
   | PackMemberNotDeclared;
+
+/**
+ * Every class whose instances this feature renders, read when a failure is
+ * recognized rather than at module load, so a class is never read before its
+ * module has loaded.
+ */
+const authoringFailureClasses = () =>
+  [
+    AuthoringFailed,
+    CreateNameConfigured,
+    CreateDestinationInspectionFailed,
+    ForkPackageInvalid,
+    ForkPackageConflict,
+    ForkPackageFailed,
+    NativeImportUnsupported,
+    NativeImportInvalid,
+    NativeImportConflict,
+    NativeImportFailed,
+    AuthoringOwnerRequired,
+    AuthoringOwnerMismatch,
+    ScaffoldNameInvalid,
+    AuthoringScopeUnsupported,
+    PackSelectorNotAPack,
+    PackNotConfigured,
+    PackSelectorAmbiguous,
+    PackSourceMissing,
+    PackNotAuthored,
+    PackOwnerUnconfigured,
+    PackManifestUnavailable,
+    PackGraphInvalid,
+    PackMemberAmbiguous,
+    PackMemberUnmanaged,
+    PackMemberNotFound,
+    PackMemberNotDeclared,
+  ] as const;
+
+// The recognized classes and the rendered family are the same set: a failure
+// this feature renders but cannot recognize, or the reverse, is a compile
+// error here.
+type RecognizedAuthoringFailure = InstanceType<ReturnType<typeof authoringFailureClasses>[number]>;
+const _recognizesEveryRenderedFailure = (
+  failure: AuthoringFamilyFailure,
+): RecognizedAuthoringFailure => failure;
+const _rendersEveryRecognizedFailure = (
+  failure: RecognizedAuthoringFailure,
+): AuthoringFamilyFailure => failure;
+void _recognizesEveryRenderedFailure;
+void _rendersEveryRecognizedFailure;
+
+/** Whether an untyped failure is one the authoring feature renders. */
+export const isAuthoringFamilyFailure = (failure: unknown): failure is AuthoringFamilyFailure =>
+  authoringFailureClasses().some((failureClass) => failure instanceof failureClass);
 
 const authoringOwnerRequiredFailure = (error: AuthoringOwnerRequired): StepFailure => {
   const [candidate] = error.candidates;
@@ -297,9 +349,17 @@ export type AuthoringStepFailure =
   | AuthoringFailed
   | StepFailure;
 
+/** The sentence a transition's deciding failure reads with inside an authoring step. */
+const authoringFailureDetail = (failure: unknown): string | undefined =>
+  isAuthoringFamilyFailure(failure)
+    ? authoringFailureToStepFailure(failure).detail
+    : kernelFailureDetail(failure);
+
 /**
  * Serialize one authoring-closure failure into the plan-step vocabulary, the
  * same rendering the command boundary projects for that failure.
  */
 export const authoringStepFailure = (failure: AuthoringStepFailure): StepFailure =>
-  workspaceFailureToStepFailure(failure);
+  isAuthoringFamilyFailure(failure)
+    ? authoringFailureToStepFailure(failure)
+    : renderKernelFailure(failure, { detailOf: authoringFailureDetail });

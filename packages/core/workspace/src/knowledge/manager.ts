@@ -69,6 +69,7 @@ import type { ManagerRequirements } from "../materialization/manager-contract.js
 import { NO_MATERIALIZATION_OBSERVATION } from "../materialization/manager-contract.js";
 import type { KnowledgeMaterializationFacts } from "../materialization/managers.js";
 import type { ExtensionManagerFailure } from "../materialization/errors.js";
+import { failureTag, type ExtensionKindFailure } from "../materialization/kind-failure.js";
 import {
   KnowledgeManager,
   type KnowledgeManagerService,
@@ -114,8 +115,10 @@ const decodeManifest = Schema.decodeUnknownEffect(KnowledgeManifestSchema);
  * producing family carries its own detail, so no application envelope is
  * needed to describe it.
  */
-const describeKnowledgeFailure = (failure: { readonly _tag: string }): string =>
-  "detail" in failure && typeof failure.detail === "string" ? failure.detail : failure._tag;
+const describeKnowledgeFailure = (
+  failure: { readonly _tag: string } | ExtensionKindFailure,
+): string =>
+  "detail" in failure && typeof failure.detail === "string" ? failure.detail : failureTag(failure);
 
 export const KnowledgeManagerLive = Layer.effect(
   KnowledgeManager,
@@ -459,10 +462,7 @@ export const KnowledgeManagerLive = Layer.effect(
         return {
           contributor: name,
           reason: "package-invalid",
-          detail:
-            failure._tag === "KnowledgeDefinitionInvalid"
-              ? failure.detail
-              : describeKnowledgeFailure(failure),
+          detail: describeKnowledgeFailure(failure),
         };
       });
 

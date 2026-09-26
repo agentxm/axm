@@ -51,6 +51,12 @@ export {
 // Failure vocabulary
 export type { ExtensionManagerFailure, ExtensionMaterializationError } from "./errors.js";
 export {
+  ExtensionKindFailureTypeId,
+  failureTag,
+  isExtensionKindFailure,
+  type ExtensionKindFailure,
+} from "./kind-failure.js";
+export {
   ArchiveIntegrityMismatch,
   CanonicalPackageProbeFailed,
   CreateDestinationExists,
@@ -65,35 +71,25 @@ export {
   type AcceptedResolution,
   type AcquiredContentIdentity,
 } from "./accepted-resolution.js";
-export { HookDefinitionInvalid, type HookManagerError } from "../hooks/errors.js";
-export { RuleDefinitionInvalid, type RuleManagerError } from "../instructions/errors.js";
+export { HookDefinitionInvalid } from "../hooks/errors.js";
+export { RuleDefinitionInvalid } from "../instructions/errors.js";
 export {
   McpAgentSyncRefused,
   McpCanonicalPathUnsafe,
+  McpConnectionConflict,
   McpInstallStateMissing,
   McpRequiredInputsMissing,
   McpWorkspacePackageInvalid,
   type McpAgentSyncFault,
-  type McpManagerError,
   type McpWorkspacePackageFault,
 } from "../mcp-connections/errors.js";
-export { McpConnectionConflict } from "../mcp-connections/lifecycle/domain/source-admission.js";
-export {
-  SubagentContentUnreadable,
-  SubagentDefinitionInvalid,
-  type SubagentManagerError,
-} from "../subagents/errors.js";
-export {
-  SkillDefinitionInvalid,
-  SkillMaterializationFailed,
-  type SkillManagerError,
-} from "../skills/errors.js";
+export { SubagentContentUnreadable, SubagentDefinitionInvalid } from "../subagents/errors.js";
+export { SkillDefinitionInvalid, SkillMaterializationFailed } from "../skills/errors.js";
 export {
   PackArchiveFetchFailed,
   PackDefinitionInvalid,
   PackInstallStateMissing,
   PackStagingFailed,
-  type PackManagerError,
 } from "../packs/errors.js";
 export {
   KnowledgeDefinitionInvalid,
@@ -101,7 +97,6 @@ export {
   KnowledgeIoFailed,
   KnowledgeResolutionMissing,
   KnowledgeUnavailable,
-  type KnowledgeManagerError,
 } from "../knowledge/errors.js";
 
 // MCP server installation: the operation four surfaces share, its credential

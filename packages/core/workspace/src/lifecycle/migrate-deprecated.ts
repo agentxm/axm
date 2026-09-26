@@ -5,10 +5,7 @@ import * as Option from "effect/Option";
 import { RegistryClientFactory } from "@agentxm/registry-client";
 import type { BundledAxmSkillAsset } from "../skills/lifecycle/install/bundled.js";
 import type { PackUninstallRequirements } from "../packs/lifecycle/uninstall/plan.js";
-import {
-  buildReconciliationClosure,
-  workspaceFailureToStepFailure,
-} from "../reconciliation/index.js";
+import { buildReconciliationClosure, kernelFailureToStepFailure } from "../reconciliation/index.js";
 import {
   DesiredStateReader,
   WorkspaceLocation,
@@ -115,7 +112,7 @@ export const prepareDeprecatedMigration = Effect.fn("MigrateDeprecated.prepare")
     never,
     InstallStepRequirements | BundledAxmSkillAsset | PackUninstallRequirements
   >({
-    toStepFailure: workspaceFailureToStepFailure,
+    toStepFailure: kernelFailureToStepFailure,
     label: fqn,
     message:
       replacementFqn === undefined

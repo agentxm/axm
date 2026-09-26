@@ -101,9 +101,8 @@ import { inlineMcpNotApplicablePlan } from "../install/inline-mcp-operation.js";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
 
-import { toTypedLabel, workspaceFailureToStepFailure } from "../../reconciliation/index.js";
+import { toTypedLabel, kernelFailureToStepFailure } from "../../reconciliation/index.js";
 import { settleMcpSourceIdentityFor } from "../../mcp-connections/source-identity.js";
-import { lifecycleStepFailure } from "../step-failure.js";
 import { StepFailureConversion } from "../step-failure-conversion.js";
 import type {
   HookInstallIntent,
@@ -307,7 +306,7 @@ const workspacePlanningErrorPlan = (
           key: `${type}:${name}:planning-error`,
           readiness: "ready",
           label: toTypedLabel(type, name),
-          run: Effect.fail(lifecycleStepFailure(error)),
+          run: Effect.fail(kernelFailureToStepFailure(error)),
         },
       ],
     },
@@ -746,7 +745,7 @@ const resolveMcpServerIntent = (
         (cause) =>
           new ExtensionLifecycleFailed({
             category: "conflict",
-            detail: workspaceFailureToStepFailure(cause).detail,
+            detail: kernelFailureToStepFailure(cause).detail,
             cause,
           }),
       ),

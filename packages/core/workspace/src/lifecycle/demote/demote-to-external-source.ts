@@ -83,7 +83,7 @@ import {
 } from "../../desired-state/index.js";
 import { packMemberConflicts, readProposedGraph } from "../../packs/lifecycle/install/plan.js";
 
-import { lifecycleStepFailure } from "../step-failure.js";
+import { kernelFailureToStepFailure } from "../../reconciliation/index.js";
 import type { InstallStepRequirements } from "../install/vocabulary.js";
 
 // -----------------------------------------------------------------------------
@@ -250,7 +250,7 @@ const replacementStep = Effect.fn("Demote.replacementStep")(function* (
   const selectionRange = effective.success.range;
   // The one place source authority is deliberately overridden.
   const common = {
-    toStepFailure: lifecycleStepFailure,
+    toStepFailure: kernelFailureToStepFailure,
     sourceReplacements: [{ type, name }],
   } as const;
 
@@ -402,7 +402,7 @@ const settleDemotion = Effect.fn("Demote.prepare")(function* (request: DemoteReq
             const result = yield* operation.run;
             if (wasDisabled) {
               yield* restoreDisabledState(settingsWriter, parsed.type, parsed.name).pipe(
-                Effect.mapError(lifecycleStepFailure),
+                Effect.mapError(kernelFailureToStepFailure),
               );
             }
             // The authored copy is what demotion gives up. Its absence is not

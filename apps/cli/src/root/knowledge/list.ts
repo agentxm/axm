@@ -1,10 +1,4 @@
-import { withLiveOperation } from "../../operation-lifecycle.js";
 import * as Effect from "effect/Effect";
-import { Command } from "effect/unstable/cli";
-
-import { ABSENT, emitResult, count, inventoryDoc, type ViewColumn } from "../../screen/index.js";
-import { withArgvTracking } from "../../cli-runtime/index.js";
-import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import {
   KnowledgeListQueryResultSchema,
   ListKnowledge,
@@ -13,9 +7,9 @@ import {
 import type { KnowledgeInstructionEntryResolution } from "@agentxm/workspace/projection";
 
 import { inspectionFailureToAppError } from "../../feature-errors.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
-import { scopeConfig } from "./flags.js";
+import { ABSENT, count, type ViewColumn } from "../../screen/index.js";
 import { inventoryAgentOutcomes } from "../inventory-view.js";
+import { makePerTypeListCommand } from "../shared/list-command.js";
 
 const renderInstructionEntry = (
   resolution: KnowledgeInstructionEntryResolution | undefined,
@@ -45,31 +39,14 @@ const BundleColumns = [
   },
 ] satisfies ReadonlyArray<ViewColumn<KnowledgeListRow>>;
 
-export const handleKnowledgeList = Effect.fn("Knowledge.list")(function* () {
-  const { document, rows } = yield* withLiveOperation(
-    { command: "knowledge.list", name: "Inspect knowledge bundles", mode: "preview" },
-    ListKnowledge.query().pipe(Effect.mapError(inspectionFailureToAppError)),
-  );
-  yield* emitResult(document, KnowledgeListQueryResultSchema, () =>
-    inventoryDoc({
-      rows,
-      columns: BundleColumns,
-      summary: count(rows.length, "knowledge bundle"),
-      empty: "No knowledge bundles installed",
-    }),
-  );
+const { handler, command } = makePerTypeListCommand({
+  type: "knowledge",
+  query: () => ListKnowledge.query().pipe(Effect.mapError(inspectionFailureToAppError)),
+  schema: KnowledgeListQueryResultSchema,
+  columns: BundleColumns,
+  summary: (_document, rows) => count(rows.length, "knowledge bundle"),
+  agentFilter: false,
 });
 
-export const listCommand = Command.make("list", scopeConfig, ({ scope }) =>
-  handleKnowledgeList().pipe(
-    withWorkspace({ scope, allowUninitialized: true }),
-    withRuntime("knowledge list"),
-  ),
-).pipe(
-  withArgvTracking(scopeConfig),
-  withCommandCapabilities(readOnlyCapabilities()),
-  Command.withDescription("List installed knowledge bundles"),
-  Command.withExamples([
-    { command: "axm knowledge list", description: "List installed knowledge bundles" },
-  ]),
-);
+export const handleList = handler;
+export const listCommand = command;

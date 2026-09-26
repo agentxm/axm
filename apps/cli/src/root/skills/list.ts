@@ -1,24 +1,11 @@
-import { withLiveOperation } from "../../operation-lifecycle.js";
-import { Command, Flag } from "effect/unstable/cli";
-import * as Effect from "effect/Effect";
-import { emitResult, inventoryDoc, type ViewColumn } from "../../screen/index.js";
-import { ExtensionInventorySchema } from "@agentxm/workspace/desired-state";
 import { listSkills, type SkillListRow } from "@agentxm/workspace/inspection";
-import { withArgvTracking } from "../../cli-runtime/index.js";
-import { agentFlag } from "../../cli-flags/index.js";
-import { scopeFlag } from "../../cli-flags/scope-flag.js";
-import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
+import { type ViewColumn } from "../../screen/index.js";
 import {
   inventoryActivation,
   inventoryAgentOutcomes,
   inventoryLifecycle,
-  inventorySummary,
 } from "../inventory-view.js";
-
-export interface ListHandlerArgs {
-  readonly agents: readonly string[];
-}
+import { inventoryList, makePerTypeListCommand } from "../shared/list-command.js";
 
 const SkillListColumns = [
   { header: "Name", priority: "required", value: (row: SkillListRow) => row.name },
@@ -36,49 +23,12 @@ const SkillListColumns = [
   },
 ] satisfies ReadonlyArray<ViewColumn<SkillListRow>>;
 
-export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerArgs) {
-  const { inventory, rows } = yield* withLiveOperation(
-    { command: "skills.list", name: "Inspect skills", mode: "preview" },
-    listSkills({ agents: args.agents }),
-  );
-  yield* emitResult(inventory, ExtensionInventorySchema, () =>
-    inventoryDoc({
-      rows,
-      columns: SkillListColumns,
-      summary: inventorySummary(inventory, "skill"),
-      empty:
-        args.agents.length === 0
-          ? "No skills found"
-          : "No skills matched the selected agent filter.",
-    }),
-  );
+const { handler, command } = makePerTypeListCommand({
+  type: "skill",
+  ...inventoryList("skill", (agents) => listSkills({ agents })),
+  columns: SkillListColumns,
+  agentFilter: true,
 });
 
-const listConfig = {
-  scope: scopeFlag.pipe(
-    Flag.withDescription("List skills from project (default) or user-level configuration"),
-  ),
-  agent: agentFlag.pipe(Flag.withDescription("Show only skills detected for specific agents")),
-} as const;
-
-export const listCommand = Command.make("list", listConfig, ({ scope, agent }) =>
-  handleList({ agents: agent }).pipe(
-    withWorkspace({ scope, allowUninitialized: true }),
-    withRuntime("skills list"),
-  ),
-).pipe(
-  withArgvTracking(listConfig),
-  withCommandCapabilities(readOnlyCapabilities()),
-  Command.withDescription("List detected skills and their lifecycle classification"),
-  Command.withExamples([
-    { command: "axm skills list", description: "Inventory detected skills" },
-    {
-      command: "axm skills list --scope user",
-      description: "Check user-level skills",
-    },
-    {
-      command: "axm skills list --agent claude-code",
-      description: "See skills for a specific agent",
-    },
-  ]),
-);
+export const handleList = handler;
+export const listCommand = command;

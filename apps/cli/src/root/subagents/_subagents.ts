@@ -4,7 +4,7 @@ import { groupCapabilities, withCommandCapabilities } from "../shared/command-ca
 
 import { subagentsInstallCommand as installCommand } from "../install/command.js";
 import { makePerTypeUninstallCommand } from "../shared/uninstall-command.js";
-import { listCommand } from "./list/command.js";
+import { listCommand } from "./list.js";
 import { makePerTypeUpdateCommand } from "../update/per-type-command.js";
 import { newCommand } from "./new/command.js";
 import { subagentsPublishCommand as publishCommand } from "../publish/per-type-command.js";

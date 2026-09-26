@@ -27,7 +27,7 @@ import { handleKnowledgeConceptStatus } from "./concepts/status.js";
 import { handleKnowledgeConceptResolve } from "./concepts/resolve.js";
 import { handleKnowledgeConceptRelated } from "./concepts/related.js";
 import { handleKnowledgeConceptQuery } from "./concepts/query.js";
-import { handleKnowledgeList } from "./list.js";
+import { handleList as handleKnowledgeList } from "./list.js";
 import { paintText } from "../../screen/index.js";
 import { KnowledgeManager } from "@agentxm/workspace/materialization";
 import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";

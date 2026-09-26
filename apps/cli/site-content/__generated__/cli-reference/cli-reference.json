@@ -2326,7 +2326,8 @@
             ],
             "globalOptions": [],
             "examples": [
-              { "command": "axm rules list", "description": "Inventory detected rules" }
+              { "command": "axm rules list", "description": "Inventory detected rules" },
+              { "command": "axm rules list --scope user", "description": "Check user-level rules" }
             ],
             "subcommands": []
           },
@@ -2841,7 +2842,11 @@
             ],
             "globalOptions": [],
             "examples": [
-              { "command": "axm hooks list", "description": "Inventory detected hooks packages" }
+              { "command": "axm hooks list", "description": "Inventory detected hooks packages" },
+              {
+                "command": "axm hooks list --scope user",
+                "description": "Check user-level hooks packages"
+              }
             ],
             "subcommands": []
           },
@@ -3390,7 +3395,7 @@
           {
             "name": "list",
             "aliases": [],
-            "description": "List installed knowledge bundles",
+            "description": "List detected knowledge bundles and their lifecycle classification",
             "arguments": [],
             "options": [
               {
@@ -3398,13 +3403,20 @@
                 "aliases": [],
                 "type": "choice",
                 "required": false,
-                "description": "Use project (default) or user knowledge state",
+                "description": "List knowledge bundles from project (default) or user-level configuration",
                 "choices": [{ "value": "project" }, { "value": "user" }]
               }
             ],
             "globalOptions": [],
             "examples": [
-              { "command": "axm knowledge list", "description": "List installed knowledge bundles" }
+              {
+                "command": "axm knowledge list",
+                "description": "Inventory detected knowledge bundles"
+              },
+              {
+                "command": "axm knowledge list --scope user",
+                "description": "Check user-level knowledge bundles"
+              }
             ],
             "subcommands": []
           },

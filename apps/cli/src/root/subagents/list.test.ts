@@ -10,12 +10,12 @@ import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
-import { writeWorkspaceFiles } from "../../../test-support/test-stubs.js";
+import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
   expectNoPlanEnvelope,
   makeWorkspaceHandlerTestContext,
-} from "../../../test-support/test-helpers.js";
-import { handleListSubagents } from "./handler.js";
+} from "../../test-support/test-helpers.js";
+import { handleList } from "./list.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -85,7 +85,7 @@ describe("subagents list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListSubagents({ agents: [] });
+        yield* handleList({ agents: [] });
 
         const table = rendererState.docs[0]?.doc.find((node) => node._tag === "table");
         expect(table).toMatchObject({
@@ -109,7 +109,7 @@ describe("subagents list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListSubagents({ agents: [] });
+        yield* handleList({ agents: [] });
 
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 0,
@@ -139,7 +139,7 @@ describe("subagents list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListSubagents({ agents: [] });
+        yield* handleList({ agents: [] });
 
         const table = rendererState.docs[0]?.doc.find((node) => node._tag === "table");
         expect(table).toMatchObject({
@@ -171,7 +171,7 @@ describe("subagents list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListSubagents({ agents: [] });
+        yield* handleList({ agents: [] });
 
         const table = rendererState.docs[0]?.doc.find((node) => node._tag === "table");
         expect(table).toMatchObject({
@@ -203,7 +203,7 @@ describe("subagents list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListSubagents({ agents: [] });
+        yield* handleList({ agents: [] });
 
         const table = rendererState.docs[0]?.doc.find((node) => node._tag === "table");
         expect(table).toMatchObject({
@@ -232,7 +232,7 @@ describe("subagents list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListSubagents({ agents: ["claude-code"] });
+        yield* handleList({ agents: ["claude-code"] });
 
         const table = rendererState.docs[0]?.doc.find((node) => node._tag === "table");
         expect(table).toMatchObject({
@@ -263,7 +263,7 @@ describe("subagents list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListSubagents({ agents: ["cursor"] });
+        yield* handleList({ agents: ["cursor"] });
 
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 0,
@@ -287,7 +287,7 @@ describe("subagents list.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListSubagents({ agents: [] });
+        yield* handleList({ agents: [] });
 
         expect(rendererState.results).toHaveLength(1);
         expect(rendererState.results[0]?.data).toMatchObject({

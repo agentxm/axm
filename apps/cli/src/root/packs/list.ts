@@ -1,14 +1,7 @@
-import { withLiveOperation } from "../../operation-lifecycle.js";
-import { Command, Flag } from "effect/unstable/cli";
-import * as Effect from "effect/Effect";
-import { emitResult, inventoryDoc, type ViewColumn } from "../../screen/index.js";
-import { ExtensionInventorySchema } from "@agentxm/workspace/desired-state";
 import { listPacks, type PackListRow } from "@agentxm/workspace/inspection";
-import { withArgvTracking } from "../../cli-runtime/index.js";
-import { scopeFlag } from "../../cli-flags/scope-flag.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
-import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
-import { inventoryAgentOutcomes, inventoryLifecycle, inventorySummary } from "../inventory-view.js";
+import { type ViewColumn } from "../../screen/index.js";
+import { inventoryAgentOutcomes, inventoryLifecycle } from "../inventory-view.js";
+import { inventoryList, makePerTypeListCommand } from "../shared/list-command.js";
 
 const PackListColumns = [
   { header: "Name", priority: "required", value: (row: PackListRow) => row.name },
@@ -23,38 +16,12 @@ const PackListColumns = [
   },
 ] satisfies ReadonlyArray<ViewColumn<PackListRow>>;
 
-export const handleList = Effect.fn("PacksList.handle")(function* () {
-  const { inventory, rows } = yield* withLiveOperation(
-    { command: "packs.list", name: "Inspect packs", mode: "preview" },
-    listPacks(),
-  );
-  yield* emitResult(inventory, ExtensionInventorySchema, () =>
-    inventoryDoc({
-      rows,
-      columns: PackListColumns,
-      summary: inventorySummary(inventory, "pack"),
-      empty: "No packs found",
-    }),
-  );
+const { handler, command } = makePerTypeListCommand({
+  type: "pack",
+  ...inventoryList("pack", () => listPacks()),
+  columns: PackListColumns,
+  agentFilter: false,
 });
 
-const listConfig = {
-  scope: scopeFlag.pipe(
-    Flag.withDescription("List packs from project (default) or user-level configuration"),
-  ),
-} as const;
-
-export const listCommand = Command.make("list", listConfig, ({ scope }) =>
-  handleList().pipe(withWorkspace({ scope, allowUninitialized: true }), withRuntime("packs list")),
-).pipe(
-  withArgvTracking(listConfig),
-  withCommandCapabilities(readOnlyCapabilities()),
-  Command.withDescription("List detected packs and their lifecycle classification"),
-  Command.withExamples([
-    { command: "axm packs list", description: "Inventory detected packs" },
-    {
-      command: "axm packs list --scope user",
-      description: "Check user-level packs",
-    },
-  ]),
-);
+export const handleList = handler;
+export const listCommand = command;

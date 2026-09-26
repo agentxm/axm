@@ -52,7 +52,7 @@ import {
   writeKnowledgeExtension,
   writeWorkspaceFiles,
 } from "../../test-support/test-stubs.js";
-import { handleListMcpServers } from "../mcps/list.js";
+import { handleList as handleListMcpServers } from "../mcps/list.js";
 import { injectWriteFaults } from "@agentxm/workspace/transitions/settlement/testing";
 import { handleSync } from "./handler.js";
 import { LifecycleFailureConversionLive } from "@agentxm/workspace/lifecycle";

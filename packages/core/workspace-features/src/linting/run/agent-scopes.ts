@@ -17,7 +17,10 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
-import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
+import {
+  decodeAbsolutePathSync,
+  makeAbsolutePath,
+} from "@agentxm/extension-model/unstable/path-types";
 import {
   CodingAgentRepository,
   observeAgentOutputs,
@@ -25,7 +28,6 @@ import {
 } from "@agentxm/workspace-kernel/projection";
 import * as Layer from "effect/Layer";
 import * as Result from "effect/Result";
-import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import {
   AgentRootResolverLive,
   WorkspaceReadModelConfig,

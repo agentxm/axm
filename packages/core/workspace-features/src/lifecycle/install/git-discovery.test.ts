@@ -12,36 +12,12 @@ import * as Option from "effect/Option";
 
 import type { GitSource } from "@agentxm/extension-model/unstable/sources/types";
 import type { SourceHostProvidersService } from "@agentxm/workspace-kernel/sources";
+import { isolatedGitEnv } from "@agentxm/workspace-kernel/sources/testing";
 import { writeLocalSkillPackage } from "../../testing/sync-fixture.js";
 import { makeLocatorSourceView } from "./git-discovery.js";
 
 const git = (directory: string, args: ReadonlyArray<string>): string =>
   execFileSync("git", args, { cwd: directory, encoding: "utf8" }).trim();
-
-const isolatedGitEnv = (): Record<string, string | undefined> => {
-  const env = { ...process.env };
-  for (const name of [
-    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
-    "GIT_COMMON_DIR",
-    "GIT_CONFIG",
-    "GIT_CONFIG_COUNT",
-    "GIT_CONFIG_PARAMETERS",
-    "GIT_DIR",
-    "GIT_GRAFT_FILE",
-    "GIT_IMPLICIT_WORK_TREE",
-    "GIT_INDEX_FILE",
-    "GIT_INTERNAL_SUPER_PREFIX",
-    "GIT_NO_REPLACE_OBJECTS",
-    "GIT_OBJECT_DIRECTORY",
-    "GIT_PREFIX",
-    "GIT_REPLACE_REF_BASE",
-    "GIT_SHALLOW_FILE",
-    "GIT_WORK_TREE",
-  ]) {
-    delete env[name];
-  }
-  return env;
-};
 
 const repository = () => {
   const root = fs.mkdtempSync(nodePath.join(os.tmpdir(), "axm-git-discovery-"));
@@ -236,7 +212,7 @@ await Effect.runPromise(
         execFileSync(process.execPath, ["--input-type=module", "-e", program, discoveryUrl], {
           cwd: process.cwd(),
           env: {
-            ...isolatedGitEnv(),
+            ...isolatedGitEnv(process.env),
             PATH: `${binDir}${nodePath.delimiter}${process.env["PATH"] ?? ""}`,
             AXM_GIT_PROBE_PID: pidPath,
             AXM_GIT_PROBE_CHECKOUT: checkoutPath,

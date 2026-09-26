@@ -23,7 +23,11 @@
  */
 
 import * as fs from "node:fs";
-import { snapshotTree } from "@agentxm/workspace-kernel/workspace-state/testing";
+import {
+  snapshotTree,
+  withTestRegistryDefault,
+  ConfiguredAgentOutcomesProviderTest,
+} from "@agentxm/workspace-kernel/workspace-state/testing";
 import * as os from "node:os";
 import * as nodePath from "node:path";
 
@@ -47,8 +51,6 @@ import {
 } from "@agentxm/workspace-kernel/projection/live";
 import type { WorkspaceStateError } from "@agentxm/workspace-kernel/workspace-state";
 import { WorkspaceStateLive } from "@agentxm/workspace-kernel/workspace-state/live";
-import { withTestRegistryDefault } from "@agentxm/workspace-kernel/workspace-state/testing";
-import { ConfiguredAgentOutcomesProviderTest } from "@agentxm/workspace-kernel/workspace-state/testing";
 
 import { allCatalogRuleIds } from "./catalog/index.js";
 import type { LintWorkspaceRequirements } from "./run/lint-workspace.js";

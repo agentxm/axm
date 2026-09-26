@@ -12,7 +12,10 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace-kernel/projection/live";
+import {
+  CodingAgentRepositoryLive,
+  WorkspaceInvariantFactsLive,
+} from "@agentxm/workspace-kernel/projection/live";
 import {
   HookManagerLive,
   KnowledgeManagerLive,
@@ -27,7 +30,6 @@ import { ProjectionParticipantsLive } from "@agentxm/workspace-kernel/reconcilia
 import { computePackManifestContentIdentity } from "@agentxm/workspace-kernel/workspace-state";
 import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-kernel/projection/live";
 import {
   SourceHostProviders,
   type SourceHostProvidersService,

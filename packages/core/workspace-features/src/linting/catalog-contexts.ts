@@ -20,30 +20,30 @@ import type * as Config from "effect/Config";
  * @packageDocumentation
  */
 
-import { hookRules } from "@agentxm/extension-content/lint";
-import { knowledgeRules } from "@agentxm/extension-content/lint";
-import { mcpServerRules } from "@agentxm/extension-content/lint";
-import { packRules } from "@agentxm/extension-content/lint";
-import { ruleRules } from "@agentxm/extension-content/lint";
-import { skillRules } from "@agentxm/extension-content/lint";
-import { subagentRules } from "@agentxm/extension-content/lint";
+import {
+  hookRules,
+  knowledgeRules,
+  mcpServerRules,
+  packRules,
+  ruleRules,
+  skillRules,
+  subagentRules,
+  type HookRuleContext,
+  type KnowledgeRuleContext,
+  type McpServerRuleContext,
+  type PackRuleContext,
+  type RuleRuleContext,
+  type SkillRuleContext,
+  type SubagentRuleContext,
+  type LintRule,
+} from "@agentxm/extension-content/lint";
 import {
   liveOnlyWorkspaceRules,
   repositoryWorkspaceRules,
   workspaceRules,
 } from "./catalog/index.js";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
-import type {
-  HookRuleContext,
-  KnowledgeRuleContext,
-  McpServerRuleContext,
-  PackRuleContext,
-  RuleRuleContext,
-  SkillRuleContext,
-  SubagentRuleContext,
-} from "@agentxm/extension-content/lint";
 import type { WorkspaceRuleContext } from "./workspace-context.js";
-import type { LintRule } from "@agentxm/extension-content/lint";
 
 /**
  * The contexts a full lint run evaluates, one array per catalog.

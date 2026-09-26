@@ -23,9 +23,12 @@ import * as TestClock from "effect/testing/TestClock";
 import * as Fiber from "effect/Fiber";
 import * as Option from "effect/Option";
 
-import { InstallMeta, InstallMethod } from "@agentxm/cli-maintenance/self-update/adapters/native";
+import {
+  InstallMeta,
+  InstallMethod,
+  type InstallMetaData,
+} from "@agentxm/cli-maintenance/self-update/adapters/native";
 import { UpdateCheckCache } from "@agentxm/cli-maintenance/self-update/application";
-import type { InstallMetaData } from "@agentxm/cli-maintenance/self-update/adapters/native";
 import {
   HOMEBREW_EXECUTABLE,
   LOCAL_VERSION,

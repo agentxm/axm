@@ -9,9 +9,11 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 
-import { CodingAgentRepositoryLive } from "@agentxm/workspace-kernel/projection/live";
+import {
+  CodingAgentRepositoryLive,
+  WorkspaceInvariantFactsLive,
+} from "@agentxm/workspace-kernel/projection/live";
 import { ProjectionParticipantsLive } from "@agentxm/workspace-kernel/reconciliation/live";
-import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-kernel/projection/live";
 import {
   HookManagerLive,
   KnowledgeManagerLive,

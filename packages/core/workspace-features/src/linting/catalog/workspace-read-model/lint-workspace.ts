@@ -26,43 +26,45 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
-import { AgentRootResolverLive } from "@agentxm/workspace-kernel/workspace-state";
 import {
+  AgentRootResolverLive,
   makeWorkspaceReadModel,
   WorkspaceReadModelConfig,
   type WorkspaceReadModel,
-} from "@agentxm/workspace-kernel/workspace-state";
-import {
   USER_WORKSPACE_DIRECTORY,
   packMemberBindings,
   type DesiredStateGraph,
+  type LockfileReadError,
+  type SettingsReadError,
+  type WorkspaceRootEscape,
+  type ActualMcpServer,
+  type ActualPack,
+  type ActualSkill,
+  type ActualSubagent,
+  type InstalledHook,
+  type InstalledKnowledgeBundle,
+  type InstalledMcpServer,
+  type InstalledPack,
+  type InstalledRule,
+  type InstalledSkill,
+  type InstalledSubagent,
+  type PackMemberBinding,
+  acquiredExtensionDisplayPathFromLockEntry,
+  type LockEntry,
+  type SkillLockEntry,
+  acquiredRootDisplayPath,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { AXM_DIR_NAME } from "@agentxm/host-primitives";
-import type {
-  LockfileReadError,
-  SettingsReadError,
-  WorkspaceRootEscape,
-} from "@agentxm/workspace-kernel/workspace-state";
-import type {
-  ActualMcpServer,
-  ActualPack,
-  ActualSkill,
-  ActualSubagent,
-  InstalledHook,
-  InstalledKnowledgeBundle,
-  InstalledMcpServer,
-  InstalledPack,
-  InstalledRule,
-  InstalledSkill,
-  InstalledSubagent,
-  PackMemberBinding,
-} from "@agentxm/workspace-kernel/workspace-state";
-import type {
-  HookRuleContext,
-  KnowledgeRuleContext,
-  McpServerRuleContext,
-  RuleRuleContext,
-  SubagentRuleContext,
+import {
+  type HookRuleContext,
+  type KnowledgeRuleContext,
+  type McpServerRuleContext,
+  type RuleRuleContext,
+  type SubagentRuleContext,
+  type InstalledSkillInfo,
+  type InstalledPackInfo,
+  makePlatformSkillFileAccessor,
+  makePlatformPackFileAccessor,
 } from "@agentxm/extension-content/lint";
 import type {
   InstalledExtensionManifest,
@@ -70,26 +72,18 @@ import type {
   WorkspaceProjectionsAccessor,
   WorkspaceRuleContext,
 } from "../../workspace-context.js";
-import type { InstalledSkillInfo } from "@agentxm/extension-content/lint";
-import type { InstalledPackInfo } from "@agentxm/extension-content/lint";
-import { makePlatformSkillFileAccessor } from "@agentxm/extension-content/lint";
-import { makePlatformPackFileAccessor } from "@agentxm/extension-content/lint";
-import {
-  acquiredExtensionDisplayPathFromLockEntry,
-  type LockEntry,
-} from "@agentxm/workspace-kernel/workspace-state";
 import { parseRegistrySourceRef } from "@agentxm/extension-model/unstable/extensions/registry-source";
-import type { SkillLockEntry } from "@agentxm/workspace-kernel/workspace-state";
 import { HOOK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import { KNOWLEDGE_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/knowledge/manifest-schema";
-import { inspectKnowledgePackage } from "@agentxm/extension-content/knowledge";
+import {
+  inspectKnowledgePackage,
+  type KnowledgeInspection,
+} from "@agentxm/extension-content/knowledge";
 import {
   observeInstructionProjection,
   resolveInstructionsConfig,
 } from "@agentxm/workspace-kernel/projection";
-import type { KnowledgeInspection } from "@agentxm/extension-content/knowledge";
 import { MCP_SERVER_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
-import { acquiredRootDisplayPath } from "@agentxm/workspace-kernel/workspace-state";
 import { RULE_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/rules/manifest-schema";
 import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/skills/manifest-schema";
@@ -97,8 +91,10 @@ import { MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME } from "@agentxm/extension
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/subagents/manifest-schema";
 import { readManifestJson } from "./manifest-json.js";
-import type { ExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions/common";
-import { type ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
+import type {
+  ExtensionTypePlural,
+  ExtensionType,
+} from "@agentxm/extension-model/unstable/extensions/common";
 import { type AxmSkillCompatibilityPolicyService } from "@agentxm/cli-maintenance/official-skill/application";
 import { readAxmSkillWorkspaceCompatibility } from "@agentxm/workspace-kernel/resolution";
 
@@ -1069,7 +1065,7 @@ export const acquiredSkillDisplayRoot = (
  * Compute the `displayRoot` for a registry-installed pack.
  *
  * **No `src/` segment** — matches the on-disk layout at
- * `packages/core/workspace/src/desired-state/workspace/pack-paths.ts#computePackPathsForLayout`.
+ * `packages/core/workspace-kernel/src/workspace-state/workspace/pack-paths.ts#computePackPathsForLayout`.
  *
  * @experimental This API is unstable and may change without notice.
  */

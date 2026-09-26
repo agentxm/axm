@@ -26,8 +26,10 @@ import {
   extensionRefName,
   type ExtensionRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
-import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
-import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions";
+import {
+  type ExtensionType,
+  toExtensionTypePlural,
+} from "@agentxm/extension-model/unstable/extensions";
 import type { RegistryBindingProposal } from "../operations/index.js";
 
 export interface PublisherBindingTransition {

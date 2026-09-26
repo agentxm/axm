@@ -12,8 +12,8 @@ import {
   type ViewExtensionResult,
   type ViewFieldValue,
   type ViewTargetRegistry,
+  type PublishedMetadataUnavailable,
 } from "@agentxm/workspace-features/inspection";
-import type { PublishedMetadataUnavailable } from "@agentxm/workspace-features/inspection";
 import type { ExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
 import type { IdentifierResourceType } from "@agentxm/workspace-kernel/sources";
 

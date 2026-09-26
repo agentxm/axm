@@ -22,6 +22,7 @@ import { afterEach, beforeEach } from "vitest";
 import {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
+  WorkspaceInvariantFactsLive,
 } from "@agentxm/workspace-kernel/projection/live";
 import {
   TestMachineRenderer,
@@ -40,7 +41,6 @@ import {
   SubagentManagerLive,
 } from "@agentxm/extension-kinds/live";
 import { ProjectionParticipantsLive } from "@agentxm/workspace-kernel/reconciliation/live";
-import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-kernel/projection/live";
 
 import {
   SourceHostProvidersLive,

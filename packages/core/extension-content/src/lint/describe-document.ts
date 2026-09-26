@@ -21,9 +21,11 @@ import {
   extensionTypeSentenceLabels,
   extensionTypes,
 } from "@agentxm/extension-model/unstable/extensions/common";
-import { LOCKFILE_NAME } from "@agentxm/extension-model/unstable/workspace-files";
+import {
+  LOCKFILE_NAME,
+  SETTINGS_FILENAME,
+} from "@agentxm/extension-model/unstable/workspace-files";
 import { MANIFEST_FILENAME_BY_TYPE } from "../packaging/manifest-policy.js";
-import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 
 /** Label used when a filename matches no known document. */
 export const UNKNOWN_DOCUMENT_LABEL = "Document";

@@ -1,14 +1,12 @@
 import { planDesiredStateGraph } from "@agentxm/workspace-kernel/projection";
-import type {
-  DesiredStateGraph,
-  DesiredStateProblem,
-} from "@agentxm/workspace-kernel/workspace-state";
-import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
+  type DesiredStateGraph,
+  type DesiredStateProblem,
   acquiredRootDisplayPath,
   lockfileDisplayPath,
   settingsDisplayPath,
 } from "@agentxm/workspace-kernel/workspace-state";
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 /** Recovery-conformance identity for Pack uninstall planning on an incomplete graph. */
 export const PACK_UNINSTALL_GRAPH_BLOCKER_ID =

@@ -5,7 +5,8 @@
  * workspace catalog it reads facts from, the official-skill gate, the
  * registry resolution policy, and the Git worktree comparison publication
  * preflight consults — plus an inert provider set for runs that must be shown
- * never to fetch a source. Each carries workspace facts as data, so a test
+ * never to fetch a source, and a Git environment for tests that drive real
+ * repositories. Each carries workspace facts as data, so a test
  * states the facts it depends on instead of building a workspace to imply
  * them. Production source never imports this module.
  *
@@ -167,3 +168,35 @@ export const SourceHostProvidersTest = (
     origin: (source) => source.type,
     ...overrides,
   });
+
+/**
+ * A copy of the host environment without the Git variables that redirect a
+ * repository, so a test's Git commands act on the temporary repository they
+ * name even when the suite itself runs inside a Git hook or worktree.
+ */
+export const isolatedGitEnv = (
+  hostEnv: Readonly<Record<string, string | undefined>>,
+): Record<string, string | undefined> => {
+  const env = { ...hostEnv };
+  for (const name of [
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_COMMON_DIR",
+    "GIT_CONFIG",
+    "GIT_CONFIG_COUNT",
+    "GIT_CONFIG_PARAMETERS",
+    "GIT_DIR",
+    "GIT_GRAFT_FILE",
+    "GIT_IMPLICIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_INTERNAL_SUPER_PREFIX",
+    "GIT_NO_REPLACE_OBJECTS",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_PREFIX",
+    "GIT_REPLACE_REF_BASE",
+    "GIT_SHALLOW_FILE",
+    "GIT_WORK_TREE",
+  ]) {
+    delete env[name];
+  }
+  return env;
+};

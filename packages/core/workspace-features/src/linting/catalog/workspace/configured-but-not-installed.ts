@@ -11,13 +11,13 @@
 import * as Effect from "effect/Effect";
 import { extensionTypeSentenceLabels } from "@agentxm/extension-model/unstable/extensions/common";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
-import type { DesiredExtensionNode } from "@agentxm/workspace-kernel/workspace-state";
-import type { WorkspaceRuleContext } from "../../workspace-context.js";
-import type { AdvisoryFinding, AdvisoryRule } from "@agentxm/extension-content/lint";
 import {
+  type DesiredExtensionNode,
   acquiredRootDisplayPath,
   settingsDisplayPath,
 } from "@agentxm/workspace-kernel/workspace-state";
+import type { WorkspaceRuleContext } from "../../workspace-context.js";
+import type { AdvisoryFinding, AdvisoryRule } from "@agentxm/extension-content/lint";
 import { observationsReportedBy } from "./canonical-observation-findings.js";
 
 const RULE_ID = "workspace/configured-but-not-installed";

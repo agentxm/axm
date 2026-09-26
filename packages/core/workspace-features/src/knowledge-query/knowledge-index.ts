@@ -27,8 +27,11 @@ import {
   computeKnowledgeProjectionRevision,
   type CapturedKnowledgeSource,
 } from "./knowledge-revision.js";
-import { tokenizeKnowledgeSearchText } from "@agentxm/extension-content/knowledge";
-import type { KnowledgeConcept, KnowledgeInspection } from "@agentxm/extension-content/knowledge";
+import {
+  tokenizeKnowledgeSearchText,
+  type KnowledgeConcept,
+  type KnowledgeInspection,
+} from "@agentxm/extension-content/knowledge";
 
 export interface KnowledgeIndexBundleInput {
   readonly bundle: KnowledgeBundleFqn;

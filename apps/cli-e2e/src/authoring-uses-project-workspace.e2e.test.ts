@@ -25,9 +25,8 @@ import {
   readNativeMcpServers,
   writeNativeRemoteMcp,
 } from "./test-support/mcp-package-import-fixture.js";
-import { snapshotProtectedState } from "@agentxm/test-support";
+import { snapshotProtectedState, snapshotTree } from "@agentxm/test-support";
 import { writeWorkspaceState } from "./test-support/protected-state.js";
-import { snapshotTree } from "@agentxm/test-support";
 
 export const executionBinding = defineExecutionBinding({
   requirements: ["cli/authoring-uses-project-workspace"],

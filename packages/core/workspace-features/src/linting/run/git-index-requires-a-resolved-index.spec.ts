@@ -30,7 +30,7 @@ export const specification = defineSpecification({
   methods: ["decision-table", "example"],
   derivedFrom: [
     "cli/lint/observes-selected-filesystem-view",
-    "packages/core/workspace/src/linting/run/staged-workspace.test.ts",
+    "packages/core/workspace-features/src/linting/run/staged-workspace.test.ts",
     "apps/cli/help/topics/git-hooks.md",
   ],
   supersedes: [],

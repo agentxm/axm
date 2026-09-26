@@ -64,7 +64,6 @@ import {
 export { SourceHostProvidersLive };
 import { workspaceInvariantFactsLive } from "./workspace-invariant-facts-live.js";
 export { KnowledgeIndexLive };
-export { ConfiguredAgentOutcomesProviderLive } from "@agentxm/workspace-kernel/reconciliation/live";
 import {
   HookManagerLive,
   KnowledgeManagerLive,

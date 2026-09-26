@@ -15,13 +15,13 @@ import {
   DesiredStateReader,
   desiredStateProblemsText,
   type DesiredExtensionNode,
+  desiredPackageKey,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import {
   type ExtensionLifecycleFailed,
   installRefused,
 } from "@agentxm/workspace-kernel/operations";
-import { desiredPackageKey } from "@agentxm/workspace-kernel/workspace-state";
 
 interface RequiredPack {
   readonly name: string;

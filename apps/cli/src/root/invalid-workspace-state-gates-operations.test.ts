@@ -2,7 +2,7 @@
  * The per-family operation sweep for `cli/invalid-workspace-state-gates-operations`.
  *
  * The specification lives in
- * `packages/core/workspace/src/reconciliation/invalid-workspace-state-gates-operations.spec.ts`,
+ * `packages/core/workspace-kernel/src/reconciliation/invalid-workspace-state-gates-operations.spec.ts`,
  * beside the readers that refuse to construct the workspace records. The rule
  * it states is about every operation that reads or changes workspace state,
  * and only the CLI composition root can reach all five families at once, so

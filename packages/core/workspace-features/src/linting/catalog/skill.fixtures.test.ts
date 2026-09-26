@@ -21,11 +21,14 @@ import * as nodeFs from "node:fs";
 import * as nodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { platformCanonicalLintConfig } from "@agentxm/extension-content/lint";
-import type { SkillRuleContext } from "@agentxm/extension-content/lint";
-import { evaluateContexts } from "@agentxm/extension-content/lint";
-import { makeVftSkillFileAccessor, type VFTNode } from "@agentxm/extension-content/lint";
-import { skillRules } from "@agentxm/extension-content/lint";
+import {
+  platformCanonicalLintConfig,
+  type SkillRuleContext,
+  evaluateContexts,
+  makeVftSkillFileAccessor,
+  type VFTNode,
+  skillRules,
+} from "@agentxm/extension-content/lint";
 
 // -----------------------------------------------------------------------------
 // Fixture loader

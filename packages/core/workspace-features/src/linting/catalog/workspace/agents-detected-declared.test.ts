@@ -8,6 +8,7 @@ import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/
 import {
   AgentPresenceUnavailable,
   type AgentPresenceProbeService,
+  detectAgentsForScope,
 } from "@agentxm/workspace-kernel/agent-adapters";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import {
@@ -15,7 +16,6 @@ import {
   SCENARIO_USER_HOME,
   SCENARIO_WORKSPACE_ROOT,
 } from "@agentxm/workspace-kernel/workspace-state/testing";
-import { detectAgentsForScope } from "@agentxm/workspace-kernel/agent-adapters";
 import { agentsDetectedDeclaredRule } from "./agents-detected-declared.js";
 
 // The fixture layer detects no agents by default; these scenarios assert

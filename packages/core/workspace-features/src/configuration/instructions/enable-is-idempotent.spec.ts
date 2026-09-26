@@ -19,7 +19,9 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
   methods: ["example"],
-  derivedFrom: ["packages/core/workspace/src/configuration/instructions/manage-instructions.ts"],
+  derivedFrom: [
+    "packages/core/workspace-features/src/configuration/instructions/manage-instructions.ts",
+  ],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

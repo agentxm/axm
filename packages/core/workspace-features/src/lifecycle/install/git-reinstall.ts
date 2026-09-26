@@ -1,4 +1,7 @@
-import { extensionRefName } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
+import {
+  extensionRefName,
+  type ExtensionRef,
+} from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 /**
  * Reconstructing a forced Git reinstall from accepted lock authority.
  *
@@ -10,7 +13,6 @@ import { toFileLocation } from "@agentxm/host-primitives";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
 import type { GitSource } from "@agentxm/extension-model/unstable/sources/types";
 import {

@@ -50,8 +50,6 @@ import {
   normalizePublishResult,
   publishCause,
   type PublishResultItem,
-} from "@agentxm/workspace-features/publishing";
-import {
   buildPublishJobs,
   findPackPublishDivergenceFindings,
   isPublishableType,

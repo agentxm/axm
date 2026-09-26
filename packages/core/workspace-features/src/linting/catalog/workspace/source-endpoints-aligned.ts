@@ -16,10 +16,10 @@ import {
   type DesiredExtensionNode,
   type Lockfile,
   type SourceHostConfig,
+  settingsDisplayPath,
 } from "@agentxm/workspace-kernel/workspace-state";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "@agentxm/extension-content/lint";
-import { settingsDisplayPath } from "@agentxm/workspace-kernel/workspace-state";
 
 const RULE_ID = "workspace/source-endpoints-aligned";
 

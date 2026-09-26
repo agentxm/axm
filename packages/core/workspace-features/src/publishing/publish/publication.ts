@@ -19,8 +19,8 @@ import {
   type ExtensionType,
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
-import type { ExtensionVisibility } from "@agentxm/extension-model/unstable/extensions/common";
 import {
+  type ExtensionVisibility,
   packMemberVersionRange,
   type PackMemberConstraintMap,
 } from "@agentxm/extension-model/unstable/extensions/common";

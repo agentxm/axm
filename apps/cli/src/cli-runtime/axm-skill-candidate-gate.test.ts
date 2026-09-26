@@ -25,8 +25,8 @@ import {
   type RegistryExtensionManifest,
   type GetExtensionsByOwnerResponse,
 } from "@agentxm/registry-client";
-import type { VersionEntry } from "@agentxm/registry-protocol/unstable/registry";
 import {
+  type VersionEntry,
   PUBLICATION_SET_CONTRACT,
   publicationSetDigest,
 } from "@agentxm/registry-protocol/unstable/registry";

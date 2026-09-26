@@ -11,7 +11,13 @@
  */
 
 import * as fs from "node:fs";
-import { snapshotTree } from "@agentxm/workspace-kernel/workspace-state/testing";
+import {
+  snapshotTree,
+  ConfiguredAgentOutcomesProviderTest,
+  makeRegistryPackLockEntry,
+  makeRegistrySkillLockEntry,
+  withTestRegistryDefault,
+} from "@agentxm/workspace-kernel/workspace-state/testing";
 import * as os from "node:os";
 import * as nodePath from "node:path";
 
@@ -38,13 +44,7 @@ import {
   makeRegistryClientFactory,
 } from "@agentxm/registry-client";
 import { CodingAgentRepositoryLive } from "@agentxm/workspace-kernel/projection/live";
-import {
-  ConfiguredAgentOutcomesProviderTest,
-  makeRegistryPackLockEntry,
-  makeRegistrySkillLockEntry,
-} from "@agentxm/workspace-kernel/workspace-state/testing";
 import { WorkspaceStateLive } from "@agentxm/workspace-kernel/workspace-state/live";
-import { withTestRegistryDefault } from "@agentxm/workspace-kernel/workspace-state/testing";
 import { WorkspaceCatalogLive } from "@agentxm/workspace-kernel/sources/live";
 
 export const inspectionRegistryUrl = "https://inspection-registry.example.test";

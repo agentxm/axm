@@ -19,8 +19,8 @@ export const specification = defineSpecification({
   goals: ["extension-adoption", "machine-automation", "actionable-diagnostics"],
   methods: ["example"],
   derivedFrom: [
-    "packages/core/workspace/src/inspection/view/view-extension.ts",
-    "packages/core/workspace/src/resolution/sources/resolve-identifier.ts",
+    "packages/core/workspace-features/src/inspection/view/view-extension.ts",
+    "packages/core/workspace-kernel/src/sources/resolve-identifier.ts",
   ],
   supersedes: [],
   assumptions: [],

@@ -1,12 +1,13 @@
-import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlement/live";
-import { WorkspaceTransactionScopesLive } from "@agentxm/workspace-kernel/settlement/live";
+import {
+  WorkspaceFileWriteLocksLive,
+  WorkspaceTransactionScopesLive,
+} from "@agentxm/workspace-kernel/settlement/live";
 // Raw node:fs/node:os/node:path is the repo-wide convention for test fixtures.
 import * as fs from "node:fs";
 import { CodingAgentRepositoryLive } from "@agentxm/workspace-kernel/projection/live";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { Settings } from "@agentxm/workspace-kernel/workspace-state";
-import { LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
+import { type Settings, LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";

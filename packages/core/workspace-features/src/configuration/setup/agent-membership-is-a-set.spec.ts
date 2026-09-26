@@ -18,7 +18,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["workspace-intent-fidelity"],
   methods: ["example"],
-  derivedFrom: ["packages/core/workspace/src/configuration/setup/initialization.ts"],
+  derivedFrom: ["packages/core/workspace-features/src/configuration/setup/initialization.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

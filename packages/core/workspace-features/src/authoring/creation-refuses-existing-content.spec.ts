@@ -25,8 +25,8 @@ export const specification = defineSpecification({
   boundaryRationale:
     "The create-only refusal is settled by the creation use case before its transaction opens, so a real project directory shows the typed refusal for every type and a byte-identical tree.",
   derivedFrom: [
-    "packages/core/workspace/src/authoring/create-preflight.ts",
-    "packages/core/workspace/src/authoring/create/create-extension.ts",
+    "packages/core/workspace-features/src/authoring/create-preflight.ts",
+    "packages/core/workspace-features/src/authoring/create/create-extension.ts",
   ],
   supersedes: [],
   assumptions: [],

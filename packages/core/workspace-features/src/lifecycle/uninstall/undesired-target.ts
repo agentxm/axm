@@ -8,14 +8,18 @@
 
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
-import { DesiredStateReader, WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  DesiredStateReader,
+  WorkspaceLocation,
+  LockfileReader,
+  observeInstallRoot,
+} from "@agentxm/workspace-kernel/workspace-state";
 
 import {
   parseExtensionFqnParts,
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import { LockfileReader, observeInstallRoot } from "@agentxm/workspace-kernel/workspace-state";
 
 import { ExtensionLifecycleFailed } from "@agentxm/workspace-kernel/operations";
 

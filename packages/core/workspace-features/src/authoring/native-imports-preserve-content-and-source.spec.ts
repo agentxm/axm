@@ -28,7 +28,7 @@ export const specification = defineSpecification({
   boundaryRationale:
     "Preservation and activation are decisions of the import use case over real files: a temporary project workspace shows the native source byte-identical, the converted package's instructions intact, and the projection present exactly when the import ends up enabled.",
   derivedFrom: [
-    "packages/core/workspace/src/authoring/import-native-package.test.ts",
+    "packages/core/workspace-features/src/authoring/import-native-package.test.ts",
     "apps/cli/src/root/import/command.ts",
   ],
   supersedes: [],

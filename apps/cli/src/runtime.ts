@@ -55,7 +55,11 @@ import {
   ProjectionParticipantsLive,
 } from "@agentxm/workspace-kernel/reconciliation/live";
 import { KnowledgeIndexLive } from "@agentxm/workspace-features/knowledge-query/live";
-import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-kernel/projection/live";
+import {
+  WorkspaceInvariantFactsLive,
+  CodingAgentRepositoryLive,
+  NativeWriteAuthorityLive,
+} from "@agentxm/workspace-kernel/projection/live";
 import { AuthLoginPresenterLive } from "./auth-login-presenter.js";
 import { failureToAppError } from "./app-error/conversions.js";
 import { WorkspaceFailureConversionLive } from "./app-error/failure-catalog.js";
@@ -65,10 +69,6 @@ import {
   SourceHostProvidersLive,
   WorkspaceCatalogLive,
 } from "@agentxm/workspace-kernel/sources/live";
-import {
-  CodingAgentRepositoryLive,
-  NativeWriteAuthorityLive,
-} from "@agentxm/workspace-kernel/projection/live";
 import {
   AuthClientLive,
   AuthLoginInteractionLive,
@@ -85,10 +85,10 @@ import {
   SettingsReader,
   type RegistryTarget,
   type WorkspaceStateOptions,
+  type SourceHostConfig,
 } from "@agentxm/workspace-kernel/workspace-state";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace-kernel/workspace-state/live";
-import type { SourceHostConfig } from "@agentxm/workspace-kernel/workspace-state";
 import {
   decodeAbsolutePathSync,
   type AbsolutePath,

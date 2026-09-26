@@ -9,13 +9,13 @@
 
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
-import type {
-  CanonicalObservation,
-  DesiredExtensionNode,
-  DesiredStateGraph,
+import {
+  type CanonicalObservation,
+  type DesiredExtensionNode,
+  type DesiredStateGraph,
+  desiredPackageKey,
 } from "@agentxm/workspace-kernel/workspace-state";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
-import { desiredPackageKey } from "@agentxm/workspace-kernel/workspace-state";
 
 type ObservationRuleId =
   | "workspace/configured-but-not-installed"

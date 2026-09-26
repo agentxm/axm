@@ -25,7 +25,19 @@ import {
 
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
-import { DesiredStateReader, WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  DesiredStateReader,
+  WorkspaceLocation,
+  desiredPackageKey,
+  formatDesiredIdentity,
+  isRequiredByAnotherOrigin,
+  sameDesiredIdentity,
+  type DesiredAuthority,
+  type DesiredNodeIdentity,
+  type DesiredStateGraph,
+  type ExtensionTarget,
+  type PackExtensionTarget,
+} from "@agentxm/workspace-kernel/workspace-state";
 
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -55,17 +67,6 @@ import {
   type ExtensionLifecycleFailed,
   installRefused,
 } from "@agentxm/workspace-kernel/operations";
-import {
-  desiredPackageKey,
-  formatDesiredIdentity,
-  isRequiredByAnotherOrigin,
-  sameDesiredIdentity,
-  type DesiredAuthority,
-  type DesiredNodeIdentity,
-  type DesiredStateGraph,
-  type ExtensionTarget,
-  type PackExtensionTarget,
-} from "@agentxm/workspace-kernel/workspace-state";
 
 import { expandGlob } from "@agentxm/extension-model/unstable/extensions/name-patterns";
 import { validatePackGraphPostcondition } from "../graph-transition.js";

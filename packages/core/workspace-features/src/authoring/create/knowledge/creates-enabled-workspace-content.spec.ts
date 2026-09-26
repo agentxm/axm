@@ -26,7 +26,7 @@ export const specification = defineSpecification({
   boundary: "memory",
   boundaryRationale:
     "The manifest, the bundle index, and the declaration are all written by the creation use case over the workspace-state services; a real project directory observes each one.",
-  derivedFrom: ["packages/core/workspace/src/authoring/create/scaffolds/knowledge.ts"],
+  derivedFrom: ["packages/core/workspace-features/src/authoring/create/scaffolds/knowledge.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],

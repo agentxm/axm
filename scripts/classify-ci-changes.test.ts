@@ -174,12 +174,14 @@ describe("classifyCiChanges", () => {
 
   it("selects release-grade artifacts only for the declared release stage", () => {
     expect(
-      classifyCiChanges(["packages/core/workspace-state/src/index.ts"], {
+      classifyCiChanges(["packages/core/workspace-kernel/src/planning/index.ts"], {
         releaseArtifacts: true,
       }).checks["release-artifacts"],
     ).toMatchObject({ selected: true });
     expect(
-      classifyCiChanges(["packages/core/workspace-state/src/index.ts"]).checks["release-artifacts"],
+      classifyCiChanges(["packages/core/workspace-kernel/src/planning/index.ts"]).checks[
+        "release-artifacts"
+      ],
     ).toMatchObject({ selected: false });
   });
 
@@ -199,8 +201,8 @@ describe("classifyCiChanges", () => {
   });
 
   it.each([
-    ["packages/core/workspace/src/desired-state/index.ts"],
-    ["packages/core/workspace/src/lifecycle/update/selector.spec.ts"],
+    ["packages/core/workspace-kernel/src/workspace-state/index.ts"],
+    ["packages/core/workspace-features/src/lifecycle/update/selector.spec.ts"],
     ["packages/supporting/cli-maintenance/src/self-update/adapters/native/index.ts"],
     ["packages/supporting/registry-access/src/authentication/selected-registry.ts"],
     ["tools/specification-metadata/src/contract.ts"],
@@ -219,7 +221,7 @@ describe("classifyCiChanges", () => {
       code: true,
       documentation: false,
     });
-    expect(classifyCiChanges(["packages/core/workspace/README.md"])).toMatchObject({
+    expect(classifyCiChanges(["packages/core/workspace-kernel/README.md"])).toMatchObject({
       code: true,
       documentation: false,
     });
@@ -342,10 +344,10 @@ describe("classifyCiChanges", () => {
   it("preserves deleted paths and both sides of renames", () => {
     expect(
       parseChangedPaths(
-        "D\0packages/core/workspace-state/src/removed.ts\0R100\0contributing/old.md\0apps/cli/src/new.ts\0",
+        "D\0packages/core/workspace-kernel/src/planning/removed.ts\0R100\0contributing/old.md\0apps/cli/src/new.ts\0",
       ),
     ).toEqual([
-      "packages/core/workspace-state/src/removed.ts",
+      "packages/core/workspace-kernel/src/planning/removed.ts",
       "contributing/old.md",
       "apps/cli/src/new.ts",
     ]);

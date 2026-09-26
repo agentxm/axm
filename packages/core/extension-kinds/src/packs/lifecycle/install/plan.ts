@@ -33,7 +33,20 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import type * as Config from "effect/Config";
 import * as FileSystem from "effect/FileSystem";
-import { SettingsReader, WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  SettingsReader,
+  WorkspaceLocation,
+  acceptedLockedCanonicalPath,
+  acceptedLockedResolutionRef,
+  isRequiredByAnotherOrigin,
+  usableAcceptedCanonical,
+  type HookExtensionTarget,
+  type KnowledgeExtensionTarget,
+  type McpServerExtensionTarget,
+  type RuleExtensionTarget,
+  type SkillExtensionTarget,
+  type SubagentExtensionTarget,
+} from "@agentxm/workspace-kernel/workspace-state";
 
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -79,19 +92,11 @@ import {
   resolveSource,
   sourceResolutionFailureCategory,
   type SourceResolutionFailure,
+  formatRegistryProbe,
+  parseRegistryInstallTarget,
+  registryLoginSuggestions,
+  type RegistryLookupProbe,
 } from "@agentxm/workspace-kernel/sources";
-import {
-  acceptedLockedCanonicalPath,
-  acceptedLockedResolutionRef,
-  isRequiredByAnotherOrigin,
-  usableAcceptedCanonical,
-  type HookExtensionTarget,
-  type KnowledgeExtensionTarget,
-  type McpServerExtensionTarget,
-  type RuleExtensionTarget,
-  type SkillExtensionTarget,
-  type SubagentExtensionTarget,
-} from "@agentxm/workspace-kernel/workspace-state";
 
 import { configuredPackConstraintBlockPlan } from "../constraint-gate.js";
 import {
@@ -100,12 +105,6 @@ import {
   acceptedResolutionIncompatibleText,
 } from "@agentxm/workspace-kernel/projection";
 import { validatePackGraphPostcondition } from "../graph-transition.js";
-import {
-  formatRegistryProbe,
-  parseRegistryInstallTarget,
-  registryLoginSuggestions,
-  type RegistryLookupProbe,
-} from "@agentxm/workspace-kernel/sources";
 import {
   scanWorkspaceAuthority,
   selectPackGraph,

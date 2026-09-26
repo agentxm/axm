@@ -10,8 +10,10 @@
 import * as Option from "effect/Option";
 import * as semver from "semver";
 
-import type { Version } from "@agentxm/extension-model/unstable/version-constraints";
-import { resolveVersionInRange } from "@agentxm/extension-model/unstable/version-constraints";
+import {
+  type Version,
+  resolveVersionInRange,
+} from "@agentxm/extension-model/unstable/version-constraints";
 import { selectVersion } from "@agentxm/extension-model/unstable/version-constraints/version-selection";
 import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry/schema";
 

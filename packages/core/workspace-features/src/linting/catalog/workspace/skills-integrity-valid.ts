@@ -28,9 +28,11 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryFinding, AdvisoryRule, LintFinding } from "@agentxm/extension-content/lint";
-import { type SkillLockEntry } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  type SkillLockEntry,
+  lockfileDisplayPath,
+} from "@agentxm/workspace-kernel/workspace-state";
 import { EMPTY_LINT_FINDINGS } from "./helpers/empty.js";
-import { lockfileDisplayPath } from "@agentxm/workspace-kernel/workspace-state";
 import { deferringNodes } from "./canonical-observation-findings.js";
 
 const RULE_ID = "workspace/skills-integrity-valid";

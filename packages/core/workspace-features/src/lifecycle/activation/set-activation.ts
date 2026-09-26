@@ -28,8 +28,8 @@ import type { RegistryClientFactory } from "@agentxm/registry-client";
 
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import { resolveInstalledIdentifierNameOrInput } from "@agentxm/workspace-kernel/sources";
 import {
+  resolveInstalledIdentifierNameOrInput,
   SourceHostProviders,
   WorkspaceCatalog,
   type SourceResolutionFailure,

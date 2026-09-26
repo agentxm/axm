@@ -20,8 +20,8 @@ export const specification = defineSpecification({
   methods: ["example"],
   derivedFrom: [
     "cli/list/reports-the-cross-type-inventory",
-    "packages/core/workspace/src/inspection/extension-list/list-extensions.ts",
-    "packages/core/workspace/src/desired-state/workspace/read-model/extensions/inventory.ts",
+    "packages/core/workspace-features/src/inspection/extension-list/list-extensions.ts",
+    "packages/core/workspace-kernel/src/workspace-state/observed/extensions/inventory.ts",
   ],
   supersedes: [],
   assumptions: [],

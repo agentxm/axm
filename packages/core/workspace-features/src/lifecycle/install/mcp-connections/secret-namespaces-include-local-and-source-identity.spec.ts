@@ -33,7 +33,7 @@ export const specification = defineSpecification({
   goals: ["workspace-intent-fidelity", "safe-repetition"],
   methods: ["example"],
   derivedFrom: [
-    "packages/core/workspace/src/materialization/ports/mcp-secret-store.ts",
+    "packages/core/workspace-kernel/src/materialization/ports/mcp-secret-store.ts",
     // The real system keychain is exercised as separately selected platform
     // evidence in apps/cli-e2e/src/mcp-secrets.keychain.e2e.test.ts.
     "apps/cli-e2e/src/mcp-secrets.keychain.e2e.test.ts",

@@ -10,9 +10,11 @@
 
 import { codingAgentForId, type CodingAgent } from "../../agent-adapters/index.js";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
-import { MATERIALIZATION_TARGET_IDS } from "@agentxm/extension-model/unstable/agents/types";
+import {
+  MATERIALIZATION_TARGET_IDS,
+  type MaterializationTargetId,
+} from "@agentxm/extension-model/unstable/agents/types";
 import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
-import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 
 /** The agent every workspace projects onto, whatever it configures. */
 export const UNIVERSAL_AGENT_ID = "universal" as const;

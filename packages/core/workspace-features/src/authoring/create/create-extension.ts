@@ -43,6 +43,7 @@ import {
   type InstallableSkillTarget,
   type ManagerRequirements,
   type AuthorMaterialization,
+  McpSecretStore,
 } from "@agentxm/workspace-kernel/materialization";
 import {
   buildAuthoredExtensionStep,
@@ -52,7 +53,6 @@ import {
   type NewExtensionOperationArgs,
   type RecipeRequirements,
 } from "@agentxm/workspace-kernel/reconciliation";
-import { McpSecretStore } from "@agentxm/workspace-kernel/materialization";
 import { materializeAuthoredMcpServer } from "@agentxm/extension-kinds/mcp-connections";
 import { configuredMcpCapability } from "@agentxm/workspace-kernel/agent-adapters";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
@@ -61,6 +61,7 @@ import {
   formatFqn,
   decodeExtensionNameSync,
   type Handle,
+  type FqnInvalidError,
 } from "@agentxm/extension-model/unstable/extensions";
 import type {
   HookEvent,
@@ -78,7 +79,6 @@ import {
 import { CodingAgentRepository } from "@agentxm/workspace-kernel/projection";
 import type { CredentialStore } from "@agentxm/registry-access/credentials";
 import type { RegistryUrl } from "@agentxm/registry-client";
-import type { FqnInvalidError } from "@agentxm/extension-model/unstable/extensions";
 import {
   AcceptedResolutionWriter,
   DesiredStateWriter,

@@ -24,10 +24,10 @@ import {
   parseForgeCoordinate,
   type ForgeCoordinate,
 } from "@agentxm/extension-model/unstable/sources/forge-grammar";
-import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
-import type {
-  InputParseResult,
-  ShorthandInput,
+import {
+  parseInputPattern,
+  type InputParseResult,
+  type ShorthandInput,
 } from "@agentxm/extension-model/unstable/sources/parser";
 import type {
   GitSource,
@@ -35,12 +35,10 @@ import type {
   Source,
 } from "@agentxm/extension-model/unstable/sources/types";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import type {
-  ExtensionName,
-  ExtensionType,
-  ExtensionTypePlural,
-} from "@agentxm/extension-model/unstable/extensions";
 import {
+  type ExtensionName,
+  type ExtensionType,
+  type ExtensionTypePlural,
   extensionTypeSentenceLabels,
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";

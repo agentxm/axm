@@ -8,6 +8,8 @@ import {
   SettingsReader,
   WorkspaceLocation,
   lockEntryVersion,
+  sanitizeName,
+  type SkillPathSource,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import * as FileSystem from "effect/FileSystem";
@@ -28,7 +30,6 @@ import {
 } from "@agentxm/workspace-kernel/resolution";
 import { RegistryClientFactory } from "@agentxm/registry-client";
 import { CodingAgentRepository } from "@agentxm/workspace-kernel/projection";
-import { sanitizeName, type SkillPathSource } from "@agentxm/workspace-kernel/workspace-state";
 import {
   type ExtensionLifecycleFailed,
   installRefused,

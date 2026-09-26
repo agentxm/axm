@@ -7,6 +7,7 @@ import {
   type DesiredConstraintConflict,
   type DesiredExtensionOrigin,
   type DesiredStateGraph,
+  desiredPackageKey,
 } from "@agentxm/workspace-kernel/workspace-state";
 import type { ExtensionConstraintInvariantFact } from "@agentxm/workspace-kernel/projection";
 import {
@@ -14,8 +15,6 @@ import {
   type InstallStepRequirements,
 } from "@agentxm/workspace-kernel/reconciliation";
 import { operationPresentation, type Plan } from "@agentxm/workspace-kernel/operations";
-
-import { desiredPackageKey } from "@agentxm/workspace-kernel/workspace-state";
 
 const packOrigins = (origins: ReadonlyArray<DesiredExtensionOrigin>): ReadonlyArray<string> =>
   origins.flatMap((origin) => (origin.type === "pack" ? [origin.pack.fqn] : []));

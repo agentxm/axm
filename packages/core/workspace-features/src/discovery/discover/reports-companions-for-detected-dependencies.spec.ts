@@ -23,7 +23,7 @@ export const specification = defineSpecification({
   methods: ["example"],
   derivedFrom: [
     "apps/cli/src/root/discover/handler.test.ts",
-    "packages/core/workspace/src/discovery/discover.test.ts",
+    "packages/core/workspace-features/src/discovery/discover.test.ts",
   ],
   supersedes: [],
   assumptions: [],

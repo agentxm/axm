@@ -7,8 +7,10 @@ import * as Path from "effect/Path";
 import type * as Config from "effect/Config";
 import type { RegistryClientFactory, RegistryClientFailure } from "@agentxm/registry-client";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
-import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
-import { extensionRefName } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
+import {
+  type ExtensionRef,
+  extensionRefName,
+} from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { fromFileLocation } from "@agentxm/host-primitives";
 import type {
   LockEntry,

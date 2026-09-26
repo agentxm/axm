@@ -4,7 +4,6 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import { WorkspaceRecords } from "@agentxm/workspace-kernel/workspace-state";
-import { listMcpServers, ShowExtension } from "../index.js";
 import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
@@ -16,6 +15,7 @@ import {
   previewSync,
   type SyncFixture,
 } from "../../testing/sync-fixture.js";
+import { listedMcpServer, shownMcpServer } from "../../testing/mcp-inspection.js";
 
 export const specification = defineSpecification({
   requirement: "cli/mcps/projects-to-every-configured-agent",
@@ -320,13 +320,12 @@ describe("MCP servers project to every configured agent", () => {
               replaceManagedCommand(workspace.readFile(CLAUDE_CODE_CONFIG), "context", "python"),
             );
 
-            const listed = yield* listMcpServers();
-            const row = listed.rows.find((candidate) => candidate.name === "context");
+            const row = yield* listedMcpServer("context");
             expect(row?.status).toBe("drift");
             expect(
               row?.agentOutcomes.find((outcome) => outcome.agentId === "claude-code"),
             ).toMatchObject({ outcome: "failed", reasonCode: "stale-projection" });
-            const shown = yield* ShowExtension.query({ type: "mcp-server", name: "context" });
+            const shown = yield* shownMcpServer("context");
             expect(shown.agents.find((agent) => agent.agent === "claude-code")).toMatchObject({
               status: "failed",
               reasonCode: "stale-projection",

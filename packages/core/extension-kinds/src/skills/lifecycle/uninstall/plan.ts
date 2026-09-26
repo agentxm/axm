@@ -18,6 +18,16 @@ import {
   WorkspaceRecords,
   type WorkspaceLayout,
   type WorkspaceLocationService,
+  acquiredExtensionDisplayPathFromLockEntry,
+  installedRowsByName,
+  sanitizeName,
+  type SkillExtensionTarget,
+  type SkillLockEntry,
+  authoredDisplayPath,
+  acquiredDisplayPath,
+  acquiredRootDisplayPath,
+  lockfileDisplayPath,
+  settingsDisplayPath,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import * as FileSystem from "effect/FileSystem";
@@ -46,22 +56,8 @@ import {
   installRefused,
 } from "@agentxm/workspace-kernel/operations";
 import { CodingAgentRepository } from "@agentxm/workspace-kernel/projection";
-import {
-  acquiredExtensionDisplayPathFromLockEntry,
-  installedRowsByName,
-  sanitizeName,
-  type SkillExtensionTarget,
-  type SkillLockEntry,
-} from "@agentxm/workspace-kernel/workspace-state";
 
 import { expandGlob } from "@agentxm/extension-model/unstable/extensions/name-patterns";
-import {
-  authoredDisplayPath,
-  acquiredDisplayPath,
-  acquiredRootDisplayPath,
-  lockfileDisplayPath,
-  settingsDisplayPath,
-} from "@agentxm/workspace-kernel/workspace-state";
 
 /** One skill removal. */
 export interface SkillUninstallIntent {

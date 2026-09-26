@@ -20,7 +20,7 @@ export const specification = defineSpecification({
   goals: ["workspace-intent-fidelity", "actionable-diagnostics", "agent-interoperability"],
   methods: ["example", "contract"],
   derivedFrom: [
-    "packages/core/workspace/src/inspection/type-list/mcp-servers.ts",
+    "packages/core/workspace-features/src/inspection/type-list/mcp-servers.ts",
     // The reconciliation half of the every-agent rule — what actually reaches
     // each agent's native configuration — is cli/mcps/projects-to-every-configured-agent.
     "cli/mcps/projects-to-every-configured-agent",

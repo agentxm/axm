@@ -56,6 +56,7 @@ import {
   configuredRowsByName,
   resolveWorkspaceExtensionRef,
   usableAcceptedCanonical,
+  desiredPackageKey,
 } from "@agentxm/workspace-kernel/workspace-state";
 import type { WorkspaceTransactionScope } from "@agentxm/workspace-kernel/settlement";
 
@@ -79,7 +80,6 @@ import {
   PackSourceMissing,
 } from "./membership-errors.js";
 import { removeFromPack } from "./remove-from-pack.js";
-import { desiredPackageKey } from "@agentxm/workspace-kernel/workspace-state";
 
 // -----------------------------------------------------------------------------
 // Request and candidate

@@ -28,7 +28,7 @@ export const specification = defineSpecification({
   boundaryRationale:
     "Each refusal is a decision the fork use case settles before it stages anything, so a real project workspace shows both the typed refusal and that not one byte of the source or the destination moved.",
   derivedFrom: [
-    "packages/core/workspace/src/authoring/fork-package.test.ts",
+    "packages/core/workspace-features/src/authoring/fork-package.test.ts",
     "apps/cli/src/root/fork/command.ts",
   ],
   supersedes: [],

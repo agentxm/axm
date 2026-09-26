@@ -1,15 +1,15 @@
 import * as Effect from "effect/Effect";
-import { UNCONSTRAINED_DESIRED_NODE } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  UNCONSTRAINED_DESIRED_NODE,
+  type ActualSkill,
+  type CanonicalObservation,
+  type DesiredExtensionNode,
+  type InstalledSkill,
+} from "@agentxm/workspace-kernel/workspace-state";
 import { desiredConstraintOf } from "@agentxm/workspace-kernel/workspace-state/testing";
 import * as Option from "effect/Option";
 
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
-import type {
-  ActualSkill,
-  CanonicalObservation,
-  DesiredExtensionNode,
-  InstalledSkill,
-} from "@agentxm/workspace-kernel/workspace-state";
 import type { WorkspaceRuleContext } from "../../../../workspace-context.js";
 import { configuredButNotInstalledRule } from "../../configured-but-not-installed.js";
 import { packsDependenciesResolvedRule } from "../../packs-dependencies-resolved.js";

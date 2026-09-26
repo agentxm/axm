@@ -23,7 +23,7 @@ export const specification = defineSpecification({
   methods: ["example"],
   derivedFrom: [
     "apps/cli/src/root/view/view.ts",
-    "packages/core/workspace/src/inspection/view/view-extension.ts",
+    "packages/core/workspace-features/src/inspection/view/view-extension.ts",
   ],
   supersedes: [],
   assumptions: [],

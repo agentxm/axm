@@ -2,8 +2,8 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 
 import { KNOWLEDGE_DIAGNOSTIC_CODES } from "@agentxm/extension-content/knowledge";
-import { knowledgeRules } from "@agentxm/extension-content/lint";
 import {
+  knowledgeRules,
   knowledgeDiagnosticRuleDefinitions,
   knowledgeDiagnosticRules,
 } from "@agentxm/extension-content/lint";

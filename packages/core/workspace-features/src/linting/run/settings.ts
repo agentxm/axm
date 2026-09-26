@@ -15,8 +15,7 @@ import {
   reconcileInstructions,
   resolveInstructionsConfig,
 } from "@agentxm/workspace-kernel/projection";
-import type { LintConfig } from "@agentxm/extension-content/lint";
-import { composePath } from "@agentxm/extension-content/lint";
+import { type LintConfig, composePath } from "@agentxm/extension-content/lint";
 import type { Settings } from "@agentxm/workspace-kernel/workspace-state";
 import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { LintSummary } from "../runner.js";

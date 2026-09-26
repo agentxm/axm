@@ -2,7 +2,7 @@
  * Instruction-copy currency for `cli/projection-currency-follows-state-authority`.
  *
  * The specification lives in
- * `packages/core/workspace/src/sync/projection-currency-follows-state-authority.spec.ts`,
+ * `packages/core/workspace-features/src/sync/projection-currency-follows-state-authority.spec.ts`,
  * where reconciliation decides currency. An instruction copy is written by
  * this feature, not by a reconciliation, and a reconciliation may not import
  * it, so the copy rows run here. They carry every assertion they carried in

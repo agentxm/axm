@@ -94,13 +94,13 @@ const makeEntry = (id: string, options: RecoveryEntryOptions): RecoveryConforman
 
 const packageLintEvidence = (id: string): ReadonlyArray<string> => {
   if (id.startsWith("skill/")) {
-    return ["packages/core/workspace/src/linting/catalog/skill.fixtures.test.ts"];
+    return ["packages/core/workspace-features/src/linting/catalog/skill.fixtures.test.ts"];
   }
   if (id.startsWith("pack/")) {
-    return ["packages/core/workspace/src/linting/catalog/pack.fixtures.test.ts"];
+    return ["packages/core/workspace-features/src/linting/catalog/pack.fixtures.test.ts"];
   }
   if (id.startsWith("knowledge/")) {
-    return ["packages/core/workspace/src/linting/catalog/knowledge.test.ts"];
+    return ["packages/core/workspace-features/src/linting/catalog/knowledge.test.ts"];
   }
   return ["tools/extension-type-parity/src/parity.test.ts"];
 };
@@ -166,18 +166,22 @@ const packageLintEntries = packageLintErrorIds.map((id) =>
 );
 
 const workspaceEvidence = [
-  "packages/core/workspace/src/linting/catalog/workspace/workspace-rule-conformance.test.ts",
+  "packages/core/workspace-features/src/linting/catalog/workspace/workspace-rule-conformance.test.ts",
   "apps/cli/src/root/lint/handler.test.ts",
 ] as const;
 
 const aggregateCoverage = {
   "rule:instructions-region": [
-    "packages/core/workspace/src/instructions/manager.graph-projection.test.ts",
+    "packages/core/extension-kinds/src/instructions/manager.graph-projection.test.ts",
   ],
-  "hook:agent-hook-entries": ["packages/core/workspace/src/hooks/manager.graph-projection.test.ts"],
-  "hook:fallback-region": ["packages/core/workspace/src/hooks/manager.graph-projection.test.ts"],
+  "hook:agent-hook-entries": [
+    "packages/core/extension-kinds/src/hooks/manager.graph-projection.test.ts",
+  ],
+  "hook:fallback-region": [
+    "packages/core/extension-kinds/src/hooks/manager.graph-projection.test.ts",
+  ],
   "knowledge:discovery-region": [
-    "packages/core/workspace/src/knowledge/manager.graph-projection.test.ts",
+    "packages/core/extension-kinds/src/knowledge/manager.graph-projection.test.ts",
   ],
 } as const satisfies Readonly<Partial<Record<AggregateOwnershipUnitId, ReadonlyArray<string>>>>;
 
@@ -229,7 +233,7 @@ const workspaceLintEntries: ReadonlyArray<RecoveryConformanceEntry> = [
     field: "ownedProjection",
     evidence: [
       "apps/cli/src/root/sync/handler.test.ts",
-      "packages/core/workspace/src/projection/invariant-facts.test.ts",
+      "packages/core/workspace-kernel/src/projection/invariant-facts.test.ts",
     ],
   }),
   makeEntry("workspace/skills-declarations-valid", {
@@ -246,7 +250,7 @@ const workspaceLintEntries: ReadonlyArray<RecoveryConformanceEntry> = [
     owner: "direct-correction",
     field: "authoredIntent",
     evidence: [
-      "packages/core/workspace/src/linting/catalog/workspace/workspace-rule-conformance.test.ts",
+      "packages/core/workspace-features/src/linting/catalog/workspace/workspace-rule-conformance.test.ts",
     ],
   }),
   makeEntry("workspace/configured-but-not-installed", {
@@ -268,7 +272,7 @@ const workspaceLintEntries: ReadonlyArray<RecoveryConformanceEntry> = [
     owner: "direct-correction",
     field: "authoredIntent",
     evidence: [
-      "packages/core/workspace/src/linting/catalog/workspace/conformance/reconciliation/test-helpers.ts",
+      "packages/core/workspace-features/src/linting/catalog/workspace/conformance/reconciliation/test-helpers.ts",
     ],
   }),
   makeEntry("workspace/skills-integrity-valid", {
@@ -299,7 +303,7 @@ const syncEntries: ReadonlyArray<RecoveryConformanceEntry> = [
     owner: "sync",
     field: "lockAuthority",
     evidence: [
-      "packages/core/workspace/src/projection/constraint-invariant-fact.test.ts",
+      "packages/core/workspace-kernel/src/projection/constraint-invariant-fact.test.ts",
       "apps/cli/src/root/sync/handler.test.ts",
     ],
   }),
@@ -307,7 +311,7 @@ const syncEntries: ReadonlyArray<RecoveryConformanceEntry> = [
     owner: "direct-correction",
     field: "authoredIntent",
     evidence: [
-      "packages/core/workspace/src/projection/planning.test.ts",
+      "packages/core/workspace-kernel/src/projection/planning.test.ts",
       "apps/cli/src/root/sync/handler.test.ts",
     ],
   }),
@@ -338,7 +342,7 @@ const packUninstallEntries: ReadonlyArray<RecoveryConformanceEntry> =
       // unreadable pack when every other pack is intact, and reaches the same
       // decision in preview and apply.
       evidence: [
-        "packages/core/workspace/src/lifecycle/uninstall/retires-a-desired-pack-whose-package-is-unreadable.spec.ts",
+        "packages/core/workspace-features/src/lifecycle/uninstall/retires-a-desired-pack-whose-package-is-unreadable.spec.ts",
       ],
     }),
   );
@@ -355,61 +359,64 @@ const adversarialContracts = [
   ["unrelated-invalid-closure-allows-progress", "apps/cli/src/root/sync/handler.test.ts"],
   [
     "authored-and-unowned-content-preserved",
-    "packages/core/workspace/src/transitions/settlement/transaction.test.ts",
+    "packages/core/workspace-kernel/src/settlement/transaction.test.ts",
   ],
   [
     "aggregate-contributors-survive-lifecycle",
-    "packages/core/workspace/src/instructions/manager.graph-projection.test.ts",
+    "packages/core/extension-kinds/src/instructions/manager.graph-projection.test.ts",
   ],
   ["sync-preserves-intent-and-satisfying-lock", "apps/cli/src/root/sync/handler.test.ts"],
   ["lint-fix-does-no-lifecycle-work", "apps/cli/src/root/lint/handler.test.ts"],
   [
     "stale-and-concurrent-plans-do-not-interleave",
-    "packages/core/workspace/src/projection/planning.test.ts",
+    "packages/core/workspace-kernel/src/projection/planning.test.ts",
   ],
   [
     "publication-interruption-converges",
-    "packages/core/workspace/src/acquisition/canonical-directory.test.ts",
+    "packages/core/workspace-kernel/src/acquisition/canonical-directory.test.ts",
   ],
-  ["formatter-drift-remains-projectable", "packages/core/workspace/src/knowledge/manager.test.ts"],
+  [
+    "formatter-drift-remains-projectable",
+    "packages/core/extension-kinds/src/knowledge/manager.test.ts",
+  ],
   // A Registry that rebinds an accepted extension to a different publisher is
   // the divergent external replacement; the acceptance path both install and
   // update take reports it as an interactive-only risk before writing.
   [
     "divergent-external-replacement-is-disclosed",
-    "packages/core/workspace/src/lifecycle/install/preview-is-pure.spec.ts",
+    "packages/core/workspace-features/src/lifecycle/install/preview-is-pure.spec.ts",
   ],
   ["global-sync-reports-local-outcomes", "apps/cli/src/root/sync/handler.test.ts"],
   [
     "lock-only-pack-members-do-not-create-reachability",
-    "packages/core/workspace/src/desired-state/workspace/desired-state-graph.test.ts",
+    "packages/core/workspace-kernel/src/workspace-state/workspace/desired-state-graph.test.ts",
   ],
   [
     "invalid-lock-authority-is-not-reconstructed",
-    "packages/core/workspace/src/desired-state/lockfile/authority-schema.test.ts",
+    "packages/core/workspace-kernel/src/workspace-state/desired/lockfile/authority-schema.test.ts",
   ],
   [
     "older-lockfile-gate-names-reacceptance",
-    "packages/core/workspace/src/sync/lockfile-rejections-name-recovery-routes.spec.ts",
+    "packages/core/workspace-features/src/sync/lockfile-rejections-name-recovery-routes.spec.ts",
   ],
   [
     "newer-lockfile-gate-names-upgrade",
-    "packages/core/workspace/src/reconciliation/invalid-workspace-state-gates-operations.spec.ts",
+    "packages/core/workspace-kernel/src/reconciliation/invalid-workspace-state-gates-operations.spec.ts",
   ],
   // A local source is mutable: that specification installs one, changes its
   // content, restores it, and shows the recorded identity return to its
   // original value rather than drifting.
   [
     "mutable-source-identity-is-stable",
-    "packages/core/workspace/src/lifecycle/install/records-accepted-resolution.spec.ts",
+    "packages/core/workspace-features/src/lifecycle/install/records-accepted-resolution.spec.ts",
   ],
   [
     "unsupported-state-is-rejected",
-    "packages/core/workspace/src/desired-state/settings/schema.test.ts",
+    "packages/core/workspace-kernel/src/workspace-state/desired/settings/schema.test.ts",
   ],
   [
     "pack-uninstall-readiness-agrees-with-apply",
-    "packages/core/workspace/src/lifecycle/uninstall/retires-a-desired-pack-whose-package-is-unreadable.spec.ts",
+    "packages/core/workspace-features/src/lifecycle/uninstall/retires-a-desired-pack-whose-package-is-unreadable.spec.ts",
   ],
 ] as const;
 

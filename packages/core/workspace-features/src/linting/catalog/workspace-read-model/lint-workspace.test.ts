@@ -2,11 +2,13 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as PlatformError from "effect/PlatformError";
 import { buildFixture, type FixtureSpec } from "@agentxm/workspace-kernel/workspace-state/testing";
-import { buildPackRuleContexts } from "@agentxm/extension-content/lint";
-import { buildSkillRuleContexts } from "@agentxm/extension-content/lint";
+import {
+  buildPackRuleContexts,
+  buildSkillRuleContexts,
+  platformCanonicalLintConfig,
+} from "@agentxm/extension-content/lint";
 import { emptyCatalogRuleContexts } from "../../catalog-contexts.js";
 import { collectRenderedFindings, evaluateAllCatalogs } from "../../runner.js";
-import { platformCanonicalLintConfig } from "@agentxm/extension-content/lint";
 import { instructionsAgentSupportedRule } from "../workspace/instructions-agent-supported.js";
 import { instructionsGitignoreCurrentRule } from "../workspace/instructions-gitignore-current.js";
 import { instructionsSourcePresentRule } from "../workspace/instructions-source-present.js";

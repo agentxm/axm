@@ -1,5 +1,11 @@
 import * as Layer from "effect/Layer";
-import { UpgradeExecutionObserver } from "@agentxm/cli-maintenance/self-update/application";
+import {
+  UpgradeExecutionObserver,
+  type CommandRecord,
+  type InspectedInstallation,
+  type SelectedRelease,
+  type UpgradeExecutionObserverService,
+} from "@agentxm/cli-maintenance/self-update/application";
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 import { Screen, headlineDoc } from "../screen/index.js";
@@ -14,12 +20,6 @@ import {
   formatRecommendedCommand,
   methodLabel,
 } from "@agentxm/cli-maintenance/self-update/adapters/cli";
-import type {
-  CommandRecord,
-  InspectedInstallation,
-  SelectedRelease,
-  UpgradeExecutionObserverService,
-} from "@agentxm/cli-maintenance/self-update/application";
 
 /** CLI labels, progress timing, and command identities live for one composed invocation. */
 export const makeCliUpgradeExecutionObserver = () =>

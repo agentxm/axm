@@ -262,7 +262,7 @@ white-box evidence rather than a duplicate source of truth.
 
 Install source selection, the one policy every installable type shares, has a
 bounded quality gate independent of specification completeness. The
-[policy test configuration](../../../packages/core/workspace/vitest.policy.config.ts)
+[policy test configuration](../../../packages/core/workspace-features/vitest.policy.config.ts)
 includes that policy's source file whether or not a test imports it. Its
 complete statement, branch, function, and line thresholds apply to that small
 policy boundary. They are not a repository-wide quality score.

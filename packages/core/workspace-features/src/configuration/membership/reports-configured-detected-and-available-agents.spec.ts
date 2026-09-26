@@ -20,7 +20,9 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
   methods: ["example"],
-  derivedFrom: ["packages/core/workspace/src/configuration/membership/configure-agents.ts"],
+  derivedFrom: [
+    "packages/core/workspace-features/src/configuration/membership/configure-agents.ts",
+  ],
   supersedes: [],
   assumptions: [],
   openQuestions: [

@@ -8,9 +8,10 @@ import {
   MANIFEST_FILENAMES,
   manifestFilenameForType,
   manifestSchemaForType,
+  parseFrontmatterEffect,
+  type FrontmatterParseFailure,
 } from "@agentxm/extension-content";
 import type { ExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions/common";
-import { parseFrontmatterEffect, type FrontmatterParseFailure } from "@agentxm/extension-content";
 import {
   NativeImportConflict,
   NativeImportFailed,

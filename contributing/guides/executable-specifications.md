@@ -83,21 +83,27 @@ A specification binds to its subject through the owning package's published
 surface, never through private internals and never through a shared application
 harness:
 
-- **Root export.** Reach the package under test through the modules its root
-  export publishes, imported by relative path from inside the project.
+- **Published entries.** Reach the package under test through the modules its
+  root or slice entries publish, imported by relative path from inside the
+  project. Inside a sliced package, a specification in one slice reaches a
+  sibling slice through that slice's `index.ts`, never a private module.
   `@nx/enforce-module-boundaries` rejects a same-project import by package name,
   and that import would load the package's built `dist`, which stays stale
   until the package is rebuilt. Import other packages by package
-  name (`@agentxm/workspace-kernel/planning`), never by a relative path
-  into their `src`.
+  name (`@agentxm/workspace-kernel/planning`, or
+  `@agentxm/workspace-kernel/operations` for plan vocabulary), never by a
+  relative path into their `src`.
 - **`./testing` port.** Test doubles, fixtures, and deterministic execution
   stubs that a specification needs from a _different_ package come from that
-  package's `./testing` subpath (`@agentxm/workspace-kernel/workspace-state/testing`,
+  package's `./testing` or `./<slice>/testing` subpath
+  (`@agentxm/workspace-kernel/workspace-state/testing`,
   `@agentxm/workspace-kernel/planning/testing`). A package that owes a seam to its
   consumers' specifications exports it there deliberately.
 - **Owner-local fixtures.** Fixtures for the owning package's own
   specifications live beside them (`./testing.js`, `./test-helpers.js`) and stay
-  unpublished.
+  unpublished. Test support shared by several workspace features lives in
+  `workspace-features/src/testing/`, which is not exported and is importable
+  only from feature test files.
 - **CLI adapter specifications** use the application's published runtime entry
   (`axm.sh/runtime`) when they need its automation contract; end-to-end
   specifications use the existing execution bindings in `apps/cli-e2e`.

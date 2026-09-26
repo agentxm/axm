@@ -6,22 +6,24 @@ depends-on:
   - ../workspace/overview.md
   - ./closure-atomicity-and-recovery.md
   - ./package-classification-and-dependency-policy.md
+  - ./workspace-split-into-kernel-kinds-and-features.md
 ---
 
 # Shared desired-state reconciliation
 
 ## Decision
 
-Place shared realization policy in `@agentxm/workspace-kernel/reconciliation`, a core
-capability in the fixed CLI release cohort. Lifecycle, sync, and authoring are
-peer feature consumers. The capability produces existing operation steps and
+Place shared realization policy in `@agentxm/workspace-kernel/reconciliation`,
+the top slice of the core workspace kernel, which is bundled into `axm.sh`.
+Lifecycle, sync, and authoring are peer feature slices of
+`@agentxm/workspace-features` that consume it. The capability produces existing operation steps and
 candidates, using the existing transaction engine and native projection
 participants.
 
 Workspace configuration expresses durable intent. Accepted resolutions record
 source authority; canonical content and native surfaces realize that intent.
-The policy joining these authorities has one owner, while workspace-state
-continues to derive graphs and expose narrow readers and writers.
+The policy joining these authorities has one owner, while the
+`workspace-state` slice continues to derive graphs and expose narrow readers and writers.
 
 ## Context and rationale
 
@@ -68,13 +70,13 @@ entry point are the consumer boundaries.
 Having lifecycle invoke sync would create a peer-feature dependency and make
 intent-changing operations depend on a no-intent-change command. Putting
 retention in each manager would reproduce graph policy across all extension
-types. Putting it in workspace-operations would mix domain decisions with
-execution mechanics. The capability boundary keeps these responsibilities
+types. Putting it in the planning or settlement mechanics would mix domain decisions
+with execution mechanics. The capability boundary keeps these responsibilities
 separate while reusing the existing supply chain.
 
-The package is published with the CLI cohort and follows the same dependency
-and specification checks. Command requirements remain colocated with their
-feature owners; the new package owns shared mechanism tests. There is no
+The slice is bundled into `axm.sh` with the kernel package and follows the same
+dependency and specification checks. Command requirements remain colocated
+with their feature owners; the kernel owns shared mechanism tests. There is no
 parallel prose requirements corpus. The specification catalog routes readers
 to the accepted behavior.
 

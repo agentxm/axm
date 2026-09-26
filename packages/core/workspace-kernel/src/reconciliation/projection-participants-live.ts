@@ -1,7 +1,7 @@
 /**
  * Registration of the extension-type managers as projection participants.
  *
- * `workspace-projection` evaluates the invariant facts without knowing which
+ * The `projection` slice evaluates the invariant facts without knowing which
  * capability materializes a unit; the owners register here instead. Each
  * manager's failure family is restated in projection's participant vocabulary:
  * projection's own failures pass through typed, and anything else becomes

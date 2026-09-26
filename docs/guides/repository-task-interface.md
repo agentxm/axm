@@ -121,15 +121,19 @@ this receipt. Recorded platform details describe the observed host, not
 unexecuted environments. These limits are separate from whether the tests
 passed.
 
-`architecture:check` analyzes the complete source graph of capabilities in
+`architecture:check` cruises the source graph of the three workspace packages
+and the capability roots in
 [the native boundary configuration](../../tools/architecture/config.mjs), with
-no prerequisite builds. Dependency-cruiser extracts dependencies, JS Boundaries
-assigns capability owners, and Graphlib identifies capability cycles that cross
-architectural-role folders. Both `verify:affected` and `verify:workspace` run this
-global check before their other checks. `architecture:test` uses Node's native
-test runner to exercise allowed and forbidden dependencies and the composed root
-ESLint configuration, with no build prerequisite; the
-existing Nx constraints remain active for unconverted scopes.
+no prerequisite builds. Dependency-cruiser rejects file cycles, cycles between
+workspace slice folders, and unresolved imports, counting type-only edges. Both
+`verify:affected` and `verify:workspace` run this global check before their
+other checks. Slice isolation inside the workspace packages runs with ordinary
+`lint` through
+[the slice configuration](../../tools/architecture/slices.mjs).
+`architecture:test` uses Node's native test runner to exercise allowed and
+forbidden dependencies, the slice cycle rule, and the composed root ESLint
+configuration, with no build prerequisite; the existing Nx constraints remain
+active for every other scope.
 
 Use the confidence ladder consistently. A focused Nx target answers one question
 during implementation. Run `verify:affected` locally before merge; it checks the
@@ -279,11 +283,11 @@ its inode and modification time. The standalone targets declare `^build`;
 Separate Nx invocations do not share a task graph. Library `build` targets
 compile with `@nx/js:tsc` and `clean: true`, so every run deletes its `dist`
 before writing it. Two overlapping invocations that both schedule the same
-build — a focused test and a typecheck that each need `workspace:build`, for
+build — a focused test and a typecheck that each need `workspace-kernel:build`, for
 example — race on that directory: one fails with `ENOTEMPTY` while removing it,
 or a dependent typecheck reports `TS6305` for declarations that are briefly
 absent. Run such invocations one after another, or submit their targets in one
-invocation (`pnpm exec nx run-many -t typecheck test -p cli workspace`) so Nx
+invocation (`pnpm exec nx run-many -t typecheck test -p cli workspace-kernel`) so Nx
 builds the shared prerequisite once. Output cleaning stays on because it keeps
 deleted sources from surviving in `dist`.
 

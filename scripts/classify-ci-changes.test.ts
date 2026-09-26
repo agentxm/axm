@@ -65,7 +65,12 @@ const declaredGenerationPaths = (projectRoot: string): readonly string[] => {
 
 describe("classifyCiChanges", () => {
   it.each([
-    ["pull_request", ["contributing/guide.md"], false, ["classify", "secrets", "documentation"]],
+    [
+      "pull_request",
+      ["contributing/guide.md"],
+      false,
+      ["classify", "secrets", "commit-history", "documentation"],
+    ],
     [
       "merge_group",
       ["apps/cli/src/main.ts"],
@@ -73,6 +78,7 @@ describe("classifyCiChanges", () => {
       [
         "classify",
         "secrets",
+        "commit-history",
         "specification-verdict",
         "extension-lint",
         "verify-pr",
@@ -84,7 +90,7 @@ describe("classifyCiChanges", () => {
       "pull_request",
       [".github/workflows/claude-review.yml"],
       false,
-      ["classify", "secrets", "workflow-validation"],
+      ["classify", "secrets", "commit-history", "workflow-validation"],
     ],
     [
       "schedule",

@@ -262,6 +262,7 @@ export const requiredCiJobs = (
   }
   if (event !== "pull_request" && event !== "merge_group") return required;
 
+  required.push("commit-history");
   const selected = (check: CiCheck, job: string) => {
     if (selection.checks[check].selected) required.push(job);
   };

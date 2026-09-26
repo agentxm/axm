@@ -11,6 +11,7 @@
     "classify:ci": "bun scripts/classify-ci-changes.ts",
     "resolve:release-source": "bun scripts/resolve-release-source.ts",
     "check:ci-toolchain": "node scripts/check-ci-toolchain.mjs",
+    "check:commit-history": "bun scripts/check-commit-history.ts",
     "test:report": "scripts/with-allure-report.sh pnpm run test",
     "test:report:open": "pnpm exec nx run axm:allure-report-open",
     "sync": "nx sync",

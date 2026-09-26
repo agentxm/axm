@@ -11,7 +11,9 @@ import { listCommand } from "./list.js";
 import { newCommand } from "./new.js";
 import { mcpsPublishCommand as publishCommand } from "../publish/per-type-command.js";
 import { makePerTypeUninstallCommand } from "../shared/uninstall-command.js";
-import { updateCommand } from "./update.js";
+import { makePerTypeUpdateCommand } from "../update/per-type-command.js";
+
+const updateCommand = makePerTypeUpdateCommand("mcp-server");
 
 const uninstallCommand = makePerTypeUninstallCommand("mcp-server");
 

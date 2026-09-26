@@ -8,7 +8,9 @@ import { listCommand } from "./list.js";
 import { newCommand } from "./new.js";
 import { hooksPublishCommand as publishCommand } from "../publish/per-type-command.js";
 import { makePerTypeUninstallCommand } from "../shared/uninstall-command.js";
-import { updateCommand } from "./update.js";
+import { makePerTypeUpdateCommand } from "../update/per-type-command.js";
+
+const updateCommand = makePerTypeUpdateCommand("hook");
 
 const uninstallCommand = makePerTypeUninstallCommand("hook");
 

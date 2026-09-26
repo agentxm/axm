@@ -582,7 +582,7 @@
             ],
             "globalOptions": [],
             "examples": [
-              { "command": "axm skills update", "description": "Update every configured skill" },
+              { "command": "axm skills update", "description": "Update configured skills" },
               {
                 "command": "axm skills update --name code-review",
                 "description": "Update one skill by name"
@@ -1310,7 +1310,7 @@
           {
             "name": "update",
             "aliases": [],
-            "description": "Update MCP servers",
+            "description": "Update configured MCP servers to the newest versions their sources offer",
             "arguments": [],
             "options": [
               {
@@ -1325,7 +1325,7 @@
                 "aliases": [],
                 "type": "choice",
                 "required": false,
-                "description": "Update in project (default) or user-level configuration",
+                "description": "Update MCP servers in project (default) or user-level configuration",
                 "choices": [{ "value": "project" }, { "value": "user" }]
               },
               {
@@ -1348,7 +1348,7 @@
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Display plan without applying"
+                "description": "Show available updates without applying them"
               },
               {
                 "name": "ignore-release-age",
@@ -1371,7 +1371,7 @@
               },
               {
                 "command": "axm mcps update --preview",
-                "description": "Preview MCP server updates"
+                "description": "Preview MCP servers updates"
               }
             ],
             "subcommands": []
@@ -1841,10 +1841,7 @@
             ],
             "globalOptions": [],
             "examples": [
-              {
-                "command": "axm subagents update",
-                "description": "Update every configured subagent"
-              },
+              { "command": "axm subagents update", "description": "Update configured subagents" },
               {
                 "command": "axm subagents update --name researcher",
                 "description": "Update one subagent by name"
@@ -2466,14 +2463,14 @@
           {
             "name": "update",
             "aliases": [],
-            "description": "Update configured rules",
+            "description": "Update configured rules to the newest versions their sources offer",
             "arguments": [
               {
                 "name": "source",
                 "aliases": [],
                 "type": "string",
                 "required": false,
-                "description": "Filter to rules matching a name or source"
+                "description": "Filter to rules matching a name or source (owner/repo, path, or URL)"
               }
             ],
             "options": [
@@ -2482,7 +2479,7 @@
                 "aliases": [],
                 "type": "choice",
                 "required": false,
-                "description": "Update in project (default) or user-level configuration",
+                "description": "Update rules in project (default) or user-level configuration",
                 "choices": [{ "value": "project" }, { "value": "user" }]
               },
               {
@@ -2498,7 +2495,7 @@
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Show what would change without updating"
+                "description": "Show available updates without applying them"
               },
               {
                 "name": "ignore-release-age",
@@ -2512,8 +2509,16 @@
             "examples": [
               { "command": "axm rules update", "description": "Update configured rules" },
               {
-                "command": "axm rules update --name commit-*",
-                "description": "Update only rules matching a glob"
+                "command": "axm rules update --name commit-style",
+                "description": "Update one rule by name"
+              },
+              {
+                "command": "axm rules update owner/repo",
+                "description": "Update only rules from one source"
+              },
+              {
+                "command": "axm rules update --preview",
+                "description": "Preview available updates"
               }
             ],
             "subcommands": []
@@ -2979,14 +2984,14 @@
           {
             "name": "update",
             "aliases": [],
-            "description": "Update configured hooks packages",
+            "description": "Update configured hooks packages to the newest versions their sources offer",
             "arguments": [
               {
                 "name": "source",
                 "aliases": [],
                 "type": "string",
                 "required": false,
-                "description": "Filter to hooks packages matching a name or source"
+                "description": "Filter to hooks packages matching a name or source (owner/repo, path, or URL)"
               }
             ],
             "options": [
@@ -2995,7 +3000,7 @@
                 "aliases": [],
                 "type": "choice",
                 "required": false,
-                "description": "Update in project (default) or user-level configuration",
+                "description": "Update hooks packages in project (default) or user-level configuration",
                 "choices": [{ "value": "project" }, { "value": "user" }]
               },
               {
@@ -3011,7 +3016,7 @@
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Show what would change without updating"
+                "description": "Show available updates without applying them"
               },
               {
                 "name": "ignore-release-age",
@@ -3025,8 +3030,16 @@
             "examples": [
               { "command": "axm hooks update", "description": "Update configured hooks packages" },
               {
-                "command": "axm hooks update --name workspace-*",
-                "description": "Update only hooks packages matching a glob"
+                "command": "axm hooks update --name workspace-baseline",
+                "description": "Update one hooks package by name"
+              },
+              {
+                "command": "axm hooks update owner/repo",
+                "description": "Update only hooks packages from one source"
+              },
+              {
+                "command": "axm hooks update --preview",
+                "description": "Preview available updates"
               }
             ],
             "subcommands": []
@@ -3268,14 +3281,14 @@
           {
             "name": "update",
             "aliases": [],
-            "description": "Update configured Knowledge bundles",
+            "description": "Update configured knowledge bundles to the newest versions their sources offer",
             "arguments": [
               {
                 "name": "source",
                 "aliases": [],
                 "type": "string",
                 "required": false,
-                "description": "Filter to Knowledge bundles matching a name or source"
+                "description": "Filter to knowledge bundles matching a name or source (owner/repo, path, or URL)"
               }
             ],
             "options": [
@@ -3284,7 +3297,7 @@
                 "aliases": [],
                 "type": "choice",
                 "required": false,
-                "description": "Use project (default) or user knowledge state",
+                "description": "Update knowledge bundles in project (default) or user-level configuration",
                 "choices": [{ "value": "project" }, { "value": "user" }]
               },
               {
@@ -3292,7 +3305,7 @@
                 "aliases": [],
                 "type": "string",
                 "required": false,
-                "description": "Update only specific Knowledge bundles by name or glob pattern",
+                "description": "Update only specific knowledge bundles by name or glob pattern",
                 "variadic": { "min": 0 }
               },
               {
@@ -3300,7 +3313,7 @@
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Display plan without applying"
+                "description": "Show available updates without applying them"
               },
               {
                 "name": "ignore-release-age",
@@ -3313,12 +3326,20 @@
             "globalOptions": [],
             "examples": [
               {
-                "command": "axm knowledge update --preview",
-                "description": "Preview Knowledge bundle updates"
+                "command": "axm knowledge update",
+                "description": "Update configured knowledge bundles"
               },
               {
                 "command": "axm knowledge update --name platform",
-                "description": "Update one Knowledge bundle"
+                "description": "Update one knowledge bundle by name"
+              },
+              {
+                "command": "axm knowledge update owner/repo",
+                "description": "Update only knowledge bundles from one source"
+              },
+              {
+                "command": "axm knowledge update --preview",
+                "description": "Preview available updates"
               }
             ],
             "subcommands": []

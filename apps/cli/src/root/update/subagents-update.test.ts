@@ -13,14 +13,14 @@ import { afterEach } from "vitest";
 
 import { makeFileRegistry } from "@agentxm/registry-client/testing";
 
-import { handleInstall } from "../../install/handler.js";
-import { handleWorkspaceUpdate } from "../../update/workspace-update-handler.js";
-import { makeSpecWorkspace } from "../../../test-support/install-harness.js";
+import { handleInstall } from "../install/handler.js";
+import { handleWorkspaceUpdate } from "./workspace-update-handler.js";
+import { makeSpecWorkspace } from "../../test-support/install-harness.js";
 import {
   expectNoOpPlanResult,
   expectPreviewedPlanResult,
   planResultUnits,
-} from "../../../test-support/test-helpers.js";
+} from "../../test-support/test-helpers.js";
 
 const RESEARCHER = "researcher";
 const REVIEWER = "reviewer";

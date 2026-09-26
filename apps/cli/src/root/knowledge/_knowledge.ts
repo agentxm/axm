@@ -10,8 +10,10 @@ import { lintCommand } from "./lint.js";
 import { listCommand } from "./list.js";
 import { newCommand } from "./new.js";
 import { conceptsCommand } from "./concepts/_concepts.js";
-import { uninstallCommand } from "./uninstall/command.js";
+import { makePerTypeUninstallCommand } from "../shared/uninstall-command.js";
 import { updateCommand } from "./update.js";
+
+const uninstallCommand = makePerTypeUninstallCommand("knowledge");
 
 const { enableCommand, disableCommand } = makeActivationCommands("knowledge");
 

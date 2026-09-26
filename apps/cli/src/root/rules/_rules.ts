@@ -8,8 +8,10 @@ import { makeActivationCommands } from "../activation-handler.js";
 import { rulesInstallCommand as installCommand } from "../install/command.js";
 import { listCommand } from "./list.js";
 import { newCommand } from "./new.js";
-import { uninstallCommand } from "./uninstall/command.js";
+import { makePerTypeUninstallCommand } from "../shared/uninstall-command.js";
 import { updateCommand } from "./update.js";
+
+const uninstallCommand = makePerTypeUninstallCommand("rule");
 
 const { enableCommand, disableCommand } = makeActivationCommands("rule");
 

@@ -7,8 +7,10 @@ import { hooksInstallCommand as installCommand } from "../install/command.js";
 import { listCommand } from "./list.js";
 import { newCommand } from "./new.js";
 import { hooksPublishCommand as publishCommand } from "../publish/per-type-command.js";
-import { uninstallCommand } from "./uninstall/command.js";
+import { makePerTypeUninstallCommand } from "../shared/uninstall-command.js";
 import { updateCommand } from "./update.js";
+
+const uninstallCommand = makePerTypeUninstallCommand("hook");
 
 const { enableCommand, disableCommand } = makeActivationCommands("hook");
 

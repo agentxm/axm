@@ -5,12 +5,13 @@
  * removal; this module turns flags into an execution intent, typed refusals
  * into the error envelope, and the outcome into the report a person reads —
  * including the no-op wording for a selector that matched nothing. The words
- * a type's report uses come from the per-type presentation table, so the
- * root form and the typed form of one removal read the same.
+ * a type's report and generated typed route use come from the per-type
+ * presentation table, so the root and typed forms of one removal read the same.
  */
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { UninstallExtensions, type UninstallExtensionsRequest } from "@agentxm/workspace/lifecycle";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
@@ -21,6 +22,8 @@ import {
 } from "@agentxm/workspace/transitions/planning";
 
 import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
+import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { failureToAppError } from "../../app-error/conversions.js";
 import {
   emitNoOpOutcome,
@@ -29,6 +32,12 @@ import {
   retryCanHelp,
 } from "../../operation-output.js";
 import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
+import { withRuntime, withWorkspace } from "../../runtime.js";
+import {
+  previewCapabilityFlag,
+  previewableCapabilities,
+  withCommandCapabilities,
+} from "./command-capabilities.js";
 import { makePublicPositionalPlanInvocation, retrySuggestion } from "./confirmation-recovery.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
@@ -137,3 +146,40 @@ export const runUninstallCommand = (args: UninstallCommandArgs) =>
     },
     body(args),
   );
+
+/** Generate a typed uninstall route from the same words as its result. */
+export const makePerTypeUninstallCommand = (type: InstallableExtensionType) => {
+  const { route, noun, exampleName } = EXTENSION_TYPE_PRESENTATION[type];
+  const config = {
+    name: Argument.String("name").pipe(
+      Argument.withDescription(`Name or glob of the ${noun.singular} to uninstall`),
+    ),
+    scope: scopeFlag.pipe(
+      Flag.withDescription("Uninstall from project (default) or user-level configuration"),
+    ),
+    preview: previewCapabilityFlag("Show what would be removed without making changes"),
+  } as const;
+  return Command.make("uninstall", config, ({ name, scope, preview }) =>
+    runUninstallCommand({
+      command: `${route}.uninstall`,
+      preview,
+      request: { type: Option.some(type), selector: name },
+      recoveryCommand: [route, "uninstall"],
+      recoveryPositionals: [name],
+    }).pipe(withWorkspace(scope), withRuntime(`${route} uninstall`)),
+  ).pipe(
+    withArgvTracking(config),
+    withCommandCapabilities(previewableCapabilities("workspace")),
+    Command.withDescription(`Uninstall a ${noun.singular}`),
+    Command.withExamples([
+      {
+        command: `axm ${route} uninstall ${exampleName}`,
+        description: `Remove a ${noun.singular} you no longer need`,
+      },
+      {
+        command: `axm ${route} uninstall ${exampleName} --preview`,
+        description: "Check what would be removed first",
+      },
+    ]),
+  );
+};

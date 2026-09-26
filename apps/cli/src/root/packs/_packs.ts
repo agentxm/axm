@@ -8,11 +8,13 @@ import { newCommand } from "./new.js";
 import { packsPublishCommand as publishCommand } from "../publish/per-type-command.js";
 import { removeCommand } from "./remove.js";
 import { showCommand } from "./show.js";
-import { uninstallCommand } from "./uninstall/command.js";
+import { makePerTypeUninstallCommand } from "../shared/uninstall-command.js";
 import { unpackCommand } from "./unpack/command.js";
 import { updateCommand } from "./update.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
 import { groupCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
+
+const uninstallCommand = makePerTypeUninstallCommand("pack");
 
 const { enableCommand, disableCommand } = makeActivationCommands("pack");
 

@@ -358,14 +358,14 @@
           {
             "name": "uninstall",
             "aliases": [],
-            "description": "Uninstall a skill from agents",
+            "description": "Uninstall a skill",
             "arguments": [
               {
                 "name": "name",
                 "aliases": [],
                 "type": "string",
                 "required": true,
-                "description": "Name of the skill to uninstall"
+                "description": "Name or glob of the skill to uninstall"
               }
             ],
             "options": [
@@ -388,11 +388,11 @@
             "globalOptions": [],
             "examples": [
               {
-                "command": "axm skills uninstall my-skill",
+                "command": "axm skills uninstall code-review",
                 "description": "Remove a skill you no longer need"
               },
               {
-                "command": "axm skills uninstall my-skill --preview",
+                "command": "axm skills uninstall code-review --preview",
                 "description": "Check what would be removed first"
               }
             ],
@@ -1112,14 +1112,14 @@
           {
             "name": "uninstall",
             "aliases": [],
-            "description": "Uninstall an MCP server",
+            "description": "Uninstall a MCP server",
             "arguments": [
               {
                 "name": "name",
                 "aliases": [],
                 "type": "string",
                 "required": true,
-                "description": "Name of the MCP server to uninstall"
+                "description": "Name or glob of the MCP server to uninstall"
               }
             ],
             "options": [
@@ -1142,11 +1142,11 @@
             "globalOptions": [],
             "examples": [
               {
-                "command": "axm mcps uninstall my-server",
-                "description": "Remove an MCP server you no longer need"
+                "command": "axm mcps uninstall context",
+                "description": "Remove a MCP server you no longer need"
               },
               {
-                "command": "axm mcps uninstall my-server --preview",
+                "command": "axm mcps uninstall context --preview",
                 "description": "Check what would be removed first"
               }
             ],
@@ -1617,14 +1617,14 @@
           {
             "name": "uninstall",
             "aliases": [],
-            "description": "Uninstall a subagent from agents",
+            "description": "Uninstall a subagent",
             "arguments": [
               {
                 "name": "name",
                 "aliases": [],
                 "type": "string",
                 "required": true,
-                "description": "Name of the subagent to uninstall"
+                "description": "Name or glob of the subagent to uninstall"
               }
             ],
             "options": [
@@ -1647,11 +1647,11 @@
             "globalOptions": [],
             "examples": [
               {
-                "command": "axm subagents uninstall my-subagent",
+                "command": "axm subagents uninstall researcher",
                 "description": "Remove a subagent you no longer need"
               },
               {
-                "command": "axm subagents uninstall my-subagent --preview",
+                "command": "axm subagents uninstall researcher --preview",
                 "description": "Check what would be removed first"
               }
             ],
@@ -2279,7 +2279,7 @@
                 "aliases": [],
                 "type": "string",
                 "required": true,
-                "description": "Name of the rule"
+                "description": "Name or glob of the rule to uninstall"
               }
             ],
             "options": [
@@ -2303,7 +2303,11 @@
             "examples": [
               {
                 "command": "axm rules uninstall commit-style",
-                "description": "Uninstall a rule by name"
+                "description": "Remove a rule you no longer need"
+              },
+              {
+                "command": "axm rules uninstall commit-style --preview",
+                "description": "Check what would be removed first"
               }
             ],
             "subcommands": []
@@ -2782,7 +2786,7 @@
                 "aliases": [],
                 "type": "string",
                 "required": true,
-                "description": "Name of the hooks package"
+                "description": "Name or glob of the hooks package to uninstall"
               }
             ],
             "options": [
@@ -2806,7 +2810,11 @@
             "examples": [
               {
                 "command": "axm hooks uninstall workspace-baseline",
-                "description": "Uninstall a hooks package by name"
+                "description": "Remove a hooks package you no longer need"
+              },
+              {
+                "command": "axm hooks uninstall workspace-baseline --preview",
+                "description": "Check what would be removed first"
               }
             ],
             "subcommands": []
@@ -3318,14 +3326,14 @@
           {
             "name": "uninstall",
             "aliases": [],
-            "description": "Uninstall a Knowledge bundle",
+            "description": "Uninstall a knowledge bundle",
             "arguments": [
               {
                 "name": "name",
                 "aliases": [],
                 "type": "string",
                 "required": true,
-                "description": "Configured Knowledge bundle name"
+                "description": "Name or glob of the knowledge bundle to uninstall"
               }
             ],
             "options": [
@@ -3334,7 +3342,7 @@
                 "aliases": [],
                 "type": "choice",
                 "required": false,
-                "description": "Use project (default) or user knowledge state",
+                "description": "Uninstall from project (default) or user-level configuration",
                 "choices": [{ "value": "project" }, { "value": "user" }]
               },
               {
@@ -3342,14 +3350,18 @@
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Display plan without applying"
+                "description": "Show what would be removed without making changes"
               }
             ],
             "globalOptions": [],
             "examples": [
               {
+                "command": "axm knowledge uninstall platform",
+                "description": "Remove a knowledge bundle you no longer need"
+              },
+              {
                 "command": "axm knowledge uninstall platform --preview",
-                "description": "Preview removing one Knowledge bundle"
+                "description": "Check what would be removed first"
               }
             ],
             "subcommands": []
@@ -4234,7 +4246,7 @@
                 "aliases": [],
                 "type": "string",
                 "required": true,
-                "description": "Name or glob pattern of the pack to uninstall"
+                "description": "Name or glob of the pack to uninstall"
               }
             ],
             "options": [
@@ -4257,16 +4269,12 @@
             "globalOptions": [],
             "examples": [
               {
-                "command": "axm packs uninstall my-pack",
-                "description": "Remove a pack and its orphaned extensions"
+                "command": "axm packs uninstall frontend-tools",
+                "description": "Remove a pack you no longer need"
               },
               {
-                "command": "axm packs uninstall my-pack --preview",
+                "command": "axm packs uninstall frontend-tools --preview",
                 "description": "Check what would be removed first"
-              },
-              {
-                "command": "axm packs uninstall acme-*",
-                "description": "Remove all packs matching a pattern"
               }
             ],
             "subcommands": []

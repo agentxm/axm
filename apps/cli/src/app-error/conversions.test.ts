@@ -11,10 +11,10 @@ import {
   StepFailure,
   InstallSelectionInteraction,
   InstallSelectionUnavailable,
-} from "@agentxm/workspace/operations";
-import { SettingsWriteError } from "@agentxm/workspace/desired-state";
-import { WorkspaceConfigurationFailed } from "@agentxm/workspace/configuration";
-import { WorkspaceRestorationIncomplete } from "@agentxm/workspace/transitions/settlement";
+} from "@agentxm/workspace-kernel/operations";
+import { SettingsWriteError } from "@agentxm/workspace-kernel/workspace-state";
+import { WorkspaceConfigurationFailed } from "@agentxm/workspace-features/configuration";
+import { WorkspaceRestorationIncomplete } from "@agentxm/workspace-kernel/settlement";
 import {
   AxmSkillGateUnavailable,
   GitOperationFailed,
@@ -23,18 +23,18 @@ import {
   SourceNotResolvable,
   SourceSyntaxInvalid,
   WorkspaceCatalogUnavailable,
-} from "@agentxm/workspace/resolution/sources";
+} from "@agentxm/workspace-kernel/sources";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { ExtensionNameSchema, HandleSchema } from "@agentxm/extension-model/unstable/extensions";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
-import { selectInstallRefs } from "@agentxm/workspace/lifecycle";
+import { selectInstallRefs } from "@agentxm/workspace-features/lifecycle";
 
 import { makeJsonErrorEnvelopeFromAppError } from "../cli-runtime/index.js";
 import { makeAppError } from "./app-error.js";
-import { StepFailureConversion } from "@agentxm/workspace/reconciliation";
+import { StepFailureConversion } from "@agentxm/workspace-kernel/reconciliation";
 import { failureToAppError, toAppError } from "./conversions.js";
 import { WorkspaceFailureConversionLive, isWorkspaceFailure } from "./failure-catalog.js";
 import { renderAppError } from "./index.js";

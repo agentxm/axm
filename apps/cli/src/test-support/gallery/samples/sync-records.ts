@@ -6,7 +6,7 @@ import {
   operationPresentation,
   type JobStepArtifact,
   type Plan,
-} from "@agentxm/workspace/operations";
+} from "@agentxm/workspace-kernel/operations";
 
 const syncPresentation = operationPresentation({
   imperative: "sync",

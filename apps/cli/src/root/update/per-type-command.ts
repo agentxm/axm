@@ -3,7 +3,7 @@
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import type { WorkspaceUpdatableType } from "@agentxm/workspace/lifecycle";
+import type { WorkspaceUpdatableType } from "@agentxm/workspace-features/lifecycle";
 
 import { ignoreReleaseAgeFlag, refreshFlag } from "../../cli-flags/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";

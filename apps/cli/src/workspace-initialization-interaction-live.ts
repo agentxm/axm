@@ -30,7 +30,7 @@ import {
   WorkspaceInitializationInteraction,
   type InstructionSourceChoice,
   type WorkspaceInitializationInteractionService,
-} from "@agentxm/workspace/configuration";
+} from "@agentxm/workspace-features/configuration";
 import { setupAgentScanDoc, setupPlanDoc } from "./root/setup/view.js";
 
 const selectAgentsMessage = "Select agents to configure";

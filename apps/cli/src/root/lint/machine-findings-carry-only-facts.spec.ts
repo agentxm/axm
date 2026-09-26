@@ -8,12 +8,12 @@ import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { LintJsonFindingSchema } from "@agentxm/workspace/linting";
+import { LintJsonFindingSchema } from "@agentxm/workspace-features/linting";
 import {
   CLAUDE_CODE_SKILLS_DIR,
   makeOfficialAxmSkillWorkspace,
-} from "@agentxm/workspace/linting/testing";
-import { NoProjectionParticipants } from "@agentxm/workspace/projection/testing";
+} from "@agentxm/workspace-features/linting/testing";
+import { NoProjectionParticipants } from "@agentxm/workspace-kernel/projection/testing";
 
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { TestMachineRenderer } from "../../test-support/presenter-test.js";

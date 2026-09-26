@@ -25,7 +25,7 @@ import {
   makeWorkspaceReadModel,
   skillsInDir,
   WorkspaceReadModelConfig,
-} from "@agentxm/workspace/desired-state";
+} from "@agentxm/workspace-kernel/workspace-state";
 
 class DiscoveryBenchmarkFailed extends Data.TaggedError("DiscoveryBenchmarkFailed")<{
   readonly step: string;

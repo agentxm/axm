@@ -53,14 +53,14 @@ import {
   type OperationMode,
   type OperationPresentation,
   type SettledOutcome,
-} from "@agentxm/workspace/operations";
+} from "@agentxm/workspace-kernel/operations";
 import { CurrentScreenOperationId, Screen } from "./screen/index.js";
-import { WorkspaceLocation } from "@agentxm/workspace/desired-state";
+import { WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
 import {
   FootprintRecorder,
   makeFootprintRecorder,
   readFootprint,
-} from "@agentxm/workspace/transitions/settlement";
+} from "@agentxm/workspace-kernel/settlement";
 
 import { emitOperationResolution } from "./operation-output.js";
 

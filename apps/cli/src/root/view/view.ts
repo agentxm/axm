@@ -3,7 +3,7 @@ import * as DateTime from "effect/DateTime";
 import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import type { ArchivalView } from "@agentxm/extension-model/unstable/extensions/archival";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import type { ViewDocument } from "@agentxm/workspace/inspection";
+import type { ViewDocument } from "@agentxm/workspace-features/inspection";
 
 import {
   ABSENT,

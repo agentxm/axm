@@ -2,14 +2,14 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { ForkExtension, forkExtensionPlanName } from "@agentxm/workspace/authoring";
+import { ForkExtension, forkExtensionPlanName } from "@agentxm/workspace-features/authoring";
 import {
   credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,
   recoveryOption,
   recoveryPositional,
   recoverySwitch,
-} from "@agentxm/workspace/operations";
+} from "@agentxm/workspace-kernel/operations";
 
 import { Screen } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";

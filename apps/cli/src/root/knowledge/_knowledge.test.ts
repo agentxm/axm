@@ -7,7 +7,7 @@ import {
   KNOWLEDGE_DISCOVERY_OPERATIONS,
   KNOWLEDGE_QUERY_OPERATORS,
   KNOWLEDGE_SEARCHABLE_FIELDS,
-} from "@agentxm/workspace/knowledge/query";
+} from "@agentxm/workspace-features/knowledge-query";
 
 import { captureHelpText as captureHelp } from "../../test-support/command-tree-test-helpers.js";
 

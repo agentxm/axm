@@ -13,7 +13,7 @@ import {
   makeOperationLifecycle,
   observeUnit,
   OperationLifecycle,
-} from "../../../../packages/core/workspace/dist/src/operations/index.js";
+} from "../../../../packages/core/workspace-kernel/dist/src/operations/index.js";
 
 // Both modes commit the same history; only the active tail animates.
 const animate = process.argv[2] !== "plain";

@@ -12,7 +12,7 @@ import { TestRenderer } from "./test-support/presenter-test.js";
 import {
   WorkspaceInitializationCancelled,
   WorkspaceInitializationInteraction,
-} from "@agentxm/workspace/configuration";
+} from "@agentxm/workspace-features/configuration";
 import { WorkspaceInitializationInteractionLive } from "./workspace-initialization-interaction-live.js";
 
 const makeHarness = Effect.sync(() => {

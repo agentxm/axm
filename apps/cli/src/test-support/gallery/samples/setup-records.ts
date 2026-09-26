@@ -1,4 +1,4 @@
-import type { SetupOutcome, SetupPlanRow } from "@agentxm/workspace/configuration";
+import type { SetupOutcome, SetupPlanRow } from "@agentxm/workspace-features/configuration";
 
 import { confirmAnswer } from "../../../screen/ask/confirm.js";
 import { chooseAnswer } from "../../../screen/ask/choose.js";

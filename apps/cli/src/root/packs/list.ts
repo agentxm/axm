@@ -1,4 +1,4 @@
-import { listPacks, type PackListRow } from "@agentxm/workspace/inspection";
+import { listPacks, type PackListRow } from "@agentxm/workspace-features/inspection";
 import { type ViewColumn } from "../../screen/index.js";
 import { inventoryAgentOutcomes, inventoryLifecycle } from "../inventory-view.js";
 import { inventoryList, makePerTypeListCommand } from "../shared/list-command.js";

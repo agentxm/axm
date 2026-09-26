@@ -9,14 +9,14 @@ import * as nodeFs from "node:fs";
 import * as nodePath from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { allCatalogErrorRuleIds } from "@agentxm/workspace/linting";
+import { allCatalogErrorRuleIds } from "@agentxm/workspace-features/linting";
 import {
   aggregateOwnershipUnits,
   INCOMPLETE_DESIRED_STATE_BLOCKER_ID,
   type AggregateOwnershipUnitId,
-} from "@agentxm/workspace/projection";
-import { syncRecoveryIdentifiers } from "@agentxm/workspace/reconciliation";
-import { packUninstallRecoveryIdentifiers } from "@agentxm/workspace/packs";
+} from "@agentxm/workspace-kernel/projection";
+import { syncRecoveryIdentifiers } from "@agentxm/workspace-kernel/reconciliation";
+import { packUninstallRecoveryIdentifiers } from "@agentxm/extension-kinds/packs";
 
 type RecoveryOwner = "sync" | "intent-command" | "direct-correction" | "manual-preservation";
 type StateField =

@@ -6,8 +6,8 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 
-import { SourceHostProvidersLive } from "@agentxm/workspace/resolution/sources/live";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
+import { SourceHostProvidersLive } from "@agentxm/workspace-kernel/sources/live";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace-kernel/projection/live";
 import {
   AllExtensionManagersLive,
   expectAppliedPlanResult,

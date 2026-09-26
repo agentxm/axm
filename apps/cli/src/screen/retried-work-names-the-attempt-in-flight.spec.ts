@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as Schema from "effect/Schema";
 
-import { OperationEventSchema, type OperationEvent } from "@agentxm/workspace/operations";
+import { OperationEventSchema, type OperationEvent } from "@agentxm/workspace-kernel/operations";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 

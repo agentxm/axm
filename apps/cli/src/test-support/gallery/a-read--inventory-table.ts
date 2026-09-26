@@ -1,4 +1,4 @@
-import type { ExtensionListItem } from "@agentxm/workspace/inspection";
+import type { ExtensionListItem } from "@agentxm/workspace-features/inspection";
 
 import type { Doc } from "../../screen/doc.js";
 import { listDoc } from "../../root/list/view.js";

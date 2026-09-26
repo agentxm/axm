@@ -2,8 +2,8 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
-import { DiscoverExtensions, DiscoverOutputSchema } from "@agentxm/workspace/discovery";
-import { observeUnit } from "@agentxm/workspace/operations";
+import { DiscoverExtensions, DiscoverOutputSchema } from "@agentxm/workspace-features/discovery";
+import { observeUnit } from "@agentxm/workspace-kernel/operations";
 
 import { emitResult } from "../../screen/index.js";
 import { discoverDoc } from "./view.js";

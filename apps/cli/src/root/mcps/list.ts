@@ -4,7 +4,7 @@ import {
   mcpServerListDocument,
   McpServerListQueryResultSchema,
   type McpServerListRow,
-} from "@agentxm/workspace/inspection";
+} from "@agentxm/workspace-features/inspection";
 import { type ViewColumn } from "../../screen/index.js";
 import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
 import { inventoryAgentOutcomes, inventoryLifecycle, inventorySummary } from "../inventory-view.js";

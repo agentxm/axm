@@ -14,9 +14,9 @@ import {
   recoveryOption,
   recoveryPositional,
   recoverySwitch,
-} from "@agentxm/workspace/operations";
-import { SyncWorkspace } from "@agentxm/workspace/reconciliation/sync";
-import { SYNC_PRESENTATION } from "@agentxm/workspace/reconciliation";
+} from "@agentxm/workspace-kernel/operations";
+import { SyncWorkspace } from "@agentxm/workspace-features/sync";
+import { SYNC_PRESENTATION } from "@agentxm/workspace-kernel/reconciliation";
 
 import { makeAppError } from "../../app-error/index.js";
 import { toAppError } from "../../app-error/conversions.js";

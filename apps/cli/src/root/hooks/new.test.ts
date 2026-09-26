@@ -9,8 +9,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
-import { SourceHostProvidersLive } from "@agentxm/workspace/resolution/sources/live";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace-kernel/projection/live";
+import { SourceHostProvidersLive } from "@agentxm/workspace-kernel/sources/live";
 import { extensionName, writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
   AllExtensionManagersLive,

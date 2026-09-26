@@ -2,7 +2,7 @@ import type {
   ExtensionNotInstalled,
   PackInspectionRefused,
   PublishedMetadataUnavailable,
-} from "@agentxm/workspace/inspection";
+} from "@agentxm/workspace-features/inspection";
 import { extensionTypeSentenceLabels } from "@agentxm/extension-model/unstable/extensions";
 
 import { makeAppError, type AppError } from "../app-error/index.js";

@@ -1,7 +1,7 @@
 import {
   WorkspaceFileWriteLocksLive,
   WorkspaceTransactionScopesLive,
-} from "@agentxm/workspace/transitions/settlement/live";
+} from "@agentxm/workspace-kernel/settlement/live";
 /**
  * Uninitialized-directory harness for setup-driven specifications.
  *
@@ -29,13 +29,13 @@ import * as Layer from "effect/Layer";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { RegistryClientFactoryTest } from "@agentxm/registry-client/testing";
 
-import { AgentExecutableResolver } from "@agentxm/workspace/projection/agent-adapters";
+import { AgentExecutableResolver } from "@agentxm/workspace-kernel/agent-adapters";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { TestFlagsLayer } from "../cli-flags/index.js";
 import { TestMachineRenderer, TestRenderer } from "./presenter-test.js";
 import { recordingFileSystemLayer, type FileSystemWriteEvent } from "./test-helpers.js";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
-import { WorkspaceInitializationInteractionTest } from "@agentxm/workspace/configuration/testing";
+import { WorkspaceInitializationInteractionTest } from "@agentxm/workspace-features/configuration/testing";
 import { BundledAxmSkillAssetLive } from "../cli-runtime/index.js";
 import { CodingAgentRepositoryLive, NativeWriteAuthorityLive } from "./test-helpers.js";
 import { ExecutionDirectory } from "../execution-directory.js";

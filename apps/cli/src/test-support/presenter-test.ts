@@ -5,7 +5,7 @@ import type * as Schema from "effect/Schema";
 
 import { type BoxOptions, type LogMessage, type ResultOptions } from "../screen/output.js";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import { subscribeLossless, type OperationEvent } from "@agentxm/workspace/operations";
+import { subscribeLossless, type OperationEvent } from "@agentxm/workspace-kernel/operations";
 import { promptAvailability } from "../cli-flags/interactivity.js";
 import {
   Screen,

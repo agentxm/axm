@@ -1,7 +1,7 @@
 import { redactRegistryText, redactRegistryValue } from "@agentxm/registry-client";
 import * as Schema from "effect/Schema";
 import { AppErrorCodeSchema, type AppError } from "./app-error.js";
-import { StepFailure } from "@agentxm/workspace/operations";
+import { StepFailure } from "@agentxm/workspace-kernel/operations";
 
 /**
  * One serialized entry of a failure's cause chain, as every machine document

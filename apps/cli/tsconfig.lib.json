@@ -22,7 +22,13 @@
       "path": "../../tools/specification-metadata/tsconfig.lib.json"
     },
     {
-      "path": "../../packages/core/workspace/tsconfig.lib.json"
+      "path": "../../packages/core/workspace-kernel/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/core/extension-kinds/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/core/workspace-features/tsconfig.lib.json"
     },
     {
       "path": "../../packages/core/registry-protocol/tsconfig.lib.json"

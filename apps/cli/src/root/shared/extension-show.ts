@@ -15,7 +15,7 @@ import { withArgvTracking } from "../../cli-runtime/index.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "./command-capabilities.js";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { extensionTypeSentenceLabels } from "@agentxm/extension-model/unstable/extensions";
-import { ExtensionShowResultSchema, ShowExtension } from "@agentxm/workspace/inspection";
+import { ExtensionShowResultSchema, ShowExtension } from "@agentxm/workspace-features/inspection";
 
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";

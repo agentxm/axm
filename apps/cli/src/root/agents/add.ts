@@ -1,11 +1,11 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { ConfigureAgents } from "@agentxm/workspace/configuration";
+import { ConfigureAgents } from "@agentxm/workspace-features/configuration";
 import { acceptWarningsFlag, ignoreReleaseAgeFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { Screen, headlineDoc } from "../../screen/index.js";
-import { deriveOperationOutcome, observeUnit } from "@agentxm/workspace/operations";
+import { deriveOperationOutcome, observeUnit } from "@agentxm/workspace-kernel/operations";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
 import { emitNoOpOutcome, emitOperationResolution } from "../../operation-output.js";
@@ -16,7 +16,7 @@ import {
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { SyncWorkspace } from "@agentxm/workspace/reconciliation/sync";
+import { SyncWorkspace } from "@agentxm/workspace-features/sync";
 import { buildPermissionSuggestions } from "./permission-suggestions.js";
 import { failureToAppError, toAppError } from "../../app-error/conversions.js";
 

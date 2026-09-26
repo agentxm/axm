@@ -1,4 +1,4 @@
-import type { OperationEvent } from "@agentxm/workspace/operations";
+import type { OperationEvent } from "@agentxm/workspace-kernel/operations";
 
 import type { Doc } from "../../screen/doc.js";
 import { progressActivity } from "../../screen/progress-view.js";

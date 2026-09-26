@@ -77,7 +77,7 @@
     "@agentxm/extension-model": "workspace:*",
     "@agentxm/registry-client": "workspace:*",
     "@agentxm/specification-metadata": "workspace:*",
-    "@agentxm/workspace": "workspace:*",
+    "@agentxm/workspace-kernel": "workspace:*",
     "@boundaries/elements": "catalog:",
     "@dagrejs/graphlib": "catalog:",
     "@effect/eslint-plugin": "catalog:",

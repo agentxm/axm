@@ -2,8 +2,8 @@
 // It loads the same built identity modules the CLI itself loads at runtime,
 // so producer and observer derive accounts from one implementation. It
 // receives only disposable identity components, never credential values.
-import { mcpSecretAccount } from "../../../../packages/core/workspace/dist/src/materialization/index.js";
-import { mcpRegistryResolutionKey } from "../../../../packages/core/workspace/dist/src/desired-state/index.js";
+import { mcpSecretAccount } from "../../../../packages/core/workspace-kernel/dist/src/materialization/index.js";
+import { mcpRegistryResolutionKey } from "../../../../packages/core/workspace-kernel/dist/src/workspace-state/index.js";
 
 const requests = JSON.parse(process.argv[2] ?? "null");
 if (!Array.isArray(requests) || requests.length !== 8)

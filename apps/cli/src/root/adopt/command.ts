@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import { Argument, Command } from "effect/unstable/cli";
 
-import { AdoptExtension, adoptExtensionPlanName } from "@agentxm/workspace/authoring";
+import { AdoptExtension, adoptExtensionPlanName } from "@agentxm/workspace-features/authoring";
 
 import { Screen } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";

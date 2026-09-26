@@ -1,4 +1,7 @@
-import { DETERMINED_REPAIR_RULE_IDS, type RenderedFinding } from "@agentxm/workspace/linting";
+import {
+  DETERMINED_REPAIR_RULE_IDS,
+  type RenderedFinding,
+} from "@agentxm/workspace-features/linting";
 
 export interface LintHumanFinding {
   readonly severity: RenderedFinding["finding"]["severity"];

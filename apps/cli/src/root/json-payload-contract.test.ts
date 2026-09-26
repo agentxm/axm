@@ -9,17 +9,17 @@
 
 import { describe, expect, it } from "vitest";
 
-import { ExtensionInventorySchema } from "@agentxm/workspace/desired-state";
+import { ExtensionInventorySchema } from "@agentxm/workspace-kernel/workspace-state";
 
 import { MACHINE_OUTPUT_CONTRACT_ROWS } from "../machine-output-contracts.js";
 import { AgentsListOutputSchema } from "./agents/list.js";
 import { TokenListDocumentSchema } from "./auth/token.js";
-import { DiscoverOutputSchema } from "@agentxm/workspace/discovery";
-import { KnowledgeConceptQueryPageSchema } from "@agentxm/workspace/knowledge/query";
+import { DiscoverOutputSchema } from "@agentxm/workspace-features/discovery";
+import { KnowledgeConceptQueryPageSchema } from "@agentxm/workspace-features/knowledge-query";
 import {
   ExtensionListDocumentSchema,
   KnowledgeListQueryResultSchema,
-} from "@agentxm/workspace/inspection";
+} from "@agentxm/workspace-features/inspection";
 import { InstructionsStatusOutputSchema } from "./instructions.js";
 
 const COLLECTION_PAYLOADS = [

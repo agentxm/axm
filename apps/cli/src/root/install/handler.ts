@@ -6,15 +6,15 @@ import * as Option from "effect/Option";
 import { extensionTypeToPlural } from "@agentxm/extension-model/unstable/extensions";
 import { installableExtensionTypes } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import type { InstallExtensionSelectors } from "@agentxm/workspace/lifecycle";
-import { installSelectorsFor } from "@agentxm/workspace/lifecycle";
-import { ReleaseAgePosture } from "@agentxm/workspace/resolution";
+import type { InstallExtensionSelectors } from "@agentxm/workspace-features/lifecycle";
+import { installSelectorsFor } from "@agentxm/workspace-features/lifecycle";
+import { ReleaseAgePosture } from "@agentxm/workspace-kernel/resolution";
 import {
   protectedRecoveryValue,
   publicRecoveryValue,
   recoveryOption,
   recoverySwitch,
-} from "@agentxm/workspace/operations";
+} from "@agentxm/workspace-kernel/operations";
 
 import { makeAppError } from "../../app-error/index.js";
 import { Screen } from "../../screen/index.js";

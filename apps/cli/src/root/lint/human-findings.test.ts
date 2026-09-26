@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import type { RenderedFinding } from "@agentxm/workspace/linting";
+import type { RenderedFinding } from "@agentxm/workspace-features/linting";
 
 import { toLintHumanFindings } from "./human-findings.js";
 

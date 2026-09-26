@@ -3,7 +3,7 @@ import type {
   ExtensionListDocument,
   ExtensionListFilter,
   ExtensionListItem,
-} from "@agentxm/workspace/inspection";
+} from "@agentxm/workspace-features/inspection";
 import { formatDeprecationWarning } from "@agentxm/registry-client";
 
 import {

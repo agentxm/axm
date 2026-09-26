@@ -6,7 +6,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import {
   KnowledgeConceptRelatedOutputSchema,
   KnowledgeDiscovery,
-} from "@agentxm/workspace/knowledge/query";
+} from "@agentxm/workspace-features/knowledge-query";
 
 import { ABSENT, emitResult, inventoryDoc, type ViewColumn } from "../../../screen/index.js";
 import { processOutcome, withArgvTracking } from "../../../cli-runtime/index.js";

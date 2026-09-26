@@ -1,0 +1,351 @@
+/**
+ * Source resolution: classifies input via parseInputPattern, then routes
+ * each pattern type to the appropriate resolution logic.
+ *
+ * Forge shorthands and known browser URLs are normalized into generic Git
+ * sources. Clone URLs and SCP addresses are accepted without host
+ * configuration.
+ *
+ * @experimental This API is unstable and may change without notice.
+ * @packageDocumentation
+ */
+
+import type * as FileSystem from "effect/FileSystem";
+import type * as Path from "effect/Path";
+import * as Effect from "effect/Effect";
+import * as Result from "effect/Result";
+import { bindRegistrySource } from "../workspace-state/index.js";
+import * as Option from "effect/Option";
+import type { RegistryClientFactory } from "@agentxm/registry-client";
+
+import {
+  forgeCloneUrl,
+  parseForgeBrowserUrl,
+  parseForgeCoordinate,
+  type ForgeCoordinate,
+} from "@agentxm/extension-model/unstable/sources/forge-grammar";
+import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
+import type {
+  InputParseResult,
+  ShorthandInput,
+} from "@agentxm/extension-model/unstable/sources/parser";
+import type {
+  GitSource,
+  RegistrySource,
+  Source,
+} from "@agentxm/extension-model/unstable/sources/types";
+import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
+import type {
+  ExtensionName,
+  ExtensionType,
+  ExtensionTypePlural,
+} from "@agentxm/extension-model/unstable/extensions";
+import {
+  extensionTypeSentenceLabels,
+  toExtensionTypePlural,
+} from "@agentxm/extension-model/unstable/extensions";
+import {
+  SourceHostNotConfigured,
+  SourceNotResolvable,
+  SourceSyntaxInvalid,
+  type SourceResolutionFailure,
+} from "./errors.js";
+import { WorkspaceCatalog } from "./workspace-catalog.js";
+import { refFromFragment, refFromUrlHash, stripUrlHash } from "./url-fragment.js";
+
+// -----------------------------------------------------------------------------
+// Constants
+// -----------------------------------------------------------------------------
+
+const isGitCloneProtocol = (url: URL): boolean =>
+  url.protocol === "https:" || url.protocol === "ssh:" || url.protocol === "git:";
+
+const genericGitSourceFromUrl = (
+  url: URL,
+  subPath: Option.Option<string> = Option.none(),
+): GitSource => ({
+  type: "git",
+  url: stripUrlHash(url),
+  ref: refFromUrlHash(url),
+  subPath,
+});
+
+const gitSourceFromForgeCoordinate = (coordinate: ForgeCoordinate): GitSource => ({
+  type: "git",
+  url: forgeCloneUrl(coordinate),
+  ref: coordinate.ref,
+  subPath: coordinate.subPath,
+});
+
+const splitScpPathRef = (scp: {
+  readonly user: string;
+  readonly host: string;
+  readonly path: string;
+}) => {
+  const refIndex = scp.path.lastIndexOf("#");
+  if (refIndex < 0) {
+    return {
+      scp,
+      ref: Option.none<string>(),
+      cloneUrl: new URL(`ssh://${scp.user}@${scp.host}/${scp.path}`),
+    };
+  }
+
+  const path = scp.path.slice(0, refIndex);
+  const rawRef = scp.path.slice(refIndex + 1);
+  const ref = refFromFragment(rawRef);
+
+  return {
+    scp: { ...scp, path },
+    ref,
+    cloneUrl: new URL(`ssh://${scp.user}@${scp.host}/${path}`),
+  };
+};
+
+// -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
+
+/** Parse shorthand input using the model's forge grammar. */
+const parseShorthandForSource = (
+  shorthand: ShorthandInput,
+): Effect.Effect<GitSource, SourceSyntaxInvalid> => {
+  const input = `${shorthand.prefix}:${shorthand.remainingInput}`;
+  const parsed = parseForgeCoordinate(shorthand.prefix, shorthand.remainingInput);
+  return Result.isSuccess(parsed)
+    ? Effect.succeed(gitSourceFromForgeCoordinate(parsed.success))
+    : Effect.fail(
+        new SourceSyntaxInvalid({
+          detail: `Invalid provider shorthand "${input}": ${parsed.failure.reason}`,
+        }),
+      );
+};
+
+// -----------------------------------------------------------------------------
+// URL routing
+// -----------------------------------------------------------------------------
+
+/**
+ * Normalize known public forge browser URLs, then accept any supported clone
+ * URL as a generic Git source.
+ */
+export const routeUrlInput = (url: URL, _input: string) =>
+  Effect.gen(function* () {
+    if (!url.hostname || !isGitCloneProtocol(url)) {
+      return yield* new SourceSyntaxInvalid({
+        detail: `Unsupported Git clone URL "${url.href}": expected https, ssh, or git`,
+      });
+    }
+
+    const parsed = parseForgeBrowserUrl(url);
+    return Option.isSome(parsed)
+      ? {
+          ...gitSourceFromForgeCoordinate(parsed.value),
+          ref: Option.orElse(parsed.value.ref, () => refFromUrlHash(url)),
+        }
+      : genericGitSourceFromUrl(url);
+  });
+
+// -----------------------------------------------------------------------------
+// SCP routing
+// -----------------------------------------------------------------------------
+
+/**
+ * Normalize an SCP-style Git address into an SSH clone URL.
+ */
+export const routeScpInput = (
+  scp: { readonly user: string; readonly host: string; readonly path: string },
+  _input: string,
+) => {
+  const scpParts = splitScpPathRef(scp);
+  return Effect.succeed({
+    ...genericGitSourceFromUrl(scpParts.cloneUrl),
+    ref: scpParts.ref,
+  });
+};
+
+// -----------------------------------------------------------------------------
+// Shorthand routing
+// -----------------------------------------------------------------------------
+
+/**
+ * Route a built-in forge shorthand such as `github:owner/repo`.
+ */
+export const resolveShorthandInputSource = (parseResult: InputParseResult<ShorthandInput>) =>
+  parseShorthandForSource(parseResult.pattern);
+
+// -----------------------------------------------------------------------------
+// Simple pattern routing
+// -----------------------------------------------------------------------------
+
+/** Route NameInput through the complete desired extension graph. */
+export const routeNameInput = (
+  name: string,
+  _input: string,
+  expectedType: ExtensionType = "skill",
+): Effect.Effect<
+  Source,
+  SourceResolutionFailure,
+  FileSystem.FileSystem | RegistryClientFactory | Path.Path | WorkspaceCatalog
+> =>
+  Effect.gen(function* () {
+    const catalog = yield* WorkspaceCatalog;
+    const graph = yield* catalog.desiredExtensionGraph;
+    if (!graph.complete) {
+      return yield* new SourceNotResolvable({
+        category: "conflict",
+        detail: `Cannot resolve the ${extensionTypeSentenceLabels[expectedType]} while the desired extension graph is incomplete.`,
+        recover: "Repair or reinstall the configured packs, then retry.",
+      });
+    }
+    const desired = graph.nodes.find((node) => node.type === expectedType && node.name === name);
+    if (desired?.source !== undefined) {
+      return yield* resolveSource(desired.source);
+    }
+
+    return yield* new SourceNotResolvable({
+      category: "validation",
+      detail: `Unknown ${extensionTypeSentenceLabels[expectedType]} "${name}".`,
+      suggestions: [
+        {
+          description: `Inspect configured ${extensionTypeSentenceLabels[expectedType]} entries.`,
+          cmd: `axm ${toExtensionTypePlural(expectedType)} list`,
+        },
+      ],
+    });
+  });
+
+/** Route RegistryPatternInput: find matching registry config and intersect with params. */
+export const routeRegistryInput = (
+  pattern: {
+    readonly sourceName: string;
+    readonly type: Option.Option<ExtensionTypePlural>;
+    readonly owner: Handle;
+    readonly name: Option.Option<ExtensionName>;
+  },
+  _input: string,
+) =>
+  Effect.gen(function* () {
+    const catalog = yield* WorkspaceCatalog;
+    // Name filtering is handled in the find phase; this routing step only resolves registry host.
+
+    const sources = yield* catalog.configuredSources.pipe(
+      Effect.mapError(
+        (e) =>
+          new SourceNotResolvable({
+            category: "validation",
+            detail: `Failed to get source ${pattern.sourceName}: ${e._tag}`,
+          }),
+      ),
+    );
+    const configured = Option.fromUndefinedOr(
+      sources.find((source) => source.name === pattern.sourceName),
+    );
+    if (Option.isNone(configured) || configured.value.type !== "registry") {
+      return yield* new SourceHostNotConfigured({
+        detail: `No Registry source named "${pattern.sourceName}" is configured`,
+      });
+    }
+    return {
+      type: "registry" as const,
+      name: configured.value.name,
+      location: configured.value.location,
+      owner: Option.some(pattern.owner),
+    } satisfies RegistrySource;
+  });
+
+/** Route bare owner/repository input through the built-in GitHub sugar. */
+export const resolveSlashInputSource = (
+  pattern: {
+    readonly coordinate: ForgeCoordinate;
+  },
+  _input: string,
+) => Effect.succeed(gitSourceFromForgeCoordinate(pattern.coordinate));
+
+// -----------------------------------------------------------------------------
+// Main resolver
+// -----------------------------------------------------------------------------
+
+/**
+ * Resolve a source string into a fully resolved `Source`.
+ *
+ * Classifies the input via `parseInputPattern`, then routes each pattern
+ * type to the appropriate resolution logic. Forge-shaped inputs become
+ * generic Git sources; registry aliases remain settings-backed.
+ *
+ * @experimental This API is unstable and may change without notice.
+ * @param input - The source string to resolve
+ * @returns Effect containing a resolved `Source` or a typed resolution failure
+ */
+export const resolveSource = (
+  input: string,
+  options?: { readonly expectedType?: ExtensionType },
+): Effect.Effect<
+  Source,
+  SourceResolutionFailure,
+  FileSystem.FileSystem | RegistryClientFactory | Path.Path | WorkspaceCatalog
+> =>
+  Effect.gen(function* () {
+    const trimmed = input.trim();
+    if (!trimmed) {
+      return yield* new SourceSyntaxInvalid({
+        detail: "Source string cannot be empty",
+      });
+    }
+
+    const parseResultOpt = parseInputPattern(trimmed);
+    if (Option.isNone(parseResultOpt)) {
+      return yield* new SourceSyntaxInvalid({
+        detail: "Unable to parse source",
+      });
+    }
+
+    const parsed = parseResultOpt.value;
+    const pattern = parsed.pattern;
+    switch (pattern.pattern) {
+      case "url-input":
+        return yield* routeUrlInput(pattern.url, parsed.originalInput);
+      case "git-scp-address":
+        return yield* routeScpInput(pattern, parsed.originalInput);
+      case "shorthand-input":
+        return yield* resolveShorthandInputSource({
+          pattern,
+          originalInput: parsed.originalInput,
+        });
+      case "name-input":
+        return yield* routeNameInput(
+          pattern.name,
+          parsed.originalInput,
+          options?.expectedType ?? "skill",
+        );
+      case "file-path-pattern":
+        return { type: "local" as const, path: pattern.path };
+      case "registry-pattern-input":
+        return yield* routeRegistryInput(
+          {
+            ...pattern,
+            sourceName: bindRegistrySource(
+              pattern.sourceName,
+              yield* (yield* WorkspaceCatalog).defaultRegistry,
+            ),
+          },
+          parsed.originalInput,
+        );
+      case "slash-pattern":
+        return yield* resolveSlashInputSource(pattern, parsed.originalInput);
+      case "glob-input":
+        return yield* new SourceSyntaxInvalid({
+          detail: `Glob patterns are not supported by resolveSource — use resolveSourcePattern instead`,
+        });
+      case "workspace-pattern-input":
+        return {
+          type: "workspace",
+          owner: pattern.owner,
+          extensionType: pattern.type,
+          name: pattern.name,
+        };
+    }
+    return yield* new SourceSyntaxInvalid({
+      detail: "Unable to resolve source pattern",
+    });
+  });

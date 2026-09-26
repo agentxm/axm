@@ -1,8 +1,11 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { collectCleanupStep, StepFailureConversion } from "@agentxm/workspace/reconciliation";
-import { ConfigureAgents } from "@agentxm/workspace/configuration";
+import {
+  collectCleanupStep,
+  StepFailureConversion,
+} from "@agentxm/workspace-kernel/reconciliation";
+import { ConfigureAgents } from "@agentxm/workspace-features/configuration";
 import { failureToAppError, toAppError } from "../../app-error/conversions.js";
 import { acceptWarningsFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";

@@ -23,14 +23,17 @@ import {
   SourceNotResolvable,
   SourceHostProviders,
   type SourceHostProvidersService,
-} from "@agentxm/workspace/resolution/sources";
+} from "@agentxm/workspace-kernel/sources";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import {
   decodeVersionRangeSync,
   decodeVersionSync,
 } from "@agentxm/extension-model/unstable/version-constraints";
-import { ReleaseAgePosture, type ReleaseAgePostureValue } from "@agentxm/workspace/resolution";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
+import {
+  ReleaseAgePosture,
+  type ReleaseAgePostureValue,
+} from "@agentxm/workspace-kernel/resolution";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace-kernel/projection/live";
 
 import {
   AllExtensionManagersLive,

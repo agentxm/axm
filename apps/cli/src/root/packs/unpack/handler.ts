@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 
-import { PromoteAuthoredPack } from "@agentxm/workspace/lifecycle";
+import { PromoteAuthoredPack } from "@agentxm/workspace-features/lifecycle";
 
 import { emitOperationResolution } from "../../../operation-output.js";
 import { toAppError } from "../../../app-error/conversions.js";

@@ -6,10 +6,13 @@ import {
   ImportNativeExtension,
   importNativeExtensionPlanName,
   type NativeMcpCandidate,
-} from "@agentxm/workspace/authoring";
+} from "@agentxm/workspace-features/authoring";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import { ImportMcpServers, type McpImportPreflight } from "@agentxm/workspace/configuration";
-import type { OperationResolution } from "@agentxm/workspace/operations";
+import {
+  ImportMcpServers,
+  type McpImportPreflight,
+} from "@agentxm/workspace-features/configuration";
+import type { OperationResolution } from "@agentxm/workspace-kernel/operations";
 
 import { makeAppError } from "../../app-error/index.js";
 import { Screen } from "../../screen/index.js";

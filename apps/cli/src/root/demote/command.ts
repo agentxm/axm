@@ -1,12 +1,12 @@
 import * as Effect from "effect/Effect";
 import { Argument, Command } from "effect/unstable/cli";
 
-import { DemoteToExternalSource } from "@agentxm/workspace/lifecycle";
+import { DemoteToExternalSource } from "@agentxm/workspace-features/lifecycle";
 import {
   credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,
   recoveryPositional,
-} from "@agentxm/workspace/operations";
+} from "@agentxm/workspace-kernel/operations";
 
 import { ignoreReleaseAgeFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";

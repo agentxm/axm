@@ -5,7 +5,7 @@ import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { makeOperationResolution } from "@agentxm/workspace/operations";
+import { makeOperationResolution } from "@agentxm/workspace-kernel/operations";
 
 import { ExitCodeDefinitions } from "../app-error/index.js";
 import { resolutionExitCode } from "../operation-exit-code.js";

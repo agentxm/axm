@@ -1,14 +1,17 @@
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { ImportNativeExtension, importNativeExtensionPlanName } from "@agentxm/workspace/authoring";
+import {
+  ImportNativeExtension,
+  importNativeExtensionPlanName,
+} from "@agentxm/workspace-features/authoring";
 import { extensionTypeToPlural } from "@agentxm/extension-model/unstable/extensions";
 import {
   credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,
   recoveryPositional,
   recoverySwitch,
-} from "@agentxm/workspace/operations";
+} from "@agentxm/workspace-kernel/operations";
 
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { failureToAppError } from "../../app-error/conversions.js";

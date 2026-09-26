@@ -20,7 +20,7 @@ import {
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
-} from "@agentxm/workspace/projection";
+} from "@agentxm/workspace-kernel/projection";
 import { handleActivation, type ActivationRequest } from "../activation-handler.js";
 
 // -----------------------------------------------------------------------------

@@ -6,9 +6,12 @@ import {
   contextForResolution,
   type UpdateCandidate,
   type UpdateSubjectType,
-} from "@agentxm/workspace/lifecycle";
+} from "@agentxm/workspace-features/lifecycle";
 import { AXM_SKILL_BUNDLED_APPLY_COMMAND } from "@agentxm/cli-maintenance/official-skill/domain";
-import { ReleaseAgePosture, type TargetedUpdatePublicContext } from "@agentxm/workspace/resolution";
+import {
+  ReleaseAgePosture,
+  type TargetedUpdatePublicContext,
+} from "@agentxm/workspace-kernel/resolution";
 import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions";
 import {
   credentialFreeLocatorRecoveryValue,
@@ -16,7 +19,7 @@ import {
   recoveryPositional,
   recoverySwitch,
   type OperationResolution,
-} from "@agentxm/workspace/operations";
+} from "@agentxm/workspace-kernel/operations";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";

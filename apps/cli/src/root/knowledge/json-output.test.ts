@@ -29,9 +29,9 @@ import { handleKnowledgeConceptRelated } from "./concepts/related.js";
 import { handleKnowledgeConceptQuery } from "./concepts/query.js";
 import { handleList as handleKnowledgeList } from "./list.js";
 import { paintText } from "../../screen/index.js";
-import { KnowledgeManager } from "@agentxm/workspace/materialization";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
-import { SourceHostProvidersLive } from "@agentxm/workspace/resolution/sources/live";
+import { KnowledgeManager } from "@agentxm/workspace-kernel/materialization";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace-kernel/projection/live";
+import { SourceHostProvidersLive } from "@agentxm/workspace-kernel/sources/live";
 import {
   HookManagerLive,
   McpServerManagerLive,
@@ -39,7 +39,7 @@ import {
   RuleManagerLive,
   SkillManagerLive,
   SubagentManagerLive,
-} from "@agentxm/workspace/kinds-live";
+} from "@agentxm/extension-kinds/live";
 const stubKnowledgeManager = {
   ...managerLifecycleStubs,
   refreshCatalog: () => Effect.void,

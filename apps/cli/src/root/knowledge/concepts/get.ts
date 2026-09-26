@@ -6,7 +6,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import {
   KnowledgeConceptGetOutputSchema,
   KnowledgeDiscovery,
-} from "@agentxm/workspace/knowledge/query";
+} from "@agentxm/workspace-features/knowledge-query";
 
 import { ExitCode } from "../../../app-error/index.js";
 import { emitResult, errorDoc, rawDoc } from "../../../screen/index.js";

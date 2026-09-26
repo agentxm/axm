@@ -7,7 +7,7 @@ import { handleError } from "./handle-error.js";
 import { ExitCode, makeAppError } from "../app-error/index.js";
 import { toAppError } from "../app-error/conversions.js";
 import { FqnInvalidError } from "@agentxm/extension-model/unstable/extensions/fqn";
-import { SourceNotResolvable } from "@agentxm/workspace/resolution/sources";
+import { SourceNotResolvable } from "@agentxm/workspace-kernel/sources";
 
 /** Parse the NDJSON stderr lines a classification would write, in order. */
 const stderrEvents = (lines: ReadonlyArray<string> | undefined): ReadonlyArray<unknown> =>

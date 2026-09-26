@@ -4,7 +4,7 @@ import type {
   KnowledgeConceptNotFound,
   KnowledgeCorpusUnavailable,
   KnowledgeRequestInvalid,
-} from "@agentxm/workspace/knowledge/query";
+} from "@agentxm/workspace-features/knowledge-query";
 
 import { makeAppError, type AppError } from "../../app-error/index.js";
 

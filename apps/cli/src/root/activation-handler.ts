@@ -14,7 +14,7 @@
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { SetActivation, type SetActivationRequest } from "@agentxm/workspace/lifecycle";
+import { SetActivation, type SetActivationRequest } from "@agentxm/workspace-features/lifecycle";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 

@@ -1,4 +1,4 @@
-import { listSubagents, type TypeListRow } from "@agentxm/workspace/inspection";
+import { listSubagents, type TypeListRow } from "@agentxm/workspace-features/inspection";
 import { type ViewColumn } from "../../screen/index.js";
 import {
   inventoryActivation,

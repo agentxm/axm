@@ -8,12 +8,12 @@ import {
   type Tint,
   type ViewColumn,
 } from "../screen/index.js";
-import type { SourcedListRow } from "@agentxm/workspace/inspection";
-import type { ConfiguredAgentOutcome } from "@agentxm/workspace/operations";
+import type { SourcedListRow } from "@agentxm/workspace-features/inspection";
+import type { ConfiguredAgentOutcome } from "@agentxm/workspace-kernel/operations";
 import type {
   ExtensionInventory,
   ExtensionInventoryLifecycle,
-} from "@agentxm/workspace/desired-state";
+} from "@agentxm/workspace-kernel/workspace-state";
 
 /**
  * Each extension type's tint, so a reader tells types apart down an inventory

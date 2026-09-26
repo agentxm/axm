@@ -54,15 +54,18 @@ import { makeWorkspaceFileContents, writeWorkspaceFiles } from "./test-stubs.js"
 import { rootCommand } from "../app.js";
 import { ScopedRoutesLive } from "../root/shared/scoped-command.js";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
-import { ReleaseAgePosture, type ReleaseAgePostureValue } from "@agentxm/workspace/resolution";
-import { makeMemoryTransitionLockWorld } from "@agentxm/workspace/transitions/settlement/testing";
+import {
+  ReleaseAgePosture,
+  type ReleaseAgePostureValue,
+} from "@agentxm/workspace-kernel/resolution";
+import { makeMemoryTransitionLockWorld } from "@agentxm/workspace-kernel/settlement/testing";
 import {
   MemoryWorkspaceTransactionScope,
   withTestRegistryDefault,
-} from "@agentxm/workspace/desired-state/testing";
-import { WorkspaceStateLive } from "@agentxm/workspace/desired-state/live";
-import { WorkspaceInvariantFactsLive } from "@agentxm/workspace/projection/live";
-import { ProjectionParticipantsLive } from "@agentxm/workspace/reconciliation/live";
+} from "@agentxm/workspace-kernel/workspace-state/testing";
+import { WorkspaceStateLive } from "@agentxm/workspace-kernel/workspace-state/live";
+import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-kernel/projection/live";
+import { ProjectionParticipantsLive } from "@agentxm/workspace-kernel/reconciliation/live";
 
 /**
  * The workspace-facts layer over the registered projection participants, for

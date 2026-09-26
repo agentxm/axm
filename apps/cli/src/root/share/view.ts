@@ -1,4 +1,4 @@
-import type { ShareWorkspaceDocument } from "@agentxm/workspace/sharing";
+import type { ShareWorkspaceDocument } from "@agentxm/workspace-features/sharing";
 import type { Doc } from "../../screen/index.js";
 
 const packageMetadataDoc = (result: ShareWorkspaceDocument): Doc =>

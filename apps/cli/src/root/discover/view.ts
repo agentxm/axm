@@ -2,7 +2,10 @@ import {
   extensionTypeFromPlural,
   isExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions/common";
-import { detectedPackageName, type DiscoverExtensionsResult } from "@agentxm/workspace/discovery";
+import {
+  detectedPackageName,
+  type DiscoverExtensionsResult,
+} from "@agentxm/workspace-features/discovery";
 
 import {
   ABSENT,

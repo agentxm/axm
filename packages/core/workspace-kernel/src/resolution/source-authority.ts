@@ -1,0 +1,144 @@
+import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
+import {
+  desiredPackageKey,
+  formatDesiredIdentity,
+  type CanonicalObservationStatus,
+  type DesiredNodeIdentity,
+} from "../workspace-state/index.js";
+
+export type SourceAuthorityRelationship =
+  { readonly kind: "root" } | { readonly kind: "member"; readonly root: string };
+
+export interface SourceAuthorityTarget {
+  readonly type: ExtensionType;
+  readonly name: string;
+  readonly identity: string;
+}
+
+export interface SourceAuthorityInput {
+  readonly target: SourceAuthorityTarget;
+  readonly relationship: SourceAuthorityRelationship;
+  /** The identity the request would install. */
+  readonly requested: DesiredNodeIdentity;
+  readonly configured?: {
+    /** The identity the workspace already holds for the target. */
+    readonly identity: DesiredNodeIdentity;
+    /** The configured workspace package's canonical observation. */
+    readonly status?: CanonicalObservationStatus;
+  };
+  readonly allowWorkspaceReplacement?: boolean;
+}
+
+export type SourceAuthorityBlockedCause =
+  | "workspace-source-replacement"
+  | "workspace-identity-mismatch"
+  | "workspace-unusable"
+  | "pack-source-conflict";
+
+export interface SourceAuthorityBlockedFact {
+  readonly id: string;
+  readonly target: SourceAuthorityTarget;
+  readonly relationship: SourceAuthorityRelationship;
+  readonly requestedSource: string;
+  readonly configuredSource: string;
+  readonly cause: SourceAuthorityBlockedCause;
+  readonly detail: string;
+  readonly recovery: ReadonlyArray<{ readonly description: string }>;
+}
+
+export type SourceAuthorityDecision =
+  | { readonly kind: "allow-requested" }
+  | {
+      readonly kind: "workspace-satisfied";
+      readonly target: SourceAuthorityTarget;
+      readonly relationship: Extract<SourceAuthorityRelationship, { readonly kind: "member" }>;
+      readonly configuredSource: string;
+    }
+  | { readonly kind: "blocked"; readonly fact: SourceAuthorityBlockedFact };
+
+const blocked = (
+  input: SourceAuthorityInput,
+  configured: NonNullable<SourceAuthorityInput["configured"]>,
+  cause: SourceAuthorityBlockedCause,
+  detail: string,
+  recovery: ReadonlyArray<{ readonly description: string }>,
+): SourceAuthorityDecision => ({
+  kind: "blocked",
+  fact: {
+    id: `workspace-authority:${input.relationship.kind}:${input.target.identity}:${cause}`,
+    target: input.target,
+    relationship: input.relationship,
+    requestedSource: formatDesiredIdentity(input.requested),
+    configuredSource: formatDesiredIdentity(configured.identity),
+    cause,
+    detail,
+    recovery,
+  },
+});
+
+export const evaluateSourceAuthority = (input: SourceAuthorityInput): SourceAuthorityDecision => {
+  const configured = input.configured;
+  if (
+    configured === undefined ||
+    configured.identity.authority !== "workspace" ||
+    input.requested.authority === "workspace" ||
+    input.allowWorkspaceReplacement === true
+  ) {
+    return { kind: "allow-requested" };
+  }
+
+  if (input.relationship.kind === "root") {
+    return blocked(
+      input,
+      configured,
+      "workspace-source-replacement",
+      `Cannot install over workspace-sourced ${input.target.type} "${input.target.name}" with ${formatDesiredIdentity(input.requested)}`,
+      [
+        {
+          description:
+            "Preserve the workspace source, or explicitly transition its authority before installing a different source.",
+        },
+      ],
+    );
+  }
+
+  const configuredIdentity = desiredPackageKey(configured.identity);
+  if (configuredIdentity !== input.target.identity) {
+    return blocked(
+      input,
+      configured,
+      "workspace-identity-mismatch",
+      `Workspace dependency ${configuredIdentity} does not match required ${input.target.identity}`,
+      [
+        {
+          description:
+            "Rename or remove the conflicting workspace dependency, or explicitly transition its authority.",
+        },
+      ],
+    );
+  }
+
+  if (configured.status !== undefined && configured.status !== "usable") {
+    return blocked(
+      input,
+      configured,
+      "workspace-unusable",
+      `Workspace dependency ${input.target.identity} is ${configured.status}`,
+      [
+        {
+          description: `Repair or explicitly remove the ${configured.status} workspace dependency before installing the pack.`,
+        },
+      ],
+    );
+  }
+
+  // Whether the workspace package's version satisfies the member's range is
+  // judged once, by the canonical observation and the member resolver; this
+  // authority decision only says which source may supply the member.
+  return {
+    kind: "workspace-satisfied",
+    target: input.target,
+    relationship: input.relationship,
+    configuredSource: formatDesiredIdentity(configured.identity),
+  };
+};

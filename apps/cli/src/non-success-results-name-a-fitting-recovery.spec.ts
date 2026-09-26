@@ -10,9 +10,12 @@ import {
   type OperationErrorCategory,
   type OperationResolution,
   type ResolvedUnit,
-} from "@agentxm/workspace/operations";
+} from "@agentxm/workspace-kernel/operations";
 
-import { LockfileIoError, LockfileVersionUnsupported } from "@agentxm/workspace/desired-state";
+import {
+  LockfileIoError,
+  LockfileVersionUnsupported,
+} from "@agentxm/workspace-kernel/workspace-state";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";

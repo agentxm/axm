@@ -11,7 +11,7 @@ import {
   TokenPermissionsSchema,
 } from "@agentxm/registry-access/authentication";
 import { emitResult, rawDoc } from "../../screen/index.js";
-import { observeUnit } from "@agentxm/workspace/operations";
+import { observeUnit } from "@agentxm/workspace-kernel/operations";
 import { withLiveOperation } from "../../operation-lifecycle.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { coerceAuthFailure } from "../../feature-errors.js";

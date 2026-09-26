@@ -1,8 +1,8 @@
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { MigrateDeprecated } from "@agentxm/workspace/lifecycle";
-import { deriveOperationOutcome } from "@agentxm/workspace/operations";
+import { MigrateDeprecated } from "@agentxm/workspace-features/lifecycle";
+import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import {
   withArgvTracking,

@@ -1,4 +1,4 @@
-import { listSkills, type SkillListRow } from "@agentxm/workspace/inspection";
+import { listSkills, type SkillListRow } from "@agentxm/workspace-features/inspection";
 import { type ViewColumn } from "../../screen/index.js";
 import {
   inventoryActivation,

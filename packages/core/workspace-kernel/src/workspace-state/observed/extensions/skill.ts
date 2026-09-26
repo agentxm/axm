@@ -1,0 +1,348 @@
+/**
+ * Skill subject module: declared/resolved/actual payload types, scanner
+ * composition, and projections via the shared `projectInstalledExtensions`
+ * helper.
+ *
+ * Per Decision 4 (single service + per-subject modules) and Decision 9
+ * (read-model rows) of the workspace read-model design, this module owns:
+ *
+ * - the subject-specific declared/resolved/actual payload types
+ *   (`DeclaredSkills`, `ResolvedSkills`, `ActualSkills`);
+ * - the subject-specific origin union (`SkillDetectionOrigin`) and
+ *   skill-specific facts (`contentRoot`, `sourcePath`, `packageRoot`,
+ *   `hasSkillMd`, `hasSkillJson`);
+ * - scanner composition (canonical-extensions + agent-dir × skill-rendering
+ *   agents);
+ * - the `installed` / `active` / `unmanaged` projections, wired
+ *   through the helper with a skill-specific `SubjectPolicy`.
+ *
+ * The factory `makeSkillExtensionsApi(deps)` returns a `SkillExtensionsApi`
+ * with cells whose public types are dependency-closed. Phase 9 composes the
+ * factory inputs (`loaders`, `scanners`, `installedPacks`, `diagnostics`)
+ * inside `WorkspaceReadModelLive`.
+ */
+
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
+import {
+  decodeExtensionNameSync,
+  type ExtensionName,
+} from "@agentxm/extension-model/unstable/extensions/common";
+import type { Lockfile, SkillLockEntry } from "../../desired/lockfile/schema.js";
+import type { Settings, SkillEntry } from "../../desired/settings/schema.js";
+import type { LockfileReadError, SettingsReadError } from "../errors.js";
+import type { AgentDirOccurrence, CanonicalExtensionOccurrence } from "../scanners/types.js";
+import type {
+  ActivationState,
+  ExtensionKey,
+  InstallationOrigin,
+  InstalledPackRef,
+  Scope,
+} from "../types.js";
+import { filterMapOccurrences } from "./actual-helpers.js";
+import { canonicalAxmPackageRoot } from "./package-root.js";
+import {
+  makeProjectedSubjectCells,
+  projectInstalledExtensions,
+  projectPackMemberRows,
+  type PackMemberBinding,
+  type SubjectPolicy,
+} from "./projection.js";
+
+// ---------------------------------------------------------------------------
+// Skill detection origin (subject-owned)
+// ---------------------------------------------------------------------------
+
+/**
+ * Subject-specific origin discriminator for an `ActualSkill`. Mirrors the spec
+ * scenarios that distinguish canonical AXM, external AXM, and agent-rendered
+ * skill directories.
+ */
+export type SkillDetectionOrigin =
+  | { readonly _tag: "canonical-axm-skill" }
+  | { readonly _tag: "external-axm-skill" }
+  | { readonly _tag: "agent-skill-dir"; readonly agentId: MaterializationTargetId };
+
+// ---------------------------------------------------------------------------
+// Payload types
+// ---------------------------------------------------------------------------
+
+/**
+ * One declared skill entry. Wraps the raw settings entry without re-shaping
+ * fields; `name` is lifted out for ergonomic lookup.
+ */
+export interface DeclaredSkill {
+  readonly name: ExtensionName;
+  readonly entry: SkillEntry;
+}
+
+/** Decoded skills declared in `axm.json`. */
+export type DeclaredSkills = ReadonlyArray<DeclaredSkill>;
+
+/** One resolved skill entry from the lockfile, wrapping the raw lock entry. */
+export interface ResolvedSkill {
+  readonly name: ExtensionName;
+  readonly lockEntry: SkillLockEntry;
+}
+
+/** Decoded skills resolved in the lockfile. */
+export type ResolvedSkills = ReadonlyArray<ResolvedSkill>;
+
+/**
+ * One observable skill materialization. Carries the subject-specific origin
+ * plus skill-specific facts:
+ *
+ * - `contentRoot` — the directory containing the rendered skill (the same
+ *   value as the underlying scanner's `contentLocation`);
+ * - `sourcePath` — absolute path to the canonical content file inside
+ *   `contentRoot` (`SKILL.md`); equal to `null` if the file does not exist;
+ * - `packageRoot` — for canonical/external AXM, the registry-publish package
+ *   root (parent of `src/<name>/`); `null` for agent-rendered skills;
+ * - `hasSkillMd` — convenience boolean derived from `sourcePath`;
+ * - `hasSkillJson` — placeholder for the optional `skill.json` companion file
+ *   (left `false` in v1; Phase 9 wiring will flip when `agent-settings` or a
+ *   future scanner detects it).
+ */
+export interface ActualSkill {
+  readonly key: ExtensionKey<"skill">;
+  readonly origin: SkillDetectionOrigin;
+  readonly contentRoot: string;
+  readonly sourcePath: string | null;
+  readonly packageRoot: string | null;
+  readonly hasSkillMd: boolean;
+  readonly hasSkillJson: boolean;
+}
+
+/** Actual skills payload — array of observed materialization occurrences. */
+export type ActualSkills = ReadonlyArray<ActualSkill>;
+
+// ---------------------------------------------------------------------------
+// Read-model rows
+// ---------------------------------------------------------------------------
+
+/** Pack-member entry for a skill: per Decision 9 it is the resolved member. */
+export interface SkillPackMember {
+  readonly name: ExtensionName;
+  readonly providingPack: InstalledPackRef;
+}
+
+/** Installed skill row. */
+export interface InstalledSkill {
+  readonly key: ExtensionKey<"skill">;
+  readonly installationOrigin: InstallationOrigin<DeclaredSkill, SkillPackMember>;
+  readonly activation: ActivationState;
+  readonly resolved: Option.Option<ResolvedSkill>;
+  readonly actual: ReadonlyArray<ActualSkill>;
+}
+
+/** Unmanaged skill row — one actual occurrence not attached to an installed row. */
+export interface UnmanagedSkill {
+  readonly key: ExtensionKey<"skill">;
+  readonly actual: ActualSkill;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers — declared / resolved / actual normalization
+// ---------------------------------------------------------------------------
+
+const declaredFromSettings = (settings: Settings): DeclaredSkills => {
+  if (settings.skills === undefined) return [];
+  return Object.entries(settings.skills).map(([name, entry]) => ({
+    name: decodeExtensionNameSync(name),
+    entry,
+  }));
+};
+
+const resolvedFromLockfile = (lockfile: Lockfile): ResolvedSkills => {
+  if (lockfile.skills === undefined) return [];
+  return Object.entries(lockfile.skills).map(([name, lockEntry]) => ({
+    name: decodeExtensionNameSync(name),
+    lockEntry,
+  }));
+};
+
+const canonicalToActualSkill = (occ: CanonicalExtensionOccurrence, scope: Scope): ActualSkill => {
+  const isExternal = occ.origin === "external-axm";
+  // canonical-axm contentLocation ends in `<package>/src` for authored and
+  // owner-qualified packages; external-axm contentLocation is the legacy
+  // user-scope external package root.
+  const packageRoot = canonicalAxmPackageRoot(occ);
+  return {
+    key: { scope, type: "skill", name: occ.name },
+    origin: isExternal ? { _tag: "external-axm-skill" } : { _tag: "canonical-axm-skill" },
+    contentRoot: occ.contentLocation,
+    sourcePath: Option.getOrNull(occ.subjectFile),
+    packageRoot,
+    hasSkillMd: occ.subjectFileExists,
+    // Scanner does not probe `skill.json` yet; keep `false` until a future
+    // scanner emission carries it.
+    hasSkillJson: false,
+  };
+};
+
+const agentDirToActualSkill = (occ: AgentDirOccurrence, scope: Scope): ActualSkill => ({
+  key: { scope, type: "skill", name: occ.name },
+  origin: { _tag: "agent-skill-dir", agentId: occ.agentId },
+  contentRoot: occ.contentLocation,
+  sourcePath: Option.getOrNull(occ.subjectFile),
+  packageRoot: null,
+  hasSkillMd: occ.subjectFileExists,
+  // Scanner does not probe `skill.json` yet; keep `false` until a future
+  // scanner emission carries it.
+  hasSkillJson: false,
+});
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+/**
+ * Cached source loaders the factory captures. `Effect.cached` is applied at
+ * the loader site (Phase 4); the helper just consumes whatever shape the
+ * caller passes in.
+ */
+export interface SkillScopedLoaders {
+  readonly settings: Effect.Effect<Option.Option<Settings>, SettingsReadError>;
+  readonly lockfile: Effect.Effect<Option.Option<Lockfile>, LockfileReadError>;
+}
+
+/**
+ * Cached scanner outputs the factory captures. The factory composes
+ * canonical-extensions + agent-dir occurrences into the actual skill array.
+ */
+export interface SkillScanners {
+  readonly canonical: Effect.Effect<ReadonlyArray<CanonicalExtensionOccurrence>>;
+  readonly agentDir: Effect.Effect<ReadonlyArray<AgentDirOccurrence>>;
+}
+
+/**
+ * Inputs `makeSkillExtensionsApi` captures.
+ */
+export interface SkillExtensionsApiDeps {
+  readonly scope: Scope;
+  readonly loaders: SkillScopedLoaders;
+  readonly scanners: SkillScanners;
+}
+
+/**
+ * Public skill API exposed by `ctx.scope(scope).skills`. Cells are
+ * dependency-closed and never carry `FileSystem | Path` requirements.
+ */
+export interface SkillExtensionsApi {
+  readonly declared: Effect.Effect<Option.Option<DeclaredSkills>, SettingsReadError>;
+  readonly resolved: Effect.Effect<Option.Option<ResolvedSkills>, LockfileReadError>;
+  readonly actual: Effect.Effect<ActualSkills>;
+  readonly installed: Effect.Effect<
+    ReadonlyArray<InstalledSkill>,
+    SettingsReadError | LockfileReadError
+  >;
+  readonly byName: (
+    name: string,
+  ) => Effect.Effect<Option.Option<InstalledSkill>, SettingsReadError | LockfileReadError>;
+  readonly declaredByName: (
+    name: string,
+  ) => Effect.Effect<Option.Option<DeclaredSkill>, SettingsReadError>;
+  /** Rows for the Pack-supplied members the desired-state graph bound to this subject. */
+  readonly packMemberRows: (
+    bindings: ReadonlyArray<PackMemberBinding>,
+  ) => Effect.Effect<ReadonlyArray<InstalledSkill>, SettingsReadError | LockfileReadError>;
+  readonly unmanaged: Effect.Effect<
+    ReadonlyArray<UnmanagedSkill>,
+    SettingsReadError | LockfileReadError
+  >;
+}
+
+const simpleName = (name: ExtensionName): ExtensionName => name;
+
+const skillPolicy = (
+  scope: Scope,
+): SubjectPolicy<
+  DeclaredSkills,
+  ResolvedSkills,
+  ActualSkills,
+  SkillPackMember,
+  InstalledSkill,
+  UnmanagedSkill
+> => ({
+  declaredEntries: (declared) => declared,
+  declaredName: (entry) => entry.name,
+  declaredActivation: (entry) => (entry.entry.enabled === false ? "disabled" : "enabled"),
+  declaresAcquisition: (entry) => entry.entry.source !== undefined,
+  resolvedEntries: (resolved) => resolved,
+  resolvedName: (entry) => simpleName(entry.name),
+  actualEntries: (actual) => actual,
+  actualName: (entry) => entry.key.name,
+  packMember: ({ name, pack }) => ({ name, providingPack: pack }),
+  attachActualToInstalled: (name, actual) => actual.filter((a) => a.key.name === name),
+  notClaimedBySubjectPolicy: () => true,
+  buildInstalledRow: (input) => ({
+    key: { scope, type: "skill", name: input.name },
+    installationOrigin: input.installationOrigin,
+    activation: input.activation,
+    resolved: input.resolved,
+    actual: input.actual,
+  }),
+  buildUnmanagedRow: (entry) => ({
+    key: { scope, type: "skill", name: entry.key.name },
+    actual: entry,
+  }),
+});
+
+/**
+ * Build the skill subject API over the captured loaders, scanners, and pack
+ * set.
+ *
+ * Returns an `Effect` because the projection cell is wrapped in
+ * `Effect.cached` so all four derived cells (`installed` / `active` /
+ * `unmanaged`) share a single in-flight execution and the
+ * projection — including its diagnostic side effects — runs at most once per
+ * scope, mirroring the `state.ts` loader pattern.
+ */
+export const makeSkillExtensionsApi = (
+  deps: SkillExtensionsApiDeps,
+): Effect.Effect<SkillExtensionsApi> =>
+  Effect.gen(function* () {
+    const { scope, loaders, scanners } = deps;
+
+    const declared: SkillExtensionsApi["declared"] = loaders.settings.pipe(
+      Effect.map((opt) => Option.map(opt, (settings) => declaredFromSettings(settings))),
+    );
+
+    const resolved: SkillExtensionsApi["resolved"] = loaders.lockfile.pipe(
+      Effect.map((opt) => Option.map(opt, (lockfile) => resolvedFromLockfile(lockfile))),
+    );
+
+    const actual: SkillExtensionsApi["actual"] = Effect.gen(function* () {
+      const canonical = yield* scanners.canonical;
+      const agentDir = yield* scanners.agentDir;
+      const fromCanonical = filterMapOccurrences(canonical, "skill", (occ) =>
+        canonicalToActualSkill(occ, scope),
+      );
+      const fromAgentDir = filterMapOccurrences(agentDir, "skill", (occ) =>
+        agentDirToActualSkill(occ, scope),
+      );
+      return [...fromCanonical, ...fromAgentDir];
+    });
+
+    const policy = skillPolicy(scope);
+    const project = yield* Effect.cached(
+      projectInstalledExtensions({
+        declared,
+        resolved,
+        actual,
+        policy,
+      }),
+    );
+
+    return {
+      ...makeProjectedSubjectCells({
+        declared,
+        resolved,
+        actual,
+        project,
+      }),
+      packMemberRows: (bindings) =>
+        projectPackMemberRows({ bindings, declared, resolved, actual, policy }),
+    } satisfies SkillExtensionsApi;
+  });

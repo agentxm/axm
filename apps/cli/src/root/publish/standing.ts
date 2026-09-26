@@ -3,7 +3,7 @@ import type {
   PublishPublicationSet,
   PublishResult,
   PublishResultItem,
-} from "@agentxm/workspace/publishing";
+} from "@agentxm/workspace-features/publishing";
 
 /** The stable display identity shared by publication rows, warnings, and links. */
 export const publishIdentity = (item: Pick<PublishResultItem, "owner" | "type" | "name">): string =>

@@ -1,6 +1,6 @@
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import type { FindingCounts } from "@agentxm/workspace/linting";
+import type { FindingCounts } from "@agentxm/workspace-features/linting";
 import type { LintHumanFinding } from "./human-findings.js";
 
 import type { VerbosityLevel } from "../../cli-flags/index.js";

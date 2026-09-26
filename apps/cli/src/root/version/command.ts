@@ -7,10 +7,10 @@ import {
   ChangeAuthoredVersion,
   changeAuthoredVersionPlanName,
   type AuthoredVersionChange,
-} from "@agentxm/workspace/authoring";
+} from "@agentxm/workspace-features/authoring";
 import { extensionTypeToPlural, parseFqn } from "@agentxm/extension-model/unstable/extensions";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
-import { operationPresentation } from "@agentxm/workspace/operations";
+import { operationPresentation } from "@agentxm/workspace-kernel/operations";
 
 import { makeAppError } from "../../app-error/index.js";
 import { failureToAppError, toAppError } from "../../app-error/conversions.js";

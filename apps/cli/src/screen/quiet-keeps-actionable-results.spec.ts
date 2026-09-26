@@ -2,7 +2,10 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { normalizePublishResult, type PublishResultItem } from "@agentxm/workspace/publishing";
+import {
+  normalizePublishResult,
+  type PublishResultItem,
+} from "@agentxm/workspace-features/publishing";
 import { TestFlagsLayer } from "../cli-flags/index.js";
 import { emitPublishResult } from "../root/publish/result.js";
 import { candidate } from "../test-support/gallery/samples/publish-results.js";

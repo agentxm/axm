@@ -10,7 +10,7 @@ import {
   InstallSelectionCancelled,
   StepFailure,
   makeOperationResolution,
-} from "@agentxm/workspace/operations";
+} from "@agentxm/workspace-kernel/operations";
 
 import * as Schema from "effect/Schema";
 import * as HttpClient from "effect/unstable/http/HttpClient";

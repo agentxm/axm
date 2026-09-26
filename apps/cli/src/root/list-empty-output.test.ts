@@ -12,7 +12,7 @@ import {
 } from "../test-support/test-helpers.js";
 import { handleList as handleListHook } from "./hooks/list.js";
 import { handleList as handleListMcpServers } from "./mcps/list.js";
-import { mcpRegistryResolutionKey } from "@agentxm/workspace/desired-state";
+import { mcpRegistryResolutionKey } from "@agentxm/workspace-kernel/workspace-state";
 import { humanScreenLayer, makeRecordingStreams } from "../test-support/screen-harness.js";
 
 describe("list command empty output", () => {

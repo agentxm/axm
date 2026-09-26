@@ -14,7 +14,7 @@ import { AXM_SKILL_BUNDLED_APPLY_COMMAND } from "@agentxm/cli-maintenance/offici
 import {
   type TargetedUpdateBlocker,
   type TargetedUpdatePublicContext,
-} from "@agentxm/workspace/resolution";
+} from "@agentxm/workspace-kernel/resolution";
 
 import { blockerSuggestions } from "./handler.js";
 

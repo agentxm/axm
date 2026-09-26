@@ -37,7 +37,7 @@ import {
   AxmSkillCandidateGate,
   RegistryResolutionPolicy,
   createRemoteRegistrySourceHostProvider,
-} from "@agentxm/workspace/resolution/sources";
+} from "@agentxm/workspace-kernel/sources";
 import { toAppError } from "../app-error/conversions.js";
 import {
   dependencyConstraintMap,
@@ -49,7 +49,7 @@ import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/o
 import {
   AxmSkillCandidateGateLive,
   RegistryResolutionPolicyLive,
-} from "@agentxm/workspace/resolution/live";
+} from "@agentxm/workspace-kernel/resolution/live";
 
 const runEffect = <A, E>(
   effect: Effect.Effect<

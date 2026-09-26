@@ -100,7 +100,8 @@ import { inlineMcpNotApplicablePlan } from "../install/inline-mcp-operation.js";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
 
-import { toTypedLabel } from "../../reconciliation/index.js";
+import { toTypedLabel, workspaceFailureToStepFailure } from "../../reconciliation/index.js";
+import { settleMcpSourceIdentityFor } from "../../mcp-connections/source-identity.js";
 import { ExtensionLifecycleFailed } from "../errors.js";
 import { lifecycleStepFailure } from "../step-failure.js";
 import { StepFailureConversion } from "../step-failure-conversion.js";
@@ -707,29 +708,51 @@ const resolveKnowledgeIntent = (
   });
 
 const resolveMcpServerIntent = (
+  graph: DesiredStateGraph,
   name: string,
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
   effective: DesiredEffectiveConstraint,
   nonInteractive: boolean,
 ) =>
-  resolveUpdateIntent({
-    type: "mcp-server",
-    name,
-    source,
-    releaseAgeEvaluation,
-    effective,
-    fallback: resolveConfiguredMcpServer(name, source, releaseAgeEvaluation, effective.range),
-    makeIntent: (ref, versionRange) =>
-      ref.type === "mcp-server"
-        ? ({
-            ref,
-            localName: decodeExtensionNameSync(name),
-            versionRange,
-            force: false,
-            nonInteractive,
-          } satisfies McpServerInstallIntent)
-        : undefined,
+  Effect.gen(function* () {
+    const resolution = yield* resolveUpdateIntent({
+      type: "mcp-server",
+      name,
+      source,
+      releaseAgeEvaluation,
+      effective,
+      fallback: resolveConfiguredMcpServer(name, source, releaseAgeEvaluation, effective.range),
+      makeIntent: (ref, versionRange) =>
+        ref.type === "mcp-server"
+          ? ({
+              ref,
+              localName: decodeExtensionNameSync(name),
+              versionRange,
+              force: false,
+              nonInteractive,
+            } satisfies Omit<McpServerInstallIntent, "sourceIdentity">)
+          : undefined,
+    });
+    if (resolution.kind !== "selected") return resolution;
+    const sourceIdentity = yield* settleMcpSourceIdentityFor(
+      graph,
+      resolution.intent.ref,
+      resolution.intent.localName,
+    ).pipe(
+      Effect.mapError(
+        (cause) =>
+          new ExtensionLifecycleFailed({
+            category: "conflict",
+            detail: workspaceFailureToStepFailure(cause).detail,
+            cause,
+          }),
+      ),
+    );
+    return {
+      ...resolution,
+      intent: { ...resolution.intent, sourceIdentity },
+    } satisfies ConfiguredUpdateResolution<McpServerInstallIntent>;
   });
 
 const preparePackRef = (
@@ -1082,6 +1105,7 @@ const collectMcpServerPlans = (
             : withinEffectiveConstraint(graph, "mcp-server", name, (effective) =>
                 collectResolvedPlan(
                   resolveMcpServerIntent(
+                    graph,
                     name,
                     entry.source,
                     selection.releaseAgeEvaluation,

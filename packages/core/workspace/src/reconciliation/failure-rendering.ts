@@ -183,7 +183,7 @@ export const workspaceFailureToStepFailure = (failure: WorkspaceFailure): StepFa
     case "SubagentDefinitionInvalid":
     case "SubagentContentUnreadable":
     case "McpInstallStateMissing":
-    case "McpLocalNameConflict":
+    case "McpConnectionConflict":
     case "McpCanonicalPathUnsafe":
     case "McpWorkspacePackageInvalid":
     case "McpRequiredInputsMissing":

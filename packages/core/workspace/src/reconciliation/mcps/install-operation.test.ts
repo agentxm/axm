@@ -44,6 +44,7 @@ import { WorkspaceReadTest } from "../../desired-state/testing.js";
 import {
   computeMaterializedTreeIntegrity,
   mcpRegistryResolutionKey,
+  mcpWorkspaceSourceKey,
   type McpServerLockEntry,
 } from "../../desired-state/index.js";
 import { makeCodingAgentStub } from "./test-helpers.js";
@@ -51,6 +52,7 @@ import type { McpSecretStoreService } from "../../materialization/index.js";
 import { McpSecretStore, mcpSecretAccount } from "../../materialization/index.js";
 import type { InstallMcpServerOperation } from "./install-operation.js";
 import { installMcpServer } from "./install-operation.js";
+import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 
 /**
  * A credential store that keeps what it is given, but refuses the one value
@@ -313,25 +315,43 @@ const makeOp = (
     inherited?: boolean;
     strictAgentSync?: boolean;
     env?: Readonly<Record<string, string>>;
+    sourceIdentity?: string;
   } = {},
-): InstallMcpServerOperation => ({
-  name: "install-mcp-server",
-  args: {
-    nonInteractive: true,
-    ref: overrides.ref ?? makeRegistryRef(),
-    force: overrides.force ?? false,
-    ...(overrides.inherited === true
-      ? {}
-      : {
-          declaration: {
-            name: (overrides.ref ?? makeRegistryRef()).server.name,
-            versionRange: overrides.versionRange ?? Option.none(),
-          },
-        }),
-    strictAgentSync: Option.fromUndefinedOr(overrides.strictAgentSync),
-    env: Option.fromUndefinedOr(overrides.env),
-  },
-});
+): InstallMcpServerOperation => {
+  const ref = overrides.ref ?? makeRegistryRef();
+  const sourceIdentity =
+    overrides.sourceIdentity ??
+    (ref.refType === "registry"
+      ? mcpRegistryResolutionKey({
+          authority: ref.source.location,
+          owner: ref.owner,
+          name: ref.server.name,
+        })
+      : ref.refType === "workspace"
+        ? mcpWorkspaceSourceKey(ref.owner, ref.server.name)
+        : ref.refType === "local"
+          ? ref.source.path
+          : printSourceParams(ref.source));
+  return {
+    name: "install-mcp-server",
+    args: {
+      nonInteractive: true,
+      ref,
+      sourceIdentity,
+      force: overrides.force ?? false,
+      ...(overrides.inherited === true
+        ? {}
+        : {
+            declaration: {
+              name: ref.server.name,
+              versionRange: overrides.versionRange ?? Option.none(),
+            },
+          }),
+      strictAgentSync: Option.fromUndefinedOr(overrides.strictAgentSync),
+      env: Option.fromUndefinedOr(overrides.env),
+    },
+  };
+};
 
 // -----------------------------------------------------------------------------
 // Tests
@@ -529,6 +549,7 @@ describe("installMcpServer", () => {
             const result = yield* installMcpServer(
               makeOp({
                 ref: makeRegistryRef({ integrity: "" }),
+                sourceIdentity: "settled-test-source",
                 env: {
                   PUBLIC_URL: "https://example.test",
                   API_TOKEN: token,
@@ -553,6 +574,18 @@ describe("installMcpServer", () => {
             expect([...secretStore.values.values()]).toEqual(
               token === "${API_TOKEN}" ? [] : [token],
             );
+            if (token !== "${API_TOKEN}") {
+              expect(
+                secretStore.values.get(
+                  mcpSecretAccount({
+                    scopeRoot: path.resolve(base),
+                    localName: "my-server",
+                    sourceIdentity: "settled-test-source",
+                    inputName: "API_TOKEN",
+                  }),
+                ),
+              ).toBe(token);
+            }
           }),
       );
     }

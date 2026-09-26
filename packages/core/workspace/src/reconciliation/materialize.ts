@@ -115,7 +115,11 @@ import {
   type SyncStepRequirements,
 } from "./plan.js";
 import type { SyncFailureAdapter, SyncPolicyFailure } from "./failure-adapter.js";
-import { desiredPackageKey, type DesiredNodeIdentity } from "../desired-state/index.js";
+import {
+  desiredMcpSourceKey,
+  desiredPackageKey,
+  type DesiredNodeIdentity,
+} from "../desired-state/index.js";
 
 export interface SyncSelection {
   readonly target: Option.Option<string>;
@@ -308,11 +312,13 @@ const subagentSyncArtifact = (args: {
  */
 const buildMcpServerSyncOperation = ({
   ref,
+  sourceIdentity,
   force,
   transitionLabel,
   adapter,
 }: {
   readonly ref: McpServerExtensionRef;
+  readonly sourceIdentity: string;
   readonly force: boolean;
   readonly transitionLabel: string;
   readonly adapter: SyncFailureAdapter;
@@ -332,6 +338,7 @@ const buildMcpServerSyncOperation = ({
       name: "install-mcp-server",
       args: {
         ref,
+        sourceIdentity,
         nonInteractive: true,
         force,
       },
@@ -707,8 +714,8 @@ export const collectMaterializeSteps = (args: {
         ),
       { concurrency: 16 },
     ).pipe(Effect.provideService(DesiredStateReader, phaseReader));
-    const reconciled = evaluated.flatMap(({ result }) =>
-      Result.isSuccess(result) ? [result.success] : [],
+    const reconciled = evaluated.flatMap(({ node, result }) =>
+      Result.isSuccess(result) ? [{ ...result.success, node }] : [],
     );
     // Refs that restore the accepted resolution the planning observation
     // judged, rather than a first resolution of the configured source.
@@ -743,7 +750,9 @@ export const collectMaterializeSteps = (args: {
     };
     const skillRefs: Array<Reconciled<SkillExtensionRef>> = [];
     const packRefs: Array<Reconciled<PackRef>> = [];
-    const mcpServerRefs: Array<Reconciled<McpServerExtensionRef>> = [];
+    const mcpServerRefs: Array<
+      Reconciled<McpServerExtensionRef> & { readonly sourceIdentity: string }
+    > = [];
     const subagentRefs: Array<Reconciled<SubagentExtensionRef>> = [];
     const ruleRefs: Array<Reconciled<RuleExtensionRef>> = [];
     const hookRefs: Array<Reconciled<HookExtensionRef>> = [];
@@ -762,6 +771,7 @@ export const collectMaterializeSteps = (args: {
         case "mcp-server":
           mcpServerRefs.push({
             ref: item.ref,
+            sourceIdentity: desiredMcpSourceKey(item.node.identity),
             force: item.force,
             materialize: item.materialize,
             transitionLabel: item.transitionLabel,
@@ -1037,9 +1047,15 @@ export const collectMaterializeSteps = (args: {
         ...skillSteps,
         ...mcpServerRefs
           .filter(({ materialize }) => materialize)
-          .map(({ ref, force, transitionLabel }) =>
+          .map(({ ref, sourceIdentity, force, transitionLabel }) =>
             desiredActivation(ref)
-              ? buildMcpServerSyncOperation({ ref, force, transitionLabel, adapter: args.adapter })
+              ? buildMcpServerSyncOperation({
+                  ref,
+                  sourceIdentity,
+                  force,
+                  transitionLabel,
+                  adapter: args.adapter,
+                })
               : buildMaterializeOperation(mcpManager, {
                   ref,
                   force,

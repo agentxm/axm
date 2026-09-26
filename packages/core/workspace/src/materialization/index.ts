@@ -74,13 +74,13 @@ export {
   McpAgentSyncRefused,
   McpCanonicalPathUnsafe,
   McpInstallStateMissing,
-  McpLocalNameConflict,
   McpRequiredInputsMissing,
   McpWorkspacePackageInvalid,
   type McpAgentSyncFault,
   type McpManagerError,
   type McpWorkspacePackageFault,
 } from "../mcp-connections/errors.js";
+export { McpConnectionConflict } from "../mcp-connections/lifecycle/domain/source-admission.js";
 export {
   SubagentContentUnreadable,
   SubagentDefinitionInvalid,

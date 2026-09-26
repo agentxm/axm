@@ -252,6 +252,7 @@ export interface KnowledgeInstallIntent {
 export interface McpServerInstallIntent {
   readonly ref: McpServerExtensionRef;
   readonly localName: ExtensionName;
+  readonly sourceIdentity: string;
   readonly versionRange: Option.Option<string>;
   readonly force: boolean;
   readonly nonInteractive: boolean;

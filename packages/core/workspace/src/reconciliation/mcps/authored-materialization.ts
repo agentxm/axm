@@ -16,6 +16,7 @@ import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/ex
 import type { McpServerMaterializationFacts } from "../../materialization/index.js";
 import type { ExtensionManagerFailure } from "../../materialization/index.js";
 import { installMcpServer, type McpServerInstallRequirements } from "./install-operation.js";
+import { requestedMcpSourceIdentity } from "../../mcp-connections/source-identity.js";
 
 /**
  * Realize the authored package's canonical content and native projections
@@ -31,13 +32,18 @@ export const materializeAuthoredMcpServer = (args: {
   ExtensionManagerFailure,
   McpServerInstallRequirements
 > =>
-  installMcpServer({
-    name: "install-mcp-server",
-    args: {
-      ref: args.ref,
-      nonInteractive: args.nonInteractive,
-      force: false,
-
-      env: Option.none(),
-    },
-  }).pipe(Effect.as(Option.none<McpServerMaterializationFacts>()));
+  requestedMcpSourceIdentity(args.ref).pipe(
+    Effect.flatMap((sourceIdentity) =>
+      installMcpServer({
+        name: "install-mcp-server",
+        args: {
+          ref: args.ref,
+          sourceIdentity,
+          nonInteractive: args.nonInteractive,
+          force: false,
+          env: Option.none(),
+        },
+      }),
+    ),
+    Effect.as(Option.none<McpServerMaterializationFacts>()),
+  );

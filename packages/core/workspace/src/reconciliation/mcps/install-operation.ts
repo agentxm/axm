@@ -31,11 +31,7 @@ import {
 } from "../../projection/agent-adapters/index.js";
 import type { McpServerSyncOutcome } from "../../projection/agent-adapters/index.js";
 import { CodingAgentRepository } from "../../projection/index.js";
-import {
-  desiredMcpSourceKey,
-  mcpRegistryResolutionKey,
-  mcpWorkspaceSourceKey,
-} from "../../desired-state/index.js";
+import { mcpRegistryResolutionKey } from "../../desired-state/index.js";
 import {
   isPathSafe,
   makeWorkspaceRelativeSourcePath,
@@ -96,7 +92,6 @@ import type { ExtensionManagerFailure } from "../../materialization/index.js";
 import {
   McpAgentSyncRefused,
   McpCanonicalPathUnsafe,
-  McpLocalNameConflict,
   McpRequiredInputsMissing,
   McpWorkspacePackageInvalid,
 } from "../../materialization/index.js";
@@ -115,6 +110,7 @@ import {
  */
 export type InstallMcpServerOperationArgs = {
   readonly ref: McpServerExtensionRef;
+  readonly sourceIdentity: string;
   /** Local connection identity and exact agent-native MCP key. */
   readonly localName?: string;
   readonly force: boolean;
@@ -513,48 +509,8 @@ export const installMcpServer: (
             name: ref.server.name,
           })
         : undefined;
-    const requestedSourceIdentity =
-      resolutionKey ??
-      (ref.refType === "workspace"
-        ? mcpWorkspaceSourceKey(ref.owner, ref.server.name)
-        : ref.refType === "local"
-          ? Option.getOrElse(
-              makeWorkspaceRelativeSourcePath(
-                path,
-                location.baseDir,
-                fromFileLocation(ref.location),
-              ),
-              () => ref.source.path,
-            )
-          : printSourceParams(ref.source));
     const desiredGraph = yield* desiredStateReader.graph();
-    const existingLocalNode = desiredGraph.nodes.find(
-      (node) => node.type === "mcp-server" && node.name === localName,
-    );
-    // A local source is one source however it is spelled: the connection
-    // keeps the key the existing declaration already carries.
-    const sourceIdentity =
-      ref.refType === "local" &&
-      existingLocalNode !== undefined &&
-      existingLocalNode.identity.authority === "path" &&
-      path.resolve(location.baseDir, existingLocalNode.identity.locator) ===
-        path.resolve(fromFileLocation(ref.location))
-        ? desiredMcpSourceKey(existingLocalNode.identity)
-        : requestedSourceIdentity;
-    if (
-      existingLocalNode !== undefined &&
-      (existingLocalNode.authority === "inline" ||
-        desiredMcpSourceKey(existingLocalNode.identity) !== sourceIdentity)
-    ) {
-      return yield* new McpLocalNameConflict({
-        localName,
-        requestedIdentity: sourceIdentity,
-        owningIdentity:
-          existingLocalNode.authority === "inline"
-            ? "inline"
-            : desiredMcpSourceKey(existingLocalNode.identity),
-      });
-    }
+    const sourceIdentity = op.args.sourceIdentity;
     const existingClosure = desiredGraph.mcpSourceClosures.find(
       (closure) => closure.key === sourceIdentity,
     );
@@ -672,7 +628,9 @@ export const installMcpServer: (
             });
     const currentMcpServers = yield* settings.entries("mcp-server");
     const currentEntry = currentMcpServers[localName];
-    const installedBefore = existingLocalNode !== undefined || currentEntry !== undefined;
+    const installedBefore =
+      desiredGraph.nodes.some((node) => node.type === "mcp-server" && node.name === localName) ||
+      currentEntry !== undefined;
     const secretIdentity = {
       scopeRoot: path.resolve(location.baseDir),
       localName,

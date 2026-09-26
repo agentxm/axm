@@ -13,22 +13,11 @@
 import * as Data from "effect/Data";
 import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import type { McpInspectionError } from "../projection/index.js";
+import type { McpConnectionConflict } from "./lifecycle/domain/source-admission.js";
 
 /** A lock entry was requested before install recorded the package state. */
 export class McpInstallStateMissing extends Data.TaggedError("McpInstallStateMissing")<{
   readonly name: string;
-}> {}
-
-/**
- * The requested local connection name already stands for a different source,
- * so accepting the request would silently repoint an installed connection.
- */
-export class McpLocalNameConflict extends Data.TaggedError("McpLocalNameConflict")<{
-  readonly localName: string;
-  /** Source identity the request would install. */
-  readonly requestedIdentity: string;
-  /** Source identity the name already stands for, or `inline` for an authored entry. */
-  readonly owningIdentity: string;
 }> {}
 
 /** The canonical path a registry MCP package would occupy escapes the workspace. */
@@ -77,7 +66,7 @@ export class McpAgentSyncRefused extends Data.TaggedError("McpAgentSyncRefused")
 export type McpManagerError =
   | McpInspectionError
   | McpInstallStateMissing
-  | McpLocalNameConflict
+  | McpConnectionConflict
   | McpCanonicalPathUnsafe
   | McpWorkspacePackageInvalid
   | McpRequiredInputsMissing

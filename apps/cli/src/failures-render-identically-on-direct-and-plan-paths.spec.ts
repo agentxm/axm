@@ -105,7 +105,7 @@ import {
   McpAgentSyncRefused,
   McpCanonicalPathUnsafe,
   McpInstallStateMissing,
-  McpLocalNameConflict,
+  McpConnectionConflict,
   McpRequiredInputsMissing,
   McpWorkspacePackageInvalid,
   PackArchiveFetchFailed,
@@ -483,8 +483,8 @@ const representatives: Representatives = {
     }),
   ],
   McpInstallStateMissing: [new McpInstallStateMissing({ name: "demo" })],
-  McpLocalNameConflict: [
-    new McpLocalNameConflict({
+  McpConnectionConflict: [
+    new McpConnectionConflict({
       localName: "demo",
       requestedIdentity: "@a/mcps/demo",
       owningIdentity: "@b/mcps/demo",

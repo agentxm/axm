@@ -42,10 +42,10 @@ import type {
   McpAgentSyncRefused,
   McpCanonicalPathUnsafe,
   McpInstallStateMissing,
-  McpLocalNameConflict,
   McpRequiredInputsMissing,
   McpWorkspacePackageInvalid,
 } from "../mcp-connections/errors.js";
+import type { McpConnectionConflict } from "../mcp-connections/lifecycle/domain/source-admission.js";
 import type {
   PackArchiveFetchFailed,
   PackDefinitionInvalid,
@@ -71,7 +71,7 @@ export type MaterializationFamilyFailure =
   | SubagentDefinitionInvalid
   | SubagentContentUnreadable
   | McpInstallStateMissing
-  | McpLocalNameConflict
+  | McpConnectionConflict
   | McpCanonicalPathUnsafe
   | McpWorkspacePackageInvalid
   | McpRequiredInputsMissing
@@ -207,7 +207,7 @@ export const materializationFailureToStepFailure = (
         category: "internal",
         detail: `Installed files for MCP server ${error.name} could not be verified`,
       });
-    case "McpLocalNameConflict":
+    case "McpConnectionConflict":
       return makeStepFailure({
         category: "conflict",
         detail: `Local MCP name "${error.localName}" is already owned by a different source`,

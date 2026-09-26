@@ -1,18 +1,11 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 
-import type { ConfiguredRecordRow } from "../../desired-state/index.js";
+import { configuredRow } from "../../desired-state/testing.js";
 
 import { resolveConfiguredPackSelector } from "./configured-pack-selector.js";
 
-const pack = (name: string, source: string): ConfiguredRecordRow => ({
-  type: "pack",
-  name,
-  source,
-  enabled: true,
-  packagingKind: "native",
-  lifecycle: "configured",
-});
+const pack = (name: string, source: string) => configuredRow({ type: "pack", name, source });
 
 describe("resolveConfiguredPackSelector", () => {
   const configured = [

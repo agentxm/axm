@@ -167,12 +167,11 @@ export {
   unmanagedRecordRows,
   unmanagedRowsByName,
   type ConfiguredRecordRow,
-  type ImplicitRecordRow,
   type InstalledRecordRow,
   type UnmanagedRecordRow,
-} from "./workspace/read-model-record-rows.js";
-
-export type { ReadModelRecordRow, PackagingKind } from "./workspace/read-model-record-types.js";
+  WorkspaceRecordRowSchema,
+  type WorkspaceRecordRow,
+} from "./workspace/read-model/records.js";
 
 export {
   buildDesiredStateGraph,
@@ -282,8 +281,6 @@ export {
   type LockEntrySourceLookupError,
   type LockEntryToRefError,
 } from "./workspace/lock-entry.js";
-// Source metadata
-export { deriveSourceMetaFromLockType, type SourceMeta } from "./workspace/source-metadata.js";
 export {
   mcpRegistryResolutionKey,
   mcpResolutionKey,
@@ -316,10 +313,7 @@ export {
   type ExtensionInventory,
   type ExtensionInventoryClassification,
   type ExtensionInventoryLifecycle,
-  type ExtensionInventoryObservation,
   type ExtensionInventoryRow,
-  type LifecycleInventoryCandidate,
-  type ProjectExtensionInventoryInput,
 } from "./workspace/read-model/extensions/inventory.js";
 export {
   getPriorityDirectories,

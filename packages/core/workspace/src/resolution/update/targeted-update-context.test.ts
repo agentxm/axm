@@ -1,12 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { UNCONSTRAINED_DESIRED_NODE } from "../../desired-state/index.js";
-import { desiredConstraintOf } from "../../desired-state/testing.js";
-import type {
-  ConfiguredRecordRow,
-  DesiredExtensionNode,
-  DesiredStateGraph,
-} from "../../desired-state/index.js";
+import { configuredRow, desiredConstraintOf } from "../../desired-state/testing.js";
+import type { DesiredExtensionNode, DesiredStateGraph } from "../../desired-state/index.js";
 
 import {
   decodeVersionRangeSync,
@@ -22,14 +18,8 @@ const target = {
   fqn: "@acme/skills/review",
 };
 
-const configuredPack = (name: string, source: string): ConfiguredRecordRow => ({
-  type: "pack",
-  name,
-  source,
-  enabled: true,
-  packagingKind: "native",
-  lifecycle: "configured",
-});
+const configuredPack = (name: string, source: string) =>
+  configuredRow({ type: "pack", name, source });
 
 const graph = (
   nodes: ReadonlyArray<DesiredExtensionNode>,

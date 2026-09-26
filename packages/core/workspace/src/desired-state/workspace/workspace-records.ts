@@ -1,46 +1,49 @@
-/**
- * Workspace records: the read model's inventory and lifecycle-tagged rows
- * for every installable extension type, over the selected scope.
- *
- * @experimental This API is unstable and may change without notice.
- */
+/** Inventory and lifecycle rows for the selected workspace scope. */
 
 import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
-
-import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
+import { isWithinOrEqual } from "@agentxm/extension-model/unstable/path-types";
+import {
+  installableExtensionTypes,
+  type InstallableExtensionType,
+} from "@agentxm/extension-model/unstable/extensions/installable-types";
+import { createDefaultSettings } from "../settings/index.js";
+import { configuredAgentLifecycleOutcomes } from "./configured-agent-outcomes.js";
+import type { WorkspaceStateReadFailure } from "./contracts.js";
+import { packMemberBindings } from "./desired-pack-members.js";
 import { DesiredStateReader, type DesiredStateReaderService } from "./desired-state-reader.js";
+import { observeInstallRoot } from "./install-root.js";
 import { WorkspaceLocation, type WorkspaceLocationService } from "./location.js";
 import { LockfileReader, type LockfileReaderService } from "./lockfile-reader.js";
-import { observeInstallRoot } from "./install-root.js";
-import type { ExtensionInventory } from "./read-model/extensions/inventory.js";
-import { makeReadModelRecordReaders } from "./read-model-record-readers.js";
-import type { ReadModelRecordRow } from "./read-model-record-types.js";
-import type { WorkspaceStateReadFailure } from "./contracts.js";
+import {
+  countExtensionInventory,
+  isDesiredInventoryLifecycle,
+  projectExtensionInventory,
+  type ExtensionInventory,
+} from "./read-model/extensions/inventory.js";
+import { projectWorkspaceRecords, type WorkspaceRecordRow } from "./read-model/records.js";
+import type { LockfileReadError, SettingsReadError } from "./read-model/errors.js";
 import { readScopedModel } from "./state-cells.js";
 
 type Read<A> = Effect.Effect<A, WorkspaceStateReadFailure, FileSystem.FileSystem | Path.Path>;
 
 export interface WorkspaceRecordsService {
-  /** Deterministic inventory across every installable extension type or one selected type. */
+  /** Inventory across every installable extension type, or one selected type. */
   readonly getInventory: (options: {
     readonly type?: InstallableExtensionType;
   }) => Read<ExtensionInventory>;
-  /** Read-only physical inventory for one extension type. */
+  /** Physical inventory with configured-agent outcomes overlaid. */
   readonly getExtensionInventory: (
     type: InstallableExtensionType,
     options: { readonly agents?: ReadonlyArray<string> },
   ) => Read<ExtensionInventory>;
-  /**
-   * Every read-model row for one extension type, tagged with its lifecycle
-   * (`configured` / `implicit` / `unmanaged`). Total over
-   * `InstallableExtensionType` and non-throwing.
-   */
-  readonly rows: (type: InstallableExtensionType) => Read<ReadonlyArray<ReadModelRecordRow>>;
+  /** Lifecycle records without configured-agent outcomes. */
+  readonly rows: (type: InstallableExtensionType) => Read<ReadonlyArray<WorkspaceRecordRow>>;
 }
 
 export class WorkspaceRecords extends ServiceMap.Service<
@@ -53,13 +56,13 @@ export const makeWorkspaceRecords = (
   desiredState: DesiredStateReaderService,
   locks: Pick<LockfileReaderService, "entries">,
 ): WorkspaceRecordsService => {
-  // The record readers take the platform path service and scoped reads with
-  // the platform already discharged; bind both at each call so `FileSystem`
-  // and `Path` stay requirements of every member rather than captures.
-  const withReaders = <A>(
-    use: (
-      readers: ReturnType<typeof makeReadModelRecordReaders>,
-    ) => Effect.Effect<A, WorkspaceStateReadFailure>,
+  const withScoped = <A>(
+    use: (context: {
+      readonly configuredAgents: ReadonlyArray<string>;
+      readonly project: (
+        type: InstallableExtensionType,
+      ) => Effect.Effect<ReadonlyArray<WorkspaceRecordRow>, SettingsReadError | LockfileReadError>;
+    }) => Effect.Effect<A, SettingsReadError | LockfileReadError>,
   ): Read<A> =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
@@ -72,21 +75,72 @@ export const makeWorkspaceRecords = (
       const graph = yield* provide(desiredState.graph());
       const layout = yield* Ref.get(location.layout);
       const installRoot = yield* provide(observeInstallRoot({ layout, graph, locks }));
-      const readers = makeReadModelRecordReaders({
-        baseDir: location.baseDir,
-        scope: location.scope,
-        path,
-        readScopedContext: (f) => provide(readScopedModel(location, location.runtimeDir, f)),
-        getDesiredStateGraph: () => Effect.succeed(graph),
-        installRoot,
-      });
-      return yield* use(readers);
+      return yield* provide(
+        readScopedModel(location, location.runtimeDir, (scoped) =>
+          Effect.gen(function* () {
+            const settings = Option.getOrElse(yield* scoped.state.settings, () =>
+              createDefaultSettings(),
+            );
+            const configuredAgents = settings.agents ?? [];
+            const project = (type: InstallableExtensionType) =>
+              projectWorkspaceRecords(scoped, type, {
+                bindings: packMemberBindings(graph, location.scope, type),
+                installRoot,
+                configuredAgents,
+                relative: (absolute) => path.relative(location.baseDir, absolute),
+                isWithin: (root, target) => isWithinOrEqual(path, root, target),
+              });
+            return yield* use({ configuredAgents, project });
+          }),
+        ),
+      );
     });
+
+  const inventoryFor = (
+    rows: ReadonlyArray<WorkspaceRecordRow>,
+    configuredAgents: ReadonlyArray<string>,
+    agents?: ReadonlyArray<string>,
+  ) =>
+    projectExtensionInventory(rows, {
+      outcomes: (row) =>
+        isDesiredInventoryLifecycle(row.classification.lifecycle)
+          ? configuredAgentLifecycleOutcomes({
+              type: row.type,
+              name: row.name,
+              agentIds: configuredAgents,
+              scope: row.scope,
+              state: "current",
+              targetState: row.enabled === false ? "disabled" : "enabled",
+              installed: row.installed,
+              observedAgentIds: row.agents,
+            })
+          : [],
+      ...(agents === undefined ? {} : { agents }),
+    });
+
   return {
-    getInventory: (options) => withReaders((readers) => readers.getInventory(options)),
+    rows: (type) => withScoped(({ project }) => project(type)),
     getExtensionInventory: (type, options) =>
-      withReaders((readers) => readers.getExtensionInventory(type, options)),
-    rows: (type) => withReaders((readers) => readers.getReadModelRecordRows(type)),
+      withScoped(({ project, configuredAgents }) =>
+        project(type).pipe(
+          Effect.map((rows) => inventoryFor(rows, configuredAgents, options.agents)),
+        ),
+      ),
+    getInventory: (options) =>
+      withScoped(({ project, configuredAgents }) =>
+        Effect.gen(function* () {
+          const types = options.type === undefined ? installableExtensionTypes : [options.type];
+          const groups = yield* Effect.forEach(types, project);
+          const items = groups
+            .flatMap((rows) => inventoryFor(rows, configuredAgents).items)
+            .sort((left, right) =>
+              left.type === right.type
+                ? left.name.localeCompare(right.name)
+                : left.type.localeCompare(right.type),
+            );
+          return countExtensionInventory(items);
+        }),
+      ),
   };
 };
 

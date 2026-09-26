@@ -26,7 +26,7 @@ import type {
   SubagentLockEntry,
 } from "../lockfile/index.js";
 import type { SourceHostConfig } from "../settings/index.js";
-import type { ReadModelRecordRow } from "./read-model-record-types.js";
+import type { WorkspaceRecordRow } from "./read-model/records.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { ExtensionInventory } from "./read-model/extensions/inventory.js";
 import type { AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
@@ -139,15 +139,15 @@ export interface WorkspaceReadModelRecords {
   ) => Effect.Effect<ExtensionInventory, WorkspaceStateReadFailure>;
   /**
    * Every read-model row for one extension type, tagged with its lifecycle
-   * (`configured` / `implicit` / `unmanaged`).
+   * (`configured` / `implicit` / `leftover` / `undeclared` / `unmanaged`).
    *
    * Total over `InstallableExtensionType` and non-throwing: a type whose
    * workspace has no entries yields an empty array. Narrow with the helpers in
-   * `read-model-record-rows.ts` rather than adding a per-type accessor.
+   * `read-model/records.ts` rather than adding a per-type accessor.
    */
   readonly rows: (
     type: InstallableExtensionType,
-  ) => Effect.Effect<ReadonlyArray<ReadModelRecordRow>, WorkspaceStateReadFailure>;
+  ) => Effect.Effect<ReadonlyArray<WorkspaceRecordRow>, WorkspaceStateReadFailure>;
 }
 
 // ---------------------------------------------------------------------------

@@ -540,7 +540,7 @@ describe("Activation follows desired state", () => {
             // The graph, the records, and the command agree the member is off,
             // so enabling it is a change rather than something already true.
             expect((yield* records.rows(type)).find((row) => row.name === name)).toMatchObject({
-              lifecycle: "implicit",
+              classification: { lifecycle: "implicit" },
               enabled: false,
             });
 
@@ -551,7 +551,7 @@ describe("Activation follows desired state", () => {
               graph.nodes.find((node) => node.type === type && node.name === name)?.enabled,
             ).toBe(true);
             expect((yield* records.rows(type)).find((row) => row.name === name)).toMatchObject({
-              lifecycle: "implicit",
+              classification: { lifecycle: "implicit" },
               enabled: true,
             });
             expect(workspace.exists(surface)).toBe(true);

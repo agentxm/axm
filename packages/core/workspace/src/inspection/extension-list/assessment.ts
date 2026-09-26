@@ -21,7 +21,7 @@ import { lockEntryToSourceParams } from "../../desired-state/index.js";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { LockEntry } from "../../desired-state/index.js";
 import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
-import type { ExtensionInventoryLifecycle, ReadModelRecordRow } from "../../desired-state/index.js";
+import type { ExtensionInventoryLifecycle, WorkspaceRecordRow } from "../../desired-state/index.js";
 import {
   DesiredStateReader,
   desiredStateProblemText,
@@ -83,12 +83,7 @@ const isRegistryAcceptedEntry = (entry: AcceptedEntry): entry is RegistryAccepte
 const isGitAcceptedEntry = (entry: AcceptedEntry): entry is GitAcceptedEntry =>
   entry.source.type === "git";
 
-const recordSource = (row: ReadModelRecordRow | undefined): string | undefined => {
-  if (row === undefined) return undefined;
-  const source = row.source;
-  if (source === undefined) return undefined;
-  return typeof source === "string" ? source : Option.getOrUndefined(source);
-};
+const recordSource = (row: WorkspaceRecordRow | undefined): string | undefined => row?.source;
 
 const inventoryKey = (type: string, name: string): string => `${type}:${name}`;
 
@@ -98,7 +93,7 @@ export const collectExtensionListItems = Effect.fn("Workspace.collectExtensionLi
     const records = yield* WorkspaceRecords;
     const inventory = yield* records.getInventory(type === undefined ? {} : { type });
     const types = type === undefined ? installableExtensionTypes : [type];
-    const rowsByKey = new Map<string, ReadModelRecordRow>();
+    const rowsByKey = new Map<string, WorkspaceRecordRow>();
     const rowsByType = yield* Effect.forEach(types, (itemType) => records.rows(itemType), {
       // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed installable extension-type catalog
       concurrency: "unbounded",

@@ -1,51 +1,20 @@
 import * as Schema from "effect/Schema";
-import { ExtensionTypeSchema } from "@agentxm/extension-model/unstable/extensions/common";
 import {
   ConfiguredAgentOutcomeSchema,
   type ConfiguredAgentOutcome,
 } from "../../configured-agent-outcome.js";
-import type { ExtensionKey } from "../types.js";
-
-/**
- * How desired state explains one detected extension.
- *
- * - `configured` — declared directly in workspace settings.
- * - `implicit` — reached indirectly, such as through a desired Pack.
- * - `leftover` — an installed package in the install root that desired state
- *   no longer reaches.
- * - `undeclared` — an authored package in its standard authoring folder with no
- *   workspace declaration.
- * - `unmanaged` — native agent content AXM does not own.
- */
-export const ExtensionInventoryLifecycleSchema = Schema.Literals([
-  "configured",
-  "implicit",
-  "leftover",
-  "undeclared",
-  "unmanaged",
-]);
-
-export type ExtensionInventoryLifecycle = typeof ExtensionInventoryLifecycleSchema.Type;
-
-export const ExtensionInventoryClassificationSchema = Schema.Struct({
-  kind: Schema.Literal("lifecycle"),
-  lifecycle: ExtensionInventoryLifecycleSchema,
-});
-
-export type ExtensionInventoryClassification = typeof ExtensionInventoryClassificationSchema.Type;
+import { WorkspaceRecordRowSchema, type WorkspaceRecordRow } from "../records.js";
+import type { ExtensionInventoryLifecycle } from "../records.js";
+export {
+  ExtensionInventoryLifecycleSchema,
+  ExtensionInventoryClassificationSchema,
+  type ExtensionInventoryLifecycle,
+  type ExtensionInventoryClassification,
+} from "../records.js";
 
 export const ExtensionInventoryRowSchema = Schema.Struct({
-  scope: Schema.Literals(["project", "user"]),
-  type: ExtensionTypeSchema,
-  name: Schema.String,
-  classification: ExtensionInventoryClassificationSchema,
-  enabled: Schema.NullOr(Schema.Boolean),
-  installed: Schema.Boolean,
-  agents: Schema.Array(Schema.String),
+  ...WorkspaceRecordRowSchema.fields,
   agentOutcomes: Schema.Array(ConfiguredAgentOutcomeSchema),
-  origins: Schema.Array(Schema.String),
-  paths: Schema.Array(Schema.String),
-  source: Schema.optionalKey(Schema.String),
   version: Schema.optionalKey(Schema.String),
   owner: Schema.optionalKey(Schema.String),
   transport: Schema.optionalKey(Schema.String),
@@ -69,44 +38,6 @@ export const ExtensionInventorySchema = Schema.Struct({
 
 export type ExtensionInventory = typeof ExtensionInventorySchema.Type;
 
-export interface ExtensionInventoryObservation {
-  readonly agents?: ReadonlyArray<string>;
-  readonly origins?: ReadonlyArray<string>;
-  readonly paths?: ReadonlyArray<string>;
-}
-
-export interface LifecycleInventoryCandidate extends ExtensionInventoryObservation {
-  readonly key: ExtensionKey;
-  readonly lifecycle: ExtensionInventoryLifecycle;
-  readonly enabled: boolean | null;
-  readonly installed: boolean;
-  readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
-}
-
-export interface ProjectExtensionInventoryInput {
-  readonly lifecycle: ReadonlyArray<LifecycleInventoryCandidate>;
-  readonly agents?: ReadonlyArray<string>;
-}
-
-interface MutableInventoryAggregate {
-  readonly key: ExtensionKey;
-  lifecycle: ExtensionInventoryLifecycle;
-  enabled: boolean | null;
-  installed: boolean;
-  readonly agents: Set<string>;
-  readonly agentOutcomes: Map<string, ConfiguredAgentOutcome>;
-  readonly origins: Set<string>;
-  readonly paths: Set<string>;
-}
-
-const lifecyclePriority: Readonly<Record<ExtensionInventoryLifecycle, number>> = {
-  configured: 0,
-  implicit: 1,
-  leftover: 2,
-  undeclared: 3,
-  unmanaged: 4,
-};
-
 /** Whether desired state reaches rows with this lifecycle. */
 export const isDesiredInventoryLifecycle = (lifecycle: ExtensionInventoryLifecycle): boolean =>
   lifecycle === "configured" || lifecycle === "implicit";
@@ -129,76 +60,28 @@ export const countExtensionInventory = (
   };
 };
 
-const keyString = (key: ExtensionKey): string => `${key.scope}:${key.type}:${key.name}`;
-
-const addAll = (target: Set<string>, values: ReadonlyArray<string> | undefined): void => {
-  for (const value of values ?? []) target.add(value);
-};
-
-const sorted = (values: ReadonlySet<string>): ReadonlyArray<string> =>
-  Array.from(values).sort((left, right) => left.localeCompare(right));
-
-const matchesAgentFilter = (
-  agents: ReadonlyArray<string>,
-  filter: ReadonlyArray<string>,
-): boolean => filter.length === 0 || filter.some((agent) => agents.includes(agent));
-
 export const projectExtensionInventory = (
-  input: ProjectExtensionInventoryInput,
+  rows: ReadonlyArray<WorkspaceRecordRow>,
+  overlay: {
+    readonly outcomes: (row: WorkspaceRecordRow) => ReadonlyArray<ConfiguredAgentOutcome>;
+    readonly agents?: ReadonlyArray<string>;
+  },
 ): ExtensionInventory => {
-  const lifecycleByKey = new Map<string, MutableInventoryAggregate>();
-  for (const candidate of input.lifecycle) {
-    const candidateKey = keyString(candidate.key);
-    const existing = lifecycleByKey.get(candidateKey);
-    if (existing === undefined) {
-      const aggregate: MutableInventoryAggregate = {
-        key: candidate.key,
-        lifecycle: candidate.lifecycle,
-        enabled: candidate.enabled,
-        installed: candidate.installed,
-        agents: new Set(candidate.agents ?? []),
-        agentOutcomes: new Map(
-          (candidate.agentOutcomes ?? []).map((outcome) => [outcome.agentId, outcome]),
-        ),
-        origins: new Set(candidate.origins ?? []),
-        paths: new Set(candidate.paths ?? []),
-      };
-      lifecycleByKey.set(candidateKey, aggregate);
-      continue;
-    }
-
-    if (lifecyclePriority[candidate.lifecycle] < lifecyclePriority[existing.lifecycle]) {
-      existing.lifecycle = candidate.lifecycle;
-      existing.enabled = candidate.enabled;
-    }
-    existing.installed = existing.installed || candidate.installed;
-    addAll(existing.agents, candidate.agents);
-    for (const outcome of candidate.agentOutcomes ?? []) {
-      existing.agentOutcomes.set(outcome.agentId, outcome);
-    }
-    addAll(existing.origins, candidate.origins);
-    addAll(existing.paths, candidate.paths);
-  }
-
-  const agentFilter = input.agents ?? [];
-  const lifecycleRows = Array.from(lifecycleByKey.entries())
-    .filter(([, aggregate]) => matchesAgentFilter(sorted(aggregate.agents), agentFilter))
-    .map(([, aggregate]): ExtensionInventoryRow => ({
-      scope: aggregate.key.scope,
-      type: aggregate.key.type,
-      name: aggregate.key.name,
-      classification: { kind: "lifecycle", lifecycle: aggregate.lifecycle },
-      enabled: aggregate.enabled,
-      installed: aggregate.installed,
-      agents: sorted(aggregate.agents),
-      agentOutcomes: Array.from(aggregate.agentOutcomes.values()).sort((left, right) =>
-        left.agentId.localeCompare(right.agentId),
-      ),
-      origins: sorted(aggregate.origins),
-      paths: sorted(aggregate.paths),
-    }));
-
+  const filter = overlay.agents ?? [];
   return countExtensionInventory(
-    lifecycleRows.sort((left, right) => left.name.localeCompare(right.name)),
+    rows
+      .map((row) => ({
+        ...row,
+        agentOutcomes: overlay.outcomes(row),
+      }))
+      .filter(
+        (row) =>
+          filter.length === 0 ||
+          filter.some(
+            (agent) =>
+              row.agents.includes(agent) ||
+              row.agentOutcomes.some((outcome) => outcome.agentId === agent),
+          ),
+      ),
   );
 };

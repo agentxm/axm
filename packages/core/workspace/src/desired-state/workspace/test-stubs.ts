@@ -30,7 +30,7 @@ export const desiredConstraintOf = (
     { extensionType: "skill", name: "test" },
     ranges.map((range) => ({ source: "settings", range, location: "axm.json" })),
   );
-import type { ReadModelRecordRow, PackagingKind } from "./read-model-record-types.js";
+import type { ConfiguredRecordRow, WorkspaceRecordRow } from "./read-model/records.js";
 import type {
   WorkspaceLockfileReadFailure,
   WorkspaceSettingsReadFailure,
@@ -63,7 +63,7 @@ import {
   type Version,
 } from "@agentxm/extension-model/unstable/version-constraints";
 
-const emptyRows = (): Effect.Effect<ReadonlyArray<ReadModelRecordRow>, WorkspaceStateReadFailure> =>
+const emptyRows = (): Effect.Effect<ReadonlyArray<WorkspaceRecordRow>, WorkspaceStateReadFailure> =>
   Effect.succeed([]);
 const emptyInventory = (): Effect.Effect<ExtensionInventory, WorkspaceStateReadFailure> =>
   Effect.succeed({
@@ -101,14 +101,17 @@ export const configuredRow = (args: {
   readonly name: string;
   readonly source: string;
   readonly enabled?: boolean;
-  readonly packagingKind?: PackagingKind;
-}): ReadModelRecordRow => ({
+}): ConfiguredRecordRow => ({
+  scope: "project",
   type: args.type,
   name: args.name,
   source: args.source,
   enabled: args.enabled ?? true,
-  packagingKind: args.packagingKind ?? "native",
-  lifecycle: "configured",
+  installed: true,
+  agents: [],
+  origins: [],
+  paths: [],
+  classification: { kind: "lifecycle", lifecycle: "configured" },
 });
 
 /** Build an `implicit` read-model row (pack member or lockfile-only entry). */
@@ -116,32 +119,34 @@ export const implicitRow = (args: {
   readonly type: InstallableExtensionType;
   readonly name: string;
   readonly source?: string;
-  readonly packagingKind?: PackagingKind;
-}): ReadModelRecordRow => ({
+}): WorkspaceRecordRow => ({
+  scope: "project",
   type: args.type,
   name: args.name,
-  source: Option.fromUndefinedOr(args.source),
+  ...(args.source === undefined ? {} : { source: args.source }),
   enabled: true,
-  packagingKind: args.packagingKind ?? "native",
-  lifecycle: "implicit",
+  installed: true,
+  agents: [],
+  origins: [],
+  paths: [],
+  classification: { kind: "lifecycle", lifecycle: "implicit" },
 });
 
 /** Build an `unmanaged` read-model row (observed on disk, unclaimed). */
 export const unmanagedRow = (args: {
   readonly type: InstallableExtensionType;
   readonly name: string;
-  readonly locations?: ReadonlyArray<string>;
-  readonly packagingKind?: PackagingKind;
-}): ReadModelRecordRow => ({
+  readonly paths?: ReadonlyArray<string>;
+}): WorkspaceRecordRow => ({
+  scope: "project",
   type: args.type,
   name: args.name,
-  source: Option.none(),
-  enabled: true,
-  packagingKind: args.packagingKind ?? "non-native",
-  locations: args.locations ?? [],
+  enabled: null,
+  installed: true,
+  paths: args.paths ?? [],
   agents: [],
-  ownershipEvidence: [],
-  lifecycle: "unmanaged",
+  origins: [],
+  classification: { kind: "lifecycle", lifecycle: "unmanaged" },
 });
 
 /**
@@ -149,10 +154,10 @@ export const unmanagedRow = (args: {
  * map yield an empty array, matching the real reader's totality.
  */
 export const rowsFor =
-  (byType: Partial<Record<InstallableExtensionType, ReadonlyArray<ReadModelRecordRow>>>) =>
+  (byType: Partial<Record<InstallableExtensionType, ReadonlyArray<WorkspaceRecordRow>>>) =>
   (
     type: InstallableExtensionType,
-  ): Effect.Effect<ReadonlyArray<ReadModelRecordRow>, WorkspaceStateReadFailure> =>
+  ): Effect.Effect<ReadonlyArray<WorkspaceRecordRow>, WorkspaceStateReadFailure> =>
     Effect.succeed(byType[type] ?? []);
 
 /** No-op stubs for read-model record getters. */

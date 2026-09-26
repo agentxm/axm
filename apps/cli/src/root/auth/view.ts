@@ -3,7 +3,6 @@ import type {
   DeviceLoginPendingResult,
   HumanHandoff,
 } from "@agentxm/registry-access/authentication";
-import { handoffUrl } from "@agentxm/registry-access/authentication";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 import type { Doc, Span, WaitView } from "../../screen/index.js";
@@ -99,16 +98,6 @@ export const loginSuccessSuggestions = [
   },
 ] satisfies ReadonlyArray<SuggestedAction>;
 
-/**
- * The security wording a one-time code always carries. A person who did not
- * start this sign-in is the case it exists for, so it is never abbreviated
- * and never left to a link.
- */
-const DEVICE_CODE_WARNINGS = [
-  "Only continue if you started this sign-in with AXM.",
-  "Never enter a code that another person or website gave you. If that happened, cancel.",
-] as const;
-
 /** A value a person copies out of the terminal: never wrapped, split, or cut. */
 const copyable = (label: string, value: string): ReadonlyArray<Span> => [
   { text: `${label}: ` },
@@ -126,19 +115,7 @@ const handoffBrief = (handoff: HumanHandoff): Doc => {
       return [
         { _tag: "paragraph", text: "Sign in to AgentXM.ai with a one-time code." },
         { _tag: "paragraph", text: copyable("One-time code", handoff.userCode) },
-        ...(handoff.copiedToClipboard
-          ? [
-              {
-                _tag: "paragraph",
-                tone: "dim",
-                text: "The code was copied to your clipboard.",
-              } as const,
-            ]
-          : []),
         { _tag: "next", actions: deviceHandoffActions(handoff) },
-        ...DEVICE_CODE_WARNINGS.map(
-          (warning) => ({ _tag: "paragraph", tone: "warn", text: warning }) as const,
-        ),
       ];
     case "LoopbackLogin":
       return [
@@ -230,13 +207,9 @@ export const handoffWaitView = (handoff: HumanHandoff): WaitView => ({
   expiresAtMs: handoff.expiresAtMs,
 });
 
-/** What `c` copies while one handoff's wait stands open. */
-export const handoffCopyValue = (handoff: HumanHandoff): string =>
-  handoff._tag === "DeviceLogin" ? handoff.userCode : handoffUrl(handoff);
-
 /**
  * The guidance a sign-in nothing will wait on still owes a person: the same
- * code, links, and warnings the wait would have shown.
+ * code and links the wait would have shown.
  */
 export const pendingHandoffBrief = (result: DeviceLoginPendingResult): Doc =>
   handoffBrief({
@@ -247,7 +220,6 @@ export const pendingHandoffBrief = (result: DeviceLoginPendingResult): Doc =>
     userCode: result.userCode,
     expiresAtMs: Date.parse(result.expiresAt),
     browserOpened: false,
-    copiedToClipboard: false,
   });
 
 /**

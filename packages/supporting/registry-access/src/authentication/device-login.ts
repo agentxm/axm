@@ -118,8 +118,8 @@ export interface ResumeDeviceLoginOptions {
   readonly timeoutSeconds?: number;
   /**
    * What the invocation that started this sign-in already did for the person,
-   * so the wait says whether a browser is open and the code is on the
-   * clipboard. A resume of an earlier invocation did neither.
+   * so the wait says whether a browser is open. A resume of an earlier
+   * invocation opened none.
    */
   readonly sideEffects?: DeviceHandoffSideEffects;
 }
@@ -153,27 +153,26 @@ export const DeviceLoginPendingDocumentSchema = Schema.Struct({
 });
 
 /**
- * The side effects that make a device handoff easy to complete: the code on
- * the clipboard, and the verification page in a browser where one may open.
- * What they achieved travels with the handoff so the terminal can say so.
+ * The side effect that makes a device handoff easy to complete: the
+ * verification page in a browser where one may open. What it achieved travels
+ * with the handoff so the terminal can say so. Nothing reaches the clipboard
+ * unless the person asks for it during the wait.
  */
 export interface DeviceHandoffSideEffects {
   readonly browserOpened: boolean;
-  readonly copiedToClipboard: boolean;
 }
 
 const openDeviceHandoff = (
-  handoff: { readonly verificationUriComplete: string; readonly userCode: string },
+  handoff: { readonly verificationUriComplete: string },
   options: RunDeviceLoginOptions,
 ): Effect.Effect<DeviceHandoffSideEffects, never, DeviceLoginInteraction> =>
   Effect.gen(function* () {
     const interaction = yield* DeviceLoginInteraction;
-    const copiedToClipboard = yield* interaction.copyToClipboard(handoff.userCode);
     const browserOpened =
       (options.openBrowser ?? true)
         ? yield* interaction.openBrowser(handoff.verificationUriComplete)
         : false;
-    return { browserOpened, copiedToClipboard };
+    return { browserOpened };
   });
 
 const makePendingResult = (
@@ -218,8 +217,8 @@ const emitPendingDeviceLogin = (
   Effect.gen(function* () {
     const presenter = yield* AuthLoginPresenter;
     const result = makePendingResult(pending, flow);
-    // Machine mode consumes the pending document; browser/clipboard side
-    // effects and human presentation must not run afterwards.
+    // Machine mode consumes the pending document; opening a browser and
+    // human presentation must not run afterwards.
     if (yield* presenter.tryEmitPendingDeviceLogin(result)) {
       return result;
     }
@@ -399,7 +398,6 @@ export const resumeDeviceLogin = (registryUrl: string, options: ResumeDeviceLogi
           userCode: pending.userCode,
           expiresAtMs: DateTime.toEpochMillis(pending.expiresAt),
           browserOpened: options.sideEffects?.browserOpened ?? false,
-          copiedToClipboard: options.sideEffects?.copiedToClipboard ?? false,
         },
         boundedPolling,
       )

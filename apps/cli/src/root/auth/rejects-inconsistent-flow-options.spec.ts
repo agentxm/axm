@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { PendingDeviceLoginStore } from "@agentxm/registry-access/authentication";
@@ -72,6 +73,7 @@ describe("Sign-in option validation", () => {
         TestFlagsLayer({ json: true, nonInteractive: true }),
         Layer.succeed(RegistryUrl, registry),
         Layer.succeed(AuthEnvironment, ConfigProvider.fromEnvRecord({})),
+        FileSystem.layerNoop({}),
         AuthLoginInteractionTest().layer,
         AuthClientTest({
           initiateDeviceFlow: () =>

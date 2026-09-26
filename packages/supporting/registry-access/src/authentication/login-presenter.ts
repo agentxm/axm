@@ -50,7 +50,6 @@ export type HumanHandoff =
       readonly userCode: string;
       readonly expiresAtMs: number;
       readonly browserOpened: boolean;
-      readonly copiedToClipboard: boolean;
     }
   /** Browser sign-in through a loopback redirect. */
   | {
@@ -69,7 +68,7 @@ export type HumanHandoff =
       readonly expiresAtMs: number;
     };
 
-/** The link a handoff parks on: what its reopen key opens; device login copies its code. */
+/** The link a handoff parks on: what its open key opens and its copy key copies. */
 export const handoffUrl = (handoff: HumanHandoff): string => {
   switch (handoff._tag) {
     case "DeviceLogin":
@@ -92,8 +91,8 @@ export interface AuthLoginPresenterService {
   ) => Effect.Effect<A, E, R>;
   /**
    * Machine-mode pending-document emission. Returns true when machine output
-   * consumed the result — the caller must then skip browser/clipboard side
-   * effects and human presentation.
+   * consumed the result — the caller must then skip opening a browser and
+   * human presentation.
    */
   readonly tryEmitPendingDeviceLogin: (
     result: DeviceLoginPendingResult,

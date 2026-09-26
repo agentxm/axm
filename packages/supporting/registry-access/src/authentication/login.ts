@@ -193,8 +193,8 @@ export const login = Effect.fn("Login.run")(function* (request: LoginRequest, re
       yield* presenter.noteDeviceCodeFallback("remote-or-headless");
     }
     if (request.waitForHumanSeconds !== undefined && unattended) {
-      // No person is at this process, so it neither copies the code nor opens
-      // a browser: it starts or reuses the sign-in and waits on it.
+      // No person is at this process, so it opens no browser: it starts or
+      // reuses the sign-in and waits on it.
       yield* initiateDeviceLogin(registryUrl, {
         restart: request.restart,
         emitPendingResult: false,

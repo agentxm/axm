@@ -151,10 +151,11 @@ commands can reach the registry. Offer both paths:
 
 - **Interactive (recommended):** ask the user to run `axm login` in their
   terminal. It opens a browser for a one-time authorization flow; AXM can't
-  run it on their behalf because the browser step requires the user. In
-  SSH/CI/Codespaces or with `--device-code`, AXM falls back to a five-minute
-  device-code flow. The CLI emits a complete authorization link and a separate
-  clean fallback URL plus code. A retry re-emits the same unexpired request;
+  run it on their behalf because the browser step requires the user. Over SSH
+  without a display, in CI or Codespaces, on Linux with none of `DISPLAY`,
+  `WAYLAND_DISPLAY`, or `BROWSER` set (WSL excepted), or with `--device-code`,
+  AXM uses a five-minute device-code flow instead. The CLI emits a complete
+  authorization link and a separate clean fallback URL plus code. A retry re-emits the same unexpired request;
   `--restart` explicitly replaces it.
 - **Non-interactive:** ask the user to place a pre-generated token in a
   restrictive, readable file and export `AXM_TOKEN_FILE` with that path in the

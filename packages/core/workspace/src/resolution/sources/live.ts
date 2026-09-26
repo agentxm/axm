@@ -1,9 +1,10 @@
 /**
- * Environment-backed Live layer for `SourceHostProviders`.
+ * Environment-backed Live layers for `SourceHostProviders` and the workspace
+ * catalog port.
  *
- * Composed only at the application composition root: the layer captures the
- * platform services and the two composition-root ports (workspace catalog,
- * official AXM skill gate) once and hides them behind the service interface.
+ * Composed only at the application composition root: the providers layer
+ * captures the platform services and the workspace catalog and official AXM
+ * skill gate ports once and hides them behind the service interface.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -43,11 +44,13 @@ import { WorkspaceCatalog } from "./workspace-catalog.js";
 import { GitDirectoryComparison } from "./git/directory-comparison.js";
 import { compareDirectoryToHead } from "./git/operations.js";
 import { findGitRoot } from "./git/detect.js";
-import { acquiredFilesForRef } from "../../acquisition/acquired-content.js";
 import {
+  acquiredFilesForRef,
   DirectoryCopyLimitExceeded,
   copyExtensionDirectory,
-} from "../../acquisition/copy-directory.js";
+} from "../../acquisition/index.js";
+
+export { WorkspaceCatalogLive } from "./workspace-catalog-live.js";
 
 // -----------------------------------------------------------------------------
 // Layer

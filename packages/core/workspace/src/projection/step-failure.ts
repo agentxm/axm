@@ -3,15 +3,15 @@
  * rendered failure a plan step settles with and the application boundary
  * projects.
  *
- * Projection states domain facts and owns no rendering, so the capability
- * that unions projection into `ExtensionManagerFailure` renders it.
+ * The projection slice owns the rendering of its own family, so every layer
+ * above it renders a projection failure the same way.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import { makeStepFailure, type StepFailure } from "../operations/index.js";
-import type { ProjectionError } from "../projection/errors.js";
-import type { InstructionMaintenanceFailed } from "../projection/instructions/errors.js";
+import type { ProjectionError } from "./errors.js";
+import type { InstructionMaintenanceFailed } from "./instructions/errors.js";
 
 /** Every shared-projection failure, including instruction maintenance. */
 export type ProjectionFamilyFailure = ProjectionError | InstructionMaintenanceFailed;

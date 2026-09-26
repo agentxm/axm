@@ -18,7 +18,12 @@ import {
 import * as Option from "effect/Option";
 
 import { HookManager } from "../../../materialization/index.js";
-import { buildUninstallOperation } from "../../../reconciliation/index.js";
+import {
+  buildUninstallOperation,
+  kernelFailureToStepFailure,
+  makeWorkspaceRetentionPolicy,
+  type InstallStepRequirements,
+} from "../../../reconciliation/index.js";
 import {
   type JobStepArtifact,
   type JobStepArtifactTarget,
@@ -32,14 +37,11 @@ import {
   type HookLockEntry,
 } from "../../../desired-state/index.js";
 
-import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
-import { makeWorkspaceRetentionPolicy } from "../../../reconciliation/index.js";
 import {
   acquiredRootDisplayPath,
   lockfileDisplayPath,
   settingsDisplayPath,
 } from "../../../desired-state/index.js";
-import type { InstallStepRequirements } from "../../../reconciliation/index.js";
 
 /** One hooks-package removal. */
 export interface HookUninstallIntent {

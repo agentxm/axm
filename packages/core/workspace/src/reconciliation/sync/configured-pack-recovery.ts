@@ -30,7 +30,6 @@ import * as Path from "effect/Path";
 
 import { OperationRequestBudget } from "@agentxm/registry-client";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
-import { sourceRefContentKey } from "../../acquisition/acquired-content.js";
 import { formatFqn } from "@agentxm/extension-model/unstable/extensions/fqn";
 import {
   SkillManager,
@@ -81,6 +80,7 @@ import {
   type SyncSelection,
   type SyncStepRequirements,
 } from "../index.js";
+import { sourceRefContentKey } from "../../acquisition/index.js";
 
 /**
  * The Pack package is re-acquired unconditionally — its manifest is the thing

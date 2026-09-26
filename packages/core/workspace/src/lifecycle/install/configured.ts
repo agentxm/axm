@@ -94,9 +94,10 @@ import {
   buildAggregateProjectionStep,
   type InstallStepRequirements,
   type ResolveInstallRequirements,
+  nameFromLabel,
+  StepFailureConversion,
 } from "../../reconciliation/index.js";
 import { findGitReinstallRefs, pinGitReinstallRef } from "./git-reinstall.js";
-import { nameFromLabel, StepFailureConversion } from "../../reconciliation/index.js";
 import { withPackRegistryIndexMemo } from "../../resolution/sources/providers/registry/index-memo.js";
 
 /** Which extension types a configured-entry sweep covers. */

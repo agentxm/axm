@@ -5,7 +5,11 @@ import * as Option from "effect/Option";
 import { RegistryClientFactory } from "@agentxm/registry-client";
 import type { BundledAxmSkillAsset } from "../skills/index.js";
 import type { PackUninstallRequirements } from "../packs/index.js";
-import { buildReconciliationClosure, StepFailureConversion } from "../reconciliation/index.js";
+import {
+  buildReconciliationClosure,
+  StepFailureConversion,
+  type InstallStepRequirements,
+} from "../reconciliation/index.js";
 import {
   DesiredStateReader,
   WorkspaceLocation,
@@ -16,7 +20,6 @@ import {
   prepareExecutionCandidate,
   resolveExecutionCandidate,
 } from "../transitions/planning/index.js";
-import type { InstallStepRequirements } from "../reconciliation/index.js";
 import { InstallExtensions } from "./install/install-extensions.js";
 import { UninstallExtensions } from "./uninstall/uninstall-extensions.js";
 import { resolveRootUninstallIntent } from "./uninstall/root-intent.js";

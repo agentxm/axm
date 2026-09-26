@@ -9,7 +9,7 @@ import {
 } from "../resolution/sources/index.js";
 import type { PlanRiskCondition } from "../operations/index.js";
 import type { ArchivePlan } from "./archive.js";
-import { isArchivePathIncluded } from "../acquisition/archive-paths.js";
+import { isArchivePathIncluded } from "../acquisition/index.js";
 
 const PUBLIC_DIFFERENCE_LIMIT = 50;
 

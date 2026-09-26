@@ -12,8 +12,11 @@ import {
 import { SettingsWriter } from "../../desired-state/index.js";
 import { resolveTargetedUpdateContext } from "../../resolution/index.js";
 
-import { kernelFailureToStepFailure } from "../../reconciliation/index.js";
-import type { InstallStepRequirements, StepFailureConversion } from "../../reconciliation/index.js";
+import {
+  kernelFailureToStepFailure,
+  type InstallStepRequirements,
+  type StepFailureConversion,
+} from "../../reconciliation/index.js";
 import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";
 import { TARGETED_UPDATE_STALE_DETAIL, wrapTargetedUpdatePlan } from "./targeted-plan.js";
 

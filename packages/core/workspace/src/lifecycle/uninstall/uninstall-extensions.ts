@@ -18,6 +18,7 @@ import {
   collectCleanupStep,
   buildReconciliationClosure,
   StepFailureConversion,
+  nameFromLabel,
 } from "../../reconciliation/index.js";
 import { expectedProjectionNames } from "../../projection/index.js";
 
@@ -54,7 +55,6 @@ import { parseSubagentUninstallRequest, planSubagentUninstall } from "../../suba
 import type { InstallExecutionFailure, PrepareInstallRequirements } from "../install/vocabulary.js";
 import { resolveRootUninstallIntent } from "./root-intent.js";
 import { refuseUndesiredInstalledTarget, typedUninstallSubject } from "./undesired-target.js";
-import { nameFromLabel } from "../../reconciliation/index.js";
 
 // -----------------------------------------------------------------------------
 // Request

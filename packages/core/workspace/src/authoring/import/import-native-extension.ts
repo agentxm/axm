@@ -1,5 +1,4 @@
 import {
-  type AuthorMaterialization,
   prepareExecutionCandidate,
   resolveExecutionCandidate,
   type ExecutionCandidate,
@@ -35,11 +34,9 @@ import {
   SubagentManager,
   McpServerManager,
   McpSecretStore,
-  copyExtensionDirectory,
-  createCanonicalDirectory,
-  recoverCanonicalDirectory,
   type ExtensionManagerFailure,
   type ManagerRequirements,
+  type AuthorMaterialization,
 } from "../../materialization/index.js";
 import {
   NativeWriteAuthority,
@@ -115,6 +112,11 @@ import {
 import { importNativeExtensionPackage } from "../import-native-package.js";
 import { authoringStepFailure, type AuthoringStepFailure } from "../step-failure.js";
 import type { FrontmatterParseFailure } from "@agentxm/extension-content";
+import {
+  copyExtensionDirectory,
+  createCanonicalDirectory,
+  recoverCanonicalDirectory,
+} from "../../acquisition/index.js";
 
 /** The version an imported package starts at. */
 const INITIAL_IMPORT_VERSION = decodeVersionSync("0.1.0");

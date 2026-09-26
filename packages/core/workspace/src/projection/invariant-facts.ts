@@ -24,7 +24,7 @@ import * as ServiceMap from "effect/Context";
 import { RegistryClientFactory } from "@agentxm/registry-client";
 import { observeProjectionPlans } from "./planning.js";
 import { isProjectionError, type ProjectionParticipantFailure } from "./errors.js";
-import { projectionErrorToStepFailure } from "../materialization/projection-step-failure.js";
+import { projectionErrorToStepFailure } from "./step-failure.js";
 import {
   aggregateUnitSubject,
   ProjectionParticipants,

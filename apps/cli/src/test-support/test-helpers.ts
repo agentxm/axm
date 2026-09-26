@@ -49,7 +49,6 @@ import {
   AxmSkillCandidateGateLive,
   RegistryResolutionPolicyLive,
 } from "@agentxm/workspace/resolution/live";
-import { WorkspaceCatalogLive } from "@agentxm/workspace/projection/live";
 import {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
@@ -58,7 +57,10 @@ export {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
 } from "@agentxm/workspace/projection/live";
-import { SourceHostProvidersLive } from "@agentxm/workspace/resolution/sources/live";
+import {
+  SourceHostProvidersLive,
+  WorkspaceCatalogLive,
+} from "@agentxm/workspace/resolution/sources/live";
 export { SourceHostProvidersLive };
 import { workspaceInvariantFactsLive } from "./workspace-invariant-facts-live.js";
 export { KnowledgeIndexLive };

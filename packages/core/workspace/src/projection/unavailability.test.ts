@@ -10,7 +10,7 @@ import {
   ProjectionIoFailed,
   ProjectionParticipantFailed,
 } from "./errors.js";
-import { projectionErrorToStepFailure } from "../materialization/projection-step-failure.js";
+import { projectionErrorToStepFailure } from "./step-failure.js";
 
 const unavailable = (failure: Parameters<typeof projectionUnavailabilityReason>[0]) =>
   makeUnavailableProjectionFact({

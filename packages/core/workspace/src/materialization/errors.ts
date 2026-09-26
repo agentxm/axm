@@ -17,7 +17,6 @@ import type { FrontmatterParseFailure, SubagentContentError } from "@agentxm/ext
 import type { AxmSkillCompatibilityUnavailable } from "@agentxm/cli-maintenance/official-skill/application";
 import type { AxmSkillIncompatible } from "@agentxm/cli-maintenance/official-skill/domain";
 import type { LifecyclePostconditionViolated } from "../operations/index.js";
-import type { MaterializationError } from "../acquisition/errors.js";
 import type {
   PackDependencyResolutionFailure,
   SourceAuthorityBlocked,
@@ -56,6 +55,7 @@ import type { SkillDiscoveryRootInvalid, SubagentScanFailed } from "../desired-s
 import type { LockfileResolvedVersionInvalid } from "../desired-state/index.js";
 import type { InstallStateMissing } from "./accepted-resolution.js";
 import type { ExtensionKindFailure } from "./kind-failure.js";
+import type { MaterializationError } from "../acquisition/index.js";
 
 /**
  * Every typed failure materialization constructs: the kernel's own families

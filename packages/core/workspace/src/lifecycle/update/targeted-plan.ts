@@ -2,6 +2,7 @@ import {
   StepFailureConversion,
   buildReconciliationClosure,
   type ReconciliationChild,
+  type InstallStepRequirements,
 } from "../../reconciliation/index.js";
 /**
  * Wrapping a targeted update in one atomic ownership transition.
@@ -37,8 +38,6 @@ import {
   type TargetedUpdateContext,
   type TargetedUpdateContextFailure,
 } from "../../resolution/index.js";
-
-import type { InstallStepRequirements } from "../../reconciliation/index.js";
 
 export const TARGETED_UPDATE_STALE_DETAIL =
   "The targeted update ownership context became stale before apply.";

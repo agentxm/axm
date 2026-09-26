@@ -8,7 +8,7 @@ import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/
 import type { ExtensionFiles } from "@agentxm/extension-model/unstable/sources/source-host-provider";
 import type { StepFailure } from "../operations/index.js";
 import { PackageMaterializationFailed } from "./errors.js";
-import { gitTransportContextFingerprint } from "../resolution/sources/git/operations.js";
+import { gitTransportContextFingerprint } from "./git-transport-context.js";
 
 export interface RegistryContentIdentity {
   readonly sourceLocation: URL;

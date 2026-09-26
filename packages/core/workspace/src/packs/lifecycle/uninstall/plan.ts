@@ -1,4 +1,16 @@
-import { buildReconciliationClosure } from "../../../reconciliation/index.js";
+import {
+  buildReconciliationClosure,
+  buildUninstallOperation,
+  prepareUninstallArtifact,
+  collectCleanupStep,
+  type KernelFailure,
+  proposeDesiredState,
+  StepFailureConversion,
+  exclusiveMemberRetentionPolicy,
+  makeWorkspaceRetentionPolicy,
+  buildAggregateProjectionStep,
+  type InstallStepRequirements,
+} from "../../../reconciliation/index.js";
 /**
  * Uninstalling packs.
  *
@@ -29,13 +41,6 @@ import {
   SubagentManager,
   failureTag,
 } from "../../../materialization/index.js";
-import {
-  buildUninstallOperation,
-  prepareUninstallArtifact,
-  collectCleanupStep,
-  type KernelFailure,
-  proposeDesiredState,
-} from "../../../reconciliation/index.js";
 import { expectedProjectionNames } from "../../../projection/index.js";
 import {
   parseExtensionFqnParts,
@@ -63,21 +68,12 @@ import {
 } from "../../../desired-state/index.js";
 
 import { expandGlob } from "@agentxm/extension-model/unstable/extensions/name-patterns";
-import { StepFailureConversion } from "../../../reconciliation/index.js";
-import {
-  exclusiveMemberRetentionPolicy,
-  makeWorkspaceRetentionPolicy,
-} from "../../../reconciliation/index.js";
 import { validatePackGraphPostcondition } from "../graph-transition.js";
 import {
   PACK_UNINSTALL_GRAPH_BLOCKER_ID,
   planPackUninstallGraphReadiness,
   type PackRetirement,
 } from "./readiness.js";
-import {
-  buildAggregateProjectionStep,
-  type InstallStepRequirements,
-} from "../../../reconciliation/index.js";
 
 /** How the request named the pack to remove. */
 export type PackUninstallSelector =

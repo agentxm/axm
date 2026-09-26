@@ -11,17 +11,18 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { RuleManager } from "../../../materialization/index.js";
-import { buildUninstallOperation } from "../../../reconciliation/index.js";
+import {
+  buildUninstallOperation,
+  kernelFailureToStepFailure,
+  makeWorkspaceRetentionPolicy,
+  type InstallStepRequirements,
+} from "../../../reconciliation/index.js";
 import {
   type Plan,
   type ExtensionLifecycleFailed,
   installRefused,
 } from "../../../operations/index.js";
 import { DesiredStateReader, type RuleExtensionTarget } from "../../../desired-state/index.js";
-
-import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
-import { makeWorkspaceRetentionPolicy } from "../../../reconciliation/index.js";
-import type { InstallStepRequirements } from "../../../reconciliation/index.js";
 
 /** One rule removal. */
 export interface RuleUninstallIntent {

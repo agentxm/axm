@@ -14,10 +14,9 @@ import {
   ExtensionLifecycleFailed,
   OPERATION_ERROR_CATEGORIES,
   StepFailure,
-  makeStepFailure,
   type OperationErrorCategory,
 } from "../operations/index.js";
-import type { KernelFailure } from "./failure-rendering.js";
+import { kernelFailureToStepFailure, type KernelFailure } from "./failure-rendering.js";
 import { StepFailureConversion } from "./step-failure-conversion.js";
 
 const isCategory = (value: unknown): value is OperationErrorCategory =>
@@ -41,24 +40,12 @@ const describeFailure = (failure: unknown): string => {
 };
 
 /**
- * The refusal an operation settles with maps one-to-one, every carried field
- * included; any other failure keeps its own category (or `internal` when it
- * names none) and its own sentence.
+ * The refusal an operation settles with renders exactly as the kernel renders
+ * it, every carried field included; any other failure keeps its own category
+ * (or `internal` when it names none) and its own sentence.
  */
 const toTestStepFailure = (failure: KernelFailure): StepFailure => {
-  if (failure instanceof ExtensionLifecycleFailed) {
-    return makeStepFailure({
-      category: failure.category,
-      title: failure.title,
-      detail: failure.detail,
-      metadata: failure.metadata,
-      retryable: failure.retryable,
-      recover: failure.recover,
-      cmd: failure.cmd,
-      suggestions: failure.suggestions,
-      cause: failure.cause,
-    });
-  }
+  if (failure instanceof ExtensionLifecycleFailed) return kernelFailureToStepFailure(failure);
   const category: unknown = "category" in failure ? failure.category : undefined;
   return new StepFailure({
     category: isCategory(category) ? category : "internal",

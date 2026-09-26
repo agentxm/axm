@@ -73,7 +73,6 @@ export type InstallStepRequirements =
   | WorkspaceLocation
   | SettingsReader
   | SettingsWriter
-  | LockfileReader
   | DesiredStateReader
   | DesiredStateWriter
   | AcceptedResolutionWriter

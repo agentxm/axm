@@ -39,7 +39,6 @@ import {
   type McpServerManagerService,
   type McpServerMaterializationFacts,
 } from "../materialization/managers.js";
-import { configuredMcpServersToDiskRefs } from "../acquisition/materializable-from-disk.js";
 import type {
   McpServerExtensionRef,
   RegistryMcpServerRef,
@@ -66,8 +65,6 @@ import {
   type TreeIntegrity,
 } from "../desired-state/index.js";
 import { SourceHostProviders } from "../resolution/sources/index.js";
-import { copyExtensionDirectory } from "../acquisition/copy-directory.js";
-import { replaceCanonicalDirectoryWithInspection } from "../acquisition/canonical-directory.js";
 import { fromFileLocation } from "@agentxm/host-primitives";
 import {
   isPathSafe,
@@ -82,6 +79,11 @@ import {
 import { registrySourceLockFields } from "../desired-state/index.js";
 import { buildExternalMcpServerLockEntry } from "./lock-entry-builder.js";
 import { McpCanonicalPathUnsafe, McpWorkspacePackageInvalid } from "./errors.js";
+import {
+  configuredMcpServersToDiskRefs,
+  copyExtensionDirectory,
+  replaceCanonicalDirectoryWithInspection,
+} from "../acquisition/index.js";
 
 // Build lock entry from registry ref
 const buildMcpServerLockEntry = (

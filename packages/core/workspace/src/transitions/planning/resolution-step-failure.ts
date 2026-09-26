@@ -5,8 +5,8 @@
  * rendered failure a plan step settles with and the application boundary
  * projects.
  *
- * Resolution states facts and owns no rendering, so the capability that
- * unions these families into `ExtensionManagerFailure` renders them.
+ * Planning is the lowest slice that sees every one of these families, so the
+ * rendering lives here and every layer above it renders them the same way.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -26,11 +26,9 @@ import {
   SettingsIoError,
   SettingsParseError,
   WorkspaceRootEscape,
-} from "../desired-state/workspace/read-model/errors.js";
-import {
   type WorkspaceStateReadFailure,
   workspaceStateReadFailureToStepFailure,
-} from "../desired-state/index.js";
+} from "../../desired-state/index.js";
 import type {
   ExtensionResolutionFailed,
   PackConstraintShadowed,
@@ -39,18 +37,18 @@ import type {
   PackDependencyMissing,
   PackDependencyUnsatisfied,
   SourceAuthorityBlocked,
-} from "../resolution/errors.js";
-import type { AxmSkillGateUnavailable } from "../resolution/sources/axm-skill-gate.js";
+} from "../../resolution/index.js";
 import {
   sourceResolutionFailureCategory,
+  type AxmSkillGateUnavailable,
   type GitOperationFailed,
   type SourceHostNotConfigured,
   type SourceNetworkFailure,
   type SourceNotResolvable,
   type SourceSyntaxInvalid,
-} from "../resolution/sources/errors.js";
-import type { WorkspaceCatalogUnavailable } from "../resolution/sources/workspace-catalog.js";
-import { makeStepFailure, type StepFailure } from "../operations/index.js";
+  type WorkspaceCatalogUnavailable,
+} from "../../resolution/sources/index.js";
+import { makeStepFailure, type StepFailure } from "../../operations/index.js";
 
 /** Every source, registry, and dependency-resolution failure. */
 export type ResolutionFamilyFailure =

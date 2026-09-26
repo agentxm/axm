@@ -11,13 +11,13 @@ import {
 } from "@agentxm/extension-content";
 import type { ExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions/common";
 import { parseFrontmatterEffect, type FrontmatterParseFailure } from "@agentxm/extension-content";
-import { copyExtensionDirectory } from "../materialization/index.js";
 import {
   NativeImportConflict,
   NativeImportFailed,
   NativeImportInvalid,
   NativeImportUnsupported,
 } from "./authored-package-errors.js";
+import { copyExtensionDirectory } from "../acquisition/index.js";
 const NATIVE_IMPORT_VERSION = "0.1.0";
 export interface ImportNativeExtensionPackageArgs {
   readonly sourcePath: string;

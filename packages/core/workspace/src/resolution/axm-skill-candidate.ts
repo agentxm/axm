@@ -2,15 +2,17 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { AxmSkillCompatibilityUnavailable } from "@agentxm/cli-maintenance/official-skill/application";
-import { AxmSkillIncompatible } from "@agentxm/cli-maintenance/official-skill/domain";
+import {
+  AxmSkillCompatibilityPolicy,
+  AxmSkillCompatibilityUnavailable,
+} from "@agentxm/cli-maintenance/official-skill/application";
 import {
   AXM_SKILL_FQN,
+  AxmSkillIncompatible,
   evaluateAxmSkillCompatibility,
   type AxmSkillCompatibility,
   type AxmSkillCompatibilityCandidate,
 } from "@agentxm/cli-maintenance/official-skill/domain";
-import { AxmSkillCompatibilityPolicy } from "@agentxm/cli-maintenance/official-skill/application";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { parseSkillMd } from "@agentxm/extension-content";
 

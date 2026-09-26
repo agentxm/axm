@@ -32,7 +32,7 @@ describe("composition-root import restriction", () => {
   it("reports a production module composing an environment-backed or in-memory implementation", async () => {
     expect(
       await restrictedImports(
-        'import { WorkspaceCatalogLive } from "@agentxm/workspace/projection/live";\nvoid WorkspaceCatalogLive;\n',
+        'import { WorkspaceCatalogLive } from "@agentxm/workspace/resolution/sources/live";\nvoid WorkspaceCatalogLive;\n',
         "packages/core/workspace/src/reconciliation/sync/index.ts",
       ),
     ).not.toEqual([]);

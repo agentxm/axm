@@ -17,8 +17,6 @@ import { SkillMaterializationFailed } from "./errors.js";
 import { acquireCanonicalForRef } from "../materialization/acquire-canonical.js";
 import { validatePathSafety } from "../desired-state/index.js";
 import { type SkillLockEntry, type TreeIntegrity } from "../desired-state/index.js";
-import { copyExtensionDirectory } from "../acquisition/copy-directory.js";
-import { acquiredDirectoryForRef } from "../acquisition/acquired-content.js";
 import type {
   SkillExtensionRef,
   WorkspaceSkillRef,
@@ -29,6 +27,7 @@ import { isPathSafe } from "@agentxm/extension-model/unstable/path-types";
 import { createSymlink } from "../desired-state/index.js";
 import { protectWorkspacePath } from "../transitions/settlement/index.js";
 import { validateAxmSkillCandidate } from "../resolution/index.js";
+import { copyExtensionDirectory, acquiredDirectoryForRef } from "../acquisition/index.js";
 
 /**
  * Git-hosted and local skills share one shape: the package is already on disk,

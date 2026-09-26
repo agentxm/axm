@@ -31,14 +31,11 @@ import {
 } from "../desired-state/index.js";
 import { WorkspaceReadTest, MockWorkspaceTransactionScope } from "../desired-state/testing.js";
 import { exactVersion } from "../desired-state/test-helpers.js";
-import {
-  CodingAgentRepositoryLive,
-  NativeWriteAuthorityLive,
-  WorkspaceCatalogLive,
-} from "../projection/live.js";
+import { CodingAgentRepositoryLive, NativeWriteAuthorityLive } from "../projection/live.js";
 import { extensionName, handle } from "../materialization/test-helpers.js";
 import type { KnowledgeMap } from "../desired-state/index.js";
 import { KnowledgeManagerLive } from "./manager.js";
+import { WorkspaceCatalogLive } from "../resolution/sources/live.js";
 
 const OWNER = "@acme";
 

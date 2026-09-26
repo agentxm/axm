@@ -1,5 +1,4 @@
 import {
-  type AuthorMaterialization,
   prepareExecutionCandidate,
   resolveExecutionCandidate,
   type ExecutionCandidate,
@@ -45,6 +44,7 @@ import {
   McpSecretStore,
   type ExtensionManagerFailure,
   type ManagerRequirements,
+  type AuthorMaterialization,
 } from "../../materialization/index.js";
 import { materializeAuthoredMcpServer } from "../../mcp-connections/index.js";
 import {
@@ -88,8 +88,6 @@ import {
 } from "../../desired-state/index.js";
 import { protectCreatedAncestors } from "../../transitions/settlement/index.js";
 
-import { CreateDestinationExists } from "../../materialization/index.js";
-
 import { authoredDeclaration } from "../authored-declaration.js";
 import {
   CreateDestinationInspectionFailed,
@@ -104,6 +102,7 @@ import {
   type AuthoringOwnerRequired,
 } from "../create/errors.js";
 import { authoringStepFailure, type AuthoringStepFailure } from "../step-failure.js";
+import { CreateDestinationExists } from "../../acquisition/index.js";
 
 // -----------------------------------------------------------------------------
 // Request

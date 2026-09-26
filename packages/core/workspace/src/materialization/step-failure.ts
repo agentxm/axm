@@ -23,6 +23,9 @@ import {
   renderAxmSkillRecovery,
 } from "@agentxm/cli-maintenance/official-skill/domain";
 
+import { makeStepFailure, type StepFailure } from "../operations/index.js";
+import type { InstallStateMissing } from "./accepted-resolution.js";
+import { isExtensionKindFailure, type ExtensionKindFailure } from "./kind-failure.js";
 import type {
   ArchiveIntegrityMismatch,
   CanonicalPackageProbeFailed,
@@ -30,10 +33,7 @@ import type {
   PackageCopyFailed,
   PackageMaterializationFailed,
   StagedPackageInvalid,
-} from "../acquisition/errors.js";
-import { makeStepFailure, type StepFailure } from "../operations/index.js";
-import type { InstallStateMissing } from "./accepted-resolution.js";
-import { isExtensionKindFailure, type ExtensionKindFailure } from "./kind-failure.js";
+} from "../acquisition/index.js";
 
 /** Every failure package acquisition and the per-type managers construct. */
 export type MaterializationFamilyFailure =

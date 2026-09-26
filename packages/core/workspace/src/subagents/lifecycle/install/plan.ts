@@ -12,7 +12,12 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { NO_MATERIALIZATION_OBSERVATION, SubagentManager } from "../../../materialization/index.js";
-import { buildInstallOperation } from "../../../reconciliation/index.js";
+import {
+  buildInstallOperation,
+  kernelFailureToStepFailure,
+  type InstallStepRequirements,
+  type ResolvedInstallRef,
+} from "../../../reconciliation/index.js";
 import {
   operationPresentation,
   type Plan,
@@ -20,10 +25,8 @@ import {
   installRefused,
 } from "../../../operations/index.js";
 
-import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
 import { prepareSubagentInstallations } from "../application/installation.js";
 import { subagentInstallationFacts } from "../adapters/installation.js";
-import type { InstallStepRequirements, ResolvedInstallRef } from "../../../reconciliation/index.js";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 
 /** Subagents the request selected, and whether to re-materialize regardless. */

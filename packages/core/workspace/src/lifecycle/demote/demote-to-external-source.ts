@@ -37,7 +37,11 @@ import {
   McpServerManager,
   PackManager,
 } from "../../materialization/index.js";
-import { buildInstallOperation } from "../../reconciliation/index.js";
+import {
+  buildInstallOperation,
+  StepFailureConversion,
+  type InstallStepRequirements,
+} from "../../reconciliation/index.js";
 import * as Result from "effect/Result";
 
 import {
@@ -82,9 +86,6 @@ import {
   type WorkspaceSettingsReadFailure,
 } from "../../desired-state/index.js";
 import { packMemberConflicts, readProposedGraph } from "../../packs/index.js";
-
-import { StepFailureConversion } from "../../reconciliation/index.js";
-import type { InstallStepRequirements } from "../../reconciliation/index.js";
 
 // -----------------------------------------------------------------------------
 // Request and candidate

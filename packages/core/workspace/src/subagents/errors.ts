@@ -7,11 +7,8 @@
 
 import * as Data from "effect/Data";
 
-import {
-  ExtensionKindFailureTypeId,
-  type ExtensionKindFailure,
-} from "../materialization/kind-failure.js";
 import type { FailureSuggestedAction, OperationErrorCategory } from "../operations/index.js";
+import { ExtensionKindFailureTypeId, type ExtensionKindFailure } from "../materialization/index.js";
 
 /**
  * A subagent package, source, or binding did not validate. `detail` carries

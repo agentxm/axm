@@ -105,13 +105,13 @@ import {
   toTypedLabel,
   StepFailureConversion,
   type StepFailureConversionService,
+  type InstallStepRequirements,
 } from "../../reconciliation/index.js";
 import {
   type McpServerInstallIntent,
   planMcpServerInstall,
   settleMcpSourceIdentityFor,
 } from "../../mcp-connections/index.js";
-import type { InstallStepRequirements } from "../../reconciliation/index.js";
 import { type HookInstallIntent, planHookInstall } from "../../hooks/index.js";
 import { type KnowledgeInstallIntent, planKnowledgeInstall } from "../../knowledge/index.js";
 import {

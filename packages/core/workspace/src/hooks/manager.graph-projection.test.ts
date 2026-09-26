@@ -30,12 +30,9 @@ import type { SourceHostProvidersService } from "../resolution/sources/index.js"
 import type { DesiredExtensionNode, DesiredStateGraph } from "../desired-state/index.js";
 import type { Settings } from "../desired-state/index.js";
 import { WorkspaceReadTest, MockWorkspaceTransactionScope } from "../desired-state/testing.js";
-import {
-  CodingAgentRepositoryLive,
-  NativeWriteAuthorityLive,
-  WorkspaceCatalogLive,
-} from "../projection/live.js";
+import { CodingAgentRepositoryLive, NativeWriteAuthorityLive } from "../projection/live.js";
 import { HookManagerLive } from "./manager.js";
+import { WorkspaceCatalogLive } from "../resolution/sources/live.js";
 
 const OWNER = "@acme";
 

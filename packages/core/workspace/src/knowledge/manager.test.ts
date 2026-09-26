@@ -42,11 +42,7 @@ import {
   WorkspaceReadTest,
   type WorkspaceReadTestFacts,
 } from "../desired-state/testing.js";
-import {
-  CodingAgentRepositoryLive,
-  NativeWriteAuthorityLive,
-  WorkspaceCatalogLive,
-} from "../projection/live.js";
+import { CodingAgentRepositoryLive, NativeWriteAuthorityLive } from "../projection/live.js";
 import {
   describeTestFailure,
   exactVersion,
@@ -58,6 +54,7 @@ import type {
   LocalKnowledgeRef,
   WorkspaceKnowledgeRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
+import { WorkspaceCatalogLive } from "../resolution/sources/live.js";
 
 const writeKnowledgePackage = (
   root: string,

@@ -269,8 +269,8 @@ benchmarks, release mutations, artifact/download operations, external install
 verification, and projection observations run fresh.
 
 The root command tests use the runtime prepared by `axm:test` and pass
-`--excludeTaskDependencies` to their nested release-tag and metadata target
-invocations. Rebuilding those prerequisites inside a concurrent test wave can
+`--excludeTaskDependencies` to its nested release metadata target invocation.
+Rebuilding those prerequisites inside a concurrent test wave can
 delete `dist` files while another project imports them. The tests disable cache
 reuse for the nested invocation and check that the prepared runtime file keeps
 its inode and modification time. The standalone targets declare `^build`;

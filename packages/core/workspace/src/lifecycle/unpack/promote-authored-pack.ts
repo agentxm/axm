@@ -1,4 +1,10 @@
-import { buildReconciliationClosure } from "../../reconciliation/index.js";
+import {
+  buildReconciliationClosure,
+  buildUninstallOperation,
+  type UninstallRetentionPolicy,
+  kernelFailureToStepFailure,
+  type InstallStepRequirements,
+} from "../../reconciliation/index.js";
 /**
  * Unpacking a Pack: promoting its members to direct declarations.
  *
@@ -37,10 +43,6 @@ import * as Path from "effect/Path";
 
 import { PackManager } from "../../materialization/index.js";
 import {
-  buildUninstallOperation,
-  type UninstallRetentionPolicy,
-} from "../../reconciliation/index.js";
-import {
   operationPresentation,
   type JobStepArtifactTarget,
   type JobStepResult,
@@ -56,14 +58,12 @@ import {
 } from "../../transitions/planning/index.js";
 import { usableAcceptedCanonical, type DesiredExtensionNode } from "../../desired-state/index.js";
 
-import { kernelFailureToStepFailure } from "../../reconciliation/index.js";
 import { validatePackGraphPostcondition } from "../../packs/index.js";
 import {
   desiredPackageKey,
   formatDesiredIdentity,
   type DesiredNodeIdentity,
 } from "../../desired-state/index.js";
-import type { InstallStepRequirements } from "../../reconciliation/index.js";
 
 // -----------------------------------------------------------------------------
 // Request and candidate

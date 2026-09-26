@@ -5,8 +5,8 @@ import * as FileSystem from "effect/FileSystem";
 import * as PlatformError from "effect/PlatformError";
 import * as Path from "effect/Path";
 
-import { WorkspaceCatalog } from "../resolution/sources/index.js";
-import { makeSyncFixture } from "../reconciliation/sync/test-helpers.js";
+import { WorkspaceCatalog } from "./index.js";
+import { makeSyncFixture } from "../../reconciliation/sync/test-helpers.js";
 
 const skill = (name: string) =>
   `---\nname: ${name}\ndescription: ${name} skill.\n---\n\n# ${name}\n`;

@@ -1,5 +1,4 @@
 import {
-  type AuthorMaterialization,
   prepareExecutionCandidate,
   resolveExecutionCandidate,
   type ExecutionCandidate,
@@ -41,11 +40,9 @@ import {
   McpServerManager,
   PackManager,
   McpSecretStore,
-  copyExtensionDirectory,
-  createCanonicalDirectory,
-  recoverCanonicalDirectory,
   type ExtensionManagerFailure,
   type ManagerRequirements,
+  type AuthorMaterialization,
 } from "../../materialization/index.js";
 import { materializeAuthoredMcpServer } from "../../mcp-connections/index.js";
 import {
@@ -113,6 +110,11 @@ import {
   type AuthoringOwnerRequired,
 } from "../create/errors.js";
 import { forkExtensionPackage } from "../fork-package.js";
+import {
+  copyExtensionDirectory,
+  createCanonicalDirectory,
+  recoverCanonicalDirectory,
+} from "../../acquisition/index.js";
 
 /** The version a fork starts at, regardless of what the source published. */
 const INITIAL_FORK_VERSION = "0.1.0";

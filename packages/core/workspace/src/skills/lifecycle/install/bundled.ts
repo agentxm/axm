@@ -28,7 +28,6 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
-import { replaceCanonicalDirectory } from "../../../materialization/index.js";
 import { ensureSkillAgentArtifact } from "../../materialization.js";
 import {
   AXM_SKILL_CLI_VERSION_METADATA_KEY,
@@ -50,8 +49,11 @@ import { CodingAgentRepository } from "../../../projection/index.js";
 import { sanitizeName } from "../../../desired-state/index.js";
 import { runWorkspaceTransaction } from "../../../transitions/settlement/index.js";
 
-import { StepFailureConversion } from "../../../reconciliation/index.js";
-import type { InstallStepRequirements } from "../../../reconciliation/index.js";
+import {
+  StepFailureConversion,
+  type InstallStepRequirements,
+} from "../../../reconciliation/index.js";
+import { replaceCanonicalDirectory } from "../../../acquisition/index.js";
 
 /** One file of the bundled skill's source tree. */
 export interface BundledAxmSkillSourceFile {

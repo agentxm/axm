@@ -26,6 +26,9 @@ import {
   buildInstallOperation,
   forecastInstallChange,
   type InstallArtifactPresentation,
+  kernelFailureToStepFailure,
+  type InstallStepRequirements,
+  type ResolvedInstallRef,
 } from "../../../reconciliation/index.js";
 import type { HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import { HOOK_EXTENSION_DIR } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
@@ -42,9 +45,6 @@ import {
   installRefused,
 } from "../../../operations/index.js";
 import { applyInstructionSurfacePlans } from "../../../projection/index.js";
-
-import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
-import type { InstallStepRequirements, ResolvedInstallRef } from "../../../reconciliation/index.js";
 
 /** Hooks packages the request selected. */
 export interface HookInstallIntent {

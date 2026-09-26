@@ -54,13 +54,11 @@ import {
   warnOnOrphanOverrides,
   buildRooModeEntry,
 } from "../projection/agent-adapters/index.js";
-import { copyExtensionDirectory } from "../acquisition/copy-directory.js";
 import { sanitizeName } from "../desired-state/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { removeIfExists } from "../desired-state/index.js";
 import { computeMaterializedTreeIntegrity } from "../desired-state/index.js";
 import { parseSubagentMd } from "@agentxm/extension-content";
-import { configuredSubagentsToDiskRefs } from "../acquisition/materializable-from-disk.js";
 import {
   acquireCanonicalForRef,
   verifyWorkspaceRefLocation,
@@ -82,6 +80,7 @@ import {
   removableAcceptedCanonicalPath,
 } from "../desired-state/index.js";
 import { protectWorkspacePath } from "../transitions/settlement/index.js";
+import { copyExtensionDirectory, configuredSubagentsToDiskRefs } from "../acquisition/index.js";
 
 const decodeSubagentManifest = Schema.decodeUnknownSync(SubagentManifestSchema);
 const decodeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);

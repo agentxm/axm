@@ -16,7 +16,6 @@ import {
   manifestSchemaForType,
   type ManifestIdentity,
 } from "@agentxm/extension-content";
-import { copyExtensionDirectory } from "../materialization/index.js";
 import { parseFrontmatterEffect, type FrontmatterParseFailure } from "@agentxm/extension-content";
 import type {
   ExtensionFqnParts,
@@ -24,6 +23,7 @@ import type {
   ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
+import { copyExtensionDirectory } from "../acquisition/index.js";
 
 const INITIAL_FORK_VERSION = "0.1.0";
 

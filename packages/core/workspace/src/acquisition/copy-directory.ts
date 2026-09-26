@@ -116,23 +116,6 @@ export type CopyExtensionDirectoryOptions = {
   readonly maxEntries?: number;
 };
 
-export type CopyExtensionDirectoryFailureDetails = {
-  readonly sourcePath: string;
-  readonly targetPath: string;
-  readonly subject?: string;
-  readonly sourceExists?: boolean;
-};
-
-export const formatCopyExtensionDirectoryFailure = ({
-  sourcePath,
-  targetPath,
-  subject = "extension files",
-  sourceExists,
-}: CopyExtensionDirectoryFailureDetails): string => {
-  const missingSource = sourceExists === false ? "; source does not exist" : "";
-  return `Failed to copy ${subject} from ${sourcePath} to ${targetPath}${missingSource}`;
-};
-
 /**
  * Recursively copies an extension directory from `src` to `dest`.
  *

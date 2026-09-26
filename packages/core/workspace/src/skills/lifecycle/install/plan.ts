@@ -22,7 +22,12 @@ import type { RegistryClientFactory } from "@agentxm/registry-client";
 import { SkillManager } from "../../../materialization/index.js";
 import { prepareSkillInstallation } from "../application/installation.js";
 import { skillInstallationFacts } from "../adapters/installation.js";
-import { buildInstallOperation } from "../../../reconciliation/index.js";
+import {
+  buildInstallOperation,
+  kernelFailureToStepFailure,
+  type InstallStepRequirements,
+  type ResolvedInstallRef,
+} from "../../../reconciliation/index.js";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import {
   PackageUrlPartsSchema,
@@ -37,9 +42,6 @@ import {
   type PlannedJobStep,
   type ExtensionLifecycleFailed,
 } from "../../../operations/index.js";
-
-import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
-import type { InstallStepRequirements, ResolvedInstallRef } from "../../../reconciliation/index.js";
 
 /** Skills the request selected, and whether to re-materialize regardless. */
 export interface SkillInstallIntent {

@@ -37,7 +37,7 @@ import {
   RegistryUrl,
   makeRegistryClientFactory,
 } from "@agentxm/registry-client";
-import { CodingAgentRepositoryLive, WorkspaceCatalogLive } from "../projection/live.js";
+import { CodingAgentRepositoryLive } from "../projection/live.js";
 import {
   ConfiguredAgentOutcomesProviderTest,
   makeRegistryPackLockEntry,
@@ -45,6 +45,7 @@ import {
 } from "../desired-state/testing.js";
 import { WorkspaceStateLive } from "../desired-state/live.js";
 import { withTestRegistryDefault } from "../desired-state/testing.js";
+import { WorkspaceCatalogLive } from "../resolution/sources/live.js";
 
 export const inspectionRegistryUrl = "https://inspection-registry.example.test";
 

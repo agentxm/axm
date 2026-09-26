@@ -13,6 +13,7 @@ import {
   InstallSelectionUnavailable,
 } from "@agentxm/workspace/operations";
 import { SettingsWriteError } from "@agentxm/workspace/desired-state";
+import { WorkspaceConfigurationFailed } from "@agentxm/workspace/configuration";
 import { WorkspaceRestorationIncomplete } from "@agentxm/workspace/transitions/settlement";
 import {
   AxmSkillGateUnavailable,
@@ -99,6 +100,28 @@ describe("the application boundary projection", () => {
 
       expect(toAppError(restoration).detail.startsWith(expected)).toBe(true);
       expect(conversion.toStepFailure(restoration).detail.startsWith(expected)).toBe(true);
+    }).pipe(Effect.provide(WorkspaceFailureConversionLive)),
+  );
+
+  it.effect("names a deciding feature failure through the provided conversion", () =>
+    Effect.gen(function* () {
+      const deciding = new WorkspaceConfigurationFailed({
+        category: "usage",
+        detail: "Name at least one agent",
+        recover: "Pass an agent ID.",
+      });
+      const restoration = new WorkspaceRestorationIncomplete({
+        terminationCause: "failure",
+        transitionCause: Cause.fail(deciding),
+        restorationCause: new Error("injected restoration defect"),
+        snapshotDir: undefined,
+        retained: ["axm.json"],
+      });
+      const conversion = yield* StepFailureConversion;
+
+      expect(conversion.toStepFailure(restoration).detail).toMatch(
+        /^Transition failed: Name at least one agent\. Workspace restoration did not complete;/,
+      );
     }).pipe(Effect.provide(WorkspaceFailureConversionLive)),
   );
 

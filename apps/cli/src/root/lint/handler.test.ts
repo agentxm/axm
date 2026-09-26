@@ -42,12 +42,14 @@ import {
 import { ProjectionParticipantsLive } from "@agentxm/workspace/materialization/live";
 import { WorkspaceInvariantFactsLive } from "@agentxm/workspace/projection/live";
 
-import { SourceHostProvidersLive } from "@agentxm/workspace/resolution/sources/live";
+import {
+  SourceHostProvidersLive,
+  WorkspaceCatalogLive,
+} from "@agentxm/workspace/resolution/sources/live";
 import {
   AxmSkillCandidateGateLive,
   RegistryResolutionPolicyLive,
 } from "@agentxm/workspace/resolution/live";
-import { WorkspaceCatalogLive } from "@agentxm/workspace/projection/live";
 import type { WorkspaceStateOptions } from "@agentxm/workspace/desired-state";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace/desired-state/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";

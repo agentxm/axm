@@ -15,8 +15,9 @@ import {
 import { assessExtensionListItems, type ExtensionListItem } from "./assessment.js";
 import { LOCKFILE_VERSION, type Lockfile, type Settings } from "../../desired-state/index.js";
 import { WorkspaceReadTest, type WorkspaceReadTestFacts } from "../../desired-state/testing.js";
-import { CodingAgentRepositoryLive, WorkspaceCatalogLive } from "../../projection/live.js";
+import { CodingAgentRepositoryLive } from "../../projection/live.js";
 import { handle, RegistryClientFactoryTestLive } from "../test-helpers.js";
+import { WorkspaceCatalogLive } from "../../resolution/sources/live.js";
 
 const workspaceWithCatalogLayer = (
   facts: Omit<WorkspaceReadTestFacts, "baseDir" | "runtimeDir"> = {},

@@ -8,11 +8,8 @@
 
 import * as Data from "effect/Data";
 
-import {
-  ExtensionKindFailureTypeId,
-  type ExtensionKindFailure,
-} from "../materialization/kind-failure.js";
 import type { OperationErrorCategory } from "../operations/index.js";
+import { ExtensionKindFailureTypeId, type ExtensionKindFailure } from "../materialization/index.js";
 
 /**
  * A skill source or agent configuration did not validate. `detail` carries

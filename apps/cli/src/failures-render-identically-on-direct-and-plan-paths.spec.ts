@@ -94,16 +94,7 @@ import {
   WorkspaceRootEscape,
   WorkspaceSourceInvalid,
 } from "@agentxm/workspace/desired-state";
-import {
-  ArchiveIntegrityMismatch,
-  CanonicalPackageProbeFailed,
-  CreateDestinationExists,
-  PackageCopyFailed,
-  PackageMaterializationFailed,
-  InstallStateMissing,
-  StagedPackageInvalid,
-  type ExtensionKindFailure,
-} from "@agentxm/workspace/materialization";
+import { InstallStateMissing, type ExtensionKindFailure } from "@agentxm/workspace/materialization";
 import { HookDefinitionInvalid } from "@agentxm/workspace/hooks";
 import { RuleDefinitionInvalid } from "@agentxm/workspace/instructions";
 import {
@@ -211,7 +202,6 @@ import {
   WorkspaceSyncFailed,
   kernelFailureToStepFailure,
 } from "@agentxm/workspace/reconciliation";
-import { KernelFailureConversionLive } from "@agentxm/workspace/reconciliation/live";
 
 import { AppError } from "./app-error/index.js";
 import { stepFailureToAppError, toAppError } from "./app-error/conversions.js";
@@ -227,6 +217,14 @@ import { PlanResolutionResultSchema, emitOperationResolution } from "./operation
 import { failureForWorkspaceScope, scopedRoutesOf } from "./root/shared/scoped-command.js";
 import { rootCommand } from "./app.js";
 import { makeSpecWorkspace } from "./test-support/install-harness.js";
+import {
+  ArchiveIntegrityMismatch,
+  CanonicalPackageProbeFailed,
+  CreateDestinationExists,
+  PackageCopyFailed,
+  PackageMaterializationFailed,
+  StagedPackageInvalid,
+} from "@agentxm/workspace/acquisition";
 
 export const specification = defineSpecification({
   requirement: "cli/failures-render-identically-on-direct-and-plan-paths",
@@ -1264,7 +1262,7 @@ describe("A failure reads the same on the direct and plan paths", () => {
           rendered(toAppError(failure)),
         );
       }
-    }).pipe(Effect.provide(KernelFailureConversionLive)),
+    }).pipe(Effect.provide(WorkspaceFailureConversionLive)),
   );
 
   it("renders authoring and configuration plan steps the same way", () => {

@@ -40,7 +40,7 @@ export {
 export type { SourceHostProvidersService } from "./service.js";
 export { SourceHostProviders, createRegistryMetaProvider } from "./service.js";
 
-// Workspace catalog port (implemented by the composition root)
+// Workspace catalog port (its workspace-backed Live ships through `./live`)
 export {
   WorkspaceCatalog,
   WorkspaceCatalogUnavailable,

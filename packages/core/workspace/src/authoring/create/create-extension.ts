@@ -1,5 +1,4 @@
 import {
-  type AuthorMaterialization,
   prepareExecutionCandidate,
   resolveExecutionCandidate,
   type ExecutionCandidate,
@@ -37,14 +36,13 @@ import {
   KnowledgeManager,
   McpServerManager,
   PackManager,
-  createCanonicalDirectory,
   groupInstallTargetsByDirectory,
-  recoverCanonicalDirectory,
   artifactAgentIdsFromTargets,
   artifactTargetAgentIds,
   type ExtensionManagerFailure,
   type InstallableSkillTarget,
   type ManagerRequirements,
+  type AuthorMaterialization,
 } from "../../materialization/index.js";
 import {
   buildAuthoredExtensionStep,
@@ -119,6 +117,7 @@ import {
   isValidScaffoldName,
 } from "./scaffold-name.js";
 import type { AuthoredScaffold } from "./scaffolds/scaffold.js";
+import { createCanonicalDirectory, recoverCanonicalDirectory } from "../../acquisition/index.js";
 
 // -----------------------------------------------------------------------------
 // Request

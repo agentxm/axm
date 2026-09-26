@@ -19,7 +19,12 @@ import {
 import * as Option from "effect/Option";
 
 import { NO_MATERIALIZATION_OBSERVATION, SubagentManager } from "../../../materialization/index.js";
-import { buildUninstallOperation } from "../../../reconciliation/index.js";
+import {
+  buildUninstallOperation,
+  kernelFailureToStepFailure,
+  makeWorkspaceRetentionPolicy,
+  type InstallStepRequirements,
+} from "../../../reconciliation/index.js";
 import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
 import {
   type JobStepArtifact,
@@ -35,8 +40,6 @@ import {
 } from "../../../desired-state/index.js";
 
 import { expandGlob } from "@agentxm/extension-model/unstable/extensions/name-patterns";
-import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
-import { makeWorkspaceRetentionPolicy } from "../../../reconciliation/index.js";
 import {
   acquiredDisplayPath,
   acquiredRootDisplayPath,
@@ -44,7 +47,6 @@ import {
   settingsDisplayPath,
   lockEntryVersion,
 } from "../../../desired-state/index.js";
-import type { InstallStepRequirements } from "../../../reconciliation/index.js";
 
 /** One subagent removal. */
 export interface SubagentUninstallIntent {

@@ -13,11 +13,8 @@
 import * as Data from "effect/Data";
 import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 
-import {
-  ExtensionKindFailureTypeId,
-  type ExtensionKindFailure,
-} from "../materialization/kind-failure.js";
 import type { FailureSuggestedAction, OperationErrorCategory } from "../operations/index.js";
+import { ExtensionKindFailureTypeId, type ExtensionKindFailure } from "../materialization/index.js";
 
 /** A lock entry was requested before install recorded the package state. */
 export class McpInstallStateMissing

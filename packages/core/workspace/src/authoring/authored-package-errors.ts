@@ -7,8 +7,8 @@
  */
 
 import * as Data from "effect/Data";
-import type { CreateDestinationExists } from "../materialization/index.js";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
+import type { CreateDestinationExists } from "../acquisition/index.js";
 
 /** A create operation's name is already declared in workspace settings. */
 export class CreateNameConfigured extends Data.TaggedError("CreateNameConfigured")<{

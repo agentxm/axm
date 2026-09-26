@@ -26,7 +26,7 @@ import { AgentPresenceProbeLive } from "../../projection/agent-adapters/live.js"
 import { CredentialStoreTest } from "@agentxm/registry-access/testing";
 import { RegistryClientFactoryLive, RegistryUrl } from "@agentxm/registry-client";
 import { AxmSkillCandidateGateLive, RegistryResolutionPolicyLive } from "../../resolution/live.js";
-import { SourceHostProvidersLive } from "../../resolution/sources/live.js";
+import { SourceHostProvidersLive, WorkspaceCatalogLive } from "../../resolution/sources/live.js";
 import { makeMemoryMcpSecretStore } from "../../materialization/testing.js";
 import {
   HookManagerLive,
@@ -44,11 +44,7 @@ import {
   ResolvePlanInteractionTest,
   preapprovedPlanExecution,
 } from "../../transitions/planning/testing.js";
-import {
-  CodingAgentRepositoryLive,
-  NativeWriteAuthorityLive,
-  WorkspaceCatalogLive,
-} from "../../projection/live.js";
+import { CodingAgentRepositoryLive, NativeWriteAuthorityLive } from "../../projection/live.js";
 import { layer as workspaceStateLayer } from "../../desired-state/live.js";
 import { withTestRegistryDefault } from "../../desired-state/testing.js";
 

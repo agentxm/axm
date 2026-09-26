@@ -24,7 +24,6 @@ import {
   AxmSkillCandidateGateLive,
   RegistryResolutionPolicyLive,
 } from "@agentxm/workspace/resolution/live";
-import { WorkspaceCatalogLive } from "@agentxm/workspace/projection/live";
 import {
   BundledAxmSkillAssetLive,
   type CliTelemetryConfig,
@@ -62,6 +61,7 @@ import { WorkspaceInitializationInteractionLive } from "./workspace-initializati
 import {
   GitDirectoryComparisonLive,
   SourceHostProvidersLive,
+  WorkspaceCatalogLive,
 } from "@agentxm/workspace/resolution/sources/live";
 import {
   CodingAgentRepositoryLive,

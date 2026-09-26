@@ -1,10 +1,4 @@
 import type {
-  AuthorMaterialization,
-  InstallMaterialization,
-  SynchronizeMaterialization,
-  UninstallMaterialization,
-} from "../transitions/planning/index.js";
-import type {
   AcceptedResolutionWriter,
   DesiredStateGraph,
   DesiredStateWriter,
@@ -54,6 +48,12 @@ import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/
 import type { RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
+import type {
+  AuthorMaterialization,
+  InstallMaterialization,
+  SynchronizeMaterialization,
+  UninstallMaterialization,
+} from "./ports/transition-materialization.js";
 
 // -----------------------------------------------------------------------------
 // Per-type materialization facts

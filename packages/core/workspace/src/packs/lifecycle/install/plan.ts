@@ -1,4 +1,20 @@
-import { buildReconciliationClosure } from "../../../reconciliation/index.js";
+import {
+  buildReconciliationClosure,
+  buildInstallOperation,
+  buildPackMemberStep,
+  buildUninstallOperation,
+  targetFromRef,
+  toLabel,
+  StepFailureConversion,
+  exclusiveMemberRetentionPolicy,
+  registrySourceArtifact,
+  registrySourcePath,
+  buildAggregateProjectionStep,
+  sourceResolutionFailureDetail,
+  sourceResolutionRefused,
+  type InstallStepRequirements,
+  type ResolveInstallRequirements,
+} from "../../../reconciliation/index.js";
 /**
  * Installing a pack.
  *
@@ -33,17 +49,9 @@ import {
   SubagentManager,
 } from "../../../materialization/index.js";
 import {
-  buildInstallOperation,
-  buildPackMemberStep,
-  buildUninstallOperation,
-  targetFromRef,
-  toLabel,
-} from "../../../reconciliation/index.js";
-import {
   extensionRefName,
   type ExtensionRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
-import { sourceRefContentKey } from "../../../acquisition/acquired-content.js";
 import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import {
   parseExtensionFqnParts,
@@ -85,7 +93,6 @@ import {
   type SubagentExtensionTarget,
 } from "../../../desired-state/index.js";
 
-import { StepFailureConversion } from "../../../reconciliation/index.js";
 import { configuredPackConstraintBlockPlan } from "../constraint-gate.js";
 import {
   ACCEPTED_RESOLUTION_INCOMPATIBLE_BLOCKER_ID,
@@ -93,18 +100,6 @@ import {
   acceptedResolutionIncompatibleText,
 } from "../../../projection/index.js";
 import { validatePackGraphPostcondition } from "../graph-transition.js";
-import {
-  exclusiveMemberRetentionPolicy,
-  registrySourceArtifact,
-  registrySourcePath,
-} from "../../../reconciliation/index.js";
-import {
-  buildAggregateProjectionStep,
-  sourceResolutionFailureDetail,
-  sourceResolutionRefused,
-  type InstallStepRequirements,
-  type ResolveInstallRequirements,
-} from "../../../reconciliation/index.js";
 import {
   formatRegistryProbe,
   parseRegistryInstallTarget,
@@ -116,6 +111,7 @@ import {
   selectPackGraph,
   type PackGraphSelectionRequest,
 } from "../../install/graph-selection.js";
+import { sourceRefContentKey } from "../../../acquisition/index.js";
 
 /** One pack graph transition and the policy that governs it. */
 export interface PackInstallIntent extends PackGraphSelectionRequest {

@@ -8,11 +8,8 @@
 
 import * as Data from "effect/Data";
 
-import {
-  ExtensionKindFailureTypeId,
-  type ExtensionKindFailure,
-} from "../materialization/kind-failure.js";
 import type { OperationErrorCategory } from "../operations/index.js";
+import { ExtensionKindFailureTypeId, type ExtensionKindFailure } from "../materialization/index.js";
 
 /**
  * A hook package, binding, or projection input did not validate. `detail`

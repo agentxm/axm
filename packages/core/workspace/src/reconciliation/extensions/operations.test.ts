@@ -1,10 +1,4 @@
 import type { SkillExtensionTarget } from "../../desired-state/index.js";
-import type {
-  AuthorMaterialization,
-  InstallMaterialization,
-  SynchronizeMaterialization,
-  UninstallMaterialization,
-} from "../../transitions/planning/index.js";
 /**
  * Unit tests for extension operation helpers.
  */
@@ -51,13 +45,19 @@ import {
   packageUrl,
 } from "../test-helpers.js";
 import type { ExtensionManagerFailure, ManagerRequirements } from "../../materialization/index.js";
-import { CanonicalPackageProbeFailed } from "../../materialization/index.js";
+import {
+  type AuthorMaterialization,
+  type InstallMaterialization,
+  type SynchronizeMaterialization,
+  type UninstallMaterialization,
+} from "../../materialization/index.js";
 import type { RecipeRequirements } from "./operations.js";
 import type {
   RegistrySkillRef,
   SkillExtensionRef,
   WorkspaceSkillRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/skill";
+import { CanonicalPackageProbeFailed } from "../../acquisition/index.js";
 
 /**
  * The recipes open a real workspace transaction, so every step runs against a

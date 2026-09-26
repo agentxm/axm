@@ -30,6 +30,9 @@ import * as Schema from "effect/Schema";
 import {
   extensionRefRegistryLifecycle,
   kernelFailureToStepFailure,
+  sourceResolutionRefused,
+  type InstallStepRequirements,
+  type ResolveInstallRequirements,
 } from "../../../reconciliation/index.js";
 import { installMcpServer } from "../../install/install-operation.js";
 import { materializeRegistryPackage } from "../../../materialization/index.js";
@@ -64,11 +67,6 @@ import {
   parseRegistryInstallTarget,
   registryLoginSuggestions,
 } from "../../../resolution/sources/index.js";
-import {
-  sourceResolutionRefused,
-  type InstallStepRequirements,
-  type ResolveInstallRequirements,
-} from "../../../reconciliation/index.js";
 
 /** One MCP connection, its local name, and the inputs the request supplied. */
 export interface McpServerInstallIntent {

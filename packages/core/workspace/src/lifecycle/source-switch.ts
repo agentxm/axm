@@ -14,7 +14,6 @@ import {
   computeMaterializedTreeIntegrity,
   WorkspaceLocation,
 } from "../desired-state/index.js";
-import { isArchivePathIncluded } from "../acquisition/archive-paths.js";
 import { SourceHostProviders } from "../resolution/sources/index.js";
 import { fromFileLocation } from "@agentxm/host-primitives";
 import {
@@ -32,6 +31,7 @@ import {
 } from "../operations/index.js";
 import type { PrepareInstallRequirements } from "./install/vocabulary.js";
 import { sourceResolutionRefused } from "../reconciliation/index.js";
+import { isArchivePathIncluded } from "../acquisition/index.js";
 
 export const SOURCE_SWITCH_CONDITION_ID = "source-authority-change";
 const SOURCE_SWITCH_STATE_CONDITION_ID = "source-switch-current-state";

@@ -1,11 +1,12 @@
 /**
- * Workspace-backed implementation of source resolution's workspace catalog.
+ * Workspace-backed implementation of the workspace catalog port.
  *
- * The port is declared by `@agentxm/workspace/resolution/sources`; the facts behind it —
- * which agents this workspace materializes onto, where each of them keeps its
- * Skills, and what the workspace has configured, locked, and observed — are
- * projection decisions, so the implementation lives here rather than in the
- * application composition root.
+ * The port is declared beside this Layer; the facts behind it — which agents
+ * this workspace materializes onto, where each of them keeps its Skills, and
+ * what the workspace has configured, locked, and observed — come from
+ * projection and workspace state, both of which sit below sources, so the
+ * implementation lives beside its port rather than in the application
+ * composition root.
  *
  * The port's failure carrier wants a category and a sentence at construction.
  * This module takes both from the kernel's rendering of the workspace failure
@@ -25,12 +26,13 @@ import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import { fromFileLocation } from "@agentxm/host-primitives";
 import type * as PlatformError from "effect/PlatformError";
-import type { CodingAgentFailure } from "./agent-adapters/index.js";
+import type { CodingAgentFailure } from "../../projection/agent-adapters/index.js";
+import { CodingAgentRepository } from "../../projection/index.js";
 import {
   WorkspaceCatalog,
   WorkspaceCatalogUnavailable,
   type SkillCandidates,
-} from "../resolution/sources/index.js";
+} from "./workspace-catalog.js";
 import {
   makeScannerFileSystem,
   skillsInDir,
@@ -44,8 +46,7 @@ import {
   WorkspaceRecords,
   type WorkspaceStateReadFailure,
   workspaceStateReadFailureToStepFailure,
-} from "../desired-state/index.js";
-import { CodingAgentRepository } from "./agents/coding-agent-repository.js";
+} from "../../desired-state/index.js";
 
 const sortNames = (names: ReadonlyArray<string>): ReadonlyArray<string> =>
   [...names].sort((a, b) => a.localeCompare(b));

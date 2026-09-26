@@ -48,17 +48,13 @@ import {
 } from "../../resolution/index.js";
 import { AxmSkillCandidateGateLive, RegistryResolutionPolicyLive } from "../../resolution/live.js";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
-import { SourceHostProvidersLive } from "../../resolution/sources/live.js";
+import { SourceHostProvidersLive, WorkspaceCatalogLive } from "../../resolution/sources/live.js";
 import { CredentialStore } from "@agentxm/registry-access/credentials";
 import { CredentialStoreTest } from "@agentxm/registry-access/testing";
 import { RegistryClientFactoryLive, RegistryUrl } from "@agentxm/registry-client";
 import type { FileRegistry } from "@agentxm/registry-client/testing";
 import { StepFailure } from "../../operations/index.js";
-import {
-  CodingAgentRepositoryLive,
-  NativeWriteAuthorityLive,
-  WorkspaceCatalogLive,
-} from "../../projection/live.js";
+import { CodingAgentRepositoryLive, NativeWriteAuthorityLive } from "../../projection/live.js";
 import { ConfiguredAgentOutcomesProviderTest } from "../../desired-state/testing.js";
 import { FootprintRecorderTest } from "../../transitions/planning/testing.js";
 import { layer as workspaceStateLayer } from "../../desired-state/live.js";

@@ -10,17 +10,6 @@ import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { extensionRefName } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { fromFileLocation } from "@agentxm/host-primitives";
-import { acquiredDirectoryForRef } from "../acquisition/acquired-content.js";
-import {
-  materializeExternalPackageWithTreeIntegrity,
-  reusableCanonicalTree,
-  type CanonicalDirectoryReplacementError,
-} from "../acquisition/canonical-directory.js";
-import type {
-  PackageCopyFailed,
-  PackageMaterializationFailed,
-  ArchiveIntegrityMismatch,
-} from "../acquisition/errors.js";
 import type {
   LockEntry,
   MaterializedTreeInvalid,
@@ -29,6 +18,15 @@ import type {
 } from "../desired-state/index.js";
 import { extensionRefLifecycleWarnings } from "../resolution/index.js";
 import { materializeRegistryPackageWithTreeIntegrity } from "./registry-materialization.js";
+import {
+  acquiredDirectoryForRef,
+  materializeExternalPackageWithTreeIntegrity,
+  reusableCanonicalTree,
+  type CanonicalDirectoryReplacementError,
+  type PackageCopyFailed,
+  type PackageMaterializationFailed,
+  type ArchiveIntegrityMismatch,
+} from "../acquisition/index.js";
 
 export type AcquirableExtensionRef = Exclude<ExtensionRef, { readonly refType: "workspace" }>;
 

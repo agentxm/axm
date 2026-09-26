@@ -10,30 +10,15 @@ import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { createHash } from "node:crypto";
 import { simpleGit, type SimpleGit, type SimpleGitOptions } from "simple-git";
 import { OperationRequestBudget } from "@agentxm/registry-client";
 
 import { GitOperationFailed, type GitOperation } from "../errors.js";
+import { inheritedGitEnvironment } from "../../../acquisition/index.js";
 
 // -----------------------------------------------------------------------------
 // Internal Helpers
 // -----------------------------------------------------------------------------
-
-// eslint-disable-next-line no-restricted-properties -- This process adapter forwards inherited transport settings to child Git processes.
-const inheritedGitEnvironment = () => ({ ...process.env });
-
-/** Distinguish source reads under different inherited transport or credential contexts. */
-export const gitTransportContextFingerprint = (): string =>
-  createHash("sha256")
-    .update(
-      JSON.stringify(
-        Object.entries(inheritedGitEnvironment()).sort(([left], [right]) =>
-          left.localeCompare(right),
-        ),
-      ),
-    )
-    .digest("hex");
 
 const withGitRequestPermit = <A, E, R>(url: string, effect: Effect.Effect<A, E, R>) =>
   Effect.serviceOption(OperationRequestBudget).pipe(

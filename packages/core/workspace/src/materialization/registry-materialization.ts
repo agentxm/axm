@@ -25,21 +25,22 @@ import type {
   ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import { ArchiveIntegrityMismatch, PackageMaterializationFailed } from "../acquisition/errors.js";
-import { acquiredRegistryPackageFiles } from "../acquisition/acquired-content.js";
-import { copyExtensionDirectory } from "../acquisition/copy-directory.js";
-import {
-  recoverCanonicalDirectory,
-  replaceCanonicalDirectoryWithInspection,
-  type CanonicalDirectoryReplacementError,
-  type MaterializedPackage,
-} from "../acquisition/canonical-directory.js";
 import { makeThrottledUnitProgress, observeChildUnit } from "../operations/index.js";
 import {
   computeMaterializedTreeIntegrity,
   type MaterializedTreeInvalid,
   type TreeIntegrity,
 } from "../desired-state/index.js";
+import {
+  ArchiveIntegrityMismatch,
+  PackageMaterializationFailed,
+  acquiredRegistryPackageFiles,
+  copyExtensionDirectory,
+  recoverCanonicalDirectory,
+  replaceCanonicalDirectoryWithInspection,
+  type CanonicalDirectoryReplacementError,
+  type MaterializedPackage,
+} from "../acquisition/index.js";
 
 export interface RegistryPackageMaterializationMessages {
   readonly integrityMismatchDetail: string;

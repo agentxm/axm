@@ -17,6 +17,9 @@ import { RuleManager } from "../../../materialization/index.js";
 import {
   buildInstallOperation,
   type InstallArtifactPresentation,
+  kernelFailureToStepFailure,
+  type InstallStepRequirements,
+  type ResolvedInstallRef,
 } from "../../../reconciliation/index.js";
 import {
   operationPresentation,
@@ -27,8 +30,6 @@ import {
 } from "../../../operations/index.js";
 import { applyInstructionSurfacePlans } from "../../../projection/index.js";
 
-import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
-import type { InstallStepRequirements, ResolvedInstallRef } from "../../../reconciliation/index.js";
 import type { RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
 
 /** Rules the request selected. */

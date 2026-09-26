@@ -12,7 +12,12 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { KnowledgeManager } from "../../../materialization/index.js";
-import { buildInstallOperation } from "../../../reconciliation/index.js";
+import {
+  buildInstallOperation,
+  kernelFailureToStepFailure,
+  type InstallStepRequirements,
+  type ResolvedInstallRef,
+} from "../../../reconciliation/index.js";
 import {
   operationPresentation,
   type JobStepResult,
@@ -22,8 +27,6 @@ import {
 } from "../../../operations/index.js";
 import { applyInstructionSurfacePlans } from "../../../projection/index.js";
 
-import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
-import type { InstallStepRequirements, ResolvedInstallRef } from "../../../reconciliation/index.js";
 import type { KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
 
 /** Knowledge bundles the request selected. */

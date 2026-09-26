@@ -42,14 +42,6 @@ import {
 } from "../../desired-state/index.js";
 import { declareMaterialization, recordMaterialization } from "./declaration.js";
 import * as Option from "effect/Option";
-import type {
-  AuthorMaterialization,
-  InstallMaterialization,
-  MaterializationConfiguration,
-  MaterializationProjection,
-  SynchronizeMaterialization,
-  UninstallMaterialization,
-} from "../../transitions/planning/index.js";
 
 import { SourceAuthorityBlocked } from "../../resolution/index.js";
 import {
@@ -81,6 +73,14 @@ import {
   toExtensionTypePlural,
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/common";
+import type {
+  AuthorMaterialization,
+  InstallMaterialization,
+  MaterializationConfiguration,
+  MaterializationProjection,
+  SynchronizeMaterialization,
+  UninstallMaterialization,
+} from "../../materialization/index.js";
 
 // -----------------------------------------------------------------------------
 // Target Helpers

@@ -1,5 +1,8 @@
-import { kernelFailureToStepFailure } from "../../reconciliation/index.js";
-import { buildReconciliationClosure } from "../../reconciliation/index.js";
+import {
+  kernelFailureToStepFailure,
+  buildReconciliationClosure,
+  type InstallStepRequirements,
+} from "../../reconciliation/index.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -22,7 +25,6 @@ import {
 import { preapprovedPlanExecution } from "../../transitions/planning/testing.js";
 import { protectWorkspacePath } from "../../transitions/settlement/index.js";
 
-import type { InstallStepRequirements } from "../../reconciliation/index.js";
 import { makeLifecycleFixture, type LifecycleFixture } from "../../lifecycle/testing.js";
 import { makeWorkspaceUpdatePlan } from "../../lifecycle/update/configured.js";
 

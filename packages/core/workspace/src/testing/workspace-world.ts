@@ -31,12 +31,11 @@ import { AgentExecutableResolver } from "../projection/agent-adapters/index.js";
 import {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
-  WorkspaceCatalogLive,
   WorkspaceInvariantFactsLive,
 } from "../projection/live.js";
 import { AxmSkillCandidateGateLive, RegistryResolutionPolicyLive } from "../resolution/live.js";
 import { SourceHostProviders } from "../resolution/sources/index.js";
-import { SourceHostProvidersLive } from "../resolution/sources/live.js";
+import { SourceHostProvidersLive, WorkspaceCatalogLive } from "../resolution/sources/live.js";
 import { PlanInvocationTest } from "../transitions/planning/testing.js";
 import { WorkspaceFileWriteLocksLive } from "../transitions/settlement/live.js";
 

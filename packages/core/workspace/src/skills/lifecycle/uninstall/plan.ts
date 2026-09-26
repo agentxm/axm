@@ -29,7 +29,13 @@ import {
   skillArtifactFromTargets,
   type InstallableSkillTarget,
 } from "../../../materialization/index.js";
-import { buildUninstallOperation } from "../../../reconciliation/index.js";
+import {
+  buildUninstallOperation,
+  kernelFailureToStepFailure,
+  makeWorkspaceRetentionPolicy,
+  type InstallStepRequirements,
+  type ResolveInstallRequirements,
+} from "../../../reconciliation/index.js";
 import { resolveInstalledIdentifierNameOrInput } from "../../../resolution/sources/index.js";
 import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
 import {
@@ -49,8 +55,6 @@ import {
 } from "../../../desired-state/index.js";
 
 import { expandGlob } from "@agentxm/extension-model/unstable/extensions/name-patterns";
-import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
-import { makeWorkspaceRetentionPolicy } from "../../../reconciliation/index.js";
 import {
   authoredDisplayPath,
   acquiredDisplayPath,
@@ -58,10 +62,6 @@ import {
   lockfileDisplayPath,
   settingsDisplayPath,
 } from "../../../desired-state/index.js";
-import type {
-  InstallStepRequirements,
-  ResolveInstallRequirements,
-} from "../../../reconciliation/index.js";
 
 /** One skill removal. */
 export interface SkillUninstallIntent {

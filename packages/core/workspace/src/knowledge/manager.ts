@@ -69,7 +69,6 @@ import type { ManagerRequirements } from "../materialization/manager-contract.js
 import { NO_MATERIALIZATION_OBSERVATION } from "../materialization/manager-contract.js";
 import type { KnowledgeMaterializationFacts } from "../materialization/managers.js";
 import type { ExtensionManagerFailure } from "../materialization/errors.js";
-import { failureTag, type ExtensionKindFailure } from "../materialization/kind-failure.js";
 import {
   KnowledgeManager,
   type KnowledgeManagerService,
@@ -99,6 +98,7 @@ import type {
   GitHostedKnowledgeRef,
   KnowledgeExtensionRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
+import { failureTag, type ExtensionKindFailure } from "../materialization/index.js";
 
 interface PreparedKnowledgePackage {
   readonly root: string;

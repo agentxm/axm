@@ -5,7 +5,7 @@ import {
   CreateDestinationInspectionFailed,
   CreateNameConfigured,
 } from "./authored-package-errors.js";
-import { CreateDestinationExists } from "../materialization/index.js";
+import { CreateDestinationExists } from "../acquisition/index.js";
 export interface CreateOnlyPreflightArgs {
   readonly subject: string;
   readonly name: string;

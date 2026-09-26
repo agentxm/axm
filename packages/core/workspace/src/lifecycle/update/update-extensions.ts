@@ -102,8 +102,13 @@ import type { WorkspaceTransactionScope } from "../../transitions/settlement/ind
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 
-import { StepFailureConversion, type InstallStepRequirements } from "../../reconciliation/index.js";
-import { buildPackMemberStep, type PackMemberRef } from "../../reconciliation/index.js";
+import {
+  StepFailureConversion,
+  type InstallStepRequirements,
+  buildPackMemberStep,
+  type PackMemberRef,
+  nameFromLabel,
+} from "../../reconciliation/index.js";
 import { withPublisherTrust } from "../publisher-binding.js";
 import { planHookInstall } from "../../hooks/index.js";
 import { planKnowledgeInstall } from "../../knowledge/index.js";
@@ -117,7 +122,6 @@ import { buildWorkspaceUpdatePlan, type WorkspaceUpdatableType } from "./configu
 import { resolveConfiguredUpdateSelection, type ConfiguredUpdateSelector } from "./selector.js";
 import { resolveRootUpdateIntent, type RootUpdateIntent } from "./root-request.js";
 import { wrapTargetedUpdatePlan } from "./targeted-plan.js";
-import { nameFromLabel } from "../../reconciliation/index.js";
 import { desiredPackageKey } from "../../desired-state/index.js";
 
 // -----------------------------------------------------------------------------

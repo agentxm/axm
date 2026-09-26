@@ -29,14 +29,11 @@ import {
   TEST_CONTENT_IDENTITY,
   WorkspaceReadTest,
 } from "../desired-state/testing.js";
-import {
-  CodingAgentRepositoryLive,
-  NativeWriteAuthorityLive,
-  WorkspaceCatalogLive,
-} from "../projection/live.js";
+import { CodingAgentRepositoryLive, NativeWriteAuthorityLive } from "../projection/live.js";
 import { describeTestFailure, extensionName, handle } from "../materialization/test-helpers.js";
 import { HookManagerLive } from "./manager.js";
 import type { LocalHookRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
+import { WorkspaceCatalogLive } from "../resolution/sources/live.js";
 
 const writeHookPackage = (
   packageRoot: string,

@@ -9,8 +9,8 @@
  * rather than at the application boundary; the composition root and every
  * fixture that composes the production managers only compose Layers.
  *
- * The catalog port's Live belongs to `@agentxm/workspace/projection`, which
- * owns the agent-selection facts it reads.
+ * The catalog port's Live ships beside its port in
+ * `@agentxm/workspace/resolution/sources/live`.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation

@@ -30,11 +30,6 @@ import {
   PackStagingFailed,
 } from "./errors.js";
 import {
-  reusableCanonicalTree,
-  replaceCanonicalDirectoryWithInspection,
-} from "../acquisition/canonical-directory.js";
-import { configuredPacksToDiskRefs } from "../acquisition/materializable-from-disk.js";
-import {
   makeBaseManagerMembers,
   listMaterializableFromDisk,
 } from "../materialization/manager-kit.js";
@@ -45,7 +40,6 @@ import type {
 import { SourceHostProviders } from "../resolution/sources/index.js";
 import { PackManager, type PackMaterializationFacts } from "../materialization/managers.js";
 import { type SetPackArgs } from "../desired-state/index.js";
-import { copyExtensionDirectory } from "../acquisition/copy-directory.js";
 import { computePackPathsForLayout } from "../desired-state/index.js";
 import { removeIfExists } from "../desired-state/index.js";
 import { validateExactResolvedVersion } from "../desired-state/index.js";
@@ -68,6 +62,12 @@ import {
   type MaterializedTreeInvalid,
   type TreeIntegrity,
 } from "../desired-state/index.js";
+import {
+  reusableCanonicalTree,
+  replaceCanonicalDirectoryWithInspection,
+  configuredPacksToDiskRefs,
+  copyExtensionDirectory,
+} from "../acquisition/index.js";
 
 // Build pack SetPackArgs from a registry ref
 const buildSetPackArgs = (

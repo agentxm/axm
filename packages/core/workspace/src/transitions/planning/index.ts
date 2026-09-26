@@ -47,11 +47,8 @@ export {
   type DegradedLockfileState,
 } from "./operations/augment-plan.js";
 
-export type {
-  AuthorMaterialization,
-  InstallMaterialization,
-  MaterializationConfiguration,
-  MaterializationProjection,
-  SynchronizeMaterialization,
-  UninstallMaterialization,
-} from "./materialization-ports.js";
+// Rendering of the source, registry, and dependency-resolution families
+export {
+  resolutionFailureToStepFailure,
+  type ResolutionFamilyFailure,
+} from "./resolution-step-failure.js";

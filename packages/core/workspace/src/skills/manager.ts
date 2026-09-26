@@ -26,7 +26,6 @@ import {
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import { configuredSkillsToDiskRefs } from "../acquisition/materializable-from-disk.js";
 import {
   makeBaseManagerMembers,
   listMaterializableFromAccepted,
@@ -62,6 +61,7 @@ import {
   acceptedCanonicalObservation,
   removableAcceptedCanonicalPath,
 } from "../desired-state/index.js";
+import { configuredSkillsToDiskRefs } from "../acquisition/index.js";
 
 // -----------------------------------------------------------------------------
 // Live Layer

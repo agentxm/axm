@@ -82,14 +82,8 @@ import {
   collectSensitiveStrings,
   redactRegistryText,
 } from "@agentxm/registry-client";
-import { AcquiredContent, sourceRefContentKey } from "../../../acquisition/acquired-content.js";
-import { selectAcquisitionQueue } from "../../../acquisition/acquisition-queue.js";
-import {
-  AcquiredTreeLimitExceeded,
-  measureAcquiredTree,
-} from "../../../acquisition/measure-acquired-tree.js";
 import { SourceHostProviders } from "../../../resolution/sources/service.js";
-import { resolutionFailureToStepFailure } from "../../../materialization/resolution-step-failure.js";
+import { resolutionFailureToStepFailure } from "../resolution-step-failure.js";
 import { isSourceResolutionFailure } from "../../../resolution/sources/errors.js";
 
 import {
@@ -120,6 +114,13 @@ import {
   settleWorkspaceClosure,
   withWorkspaceClosure,
 } from "../../settlement/index.js";
+import {
+  AcquiredContent,
+  sourceRefContentKey,
+  selectAcquisitionQueue,
+  AcquiredTreeLimitExceeded,
+  measureAcquiredTree,
+} from "../../../acquisition/index.js";
 
 /** Publish a phase transition to the lifecycle stream and the journal. */
 const enterPhase = (phase: OperationPhase): Effect.Effect<void, never, OperationJournal> =>

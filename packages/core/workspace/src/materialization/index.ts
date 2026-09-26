@@ -3,8 +3,9 @@
  *
  * The materialization capability: the per-extension-type manager contract and
  * service tags each extension kind implements, the kernel failure families and
- * the brand every kind failure carries, the MCP credential port, canonical
- * package staging and swap, and registry-backed acquisition. The kinds'
+ * the brand every kind failure carries, the materialization capabilities a
+ * workspace transition drives, the MCP credential port, and registry-backed
+ * acquisition. The kinds'
  * manager layers live behind `./kinds-live`; the projection participants
  * layer lives behind `./live`; deterministic doubles live behind `./testing`.
  *
@@ -19,6 +20,16 @@ export {
   type MaterializationFacts,
   type MaterializationObservation,
 } from "./manager-contract.js";
+
+// The materialization capabilities a workspace transition drives
+export type {
+  AuthorMaterialization,
+  InstallMaterialization,
+  MaterializationConfiguration,
+  MaterializationProjection,
+  SynchronizeMaterialization,
+  UninstallMaterialization,
+} from "./ports/transition-materialization.js";
 
 // Manager service tags and the facts each manager reports
 export {
@@ -60,15 +71,6 @@ export {
   type ExtensionKindFailure,
 } from "./kind-failure.js";
 export {
-  ArchiveIntegrityMismatch,
-  CanonicalPackageProbeFailed,
-  CreateDestinationExists,
-  PackageCopyFailed,
-  PackageMaterializationFailed,
-  StagedPackageInvalid,
-  type MaterializationError,
-} from "../acquisition/errors.js";
-export {
   acceptedResolutionFor,
   InstallStateMissing,
   type AcceptedResolution,
@@ -95,38 +97,6 @@ export {
   type InstallableSkillTarget,
   type InstallableSkillTargetLocation,
 } from "./skill-artifact.js";
-
-// Canonical package staging, copy, reuse, and on-disk materializability
-export {
-  copyExtensionDirectory,
-  formatCopyExtensionDirectoryFailure,
-  type CopyExtensionDirectoryFailureDetails,
-  type CopyExtensionDirectoryOptions,
-} from "../acquisition/copy-directory.js";
-export {
-  configuredMcpServersToDiskRefs,
-  configuredPacksToDiskRefs,
-  configuredSkillsToDiskRefs,
-  configuredSubagentsToDiskRefs,
-} from "../acquisition/materializable-from-disk.js";
-export {
-  canonicalMaterializationPaths,
-  createCanonicalDirectory,
-  materializeExternalPackage,
-  materializeExternalPackageWithTreeIntegrity,
-  recoverCanonicalDirectory,
-  replaceCanonicalDirectory,
-  replaceCanonicalDirectoryWithInspection,
-  reusableCanonicalTree,
-  type CanonicalDirectoryInspection,
-  type CanonicalDirectoryReplacementError,
-  type CreateCanonicalDirectoryArgs,
-  type MaterializeExternalPackageArgs,
-  type MaterializedPackage,
-  type RecoverCanonicalDirectoryArgs,
-  type ReplaceCanonicalDirectoryArgs,
-  type ReplaceCanonicalDirectoryWithInspectionArgs,
-} from "../acquisition/canonical-directory.js";
 
 // Registry-backed acquisition
 export {

@@ -680,8 +680,8 @@ describe("installMcpServer", () => {
 
         expect(result._tag).toBe("Failure");
         if (result._tag === "Failure") {
-          expect(result.failure).toMatchObject({ _tag: "McpRequiredInputsMissing" });
           expect(result.failure).toMatchObject({
+            _tag: "McpRequiredInputsMissing",
             localName: "my-server",
             inputNames: ["REGION"],
           });
@@ -724,8 +724,10 @@ describe("installMcpServer", () => {
         );
         expect(result._tag).toBe("Failure");
         if (result._tag === "Failure") {
-          expect(result.failure).toMatchObject({ _tag: "McpRequiredInputsMissing" });
-          expect(result.failure).toMatchObject({ inputNames: ["--profile"] });
+          expect(result.failure).toMatchObject({
+            _tag: "McpRequiredInputsMissing",
+            inputNames: ["--profile"],
+          });
         }
       }),
     );

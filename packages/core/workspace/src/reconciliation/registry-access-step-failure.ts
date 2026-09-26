@@ -17,12 +17,12 @@ import {
   type RegistryAccessFailure,
 } from "@agentxm/registry-access/authentication";
 
-import { resolutionFailureToStepFailure } from "../materialization/resolution-step-failure.js";
 import {
   makeStepFailure,
   type OperationErrorCategory,
   type StepFailure,
 } from "../operations/index.js";
+import { resolutionFailureToStepFailure } from "../transitions/planning/index.js";
 
 // The registry-access category vocabulary and the kernel's must stay the
 // same strings; divergence is a compile error here, at the renderer that

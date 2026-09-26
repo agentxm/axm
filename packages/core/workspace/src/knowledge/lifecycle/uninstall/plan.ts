@@ -23,7 +23,12 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
 import { KnowledgeManager } from "../../../materialization/index.js";
-import { buildUninstallOperation } from "../../../reconciliation/index.js";
+import {
+  buildUninstallOperation,
+  kernelFailureToStepFailure,
+  makeWorkspaceRetentionPolicy,
+  type InstallStepRequirements,
+} from "../../../reconciliation/index.js";
 import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
 import {
   type Plan,
@@ -36,10 +41,6 @@ import {
   acceptedCanonicalObservation,
   type KnowledgeExtensionTarget,
 } from "../../../desired-state/index.js";
-
-import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
-import { makeWorkspaceRetentionPolicy } from "../../../reconciliation/index.js";
-import type { InstallStepRequirements } from "../../../reconciliation/index.js";
 
 /** One knowledge-bundle removal. */
 export interface KnowledgeUninstallIntent {

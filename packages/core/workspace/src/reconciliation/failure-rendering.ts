@@ -38,14 +38,6 @@ import {
 } from "@agentxm/registry-access/authentication";
 
 import {
-  ArchiveIntegrityMismatch,
-  CanonicalPackageProbeFailed,
-  CreateDestinationExists,
-  PackageCopyFailed,
-  PackageMaterializationFailed,
-  StagedPackageInvalid,
-} from "../acquisition/errors.js";
-import {
   type WorkspaceStateReadFailure,
   configErrorToStepFailure,
   restorationIncompleteToStepFailure,
@@ -98,18 +90,6 @@ import {
   agentIntegrationFailureToStepFailure,
   type AgentIntegrationFailure,
 } from "../materialization/agent-integration-step-failure.js";
-import {
-  isExtensionKindFailure,
-  type ExtensionKindFailure,
-} from "../materialization/kind-failure.js";
-import {
-  projectionErrorToStepFailure,
-  type ProjectionFamilyFailure,
-} from "../materialization/projection-step-failure.js";
-import {
-  resolutionFailureToStepFailure,
-  type ResolutionFamilyFailure,
-} from "../materialization/resolution-step-failure.js";
 import {
   materializationFailureToStepFailure,
   type MaterializationFamilyFailure,
@@ -183,10 +163,22 @@ import {
 import {
   planExecutionFailureToStepFailure,
   type PlanExecutionFailure,
+  resolutionFailureToStepFailure,
+  type ResolutionFamilyFailure,
 } from "../transitions/planning/index.js";
 
 import { WorkspaceSyncFailed } from "./errors.js";
 import { registryAccessFailureToStepFailure } from "./registry-access-step-failure.js";
+import { projectionErrorToStepFailure, type ProjectionFamilyFailure } from "../projection/index.js";
+import {
+  ArchiveIntegrityMismatch,
+  CanonicalPackageProbeFailed,
+  CreateDestinationExists,
+  PackageCopyFailed,
+  PackageMaterializationFailed,
+  StagedPackageInvalid,
+} from "../acquisition/index.js";
+import { isExtensionKindFailure, type ExtensionKindFailure } from "../materialization/index.js";
 
 /** Every typed failure the workspace kernel constructs or carries. */
 export type KernelFailure =

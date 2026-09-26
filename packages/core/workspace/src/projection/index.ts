@@ -110,6 +110,7 @@ export {
   type ProjectionError,
   type ProjectionParticipantFailure,
 } from "./errors.js";
+export { projectionErrorToStepFailure, type ProjectionFamilyFailure } from "./step-failure.js";
 
 // Invariant facts
 export {

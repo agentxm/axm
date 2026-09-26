@@ -29,7 +29,12 @@ import {
   readMcpServerManifestAt,
 } from "../../../projection/agent-adapters/index.js";
 import type { McpServerManifest } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
-import { buildUninstallOperation } from "../../../reconciliation/index.js";
+import {
+  buildUninstallOperation,
+  kernelFailureToStepFailure,
+  makeWorkspaceRetentionPolicy,
+  type InstallStepRequirements,
+} from "../../../reconciliation/index.js";
 import {
   appendWarningsToMessage,
   type JobStepResult,
@@ -42,11 +47,8 @@ import {
   type McpServerExtensionTarget,
 } from "../../../desired-state/index.js";
 
-import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
-import { makeWorkspaceRetentionPolicy } from "../../../reconciliation/index.js";
 import { lockfileDisplayPath, settingsDisplayPath } from "../../../desired-state/index.js";
 import { desiredMcpSourceKey } from "../../../desired-state/index.js";
-import type { InstallStepRequirements } from "../../../reconciliation/index.js";
 
 /** One MCP connection removal. */
 export interface McpServerUninstallIntent {

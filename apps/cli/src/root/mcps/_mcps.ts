@@ -7,7 +7,7 @@ import { addCommand } from "./add.js";
 import { disableCommand } from "./disable.js";
 import { enableCommand } from "./enable.js";
 import { importCommand } from "./import.js";
-import { installCommand } from "./install/command.js";
+import { mcpsInstallCommand as installCommand } from "../install/command.js";
 import { listCommand } from "./list.js";
 import { newCommand } from "./new.js";
 import { mcpsPublishCommand as publishCommand } from "../publish/per-type-command.js";

@@ -2,7 +2,7 @@ import { Command } from "effect/unstable/cli";
 
 import { addCommand } from "./add.js";
 import { disableCommand, enableCommand } from "./activation.js";
-import { installCommand } from "./install/command.js";
+import { packsInstallCommand as installCommand } from "../install/command.js";
 import { listCommand } from "./list.js";
 import { newCommand } from "./new.js";
 import { packsPublishCommand as publishCommand } from "../publish/per-type-command.js";

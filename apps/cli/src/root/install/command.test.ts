@@ -22,3 +22,14 @@ describe("root install command help", () => {
     }),
   );
 });
+
+describe("subagents install command help", () => {
+  it.effect("documents no-arg install and omits the dead --agent flag", () =>
+    Effect.gen(function* () {
+      const output = yield* captureHelpText(["subagents", "install"]);
+
+      expect(output).toContain("Reinstall all configured subagents from their sources");
+      expect(output).not.toContain("--agent");
+    }),
+  );
+});

@@ -6,7 +6,7 @@ import { makeExtensionShowCommand } from "../shared/extension-show.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
 import { disableCommand } from "./disable.js";
 import { enableCommand } from "./enable.js";
-import { installCommand } from "./install/command.js";
+import { rulesInstallCommand as installCommand } from "../install/command.js";
 import { listCommand } from "./list.js";
 import { newCommand } from "./new.js";
 import { uninstallCommand } from "./uninstall/command.js";

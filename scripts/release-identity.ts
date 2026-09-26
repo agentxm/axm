@@ -63,6 +63,24 @@ export const parseReleaseCommitSubject = (
 export const isReleaseLikeSubject = (subject: string): boolean =>
   subject.startsWith(`release: ${RELEASE_TAG_PREFIX}`);
 
+/** Find one canonical release commit in the fetched main history. */
+export const releaseCommitOnOriginMain = (tag: string): string => {
+  const rows = capture("git", ["log", "origin/main", "--format=%H%x09%s"]);
+  const matches = rows
+    .split("\n")
+    .filter((row) => row.length > 0)
+    .flatMap((row) => {
+      const separator = row.indexOf("\t");
+      if (separator < 0) return [];
+      const subject = row.slice(separator + 1);
+      return parseReleaseCommitSubject(subject)?.tag === tag ? [row.slice(0, separator)] : [];
+    });
+  if (matches.length !== 1 || matches[0] === undefined) {
+    throw new Error(`Expected exactly one canonical release commit for ${tag} on origin/main.`);
+  }
+  return matches[0];
+};
+
 const isRecord = (value: unknown): value is Record<PropertyKey, unknown> =>
   value != null && typeof value === "object";
 

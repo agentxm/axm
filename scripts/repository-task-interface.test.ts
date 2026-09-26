@@ -111,6 +111,9 @@ describe("repository task interface", () => {
     expect(read(".github/workflows/ci.yml")).toContain(
       "pnpm --config.verify-deps-before-run=warn run classify:ci",
     );
+    expect(read(".github/workflows/publish.yml")).toContain(
+      "pnpm --config.verify-deps-before-run=warn run resolve:release-source",
+    );
   });
 
   it("checks global architecture and dependency hygiene before dependency-aware verification", () => {

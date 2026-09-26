@@ -67,11 +67,6 @@ const withPublicationSource = (
     git("config", "user.name", "Publication source fixture");
     git("remote", "add", "origin", remote);
     fs.mkdirSync(path.join(checkout, "apps", "cli"), { recursive: true });
-    const source = readReleaseWorkflow().jobs["source"];
-    const script = source?.steps.find(
-      (step) => step.name === "Resolve exact publication source",
-    )?.run;
-    if (script === undefined) throw new Error("The publication source guard must be executable.");
     use({
       commit: (subject, version = "1.2.3") => {
         fs.writeFileSync(
@@ -94,22 +89,27 @@ const withPublicationSource = (
       },
       select: (input) => {
         fs.writeFileSync(outputPath, "");
-        const result = spawnSync("bash", ["--noprofile", "--norc", "-c", script], {
-          cwd: checkout,
-          env: {
-            ...environment,
-            GITHUB_OUTPUT: outputPath,
-            EVENT_NAME: "workflow_run",
-            CI_CONCLUSION: "success",
-            CI_EVENT: "push",
-            CI_HEAD_BRANCH: "main",
-            CI_HEAD_SHA: git("rev-parse", "HEAD"),
-            CI_RUN_ID: "42",
-            ...input,
+        const result = spawnSync(
+          "bun",
+          [path.join(repoRoot, "scripts", "resolve-release-source.ts")],
+          {
+            cwd: checkout,
+            env: {
+              ...environment,
+              GITHUB_OUTPUT: outputPath,
+              RUNNER_TEMP: directory,
+              EVENT_NAME: "workflow_run",
+              CI_CONCLUSION: "success",
+              CI_EVENT: "push",
+              CI_HEAD_BRANCH: "main",
+              CI_HEAD_SHA: git("rev-parse", "HEAD"),
+              CI_RUN_ID: "42",
+              ...input,
+            },
+            encoding: "utf8",
+            timeout: 10_000,
           },
-          encoding: "utf8",
-          timeout: 10_000,
-        });
+        );
         if (result.error !== undefined) throw result.error;
         const selected = Object.fromEntries(
           fs
@@ -198,13 +198,9 @@ describe("Canonical release workflow", () => {
       expect(source.if).toContain("workflow_run.conclusion == 'success'");
       expect(source.if).toContain("workflow_run.event == 'push'");
       expect(source.if).toContain("workflow_run.head_branch == 'main'");
-      expect(
-        source.steps.some(
-          (step) =>
-            step.run?.includes("git log origin/main") === true &&
-            step.run.includes("Expected exactly one canonical release commit"),
-        ),
-      ).toBe(true);
+      expect(source.steps.some((step) => step.run?.includes("run resolve:release-source"))).toBe(
+        true,
+      );
       expect(workflow.jobs["release"]?.needs).toBe("source");
       expect(workflow.jobs["release"]?.steps[0]?.with?.["ref"]).toBe(
         "${{ needs.source.outputs.tooling_sha }}",

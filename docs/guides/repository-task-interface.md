@@ -356,7 +356,7 @@ launchers, and host adapters. These boundaries are intentional:
 | Boundary                                                              | Reason                                                                                                                          |
 | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `axm` and `axm:local`                                                 | Launch the source CLI, optionally against an external workspace                                                                 |
-| `classify:ci`                                                         | Run before workspace dependencies exist; their host jobs lower `verifyDepsBeforeRun` to `warn` only for these source-only tasks |
+| `classify:ci`, `resolve:release-source`                               | Run before workspace dependencies exist; their host jobs lower `verifyDepsBeforeRun` to `warn` only for these source-only tasks |
 | `test:spec`, `verify:artifact`, `verify:release`, `verify:deployment` | Resolve an exact subject, then invoke the target that owns the evidence                                                         |
 | `*:report` through `scripts/with-allure-report.sh`                    | Generate evidence even when the preceding gate fails; an Nx dependent would be skipped                                          |
 | `lint-staged`                                                         | Operate on the Git index, which Nx affected selection does not represent                                                        |

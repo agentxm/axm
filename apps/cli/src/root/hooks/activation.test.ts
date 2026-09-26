@@ -16,8 +16,7 @@ import {
   expectNoOpPlanResult,
   makeWorkspaceHandlerTestContext,
 } from "../../test-support/test-helpers.js";
-import { handleDisableHook } from "./disable.js";
-import { handleEnableHook } from "./enable.js";
+import { handleActivation } from "../activation-handler.js";
 import { handleHooksNew } from "./new.js";
 
 const hookEntry = (enabled: boolean) => ({
@@ -66,7 +65,8 @@ describe("hooks enable/disable no-op output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleEnableHook({
+        yield* handleActivation("hook", {
+          enabled: true,
           name: "workspace-baseline",
           preview: false,
         });
@@ -84,14 +84,15 @@ describe("hooks enable/disable no-op output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleEnableHook({
+        yield* handleActivation("hook", {
+          enabled: true,
           name: "workspace-baseline",
           preview: false,
         });
 
         expect(logs.success).toEqual([]);
         expectNoOpPlanResult(rendererState.results[0]?.data, {
-          planName: "Enable hooks",
+          planName: "Enable hooks package",
           message: 'hooks package "workspace-baseline" is already enabled',
         });
       }),
@@ -106,14 +107,15 @@ describe("hooks enable/disable no-op output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleDisableHook({
+        yield* handleActivation("hook", {
+          enabled: false,
           name: "workspace-baseline",
           preview: false,
         });
 
         expect(logs.success).toEqual([]);
         expectNoOpPlanResult(rendererState.results[0]?.data, {
-          planName: "Disable hooks",
+          planName: "Disable hooks package",
           message: 'hooks package "workspace-baseline" is already disabled',
         });
       }),
@@ -128,14 +130,15 @@ describe("hooks enable/disable no-op output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleDisableHook({
+        yield* handleActivation("hook", {
+          enabled: false,
           name: "missing",
           preview: false,
         });
 
         expect(logs.warn).toEqual([]);
         expectNoOpPlanResult(rendererState.results[0]?.data, {
-          planName: "Disable hooks",
+          planName: "Disable hooks package",
           message: 'hooks package "missing" is not configured',
         });
       }),
@@ -150,14 +153,15 @@ describe("hooks enable/disable no-op output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleEnableHook({
+        yield* handleActivation("hook", {
+          enabled: true,
           name: "missing",
           preview: false,
         });
 
         expect(logs.warn).toEqual([]);
         expectNoOpPlanResult(rendererState.results[0]?.data, {
-          planName: "Enable hooks",
+          planName: "Enable hooks package",
           message: 'hooks package "missing" is not configured',
         });
       }),
@@ -177,11 +181,13 @@ describe("hooks enable/disable no-op output", () => {
           matcher: Option.some("Bash"),
           preview: false,
         });
-        yield* handleDisableHook({
+        yield* handleActivation("hook", {
+          enabled: false,
           name: "workspace-baseline",
           preview: false,
         });
-        yield* handleEnableHook({
+        yield* handleActivation("hook", {
+          enabled: true,
           name: "workspace-baseline",
           preview: false,
         });

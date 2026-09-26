@@ -721,13 +721,10 @@
             ],
             "globalOptions": [],
             "examples": [
-              {
-                "command": "axm skills enable code-review",
-                "description": "Re-enable a skill you previously disabled"
-              },
+              { "command": "axm skills enable code-review", "description": "Enable a skill" },
               {
                 "command": "axm skills enable code-review --preview",
-                "description": "Preview the change before enabling"
+                "description": "Preview enable effects"
               }
             ],
             "subcommands": []
@@ -771,13 +768,10 @@
             ],
             "globalOptions": [],
             "examples": [
+              { "command": "axm skills disable code-review", "description": "Disable a skill" },
               {
-                "command": "axm skills disable code-review",
-                "description": "Temporarily disable a skill without removing it"
-              },
-              {
-                "command": "axm skills disable code-review --scope user",
-                "description": "Disable for user-scope configuration"
+                "command": "axm skills disable code-review --preview",
+                "description": "Preview disable effects"
               }
             ],
             "subcommands": []
@@ -1222,7 +1216,7 @@
           {
             "name": "enable",
             "aliases": [],
-            "description": "Enable a disabled MCP server",
+            "description": "Enable a previously disabled MCP server",
             "arguments": [
               {
                 "name": "name",
@@ -1246,7 +1240,7 @@
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Display plan without applying"
+                "description": "Show what would change without enabling"
               },
               {
                 "name": "ignore-release-age",
@@ -1258,10 +1252,10 @@
             ],
             "globalOptions": [],
             "examples": [
-              { "command": "axm mcps enable context", "description": "Enable an MCP server" },
+              { "command": "axm mcps enable context", "description": "Enable a MCP server" },
               {
                 "command": "axm mcps enable context --preview",
-                "description": "Preview enabling an MCP server"
+                "description": "Preview enable effects"
               }
             ],
             "subcommands": []
@@ -1269,7 +1263,7 @@
           {
             "name": "disable",
             "aliases": [],
-            "description": "Disable an MCP server",
+            "description": "Disable a MCP server without uninstalling it",
             "arguments": [
               {
                 "name": "name",
@@ -1293,7 +1287,7 @@
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Display plan without applying"
+                "description": "Show what would change without disabling"
               },
               {
                 "name": "ignore-release-age",
@@ -1305,10 +1299,10 @@
             ],
             "globalOptions": [],
             "examples": [
-              { "command": "axm mcps disable context", "description": "Disable an MCP server" },
+              { "command": "axm mcps disable context", "description": "Disable a MCP server" },
               {
                 "command": "axm mcps disable context --preview",
-                "description": "Preview disabling an MCP server"
+                "description": "Preview disable effects"
               }
             ],
             "subcommands": []
@@ -2088,13 +2082,10 @@
             ],
             "globalOptions": [],
             "examples": [
-              {
-                "command": "axm subagents enable researcher",
-                "description": "Re-enable a subagent you previously disabled"
-              },
+              { "command": "axm subagents enable researcher", "description": "Enable a subagent" },
               {
                 "command": "axm subagents enable researcher --preview",
-                "description": "Preview the change before enabling"
+                "description": "Preview enable effects"
               }
             ],
             "subcommands": []
@@ -2102,7 +2093,7 @@
           {
             "name": "disable",
             "aliases": [],
-            "description": "Disable an installed subagent without removing it",
+            "description": "Disable a subagent without uninstalling it",
             "arguments": [
               {
                 "name": "name",
@@ -2140,11 +2131,11 @@
             "examples": [
               {
                 "command": "axm subagents disable researcher",
-                "description": "Temporarily disable a subagent without removing it"
+                "description": "Disable a subagent"
               },
               {
-                "command": "axm subagents disable researcher --scope user",
-                "description": "Disable for user-scope configuration"
+                "command": "axm subagents disable researcher --preview",
+                "description": "Preview disable effects"
               }
             ],
             "subcommands": []
@@ -2377,14 +2368,14 @@
           {
             "name": "enable",
             "aliases": [],
-            "description": "Enable a rule",
+            "description": "Enable a previously disabled rule",
             "arguments": [
               {
                 "name": "name",
                 "aliases": [],
                 "type": "string",
                 "required": true,
-                "description": "Name of the rule"
+                "description": "Name of the rule to enable"
               }
             ],
             "options": [
@@ -2413,9 +2404,10 @@
             ],
             "globalOptions": [],
             "examples": [
+              { "command": "axm rules enable commit-style", "description": "Enable a rule" },
               {
-                "command": "axm rules enable commit-style",
-                "description": "Enable a configured rule"
+                "command": "axm rules enable commit-style --preview",
+                "description": "Preview enable effects"
               }
             ],
             "subcommands": []
@@ -2430,7 +2422,7 @@
                 "aliases": [],
                 "type": "string",
                 "required": true,
-                "description": "Name of the rule"
+                "description": "Name of the rule to disable"
               }
             ],
             "options": [
@@ -2459,9 +2451,10 @@
             ],
             "globalOptions": [],
             "examples": [
+              { "command": "axm rules disable commit-style", "description": "Disable a rule" },
               {
-                "command": "axm rules disable commit-style",
-                "description": "Disable a configured rule"
+                "command": "axm rules disable commit-style --preview",
+                "description": "Preview disable effects"
               }
             ],
             "subcommands": []
@@ -2878,14 +2871,14 @@
           {
             "name": "enable",
             "aliases": [],
-            "description": "Enable a hooks package",
+            "description": "Enable a previously disabled hooks package",
             "arguments": [
               {
                 "name": "name",
                 "aliases": [],
                 "type": "string",
                 "required": true,
-                "description": "Name of the hooks package"
+                "description": "Name of the hooks package to enable"
               }
             ],
             "options": [
@@ -2916,7 +2909,11 @@
             "examples": [
               {
                 "command": "axm hooks enable workspace-baseline",
-                "description": "Enable a configured hooks package"
+                "description": "Enable a hooks package"
+              },
+              {
+                "command": "axm hooks enable workspace-baseline --preview",
+                "description": "Preview enable effects"
               }
             ],
             "subcommands": []
@@ -2924,14 +2921,14 @@
           {
             "name": "disable",
             "aliases": [],
-            "description": "Disable a hooks package without removing sync-once targets",
+            "description": "Disable a hooks package without uninstalling it",
             "arguments": [
               {
                 "name": "name",
                 "aliases": [],
                 "type": "string",
                 "required": true,
-                "description": "Name of the hooks package"
+                "description": "Name of the hooks package to disable"
               }
             ],
             "options": [
@@ -2963,6 +2960,10 @@
               {
                 "command": "axm hooks disable workspace-baseline",
                 "description": "Disable a hooks package"
+              },
+              {
+                "command": "axm hooks disable workspace-baseline --preview",
+                "description": "Preview disable effects"
               }
             ],
             "subcommands": []
@@ -3814,14 +3815,14 @@
           {
             "name": "enable",
             "aliases": [],
-            "description": "Include a knowledge bundle in discovery",
+            "description": "Enable a previously disabled knowledge bundle",
             "arguments": [
               {
                 "name": "name",
                 "aliases": [],
                 "type": "string",
                 "required": true,
-                "description": "Configured knowledge bundle name"
+                "description": "Name of the knowledge bundle to enable"
               }
             ],
             "options": [
@@ -3830,7 +3831,7 @@
                 "aliases": [],
                 "type": "choice",
                 "required": false,
-                "description": "Use project (default) or user knowledge state",
+                "description": "Enable in project (default) or user-level configuration",
                 "choices": [{ "value": "project" }, { "value": "user" }]
               },
               {
@@ -3838,7 +3839,7 @@
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Display plan without applying"
+                "description": "Show what would change without enabling"
               },
               {
                 "name": "ignore-release-age",
@@ -3852,7 +3853,11 @@
             "examples": [
               {
                 "command": "axm knowledge enable platform",
-                "description": "Restore a bundle to discovery and search"
+                "description": "Enable a knowledge bundle"
+              },
+              {
+                "command": "axm knowledge enable platform --preview",
+                "description": "Preview enable effects"
               }
             ],
             "subcommands": []
@@ -3860,14 +3865,14 @@
           {
             "name": "disable",
             "aliases": [],
-            "description": "Exclude a knowledge bundle from discovery while keeping it installed",
+            "description": "Disable a knowledge bundle without uninstalling it",
             "arguments": [
               {
                 "name": "name",
                 "aliases": [],
                 "type": "string",
                 "required": true,
-                "description": "Configured knowledge bundle name"
+                "description": "Name of the knowledge bundle to disable"
               }
             ],
             "options": [
@@ -3876,7 +3881,7 @@
                 "aliases": [],
                 "type": "choice",
                 "required": false,
-                "description": "Use project (default) or user knowledge state",
+                "description": "Disable in project (default) or user-level configuration",
                 "choices": [{ "value": "project" }, { "value": "user" }]
               },
               {
@@ -3884,7 +3889,7 @@
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Display plan without applying"
+                "description": "Show what would change without disabling"
               },
               {
                 "name": "ignore-release-age",
@@ -3898,7 +3903,11 @@
             "examples": [
               {
                 "command": "axm knowledge disable platform",
-                "description": "Keep a bundle installed but exclude it from discovery"
+                "description": "Disable a knowledge bundle"
+              },
+              {
+                "command": "axm knowledge disable platform --preview",
+                "description": "Preview disable effects"
               }
             ],
             "subcommands": []
@@ -4052,14 +4061,14 @@
           {
             "name": "enable",
             "aliases": [],
-            "description": "Enable a pack without changing locked versions",
+            "description": "Enable a previously disabled pack",
             "arguments": [
               {
                 "name": "name",
                 "aliases": [],
                 "type": "string",
                 "required": true,
-                "description": "Name of the pack"
+                "description": "Name of the pack to enable"
               }
             ],
             "options": [
@@ -4068,7 +4077,7 @@
                 "aliases": [],
                 "type": "choice",
                 "required": false,
-                "description": "Use project (default) or user-level configuration",
+                "description": "Enable in project (default) or user-level configuration",
                 "choices": [{ "value": "project" }, { "value": "user" }]
               },
               {
@@ -4076,7 +4085,7 @@
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Show what would change without applying"
+                "description": "Show what would change without enabling"
               },
               {
                 "name": "ignore-release-age",
@@ -4088,9 +4097,10 @@
             ],
             "globalOptions": [],
             "examples": [
+              { "command": "axm packs enable frontend-tools", "description": "Enable a pack" },
               {
                 "command": "axm packs enable frontend-tools --preview",
-                "description": "Preview enable effects and dependency provenance"
+                "description": "Preview enable effects"
               }
             ],
             "subcommands": []
@@ -4098,14 +4108,14 @@
           {
             "name": "disable",
             "aliases": [],
-            "description": "Disable a pack without changing locked versions",
+            "description": "Disable a pack without uninstalling it",
             "arguments": [
               {
                 "name": "name",
                 "aliases": [],
                 "type": "string",
                 "required": true,
-                "description": "Name of the pack"
+                "description": "Name of the pack to disable"
               }
             ],
             "options": [
@@ -4114,7 +4124,7 @@
                 "aliases": [],
                 "type": "choice",
                 "required": false,
-                "description": "Use project (default) or user-level configuration",
+                "description": "Disable in project (default) or user-level configuration",
                 "choices": [{ "value": "project" }, { "value": "user" }]
               },
               {
@@ -4122,7 +4132,7 @@
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Show what would change without applying"
+                "description": "Show what would change without disabling"
               },
               {
                 "name": "ignore-release-age",
@@ -4134,9 +4144,10 @@
             ],
             "globalOptions": [],
             "examples": [
+              { "command": "axm packs disable frontend-tools", "description": "Disable a pack" },
               {
                 "command": "axm packs disable frontend-tools --preview",
-                "description": "Preview disable effects and dependency provenance"
+                "description": "Preview disable effects"
               }
             ],
             "subcommands": []

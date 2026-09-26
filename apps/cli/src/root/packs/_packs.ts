@@ -1,7 +1,7 @@
 import { Command } from "effect/unstable/cli";
 
 import { addCommand } from "./add.js";
-import { disableCommand, enableCommand } from "./activation.js";
+import { makeActivationCommands } from "../activation-handler.js";
 import { packsInstallCommand as installCommand } from "../install/command.js";
 import { listCommand } from "./list.js";
 import { newCommand } from "./new.js";
@@ -13,6 +13,8 @@ import { unpackCommand } from "./unpack/command.js";
 import { updateCommand } from "./update.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
 import { groupCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
+
+const { enableCommand, disableCommand } = makeActivationCommands("pack");
 
 export const packsCommand = Command.make("packs").pipe(
   Command.withDescription("Manage packs"),

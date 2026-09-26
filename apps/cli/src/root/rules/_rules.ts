@@ -4,13 +4,14 @@ import { groupCapabilities, withCommandCapabilities } from "../shared/command-ca
 import { makeExtensionShowCommand } from "../shared/extension-show.js";
 
 import { LearnMore, formatLearnMore } from "../../formatter.js";
-import { disableCommand } from "./disable.js";
-import { enableCommand } from "./enable.js";
+import { makeActivationCommands } from "../activation-handler.js";
 import { rulesInstallCommand as installCommand } from "../install/command.js";
 import { listCommand } from "./list.js";
 import { newCommand } from "./new.js";
 import { uninstallCommand } from "./uninstall/command.js";
 import { updateCommand } from "./update.js";
+
+const { enableCommand, disableCommand } = makeActivationCommands("rule");
 
 const showCommand = makeExtensionShowCommand({
   type: "rule",

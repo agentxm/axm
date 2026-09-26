@@ -7,11 +7,12 @@ import { uninstallCommand } from "./uninstall/command.js";
 import { listCommand } from "./list.js";
 import { updateCommand } from "./update/command.js";
 import { newCommand } from "./new.js";
-import { enableCommand } from "./enable.js";
-import { disableCommand } from "./disable.js";
+import { makeActivationCommands } from "../activation-handler.js";
 import { skillsPublishCommand as publishCommand } from "../publish/per-type-command.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
 import { skillsImportCommand as importCommand } from "../import/command.js";
+
+const { enableCommand, disableCommand } = makeActivationCommands("skill");
 
 const showCommand = makeExtensionShowCommand({
   type: "skill",

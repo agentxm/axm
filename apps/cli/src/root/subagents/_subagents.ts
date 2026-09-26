@@ -8,10 +8,11 @@ import { listCommand } from "./list/command.js";
 import { updateCommand } from "./update/command.js";
 import { newCommand } from "./new/command.js";
 import { subagentsPublishCommand as publishCommand } from "../publish/per-type-command.js";
-import { enableCommand } from "./enable/command.js";
-import { disableCommand } from "./disable/command.js";
+import { makeActivationCommands } from "../activation-handler.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
 import { subagentsImportCommand as importCommand } from "../import/command.js";
+
+const { enableCommand, disableCommand } = makeActivationCommands("subagent");
 
 const showCommand = makeExtensionShowCommand({
   type: "subagent",

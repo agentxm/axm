@@ -11,17 +11,17 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
-import { writeWorkspaceFiles } from "../../../test-support/test-stubs.js";
+import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
   expectNoOpPlanResult,
   getAppError,
   makeWorkspaceLifecycleTestContext,
-} from "../../../test-support/test-helpers.js";
+} from "../../test-support/test-helpers.js";
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
 } from "@agentxm/workspace/projection";
-import { handleEnableSubagent, type EnableSubagentHandlerArgs } from "./handler.js";
+import { handleActivation, type ActivationRequest } from "../activation-handler.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -53,9 +53,10 @@ const makeSubagentLockEntry = (agents: string[] = ["claude-code"]) => ({
 
 const defaultArgs = (
   name: string,
-  overrides: Partial<EnableSubagentHandlerArgs> = {},
-): EnableSubagentHandlerArgs => ({
+  overrides: Partial<ActivationRequest> = {},
+): ActivationRequest => ({
   name,
+  enabled: true,
   preview: false,
   ...overrides,
 });
@@ -112,7 +113,9 @@ describe("subagents enable.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* handleEnableSubagent(defaultArgs("nonexistent")).pipe(Effect.flip);
+          const error = yield* handleActivation("subagent", defaultArgs("nonexistent")).pipe(
+            Effect.flip,
+          );
           expect(getAppError(error).detail).toContain("is not installed");
         }),
       );
@@ -127,7 +130,7 @@ describe("subagents enable.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleEnableSubagent(defaultArgs("my-agent"));
+          yield* handleActivation("subagent", defaultArgs("my-agent"));
 
           expect(logs.info.some((m) => m.includes("already enabled"))).toBe(false);
           expect(logs.success.some((m) => m.includes("already enabled"))).toBe(true);
@@ -145,7 +148,7 @@ describe("subagents enable.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleEnableSubagent(defaultArgs("my-agent"));
+          yield* handleActivation("subagent", defaultArgs("my-agent"));
 
           expect(logs.success).toEqual([]);
           const result = expectNoOpPlanResult(rendererState.results[0]?.data, {
@@ -176,7 +179,7 @@ describe("subagents enable.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleEnableSubagent(defaultArgs("my-agent"));
+          yield* handleActivation("subagent", defaultArgs("my-agent"));
 
           // Apply mode renders no planned block; the refusal is the terminal
           // failed-outcome block, whose verdict follows its ledger.

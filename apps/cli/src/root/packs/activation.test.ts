@@ -32,7 +32,7 @@ import {
   expectRecord,
   makeWorkspaceHandlerTestContext,
 } from "../../test-support/test-helpers.js";
-import { handlePackActivation } from "./activation.js";
+import { handleActivation } from "../activation-handler.js";
 import { buildAggregateProjectionStep } from "@agentxm/workspace/lifecycle";
 import { LifecycleFailureConversionLive } from "@agentxm/workspace/lifecycle";
 
@@ -216,7 +216,7 @@ describe("packs activation", () => {
       const { provide, rendererState } = makeLayers();
 
       yield* provide(
-        handlePackActivation({
+        handleActivation("pack", {
           name: "toolkit",
           enabled: false,
           preview: true,
@@ -240,7 +240,7 @@ describe("packs activation", () => {
       const first = makeLayers();
 
       yield* first.provide(
-        handlePackActivation({
+        handleActivation("pack", {
           name: "toolkit",
           enabled: false,
           preview: false,
@@ -256,7 +256,7 @@ describe("packs activation", () => {
 
       const second = makeLayers();
       yield* second.provide(
-        handlePackActivation({
+        handleActivation("pack", {
           name: "toolkit",
           enabled: false,
           preview: false,
@@ -269,7 +269,7 @@ describe("packs activation", () => {
 
       const third = makeLayers();
       yield* third.provide(
-        handlePackActivation({
+        handleActivation("pack", {
           name: "toolkit",
           enabled: true,
           preview: false,
@@ -287,7 +287,7 @@ describe("packs activation", () => {
       const disable = makeLayers();
 
       yield* disable.provide(
-        handlePackActivation({
+        handleActivation("pack", {
           name: "toolkit",
           enabled: false,
           preview: false,

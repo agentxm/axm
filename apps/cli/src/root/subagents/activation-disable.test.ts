@@ -12,16 +12,16 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { computeSourceHash } from "@agentxm/workspace/desired-state";
-import { writeWorkspaceFiles } from "../../../test-support/test-stubs.js";
+import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
   expectNoOpPlanResult,
   makeWorkspaceLifecycleTestContext,
-} from "../../../test-support/test-helpers.js";
+} from "../../test-support/test-helpers.js";
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
 } from "@agentxm/workspace/projection";
-import { handleDisableSubagent } from "./handler.js";
+import { handleActivation } from "../activation-handler.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -112,7 +112,8 @@ describe("subagents disable.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        const result = yield* handleDisableSubagent({
+        const result = yield* handleActivation("subagent", {
+          enabled: false,
           name: "nonexistent",
           preview: false,
         }).pipe(Effect.result);
@@ -140,7 +141,8 @@ describe("subagents disable.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleDisableSubagent({
+        yield* handleActivation("subagent", {
+          enabled: false,
           name: "my-subagent",
           preview: false,
         });
@@ -166,7 +168,8 @@ describe("subagents disable.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleDisableSubagent({
+        yield* handleActivation("subagent", {
+          enabled: false,
           name: "my-subagent",
           preview: false,
         });
@@ -245,7 +248,8 @@ describe("subagents disable.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleDisableSubagent({
+        yield* handleActivation("subagent", {
+          enabled: false,
           name: "pack-subagent",
           preview: false,
         });
@@ -282,7 +286,8 @@ describe("subagents disable.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleDisableSubagent({
+        yield* handleActivation("subagent", {
+          enabled: false,
           name: "my-subagent",
           preview: false,
         });

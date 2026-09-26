@@ -22,7 +22,7 @@ import {
   getAppError,
   makeWorkspaceLifecycleTestContext,
 } from "../../test-support/test-helpers.js";
-import { handleEnable, type EnableHandlerArgs } from "./enable.js";
+import { handleActivation, type ActivationRequest } from "../activation-handler.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -57,9 +57,10 @@ const makeLockEntry = (_agents: string[] = ["claude-code"], sourceHash?: string)
 
 const defaultArgs = (
   name: string,
-  overrides: Partial<EnableHandlerArgs> = {},
-): EnableHandlerArgs => ({
+  overrides: Partial<ActivationRequest> = {},
+): ActivationRequest => ({
   name: extensionName(name),
+  enabled: true,
   preview: false,
   ...overrides,
 });
@@ -97,7 +98,9 @@ describe("enable.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* handleEnable(defaultArgs("nonexistent")).pipe(Effect.flip);
+          const error = yield* handleActivation("skill", defaultArgs("nonexistent")).pipe(
+            Effect.flip,
+          );
           expect(getAppError(error).detail).toContain("is not installed");
         }),
       );
@@ -109,7 +112,9 @@ describe("enable.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* handleEnable(defaultArgs("nonexistent")).pipe(Effect.flip);
+          const error = yield* handleActivation("skill", defaultArgs("nonexistent")).pipe(
+            Effect.flip,
+          );
           expect(getAppError(error).detail).toContain("is not installed");
         }),
       );
@@ -127,7 +132,7 @@ describe("enable.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleEnable(defaultArgs("my-skill"));
+          yield* handleActivation("skill", defaultArgs("my-skill"));
 
           expect(logs.info.some((m) => m.includes("already enabled"))).toBe(false);
           expect(logs.success.some((m) => m.includes("already enabled"))).toBe(true);
@@ -146,7 +151,7 @@ describe("enable.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleEnable(defaultArgs("my-skill"));
+          yield* handleActivation("skill", defaultArgs("my-skill"));
 
           expect(logs.success).toEqual([]);
           const result = expectNoOpPlanResult(rendererState.results[0]?.data, {
@@ -233,7 +238,7 @@ describe("enable.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleEnable(defaultArgs("code-review"));
+          yield* handleActivation("skill", defaultArgs("code-review"));
 
           // Settings should show re-enabled (collapsed to string form)
           const settingsContent = fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8");
@@ -266,7 +271,7 @@ describe("enable.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleEnable(defaultArgs("my-skill"));
+          yield* handleActivation("skill", defaultArgs("my-skill"));
 
           // Apply mode renders no planned block; the refusal is the terminal
           // failed-outcome block, whose verdict follows its ledger.
@@ -323,7 +328,7 @@ describe("enable.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleEnable(defaultArgs("my-skill", { preview: true }));
+          yield* handleActivation("skill", defaultArgs("my-skill", { preview: true }));
 
           // Settings should still show disabled (preview = no side effects)
           const settingsContent = fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8");
@@ -382,7 +387,7 @@ describe("enable.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleEnable(defaultArgs("my-skill"));
+          yield* handleActivation("skill", defaultArgs("my-skill"));
 
           // Verify agent symlink was created
           const agentSkillPath = path.join(tempDir, ".claude", "skills", "my-skill");
@@ -402,7 +407,7 @@ describe("enable.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleEnable(defaultArgs("my-skill"));
+          yield* handleActivation("skill", defaultArgs("my-skill"));
 
           // The error is caught by applyPlan and reported as a plan error result.
           // Verify the agent symlink was NOT created (enable did not succeed).

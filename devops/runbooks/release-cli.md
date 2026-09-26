@@ -157,21 +157,21 @@ to every release asset. The content assets do not change the installers'
    the command to the accepted source commit.
 
    ```bash
-   gh pr merge <number> --repo agentxm/axm --auto --squash \
+   gh pr merge <number> --repo agentxm/axm --auto --rebase \
      --match-head-commit <accepted-source-sha>
    ```
 
-   The prepared commit has the generated release subject. GitHub's native queue
-   appends the pull request number to its squash subject, for example
-   `release: cli-v0.1.0 (#123)`; CI and publication recognize that host-generated
-   form. A CLI `--subject` option does not override the queue's commit message.
+   The prepared commit has the generated release subject, and the rebase queue
+   lands it on `main` unchanged as `release: cli-v{VERSION}`. CI and
+   publication also recognize the `release: cli-v{VERSION} (#123)` form that
+   earlier squash integration produced.
    The native merge queue verifies its synthesized integration SHA through
    `merge_group`; that temporary SHA is evidence for queue admission, not a
    release identity. Publication cannot run for a merge-group event.
 
-4. Wait for CI and automatic publication on the squash-merged release commit.
+4. Wait for CI and automatic publication on the rebase-merged release commit.
 
-   The queue SHA and squash-merged `main` SHA are expected to differ. Resolve
+   The queue fast-forwards `main` to the verified merge-group revision. Resolve
    the release identity from the resulting `main` commit. That release commit
    must complete the `ci.yml` workflow successfully before
    publishing. That exact push run compiles and smoke-tests the native binaries,

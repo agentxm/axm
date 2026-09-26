@@ -50,13 +50,15 @@ import {
 } from "./cli-flags/index.js";
 
 import { ExtensionKindsLive } from "@agentxm/workspace/kinds-live";
-import { ProjectionParticipantsLive } from "@agentxm/workspace/materialization/live";
+import {
+  ConfiguredAgentOutcomesProviderLive,
+  ProjectionParticipantsLive,
+} from "@agentxm/workspace/reconciliation/live";
 import { KnowledgeIndexLive } from "@agentxm/workspace/knowledge/query/live";
 import { WorkspaceInvariantFactsLive } from "@agentxm/workspace/projection/live";
 import { AuthLoginPresenterLive } from "./auth-login-presenter.js";
 import { failureToAppError } from "./app-error/conversions.js";
 import { WorkspaceFailureConversionLive } from "./app-error/failure-catalog.js";
-import { ConfiguredAgentOutcomesProviderLive } from "@agentxm/workspace/reconciliation/live";
 import { WorkspaceInitializationInteractionLive } from "./workspace-initialization-interaction-live.js";
 import {
   GitDirectoryComparisonLive,

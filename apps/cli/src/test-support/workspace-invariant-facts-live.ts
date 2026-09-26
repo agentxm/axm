@@ -5,7 +5,7 @@
 
 import * as Layer from "effect/Layer";
 
-import { ProjectionParticipantsLive } from "@agentxm/workspace/materialization/live";
+import { ProjectionParticipantsLive } from "@agentxm/workspace/reconciliation/live";
 import { WorkspaceInvariantFactsLive } from "@agentxm/workspace/projection/live";
 
 export const workspaceInvariantFactsLive = Layer.provide(

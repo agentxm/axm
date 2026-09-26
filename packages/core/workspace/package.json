@@ -101,11 +101,6 @@
       "axm-source": "./src/materialization/index.ts",
       "default": "./dist/src/materialization/index.js"
     },
-    "./materialization/live": {
-      "types": "./dist/src/materialization/live.d.ts",
-      "axm-source": "./src/materialization/live.ts",
-      "default": "./dist/src/materialization/live.js"
-    },
     "./materialization/testing": {
       "types": "./dist/src/materialization/testing.d.ts",
       "axm-source": "./src/materialization/testing.ts",

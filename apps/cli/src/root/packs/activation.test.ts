@@ -10,7 +10,7 @@ import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 
 import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
-import { ProjectionParticipantsLive } from "@agentxm/workspace/materialization/live";
+import { ProjectionParticipantsLive } from "@agentxm/workspace/reconciliation/live";
 import { WorkspaceInvariantFactsLive } from "@agentxm/workspace/projection/live";
 import {
   HookManagerLive,

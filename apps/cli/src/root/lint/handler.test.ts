@@ -39,7 +39,7 @@ import {
   SkillManagerLive,
   SubagentManagerLive,
 } from "@agentxm/workspace/kinds-live";
-import { ProjectionParticipantsLive } from "@agentxm/workspace/materialization/live";
+import { ProjectionParticipantsLive } from "@agentxm/workspace/reconciliation/live";
 import { WorkspaceInvariantFactsLive } from "@agentxm/workspace/projection/live";
 
 import {

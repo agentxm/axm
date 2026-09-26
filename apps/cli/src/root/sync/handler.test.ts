@@ -23,7 +23,7 @@ import {
   SkillManagerLive,
   SubagentManagerLive,
 } from "@agentxm/workspace/kinds-live";
-import { ProjectionParticipantsLive } from "@agentxm/workspace/materialization/live";
+import { ProjectionParticipantsLive } from "@agentxm/workspace/reconciliation/live";
 import { computePackManifestContentIdentity } from "@agentxm/workspace/desired-state";
 import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";

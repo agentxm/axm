@@ -19,3 +19,4 @@ export const KernelFailureConversionLive = Layer.succeed(StepFailureConversion, 
 });
 
 export { ConfiguredAgentOutcomesProviderLive } from "./configured-agent-outcomes-provider-live.js";
+export { ProjectionParticipantsLive } from "./projection-participants-live.js";

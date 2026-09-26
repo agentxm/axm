@@ -14,10 +14,16 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { HookManager, KnowledgeManager, RuleManager, SubagentManager } from "./managers.js";
-import type { ExtensionManagerFailure } from "./errors.js";
-import { failureTag, isExtensionKindFailure } from "./kind-failure.js";
-import type { ManagerRequirements } from "./manager-contract.js";
+import {
+  failureTag,
+  HookManager,
+  isExtensionKindFailure,
+  KnowledgeManager,
+  RuleManager,
+  SubagentManager,
+  type ExtensionManagerFailure,
+  type ManagerRequirements,
+} from "../materialization/index.js";
 import {
   isProjectionError,
   mapProjectionPlanFailure,

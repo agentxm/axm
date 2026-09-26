@@ -3,10 +3,13 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { SettingsReader, WorkspaceRecords } from "../desired-state/index.js";
-import { createDefaultSettings } from "../desired-state/settings/index.js";
+import {
+  SettingsReader,
+  WorkspaceRecords,
+  createDefaultSettings,
+  countExtensionInventory,
+} from "../desired-state/index.js";
 import { WorkspaceReadTest, configuredRow } from "../desired-state/testing.js";
-import { countExtensionInventory } from "../desired-state/workspace/read-model/extensions/inventory.js";
 import { makeBaseManagerMembers } from "./manager-kit.js";
 
 describe("shared manager members", () => {

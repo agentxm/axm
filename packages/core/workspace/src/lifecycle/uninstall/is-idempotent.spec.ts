@@ -7,8 +7,8 @@ import type { InstallableExtensionType } from "@agentxm/extension-model/unstable
 import { deriveOperationOutcome } from "../../operations/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { applyInstall, installRequest, makeInstallWorld } from "../install/test-helpers.js";
-import { writeLocalSkillPackage } from "../testing.js";
+import { applyInstall, installRequest, makeInstallWorld } from "../../testing/install-world.js";
+import { writeLocalSkillPackage } from "../../testing/local-packages.js";
 import { UninstallExtensions } from "./uninstall-extensions.js";
 import { applyUninstall, uninstallRequest } from "./test-helpers.js";
 

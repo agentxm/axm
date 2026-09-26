@@ -1,4 +1,13 @@
-import type { SkillManagerService } from "../materialization/managers.js";
+import {
+  type SkillManagerService,
+  type SkillMaterializationFacts,
+  SkillManager,
+  acceptedResolutionFor,
+  InstallStateMissing,
+  makeBaseManagerMembers,
+  listMaterializableFromAccepted,
+  listMaterializableFromDisk,
+} from "../materialization/index.js";
 
 /**
  * Skill extension manager service.
@@ -21,28 +30,20 @@ import {
   SettingsReader,
   WorkspaceLocation,
   WorkspaceRecords,
+  enabledConfiguredEntries,
+  sanitizeName,
+  computePackageContentHash,
+  removeIfExists,
+  configuredRowsByName,
+  acceptedCanonicalObservation,
+  removableAcceptedCanonicalPath,
 } from "../desired-state/index.js";
 
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import {
-  makeBaseManagerMembers,
-  listMaterializableFromAccepted,
-  listMaterializableFromDisk,
-} from "../materialization/manager-kit.js";
-import { enabledConfiguredEntries } from "../desired-state/index.js";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import type { SkillMaterializationFacts } from "../materialization/managers.js";
-import { sanitizeName } from "../desired-state/index.js";
-import { computePackageContentHash } from "../desired-state/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
-import { removeIfExists } from "../desired-state/index.js";
-import { SkillManager } from "../materialization/managers.js";
-import {
-  acceptedResolutionFor,
-  InstallStateMissing,
-} from "../materialization/accepted-resolution.js";
 import { SkillDefinitionInvalid } from "./errors.js";
 import {
   CodingAgentRepository,
@@ -56,11 +57,6 @@ import {
   materializeSkillCanonical,
   removeSkillAgentArtifact,
 } from "./materialization.js";
-import { configuredRowsByName } from "../desired-state/index.js";
-import {
-  acceptedCanonicalObservation,
-  removableAcceptedCanonicalPath,
-} from "../desired-state/index.js";
 import { configuredSkillsToDiskRefs } from "../acquisition/index.js";
 
 // -----------------------------------------------------------------------------

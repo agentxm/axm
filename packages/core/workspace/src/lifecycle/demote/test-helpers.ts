@@ -22,7 +22,7 @@ import {
   writeLocalRulePackage,
   writeLocalSkillPackage,
   writeLocalSubagentPackage,
-} from "../test-packages.js";
+} from "../../testing/local-packages.js";
 import { DemoteToExternalSource, type DemoteRequest } from "./demote-to-external-source.js";
 
 /** One authored extension type, and how the workspace spells it everywhere. */

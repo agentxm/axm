@@ -7,13 +7,13 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { deriveOperationOutcome } from "../../operations/index.js";
 import { DesiredStateReader } from "../../desired-state/index.js";
+import { readSettings } from "../install/test-helpers.js";
 import {
   applyInstall,
   installRequest,
   makeInstallWorld,
-  readSettings,
   type InstallWorld,
-} from "../install/test-helpers.js";
+} from "../../testing/install-world.js";
 import { applyUninstall, uninstallRequest } from "../uninstall/test-helpers.js";
 import { applyUpdate, configuredUpdateRequest, expectResolved } from "../update/test-helpers.js";
 import { applyActivation } from "./test-helpers.js";

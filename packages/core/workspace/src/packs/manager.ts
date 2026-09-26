@@ -1,4 +1,10 @@
-import type { PackManagerService } from "../materialization/managers.js";
+import {
+  type PackManagerService,
+  PackManager,
+  type PackMaterializationFacts,
+  makeBaseManagerMembers,
+  listMaterializableFromDisk,
+} from "../materialization/index.js";
 
 /**
  * Pack manager service.
@@ -18,6 +24,20 @@ import {
   SettingsReader,
   WorkspaceLocation,
   WorkspaceRecords,
+  type SetPackArgs,
+  computePackPathsForLayout,
+  removeIfExists,
+  validateExactResolvedVersion,
+  acceptedCanonicalObservation,
+  removableAcceptedCanonicalPath,
+  computePackManifestContentIdentity,
+  computePackageContentHash,
+  gitSourceLockFields,
+  pathSourceLockFields,
+  registrySourceLockFields,
+  computeMaterializedTreeIntegrity,
+  type MaterializedTreeInvalid,
+  type TreeIntegrity,
 } from "../desired-state/index.js";
 
 import * as Layer from "effect/Layer";
@@ -29,39 +49,14 @@ import {
   PackInstallStateMissing,
   PackStagingFailed,
 } from "./errors.js";
-import {
-  makeBaseManagerMembers,
-  listMaterializableFromDisk,
-} from "../materialization/manager-kit.js";
 import type {
   PackRef,
   RegistryPackRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { SourceHostProviders } from "../resolution/sources/index.js";
-import { PackManager, type PackMaterializationFacts } from "../materialization/managers.js";
-import { type SetPackArgs } from "../desired-state/index.js";
-import { computePackPathsForLayout } from "../desired-state/index.js";
-import { removeIfExists } from "../desired-state/index.js";
-import { validateExactResolvedVersion } from "../desired-state/index.js";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
-import {
-  acceptedCanonicalObservation,
-  removableAcceptedCanonicalPath,
-} from "../desired-state/index.js";
-import { computePackManifestContentIdentity } from "../desired-state/index.js";
-import { computePackageContentHash } from "../desired-state/index.js";
-import {
-  gitSourceLockFields,
-  pathSourceLockFields,
-  registrySourceLockFields,
-} from "../desired-state/lockfile/entry-fields.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
-import {
-  computeMaterializedTreeIntegrity,
-  type MaterializedTreeInvalid,
-  type TreeIntegrity,
-} from "../desired-state/index.js";
 import {
   reusableCanonicalTree,
   replaceCanonicalDirectoryWithInspection,

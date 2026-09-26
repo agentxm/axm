@@ -21,14 +21,12 @@ import {
   type ExtensionInventory,
   type McpServerEntry,
   type McpServerLockEntry,
-} from "../../desired-state/index.js";
-
-import type { TypeListRow } from "./type-lists.js";
-import {
   desiredMcpSourceKey,
   formatDesiredIdentity,
   type DesiredNodeIdentity,
 } from "../../desired-state/index.js";
+
+import type { TypeListRow } from "./type-list-row.js";
 
 /** The desired-state facts an MCP row reads: where it comes from and under which identity. */
 export interface DesiredMcpServerNode {

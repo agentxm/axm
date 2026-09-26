@@ -11,7 +11,7 @@ import {
   installRequest,
   makeInstallWorld,
   type InstallWorld,
-} from "../install/test-helpers.js";
+} from "../../testing/install-world.js";
 import {
   applyUpdate,
   configuredUpdateRequest,

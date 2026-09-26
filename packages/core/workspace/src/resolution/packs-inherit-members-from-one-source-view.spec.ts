@@ -19,7 +19,7 @@ import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/
 import type { FindOptions } from "@agentxm/extension-model/unstable/sources/source-host-provider";
 import type { GitSource, LocalSource } from "@agentxm/extension-model/unstable/sources/types";
 
-import { PackLockEntrySchema } from "../desired-state/lockfile/schema.js";
+import { PackLockEntrySchema } from "../desired-state/index.js";
 import { resolvePackDependenciesWithReleaseAge } from "./pack-dependency-resolution.js";
 import {
   createGitSourceHostProvider,

@@ -9,11 +9,7 @@ import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
-import {
-  applyInstall,
-  installRequest,
-  makeInstallWorld,
-} from "../../../lifecycle/install/test-helpers.js";
+import { applyInstall, installRequest, makeInstallWorld } from "../../../testing/install-world.js";
 import { queryLintWorkspace } from "../../run/lint-workspace.js";
 
 export const specification = defineSpecification({

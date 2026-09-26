@@ -1,5 +1,9 @@
 import * as nodeFs from "node:fs";
-import { UNCONSTRAINED_DESIRED_NODE } from "./desired-state-graph.js";
+import {
+  UNCONSTRAINED_DESIRED_NODE,
+  settleDesiredNodeConstraint,
+  type DesiredExtensionNode,
+} from "./desired-state-graph.js";
 import { desiredConstraintOf } from "./test-stubs.js";
 import * as nodeOs from "node:os";
 import * as nodePath from "node:path";
@@ -10,10 +14,9 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { afterEach, beforeEach } from "vitest";
 import { computeMaterializedTreeIntegrity, TreeIntegritySchema } from "./materialized-tree.js";
-import { exactVersion, extensionName, handle } from "../test-helpers.js";
+import { exactVersion, extensionName, handle } from "../testing.js";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { observeCanonicalExtension } from "./canonical-observation.js";
-import { settleDesiredNodeConstraint, type DesiredExtensionNode } from "./desired-state-graph.js";
 import type { DesiredNodeIdentity } from "./desired-identity.js";
 import { resolveProjectWorkspaceLayout } from "./layout.js";
 

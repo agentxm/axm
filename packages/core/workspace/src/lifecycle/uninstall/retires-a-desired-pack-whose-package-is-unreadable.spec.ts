@@ -9,14 +9,13 @@ import { afterEach } from "vitest";
 import { deriveOperationOutcome, type OperationResolution } from "../../operations/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
+import { contentUnder, readSettings } from "../install/test-helpers.js";
 import {
   applyInstall,
-  contentUnder,
   installRequest,
   makeInstallWorld,
-  readSettings,
   type InstallWorld,
-} from "../install/test-helpers.js";
+} from "../../testing/install-world.js";
 import { PACK_UNINSTALL_GRAPH_BLOCKER_ID } from "../../packs/index.js";
 import { applyUninstall, previewUninstall, uninstallRequest } from "./test-helpers.js";
 

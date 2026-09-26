@@ -6,7 +6,8 @@ import { afterEach } from "vitest";
 import { deriveOperationOutcome } from "../../operations/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { applyInstall, installRequest, makeInstallWorld, readSettings } from "./test-helpers.js";
+import { readSettings } from "./test-helpers.js";
+import { applyInstall, installRequest, makeInstallWorld } from "../../testing/install-world.js";
 
 export const specification = defineSpecification({
   requirement: "cli/install/inline-mcp-configuration-is-skipped",

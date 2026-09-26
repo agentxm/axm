@@ -1,4 +1,15 @@
-import type { RuleManagerService } from "../materialization/managers.js";
+import {
+  type RuleManagerService,
+  acceptedResolutionFor,
+  RuleManager,
+  type MaterializationObservation,
+  NO_MATERIALIZATION_OBSERVATION,
+  type RuleMaterializationFacts,
+  acquireCanonicalForRef,
+  verifyWorkspaceRefLocation,
+  makeBaseManagerMembers,
+  listMaterializableFromAccepted,
+} from "../materialization/index.js";
 
 /**
  * Rule manager service.
@@ -14,6 +25,14 @@ import {
   SettingsReader,
   WorkspaceLocation,
   WorkspaceRecords,
+  enabledConfiguredEntries,
+  computeExtensionPathsForLayout,
+  computePackageContentHash,
+  computeMaterializedTreeIntegrity,
+  MaterializedFileTargetSchema,
+  removeIfExists,
+  acceptedCanonicalObservation,
+  removableAcceptedCanonicalPath,
 } from "../desired-state/index.js";
 
 import { fromFileLocation } from "@agentxm/host-primitives";
@@ -23,7 +42,6 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { RuleDefinitionInvalid } from "./errors.js";
-import { acceptedResolutionFor } from "../materialization/accepted-resolution.js";
 import {
   activeContributors,
   applyProjectionPlans,
@@ -34,6 +52,8 @@ import {
   activeInstructionsConfig,
   observeInstructions,
   resolveInstructionsConfig,
+  type ProjectionUnitObservation,
+  RULES_REGION_OWNER,
 } from "../projection/index.js";
 import {
   MARKER_KIND_POINT,
@@ -41,34 +61,12 @@ import {
   serializeMarker,
 } from "../projection/agent-adapters/index.js";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
-import {
-  acquireCanonicalForRef,
-  verifyWorkspaceRefLocation,
-} from "../materialization/acquire-canonical.js";
-import {
-  makeBaseManagerMembers,
-  listMaterializableFromAccepted,
-} from "../materialization/manager-kit.js";
-import { enabledConfiguredEntries } from "../desired-state/index.js";
-import { computeExtensionPathsForLayout } from "../desired-state/index.js";
-import type { ProjectionUnitObservation } from "../projection/index.js";
-import { RuleManager } from "../materialization/managers.js";
-import { RULES_REGION_OWNER } from "../projection/index.js";
 import { parseFrontmatterEffect } from "@agentxm/extension-content";
-import { computePackageContentHash } from "../desired-state/index.js";
-import { computeMaterializedTreeIntegrity } from "../desired-state/index.js";
-import { MaterializedFileTargetSchema } from "../desired-state/index.js";
 import { SourceHostProviders, WorkspaceCatalog } from "../resolution/sources/index.js";
-import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
-import { removeIfExists } from "../desired-state/index.js";
-import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
-import type { MaterializationObservation } from "../materialization/manager-contract.js";
-import { NO_MATERIALIZATION_OBSERVATION } from "../materialization/manager-contract.js";
-import type { RuleMaterializationFacts } from "../materialization/managers.js";
 import {
-  acceptedCanonicalObservation,
-  removableAcceptedCanonicalPath,
-} from "../desired-state/index.js";
+  makeWorkspaceRelativeSourcePath,
+  makeWorkspaceRelativePath,
+} from "@agentxm/extension-model/unstable/path-types";
 import {
   RULE_BODY_FILENAME,
   RULE_EXTENSION_DIR,

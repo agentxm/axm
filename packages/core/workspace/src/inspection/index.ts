@@ -41,8 +41,8 @@ export {
   type SkillListRow,
   type SourcedListRow,
   type TypeListResult,
-  type TypeListRow,
 } from "./type-list/type-lists.js";
+export type { TypeListRow } from "./type-list/type-list-row.js";
 export {
   mcpServerListDocument,
   McpServerListQueryResultSchema,

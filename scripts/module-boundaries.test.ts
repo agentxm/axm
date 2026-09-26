@@ -152,7 +152,7 @@ describe("module-boundary constraint reachability", () => {
     expect(
       await boundaryViolations(
         'import { AuthClient } from "@agentxm/registry-access/authentication";\nvoid AuthClient;\n',
-        "packages/core/workspace/src/reconciliation/sync/index.ts",
+        "packages/core/workspace/src/sync/index.ts",
       ),
     ).toEqual([]);
   });

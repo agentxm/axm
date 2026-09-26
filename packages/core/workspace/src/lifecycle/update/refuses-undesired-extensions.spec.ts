@@ -9,9 +9,11 @@ import { afterEach } from "vitest";
 import { deriveOperationOutcome } from "../../operations/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { makeLifecycleFixture, writeLocalSkillPackage, type LifecycleFixture } from "../testing.js";
+import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";
+import { writeLocalSkillPackage } from "../../testing/local-packages.js";
 import { makeFileRegistry, type FileRegistry } from "@agentxm/registry-client/testing";
-import { applyInstall, installRequest, readSettings } from "../install/test-helpers.js";
+import { readSettings } from "../install/test-helpers.js";
+import { applyInstall, installRequest } from "../../testing/install-world.js";
 import {
   applyUpdate,
   expectResolved,

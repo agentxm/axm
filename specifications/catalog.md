@@ -375,7 +375,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Methods: example
 - Derived from: `cli/workspace-lockfile-rejections-name-state-and-recovery`, `workspace/desired-state/effective-constraint-has-one-owner`
 - Supersedes: `cli/workspace-lockfile-rejections-name-state-and-recovery`
-- Source: [`packages/core/workspace/src/reconciliation/sync/lockfile-rejections-name-recovery-routes.spec.ts`](../packages/core/workspace/src/reconciliation/sync/lockfile-rejections-name-recovery-routes.spec.ts)
+- Source: [`packages/core/workspace/src/sync/lockfile-rejections-name-recovery-routes.spec.ts`](../packages/core/workspace/src/sync/lockfile-rejections-name-recovery-routes.spec.ts)
 
 ##### Browser sign-in completion follows saved credentials
 
@@ -541,7 +541,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Boundary: memory; selection: per-change
 - Boundary rationale: The fact is judged from a real settings file, lockfile, installed Pack, and file Registry on disk, and lint and sync read that one workspace through the production layers.
 - Methods: example
-- Source: [`packages/core/workspace/src/desired-state/workspace/one-fact-per-desired-node.spec.ts`](../packages/core/workspace/src/desired-state/workspace/one-fact-per-desired-node.spec.ts)
+- Source: [`packages/core/workspace/src/linting/catalog/workspace/one-fact-per-desired-node.spec.ts`](../packages/core/workspace/src/linting/catalog/workspace/one-fact-per-desired-node.spec.ts)
 
 #### Quality
 
@@ -735,7 +735,7 @@ Configured extensions realize correctly and completely for every configured codi
 - Derived from: `cli/mcps/import/adoption-reaches-every-configured-agent`, `cli/mcps/inline-lifecycle-is-idempotent`, `cli/mcps/inline-authority-is-operation-coherent`, `cli/activation-follows-desired-state`
 - Assumptions: Claude Code and Cursor keep distinct project-scope MCP configuration files, so two native files observe two agents.; An unmanaged server declared in one agent's own configuration file is the only shape adoption records, so one such declaration stands for every adopted entry.; Amp is catalogued without MCP configuration support, so it stands for any configured agent that cannot represent a server.; A Pack that declares one MCP member is the only way a connection reaches desired state without its own settings entry, so one such Pack stands for every Pack-supplied connection.
 - Additional evidence: process via [`apps/cli-e2e/src/activation-lifecycle.e2e.test.ts`](../apps/cli-e2e/src/activation-lifecycle.e2e.test.ts) — Drives every catalog extension type — including the mcp-server and pack types that cannot be sourced from a local package in memory — through authored creation, update, disable, enable, and uninstall in the real CLI process, proving preview purity, apply idempotency, native agent files, and lint-clean workspace state between every transition.
-- Source: [`packages/core/workspace/src/reconciliation/sync/mcps/projects-to-every-configured-agent.spec.ts`](../packages/core/workspace/src/reconciliation/sync/mcps/projects-to-every-configured-agent.spec.ts)
+- Source: [`packages/core/workspace/src/inspection/mcps/projects-to-every-configured-agent.spec.ts`](../packages/core/workspace/src/inspection/mcps/projects-to-every-configured-agent.spec.ts)
 
 ### Goal: authoring-and-creation
 
@@ -868,7 +868,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Boundary rationale: The manifest, the entrypoint, the declaration, and the agent hook configuration are all written by the creation use case over the workspace-state services; a real project directory observes each one.
 - Methods: example, decision-table
 - Derived from: `packages/core/workspace/src/authoring/create/scaffolds/hook.ts`
-- Source: [`packages/core/workspace/src/hooks/authoring/new/creates-enabled-workspace-content.spec.ts`](../packages/core/workspace/src/hooks/authoring/new/creates-enabled-workspace-content.spec.ts)
+- Source: [`packages/core/workspace/src/authoring/create/hooks/creates-enabled-workspace-content.spec.ts`](../packages/core/workspace/src/authoring/create/hooks/creates-enabled-workspace-content.spec.ts)
 
 ##### Creating a knowledge bundle records editable workspace content
 
@@ -882,7 +882,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Boundary rationale: The manifest, the bundle index, and the declaration are all written by the creation use case over the workspace-state services; a real project directory observes each one.
 - Methods: example
 - Derived from: `packages/core/workspace/src/authoring/create/scaffolds/knowledge.ts`
-- Source: [`packages/core/workspace/src/knowledge/authoring/creates-enabled-workspace-content.spec.ts`](../packages/core/workspace/src/knowledge/authoring/creates-enabled-workspace-content.spec.ts)
+- Source: [`packages/core/workspace/src/authoring/create/knowledge/creates-enabled-workspace-content.spec.ts`](../packages/core/workspace/src/authoring/create/knowledge/creates-enabled-workspace-content.spec.ts)
 
 ##### A native MCP server can become an authored package
 
@@ -926,7 +926,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Boundary rationale: The manifest, the declaration, and the connection's projection are all written by the creation use case over the workspace-state services; a real project directory observes each one.
 - Methods: example
 - Derived from: `packages/core/workspace/src/authoring/create/scaffolds/mcp-server.ts`
-- Source: [`packages/core/workspace/src/mcp-connections/authoring/new/creates-enabled-workspace-content.spec.ts`](../packages/core/workspace/src/mcp-connections/authoring/new/creates-enabled-workspace-content.spec.ts)
+- Source: [`packages/core/workspace/src/authoring/create/mcp-connections/creates-enabled-workspace-content.spec.ts`](../packages/core/workspace/src/authoring/create/mcp-connections/creates-enabled-workspace-content.spec.ts)
 
 ##### Native imports create workspace packages without changing original content
 
@@ -986,7 +986,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Derived from: `cli/packs/authored-packs-expand-membership`
 - Supersedes: `cli/packs/authored-packs-expand-membership`
 - Additional evidence: process via [`apps/cli-e2e/src/packs.e2e.test.ts`](../apps/cli-e2e/src/packs.e2e.test.ts) — Runs pack authoring, membership editing, publish, install, unpack, and uninstall through the real CLI process against a file Registry, proving argv parsing, confirmation flows, exit codes, and on-disk manifest and workspace state that in-memory execution cannot observe.
-- Source: [`packages/core/workspace/src/packs/authoring/new-pack-records-workspace-authorship.spec.ts`](../packages/core/workspace/src/packs/authoring/new-pack-records-workspace-authorship.spec.ts)
+- Source: [`packages/core/workspace/src/authoring/create/packs/new-pack-records-workspace-authorship.spec.ts`](../packages/core/workspace/src/authoring/create/packs/new-pack-records-workspace-authorship.spec.ts)
 
 ##### Pack remove changes only the selected dependency declarations
 
@@ -1038,7 +1038,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Boundary rationale: The manifest, the body, the declaration, and the instruction projection are all written by the creation use case over the workspace-state services; a real project directory observes each one.
 - Methods: example
 - Derived from: `packages/core/workspace/src/authoring/create/scaffolds/rule.ts`
-- Source: [`packages/core/workspace/src/instructions/authoring/new/creates-enabled-workspace-content.spec.ts`](../packages/core/workspace/src/instructions/authoring/new/creates-enabled-workspace-content.spec.ts)
+- Source: [`packages/core/workspace/src/authoring/create/instructions/creates-enabled-workspace-content.spec.ts`](../packages/core/workspace/src/authoring/create/instructions/creates-enabled-workspace-content.spec.ts)
 
 ##### A new skill is scaffolded for the universal location and every configured agent
 
@@ -1053,7 +1053,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Methods: example
 - Derived from: `packages/core/workspace/src/authoring/create/create-extension.ts`, `apps/cli-e2e/src/cli-commands/skills/new/command.e2e.ts`
 - Assumptions: Claude Code and Cursor declare distinct native project skill directories, so two agent locations observe two configured agents beside the universal location.
-- Source: [`packages/core/workspace/src/skills/authoring/new/scaffolds-for-every-configured-agent.spec.ts`](../packages/core/workspace/src/skills/authoring/new/scaffolds-for-every-configured-agent.spec.ts)
+- Source: [`packages/core/workspace/src/authoring/create/skills/scaffolds-for-every-configured-agent.spec.ts`](../packages/core/workspace/src/authoring/create/skills/scaffolds-for-every-configured-agent.spec.ts)
 
 ##### A new subagent is scaffolded and rendered for every configured agent
 
@@ -1068,7 +1068,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Methods: example
 - Derived from: `packages/core/workspace/src/authoring/create/create-extension.ts`, `cli/skills/new/scaffolds-for-every-configured-agent`
 - Assumptions: Claude Code and Cursor both render project-scope subagents into distinct directories, so two rendered files observe two configured agents.; A subagent's rendered agent files are not listed as creation targets; the created package, its content, and its declaration are. Preview and apply therefore compare that set.
-- Source: [`packages/core/workspace/src/subagents/authoring/new/scaffolds-for-every-configured-agent.spec.ts`](../packages/core/workspace/src/subagents/authoring/new/scaffolds-for-every-configured-agent.spec.ts)
+- Source: [`packages/core/workspace/src/authoring/create/subagents/scaffolds-for-every-configured-agent.spec.ts`](../packages/core/workspace/src/authoring/create/subagents/scaffolds-for-every-configured-agent.spec.ts)
 
 ##### Version argument errors offer a command that corrects the request
 
@@ -1199,7 +1199,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Product goals: `extension-adoption`, `workspace-intent-fidelity`, `agent-interoperability`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Source: [`packages/core/workspace/src/mcp-connections/lifecycle/install/local-connection-names-share-source-resolution.spec.ts`](../packages/core/workspace/src/mcp-connections/lifecycle/install/local-connection-names-share-source-resolution.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/install/mcp-connections/local-connection-names-share-source-resolution.spec.ts`](../packages/core/workspace/src/lifecycle/install/mcp-connections/local-connection-names-share-source-resolution.spec.ts)
 
 ##### Direct MCP installation warns about deprecation
 
@@ -1211,7 +1211,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Product goals: `extension-adoption`, `agent-interoperability`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Source: [`packages/core/workspace/src/mcp-connections/lifecycle/install/warns-when-deprecated.spec.ts`](../packages/core/workspace/src/mcp-connections/lifecycle/install/warns-when-deprecated.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/install/mcp-connections/warns-when-deprecated.spec.ts`](../packages/core/workspace/src/lifecycle/install/mcp-connections/warns-when-deprecated.spec.ts)
 
 ##### Installation selects the requested extensions from a source
 
@@ -1226,7 +1226,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Derived from: `packages/core/workspace/src/lifecycle/install/selection.ts`, `packages/core/workspace/src/lifecycle/install/install-extensions.ts`, `apps/cli-e2e/src/cli-commands/skills/install/command.e2e.ts`
 - Open questions: Must a request containing both matched and unmatched names install its matches, as it does today, or fail as a whole?; How should an all selection and a name selection be combined or refused when both are supplied?
 - Limitation: The source populations are local native trees: three uniquely named skills, and two uniquely named subagents. These examples do not establish discovery or selection through remote Git/Registry providers, collision handling, invalid sibling packages, or an actual interactive terminal session, and the remaining installable types are covered by the shared policy's ordinary tests rather than by an example here. Retires when: Add distinct source-provider and interaction evidence when those selection conditions are allocated; keep unresolved selector policies explicit until decided.
-- Source: [`packages/core/workspace/src/skills/lifecycle/install/selects-requested-source-skills.spec.ts`](../packages/core/workspace/src/skills/lifecycle/install/selects-requested-source-skills.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/install/skills/selects-requested-source-skills.spec.ts`](../packages/core/workspace/src/lifecycle/install/skills/selects-requested-source-skills.spec.ts)
 
 ##### Uninstall removes direct intent and keeps state another desired route still reaches
 
@@ -2230,7 +2230,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary rationale: Purity is a property of the creation use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
 - Derived from: `cli/hooks/new/creates-enabled-workspace-content`
-- Source: [`packages/core/workspace/src/hooks/authoring/new/preview-is-pure.spec.ts`](../packages/core/workspace/src/hooks/authoring/new/preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/authoring/create/hooks/preview-is-pure.spec.ts`](../packages/core/workspace/src/authoring/create/hooks/preview-is-pure.spec.ts)
 
 ##### Install preview describes the plan without changing any state
 
@@ -2342,7 +2342,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary rationale: Purity is a property of the creation use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
 - Derived from: `cli/knowledge/new/creates-enabled-workspace-content`
-- Source: [`packages/core/workspace/src/knowledge/authoring/preview-is-pure.spec.ts`](../packages/core/workspace/src/knowledge/authoring/preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/authoring/create/knowledge/preview-is-pure.spec.ts`](../packages/core/workspace/src/authoring/create/knowledge/preview-is-pure.spec.ts)
 
 ##### Login replaces a stored session only when the Registry rejects it
 
@@ -2410,7 +2410,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary rationale: Purity is a property of the creation use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write — settings, authored root, and agent MCP config — that could have happened.
 - Methods: example
 - Derived from: `packages/core/workspace/src/authoring/create/scaffolds/mcp-server.ts`
-- Source: [`packages/core/workspace/src/mcp-connections/authoring/new/preview-is-pure.spec.ts`](../packages/core/workspace/src/mcp-connections/authoring/new/preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/authoring/create/mcp-connections/preview-is-pure.spec.ts`](../packages/core/workspace/src/authoring/create/mcp-connections/preview-is-pure.spec.ts)
 
 ##### A workspace change that cannot complete leaves each semantic closure either fully committed or fully restored
 
@@ -2440,7 +2440,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Methods: example
 - Derived from: `cli/projection-currency-follows-state-authority`
 - Assumptions: An inline connection and a Pack-supplied Registry connection are the two ways a structured MCP projection enters desired state, so one of each stands for every structured native projection.
-- Source: [`packages/core/workspace/src/reconciliation/sync/native-projections-compare-by-decoded-value.spec.ts`](../packages/core/workspace/src/reconciliation/sync/native-projections-compare-by-decoded-value.spec.ts)
+- Source: [`packages/core/workspace/src/sync/native-projections-compare-by-decoded-value.spec.ts`](../packages/core/workspace/src/sync/native-projections-compare-by-decoded-value.spec.ts)
 
 ##### Pack add preview describes the dependency without changing any state
 
@@ -2468,7 +2468,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary rationale: Purity is a property of the creation use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
 - Derived from: `cli/packs/new/records-workspace-authorship`
-- Source: [`packages/core/workspace/src/packs/authoring/new-pack-preview-is-pure.spec.ts`](../packages/core/workspace/src/packs/authoring/new-pack-preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/authoring/create/packs/new-pack-preview-is-pure.spec.ts`](../packages/core/workspace/src/authoring/create/packs/new-pack-preview-is-pure.spec.ts)
 
 ##### Pack remove preview describes the removal without changing any state
 
@@ -2527,7 +2527,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Limitation: The supporting lint cross-check — that a rewritten managed body produces no `workspace/projection-ownership-valid` finding — is not exercised here: a reconciliation cannot import the lint feature, and lint cannot produce a validly generated document without running one. The reconciliation side of the same fact is exercised: the rewritten body is reported as nothing to reconcile. Retires when: `@agentxm/workspace/linting` gains a test that runs its ownership rule over a generated document whose body was rewritten and whose marker and generation record are intact.
 - Limitation: The instruction-copy currency rows run beside the instruction-management use case that owns them, in `packages/core/workspace/src/configuration/instructions/instruction-copy-currency.test.ts`; a reconciliation cannot reach that feature. They establish copy currency on a host filesystem with symlink creation refused, not Windows permissions, native symlink probing, or Windows filesystem behavior; the dedicated Windows instruction suite supplies that evidence separately. Retires when: Retain the same instruction-copy currency observations through real symlink-unavailable environments on each supported platform, alongside separately attributable Windows execution.
 - Additional evidence: process via [`apps/cli-e2e/src/projection-currency.e2e.test.ts`](../apps/cli-e2e/src/projection-currency.e2e.test.ts) — Runs a real Markdown formatter between projection and the packaged CLI, then proves both lint views, preview, sync, and reinstall preserve the formatted bytes.
-- Source: [`packages/core/workspace/src/reconciliation/sync/projection-currency-follows-state-authority.spec.ts`](../packages/core/workspace/src/reconciliation/sync/projection-currency-follows-state-authority.spec.ts)
+- Source: [`packages/core/workspace/src/sync/projection-currency-follows-state-authority.spec.ts`](../packages/core/workspace/src/sync/projection-currency-follows-state-authority.spec.ts)
 
 ##### Publish preview reports the admitted publication set without distributing anything
 
@@ -2557,7 +2557,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary rationale: Purity is a property of the creation use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
 - Derived from: `cli/rules/new/creates-enabled-workspace-content`
-- Source: [`packages/core/workspace/src/instructions/authoring/new/preview-is-pure.spec.ts`](../packages/core/workspace/src/instructions/authoring/new/preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/authoring/create/instructions/preview-is-pure.spec.ts`](../packages/core/workspace/src/authoring/create/instructions/preview-is-pure.spec.ts)
 
 ##### Concurrent invocations spend one refresh token and end with one session
 
@@ -2613,7 +2613,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary rationale: Purity is a property of the creation use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
 - Derived from: `cli/skills/new/scaffolds-for-every-configured-agent`
-- Source: [`packages/core/workspace/src/skills/authoring/new/preview-is-pure.spec.ts`](../packages/core/workspace/src/skills/authoring/new/preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/authoring/create/skills/preview-is-pure.spec.ts`](../packages/core/workspace/src/authoring/create/skills/preview-is-pure.spec.ts)
 
 ##### Subagent import preview describes the conversion without changing any state
 
@@ -2641,7 +2641,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary rationale: Purity is a property of the creation use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
 - Derived from: `cli/subagents/new/scaffolds-for-every-configured-agent`
-- Source: [`packages/core/workspace/src/subagents/authoring/new/preview-is-pure.spec.ts`](../packages/core/workspace/src/subagents/authoring/new/preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/authoring/create/subagents/preview-is-pure.spec.ts`](../packages/core/workspace/src/authoring/create/subagents/preview-is-pure.spec.ts)
 
 ##### Sync does not report convergence from stale workspace observations
 
@@ -2654,7 +2654,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `cli/sync/realizes-desired-state`
-- Source: [`packages/core/workspace/src/reconciliation/sync/no-op-convergence-validates-current-observation.spec.ts`](../packages/core/workspace/src/reconciliation/sync/no-op-convergence-validates-current-observation.spec.ts)
+- Source: [`packages/core/workspace/src/sync/no-op-convergence-validates-current-observation.spec.ts`](../packages/core/workspace/src/sync/no-op-convergence-validates-current-observation.spec.ts)
 
 ##### Sync preview describes required changes without applying them
 
@@ -2667,7 +2667,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `cli/sync/realizes-desired-state`
-- Source: [`packages/core/workspace/src/reconciliation/sync/preview-is-pure.spec.ts`](../packages/core/workspace/src/reconciliation/sync/preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/sync/preview-is-pure.spec.ts`](../packages/core/workspace/src/sync/preview-is-pure.spec.ts)
 
 ##### Sync realizes desired additions and removes what desired state no longer includes
 
@@ -2680,7 +2680,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `cli/sync/preserves-configuration-and-resolutions`
-- Source: [`packages/core/workspace/src/reconciliation/sync/realizes-desired-state.spec.ts`](../packages/core/workspace/src/reconciliation/sync/realizes-desired-state.spec.ts)
+- Source: [`packages/core/workspace/src/sync/realizes-desired-state.spec.ts`](../packages/core/workspace/src/sync/realizes-desired-state.spec.ts)
 
 ##### Unarchive uses the observed revision
 
@@ -2891,7 +2891,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Boundary rationale: Each Pack is installed through the production install use case from a real local directory or a Git repository served by a throwaway daemon, so the held authority is read back from the lock the earlier install recorded rather than from an in-memory graph.
 - Methods: example
 - Derived from: `cli/install/pack-source-switches-are-member-diffed`
-- Source: [`packages/core/workspace/src/packs/lifecycle/install/shared-pack-members-need-one-source-authority.spec.ts`](../packages/core/workspace/src/packs/lifecycle/install/shared-pack-members-need-one-source-authority.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/install/packs/shared-pack-members-need-one-source-authority.spec.ts`](../packages/core/workspace/src/lifecycle/install/packs/shared-pack-members-need-one-source-authority.spec.ts)
 
 ##### Installing an accepted identity from another authority is an approved source switch
 
@@ -3525,7 +3525,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example
 - Derived from: `cli/projection-currency-follows-state-authority`
 - Limitation: The statement no longer carries the lint half of the rule — that a workspace lint run reports the invalid ownership as `workspace/projection-ownership-valid` and leaves the document untouched. A reconciliation specification cannot witness a peer feature's finding, and no ordinary test in `@agentxm/workspace/linting` exercises that rule against an unvalidatable marker yet; the rule's identity and severity are meanwhile owned by cli/lint/catalog-is-complete and lint's no-mutation obligation by cli/lint/reports-facts-without-mutation. Retires when: `@agentxm/workspace/linting` carries an ordinary test that runs the real workspace lint over a document whose ownership marker cannot be validated and asserts the `workspace/projection-ownership-valid` finding with the document unchanged.
-- Source: [`packages/core/workspace/src/reconciliation/sync/invalid-ownership-markers-block-reconciliation.spec.ts`](../packages/core/workspace/src/reconciliation/sync/invalid-ownership-markers-block-reconciliation.spec.ts)
+- Source: [`packages/core/workspace/src/sync/invalid-ownership-markers-block-reconciliation.spec.ts`](../packages/core/workspace/src/sync/invalid-ownership-markers-block-reconciliation.spec.ts)
 
 ##### Invalid workspace settings or lockfiles block workspace operations
 
@@ -3543,7 +3543,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Additional evidence: process via [`apps/cli-e2e/src/skills.e2e.test.ts`](../apps/cli-e2e/src/skills.e2e.test.ts) — Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects; its imported cli-commands/skills/list/command.e2e.ts scenarios additionally observe inventory before setup, user-scope discovery, malformed settings and lockfiles, and install/uninstall/read journeys. Execution is attributed to this Vitest entrypoint, with imported source bytes included in the repository execution inputs.
 - Additional evidence: process via [`apps/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts`](../apps/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts) — Proves the shipped command wiring emits exit 9 and one structured error document, preserves project and user bytes, keeps global upgrade guidance unscoped, honors the forward-version precedence over uninitialized state, and uses the shared schema diagnosis for a Knowledge command.
 - Additional evidence: process via [`apps/cli-e2e/src/workspace-settings-validity.e2e.test.ts`](../apps/cli-e2e/src/workspace-settings-validity.e2e.test.ts) — Proves at the real process boundary what the in-memory harness cannot: the shipped command wiring routes every sampled command family through the settings gate, machine stdout stays a valid document separated from stderr diagnostics, exit codes are nonzero, and version and help remain outside the gate.
-- Source: [`packages/core/workspace/src/desired-state/workspace/invalid-workspace-state-gates-operations.spec.ts`](../packages/core/workspace/src/desired-state/workspace/invalid-workspace-state-gates-operations.spec.ts)
+- Source: [`packages/core/workspace/src/reconciliation/invalid-workspace-state-gates-operations.spec.ts`](../packages/core/workspace/src/reconciliation/invalid-workspace-state-gates-operations.spec.ts)
 
 ##### Local inventories can run before setup
 
@@ -3720,8 +3720,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: memory; selection: per-change
 - Boundary rationale: Reachability is decided where desired state is read: the settings entries and the accepted resolutions are both on disk, and the records built from them are what every command downstream consults.
 - Methods: decision-table, contract
-- Derived from: `packages/core/workspace/src/reconciliation/sync/lock-only-rows-are-never-acquired.test.ts`
-- Source: [`packages/core/workspace/src/desired-state/workspace/lock-state-never-creates-reachability.spec.ts`](../packages/core/workspace/src/desired-state/workspace/lock-state-never-creates-reachability.spec.ts)
+- Derived from: `packages/core/workspace/src/sync/lock-only-rows-are-never-acquired.test.ts`
+- Source: [`packages/core/workspace/src/lifecycle/uninstall/lock-state-never-creates-reachability.spec.ts`](../packages/core/workspace/src/lifecycle/uninstall/lock-state-never-creates-reachability.spec.ts)
 
 ##### Managed output points to an editable source or to the fork command
 
@@ -3801,7 +3801,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`, `agent-interoperability`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Source: [`packages/core/workspace/src/mcp-connections/lifecycle/uninstall/removes-one-local-connection-at-a-time.spec.ts`](../packages/core/workspace/src/mcp-connections/lifecycle/uninstall/removes-one-local-connection-at-a-time.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/uninstall/mcp-connections/removes-one-local-connection-at-a-time.spec.ts`](../packages/core/workspace/src/lifecycle/uninstall/mcp-connections/removes-one-local-connection-at-a-time.spec.ts)
 
 ##### Updating one locally named connection advances every connection sharing its source
 
@@ -3813,7 +3813,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`, `agent-interoperability`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Source: [`packages/core/workspace/src/mcp-connections/lifecycle/update/shared-source-update-is-closure-wide.spec.ts`](../packages/core/workspace/src/mcp-connections/lifecycle/update/shared-source-update-is-closure-wide.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/update/mcp-connections/shared-source-update-is-closure-wide.spec.ts`](../packages/core/workspace/src/lifecycle/update/mcp-connections/shared-source-update-is-closure-wide.spec.ts)
 
 ##### Migrate replaces or removes a deprecated installed extension
 
@@ -4007,7 +4007,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example
 - Derived from: `cli/skills/install/bundled-recovery-converges`, `cli/lint/declared-official-skill-must-be-compatible`, `cli/lint/compatibility-result-names-reason-and-recovery`, `apps/cli-e2e/src/cli-commands/skills/install/command.e2e.ts`
 - Supersedes: `cli/skills/install/bundled-recovery-converges`
-- Source: [`packages/core/workspace/src/skills/lifecycle/install/bundled-recovery-rewrites-entry-and-retires-resolution.spec.ts`](../packages/core/workspace/src/skills/lifecycle/install/bundled-recovery-rewrites-entry-and-retires-resolution.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/install/skills/bundled-recovery-rewrites-entry-and-retires-resolution.spec.ts`](../packages/core/workspace/src/lifecycle/install/skills/bundled-recovery-rewrites-entry-and-retires-resolution.spec.ts)
 
 ##### Bundled official-skill recovery never overwrites a workspace-authored official skill
 
@@ -4021,7 +4021,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example
 - Derived from: `cli/skills/install/bundled-recovery-converges`
 - Supersedes: `cli/skills/install/bundled-recovery-converges`
-- Source: [`packages/core/workspace/src/skills/lifecycle/install/preserves-authored-official-skill.spec.ts`](../packages/core/workspace/src/skills/lifecycle/install/preserves-authored-official-skill.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/install/skills/preserves-authored-official-skill.spec.ts`](../packages/core/workspace/src/lifecycle/install/skills/preserves-authored-official-skill.spec.ts)
 
 ##### Sync never changes configuration and never advances a satisfying resolution
 
@@ -4034,7 +4034,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `workspace/desired-state/effective-constraint-has-one-owner`
-- Source: [`packages/core/workspace/src/reconciliation/sync/preserves-configuration-and-resolutions.spec.ts`](../packages/core/workspace/src/reconciliation/sync/preserves-configuration-and-resolutions.spec.ts)
+- Source: [`packages/core/workspace/src/sync/preserves-configuration-and-resolutions.spec.ts`](../packages/core/workspace/src/sync/preserves-configuration-and-resolutions.spec.ts)
 
 ##### Sync leaves undeclared authored packages alone
 
@@ -4048,7 +4048,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example
 - Derived from: `cli/sync/realizes-desired-state`
 - Additional evidence: process via [`apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts`](../apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts) — Runs the built CLI against a persisted workspace holding leftover installed packages, an undeclared authored package, an unrecognized install-root entry, and obsolete skill links, proving lint facts, the sync convergence exit status, uninstall refusal, and the files a real sync removes and keeps.
-- Source: [`packages/core/workspace/src/reconciliation/sync/preserves-undeclared-authored-packages.spec.ts`](../packages/core/workspace/src/reconciliation/sync/preserves-undeclared-authored-packages.spec.ts)
+- Source: [`packages/core/workspace/src/sync/preserves-undeclared-authored-packages.spec.ts`](../packages/core/workspace/src/sync/preserves-undeclared-authored-packages.spec.ts)
 
 ##### Sync never removes agent-native content without AXM ownership proof
 
@@ -4060,7 +4060,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Source: [`packages/core/workspace/src/reconciliation/sync/preserves-unowned-agent-content.spec.ts`](../packages/core/workspace/src/reconciliation/sync/preserves-unowned-agent-content.spec.ts)
+- Source: [`packages/core/workspace/src/sync/preserves-unowned-agent-content.spec.ts`](../packages/core/workspace/src/sync/preserves-unowned-agent-content.spec.ts)
 
 ##### Sync removes installed packages that desired state no longer includes
 
@@ -4074,7 +4074,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example
 - Derived from: `cli/sync/realizes-desired-state`, `cli/sync/preserves-unowned-agent-content`
 - Additional evidence: process via [`apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts`](../apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts) — Runs the built CLI against a persisted workspace holding leftover installed packages, an undeclared authored package, an unrecognized install-root entry, and obsolete skill links, proving lint facts, the sync convergence exit status, uninstall refusal, and the files a real sync removes and keeps.
-- Source: [`packages/core/workspace/src/reconciliation/sync/removes-leftover-installed-packages.spec.ts`](../packages/core/workspace/src/reconciliation/sync/removes-leftover-installed-packages.spec.ts)
+- Source: [`packages/core/workspace/src/sync/removes-leftover-installed-packages.spec.ts`](../packages/core/workspace/src/sync/removes-leftover-installed-packages.spec.ts)
 
 ##### Sync removes obsolete agent skill links into AXM storage
 
@@ -4088,7 +4088,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example
 - Derived from: `cli/sync/preserves-unowned-agent-content`
 - Additional evidence: process via [`apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts`](../apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts) — Runs the built CLI against a persisted workspace holding leftover installed packages, an undeclared authored package, an unrecognized install-root entry, and obsolete skill links, proving lint facts, the sync convergence exit status, uninstall refusal, and the files a real sync removes and keeps.
-- Source: [`packages/core/workspace/src/reconciliation/sync/removes-obsolete-storage-root-links.spec.ts`](../packages/core/workspace/src/reconciliation/sync/removes-obsolete-storage-root-links.spec.ts)
+- Source: [`packages/core/workspace/src/sync/removes-obsolete-storage-root-links.spec.ts`](../packages/core/workspace/src/sync/removes-obsolete-storage-root-links.spec.ts)
 
 ##### Unreadable agent configuration prevents reconciliation
 
@@ -4101,7 +4101,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: memory; selection: per-change
 - Methods: decision-table, example
 - Assumptions: A JSON MCP configuration whose root is an array is the smallest file that parses but is not the map the format requires, so it stands for every undecodable native MCP configuration.
-- Source: [`packages/core/workspace/src/reconciliation/sync/unreadable-agent-configuration-prevents-reconciliation.spec.ts`](../packages/core/workspace/src/reconciliation/sync/unreadable-agent-configuration-prevents-reconciliation.spec.ts)
+- Source: [`packages/core/workspace/src/sync/unreadable-agent-configuration-prevents-reconciliation.spec.ts`](../packages/core/workspace/src/sync/unreadable-agent-configuration-prevents-reconciliation.spec.ts)
 
 ##### Agent filters match any selected agent
 
@@ -4180,8 +4180,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: memory; selection: per-change
 - Boundary rationale: The omission is decided while the instructions file is projected and is reported on the unit that projected it; running a real removal over a real workspace shows both the file that was written and the report that accompanied it.
 - Methods: example
-- Derived from: `packages/core/workspace/src/knowledge/lifecycle/manager.ts`, `packages/core/workspace/src/projection/planning.ts`, `packages/core/workspace/src/reconciliation/sync/knowledge-exclusions-are-reported.test.ts`, `packages/core/workspace/src/linting/catalog/workspace/conformance/workspace-state/test-helpers.ts`
-- Source: [`packages/core/workspace/src/knowledge/lifecycle/unreadable-knowledge-is-left-out-and-reported.spec.ts`](../packages/core/workspace/src/knowledge/lifecycle/unreadable-knowledge-is-left-out-and-reported.spec.ts)
+- Derived from: `packages/core/workspace/src/knowledge/lifecycle/manager.ts`, `packages/core/workspace/src/projection/planning.ts`, `packages/core/workspace/src/sync/knowledge-exclusions-are-reported.test.ts`, `packages/core/workspace/src/linting/catalog/workspace/conformance/workspace-state/test-helpers.ts`
+- Source: [`packages/core/workspace/src/lifecycle/uninstall/knowledge/unreadable-knowledge-is-left-out-and-reported.spec.ts`](../packages/core/workspace/src/lifecycle/uninstall/knowledge/unreadable-knowledge-is-left-out-and-reported.spec.ts)
 
 ##### Unusable directories fail before the command runs
 
@@ -4325,7 +4325,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Product goals: `actionable-diagnostics`, `machine-automation`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: decision-table, contract, example
-- Source: [`packages/core/workspace/src/reconciliation/sync/reports-aggregate-projection-drift-at-unit-precision.spec.ts`](../packages/core/workspace/src/reconciliation/sync/reports-aggregate-projection-drift-at-unit-precision.spec.ts)
+- Source: [`packages/core/workspace/src/sync/reports-aggregate-projection-drift-at-unit-precision.spec.ts`](../packages/core/workspace/src/sync/reports-aggregate-projection-drift-at-unit-precision.spec.ts)
 
 ### Goal: authoring-and-creation
 
@@ -5241,7 +5241,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: memory; selection: per-change
 - Methods: decision-table, example
 - Derived from: `cli/mcps/install/local-connection-names-share-source-resolution`
-- Source: [`packages/core/workspace/src/mcp-connections/lifecycle/install/local-name-requests-are-validated-before-any-change.spec.ts`](../packages/core/workspace/src/mcp-connections/lifecycle/install/local-name-requests-are-validated-before-any-change.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/install/mcp-connections/local-name-requests-are-validated-before-any-change.spec.ts`](../packages/core/workspace/src/lifecycle/install/mcp-connections/local-name-requests-are-validated-before-any-change.spec.ts)
 
 ##### The machine MCP inventory distinguishes local connection identity from source resolution
 
@@ -5320,7 +5320,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: decision-table, example
-- Source: [`packages/core/workspace/src/desired-state/workspace/unreadable-user-home-prevents-work.spec.ts`](../packages/core/workspace/src/desired-state/workspace/unreadable-user-home-prevents-work.spec.ts)
+- Source: [`packages/core/workspace/src/configuration/setup/unreadable-user-home-prevents-work.spec.ts`](../packages/core/workspace/src/configuration/setup/unreadable-user-home-prevents-work.spec.ts)
 
 ##### A malformed extension name is rejected with a typed failure naming the input
 
@@ -5384,7 +5384,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
 - Derived from: `cli/sync/removes-leftover-installed-packages`, `cli/lint/reports-installed-but-not-configured`, `cli/lock-state-never-creates-reachability`
-- Source: [`packages/core/workspace/src/desired-state/workspace/read-model/leftover-follows-desired-state-reachability.spec.ts`](../packages/core/workspace/src/desired-state/workspace/read-model/leftover-follows-desired-state-reachability.spec.ts)
+- Source: [`packages/core/workspace/src/sync/leftover-follows-desired-state-reachability.spec.ts`](../packages/core/workspace/src/sync/leftover-follows-desired-state-reachability.spec.ts)
 
 ##### Incomplete workspace observations identify unreadable paths
 
@@ -5417,7 +5417,7 @@ Configured extensions realize correctly and completely for every configured codi
 - Boundary: platform; selection: per-change
 - Boundary rationale: Lifecycle operations and scoped sync write real workspace files; the examples inspect the canonical file and alias after the same transaction.
 - Methods: example
-- Source: [`packages/core/workspace/src/projection/instructions/aliases-follow-shared-surface-writes.spec.ts`](../packages/core/workspace/src/projection/instructions/aliases-follow-shared-surface-writes.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/activation/aliases-follow-shared-surface-writes.spec.ts`](../packages/core/workspace/src/lifecycle/activation/aliases-follow-shared-surface-writes.spec.ts)
 
 ### Goal: dependable-change-process
 
@@ -5909,7 +5909,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Open questions: When the credential store cannot persist a required secret, must installation fail, or may it complete with a warning and require the secret to be supplied later? The current statement promises storage; the controlled unavailable-store case establishes disclosure safety, not satisfaction of storage.
 - Limitation: Default scenarios control the credential-store port. The separately selected platform execution exercises the actual system keychain only on its recorded host and access context; other operating systems and access policies remain unverified. Retires when: Run the same credential lifecycle against disposable keychain entries on each supported operating system.
 - Additional evidence: platform via [`apps/cli-e2e/src/mcp-secrets.keychain.e2e.test.ts`](../apps/cli-e2e/src/mcp-secrets.keychain.e2e.test.ts) — Runs the built CLI's real MCP install, stored-input reload and secret replacement in its declared Node runtime against the host OS keychain, preserving host HOME for native access while isolating AXM_USER_HOME and project state. A subprocess loads the shipped identity build artifacts only to derive disposable cleanup identities, without a product source dependency in the test project. Producer and observer use the same runtime application identity across separate processes. Workspace/local/source/input namespaces are isolated and read back natively; a finally block deletes exactly the known disposable entries, requires affirmative deletion for every attempted write, and retains an independent cleanup journal on failure. This establishes only the recorded host and access context, not cross-application access, unavailable-keychain policy or every supported operating system.
-- Source: [`packages/core/workspace/src/mcp-connections/lifecycle/install/secret-namespaces-include-local-and-source-identity.spec.ts`](../packages/core/workspace/src/mcp-connections/lifecycle/install/secret-namespaces-include-local-and-source-identity.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/install/mcp-connections/secret-namespaces-include-local-and-source-identity.spec.ts`](../packages/core/workspace/src/lifecycle/install/mcp-connections/secret-namespaces-include-local-and-source-identity.spec.ts)
 
 ## Product goals
 

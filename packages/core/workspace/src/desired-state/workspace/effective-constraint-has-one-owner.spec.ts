@@ -13,7 +13,7 @@ import {
   SHARED_MEMBER_PACKS,
   SHARED_MEMBER_PIN,
   sharedMemberGraph,
-} from "./test-helpers.js";
+} from "./test-scenarios.js";
 
 export const specification = defineSpecification({
   requirement: "workspace/desired-state/effective-constraint-has-one-owner",

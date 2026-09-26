@@ -9,12 +9,8 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import { deriveOperationOutcome, previewPlanExecution } from "../../operations/index.js";
 import { preapprovedPlanExecution } from "../../transitions/planning/testing.js";
 import { workspaceWithAuthoredExtension } from "../activation/test-helpers.js";
-import {
-  applyInstall,
-  installRequest,
-  makeInstallWorld,
-  readSettings,
-} from "../install/test-helpers.js";
+import { readSettings } from "../install/test-helpers.js";
+import { applyInstall, installRequest, makeInstallWorld } from "../../testing/install-world.js";
 import { UninstallExtensions } from "./uninstall-extensions.js";
 import { uninstallRequest } from "./test-helpers.js";
 

@@ -28,7 +28,7 @@ import type {
   WorkspaceTransactionFailure,
   WorkspaceTransitionAcquireFailure,
 } from "../transitions/settlement/index.js";
-import { kernelFailureDetail, renderKernelFailure } from "../reconciliation/failure-rendering.js";
+import { kernelFailureDetail, renderKernelFailure } from "../reconciliation/index.js";
 
 /**
  * Every failure resolving a prepared change through the plan pipeline can

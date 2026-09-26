@@ -17,7 +17,6 @@
 
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
-import { ConfigError } from "effect/Config";
 import * as Option from "effect/Option";
 import { OperationRequestBudget } from "@agentxm/registry-client";
 
@@ -45,7 +44,6 @@ import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   ReleaseAgePosture,
-  ExtensionResolutionFailed,
   makeConfiguredReleaseAgeEvaluation,
   normalizeReleaseAgeRecords,
   resolveConfiguredHook,
@@ -62,10 +60,9 @@ import {
   type ConfiguredAgentOperation,
   type Plan,
   type PlannedJobStep,
-  type ExtensionLifecycleFailed,
   installRefused,
 } from "../../operations/index.js";
-import { resolveSource } from "../../resolution/sources/index.js";
+import { resolveSource, withPackRegistryIndexMemo } from "../../resolution/sources/index.js";
 import * as Result from "effect/Result";
 import {
   SettingsReader,
@@ -92,13 +89,14 @@ import { planSubagentInstall } from "../../subagents/index.js";
 import { inlineMcpNotApplicablePlan } from "./inline-mcp-operation.js";
 import {
   buildAggregateProjectionStep,
+  configuredEntryResolutionRefused,
+  type ConfiguredInstallFailure,
   type InstallStepRequirements,
   type ResolveInstallRequirements,
   nameFromLabel,
   StepFailureConversion,
 } from "../../reconciliation/index.js";
 import { findGitReinstallRefs, pinGitReinstallRef } from "./git-reinstall.js";
-import { withPackRegistryIndexMemo } from "../../resolution/sources/providers/registry/index-memo.js";
 
 /** Which extension types a configured-entry sweep covers. */
 export type ConfiguredInstallableType = InstallableExtensionType;
@@ -217,32 +215,6 @@ const attachConfiguredReleaseAge = (
           ]),
         },
       };
-
-/**
- * Every failure settling the configured closure can surface: this feature's
- * own refusal, plus the resolution refusal a configured entry's source
- * carries through with its own category and sentence.
- */
-export type ConfiguredInstallFailure =
-  ExtensionLifecycleFailed | ExtensionResolutionFailed | ConfigError;
-
-/**
- * A resolution refusal already carries its own category and fact sentence —
- * a held release, an unsatisfiable constraint, a blocked source authority —
- * so it travels unchanged rather than being replaced with a generic conflict
- * the operator cannot act on. Anything else becomes this feature's refusal,
- * naming the configured entry that could not be resolved.
- */
-const resolutionFailed =
-  (name: string) =>
-  (cause: unknown): ConfiguredInstallFailure =>
-    cause instanceof ExtensionResolutionFailed || cause instanceof ConfigError
-      ? cause
-      : installRefused({
-          category: "conflict",
-          detail: `Configured extension "${name}" could not be resolved`,
-          cause,
-        });
 
 interface CollectPackPlansArgs {
   readonly releaseAgeEvaluation: ReleaseAgeEvaluation;
@@ -377,7 +349,7 @@ const collectSimpleTypePlans = (
       Effect.gen(function* () {
         if (force) {
           const resolvedSource = yield* resolveSource(source).pipe(
-            Effect.mapError(resolutionFailed(name)),
+            Effect.mapError(configuredEntryResolutionRefused(name)),
           );
           if (resolvedSource.type === "git") {
             const accepted = yield* findGitReinstallRefs(resolvedSource, expectedType, [name]);
@@ -431,7 +403,7 @@ const collectSimpleTypePlans = (
             source,
             resolveConfiguredSkill(name, source, releaseAgeEvaluation, selectionRange),
           ).pipe(
-            Effect.mapError(resolutionFailed(name)),
+            Effect.mapError(configuredEntryResolutionRefused(name)),
             Effect.flatMap((resolved) =>
               (force ? pinGitReinstallRef(resolved.ref, name) : Effect.succeed(resolved.ref)).pipe(
                 Effect.flatMap((ref) =>
@@ -464,7 +436,7 @@ const collectSimpleTypePlans = (
             source,
             resolveConfiguredSubagent(name, source, releaseAgeEvaluation, selectionRange),
           ).pipe(
-            Effect.mapError(resolutionFailed(name)),
+            Effect.mapError(configuredEntryResolutionRefused(name)),
             Effect.flatMap((resolved) =>
               (force ? pinGitReinstallRef(resolved.ref, name) : Effect.succeed(resolved.ref)).pipe(
                 Effect.flatMap((ref) =>
@@ -496,7 +468,7 @@ const collectSimpleTypePlans = (
             source,
             resolveConfiguredRule(name, source, releaseAgeEvaluation, selectionRange),
           ).pipe(
-            Effect.mapError(resolutionFailed(name)),
+            Effect.mapError(configuredEntryResolutionRefused(name)),
             Effect.flatMap((resolved) =>
               (force ? pinGitReinstallRef(resolved.ref, name) : Effect.succeed(resolved.ref)).pipe(
                 Effect.flatMap((ref) =>
@@ -529,7 +501,7 @@ const collectSimpleTypePlans = (
             source,
             resolveConfiguredHook(name, source, releaseAgeEvaluation, selectionRange),
           ).pipe(
-            Effect.mapError(resolutionFailed(name)),
+            Effect.mapError(configuredEntryResolutionRefused(name)),
             Effect.flatMap((resolved) =>
               (force ? pinGitReinstallRef(resolved.ref, name) : Effect.succeed(resolved.ref)).pipe(
                 Effect.flatMap((ref) =>
@@ -562,7 +534,7 @@ const collectSimpleTypePlans = (
             source,
             resolveConfiguredKnowledge(name, source, releaseAgeEvaluation, selectionRange),
           ).pipe(
-            Effect.mapError(resolutionFailed(name)),
+            Effect.mapError(configuredEntryResolutionRefused(name)),
             Effect.flatMap((resolved) =>
               (force ? pinGitReinstallRef(resolved.ref, name) : Effect.succeed(resolved.ref)).pipe(
                 Effect.flatMap((ref) =>
@@ -595,7 +567,7 @@ const collectSimpleTypePlans = (
             source,
             resolveConfiguredMcpServer(name, source, releaseAgeEvaluation, selectionRange),
           ).pipe(
-            Effect.mapError(resolutionFailed(name)),
+            Effect.mapError(configuredEntryResolutionRefused(name)),
             Effect.flatMap((resolved) =>
               (force ? pinGitReinstallRef(resolved.ref, name) : Effect.succeed(resolved.ref)).pipe(
                 Effect.flatMap((ref) =>

@@ -9,8 +9,8 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import { ExtensionLifecycleFailed, deriveOperationOutcome } from "../../operations/index.js";
-import { writeLocalRulePackage, writeLocalSkillPackage } from "../testing.js";
-import { applyInstall, installRequest, makeInstallWorld } from "./test-helpers.js";
+import { writeLocalRulePackage, writeLocalSkillPackage } from "../../testing/local-packages.js";
+import { applyInstall, installRequest, makeInstallWorld } from "../../testing/install-world.js";
 
 const availablePort = (): Promise<number> =>
   new Promise((resolve, reject) => {

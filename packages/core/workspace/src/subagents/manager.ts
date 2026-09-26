@@ -18,23 +18,37 @@ import {
   SettingsReader,
   WorkspaceLocation,
   WorkspaceRecords,
+  type SubagentPathSource,
+  computeSubagentPathsForLayout,
+  subagentContentFilename,
+  subagentContentPath,
+  sanitizeName,
+  removeIfExists,
+  computeMaterializedTreeIntegrity,
+  computePackageContentHash,
+  computeSourceHash,
+  RenderedFilePathSchema,
+  acceptedCanonicalObservation,
+  removableAcceptedCanonicalPath,
 } from "../desired-state/index.js";
 
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
-import type { ManagerRequirements } from "../materialization/manager-contract.js";
-import type { SubagentMaterializationFacts } from "../materialization/managers.js";
-import type { ExtensionManagerFailure } from "../materialization/errors.js";
-import type { SubagentPathSource } from "../desired-state/index.js";
 import {
-  computeSubagentPathsForLayout,
-  subagentContentFilename,
-  subagentContentPath,
-} from "../desired-state/index.js";
+  type ManagerRequirements,
+  type SubagentMaterializationFacts,
+  type ExtensionManagerFailure,
+  acceptedResolutionFor,
+  SubagentManager,
+  type SubagentManagerService,
+  acquireCanonicalForRef,
+  verifyWorkspaceRefLocation,
+  makeBaseManagerMembers,
+  listMaterializableFromDisk,
+} from "../materialization/index.js";
 import { SubagentContentUnreadable, SubagentDefinitionInvalid } from "./errors.js";
-import { acceptedResolutionFor } from "../materialization/accepted-resolution.js";
 import {
   CodingAgentRepository,
   managedSubagentRenderInput,
@@ -47,6 +61,8 @@ import {
   applyProjectionPlansWithResults,
   planSingletonProjection,
   managedSubagentFile,
+  insertManagedFileBanner,
+  type ManagedFileProvenance,
 } from "../projection/index.js";
 import {
   type SubagentSyncOutcome,
@@ -54,31 +70,12 @@ import {
   warnOnOrphanOverrides,
   buildRooModeEntry,
 } from "../projection/agent-adapters/index.js";
-import { sanitizeName } from "../desired-state/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
-import { removeIfExists } from "../desired-state/index.js";
-import { computeMaterializedTreeIntegrity } from "../desired-state/index.js";
 import { parseSubagentMd } from "@agentxm/extension-content";
-import {
-  acquireCanonicalForRef,
-  verifyWorkspaceRefLocation,
-} from "../materialization/acquire-canonical.js";
-import {
-  makeBaseManagerMembers,
-  listMaterializableFromDisk,
-} from "../materialization/manager-kit.js";
-import { insertManagedFileBanner, type ManagedFileProvenance } from "../projection/index.js";
-import { SubagentManager, type SubagentManagerService } from "../materialization/managers.js";
-import { computePackageContentHash } from "../desired-state/index.js";
-import { computeSourceHash, RenderedFilePathSchema } from "../desired-state/index.js";
 import {
   MANIFEST_FILENAME,
   SubagentManifestSchema,
 } from "@agentxm/extension-model/unstable/subagents/manifest-schema";
-import {
-  acceptedCanonicalObservation,
-  removableAcceptedCanonicalPath,
-} from "../desired-state/index.js";
 import { protectWorkspacePath } from "../transitions/settlement/index.js";
 import { copyExtensionDirectory, configuredSubagentsToDiskRefs } from "../acquisition/index.js";
 

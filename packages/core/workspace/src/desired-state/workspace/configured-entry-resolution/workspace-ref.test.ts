@@ -6,7 +6,7 @@ import { expect, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Path from "effect/Path";
 import { WorkspaceSourceInvalid } from "../errors.js";
-import { handle } from "../../test-helpers.js";
+import { handle } from "../../testing.js";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { resolveProjectWorkspaceLayout } from "../layout.js";
 import { resolveWorkspaceExtensionRef } from "./workspace-ref.js";

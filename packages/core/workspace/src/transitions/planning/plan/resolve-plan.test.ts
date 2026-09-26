@@ -10,8 +10,10 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import type * as PlatformError from "effect/PlatformError";
 
-import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/extensions";
-import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
+import {
+  type ConfigurableAgentId,
+  decodeExtensionNameSync,
+} from "@agentxm/extension-model/unstable/extensions";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import {
   MAX_OPERATION_SCRATCH_BYTES,
@@ -59,15 +61,18 @@ import {
   WorkspaceRecords,
   workspaceTransactionFailureToStepFailure,
 } from "../../../desired-state/index.js";
-import type { ExecutionCandidate } from "./execution-candidate.js";
-import { isExecutionCandidateFresh, makeExecutionCandidate } from "./execution-candidate.js";
+import {
+  type ExecutionCandidate,
+  isExecutionCandidateFresh,
+  makeExecutionCandidate,
+} from "./execution-candidate.js";
 import { prepareExecutionCandidate, resolveExecutionCandidate } from "./resolve-plan.js";
 import { WorkspaceRecordsEmpty } from "./__tests__/plan-spec-support.js";
 import {
   SourceHostProviders,
   type SourceHostProvidersService,
-} from "../../../resolution/sources/service.js";
-import { SourceNotResolvable } from "../../../resolution/sources/errors.js";
+  SourceNotResolvable,
+} from "../../../resolution/sources/index.js";
 
 const testRecovery: ConfirmationRecovery = { command: ["install"], arguments: [] };
 

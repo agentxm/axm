@@ -6,8 +6,13 @@ import { afterEach } from "vitest";
 import { deriveOperationOutcome } from "../../operations/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { writeLocalSkillPackage } from "../testing.js";
-import { applyInstall, installRequest, makeInstallWorld, previewInstall } from "./test-helpers.js";
+import { writeLocalSkillPackage } from "../../testing/local-packages.js";
+import {
+  applyInstall,
+  installRequest,
+  makeInstallWorld,
+  previewInstall,
+} from "../../testing/install-world.js";
 
 export const specification = defineSpecification({
   requirement: "cli/install/apply-realizes-the-previewed-closure",

@@ -46,16 +46,12 @@ import {
   workspaceStateReadFailureToStepFailure,
   workspaceTransactionFailureToStepFailure,
   type WorkspaceStateFailure,
-} from "../desired-state/index.js";
-import {
   LockfileResolvedVersionInvalid,
   LockfileValidationError,
   LockfileWriteError,
-} from "../desired-state/lockfile/errors.js";
-import { SettingsWriteError } from "../desired-state/settings/errors.js";
-import { PathTraversalDetected } from "../desired-state/utils/path-safety.js";
-import { ConfiguredAgentOutcomesUnavailable } from "../desired-state/workspace/configured-agent-outcomes-provider.js";
-import {
+  SettingsWriteError,
+  PathTraversalDetected,
+  ConfiguredAgentOutcomesUnavailable,
   AcceptedResolutionMissing,
   CanonicalPathRemovalError,
   DesiredPackGraphIncomplete,
@@ -71,9 +67,7 @@ import {
   WorkspaceLayoutError,
   WorkspaceNotInitialized,
   WorkspaceSourceInvalid,
-} from "../desired-state/workspace/errors.js";
-import { MaterializedTreeInvalid } from "../desired-state/workspace/materialized-tree.js";
-import {
+  MaterializedTreeInvalid,
   LockfileDecodeError,
   LockfileIoError,
   LockfileParseError,
@@ -84,16 +78,16 @@ import {
   SkillDiscoveryRootInvalid,
   SubagentScanFailed,
   WorkspaceRootEscape,
-} from "../desired-state/workspace/read-model/errors.js";
-import { InstallStateMissing } from "../materialization/accepted-resolution.js";
+} from "../desired-state/index.js";
 import {
+  InstallStateMissing,
+  isExtensionKindFailure,
+  type ExtensionKindFailure,
   agentIntegrationFailureToStepFailure,
   type AgentIntegrationFailure,
-} from "../materialization/agent-integration-step-failure.js";
-import {
   materializationFailureToStepFailure,
   type MaterializationFamilyFailure,
-} from "../materialization/step-failure.js";
+} from "../materialization/index.js";
 import {
   ApprovalRecoveryMissing,
   CandidateFingerprintFailed,
@@ -118,9 +112,9 @@ import {
   McpSharedTargetConflict,
   SubagentIoFailed,
   WriteBackupRetained,
-} from "../projection/agent-adapters/errors.js";
-import { NativeWriteRefused } from "../projection/agent-adapters/native-write-authority.js";
-import { TransientBackupFailed } from "../projection/agent-adapters/transient-backup.js";
+  NativeWriteRefused,
+  TransientBackupFailed,
+} from "../projection/agent-adapters/index.js";
 import {
   AuthoredContributorUnsupported,
   ContributorIdentityInvalid,
@@ -130,8 +124,10 @@ import {
   ManagedRegionViolation,
   ProjectionIoFailed,
   ProjectionTargetUnsupported,
-} from "../projection/errors.js";
-import { InstructionMaintenanceFailed } from "../projection/instructions/errors.js";
+  InstructionMaintenanceFailed,
+  projectionErrorToStepFailure,
+  type ProjectionFamilyFailure,
+} from "../projection/index.js";
 import {
   ExtensionResolutionFailed,
   PackConstraintShadowed,
@@ -140,16 +136,16 @@ import {
   PackDependencyMissing,
   PackDependencyUnsatisfied,
   SourceAuthorityBlocked,
-} from "../resolution/errors.js";
-import { AxmSkillGateUnavailable } from "../resolution/sources/axm-skill-gate.js";
+} from "../resolution/index.js";
 import {
+  AxmSkillGateUnavailable,
   GitOperationFailed,
   SourceHostNotConfigured,
   SourceNetworkFailure,
   SourceNotResolvable,
   SourceSyntaxInvalid,
-} from "../resolution/sources/errors.js";
-import { WorkspaceCatalogUnavailable } from "../resolution/sources/workspace-catalog.js";
+  WorkspaceCatalogUnavailable,
+} from "../resolution/sources/index.js";
 import {
   TransitionLockError,
   TransitionLockUnavailable,
@@ -159,7 +155,7 @@ import {
   WorkspaceSnapshotError,
   WorkspaceTransitionCompromised,
   type WorkspaceTransactionFailure,
-} from "../transitions/settlement/errors.js";
+} from "../transitions/settlement/index.js";
 import {
   planExecutionFailureToStepFailure,
   type PlanExecutionFailure,
@@ -169,7 +165,6 @@ import {
 
 import { WorkspaceSyncFailed } from "./errors.js";
 import { registryAccessFailureToStepFailure } from "./registry-access-step-failure.js";
-import { projectionErrorToStepFailure, type ProjectionFamilyFailure } from "../projection/index.js";
 import {
   ArchiveIntegrityMismatch,
   CanonicalPackageProbeFailed,
@@ -178,7 +173,6 @@ import {
   PackageMaterializationFailed,
   StagedPackageInvalid,
 } from "../acquisition/index.js";
-import { isExtensionKindFailure, type ExtensionKindFailure } from "../materialization/index.js";
 
 /** Every typed failure the workspace kernel constructs or carries. */
 export type KernelFailure =

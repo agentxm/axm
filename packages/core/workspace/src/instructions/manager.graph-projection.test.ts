@@ -9,15 +9,25 @@
  */
 
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
-import { UNCONSTRAINED_DESIRED_NODE } from "../desired-state/index.js";
-import { desiredConstraintOf } from "../desired-state/testing.js";
+import {
+  UNCONSTRAINED_DESIRED_NODE,
+  RulesLockMapSchema,
+  type RulesLockMap,
+  type DesiredExtensionNode,
+  type DesiredStateGraph,
+} from "../desired-state/index.js";
+import {
+  desiredConstraintOf,
+  WorkspaceReadTest,
+  MockWorkspaceTransactionScope,
+  treeIntegrityOfSync,
+} from "../desired-state/testing.js";
 import * as nodeFs from "node:fs";
 import * as nodeOs from "node:os";
 import * as nodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
 import * as Effect from "effect/Effect";
-import { treeIntegrityOfSync } from "../desired-state/test-support/tree-integrity-sync.js";
 import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "../transitions/settlement/live.js";
 import * as Option from "effect/Option";
@@ -25,13 +35,12 @@ import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import * as Schema from "effect/Schema";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
-import { RulesLockMapSchema, type RulesLockMap } from "../desired-state/index.js";
-import { SourceHostProviders } from "../resolution/sources/index.js";
-import { RuleManager } from "../materialization/managers.js";
+import {
+  SourceHostProviders,
+  type SourceHostProvidersService,
+} from "../resolution/sources/index.js";
+import { RuleManager } from "../materialization/index.js";
 import { applyPlannedProjections, observeProjectionPlans } from "../projection/index.js";
-import type { SourceHostProvidersService } from "../resolution/sources/index.js";
-import type { DesiredExtensionNode, DesiredStateGraph } from "../desired-state/index.js";
-import { WorkspaceReadTest, MockWorkspaceTransactionScope } from "../desired-state/testing.js";
 import { CodingAgentRepositoryLive, NativeWriteAuthorityLive } from "../projection/live.js";
 import { RuleManagerLive } from "./manager.js";
 import { WorkspaceCatalogLive } from "../resolution/sources/live.js";

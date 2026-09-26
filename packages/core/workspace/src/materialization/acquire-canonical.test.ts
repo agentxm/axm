@@ -13,7 +13,7 @@ import * as Schema from "effect/Schema";
 import type { LocalHookRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { computeMaterializedTreeIntegrity, type LockEntry } from "../desired-state/index.js";
-import { extensionName, handle } from "./test-helpers.js";
+import { extensionName, handle } from "../desired-state/testing.js";
 import { acquireCanonicalForRef } from "./acquire-canonical.js";
 
 describe("canonical acquisition dispatch", () => {

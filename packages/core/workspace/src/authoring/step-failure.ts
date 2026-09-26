@@ -16,7 +16,7 @@ import {
   makeStepFailure,
   type StepFailure,
 } from "../operations/index.js";
-import type { ExtensionManagerFailure } from "../materialization/errors.js";
+import type { ExtensionManagerFailure } from "../materialization/index.js";
 import {
   PackGraphInvalid,
   PackManifestUnavailable,
@@ -31,7 +31,7 @@ import {
   PackSelectorNotAPack,
   PackSourceMissing,
 } from "./pack-membership/membership-errors.js";
-import { kernelFailureDetail, renderKernelFailure } from "../reconciliation/failure-rendering.js";
+import { kernelFailureDetail, renderKernelFailure } from "../reconciliation/index.js";
 
 import { AuthoringFailed } from "./errors.js";
 import {

@@ -4,7 +4,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as semver from "semver";
-import { computeMaterializedTreeIntegrity } from "./materialized-tree.js";
+import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "./materialized-tree.js";
 import {
   toExtensionTypePlural,
   type ExtensionType,
@@ -12,6 +12,7 @@ import {
 import { parseSkillMd, readExtensionManifest } from "@agentxm/extension-content";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import {
+  extensionPathSourceFromLockEntry,
   isRegistryLockEntry,
   lockEntryMatchesSourceLocator,
   lockEntryToSourceParams,
@@ -19,15 +20,10 @@ import {
 } from "./lock-entry.js";
 import type { DesiredConstraintContributor, DesiredExtensionNode } from "./desired-state-graph.js";
 import type { WorkspaceLayout } from "./layout.js";
-import {
-  bundledSkillCanonicalRoot,
-  computeExtensionPathsForLayout,
-  extensionPathSourceFromLockEntry,
-} from "./extension-paths.js";
+import { bundledSkillCanonicalRoot, computeExtensionPathsForLayout } from "./extension-paths.js";
 import { mcpResolutionKey } from "./mcp-source-identity.js";
 import { desiredMcpSourceKey, desiredPackageKey } from "./desired-identity.js";
 import { acceptedRegistryVersionForRef } from "../lockfile/accepted-registry-version.js";
-import type { TreeIntegrity } from "./materialized-tree.js";
 
 export type CanonicalObservationStatus =
   | "not-applicable"

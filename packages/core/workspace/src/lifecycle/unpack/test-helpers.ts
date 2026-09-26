@@ -16,7 +16,7 @@ import * as Effect from "effect/Effect";
 import { previewPlanExecution } from "../../operations/index.js";
 import { preapprovedPlanExecution } from "../../transitions/planning/testing.js";
 
-import { applyInstall, installRequest } from "../install/test-helpers.js";
+import { applyInstall, installRequest } from "../../testing/install-world.js";
 import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";
 import { makeFileRegistry, type FileRegistry } from "@agentxm/registry-client/testing";
 import { PromoteAuthoredPack, type PromoteAuthoredPackRequest } from "./promote-authored-pack.js";

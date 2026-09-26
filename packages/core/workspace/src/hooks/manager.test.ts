@@ -4,7 +4,7 @@
  * Tests cover Claude Code hooks config materialization behavior.
  */
 
-import { UNCONSTRAINED_DESIRED_NODE } from "../desired-state/index.js";
+import { UNCONSTRAINED_DESIRED_NODE, type Settings } from "../desired-state/index.js";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
@@ -13,24 +13,25 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { treeIntegrityOfSync } from "../desired-state/test-support/tree-integrity-sync.js";
+import {
+  treeIntegrityOfSync,
+  MockWorkspaceTransactionScope,
+  TEST_CONTENT_IDENTITY,
+  WorkspaceReadTest,
+  describeTestFailure,
+  extensionName,
+  handle,
+} from "../desired-state/testing.js";
 import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "../transitions/settlement/live.js";
 import * as Option from "effect/Option";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
-import { HookManager } from "../materialization/managers.js";
+import { HookManager } from "../materialization/index.js";
 import { applyPlannedProjections } from "../projection/index.js";
 import { SourceHostProviders, SourceNotResolvable } from "../resolution/sources/index.js";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
-import type { Settings } from "../desired-state/index.js";
-import {
-  MockWorkspaceTransactionScope,
-  TEST_CONTENT_IDENTITY,
-  WorkspaceReadTest,
-} from "../desired-state/testing.js";
 import { CodingAgentRepositoryLive, NativeWriteAuthorityLive } from "../projection/live.js";
-import { describeTestFailure, extensionName, handle } from "../materialization/test-helpers.js";
 import { HookManagerLive } from "./manager.js";
 import type { LocalHookRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import { WorkspaceCatalogLive } from "../resolution/sources/live.js";

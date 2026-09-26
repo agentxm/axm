@@ -55,7 +55,7 @@ import {
   type WorkspaceRestorationError,
   type WorkspaceRestorationIncomplete,
   type WorkspaceTransactionFailure,
-} from "../transitions/settlement/errors.js";
+} from "../transitions/settlement/index.js";
 import {
   CandidateFingerprintFailed,
   STALE_CANDIDATE_DETAIL,

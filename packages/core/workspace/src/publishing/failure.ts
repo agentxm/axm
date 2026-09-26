@@ -15,11 +15,11 @@ import {
   collectSensitiveStrings,
   isRegistryClientFailure,
   redactRegistryText,
+  type RegistryClientFailure,
 } from "@agentxm/registry-client";
-import type { RegistryClientFailure } from "@agentxm/registry-client";
 import type { AuthError } from "@agentxm/registry-access/authentication";
 import { ConfigError } from "effect/Config";
-import { kernelFailureToStepFailure } from "../reconciliation/failure-rendering.js";
+import { kernelFailureToStepFailure } from "../reconciliation/index.js";
 import type { OperationErrorCategory, StepFailure } from "../operations/index.js";
 
 import { PublishFailed } from "./errors.js";

@@ -11,8 +11,8 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 
 import type { GitSource } from "@agentxm/extension-model/unstable/sources/types";
-import type { SourceHostProvidersService } from "../../resolution/sources/service.js";
-import { writeLocalSkillPackage } from "../../reconciliation/sync/test-helpers.js";
+import type { SourceHostProvidersService } from "../../resolution/sources/index.js";
+import { writeLocalSkillPackage } from "../../testing/sync-fixture.js";
 import { makeLocatorSourceView } from "./git-discovery.js";
 
 const git = (directory: string, args: ReadonlyArray<string>): string =>

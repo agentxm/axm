@@ -7,14 +7,10 @@ import { countUnitStates, deriveOperationOutcome } from "../../operations/index.
 import { defineSpecification } from "@agentxm/specification-metadata";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 
-import {
-  makeLifecycleFixture,
-  writeLocalHookPackage,
-  writeLocalRulePackage,
-  type LifecycleFixture,
-} from "../testing.js";
+import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";
+import { writeLocalHookPackage, writeLocalRulePackage } from "../../testing/local-packages.js";
 import { makeFileRegistry, type FileRegistry } from "@agentxm/registry-client/testing";
-import { applyInstall, installRequest } from "../install/test-helpers.js";
+import { applyInstall, installRequest } from "../../testing/install-world.js";
 import {
   applyUpdate,
   configuredUpdateRequest,

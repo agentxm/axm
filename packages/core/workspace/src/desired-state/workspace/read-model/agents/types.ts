@@ -19,17 +19,13 @@
  */
 
 import type * as Option from "effect/Option";
-import type {
-  AgentDescriptor,
-  MaterializationTargetId,
-} from "@agentxm/extension-model/unstable/agents/types";
+import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import type {
   AgentDirOccurrence,
   AgentSettingsOccurrence,
   McpConfigOccurrence,
 } from "../scanners/types.js";
 import type { Scope } from "../types.js";
-import { defaultActual, defaultDeclared, defaultDetected } from "./shared.js";
 
 // ---------------------------------------------------------------------------
 // Agent subject support
@@ -170,49 +166,3 @@ export interface AgentModule<TId extends MaterializationTargetId = Materializati
     actual: Option.Option<ActualAgent>,
   ) => Option.Option<DetectedAgent>;
 }
-
-// ---------------------------------------------------------------------------
-// defineAgentModule factory
-// ---------------------------------------------------------------------------
-
-/**
- * Inputs to `defineAgentModule`. The factory derives `subjects` from the
- * descriptor so registration does not repeat scanner-relevant subject data.
- */
-export interface DefineAgentModuleInput<TId extends MaterializationTargetId> {
-  readonly agentId: TId;
-  readonly descriptor: AgentDescriptor;
-}
-
-/**
- * Derive the subjects the agent renders into per-agent directories from its
- * descriptor.
- */
-const subjectsFromDescriptor = (descriptor: AgentDescriptor): ReadonlyArray<AgentSubjectType> => {
-  const out: Array<AgentSubjectType> = [];
-  if (descriptor.skills !== undefined) out.push("skill");
-  if (descriptor.subagents !== undefined) out.push("subagent");
-  return out;
-};
-
-/**
- * Build a complete `AgentModule` for `agentId`. The projectors call the v1
- * `defaultDeclared` / `defaultActual` / `defaultDetected` helpers from
- * `shared.ts`. `subjects` is derived from `descriptor`.
- *
- * The registry creates these modules directly from the canonical catalog.
- */
-export const defineAgentModule = <TId extends MaterializationTargetId>(
-  input: DefineAgentModuleInput<TId>,
-): AgentModule<TId> => {
-  const { agentId, descriptor } = input;
-  const subjects = subjectsFromDescriptor(descriptor);
-  return {
-    agentId,
-    subjects,
-    declared: (scope, settings) => defaultDeclared(agentId, scope, settings),
-    actual: (scope, observations) => defaultActual(agentId, scope, observations),
-    detected: (scope, declared, present, actual) =>
-      defaultDetected(agentId, scope, declared, present, actual),
-  };
-};

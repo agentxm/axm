@@ -9,6 +9,20 @@ import {
   SettingsReader,
   WorkspaceLocation,
   WorkspaceRecords,
+  computeExtensionPathsForLayout,
+  observeCanonicalExtension,
+  type DesiredExtensionNode,
+  computePackageContentHash,
+  computeMaterializedTreeIntegrity,
+  type TreeIntegrity,
+  type KnowledgeLockEntry,
+  type KnowledgeMap,
+  lockEntryToRef,
+  acceptedCanonicalObservation,
+  removableAcceptedCanonicalPath,
+  isSourcedDesiredExtension,
+  type DesiredStateGraph,
+  type ResolvedKnowledgeDiscoveryConfig,
 } from "../desired-state/index.js";
 
 import { fromFileLocation } from "@agentxm/host-primitives";
@@ -27,7 +41,22 @@ import {
   KnowledgeResolutionMissing,
   KnowledgeUnavailable,
 } from "./errors.js";
-import { acceptedResolutionFor } from "../materialization/accepted-resolution.js";
+import {
+  acceptedResolutionFor,
+  type ManagerRequirements,
+  NO_MATERIALIZATION_OBSERVATION,
+  type KnowledgeMaterializationFacts,
+  type ExtensionManagerFailure,
+  KnowledgeManager,
+  type KnowledgeManagerService,
+  type KnowledgeSyncResult,
+  failureTag,
+  type ExtensionKindFailure,
+  acquireCanonicalForRef,
+  verifyWorkspaceRefLocation,
+  makeBaseManagerMembers,
+  listMaterializableFromAccepted,
+} from "../materialization/index.js";
 import {
   applyInstructionSurfacePlans,
   formatProjectionExclusions,
@@ -40,48 +69,20 @@ import {
   reconcileKnowledgeDiscovery,
   type KnowledgeDiscoveryBundle,
   resolveInstructionsConfig,
+  canonicalObservationFactText,
+  resolveKnowledgeInstructionEntry,
 } from "../projection/index.js";
-import {
-  acquireCanonicalForRef,
-  verifyWorkspaceRefLocation,
-} from "../materialization/acquire-canonical.js";
-import {
-  makeBaseManagerMembers,
-  listMaterializableFromAccepted,
-} from "../materialization/manager-kit.js";
-import {
-  computeExtensionPathsForLayout,
-  observeCanonicalExtension,
-  type DesiredExtensionNode,
-} from "../desired-state/index.js";
-import { canonicalObservationFactText } from "../projection/canonical-observation-fact.js";
-import { computePackageContentHash } from "../desired-state/index.js";
-import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "../desired-state/index.js";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
-import type { KnowledgeLockEntry } from "../desired-state/index.js";
 import { SourceHostProviders, WorkspaceCatalog } from "../resolution/sources/index.js";
-import type { KnowledgeMap } from "../desired-state/index.js";
-import { lockEntryToRef } from "../desired-state/index.js";
-import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
-import { recordFootprint } from "../transitions/settlement/index.js";
-import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
-import type { ManagerRequirements } from "../materialization/manager-contract.js";
-import { NO_MATERIALIZATION_OBSERVATION } from "../materialization/manager-contract.js";
-import type { KnowledgeMaterializationFacts } from "../materialization/managers.js";
-import type { ExtensionManagerFailure } from "../materialization/errors.js";
 import {
-  KnowledgeManager,
-  type KnowledgeManagerService,
-  type KnowledgeSyncResult,
-} from "../materialization/managers.js";
-import { runWorkspaceTransaction } from "../transitions/settlement/index.js";
+  makeWorkspaceRelativeSourcePath,
+  makeWorkspaceRelativePath,
+} from "@agentxm/extension-model/unstable/path-types";
 import {
-  acceptedCanonicalObservation,
-  removableAcceptedCanonicalPath,
-} from "../desired-state/index.js";
-import { protectWorkspacePath } from "../transitions/settlement/index.js";
-import { isSourcedDesiredExtension, type DesiredStateGraph } from "../desired-state/index.js";
-import type { ResolvedKnowledgeDiscoveryConfig } from "../desired-state/index.js";
+  recordFootprint,
+  runWorkspaceTransaction,
+  protectWorkspacePath,
+} from "../transitions/settlement/index.js";
 import {
   KNOWLEDGE_EXTENSION_DIR,
   KNOWLEDGE_MANIFEST_FILENAME,
@@ -93,12 +94,10 @@ import {
   inspectKnowledgeBundle,
   type KnowledgeInspection,
 } from "@agentxm/extension-content/knowledge";
-import { resolveKnowledgeInstructionEntry } from "../projection/index.js";
 import type {
   GitHostedKnowledgeRef,
   KnowledgeExtensionRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
-import { failureTag, type ExtensionKindFailure } from "../materialization/index.js";
 
 interface PreparedKnowledgePackage {
   readonly root: string;

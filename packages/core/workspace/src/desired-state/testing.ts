@@ -20,6 +20,15 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as PlatformError from "effect/PlatformError";
 
+import {
+  decodeExtensionNameSync,
+  type ExtensionName,
+} from "@agentxm/extension-model/unstable/extensions";
+import { decodeHandleSync, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
+import {
+  decodeVersionSync,
+  type Version,
+} from "@agentxm/extension-model/unstable/version-constraints";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 import {
   WorkspaceTransactionScope,
@@ -36,6 +45,35 @@ import {
 } from "./workspace/materialized-tree.js";
 
 export * from "./workspace/test-stubs.js";
+export * from "./workspace/test-scenarios.js";
+
+/** Decode a handle literal a test names. */
+export const handle = (value: string): Handle => decodeHandleSync(value);
+
+/** Decode an extension name literal a test names. */
+export const extensionName = (value: string): ExtensionName => decodeExtensionNameSync(value);
+
+/** Decode an exact version literal a test names. */
+export const exactVersion = (value: string): Version => decodeVersionSync(value);
+
+/**
+ * The sentence a failure reads with in a test's structural rendering: its
+ * detail, subject, or message, or that of the failure it wraps.
+ */
+export const describeTestFailure = (failure: unknown): string => {
+  if (typeof failure === "object" && failure !== null) {
+    for (const key of ["detail", "subject", "message"] as const) {
+      if (key in failure) {
+        const candidate = Reflect.get(failure, key);
+        if (typeof candidate === "string" && candidate.length > 0) return candidate;
+      }
+    }
+    if ("cause" in failure && failure.cause !== undefined && failure.cause !== failure) {
+      return describeTestFailure(failure.cause);
+    }
+  }
+  return String(failure);
+};
 
 /** Give fixture-owned Registry sources an explicit default without changing production policy. */
 export const withTestRegistryDefault = <Settings extends Readonly<object>>(
@@ -166,6 +204,11 @@ export const treeIntegrityOf = (
   computeMaterializedTreeIntegrity(root).pipe(
     Effect.provide(Layer.merge(SyncNodeFileSystem, Path.layer)),
   );
+
+/** Synchronous fixture setup using the production tree-integrity algorithm. */
+export const treeIntegrityOfSync = (root: string): TreeIntegrity =>
+  // eslint-disable-next-line no-restricted-syntax -- fixture setup outside any Effect: tests record a package's integrity while writing its lock entry
+  Effect.runSync(treeIntegrityOf(root));
 
 /**
  * A transaction scope over the located workspace with the given admission —

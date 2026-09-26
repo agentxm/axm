@@ -10,20 +10,15 @@ import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { writeLocalSkillPackage } from "../testing.js";
+import { writeLocalSkillPackage } from "../../testing/local-packages.js";
 import {
   OperationLifecycle,
   makeOperationLifecycle,
   subscribeLossless,
   type OperationEvent,
 } from "../../operations/index.js";
-import {
-  applyInstall,
-  entriesUnder,
-  installRequest,
-  localLifecycleRows,
-  makeInstallWorld,
-} from "./test-helpers.js";
+import { entriesUnder, localLifecycleRows } from "./test-helpers.js";
+import { applyInstall, installRequest, makeInstallWorld } from "../../testing/install-world.js";
 
 export const specification = defineSpecification({
   requirement: "cli/install/materializes-canonical-content",

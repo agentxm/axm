@@ -14,17 +14,21 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { SkillMaterializationFailed } from "./errors.js";
-import { acquireCanonicalForRef } from "../materialization/acquire-canonical.js";
-import { validatePathSafety } from "../desired-state/index.js";
-import { type SkillLockEntry, type TreeIntegrity } from "../desired-state/index.js";
+import { acquireCanonicalForRef } from "../materialization/index.js";
+import {
+  validatePathSafety,
+  type SkillLockEntry,
+  type TreeIntegrity,
+  computeSkillPathsForLayout,
+  type SkillPathSource,
+  type WorkspaceLayout,
+  createSymlink,
+} from "../desired-state/index.js";
 import type {
   SkillExtensionRef,
   WorkspaceSkillRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import { computeSkillPathsForLayout, type SkillPathSource } from "../desired-state/index.js";
-import type { WorkspaceLayout } from "../desired-state/index.js";
 import { isPathSafe } from "@agentxm/extension-model/unstable/path-types";
-import { createSymlink } from "../desired-state/index.js";
 import { protectWorkspacePath } from "../transitions/settlement/index.js";
 import { validateAxmSkillCandidate } from "../resolution/index.js";
 import { copyExtensionDirectory, acquiredDirectoryForRef } from "../acquisition/index.js";

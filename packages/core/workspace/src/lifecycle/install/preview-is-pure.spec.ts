@@ -9,17 +9,21 @@ import { deriveOperationOutcome, ExtensionLifecycleFailed } from "../../operatio
 import { defineSpecification } from "@agentxm/specification-metadata";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 
+import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";
 import {
-  makeLifecycleFixture,
   writeLocalHookPackage,
   writeLocalKnowledgePackage,
   writeLocalRulePackage,
   writeLocalSkillPackage,
   writeLocalSubagentPackage,
-  type LifecycleFixture,
-} from "../testing.js";
+} from "../../testing/local-packages.js";
 import { makeFileRegistry, type FileRegistry } from "@agentxm/registry-client/testing";
-import { applyInstall, installRequest, previewInstall, makeInstallWorld } from "./test-helpers.js";
+import {
+  applyInstall,
+  installRequest,
+  previewInstall,
+  makeInstallWorld,
+} from "../../testing/install-world.js";
 
 export const specification = defineSpecification({
   requirement: "cli/install/preview-is-pure",

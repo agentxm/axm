@@ -14,7 +14,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { BundledAxmSkillAsset } from "../../skills/index.js";
 import { makeLifecycleFixture } from "../testing.js";
-import { applyInstall, installRequest } from "../install/test-helpers.js";
+import { applyInstall, installRequest } from "../../testing/install-world.js";
 import { UpdateExtensions } from "./update-extensions.js";
 import { targetedUpdateRequest } from "./test-helpers.js";
 

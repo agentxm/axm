@@ -7,7 +7,8 @@ import { afterEach } from "vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { ExtensionLifecycleFailed } from "../../operations/index.js";
-import { applyInstall, installRequest, makeInstallWorld, readSettings } from "./test-helpers.js";
+import { readSettings } from "./test-helpers.js";
+import { applyInstall, installRequest, makeInstallWorld } from "../../testing/install-world.js";
 
 export const specification = defineSpecification({
   requirement: "cli/install/non-installable-sources-do-not-mutate",

@@ -189,20 +189,3 @@ export const makeLifecycleFixture = (options: LifecycleFixtureOptions = {}) => {
 };
 
 export type LifecycleFixture = ReturnType<typeof makeLifecycleFixture>;
-
-// Local package and Registry fixtures an install specification publishes into.
-export {
-  writeAgentSkillDirectory,
-  writeLocalHookPackage,
-  writeLocalKnowledgePackage,
-  writeLocalRulePackage,
-  writeLocalSkillPackage,
-  writeLocalSubagentPackage,
-  type LocalPackageFixture,
-} from "./test-packages.js";
-export {
-  makeGitSkillRepository,
-  serveBareRepository,
-  type GitSkillRepository,
-  type ServedGitRepository,
-} from "./test-git.js";

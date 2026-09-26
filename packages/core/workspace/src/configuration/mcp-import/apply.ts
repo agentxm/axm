@@ -23,12 +23,17 @@ import {
   resolveAgentMcpConfigTargetPath,
   writeAgentMcpConfig,
   NativeWriteAuthority,
+  type NativeFormatFailure,
 } from "../../projection/agent-adapters/index.js";
-import { SettingsReader, SettingsWriter, WorkspaceLocation } from "../../desired-state/index.js";
-import type { SettingsReaderService, WorkspaceLocationService } from "../../desired-state/index.js";
-import type { McpServerEntry } from "../../desired-state/index.js";
-import type { NativeFormatFailure } from "../../projection/agent-adapters/index.js";
-import { kernelFailureToStepFailure } from "../../reconciliation/failure-rendering.js";
+import {
+  SettingsReader,
+  SettingsWriter,
+  WorkspaceLocation,
+  type SettingsReaderService,
+  type WorkspaceLocationService,
+  type McpServerEntry,
+} from "../../desired-state/index.js";
+import { kernelFailureToStepFailure } from "../../reconciliation/index.js";
 import { runWorkspaceTransaction } from "../../transitions/settlement/index.js";
 import { WorkspaceConfigurationFailed } from "../errors.js";
 import type { McpImportAdoption, McpImportCandidate, McpImportSource } from "./preflight.js";

@@ -40,22 +40,8 @@ import {
   targetFromRef,
   toStepKey,
 } from "./extensions/operations.js";
-import { extensionRefLifecycleWarnings } from "../resolution/index.js";
-import { settingsEntries, type Settings } from "../desired-state/index.js";
 import {
-  acceptedResolutionIncompatibleRecovery,
-  acceptedResolutionIncompatibleText,
-  canonicalObservationFactText,
-  CodingAgentRepository,
-  expectedProjectionNames,
-  inspectDesiredMcpServer,
-  isObservedMaterializationCurrent,
-  makeExtensionConstraintInvariantFact,
-  type ExpectedProjectionNames,
-  type ProjectionParticipantRequirements,
-  type CodingAgentRepositoryService,
-} from "../projection/index.js";
-import {
+  extensionRefLifecycleWarnings,
   makeConfiguredReleaseAgeEvaluation,
   normalizeReleaseAgeRecords,
   ReleaseAgePosture,
@@ -69,13 +55,8 @@ import {
   type ResolvedConfiguredEntry,
 } from "../resolution/index.js";
 import {
-  type ReleaseAgeOperationEvidence,
-  type JobStepArtifact,
-  type Plan,
-  type PlannedJobStep,
-} from "../operations/index.js";
-import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
-import {
+  settingsEntries,
+  type Settings,
   sanitizeName,
   acceptedResolutionRef,
   acceptedCanonicalObservation,
@@ -94,7 +75,30 @@ import {
   type DesiredExtensionNode,
   type DesiredStateGraph,
   type ExtensionInventory,
+  desiredMcpSourceKey,
+  desiredPackageKey,
+  type DesiredNodeIdentity,
 } from "../desired-state/index.js";
+import {
+  acceptedResolutionIncompatibleRecovery,
+  acceptedResolutionIncompatibleText,
+  canonicalObservationFactText,
+  CodingAgentRepository,
+  expectedProjectionNames,
+  inspectDesiredMcpServer,
+  isObservedMaterializationCurrent,
+  makeExtensionConstraintInvariantFact,
+  type ExpectedProjectionNames,
+  type ProjectionParticipantRequirements,
+  type CodingAgentRepositoryService,
+} from "../projection/index.js";
+import {
+  type ReleaseAgeOperationEvidence,
+  type JobStepArtifact,
+  type Plan,
+  type PlannedJobStep,
+} from "../operations/index.js";
+import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { type McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
@@ -108,20 +112,14 @@ import {
   toExtensionTypePlural,
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
-import { WorkspaceSyncFailed } from "./errors.js";
+import { WorkspaceSyncFailed, type SyncPolicyFailure } from "./errors.js";
 import { kernelFailureToStepFailure } from "./failure-rendering.js";
 import {
   SYNC_RECOVERY_IDS,
   buildInlineMcpServerSyncOperation,
   type SyncStepRequirements,
 } from "./plan.js";
-import type { SyncPolicyFailure } from "./errors.js";
 import type { StepFailureConversionService } from "./step-failure-conversion.js";
-import {
-  desiredMcpSourceKey,
-  desiredPackageKey,
-  type DesiredNodeIdentity,
-} from "../desired-state/index.js";
 
 export interface SyncSelection {
   readonly target: Option.Option<string>;
@@ -502,7 +500,6 @@ export const collectMaterializeSteps = (args: {
   | FileSystem.FileSystem
   | HookManager
   | PackManager
-  | McpServerManager
   | KnowledgeManager
   | McpServerManager
   | McpConnectionInstallRequirements

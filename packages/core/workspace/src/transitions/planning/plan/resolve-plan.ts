@@ -82,9 +82,11 @@ import {
   collectSensitiveStrings,
   redactRegistryText,
 } from "@agentxm/registry-client";
-import { SourceHostProviders } from "../../../resolution/sources/service.js";
+import {
+  SourceHostProviders,
+  isSourceResolutionFailure,
+} from "../../../resolution/sources/index.js";
 import { resolutionFailureToStepFailure } from "../resolution-step-failure.js";
-import { isSourceResolutionFailure } from "../../../resolution/sources/errors.js";
 
 import {
   ConfiguredAgentOutcomesProvider,

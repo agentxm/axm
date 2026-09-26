@@ -12,11 +12,13 @@ import * as ScopedCache from "effect/ScopedCache";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { FindOptions } from "@agentxm/extension-model/unstable/sources/source-host-provider";
 import type { GitSource } from "@agentxm/extension-model/unstable/sources/types";
-import { SourceNetworkFailure } from "../../resolution/sources/errors.js";
+import {
+  SourceNetworkFailure,
+  shallowClone,
+  type SourceHostProvidersService,
+  discoverConventionRefs,
+} from "../../resolution/sources/index.js";
 import { gitTransportContextFingerprint } from "../../acquisition/index.js";
-import { shallowClone } from "../../resolution/sources/git/operations.js";
-import { discoverConventionRefs } from "../../resolution/sources/providers/convention-discovery.js";
-import type { SourceHostProvidersService } from "../../resolution/sources/service.js";
 
 class GitCheckoutKey extends Data.Class<{
   readonly url: string;

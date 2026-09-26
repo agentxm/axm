@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { makeInspectionFixture } from "./testing.js";
-import { listSkills, listSubagents, type TypeListRow } from "./type-list/type-lists.js";
+import { listSkills, listSubagents, type TypeListRow } from "./index.js";
 
 export const specification = defineSpecification({
   requirement: "cli/type-list-agent-filters-match-any-selected-agent",

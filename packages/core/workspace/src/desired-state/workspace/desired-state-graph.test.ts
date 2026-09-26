@@ -12,7 +12,7 @@ import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { handle } from "../test-helpers.js";
+import { handle } from "../testing.js";
 import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import {
   decodeVersionRangeSync,

@@ -6,21 +6,28 @@
  * that never appear in settings.
  */
 
-import { desiredConstraintOf } from "../desired-state/testing.js";
+import {
+  desiredConstraintOf,
+  WorkspaceReadTest,
+  MockWorkspaceTransactionScope,
+  treeIntegrityOfSync,
+  exactVersion,
+  extensionName,
+  handle,
+} from "../desired-state/testing.js";
 import * as nodeFs from "node:fs";
 import * as nodeOs from "node:os";
 import * as nodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
 import * as Effect from "effect/Effect";
-import { treeIntegrityOfSync } from "../desired-state/test-support/tree-integrity-sync.js";
 import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "../transitions/settlement/live.js";
 import * as Option from "effect/Option";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
-import { KnowledgeManager } from "../materialization/managers.js";
+import { KnowledgeManager } from "../materialization/index.js";
 import { applyPlannedProjections, observeProjectionPlans } from "../projection/index.js";
 import { SourceHostProviders, SourceNotResolvable } from "../resolution/sources/index.js";
 import {
@@ -28,12 +35,9 @@ import {
   SettingsWriter,
   type DesiredExtensionNode,
   type DesiredStateGraph,
+  type KnowledgeMap,
 } from "../desired-state/index.js";
-import { WorkspaceReadTest, MockWorkspaceTransactionScope } from "../desired-state/testing.js";
-import { exactVersion } from "../desired-state/test-helpers.js";
 import { CodingAgentRepositoryLive, NativeWriteAuthorityLive } from "../projection/live.js";
-import { extensionName, handle } from "../materialization/test-helpers.js";
-import type { KnowledgeMap } from "../desired-state/index.js";
 import { KnowledgeManagerLive } from "./manager.js";
 import { WorkspaceCatalogLive } from "../resolution/sources/live.js";
 

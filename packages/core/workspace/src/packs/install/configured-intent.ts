@@ -6,53 +6,24 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { ConfigError } from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { parseRegistrySourceRef } from "@agentxm/extension-model/unstable/extensions";
 import type { ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import { acceptedResolutionRef } from "../../desired-state/index.js";
+import type { ReleaseAgeBypassRecord, ReleaseAgeHoldbackRecord } from "../../operations/index.js";
 import {
-  installRefused,
-  type ExtensionLifecycleFailed,
-  type ReleaseAgeBypassRecord,
-  type ReleaseAgeHoldbackRecord,
-} from "../../operations/index.js";
-import {
+  configuredEntryResolutionRefused,
   INSTALL_HELD_RELEASE_POLICY,
+  type ConfiguredInstallFailure,
   type ResolveInstallRequirements,
 } from "../../reconciliation/index.js";
 import {
   acceptedPackDependencyResolver,
-  ExtensionResolutionFailed,
   hydrateAcceptedPackRef,
   prepareConfiguredPack,
 } from "../../resolution/index.js";
 import type { PackInstallIntent } from "../lifecycle/install/plan.js";
-
-/**
- * Everything settling one configured Pack's intent can fail with: the install
- * refusal, plus the resolution refusal a configured source carries through
- * with its own category and sentence.
- */
-export type ConfiguredPackIntentFailure =
-  ExtensionLifecycleFailed | ExtensionResolutionFailed | ConfigError;
-
-/**
- * A resolution refusal already carries its own category and fact sentence, so
- * it travels unchanged; anything else becomes the install refusal naming the
- * configured entry that could not be resolved.
- */
-const resolutionFailed =
-  (name: string) =>
-  (cause: unknown): ConfiguredPackIntentFailure =>
-    cause instanceof ExtensionResolutionFailed || cause instanceof ConfigError
-      ? cause
-      : installRefused({
-          category: "conflict",
-          detail: `Configured extension "${name}" could not be resolved`,
-          cause,
-        });
 
 interface ConfiguredPackIntentArgs {
   readonly name: string;
@@ -82,10 +53,10 @@ export const prepareConfiguredPackIntent: (args: ConfiguredPackIntentArgs) => Ef
           }
         | undefined;
     },
-    ConfiguredPackIntentFailure,
+    ConfiguredInstallFailure,
     ResolveInstallRequirements
   >,
-  ConfiguredPackIntentFailure,
+  ConfiguredInstallFailure,
   ResolveInstallRequirements
 > = Effect.fn("InstallExtensions.prepareConfiguredPackIntent")(function* (
   args: ConfiguredPackIntentArgs,
@@ -93,7 +64,7 @@ export const prepareConfiguredPackIntent: (args: ConfiguredPackIntentArgs) => Ef
   const accepted = yield* acceptedResolutionRef({
     type: "pack",
     name: args.name,
-  }).pipe(Effect.mapError(resolutionFailed(args.name)));
+  }).pipe(Effect.mapError(configuredEntryResolutionRefused(args.name)));
 
   const shared = {
     nonInteractive: args.nonInteractive,
@@ -121,9 +92,9 @@ export const prepareConfiguredPackIntent: (args: ConfiguredPackIntentArgs) => Ef
     args.name,
     args.source,
     args.releaseAgeEvaluation,
-  ).pipe(Effect.mapError(resolutionFailed(args.name)));
+  ).pipe(Effect.mapError(configuredEntryResolutionRefused(args.name)));
   return resolve.pipe(
-    Effect.mapError(resolutionFailed(args.name)),
+    Effect.mapError(configuredEntryResolutionRefused(args.name)),
     Effect.map((resolved) => ({
       intent: {
         packToInstall: resolved.ref,

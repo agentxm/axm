@@ -98,6 +98,24 @@ export {
   type InstallableSkillTargetLocation,
 } from "./skill-artifact.js";
 
+// The shared manager members and canonical acquisition every kind manager composes
+export {
+  listMaterializableFromAccepted,
+  listMaterializableFromDisk,
+  makeBaseManagerMembers,
+} from "./manager-kit.js";
+export { acquireCanonicalForRef, verifyWorkspaceRefLocation } from "./acquire-canonical.js";
+
+// The kernel renderings of materialization and agent-integration failures
+export {
+  materializationFailureToStepFailure,
+  type MaterializationFamilyFailure,
+} from "./step-failure.js";
+export {
+  agentIntegrationFailureToStepFailure,
+  type AgentIntegrationFailure,
+} from "./agent-integration-step-failure.js";
+
 // Registry-backed acquisition
 export {
   materializeRegistryPackage,

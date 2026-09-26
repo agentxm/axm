@@ -93,6 +93,44 @@ jobs:
           pnpm --config.verify-deps-before-run=warn run classify:ci -- \
             --base "$BASE_SHA" --head "$HEAD_SHA"
 
+  commit-history:
+    name: Commit history
+    needs: classify
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up workspace toolchain
+        uses: ./.github/actions/setup-workspace
+        with:
+          install: "false"
+
+      # The queue rebases each commit onto main unchanged, so every commit is
+      # reviewed as permanent public history. A pull-request checkout is the
+      # synthetic merge of its base (first parent) and source (second parent).
+      - name: Check commits that will land on main
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          QUEUE_BASE_SHA: ${{ github.event.merge_group.base_sha }}
+        run: |
+          if [[ "$EVENT_NAME" == "merge_group" ]]; then
+            base="$QUEUE_BASE_SHA"
+            head="$(git rev-parse HEAD)"
+          else
+            base="$(git rev-parse HEAD^1)"
+            head="$(git rev-parse HEAD^2)"
+          fi
+          pnpm --config.verify-deps-before-run=warn run check:commit-history -- \
+            --base "$base" --head "$head"
+
   workflow-validation:
     name: Workflow security
     needs: classify
@@ -711,6 +749,7 @@ jobs:
     needs:
       - classify
       - secrets
+      - commit-history
       - workflow-validation
       - specification-verdict
       - extension-lint

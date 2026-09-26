@@ -1,113 +1,83 @@
-// Slice boundaries inside packages/core/workspace. Every folder the table below
-// names is one slice: the kernel slices are ordered lowest first, extension
-// kinds sit on the kernel, and features sit on kinds and the kernel. Three
-// slices are nested inside another slice's folder, so the slices are listed
-// explicitly rather than matched by one `src/*` pattern.
+// Slice boundaries inside @agentxm/workspace-kernel, @agentxm/extension-kinds,
+// and @agentxm/workspace-features. Every slice is one folder under its
+// package's src, so one `<root>/src/*` pattern per package classifies every
+// file and the folder name is the captured slice. The kernel slices are ordered
+// lowest first, extension kinds sit on the kernel, and features sit on kinds
+// and the kernel; Nx scope rows keep the packages themselves in that order.
 import boundaries from "eslint-plugin-boundaries";
 
 const ext = "{ts,tsx,mts,cts,js,jsx,mjs,cjs}";
-const root = "packages/core/workspace/src";
-
-// [slice, folder under src]. Kernel slices are lowest first: a kernel slice
-// may import only the slices listed before it.
-const kernelSlices = [
-  ["settlement", "transitions/settlement"],
-  ["operations", "operations"],
-  ["agent-adapters", "projection/agent-adapters"],
-  ["workspace-state", "desired-state"],
-  ["projection", "projection"],
-  ["acquisition", "acquisition"],
-  ["sources", "resolution/sources"],
-  ["resolution", "resolution"],
-  ["planning", "transitions/planning"],
-  ["materialization", "materialization"],
-  ["reconciliation", "reconciliation"],
-];
-const kindSlices = [
-  ["skills", "skills"],
-  ["subagents", "subagents"],
-  ["mcp-connections", "mcp-connections"],
-  ["hooks", "hooks"],
-  ["instructions", "instructions"],
-  ["knowledge", "knowledge"],
-  ["packs", "packs"],
-];
-const featureSlices = [
-  ["lifecycle", "lifecycle"],
-  ["authoring", "authoring"],
-  ["publishing", "publishing"],
-  ["configuration", "configuration"],
-  ["inspection", "inspection"],
-  ["linting", "linting"],
-  ["discovery", "discovery"],
-  ["sharing", "sharing"],
-  ["sync", "sync"],
-  ["knowledge-query", "knowledge/query"],
-];
-const slices = [...kernelSlices, ...kindSlices, ...featureSlices];
-const testSupportFolder = "testing";
-const kindsLiveFile = "kinds-live.ts";
-
-const leaf = (folder) => folder.split("/").at(-1);
-// An element captures its folder's last segment (desired-state, query), which
-// can differ from the slice name; policies are generated from the table, so the
-// difference is invisible to them, and messages print the element path.
-const sliceKey = ([, folder]) => leaf(folder);
-const descriptor = (type) => (entry) => {
-  const [, folder] = entry;
-  const parent = folder.split("/").slice(0, -1);
-  return {
-    type,
-    // An extglob group is a capture group, so the literal folder name lands in
-    // `captured.slice` without matching any other folder.
-    pattern: [root, ...parent, `@(${leaf(folder)})`].join("/"),
-    capture: ["slice"],
-    partialMatch: false,
-  };
+const packageRoots = {
+  kernel: "packages/core/workspace-kernel/src",
+  kind: "packages/core/extension-kinds/src",
+  feature: "packages/core/workspace-features/src",
 };
-const depth = (element) => element.pattern.split("/").length;
+const packageNames = ["workspace-kernel", "extension-kinds", "workspace-features"];
+
+// Lowest first: a kernel slice may import only the slices listed before it. A
+// kernel folder missing from this list can import no kernel slice and be
+// imported by none, so a new slice has to be placed here before it can be used.
+const kernelOrder = [
+  "settlement",
+  "operations",
+  "agent-adapters",
+  "workspace-state",
+  "projection",
+  "acquisition",
+  "sources",
+  "resolution",
+  "planning",
+  "materialization",
+  "reconciliation",
+];
+
+const testSupport = `${packageRoots.feature}/testing`;
+const kindsLiveFile = `${packageRoots.kind}/live.ts`;
 
 // With `elements-single-match`, the first descriptor that matches a file is its
-// element, so nested slice folders are listed before the folders that contain
-// them (a stable sort on depth). kinds-live.ts is a file directly under src;
-// element patterns only match folders, so a catch-all for src itself is listed
-// last and only files outside every listed folder reach it (slices/placement
-// rejects any such file except kinds-live.ts).
+// element: the shared test world precedes the generic feature pattern, and the
+// kinds composition root (src/live.ts, a file, which no folder pattern can
+// match) is a catch-all for extension-kinds/src listed after that package's
+// folder pattern, so only files directly under src reach it (slices/placement
+// admits only live.ts there).
 const sliceElements = [
-  ...kernelSlices.map(descriptor("kernel")),
-  ...kindSlices.map(descriptor("kind")),
-  ...featureSlices.map(descriptor("feature")),
-  { type: "test-support", pattern: `${root}/${testSupportFolder}`, partialMatch: false },
-]
-  .toSorted((a, b) => depth(b) - depth(a))
-  .concat({ type: "kind-composition", pattern: root, partialMatch: false });
-
-// Test purpose follows the build exclusions in tsconfig.lib.json plus the test
-// seams (testing.ts) and named test doubles (test-*.ts).
-const testFiles = [
-  `${root}/${testSupportFolder}/**/*`,
-  `${root}/**/*.{test,spec,shared-spec,type-test}.${ext}`,
-  `${root}/**/{testing,test-*}.${ext}`,
-  `${root}/**/{test-support,__tests__,__fixtures__}/**/*`,
+  { type: "test-support", pattern: testSupport, partialMatch: false },
+  ...Object.entries(packageRoots).map(([type, root]) => ({
+    type,
+    pattern: `${root}/*`,
+    capture: ["slice"],
+    partialMatch: false,
+  })),
+  { type: "kind-composition", pattern: packageRoots.kind, partialMatch: false },
 ];
-// Only files inside a declared slice (or kinds-live.ts) get a category:
+
+const inPackages = (suffix) => Object.values(packageRoots).map((root) => `${root}/${suffix}`);
+const sliceSourceFiles = inPackages(`**/*.${ext}`);
+
+// Test purpose follows the build exclusions in each tsconfig.lib.json plus the
+// test seams (testing.ts) and named test doubles (test-*.ts). Only files inside
+// a slice folder (and the kinds composition root) get a category:
 // no-unknown-files reports a file only when both its element and its file
 // category are unknown, so a catch-all category would silence it.
 const sliceFiles = [
-  { category: "test", pattern: testFiles },
   {
-    category: "production",
-    pattern: [...slices.map(([, folder]) => `${root}/${folder}/**/*`), `${root}/${kindsLiveFile}`],
+    category: "test",
+    pattern: [
+      `${testSupport}/**/*`,
+      ...inPackages(`**/*.{test,spec,shared-spec,type-test}.${ext}`),
+      ...inPackages(`**/{testing,test-*}.${ext}`),
+      ...inPackages("**/{test-support,__tests__,__fixtures__}/**/*"),
+    ],
   },
+  { category: "production", pattern: [...inPackages("*/**/*"), kindsLiveFile] },
 ];
 
 const entryFiles = [`index.${ext}`, `live.${ext}`, `testing.${ext}`];
-const at = (type, captured) => ({
+const at = (type, slice) => ({
   type,
-  ...(captured ? { captured: { slice: captured } } : {}),
+  ...(slice ? { captured: { slice } } : {}),
   fileInternalPath: entryFiles,
 });
-const kernelKeys = kernelSlices.map(sliceKey);
 const described = (tier, rule) =>
   `${tier} {{from.element.captured.slice}} -> {{to.type}} {{to.element.captured.slice}} ({{to.internalPath}}): ${rule}`;
 
@@ -122,30 +92,25 @@ const slicePolicies = [
     allow: { to: { element: at(["kind", "kernel"]) } },
   },
   // A kernel slice uses the kernel slices below it through their entry files.
-  ...kernelKeys.slice(1).map((slice, index) => ({
+  ...kernelOrder.slice(1).map((slice, index) => ({
     from: { element: { type: "kernel", captured: { slice } } },
-    allow: { to: { element: at("kernel", kernelKeys.slice(0, index + 1)) } },
+    allow: { to: { element: at("kernel", kernelOrder.slice(0, index + 1)) } },
   })),
   // Test-purpose files may also compose the shared test world, which itself
-  // composes every tier (kinds-live.ts is a file element, so no entry filter).
+  // composes every tier through its entry files.
   {
     from: { file: { categories: "test" } },
     allow: { to: { element: { type: "test-support" } } },
   },
   {
     from: { element: { type: "test-support" } },
-    allow: {
-      to: [
-        { element: at(["kernel", "kind", "feature"]) },
-        { element: { type: "kind-composition" } },
-      ],
-    },
+    allow: { to: { element: at(["kernel", "kind", "kind-composition", "feature"]) } },
   },
   // Explicit denials come last: the plugin uses last-match precedence.
-  ...kernelKeys.slice(0, -1).map((slice, index) => ({
+  ...kernelOrder.slice(0, -1).map((slice, index) => ({
     from: { element: { type: "kernel", captured: { slice } } },
     disallow: {
-      to: { element: { type: "kernel", captured: { slice: kernelKeys.slice(index + 1) } } },
+      to: { element: { type: "kernel", captured: { slice: kernelOrder.slice(index + 1) } } },
     },
     message: described("kernel", "a kernel slice imports only the kernel slices below it."),
   })),
@@ -168,7 +133,7 @@ const slicePolicies = [
     disallow: { to: { element: { type: ["feature", "kind-composition"] } } },
     message: described(
       "feature",
-      "a feature never depends on another feature; move shared behaviour inward.",
+      "a feature never depends on another feature or composes kinds; move shared behaviour inward.",
     ),
   },
   {
@@ -177,8 +142,6 @@ const slicePolicies = [
     message: described("production", "production code must not depend on tests or test support."),
   },
 ];
-
-const sliceSourceFiles = [`${root}/**/*.${ext}`];
 
 /**
  * `ignores` takes the capability gate's roots (capabilitySourceFiles). ESLint
@@ -201,9 +164,15 @@ export function sliceBoundaries(rootPath, { ignores = [] } = {}) {
         "boundaries/elements-single-match": true,
         "boundaries/files": sliceFiles,
         "boundaries/files-single-match": true,
-        // Other @agentxm packages are governed by Nx tags; only this package's
-        // slices are classified here, so every other local package is external.
-        "boundaries/flag-as-external": { customSourcePatterns: ["@agentxm/*", "@agentxm/*/**"] },
+        // Nx tags govern every other @agentxm package. The three split packages
+        // stay local so `@agentxm/workspace-kernel/<slice>` imports resolve
+        // (through the axm-source condition) to classified slice entry files.
+        "boundaries/flag-as-external": {
+          customSourcePatterns: [
+            `@agentxm/!(${packageNames.join("|")})`,
+            `@agentxm/!(${packageNames.join("|")})/**`,
+          ],
+        },
         // `import("./x.js").T` type queries are dependencies too (typescript-eslint
         // puts the specifier Literal in TSImportType.source).
         "boundaries/additional-dependency-nodes": [
@@ -233,21 +202,17 @@ export function sliceBoundaries(rootPath, { ignores = [] } = {}) {
       },
     },
     {
-      // Every file under src belongs to a listed slice, except kinds-live.ts.
+      // extension-kinds/src holds kind folders and the kinds composition root.
       name: "slices/placement",
-      files: sliceSourceFiles,
-      ignores: [
-        ...slices.map(([, folder]) => `${root}/${folder}/**`),
-        `${root}/${testSupportFolder}/**`,
-        `${root}/${kindsLiveFile}`,
-      ],
+      files: [`${packageRoots.kind}/*.${ext}`],
+      ignores: [kindsLiveFile],
       rules: {
         "no-restricted-syntax": [
           "error",
           {
             selector: "Program",
             message:
-              "Place workspace code in a declared slice folder (tools/architecture/slices.mjs).",
+              "Place extension kind code in its kind folder; only live.ts sits at the package root.",
           },
         ],
       },

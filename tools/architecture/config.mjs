@@ -6,19 +6,19 @@ import { readFileSync } from "node:fs";
 export const capabilityElements = [
   {
     type: "frontstage",
-    pattern: "packages/core/workspace/src/mcp-connections/lifecycle",
+    pattern: "packages/core/extension-kinds/src/mcp-connections/lifecycle",
     capture: ["strategy"],
     partialMatch: false,
   },
   {
     type: "frontstage",
-    pattern: "packages/core/workspace/src/skills/lifecycle",
+    pattern: "packages/core/extension-kinds/src/skills/lifecycle",
     capture: ["strategy"],
     partialMatch: false,
   },
   {
     type: "frontstage",
-    pattern: "packages/core/workspace/src/subagents/lifecycle",
+    pattern: "packages/core/extension-kinds/src/subagents/lifecycle",
     capture: ["strategy"],
     partialMatch: false,
   },
@@ -50,34 +50,34 @@ export const capabilityElements = [
 ];
 
 export const capabilityRoots = [
-  "packages/core/workspace/src/mcp-connections/lifecycle/domain",
+  "packages/core/extension-kinds/src/mcp-connections/lifecycle/domain",
   // Enforce the extracted application contracts. The remaining install,
   // projection, and source-acquisition implementations still need migration.
-  "packages/core/workspace/src/skills/lifecycle/application",
-  "packages/core/workspace/src/subagents/lifecycle/application",
+  "packages/core/extension-kinds/src/skills/lifecycle/application",
+  "packages/core/extension-kinds/src/subagents/lifecycle/application",
   "packages/core/extension-model/src",
   "packages/generic/host-primitives/src",
   "packages/supporting/cli-maintenance/src/official-skill",
   "packages/supporting/cli-maintenance/src/self-update",
 ];
 
-// The cycle gate cruises every workspace slice; the capability roots inside
-// the workspace are already covered by it.
+const slicePackages = ["workspace-kernel", "extension-kinds", "workspace-features"];
+
+// The cycle gate cruises every slice of the three workspace packages; the
+// capability roots inside extension-kinds are already covered by it.
 export const cycleRoots = [
-  "packages/core/workspace/src",
-  ...capabilityRoots.filter((root) => !root.startsWith("packages/core/workspace/src/")),
+  ...slicePackages.map((name) => `packages/core/${name}/src`),
+  ...capabilityRoots.filter((root) => !root.startsWith("packages/core/extension-kinds/src/")),
 ];
 
 // The cruise follows imports into supporting packages that are not gated here
 // (their own cycles are out of scope), so file cycles are judged from the roots.
 export const cycleRootPath = `^(?:${cycleRoots.join("|")})/`;
 
-// Folder cycles count only between slices. Sub-folders inside one slice are
-// organisational (lifecycle/install and lifecycle/uninstall may cycle), so the
-// folder rule matches slice folders at both ends, naming the nested slices
-// (tools/architecture/slices.mjs) explicitly.
-export const sliceFolder =
-  "^packages/core/workspace/src/(?:transitions/(?:planning|settlement)|projection/agent-adapters|resolution/sources|knowledge/query|[^/]+)$";
+// Folder cycles count only between slices (one folder under src/). Sub-folders
+// inside one slice are organisational (lifecycle/install and lifecycle/uninstall
+// may cycle), so the folder rule matches slice folders at both ends.
+export const sliceFolder = `^packages/core/(?:${slicePackages.join("|")})/src/[^/]+$`;
 
 export const capabilitySourceFiles = capabilityRoots.map(
   (root) => `${root}/**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}`,

@@ -336,7 +336,9 @@ const productScopeBans = [
   "scope:extension-model",
   "scope:registry-client",
   "scope:registry-protocol",
-  "scope:workspace",
+  "scope:workspace-kernel",
+  "scope:extension-kinds",
+  "scope:workspace-features",
 ];
 
 // Technical roles: dependencies point inward and never back toward the
@@ -443,6 +445,18 @@ const moduleBoundaryConstraints = ({ production }) => [
     sourceTag: "scope:extension-content",
     onlyDependOnLibsWithTags: ["scope:extension-content", "scope:extension-model"],
   },
+  // Workspace tiers: features use kinds and the kernel, kinds use the kernel.
+  // The kernel and the kinds share role:capability, so the role matrix alone
+  // would let the kernel reach a kind; these rows keep both tiers below the
+  // ones built on them, test files included.
+  {
+    sourceTag: "scope:workspace-kernel",
+    notDependOnLibsWithTags: ["scope:extension-kinds", "scope:workspace-features"],
+  },
+  {
+    sourceTag: "scope:extension-kinds",
+    notDependOnLibsWithTags: ["scope:workspace-features"],
+  },
 ];
 
 /**
@@ -498,6 +512,35 @@ const cliTerminalImportPatterns = [
     message:
       "Handlers use Screen and emitResult; terminal composition belongs to runtime adapters.",
   },
+];
+
+// The workspace tiers publish nested slice entries such as
+// `@agentxm/workspace-kernel/settlement/live`, which the one-level
+// `@agentxm/*/<entry>` patterns do not reach. Restricted-import groups are
+// gitignore patterns without brace expansion, so each package is named.
+const workspaceTierSubpaths = (entry) =>
+  ["workspace-kernel", "extension-kinds", "workspace-features"].map(
+    (name) => `@agentxm/${name}/**/${entry}`,
+  );
+
+/**
+ * Feature test fixtures that bind their specifications to the real workspace
+ * over a throwaway directory, so they compose kernel and kinds `/live` Layers
+ * the way the composition root does.
+ */
+const featureLiveFixtures = [
+  // Published deterministic fixtures: each composes the real services its
+  // package's specifications observe.
+  "packages/core/workspace-features/src/knowledge-query/testing.ts",
+  "packages/core/workspace-features/src/inspection/testing.ts",
+  "packages/core/workspace-features/src/configuration/testing.ts",
+  "packages/core/workspace-features/src/lifecycle/testing.ts",
+  // A lint run reads a real workspace through the state and projection
+  // services; a fixture that stubbed them would be linting itself.
+  "packages/core/workspace-features/src/linting/testing.ts",
+  // The shared feature test world composes `@agentxm/extension-kinds/live` and
+  // the kernel `/live` entries by package name over a throwaway workspace.
+  "packages/core/workspace-features/src/testing/workspace-world.ts",
 ];
 
 const testPurposeFiles = [
@@ -609,7 +652,8 @@ export default [
           checkVersionMismatches: true,
           ignoredDependencies: [
             // Loaded through a computed dynamic-import specifier the static
-            // graph cannot see (credential-store keychain tier).
+            // graph cannot see (the registry-access credential-store keychain
+            // tier and the extension-kinds MCP secret store).
             "@napi-rs/keyring",
             // The published CLI pins this transitive runtime directly because
             // platform-node's prerelease range can otherwise cross cohorts.
@@ -806,7 +850,7 @@ export default [
       "**/*.test.ts",
       "**/*.spec.ts",
       "**/src/**/test-support/**",
-      "packages/core/workspace-features/src/linting/catalog/workspace/conformance/test-helpers.ts",
+      "**/src/**/test-helpers.ts",
     ],
     rules: {
       "no-restricted-syntax": [
@@ -870,42 +914,19 @@ export default [
   },
   {
     files: ["{apps,packages,tools}/**/src/**/*.ts", "{apps,packages,tools}/**/src/**/*.tsx"],
-    // The composition root plus explicitly named test-support modules are the
-    // bounded non-test exceptions.
+    // The composition roots, test support, and the named feature fixtures are
+    // the bounded non-test exceptions.
     ignores: [
       "apps/cli/src/runtime.ts",
-      // Owned package composition roots select the Layers they compose.
-      "packages/**/src/live.ts",
-      "packages/core/{workspace-kernel,extension-kinds,workspace-features}/src/**/live.ts",
-      // Test support excluded from the library build and the published files.
-      "apps/cli/src/test-support/**",
-      "packages/core/workspace-features/src/linting/catalog/workspace/conformance/test-helpers.ts",
-      // Composes the real workspace an authoring specification observes.
-      "packages/core/workspace-features/src/authoring/test-support/authoring-workspace.ts",
-      // Composes the real workspace and Registry an inspection specification
-      // installs into before observing what `show` reports.
-      "packages/core/workspace-features/src/inspection/test-support/installed-workspace.ts",
-      // The shared test world composes every tier's Layers over a throwaway
-      // workspace for the feature tests that import it.
-      "packages/core/workspace-features/src/testing/workspace-world.ts",
-      // Published deterministic fixtures: each composes the real services its
-      // package's specifications observe.
-      "packages/core/workspace-features/src/knowledge-query/testing.ts",
-      "packages/core/workspace-features/src/inspection/testing.ts",
-      "packages/core/workspace-features/src/configuration/testing.ts",
-      "packages/core/workspace-features/src/lifecycle/testing.ts",
-      "packages/core/workspace-features/src/linting/testing.ts",
-      // Colocated test support: drives its package's use cases from tests and
-      // specifications with the deterministic ports its dependencies publish.
-      "packages/core/workspace-features/src/configuration/**/test-helpers.ts",
-      "packages/core/workspace-features/src/linting/**/test-helpers.ts",
-      "packages/core/workspace-features/src/lifecycle/**/test-helpers.ts",
-      "packages/core/workspace-features/src/publishing/**/test-helpers.ts",
-      "packages/core/workspace-kernel/src/reconciliation/**/test-helpers.ts",
-      // Plan-family fixtures, excluded from the library build: the plan
-      // specifications observe the real transaction scope over a temporary
-      // workspace with the deterministic state ports its dependency publishes.
-      "packages/core/workspace-kernel/src/planning/plan/__tests__/plan-spec-support.ts",
+      // Owned package and slice composition roots select the Layers they compose.
+      "packages/**/src/**/live.ts",
+      // Test support excluded from every library build and the published files:
+      // it drives use cases from tests and specifications over the real
+      // services or the deterministic ports its dependencies publish.
+      "**/src/**/test-support/**",
+      "**/src/**/test-helpers.ts",
+      "**/__tests__/**",
+      ...featureLiveFixtures,
       "**/*.test.ts",
       "**/*.spec.ts",
     ],
@@ -922,16 +943,12 @@ export default [
           ],
           patterns: [
             {
-              group: [
-                "@agentxm/*/live",
-                "@agentxm/workspace/**/live",
-                "@agentxm/workspace/kinds-live",
-              ],
+              group: ["@agentxm/*/live", ...workspaceTierSubpaths("live")],
               message:
                 "Concrete environment-backed Layers compose in application or package composition roots; feature logic keeps service requirements in its Effect environment.",
             },
             {
-              group: ["@agentxm/*/testing", "@agentxm/workspace/**/testing"],
+              group: ["@agentxm/*/testing", ...workspaceTierSubpaths("testing")],
               message:
                 "Deterministic in-memory ports serve tests and specifications; production source composes real services.",
             },
@@ -939,8 +956,8 @@ export default [
               group: [
                 "@agentxm/*/src/*",
                 "@agentxm/*/dist/*",
-                "@agentxm/workspace/**/src/*",
-                "@agentxm/workspace/**/dist/*",
+                ...workspaceTierSubpaths("src/*"),
+                ...workspaceTierSubpaths("dist/*"),
                 "axm.sh/src/*",
                 "axm.sh/dist/*",
               ],
@@ -957,26 +974,13 @@ export default [
     // source: it may compose the deterministic ports its dependencies publish
     // under the same entry point. Everything else the rule above bans stays
     // banned here — a testing module still may not compose a `./live` layer or
-    // reach past a package's public API.
+    // reach past a package's public API, unless it is a named feature fixture.
     files: [
       "{apps,packages,tools}/**/src/testing.ts",
       "{apps,packages,tools}/**/src/testing/**/*.ts",
-      "packages/core/{workspace-kernel,extension-kinds,workspace-features}/src/**/testing.ts",
+      "packages/**/src/**/testing.ts",
     ],
-    // These two fixtures exist to bind their package's specifications to the
-    // real workspace services over a throwaway workspace, so they compose the
-    // same `./live` layers the composition root does.
-    ignores: [
-      "packages/core/workspace-features/src/knowledge-query/testing.ts",
-      "packages/core/workspace-features/src/inspection/testing.ts",
-      "packages/core/workspace-features/src/configuration/testing.ts",
-      "packages/core/workspace-features/src/lifecycle/testing.ts",
-      // A lint run reads a real workspace through the state and projection
-      // services; a fixture that stubbed them would be linting itself.
-      "packages/core/workspace-features/src/linting/testing.ts",
-      // The shared test world composes every tier's Layers for feature tests.
-      "packages/core/workspace-features/src/testing/workspace-world.ts",
-    ],
+    ignores: featureLiveFixtures,
     rules: {
       "no-restricted-imports": [
         "error",
@@ -990,11 +994,7 @@ export default [
           ],
           patterns: [
             {
-              group: [
-                "@agentxm/*/live",
-                "@agentxm/workspace/**/live",
-                "@agentxm/workspace/kinds-live",
-              ],
+              group: ["@agentxm/*/live", ...workspaceTierSubpaths("live")],
               message:
                 "Concrete environment-backed Layers compose in application or package composition roots; feature logic keeps service requirements in its Effect environment.",
             },
@@ -1002,8 +1002,8 @@ export default [
               group: [
                 "@agentxm/*/src/*",
                 "@agentxm/*/dist/*",
-                "@agentxm/workspace/**/src/*",
-                "@agentxm/workspace/**/dist/*",
+                ...workspaceTierSubpaths("src/*"),
+                ...workspaceTierSubpaths("dist/*"),
                 "axm.sh/src/*",
                 "axm.sh/dist/*",
               ],
@@ -1031,7 +1031,7 @@ export default [
         {
           paths: [
             {
-              name: "@agentxm/workspace/transitions/settlement",
+              name: "@agentxm/workspace-kernel/settlement",
               importNames: [
                 "withWorkspaceClosure",
                 "settleWorkspaceClosure",
@@ -1039,7 +1039,7 @@ export default [
                 "pendingClosureRestorations",
               ],
               message:
-                "The closure API is consumed by @agentxm/workspace/transitions/planning only; register writes with protectWorkspacePath and run transactions with runWorkspaceTransaction.",
+                "The closure API is consumed by @agentxm/workspace-kernel/planning only; register writes with protectWorkspacePath and run transactions with runWorkspaceTransaction.",
             },
           ],
         },
@@ -1061,7 +1061,7 @@ export default [
           patterns: [
             ...cliTerminalImportPatterns,
             {
-              group: ["@agentxm/workspace/transitions/settlement"],
+              group: ["@agentxm/workspace-kernel/settlement"],
               importNames: [
                 "withWorkspaceClosure",
                 "settleWorkspaceClosure",
@@ -1092,21 +1092,21 @@ export default [
         {
           paths: [
             {
-              name: "@agentxm/workspace/desired-state",
+              name: "@agentxm/workspace-kernel/workspace-state",
               importNames: ["SettingsWriter", "AcceptedResolutionWriter", "DesiredStateWriter"],
               allowTypeImports: true,
               message:
                 "Handlers do not write workspace state; call the owning feature or capability application API.",
             },
             {
-              name: "@agentxm/workspace/operations",
+              name: "@agentxm/workspace-kernel/operations",
               importNames: ["Plan", "PlannedJobStep"],
               allowTypeImports: true,
               message:
                 "Handlers do not construct or execute plans; call Feature.prepare and Feature.previewOrApply.",
             },
             {
-              name: "@agentxm/workspace/transitions/planning",
+              name: "@agentxm/workspace-kernel/planning",
               importNames: ["prepareExecutionCandidate"],
               allowTypeImports: true,
               message:
@@ -1117,10 +1117,10 @@ export default [
             ...cliTerminalImportPatterns,
             {
               group: [
-                "@agentxm/workspace/transitions/settlement",
-                "@agentxm/workspace/transitions/settlement/*",
-                "@agentxm/workspace/resolution/sources",
-                "@agentxm/workspace/resolution/sources/*",
+                "@agentxm/workspace-kernel/settlement",
+                "@agentxm/workspace-kernel/settlement/*",
+                "@agentxm/workspace-kernel/sources",
+                "@agentxm/workspace-kernel/sources/*",
                 "@agentxm/registry-client/*",
               ],
               allowTypeImports: true,

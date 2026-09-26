@@ -9,9 +9,6 @@ catalogs:
     '@boundaries/elements':
       specifier: 3.1.0
       version: 3.1.0
-    '@dagrejs/graphlib':
-      specifier: 4.0.5
-      version: 4.0.5
     '@effect/eslint-plugin':
       specifier: ^0.3.2
       version: 0.3.2
@@ -198,9 +195,6 @@ importers:
       '@boundaries/elements':
         specifier: 'catalog:'
         version: 3.1.0(@typescript-eslint/parser@8.70.1(@typescript/typescript6@6.0.2)(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0))(eslint-import-resolver-typescript@4.4.5(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0))(eslint@10.11.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)
-      '@dagrejs/graphlib':
-        specifier: 'catalog:'
-        version: 4.0.5
       '@effect/eslint-plugin':
         specifier: 'catalog:'
         version: 0.3.2
@@ -1824,9 +1818,6 @@ packages:
   '@clack/prompts@1.7.0':
     resolution: {integrity: sha512-y7/yvZ2TPAnR9+jnc00klvNNLkJiXFFrQA/hlLCcxA9a2A4zQIOimyFQ9XfwYKiGD1fb5GY8vbKIIgO8d5Tb2A==}
     engines: {node: '>= 20.12.0'}
-
-  '@dagrejs/graphlib@4.0.5':
-    resolution: {integrity: sha512-7xrBTqIts3o+PMUZX97wSc+7TUbW+/rULzGNCTP6yooNVDXbzw4Wutg/H/xOutTB/c/k0YqOAavgPh4/Zk9PFA==}
 
   '@dprint/formatter@0.4.1':
     resolution: {integrity: sha512-IB/GXdlMOvi0UhQQ9mcY15Fxcrc2JPadmo6tqefCNV0bptFq7YBpggzpqYXldBXDa04CbKJ+rDwO2eNRPE2+/g==}
@@ -7205,8 +7196,6 @@ snapshots:
       fast-string-width: 3.0.2
       fast-wrap-ansi: 0.2.2
       sisteransi: 1.0.5
-
-  '@dagrejs/graphlib@4.0.5': {}
 
   '@dprint/formatter@0.4.1': {}
 

@@ -142,7 +142,7 @@ describe("module-boundary constraint reachability", () => {
 
   it("reports a supporting capability importing a core capability outside the sanctioned seams", async () => {
     const reported = await boundaryViolations(
-      'import { SettingsReader } from "@agentxm/workspace/desired-state";\nvoid SettingsReader;\n',
+      'import { SettingsReader } from "@agentxm/workspace-kernel/workspace-state";\nvoid SettingsReader;\n',
       "packages/supporting/registry-access/src/authentication/index.ts",
     );
     expect(reported.length).toBeGreaterThan(0);
@@ -152,8 +152,37 @@ describe("module-boundary constraint reachability", () => {
     expect(
       await boundaryViolations(
         'import { AuthClient } from "@agentxm/registry-access/authentication";\nvoid AuthClient;\n',
-        "packages/core/workspace/src/sync/index.ts",
+        "packages/core/workspace-kernel/src/sources/index.ts",
       ),
     ).toEqual([]);
+  });
+
+  it("reports the workspace kernel importing an extension kind or a feature", async () => {
+    for (const source of [
+      'import { SkillManagerLive } from "@agentxm/extension-kinds/skills";\nvoid SkillManagerLive;\n',
+      'import { handleInstall } from "@agentxm/workspace-features/lifecycle";\nvoid handleInstall;\n',
+    ]) {
+      for (const filePath of [
+        "packages/core/workspace-kernel/src/materialization/index.ts",
+        "packages/core/workspace-kernel/src/materialization/manager-kit.test.ts",
+      ]) {
+        expect(await boundaryViolations(source, filePath), filePath).not.toEqual([]);
+      }
+    }
+  });
+
+  it("reports an extension kind importing a feature", async () => {
+    for (const filePath of [
+      "packages/core/extension-kinds/src/skills/index.ts",
+      "packages/core/extension-kinds/src/skills/source-hash.test.ts",
+    ]) {
+      expect(
+        await boundaryViolations(
+          'import { handleInstall } from "@agentxm/workspace-features/lifecycle";\nvoid handleInstall;\n',
+          filePath,
+        ),
+        filePath,
+      ).not.toEqual([]);
+    }
   });
 });

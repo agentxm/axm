@@ -31,11 +31,6 @@
       "axm-source": "./src/official-skill/composition/index.ts",
       "default": "./dist/src/official-skill/composition/index.js"
     },
-    "./official-skill/adapters/cli": {
-      "types": "./dist/src/official-skill/adapters/cli/index.d.ts",
-      "axm-source": "./src/official-skill/adapters/cli/index.ts",
-      "default": "./dist/src/official-skill/adapters/cli/index.js"
-    },
     "./self-update/domain": {
       "types": "./dist/src/self-update/domain/index.d.ts",
       "axm-source": "./src/self-update/domain/index.ts",

@@ -1,4 +1,3 @@
-import { renderAxmSkillRecovery } from "@agentxm/cli-maintenance/official-skill/adapters/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
@@ -7,7 +6,10 @@ import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryRule } from "@agentxm/extension-content/lint";
 import { acquiredRootDisplayPath } from "../../../desired-state/index.js";
 import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
-import { formatAxmSkillCompatibilityTarget } from "@agentxm/cli-maintenance/official-skill/adapters/cli";
+import {
+  formatAxmSkillCompatibilityTarget,
+  renderAxmSkillRecovery,
+} from "@agentxm/cli-maintenance/official-skill/domain";
 
 const RULE_ID = "workspace/axm-skill-compatible";
 

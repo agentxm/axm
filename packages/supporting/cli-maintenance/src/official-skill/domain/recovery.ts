@@ -1,11 +1,11 @@
-/** CLI presentation of official-skill compatibility and its recovery outcome. */
+/** Recovery commands and the compatibility report for an evaluated official skill. */
 import * as Schema from "effect/Schema";
 import {
   AxmSkillCompatibilityRecoverySchema,
   AxmSkillCompatibilitySchema,
   type AxmSkillCompatibility,
   type AxmSkillCompatibilityRecovery,
-} from "../../domain/index.js";
+} from "./policy.js";
 
 export const AXM_SKILL_BUNDLED_PREVIEW_COMMAND =
   "axm skills install @agentxm/skills/axm --bundled --preview";
@@ -26,17 +26,17 @@ export const formatAxmSkillCompatibilityTarget = (target: {
 }): string =>
   `AXM CLI ${target.targetCliVersion ?? "unknown"} + official AXM skill ${target.targetSkillVersion ?? "unknown"}`;
 
-export const CliAxmSkillRecoverySchema = Schema.Struct({
+export const AxmSkillRecoveryReportSchema = Schema.Struct({
   ...AxmSkillCompatibilityRecoverySchema.fields,
   nextAction: Schema.NullOr(Schema.String),
   steps: Schema.Array(AxmSkillCompatibilityRecoveryStepSchema),
 });
-export type CliAxmSkillRecovery = typeof CliAxmSkillRecoverySchema.Type;
-export const CliAxmSkillCompatibilitySchema = Schema.Struct({
+export type AxmSkillRecoveryReport = typeof AxmSkillRecoveryReportSchema.Type;
+export const AxmSkillCompatibilityReportSchema = Schema.Struct({
   ...AxmSkillCompatibilitySchema.fields,
-  recovery: CliAxmSkillRecoverySchema,
+  recovery: AxmSkillRecoveryReportSchema,
 });
-export type CliAxmSkillCompatibility = typeof CliAxmSkillCompatibilitySchema.Type;
+export type AxmSkillCompatibilityReport = typeof AxmSkillCompatibilityReportSchema.Type;
 
 const step = (
   boundary: AxmSkillCompatibilityRecoveryStep["boundary"],
@@ -47,7 +47,7 @@ const step = (
 /** Choose commands only after the domain has selected the recovery action. */
 export const renderAxmSkillRecovery = (
   recovery: AxmSkillCompatibilityRecovery,
-): CliAxmSkillRecovery => {
+): AxmSkillRecoveryReport => {
   const steps = (() => {
     switch (recovery.action) {
       case "none":
@@ -77,7 +77,7 @@ export const renderAxmSkillRecovery = (
 
 export const renderAxmSkillCompatibility = (
   compatibility: AxmSkillCompatibility,
-): CliAxmSkillCompatibility => ({
+): AxmSkillCompatibilityReport => ({
   ...compatibility,
   recovery: renderAxmSkillRecovery(compatibility.recovery),
 });

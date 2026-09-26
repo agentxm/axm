@@ -1,4 +1,3 @@
-import { renderAxmSkillRecovery } from "@agentxm/cli-maintenance/official-skill/adapters/cli";
 /**
  * Installing the official AXM skill that ships inside the CLI.
  *
@@ -38,6 +37,7 @@ import {
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
   AXM_SKILL_FQN,
   evaluateAxmSkillCompatibility,
+  renderAxmSkillRecovery,
 } from "@agentxm/cli-maintenance/official-skill/domain";
 import {
   operationPresentation,

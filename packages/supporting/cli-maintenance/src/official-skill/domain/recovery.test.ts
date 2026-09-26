@@ -8,11 +8,10 @@ import {
   evaluateAxmSkillCompatibility as evaluatePolicy,
   validateAxmSkillCliVersionRange,
   type AxmSkillCompatibilityInput,
-} from "../../domain/index.js";
-import { AxmSkillCompatibilityPolicy } from "../../application/index.js";
-import { makeAxmSkillCompatibilityPolicyLayer } from "../../composition/index.js";
-
-import { renderAxmSkillCompatibility } from "./index.js";
+  renderAxmSkillCompatibility,
+} from "./index.js";
+import { AxmSkillCompatibilityPolicy } from "../application/index.js";
+import { makeAxmSkillCompatibilityPolicyLayer } from "../composition/index.js";
 
 const evaluateAxmSkillCompatibility = (input: AxmSkillCompatibilityInput) =>
   renderAxmSkillCompatibility(evaluatePolicy(input));

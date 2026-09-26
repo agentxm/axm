@@ -51,16 +51,14 @@ is supplied by the native cache adapter. The CLI reads environment and invocatio
 signals and formats human or agent notifications. These decisions can be
 exercised without either adapter or a delivery interface.
 
-The `official-skill` backstage capability has four published entry points:
+The `official-skill` backstage capability has three published entry points:
 
 - `./official-skill/domain` evaluates release metadata, bounded version ranges,
-  compatibility, and the recovery outcome from explicit facts.
+  compatibility, and the recovery outcome from explicit facts, then renders the
+  selected recovery action into `axm` commands and the compatibility report.
 - `./official-skill/application` owns the injectable compatibility contract and
   its unavailable-policy failure.
 - `./official-skill/composition` binds the running CLI version to that contract.
-- `./official-skill/adapters/cli` renders the selected recovery action into CLI
-  commands and the CLI's compatibility document. Domain results contain the
-  action and version targets, independent of command grammar.
 
 Domain and application code cannot import filesystem, provider, or delivery
 mechanisms. Source descriptors in `tools/architecture/config.mjs` enforce these

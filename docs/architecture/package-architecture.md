@@ -145,9 +145,9 @@ inside `@agentxm/cli-maintenance`. Its domain entry owns compatibility and
 recovery rules, its application entry owns the injectable service contract, and
 composition supplies the running CLI version. Core workspace consumers depend
 on those public APIs; shared resolution no longer exports this consumer policy.
-The capability's CLI adapter maps recovery actions and version targets to command
-strings and the CLI document schema. The domain neither imports that adapter nor
-constructs commands.
+The domain entry also maps the selected recovery action and version targets to
+`axm` command strings and the compatibility report schema, so the capability
+has no delivery adapter.
 Candidate byte inspection and Registry orchestration remain in the existing
 packages pending their application/adapter separation.
 

@@ -1,4 +1,3 @@
-import { renderAxmSkillRecovery } from "@agentxm/cli-maintenance/official-skill/adapters/cli";
 /**
  * Implementations of the source-resolution composition ports this package
  * owns the policy for.
@@ -35,7 +34,8 @@ import {
 import {
   AXM_SKILL_BUNDLED_PREVIEW_COMMAND,
   formatAxmSkillCompatibilityTarget,
-} from "@agentxm/cli-maintenance/official-skill/adapters/cli";
+  renderAxmSkillRecovery,
+} from "@agentxm/cli-maintenance/official-skill/domain";
 import type { AxmSkillCompatibilityUnavailable } from "@agentxm/cli-maintenance/official-skill/application";
 
 /**

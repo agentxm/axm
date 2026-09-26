@@ -203,15 +203,6 @@ test("official-skill application cannot select its concrete CLI-version binding"
   assert.ok(result.messages.some(({ ruleId }) => ruleId === "boundaries/dependencies"));
 });
 
-test("official-skill domain cannot construct recovery through the CLI adapter", async () => {
-  const [result] = await eslint.lintText(
-    'export { renderAxmSkillRecovery } from "../adapters/cli/index.js";',
-    { filePath: "packages/supporting/cli-maintenance/src/official-skill/domain/policy.ts" },
-  );
-  assert.equal(result.fatalErrorCount, 0, JSON.stringify(result.messages));
-  assert.ok(result.messages.some(({ ruleId }) => ruleId === "boundaries/dependencies"));
-});
-
 test("self-update policy cannot acquire installation facts from the filesystem", async () => {
   const [result] = await eslint.lintText(
     'import * as FileSystem from "effect/FileSystem"; export { FileSystem };',

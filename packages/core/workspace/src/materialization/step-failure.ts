@@ -15,11 +15,11 @@ import {
 import { EXTENSION_TYPE_TABLE } from "@agentxm/extension-model/unstable/extensions/common";
 import type { FqnInvalidError } from "@agentxm/extension-model/unstable/extensions/fqn";
 import type { AxmSkillCompatibilityUnavailable } from "@agentxm/cli-maintenance/official-skill/application";
-import type { AxmSkillIncompatible } from "@agentxm/cli-maintenance/official-skill/domain";
 import {
+  type AxmSkillIncompatible,
   formatAxmSkillCompatibilityTarget,
   renderAxmSkillRecovery,
-} from "@agentxm/cli-maintenance/official-skill/adapters/cli";
+} from "@agentxm/cli-maintenance/official-skill/domain";
 
 import type {
   ArchiveIntegrityMismatch,

@@ -1,4 +1,3 @@
-import { renderAxmSkillCompatibility } from "@agentxm/cli-maintenance/official-skill/adapters/cli";
 import { describe, expect, it } from "@effect/vitest";
 
 import { resolveLintExitCategory, toLintJsonDocument } from "./runner.js";
@@ -6,6 +5,7 @@ import {
   AXM_SKILL_CLI_VERSION_METADATA_KEY,
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
   evaluateAxmSkillCompatibility,
+  renderAxmSkillCompatibility,
 } from "@agentxm/cli-maintenance/official-skill/domain";
 
 describe("lint fact rendering", () => {

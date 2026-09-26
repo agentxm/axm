@@ -1,4 +1,4 @@
-/** Official-skill compatibility rules and recovery outcomes owned by CLI maintenance. */
+/** Official-skill compatibility rules, recovery outcomes, and recovery commands owned by CLI maintenance. */
 export {
   AXM_SKILL_FQN,
   AXM_SKILL_CLI_VERSION_METADATA_KEY,
@@ -17,4 +17,19 @@ export {
   validateAxmSkillCliVersionRange,
   evaluateAxmSkillCompatibility,
 } from "./policy.js";
+export {
+  AXM_SKILL_BUNDLED_PREVIEW_COMMAND,
+  AXM_SKILL_BUNDLED_APPLY_COMMAND,
+  AXM_SKILL_REGISTRY_PREVIEW_COMMAND,
+  AXM_SKILL_REGISTRY_APPLY_COMMAND,
+  AxmSkillCompatibilityRecoveryStepSchema,
+  type AxmSkillCompatibilityRecoveryStep,
+  formatAxmSkillCompatibilityTarget,
+  AxmSkillRecoveryReportSchema,
+  type AxmSkillRecoveryReport,
+  AxmSkillCompatibilityReportSchema,
+  type AxmSkillCompatibilityReport,
+  renderAxmSkillRecovery,
+  renderAxmSkillCompatibility,
+} from "./recovery.js";
 export { AxmSkillIncompatible } from "./errors.js";

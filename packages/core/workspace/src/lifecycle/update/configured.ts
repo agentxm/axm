@@ -137,8 +137,10 @@ import {
 } from "./atomicity.js";
 import { assessGitSelector } from "./git-selector.js";
 import { withPackRegistryIndexMemo } from "../../resolution/sources/providers/registry/index-memo.js";
-import { AXM_SKILL_BUNDLED_APPLY_COMMAND } from "@agentxm/cli-maintenance/official-skill/adapters/cli";
-import { AXM_SKILL_FQN } from "@agentxm/cli-maintenance/official-skill/domain";
+import {
+  AXM_SKILL_BUNDLED_APPLY_COMMAND,
+  AXM_SKILL_FQN,
+} from "@agentxm/cli-maintenance/official-skill/domain";
 import { desiredMcpSourceKey } from "../../desired-state/index.js";
 
 export type WorkspaceUpdatableType = InstallableExtensionType;

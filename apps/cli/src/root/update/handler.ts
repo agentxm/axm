@@ -7,7 +7,7 @@ import {
   type UpdateCandidate,
   type UpdateSubjectType,
 } from "@agentxm/workspace/lifecycle";
-import { AXM_SKILL_BUNDLED_APPLY_COMMAND } from "@agentxm/cli-maintenance/official-skill/adapters/cli";
+import { AXM_SKILL_BUNDLED_APPLY_COMMAND } from "@agentxm/cli-maintenance/official-skill/domain";
 import { ReleaseAgePosture, type TargetedUpdatePublicContext } from "@agentxm/workspace/resolution";
 import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions";
 import {

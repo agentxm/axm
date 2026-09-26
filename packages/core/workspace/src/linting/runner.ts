@@ -1,5 +1,4 @@
 import type * as Config from "effect/Config";
-import { renderAxmSkillCompatibility } from "@agentxm/cli-maintenance/official-skill/adapters/cli";
 /**
  * Lint runner — the reusable core of `axm lint`.
  *
@@ -48,7 +47,10 @@ import {
   type CatalogRuleContexts,
   type LintView,
 } from "./catalog-contexts.js";
-import { type AxmSkillCompatibility } from "@agentxm/cli-maintenance/official-skill/domain";
+import {
+  type AxmSkillCompatibility,
+  renderAxmSkillCompatibility,
+} from "@agentxm/cli-maintenance/official-skill/domain";
 
 // -----------------------------------------------------------------------------
 // Grouping + summary

@@ -10,7 +10,7 @@ import {
   methodLabel,
   type UpgradeAssessmentResult,
 } from "@agentxm/cli-maintenance/self-update/adapters/cli";
-import { formatAxmSkillCompatibilityTarget } from "@agentxm/cli-maintenance/official-skill/adapters/cli";
+import { formatAxmSkillCompatibilityTarget } from "@agentxm/cli-maintenance/official-skill/domain";
 
 type Disposition = UpgradeAssessmentResult["disposition"];
 

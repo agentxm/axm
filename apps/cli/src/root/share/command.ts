@@ -7,8 +7,8 @@ import {
   ShareFailed,
   ShareWorkspace,
   ShareWorkspaceDocumentSchema,
-} from "@agentxm/workspace/sharing";
-import { observeUnit } from "@agentxm/workspace/operations";
+} from "@agentxm/workspace-features/sharing";
+import { observeUnit } from "@agentxm/workspace-kernel/operations";
 
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { shareFailureToAppError } from "../../feature-errors.js";

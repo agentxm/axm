@@ -23,7 +23,7 @@ import {
   recoveryPositional,
   recoverySwitch,
   renderConfirmationRecoveryCommand,
-} from "@agentxm/workspace/operations";
+} from "@agentxm/workspace-kernel/operations";
 import {
   PublishExtensions,
   normalizePublishResult,
@@ -31,7 +31,7 @@ import {
   type OnExistingPolicy,
   type PublishOutcome,
   type PublishRequest,
-} from "@agentxm/workspace/publishing";
+} from "@agentxm/workspace-features/publishing";
 import type { ExtensionVisibility } from "@agentxm/extension-model/unstable/extensions";
 import { makeConfirmationRecovery, makePlanInvocation } from "../shared/confirmation-recovery.js";
 import {

@@ -13,10 +13,16 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { UninstallExtensions, type UninstallExtensionsRequest } from "@agentxm/workspace/lifecycle";
+import {
+  UninstallExtensions,
+  type UninstallExtensionsRequest,
+} from "@agentxm/workspace-features/lifecycle";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { isGlobPattern } from "@agentxm/extension-model/unstable/extensions/name-patterns";
-import { deriveOperationOutcome, operationPresentation } from "@agentxm/workspace/operations";
+import {
+  deriveOperationOutcome,
+  operationPresentation,
+} from "@agentxm/workspace-kernel/operations";
 
 import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";

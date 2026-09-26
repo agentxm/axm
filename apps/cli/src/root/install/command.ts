@@ -9,8 +9,8 @@ import {
   extensionTypeToPlural,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import type { InstallExtensionSelectors } from "@agentxm/workspace/lifecycle";
-import { installSourceArgumentDescription } from "@agentxm/workspace/lifecycle";
+import type { InstallExtensionSelectors } from "@agentxm/workspace-features/lifecycle";
+import { installSourceArgumentDescription } from "@agentxm/workspace-features/lifecycle";
 
 import { ignoreReleaseAgeFlag, reinstallFlag } from "../../cli-flags/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";

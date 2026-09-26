@@ -18,7 +18,7 @@ import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 import { afterAll, afterEach } from "vitest";
 
-import { LOCKFILE_VERSION } from "@agentxm/workspace/desired-state";
+import { LOCKFILE_VERSION } from "@agentxm/workspace-kernel/workspace-state";
 import { getAppError } from "../test-support/test-helpers.js";
 import { handleInstall } from "./install/handler.js";
 import { handleLint } from "./lint/handler.js";

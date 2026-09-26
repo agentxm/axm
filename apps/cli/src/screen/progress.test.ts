@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { OperationEvent } from "@agentxm/workspace/operations";
+import type { OperationEvent } from "@agentxm/workspace-kernel/operations";
 
 import {
   initialProgress,

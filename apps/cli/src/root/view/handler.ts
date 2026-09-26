@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { observeUnit } from "@agentxm/workspace/operations";
+import { observeUnit } from "@agentxm/workspace-kernel/operations";
 import {
   resolveViewHandle,
   resolveViewRegistry,
@@ -12,10 +12,10 @@ import {
   type ViewExtensionResult,
   type ViewFieldValue,
   type ViewTargetRegistry,
-} from "@agentxm/workspace/inspection";
-import type { PublishedMetadataUnavailable } from "@agentxm/workspace/inspection";
+} from "@agentxm/workspace-features/inspection";
+import type { PublishedMetadataUnavailable } from "@agentxm/workspace-features/inspection";
 import type { ExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
-import type { IdentifierResourceType } from "@agentxm/workspace/resolution/sources";
+import type { IdentifierResourceType } from "@agentxm/workspace-kernel/sources";
 
 import { isSignedIn } from "@agentxm/registry-access/authentication";
 

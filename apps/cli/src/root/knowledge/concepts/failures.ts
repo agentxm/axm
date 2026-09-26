@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import {
   KnowledgeConceptCorpusChangingFailureSchema,
   KnowledgeConceptCursorFailureSchema,
-} from "@agentxm/workspace/knowledge/query";
+} from "@agentxm/workspace-features/knowledge-query";
 
 import { ExitCode } from "../../../app-error/index.js";
 import { emitResult, type Screen, errorDoc } from "../../../screen/index.js";

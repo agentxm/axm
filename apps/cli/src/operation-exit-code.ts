@@ -11,7 +11,7 @@ import {
   type OperationErrorCategory,
   type OperationOutcome,
   type OperationResolution,
-} from "@agentxm/workspace/operations";
+} from "@agentxm/workspace-kernel/operations";
 
 const BLOCKED_CONFLICT_CLASSES: ReadonlySet<BlockingClass> = new Set([
   "stale-candidate",

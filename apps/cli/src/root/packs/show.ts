@@ -10,7 +10,11 @@ import {
   type ViewField,
   type ViewColumn,
 } from "../../screen/index.js";
-import { PackShowResultSchema, ShowPack, type PackShowResult } from "@agentxm/workspace/inspection";
+import {
+  PackShowResultSchema,
+  ShowPack,
+  type PackShowResult,
+} from "@agentxm/workspace-features/inspection";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";

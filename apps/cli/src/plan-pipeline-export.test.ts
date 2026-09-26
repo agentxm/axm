@@ -10,7 +10,7 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
-import * as Plan from "@agentxm/workspace/transitions/planning";
+import * as Plan from "@agentxm/workspace-kernel/planning";
 
 describe("Plan pipeline primitives available in shared kernel", () => {
   it("exports applyPlan from the stable kernel path", () => {

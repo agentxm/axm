@@ -3,8 +3,8 @@ import {
   KnowledgeListQueryResultSchema,
   ListKnowledge,
   type KnowledgeListRow,
-} from "@agentxm/workspace/inspection";
-import type { KnowledgeInstructionEntryResolution } from "@agentxm/workspace/projection";
+} from "@agentxm/workspace-features/inspection";
+import type { KnowledgeInstructionEntryResolution } from "@agentxm/workspace-kernel/projection";
 
 import { inspectionFailureToAppError } from "../../feature-errors.js";
 import { ABSENT, count, type ViewColumn } from "../../screen/index.js";

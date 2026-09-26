@@ -16,7 +16,7 @@ import {
   InstallSelectionUnavailable,
   OPERATION_ERROR_CATEGORIES,
   type StepFailure,
-} from "@agentxm/workspace/operations";
+} from "@agentxm/workspace-kernel/operations";
 
 import { AppError, makeAppError, type AppErrorCode } from "./app-error.js";
 import {

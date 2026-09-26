@@ -1,6 +1,6 @@
 import * as DateTime from "effect/DateTime";
 
-import type { ViewDocument } from "@agentxm/workspace/inspection";
+import type { ViewDocument } from "@agentxm/workspace-features/inspection";
 
 /** One published sample version; the page shows versions, not dates. */
 const published = (version: string) => ({

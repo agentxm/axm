@@ -1,0 +1,160 @@
+{
+  "name": "@agentxm/workspace-features",
+  "version": "0.0.1",
+  "description": "AXM workspace features: extension lifecycle, authoring, publishing, configuration, inspection, linting, discovery, synchronization, Knowledge queries, and sharing for the axm CLI. Unstable and unsupported \u2014 use the axm.sh CLI.",
+  "type": "module",
+  "license": "FSL-1.1-MIT",
+  "homepage": "https://axm.sh",
+  "bugs": {
+    "url": "https://github.com/agentxm/axm/issues"
+  },
+  "author": "AgentXM <hello@agentxm.ai> (https://agentxm.ai)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentxm/axm.git",
+    "directory": "packages/core/workspace-features"
+  },
+  "sideEffects": false,
+  "exports": {
+    "./lifecycle": {
+      "types": "./dist/src/lifecycle/index.d.ts",
+      "axm-source": "./src/lifecycle/index.ts",
+      "default": "./dist/src/lifecycle/index.js"
+    },
+    "./lifecycle/testing": {
+      "types": "./dist/src/lifecycle/testing.d.ts",
+      "axm-source": "./src/lifecycle/testing.ts",
+      "default": "./dist/src/lifecycle/testing.js"
+    },
+    "./authoring": {
+      "types": "./dist/src/authoring/index.d.ts",
+      "axm-source": "./src/authoring/index.ts",
+      "default": "./dist/src/authoring/index.js"
+    },
+    "./authoring/testing": {
+      "types": "./dist/src/authoring/testing.d.ts",
+      "axm-source": "./src/authoring/testing.ts",
+      "default": "./dist/src/authoring/testing.js"
+    },
+    "./publishing": {
+      "types": "./dist/src/publishing/index.d.ts",
+      "axm-source": "./src/publishing/index.ts",
+      "default": "./dist/src/publishing/index.js"
+    },
+    "./publishing/testing": {
+      "types": "./dist/src/publishing/testing.d.ts",
+      "axm-source": "./src/publishing/testing.ts",
+      "default": "./dist/src/publishing/testing.js"
+    },
+    "./configuration": {
+      "types": "./dist/src/configuration/index.d.ts",
+      "axm-source": "./src/configuration/index.ts",
+      "default": "./dist/src/configuration/index.js"
+    },
+    "./configuration/testing": {
+      "types": "./dist/src/configuration/testing.d.ts",
+      "axm-source": "./src/configuration/testing.ts",
+      "default": "./dist/src/configuration/testing.js"
+    },
+    "./inspection": {
+      "types": "./dist/src/inspection/index.d.ts",
+      "axm-source": "./src/inspection/index.ts",
+      "default": "./dist/src/inspection/index.js"
+    },
+    "./inspection/testing": {
+      "types": "./dist/src/inspection/testing.d.ts",
+      "axm-source": "./src/inspection/testing.ts",
+      "default": "./dist/src/inspection/testing.js"
+    },
+    "./linting": {
+      "types": "./dist/src/linting/index.d.ts",
+      "axm-source": "./src/linting/index.ts",
+      "default": "./dist/src/linting/index.js"
+    },
+    "./linting/testing": {
+      "types": "./dist/src/linting/testing.d.ts",
+      "axm-source": "./src/linting/testing.ts",
+      "default": "./dist/src/linting/testing.js"
+    },
+    "./discovery": {
+      "types": "./dist/src/discovery/index.d.ts",
+      "axm-source": "./src/discovery/index.ts",
+      "default": "./dist/src/discovery/index.js"
+    },
+    "./discovery/testing": {
+      "types": "./dist/src/discovery/testing.d.ts",
+      "axm-source": "./src/discovery/testing.ts",
+      "default": "./dist/src/discovery/testing.js"
+    },
+    "./sync": {
+      "types": "./dist/src/sync/index.d.ts",
+      "axm-source": "./src/sync/index.ts",
+      "default": "./dist/src/sync/index.js"
+    },
+    "./sync/testing": {
+      "types": "./dist/src/sync/testing.d.ts",
+      "axm-source": "./src/sync/testing.ts",
+      "default": "./dist/src/sync/testing.js"
+    },
+    "./knowledge-query": {
+      "types": "./dist/src/knowledge-query/index.d.ts",
+      "axm-source": "./src/knowledge-query/index.ts",
+      "default": "./dist/src/knowledge-query/index.js"
+    },
+    "./knowledge-query/live": {
+      "types": "./dist/src/knowledge-query/live.d.ts",
+      "axm-source": "./src/knowledge-query/live.ts",
+      "default": "./dist/src/knowledge-query/live.js"
+    },
+    "./knowledge-query/testing": {
+      "types": "./dist/src/knowledge-query/testing.d.ts",
+      "axm-source": "./src/knowledge-query/testing.ts",
+      "default": "./dist/src/knowledge-query/testing.js"
+    },
+    "./sharing": {
+      "types": "./dist/src/sharing/index.d.ts",
+      "axm-source": "./src/sharing/index.ts",
+      "default": "./dist/src/sharing/index.js"
+    }
+  },
+  "files": [
+    "dist/src/",
+    "!**/*.map"
+  ],
+  "engines": {
+    "node": ">=24.19.0"
+  },
+  "nx": {
+    "includedScripts": []
+  },
+  "dependencies": {
+    "@agentxm/cli-maintenance": "workspace:^",
+    "@agentxm/extension-content": "workspace:^",
+    "@agentxm/extension-kinds": "workspace:^",
+    "@agentxm/extension-model": "workspace:^",
+    "@agentxm/host-primitives": "workspace:^",
+    "@agentxm/registry-access": "workspace:^",
+    "@agentxm/registry-client": "workspace:^",
+    "@agentxm/registry-protocol": "workspace:^",
+    "@agentxm/workspace-kernel": "workspace:^",
+    "effect": "catalog:",
+    "fflate": "catalog:",
+    "packageurl-js": "catalog:",
+    "semver": "catalog:",
+    "smol-toml": "catalog:",
+    "yaml": "catalog:"
+  },
+  "devDependencies": {
+    "@agentxm/specification-metadata": "workspace:^",
+    "@agentxm/test-support": "workspace:^",
+    "@effect/platform-node": "catalog:",
+    "@effect/vitest": "catalog:",
+    "@fast-check/vitest": "catalog:",
+    "@types/bun": "catalog:",
+    "@types/semver": "catalog:",
+    "@typescript/native": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "private": true
+}

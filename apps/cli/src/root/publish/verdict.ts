@@ -1,4 +1,4 @@
-import type { PublishResult } from "@agentxm/workspace/publishing";
+import type { PublishResult } from "@agentxm/workspace-features/publishing";
 
 import {
   ALREADY_PUBLISHED,

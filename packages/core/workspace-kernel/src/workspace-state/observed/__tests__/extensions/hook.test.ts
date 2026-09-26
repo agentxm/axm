@@ -1,0 +1,212 @@
+/**
+ * Hook subject module tests: declared/resolved/actual payload shapes and the
+ * projections composed by the shared helper.
+ *
+ * Actual occurrences come exclusively from the canonical-extensions scanner
+ * (`type === "hook"`). Agent-side managed hook groups and the advisory-rule
+ * fallback region are renderings of an installed hook, never occurrences, so
+ * this suite asserts against canonical input only.
+ */
+
+import { describe, expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import { decodedLockfile, decodedSettings } from "../../__fixtures__/decoders.js";
+import { makeCanonicalOccurrence } from "../../__fixtures__/occurrences.js";
+import { makeHookExtensionsApi } from "../../extensions/hook.js";
+import type { PackMemberBinding } from "../../extensions/projection.js";
+import type { CanonicalExtensionOccurrence } from "../../scanners/types.js";
+import type { Settings } from "../../../desired/settings/schema.js";
+import type { Lockfile } from "../../../desired/lockfile/schema.js";
+import type { InstalledPackRef } from "../../types.js";
+import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
+
+const settingsWithHooks = (
+  hooks: Record<string, string | { source: string; enabled: boolean }>,
+): Effect.Effect<Settings, never> => decodedSettings({ hooks }).pipe(Effect.orDie);
+
+const lockfileWithHooks = (names: ReadonlyArray<string>): Effect.Effect<Lockfile, never> =>
+  decodedLockfile({
+    lockfileVersion: 8,
+    skills: {},
+    hooks: Object.fromEntries(
+      names.map((name) => [
+        name,
+        {
+          source: { type: "registry", url: "https://registry.agentxm.ai" },
+          identity: { owner: "@acme", name },
+          resolved: {
+            version: "1.0.0",
+            integrity: "sha512-abc",
+            publisherBindingId: "hbnd_test",
+          },
+          treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
+        },
+      ]),
+    ),
+  }).pipe(Effect.orDie);
+
+const packRef: InstalledPackRef = {
+  key: { scope: "project", type: "pack", name: "team-pack" },
+};
+
+const packMember = (name: string, enabled = true): PackMemberBinding => ({
+  name: decodeExtensionNameSync(name),
+  pack: packRef,
+  enabled,
+});
+
+const harness = (params: {
+  readonly settings?: Settings;
+  readonly lockfile?: Lockfile;
+  readonly canonicalOccurrences?: ReadonlyArray<CanonicalExtensionOccurrence>;
+}) =>
+  Effect.gen(function* () {
+    const api = yield* makeHookExtensionsApi({
+      scope: "project",
+      loaders: {
+        settings: Effect.succeed(Option.fromUndefinedOr(params.settings)),
+        lockfile: Effect.succeed(Option.fromUndefinedOr(params.lockfile)),
+      },
+      scanners: { canonical: Effect.succeed(params.canonicalOccurrences ?? []) },
+    });
+    return { api };
+  });
+
+const canonicalHook = (name: string): CanonicalExtensionOccurrence =>
+  makeCanonicalOccurrence({
+    scope: "project",
+    type: "hook",
+    origin: "canonical-axm",
+    name,
+    owner: "@acme",
+    contentLocation: `/ws/agent_extensions/@acme/hooks/${name}/src`,
+  });
+
+describe("makeHookExtensionsApi", () => {
+  it.effect("declared and resolved are absent when settings and lockfile are absent", () =>
+    Effect.gen(function* () {
+      const { api } = yield* harness({});
+      expect(Option.isNone(yield* api.declared)).toBe(true);
+      expect(Option.isNone(yield* api.resolved)).toBe(true);
+    }),
+  );
+
+  it.effect("declared parses settings.hooks entries", () =>
+    Effect.gen(function* () {
+      const settings = yield* settingsWithHooks({
+        "block-secrets": "@acme/hooks/block-secrets@^1.0.0",
+      });
+      const { api } = yield* harness({ settings });
+      const declared = Option.getOrElse(yield* api.declared, () => []);
+      expect(declared).toHaveLength(1);
+      expect(declared[0]?.name).toBe("block-secrets");
+      expect(declared[0]?.entry.source).toBe("@acme/hooks/block-secrets@^1.0.0");
+    }),
+  );
+
+  it.effect("resolved parses lockfile.hooks entries", () =>
+    Effect.gen(function* () {
+      const lockfile = yield* lockfileWithHooks(["block-secrets"]);
+      const settings = yield* settingsWithHooks({
+        "block-secrets": "@acme/hooks/block-secrets@^1.0.0",
+      });
+      const { api } = yield* harness({ settings, lockfile });
+      const resolved = Option.getOrElse(yield* api.resolved, () => []);
+      expect(resolved).toHaveLength(1);
+      expect(resolved[0]?.lockEntry.source.type).toBe("registry");
+    }),
+  );
+
+  it.effect("actual surfaces canonical hook occurrences and strips the src segment", () =>
+    Effect.gen(function* () {
+      const { api } = yield* harness({ canonicalOccurrences: [canonicalHook("block-secrets")] });
+      const actual = yield* api.actual;
+      expect(actual).toHaveLength(1);
+      expect(actual[0]?.origin._tag).toBe("canonical-axm-hook");
+      expect(actual[0]?.contentRoot).toBe("/ws/agent_extensions/@acme/hooks/block-secrets/src");
+      expect(actual[0]?.packageRoot).toBe("/ws/agent_extensions/@acme/hooks/block-secrets");
+    }),
+  );
+
+  it.effect("actual filters out non-hook canonical occurrences", () =>
+    Effect.gen(function* () {
+      const { api } = yield* harness({
+        canonicalOccurrences: [
+          makeCanonicalOccurrence({
+            scope: "project",
+            type: "skill",
+            origin: "canonical-axm",
+            name: "wrong",
+            owner: "@acme",
+            contentLocation: "/ws/agent_extensions/@acme/skills/wrong/src",
+          }),
+        ],
+      });
+      expect(yield* api.actual).toHaveLength(0);
+    }),
+  );
+
+  it.effect(
+    "installed attaches actual occurrences and resolved lock entries to declared rows",
+    () =>
+      Effect.gen(function* () {
+        const settings = yield* settingsWithHooks({
+          "block-secrets": "@acme/hooks/block-secrets@^1.0.0",
+        });
+        const lockfile = yield* lockfileWithHooks(["block-secrets"]);
+        const { api } = yield* harness({
+          settings,
+          lockfile,
+          canonicalOccurrences: [canonicalHook("block-secrets")],
+        });
+        const installed = yield* api.installed;
+        expect(installed).toHaveLength(1);
+        expect(installed[0]?.installationOrigin._tag).toBe("direct");
+        expect(installed[0]?.activation).toBe("enabled");
+        expect(Option.isSome(installed[0]?.resolved ?? Option.none())).toBe(true);
+        expect(installed[0]?.actual).toHaveLength(1);
+        expect(yield* api.unmanaged).toHaveLength(0);
+      }),
+  );
+
+  it.effect("a disabled declared hook is installed but not active", () =>
+    Effect.gen(function* () {
+      const settings = yield* settingsWithHooks({
+        "block-secrets": { source: "@acme/hooks/block-secrets@^1.0.0", enabled: false },
+      });
+      const { api } = yield* harness({ settings });
+      const installed = yield* api.installed;
+      expect(installed).toHaveLength(1);
+      expect(installed[0]?.activation).toBe("disabled");
+    }),
+  );
+
+  it.effect("packMemberRows shapes bound members and lets direct declarations win", () =>
+    Effect.gen(function* () {
+      const settings = yield* settingsWithHooks({
+        "block-secrets": "@acme/hooks/block-secrets@^1.0.0",
+      });
+      const { api } = yield* harness({ settings });
+      const members = yield* api.packMemberRows([
+        packMember("block-secrets"),
+        packMember("audit-log", false),
+      ]);
+      expect(members.map((row) => row.key.name)).toEqual(["audit-log"]);
+      expect(members[0]?.installationOrigin._tag).toBe("pack-member");
+      expect(members[0]?.activation).toBe("disabled");
+      const installed = yield* api.installed;
+      expect(installed.map((row) => row.key.name)).toEqual(["block-secrets"]);
+      expect(installed[0]?.installationOrigin._tag).toBe("direct");
+    }),
+  );
+
+  it.effect("an undeclared canonical occurrence surfaces as unmanaged", () =>
+    Effect.gen(function* () {
+      const { api } = yield* harness({ canonicalOccurrences: [canonicalHook("stray")] });
+      const unmanaged = yield* api.unmanaged;
+      expect(unmanaged).toHaveLength(1);
+      expect(unmanaged[0]?.key.name).toBe("stray");
+    }),
+  );
+});

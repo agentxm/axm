@@ -14,8 +14,8 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions";
-import { SourceHostProvidersLive } from "@agentxm/workspace/resolution/sources/live";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
+import { SourceHostProvidersLive } from "@agentxm/workspace-kernel/sources/live";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace-kernel/projection/live";
 import { extensionName, handle, writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
   AllExtensionManagersLive,

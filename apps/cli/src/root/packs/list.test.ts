@@ -1,4 +1,4 @@
-import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace/transitions/settlement/live";
+import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlement/live";
 /**
  * Unit tests for the packs list command handler.
  */
@@ -16,8 +16,8 @@ import { TestFlagsLayer } from "../../cli-flags/index.js";
 import {
   computePackManifestContentIdentity,
   type WorkspaceStateOptions,
-} from "@agentxm/workspace/desired-state";
-import { layer as coreWorkspaceLayer } from "@agentxm/workspace/desired-state/live";
+} from "@agentxm/workspace-kernel/workspace-state";
+import { layer as coreWorkspaceLayer } from "@agentxm/workspace-kernel/workspace-state/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { expectNoPlanEnvelope } from "../../test-support/test-helpers.js";
 import {

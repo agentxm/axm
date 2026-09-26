@@ -18,7 +18,7 @@ import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 import type * as Terminal from "effect/Terminal";
 
-import { publishWaitEnded, publishWaiting } from "@agentxm/workspace/operations";
+import { publishWaitEnded, publishWaiting } from "@agentxm/workspace-kernel/operations";
 
 import type { Doc } from "../doc.js";
 import { makeInteractionKeyReader, type InteractionSurface } from "../interaction.js";

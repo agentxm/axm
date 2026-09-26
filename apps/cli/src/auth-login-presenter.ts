@@ -8,7 +8,7 @@
 import { ConfigError } from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { observeChildUnit, observeUnit } from "@agentxm/workspace/operations";
+import { observeChildUnit, observeUnit } from "@agentxm/workspace-kernel/operations";
 
 import {
   AuthInteractionAbandoned,

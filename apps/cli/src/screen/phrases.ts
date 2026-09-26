@@ -11,7 +11,7 @@ import type {
   UnitStateCounts,
   ArtifactChange,
   ConfiguredAgentOutcome,
-} from "@agentxm/workspace/operations";
+} from "@agentxm/workspace-kernel/operations";
 
 import type { Change, Tone } from "./doc.js";
 

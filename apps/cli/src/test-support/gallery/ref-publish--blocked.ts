@@ -1,4 +1,4 @@
-import type { PublishResultItem } from "@agentxm/workspace/publishing";
+import type { PublishResultItem } from "@agentxm/workspace-features/publishing";
 
 import {
   admittedSet,

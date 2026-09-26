@@ -25,7 +25,7 @@ import {
   type ApplyConfirmation,
   type Plan,
   type ResolvePlanInteractionService,
-} from "@agentxm/workspace/operations";
+} from "@agentxm/workspace-kernel/operations";
 
 const confirmApplyChangesMessage = "Apply changes?";
 

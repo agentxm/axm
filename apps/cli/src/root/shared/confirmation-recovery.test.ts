@@ -7,8 +7,8 @@ import {
   publicRecoveryValue,
   recoveryPositional,
   renderConfirmationRecoveryCommand,
-} from "@agentxm/workspace/operations";
-import { WorkspaceLocation } from "@agentxm/workspace/desired-state";
+} from "@agentxm/workspace-kernel/operations";
+import { WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
 import { makeWorkspaceLocationMock } from "../../test-support/test-stubs.js";
 import { makeConfirmationRecovery, makePlanInvocation } from "./confirmation-recovery.js";
 

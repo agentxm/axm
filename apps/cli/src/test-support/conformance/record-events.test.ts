@@ -15,7 +15,7 @@ import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
 
-import { OperationEventSchema, type OperationEvent } from "@agentxm/workspace/operations";
+import { OperationEventSchema, type OperationEvent } from "@agentxm/workspace-kernel/operations";
 
 import { handleInstall } from "../../root/install/handler.js";
 import { makeWorkspaceLifecycleTestContext } from "../test-helpers.js";

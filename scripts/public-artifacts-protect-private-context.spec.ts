@@ -46,14 +46,13 @@ const TRACKER_IDENTIFIER = new RegExp(`${TRACKER_PREFIX}-[0-9]+`, "g");
 
 /**
  * Exact references that predate this guard. Changelog entries preserve their
- * published history; the remaining two are old fixtures. Any new path or
+ * published history; the remaining one is an old fixture. Any new path or
  * identifier must be removed rather than added here.
  */
 const EXISTING_TRACKED_IDENTIFIERS = new Set([
   ...[1588, 985, 203, 204, 205, 206].map(
     (number) => `CHANGELOG.md:${TRACKER_PREFIX}-${String(number)}`,
   ),
-  `packages/core/workspace/src/desired-state/workspace/desired-state-graph.test.ts:${TRACKER_PREFIX}-1268`,
   `scripts/parity-ledger-check.test.ts:${TRACKER_PREFIX}-985`,
 ]);
 

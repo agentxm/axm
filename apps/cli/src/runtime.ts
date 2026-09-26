@@ -1,7 +1,7 @@
 import {
   WorkspaceTransactionScopesLive,
   WorkspaceFileWriteLocksLive,
-} from "@agentxm/workspace/transitions/settlement/live";
+} from "@agentxm/workspace-kernel/settlement/live";
 import { UpdateCheckCacheLive } from "./cli-runtime/update-cache.js";
 import { CliUpgradeObservationLive } from "./cli-runtime/upgrade-observation.js";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -19,11 +19,11 @@ import { CliConfig, CliOutput, Flag, GlobalFlag } from "effect/unstable/cli";
 
 import { AppError, makeAppError } from "./app-error/index.js";
 
-import { AgentPresenceProbeLive } from "@agentxm/workspace/projection/agent-adapters/live";
+import { AgentPresenceProbeLive } from "@agentxm/workspace-kernel/agent-adapters/live";
 import {
   AxmSkillCandidateGateLive,
   RegistryResolutionPolicyLive,
-} from "@agentxm/workspace/resolution/live";
+} from "@agentxm/workspace-kernel/resolution/live";
 import {
   BundledAxmSkillAssetLive,
   type CliTelemetryConfig,
@@ -49,13 +49,13 @@ import {
   directoryFlag,
 } from "./cli-flags/index.js";
 
-import { ExtensionKindsLive } from "@agentxm/workspace/kinds-live";
+import { ExtensionKindsLive } from "@agentxm/extension-kinds/live";
 import {
   ConfiguredAgentOutcomesProviderLive,
   ProjectionParticipantsLive,
-} from "@agentxm/workspace/reconciliation/live";
-import { KnowledgeIndexLive } from "@agentxm/workspace/knowledge/query/live";
-import { WorkspaceInvariantFactsLive } from "@agentxm/workspace/projection/live";
+} from "@agentxm/workspace-kernel/reconciliation/live";
+import { KnowledgeIndexLive } from "@agentxm/workspace-features/knowledge-query/live";
+import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-kernel/projection/live";
 import { AuthLoginPresenterLive } from "./auth-login-presenter.js";
 import { failureToAppError } from "./app-error/conversions.js";
 import { WorkspaceFailureConversionLive } from "./app-error/failure-catalog.js";
@@ -64,11 +64,11 @@ import {
   GitDirectoryComparisonLive,
   SourceHostProvidersLive,
   WorkspaceCatalogLive,
-} from "@agentxm/workspace/resolution/sources/live";
+} from "@agentxm/workspace-kernel/sources/live";
 import {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
-} from "@agentxm/workspace/projection/live";
+} from "@agentxm/workspace-kernel/projection/live";
 import {
   AuthClientLive,
   AuthLoginInteractionLive,
@@ -85,10 +85,10 @@ import {
   SettingsReader,
   type RegistryTarget,
   type WorkspaceStateOptions,
-} from "@agentxm/workspace/desired-state";
+} from "@agentxm/workspace-kernel/workspace-state";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import { layer as coreWorkspaceLayer } from "@agentxm/workspace/desired-state/live";
-import type { SourceHostConfig } from "@agentxm/workspace/desired-state";
+import { layer as coreWorkspaceLayer } from "@agentxm/workspace-kernel/workspace-state/live";
+import type { SourceHostConfig } from "@agentxm/workspace-kernel/workspace-state";
 import {
   decodeAbsolutePathSync,
   type AbsolutePath,
@@ -108,7 +108,7 @@ import { loadVersion } from "./version.js";
 import { ScopedRoutes, failureForWorkspaceScope } from "./root/shared/scoped-command.js";
 import { ScreenLoggerLive } from "./screen/index.js";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
-import { ReleaseAgePosture } from "@agentxm/workspace/resolution";
+import { ReleaseAgePosture } from "@agentxm/workspace-kernel/resolution";
 import { AGENTXM_REGISTRY_URL } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
 
 export { verboseFlag, debugFlag };

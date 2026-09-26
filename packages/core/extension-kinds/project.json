@@ -1,0 +1,23 @@
+{
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "name": "extension-kinds",
+  "projectType": "library",
+  "root": "packages/core/extension-kinds",
+  "sourceRoot": "packages/core/extension-kinds/src",
+  "tags": ["type:lib", "role:capability", "scope:extension-kinds"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "packages/core/extension-kinds/src/live.ts",
+        "outputPath": "packages/core/extension-kinds/dist",
+        "tsConfig": "packages/core/extension-kinds/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
+    "test": {
+      "dependsOn": ["build", "specification-metadata:build"]
+    }
+  }
+}

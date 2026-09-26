@@ -11,7 +11,7 @@ import {
   lifecycleEvents,
   type OperationEvent,
   type OperationLifecycleService,
-} from "@agentxm/workspace/operations";
+} from "@agentxm/workspace-kernel/operations";
 import { errorClassForAppErrorCode, type AppErrorCode } from "../app-error/index.js";
 import { TelemetryClient } from "../telemetry/index.js";
 import type { TelemetryProperties } from "../telemetry/client.js";

@@ -325,7 +325,7 @@ const moduleBoundaryOptions = {
     // CLI package's built shipped surface by path, and drive it through the
     // built contracts it observes.
     "^\\.\\./\\.\\./\\.\\./cli/dist/",
-    "^\\.\\./\\.\\./\\.\\./\\.\\./packages/core/workspace/dist/",
+    "^\\.\\./\\.\\./\\.\\./\\.\\./packages/core/workspace-kernel/dist/",
   ],
 };
 
@@ -737,7 +737,7 @@ export default [
       "apps/cli-e2e/**",
       "apps/cli/src/test-support/**",
       // deterministic archive mtime constant, not a clock read
-      "packages/core/workspace/src/publishing/archive.ts",
+      "packages/core/workspace-features/src/publishing/archive.ts",
     ],
     rules: {
       "no-restricted-syntax": [
@@ -806,7 +806,7 @@ export default [
       "**/*.test.ts",
       "**/*.spec.ts",
       "**/src/**/test-support/**",
-      "packages/core/workspace/src/linting/catalog/workspace/conformance/test-helpers.ts",
+      "packages/core/workspace-features/src/linting/catalog/workspace/conformance/test-helpers.ts",
     ],
     rules: {
       "no-restricted-syntax": [
@@ -876,33 +876,36 @@ export default [
       "apps/cli/src/runtime.ts",
       // Owned package composition roots select the Layers they compose.
       "packages/**/src/live.ts",
-      "packages/core/workspace/src/**/live.ts",
+      "packages/core/{workspace-kernel,extension-kinds,workspace-features}/src/**/live.ts",
       // Test support excluded from the library build and the published files.
       "apps/cli/src/test-support/**",
-      "packages/core/workspace/src/linting/catalog/workspace/conformance/test-helpers.ts",
+      "packages/core/workspace-features/src/linting/catalog/workspace/conformance/test-helpers.ts",
       // Composes the real workspace an authoring specification observes.
-      "packages/core/workspace/src/authoring/test-support/authoring-workspace.ts",
+      "packages/core/workspace-features/src/authoring/test-support/authoring-workspace.ts",
       // Composes the real workspace and Registry an inspection specification
       // installs into before observing what `show` reports.
-      "packages/core/workspace/src/inspection/test-support/installed-workspace.ts",
+      "packages/core/workspace-features/src/inspection/test-support/installed-workspace.ts",
+      // The shared test world composes every tier's Layers over a throwaway
+      // workspace for the feature tests that import it.
+      "packages/core/workspace-features/src/testing/workspace-world.ts",
       // Published deterministic fixtures: each composes the real services its
       // package's specifications observe.
-      "packages/core/workspace/src/knowledge/query/testing.ts",
-      "packages/core/workspace/src/inspection/testing.ts",
-      "packages/core/workspace/src/configuration/testing.ts",
-      "packages/core/workspace/src/lifecycle/testing.ts",
-      "packages/core/workspace/src/linting/testing.ts",
+      "packages/core/workspace-features/src/knowledge-query/testing.ts",
+      "packages/core/workspace-features/src/inspection/testing.ts",
+      "packages/core/workspace-features/src/configuration/testing.ts",
+      "packages/core/workspace-features/src/lifecycle/testing.ts",
+      "packages/core/workspace-features/src/linting/testing.ts",
       // Colocated test support: drives its package's use cases from tests and
       // specifications with the deterministic ports its dependencies publish.
-      "packages/core/workspace/src/configuration/**/test-helpers.ts",
-      "packages/core/workspace/src/linting/**/test-helpers.ts",
-      "packages/core/workspace/src/lifecycle/**/test-helpers.ts",
-      "packages/core/workspace/src/publishing/**/test-helpers.ts",
-      "packages/core/workspace/src/reconciliation/**/test-helpers.ts",
+      "packages/core/workspace-features/src/configuration/**/test-helpers.ts",
+      "packages/core/workspace-features/src/linting/**/test-helpers.ts",
+      "packages/core/workspace-features/src/lifecycle/**/test-helpers.ts",
+      "packages/core/workspace-features/src/publishing/**/test-helpers.ts",
+      "packages/core/workspace-kernel/src/reconciliation/**/test-helpers.ts",
       // Plan-family fixtures, excluded from the library build: the plan
       // specifications observe the real transaction scope over a temporary
       // workspace with the deterministic state ports its dependency publishes.
-      "packages/core/workspace/src/transitions/planning/plan/__tests__/plan-spec-support.ts",
+      "packages/core/workspace-kernel/src/planning/plan/__tests__/plan-spec-support.ts",
       "**/*.test.ts",
       "**/*.spec.ts",
     ],
@@ -958,19 +961,21 @@ export default [
     files: [
       "{apps,packages,tools}/**/src/testing.ts",
       "{apps,packages,tools}/**/src/testing/**/*.ts",
-      "packages/core/workspace/src/**/testing.ts",
+      "packages/core/{workspace-kernel,extension-kinds,workspace-features}/src/**/testing.ts",
     ],
     // These two fixtures exist to bind their package's specifications to the
     // real workspace services over a throwaway workspace, so they compose the
     // same `./live` layers the composition root does.
     ignores: [
-      "packages/core/workspace/src/knowledge/query/testing.ts",
-      "packages/core/workspace/src/inspection/testing.ts",
-      "packages/core/workspace/src/configuration/testing.ts",
-      "packages/core/workspace/src/lifecycle/testing.ts",
+      "packages/core/workspace-features/src/knowledge-query/testing.ts",
+      "packages/core/workspace-features/src/inspection/testing.ts",
+      "packages/core/workspace-features/src/configuration/testing.ts",
+      "packages/core/workspace-features/src/lifecycle/testing.ts",
       // A lint run reads a real workspace through the state and projection
       // services; a fixture that stubbed them would be linting itself.
-      "packages/core/workspace/src/linting/testing.ts",
+      "packages/core/workspace-features/src/linting/testing.ts",
+      // The shared test world composes every tier's Layers for feature tests.
+      "packages/core/workspace-features/src/testing/workspace-world.ts",
     ],
     rules: {
       "no-restricted-imports": [
@@ -1017,8 +1022,8 @@ export default [
     // and run transactions; they never settle closures themselves.
     files: ["{apps,packages,tools}/**/*.ts"],
     ignores: [
-      "packages/core/workspace/src/transitions/planning/**",
-      "packages/core/workspace/src/transitions/settlement/**",
+      "packages/core/workspace-kernel/src/planning/**",
+      "packages/core/workspace-kernel/src/settlement/**",
     ],
     rules: {
       "@typescript-eslint/no-restricted-imports": [

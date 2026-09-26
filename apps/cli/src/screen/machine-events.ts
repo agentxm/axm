@@ -1,7 +1,7 @@
 import { redactRegistryValue } from "@agentxm/registry-client";
 import * as Schema from "effect/Schema";
 
-import { OperationEventSchema, type OperationEvent } from "@agentxm/workspace/operations";
+import { OperationEventSchema, type OperationEvent } from "@agentxm/workspace-kernel/operations";
 
 /**
  * One lifecycle event of a running operation, written to stderr as it

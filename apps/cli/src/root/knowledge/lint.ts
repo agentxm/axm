@@ -3,7 +3,10 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { KnowledgeLintQueryResultSchema, lintKnowledge } from "@agentxm/workspace/knowledge/query";
+import {
+  KnowledgeLintQueryResultSchema,
+  lintKnowledge,
+} from "@agentxm/workspace-features/knowledge-query";
 
 import { ExitCode } from "../../app-error/index.js";
 import { emitResult, errorDoc, headlineDoc, successDoc } from "../../screen/index.js";

@@ -3,7 +3,7 @@ import type {
   PublishResult,
   PublishResultItem,
   PublishSelectionDecision,
-} from "@agentxm/workspace/publishing";
+} from "@agentxm/workspace-features/publishing";
 import type { VerbosityLevel } from "../../cli-flags/index.js";
 import { verdictDoc } from "../../operation-view.js";
 import {

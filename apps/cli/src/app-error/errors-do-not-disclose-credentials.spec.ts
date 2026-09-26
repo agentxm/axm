@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
 import { REDACTED_SECRET, RegistryProblem, redactRegistryText } from "@agentxm/registry-client";
-import { publishCause } from "@agentxm/workspace/publishing";
-import { StepFailure, makeOperationResolution } from "@agentxm/workspace/operations";
+import { publishCause } from "@agentxm/workspace-features/publishing";
+import { StepFailure, makeOperationResolution } from "@agentxm/workspace-kernel/operations";
 
 import { initialProgress, reduceProgress } from "../screen/progress.js";
 import { AppError } from "./app-error.js";

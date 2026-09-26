@@ -5,8 +5,8 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import {
   KnowledgeConceptQueryPageSchema,
   KnowledgeDiscovery,
-} from "@agentxm/workspace/knowledge/query";
-import { observeUnit } from "@agentxm/workspace/operations";
+} from "@agentxm/workspace-features/knowledge-query";
+import { observeUnit } from "@agentxm/workspace-kernel/operations";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 import { ABSENT, emitResult, inventoryDoc, type ViewColumn } from "../../../screen/index.js";

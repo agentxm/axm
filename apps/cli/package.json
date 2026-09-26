@@ -69,12 +69,14 @@
   },
   "dependencies": {
     "@agentxm/cli-maintenance": "workspace:^",
+    "@agentxm/extension-kinds": "workspace:^",
     "@agentxm/extension-model": "workspace:^",
     "@agentxm/host-primitives": "workspace:^",
     "@agentxm/registry-access": "workspace:^",
     "@agentxm/registry-client": "workspace:^",
     "@agentxm/registry-protocol": "workspace:^",
-    "@agentxm/workspace": "workspace:^",
+    "@agentxm/workspace-features": "workspace:^",
+    "@agentxm/workspace-kernel": "workspace:^",
     "@effect/platform-node": "catalog:",
     "@effect/platform-node-shared": "catalog:",
     "effect": "catalog:"

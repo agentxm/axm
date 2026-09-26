@@ -7,9 +7,9 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 
-import { SettingsSchema } from "@agentxm/workspace/desired-state";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
-import { SourceHostProvidersLive } from "@agentxm/workspace/resolution/sources/live";
+import { SettingsSchema } from "@agentxm/workspace-kernel/workspace-state";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace-kernel/projection/live";
+import { SourceHostProvidersLive } from "@agentxm/workspace-kernel/sources/live";
 
 import {
   AllExtensionManagersLive,

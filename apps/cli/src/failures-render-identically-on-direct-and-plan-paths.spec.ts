@@ -11,7 +11,7 @@ import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/sugges
 import {
   prepareExecutionCandidate,
   resolveExecutionCandidate,
-} from "@agentxm/workspace/transitions/planning";
+} from "@agentxm/workspace-kernel/planning";
 import {
   type FailureInput,
   type Plan,
@@ -24,8 +24,8 @@ import {
   StepFailure,
   ExtensionLifecycleFailed,
   InstallSelectionUnavailable,
-} from "@agentxm/workspace/operations";
-import { preapprovedPlanExecution } from "@agentxm/workspace/transitions/planning/testing";
+} from "@agentxm/workspace-kernel/operations";
+import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { FqnInvalidError } from "@agentxm/extension-model/unstable/extensions/fqn";
@@ -50,7 +50,7 @@ import {
   RegistryAccessFailed,
   SignedOut,
 } from "@agentxm/registry-access/authentication";
-import { PublishFailed } from "@agentxm/workspace/publishing";
+import { PublishFailed } from "@agentxm/workspace-features/publishing";
 import {
   TransitionLockError,
   TransitionLockUnavailable,
@@ -59,7 +59,7 @@ import {
   WorkspaceRestorationIncomplete,
   WorkspaceSnapshotError,
   WorkspaceTransitionCompromised,
-} from "@agentxm/workspace/transitions/settlement";
+} from "@agentxm/workspace-kernel/settlement";
 import {
   AcceptedResolutionMissing,
   CanonicalPathRemovalError,
@@ -93,17 +93,20 @@ import {
   WorkspaceNotInitialized,
   WorkspaceRootEscape,
   WorkspaceSourceInvalid,
-} from "@agentxm/workspace/desired-state";
-import { InstallStateMissing, type ExtensionKindFailure } from "@agentxm/workspace/materialization";
-import { HookDefinitionInvalid } from "@agentxm/workspace/hooks";
-import { RuleDefinitionInvalid } from "@agentxm/workspace/instructions";
+} from "@agentxm/workspace-kernel/workspace-state";
+import {
+  InstallStateMissing,
+  type ExtensionKindFailure,
+} from "@agentxm/workspace-kernel/materialization";
+import { HookDefinitionInvalid } from "@agentxm/extension-kinds/hooks";
+import { RuleDefinitionInvalid } from "@agentxm/extension-kinds/instructions";
 import {
   KnowledgeDefinitionInvalid,
   KnowledgeDesiredStateUnreconcilable,
   KnowledgeIoFailed,
   KnowledgeResolutionMissing,
   KnowledgeUnavailable,
-} from "@agentxm/workspace/knowledge";
+} from "@agentxm/extension-kinds/knowledge";
 import {
   McpAgentSyncRefused,
   McpCanonicalPathUnsafe,
@@ -111,15 +114,21 @@ import {
   McpConnectionConflict,
   McpRequiredInputsMissing,
   McpWorkspacePackageInvalid,
-} from "@agentxm/workspace/mcp-connections";
+} from "@agentxm/extension-kinds/mcp-connections";
 import {
   PackArchiveFetchFailed,
   PackDefinitionInvalid,
   PackInstallStateMissing,
   PackStagingFailed,
-} from "@agentxm/workspace/packs";
-import { SkillDefinitionInvalid, SkillMaterializationFailed } from "@agentxm/workspace/skills";
-import { SubagentContentUnreadable, SubagentDefinitionInvalid } from "@agentxm/workspace/subagents";
+} from "@agentxm/extension-kinds/packs";
+import {
+  SkillDefinitionInvalid,
+  SkillMaterializationFailed,
+} from "@agentxm/extension-kinds/skills";
+import {
+  SubagentContentUnreadable,
+  SubagentDefinitionInvalid,
+} from "@agentxm/extension-kinds/subagents";
 import {
   AgentDetectionFailed,
   HookConfigInvalid,
@@ -134,7 +143,7 @@ import {
   SubagentIoFailed,
   TransientBackupFailed,
   WriteBackupRetained,
-} from "@agentxm/workspace/projection/agent-adapters";
+} from "@agentxm/workspace-kernel/agent-adapters";
 import {
   AuthoredContributorUnsupported,
   ContributorIdentityInvalid,
@@ -145,7 +154,7 @@ import {
   ManagedRegionViolation,
   ProjectionIoFailed,
   ProjectionTargetUnsupported,
-} from "@agentxm/workspace/projection";
+} from "@agentxm/workspace-kernel/projection";
 import {
   AxmSkillGateUnavailable,
   GitOperationFailed,
@@ -154,7 +163,7 @@ import {
   SourceNotResolvable,
   SourceSyntaxInvalid,
   WorkspaceCatalogUnavailable,
-} from "@agentxm/workspace/resolution/sources";
+} from "@agentxm/workspace-kernel/sources";
 import {
   ExtensionResolutionFailed,
   PackConstraintShadowed,
@@ -163,7 +172,7 @@ import {
   PackDependencyMissing,
   PackDependencyUnsatisfied,
   SourceAuthorityBlocked,
-} from "@agentxm/workspace/resolution";
+} from "@agentxm/workspace-kernel/resolution";
 import {
   AuthoringFailed,
   AuthoringOwnerMismatch,
@@ -192,16 +201,16 @@ import {
   PackSourceMissing,
   ScaffoldNameInvalid,
   authoringStepFailure,
-} from "@agentxm/workspace/authoring";
+} from "@agentxm/workspace-features/authoring";
 import {
   WorkspaceConfigurationFailed,
   configurationFailureToStepFailure,
-} from "@agentxm/workspace/configuration";
+} from "@agentxm/workspace-features/configuration";
 import {
   StepFailureConversion,
   WorkspaceSyncFailed,
   kernelFailureToStepFailure,
-} from "@agentxm/workspace/reconciliation";
+} from "@agentxm/workspace-kernel/reconciliation";
 
 import { AppError } from "./app-error/index.js";
 import { stepFailureToAppError, toAppError } from "./app-error/conversions.js";
@@ -224,7 +233,7 @@ import {
   PackageCopyFailed,
   PackageMaterializationFailed,
   StagedPackageInvalid,
-} from "@agentxm/workspace/acquisition";
+} from "@agentxm/workspace-kernel/acquisition";
 
 export const specification = defineSpecification({
   requirement: "cli/failures-render-identically-on-direct-and-plan-paths",

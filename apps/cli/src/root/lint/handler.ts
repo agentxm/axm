@@ -19,7 +19,7 @@ import {
   type LintSelection,
   type LintJsonDocument,
   type LintWorkspaceResult,
-} from "@agentxm/workspace/linting";
+} from "@agentxm/workspace-features/linting";
 
 import { ExitCode } from "../../app-error/index.js";
 import { Screen } from "../../screen/index.js";

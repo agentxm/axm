@@ -1,0 +1,219 @@
+import * as Layer from "effect/Layer";
+import { UNCONSTRAINED_DESIRED_NODE } from "./desired-state-graph.js";
+import { PackManifests } from "./pack-manifests.js";
+import { FilesystemPackManifests } from "./adapters/filesystem/pack-manifests.js";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import { describe, expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
+import { afterEach } from "vitest";
+import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
+import type { Lockfile } from "../desired/lockfile/index.js";
+import { computePackManifestContentIdentity } from "./pack-manifest-content-identity.js";
+import { type PackManifest } from "@agentxm/extension-model/unstable/packs/manifest-schema";
+import { TreeIntegritySchema } from "./materialized-tree.js";
+import * as Schema from "effect/Schema";
+import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
+import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
+import { validateDesiredPackLock } from "./desired-pack-lock.js";
+import type { DesiredStateGraph } from "./desired-state-graph.js";
+import { resolveProjectWorkspaceLayout } from "./layout.js";
+import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
+
+const owner = decodeHandleSync("@acme");
+const name = decodeExtensionNameSync("toolkit");
+const version = decodeVersionSync("1.0.0");
+const treeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
+  `sha256-tree-v1:${"0".repeat(64)}`,
+);
+const manifest = {
+  owner,
+  type: "pack",
+  name,
+  version,
+  dependencies: {},
+} satisfies PackManifest;
+
+const externalPackGraph = {
+  complete: true,
+  nodes: [
+    {
+      type: "pack",
+      name: "toolkit",
+      identity: {
+        authority: "registry",
+        fqn: "@acme/packs/toolkit",
+        registry: { sourceName: undefined, endpoint: undefined },
+      },
+      source: "@acme/packs/toolkit",
+      enabled: true,
+      constraint: UNCONSTRAINED_DESIRED_NODE,
+      origins: [{ type: "settings", source: "@acme/packs/toolkit", enabled: true }],
+    },
+  ],
+  mcpSourceClosures: [],
+  problems: [],
+} satisfies DesiredStateGraph;
+
+const lockfile = (manifestContentIdentity = computePackManifestContentIdentity(manifest)) =>
+  ({
+    lockfileVersion: 8,
+    skills: {},
+    packs: {
+      toolkit: {
+        source: { type: "registry", url: new URL("https://registry.agentxm.ai") },
+        identity: { owner, name },
+        resolved: {
+          version,
+          integrity: "sha512-test",
+          publisherBindingId: "hbnd_test",
+        },
+        manifestVersion: version,
+        manifestContentIdentity,
+        members: [],
+        treeIntegrity,
+      },
+    },
+  }) satisfies Lockfile;
+
+describe("validateDesiredPackLock", () => {
+  const temporaryDirectories: string[] = [];
+
+  afterEach(() => {
+    for (const directory of temporaryDirectories) fs.rmSync(directory, { recursive: true });
+    temporaryDirectories.length = 0;
+  });
+
+  const setupCanonicalPack = () => {
+    const baseDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "pack-lock-")));
+    temporaryDirectories.push(baseDir);
+    const canonical = path.join(
+      baseDir,
+      "agent_extensions",
+      "registry",
+      "@acme",
+      "packs",
+      "toolkit",
+    );
+    fs.mkdirSync(canonical, { recursive: true });
+    fs.writeFileSync(path.join(canonical, "pack.json"), JSON.stringify(manifest));
+    return { baseDir, canonical };
+  };
+
+  it.effect("fails closed when an external configured Pack lacks an accepted resolution", () =>
+    Effect.gen(function* () {
+      const { baseDir } = setupCanonicalPack();
+      const layout = yield* resolveProjectWorkspaceLayout(decodeAbsolutePathSync(baseDir), {});
+      const validated = yield* validateDesiredPackLock({
+        manifests: yield* PackManifests,
+        layout,
+        graph: externalPackGraph,
+        lockfile: { lockfileVersion: 8, skills: {} },
+      });
+
+      expect(validated.invalidPacks.size).toBeGreaterThan(0);
+      expect(validated.problems).toContainEqual(
+        expect.objectContaining({ type: "pack-resolution-unavailable" }),
+      );
+    }).pipe(Effect.provide(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer))),
+  );
+
+  it.effect("accepts decoded-equivalent Pack manifest formatting", () =>
+    Effect.gen(function* () {
+      const { baseDir, canonical } = setupCanonicalPack();
+      const layout = yield* resolveProjectWorkspaceLayout(decodeAbsolutePathSync(baseDir), {});
+      fs.writeFileSync(
+        path.join(canonical, "pack.json"),
+        JSON.stringify(
+          { dependencies: {}, version: "1.0.0", name: "toolkit", type: "pack", owner: "@acme" },
+          null,
+          2,
+        ),
+      );
+
+      const validated = yield* validateDesiredPackLock({
+        manifests: yield* PackManifests,
+        layout,
+        graph: externalPackGraph,
+        lockfile: lockfile(),
+      });
+      expect(validated.problems).toEqual([]);
+    }).pipe(Effect.provide(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer))),
+  );
+
+  it.effect("accepts unrecognised Pack manifest fields when semantic identity matches", () =>
+    Effect.gen(function* () {
+      const { baseDir, canonical } = setupCanonicalPack();
+      const layout = yield* resolveProjectWorkspaceLayout(decodeAbsolutePathSync(baseDir), {});
+      fs.writeFileSync(
+        path.join(canonical, "pack.json"),
+        JSON.stringify({ ...manifest, extra: 1 }),
+      );
+
+      const validated = yield* validateDesiredPackLock({
+        manifests: yield* PackManifests,
+        layout,
+        graph: externalPackGraph,
+        lockfile: lockfile(),
+      });
+      expect(validated.problems).toEqual([]);
+      expect(validated.invalidPacks.size).toBe(0);
+    }).pipe(Effect.provide(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer))),
+  );
+
+  it.effect(
+    "rejects a Pack manifest semantic change without treating other files as authority",
+    () =>
+      Effect.gen(function* () {
+        const { baseDir, canonical } = setupCanonicalPack();
+        const layout = yield* resolveProjectWorkspaceLayout(decodeAbsolutePathSync(baseDir), {});
+        fs.writeFileSync(path.join(canonical, "README.md"), "locally edited\n");
+        const withOtherDrift = yield* validateDesiredPackLock({
+          manifests: yield* PackManifests,
+          layout,
+          graph: externalPackGraph,
+          lockfile: lockfile(),
+        });
+        expect(withOtherDrift.problems).toEqual([]);
+
+        fs.writeFileSync(
+          path.join(canonical, "pack.json"),
+          JSON.stringify({ ...manifest, dependencies: { "@evil/skills/injected": "*" } }),
+        );
+        const changed = yield* validateDesiredPackLock({
+          manifests: yield* PackManifests,
+          layout,
+          graph: externalPackGraph,
+          lockfile: lockfile(),
+        });
+        expect(changed.invalidPacks.size).toBeGreaterThan(0);
+        expect(changed.problems).toContainEqual(
+          expect.objectContaining({ type: "pack-manifest-content-mismatch", status: "changed" }),
+        );
+      }).pipe(Effect.provide(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer))),
+  );
+
+  it.effect("does not require a lock row for a workspace-authored Pack", () =>
+    Effect.gen(function* () {
+      const { baseDir } = setupCanonicalPack();
+      const layout = yield* resolveProjectWorkspaceLayout(decodeAbsolutePathSync(baseDir), {});
+      const graph: DesiredStateGraph = {
+        ...externalPackGraph,
+        nodes: externalPackGraph.nodes.map((node) => ({
+          ...node,
+          identity: { authority: "workspace", fqn: "@acme/packs/toolkit" },
+          source: "workspace:@acme/packs/toolkit",
+        })),
+      };
+      const validated = yield* validateDesiredPackLock({
+        manifests: yield* PackManifests,
+        layout,
+        graph,
+        lockfile: { lockfileVersion: 8, skills: {} },
+      });
+      expect(validated.problems).toEqual([]);
+    }).pipe(Effect.provide(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer))),
+  );
+});

@@ -1,4 +1,4 @@
-import { PlanInteractionFailed } from "@agentxm/workspace/operations";
+import { PlanInteractionFailed } from "@agentxm/workspace-kernel/operations";
 /**
  * Shared test helpers for CLI package tests.
  *
@@ -17,7 +17,7 @@ import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import { ensureWorkspaceFiles } from "./test-stubs.js";
 import { AppError } from "../app-error/index.js";
 import { toAppError } from "../app-error/conversions.js";
-import { KnowledgeIndexLive } from "@agentxm/workspace/knowledge/query/live";
+import { KnowledgeIndexLive } from "@agentxm/workspace-features/knowledge-query/live";
 import { AuthLoginPresenterTest, CredentialStoreTest } from "@agentxm/registry-access/testing";
 import { RegistryClientFactoryLive, RegistryUrl } from "@agentxm/registry-client";
 import { TestFlagsLayer } from "../cli-flags/index.js";
@@ -27,44 +27,44 @@ import { presentPlan } from "../operation-view.js";
 import {
   PlanInvocationTest,
   ResolvePlanInteractionTest,
-} from "@agentxm/workspace/transitions/planning/testing";
+} from "@agentxm/workspace-kernel/planning/testing";
 import type {
   SourceHostConfig,
   WorkspaceStateError,
   WorkspaceStateOptions,
-} from "@agentxm/workspace/desired-state";
+} from "@agentxm/workspace-kernel/workspace-state";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import {
   layer as coreWorkspaceLayer,
   type WorkspaceStateServices,
-} from "@agentxm/workspace/desired-state/live";
-import { ConfiguredAgentOutcomesProviderTest } from "@agentxm/workspace/desired-state/testing";
+} from "@agentxm/workspace-kernel/workspace-state/live";
+import { ConfiguredAgentOutcomesProviderTest } from "@agentxm/workspace-kernel/workspace-state/testing";
 import type {
   WorkspaceTransactionScope,
   WorkspaceFileWriteLocks,
-} from "@agentxm/workspace/transitions/settlement";
-import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace/transitions/settlement/live";
+} from "@agentxm/workspace-kernel/settlement";
+import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlement/live";
 import { BundledAxmSkillAssetLive, InstallSelectionLive } from "../cli-runtime/index.js";
 import {
   AxmSkillCandidateGateLive,
   RegistryResolutionPolicyLive,
-} from "@agentxm/workspace/resolution/live";
+} from "@agentxm/workspace-kernel/resolution/live";
 import {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
-} from "@agentxm/workspace/projection/live";
+} from "@agentxm/workspace-kernel/projection/live";
 export {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
-} from "@agentxm/workspace/projection/live";
+} from "@agentxm/workspace-kernel/projection/live";
 import {
   SourceHostProvidersLive,
   WorkspaceCatalogLive,
-} from "@agentxm/workspace/resolution/sources/live";
+} from "@agentxm/workspace-kernel/sources/live";
 export { SourceHostProvidersLive };
 import { workspaceInvariantFactsLive } from "./workspace-invariant-facts-live.js";
 export { KnowledgeIndexLive };
-export { ConfiguredAgentOutcomesProviderLive } from "@agentxm/workspace/reconciliation/live";
+export { ConfiguredAgentOutcomesProviderLive } from "@agentxm/workspace-kernel/reconciliation/live";
 import {
   HookManagerLive,
   KnowledgeManagerLive,
@@ -74,7 +74,7 @@ import {
   RuleManagerLive,
   SkillManagerLive,
   SubagentManagerLive,
-} from "@agentxm/workspace/kinds-live";
+} from "@agentxm/extension-kinds/live";
 export {
   HookManagerLive,
   KnowledgeManagerLive,
@@ -89,7 +89,7 @@ import {
   isWorkspaceFailure,
 } from "../app-error/failure-catalog.js";
 import { ExecutionDirectory } from "../execution-directory.js";
-import { ReleaseAgePosture } from "@agentxm/workspace/resolution";
+import { ReleaseAgePosture } from "@agentxm/workspace-kernel/resolution";
 import { WorkspaceInitializationInteractionLive } from "../workspace-initialization-interaction-live.js";
 
 const testHttpClient = HttpClient.make((request) =>

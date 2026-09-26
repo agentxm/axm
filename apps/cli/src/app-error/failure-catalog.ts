@@ -17,24 +17,24 @@ import {
   authoringFailureToStepFailure,
   isAuthoringFamilyFailure,
   type AuthoringFamilyFailure,
-} from "@agentxm/workspace/authoring";
+} from "@agentxm/workspace-features/authoring";
 import {
   configurationFailureToStepFailure,
   isConfigurationFamilyFailure,
   type ConfigurationFamilyFailure,
-} from "@agentxm/workspace/configuration";
-import type { StepFailure } from "@agentxm/workspace/operations";
+} from "@agentxm/workspace-features/configuration";
+import type { StepFailure } from "@agentxm/workspace-kernel/operations";
 import {
   isPublishFamilyFailure,
   publishFailureToStepFailure,
   type PublishFamilyFailure,
-} from "@agentxm/workspace/publishing";
+} from "@agentxm/workspace-features/publishing";
 import {
   isKernelFailure,
   renderKernelFailure,
   StepFailureConversion,
   type KernelFailure,
-} from "@agentxm/workspace/reconciliation";
+} from "@agentxm/workspace-kernel/reconciliation";
 
 /** Every typed failure the application renders: the kernel's and each feature's. */
 export type WorkspaceFailure =

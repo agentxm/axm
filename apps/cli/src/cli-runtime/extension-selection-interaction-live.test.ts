@@ -10,7 +10,7 @@ import {
   InstallSelectionInteraction,
   InstallSelectionUnavailable,
   type InstallSelectionCandidate,
-} from "@agentxm/workspace/operations";
+} from "@agentxm/workspace-kernel/operations";
 
 import { AppError } from "../app-error/index.js";
 import {

@@ -8,8 +8,8 @@ import type { InstallableExtensionType } from "@agentxm/extension-model/unstable
 import {
   ExtensionInventorySchema,
   type ExtensionInventory,
-} from "@agentxm/workspace/desired-state";
-import type { TypeListResult } from "@agentxm/workspace/inspection";
+} from "@agentxm/workspace-kernel/workspace-state";
+import type { TypeListResult } from "@agentxm/workspace-features/inspection";
 
 import { agentFlag } from "../../cli-flags/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";

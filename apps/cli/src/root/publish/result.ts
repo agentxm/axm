@@ -8,11 +8,11 @@
 
 import * as Effect from "effect/Effect";
 
-import { PublishResultSchema, type PublishResult } from "@agentxm/workspace/publishing";
+import { PublishResultSchema, type PublishResult } from "@agentxm/workspace-features/publishing";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 import { emitResult } from "../../screen/index.js";
-import { settleOperation, awaitDrained } from "@agentxm/workspace/operations";
+import { settleOperation, awaitDrained } from "@agentxm/workspace-kernel/operations";
 import { Verbosity } from "../../cli-flags/index.js";
 import {
   type CommandOutcomeSummary,

@@ -14,13 +14,13 @@ import {
   InstallExtensions,
   type InstallExtensionsCandidate,
   type InstallExtensionsRequest,
-} from "@agentxm/workspace/lifecycle";
+} from "@agentxm/workspace-features/lifecycle";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
   deriveOperationOutcome,
   operationPresentation,
   type ConfirmationRecoveryArgument,
-} from "@agentxm/workspace/operations";
+} from "@agentxm/workspace-kernel/operations";
 
 import {
   setCommandSemanticProperties,

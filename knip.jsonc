@@ -53,8 +53,10 @@
     "packages/core/extension-model": {
       "entry": ["src/**/*.type-test.ts"],
     },
-    "packages/core/workspace": {
+    "packages/core/workspace-kernel": {
       "entry": ["src/**/*.type-test.ts"],
+    },
+    "packages/core/extension-kinds": {
       // Deliberate dynamic loading keeps unavailable native keychains recoverable.
       "ignoreDependencies": ["@napi-rs/keyring"],
     },

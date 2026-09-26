@@ -18,7 +18,7 @@ import {
   GitDirectoryComparison,
   type GitDirectoryComparisonService,
   type GitDirectoryDifference,
-} from "@agentxm/workspace/resolution/sources";
+} from "@agentxm/workspace-kernel/sources";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";

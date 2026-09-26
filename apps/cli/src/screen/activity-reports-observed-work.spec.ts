@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import type { OperationEvent } from "@agentxm/workspace/operations";
+import type { OperationEvent } from "@agentxm/workspace-kernel/operations";
 import { initialProgress, reduceProgress, type ProgressState } from "./progress.js";
 import { progressActivity, progressTransitionDoc } from "./progress-view.js";
 import { paintText } from "./paint-text.js";

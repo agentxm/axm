@@ -17,7 +17,7 @@ import {
   VisibilityEvaluationSchema,
   VisibilityMutationResultSchema,
 } from "@agentxm/registry-protocol/unstable/publish";
-import { ManagePublishedVisibility } from "@agentxm/workspace/publishing";
+import { ManagePublishedVisibility } from "@agentxm/workspace-features/publishing";
 import type { ExtensionVisibility } from "@agentxm/extension-model/unstable/extensions";
 import { failureToAppError } from "../../app-error/conversions.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";

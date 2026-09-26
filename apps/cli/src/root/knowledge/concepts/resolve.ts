@@ -5,7 +5,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import {
   KnowledgeConceptResolveOutputSchema,
   KnowledgeDiscovery,
-} from "@agentxm/workspace/knowledge/query";
+} from "@agentxm/workspace-features/knowledge-query";
 
 import { ExitCode, makeAppError } from "../../../app-error/index.js";
 import { ABSENT, emitResult, rawDoc, tableDoc, type ViewColumn } from "../../../screen/index.js";

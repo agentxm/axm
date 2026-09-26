@@ -5,7 +5,7 @@ import { Command, Flag } from "effect/unstable/cli";
 
 import { makeAppError } from "../../app-error/index.js";
 import { Screen } from "../../screen/index.js";
-import { observeUnit } from "@agentxm/workspace/operations";
+import { observeUnit } from "@agentxm/workspace-kernel/operations";
 import { withLiveOperation } from "../../operation-lifecycle.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
@@ -17,8 +17,8 @@ import {
   ExtensionListDocumentSchema,
   ListExtensions,
   type ExtensionListDocument,
-} from "@agentxm/workspace/inspection";
-import { WorkspaceLocation } from "@agentxm/workspace/desired-state";
+} from "@agentxm/workspace-features/inspection";
+import { WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
 
 import { inspectionFailureToAppError } from "../../feature-errors.js";
 import { listDoc } from "./view.js";

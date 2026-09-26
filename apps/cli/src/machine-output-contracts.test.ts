@@ -10,12 +10,15 @@ import {
   JsonVersionDocSchema,
 } from "./cli-runtime/index.js";
 import { LoginDocumentSchema } from "@agentxm/registry-access/authentication";
-import { PublishResultSchema, RegistryTransitionSchema } from "@agentxm/workspace/publishing";
+import {
+  PublishResultSchema,
+  RegistryTransitionSchema,
+} from "@agentxm/workspace-features/publishing";
 import {
   VisibilityEvaluationSchema,
   VisibilityMutationResultSchema,
 } from "@agentxm/registry-protocol/unstable/publish";
-import { ExtensionInventorySchema } from "@agentxm/workspace/desired-state";
+import { ExtensionInventorySchema } from "@agentxm/workspace-kernel/workspace-state";
 
 import {
   captureHelpDoc,
@@ -39,7 +42,7 @@ import {
   CacheStatusOutputSchema,
   CacheVerifyOutputSchema,
 } from "./root/cache/command.js";
-import { DiscoverOutputSchema } from "@agentxm/workspace/discovery";
+import { DiscoverOutputSchema } from "@agentxm/workspace-features/discovery";
 import { HelpIndexResultSchema, HelpTopicResultSchema } from "./root/help/command.js";
 import {
   KnowledgeConceptGetOutputSchema,
@@ -50,7 +53,7 @@ import {
   KnowledgeConceptResolveOutputSchema,
   KnowledgeConceptStatusOutputSchema,
   KnowledgeLintQueryResultSchema,
-} from "@agentxm/workspace/knowledge/query";
+} from "@agentxm/workspace-features/knowledge-query";
 import { LintResultDocumentSchema } from "./root/lint/handler.js";
 import {
   ArchivalTransitionOutputSchema,
@@ -59,7 +62,7 @@ import {
 
 import { InstructionsStatusOutputSchema } from "./root/instructions.js";
 import { SetupDocumentSchema } from "./root/setup.js";
-import { ShareWorkspaceDocumentSchema } from "@agentxm/workspace/sharing";
+import { ShareWorkspaceDocumentSchema } from "@agentxm/workspace-features/sharing";
 import {
   ExtensionListDocumentSchema,
   ExtensionShowResultSchema,
@@ -68,7 +71,7 @@ import {
   PackShowResultSchema,
   ViewDocumentSchema,
   ViewFieldValueSchema,
-} from "@agentxm/workspace/inspection";
+} from "@agentxm/workspace-features/inspection";
 import { UpgradeDocumentSchema } from "./root/upgrade/handler.js";
 
 const sorted = (values: Iterable<string>): ReadonlyArray<string> => [...values].sort();

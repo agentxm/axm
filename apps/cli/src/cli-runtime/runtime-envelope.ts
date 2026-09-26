@@ -18,7 +18,7 @@ import {
 } from "../app-error/index.js";
 import { isWorkspaceFailure, type WorkspaceFailure } from "../app-error/failure-catalog.js";
 import { failureToAppError, toAppError } from "../app-error/conversions.js";
-import type { InstallSelectionCancelled } from "@agentxm/workspace/operations";
+import type { InstallSelectionCancelled } from "@agentxm/workspace-kernel/operations";
 
 /**
  * Structural shape of the workspace configuration feature's typed

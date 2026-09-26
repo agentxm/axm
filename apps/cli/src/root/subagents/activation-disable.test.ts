@@ -11,7 +11,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
-import { computeSourceHash } from "@agentxm/workspace/desired-state";
+import { computeSourceHash } from "@agentxm/workspace-kernel/workspace-state";
 import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
   expectNoOpPlanResult,
@@ -20,7 +20,7 @@ import {
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
-} from "@agentxm/workspace/projection";
+} from "@agentxm/workspace-kernel/projection";
 import { handleActivation } from "../activation-handler.js";
 
 // -----------------------------------------------------------------------------

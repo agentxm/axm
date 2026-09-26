@@ -1,4 +1,4 @@
-import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace/transitions/settlement/live";
+import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlement/live";
 /**
  * Integration tests for the `axm lint` handler.
  *
@@ -22,7 +22,7 @@ import { afterEach, beforeEach } from "vitest";
 import {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
-} from "@agentxm/workspace/projection/live";
+} from "@agentxm/workspace-kernel/projection/live";
 import {
   TestMachineRenderer,
   TestRenderer,
@@ -38,25 +38,25 @@ import {
   RuleManagerLive,
   SkillManagerLive,
   SubagentManagerLive,
-} from "@agentxm/workspace/kinds-live";
-import { ProjectionParticipantsLive } from "@agentxm/workspace/reconciliation/live";
-import { WorkspaceInvariantFactsLive } from "@agentxm/workspace/projection/live";
+} from "@agentxm/extension-kinds/live";
+import { ProjectionParticipantsLive } from "@agentxm/workspace-kernel/reconciliation/live";
+import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-kernel/projection/live";
 
 import {
   SourceHostProvidersLive,
   WorkspaceCatalogLive,
-} from "@agentxm/workspace/resolution/sources/live";
+} from "@agentxm/workspace-kernel/sources/live";
 import {
   AxmSkillCandidateGateLive,
   RegistryResolutionPolicyLive,
-} from "@agentxm/workspace/resolution/live";
-import type { WorkspaceStateOptions } from "@agentxm/workspace/desired-state";
-import { layer as coreWorkspaceLayer } from "@agentxm/workspace/desired-state/live";
+} from "@agentxm/workspace-kernel/resolution/live";
+import type { WorkspaceStateOptions } from "@agentxm/workspace-kernel/workspace-state";
+import { layer as coreWorkspaceLayer } from "@agentxm/workspace-kernel/workspace-state/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 
 import { ExecutionDirectory } from "../../execution-directory.js";
 import { handleLint } from "./handler.js";
-import { remapLintSummaryPaths, resolveLintRoot } from "@agentxm/workspace/linting";
+import { remapLintSummaryPaths, resolveLintRoot } from "@agentxm/workspace-features/linting";
 import { WorkspaceFailureConversionLive } from "../../app-error/failure-catalog.js";
 import { AxmSkillCompatibilityPolicy } from "@agentxm/cli-maintenance/official-skill/application";
 

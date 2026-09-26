@@ -1,4 +1,4 @@
-import { ScaffoldNameInvalid } from "@agentxm/workspace/authoring";
+import { ScaffoldNameInvalid } from "@agentxm/workspace-features/authoring";
 
 import { appErrorDoc, makeAppError } from "../../app-error/index.js";
 import { failureToAppError, toAppError } from "../../app-error/conversions.js";

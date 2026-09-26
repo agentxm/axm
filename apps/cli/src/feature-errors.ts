@@ -10,15 +10,15 @@
 
 import { makeAppError, AppError } from "./app-error/index.js";
 import { failureToAppError } from "./app-error/conversions.js";
-import { ShareFailed } from "@agentxm/workspace/sharing";
+import { ShareFailed } from "@agentxm/workspace-features/sharing";
 import type { ExpectedCliError } from "./cli-runtime/index.js";
 import {
   isRegistryAccessFailure,
   type RegistryAccessFailure,
 } from "@agentxm/registry-access/authentication";
-import { LintStagingFailed } from "@agentxm/workspace/linting";
-import { WorkspaceInitializationCancelled } from "@agentxm/workspace/configuration";
-import { WorkspaceInspectionFailed } from "@agentxm/workspace/inspection";
+import { LintStagingFailed } from "@agentxm/workspace-features/linting";
+import { WorkspaceInitializationCancelled } from "@agentxm/workspace-features/configuration";
+import { WorkspaceInspectionFailed } from "@agentxm/workspace-features/inspection";
 
 /**
  * Translate a lint input-staging failure: the implementation chose the

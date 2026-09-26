@@ -1,0 +1,194 @@
+{
+  "name": "@agentxm/workspace-kernel",
+  "version": "0.0.1",
+  "description": "AXM workspace kernel: transaction settlement, the operations contract, native agent adapters, workspace state, projection, acquisition, sources, resolution, planning, materialization ports, and reconciliation for the axm CLI. Unstable and unsupported \u2014 use the axm.sh CLI.",
+  "type": "module",
+  "license": "FSL-1.1-MIT",
+  "homepage": "https://axm.sh",
+  "bugs": {
+    "url": "https://github.com/agentxm/axm/issues"
+  },
+  "author": "AgentXM <hello@agentxm.ai> (https://agentxm.ai)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentxm/axm.git",
+    "directory": "packages/core/workspace-kernel"
+  },
+  "sideEffects": false,
+  "exports": {
+    "./settlement": {
+      "types": "./dist/src/settlement/index.d.ts",
+      "axm-source": "./src/settlement/index.ts",
+      "default": "./dist/src/settlement/index.js"
+    },
+    "./settlement/live": {
+      "types": "./dist/src/settlement/live.d.ts",
+      "axm-source": "./src/settlement/live.ts",
+      "default": "./dist/src/settlement/live.js"
+    },
+    "./settlement/testing": {
+      "types": "./dist/src/settlement/testing.d.ts",
+      "axm-source": "./src/settlement/testing.ts",
+      "default": "./dist/src/settlement/testing.js"
+    },
+    "./operations": {
+      "types": "./dist/src/operations/index.d.ts",
+      "axm-source": "./src/operations/index.ts",
+      "default": "./dist/src/operations/index.js"
+    },
+    "./agent-adapters": {
+      "types": "./dist/src/agent-adapters/index.d.ts",
+      "axm-source": "./src/agent-adapters/index.ts",
+      "default": "./dist/src/agent-adapters/index.js"
+    },
+    "./agent-adapters/live": {
+      "types": "./dist/src/agent-adapters/live.d.ts",
+      "axm-source": "./src/agent-adapters/live.ts",
+      "default": "./dist/src/agent-adapters/live.js"
+    },
+    "./agent-adapters/testing": {
+      "types": "./dist/src/agent-adapters/testing.d.ts",
+      "axm-source": "./src/agent-adapters/testing.ts",
+      "default": "./dist/src/agent-adapters/testing.js"
+    },
+    "./workspace-state": {
+      "types": "./dist/src/workspace-state/index.d.ts",
+      "axm-source": "./src/workspace-state/index.ts",
+      "default": "./dist/src/workspace-state/index.js"
+    },
+    "./workspace-state/live": {
+      "types": "./dist/src/workspace-state/live.d.ts",
+      "axm-source": "./src/workspace-state/live.ts",
+      "default": "./dist/src/workspace-state/live.js"
+    },
+    "./workspace-state/testing": {
+      "types": "./dist/src/workspace-state/testing.d.ts",
+      "axm-source": "./src/workspace-state/testing.ts",
+      "default": "./dist/src/workspace-state/testing.js"
+    },
+    "./projection": {
+      "types": "./dist/src/projection/index.d.ts",
+      "axm-source": "./src/projection/index.ts",
+      "default": "./dist/src/projection/index.js"
+    },
+    "./projection/live": {
+      "types": "./dist/src/projection/live.d.ts",
+      "axm-source": "./src/projection/live.ts",
+      "default": "./dist/src/projection/live.js"
+    },
+    "./projection/testing": {
+      "types": "./dist/src/projection/testing.d.ts",
+      "axm-source": "./src/projection/testing.ts",
+      "default": "./dist/src/projection/testing.js"
+    },
+    "./acquisition": {
+      "types": "./dist/src/acquisition/index.d.ts",
+      "axm-source": "./src/acquisition/index.ts",
+      "default": "./dist/src/acquisition/index.js"
+    },
+    "./sources": {
+      "types": "./dist/src/sources/index.d.ts",
+      "axm-source": "./src/sources/index.ts",
+      "default": "./dist/src/sources/index.js"
+    },
+    "./sources/live": {
+      "types": "./dist/src/sources/live.d.ts",
+      "axm-source": "./src/sources/live.ts",
+      "default": "./dist/src/sources/live.js"
+    },
+    "./sources/testing": {
+      "types": "./dist/src/sources/testing.d.ts",
+      "axm-source": "./src/sources/testing.ts",
+      "default": "./dist/src/sources/testing.js"
+    },
+    "./resolution": {
+      "types": "./dist/src/resolution/index.d.ts",
+      "axm-source": "./src/resolution/index.ts",
+      "default": "./dist/src/resolution/index.js"
+    },
+    "./resolution/live": {
+      "types": "./dist/src/resolution/live.d.ts",
+      "axm-source": "./src/resolution/live.ts",
+      "default": "./dist/src/resolution/live.js"
+    },
+    "./resolution/testing": {
+      "types": "./dist/src/resolution/testing.d.ts",
+      "axm-source": "./src/resolution/testing.ts",
+      "default": "./dist/src/resolution/testing.js"
+    },
+    "./planning": {
+      "types": "./dist/src/planning/index.d.ts",
+      "axm-source": "./src/planning/index.ts",
+      "default": "./dist/src/planning/index.js"
+    },
+    "./planning/testing": {
+      "types": "./dist/src/planning/testing.d.ts",
+      "axm-source": "./src/planning/testing.ts",
+      "default": "./dist/src/planning/testing.js"
+    },
+    "./materialization": {
+      "types": "./dist/src/materialization/index.d.ts",
+      "axm-source": "./src/materialization/index.ts",
+      "default": "./dist/src/materialization/index.js"
+    },
+    "./materialization/testing": {
+      "types": "./dist/src/materialization/testing.d.ts",
+      "axm-source": "./src/materialization/testing.ts",
+      "default": "./dist/src/materialization/testing.js"
+    },
+    "./reconciliation": {
+      "types": "./dist/src/reconciliation/index.d.ts",
+      "axm-source": "./src/reconciliation/index.ts",
+      "default": "./dist/src/reconciliation/index.js"
+    },
+    "./reconciliation/live": {
+      "types": "./dist/src/reconciliation/live.d.ts",
+      "axm-source": "./src/reconciliation/live.ts",
+      "default": "./dist/src/reconciliation/live.js"
+    },
+    "./reconciliation/testing": {
+      "types": "./dist/src/reconciliation/testing.d.ts",
+      "axm-source": "./src/reconciliation/testing.ts",
+      "default": "./dist/src/reconciliation/testing.js"
+    }
+  },
+  "files": [
+    "dist/src/",
+    "!**/*.map"
+  ],
+  "engines": {
+    "node": ">=24.19.0"
+  },
+  "nx": {
+    "includedScripts": []
+  },
+  "dependencies": {
+    "@agentxm/cli-maintenance": "workspace:^",
+    "@agentxm/extension-content": "workspace:^",
+    "@agentxm/extension-model": "workspace:^",
+    "@agentxm/host-primitives": "workspace:^",
+    "@agentxm/registry-access": "workspace:^",
+    "@agentxm/registry-client": "workspace:^",
+    "@agentxm/registry-protocol": "workspace:^",
+    "effect": "catalog:",
+    "jsonc-parser": "catalog:",
+    "proper-lockfile": "^4.1.2",
+    "semver": "catalog:",
+    "simple-git": "catalog:",
+    "smol-toml": "catalog:",
+    "yaml": "catalog:"
+  },
+  "devDependencies": {
+    "@agentxm/specification-metadata": "workspace:^",
+    "@effect/platform-node": "catalog:",
+    "@effect/vitest": "catalog:",
+    "@fast-check/vitest": "catalog:",
+    "@types/bun": "catalog:",
+    "@types/proper-lockfile": "^4.1.4",
+    "@types/semver": "catalog:",
+    "@typescript/native": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "private": true
+}

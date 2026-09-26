@@ -9,9 +9,9 @@ import {
   TreeIntegritySchema,
   computeSourceHash,
   type TreeIntegrity,
-} from "@agentxm/workspace/desired-state";
-import { treeIntegrityOf } from "@agentxm/workspace/desired-state/testing";
-import { NO_MATERIALIZATION_OBSERVATION } from "@agentxm/workspace/materialization";
+} from "@agentxm/workspace-kernel/workspace-state";
+import { treeIntegrityOf } from "@agentxm/workspace-kernel/workspace-state/testing";
+import { NO_MATERIALIZATION_OBSERVATION } from "@agentxm/workspace-kernel/materialization";
 import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 
 import {
@@ -27,7 +27,7 @@ import {
   type SkillLockEntry,
   type WorkspaceLayout,
   type WorkspaceLocationService,
-} from "@agentxm/workspace/desired-state";
+} from "@agentxm/workspace-kernel/workspace-state";
 import {
   decodeVersionSync,
   decodeVersionRangeSync,

@@ -1,0 +1,169 @@
+/**
+ * Typed failure family for the MCP server manager, the MCP install operation,
+ * and MCP inspection. Each failure carries the kernel's extension-kind brand
+ * and the rendering the kind chose for it.
+ *
+ * The native-config failures the agent writers construct live in
+ * `@agentxm/workspace/projection/agent-adapters`; this module owns what materialization itself
+ * decides.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+
+import * as Data from "effect/Data";
+import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
+
+import type {
+  FailureSuggestedAction,
+  OperationErrorCategory,
+} from "@agentxm/workspace-kernel/operations";
+import {
+  ExtensionKindFailureTypeId,
+  type ExtensionKindFailure,
+} from "@agentxm/workspace-kernel/materialization";
+
+/** A lock entry was requested before install recorded the package state. */
+export class McpInstallStateMissing
+  extends Data.TaggedError("McpInstallStateMissing")<{
+    readonly name: string;
+  }>
+  implements ExtensionKindFailure
+{
+  readonly [ExtensionKindFailureTypeId]: typeof ExtensionKindFailureTypeId =
+    ExtensionKindFailureTypeId;
+  get category(): OperationErrorCategory {
+    return "internal";
+  }
+  get detail(): string {
+    return `Installed files for MCP server ${this.name} could not be verified`;
+  }
+}
+
+/** The canonical path a registry MCP package would occupy escapes the workspace. */
+export class McpCanonicalPathUnsafe
+  extends Data.TaggedError("McpCanonicalPathUnsafe")<{
+    readonly serverName: string;
+    readonly canonicalPath: string;
+  }>
+  implements ExtensionKindFailure
+{
+  readonly [ExtensionKindFailureTypeId]: typeof ExtensionKindFailureTypeId =
+    ExtensionKindFailureTypeId;
+  get category(): OperationErrorCategory {
+    return "internal";
+  }
+  get detail(): string {
+    return `Path traversal detected: ${this.canonicalPath}`;
+  }
+}
+
+/** A local MCP name is already owned by a different source identity. */
+export class McpConnectionConflict
+  extends Data.TaggedError("McpConnectionConflict")<{
+    readonly localName: string;
+    readonly requestedIdentity: string;
+    readonly owningIdentity: string;
+  }>
+  implements ExtensionKindFailure
+{
+  readonly [ExtensionKindFailureTypeId]: typeof ExtensionKindFailureTypeId =
+    ExtensionKindFailureTypeId;
+  get category(): OperationErrorCategory {
+    return "conflict";
+  }
+  get detail(): string {
+    return `Local MCP name "${this.localName}" is already owned by a different source`;
+  }
+}
+
+/** Why a workspace-authored MCP package cannot be installed from where it says it is. */
+export type McpWorkspacePackageFault = "outside-workspace" | "missing" | "unreadable";
+
+/** A workspace-sourced MCP package is not where the reference says it is. */
+export class McpWorkspacePackageInvalid
+  extends Data.TaggedError("McpWorkspacePackageInvalid")<{
+    readonly serverName: string;
+    readonly location: string;
+    readonly fault: McpWorkspacePackageFault;
+    readonly cause?: unknown;
+  }>
+  implements ExtensionKindFailure
+{
+  readonly [ExtensionKindFailureTypeId]: typeof ExtensionKindFailureTypeId =
+    ExtensionKindFailureTypeId;
+  get category(): OperationErrorCategory {
+    return this.fault === "unreadable" ? "internal" : "validation";
+  }
+  get detail(): string {
+    switch (this.fault) {
+      case "outside-workspace":
+        return `Invalid workspace MCP server source location: ${this.location}`;
+      case "missing":
+        return `Workspace MCP server package is missing: ${this.location}`;
+      case "unreadable":
+        return `Failed to inspect workspace MCP server package: ${this.location}`;
+    }
+  }
+}
+
+/**
+ * The manifest declares required inputs nothing supplied, and the invoking
+ * surface said it cannot prompt.
+ */
+export class McpRequiredInputsMissing
+  extends Data.TaggedError("McpRequiredInputsMissing")<{
+    readonly localName: string;
+    /** Input names still unsatisfied, sorted. */
+    readonly inputNames: ReadonlyArray<string>;
+  }>
+  implements ExtensionKindFailure
+{
+  readonly [ExtensionKindFailureTypeId]: typeof ExtensionKindFailureTypeId =
+    ExtensionKindFailureTypeId;
+  get category(): OperationErrorCategory {
+    return "usage";
+  }
+  get detail(): string {
+    return `${this.localName} needs ${this.inputNames.join(", ")}, and no prompt can open to ask for them`;
+  }
+  get suggestions(): ReadonlyArray<FailureSuggestedAction> {
+    return [
+      {
+        description: "Supply each required input on the command line",
+        cmd: this.inputNames.map((name) => `--env ${name}=<value>`).join(" "),
+      },
+    ];
+  }
+}
+
+/** Why projecting an MCP connection to the configured agents was refused. */
+export type McpAgentSyncFault =
+  /** Settings name agents AXM does not know, and the caller asked for strict sync. */
+  | "unknown-agents"
+  /** An agent write failed and the caller asked for strict sync. */
+  | "failed";
+
+/** Projecting an MCP connection into the configured agents could not settle. */
+export class McpAgentSyncRefused
+  extends Data.TaggedError("McpAgentSyncRefused")<{
+    readonly serverName: string;
+    readonly fault: McpAgentSyncFault;
+    /** The agents the fault is about; empty when it is about none in particular. */
+    readonly agentIds: ReadonlyArray<MaterializationTargetId | string>;
+  }>
+  implements ExtensionKindFailure
+{
+  readonly [ExtensionKindFailureTypeId]: typeof ExtensionKindFailureTypeId =
+    ExtensionKindFailureTypeId;
+  get category(): OperationErrorCategory {
+    return this.fault === "unknown-agents" ? "not_found" : "internal";
+  }
+  get detail(): string {
+    switch (this.fault) {
+      case "unknown-agents":
+        return `Unknown configured agents in strict mode: ${this.agentIds.join(", ")}`;
+      case "failed":
+        return `MCP server ${this.serverName} sync failed in strict mode`;
+    }
+  }
+}

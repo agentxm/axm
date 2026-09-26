@@ -1,0 +1,606 @@
+import { describe, expect, it, vi } from "@effect/vitest";
+import * as Effect from "effect/Effect";
+import * as DateTime from "effect/DateTime";
+import * as Duration from "effect/Duration";
+import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
+import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
+import { evaluateSourceAuthority } from "./source-authority.js";
+import { computeSourceHash } from "../workspace-state/index.js";
+import {
+  ReleaseAgeExcludePatternSchema,
+  type PackMemberConstraintMap,
+} from "@agentxm/extension-model/unstable/extensions";
+import type {
+  LocalSkillRef,
+  RegistrySkillRef,
+} from "@agentxm/extension-model/unstable/extensions/refs/skill";
+import type { SourceHostProvidersService } from "../sources/index.js";
+import {
+  describeTestFailure,
+  exactVersion,
+  extensionName,
+  handle,
+  versionRange,
+} from "./test-helpers.js";
+import type {
+  LocalPackRef,
+  RegistryPackRef,
+  WorkspacePackRef,
+} from "@agentxm/extension-model/unstable/extensions/refs/pack";
+import {
+  resolvePackDependenciesWithReleaseAge,
+  type ReleaseAgeAwarePackDependencyResolution,
+} from "./pack-dependency-resolution.js";
+
+const localPackRefFromConstraints = (dependencies: PackMemberConstraintMap): LocalPackRef => {
+  const name = extensionName("toolkit");
+  return {
+    type: "pack",
+    refType: "local",
+    owner: handle("@acme"),
+    name,
+    version: exactVersion("1.0.0"),
+    source: { type: "local", path: "/workspace/catalog" },
+    sourcePath: "packs/toolkit",
+    location: "file:///workspace/catalog/packs/toolkit",
+    sourceMembers: [localSkill()],
+    pack: {
+      name,
+      dependencies,
+    },
+  };
+};
+
+const localPackRef = (dependencies: Readonly<Record<string, string>>): LocalPackRef =>
+  localPackRefFromConstraints(
+    Object.fromEntries(
+      Object.entries(dependencies).map(([fqn, constraint]) => [fqn, versionRange(constraint)]),
+    ),
+  );
+
+const localSkill = (): LocalSkillRef => {
+  const name = extensionName("review");
+  return {
+    type: "skill",
+    refType: "local",
+    owner: handle("@acme"),
+    name,
+    source: { type: "local", path: "/workspace/catalog" },
+    sourcePath: "skills/review",
+    location: "file:///workspace/catalog/skills/review",
+    skill: { name, description: Option.none(), metadata: Option.none() },
+  };
+};
+
+const registrySource = {
+  type: "registry" as const,
+  name: "agentxm",
+  location: new URL("https://registry.agentxm.ai"),
+  owner: Option.none(),
+};
+
+const packRef = (dependencies: Readonly<Record<string, string>>): RegistryPackRef => ({
+  type: "pack",
+  refType: "registry",
+  pack: {
+    name: extensionName("toolkit"),
+    dependencies: Object.fromEntries(
+      Object.entries(dependencies).map(([fqn, constraint]) => [fqn, versionRange(constraint)]),
+    ),
+  },
+  source: registrySource,
+  owner: handle("@acme"),
+  publisherBindingId: "hbnd_pack",
+  name: extensionName("toolkit"),
+  version: exactVersion("1.0.0"),
+  integrity: Option.some("sha512-pack"),
+  packages: [],
+});
+
+const workspacePackRef = (dependencies: Readonly<Record<string, string>>): WorkspacePackRef => {
+  const name = extensionName("toolkit");
+  return {
+    type: "pack",
+    refType: "workspace",
+    pack: {
+      name,
+      dependencies: Object.fromEntries(
+        Object.entries(dependencies).map(([fqn, constraint]) => [fqn, versionRange(constraint)]),
+      ),
+    },
+    source: {
+      type: "workspace",
+      owner: handle("@acme"),
+      extensionType: "pack",
+      name,
+    },
+    owner: handle("@acme"),
+    name,
+    version: exactVersion("1.0.0"),
+    scope: "project",
+    location: "file:///workspace/agent_extensions/@acme/packs/toolkit",
+    sourceHash: computeSourceHash("workspace-toolkit"),
+  };
+};
+
+const workspaceSkill = (version: string): ExtensionRef => {
+  const name = extensionName("review");
+  return {
+    type: "skill",
+    refType: "workspace",
+    source: {
+      type: "workspace",
+      owner: handle("@acme"),
+      extensionType: "skill",
+      name,
+    },
+    owner: handle("@acme"),
+    name,
+    version: exactVersion(version),
+    scope: "project",
+    location: "file:///workspace/agent_extensions/@acme/skills/review",
+    sourceHash: computeSourceHash("workspace-review"),
+    skill: { name, description: Option.none(), metadata: Option.none() },
+  };
+};
+
+const registrySkill = (
+  owner = handle("@acme"),
+  name = extensionName("release"),
+): RegistrySkillRef => {
+  return {
+    type: "skill",
+    refType: "registry",
+    source: registrySource,
+    owner,
+    publisherBindingId: "hbnd_release",
+    name,
+    version: exactVersion("2.1.0"),
+    integrity: Option.some("sha512-release"),
+    packages: [],
+    skill: { name, description: Option.none(), metadata: Option.none() },
+  };
+};
+
+const providers = (overrides: {
+  readonly find?: SourceHostProvidersService["find"];
+  readonly resolveNamedRegistry?: SourceHostProvidersService["resolveNamedRegistry"];
+}): SourceHostProvidersService => ({
+  resolveNamedRegistry: overrides.resolveNamedRegistry ?? (() => Effect.die("not used")),
+  find: overrides.find ?? (() => Effect.die("not used")),
+  fetch: () => Effect.die("unused"),
+  acquireForTransition: () => Effect.die("unused"),
+  cloneUrl: () => Option.none(),
+  origin: () => "registry",
+});
+
+const agedEvaluation = {
+  minimumReleaseAge: Duration.hours(24),
+  evaluatedAt: DateTime.makeUnsafe("2026-08-12T00:00:00Z"),
+  mode: "enforce" as const,
+};
+
+/** The dependencies a selected resolution carries; a held one fails the test. */
+const selectedDependencies = (resolution: ReleaseAgeAwarePackDependencyResolution) =>
+  resolution.kind === "selected"
+    ? Effect.succeed(resolution.dependencies)
+    : Effect.die(`expected a selected resolution, got ${resolution.kind}`);
+
+describe("Pack member resolution without Registry release dates", () => {
+  it.effect("resolves sourceless members from the Pack's local repository", () =>
+    Effect.gen(function* () {
+      const find = vi.fn(() => Effect.die("The Pack source must not be reacquired"));
+      const resolved = yield* resolvePackDependenciesWithReleaseAge(
+        localPackRef({ "@acme/skills/review": "^1.0.0" }),
+        providers({ find }),
+        agedEvaluation,
+      ).pipe(Effect.flatMap(selectedDependencies));
+
+      expect(resolved.resolvedSkills["@acme/skills/review"]).toEqual({ source: "local" });
+      expect(resolved.dependencyRefs).toEqual([localSkill()]);
+      expect(find).not.toHaveBeenCalled();
+    }),
+  );
+
+  it.effect("resolves an explicit Registry member outside the Pack's local repository", () =>
+    Effect.gen(function* () {
+      const registryMember = registrySkill(handle("@agentxm"), extensionName("axm"));
+      const resolveNamedRegistry = vi.fn<SourceHostProvidersService["resolveNamedRegistry"]>(
+        (_source, options) =>
+          Effect.succeed({
+            kind: "selected",
+            target: `${options.owner}/skills/${options.name}`,
+            ref: registryMember,
+          }),
+      );
+      const resolved = yield* resolvePackDependenciesWithReleaseAge(
+        localPackRefFromConstraints({
+          "@agentxm/skills/axm": {
+            source: {
+              type: "registry",
+              url: new URL("https://registry.agentxm.ai"),
+            },
+            versionRange: versionRange("^2.0.0"),
+          },
+        }),
+        providers({ resolveNamedRegistry }),
+        agedEvaluation,
+      ).pipe(Effect.flatMap(selectedDependencies));
+
+      expect(resolved.dependencyRefs).toEqual([registryMember]);
+      expect(resolved.resolvedSkills["@agentxm/skills/axm"]).toMatchObject({
+        source: "registry",
+        version: "2.1.0",
+      });
+      expect(resolveNamedRegistry).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "registry",
+          location: new URL("https://registry.agentxm.ai"),
+        }),
+        expect.objectContaining({
+          name: "axm",
+          type: "skill",
+          releaseAgeEvaluation: agedEvaluation,
+        }),
+      );
+    }),
+  );
+
+  it.effect(
+    "resolves a mixed workspace and Registry pack without replacing workspace authority",
+    () =>
+      Effect.gen(function* () {
+        const resolveNamedRegistry = vi.fn<SourceHostProvidersService["resolveNamedRegistry"]>(
+          (_source, options) =>
+            Effect.succeed({
+              kind: "selected",
+              target: `${options.owner}/skills/${options.name}`,
+              ref: registrySkill(),
+            }),
+        );
+        const resolved = yield* resolvePackDependenciesWithReleaseAge(
+          packRef({
+            "@acme/skills/review": "^1.0.0",
+            "@acme/skills/release": "^2.0.0",
+          }),
+          providers({ resolveNamedRegistry }),
+          agedEvaluation,
+          undefined,
+          ({ type, name }) =>
+            Effect.succeed(
+              type === "skill" && name === "review"
+                ? { kind: "selected", ref: workspaceSkill("1.4.0") }
+                : { kind: "absent" },
+            ),
+        ).pipe(Effect.flatMap(selectedDependencies));
+
+        expect(resolved.resolvedSkills["@acme/skills/review"]).toMatchObject({
+          source: "workspace",
+          version: "1.4.0",
+          sourceIdentity: "workspace:@acme/skills/review",
+        });
+        expect(resolved.resolvedSkills["@acme/skills/release"]).toEqual({
+          source: "registry",
+          version: "2.1.0",
+          publisherBindingId: "hbnd_release",
+          integrity: "sha512-release",
+        });
+        expect(resolveNamedRegistry).toHaveBeenCalledTimes(1);
+      }),
+  );
+
+  it.effect(
+    "fails on an incompatible workspace-authoritative version without Registry fallback",
+    () =>
+      Effect.gen(function* () {
+        const resolveNamedRegistry = vi.fn(() => Effect.die("Registry fallback must not run"));
+        const error = yield* resolvePackDependenciesWithReleaseAge(
+          packRef({ "@acme/skills/review": "^2.0.0" }),
+          providers({ resolveNamedRegistry }),
+          agedEvaluation,
+          undefined,
+          () => Effect.succeed({ kind: "selected", ref: workspaceSkill("1.4.0") }),
+        ).pipe(Effect.flip);
+
+        expect(error).toMatchObject({
+          _tag: "PackConstraintShadowed",
+          packSource: "registry",
+          packFqn: "@acme/packs/toolkit",
+          memberFqn: "@acme/skills/review",
+          constraint: "^2.0.0",
+          workspaceVersion: "1.4.0",
+        });
+        expect(resolveNamedRegistry).not.toHaveBeenCalled();
+      }),
+  );
+
+  it.effect("points an authored pack at its runnable constraint repair", () =>
+    Effect.gen(function* () {
+      const error = yield* resolvePackDependenciesWithReleaseAge(
+        workspacePackRef({ "@acme/skills/review": "^2.0.0" }),
+        providers({}),
+        agedEvaluation,
+        undefined,
+        () => Effect.succeed({ kind: "selected", ref: workspaceSkill("1.4.0") }),
+      ).pipe(Effect.flip);
+
+      expect(error).toMatchObject({
+        _tag: "PackConstraintShadowed",
+        packSource: "workspace",
+        packFqn: "@acme/packs/toolkit",
+        memberFqn: "@acme/skills/review",
+        constraint: "^2.0.0",
+        workspaceVersion: "1.4.0",
+      });
+    }),
+  );
+
+  it.effect("propagates a workspace authority blocker without Registry fallback", () =>
+    Effect.gen(function* () {
+      const resolveNamedRegistry = vi.fn(() => Effect.die("Registry fallback must not run"));
+      const error = yield* resolvePackDependenciesWithReleaseAge(
+        packRef({ "@acme/skills/review": "^1.0.0" }),
+        providers({ resolveNamedRegistry }),
+        agedEvaluation,
+        undefined,
+        () => {
+          const decision = evaluateSourceAuthority({
+            target: {
+              type: "skill",
+              name: "review",
+              identity: "@acme/skills/review",
+            },
+            relationship: { kind: "member", root: "@acme/packs/toolkit" },
+            requested: {
+              authority: "registry",
+              fqn: "@acme/skills/review",
+              registry: { sourceName: undefined, endpoint: undefined },
+            },
+            configured: {
+              identity: { authority: "workspace", fqn: "@acme/skills/review" },
+              status: "corrupt",
+            },
+          });
+          return decision.kind === "blocked"
+            ? Effect.succeed(decision)
+            : Effect.die("expected blocked workspace authority");
+        },
+      ).pipe(Effect.flip);
+
+      expect(error).toMatchObject({ _tag: "SourceAuthorityBlocked" });
+      expect(describeTestFailure(error)).toContain("corrupt");
+      expect(error).toMatchObject({
+        recovery: [
+          {
+            description:
+              "Repair or explicitly remove the corrupt workspace dependency before installing the pack.",
+          },
+        ],
+      });
+      expect(resolveNamedRegistry).not.toHaveBeenCalled();
+    }),
+  );
+
+  it.effect("reports an accepted dependency outside the Pack constraint as a mismatch", () =>
+    Effect.gen(function* () {
+      const error = yield* resolvePackDependenciesWithReleaseAge(
+        packRef({ "@acme/skills/release": "^3.0.0" }),
+        providers({}),
+        agedEvaluation,
+        undefined,
+        undefined,
+        () => Effect.succeed(registrySkill()),
+      ).pipe(Effect.flip);
+
+      expect(error).toMatchObject({
+        _tag: "AcceptedPackMemberIncompatible",
+        type: "skill",
+        name: "release",
+        dependencyTarget: "@acme/skills/release",
+        acceptedVersion: "2.1.0",
+        constraint: "^3.0.0",
+      });
+    }),
+  );
+});
+
+describe("Pack member resolution under the minimum release age", () => {
+  const evaluation = agedEvaluation;
+
+  const namedProviders = (
+    resolveNamedRegistry: SourceHostProvidersService["resolveNamedRegistry"],
+  ): SourceHostProvidersService => ({
+    resolveNamedRegistry,
+    find: () => Effect.die("unused"),
+    fetch: () => Effect.die("unused"),
+    acquireForTransition: () => Effect.die("unused"),
+    cloneUrl: () => Option.none(),
+    origin: () => "registry",
+  });
+
+  it.effect("holds the complete graph and records the dependency path", () =>
+    Effect.gen(function* () {
+      const resolved = yield* resolvePackDependenciesWithReleaseAge(
+        packRef({ "@acme/skills/release": "^2.0.0" }),
+        namedProviders((_source, options) =>
+          Effect.succeed({
+            kind: "policy_held",
+            target: `${options.owner}/skills/${options.name}`,
+            requestedRange: "^2.0.0",
+            candidate: {
+              version: "2.1.0",
+              publishedAt: "2026-08-11T12:00:00.000Z",
+              eligibleAt: "2026-08-12T12:00:00.000Z",
+              minimumReleaseAgeSeconds: 86_400,
+            },
+          }),
+        ),
+        evaluation,
+      );
+
+      expect(resolved).toMatchObject({
+        kind: "policy_held",
+        holdbacks: [
+          {
+            target: "@acme/skills/release",
+            dependencyPath: ["@acme/packs/toolkit", "@acme/skills/release"],
+            requestedRange: "^2.0.0",
+            candidateVersion: "2.1.0",
+          },
+        ],
+      });
+    }),
+  );
+
+  it.effect(
+    "bypasses Registry and release-age selection for an accepted immutable dependency",
+    () =>
+      Effect.gen(function* () {
+        const resolver = vi.fn(() => Effect.succeed(registrySkill()));
+        const resolved = yield* resolvePackDependenciesWithReleaseAge(
+          packRef({ "@acme/skills/release": "^2.0.0" }),
+          namedProviders(() => Effect.die("Registry selection must not run")),
+          evaluation,
+          undefined,
+          undefined,
+          resolver,
+        );
+
+        expect(resolved).toMatchObject({
+          kind: "selected",
+          holdbacks: [],
+          bypasses: [],
+          dependencies: {
+            resolvedSkills: {
+              "@acme/skills/release": { source: "registry", version: "2.1.0" },
+            },
+          },
+        });
+        expect(resolver).toHaveBeenCalledExactlyOnceWith({
+          owner: "@acme",
+          type: "skill",
+          name: "release",
+          constraint: "^2.0.0",
+          root: "@acme/packs/toolkit",
+        });
+      }),
+  );
+
+  it.effect("selects an eligible dependency while disclosing its newer held release", () =>
+    Effect.gen(function* () {
+      const resolved = yield* resolvePackDependenciesWithReleaseAge(
+        packRef({ "@acme/skills/release": "^2.0.0" }),
+        namedProviders((_source, options) =>
+          Effect.succeed({
+            kind: "selected",
+            target: `${options.owner}/skills/${options.name}`,
+            ref: registrySkill(),
+            newerHeld: {
+              version: "2.2.0",
+              publishedAt: "2026-08-11T12:00:00.000Z",
+              eligibleAt: "2026-08-12T12:00:00.000Z",
+              minimumReleaseAgeSeconds: 86_400,
+            },
+          }),
+        ),
+        evaluation,
+      );
+
+      expect(resolved).toMatchObject({
+        kind: "selected",
+        holdbacks: [
+          {
+            dependencyPath: ["@acme/packs/toolkit", "@acme/skills/release"],
+            selectedVersion: "2.1.0",
+            candidateVersion: "2.2.0",
+          },
+        ],
+      });
+    }),
+  );
+
+  it.effect("records an explicitly bypassed dependency", () =>
+    Effect.gen(function* () {
+      const resolved = yield* resolvePackDependenciesWithReleaseAge(
+        packRef({ "@acme/skills/release": "^2.0.0" }),
+        namedProviders((_source, options) =>
+          Effect.succeed({
+            kind: "exempted",
+            target: `${options.owner}/skills/${options.name}`,
+            ref: registrySkill(),
+            exemption: { bypassCause: "ignore-flag" },
+            bypassed: {
+              version: "2.1.0",
+              publishedAt: "2026-08-11T12:00:00.000Z",
+              eligibleAt: "2026-08-12T12:00:00.000Z",
+              minimumReleaseAgeSeconds: 86_400,
+            },
+          }),
+        ),
+        { ...evaluation, mode: "ignore" },
+      );
+
+      expect(resolved).toMatchObject({
+        kind: "selected",
+        bypasses: [
+          {
+            target: "@acme/skills/release",
+            dependencyPath: ["@acme/packs/toolkit", "@acme/skills/release"],
+            candidateVersion: "2.1.0",
+          },
+        ],
+      });
+    }),
+  );
+
+  it.effect("grants an excluded pack's exemption to its whole dependency graph", () =>
+    Effect.gen(function* () {
+      const resolved = yield* resolvePackDependenciesWithReleaseAge(
+        packRef({ "@vendor/skills/release": "^2.0.0" }),
+        namedProviders((_source, options) => {
+          expect(options.releaseAgeEvaluation.grantedExemption).toEqual({
+            bypassCause: "exclude",
+            exemptionScope: "project",
+          });
+          return Effect.succeed({
+            kind: "exempted",
+            target: `${options.owner}/skills/${options.name}`,
+            ref: registrySkill(options.owner, extensionName(options.name)),
+            exemption: { bypassCause: "exclude", exemptionScope: "project" },
+            bypassed: {
+              version: "2.1.0",
+              publishedAt: "2026-08-11T12:00:00.000Z",
+              eligibleAt: "2026-08-12T12:00:00.000Z",
+              minimumReleaseAgeSeconds: 86_400,
+            },
+          });
+        }),
+        {
+          ...evaluation,
+          exclude: [
+            {
+              pattern: Schema.decodeUnknownSync(ReleaseAgeExcludePatternSchema)(
+                "@acme/packs/toolkit",
+              ),
+              scope: "project",
+            },
+          ],
+        },
+      );
+
+      expect(resolved).toMatchObject({
+        kind: "selected",
+        holdbacks: [],
+        bypasses: [
+          {
+            target: "@vendor/skills/release",
+            dependencyPath: ["@acme/packs/toolkit", "@vendor/skills/release"],
+            bypassCause: "exclude",
+            exemptionScope: "project",
+          },
+        ],
+      });
+    }),
+  );
+});

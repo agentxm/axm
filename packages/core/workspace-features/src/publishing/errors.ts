@@ -1,0 +1,29 @@
+/**
+ * Typed failures for the workspace publishing feature. The producer owns the
+ * category choice and user-facing wording; the application boundary converts
+ * the carried fields into its error envelope verbatim.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+
+import * as Schema from "effect/Schema";
+
+import {
+  FailureSuggestedActionSchema,
+  OperationErrorCategorySchema,
+} from "@agentxm/workspace-kernel/operations";
+
+/**
+ * A publish policy step could not proceed. The carried fields mirror the
+ * application error envelope's inputs 1:1: `category` selects the code,
+ * `recover` folds into the leading suggested action, and `detail`,
+ * `suggestions`, and `cause` carry over verbatim.
+ */
+export class PublishFailed extends Schema.TaggedError<PublishFailed>()("PublishFailed", {
+  category: OperationErrorCategorySchema,
+  detail: Schema.String,
+  recover: Schema.optional(Schema.String),
+  cmd: Schema.optional(Schema.String),
+  suggestions: Schema.optional(Schema.Array(FailureSuggestedActionSchema)),
+  cause: Schema.optional(Schema.Unknown),
+}) {}

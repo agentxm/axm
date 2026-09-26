@@ -12,12 +12,12 @@ import {
   StepFailure,
   renderConfirmationRecoveryCommand,
   type JobStepResult,
-} from "@agentxm/workspace/operations";
+} from "@agentxm/workspace-kernel/operations";
 import {
   extensionTypes,
   extensionTypeToPlural,
 } from "@agentxm/extension-model/unstable/extensions";
-import { applyPlan } from "@agentxm/workspace/transitions/planning";
+import { applyPlan } from "@agentxm/workspace-kernel/planning";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
@@ -26,8 +26,8 @@ import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { RegistryProblem } from "@agentxm/registry-client";
-import { GitDirectoryComparison } from "@agentxm/workspace/resolution/sources";
-import { GitDirectoryComparisonLive } from "@agentxm/workspace/resolution/sources/live";
+import { GitDirectoryComparison } from "@agentxm/workspace-kernel/sources";
+import { GitDirectoryComparisonLive } from "@agentxm/workspace-kernel/sources/live";
 
 import {
   at,
@@ -50,7 +50,7 @@ import {
   normalizePublishResult,
   publishCause,
   type PublishResultItem,
-} from "@agentxm/workspace/publishing";
+} from "@agentxm/workspace-features/publishing";
 import {
   buildPublishJobs,
   findPackPublishDivergenceFindings,
@@ -59,7 +59,7 @@ import {
   publishRecoverySelection,
   validatePublishOwners,
   PUBLISHABLE_TYPES,
-} from "@agentxm/workspace/publishing";
+} from "@agentxm/workspace-features/publishing";
 import {
   handleRootPublish,
   makeExactPublishRecovery,

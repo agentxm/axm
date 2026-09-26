@@ -1,4 +1,4 @@
-import { listHooks } from "@agentxm/workspace/inspection";
+import { listHooks } from "@agentxm/workspace-features/inspection";
 
 import { sourcedListColumns } from "../inventory-view.js";
 import { inventoryList, makePerTypeListCommand } from "../shared/list-command.js";

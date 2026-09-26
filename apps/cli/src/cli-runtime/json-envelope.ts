@@ -6,7 +6,7 @@ import {
   FailureMetadataSchema,
   FailureProblemSchema,
   type FailureMetadata,
-} from "@agentxm/workspace/operations";
+} from "@agentxm/workspace-kernel/operations";
 import {
   AppErrorCodeSchema,
   type AppError,

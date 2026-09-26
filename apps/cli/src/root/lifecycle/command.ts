@@ -20,7 +20,7 @@ import {
   RegistryTransitionSchema,
   RetirePublishedVersion,
   type RegistryTransition,
-} from "@agentxm/workspace/publishing";
+} from "@agentxm/workspace-features/publishing";
 import {
   ArchivalTransitionSchema,
   type ArchivalTransition,

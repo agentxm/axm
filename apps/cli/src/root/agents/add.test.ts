@@ -7,8 +7,8 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import type * as ServiceMap from "effect/Context";
 import { afterEach, beforeEach } from "vitest";
-import { AgentExecutableResolver } from "@agentxm/workspace/projection/agent-adapters";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
+import { AgentExecutableResolver } from "@agentxm/workspace-kernel/agent-adapters";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace-kernel/projection/live";
 import { workspaceInvariantFactsLive } from "../../test-support/workspace-invariant-facts-live.js";
 import {
   getAppError,
@@ -32,8 +32,8 @@ import {
   RuleManager,
   SkillManager,
   SubagentManager,
-} from "@agentxm/workspace/materialization";
-import { SkillDefinitionInvalid } from "@agentxm/workspace/skills";
+} from "@agentxm/workspace-kernel/materialization";
+import { SkillDefinitionInvalid } from "@agentxm/extension-kinds/skills";
 const cursorSuggestion = {
   description: "Allow AXM in Cursor by adding `axm` to `.cursor/sandbox.json`",
   url: "https://cursor.com/docs/cli/reference/permissions.md",

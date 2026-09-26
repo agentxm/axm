@@ -22,14 +22,14 @@ import {
   type RequestedPlanIntent,
   type ResolvedUnit,
   type PlanPolicyId,
-} from "@agentxm/workspace/operations";
+} from "@agentxm/workspace-kernel/operations";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
   installableExtensionTypes,
   isInstallableExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import { WorkspaceLocation } from "@agentxm/workspace/desired-state";
-import { extensionFromStepKey } from "@agentxm/workspace/reconciliation";
+import { WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
+import { extensionFromStepKey } from "@agentxm/workspace-kernel/reconciliation";
 import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
 
 export const makeConfirmationRecovery = (

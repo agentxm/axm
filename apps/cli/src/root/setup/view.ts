@@ -4,7 +4,7 @@ import type {
   SetupOutcome,
   SetupPlanDetail,
   SetupPlanRow,
-} from "@agentxm/workspace/configuration";
+} from "@agentxm/workspace-features/configuration";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 

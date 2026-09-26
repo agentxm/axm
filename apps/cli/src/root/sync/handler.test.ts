@@ -12,7 +12,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace-kernel/projection/live";
 import {
   HookManagerLive,
   KnowledgeManagerLive,
@@ -22,18 +22,18 @@ import {
   RuleManagerLive,
   SkillManagerLive,
   SubagentManagerLive,
-} from "@agentxm/workspace/kinds-live";
-import { ProjectionParticipantsLive } from "@agentxm/workspace/reconciliation/live";
-import { computePackManifestContentIdentity } from "@agentxm/workspace/desired-state";
+} from "@agentxm/extension-kinds/live";
+import { ProjectionParticipantsLive } from "@agentxm/workspace-kernel/reconciliation/live";
+import { computePackManifestContentIdentity } from "@agentxm/workspace-kernel/workspace-state";
 import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import { WorkspaceInvariantFactsLive } from "@agentxm/workspace/projection/live";
+import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-kernel/projection/live";
 import {
   SourceHostProviders,
   type SourceHostProvidersService,
   SourceNotResolvable,
-} from "@agentxm/workspace/resolution/sources";
-import { SourceHostProvidersLive } from "@agentxm/workspace/resolution/sources/live";
+} from "@agentxm/workspace-kernel/sources";
+import { SourceHostProvidersLive } from "@agentxm/workspace-kernel/sources/live";
 import YAML from "yaml";
 import {
   expectAppliedPlanResult,
@@ -56,7 +56,7 @@ import {
   writeWorkspaceFiles,
 } from "../../test-support/test-stubs.js";
 import { handleList as handleListMcpServers } from "../mcps/list.js";
-import { injectWriteFaults } from "@agentxm/workspace/transitions/settlement/testing";
+import { injectWriteFaults } from "@agentxm/workspace-kernel/settlement/testing";
 import { handleSync } from "./handler.js";
 import { WorkspaceFailureConversionLive } from "../../app-error/failure-catalog.js";
 

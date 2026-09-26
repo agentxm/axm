@@ -21,7 +21,7 @@ import * as Effect from "effect/Effect";
 import {
   GitDirectoryComparison,
   type GitDirectoryComparisonService,
-} from "@agentxm/workspace/resolution/sources";
+} from "@agentxm/workspace-kernel/sources";
 import { type handleRootPublish } from "../root/publish/command.js";
 
 import type { makeSpecWorkspace } from "./install-harness.js";

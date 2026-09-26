@@ -9,9 +9,9 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 
-import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
-import { ProjectionParticipantsLive } from "@agentxm/workspace/reconciliation/live";
-import { WorkspaceInvariantFactsLive } from "@agentxm/workspace/projection/live";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace-kernel/projection/live";
+import { ProjectionParticipantsLive } from "@agentxm/workspace-kernel/reconciliation/live";
+import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-kernel/projection/live";
 import {
   HookManagerLive,
   KnowledgeManagerLive,
@@ -20,8 +20,8 @@ import {
   RuleManagerLive,
   SkillManagerLive,
   SubagentManagerLive,
-} from "@agentxm/workspace/kinds-live";
-import { SourceHostProvidersLive } from "@agentxm/workspace/resolution/sources/live";
+} from "@agentxm/extension-kinds/live";
+import { SourceHostProvidersLive } from "@agentxm/workspace-kernel/sources/live";
 
 import {
   computeMaterializedTreeIntegritySync,
@@ -35,7 +35,7 @@ import {
   makeWorkspaceHandlerTestContext,
 } from "../../test-support/test-helpers.js";
 import { handleActivation } from "../activation-handler.js";
-import { buildAggregateProjectionStep } from "@agentxm/workspace/reconciliation";
+import { buildAggregateProjectionStep } from "@agentxm/workspace-kernel/reconciliation";
 import { WorkspaceFailureConversionLive } from "../../app-error/failure-catalog.js";
 
 const initializePack = (root: string) => {

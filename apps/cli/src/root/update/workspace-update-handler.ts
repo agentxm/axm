@@ -6,16 +6,16 @@ import {
   WORKSPACE_UPDATE_ATOMICITY,
   type ConfiguredUpdateSelector,
   type WorkspaceUpdatableType,
-} from "@agentxm/workspace/lifecycle";
-import { PACK_CONSTRAINT_CONFLICT_BLOCKER_ID } from "@agentxm/workspace/packs";
-import { ReleaseAgePosture } from "@agentxm/workspace/resolution";
+} from "@agentxm/workspace-features/lifecycle";
+import { PACK_CONSTRAINT_CONFLICT_BLOCKER_ID } from "@agentxm/extension-kinds/packs";
+import { ReleaseAgePosture } from "@agentxm/workspace-kernel/resolution";
 import {
   operationPresentation,
   publicRecoveryValue,
   recoveryOption,
   recoverySwitch,
   type ConfirmationRecovery,
-} from "@agentxm/workspace/operations";
+} from "@agentxm/workspace-kernel/operations";
 
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 

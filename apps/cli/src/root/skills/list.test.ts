@@ -1,4 +1,4 @@
-import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace/transitions/settlement/live";
+import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlement/live";
 /**
  * Unit tests for the list command handler.
  *
@@ -15,8 +15,8 @@ import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
-import type { WorkspaceStateOptions } from "@agentxm/workspace/desired-state";
-import { layer as coreWorkspaceLayer } from "@agentxm/workspace/desired-state/live";
+import type { WorkspaceStateOptions } from "@agentxm/workspace-kernel/workspace-state";
+import { layer as coreWorkspaceLayer } from "@agentxm/workspace-kernel/workspace-state/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { expectNoPlanEnvelope } from "../../test-support/test-helpers.js";
 import { handleList } from "./list.js";

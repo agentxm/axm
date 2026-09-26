@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { makeAuthoredPackFixture } from "@agentxm/workspace/inspection/testing";
+import { makeAuthoredPackFixture } from "@agentxm/workspace-features/inspection/testing";
 
 import { makeCliTestContext } from "../../test-support/test-helpers.js";
 import { humanScreenLayer, makeRecordingStreams } from "../../test-support/screen-harness.js";

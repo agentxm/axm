@@ -3,7 +3,7 @@ import {
   normalizePublishResult,
   type PublishResultInput,
   type PublishResultItem,
-} from "@agentxm/workspace/publishing";
+} from "@agentxm/workspace-features/publishing";
 
 import type { VerbosityLevel } from "../../../cli-flags/index.js";
 import { publishDoc } from "../../../root/publish/view.js";

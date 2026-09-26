@@ -1,4 +1,8 @@
 import * as DateTime from "effect/DateTime";
+import type {
+  McpConfigTarget,
+  McpServersKey,
+} from "@agentxm/extension-model/unstable/agent-capabilities";
 
 import { isAxmManagedMcpEntry } from "../../projection/agent-adapters/index.js";
 export type InlineMcpDefinition =
@@ -15,14 +19,16 @@ export type InlineMcpDefinition =
 
 export interface McpImportSource {
   readonly filePath: string;
-  readonly serversKey: string;
-  readonly config: Readonly<Record<string, unknown>>;
+  readonly serversKey: McpServersKey;
+  readonly target: McpConfigTarget;
+  readonly servers: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
 }
 
 export interface McpImportAdoption {
   readonly filePath: string;
-  readonly serversKey: string;
+  readonly serversKey: McpServersKey;
   readonly name: string;
+  readonly target: McpConfigTarget;
 }
 
 export interface McpImportCandidate {
@@ -307,23 +313,22 @@ export const preflightMcpImports = (args: {
     left.filePath.localeCompare(right.filePath),
   );
   for (const source of sources) {
-    const servers = source.config[source.serversKey];
-    if (!isRecord(servers)) continue;
-    for (const [name, value] of Object.entries(servers).sort(([left], [right]) =>
+    for (const [name, value] of Object.entries(source.servers).sort(([left], [right]) =>
       left.localeCompare(right),
     )) {
       if (args.configuredNames.has(name)) {
         skipped.push({ name, reason: "Already configured" });
         continue;
       }
-      if (!isRecord(value)) {
-        skipped.push({ name, reason: "Unsupported MCP server configuration" });
-        continue;
-      }
       const normalized = normalizeServer({
         name,
         config: value,
-        adoption: { filePath: source.filePath, serversKey: source.serversKey, name },
+        adoption: {
+          filePath: source.filePath,
+          serversKey: source.serversKey,
+          name,
+          target: source.target,
+        },
         now: args.now,
       });
       if (normalized._tag === "skip") {

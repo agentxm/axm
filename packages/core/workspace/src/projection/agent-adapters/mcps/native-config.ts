@@ -14,13 +14,14 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { parse, type ParseError } from "jsonc-parser";
+import { parse as parseToml } from "smol-toml";
 import type { McpConfigTarget } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { isPathSafe } from "@agentxm/extension-model/unstable/path-types";
 import { osHomeDirectory } from "@agentxm/host-primitives";
 import { McpConfigInvalid, McpConfigIoFailed } from "../errors.js";
 import { managedKeyedBlockNames } from "../managed-regions-keyed-block.js";
 import { parseTomlValue, stringifyTomlKey } from "../toml.js";
-import { managedYamlNames, readYamlEntry } from "../yaml.js";
+import { managedYamlNames, parseYaml, readYamlEntry } from "../yaml.js";
 import { isAxmManagedMcpEntry } from "./entry-semantics.js";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -123,6 +124,52 @@ export interface NativeMcpConfigRead {
   readonly raw: string;
   readonly serversKey: string;
 }
+
+/** Record-shaped server declarations from any supported native config. */
+export const readNativeMcpServers = (
+  args: NativeMcpConfigRead,
+): Effect.Effect<Readonly<Record<string, Readonly<Record<string, unknown>>>>, McpConfigInvalid> =>
+  Effect.gen(function* () {
+    const servers = yield* Effect.gen(function* () {
+      switch (args.format) {
+        case "json":
+        case "jsonc":
+        case "starlark":
+        case "vscode-settings":
+          return (yield* decodeJsonMcpConfig(args.configPath, args.raw, args.serversKey)).servers;
+        case "yaml":
+        case "toml": {
+          const root = yield* Effect.try({
+            try: (): unknown =>
+              args.format === "yaml" ? parseYaml(args.raw) : parseToml(args.raw),
+            catch: (cause) =>
+              new McpConfigInvalid({
+                detail: `Invalid MCP config ${args.format.toUpperCase()}: ${args.configPath}`,
+                cause,
+              }),
+          });
+          if (root === null || root === undefined) return undefined;
+          if (!isRecord(root)) {
+            return yield* new McpConfigInvalid({
+              detail: `Invalid MCP config format: ${args.configPath} (root must be an object)`,
+            });
+          }
+          const value = root[args.serversKey];
+          if (value !== undefined && !isRecord(value)) {
+            return yield* new McpConfigInvalid({
+              detail: `Invalid MCP config format: ${args.configPath} (${args.serversKey} must be an object)`,
+            });
+          }
+          return value;
+        }
+      }
+    });
+    return Object.fromEntries(
+      Object.entries(servers ?? {}).filter((entry): entry is [string, Record<string, unknown>] =>
+        isRecord(entry[1]),
+      ),
+    );
+  });
 
 /**
  * The entry one server holds in a keyed (JSON-like or YAML) native config.

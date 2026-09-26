@@ -23,27 +23,27 @@
  */
 
 import * as Effect from "effect/Effect";
-import type * as FileSystem from "effect/FileSystem";
+import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
-import type * as Path from "effect/Path";
+import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import { parse as parseJson, type ParseError } from "jsonc-parser";
-import { parse as parseToml } from "smol-toml";
-import { parse as parseYaml } from "yaml";
-import { osHomeDirectory } from "@agentxm/host-primitives";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import type {
   AgentDescriptor,
   MaterializationTargetId,
 } from "@agentxm/extension-model/unstable/agents/types";
 import type { McpConfigTarget } from "@agentxm/extension-model/unstable/agent-capabilities";
-import { configuredMcpCapability } from "../../../../projection/agent-adapters/index.js";
+import {
+  configuredMcpCapability,
+  readNativeMcpConfig,
+  readNativeMcpServers,
+  resolveAgentMcpConfigTargetPath,
+} from "../../../../projection/agent-adapters/index.js";
 import {
   ExtensionNameSchema,
   type ExtensionName,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
-import { isPathSafe } from "@agentxm/extension-model/unstable/path-types";
 import type { Diagnostics } from "../diagnostics.js";
 import type { Scope } from "../types.js";
 import type { McpConfigOccurrence, McpConfigSurface } from "./types.js";
@@ -78,84 +78,46 @@ export const makeMcpConfigScanner = (
 // Helpers: read + parse + extract server names
 // ---------------------------------------------------------------------------
 
-/**
- * Minimum shape the scanner needs from an MCP config file: a top-level
- * object that may contain an agent-configured server record. Per-server payloads stay
- * opaque (`Schema.Unknown`) — Phase 7's MCP server subject module decodes
- * them through its own schema. The scanner only emits one occurrence per
- * server name.
- */
-const McpConfigShapeSchema = Schema.Record(Schema.String, Schema.Unknown);
-
-const decodeMcpConfigShape = Schema.decodeUnknownEffect(McpConfigShapeSchema);
-
 // MCP configs can contain arbitrary, user-authored server names. Only names that
 // are valid AXM extension names can be managed; skip the rest instead of letting
 // a non-conforming name (e.g. uppercase or underscore) crash the whole scan.
 const decodeExtensionNameOption = Schema.decodeUnknownOption(ExtensionNameSchema);
 
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
 const extractServers = (
-  decoded: typeof McpConfigShapeSchema.Type,
-  serversKey: string,
+  servers: Readonly<Record<string, Readonly<Record<string, unknown>>>>,
 ): ReadonlyArray<{
   readonly name: ExtensionName;
   readonly config: Readonly<Record<string, unknown>>;
 }> =>
-  !isRecord(decoded[serversKey])
-    ? []
-    : Object.entries(decoded[serversKey]).flatMap(([name, config]) => {
-        if (!isRecord(config)) return [];
-        const decodedName = decodeExtensionNameOption(name);
-        return Option.isNone(decodedName) ? [] : [{ name: decodedName.value, config }];
-      });
-
-const parseMcpConfig = (raw: string, format: McpConfigTarget["format"]): unknown => {
-  if (format === "toml") return parseToml(raw);
-  if (format === "yaml") return parseYaml(raw);
-  const errors: Array<ParseError> = [];
-  const value: unknown = parseJson(raw, errors, { allowTrailingComma: true });
-  if (errors.length > 0) throw errors;
-  return value;
-};
+  Object.entries(servers).flatMap(([name, config]) => {
+    const decodedName = decodeExtensionNameOption(name);
+    return Option.isNone(decodedName) ? [] : [{ name: decodedName.value, config }];
+  });
 
 const readMcpConfig = (
   fs: FileSystem.FileSystem,
   diagnostics: Diagnostics,
   filePath: string,
   format: McpConfigTarget["format"],
-): Effect.Effect<Option.Option<typeof McpConfigShapeSchema.Type>> =>
+  serversKey: string,
+): Effect.Effect<Option.Option<Readonly<Record<string, Readonly<Record<string, unknown>>>>>> =>
   Effect.gen(function* () {
-    const exists = yield* Effect.result(fs.exists(filePath));
-    if (exists._tag === "Failure") {
-      yield* diagnostics.append({
-        source: "scanner",
-        message: `${SCANNER_NAME}: cannot stat ${filePath}`,
-        path: filePath,
-        code: "scanner-io",
-      });
-      return Option.none();
-    }
-    if (!exists.success) return Option.none();
-
-    const read = yield* Effect.result(fs.readFileString(filePath));
+    const read = yield* Effect.result(
+      readNativeMcpConfig(filePath).pipe(Effect.provideService(FileSystem.FileSystem, fs)),
+    );
     if (read._tag === "Failure") {
       yield* diagnostics.append({
         source: "scanner",
-        message: `${SCANNER_NAME}: cannot read ${filePath}`,
+        message: `${SCANNER_NAME}: cannot ${read.failure.detail.startsWith("Failed to inspect") ? "stat" : "read"} ${filePath}`,
         path: filePath,
         code: "scanner-io",
       });
       return Option.none();
     }
+    if (Option.isNone(read.success)) return Option.none();
 
     const parsed = yield* Effect.result(
-      Effect.try({
-        try: (): unknown => parseMcpConfig(read.success, format),
-        catch: (cause: unknown): { readonly cause: unknown } => ({ cause }),
-      }),
+      readNativeMcpServers({ format, configPath: filePath, raw: read.success.value, serversKey }),
     );
     if (parsed._tag === "Failure") {
       yield* diagnostics.append({
@@ -167,20 +129,13 @@ const readMcpConfig = (
       return Option.none();
     }
 
-    const decoded = yield* Effect.result(decodeMcpConfigShape(parsed.success));
-    if (decoded._tag === "Failure") {
-      yield* diagnostics.append({
-        source: "scanner",
-        message: `${SCANNER_NAME}: invalid MCP config shape at ${filePath}: ${decoded.failure.message}`,
-        path: filePath,
-        code: "scanner-parse",
-      });
-      return Option.none();
-    }
-    return Option.some(decoded.success);
+    return Option.some(parsed.success);
   });
 
-type McpConfigReadCache = Map<string, Option.Option<typeof McpConfigShapeSchema.Type>>;
+type McpConfigReadCache = Map<
+  string,
+  Option.Option<Readonly<Record<string, Readonly<Record<string, unknown>>>>>
+>;
 
 const readMcpConfigCached = (
   cache: McpConfigReadCache,
@@ -188,10 +143,11 @@ const readMcpConfigCached = (
   diagnostics: Diagnostics,
   filePath: string,
   format: McpConfigTarget["format"],
-): Effect.Effect<Option.Option<typeof McpConfigShapeSchema.Type>> => {
+  serversKey: string,
+): Effect.Effect<Option.Option<Readonly<Record<string, Readonly<Record<string, unknown>>>>>> => {
   const existing = cache.get(filePath);
   if (existing !== undefined) return Effect.succeed(existing);
-  return readMcpConfig(fs, diagnostics, filePath, format).pipe(
+  return readMcpConfig(fs, diagnostics, filePath, format, serversKey).pipe(
     Effect.tap((decoded) =>
       Effect.sync(() => {
         cache.set(filePath, decoded);
@@ -241,32 +197,6 @@ const planMcpSurfaces = (
   return [...plans.values()];
 };
 
-const resolveMcpConfigTargetPath = (
-  deps: McpConfigScannerDeps,
-  target: McpConfigTarget,
-): Effect.Effect<Option.Option<string>> =>
-  Effect.gen(function* () {
-    const { path, workspaceRoot, diagnostics } = deps;
-    const home = yield* osHomeDirectory;
-    const configPath =
-      target.scope === "user"
-        ? target.path.startsWith("~/")
-          ? path.join(home, target.path.slice(2))
-          : path.resolve(home, target.path)
-        : path.resolve(workspaceRoot, target.path);
-
-    if (target.scope === "project" && !isPathSafe(path, workspaceRoot, configPath)) {
-      yield* diagnostics.append({
-        source: "scanner",
-        message: `${SCANNER_NAME}: MCP config target escapes workspace root: ${target.path}`,
-        path: configPath,
-        code: "scanner-config",
-      });
-      return Option.none();
-    }
-    return Option.some(configPath);
-  });
-
 const scanMcpSurface = (
   deps: McpConfigScannerDeps,
   plan: McpSurfaceScanPlan,
@@ -274,18 +204,31 @@ const scanMcpSurface = (
 ): Effect.Effect<ReadonlyArray<McpConfigOccurrence>> =>
   Effect.gen(function* () {
     const { fs, path, scope, diagnostics } = deps;
-    const filePathOpt = yield* resolveMcpConfigTargetPath(deps, plan.target);
-    if (Option.isNone(filePathOpt)) return [];
+    const resolved = yield* Effect.result(
+      resolveAgentMcpConfigTargetPath(deps.workspaceRoot, plan.target).pipe(
+        Effect.provideService(Path.Path, path),
+      ),
+    );
+    if (resolved._tag === "Failure") {
+      yield* diagnostics.append({
+        source: "scanner",
+        message: `${SCANNER_NAME}: ${resolved.failure.detail}`,
+        path: plan.target.path,
+        code: "scanner-config",
+      });
+      return [];
+    }
     const decoded = yield* readMcpConfigCached(
       cache,
       fs,
       diagnostics,
-      filePathOpt.value,
+      resolved.success,
       plan.target.format,
+      plan.serversKey,
     );
     if (Option.isNone(decoded)) return [];
-    const servers = extractServers(decoded.value, plan.serversKey);
-    const contentLocation = makeAbsolutePath(path, filePathOpt.value);
+    const servers = extractServers(decoded.value);
+    const contentLocation = makeAbsolutePath(path, resolved.success);
     return servers.map<McpConfigOccurrence>((server) => ({
       _tag: "mcp-config",
       scope,

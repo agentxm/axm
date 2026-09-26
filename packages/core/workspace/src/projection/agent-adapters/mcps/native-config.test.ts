@@ -5,6 +5,7 @@ import {
   decodeJsonMcpConfig,
   managedNativeMcpEntryNames,
   readNativeMcpEntry,
+  readNativeMcpServers,
 } from "./native-config.js";
 
 const managed = {
@@ -55,6 +56,35 @@ describe("native MCP config reads", () => {
         Option.some({ command: "x" }),
       );
       expect(yield* readNativeMcpEntry({ ...read, serverName: "absent" })).toEqual(Option.none());
+    }),
+  );
+
+  it.effect.each([
+    { format: "json" as const, raw: '{"mcpServers":{"demo":{"command":"node"},"ignored":42}}' },
+    {
+      format: "jsonc" as const,
+      raw: '{// comment\n"mcpServers":{"demo":{"command":"node"},"ignored":42}}',
+    },
+    { format: "starlark" as const, raw: '{"mcpServers":{"demo":{"command":"node"},"ignored":42}}' },
+    {
+      format: "vscode-settings" as const,
+      raw: '{"mcpServers":{"demo":{"command":"node"},"ignored":42}}',
+    },
+    { format: "yaml" as const, raw: "mcpServers:\n  demo:\n    command: node\n  ignored: 42\n" },
+    {
+      format: "toml" as const,
+      raw: '[mcpServers.demo]\ncommand = "node"\n[mcpServers]\nignored = 42\n',
+    },
+  ])("reads record-shaped entries from $format", ({ format, raw }) =>
+    Effect.gen(function* () {
+      expect(
+        yield* readNativeMcpServers({
+          format,
+          configPath: "config",
+          raw,
+          serversKey: "mcpServers",
+        }),
+      ).toEqual({ demo: { command: "node" } });
     }),
   );
 });

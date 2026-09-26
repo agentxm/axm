@@ -209,6 +209,7 @@ export {
   parseTomlMcpEntry,
   readNativeMcpConfig,
   readNativeMcpEntry,
+  readNativeMcpServers,
   resolveAgentMcpConfigTargetPath,
   type DecodedJsonMcpConfig,
   type NativeMcpConfigRead,

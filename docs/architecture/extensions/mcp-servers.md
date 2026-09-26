@@ -36,6 +36,9 @@ name grammar and are unique within the selected workspace scope.
 The MCP command group may add, import, or inspect server definitions. Import is
 a separately invoked authoring capability outside the workspace-recovery
 contract; observation and reconciliation never invoke it or infer its intent.
+Import reads native configuration through the agent-adapter readers and adopts
+JSON-like and YAML entries in place through the same writers; TOML fenced
+regions cannot be adopted in place.
 
 ## Non-responsibilities
 

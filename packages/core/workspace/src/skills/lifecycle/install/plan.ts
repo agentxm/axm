@@ -10,7 +10,6 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import type * as Config from "effect/Config";
 import * as FileSystem from "effect/FileSystem";
@@ -24,23 +23,13 @@ import { SkillManager } from "../../../materialization/index.js";
 import { prepareSkillInstallation } from "../application/installation.js";
 import { skillInstallationFacts } from "../adapters/installation.js";
 import { buildInstallOperation } from "../../../reconciliation/index.js";
-import type { Handle } from "@agentxm/extension-model/unstable/extensions";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import {
   PackageUrlPartsSchema,
   formatPackageDisplay,
   type PackageUrlParts,
 } from "@agentxm/extension-model/unstable/packaging";
-import {
-  parseInputPattern,
-  type InputParseResult,
-} from "@agentxm/extension-model/unstable/sources/parser";
-import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
-import {
-  SourceHostProviders,
-  type SourceResolutionFailure,
-} from "../../../resolution/sources/index.js";
 import {
   operationPresentation,
   type JobStepResult,
@@ -50,38 +39,10 @@ import {
 
 import type { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
 import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
-import type { RegistryLookupProbe } from "../../../lifecycle/install/registry-source-resolution.js";
 import {
-  installRefused,
-  sourceResolutionRefused,
   type InstallStepRequirements,
-  type ResolveInstallRequirements,
   type SkillInstallIntent,
 } from "../../../lifecycle/install/vocabulary.js";
-import { resolveSkillInstallSource } from "./source.js";
-
-/** A skill source after grammar parsing, before anything is discovered. */
-export interface ParsedSkillInstallRequest {
-  readonly source: Source;
-  readonly versionRange: Option.Option<VersionRange>;
-  readonly requestedSkills: ReadonlyArray<string>;
-  readonly requestedOwner: Option.Option<Handle>;
-  /** Which configured registry hosts were consulted, and what each answered. */
-  readonly resolutionProbes: ReadonlyArray<RegistryLookupProbe>;
-  readonly all: boolean;
-  readonly force: boolean;
-  readonly nonInteractive: boolean;
-}
-
-const noSkillsFoundHowToFix = (source: Source): string => {
-  if (source.type === "registry") {
-    return "Verify the owner and skill name exist in the configured registry";
-  }
-  if (source.type === "local") {
-    return "Verify the source path contains directories with SKILL.md files";
-  }
-  return "Verify the source contains skill directories with SKILL.md files";
-};
 
 const decodePackageUrlParts = Schema.decodeUnknownResult(Schema.toType(PackageUrlPartsSchema));
 
@@ -155,126 +116,6 @@ export const buildCompanionPackagesSection = (
   }
   return { title: "Compatible packages", items };
 };
-
-const extractRequestedSkills = (
-  argSkills: ReadonlyArray<string>,
-  parsedSource: InputParseResult,
-): ReadonlyArray<string> =>
-  argSkills.length > 0
-    ? argSkills
-    : parsedSource.pattern.pattern === "name-input"
-      ? [parsedSource.pattern.name]
-      : parsedSource.pattern.pattern === "registry-pattern-input"
-        ? Option.isSome(parsedSource.pattern.name)
-          ? [parsedSource.pattern.name.value]
-          : []
-        : [];
-
-const extractRequestedOwner = (
-  parsedSource: InputParseResult,
-  source: Source,
-): Option.Option<Handle> =>
-  parsedSource.pattern.pattern === "registry-pattern-input"
-    ? Option.some(parsedSource.pattern.owner)
-    : source.type === "registry"
-      ? source.owner
-      : Option.none<Handle>();
-
-/** What a skill install command supplies before anything is parsed. */
-export interface SkillInstallArgs {
-  readonly source: string;
-  readonly skills: ReadonlyArray<string>;
-  readonly all: boolean;
-  readonly force: boolean;
-  readonly nonInteractive: boolean;
-}
-
-/** Read the skill source grammar and route it to the source that serves it. */
-export const parseSkillInstallRequest: (
-  args: SkillInstallArgs,
-) => Effect.Effect<
-  ParsedSkillInstallRequest,
-  ExtensionLifecycleFailed | SourceResolutionFailure,
-  ResolveInstallRequirements
-> = Effect.fn("InstallExtensions.parseSkillRequest")(function* (args: SkillInstallArgs) {
-  const parsedSourceOption = parseInputPattern(args.source.trim());
-  if (Option.isNone(parsedSourceOption)) {
-    return yield* installRefused({
-      category: "validation",
-      detail: "Invalid source: Unable to parse source",
-      recover:
-        "Valid formats: local path, github:owner/repo, gitlab:owner/repo, or https://example.com",
-    });
-  }
-
-  const parsedSource = parsedSourceOption.value;
-  const versionRange =
-    parsedSource.pattern.pattern === "registry-pattern-input"
-      ? parsedSource.pattern.versionRange
-      : Option.none<VersionRange>();
-
-  const resolutionProbes: Array<RegistryLookupProbe> = [];
-  const source = yield* resolveSkillInstallSource(parsedSource, {
-    onRegistryProbe: (probe) => {
-      resolutionProbes.push(probe);
-    },
-  });
-
-  return {
-    source,
-    versionRange,
-    requestedSkills: extractRequestedSkills(args.skills, parsedSource),
-    requestedOwner: extractRequestedOwner(parsedSource, source),
-    resolutionProbes,
-    all: args.all,
-    force: args.force,
-    nonInteractive: args.nonInteractive,
-  } satisfies ParsedSkillInstallRequest;
-});
-
-/** Discover the skills the parsed source offers, or refuse when it has none. */
-export const discoverSkillRefs: (
-  request: ParsedSkillInstallRequest,
-) => Effect.Effect<
-  ReadonlyArray<SkillExtensionRef>,
-  ExtensionLifecycleFailed | Config.ConfigError,
-  ResolveInstallRequirements
-> = Effect.fn("InstallExtensions.discoverSkills")(function* (request: ParsedSkillInstallRequest) {
-  const sources = yield* SourceHostProviders;
-  const discovered = yield* sources
-    .find(request.source, {
-      names: request.source.type === "registry" ? request.requestedSkills : [],
-      type: "skill" as const,
-      owner: request.requestedOwner,
-      versionRange: request.versionRange,
-    })
-    .pipe(
-      Effect.mapError((cause) =>
-        cause._tag === "ConfigError" ? cause : sourceResolutionRefused(cause),
-      ),
-      Effect.map(Array.filter((ref): ref is SkillExtensionRef => ref.type === "skill")),
-    );
-  if (Array.isReadonlyArrayEmpty(discovered)) {
-    return yield* installRefused({
-      category: "not_found",
-      detail: "No skills found in source",
-      recover: noSkillsFoundHowToFix(request.source),
-    });
-  }
-  return discovered;
-});
-
-/** The intent the selected skills become: each with the range its declaration keeps. */
-export const finalizeSkillInstallIntent = (
-  request: ParsedSkillInstallRequest,
-  selected: ReadonlyArray<SkillExtensionRef>,
-): SkillInstallIntent => ({
-  skillsToInstall: selected.map((ref) => ({
-    ref,
-    versionRange: ref.refType === "registry" ? request.versionRange : Option.none<VersionRange>(),
-  })),
-  force: request.force,
-});
 
 /**
  * One skill the planner realizes: the ref, the range its declaration keeps,

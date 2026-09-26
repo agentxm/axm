@@ -47,17 +47,7 @@ import type { ExtensionLifecycleFailed } from "../errors.js";
 import { withPublisherTrust } from "../publisher-binding.js";
 import { withSourceSwitches } from "../source-switch.js";
 import { planHookInstall } from "../../hooks/lifecycle/install/plan.js";
-import {
-  discoverHookRefs,
-  finalizeHookInstallIntent,
-  parseHookInstallRequest,
-} from "../../hooks/lifecycle/install/plan.js";
-import {
-  discoverKnowledgeRefs,
-  finalizeKnowledgeInstallIntent,
-  parseKnowledgeInstallRequest,
-  planKnowledgeInstall,
-} from "../../knowledge/lifecycle/install/plan.js";
+import { planKnowledgeInstall } from "../../knowledge/lifecycle/install/plan.js";
 import {
   discoverMcpServerRefs,
   finalizeMcpServerInstallIntent,
@@ -73,39 +63,35 @@ import {
   planPackInstall,
   resolvePackSourceRequest,
 } from "../../packs/lifecycle/install/plan.js";
+import { planRuleInstall } from "../../instructions/lifecycle/install/plan.js";
 import {
-  discoverRuleRefs,
-  finalizeRuleInstallIntent,
-  parseRuleInstallRequest,
-  planRuleInstall,
-} from "../../instructions/lifecycle/install/plan.js";
-import {
-  discoverSkillRefs,
-  finalizeSkillInstallIntent,
-  parseSkillInstallRequest,
   planSkillInstall,
   buildCompanionPackagesSection,
 } from "../../skills/lifecycle/install/plan.js";
-import {
-  discoverSubagentRefs,
-  finalizeSubagentInstallIntent,
-  parseSubagentInstallRequest,
-  planSubagentInstall,
-} from "../../subagents/lifecycle/install/plan.js";
+import { planSubagentInstall } from "../../subagents/lifecycle/install/plan.js";
 import {
   BundledAxmSkillAsset,
   planBundledAxmSkillInstall,
 } from "../../skills/lifecycle/install/bundled.js";
 import { buildConfiguredInstallPlan, type ConfiguredInstallRequirements } from "./configured.js";
 import { formatRegistryProbe } from "./registry-source-resolution.js";
+import {
+  discoverInstallRefs,
+  finalizeInstallRefs,
+  parseLocatorInstallRequest,
+  parseRegistryQualifiedInstallRequest,
+  type ParsedInstallRequest,
+  type SourceInstallRef,
+  type SourceInstallType,
+} from "./request.js";
 import { resolveRootInstallIntent } from "./root-intent.js";
 import {
   INSTALL_HELD_RELEASE_POLICY,
   installRefused,
-  sourceResolutionRefused,
   type InstallExecutionFailure,
   type InstallStepRequirements,
   type PrepareInstallRequirements,
+  type ResolveInstallRequirements,
 } from "./vocabulary.js";
 import { findGitReinstallRefs, pinGitReinstallRef } from "./git-reinstall.js";
 import { SourceHostProviders } from "../../resolution/sources/service.js";
@@ -275,6 +261,74 @@ const selectFrom = <Ref extends ExtensionRef>(
     Effect.mapError((failure) => new SelectionRefused({ failure })),
   );
 
+const parseSourceInstallRequest = (
+  type: SourceInstallType,
+  source: string,
+  names: ReadonlyArray<string>,
+): Effect.Effect<
+  ParsedInstallRequest,
+  ExtensionLifecycleFailed | Config.ConfigError,
+  ResolveInstallRequirements
+> => {
+  switch (type) {
+    case "skill":
+    case "subagent":
+      return parseLocatorInstallRequest(type, { source, names });
+    case "hook":
+    case "rule":
+    case "knowledge":
+      return parseRegistryQualifiedInstallRequest(type, source);
+  }
+};
+
+/** One source-backed selection and immutable Git reinstall decision for five kinds. */
+const settleSourceInstall = <T extends SourceInstallType>(
+  type: T,
+  source: string,
+  selectors: ReadonlyArray<string>,
+  request: InstallExtensionsRequest,
+) =>
+  Effect.gen(function* () {
+    const parsedSource = yield* parseSourceInstallRequest(type, source, selectors);
+    const names = selectors.length > 0 ? selectors : parsedSource.names;
+    const parsed = { ...parsedSource, names };
+    const isRequestedType = (ref: ExtensionRef): ref is SourceInstallRef<T> => ref.type === type;
+    const accepted =
+      request.reinstall && parsed.source.type === "git"
+        ? yield* findGitReinstallRefs(parsed.source, type, names)
+        : [];
+    const acceptedRefs = accepted.filter(isRequestedType);
+    const discovered =
+      acceptedRefs.length > 0 ? acceptedRefs : yield* discoverInstallRefs(type, parsed);
+    const selected = yield* selectFrom(discovered, {
+      type,
+      selectors: names,
+      all: request.all,
+      nonInteractive: request.nonInteractive,
+    });
+    const entries = yield* Effect.sync(() => finalizeInstallRefs(parsed, selected)).pipe(
+      Effect.withSpan("InstallExtensions.finalizeIntent", { attributes: { type } }),
+    );
+    const refs =
+      request.reinstall && acceptedRefs.length === 0
+        ? yield* Effect.forEach(entries, (entry) =>
+            pinGitReinstallRef(entry.ref).pipe(
+              Effect.flatMap((pinned) =>
+                isRequestedType(pinned)
+                  ? Effect.succeed({ ...entry, ref: pinned })
+                  : Effect.fail(
+                      installRefused({
+                        category: "internal",
+                        detail: `Accepted Git ${type === "knowledge" ? "Knowledge" : type} resolution changed extension type`,
+                      }),
+                    ),
+              ),
+            ),
+          )
+        : entries;
+    return { refs, foundCount: discovered.length, resolutionProbes: parsed.resolutionProbes };
+  });
+
 const planForType = (
   type: InstallableExtensionType,
   source: string,
@@ -291,65 +345,20 @@ const planForType = (
   switch (type) {
     case "skill":
       return Effect.gen(function* () {
-        const parsed = yield* parseSkillInstallRequest({
-          source,
-          skills: selectors,
-          all: request.all,
+        const settled = yield* settleSourceInstall("skill", source, selectors, request);
+        const plan = yield* planSkillInstall({
+          skillsToInstall: settled.refs,
           force: request.reinstall,
-          nonInteractive: request.nonInteractive,
-        }).pipe(
-          Effect.mapError((cause) =>
-            cause._tag === "ExtensionLifecycleFailed" || cause._tag === "ConfigError"
-              ? cause
-              : sourceResolutionRefused(cause),
-          ),
-        );
-        const accepted =
-          request.reinstall && parsed.source.type === "git"
-            ? yield* findGitReinstallRefs(parsed.source, "skill", parsed.requestedSkills)
-            : [];
-        const acceptedSkills = accepted.filter((ref) => ref.type === "skill");
-        const discovered =
-          acceptedSkills.length > 0 ? acceptedSkills : yield* discoverSkillRefs(parsed);
-        const selected = yield* selectFrom(discovered, {
-          type,
-          selectors: parsed.requestedSkills,
-          all: request.all,
-          nonInteractive: request.nonInteractive,
         });
-        const intent = finalizeSkillInstallIntent(parsed, selected);
-        const settledIntent =
-          request.reinstall && acceptedSkills.length === 0
-            ? {
-                ...intent,
-                skillsToInstall: yield* Effect.forEach(intent.skillsToInstall, (entry) =>
-                  pinGitReinstallRef(entry.ref).pipe(
-                    Effect.flatMap((ref) =>
-                      ref.type === "skill"
-                        ? Effect.succeed({ ...entry, ref })
-                        : Effect.fail(
-                            installRefused({
-                              category: "internal",
-                              detail: "Accepted Git skill resolution changed extension type",
-                            }),
-                          ),
-                    ),
-                  ),
-                ),
-              }
-            : intent;
-        const plan = yield* planSkillInstall(settledIntent);
-        const companions = buildCompanionPackagesSection(
-          settledIntent.skillsToInstall.map((entry) => entry.ref),
-        );
+        const companions = buildCompanionPackagesSection(settled.refs.map(({ ref }) => ref));
         return {
           plan,
           diagnostics: {
             resolutionLines: [
-              ...(parsed.resolutionProbes.length > 0
-                ? [`Resolution: ${parsed.resolutionProbes.map(formatRegistryProbe).join("; ")}`]
+              ...(settled.resolutionProbes.length > 0
+                ? [`Resolution: ${settled.resolutionProbes.map(formatRegistryProbe).join("; ")}`]
                 : []),
-              `Found ${discovered.length} skill${discovered.length === 1 ? "" : "s"}`,
+              `Found ${settled.foundCount} skill${settled.foundCount === 1 ? "" : "s"}`,
             ],
             companionPackages: companions === undefined ? [] : companions.items,
           },
@@ -357,60 +366,15 @@ const planForType = (
       });
     case "subagent":
       return Effect.gen(function* () {
-        const parsed = yield* parseSubagentInstallRequest({
-          source,
-          subagents: selectors,
-          all: request.all,
-          nonInteractive: request.nonInteractive,
-        }).pipe(
-          Effect.mapError((cause) =>
-            cause._tag === "ExtensionLifecycleFailed" || cause._tag === "ConfigError"
-              ? cause
-              : sourceResolutionRefused(cause),
-          ),
-        );
-        const accepted =
-          request.reinstall && parsed.source.type === "git"
-            ? yield* findGitReinstallRefs(parsed.source, "subagent", parsed.requestedSubagents)
-            : [];
-        const acceptedSubagents = accepted.filter((ref) => ref.type === "subagent");
-        const discovered =
-          acceptedSubagents.length > 0 ? acceptedSubagents : yield* discoverSubagentRefs(parsed);
-        const selected = yield* selectFrom(discovered, {
-          type,
-          selectors: parsed.requestedSubagents,
-          all: request.all,
-          nonInteractive: request.nonInteractive,
-        });
-        const intent = finalizeSubagentInstallIntent(parsed, selected);
-        const settledIntent =
-          request.reinstall && acceptedSubagents.length === 0
-            ? {
-                ...intent,
-                subagentsToInstall: yield* Effect.forEach(intent.subagentsToInstall, (entry) =>
-                  pinGitReinstallRef(entry.ref).pipe(
-                    Effect.flatMap((ref) =>
-                      ref.type === "subagent"
-                        ? Effect.succeed({ ...entry, ref })
-                        : Effect.fail(
-                            installRefused({
-                              category: "internal",
-                              detail: "Accepted Git subagent resolution changed extension type",
-                            }),
-                          ),
-                    ),
-                  ),
-                ),
-              }
-            : intent;
+        const settled = yield* settleSourceInstall("subagent", source, selectors, request);
         return {
-          plan: yield* planSubagentInstall(settledIntent),
+          plan: yield* planSubagentInstall({ subagentsToInstall: settled.refs }),
           diagnostics: {
             resolutionLines: [
-              ...(parsed.resolutionProbes.length > 0
-                ? [`Resolution: ${parsed.resolutionProbes.map(formatRegistryProbe).join("; ")}`]
+              ...(settled.resolutionProbes.length > 0
+                ? [`Resolution: ${settled.resolutionProbes.map(formatRegistryProbe).join("; ")}`]
                 : []),
-              `Found ${discovered.length} subagent${discovered.length === 1 ? "" : "s"}`,
+              `Found ${settled.foundCount} subagent${settled.foundCount === 1 ? "" : "s"}`,
             ],
             companionPackages: [],
           },
@@ -418,133 +382,25 @@ const planForType = (
       });
     case "rule":
       return Effect.gen(function* () {
-        const parsedSource = yield* parseRuleInstallRequest(source);
-        const effectiveSelectors = selectors.length > 0 ? selectors : parsedSource.names;
-        const parsed = {
-          ...parsedSource,
-          names: selectors.length > 0 ? selectors : parsedSource.names,
-        };
-        const accepted =
-          request.reinstall && parsed.source.type === "git"
-            ? yield* findGitReinstallRefs(parsed.source, "rule", parsed.names)
-            : [];
-        const acceptedRules = accepted.filter((ref) => ref.type === "rule");
-        const discovered =
-          acceptedRules.length > 0 ? acceptedRules : yield* discoverRuleRefs(parsed);
-        const selected = yield* selectFrom(discovered, {
-          type,
-          selectors: effectiveSelectors,
-          all: request.all,
-          nonInteractive: request.nonInteractive,
-        });
-        const intent = yield* finalizeRuleInstallIntent(parsed, selected);
-        const refs =
-          request.reinstall && acceptedRules.length === 0
-            ? yield* Effect.forEach(intent.refs, (entry) =>
-                pinGitReinstallRef(entry.ref).pipe(
-                  Effect.flatMap((ref) =>
-                    ref.type === "rule"
-                      ? Effect.succeed({ ...entry, ref })
-                      : Effect.fail(
-                          installRefused({
-                            category: "internal",
-                            detail: "Accepted Git rule resolution changed extension type",
-                          }),
-                        ),
-                  ),
-                ),
-              )
-            : intent.refs;
+        const settled = yield* settleSourceInstall("rule", source, selectors, request);
         return {
-          plan: yield* planRuleInstall({ ...intent, refs }),
+          plan: yield* planRuleInstall({ refs: settled.refs }),
           diagnostics: EMPTY_DIAGNOSTICS,
         };
       });
     case "hook":
       return Effect.gen(function* () {
-        const parsedSource = yield* parseHookInstallRequest(source);
-        const effectiveSelectors = selectors.length > 0 ? selectors : parsedSource.names;
-        const parsed = {
-          ...parsedSource,
-          names: selectors.length > 0 ? selectors : parsedSource.names,
-        };
-        const accepted =
-          request.reinstall && parsed.source.type === "git"
-            ? yield* findGitReinstallRefs(parsed.source, "hook", parsed.names)
-            : [];
-        const acceptedHooks = accepted.filter((ref) => ref.type === "hook");
-        const discovered =
-          acceptedHooks.length > 0 ? acceptedHooks : yield* discoverHookRefs(parsed);
-        const selected = yield* selectFrom(discovered, {
-          type,
-          selectors: effectiveSelectors,
-          all: request.all,
-          nonInteractive: request.nonInteractive,
-        });
-        const intent = yield* finalizeHookInstallIntent(parsed, selected);
-        const refs =
-          request.reinstall && acceptedHooks.length === 0
-            ? yield* Effect.forEach(intent.refs, (entry) =>
-                pinGitReinstallRef(entry.ref).pipe(
-                  Effect.flatMap((ref) =>
-                    ref.type === "hook"
-                      ? Effect.succeed({ ...entry, ref })
-                      : Effect.fail(
-                          installRefused({
-                            category: "internal",
-                            detail: "Accepted Git hook resolution changed extension type",
-                          }),
-                        ),
-                  ),
-                ),
-              )
-            : intent.refs;
+        const settled = yield* settleSourceInstall("hook", source, selectors, request);
         return {
-          plan: yield* planHookInstall({ ...intent, refs }),
+          plan: yield* planHookInstall({ refs: settled.refs }),
           diagnostics: EMPTY_DIAGNOSTICS,
         };
       });
     case "knowledge":
       return Effect.gen(function* () {
-        const parsedSource = yield* parseKnowledgeInstallRequest(source);
-        const effectiveSelectors = selectors.length > 0 ? selectors : parsedSource.names;
-        const parsed = {
-          ...parsedSource,
-          names: selectors.length > 0 ? selectors : parsedSource.names,
-        };
-        const accepted =
-          request.reinstall && parsed.source.type === "git"
-            ? yield* findGitReinstallRefs(parsed.source, "knowledge", parsed.names)
-            : [];
-        const acceptedKnowledge = accepted.filter((ref) => ref.type === "knowledge");
-        const discovered =
-          acceptedKnowledge.length > 0 ? acceptedKnowledge : yield* discoverKnowledgeRefs(parsed);
-        const selected = yield* selectFrom(discovered, {
-          type,
-          selectors: effectiveSelectors,
-          all: request.all,
-          nonInteractive: request.nonInteractive,
-        });
-        const intent = yield* finalizeKnowledgeInstallIntent(parsed, selected);
-        const refs =
-          request.reinstall && acceptedKnowledge.length === 0
-            ? yield* Effect.forEach(intent.refs, (entry) =>
-                pinGitReinstallRef(entry.ref).pipe(
-                  Effect.flatMap((ref) =>
-                    ref.type === "knowledge"
-                      ? Effect.succeed({ ...entry, ref })
-                      : Effect.fail(
-                          installRefused({
-                            category: "internal",
-                            detail: "Accepted Git Knowledge resolution changed extension type",
-                          }),
-                        ),
-                  ),
-                ),
-              )
-            : intent.refs;
+        const settled = yield* settleSourceInstall("knowledge", source, selectors, request);
         return {
-          plan: yield* planKnowledgeInstall({ ...intent, refs }),
+          plan: yield* planKnowledgeInstall({ refs: settled.refs }),
           diagnostics: EMPTY_DIAGNOSTICS,
         };
       });

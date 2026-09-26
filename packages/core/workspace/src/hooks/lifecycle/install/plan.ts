@@ -19,15 +19,8 @@ import {
   forecastInstallChange,
   type InstallArtifactPresentation,
 } from "../../../reconciliation/index.js";
-import {
-  parseSourceQualifiedRegistrySourcePatternParts,
-  type Handle,
-} from "@agentxm/extension-model/unstable/extensions";
 import type { HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import { HOOK_EXTENSION_DIR } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
-import type { Source } from "@agentxm/extension-model/unstable/sources/types";
-import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
-import { SourceHostProviders, resolveSource } from "../../../resolution/sources/index.js";
 import {
   operationPresentation,
   type JobStepArtifact,
@@ -49,22 +42,11 @@ import {
 
 import type { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
 import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
-import { registryLoginSuggestions } from "../../../lifecycle/install/registry-login-suggestion.js";
 import {
   installRefused,
-  sourceResolutionRefused,
   type HookInstallIntent,
   type InstallStepRequirements,
-  type ResolveInstallRequirements,
 } from "../../../lifecycle/install/vocabulary.js";
-
-/** A hooks source after grammar parsing, before anything is discovered. */
-export interface ParsedHookInstallRequest {
-  readonly source: Source;
-  readonly names: ReadonlyArray<string>;
-  readonly owner: Option.Option<Handle>;
-  readonly versionRange: Option.Option<VersionRange>;
-}
 
 const hookRefArtifactPath = (ref: HookExtensionRef, scope: JobStepArtifact["scope"]): string =>
   ref.refType === "workspace"
@@ -102,87 +84,6 @@ export const hookInstallArtifact = (args: {
     ...(args.targets.length === 0 ? {} : { fileCount: args.targets.length, targets: args.targets }),
   };
 };
-
-/** Read the hooks source grammar: which owner, which names, which range. */
-export const parseHookInstallRequest: (
-  source: string,
-) => Effect.Effect<ParsedHookInstallRequest, ExtensionLifecycleFailed, ResolveInstallRequirements> =
-  Effect.fn("InstallExtensions.parseHookRequest")(function* (source: string) {
-    const input = source.trim();
-    const parsed = parseSourceQualifiedRegistrySourcePatternParts(input);
-    const resolved = yield* resolveSource(input).pipe(
-      Effect.mapError((error) =>
-        installRefused({
-          category: "validation",
-          detail: `Invalid hooks source: ${error.message}`,
-          cause: error,
-        }),
-      ),
-    );
-
-    return {
-      source: resolved,
-      names: parsed?.type === "hooks" && parsed.name !== undefined ? [parsed.name] : [],
-      owner:
-        parsed?.type === "hooks"
-          ? Option.some(parsed.owner)
-          : resolved.type === "registry"
-            ? resolved.owner
-            : Option.none<Handle>(),
-      versionRange:
-        resolved.type === "registry" && parsed?.type === "hooks"
-          ? Option.fromUndefinedOr(parsed.versionRange)
-          : Option.none<VersionRange>(),
-    };
-  });
-
-/** Discover the hooks packages the parsed source offers. */
-export const discoverHookRefs: (
-  request: ParsedHookInstallRequest,
-) => Effect.Effect<
-  ReadonlyArray<HookExtensionRef>,
-  ExtensionLifecycleFailed,
-  ResolveInstallRequirements
-> = Effect.fn("InstallExtensions.discoverHooks")(function* (request: ParsedHookInstallRequest) {
-  const sources = yield* SourceHostProviders;
-  return yield* sources
-    .find(request.source, {
-      names: request.names,
-      type: "hook",
-      owner: request.owner,
-      versionRange: request.versionRange,
-    })
-    .pipe(
-      Effect.mapError((cause) => sourceResolutionRefused(cause)),
-      Effect.map((refs) => refs.filter((ref): ref is HookExtensionRef => ref.type === "hook")),
-    );
-});
-
-/** Settle which hooks packages this request installs, or refuse when none matched. */
-export const finalizeHookInstallIntent: (
-  request: ParsedHookInstallRequest,
-  refs: ReadonlyArray<HookExtensionRef>,
-) => Effect.Effect<HookInstallIntent, ExtensionLifecycleFailed> = Effect.fn(
-  "InstallExtensions.finalizeHookIntent",
-)(function* (request: ParsedHookInstallRequest, refs: ReadonlyArray<HookExtensionRef>) {
-  if (refs.length === 0) {
-    const suggestions =
-      request.source.type === "registry"
-        ? yield* registryLoginSuggestions([request.source.location.href])
-        : [];
-    return yield* installRefused({
-      category: "not_found",
-      detail: "No hooks packages found in source",
-      suggestions,
-    });
-  }
-  return {
-    refs: refs.map((ref) => ({
-      ref,
-      versionRange: ref.refType === "registry" ? request.versionRange : Option.none(),
-    })),
-  } satisfies HookInstallIntent;
-});
 
 /** The closures a settled hook intent becomes. */
 export const planHookInstall: (

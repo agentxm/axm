@@ -52,7 +52,6 @@ import {
   proposeDesiredState,
   realizeActivation,
   type ActivationRealization,
-  type ActivationRealized,
   syncFailureRendering,
   type SyncFailureAdapter,
   type SyncPolicyFailure,
@@ -70,9 +69,7 @@ import {
   instructionReadinessDetail,
   instructionReconciliationReadiness,
   observeInstructions,
-  reconcileInstructions,
   type ProjectionParticipantRequirements,
-  type ResolvedInstructionsConfig,
 } from "../../projection/index.js";
 import {
   OperationJournal,
@@ -155,8 +152,6 @@ interface ActivationCandidate {
   readonly artifact: JobStepArtifact;
   /** What the graph will say, and how the change is realized. */
   readonly realization: ActivationRealization;
-  /** The instruction configuration this change reconciles inside its transaction. */
-  readonly instructions: Option.Option<ResolvedInstructionsConfig>;
   /** The refusal that stops the change before it is offered, when there is one. */
   readonly blocked: Option.Option<ExtensionLifecycleFailed>;
   /** The refusal the change meets when it runs: what it needs is not there to project. */
@@ -400,38 +395,30 @@ const blockedMaterialization = (
 // prepare
 // -----------------------------------------------------------------------------
 
-/** The gate a rule transition passes before it may reconcile instruction files. */
+/** The gate every shared instruction-surface writer passes before it can write. */
 const instructionGate = (): Effect.Effect<
-  {
-    readonly config: Option.Option<ResolvedInstructionsConfig>;
-    readonly blocked: Option.Option<ExtensionLifecycleFailed>;
-  },
+  Option.Option<ExtensionLifecycleFailed>,
   ExtensionManagerFailure,
   FileSystem.FileSystem | Path.Path | SettingsReader | WorkspaceLocation
 > =>
   Effect.gen(function* () {
     const config = yield* activeInstructionsConfig();
-    if (Option.isNone(config)) {
-      return { config, blocked: Option.none<ExtensionLifecycleFailed>() };
-    }
+    if (Option.isNone(config)) return Option.none<ExtensionLifecycleFailed>();
     const snapshot = yield* observeInstructions({ config: config.value });
     const location = yield* WorkspaceLocation;
     const readiness = yield* instructionReconciliationReadiness({
       snapshot,
       workspaceRoot: location.baseDir,
     });
-    return {
-      config,
-      blocked: Option.map(
-        readiness,
-        (failure) =>
-          new ExtensionLifecycleFailed({
-            category: "conflict",
-            detail: instructionReadinessDetail(failure),
-            cause: failure,
-          }),
-      ),
-    };
+    return Option.map(
+      readiness,
+      (failure) =>
+        new ExtensionLifecycleFailed({
+          category: "conflict",
+          detail: instructionReadinessDetail(failure),
+          cause: failure,
+        }),
+    );
   });
 
 const conflictFrom = (detail: string) => (cause: SyncPolicyFailure) =>
@@ -497,12 +484,9 @@ const settleLeaf = (request: SetActivationRequest, adapter: SyncFailureAdapter) 
       });
     }
     const gate =
-      request.type === "rule"
+      request.type === "rule" || request.type === "hook" || request.type === "knowledge"
         ? yield* instructionGate()
-        : {
-            config: Option.none<ResolvedInstructionsConfig>(),
-            blocked: Option.none<ExtensionLifecycleFailed>(),
-          };
+        : Option.none<ExtensionLifecycleFailed>();
     const realization: ActivationRealization = Option.isSome(refusal)
       ? {
           proposal,
@@ -546,8 +530,7 @@ const settleLeaf = (request: SetActivationRequest, adapter: SyncFailureAdapter) 
       scope,
       artifact: activationArtifact(scope, realization, [], agentOutcomes),
       realization,
-      instructions: gate.config,
-      blocked: Option.orElse(gate.blocked, () => blockedMaterialization(realization)),
+      blocked: Option.orElse(gate, () => blockedMaterialization(realization)),
       refusal,
       warning: Option.none(),
       agentOutcomes,
@@ -626,6 +609,11 @@ const settlePack = (request: SetActivationRequest, adapter: SyncFailureAdapter) 
             contributesTo(node) &&
             findNode(proposal.after, node.type, node.name)?.enabled !== true,
         );
+    const gate = members.some(
+      (node) => node.type === "rule" || node.type === "hook" || node.type === "knowledge",
+    )
+      ? yield* instructionGate()
+      : Option.none<ExtensionLifecycleFailed>();
     const realization = yield* prepareActivationRealization({
       proposal,
       enabled: request.enabled,
@@ -670,8 +658,7 @@ const settlePack = (request: SetActivationRequest, adapter: SyncFailureAdapter) 
       scope,
       artifact: activationArtifact(scope, realization, retainedReferences, []),
       realization,
-      instructions: Option.none(),
-      blocked: blockedMaterialization(realization),
+      blocked: Option.orElse(gate, () => blockedMaterialization(realization)),
       refusal: Option.none(),
       warning: Option.none(),
       agentOutcomes: [],
@@ -773,22 +760,7 @@ const activationStep = (
     run: Effect.gen(function* () {
       if (Option.isSome(candidate.refusal)) return yield* candidate.refusal.value;
       const realized = yield* runWorkspaceTransaction({
-        transition: Option.match(candidate.instructions, {
-          onNone: () => transition,
-          onSome: (config) =>
-            Effect.gen(function* () {
-              const location = yield* WorkspaceLocation;
-              const settings = yield* SettingsReader;
-              const result = yield* reconcileInstructions({
-                workspaceRoot: location.baseDir,
-                scope: location.scope,
-                configuredAgents: yield* settings.configuredAgents,
-                config,
-                transition: transition.pipe(Effect.map((realized) => realized.warnings)),
-              });
-              return { warnings: result.transition, artifacts: [] } satisfies ActivationRealized;
-            }),
-        }),
+        transition,
         validate: () =>
           candidate.type === "pack"
             ? validatePackActivation({

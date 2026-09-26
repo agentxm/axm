@@ -29,7 +29,7 @@ import {
   type Plan,
   type PlannedJobStep,
 } from "../../../transitions/planning/index.js";
-import { applyPlannedProjections } from "../../../projection/index.js";
+import { applyInstructionSurfacePlans } from "../../../projection/index.js";
 import {
   acquiredExtensionDisplayPath,
   acquiredExtensionDisplayPathFromLockEntry,
@@ -221,13 +221,16 @@ export const planHookInstall: (
             key: "projection:hook:units",
             label: "hook projections",
             readiness: "ready",
-            run: applyPlannedProjections(hookManager).pipe(
-              Effect.mapError(lifecycleStepFailure),
-              Effect.as({
-                result: "success",
-                message: "Rendered installed Hooks from the complete contributor set",
-              } satisfies JobStepResult),
-            ),
+            run: hookManager
+              .projectionPlans()
+              .pipe(Effect.flatMap(applyInstructionSurfacePlans))
+              .pipe(
+                Effect.mapError(lifecycleStepFailure),
+                Effect.as({
+                  result: "success",
+                  message: "Rendered installed Hooks from the complete contributor set",
+                } satisfies JobStepResult),
+              ),
           },
         ]
       : [];

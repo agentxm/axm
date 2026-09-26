@@ -5400,6 +5400,25 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 ## Supporting system behavior
 
+### Goal: agent-interoperability
+
+Configured extensions realize correctly and completely for every configured coding agent's native surfaces.
+
+#### Functional
+
+##### Shared instruction-surface writes update owned aliases
+
+- Requirement: `workspace/instructions/aliases-follow-shared-surface-writes`
+- Owner: `workspace`
+- Statement: When an operation rewrites a contributed region of the canonical instruction file while instruction-file management is enabled, AXM shall leave every owned alias current in that same operation and shall refuse the operation before writing when an alias target is unowned or the managed ignore region is unrecognizable.
+- Class: functional
+- Role: supporting
+- Product goals: `agent-interoperability`, `workspace-intent-fidelity`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Lifecycle operations and scoped sync write real workspace files; the examples inspect the canonical file and alias after the same transaction.
+- Methods: example
+- Source: [`packages/core/workspace/src/projection/instructions/aliases-follow-shared-surface-writes.spec.ts`](../packages/core/workspace/src/projection/instructions/aliases-follow-shared-surface-writes.spec.ts)
+
 ### Goal: dependable-change-process
 
 Changes and releases land through the governed repository process with required evidence and human approval.

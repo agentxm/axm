@@ -28,6 +28,7 @@ import {
   applyPlannedProjections,
   applyProjectionPlans,
   observeInstructionProjection,
+  reconcileInstructionAliases,
   projectionFactRequiresReconciliation,
   resolveInstructionsConfig,
   instructionReconciliationReadiness,
@@ -509,6 +510,7 @@ export const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (ar
 
 export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function* (args: {
   readonly projectionFacts: ReadonlyArray<ProjectionInvariantFact>;
+  readonly touchesRule: boolean;
   readonly adapter: SyncFailureAdapter;
 }) {
   const projectionFacts = args.projectionFacts;
@@ -516,9 +518,9 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
   const location = yield* WorkspaceLocation;
   const config = yield* settings.instructionsConfig;
   const manager = yield* RuleManager;
-  const unsupported = projectionFacts.find(
-    ({ observation }) => observation.reasonCode === "unsupported-version",
-  );
+  const unsupported = args.touchesRule
+    ? projectionFacts.find(({ observation }) => observation.reasonCode === "unsupported-version")
+    : undefined;
   if (unsupported !== undefined) {
     return Option.some<PlannedJobStep<SyncStepRequirements>>({
       key: SYNC_RECOVERY_IDS.instructionReconcile,
@@ -536,7 +538,7 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
     });
   }
   if (Option.isNone(config) || config.value === false) {
-    if (!projectionFactsNeedReconciliation(projectionFacts))
+    if (!args.touchesRule || !projectionFactsNeedReconciliation(projectionFacts))
       return Option.none<PlannedJobStep<SyncStepRequirements>>();
     const targets = projectionFileTargets(projectionFacts);
     const artifact = {
@@ -571,7 +573,7 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
     config: resolvedConfig,
   });
   const path = yield* Path.Path;
-  const regionCurrent = !projectionFactsNeedReconciliation(projectionFacts);
+  const regionCurrent = !args.touchesRule || !projectionFactsNeedReconciliation(projectionFacts);
   const current =
     snapshot.status.missingSources.length === 0 &&
     regionCurrent &&
@@ -591,7 +593,7 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
     });
   }
 
-  const ruleTargets = projectionFileTargets(projectionFacts);
+  const ruleTargets = args.touchesRule ? projectionFileTargets(projectionFacts) : [];
   const instructionTargets = instructionProjectionEffects(snapshot).map((effect) => ({
     ...effect,
     path: path.relative(location.baseDir, effect.path),
@@ -601,7 +603,7 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
     path: targets[0]?.path ?? resolvedConfig.fileName,
     scope: location.scope,
     change: targets[0]?.change ?? "updated",
-    managedRegions: managedRegionsForFacts(projectionFacts),
+    managedRegions: args.touchesRule ? managedRegionsForFacts(projectionFacts) : [],
     targets,
   } satisfies JobStepArtifact;
 
@@ -610,7 +612,10 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
     readiness: "ready",
     label: projectionDivergenceLabel("instruction files", projectionFacts),
     artifact,
-    run: applyPlannedProjections(manager).pipe(
+    run: Effect.gen(function* () {
+      if (args.touchesRule) yield* applyPlannedProjections(manager);
+      yield* reconcileInstructionAliases();
+    }).pipe(
       Effect.mapError(args.adapter.toStepFailure),
       Effect.map((): JobStepResult => ({
         result: "success",

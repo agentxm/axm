@@ -29,7 +29,7 @@ import {
 } from "./errors.js";
 import { acceptedResolutionFor } from "../materialization/accepted-resolution.js";
 import {
-  applyProjectionPlans,
+  applyInstructionSurfacePlans,
   formatProjectionExclusions,
   planAggregateProjection,
   type ProjectionContributorExclusion,
@@ -629,7 +629,10 @@ export const KnowledgeManagerLive = Layer.effect(
 
     const projectionPlans = () => makeKnowledgeProjectionPlan().pipe(Effect.map((plan) => [plan]));
 
-    const applyKnowledgeProjection = projectionPlans().pipe(Effect.flatMap(applyProjectionPlans));
+    const applyKnowledgeProjection = projectionPlans().pipe(
+      Effect.flatMap(applyInstructionSurfacePlans),
+      Effect.asVoid,
+    );
 
     const reconcileDiscovery = (options?: { readonly dryRun?: boolean }) =>
       resolveKnowledgeProjection().pipe(

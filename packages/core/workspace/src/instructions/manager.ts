@@ -31,7 +31,8 @@ import {
   type ProjectionRenderInput,
   reconcileManagedRegionFile,
   projectionGeneration,
-  reconcileInstructions,
+  activeInstructionsConfig,
+  observeInstructions,
   resolveInstructionsConfig,
 } from "../projection/index.js";
 import {
@@ -50,7 +51,7 @@ import {
 } from "../materialization/manager-kit.js";
 import { enabledConfiguredEntries } from "../desired-state/index.js";
 import { computeExtensionPathsForLayout } from "../desired-state/index.js";
-import type { ProjectionUnitObservation, ResolvedInstructionsConfig } from "../projection/index.js";
+import type { ProjectionUnitObservation } from "../projection/index.js";
 import { RuleManager } from "../materialization/managers.js";
 import { RULES_REGION_OWNER } from "../projection/index.js";
 import { parseFrontmatterEffect } from "@agentxm/extension-content";
@@ -129,7 +130,6 @@ export const RuleManagerLive = Layer.effect(
     const sources = yield* SourceHostProviders;
     const catalog = yield* WorkspaceCatalog;
     const baseDir = location.baseDir;
-    const workspaceScope = location.scope;
 
     // The workspace state ports and source integration are this layer's own
     // dependencies; the platform stays in `R` for every member.
@@ -223,21 +223,6 @@ export const RuleManagerLive = Layer.effect(
         };
       });
 
-    const activeInstructions = () =>
-      Effect.gen(function* () {
-        const config = yield* settings.instructionsConfig;
-        if (Option.isNone(config) || config.value === false) {
-          return Option.none<{
-            readonly config: ResolvedInstructionsConfig;
-            readonly agents: ReadonlyArray<string>;
-          }>();
-        }
-        return Option.some({
-          config: resolveInstructionsConfig(config.value),
-          agents: yield* settings.configuredAgents,
-        });
-      });
-
     const readRuleBody = (packageRoot: string) =>
       fs.readFileString(path.join(packageRoot, "src", RULE_BODY_FILENAME)).pipe(
         Effect.flatMap((content) => parseFrontmatterEffect(content)),
@@ -326,10 +311,6 @@ export const RuleManagerLive = Layer.effect(
     const reconcileRulesRegion = (args: {
       readonly input: ProjectionRenderInput<RenderedRuleContributor>;
       readonly target: { readonly relative: string; readonly absolute: string };
-      readonly instructions: Option.Option<{
-        readonly config: ResolvedInstructionsConfig;
-        readonly agents: ReadonlyArray<string>;
-      }>;
       readonly dryRun?: boolean;
     }) =>
       Effect.gen(function* () {
@@ -347,7 +328,6 @@ export const RuleManagerLive = Layer.effect(
             JSON.stringify(contributor.manifest),
           ]),
         ]);
-        const instructions = args.instructions;
         const reconciliation = yield* provide(
           reconcileManagedRegionFile({
             targetPath: target.absolute,
@@ -384,16 +364,14 @@ export const RuleManagerLive = Layer.effect(
           };
         }
 
-        const instructionItems = Option.isSome(instructions)
-          ? (yield* provide(
-              reconcileInstructions({
-                workspaceRoot: baseDir,
-                scope: workspaceScope,
-                configuredAgents: instructions.value.agents,
-                config: instructions.value.config,
-              }),
-            )).snapshot.status.items
-          : [];
+        const instructionItems = yield* provide(
+          Effect.gen(function* () {
+            const config = yield* activeInstructionsConfig();
+            return Option.isSome(config)
+              ? (yield* observeInstructions({ config: config.value })).status.items
+              : [];
+          }),
+        );
 
         const materialization = ruleMaterializationObservation(target.relative, instructionItems);
         yield* Ref.set(lastProjection, materialization);
@@ -403,7 +381,6 @@ export const RuleManagerLive = Layer.effect(
     const makeRulesProjectionPlan = () =>
       Effect.gen(function* () {
         const target = yield* sourceFileTarget();
-        const instructions = yield* activeInstructions();
         const graph = yield* desiredState.graph();
         const locked = yield* lockfile.entries("rule");
         return yield* planAggregateProjection({
@@ -418,11 +395,10 @@ export const RuleManagerLive = Layer.effect(
             ),
           adapter: {
             observe: (input) =>
-              reconcileRulesRegion({ input, target, instructions, dryRun: true }).pipe(
+              reconcileRulesRegion({ input, target, dryRun: true }).pipe(
                 Effect.map(({ projectionUnitObservation }) => projectionUnitObservation),
               ),
-            apply: (input) =>
-              reconcileRulesRegion({ input, target, instructions }).pipe(Effect.asVoid),
+            apply: (input) => reconcileRulesRegion({ input, target }).pipe(Effect.asVoid),
           },
         });
       });

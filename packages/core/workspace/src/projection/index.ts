@@ -231,12 +231,14 @@ export {
 // other's feature.
 export {
   activeInstructionsConfig,
+  applyInstructionSurfacePlans,
   disableInstructionManagement,
   instructionReconciliationReadiness,
   instructionReadinessDetail,
   instructionStateIsCurrent,
   observeInstructions,
   reconcileInstructions,
+  reconcileInstructionAliases,
   removeInstructionTargetsFor,
   type DisabledInstructionManagement,
   type InstructionReadinessFailure,

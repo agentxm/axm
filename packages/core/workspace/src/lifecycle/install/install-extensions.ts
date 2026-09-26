@@ -46,6 +46,13 @@ import {
 import type { ExtensionLifecycleFailed } from "../errors.js";
 import { withPublisherTrust } from "../publisher-binding.js";
 import { withSourceSwitches } from "../source-switch.js";
+import {
+  activeInstructionsConfig,
+  instructionReadinessDetail,
+  instructionReconciliationReadiness,
+  observeInstructions,
+} from "../../projection/index.js";
+import { WorkspaceLocation } from "../../desired-state/index.js";
 import { planHookInstall } from "../../hooks/lifecycle/install/plan.js";
 import { planKnowledgeInstall } from "../../knowledge/lifecycle/install/plan.js";
 import {
@@ -758,7 +765,53 @@ export const prepareInstallExtensions: (
   // share one publisher-trust rule instead of restating it five times.
   const trusted = yield* withPublisherTrust(planned.plan);
   const sourceAware = yield* withSourceSwitches(trusted);
-  const execution = yield* prepareExecutionCandidate(sourceAware, {
+  const touchesInstructionSurface = (
+    step: PlannedJobStep<InstallStepRequirements | BundledAxmSkillAsset>,
+  ) => {
+    const key = step.key ?? "";
+    return [
+      "rule:",
+      "hook:",
+      "knowledge:",
+      "pack:",
+      "projection:aggregate-units",
+      "projection:rule",
+      "projection:hook",
+      "projection:knowledge",
+    ].some((prefix) => key.startsWith(prefix));
+  };
+  const hasSharedWriter = sourceAware.jobs.some((job) => job.steps.some(touchesInstructionSurface));
+  const config = hasSharedWriter ? yield* activeInstructionsConfig() : Option.none();
+  const readiness = Option.isSome(config)
+    ? yield* Effect.gen(function* () {
+        const snapshot = yield* observeInstructions({ config: config.value });
+        const location = yield* WorkspaceLocation;
+        return yield* instructionReconciliationReadiness({
+          snapshot,
+          workspaceRoot: location.baseDir,
+        });
+      })
+    : Option.none();
+  const gated = Option.isSome(readiness)
+    ? {
+        ...sourceAware,
+        jobs: sourceAware.jobs.map((job) => ({
+          ...job,
+          steps: job.steps.map((step) =>
+            touchesInstructionSurface(step)
+              ? {
+                  ...(step.key === undefined ? {} : { key: step.key }),
+                  label: step.label,
+                  readiness: "error" as const,
+                  errorMessage: instructionReadinessDetail(readiness.value),
+                  ...(step.artifact === undefined ? {} : { artifact: step.artifact }),
+                }
+              : step,
+          ),
+        })),
+      }
+    : sourceAware;
+  const execution = yield* prepareExecutionCandidate(gated, {
     configuredAgentOperations: planned.configuredAgentOperations,
   });
   return {

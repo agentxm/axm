@@ -4,11 +4,9 @@
  * whether AXM may write at all, the transaction-scoped transition that
  * reconciles every alias, and the removal that turns management off.
  *
- * These facts live in the projection capability rather than in a feature
- * because more than one use case reconciles instruction files: managing the
- * instruction configuration itself, and activating or deactivating a rule
- * (whose projection contributes to the same alias set). A feature may not
- * import a peer feature, so the shared facts belong underneath both.
+ * These facts live in the projection capability because Rules, Hooks, and
+ * Knowledge all contribute to the canonical instruction file. Every writer
+ * reconciles the aliases after its shared region changes.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -17,6 +15,11 @@ import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
+import {
+  applyProjectionPlans,
+  projectionPlanExclusionWarnings,
+  type ProjectionPlan,
+} from "../planning.js";
 
 import {
   SettingsReader,
@@ -203,6 +206,40 @@ export function reconcileInstructions(
     return { ...syncResult({ snapshot: after, ...applied }), transition };
   }).pipe(Effect.withSpan("Instructions.reconcile"));
 }
+
+/** Bring owned aliases current after a shared-surface write, when management is enabled. */
+export const reconcileInstructionAliases = (): Effect.Effect<
+  Option.Option<InstructionsSyncResult>,
+  WorkspaceSettingsReadFailure | InstructionMaintenanceFailure,
+  FileSystem.FileSystem | Path.Path | SettingsReader | WorkspaceLocation
+> =>
+  Effect.gen(function* () {
+    const config = yield* activeInstructionsConfig();
+    if (Option.isNone(config)) return Option.none<InstructionsSyncResult>();
+    const location = yield* WorkspaceLocation;
+    const settings = yield* SettingsReader;
+    const result = yield* reconcileInstructions({
+      workspaceRoot: location.baseDir,
+      scope: location.scope,
+      configuredAgents: yield* settings.configuredAgents,
+      config: config.value,
+    });
+    return Option.some<InstructionsSyncResult>(result);
+  });
+
+/** Apply shared instruction-surface regions, then the aliases depending on their content. */
+export const applyInstructionSurfacePlans = <E, R>(
+  plans: ReadonlyArray<ProjectionPlan<void, E, R>>,
+): Effect.Effect<
+  ReadonlyArray<string>,
+  E | WorkspaceSettingsReadFailure | InstructionMaintenanceFailure,
+  R | FileSystem.FileSystem | Path.Path | SettingsReader | WorkspaceLocation
+> =>
+  Effect.gen(function* () {
+    yield* applyProjectionPlans(plans);
+    yield* reconcileInstructionAliases();
+    return projectionPlanExclusionWarnings(plans);
+  });
 
 /** What disabling instruction management removed. */
 export interface DisabledInstructionManagement {

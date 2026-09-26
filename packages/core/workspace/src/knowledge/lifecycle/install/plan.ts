@@ -19,7 +19,7 @@ import {
   type Plan,
   type PlannedJobStep,
 } from "../../../transitions/planning/index.js";
-import { applyPlannedProjections } from "../../../projection/index.js";
+import { applyInstructionSurfacePlans } from "../../../projection/index.js";
 
 import type { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
 import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
@@ -59,13 +59,16 @@ export const planKnowledgeInstall: (
             key: "projection:knowledge:discovery-region",
             label: "knowledge projection",
             readiness: "ready",
-            run: applyPlannedProjections(manager).pipe(
-              Effect.mapError(lifecycleStepFailure),
-              Effect.as({
-                result: "success",
-                message: "Rendered installed Knowledge bundles from the complete contributor set",
-              } satisfies JobStepResult),
-            ),
+            run: manager
+              .projectionPlans()
+              .pipe(Effect.flatMap(applyInstructionSurfacePlans))
+              .pipe(
+                Effect.mapError(lifecycleStepFailure),
+                Effect.as({
+                  result: "success",
+                  message: "Rendered installed Knowledge bundles from the complete contributor set",
+                } satisfies JobStepResult),
+              ),
           },
         ]
       : [];

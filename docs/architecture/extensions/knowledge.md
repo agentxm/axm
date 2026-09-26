@@ -34,6 +34,8 @@ while disabled instruction-file management, disabled Knowledge instruction
 publication, and disabled bundle activation remain outer gates. None of these
 entry-publication choices changes the enabled bundle's indexing, search, or
 concept reading.
+Writing the Knowledge entry refreshes owned instruction aliases under the
+[instruction-file](../workspace/instruction-files.md) ownership contract.
 
 ## Non-responsibilities
 

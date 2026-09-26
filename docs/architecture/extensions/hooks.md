@@ -50,6 +50,7 @@ The Hook fallback region is the shared-instruction-surface unit. Its
 contributor set is every active Hook the desired state reaches that realizes
 through the fallback. It is written under the shared
 [instruction-file](../workspace/instruction-files.md) ownership rules.
+Writing that region refreshes owned instruction aliases under the same ownership gate.
 
 If a native format cannot identify AXM's entries, preserve unrelated ordering,
 or represent the Hook without merging ownership, reconciliation is unsupported.

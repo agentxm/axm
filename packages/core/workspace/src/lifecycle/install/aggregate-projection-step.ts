@@ -10,11 +10,7 @@ import {
   type ExtensionManagerFailure,
   type ManagerRequirements,
 } from "../../materialization/index.js";
-import {
-  applyProjectionPlans,
-  projectionPlanExclusionWarnings,
-  type ProjectionPlan,
-} from "../../projection/index.js";
+import { applyInstructionSurfacePlans, type ProjectionPlan } from "../../projection/index.js";
 import { lifecycleStepFailure } from "../step-failure.js";
 import type { InstallStepRequirements } from "./vocabulary.js";
 
@@ -59,8 +55,7 @@ export const buildAggregateProjectionStep = (args: {
         if (Option.isSome(knowledgeManager)) {
           plans.push(...(yield* knowledgeManager.value.projectionPlans()));
         }
-        yield* applyProjectionPlans(plans);
-        return projectionPlanExclusionWarnings(plans);
+        return yield* applyInstructionSurfacePlans(plans);
       }).pipe(
         Effect.mapError(lifecycleStepFailure),
         Effect.map((warnings): JobStepResult => ({

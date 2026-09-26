@@ -1,5 +1,9 @@
 import { describe, expect, it } from "@effect/vitest";
-import { groupConfiguredMcpTargets } from "./targeting.js";
+import {
+  configuredMcpCapability,
+  groupConfiguredMcpTargets,
+  isConfigurableAgentId,
+} from "./targeting.js";
 
 describe("MCP target grouping", () => {
   it("groups configured consumers by their shared physical target", () => {
@@ -22,12 +26,20 @@ describe("MCP target grouping", () => {
 
   it("skips unknown agents and agents without an MCP config writer", () => {
     const groups = groupConfiguredMcpTargets({
-      agentIds: ["unknown-agent", "claude-code"],
+      agentIds: ["unknown-agent", "amp", "claude-code"],
       scope: "project",
     });
 
     expect(groups.map((group) => group.members.map((member) => member.agentId))).toEqual([
       ["claude-code"],
     ]);
+  });
+
+  it("returns a configured capability only for a known agent with a native MCP writer", () => {
+    expect(isConfigurableAgentId("unknown-agent")).toBe(false);
+    expect(isConfigurableAgentId("amp")).toBe(true);
+    expect(configuredMcpCapability("unknown-agent")).toBeUndefined();
+    expect(configuredMcpCapability("amp")).toBeUndefined();
+    expect(configuredMcpCapability("claude-code")?.native).toHaveProperty("transports");
   });
 });

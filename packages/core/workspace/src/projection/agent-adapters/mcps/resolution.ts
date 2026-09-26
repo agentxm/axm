@@ -10,9 +10,9 @@
 
 import type {
   McpExtensionCapability,
-  McpConfig,
   McpTransport,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
+import { isConfiguredMcpCapability, type ConfiguredMcpCapability } from "./targeting.js";
 import type {
   McpRegistryArgument,
   McpRegistryInput,
@@ -30,17 +30,6 @@ import {
 } from "./expected-entry.js";
 
 type UpstreamRemoteTransport = "streamable-http" | "sse";
-type ConfiguredMcpCapability = McpExtensionCapability & {
-  readonly native: Extract<
-    McpExtensionCapability["native"],
-    { readonly transports: ReadonlyArray<McpTransport> }
-  >;
-  readonly axm: {
-    readonly writer: {
-      readonly config: McpConfig;
-    };
-  };
-};
 
 export type McpResolution =
   | {
@@ -95,9 +84,6 @@ const capabilitySupportsUpstream = (
   transports: ReadonlyArray<McpTransport>,
   transport: UpstreamRemoteTransport,
 ): boolean => transports.includes(transport === "streamable-http" ? "http" : transport);
-
-const hasMcpConfig = (capability: McpExtensionCapability): capability is ConfiguredMcpCapability =>
-  capability.axm.writer !== null && "transports" in capability.native;
 
 const isRemoteTransport = (transport: string): transport is UpstreamRemoteTransport =>
   transport === "streamable-http" || transport === "sse";
@@ -478,7 +464,7 @@ const resolveRemote = (
 };
 
 export const resolveMcpServer = (args: ResolveMcpServerArgs): McpResolution => {
-  if (!hasMcpConfig(args.capability)) {
+  if (!isConfiguredMcpCapability(args.capability)) {
     return { _tag: "no-distribution", reason: "agent does not have MCP config support" };
   }
   const capability = args.capability;

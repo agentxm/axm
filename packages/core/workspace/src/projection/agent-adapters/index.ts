@@ -215,7 +215,6 @@ export {
 } from "./mcps/native-config.js";
 export { collectSecretInputNames, mcpProjectionInputValues } from "./mcps/inputs.js";
 export {
-  configuredMcpCapability,
   planMcpServerTargets,
   type McpAgentTargetPlan,
   type McpTargetPlan,
@@ -230,7 +229,14 @@ export {
   type SharedMcpTargetResolution,
   type SharedMcpTransport,
 } from "./mcps/shared-target.js";
-export { groupConfiguredMcpTargets, type McpTargetGroup } from "./mcps/targeting.js";
+export {
+  configuredMcpCapability,
+  groupConfiguredMcpTargets,
+  isConfigurableAgentId,
+  isConfiguredMcpCapability,
+  type ConfiguredMcpCapability,
+  type McpTargetGroup,
+} from "./mcps/targeting.js";
 export {
   addMcpServerFromManifest,
   decodeMcpServerManifestAt,

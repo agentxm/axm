@@ -51,7 +51,7 @@ import {
 } from "../../reconciliation/index.js";
 import { McpSecretStore } from "../../materialization/index.js";
 import { materializeAuthoredMcpServer } from "../../reconciliation/index.js";
-import { CONFIGURABLE_AGENTS_BY_ID } from "@agentxm/extension-model/unstable/agent-capabilities";
+import { configuredMcpCapability } from "../../projection/agent-adapters/index.js";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {
   toExtensionTypePlural,
@@ -383,12 +383,10 @@ const mcpAgentConfigTargets = Effect.fn("CreateExtension.mcpAgentConfigTargets")
   const settings = yield* SettingsReader;
   const path = yield* Path.Path;
   const configuredAgentIds = yield* settings.configuredAgents;
-  const catalogAgents = Object.values(CONFIGURABLE_AGENTS_BY_ID);
   const agentsByConfigPath = new Map<string, Set<string>>();
   for (const agentId of configuredAgentIds) {
-    const agent = catalogAgents.find((candidate) => candidate.id === agentId);
-    const capability = agent?.capabilities["mcp-server"];
-    if (capability === undefined || capability.axm.writer === null) continue;
+    const capability = configuredMcpCapability(agentId);
+    if (capability === undefined) continue;
     for (const target of capability.axm.writer.config.targets) {
       if (target.scope !== location.scope) continue;
       const configPath = path.relative(

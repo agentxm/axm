@@ -31,12 +31,12 @@ import {
   resolveAgentMcpConfigTargetPath,
 } from "./native-config.js";
 import {
-  configuredMcpCapability,
   planMcpServerTargets,
   type McpAgentTargetPlan,
   type McpTargetPlan,
   type McpTargetWrite,
 } from "./target-plan.js";
+import { configuredMcpCapability } from "./targeting.js";
 import type {
   AddMcpServerArgs,
   McpServerSyncOutcome,

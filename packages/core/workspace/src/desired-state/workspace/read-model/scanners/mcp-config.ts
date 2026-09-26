@@ -36,13 +36,8 @@ import type {
   AgentDescriptor,
   MaterializationTargetId,
 } from "@agentxm/extension-model/unstable/agents/types";
-import {
-  CONFIGURABLE_AGENTS_BY_ID,
-  type Agent,
-  type ConfigurableAgentId as CapabilityAgentId,
-  type McpConfig,
-  type McpConfigTarget,
-} from "@agentxm/extension-model/unstable/agent-capabilities";
+import type { McpConfigTarget } from "@agentxm/extension-model/unstable/agent-capabilities";
+import { configuredMcpCapability } from "../../../../projection/agent-adapters/index.js";
 import {
   ExtensionNameSchema,
   type ExtensionName,
@@ -209,28 +204,6 @@ const readMcpConfigCached = (
 // Physical-surface planning and scanning
 // ---------------------------------------------------------------------------
 
-type AgentMcpCapability = Agent["capabilities"]["mcp-server"];
-type ConfiguredMcpCapability = AgentMcpCapability & {
-  readonly axm: {
-    readonly writer: {
-      readonly config: McpConfig;
-    };
-  };
-};
-
-const hasMcpConfig = (capability: AgentMcpCapability): capability is ConfiguredMcpCapability =>
-  capability.axm.writer !== null;
-
-const isCapabilityAgentId = (id: string): id is CapabilityAgentId =>
-  id in CONFIGURABLE_AGENTS_BY_ID;
-
-const capabilityFor = (descriptor: AgentDescriptor): ConfiguredMcpCapability | undefined => {
-  if (!isCapabilityAgentId(descriptor.id)) return undefined;
-  const agent = CONFIGURABLE_AGENTS_BY_ID[descriptor.id];
-  const capability = agent.capabilities["mcp-server"];
-  return hasMcpConfig(capability) ? capability : undefined;
-};
-
 interface McpSurfaceScanPlan {
   readonly surface: McpConfigSurface;
   readonly target: McpConfigTarget;
@@ -248,7 +221,7 @@ const planMcpSurfaces = (
 ): ReadonlyArray<McpSurfaceScanPlan> => {
   const plans = new Map<string, McpSurfaceScanPlan>();
   for (const descriptor of Object.values(registry)) {
-    const capability = capabilityFor(descriptor);
+    const capability = configuredMcpCapability(descriptor.id);
     if (capability === undefined) continue;
     for (const target of capability.axm.writer.config.targets) {
       if (target.scope !== scope) continue;

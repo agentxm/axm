@@ -37,11 +37,10 @@ import { materializeRegistryPackage } from "../../../materialization/index.js";
 import { fromFileLocation } from "@agentxm/host-primitives";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
-import { validateManifestMcpServerTargets } from "../../../projection/agent-adapters/index.js";
 import {
-  CONFIGURABLE_AGENTS_BY_ID,
-  type ConfigurableAgentId,
-} from "@agentxm/extension-model/unstable/agent-capabilities";
+  configuredMcpCapability,
+  validateManifestMcpServerTargets,
+} from "../../../projection/agent-adapters/index.js";
 import {
   ExtensionNameSchema,
   type ExtensionName,
@@ -116,9 +115,6 @@ export const parseMcpEnvInputs = (
     }
     return parsed;
   });
-
-const isConfigurableAgentId = (agentId: string): agentId is ConfigurableAgentId =>
-  agentId in CONFIGURABLE_AGENTS_BY_ID;
 
 const decodeLocalName = (value: string): Effect.Effect<ExtensionName, ExtensionLifecycleFailed> =>
   Schema.decodeUnknownEffect(ExtensionNameSchema)(value).pipe(
@@ -541,11 +537,8 @@ export const planMcpServerInstall: (
       ),
     );
     const refused = configuredAgents.flatMap((agentId) => {
-      if (!isConfigurableAgentId(agentId)) {
-        return [`${agentId}: no MCP capability catalog entry`];
-      }
-      const capability = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"];
-      if (capability.axm.writer === null || !("transports" in capability.native)) {
+      const capability = configuredMcpCapability(agentId);
+      if (capability === undefined) {
         return [`${agentId}: no MCP config support`];
       }
       return capability.axm.writer.config.targets.some((target) => target.scope === location.scope)

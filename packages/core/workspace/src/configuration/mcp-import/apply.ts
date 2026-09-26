@@ -13,10 +13,9 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import {
-  CONFIGURABLE_AGENTS_BY_ID,
-  type ConfigurableAgentId,
-} from "@agentxm/extension-model/unstable/agent-capabilities";
-import { buildAxmMcpMetadataFromSettingsSource } from "../../projection/agent-adapters/index.js";
+  buildAxmMcpMetadataFromSettingsSource,
+  configuredMcpCapability,
+} from "../../projection/agent-adapters/index.js";
 import type {
   SettingsReaderService,
   SettingsWriterService,
@@ -31,50 +30,8 @@ import { runWorkspaceTransaction } from "../../transitions/settlement/index.js";
 import { WorkspaceConfigurationFailed } from "../errors.js";
 import type { McpImportAdoption, McpImportCandidate, McpImportSource } from "./preflight.js";
 
-interface AgentMcpConfig {
-  readonly serversKey: string;
-  readonly targets: ReadonlyArray<AgentMcpConfigTarget>;
-}
-
-interface AgentMcpConfigTarget {
-  readonly scope: string;
-  readonly path: string;
-  readonly format: string;
-}
-
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
-
-const isCapabilityAgentId = (id: string): id is ConfigurableAgentId =>
-  Object.hasOwn(CONFIGURABLE_AGENTS_BY_ID, id);
-
-const readAgentMcpConfig = (agent: unknown): Option.Option<AgentMcpConfig> => {
-  if (!isRecord(agent)) return Option.none();
-  const capabilities = agent["capabilities"];
-  if (!isRecord(capabilities)) return Option.none();
-  const mcp = capabilities["mcp-server"];
-  if (!isRecord(mcp)) return Option.none();
-  const axm = mcp["axm"];
-  if (!isRecord(axm)) return Option.none();
-  const writer = axm["writer"];
-  if (!isRecord(writer)) return Option.none();
-  const config = writer["config"];
-  if (!isRecord(config)) return Option.none();
-  const serversKey = config["serversKey"];
-  const targets = config["targets"];
-  if (typeof serversKey !== "string" || !Array.isArray(targets)) return Option.none();
-  const parsedTargets: Array<AgentMcpConfigTarget> = [];
-  for (const target of targets) {
-    if (!isRecord(target)) continue;
-    const scope = target["scope"];
-    const targetPath = target["path"];
-    const format = target["format"];
-    if (typeof scope === "string" && typeof targetPath === "string" && typeof format === "string") {
-      parsedTargets.push({ scope, path: targetPath, format });
-    }
-  }
-  return Option.some({ serversKey, targets: parsedTargets });
-};
 
 const readJsonObject = (
   fs: FileSystem.FileSystem,
@@ -119,7 +76,7 @@ export const collectMcpImportSources = (
     const sources: Array<McpImportSource> = [];
     const skipped = new Map<string, { readonly name: string; readonly reason: string }>();
     const sourceKeys = new Set<string>();
-    const addSource = (filePath: string, serversKey: string, agentId: ConfigurableAgentId) => {
+    const addSource = (filePath: string, serversKey: string, agentId: string) => {
       const sourceKey = `${agentId}\0${filePath}\0${serversKey}`;
       if (sourceKeys.has(sourceKey)) return Effect.void;
       sourceKeys.add(sourceKey);
@@ -137,10 +94,9 @@ export const collectMcpImportSources = (
       left.localeCompare(right),
     );
     for (const agentId of agentIds) {
-      if (!isCapabilityAgentId(agentId)) continue;
-      const mcpConfig = readAgentMcpConfig(CONFIGURABLE_AGENTS_BY_ID[agentId]);
-      if (Option.isNone(mcpConfig)) continue;
-      const targets = mcpConfig.value.targets
+      const mcpConfig = configuredMcpCapability(agentId)?.axm.writer.config;
+      if (mcpConfig === undefined) continue;
+      const targets = mcpConfig.targets
         .filter((target) => target.scope === location.scope)
         .sort((left, right) => left.path.localeCompare(right.path));
       for (const target of targets) {
@@ -159,7 +115,7 @@ export const collectMcpImportSources = (
           }
           continue;
         }
-        yield* addSource(configPath, mcpConfig.value.serversKey, agentId);
+        yield* addSource(configPath, mcpConfig.serversKey, agentId);
       }
     }
     return { sources, skipped: Array.from(skipped.values()) };

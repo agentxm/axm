@@ -16,6 +16,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { HookManager, KnowledgeManager, RuleManager, SubagentManager } from "./managers.js";
 import type { ExtensionManagerFailure } from "./errors.js";
+import { failureTag, isExtensionKindFailure } from "./kind-failure.js";
 import type { ManagerRequirements } from "./manager-contract.js";
 import {
   isProjectionError,
@@ -39,11 +40,11 @@ import {
 const toParticipantFailure =
   (unitId: OwnershipUnitId) =>
   (failure: ExtensionManagerFailure): ProjectionParticipantFailure =>
-    isProjectionError(failure)
+    !isExtensionKindFailure(failure) && isProjectionError(failure)
       ? failure
       : new ProjectionParticipantFailed({
           unitId,
-          detail: `The owner of ${unitId} could not project it (${failure._tag}).`,
+          detail: `The owner of ${unitId} could not project it (${failureTag(failure)}).`,
         });
 
 interface ProjectionPlanningManager {

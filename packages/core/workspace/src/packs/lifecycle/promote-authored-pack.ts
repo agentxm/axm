@@ -56,7 +56,7 @@ import {
 } from "../../transitions/planning/index.js";
 import { usableAcceptedCanonical, type DesiredExtensionNode } from "../../desired-state/index.js";
 
-import { lifecycleStepFailure } from "../../lifecycle/step-failure.js";
+import { kernelFailureToStepFailure } from "../../reconciliation/index.js";
 import type { InstallStepRequirements } from "../../lifecycle/install/vocabulary.js";
 import { validatePackGraphPostcondition } from "./graph-transition.js";
 import {
@@ -177,7 +177,7 @@ const promoteToDirectSettings = (
     readiness: "ready",
     label: node.name,
     run: run.pipe(
-      Effect.mapError(lifecycleStepFailure),
+      Effect.mapError(kernelFailureToStepFailure),
       Effect.as({
         result: "success",
         message: `Promoted ${node.type} ${node.name}`,
@@ -317,7 +317,7 @@ const settleUnpack = Effect.fn("PromoteAuthoredPack.prepare")(function* (
   });
 
   const uninstallPackStep = buildUninstallOperation(packManager, neverRetain, {
-    toStepFailure: lifecycleStepFailure,
+    toStepFailure: kernelFailureToStepFailure,
     target: { type: "pack", owner: packRef.owner, name: packRef.pack.name },
   });
 
@@ -330,7 +330,7 @@ const settleUnpack = Effect.fn("PromoteAuthoredPack.prepare")(function* (
   ];
 
   const graphStep = yield* buildReconciliationClosure({
-    toStepFailure: lifecycleStepFailure,
+    toStepFailure: kernelFailureToStepFailure,
     label: formatDesiredIdentity(packNode.identity),
     message: `Unpacked ${formatDesiredIdentity(packNode.identity)} into ${promotions.length} direct declaration${
       promotions.length === 1 ? "" : "s"

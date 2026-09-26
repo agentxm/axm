@@ -8,6 +8,7 @@ import { afterEach } from "vitest";
 import YAML from "yaml";
 
 import { deriveOperationOutcome } from "../../operations/index.js";
+import { WorkspaceSyncFailed } from "../errors.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import {
   SHARED_MEMBER,
@@ -95,7 +96,7 @@ describe("Sync preserves configuration and accepted resolutions", () => {
           });
           const before = workspace.snapshot();
           const failure = yield* applySync().pipe(Effect.flip);
-          expect(failure._tag).toBe("WorkspaceSyncFailed");
+          expect(failure).toBeInstanceOf(WorkspaceSyncFailed);
           expect(workspace.snapshot()).toEqual(before);
         }),
       )
@@ -245,9 +246,9 @@ describe("Sync preserves configuration and accepted resolutions", () => {
           remote.replaceHistory();
           const before = workspace.snapshot();
           const refusal = yield* applySync().pipe(Effect.flip);
-          expect(refusal._tag).toBe("WorkspaceSyncFailed");
-          if (refusal._tag !== "WorkspaceSyncFailed") {
-            throw new Error(`Expected a sync refusal, got ${refusal._tag}`);
+          expect(refusal).toBeInstanceOf(WorkspaceSyncFailed);
+          if (!(refusal instanceof WorkspaceSyncFailed)) {
+            throw new Error(`Expected a sync refusal, got ${String(refusal)}`);
           }
           expect(refusal.category).toBe("conflict");
           expect(refusal.detail).toContain(remote.acceptedCommit);
@@ -287,9 +288,9 @@ describe("Sync preserves configuration and accepted resolutions", () => {
             workspace.remove(`agent_extensions/git/@acme/skills/${SKILL}`);
             const before = workspace.snapshot();
             const refusal = yield* applySync().pipe(Effect.flip);
-            expect(refusal._tag).toBe("WorkspaceSyncFailed");
-            if (refusal._tag !== "WorkspaceSyncFailed") {
-              throw new Error(`Expected a sync refusal, got ${refusal._tag}`);
+            expect(refusal).toBeInstanceOf(WorkspaceSyncFailed);
+            if (!(refusal instanceof WorkspaceSyncFailed)) {
+              throw new Error(`Expected a sync refusal, got ${String(refusal)}`);
             }
             expect(refusal.detail, JSON.stringify(refusal)).toContain("accepted Git commit");
             expect(workspace.snapshot()).toEqual(before);

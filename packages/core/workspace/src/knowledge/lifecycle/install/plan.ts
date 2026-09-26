@@ -22,7 +22,7 @@ import {
 } from "../../../operations/index.js";
 import { applyInstructionSurfacePlans } from "../../../projection/index.js";
 
-import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
+import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
 import {
   type InstallStepRequirements,
   type KnowledgeInstallIntent,
@@ -43,7 +43,7 @@ export const planKnowledgeInstall: (
   const deferProjections = intent.deferProjections === true || intent.refs.length > 1;
   const memberSteps = intent.refs.map(({ ref, versionRange }) =>
     buildInstallOperation(manager, {
-      toStepFailure: lifecycleStepFailure,
+      toStepFailure: kernelFailureToStepFailure,
       ref,
       declaration: { name: ref.knowledge.name, versionRange },
       ...(deferProjections
@@ -63,7 +63,7 @@ export const planKnowledgeInstall: (
               .projectionPlans()
               .pipe(Effect.flatMap(applyInstructionSurfacePlans))
               .pipe(
-                Effect.mapError(lifecycleStepFailure),
+                Effect.mapError(kernelFailureToStepFailure),
                 Effect.as({
                   result: "success",
                   message: "Rendered installed Knowledge bundles from the complete contributor set",

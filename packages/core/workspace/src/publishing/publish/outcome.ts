@@ -11,7 +11,6 @@ import * as Option from "effect/Option";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import { redactRegistryText } from "@agentxm/registry-client";
 import type { AuthError } from "@agentxm/registry-access/authentication";
-import { workspaceFailureToStepFailure } from "../../reconciliation/failure-rendering.js";
 import {
   StepFailure,
   stepFailureWithCause,
@@ -25,6 +24,7 @@ import {
   isPublishFailure,
   publishCause,
   publishFailureProblemCode,
+  renderPublishFailure,
   type PublishFailure,
 } from "../failure.js";
 import type { PublishCandidate, PublishPreparationFailure, SelectedEntry } from "./model.js";
@@ -37,7 +37,7 @@ import type { PublishPublicationSet, PublishResultItem } from "./result.js";
  * it so publish causes keep their request and response evidence verbatim.
  */
 export const publishStepFailure = (failure: PublishFailure | AuthError): StepFailure =>
-  stepFailureWithCause(workspaceFailureToStepFailure(failure), failure);
+  stepFailureWithCause(renderPublishFailure(failure), failure);
 
 /** The typed failure a settled step carried, or a generic one it did not. */
 export const publishStepFailureCause = (failure: StepFailure): PublishFailure =>
@@ -337,7 +337,7 @@ export const publicationSetResult = (options: {
               severity: "error",
               reason: "authoritative_preflight_failed",
               message: publishCause(options.blocked).message,
-              suggestions: workspaceFailureToStepFailure(options.blocked).suggestions ?? [],
+              suggestions: renderPublishFailure(options.blocked).suggestions ?? [],
             },
           ],
   };

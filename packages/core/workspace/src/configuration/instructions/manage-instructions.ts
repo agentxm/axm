@@ -25,7 +25,12 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
-import { RuleManager, type ManagerRequirements } from "../../materialization/index.js";
+import {
+  RuleManager,
+  failureTag,
+  type ExtensionKindFailure,
+  type ManagerRequirements,
+} from "../../materialization/index.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
   OperationJournal,
@@ -79,7 +84,7 @@ import {
 
 import {
   WorkspaceConfigurationFailed,
-  configurationFailedToStepFailure,
+  configurationFailureToStepFailure,
   workspaceChangeFailedToStepFailure,
   type WorkspaceConfigurationExecutionFailure,
 } from "../errors.js";
@@ -423,10 +428,12 @@ const transitionEffect = (
  * anything the kernel could not complete is an internal step failure that
  * carries its cause, so the resolution still reports why.
  */
-const transitionFailureToStepFailure = (failure: { readonly _tag: string }): StepFailure => {
+const transitionFailureToStepFailure = (
+  failure: { readonly _tag: string } | ExtensionKindFailure,
+): StepFailure => {
   if (failure instanceof StepFailure) return failure;
   if (failure instanceof WorkspaceConfigurationFailed) {
-    return configurationFailedToStepFailure(failure);
+    return configurationFailureToStepFailure(failure);
   }
   if (failure instanceof InstructionMaintenanceFailed) {
     return new StepFailure({
@@ -438,7 +445,7 @@ const transitionFailureToStepFailure = (failure: { readonly _tag: string }): Ste
   }
   return new StepFailure({
     category: "internal",
-    detail: `Instruction reconciliation could not complete (${failure._tag})`,
+    detail: `Instruction reconciliation could not complete (${failureTag(failure)})`,
     cause: failure,
   });
 };

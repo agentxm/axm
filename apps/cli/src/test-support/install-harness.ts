@@ -32,7 +32,7 @@ import {
   type RecordingStreams,
 } from "./screen-harness.js";
 
-import { LifecycleFailureConversionLive } from "@agentxm/workspace/lifecycle";
+import { WorkspaceFailureConversionLive } from "../app-error/failure-catalog.js";
 import {
   CodingAgentRepositoryLive,
   HookManagerLive,
@@ -242,7 +242,7 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
       SourceHostProvidersLive,
       CodingAgentRepositoryLive,
       NativeWriteAuthorityLive,
-      LifecycleFailureConversionLive,
+      WorkspaceFailureConversionLive,
       makeAxmSkillCompatibilityPolicyLayer("0.0.0-spec"),
     ),
     context.fullLayer,

@@ -13,12 +13,12 @@ import {
 } from "@agentxm/workspace/operations";
 
 import { LockfileIoError, LockfileVersionUnsupported } from "@agentxm/workspace/desired-state";
-import { workspaceFailureToStepFailure } from "@agentxm/workspace/reconciliation";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 import { rootCommand } from "./app.js";
+import { workspaceFailureToStepFailure } from "./app-error/failure-catalog.js";
 import { operationDoc, unsettledUnits } from "./operation-view.js";
 import { operationNextActions, resolutionRecoveries, retryCanHelp } from "./operation-output.js";
 import { scopedRoutesOf, suggestionsForScope } from "./root/shared/scoped-command.js";

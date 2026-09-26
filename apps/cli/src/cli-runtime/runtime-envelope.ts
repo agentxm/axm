@@ -8,9 +8,15 @@ import * as Option from "effect/Option";
 
 import { jsonFlag, debugFlag, verboseFlag, quietFlag } from "../cli-flags/index.js";
 import type { OutputFormat } from "./output-mode.js";
-import type { AppError, AppErrorCode } from "../app-error/index.js";
-import { AppErrorCodes, ExitCode, appErrorCodeForExit, exitCodeFor } from "../app-error/index.js";
-import { isWorkspaceFailure, type WorkspaceFailure } from "@agentxm/workspace/reconciliation";
+import type { AppErrorCode } from "../app-error/index.js";
+import {
+  AppError,
+  AppErrorCodes,
+  ExitCode,
+  appErrorCodeForExit,
+  exitCodeFor,
+} from "../app-error/index.js";
+import { isWorkspaceFailure, type WorkspaceFailure } from "../app-error/failure-catalog.js";
 import { failureToAppError, toAppError } from "../app-error/conversions.js";
 import type { InstallSelectionCancelled } from "@agentxm/workspace/operations";
 
@@ -101,7 +107,7 @@ export type CliRuntimeFoundation = Screen | Verbosity;
  * resolve to none and exit successfully.
  */
 const expectedErrorToAppError = (error: ExpectedCliError): AppError | undefined =>
-  error._tag === "AppError" ? error : isWorkspaceFailure(error) ? toAppError(error) : undefined;
+  error instanceof AppError ? error : isWorkspaceFailure(error) ? toAppError(error) : undefined;
 
 const elapsedMilliseconds = (start: bigint, end: bigint): number =>
   Duration.toMillis(Duration.nanos(end - start));

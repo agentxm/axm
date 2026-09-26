@@ -37,7 +37,7 @@ import {
   type KnowledgeExtensionTarget,
 } from "../../../desired-state/index.js";
 
-import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
+import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
 import { type InstallStepRequirements } from "../../../lifecycle/install/vocabulary.js";
 import { makeWorkspaceRetentionPolicy } from "../../../reconciliation/index.js";
 import type { KnowledgeUninstallIntent } from "../../../lifecycle/uninstall/vocabulary.js";
@@ -180,7 +180,7 @@ export const planKnowledgeUninstall: (
 > = Effect.fn("UninstallExtensions.planKnowledge")(function* (intent: KnowledgeUninstallIntent) {
   const desiredState = yield* DesiredStateReader;
   const manager = yield* KnowledgeManager;
-  const retentionPolicy = makeWorkspaceRetentionPolicy(desiredState, lifecycleStepFailure);
+  const retentionPolicy = makeWorkspaceRetentionPolicy(desiredState, kernelFailureToStepFailure);
 
   const ownership = yield* Effect.forEach(intent.targets, inspectOwnership);
   const steps = ownership.map((entry): PlannedJobStep<InstallStepRequirements> => {
@@ -194,7 +194,7 @@ export const planKnowledgeUninstall: (
     }
     return buildUninstallOperation(manager, retentionPolicy, {
       target: entry.target,
-      toStepFailure: lifecycleStepFailure,
+      toStepFailure: kernelFailureToStepFailure,
     });
   });
 

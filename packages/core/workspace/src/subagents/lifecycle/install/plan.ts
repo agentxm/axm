@@ -20,7 +20,7 @@ import {
   installRefused,
 } from "../../../operations/index.js";
 
-import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
+import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
 import {
   type InstallStepRequirements,
   type SubagentInstallIntent,
@@ -47,7 +47,7 @@ export const planSubagentInstall: (
   );
   const steps = prepared.map((entry) =>
     buildInstallOperation(subagentManager, {
-      toStepFailure: lifecycleStepFailure,
+      toStepFailure: kernelFailureToStepFailure,
       ref: entry.ref,
       declaration: { name: entry.ref.subagent.name, versionRange: entry.versionRange },
       force: intent.force === true,

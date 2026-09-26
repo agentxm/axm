@@ -56,7 +56,7 @@ import {
   workspaceChangeFailedToStepFailure,
   type WorkspaceConfigurationExecutionFailure,
 } from "../errors.js";
-import { workspaceFailureToStepFailure } from "../../reconciliation/failure-rendering.js";
+import { kernelFailureToStepFailure } from "../../reconciliation/failure-rendering.js";
 import type { InlineMcpDefinition } from "../mcp-import/preflight.js";
 import {
   makeInlineMcpDefinition,
@@ -232,7 +232,7 @@ const projectStep = (
       serverName: candidate.name,
       entry,
       scope: location.scope,
-    }).pipe(Effect.mapError(workspaceFailureToStepFailure));
+    }).pipe(Effect.mapError(kernelFailureToStepFailure));
     const warningDetails = outcomes.flatMap((outcome, index) => {
       const agentId = agentIds[index] ?? "unknown";
       return outcome._tag === "success"

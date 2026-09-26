@@ -108,7 +108,7 @@ import {
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
 import { WorkspaceSyncFailed } from "./errors.js";
-import { workspaceFailureToStepFailure } from "./failure-rendering.js";
+import { kernelFailureToStepFailure } from "./failure-rendering.js";
 import {
   SYNC_RECOVERY_IDS,
   buildInlineMcpServerSyncOperation,
@@ -397,7 +397,7 @@ const resolveDesiredNodeRef = (
   ) =>
     effect.pipe(
       Effect.mapError((cause) => {
-        const rendered = workspaceFailureToStepFailure(cause);
+        const rendered = kernelFailureToStepFailure(cause);
         return new WorkspaceSyncFailed({
           category: rendered.category,
           detail: `${node.type} ${node.name}: ${rendered.detail}; ${canonicalObservationFactText(node, observation)}`,

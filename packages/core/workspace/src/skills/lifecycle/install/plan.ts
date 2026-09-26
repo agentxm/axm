@@ -38,7 +38,7 @@ import {
   type ExtensionLifecycleFailed,
 } from "../../../operations/index.js";
 
-import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
+import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
 import {
   type InstallStepRequirements,
   type SkillInstallIntent,
@@ -145,7 +145,7 @@ export const planSkillInstallationStep = (
       InstallStepRequirements
     >(skillInstallationFacts, input);
     let step = buildInstallOperation(skillManager, {
-      toStepFailure: lifecycleStepFailure,
+      toStepFailure: kernelFailureToStepFailure,
       ref: input.ref,
       declaration: { name: input.ref.skill.name, versionRange: input.versionRange },
       force: input.force,

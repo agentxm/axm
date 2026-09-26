@@ -16,10 +16,8 @@ import {
   WorkspaceLocation,
   type DesiredStateGraph,
 } from "../desired-state/index.js";
-import {
-  settleMcpSourceIdentity,
-  type McpConnectionConflict,
-} from "./lifecycle/domain/source-admission.js";
+import { McpConnectionConflict } from "./errors.js";
+import { settleMcpSourceIdentity } from "./lifecycle/domain/source-admission.js";
 
 /** Derive a source key from the selected package, before any install writes. */
 export const requestedMcpSourceIdentity = (
@@ -83,5 +81,5 @@ export const settleMcpSourceIdentityFor = (
                   ? path.resolve(location.baseDir, existingNode.identity.locator)
                   : null,
             },
-    });
+    }).pipe(Effect.mapError((conflict) => new McpConnectionConflict(conflict)));
   });

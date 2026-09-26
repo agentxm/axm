@@ -35,6 +35,7 @@ import { AgentPresenceProbeLive } from "../../projection/agent-adapters/live.js"
 import {
   PackManager,
   SkillManager,
+  failureTag,
   type ExtensionManagerFailure,
 } from "../../materialization/index.js";
 import { buildInstallOperation } from "../../reconciliation/index.js";
@@ -151,7 +152,7 @@ const toStepFailure = (failure: ExtensionManagerFailure): StepFailure =>
     ? failure
     : new StepFailure({
         category: "internal",
-        detail: `Fixture install failed with ${failure._tag}`,
+        detail: `Fixture install failed with ${failureTag(failure)}`,
         cause: failure,
       });
 

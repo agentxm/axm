@@ -3,9 +3,10 @@
  * machine-readable cause the publish result reports for a step that actually
  * failed.
  *
- * The kernel renders every publish failure once; this module reads that
- * rendering to build the document's cause and to aggregate a run's failures.
- * It words nothing itself.
+ * The feature renders its own refusal and the kernel renders every family it
+ * carries, each once; this module reads that rendering to build the
+ * document's cause and to aggregate a run's failures. It words nothing
+ * itself.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -16,11 +17,13 @@ import {
   redactRegistryText,
 } from "@agentxm/registry-client";
 import type { RegistryClientFailure } from "@agentxm/registry-client";
+import type { AuthError } from "@agentxm/registry-access/authentication";
 import { ConfigError } from "effect/Config";
-import { workspaceFailureToStepFailure } from "../reconciliation/failure-rendering.js";
+import { kernelFailureToStepFailure } from "../reconciliation/failure-rendering.js";
 import type { OperationErrorCategory, StepFailure } from "../operations/index.js";
 
 import { PublishFailed } from "./errors.js";
+import { isPublishFamilyFailure, publishFailureToStepFailure } from "./step-failure.js";
 
 /** Every typed failure a publish use case can surface. */
 export type PublishFailure = PublishFailed | RegistryClientFailure | ConfigError;
@@ -50,22 +53,28 @@ const CAUSE_CLASS_BY_CATEGORY: Readonly<Record<OperationErrorCategory, PublishCa
   timeout: "external",
 };
 
-/** The kernel's rendering of a publish failure, which every reading below shares. */
-const rendered = (failure: PublishFailure): StepFailure => workspaceFailureToStepFailure(failure);
+/**
+ * The rendering of a failure a publish use case surfaces, which every reading
+ * below shares: the feature's own refusal, or the kernel family it carries.
+ */
+export const renderPublishFailure = (failure: PublishFailure | AuthError): StepFailure =>
+  isPublishFamilyFailure(failure)
+    ? publishFailureToStepFailure(failure)
+    : kernelFailureToStepFailure(failure);
 
 /** True when the request policy proved the failure worth retrying. */
 export const isRetryablePublishFailure = (failure: PublishFailure): boolean =>
-  rendered(failure).metadata?.requestPolicy?.retryable === true;
+  renderPublishFailure(failure).metadata?.requestPolicy?.retryable === true;
 
 /** The Registry problem code, when the failure carried one. */
 export const publishFailureProblemCode = (failure: PublishFailure): string | undefined =>
-  rendered(failure).metadata?.response?.problemCode;
+  renderPublishFailure(failure).metadata?.response?.problemCode;
 
 /** The Registry lifecycle reason carried by a typed publication refusal. */
 export const publishFailureLifecycleReason = (
   failure: PublishFailure,
 ): "deleting" | "held" | "archived" | undefined => {
-  const response = rendered(failure).metadata?.response;
+  const response = renderPublishFailure(failure).metadata?.response;
   const body = response?.body;
   if (
     response?.problemCode !== "lifecycle_blocked" ||
@@ -86,7 +95,7 @@ export const publishFailureLifecycleReason = (
  * under sensitive keys, are redacted before they reach durable output.
  */
 export const publishCause = (failure: PublishFailure) => {
-  const step = rendered(failure);
+  const step = renderPublishFailure(failure);
   const policy = step.metadata?.requestPolicy;
   const response = step.metadata?.response;
   const secrets = collectSensitiveStrings(step.metadata);
@@ -127,7 +136,7 @@ export const aggregatePublishFailure = (
   failures: ReadonlyArray<PublishFailure>,
 ): PublishFailed => {
   const [first] = failures;
-  const steps = failures.map(rendered);
+  const steps = failures.map(renderPublishFailure);
   const [firstStep] = steps;
   const allRetryable = failures.length > 0 && failures.every(isRetryablePublishFailure);
   const category: OperationErrorCategory =

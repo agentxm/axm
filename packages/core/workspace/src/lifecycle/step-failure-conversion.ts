@@ -2,11 +2,12 @@
  * The conversion from a lifecycle operation's typed failure union into the
  * plan-step vocabulary, as a service lifecycle operations keep in `R`.
  *
- * The kernel owns the rendering and supplies the implementation as
- * `LifecycleFailureConversionLive`; the application provides that Layer once
- * per invocation. Nothing in the channel is `unknown` — the port names the
- * exact union a lifecycle operation can surface, so a new failure family is a
- * compile error here rather than a silently mis-rendered step.
+ * The kernel owns the rendering of every failure in the channel; the
+ * application composes it into its failure catalog and provides the
+ * implementation once per invocation. Nothing in the channel is `unknown` —
+ * the port names the exact union a lifecycle operation can surface, so a new
+ * failure family is a compile error here rather than a silently mis-rendered
+ * step.
  *
  * @experimental This API is unstable and may change without notice.
  */

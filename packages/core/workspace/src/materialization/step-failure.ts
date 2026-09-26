@@ -1,8 +1,10 @@
 /**
  * The rendering of the extension-materialization failure families — package
- * acquisition, the per-type managers, and the extension content they read —
- * into the one rendered failure a plan step settles with and the application
- * boundary projects. Each family renders here once.
+ * acquisition, the failures extension kinds construct under the kernel's
+ * brand, the official AXM skill's compatibility refusals, and the extension
+ * content they read — into the one rendered failure a plan step settles with
+ * and the application boundary projects. Each family renders here once; a
+ * kind's failure renders from the rendering data it carries.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -29,33 +31,9 @@ import type {
   PackageMaterializationFailed,
   StagedPackageInvalid,
 } from "../acquisition/errors.js";
-import type { HookDefinitionInvalid } from "../hooks/errors.js";
-import type { RuleDefinitionInvalid } from "../instructions/errors.js";
-import type {
-  KnowledgeDefinitionInvalid,
-  KnowledgeDesiredStateUnreconcilable,
-  KnowledgeIoFailed,
-  KnowledgeResolutionMissing,
-  KnowledgeUnavailable,
-} from "../knowledge/errors.js";
-import type {
-  McpAgentSyncRefused,
-  McpCanonicalPathUnsafe,
-  McpInstallStateMissing,
-  McpRequiredInputsMissing,
-  McpWorkspacePackageInvalid,
-} from "../mcp-connections/errors.js";
-import type { McpConnectionConflict } from "../mcp-connections/lifecycle/domain/source-admission.js";
-import type {
-  PackArchiveFetchFailed,
-  PackDefinitionInvalid,
-  PackInstallStateMissing,
-  PackStagingFailed,
-} from "../packs/errors.js";
-import type { SkillDefinitionInvalid, SkillMaterializationFailed } from "../skills/errors.js";
-import type { SubagentContentUnreadable, SubagentDefinitionInvalid } from "../subagents/errors.js";
 import { makeStepFailure, type StepFailure } from "../operations/index.js";
 import type { InstallStateMissing } from "./accepted-resolution.js";
+import { isExtensionKindFailure, type ExtensionKindFailure } from "./kind-failure.js";
 
 /** Every failure package acquisition and the per-type managers construct. */
 export type MaterializationFamilyFailure =
@@ -66,29 +44,9 @@ export type MaterializationFamilyFailure =
   | ArchiveIntegrityMismatch
   | CreateDestinationExists
   | InstallStateMissing
-  | RuleDefinitionInvalid
-  | HookDefinitionInvalid
-  | SubagentDefinitionInvalid
-  | SubagentContentUnreadable
-  | McpInstallStateMissing
-  | McpConnectionConflict
-  | McpCanonicalPathUnsafe
-  | McpWorkspacePackageInvalid
-  | McpRequiredInputsMissing
-  | McpAgentSyncRefused
-  | SkillDefinitionInvalid
-  | SkillMaterializationFailed
+  | ExtensionKindFailure
   | AxmSkillCompatibilityUnavailable
   | AxmSkillIncompatible
-  | PackDefinitionInvalid
-  | PackInstallStateMissing
-  | PackArchiveFetchFailed
-  | PackStagingFailed
-  | KnowledgeDefinitionInvalid
-  | KnowledgeIoFailed
-  | KnowledgeResolutionMissing
-  | KnowledgeDesiredStateUnreconcilable
-  | KnowledgeUnavailable
   | FqnInvalidError
   | FrontmatterParseFailure
   | SubagentContentError;
@@ -110,26 +68,6 @@ const packageMaterializationDetail = (error: PackageMaterializationFailed): stri
   }
 };
 
-const mcpAgentSyncDetail = (error: McpAgentSyncRefused): string => {
-  switch (error.fault) {
-    case "unknown-agents":
-      return `Unknown configured agents in strict mode: ${error.agentIds.join(", ")}`;
-    case "failed":
-      return `MCP server ${error.serverName} sync failed in strict mode`;
-  }
-};
-
-const mcpWorkspacePackageDetail = (error: McpWorkspacePackageInvalid): string => {
-  switch (error.fault) {
-    case "outside-workspace":
-      return `Invalid workspace MCP server source location: ${error.location}`;
-    case "missing":
-      return `Workspace MCP server package is missing: ${error.location}`;
-    case "unreadable":
-      return `Failed to inspect workspace MCP server package: ${error.location}`;
-  }
-};
-
 const axmSkillIncompatibleFailure = (error: AxmSkillIncompatible): StepFailure => {
   const recovery = renderAxmSkillRecovery(error.compatibility.recovery);
   return makeStepFailure({
@@ -146,6 +84,16 @@ const axmSkillIncompatibleFailure = (error: AxmSkillIncompatible): StepFailure =
 export const materializationFailureToStepFailure = (
   error: MaterializationFamilyFailure,
 ): StepFailure => {
+  if (isExtensionKindFailure(error)) {
+    return makeStepFailure({
+      category: error.category,
+      detail: error.detail,
+      recover: error.recover,
+      cmd: error.cmd,
+      suggestions: error.suggestions,
+      cause: error.cause,
+    });
+  }
   switch (error._tag) {
     case "PackageMaterializationFailed":
       return makeStepFailure({
@@ -181,66 +129,11 @@ export const materializationFailureToStepFailure = (
         detail: `${error.subject} destination already exists: ${error.path}`,
         recover: "Choose a different name or remove the existing directory first",
       });
-    case "RuleDefinitionInvalid":
-    case "HookDefinitionInvalid":
-    case "SubagentDefinitionInvalid":
-    case "SkillDefinitionInvalid":
-    case "PackDefinitionInvalid":
-    case "KnowledgeDefinitionInvalid":
-      return makeStepFailure({ category: "validation", detail: error.detail, cause: error.cause });
     case "InstallStateMissing":
       return makeStepFailure({
         category: "internal",
         detail: `Installed content for ${EXTENSION_TYPE_TABLE[error.type].sentenceLabel} ${error.name} could not be identified`,
       });
-    case "SubagentContentUnreadable":
-      return makeStepFailure({
-        category: "internal",
-        detail: `Failed to read ${error.expectedFilename} from ${error.subagentSrcPath}`,
-        suggestions: [
-          { description: `Ensure the subagent content file exists at ${error.contentPath}.` },
-        ],
-        cause: error.cause,
-      });
-    case "McpInstallStateMissing":
-      return makeStepFailure({
-        category: "internal",
-        detail: `Installed files for MCP server ${error.name} could not be verified`,
-      });
-    case "McpConnectionConflict":
-      return makeStepFailure({
-        category: "conflict",
-        detail: `Local MCP name "${error.localName}" is already owned by a different source`,
-      });
-    case "McpCanonicalPathUnsafe":
-      return makeStepFailure({
-        category: "internal",
-        detail: `Path traversal detected: ${error.canonicalPath}`,
-      });
-    case "McpWorkspacePackageInvalid":
-      return makeStepFailure({
-        category: error.fault === "unreadable" ? "internal" : "validation",
-        detail: mcpWorkspacePackageDetail(error),
-        cause: error.cause,
-      });
-    case "McpRequiredInputsMissing":
-      return makeStepFailure({
-        category: "usage",
-        detail: `${error.localName} needs ${error.inputNames.join(", ")}, and no prompt can open to ask for them`,
-        suggestions: [
-          {
-            description: "Supply each required input on the command line",
-            cmd: error.inputNames.map((name) => `--env ${name}=<value>`).join(" "),
-          },
-        ],
-      });
-    case "McpAgentSyncRefused":
-      return makeStepFailure({
-        category: error.fault === "unknown-agents" ? "not_found" : "internal",
-        detail: mcpAgentSyncDetail(error),
-      });
-    case "SkillMaterializationFailed":
-      return makeStepFailure({ category: "internal", detail: error.detail, cause: error.cause });
     case "AxmSkillCompatibilityUnavailable":
       return makeStepFailure({
         category: "internal",
@@ -248,38 +141,6 @@ export const materializationFailureToStepFailure = (
       });
     case "AxmSkillIncompatible":
       return axmSkillIncompatibleFailure(error);
-    case "PackInstallStateMissing":
-      return makeStepFailure({
-        category: "internal",
-        detail: `Installed files for pack ${error.name} could not be verified`,
-      });
-    case "PackArchiveFetchFailed":
-      return makeStepFailure({
-        category: "network",
-        detail: `Failed to fetch pack archive: ${error.message}`,
-        cause: error.cause,
-      });
-    case "PackStagingFailed":
-      return makeStepFailure({
-        category: "internal",
-        detail: `Failed to stage pack at ${error.packDir}`,
-        cause: error.cause,
-      });
-    case "KnowledgeIoFailed":
-      return makeStepFailure({ category: "internal", detail: error.detail, cause: error.cause });
-    case "KnowledgeResolutionMissing":
-      return makeStepFailure({
-        category: "conflict",
-        detail: `AXM has no locked version for active Knowledge bundle ${error.name}`,
-      });
-    case "KnowledgeDesiredStateUnreconcilable":
-      return makeStepFailure({
-        category: "conflict",
-        detail:
-          "AXM could not determine which Knowledge bundles should be installed because some pack or axm.json entries are invalid",
-      });
-    case "KnowledgeUnavailable":
-      return makeStepFailure({ category: "unavailable", detail: error.detail, cause: error.cause });
     case "FqnInvalidError":
       return makeStepFailure({
         category: "validation",

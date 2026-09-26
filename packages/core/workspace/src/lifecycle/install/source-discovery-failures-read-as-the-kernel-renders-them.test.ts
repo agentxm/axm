@@ -16,7 +16,7 @@ import { RegistryProblem, RegistryRequestFailed } from "@agentxm/registry-client
 
 import { discoverMcpServerRefs } from "../../mcp-connections/lifecycle/install/plan.js";
 import { discoverPackRefs } from "../../packs/lifecycle/install/plan.js";
-import { workspaceFailureToStepFailure } from "../../reconciliation/failure-rendering.js";
+import { kernelFailureToStepFailure } from "../../reconciliation/failure-rendering.js";
 import { GitOperationFailed } from "../../resolution/sources/errors.js";
 import {
   SourceHostProviders,
@@ -118,7 +118,7 @@ const refusal = (
     fixture.provide,
     Effect.provide(NodeServices.layer),
     Effect.flip,
-    Effect.map(workspaceFailureToStepFailure),
+    Effect.map(kernelFailureToStepFailure),
   );
 
 describe("Source discovery failures read as the kernel renders them", () => {

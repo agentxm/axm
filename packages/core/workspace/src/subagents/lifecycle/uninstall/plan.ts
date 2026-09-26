@@ -35,7 +35,7 @@ import {
 } from "../../../desired-state/index.js";
 
 import { expandGlob } from "@agentxm/extension-model/unstable/extensions/name-patterns";
-import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
+import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
 import { type InstallStepRequirements } from "../../../lifecycle/install/vocabulary.js";
 import { makeWorkspaceRetentionPolicy } from "../../../reconciliation/index.js";
 import type { SubagentUninstallIntent } from "../../../lifecycle/uninstall/vocabulary.js";
@@ -152,7 +152,7 @@ export const planSubagentUninstall: (
   const desiredState = yield* DesiredStateReader;
   const lockfile = yield* LockfileReader;
   const subagentManager = yield* SubagentManager;
-  const retentionPolicy = makeWorkspaceRetentionPolicy(desiredState, lifecycleStepFailure);
+  const retentionPolicy = makeWorkspaceRetentionPolicy(desiredState, kernelFailureToStepFailure);
 
   // The accepted resolution names the package the removal retires, and the
   // removal deletes it, so it is read before the step runs.
@@ -165,7 +165,7 @@ export const planSubagentUninstall: (
       );
       return buildUninstallOperation(subagentManager, retentionPolicy, {
         target,
-        toStepFailure: lifecycleStepFailure,
+        toStepFailure: kernelFailureToStepFailure,
         buildArtifact: ({ settlement, unmaterialization }) => {
           if (settlement.declaration === "absent") {
             return Effect.succeed(

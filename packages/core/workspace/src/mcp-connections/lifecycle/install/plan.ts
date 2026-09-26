@@ -30,7 +30,7 @@ import * as Schema from "effect/Schema";
 import {
   extensionRefRegistryLifecycle,
   installMcpServer,
-  workspaceFailureToStepFailure,
+  kernelFailureToStepFailure,
 } from "../../../reconciliation/index.js";
 import { materializeRegistryPackage } from "../../../materialization/index.js";
 import { fromFileLocation } from "@agentxm/host-primitives";
@@ -60,7 +60,6 @@ import {
 import { mcpRegistryResolutionKey } from "../../../desired-state/index.js";
 
 import { settleMcpSourceIdentityFor } from "../../source-identity.js";
-import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
 import { registryLoginSuggestions } from "../../../lifecycle/install/registry-login-suggestion.js";
 import { parseRegistryInstallTarget } from "../../../lifecycle/install/registry-install-target.js";
 import {
@@ -450,7 +449,7 @@ export const finalizeMcpServerInstallIntent: (
       Effect.mapError((cause) =>
         installRefused({
           category: "conflict",
-          detail: workspaceFailureToStepFailure(cause).detail,
+          detail: kernelFailureToStepFailure(cause).detail,
           cause,
         }),
       ),
@@ -544,7 +543,7 @@ export const planMcpServerInstall: (
         Effect.mapError((cause) =>
           installRefused({
             category: "validation",
-            detail: `Cannot read MCP manifest for ${intent.localName}: ${workspaceFailureToStepFailure(cause).detail}`,
+            detail: `Cannot read MCP manifest for ${intent.localName}: ${kernelFailureToStepFailure(cause).detail}`,
             cause,
           }),
         ),
@@ -632,7 +631,7 @@ export const planMcpServerInstall: (
                 declaration: { name: intent.localName, versionRange: intent.versionRange },
                 env: Option.some(intent.env ?? {}),
               },
-            }).pipe(Effect.mapError(lifecycleStepFailure)),
+            }).pipe(Effect.mapError(kernelFailureToStepFailure)),
           },
         ],
       },

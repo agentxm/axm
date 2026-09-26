@@ -193,13 +193,6 @@ export {
   type InstallPackOperationArgs,
 } from "../packs/lifecycle/operations/install.js";
 
-// How a lifecycle closure serializes its own failures into a plan step.
-export {
-  LifecycleFailureConversionLive,
-  lifecycleStepFailure,
-  type LifecycleStepFailure,
-} from "./step-failure.js";
-
 // Update: advancing what the workspace already accepted, for a named
 // extension or for the configured entries as a whole.
 export {

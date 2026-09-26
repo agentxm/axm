@@ -109,7 +109,7 @@ import {
   type SubagentExtensionTarget,
 } from "../../../desired-state/index.js";
 
-import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
+import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
 import { buildAggregateProjectionStep } from "../../../lifecycle/install/aggregate-projection-step.js";
 import { parseRegistryInstallTarget } from "../../../lifecycle/install/registry-install-target.js";
 import { registryLoginSuggestions } from "../../../lifecycle/install/registry-login-suggestion.js";
@@ -1328,7 +1328,7 @@ export const planPackInstall: (
       ref.type === "pack"
         ? Effect.succeed(
             buildInstallOperation(packManager, {
-              toStepFailure: lifecycleStepFailure,
+              toStepFailure: kernelFailureToStepFailure,
               ref,
               declaration: { name: ref.pack.name, versionRange: intent.versionRange },
               ...(intent.forceCanonical === true ? { force: true } : {}),
@@ -1340,7 +1340,7 @@ export const planPackInstall: (
             ref,
             nonInteractive: intent.nonInteractive,
             strictAgentSync: true,
-            toStepFailure: lifecycleStepFailure,
+            toStepFailure: kernelFailureToStepFailure,
           }),
     { concurrency: 1 },
   );
@@ -1487,34 +1487,34 @@ export const planPackInstall: (
       switch (target.type) {
         case "skill":
           return buildUninstallOperation(skillManager, exclusiveMemberRetentionPolicy, {
-            toStepFailure: lifecycleStepFailure,
+            toStepFailure: kernelFailureToStepFailure,
             target,
           });
         case "mcp-server":
           return buildUninstallOperation(mcpServerManager, exclusiveMemberRetentionPolicy, {
-            toStepFailure: lifecycleStepFailure,
+            toStepFailure: kernelFailureToStepFailure,
             target,
           });
         case "subagent":
           return buildUninstallOperation(subagentManager, exclusiveMemberRetentionPolicy, {
-            toStepFailure: lifecycleStepFailure,
+            toStepFailure: kernelFailureToStepFailure,
             target,
           });
         case "rule":
           return buildUninstallOperation(ruleManager, exclusiveMemberRetentionPolicy, {
-            toStepFailure: lifecycleStepFailure,
+            toStepFailure: kernelFailureToStepFailure,
             target,
             enclosingClosure: { projections: [target.type] },
           });
         case "hook":
           return buildUninstallOperation(hookManager, exclusiveMemberRetentionPolicy, {
-            toStepFailure: lifecycleStepFailure,
+            toStepFailure: kernelFailureToStepFailure,
             target,
             enclosingClosure: { projections: [target.type] },
           });
         case "knowledge":
           return buildUninstallOperation(knowledgeManager, exclusiveMemberRetentionPolicy, {
-            toStepFailure: lifecycleStepFailure,
+            toStepFailure: kernelFailureToStepFailure,
             target,
             enclosingClosure: { projections: [target.type] },
           });
@@ -1582,7 +1582,7 @@ export const planPackInstall: (
       ref.refType === "registry" || ref.refType === "workspace" ? ref.version : undefined,
   });
   const graphStep = yield* buildReconciliationClosure({
-    toStepFailure: lifecycleStepFailure,
+    toStepFailure: kernelFailureToStepFailure,
     label: packIdentity,
     message: `Installed ${packIdentity} and ${refs.length - 1} pack member${refs.length === 2 ? "" : "s"}`,
     artifact: {

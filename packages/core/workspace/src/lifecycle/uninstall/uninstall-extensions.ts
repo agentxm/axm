@@ -18,7 +18,7 @@ import {
   collectCleanupStep,
   buildReconciliationClosure,
   syncFailureRendering,
-  workspaceFailureToStepFailure,
+  kernelFailureToStepFailure,
 } from "../../reconciliation/index.js";
 import { expectedProjectionNames } from "../../projection/index.js";
 
@@ -315,7 +315,7 @@ export const prepareUninstallExtensions: (
               { step: cleanup.value, coverage: "ineligible" },
               { step: removal, coverage: "eligible" },
             ],
-            toStepFailure: workspaceFailureToStepFailure,
+            toStepFailure: kernelFailureToStepFailure,
             validate: Effect.void,
           });
         }),

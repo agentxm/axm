@@ -29,20 +29,16 @@ import { ExtensionNameSchema, HandleSchema } from "@agentxm/extension-model/unst
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
-import {
-  LifecycleFailureConversionLive,
-  StepFailureConversion,
-  selectInstallRefs,
-} from "@agentxm/workspace/lifecycle";
+import { StepFailureConversion, selectInstallRefs } from "@agentxm/workspace/lifecycle";
 
 import { makeJsonErrorEnvelopeFromAppError } from "../cli-runtime/index.js";
 import { makeAppError } from "./app-error.js";
 import {
   ReconciliationFailureConversionLive,
   SyncStepFailureConversion,
-  isWorkspaceFailure,
 } from "@agentxm/workspace/reconciliation";
 import { failureToAppError, toAppError } from "./conversions.js";
+import { WorkspaceFailureConversionLive, isWorkspaceFailure } from "./failure-catalog.js";
 import { renderAppError } from "./index.js";
 
 describe("the application boundary projection", () => {
@@ -110,7 +106,7 @@ describe("the application boundary projection", () => {
       expect(reconciliation.toStepFailure(restoration).detail.startsWith(expected)).toBe(true);
     }).pipe(
       Effect.provide(
-        Layer.mergeAll(LifecycleFailureConversionLive, ReconciliationFailureConversionLive),
+        Layer.mergeAll(WorkspaceFailureConversionLive, ReconciliationFailureConversionLive),
       ),
     ),
   );

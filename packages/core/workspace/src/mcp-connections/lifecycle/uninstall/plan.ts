@@ -45,7 +45,7 @@ import {
   type McpServerExtensionTarget,
 } from "../../../desired-state/index.js";
 
-import { lifecycleStepFailure } from "../../../lifecycle/step-failure.js";
+import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
 import type { InstallStepRequirements } from "../../../lifecycle/install/vocabulary.js";
 import { makeWorkspaceRetentionPolicy } from "../../../reconciliation/index.js";
 import type { McpServerUninstallIntent } from "../../../lifecycle/uninstall/vocabulary.js";
@@ -70,11 +70,11 @@ export const planMcpServerUninstall: (
   const lockfile = yield* LockfileReader;
   const mcpServerManager = yield* McpServerManager;
   const path = yield* Path.Path;
-  const retentionPolicy = makeWorkspaceRetentionPolicy(desiredState, lifecycleStepFailure);
+  const retentionPolicy = makeWorkspaceRetentionPolicy(desiredState, kernelFailureToStepFailure);
 
   const steps = intent.targets.map((target): PlannedJobStep<InstallStepRequirements> => {
     const step = buildUninstallOperation(mcpServerManager, retentionPolicy, {
-      toStepFailure: lifecycleStepFailure,
+      toStepFailure: kernelFailureToStepFailure,
       target,
     });
     if (step.readiness !== "ready") return step;
@@ -119,7 +119,9 @@ export const planMcpServerUninstall: (
           onNone: () => new Set<string>(),
           onSome: collectSecretInputNames,
         });
-        const remaining = yield* desiredState.graph().pipe(Effect.mapError(lifecycleStepFailure));
+        const remaining = yield* desiredState
+          .graph()
+          .pipe(Effect.mapError(kernelFailureToStepFailure));
         const remainsDesired = remaining.nodes.some(
           (node) => node.type === "mcp-server" && node.name === target.name,
         );

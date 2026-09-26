@@ -347,7 +347,7 @@ describe("RuleManager graph-derived region projection", () => {
       const acceptedProjection = readInstructions();
       writeRulePackage("drifted-rule", { body: "Unaccepted edit." });
       const error = yield* applyPlannedProjections(manager).pipe(Effect.flip);
-      expect(error._tag).toBe("ContributorTreeMismatch");
+      expect(error).toMatchObject({ _tag: "ContributorTreeMismatch" });
       expect(readInstructions()).toBe(acceptedProjection);
     }).pipe(Effect.provide(layer));
   });
@@ -394,7 +394,7 @@ describe("RuleManager graph-derived region projection", () => {
     return Effect.gen(function* () {
       const manager = yield* RuleManager;
       const error = yield* applyPlannedProjections(manager).pipe(Effect.flip);
-      expect(error._tag).toBe("DesiredStateIncomplete");
+      expect(error).toMatchObject({ _tag: "DesiredStateIncomplete" });
       expect(readInstructions()).toBe("# Project\n");
     }).pipe(Effect.provide(layer));
   });

@@ -1,16 +1,16 @@
 import * as Layer from "effect/Layer";
 
 import { SyncStepFailureConversion, type SyncFailureAdapter } from "./failure-adapter.js";
-import { workspaceFailureToStepFailure } from "./failure-rendering.js";
+import { kernelFailureToStepFailure } from "./failure-rendering.js";
 
 /**
- * The kernel's conversion of a sync policy failure: the workspace failure
+ * The kernel's conversion of a sync policy failure: the kernel failure
  * rendering, so a failure inside a reconciliation closure reads exactly as it
  * does at a command boundary. Closures a feature builds outside the sync
  * planners pass this same value; none renders on its own.
  */
 export const syncFailureRendering: SyncFailureAdapter = {
-  toStepFailure: (failure) => workspaceFailureToStepFailure(failure),
+  toStepFailure: (failure) => kernelFailureToStepFailure(failure),
 };
 
 /**

@@ -28,7 +28,7 @@ import { SettingsReader, SettingsWriter, WorkspaceLocation } from "../../desired
 import type { SettingsReaderService, WorkspaceLocationService } from "../../desired-state/index.js";
 import type { McpServerEntry } from "../../desired-state/index.js";
 import type { NativeFormatFailure } from "../../projection/agent-adapters/index.js";
-import { workspaceFailureToStepFailure } from "../../reconciliation/failure-rendering.js";
+import { kernelFailureToStepFailure } from "../../reconciliation/failure-rendering.js";
 import { runWorkspaceTransaction } from "../../transitions/settlement/index.js";
 import { WorkspaceConfigurationFailed } from "../errors.js";
 import type { McpImportAdoption, McpImportCandidate, McpImportSource } from "./preflight.js";
@@ -36,7 +36,7 @@ import type { McpImportAdoption, McpImportCandidate, McpImportSource } from "./p
 const nativeFailureToConfigurationFailed = (
   failure: NativeFormatFailure,
 ): WorkspaceConfigurationFailed => {
-  const rendered = workspaceFailureToStepFailure(failure);
+  const rendered = kernelFailureToStepFailure(failure);
   return new WorkspaceConfigurationFailed({
     category:
       rendered.category === "validation" ||

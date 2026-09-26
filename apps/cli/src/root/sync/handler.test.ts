@@ -55,7 +55,7 @@ import {
 import { handleList as handleListMcpServers } from "../mcps/list.js";
 import { injectWriteFaults } from "@agentxm/workspace/transitions/settlement/testing";
 import { handleSync } from "./handler.js";
-import { LifecycleFailureConversionLive } from "@agentxm/workspace/lifecycle";
+import { WorkspaceFailureConversionLive } from "../../app-error/failure-catalog.js";
 import { ReconciliationFailureConversionLive } from "@agentxm/workspace/reconciliation";
 
 const writeJson = (filePath: string, value: unknown) => {
@@ -649,7 +649,7 @@ describe("root sync handler", { timeout: 15_000 }, () => {
       ctx.wsLayer,
       sourceProvidersLayer,
       CodingAgentRepositoryLive,
-      LifecycleFailureConversionLive,
+      WorkspaceFailureConversionLive,
       ReconciliationFailureConversionLive,
     );
     const managersLayer = Layer.provide(
@@ -678,7 +678,7 @@ describe("root sync handler", { timeout: 15_000 }, () => {
           ctx.wsLayer,
           sourceProvidersLayer,
           CodingAgentRepositoryLive,
-          LifecycleFailureConversionLive,
+          WorkspaceFailureConversionLive,
           ReconciliationFailureConversionLive,
           McpSecretStoreLive,
           managersLayer,

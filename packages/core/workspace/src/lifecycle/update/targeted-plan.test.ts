@@ -12,7 +12,7 @@ import {
 import { SettingsWriter } from "../../desired-state/index.js";
 import { resolveTargetedUpdateContext } from "../../resolution/index.js";
 
-import { lifecycleStepFailure } from "../step-failure.js";
+import { kernelFailureToStepFailure } from "../../reconciliation/index.js";
 import type { InstallStepRequirements } from "../install/vocabulary.js";
 import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";
 import { TARGETED_UPDATE_STALE_DETAIL, wrapTargetedUpdatePlan } from "./targeted-plan.js";
@@ -111,7 +111,7 @@ describe("targeted update transaction", () => {
         const wrapped = yield* wrapTargetedUpdatePlan({
           plan: planWithStep(
             settingsWriter.removeEntry("skill", target.name).pipe(
-              Effect.mapError(lifecycleStepFailure),
+              Effect.mapError(kernelFailureToStepFailure),
               Effect.map(() => ({
                 result: "success" as const,
                 message: "removed direct intent",

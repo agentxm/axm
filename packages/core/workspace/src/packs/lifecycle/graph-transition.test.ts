@@ -1,4 +1,4 @@
-import { lifecycleStepFailure } from "../../lifecycle/step-failure.js";
+import { kernelFailureToStepFailure } from "../../reconciliation/index.js";
 import { buildReconciliationClosure } from "../../reconciliation/index.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -100,7 +100,7 @@ describe("atomic pack graph transition", () => {
             }),
           );
           const graphStep = yield* buildReconciliationClosure({
-            toStepFailure: lifecycleStepFailure,
+            toStepFailure: kernelFailureToStepFailure,
             label: "@test/packs/atomic",
             message: "updated atomic pack graph",
             artifact: {
@@ -149,7 +149,7 @@ describe("atomic pack graph transition", () => {
           validate: Effect.Effect<void, ExtensionLifecycleFailed>,
         ) =>
           buildReconciliationClosure({
-            toStepFailure: lifecycleStepFailure,
+            toStepFailure: kernelFailureToStepFailure,
             label,
             message: `Updated ${label}`,
             artifact: { path: target, scope: "project", change: "updated" },
@@ -227,7 +227,7 @@ describe("atomic pack graph transition", () => {
       Effect.gen(function* () {
         let childRan = false;
         const graphStep = yield* buildReconciliationClosure({
-          toStepFailure: lifecycleStepFailure,
+          toStepFailure: kernelFailureToStepFailure,
           label: "@test/packs/preconditioned",
           message: "updated preconditioned pack graph",
           artifact: {
@@ -277,7 +277,7 @@ describe("atomic pack graph transition", () => {
     provide(
       Effect.gen(function* () {
         const graphStep = yield* buildReconciliationClosure({
-          toStepFailure: lifecycleStepFailure,
+          toStepFailure: kernelFailureToStepFailure,
           label: "@test/packs/covered",
           message: "installed covered pack",
           artifact: {
@@ -365,7 +365,7 @@ describe("atomic pack graph transition", () => {
     provide(
       Effect.gen(function* () {
         const graphStep = yield* buildReconciliationClosure({
-          toStepFailure: lifecycleStepFailure,
+          toStepFailure: kernelFailureToStepFailure,
           label: "@test/packs/empty",
           message: "installed empty pack",
           artifact: { path: "pack graph", scope: "project", change: "updated" },
@@ -408,7 +408,7 @@ describe("atomic pack graph transition", () => {
         const target = path.join(workspace.root, "coverage-scope.txt");
         fs.writeFileSync(target, "before\n");
         const graphStep = yield* buildReconciliationClosure({
-          toStepFailure: lifecycleStepFailure,
+          toStepFailure: kernelFailureToStepFailure,
           label: "@test/packs/mixed-scope",
           message: "installed mixed-scope pack",
           artifact: { path: "pack graph", scope: "project", change: "updated" },

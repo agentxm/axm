@@ -105,7 +105,7 @@ import {
   type ResolveInstallRequirements,
 } from "./vocabulary.js";
 import { findGitReinstallRefs, pinGitReinstallRef } from "./git-reinstall.js";
-import { nameFromLabel, workspaceFailureToStepFailure } from "../../reconciliation/index.js";
+import { nameFromLabel, kernelFailureToStepFailure } from "../../reconciliation/index.js";
 import { withPackRegistryIndexMemo } from "../../resolution/sources/providers/registry/index-memo.js";
 
 /** Which extension types a configured-entry sweep covers. */
@@ -699,7 +699,7 @@ const collectSimpleTypePlans = (
                           Effect.mapError((cause) =>
                             installRefused({
                               category: "conflict",
-                              detail: workspaceFailureToStepFailure(cause).detail,
+                              detail: kernelFailureToStepFailure(cause).detail,
                               cause,
                             }),
                           ),

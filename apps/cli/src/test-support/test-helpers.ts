@@ -82,11 +82,11 @@ export {
   SkillManagerLive,
   SubagentManagerLive,
 };
-import { LifecycleFailureConversionLive } from "@agentxm/workspace/lifecycle";
 import {
+  WorkspaceFailureConversionLive,
   isWorkspaceFailure,
-  ReconciliationFailureConversionLive,
-} from "@agentxm/workspace/reconciliation";
+} from "../app-error/failure-catalog.js";
+import { ReconciliationFailureConversionLive } from "@agentxm/workspace/reconciliation";
 import { ExecutionDirectory } from "../execution-directory.js";
 import { ReleaseAgePosture } from "@agentxm/workspace/resolution";
 import { WorkspaceInitializationInteractionLive } from "../workspace-initialization-interaction-live.js";
@@ -715,7 +715,7 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
     wsLayer,
     Layer.provide(SourceHostProvidersLive, Layer.merge(cliTestContext.baseLayer, wsLayer)),
     KnowledgeIndexLive,
-    LifecycleFailureConversionLive,
+    WorkspaceFailureConversionLive,
     ReconciliationFailureConversionLive,
     // The official skill the executable carries, and the terminal selection
     // port, exactly as the runtime composes them: a test drives the product's

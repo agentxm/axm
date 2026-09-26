@@ -1,5 +1,6 @@
 import { produceReleaseCohort, validateReleaseCohort } from "./release-packages.js";
-import { RELEASE_PACKAGES, readPackageVersion } from "./release-shared.js";
+import { readPackageVersion } from "./release-identity.js";
+import { RELEASE_PACKAGES } from "./release-shared.js";
 
 const commit = process.argv[2];
 const output = process.argv[3];

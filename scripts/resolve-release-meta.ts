@@ -1,9 +1,9 @@
 import { appendFileSync } from "node:fs";
+import { releaseVersionFromTag, requireFullSha } from "./release-identity.js";
 
 import {
   fail,
   git,
-  releaseVersionFromTag,
   requireMatchingReleasePackageVersions,
   requireMatchingReleasePackageVersionsAtRef,
 } from "./release-shared.js";
@@ -26,9 +26,7 @@ const tag =
 const version = releaseVersionFromTag(tag);
 
 const expectedSha = args[1] ?? process.env["RELEASE_SHA"];
-if (expectedSha !== undefined && !/^[0-9a-f]{40}$/u.test(expectedSha)) {
-  fail("Expected a full lowercase release commit SHA.");
-}
+if (expectedSha !== undefined) requireFullSha(expectedSha, "Expected release commit");
 const releaseVersion =
   expectedSha === undefined
     ? requireMatchingReleasePackageVersions()

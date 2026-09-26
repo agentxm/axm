@@ -8,6 +8,7 @@ import * as ConfigProvider from "effect/ConfigProvider";
 import * as semver from "semver";
 
 import { run } from "./release-command.js";
+import { requireFullSha } from "./release-identity.js";
 import {
   produceReleaseCohort,
   stampBootstrapCohortReferences,
@@ -54,7 +55,7 @@ const [sourceSha, sequenceText, sourceRef] = Schema.decodeUnknownSync(
 )([process.argv[2], process.argv[3], process.argv[4] ?? ""]);
 if (process.argv.length < 4 || process.argv.length > 5)
   fail("Expected <source-sha> <workflow-run-id> [source-ref].");
-if (!/^[0-9a-f]{40}$/u.test(sourceSha)) fail("Expected a full lowercase source commit SHA.");
+requireFullSha(sourceSha, "Source commit");
 const sequence = Number(sequenceText);
 if (!Number.isSafeInteger(sequence) || sequence < 1) fail("Expected a positive workflow run ID.");
 if (currentHeadSha() !== sourceSha) fail(`Checked-out source does not match ${sourceSha}.`);

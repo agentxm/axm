@@ -9,15 +9,11 @@ import {
   RELEASE_PACKAGES,
   parseCiArtifacts,
   parseGitHubRuns,
-  releaseTagFromVersion,
-  releaseVersionFromTag,
   readGeneratedSkillCompatibilityFromContent,
   readSkillCompatibility,
-  releaseCommitSubjectPattern,
   stampSkillCompatibility,
   transitionSkillCompatibility,
   validateGeneratedSkillCompatibility,
-  validateReleaseTag,
   validateCiRunDetails,
   validateExactCiRunDetails,
   writeSkillVersion,
@@ -87,15 +83,6 @@ describe("release tag helpers", () => {
     expect(workflow).not.toContain("release_packages=(");
   });
 
-  it("matches prepared and GitHub squash-merged release subjects", () => {
-    const pattern = new RegExp(releaseCommitSubjectPattern("cli-v0.27.3"));
-
-    expect(pattern.test("release: cli-v0.27.3")).toBe(true);
-    expect(pattern.test("release: cli-v0.27.3 (#188)")).toBe(true);
-    expect(pattern.test("release: cli-v0.27.30 (#188)")).toBe(false);
-    expect(pattern.test("release: cli-v0.27.3 follow-up")).toBe(false);
-  });
-
   it("emits release metadata through the root target without rebuilding prepared runtime", () => {
     const runtimeBefore = statSync(preparedRuntimeFile, { bigint: true });
     const cliPackageJson = JSON.parse(readFileSync("apps/cli/package.json", "utf8")) as {
@@ -137,14 +124,6 @@ describe("release tag helpers", () => {
     const runtimeAfter = statSync(preparedRuntimeFile, { bigint: true });
     expect(runtimeAfter.ino).toBe(runtimeBefore.ino);
     expect(runtimeAfter.mtimeNs).toBe(runtimeBefore.mtimeNs);
-  });
-
-  it("accepts prerelease and build metadata tags", () => {
-    const tag = "cli-v1.2.3-beta.1+build.7";
-
-    expect(validateReleaseTag(tag)).toBe(tag);
-    expect(releaseVersionFromTag(tag)).toBe("1.2.3-beta.1+build.7");
-    expect(releaseTagFromVersion("1.2.3-beta.1+build.7")).toBe(tag);
   });
 });
 

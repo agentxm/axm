@@ -1,4 +1,4 @@
-import { validateReleaseVersion } from "./release-shared.js";
+import { validateReleaseVersion } from "./release-identity.js";
 
 export const derivePreviewVersion = (input: {
   readonly base: string;

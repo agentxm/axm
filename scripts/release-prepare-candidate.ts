@@ -12,6 +12,7 @@ import {
 } from "nx/release/index.js";
 
 import { run } from "./release-command.js";
+import { releaseTagFromVersion } from "./release-identity.js";
 import {
   type ReleaseCandidateHost,
   runReleaseCandidatePreparation,
@@ -19,7 +20,6 @@ import {
 import {
   RELEASE_PROCESS_ENV,
   fail,
-  releaseTagFromVersion,
   requireMatchingReleasePackageVersions,
   stampSkillCompatibility,
   writeSkillVersion,

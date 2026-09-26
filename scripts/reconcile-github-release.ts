@@ -19,10 +19,10 @@ import {
 } from "./release-github-release.js";
 import { readGitHubReleaseByTag } from "./release-github-release-api.js";
 import { capture, run } from "./release-command.js";
+import { releaseVersionFromTag, requireFullSha } from "./release-identity.js";
 import {
   fail,
   RELEASE_REPO,
-  releaseVersionFromTag,
   requireMatchingReleasePackageVersionsAtRef,
 } from "./release-shared.js";
 
@@ -32,7 +32,7 @@ const [mode, tag, sha] = Schema.decodeUnknownSync(
   { errors: "all" },
 )(process.argv.slice(2, 5));
 if (process.argv.length !== 5) fail(usage);
-if (!/^[0-9a-f]{40}$/u.test(sha)) fail("Expected a full lowercase release commit SHA.");
+requireFullSha(sha, "Release commit");
 const version = releaseVersionFromTag(tag);
 if (requireMatchingReleasePackageVersionsAtRef(sha) !== version) {
   fail(`Release package versions do not match ${tag}.`);

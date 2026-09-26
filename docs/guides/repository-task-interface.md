@@ -383,6 +383,8 @@ artifacts; installed and published consumers retain the artifact boundary.
   those stages.
 - CI owns job topology, platform matrices, credentials, and always-run report
   collection, but not a second repository task graph.
+- The change classifier publishes the required job list; the aggregate
+  `required` job only reads results.
 
 ## Gaps
 

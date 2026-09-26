@@ -9,6 +9,7 @@ import {
   classifyCiChanges,
   detectsReleasePreparation,
   parseChangedPaths,
+  requiredCiJobs,
   selectCodeVerificationPaths,
   selectsReleaseArtifacts,
   validateRunnerCommandFile,
@@ -63,6 +64,65 @@ const declaredGenerationPaths = (projectRoot: string): readonly string[] => {
 };
 
 describe("classifyCiChanges", () => {
+  it.each([
+    ["pull_request", ["contributing/guide.md"], false, ["classify", "secrets", "documentation"]],
+    [
+      "merge_group",
+      ["apps/cli/src/main.ts"],
+      false,
+      [
+        "classify",
+        "secrets",
+        "specification-verdict",
+        "extension-lint",
+        "verify-pr",
+        "verify-e2e",
+        "windows-workspace",
+      ],
+    ],
+    [
+      "pull_request",
+      [".github/workflows/claude-review.yml"],
+      false,
+      ["classify", "secrets", "workflow-validation"],
+    ],
+    [
+      "schedule",
+      [],
+      false,
+      ["classify", "secrets", "verify-main", "verify-e2e", "windows-workspace"],
+    ],
+    [
+      "workflow_dispatch",
+      [],
+      false,
+      ["classify", "secrets", "verify-main", "verify-e2e", "windows-workspace"],
+    ],
+    [
+      "push",
+      ["apps/cli/src/main.ts"],
+      true,
+      [
+        "classify",
+        "secrets",
+        "verify-main",
+        "verify-e2e",
+        "windows-workspace",
+        "binary-smoke",
+        "release-content",
+        "npm-cohort",
+      ],
+    ],
+    ["push", ["apps/cli/src/main.ts"], false, ["classify", "secrets"]],
+  ])(
+    "publishes required jobs for %s with release artifacts %s",
+    (event, paths, releaseArtifacts, expected) => {
+      expect(requiredCiJobs(classifyCiChanges(paths, { releaseArtifacts }), event)).toEqual(
+        expected,
+      );
+    },
+  );
+
   it.each([
     ["push", "refs/heads/main", "release: cli-v0.30.2", true],
     ["push", "refs/heads/main", "Improve workspace policy", false],

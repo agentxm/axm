@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect";
-import type { InstallStepRequirements } from "./vocabulary.js";
+import type { InstallStepRequirements } from "../../reconciliation/index.js";
 import * as Option from "effect/Option";
 
 import type { JobStepResult, Plan } from "../../operations/index.js";

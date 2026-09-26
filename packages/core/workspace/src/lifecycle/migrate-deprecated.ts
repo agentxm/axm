@@ -16,7 +16,7 @@ import {
   prepareExecutionCandidate,
   resolveExecutionCandidate,
 } from "../transitions/planning/index.js";
-import type { InstallStepRequirements } from "./install/vocabulary.js";
+import type { InstallStepRequirements } from "../reconciliation/index.js";
 import { InstallExtensions } from "./install/install-extensions.js";
 import { UninstallExtensions } from "./uninstall/uninstall-extensions.js";
 import { resolveRootUninstallIntent } from "./uninstall/root-intent.js";

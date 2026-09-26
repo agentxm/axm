@@ -44,10 +44,14 @@ import {
 import { applyInstructionSurfacePlans } from "../../../projection/index.js";
 
 import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
-import {
-  type HookInstallIntent,
-  type InstallStepRequirements,
-} from "../../../lifecycle/install/vocabulary.js";
+import type { InstallStepRequirements, ResolvedInstallRef } from "../../../reconciliation/index.js";
+
+/** Hooks packages the request selected. */
+export interface HookInstallIntent {
+  /** The enclosing semantic closure owns the trailing aggregate projection. */
+  readonly deferProjections?: boolean;
+  readonly refs: ReadonlyArray<ResolvedInstallRef<HookExtensionRef>>;
+}
 
 const hookRefArtifactPath = (ref: HookExtensionRef, scope: JobStepArtifact["scope"]): string =>
   ref.refType === "workspace"

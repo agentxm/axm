@@ -46,11 +46,15 @@ import {
 } from "../../../desired-state/index.js";
 
 import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
-import type { InstallStepRequirements } from "../../../lifecycle/install/vocabulary.js";
 import { makeWorkspaceRetentionPolicy } from "../../../reconciliation/index.js";
-import type { McpServerUninstallIntent } from "../../../lifecycle/uninstall/vocabulary.js";
 import { lockfileDisplayPath, settingsDisplayPath } from "../../../desired-state/index.js";
 import { desiredMcpSourceKey } from "../../../desired-state/index.js";
+import type { InstallStepRequirements } from "../../../reconciliation/index.js";
+
+/** One MCP connection removal. */
+export interface McpServerUninstallIntent {
+  readonly targets: ReadonlyArray<McpServerExtensionTarget>;
+}
 
 /** One local connection name is removed at a time. */
 export const parseMcpServerUninstallRequest = (selector: string): McpServerUninstallIntent => ({

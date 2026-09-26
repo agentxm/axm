@@ -36,7 +36,7 @@ import {
 } from "../../materialization/index.js";
 import type { JobStepArtifact, PlannedJobStep, StepFailure } from "../../operations/index.js";
 import { registrySourceArtifact } from "../../packs/lifecycle/artifact.js";
-import { extensionRefLifecycleWarnings } from "../../lifecycle/warnings.js";
+import { extensionRefLifecycleWarnings } from "../../resolution/index.js";
 import { installMcpServer, type McpServerInstallRequirements } from "../mcps/install-operation.js";
 import { requestedMcpSourceIdentity } from "../../mcp-connections/source-identity.js";
 import {

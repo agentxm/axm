@@ -252,7 +252,7 @@ describe("module boundary constraints", () => {
 
   const CORE_CAPABILITY = "packages/core/workspace/src/lifecycle/index.ts";
   const CORE_CAPABILITY_TEST =
-    "packages/core/workspace/src/lifecycle/install/registry-login-suggestion.test.ts";
+    "packages/core/workspace/src/resolution/sources/registry-login-suggestion.test.ts";
   const SUPPORTING_CAPABILITY = "packages/supporting/registry-access/src/authentication/index.ts";
   const SUPPORTING_INTEGRATION = "packages/supporting/registry-client/src/index.ts";
   const APPLICATION = "apps/cli/src/main.ts";

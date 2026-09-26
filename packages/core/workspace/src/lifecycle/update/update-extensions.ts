@@ -102,7 +102,7 @@ import type { WorkspaceTransactionScope } from "../../transitions/settlement/ind
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 
-import type { InstallStepRequirements } from "../install/vocabulary.js";
+import type { InstallStepRequirements } from "../../reconciliation/index.js";
 import type { StepFailureConversion } from "../step-failure-conversion.js";
 import { buildPackMemberStep, type PackMemberRef } from "../../reconciliation/index.js";
 import { withPublisherTrust } from "../publisher-binding.js";

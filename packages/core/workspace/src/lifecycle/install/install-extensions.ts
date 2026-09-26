@@ -85,7 +85,6 @@ import {
   planBundledAxmSkillInstall,
 } from "../../skills/lifecycle/install/bundled.js";
 import { buildConfiguredInstallPlan, type ConfiguredInstallRequirements } from "./configured.js";
-import { formatRegistryProbe } from "./registry-source-resolution.js";
 import {
   discoverInstallRefs,
   finalizeInstallRefs,
@@ -96,15 +95,15 @@ import {
   type SourceInstallType,
 } from "./request.js";
 import { resolveRootInstallIntent } from "./root-intent.js";
+import type { InstallExecutionFailure, PrepareInstallRequirements } from "./vocabulary.js";
 import {
   INSTALL_HELD_RELEASE_POLICY,
-  type InstallExecutionFailure,
   type InstallStepRequirements,
-  type PrepareInstallRequirements,
   type ResolveInstallRequirements,
-} from "./vocabulary.js";
+} from "../../reconciliation/index.js";
 import { findGitReinstallRefs, pinGitReinstallRef } from "./git-reinstall.js";
 import { SourceHostProviders } from "../../resolution/sources/service.js";
+import { formatRegistryProbe } from "../../resolution/sources/index.js";
 import { makeLocatorSourceView } from "./git-discovery.js";
 import {
   selectInstallRefs,

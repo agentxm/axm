@@ -22,7 +22,7 @@ import {
 import { preapprovedPlanExecution } from "../../transitions/planning/testing.js";
 import { protectWorkspacePath } from "../../transitions/settlement/index.js";
 
-import { type InstallStepRequirements } from "../../lifecycle/install/vocabulary.js";
+import type { InstallStepRequirements } from "../../reconciliation/index.js";
 import { makeLifecycleFixture, type LifecycleFixture } from "../../lifecycle/testing.js";
 import { makeWorkspaceUpdatePlan } from "../../lifecycle/update/configured.js";
 

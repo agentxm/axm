@@ -10,7 +10,7 @@
  */
 
 import * as Effect from "effect/Effect";
-import { extensionRefLifecycleWarnings } from "../../../lifecycle/warnings.js";
+import { extensionRefLifecycleWarnings } from "../../../resolution/index.js";
 import {
   DesiredStateReader,
   SettingsReader,
@@ -60,14 +60,26 @@ import {
 import { mcpRegistryResolutionKey } from "../../../desired-state/index.js";
 
 import { settleMcpSourceIdentityFor } from "../../source-identity.js";
-import { registryLoginSuggestions } from "../../../lifecycle/install/registry-login-suggestion.js";
-import { parseRegistryInstallTarget } from "../../../lifecycle/install/registry-install-target.js";
+import {
+  parseRegistryInstallTarget,
+  registryLoginSuggestions,
+} from "../../../resolution/sources/index.js";
 import {
   sourceResolutionRefused,
   type InstallStepRequirements,
-  type McpServerInstallIntent,
   type ResolveInstallRequirements,
-} from "../../../lifecycle/install/vocabulary.js";
+} from "../../../reconciliation/index.js";
+
+/** One MCP connection, its local name, and the inputs the request supplied. */
+export interface McpServerInstallIntent {
+  readonly ref: McpServerExtensionRef;
+  readonly localName: ExtensionName;
+  readonly sourceIdentity: string;
+  readonly versionRange: Option.Option<string>;
+  readonly force: boolean;
+  readonly nonInteractive: boolean;
+  readonly env?: Readonly<Record<string, string>>;
+}
 
 const LOCAL_NAME_RULE =
   "Local MCP names must be max 64 chars, use lowercase letters, numbers, and hyphens, and cannot start or end with a hyphen.";

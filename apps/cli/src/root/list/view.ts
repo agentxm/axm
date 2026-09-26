@@ -4,7 +4,7 @@ import type {
   ExtensionListFilter,
   ExtensionListItem,
 } from "@agentxm/workspace/inspection";
-import { formatDeprecationWarning } from "@agentxm/workspace/lifecycle";
+import { formatDeprecationWarning } from "@agentxm/registry-client";
 
 import {
   ABSENT,

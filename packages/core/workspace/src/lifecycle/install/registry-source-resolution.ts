@@ -3,8 +3,7 @@
  *
  * A bare name or an unqualified `@owner/name` says nothing about which
  * registry hosts it, so every configured host is probed in order and the
- * first that answers wins. Each probe is recorded so the application can
- * show, verbatim, which registries were consulted and what each one said.
+ * first that answers wins. Each probe is reported as a `RegistryLookupProbe`.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -21,8 +20,10 @@ import type {
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 import { RegistryClientFactory } from "@agentxm/registry-client";
 import {
+  registryLoginSuggestions,
   resolveIdentifier,
   sourceResolutionFailureCategory,
+  type RegistryLookupProbe,
   type SourceResolutionFailure,
   WorkspaceCatalog,
 } from "../../resolution/sources/index.js";
@@ -30,8 +31,10 @@ import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/sugges
 import { SettingsReader } from "../../desired-state/index.js";
 
 import { type ExtensionLifecycleFailed, installRefused } from "../../operations/index.js";
-import { registryLoginSuggestions } from "./registry-login-suggestion.js";
-import { sourceResolutionFailureDetail, sourceResolutionRefused } from "./vocabulary.js";
+import {
+  sourceResolutionFailureDetail,
+  sourceResolutionRefused,
+} from "../../reconciliation/index.js";
 
 type RegistrySourceProbeRequirements = SettingsReader | RegistryClientFactory;
 
@@ -46,13 +49,6 @@ export const ADD_REGISTRY_SOURCE: SuggestedAction = {
 
 /** The two types whose bare names are resolved against configured registries. */
 export type InstallableRegistryType = Extract<ExtensionType, "skill" | "subagent">;
-
-/** What one configured registry host answered when it was consulted. */
-export interface RegistryLookupProbe {
-  readonly location: string;
-  readonly outcome: "matched" | "not-found" | "error";
-  readonly reason: Option.Option<string>;
-}
 
 export interface RegistryResolutionOptions {
   readonly onRegistryProbe: (probe: RegistryLookupProbe) => void;
@@ -69,21 +65,6 @@ const qualifiedExtension = (type: InstallableRegistryType, owner: Handle, name: 
 
 const explicitSourceSuggestion = (type: InstallableRegistryType): string =>
   `Verify the owner/${type} name, or install with an explicit source like github:owner/repo`;
-
-/** Render one probe as the line the application prints under `--verbose`. */
-export const formatRegistryProbe = (probe: RegistryLookupProbe): string => {
-  switch (probe.outcome) {
-    case "matched":
-      return `${probe.location}: matched`;
-    case "not-found":
-      return `${probe.location}: no match`;
-    case "error":
-      return Option.match(probe.reason, {
-        onNone: () => `${probe.location}: error`,
-        onSome: (reason) => `${probe.location}: ${reason}`,
-      });
-  }
-};
 
 /** Which configured registry to probe, for which extension. */
 export interface ConfiguredRegistryLookup {

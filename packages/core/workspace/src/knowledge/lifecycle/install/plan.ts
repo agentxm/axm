@@ -23,10 +23,15 @@ import {
 import { applyInstructionSurfacePlans } from "../../../projection/index.js";
 
 import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
-import {
-  type InstallStepRequirements,
-  type KnowledgeInstallIntent,
-} from "../../../lifecycle/install/vocabulary.js";
+import type { InstallStepRequirements, ResolvedInstallRef } from "../../../reconciliation/index.js";
+import type { KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
+
+/** Knowledge bundles the request selected. */
+export interface KnowledgeInstallIntent {
+  /** The enclosing semantic closure owns the trailing aggregate projection. */
+  readonly deferProjections?: boolean;
+  readonly refs: ReadonlyArray<ResolvedInstallRef<KnowledgeExtensionRef>>;
+}
 
 /** The closures a settled knowledge intent becomes. */
 export const planKnowledgeInstall: (

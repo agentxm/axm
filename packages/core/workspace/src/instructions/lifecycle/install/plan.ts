@@ -28,10 +28,15 @@ import {
 import { applyInstructionSurfacePlans } from "../../../projection/index.js";
 
 import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
-import {
-  type InstallStepRequirements,
-  type RuleInstallIntent,
-} from "../../../lifecycle/install/vocabulary.js";
+import type { InstallStepRequirements, ResolvedInstallRef } from "../../../reconciliation/index.js";
+import type { RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
+
+/** Rules the request selected. */
+export interface RuleInstallIntent {
+  /** The enclosing semantic closure owns the trailing aggregate projection. */
+  readonly deferProjections?: boolean;
+  readonly refs: ReadonlyArray<ResolvedInstallRef<RuleExtensionRef>>;
+}
 
 /** The closures a settled rule intent becomes. */
 export const planRuleInstall: (

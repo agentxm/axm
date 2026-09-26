@@ -39,10 +39,13 @@ import {
 } from "../../../operations/index.js";
 
 import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
-import {
-  type InstallStepRequirements,
-  type SkillInstallIntent,
-} from "../../../lifecycle/install/vocabulary.js";
+import type { InstallStepRequirements, ResolvedInstallRef } from "../../../reconciliation/index.js";
+
+/** Skills the request selected, and whether to re-materialize regardless. */
+export interface SkillInstallIntent {
+  readonly skillsToInstall: ReadonlyArray<ResolvedInstallRef<SkillExtensionRef>>;
+  readonly force?: boolean;
+}
 
 const decodePackageUrlParts = Schema.decodeUnknownResult(Schema.toType(PackageUrlPartsSchema));
 

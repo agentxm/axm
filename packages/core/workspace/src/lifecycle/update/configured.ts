@@ -104,16 +104,14 @@ import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/exten
 import { toTypedLabel, kernelFailureToStepFailure } from "../../reconciliation/index.js";
 import { settleMcpSourceIdentityFor } from "../../mcp-connections/source-identity.js";
 import { StepFailureConversion } from "../step-failure-conversion.js";
-import type {
-  HookInstallIntent,
-  InstallStepRequirements,
-  KnowledgeInstallIntent,
-  McpServerInstallIntent,
-  PackInstallIntent,
-  RuleInstallIntent,
-  SkillInstallIntent,
-  SubagentInstallIntent,
-} from "../install/vocabulary.js";
+import type { InstallStepRequirements } from "../../reconciliation/index.js";
+import type { HookInstallIntent } from "../../hooks/index.js";
+import type { KnowledgeInstallIntent } from "../../knowledge/index.js";
+import type { McpServerInstallIntent } from "../../mcp-connections/index.js";
+import type { PackInstallIntent } from "../../packs/index.js";
+import type { RuleInstallIntent } from "../../instructions/index.js";
+import type { SkillInstallIntent } from "../../skills/index.js";
+import type { SubagentInstallIntent } from "../../subagents/index.js";
 import { planHookInstall } from "../../hooks/lifecycle/install/plan.js";
 import { planKnowledgeInstall } from "../../knowledge/lifecycle/install/plan.js";
 import { planMcpServerInstall } from "../../mcp-connections/lifecycle/install/plan.js";

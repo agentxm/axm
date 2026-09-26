@@ -84,7 +84,7 @@ import {
 import { packMemberConflicts, readProposedGraph } from "../../packs/lifecycle/install/plan.js";
 
 import { kernelFailureToStepFailure } from "../../reconciliation/index.js";
-import type { InstallStepRequirements } from "../install/vocabulary.js";
+import type { InstallStepRequirements } from "../../reconciliation/index.js";
 
 // -----------------------------------------------------------------------------
 // Request and candidate

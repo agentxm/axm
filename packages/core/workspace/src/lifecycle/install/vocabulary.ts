@@ -3,69 +3,27 @@
  *
  * Root install, the seven per-type installs, and the configured-entry sweep
  * are one use case with the type either fixed by the command or detected from
- * what the source offers. They therefore share one request, one requirement
- * set, one per-type resolved intent, and one failure vocabulary; only the
+ * what the source offers. They therefore share one requirement set for
+ * preparing the install and one failure vocabulary for resolving it; only the
  * grammar that produced the request differs.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
-import type * as FileSystem from "effect/FileSystem";
-import type * as Option from "effect/Option";
-import type * as Path from "effect/Path";
-import type * as Scope from "effect/Scope";
-import type { RegistryClientFactory } from "@agentxm/registry-client";
-
-import type { NativeWriteAuthority } from "../../projection/agent-adapters/index.js";
 import type {
-  ManagerRequirements,
-  McpSecretStore,
-  McpServerManager,
-} from "../../materialization/index.js";
-import type { RecipeRequirements } from "../../reconciliation/index.js";
-import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions";
-import type { HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
-import type { KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
-import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
-import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
-import type { RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
-import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
-import type { ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
-import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
+  InstallStepRequirements,
+  ResolveInstallRequirements,
+} from "../../reconciliation/index.js";
 import type {
-  ExtensionResolutionFailed,
-  HeldReleasePolicy,
-  PackDependencyRefResolver,
-} from "../../resolution/index.js";
-import type {
-  SourceHostProviders,
-  SourceResolutionFailure,
-  WorkspaceCatalog,
-} from "../../resolution/sources/index.js";
-import { kernelFailureToStepFailure } from "../../reconciliation/failure-rendering.js";
-import {
-  type ApprovalRecoveryMissing,
-  type CandidateFingerprintFailed,
-  type OperationJournal,
-  type PlanInteractionFailed,
-  type ResolvePlanInteraction,
-  ExtensionLifecycleFailed,
+  ApprovalRecoveryMissing,
+  CandidateFingerprintFailed,
+  OperationJournal,
+  PlanInteractionFailed,
+  ResolvePlanInteraction,
 } from "../../operations/index.js";
-import type { CodingAgentRepository, WorkspaceInvariantFacts } from "../../projection/index.js";
 import type {
-  AcceptedCanonicalRefError,
-  AcceptedResolutionWriter,
   ConfiguredAgentOutcomesProvider,
-  DesiredStateGraph,
-  DesiredStateReader,
-  DesiredStateWriter,
-  ExtensionPaths,
   LockfileValidationError,
-  LockfileReader,
-  SettingsReader,
-  SettingsWriter,
-  WorkspaceLocation,
   WorkspaceRecords,
   WorkspaceSettingsReadFailure,
   WorkspaceStateReadFailure,
@@ -75,53 +33,6 @@ import type {
   WorkspaceTransactionScope,
   WorkspaceTransitionAcquireFailure,
 } from "../../transitions/settlement/index.js";
-
-// -----------------------------------------------------------------------------
-// Requirements
-// -----------------------------------------------------------------------------
-
-/**
- * What an install or uninstall plan step declares at execution time: the
- * manager's own requirements, the transaction scope its closure opens, the
- * keychain an MCP connection reads, and the owned workspace-state ports and agent
- * repository its artifact observes. These travel with the step and are
- * composed once at the application's runtime boundary; nothing is captured
- * into a step's closure on the way, and no failure adapter is among them.
- */
-export type InstallStepRequirements =
-  | ManagerRequirements
-  | RecipeRequirements
-  | McpServerManager
-  | McpSecretStore
-  | CodingAgentRepository
-  | LockfileReader
-  | WorkspaceRecords
-  | WorkspaceInvariantFacts
-  | WorkspaceLocation
-  | SettingsReader
-  | SettingsWriter
-  | LockfileReader
-  | DesiredStateReader
-  | DesiredStateWriter
-  | AcceptedResolutionWriter
-  | ExtensionPaths
-  | NativeWriteAuthority;
-
-/**
- * What routing a source locator, probing configured registries, and reading
- * what a source contains all need.
- */
-export type ResolveInstallRequirements =
-  | FileSystem.FileSystem
-  | Path.Path
-  | RegistryClientFactory
-  | Scope.Scope
-  | SourceHostProviders
-  | WorkspaceCatalog
-  | WorkspaceLocation
-  | SettingsReader
-  | LockfileReader
-  | DesiredStateReader;
 
 /**
  * Every failure resolving a settled install or removal can surface: the
@@ -154,134 +65,3 @@ export type PrepareInstallRequirements =
   | ResolvePlanInteraction
   | WorkspaceRecords
   | WorkspaceTransactionScope;
-
-// -----------------------------------------------------------------------------
-// Failures
-// -----------------------------------------------------------------------------
-
-/**
- * Refuse an install because a source could not be resolved or read. The
- * kernel's rendering of the resolution failure decides the category, title,
- * sentence, evidence, and recoveries — the same ones the failure reads with
- * wherever else it surfaces — and the feature adds only the recoveries of
- * its own that follow them.
- */
-export const sourceResolutionRefused = (
-  cause: SourceResolutionFailure,
-  suggestions: NonNullable<ExtensionLifecycleFailed["suggestions"]> = [],
-): ExtensionLifecycleFailed => {
-  const rendered = kernelFailureToStepFailure(cause);
-  const carried = [...(rendered.suggestions ?? []), ...suggestions];
-  return new ExtensionLifecycleFailed({
-    category: rendered.category,
-    ...(rendered.title === undefined ? {} : { title: rendered.title }),
-    detail: rendered.detail,
-    ...(rendered.metadata === undefined ? {} : { metadata: rendered.metadata }),
-    ...(rendered.retryable === undefined ? {} : { retryable: rendered.retryable }),
-    ...(carried.length === 0 ? {} : { suggestions: carried }),
-    cause,
-  });
-};
-
-/** The sentence a source-resolution failure reads with, for probe evidence. */
-export const sourceResolutionFailureDetail = (cause: SourceResolutionFailure): string =>
-  kernelFailureToStepFailure(cause).detail;
-
-// -----------------------------------------------------------------------------
-// Per-type resolved intents
-// -----------------------------------------------------------------------------
-
-/** One discovered package and the constraint the request placed on it. */
-export interface ResolvedInstallRef<TRef> {
-  readonly ref: TRef;
-  readonly versionRange: Option.Option<VersionRange>;
-}
-
-/** Skills the request selected, and whether to re-materialize regardless. */
-export interface SkillInstallIntent {
-  readonly skillsToInstall: ReadonlyArray<ResolvedInstallRef<SkillExtensionRef>>;
-  readonly force?: boolean;
-}
-
-/** Subagents the request selected, and whether to re-materialize regardless. */
-export interface SubagentInstallIntent {
-  readonly subagentsToInstall: ReadonlyArray<ResolvedInstallRef<SubagentExtensionRef>>;
-  readonly force?: boolean;
-}
-
-/** Rules the request selected. */
-export interface RuleInstallIntent {
-  /** The enclosing semantic closure owns the trailing aggregate projection. */
-  readonly deferProjections?: boolean;
-  readonly refs: ReadonlyArray<ResolvedInstallRef<RuleExtensionRef>>;
-}
-
-/** Hooks packages the request selected. */
-export interface HookInstallIntent {
-  /** The enclosing semantic closure owns the trailing aggregate projection. */
-  readonly deferProjections?: boolean;
-  readonly refs: ReadonlyArray<ResolvedInstallRef<HookExtensionRef>>;
-}
-
-/** Knowledge bundles the request selected. */
-export interface KnowledgeInstallIntent {
-  /** The enclosing semantic closure owns the trailing aggregate projection. */
-  readonly deferProjections?: boolean;
-  readonly refs: ReadonlyArray<ResolvedInstallRef<KnowledgeExtensionRef>>;
-}
-
-/** One MCP connection, its local name, and the inputs the request supplied. */
-export interface McpServerInstallIntent {
-  readonly ref: McpServerExtensionRef;
-  readonly localName: ExtensionName;
-  readonly sourceIdentity: string;
-  readonly versionRange: Option.Option<string>;
-  readonly force: boolean;
-  readonly nonInteractive: boolean;
-  readonly env?: Readonly<Record<string, string>>;
-}
-
-/**
- * The authority a recovery uses instead of re-selecting members: every member
- * ref comes from the accepted resolution already recorded for it.
- */
-export type PackRecoveryDependencyResolver = PackDependencyRefResolver<
-  AcceptedCanonicalRefError | ExtensionResolutionFailed,
-  WorkspaceLocation | SettingsReader | LockfileReader | FileSystem.FileSystem | Path.Path
->;
-
-/**
- * What an install does when the minimum release age holds back every release
- * a constraint admits: keep a complete, usable accepted resolution, or refuse
- * before any write. Targeted and configured installs, and the sync recovery
- * that replays a configured install, all take their policy from here.
- */
-export const INSTALL_HELD_RELEASE_POLICY: HeldReleasePolicy = "preserve-or-block";
-
-/** One pack graph transition and the policy that governs it. */
-export interface PackInstallIntent {
-  readonly packToInstall: PackRef;
-  readonly versionRange: Option.Option<VersionRange>;
-  readonly nonInteractive: boolean;
-  /** The one evaluation every member is selected under. */
-  readonly releaseAgeEvaluation: ReleaseAgeEvaluation;
-  /** The policy the operation that classified this intent declared. */
-  readonly heldRelease: HeldReleasePolicy;
-  /** Immutable dependency authority a deterministic recovery workflow supplies. */
-  readonly dependencyResolver?: PackRecoveryDependencyResolver;
-  /** Render shared aggregate projections after a larger enclosing transition. */
-  readonly deferProjections?: boolean;
-  /**
-   * Reacquire the Pack's canonical content instead of reusing the installed
-   * tree. Recovery sets this because the observed tree already diverged from
-   * the accepted resolution, so reusing it would preserve the divergence.
-   */
-  readonly forceCanonical?: boolean;
-  /**
-   * The proposed desired-state graph whose effective constraints the members
-   * are selected within. A sweep that advances several Packs builds it once
-   * with every selected Pack's manifest; omitted, this Pack's manifest is the
-   * only proposed change.
-   */
-  readonly desiredGraph?: DesiredStateGraph;
-}

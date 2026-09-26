@@ -84,6 +84,15 @@ describe("CLI handler boundary exceptions", () => {
     expect(reported.map((message) => message.severity)).toEqual([2]);
   });
 
+  it("lets a handler render a deprecation with the Registry client's formatter", async () => {
+    expect(
+      await restrictedImports(
+        'import { formatDeprecationWarning } from "@agentxm/registry-client";\nvoid formatDeprecationWarning;\n',
+        "apps/cli/src/root/list/view.ts",
+      ),
+    ).toEqual([]);
+  });
+
   it("permits the exempt command families that own no feature", async () => {
     expect(
       await restrictedImports(

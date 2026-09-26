@@ -38,9 +38,13 @@ import {
 } from "../../../desired-state/index.js";
 
 import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
-import { type InstallStepRequirements } from "../../../lifecycle/install/vocabulary.js";
 import { makeWorkspaceRetentionPolicy } from "../../../reconciliation/index.js";
-import type { KnowledgeUninstallIntent } from "../../../lifecycle/uninstall/vocabulary.js";
+import type { InstallStepRequirements } from "../../../reconciliation/index.js";
+
+/** One knowledge-bundle removal. */
+export interface KnowledgeUninstallIntent {
+  readonly targets: ReadonlyArray<KnowledgeExtensionTarget>;
+}
 
 /** A target and, when AXM may not remove it, the reason it is protected. */
 interface KnowledgeUninstallOwnership {

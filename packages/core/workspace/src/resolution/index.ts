@@ -149,3 +149,6 @@ export {
 // Which Packs hold the newest release of an updated extension back.
 export { heldBackReleaseWarnings } from "./update/held-back-releases.js";
 export { hydrateAcceptedPackRef } from "./accepted-pack-hydration.js";
+
+// The deprecation and lifecycle notices a registry ref carries.
+export { extensionRefLifecycleWarnings } from "./lifecycle-warnings.js";

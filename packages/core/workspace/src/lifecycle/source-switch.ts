@@ -30,7 +30,8 @@ import {
   type ExtensionLifecycleFailed,
   installRefused,
 } from "../operations/index.js";
-import { sourceResolutionRefused, type PrepareInstallRequirements } from "./install/vocabulary.js";
+import type { PrepareInstallRequirements } from "./install/vocabulary.js";
+import { sourceResolutionRefused } from "../reconciliation/index.js";
 
 export const SOURCE_SWITCH_CONDITION_ID = "source-authority-change";
 const SOURCE_SWITCH_STATE_CONDITION_ID = "source-switch-current-state";

@@ -27,7 +27,7 @@ import type {
   PathTraversalDetected,
   TreeIntegrity,
 } from "../desired-state/index.js";
-import { extensionRefLifecycleWarnings } from "../lifecycle/warnings.js";
+import { extensionRefLifecycleWarnings } from "../resolution/index.js";
 import { materializeRegistryPackageWithTreeIntegrity } from "./registry-materialization.js";
 
 export type AcquirableExtensionRef = Exclude<ExtensionRef, { readonly refType: "workspace" }>;

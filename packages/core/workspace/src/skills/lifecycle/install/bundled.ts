@@ -53,7 +53,7 @@ import { sanitizeName } from "../../../desired-state/index.js";
 import { runWorkspaceTransaction } from "../../../transitions/settlement/index.js";
 
 import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
-import { type InstallStepRequirements } from "../../../lifecycle/install/vocabulary.js";
+import type { InstallStepRequirements } from "../../../reconciliation/index.js";
 
 /** One file of the bundled skill's source tree. */
 export interface BundledAxmSkillSourceFile {

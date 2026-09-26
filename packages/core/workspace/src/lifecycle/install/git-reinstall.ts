@@ -17,7 +17,7 @@ import { DesiredStateReader, acceptedLockedResolutionRef } from "../../desired-s
 import { hydrateAcceptedPackRef } from "../../resolution/index.js";
 import { SourceHostProviders } from "../../resolution/sources/index.js";
 import { installRefused } from "../../operations/index.js";
-import { sourceResolutionRefused } from "./vocabulary.js";
+import { sourceResolutionRefused } from "../../reconciliation/index.js";
 
 const sameGitLocator = (left: GitSource, right: GitSource): boolean =>
   left.url.href === right.url.href &&

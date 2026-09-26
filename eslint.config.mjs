@@ -1108,9 +1108,17 @@ export default [
                 "@agentxm/workspace/transitions/settlement/*",
                 "@agentxm/workspace/resolution/sources",
                 "@agentxm/workspace/resolution/sources/*",
-                "@agentxm/registry-client",
                 "@agentxm/registry-client/*",
               ],
+              allowTypeImports: true,
+              message:
+                "Handlers reach transactions, sources, and the Registry only through feature and capability application APIs.",
+            },
+            {
+              // The deprecation sentence is pure rendering the Registry client
+              // owns; it reaches no Registry.
+              group: ["@agentxm/registry-client"],
+              allowImportNames: ["formatDeprecationWarning"],
               allowTypeImports: true,
               message:
                 "Handlers reach transactions, sources, and the Registry only through feature and capability application APIs.",

@@ -2,17 +2,17 @@ import type * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
-import type { JobStepResult, PlannedJobStep } from "../../operations/index.js";
+import type { JobStepResult, PlannedJobStep } from "../operations/index.js";
 import {
   HookManager,
   KnowledgeManager,
   RuleManager,
   type ExtensionManagerFailure,
   type ManagerRequirements,
-} from "../../materialization/index.js";
-import { applyInstructionSurfacePlans, type ProjectionPlan } from "../../projection/index.js";
-import { kernelFailureToStepFailure } from "../../reconciliation/index.js";
-import type { InstallStepRequirements } from "./vocabulary.js";
+} from "../materialization/index.js";
+import { applyInstructionSurfacePlans, type ProjectionPlan } from "../projection/index.js";
+import { kernelFailureToStepFailure } from "./failure-rendering.js";
+import type { InstallStepRequirements } from "./install-vocabulary.js";
 
 /**
  * One trailing projection write per semantic closure. Member steps commit

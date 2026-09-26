@@ -14,19 +14,19 @@ import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   SourceHostProviders,
+  registryLoginSuggestions,
   resolveSource,
+  type RegistryLookupProbe,
   type SourceResolutionFailure,
 } from "../../resolution/sources/index.js";
 import { type ExtensionLifecycleFailed, installRefused } from "../../operations/index.js";
-import { registryLoginSuggestions } from "./registry-login-suggestion.js";
-import type { RegistryLookupProbe } from "./registry-source-resolution.js";
 import { resolveInstallSource, type LocatorInstallType } from "./source-routing.js";
 import {
   sourceResolutionFailureDetail,
   sourceResolutionRefused,
   type ResolvedInstallRef,
   type ResolveInstallRequirements,
-} from "./vocabulary.js";
+} from "../../reconciliation/index.js";
 
 export type SourceInstallType = "hook" | "rule" | "knowledge" | "skill" | "subagent";
 export type SourceInstallRef<T extends SourceInstallType> = Extract<

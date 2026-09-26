@@ -119,3 +119,15 @@ export {
   type GitDirectoryComparisonInput,
   type GitDirectoryComparisonService,
 } from "./git/directory-comparison.js";
+
+// Registry install targets, the login hint, and the per-registry probe record.
+export {
+  parseRegistryInstallTarget,
+  type BareRegistryInstallTarget,
+  type ParseRegistryInstallTargetOptions,
+  type QualifiedRegistryInstallTarget,
+  type RegistryInstallTarget,
+  type RegistryInstallTargetParseError,
+} from "./registry-install-target.js";
+export { registryLoginSuggestions } from "./registry-login-suggestion.js";
+export { formatRegistryProbe, type RegistryLookupProbe } from "./registry-probe.js";

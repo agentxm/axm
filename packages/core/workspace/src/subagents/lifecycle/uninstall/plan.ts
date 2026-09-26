@@ -36,9 +36,7 @@ import {
 
 import { expandGlob } from "@agentxm/extension-model/unstable/extensions/name-patterns";
 import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
-import { type InstallStepRequirements } from "../../../lifecycle/install/vocabulary.js";
 import { makeWorkspaceRetentionPolicy } from "../../../reconciliation/index.js";
-import type { SubagentUninstallIntent } from "../../../lifecycle/uninstall/vocabulary.js";
 import {
   acquiredDisplayPath,
   acquiredRootDisplayPath,
@@ -46,6 +44,12 @@ import {
   settingsDisplayPath,
   lockEntryVersion,
 } from "../../../desired-state/index.js";
+import type { InstallStepRequirements } from "../../../reconciliation/index.js";
+
+/** One subagent removal. */
+export interface SubagentUninstallIntent {
+  readonly targets: ReadonlyArray<SubagentExtensionTarget>;
+}
 
 const subagentSourceTarget = (args: {
   readonly name: string;

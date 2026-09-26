@@ -12,6 +12,7 @@ depends-on:
   - ./decisions/typescript-dual-alias.md
   - ./decisions/executable-specifications-authority.md
   - ./decisions/colocated-specifications.md
+  - ./decisions/workspace-split-into-kernel-kinds-and-features.md
 ---
 
 # Package architecture
@@ -25,8 +26,11 @@ requirements authority; nothing here creates an obligation.
 
 Every package name states the capability it owns. Large user-facing
 capabilities are vertical feature packages. Reusable state, mechanics, policy,
-and integrations sit behind narrower inward-facing boundaries. `axm.sh` is the
-composition and interaction boundary and owns no reusable business policy.
+and integrations sit behind narrower inward-facing boundaries. The workspace
+use cases are feature slices of one feature package, and the extension kinds
+form their own capability package between those features and the workspace
+kernel. `axm.sh` is the composition and interaction boundary and owns no
+reusable business policy.
 
 ## Package and publication boundaries
 
@@ -83,7 +87,7 @@ authored in each `project.json`:
 | `role:e2e`         | Observes shipped artifacts and entry points                                     |
 
 The two are independent on purpose. `registry-client` is an integration and
-strategically undifferentiated; `workspace/transitions/settlement` is a
+strategically undifferentiated; `workspace-kernel/settlement` is a
 low-level capability and among the most distinctive code in the repository.
 
 ## Core packages
@@ -132,13 +136,17 @@ The model is the first scope of the intra-package policy gate in
 [`tools/architecture/config.mjs`](../../tools/architecture/config.mjs). Its
 native JS Boundaries descriptors classify the model as a core backstage domain
 capability, and its export map declares public entry points. Domain files cannot
-import filesystem, provider, or Node mechanisms. The source graph also rejects
-file cycles across all production roles, including type-only edges, and
-capability cycles between domain/application code. Adapter and composition
-imports follow dependency inversion outside the frontstage/backstage constraint. The current Nx
-rules remain in force elsewhere while capability ownership is separated; this
-initial scope does not imply that the workspace packages already satisfy the
-new policy/application/adapter separation.
+import filesystem, provider, or Node mechanisms. Adapter and composition
+imports follow dependency inversion outside the frontstage/backstage
+constraint. The same descriptors cover three extension-kind roots
+(`extension-kinds/src/mcp-connections/lifecycle/domain`,
+`extension-kinds/src/skills/lifecycle/application`, and
+`extension-kinds/src/subagents/lifecycle/application`), so those kinds keep
+their `domain`, `application`, and `adapters` folders. Slice isolation for the
+three workspace packages lives in
+[`tools/architecture/slices.mjs`](../../tools/architecture/slices.mjs), and
+the source graph rejects file cycles across the gated roots and cycles between
+workspace slices, including type-only edges.
 
 The same gate also covers the supporting backstage `official-skill` capability
 inside `@agentxm/cli-maintenance`. Its domain entry owns compatibility and
@@ -153,65 +161,96 @@ packages pending their application/adapter separation.
 
 ### Capabilities
 
-| Package                      | Role              | Owns                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| ---------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@agentxm/extension-content` | `role:capability` | Skill and subagent content parsing, Knowledge bundle inspection and search, the lint rule catalog, and archive and manifest validation                                                                                                                                                                                                                                                                                            |
-| `@agentxm/workspace`         | `role:capability` | Desired and observed state; accepted resolution and source adapters; owned projection and native agent adapters; kind-specific acquisition and materialization for skills, subagents, MCP connections, instructions, hooks, Knowledge, and Packs; reconciliation planning; transition execution; and transaction settlement. Its public subpaths expose these cohesive capabilities without creating separate package identities. |
+| Package                      | Role              | Owns                                                                                                                                                                                                                                                       |
+| ---------------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@agentxm/extension-content` | `role:capability` | Skill and subagent content parsing, Knowledge bundle inspection and search, the lint rule catalog, and archive and manifest validation                                                                                                                     |
+| `@agentxm/workspace-kernel`  | `role:capability` | Desired and observed workspace state; the operations contract; acquisition, sources, and resolution; owned projection and native agent adapters; plan mechanics; the materialization port and manager registry; reconciliation; and transaction settlement |
+| `@agentxm/extension-kinds`   | `role:capability` | Managers, install and uninstall plans, authoring scaffolds, and typed failures for skills, subagents, MCP connections, hooks, instructions, Knowledge, and Packs; see [Extension kinds](#extension-kinds)                                                  |
 
 `extension-content` is a leaf. It reads the model and nothing else, which is
 why integrations and supporting packages may consume it by name without pulling
 workspace or transport packages behind it.
 
-`workspace/transitions/settlement` owns the transition lock, transaction runner,
+The workspace kernel is a set of flat slices, one folder under `src/` each,
+ordered lowest first: `settlement`, `operations`, `agent-adapters`,
+`workspace-state`, `projection`, `acquisition`, `sources`, `resolution`,
+`planning`, `materialization`, and `reconciliation`. A slice imports only the
+slices below it. The kernel knows no extension kind and no feature, not even as
+a type; the
+[workspace split decision](decisions/workspace-split-into-kernel-kinds-and-features.md)
+records why.
+
+`workspace-kernel/settlement` owns the transition lock, transaction runner,
 preimages, restoration, verification, and write registration. The closure API —
 `withWorkspaceClosure`, `settleWorkspaceClosure`, `rollbackWorkspaceClosure`, and
-`pendingClosureRestorations` — is consumed by transition planning alone. Every
+`pendingClosureRestorations` — is consumed by the `planning` slice alone. Every
 other capability registers writes with `protectWorkspacePath` and runs
 transactions with `runWorkspaceTransaction`.
 
-`workspace/transitions/planning` owns the mechanics for safely applying a plan,
+`workspace-kernel/operations` is the contract every layer above it speaks: the
+plan, operation resolution and events, the operation journal, interruption,
+recovery values, the `StepFailure` family, the `ResolvePlanInteraction` and
+install-selection interaction ports, and the lifecycle refusal. It imports only
+`effect`, the extension model, Registry protocol, and Registry client types.
+
+`workspace-kernel/workspace-state` owns desired and observed workspace state:
+settings, the lockfile, and discovery configuration under `desired/`, the read
+model under `observed/`, and the readers, writers, and graphs derived from
+them. The two subfolders are organisational; no direction between them is
+enforced yet. `workspace-kernel/acquisition` owns bounded acquisition of
+extension content into canonical directories, together with the Git transport
+context and archive path selection that lifecycle and publishing code share.
+
+`workspace-kernel/planning` owns the mechanics for safely applying a plan,
 never the feature policy that decides which plan should exist. Every feature
 that changes workspace state builds its own plan and applies it here; no feature
 executes another feature's plans.
 
-`workspace/reconciliation` sits above materialization, resolution, desired
-state, projection, and transition planning. Lifecycle, sync, and authoring
-invoke this capability as peer features. It owns the policy that joins
-declarations, accepted content, and native outputs into a coherent transition. The
+`workspace-kernel/reconciliation` is the top kernel slice, above
+materialization, resolution, workspace state, projection, and planning. The
+lifecycle, sync, and authoring slices of `@agentxm/workspace-features` invoke
+it as peer features. It owns the policy that joins declarations, accepted
+content, and native outputs into a coherent transition. The
 [shared reconciliation decision](decisions/shared-desired-state-reconciliation.md)
-explains why that policy has its own module boundary.
+explains why that policy has its own module boundary. Its `live` entry
+registers the kind managers as projection participants and provides the
+configured-agent-outcomes provider over them. It also renders the closed
+`KernelFailure` union through `kernelFailureToStepFailure` and declares the
+`StepFailureConversion` port through which plan steps settle failures; the CLI
+provides that port with the catalog it composes.
 
-`workspace/materialization` supplies the shared manager contract and dynamic
-dispatch needed by reconciliation. The implementations live with their kind
-owners under `skills`, `subagents`, `mcp-connections`, `instructions`, `hooks`,
-`knowledge`, and `packs`. They keep platform, Registry transport, and native
-write requirements explicit in `R`; desired-state and accepted-resolution
-writes remain coordinated above the manager boundary. Materialization registers
-their projection participants and the cross-kind configured-agent-outcomes
-provider for application composition.
+`workspace-kernel/materialization` supplies the shared manager contract, the
+manager registry, and the ports needed by reconciliation. The implementations
+live in `@agentxm/extension-kinds`; the kernel reaches them only through the
+manager contract, the registry, and the `ExtensionKindFailure` brand, which
+carries each kind failure's own rendering data. Managers keep platform,
+Registry transport, and native write requirements explicit in `R`;
+desired-state and accepted-resolution writes remain coordinated above the
+manager boundary.
 
-`workspace/projection` owns what AXM claims in agent-facing output and what its
+`workspace-kernel/projection` owns what AXM claims in agent-facing output and what its
 observed state means: the ownership units, who may contribute to each, the
 provenance that proves a claim, and the facts lint and sync reconcile against.
 It reaches the capabilities that materialize those units only through the
 `ProjectionParticipants` registry they register with, so a fact never depends
 on the module that writes the unit.
 
-`workspace/projection/agent-adapters` owns installed-agent detection and the
+`workspace-kernel/agent-adapters` owns installed-agent detection and the
 native format mechanics used by projection: coding-agent adapters, subagent
 rendering, MCP configuration, hook-group editing, ownership markers, and the
 YAML, TOML, and JSON codecs used by those writers. Its inputs are plain data,
 and native writes use the `NativeWriteAuthority` port so the enclosing workspace
 transaction protects and records every target.
 
-`workspace/resolution` decides acceptance, so it needs workspace facts, source
-acquisition, and `extension-content`. It sits above desired state, never below
-it. `workspace/resolution/sources` owns locator routing, host providers,
+`workspace-kernel/resolution` decides acceptance, so it needs workspace facts,
+sources, and `extension-content`. It sits above workspace state, never below
+it. `workspace-kernel/sources` owns locator routing, host providers,
 convention and manifest discovery, identifier resolution, and shallow Git
 acquisition. Those adapters consume workspace policy only through the
 `RegistryResolutionPolicy`, `AxmSkillCandidateGate`, and `WorkspaceCatalog`
-ports. `workspace/resolution/live` binds the first two, because resolution owns
-release-age admission and official-skill trust; the composition root only
+ports. `workspace-kernel/resolution/live` binds the first two, because
+resolution owns release-age admission and official-skill trust, and
+`workspace-kernel/sources/live` binds the catalog; the composition root only
 composes those Layers.
 
 Self-update is strategically supporting. Its installation facts, platform
@@ -272,44 +311,65 @@ upgrade entry still selects native recovery guidance.
 The remaining operation-vocabulary dependency does not make self-update
 strategically core.
 
-The lower-level graph is deliberately small:
+The kernel order is enforced, so the graph between packages and slices is
+small:
 
 ```mermaid
-flowchart LR
-  OPERATIONS["workspace/transitions/planning"] --> STATE["workspace/desired-state"]
-  OPERATIONS --> TRANSACTIONS["workspace/transitions/settlement"]
-  STATE --> TRANSACTIONS
-  PROJECTION["workspace/projection"] --> STATE
-  PROJECTION --> TRANSACTIONS
-  PROJECTION --> AGENT_ADAPTERS["workspace/projection/agent-adapters"]
-  RECONCILIATION["workspace/reconciliation"] --> MATERIALIZATION["workspace/materialization + kind owners"]
-  RECONCILIATION --> OPERATIONS
-  RECONCILIATION --> STATE
-  RECONCILIATION --> PROJECTION
-  MATERIALIZATION --> PROJECTION
-  MATERIALIZATION --> OPERATIONS
-  MATERIALIZATION --> STATE
-  MATERIALIZATION --> TRANSACTIONS
-  MATERIALIZATION --> AGENT_ADAPTERS
-  MATERIALIZATION --> PROTOCOL["registry-protocol"]
-  MATERIALIZATION --> MODEL["extension-model"]
-  STATE --> AGENT_ADAPTERS
-  STATE --> PROTOCOL
-  STATE --> MODEL
-  AGENT_ADAPTERS --> MODEL
+flowchart TB
+  FEATURES["workspace-features"] --> KINDS["extension-kinds"]
+  FEATURES --> KERNEL
+  KINDS --> KERNEL
+  subgraph KERNEL["workspace-kernel"]
+    RECONCILIATION["reconciliation"] --> MATERIALIZATION["materialization"]
+    MATERIALIZATION --> PLANNING["planning"]
+    PLANNING --> RESOLUTION["resolution"]
+    RESOLUTION --> SOURCES["sources"]
+    SOURCES --> ACQUISITION["acquisition"]
+    ACQUISITION --> PROJECTION["projection"]
+    PROJECTION --> STATE["workspace-state"]
+    STATE --> AGENT_ADAPTERS["agent-adapters"]
+    AGENT_ADAPTERS --> OPERATIONS["operations"]
+    OPERATIONS --> SETTLEMENT["settlement"]
+  end
+  KERNEL --> PROTOCOL["registry-protocol"]
+  KERNEL --> MODEL["extension-model"]
   PROTOCOL --> MODEL
 ```
 
+Inside the kernel each arrow points to the next lower slice; a slice may
+import any slice below it, not only the next one.
+
+### Extension kinds
+
+`@agentxm/extension-kinds` (`role:capability`, `scope:extension-kinds`) holds
+one slice per kind: `skills`, `subagents`, `mcp-connections`, `hooks`,
+`instructions`, `knowledge`, and `packs`. Each kind keeps its internal layout
+and its `index.ts` exports only what features and the CLI consume. No kind
+imports another kind, and no kind imports a feature; what two kinds share moves
+into a kernel slice.
+
+A kind's error classes carry the kernel's `ExtensionKindFailure` brand with
+their own wording, so the kernel renders them without naming a kind. MCP
+installation reaches the kernel only through the
+`McpServerManagerService.installConnection` port member. The package-level
+`./live` entry composes the seven manager Layers and the keychain-backed MCP
+secret store, which is why the package declares `@napi-rs/keyring`.
+
 ### Feature modules
 
-A feature module owns a complete reusable use case: the policy,
-orchestration, typed failures, typed result, and the specifications that state
-its promises. It depends on contracts, capabilities, and integrations through
-their public service APIs, and never on another feature module.
+A feature slice owns a complete reusable use case: the policy, orchestration,
+typed failures, typed result, and the specifications that state its promises.
+All ten are slices of the one `role:feature` package
+`@agentxm/workspace-features` (`scope:workspace-features`). A feature depends on
+contracts, capabilities, extension kinds, and integrations through their public
+entries, and never on another feature. Because the features share one Nx
+project, feature-to-feature isolation is enforced by the slice gate in
+[`tools/architecture/slices.mjs`](../../tools/architecture/slices.mjs), not by
+Nx tags.
 
 | Module                                        | Role           | Use cases it owns                                                                                                                                        |
 | --------------------------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@agentxm/workspace-features/sync`            | `role:feature` | Scope selection, shared reconciliation invocation, convergence and reconciliation outcomes                                                               |
+| `@agentxm/workspace-features/sync`            | `role:feature` | Scope selection, shared reconciliation invocation, convergence and reconciliation outcomes, and configured Pack recovery                                 |
 | `@agentxm/workspace-features/linting`         | `role:feature` | Workspace facts, lint rules, findings, normalization, and bounded fix planning                                                                           |
 | `@agentxm/workspace-features/lifecycle`       | `role:feature` | Install, update, uninstall, enable, disable, demote, and Pack unpacking across root and type-specific forms                                              |
 | `@agentxm/workspace-features/authoring`       | `role:feature` | New, fork, native import, adopt identity policy, version, and authored Pack membership                                                                   |
@@ -318,6 +378,12 @@ their public service APIs, and never on another feature module.
 | `@agentxm/workspace-features/configuration`   | `role:feature` | Setup, configured-agent membership, instruction management, and inline workspace capabilities such as MCP servers                                        |
 | `@agentxm/workspace-features/inspection`      | `role:feature` | List, view, show, Pack inventory, and update-availability assessment                                                                                     |
 | `@agentxm/workspace-features/knowledge-query` | `role:feature` | Knowledge concept resolution, retrieval, search, related concepts, and status                                                                            |
+| `@agentxm/workspace-features/sharing`         | `role:feature` | The read-only repository sharing document for one authored workspace                                                                                     |
+
+The authoring, publishing, and configuration slices each export the recognizer
+and renderer for their own failure family; lifecycle owns no family of its own.
+Shared feature test support lives in `workspace-features/src/testing/`, which is
+not exported and is importable only from feature test files.
 
 Each exposes an application API of the shape `prepare(request) → Candidate` and
 `previewOrApply(candidate, execution) → OperationResolution`, with typed
@@ -328,7 +394,7 @@ declare — resolving a plan, observing an interruption signal, workspace
 initialization, and the authentication presenters — are typed services the
 application binds.
 
-The workspace linting module does not absorb contract-level validation used by
+The linting slice does not absorb contract-level validation used by
 publication and Registry ingestion; that lives with `extension-content` and
 `registry-protocol`. It composes facts and findings about installed and
 authored workspace state.
@@ -412,9 +478,17 @@ shipped artifact.
 
 ## Public package APIs
 
-Every production package declares intentional `exports`. Its root exports the
-public service contract, schemas, domain types, and pure behaviour that inward
-consumers may use.
+Every production package declares intentional `exports`, one entry per public
+unit. A single-unit package exports its root `.`: the public service contract,
+schemas, domain types, and pure behaviour that inward consumers may use. A
+sliced package — `@agentxm/workspace-kernel`, `@agentxm/extension-kinds`,
+`@agentxm/workspace-features`, and `@agentxm/registry-access` — exports one
+`./<slice>` per `src/<slice>/` folder, mapped to that folder's `index.ts`, and
+no root. The `./live` and `./testing` rules below apply to each entry: a slice
+adds `./<slice>/live` or `./<slice>/testing` only when its folder has a
+`live.ts` or `testing.ts`. `@agentxm/extension-kinds` also exports a
+package-level `./live` that composes every kind, and `@agentxm/registry-access`
+a package-level `./testing`.
 
 - `./live` carries environment-backed implementations. In production source
   only `apps/cli/src/runtime.ts` imports one; feature logic keeps service
@@ -442,8 +516,9 @@ barrel is not added merely to make an import legal.
 ## Enforcement
 
 The durable obligations are inward dependency direction, feature isolation,
-acyclicity, public package APIs, and composition of concrete
-implementations. The exact set of edges present at any moment is implementation
+slice isolation inside a sliced package (kind to kind, feature to feature, and
+the kernel slice order), acyclicity, public package APIs, and composition of
+concrete implementations. The exact set of edges present at any moment is implementation
 state derived by Nx, not a second normative graph to maintain.
 
 ### Project topology
@@ -460,7 +535,15 @@ enabled and no ignored project pairs. Its configuration also enables:
 
 General matrices own direction. A package-specific constraint is added only for
 a stable asymmetric boundary the matrices cannot express — `registry-protocol`
-on `extension-model` and the `extension-content` leaf. Every package carries a
+on `extension-model`, the `extension-content` leaf, and the workspace tiers.
+`@agentxm/workspace-kernel` and `@agentxm/extension-kinds` share
+`role:capability`, so two rows forbid `scope:workspace-kernel` from depending on
+`scope:extension-kinds` or `scope:workspace-features`, and
+`scope:extension-kinds` from depending on `scope:workspace-features`. These are
+bans, not an adjacency list. `productScopeBans`, which keeps product packages
+out of the end-to-end and shared test-support projects, lists the three
+workspace scopes.
+Every package carries a
 `scope:*` identity tag for
 selection; the prohibition is on using those tags in `depConstraints` to
 rebuild an adjacency list, not on the tags existing.
@@ -486,20 +569,40 @@ Nx tags cannot distinguish the CLI composition root from command handlers in
 the same project, or a package root from its `./live` entry. Focused ESLint
 `no-restricted-imports` overrides therefore:
 
-- allow concrete `@agentxm/*/live` composition in the CLI runtime and each
-  package's `./live` entry; feature source retains the owned services in its
-  Effect requirements;
-- reserve `@agentxm/*/testing` for the enumerated fixtures and tests;
+- allow concrete `/live` composition, including nested slice entries such as
+  `@agentxm/workspace-kernel/settlement/live`, in the CLI runtime and each
+  package's own `live.ts` entries; feature source retains the owned services in
+  its Effect requirements;
+- reserve `/testing` entries for the enumerated fixtures and tests;
 - forbid handlers under `apps/cli/src/root/**` from constructing plans, calling
   workspace writers, or reaching transactions, sources, and the Registry client
-  directly, while leaving contract types importable for rendering;
-- restrict the transaction closure API to `workspace/transitions/planning`; and
+  directly, while leaving contract types importable for rendering. The bans
+  name the writers in `@agentxm/workspace-kernel/workspace-state`, plan
+  construction in `/operations` and `/planning`, and every value from
+  `/settlement`, `/sources`, and the Registry client, except its
+  `formatDeprecationWarning` sentence;
+- restrict the transaction closure API in `@agentxm/workspace-kernel/settlement`
+  to the kernel's `planning` slice (and `settlement` itself); and
 - forbid imports through another package's `src`, `dist`, or other undeclared
   subpaths.
 
-Where a meaningful internal direction remains inside one package, use the same
-focused mechanism. A substantial independent boundary should normally become a
-package so Nx can model it directly.
+The CLI runtime composes `@agentxm/extension-kinds/live`, the kernel slice
+`/live` entries, `@agentxm/workspace-features/knowledge-query/live`, and the
+application failure catalog in `apps/cli/src/app-error/failure-catalog.ts`,
+which joins the kernel's failure families with each feature's and provides the
+kernel's `StepFailureConversion` port.
+
+Inside a sliced package, direction and isolation between slices are enforced by
+`eslint-plugin-boundaries` in
+[`tools/architecture/slices.mjs`](../../tools/architecture/slices.mjs): each
+`src/<slice>/` folder is an element, `boundaries/dependencies` allows only the
+permitted directions through a slice's `index`, `live`, or `testing` entry file
+and ends with explicit denials, and `no-unknown-files` and
+`no-unknown-dependencies` reject files and imports the configuration does not
+classify. A boundary becomes a package when it needs its own Nx direction row,
+cycle check, TypeScript project reference, or affected granularity; the
+[workspace split decision](decisions/workspace-split-into-kernel-kinds-and-features.md)
+applies that rule.
 
 ### Requirement and verification ownership
 
@@ -508,7 +611,11 @@ Structural policy is enforced natively and verified by ordinary tooling tests:
 exercises real allowed and forbidden fixture imports through the flat
 configuration rather than asserting on configuration strings, and
 [`scripts/composition-root-lint-exceptions.test.ts`](../../scripts/composition-root-lint-exceptions.test.ts)
-exercises allowed and forbidden composition and handler imports. ESLint
+exercises allowed and forbidden composition and handler imports. The
+module-boundary test includes cases that reject a kernel import of
+`extension-kinds` or `workspace-features` and a kinds import of
+`workspace-features`, and the `architecture:test` target exercises the slice
+policy and the cycle rules on small fixture trees. ESLint
 configuration owns the exception lists; tests do not duplicate their text. These are engineering
 policy, not product requirements, and they do not appear in the specification
 catalog.
@@ -523,9 +630,20 @@ one.
 
 ### Complementary tools
 
-The intra-package capability gate in `tools/architecture` uses
-dependency-cruiser for source extraction and JS Boundaries descriptors for
-capability elements over the roots in `tools/architecture/config.mjs`. Knip is
+`tools/architecture` holds three focused gates:
+
+- the slice gate, `slices.mjs`, whose `eslint-plugin-boundaries` elements
+  (`kernel`, `kind`, and `feature`, each with the pattern `<root>/src/*`) run
+  with ordinary `lint`;
+- the capability gate, JS Boundaries descriptors for capability elements over
+  the roots in `config.mjs`, also run by `lint`; and
+- the cycle check, `check.mjs`, which runs dependency-cruiser over the three
+  workspace package `src` roots plus the capability roots with a file-cycle
+  rule, a folder-scope rule between slices, an unresolved-import rule, and
+  `tsPreCompilationDeps`, so type-only edges count. `architecture:check` runs
+  it.
+
+Knip is
 not an architecture gate, and Nx Enterprise Conformance is not adopted.
 Reconsider the tooling when numerous durable folder-level constraints or
 production dependencies in languages ESLint cannot inspect make these focused
@@ -590,6 +708,15 @@ only when the package is an independently published member of the fixed
 cohort. Its `test`, `lint`, and `typecheck` targets follow from placement. Do
 not build a custom generator until repeated AXM-specific edits remain after the
 official generator and workspace defaults are in place.
+
+Inside a sliced package, a new unit is a slice, not a package. Create
+`src/<slice>/index.ts`, plus `live.ts` or `testing.ts` when the slice owes one,
+and add `./<slice>` (and its `/live` or `/testing` subpath) to `exports` with
+the `types`, `axm-source`, and `default` conditions. A new kernel slice also
+takes its position in the kernel order in `slices.mjs`; until it does, it can
+neither import nor be imported by another kernel slice. Prefer a package only
+when the unit needs its own Nx scope row, release lifecycle, or project
+reference.
 
 ### Domain workflows stay custom
 

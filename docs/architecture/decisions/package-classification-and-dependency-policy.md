@@ -64,6 +64,11 @@ applied, and a dependency is legal only when it satisfies all of them.
 A feature never depends on a feature: shared behaviour moves inward to a
 capability rather than creating a feature-to-feature edge. Cycles are never
 permitted, and the rule's circular checks run with no ignored project pairs.
+Inside a sliced package the same rules apply to slices — no feature slice
+depends on another, no extension kind depends on another, and kernel slices
+follow their declared order — enforced by `eslint-plugin-boundaries` and the
+dependency-cruiser slice-cycle rule, as recorded in
+[Workspace split into kernel, kinds, and features](./workspace-split-into-kernel-kinds-and-features.md).
 
 **Narrow seams are named exactly, not by tier.**
 `@agentxm/extension-model` crosses the repository boundary as the shared
@@ -199,7 +204,10 @@ weakens it for every supporting package, not only the one that asked.
   engineering policy verified natively by the module-boundary rules and by
   [`scripts/module-boundaries.test.ts`](../../../scripts/module-boundaries.test.ts)
   and
-  [`scripts/composition-root-lint-exceptions.test.ts`](../../../scripts/composition-root-lint-exceptions.test.ts).
+  [`scripts/composition-root-lint-exceptions.test.ts`](../../../scripts/composition-root-lint-exceptions.test.ts),
+  and, inside sliced packages, by
+  [`tools/architecture/slices.mjs`](../../../tools/architecture/slices.mjs) and
+  `architecture:check`.
 
 Accepting authority: maintainer approval through the repository pull-request
 workflow.
@@ -212,6 +220,7 @@ the narrow integration exception recorded above. Reconsider when a second
 production application needs the libraries and `role:application` stops meaning
 "the CLI", when a package's
 strategic classification changes as a deliberate strategy decision, or when
-Nx's constraint model can express the composition-root and handler boundaries
-directly and the focused ESLint overrides become redundant. When superseded,
+Nx's constraint model can express the composition-root and handler boundaries,
+or folder-level boundaries inside a project, directly and the focused ESLint
+overrides become redundant. When superseded,
 this record remains reachable and links its replacement.

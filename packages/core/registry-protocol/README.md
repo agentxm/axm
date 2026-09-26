@@ -60,8 +60,9 @@ the digest algorithm requires a new contract identifier and vector format
 rather than editing the meaning of existing vectors.
 
 Content parsing, Knowledge inspection, the lint catalog, and archive and
-manifest validation live in `@agentxm/extension-content`; version selection
-and release-age policy live in `@agentxm/workspace-kernel/resolution`.
+manifest validation live in `@agentxm/extension-content`; release selection
+lives in `@agentxm/extension-model`, and release-age policy lives in
+`@agentxm/workspace-kernel/resolution`.
 
 This package is bundled into `axm.sh`; it is not an independently published
 API. Its `./unstable/*` subpaths are workspace-internal boundaries. Ordinary

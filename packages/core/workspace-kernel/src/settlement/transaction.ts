@@ -60,7 +60,7 @@ export interface FilesystemTransactionRuntime extends WorkspaceTransactionPaths 
 }
 
 // ---------------------------------------------------------------------------
-// Closure API — consumed by workspace-operations only
+// Closure API — consumed by the planning slice only
 // ---------------------------------------------------------------------------
 
 /** Run one semantic closure's mutations under its closure identity. */

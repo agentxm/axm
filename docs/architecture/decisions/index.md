@@ -58,8 +58,13 @@ specifications, never in these records.
   uninstall distinguishes the removal target from the desired-state graph, so a
   pack whose own package cannot be read is retired by registration while its
   unverifiable content is preserved and reported
-
 - [Shared desired-state reconciliation](shared-desired-state-reconciliation.md) — shared realization policy belongs below peer command features and above canonical and projection mechanics
 - [Node runtime floor is Node 24](node-runtime-floor.md) — the development
   pin, the published `engines.node` range, and the `@types/node` ceiling are
   one Node 24 floor that CI exercises where it is declared
+- [Workspace split into kernel, kinds, and features](workspace-split-into-kernel-kinds-and-features.md) —
+  The workspace compiler is three packages — a kernel capability, an
+  extension-kind capability, and a feature package — each built from flat
+  folder slices, with direction between packages enforced by Nx and direction,
+  isolation, and acyclicity between slices enforced by lint and the
+  source-graph check.

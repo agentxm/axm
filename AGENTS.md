@@ -191,12 +191,24 @@ its `scope:*`, and `release:cli` when it ships in the release cohort.
 Applications are `apps/<name>`; engineering-support libraries that never enter
 the runtime are `tools/<name>` and carry no domain. The
 `@nx/enforce-module-boundaries` matrix in `eslint.config.mjs` enforces both
-directions; all applicable constraints must pass.
+directions; all applicable constraints must pass. Inside
+`@agentxm/workspace-kernel`, `@agentxm/extension-kinds`, and
+`@agentxm/workspace-features`, each `src/<slice>/` folder is an element in
+`tools/architecture/slices.mjs`: kinds never import kinds, features never
+import features, kernel slices import only lower slices, and
+`architecture:check` rejects file and slice cycles.
 
-**Package exports** — Every library exports its intentional root `.` plus at
-most `./live` (the composed Layer) and `./testing` (the seam its consumers'
-specifications and tests are owed). No other deep exports, and never a reach
-into another package's `src`. Two exceptions, both deliberate:
+**Package exports** — A library exports one entry per public unit. A
+single-unit library exports its root `.`. A sliced library
+(`@agentxm/workspace-kernel`, `@agentxm/extension-kinds`,
+`@agentxm/workspace-features`, `@agentxm/registry-access`) exports one
+`./<slice>` per `src/<slice>/` folder and no root; `@agentxm/extension-kinds`
+adds a package-level `./live` and `@agentxm/registry-access` a package-level
+`./testing`. Each entry may add at most `/live` (the composed
+Layer) and `/testing` (the seam its consumers' specifications and tests are
+owed), mapped to that folder's `index.ts`, `live.ts`, and `testing.ts`. No
+other deep exports, and never a reach into another package's `src`, `dist`, or
+an undeclared subpath. Two exceptions, both deliberate:
 
 - `@agentxm/extension-model` keeps its existing `./unstable/*` subpaths as the
   cross-repository contract seam. `@agentxm/registry-protocol` keeps its
@@ -290,8 +302,10 @@ See [Effect Guide](contributing/guides/effect.md),
   target (`test`, or `e2e` in `apps/cli-e2e`). There is no central test or
   specification project
 - A `*.spec.ts` exports exactly one `specification` and binds to its subject
-  through the owning package's root export or another package's `./testing`
-  subpath, never through a private path or an application harness; read
+  through the owning package's published entries (its root, or a sliced
+  package's slice entries) or another package's `./testing` or
+  `./<slice>/testing` subpath, never through a private path or an application
+  harness; read
   [Executable specifications](contributing/guides/executable-specifications.md)
   before adding, moving, or retiring one
 - Ordinary tests protect non-normative realization detail and may change or

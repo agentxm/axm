@@ -1,7 +1,7 @@
 ---
 status: active
-last-reviewed: 2026-09-23
-version: 0.5.0
+last-reviewed: 2026-09-26
+version: 0.6.0
 description: Consult when an AXM service or command can fail. Defines the AXM-only AppError, registry translation, cancellation, and runtime-boundary policy.
 depends-on:
   - ./effect.md
@@ -28,12 +28,21 @@ violated internal invariants that callers cannot recover from.
 service errors -> command translation -> AppError | PromptCancelled -> runtime
 ```
 
-The workspace kernel renders every typed failure it constructs or carries
-once, into a `StepFailure`, through `workspaceFailureToStepFailure`. Plan steps
-settle with that value, and `app-error/conversions` projects it into
-`AppError`, so a failure reads the same on the direct and plan paths. Put a
-family's wording beside its owner in the kernel; never add a CLI-side
-rendering for a kernel failure.
+Every typed workspace failure is rendered once, into a `StepFailure`, by its
+owner. `@agentxm/workspace-kernel` renders the closed `KernelFailure` union
+through `kernelFailureToStepFailure`. An extension kind's error carries its own
+wording through the kernel's `ExtensionKindFailure` brand, which
+`materializationFailureToStepFailure` renders structurally. The authoring,
+publishing, and configuration features each export the recognizer and renderer
+for their own family.
+[`app-error/failure-catalog`](../../apps/cli/src/app-error/failure-catalog.ts)
+composes them into `WorkspaceFailure`, `workspaceFailureToStepFailure`, and
+`WorkspaceFailureConversionLive`, which `runtime.ts` provides once as the
+kernel's `StepFailureConversion` port. Plan steps settle with that value, and
+`app-error/conversions` projects it into `AppError`, so a failure reads the
+same on the direct and plan paths. Put a family's wording beside its owner
+(kernel slice, kind, or feature); the catalog composes and never renders, and
+the CLI adds no rendering of its own for a workspace failure.
 
 `AppError` is AXM's single CLI-facing failure. Use `makeAppError`, preserve the
 original `cause`, and choose one closed category: `issues`, `usage`,
@@ -58,7 +67,7 @@ pure mapping owned by
 
 Translate generated Registry client failures with
 `registryClientErrorToProblem` or `registryErrorToProblem` from
-`packages/supporting/registry-client/src/translate.ts`; the workspace kernel
+`packages/supporting/registry-client/src/translate.ts`; `@agentxm/workspace-kernel`
 renders the typed registry failures with their metadata, and the application
 boundary projects them to `AppError` through `app-error/conversions`. Do not
 add operation-local HTTP status

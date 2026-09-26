@@ -23,7 +23,7 @@ import {
 } from "../../test-support/login-harness.js";
 import { unrecognizedOptions } from "../../test-support/parser-probe.js";
 import { writeAuthoredSkill } from "../../test-support/publish-harness.js";
-import { makeSpecRegistry } from "../../test-support/registry-fixture.js";
+import { makeFileRegistry } from "@agentxm/registry-client/testing";
 import { makeSetupSpecContext } from "../../test-support/setup-harness.js";
 
 export const specification = defineSpecification({
@@ -105,7 +105,7 @@ describe("Advance approval", () => {
      * take authority from the workspace.
      */
     const authoredWithRegistryReplacement = () => {
-      const registry = makeSpecRegistry();
+      const registry = makeFileRegistry();
       cleanups.push(registry.cleanup);
       registry.writeSkill(SKILL, [{ version: "1.0.0", body: "Registry guidance." }]);
       const workspace = makeSpecWorkspace({

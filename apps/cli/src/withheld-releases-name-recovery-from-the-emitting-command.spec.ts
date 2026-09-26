@@ -13,7 +13,7 @@ import { handleWorkspaceUpdate } from "./root/update/workspace-update-handler.js
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeSpecWorkspace } from "./test-support/install-harness.js";
-import { makeSpecRegistry } from "./test-support/registry-fixture.js";
+import { makeFileRegistry } from "@agentxm/registry-client/testing";
 
 export const specification = defineSpecification({
   requirement: "cli/withheld-releases-name-recovery-from-the-emitting-command",
@@ -43,7 +43,7 @@ type SpecWorkspace = ReturnType<typeof makeSpecWorkspace>;
  */
 const heldNewerRelease = (cleanups: Array<() => void>) =>
   Effect.gen(function* () {
-    const registry = makeSpecRegistry();
+    const registry = makeFileRegistry();
     cleanups.push(registry.cleanup);
     registry.writeSkill(SKILL, [{ version: "1.0.0", body: "First guidance." }]);
     const workspace = makeSpecWorkspace({
@@ -74,7 +74,7 @@ const heldNewerRelease = (cleanups: Array<() => void>) =>
 /** An exempt release: the policy still applies, but this project allows it early. */
 const allowedNewerRelease = (cleanups: Array<() => void>) =>
   Effect.gen(function* () {
-    const registry = makeSpecRegistry();
+    const registry = makeFileRegistry();
     cleanups.push(registry.cleanup);
     registry.writeSkill(SKILL, [{ version: "1.0.0", body: "First guidance." }]);
     const workspace = makeSpecWorkspace({
@@ -109,7 +109,7 @@ const allowedNewerRelease = (cleanups: Array<() => void>) =>
 /** A configured skill whose only release is unaged: the command refuses. */
 const heldOnlyRelease = (cleanups: Array<() => void>) =>
   Effect.sync(() => {
-    const registry = makeSpecRegistry();
+    const registry = makeFileRegistry();
     cleanups.push(registry.cleanup);
     registry.writeSkill(SKILL, [
       { version: "1.0.0", body: "Fresh guidance.", published: new Date().toISOString() },

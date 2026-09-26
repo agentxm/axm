@@ -11,7 +11,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { afterEach } from "vitest";
 
-import { makeLifecycleRegistry } from "@agentxm/workspace/lifecycle/testing";
+import { makeFileRegistry } from "@agentxm/registry-client/testing";
 
 import { handleInstall } from "../../install/handler.js";
 import { handleWorkspaceUpdate } from "../../update/workspace-update-handler.js";
@@ -81,7 +81,7 @@ describe("skills update route", () => {
 
   it.effect("a positional that names an installed skill narrows the sweep to that skill", () =>
     Effect.gen(function* () {
-      const registry = makeLifecycleRegistry();
+      const registry = makeFileRegistry();
       cleanups.push(registry.cleanup);
       registry.writeSkill(REVIEW, [{ version: "1.0.0", body: "First guidance." }]);
       registry.writeSkill(TRIAGE, [{ version: "1.0.0", body: "First triage." }]);
@@ -119,7 +119,7 @@ describe("skills update route", () => {
 
   it.effect("an unreachable source blocks that one unit instead of failing the command", () =>
     Effect.gen(function* () {
-      const registry = makeLifecycleRegistry();
+      const registry = makeFileRegistry();
       cleanups.push(registry.cleanup);
       registry.writeSkill(REVIEW, [{ version: "1.0.0", body: "First guidance." }]);
       const workspace = makeSpecWorkspace({

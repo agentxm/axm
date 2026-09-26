@@ -10,7 +10,7 @@ import { handleInstall } from "../root/install/handler.js";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../test-support/install-harness.js";
-import { makeSpecRegistry } from "../test-support/registry-fixture.js";
+import { makeFileRegistry } from "@agentxm/registry-client/testing";
 
 export const specification = defineSpecification({
   requirement: "cli/force-bypasses-only-named-policies",
@@ -72,7 +72,7 @@ const reinstallForms = [
 
 /** A workspace whose configured Registry skill was published moments ago. */
 const heldReleaseWorkspace = (cleanups: Array<() => void>) => {
-  const registry = makeSpecRegistry();
+  const registry = makeFileRegistry();
   cleanups.push(registry.cleanup);
   registry.writeSkill("fresh", [
     { version: "1.0.0", body: "Fresh guidance.", published: new Date().toISOString() },
@@ -187,7 +187,7 @@ describe("Override flags", () => {
 
   it.effect("--ignore-release-age does not lift the version constraint it does not name", () =>
     Effect.gen(function* () {
-      const registry = makeSpecRegistry();
+      const registry = makeFileRegistry();
       cleanups.push(registry.cleanup);
       registry.writeSkill("stable", [{ version: "1.0.0", body: "Stable guidance." }]);
       const workspace = makeSpecWorkspace({

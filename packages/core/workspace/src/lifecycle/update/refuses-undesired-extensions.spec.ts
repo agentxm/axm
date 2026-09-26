@@ -9,13 +9,8 @@ import { afterEach } from "vitest";
 import { deriveOperationOutcome } from "../../transitions/planning/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import {
-  makeLifecycleFixture,
-  makeLifecycleRegistry,
-  writeLocalSkillPackage,
-  type LifecycleFixture,
-  type LifecycleRegistry,
-} from "../testing.js";
+import { makeLifecycleFixture, writeLocalSkillPackage, type LifecycleFixture } from "../testing.js";
+import { makeFileRegistry, type FileRegistry } from "@agentxm/registry-client/testing";
 import { applyInstall, installRequest, readSettings } from "../install/test-helpers.js";
 import {
   applyUpdate,
@@ -70,8 +65,8 @@ describe("Update an extension the workspace does not desire", () => {
     }
   });
 
-  const world = (): { workspace: LifecycleFixture; registry: LifecycleRegistry } => {
-    const registry = makeLifecycleRegistry();
+  const world = (): { workspace: LifecycleFixture; registry: FileRegistry } => {
+    const registry = makeFileRegistry();
     cleanups.push(registry.cleanup);
     const workspace = makeLifecycleFixture({
       sources: "live",
@@ -108,7 +103,7 @@ describe("Update an extension the workspace does not desire", () => {
    * A Registry publishing a Pack the workspace has never asked for, beside one
    * installed local skill whose state the refusal must not disturb.
    */
-  const packAndInstalledNeighbor = (workspace: LifecycleFixture, registry: LifecycleRegistry) =>
+  const packAndInstalledNeighbor = (workspace: LifecycleFixture, registry: FileRegistry) =>
     Effect.gen(function* () {
       registry.writeSkill(MEMBER, [{ version: "1.0.0", body: "Required Pack member." }]);
       registry.writePack("toolkit", [

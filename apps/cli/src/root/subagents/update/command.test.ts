@@ -11,7 +11,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { afterEach } from "vitest";
 
-import { makeLifecycleRegistry } from "@agentxm/workspace/lifecycle/testing";
+import { makeFileRegistry } from "@agentxm/registry-client/testing";
 
 import { handleInstall } from "../../install/handler.js";
 import { handleWorkspaceUpdate } from "../../update/workspace-update-handler.js";
@@ -77,7 +77,7 @@ describe("subagents update route", () => {
 
   it.effect("--name narrows the sweep to the subagents it names", () =>
     Effect.gen(function* () {
-      const registry = makeLifecycleRegistry();
+      const registry = makeFileRegistry();
       cleanups.push(registry.cleanup);
       registry.writeSubagent(RESEARCHER, [{ version: "1.0.0", body: "First research." }]);
       registry.writeSubagent(REVIEWER, [{ version: "1.0.0", body: "First review." }]);
@@ -117,7 +117,7 @@ describe("subagents update route", () => {
     "keeps the accepted release when the minimum age holds the newer one, with evidence",
     () =>
       Effect.gen(function* () {
-        const registry = makeLifecycleRegistry();
+        const registry = makeFileRegistry();
         cleanups.push(registry.cleanup);
         registry.writeSubagent(RESEARCHER, [{ version: "1.0.0", body: "First research." }]);
         const workspace = makeSpecWorkspace({

@@ -13,7 +13,8 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import type { PlanExecution } from "../../transitions/planning/index.js";
 import { interactiveOnlyPlanExecution } from "../../transitions/planning/testing.js";
 
-import { makeLifecycleFixture, makeLifecycleRegistry } from "../testing.js";
+import { makeLifecycleFixture } from "../testing.js";
+import { makeFileRegistry } from "@agentxm/registry-client/testing";
 import { InstallExtensions, type InstallExtensionsRequest } from "./install-extensions.js";
 import { installRequest, previewInstall } from "./test-helpers.js";
 
@@ -163,7 +164,7 @@ describe("install source switches", () => {
     Effect.gen(function* () {
       const git = yield* makeGitFixture();
       cleanups.push(git.cleanup);
-      const registry = makeLifecycleRegistry();
+      const registry = makeFileRegistry();
       cleanups.push(registry.cleanup);
       registry.writeSkill(NAME, [{ version: "1.0.0", body: BODY, publishIgnore: PUBLISH_IGNORE }]);
       const workspace = makeLifecycleFixture({
@@ -272,7 +273,7 @@ describe("install source switches", () => {
     Effect.gen(function* () {
       const git = yield* makeGitFixture();
       cleanups.push(git.cleanup);
-      const registry = makeLifecycleRegistry();
+      const registry = makeFileRegistry();
       cleanups.push(registry.cleanup);
       registry.writeSkill(NAME, [{ version: "1.0.0", body: BODY, publishIgnore: PUBLISH_IGNORE }]);
       const workspace = makeLifecycleFixture({

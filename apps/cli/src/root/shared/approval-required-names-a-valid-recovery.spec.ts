@@ -30,7 +30,7 @@ import {
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../../test-support/install-harness.js";
 import { writeAuthoredSkill } from "../../test-support/publish-harness.js";
 import { admitRecoveryArgv } from "../../test-support/recovery-argv-admission.js";
-import { makeSpecRegistry, type SpecRegistry } from "../../test-support/registry-fixture.js";
+import { makeFileRegistry, type FileRegistry } from "@agentxm/registry-client/testing";
 
 export const specification = defineSpecification({
   requirement: "cli/approval-required-names-a-valid-recovery",
@@ -96,7 +96,7 @@ const argvOf = (cmd: string): ReadonlyArray<string> => {
 };
 
 /** Republish the skill's Registry index under a different publisher binding. */
-const republishUnderBinding = (registry: SpecRegistry, name: string, binding: string): void => {
+const republishUnderBinding = (registry: FileRegistry, name: string, binding: string): void => {
   const indexPath = path.join(registry.root, "extensions", "@acme", "skills", name, "index.json");
   const index: unknown = JSON.parse(fs.readFileSync(indexPath, "utf8"));
   if (!isRecord(index)) throw new Error(`Registry index for ${name} is not an object`);
@@ -164,7 +164,7 @@ describe("Approval-required recovery", () => {
     "a route without advance approval names an interactive rerun that the parser accepts",
     () =>
       Effect.gen(function* () {
-        const registry = makeSpecRegistry();
+        const registry = makeFileRegistry();
         cleanups.push(registry.cleanup);
         registry.writeSkill(SKILL, [{ version: "1.0.0", body: "First guidance." }]);
         const workspace = makeSpecWorkspace({
@@ -224,7 +224,7 @@ describe("Approval-required recovery", () => {
     "a targeted update without advance approval names an interactive rerun that keeps its target",
     () =>
       Effect.gen(function* () {
-        const registry = makeSpecRegistry();
+        const registry = makeFileRegistry();
         cleanups.push(registry.cleanup);
         registry.writeSkill(SKILL, [{ version: "1.0.0", body: "First guidance." }]);
         const workspace = makeSpecWorkspace({

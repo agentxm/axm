@@ -388,14 +388,3 @@ export {
   type GitSkillRepository,
   type ServedGitRepository,
 } from "./test-git.js";
-export {
-  makeLifecycleRegistry,
-  type LifecycleRegistry,
-  type RegistryHookVersion,
-  type RegistryKnowledgeVersion,
-  type RegistryMcpVersion,
-  type RegistryPackVersion,
-  type RegistryRuleVersion,
-  type RegistrySkillVersion,
-  type RegistrySubagentVersion,
-} from "./test-registry.js";

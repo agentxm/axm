@@ -22,14 +22,13 @@ import {
 import { interactiveOnlyPlanExecution } from "../transitions/planning/testing.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
+import { makeLifecycleFixture, type LifecycleFixture } from "./testing.js";
 import {
-  makeLifecycleFixture,
-  makeLifecycleRegistry,
-  type LifecycleFixture,
-  type LifecycleRegistry,
+  makeFileRegistry,
+  type FileRegistry,
   type RegistrySkillVersion,
   type RegistrySubagentVersion,
-} from "./testing.js";
+} from "@agentxm/registry-client/testing";
 import { InstallExtensions, type InstallExtensionsRequest } from "./install/install-extensions.js";
 import { installRequest } from "./install/test-helpers.js";
 import { UpdateExtensions, type UpdateRequest } from "./update/update-extensions.js";
@@ -69,7 +68,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 /** Republish an extension's Registry index under a different publisher binding. */
 const republishUnderBinding = (
-  registry: LifecycleRegistry,
+  registry: FileRegistry,
   plural: string,
   name: string,
   binding: string,
@@ -172,7 +171,7 @@ describe("Publisher changes", () => {
    */
   const acceptedThenRepublished = (options: Parameters<typeof makeLifecycleFixture>[0] = {}) =>
     Effect.gen(function* () {
-      const registry = makeLifecycleRegistry();
+      const registry = makeFileRegistry();
       cleanups.push(registry.cleanup);
       registry.writeSkill(SKILL, [FIRST]);
       const workspace = makeLifecycleFixture({
@@ -268,7 +267,7 @@ describe("Publisher changes", () => {
 
   it.effect("a newer version from the same publisher is accepted without any approval", () =>
     Effect.gen(function* () {
-      const registry = makeLifecycleRegistry();
+      const registry = makeFileRegistry();
       cleanups.push(registry.cleanup);
       registry.writeSkill(SKILL, [FIRST]);
       const workspace = makeLifecycleFixture({
@@ -301,7 +300,7 @@ describe("Publisher changes", () => {
 
   it.effect("a first acceptance binds the publisher without any approval", () =>
     Effect.gen(function* () {
-      const registry = makeLifecycleRegistry();
+      const registry = makeFileRegistry();
       cleanups.push(registry.cleanup);
       registry.writeSkill(SKILL, [FIRST]);
       const workspace = makeLifecycleFixture({
@@ -385,7 +384,7 @@ describe("Publisher changes through typed Subagent update", () => {
 
   const acquiredThenRepublished = (interactive: boolean) =>
     Effect.gen(function* () {
-      const registry = makeLifecycleRegistry();
+      const registry = makeFileRegistry();
       cleanups.push(registry.cleanup);
       registry.writeSubagent(SUBAGENT, [FIRST]);
       registry.writeSubagent(UNRELATED_SUBAGENT, [UNRELATED]);

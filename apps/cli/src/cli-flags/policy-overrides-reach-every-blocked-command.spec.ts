@@ -16,7 +16,7 @@ import { handleWorkspaceUpdate } from "../root/update/workspace-update-handler.j
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeSpecWorkspace } from "../test-support/install-harness.js";
 import { probeFlag } from "../test-support/parser-probe.js";
-import { makeSpecRegistry } from "../test-support/registry-fixture.js";
+import { makeFileRegistry } from "@agentxm/registry-client/testing";
 
 export const specification = defineSpecification({
   requirement: "cli/policy-overrides-reach-every-blocked-command",
@@ -95,7 +95,7 @@ const makeUnagedWorkspace = (
   posture: "enforce" | "ignore" | undefined,
   versions: ReadonlyArray<{ readonly version: string; readonly unaged?: boolean }>,
 ) => {
-  const registry = makeSpecRegistry();
+  const registry = makeFileRegistry();
   cleanups.push(registry.cleanup);
   registry.writeSkill(
     SKILL,

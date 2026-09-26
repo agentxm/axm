@@ -172,7 +172,28 @@ export const OfflineHttpClient: Layer.Layer<HttpClient.HttpClient> = Layer.succe
 export interface RegistrySkillVersion {
   readonly version: string;
   readonly body: string;
+  /** Publish-time exclusions retained in the distributed manifest. */
+  readonly publishIgnore?: ReadonlyArray<string>;
   /** Publication instant; defaults to one older than any minimum release age. */
+  readonly published?: string;
+  /** A yanked release remains visible but is not selected by a range. */
+  readonly yankedAt?: string;
+}
+
+export interface RegistrySubagentVersion {
+  readonly version: string;
+  readonly body?: string;
+  readonly published?: string;
+}
+
+export interface RegistryRuleVersion {
+  readonly version: string;
+  readonly body?: string;
+  readonly published?: string;
+}
+
+export interface RegistryHookVersion {
+  readonly version: string;
   readonly published?: string;
 }
 
@@ -216,12 +237,9 @@ export interface FileRegistry {
    * index. Call again with more versions to model a later publication.
    */
   readonly writeSkill: (name: string, versions: ReadonlyArray<RegistrySkillVersion>) => void;
-  readonly writeSubagent: (name: string, versions: ReadonlyArray<RegistrySkillVersion>) => void;
-  readonly writeRule: (name: string, versions: ReadonlyArray<RegistrySkillVersion>) => void;
-  readonly writeHook: (
-    name: string,
-    versions: ReadonlyArray<{ readonly version: string; readonly published?: string }>,
-  ) => void;
+  readonly writeSubagent: (name: string, versions: ReadonlyArray<RegistrySubagentVersion>) => void;
+  readonly writeRule: (name: string, versions: ReadonlyArray<RegistryRuleVersion>) => void;
+  readonly writeHook: (name: string, versions: ReadonlyArray<RegistryHookVersion>) => void;
   readonly writeMcp: (name: string, versions: ReadonlyArray<RegistryMcpVersion>) => void;
   readonly writePack: (name: string, versions: ReadonlyArray<RegistryPackVersion>) => void;
   readonly writeKnowledge: (
@@ -348,9 +366,10 @@ export const makeFileRegistry = (options: { readonly root?: string } = {}): File
       directory,
       "skill",
       name,
-      versions.map(({ version, body, published }) => ({
+      versions.map(({ version, body, published, publishIgnore, yankedAt }) => ({
         version,
         published: published ?? FIXTURE_PUBLISHED_AT,
+        ...(yankedAt === undefined ? {} : { yankedAt }),
         integrity: integrityOf(
           writeArchive(directory, version, {
             "skill.json": `${JSON.stringify(
@@ -360,6 +379,7 @@ export const makeFileRegistry = (options: { readonly root?: string } = {}): File
                 name,
                 version,
                 description: `The ${name} skill.`,
+                ...(publishIgnore === undefined ? {} : { publish: { ignore: publishIgnore } }),
               },
               null,
               2,
@@ -406,10 +426,10 @@ export const makeFileRegistry = (options: { readonly root?: string } = {}): File
             }),
             ...(type === "subagent"
               ? {
-                  [`src/${name}.md`]: `---\nname: ${name}\ndescription: The ${name} subagent.\n---\n\n${body ?? "Review."}\n`,
+                  [`src/${name}.md`]: `---\nname: ${name}\ndescription: The ${name} subagent.\n---\n\n# ${name}\n\n${body ?? "Review."}\n`,
                 }
               : type === "rule"
-                ? { "src/RULE.md": `${body ?? "Review."}\n` }
+                ? { "src/RULE.md": `Guidance for ${name}: ${body ?? "Review."}\n` }
                 : { "src/hook.sh": `#!/usr/bin/env bash\necho "${name}"\n` }),
           }),
         ),
@@ -536,7 +556,7 @@ export const makeFileRegistry = (options: { readonly root?: string } = {}): File
   return {
     root,
     url: pathToFileURL(root).href,
-    source: { name: "test", type: "registry", location: `file://${root}` },
+    source: { name: "test", type: "registry", location: pathToFileURL(root).href },
     writeSkill,
     writeSubagent: (name, versions) => writeDocumentPackage("subagent", name, versions),
     writeRule: (name, versions) => writeDocumentPackage("rule", name, versions),

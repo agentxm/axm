@@ -2,13 +2,10 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { defineSpecification } from "@agentxm/specification-metadata";
+import { makeFileRegistry } from "@agentxm/registry-client/testing";
 
 import { makeAuthoredExtensionFixture, makeInspectionFixture } from "./testing.js";
-import {
-  installRegistryPack,
-  makeFileRegistry,
-  makeInstalledWorkspace,
-} from "./test-support/installed-workspace.js";
+import { installRegistryPack, makeInstalledWorkspace } from "./test-support/installed-workspace.js";
 import {
   listHooks,
   listPacks,
@@ -101,7 +98,7 @@ describe("Type-specific inventory", () => {
   // not make this example agree with itself.
   it.effect("reports an accepted Registry pack's owner and version", () => {
     const registry = makeFileRegistry();
-    registry.publishPack("toolkit", [{ version: "2.3.4" }]);
+    registry.writePack("toolkit", [{ version: "2.3.4", dependencies: {} }]);
     const workspace = makeInstalledWorkspace({ agents: [], sources: [registry.source] });
     return workspace
       .provide(

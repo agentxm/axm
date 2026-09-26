@@ -11,12 +11,8 @@ import { LockfileReader } from "../../desired-state/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { ExtensionLifecycleFailed } from "../errors.js";
-import {
-  makeLifecycleFixture,
-  makeLifecycleRegistry,
-  type LifecycleFixture,
-  type LifecycleRegistry,
-} from "../testing.js";
+import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";
+import { makeFileRegistry, type FileRegistry } from "@agentxm/registry-client/testing";
 import { applyInstall, installRequest, readSettings } from "../install/test-helpers.js";
 import {
   applyDemote,
@@ -83,7 +79,7 @@ describe("Demoting workspace authorship", () => {
 
   const workspaceFor = (
     settings: Readonly<Record<string, unknown>>,
-    registry?: LifecycleRegistry,
+    registry?: FileRegistry,
   ): LifecycleFixture => {
     const workspace = makeLifecycleFixture({
       sources: "live",
@@ -103,7 +99,7 @@ describe("Demoting workspace authorship", () => {
         `preserves ${row.type} enabled=${enabled} while replacing the workspace source`,
         () => {
           const registry =
-            row.type === "pack" || row.type === "mcp-server" ? makeLifecycleRegistry() : undefined;
+            row.type === "pack" || row.type === "mcp-server" ? makeFileRegistry() : undefined;
           if (registry !== undefined) {
             cleanups.push(registry.cleanup);
             if (row.type === "pack") {
@@ -231,7 +227,7 @@ describe("Demoting workspace authorship", () => {
      * then authored the member itself, and the Registry published a later
      * minor inside the Pack range and a major outside it.
      */
-    const authoredPackMember = (registry: LifecycleRegistry, workspace: LifecycleFixture) =>
+    const authoredPackMember = (registry: FileRegistry, workspace: LifecycleFixture) =>
       Effect.gen(function* () {
         registry.writeSkill(REVIEW, [
           { version: "1.0.0", body: "First." },
@@ -256,7 +252,7 @@ describe("Demoting workspace authorship", () => {
       });
 
     const packWorkspace = () => {
-      const registry = makeLifecycleRegistry();
+      const registry = makeFileRegistry();
       cleanups.push(registry.cleanup);
       return {
         registry,

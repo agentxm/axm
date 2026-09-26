@@ -19,11 +19,9 @@
  * @internal Test-only. Not part of the package's public API.
  */
 
-import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as nodePath from "node:path";
-import { pathToFileURL } from "node:url";
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as ConfigProvider from "effect/ConfigProvider";
@@ -32,7 +30,6 @@ import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "../../transitions/settlement/live.js";
 import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
-import { strToU8, zipSync } from "fflate";
 
 import { AgentPresenceProbeLive } from "../../projection/agent-adapters/live.js";
 import {
@@ -54,6 +51,7 @@ import { SourceHostProvidersLive } from "../../resolution/sources/live.js";
 import { CredentialStore } from "@agentxm/registry-access/credentials";
 import { CredentialStoreTest } from "@agentxm/registry-access/testing";
 import { RegistryClientFactoryLive, RegistryUrl } from "@agentxm/registry-client";
+import type { FileRegistry } from "@agentxm/registry-client/testing";
 import { StepFailure } from "../../transitions/planning/index.js";
 import {
   CodingAgentRepositoryLive,
@@ -63,184 +61,6 @@ import {
 import { ConfiguredAgentOutcomesProviderTest } from "../../desired-state/testing.js";
 import { FootprintRecorderTest } from "../../transitions/planning/testing.js";
 import { layer as workspaceStateLayer } from "../../desired-state/live.js";
-
-/** The owner every fixture Registry publishes under. */
-const OWNER = "@acme";
-
-/**
- * Publication instants predate the deterministic minimum release age by
- * decades, so every published version is immediately eligible for selection
- * and release-age policy never decides the outcome of an inspection example.
- */
-const PUBLISHED_AT = "1960-01-01T00:00:00Z";
-
-/**
- * ZIP stores a local-time DOS timestamp and admits only 1980-2099, so a
- * fixture archive needs a fixed instant that lands inside that window in every
- * timezone. Midsummer 1980 UTC is more than a day from either boundary, so the
- * encoded year is 1980 wherever the suite runs. (`1980-07-01T00:00:00Z`.)
- */
-const ARCHIVE_MTIME = 331_257_600_000;
-
-/** One published version of a fixture skill. */
-export interface PublishedSkillVersion {
-  readonly version: string;
-  /** Body text of the skill document, so versions are observably distinct. */
-  readonly body: string;
-}
-
-/** One published version of a fixture pack. */
-export interface PublishedPackVersion {
-  readonly version: string;
-  /** Pack membership, as the manifest declares it. */
-  readonly dependencies?: Readonly<Record<string, string>>;
-}
-
-export interface FileRegistry {
-  /** Absolute Registry root directory. */
-  readonly root: string;
-  /** The settings `sources` entry that names this Registry. */
-  readonly source: {
-    readonly name: string;
-    readonly type: "registry";
-    readonly location: string;
-  };
-  /** Publishes the complete version list for one skill. */
-  readonly publishSkill: (name: string, versions: ReadonlyArray<PublishedSkillVersion>) => void;
-  /** Publishes the complete version list for one pack. */
-  readonly publishPack: (name: string, versions: ReadonlyArray<PublishedPackVersion>) => void;
-  readonly cleanup: () => void;
-}
-
-const versionParts = (version: string): ReadonlyArray<number> =>
-  (version.split("-")[0] ?? version).split(".").map((part) => Number.parseInt(part, 10));
-
-/** The Registry index lists versions newest-first; callers may pass any order. */
-const newestFirst = <T extends { readonly version: string }>(
-  entries: ReadonlyArray<T>,
-): ReadonlyArray<T> =>
-  [...entries].sort((left, right) => {
-    const a = versionParts(left.version);
-    const b = versionParts(right.version);
-    for (let index = 0; index < Math.max(a.length, b.length); index += 1) {
-      const difference = (b[index] ?? 0) - (a[index] ?? 0);
-      if (difference !== 0) return difference;
-    }
-    return 0;
-  });
-
-/**
- * A Registry on disk in the layout the production local client reads: a
- * per-extension index beside version archives with real integrity hashes.
- */
-export const makeFileRegistry = (sourceName = "test"): FileRegistry => {
-  const root = fs.realpathSync(fs.mkdtempSync(nodePath.join(os.tmpdir(), "axm-inspection-reg-")));
-  const writeArchive = (
-    directory: string,
-    version: string,
-    entries: Readonly<Record<string, string>>,
-  ): Uint8Array => {
-    fs.mkdirSync(directory, { recursive: true });
-    const archive = zipSync(
-      Object.fromEntries(
-        Object.entries(entries).map(([relative, content]) => [relative, strToU8(content)]),
-      ),
-      { mtime: ARCHIVE_MTIME },
-    );
-    fs.writeFileSync(nodePath.join(directory, `${version}.zip`), archive);
-    return archive;
-  };
-  /**
-   * Publish every version of one extension: an archive per version beside the
-   * index that lists them, each entry carrying the archive's real hash.
-   */
-  const publish = (
-    type: "skill" | "pack",
-    plural: string,
-    name: string,
-    versions: ReadonlyArray<{
-      readonly version: string;
-      readonly files: Readonly<Record<string, string>>;
-    }>,
-  ): void => {
-    const directory = nodePath.join(root, "extensions", OWNER, plural, name);
-    const entries = versions.map(({ version, files }) => {
-      const archive = writeArchive(directory, version, files);
-      return {
-        version,
-        published: PUBLISHED_AT,
-        integrity: `sha512-${createHash("sha512").update(archive).digest("base64")}`,
-      };
-    });
-    fs.mkdirSync(directory, { recursive: true });
-    fs.writeFileSync(
-      nodePath.join(directory, "index.json"),
-      `${JSON.stringify(
-        {
-          owner: OWNER,
-          type,
-          name,
-          publisherBindingId: "hbnd_inspection_fixture",
-          archival: null,
-          deprecation: null,
-          versions: newestFirst(entries),
-        },
-        null,
-        2,
-      )}\n`,
-    );
-  };
-
-  return {
-    root,
-    source: { name: sourceName, type: "registry", location: pathToFileURL(root).href },
-    publishSkill: (name, versions) => {
-      publish(
-        "skill",
-        "skills",
-        name,
-        versions.map(({ version, body }) => ({
-          version,
-          files: {
-            "skill.json": `${JSON.stringify(
-              { owner: OWNER, type: "skill", name, version, description: `The ${name} skill.` },
-              null,
-              2,
-            )}\n`,
-            "src/SKILL.md": `---\nname: "${name}"\ndescription: "The ${name} skill."\n---\n\n# ${name}\n\n${body}\n`,
-          },
-        })),
-      );
-    },
-    publishPack: (name, versions) => {
-      publish(
-        "pack",
-        "packs",
-        name,
-        versions.map(({ version, dependencies }) => ({
-          version,
-          files: {
-            "pack.json": `${JSON.stringify(
-              {
-                owner: OWNER,
-                type: "pack",
-                name,
-                version,
-                description: `The ${name} pack.`,
-                dependencies: dependencies ?? {},
-              },
-              null,
-              2,
-            )}\n`,
-          },
-        })),
-      );
-    },
-    cleanup: () => {
-      fs.rmSync(root, { recursive: true, force: true });
-    },
-  };
-};
 
 export interface InstalledWorkspaceOptions {
   readonly agents?: ReadonlyArray<string>;

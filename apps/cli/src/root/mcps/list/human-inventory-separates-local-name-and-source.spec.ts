@@ -6,7 +6,7 @@ import { afterEach } from "vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { makeSpecWorkspace } from "../../../test-support/install-harness.js";
-import { makeSpecRegistry } from "../../../test-support/registry-fixture.js";
+import { makeFileRegistry } from "@agentxm/registry-client/testing";
 import { handleInstall } from "../../install/handler.js";
 import { handleListMcpServers } from "../list.js";
 
@@ -33,7 +33,7 @@ describe("List locally named MCP connections for a person", () => {
 
   const setup = () =>
     Effect.gen(function* () {
-      const registry = makeSpecRegistry();
+      const registry = makeFileRegistry();
       registry.writeMcp("context", [{ version: "1.0.0" }]);
       const workspace = makeSpecWorkspace({ settings: { sources: [registry.source] } });
       cleanups.push(workspace.cleanup, registry.cleanup);

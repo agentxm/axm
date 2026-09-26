@@ -12,12 +12,14 @@ import { ReleaseAgePosture } from "../../resolution/index.js";
 import {
   makeGitSkillRepository,
   makeLifecycleFixture,
-  makeLifecycleRegistry,
   writeLocalSkillPackage,
   type LifecycleFixture,
-  type LifecycleRegistry,
-  type RegistrySkillVersion,
 } from "../testing.js";
+import {
+  makeFileRegistry,
+  type FileRegistry,
+  type RegistrySkillVersion,
+} from "@agentxm/registry-client/testing";
 import {
   applyInstall,
   installRequest,
@@ -236,7 +238,7 @@ const omittedActivationRows = [
     name: REVIEW,
     settingsKey: "skills",
     fqn: FQN,
-    publish: (registry: LifecycleRegistry, versions: ReadonlyArray<RegistrySkillVersion>) =>
+    publish: (registry: FileRegistry, versions: ReadonlyArray<RegistrySkillVersion>) =>
       registry.writeSkill(REVIEW, versions),
   },
   {
@@ -244,7 +246,7 @@ const omittedActivationRows = [
     name: "reviewer",
     settingsKey: "subagents",
     fqn: "@acme/subagents/reviewer",
-    publish: (registry: LifecycleRegistry, versions: ReadonlyArray<RegistrySkillVersion>) =>
+    publish: (registry: FileRegistry, versions: ReadonlyArray<RegistrySkillVersion>) =>
       registry.writeSubagent("reviewer", versions),
   },
 ] as const;
@@ -286,8 +288,8 @@ describe.each(["targeted", "type-group"] as const)(
       }
     });
 
-    const world = (): { workspace: LifecycleFixture; registry: LifecycleRegistry } => {
-      const registry = makeLifecycleRegistry();
+    const world = (): { workspace: LifecycleFixture; registry: FileRegistry } => {
+      const registry = makeFileRegistry();
       cleanups.push(registry.cleanup);
       const workspace = makeLifecycleFixture({
         sources: "live",
@@ -303,7 +305,7 @@ describe.each(["targeted", "type-group"] as const)(
      * which the Registry publishes the later versions.
      */
     const acceptedThenPublished = (
-      registry: LifecycleRegistry,
+      registry: FileRegistry,
       workspace: LifecycleFixture,
       options?: {
         readonly locator?: string;

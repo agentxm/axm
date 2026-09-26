@@ -12,7 +12,8 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import type { PlanExecution } from "../../transitions/planning/index.js";
 import { interactiveOnlyPlanExecution } from "../../transitions/planning/testing.js";
 
-import { makeLifecycleFixture, makeLifecycleRegistry } from "../testing.js";
+import { makeLifecycleFixture } from "../testing.js";
+import { makeFileRegistry } from "@agentxm/registry-client/testing";
 import { InstallExtensions, type InstallExtensionsRequest } from "./install-extensions.js";
 import { installRequest, previewInstall } from "./test-helpers.js";
 
@@ -184,7 +185,7 @@ describe("Pack source switches", () => {
     "previews every member class and applies a Git-to-Registry switch atomically",
     () =>
       Effect.gen(function* () {
-        const registry = makeLifecycleRegistry();
+        const registry = makeFileRegistry();
         cleanups.push(registry.cleanup);
         registry.writeSkill("stable", [{ version: "1.0.0", body: "Stable." }]);
         registry.writeSkill("evolving", [
@@ -296,7 +297,7 @@ describe("Pack source switches", () => {
 
   it.effect("leaves the installed graph unchanged when a target member cannot resolve", () =>
     Effect.gen(function* () {
-      const registry = makeLifecycleRegistry();
+      const registry = makeFileRegistry();
       cleanups.push(registry.cleanup);
       registry.writeSkill("stable", [{ version: "1.0.0", body: "Stable." }]);
       registry.writeSkill("evolving", [{ version: "1.0.0", body: "Evolving one." }]);

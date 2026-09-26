@@ -17,12 +17,8 @@ import { previewPlanExecution } from "../../transitions/planning/index.js";
 import { preapprovedPlanExecution } from "../../transitions/planning/testing.js";
 
 import { applyInstall, installRequest } from "../../lifecycle/install/test-helpers.js";
-import {
-  makeLifecycleFixture,
-  makeLifecycleRegistry,
-  type LifecycleFixture,
-  type LifecycleRegistry,
-} from "../../lifecycle/testing.js";
+import { makeLifecycleFixture, type LifecycleFixture } from "../../lifecycle/testing.js";
+import { makeFileRegistry, type FileRegistry } from "@agentxm/registry-client/testing";
 import { PromoteAuthoredPack, type PromoteAuthoredPackRequest } from "./promote-authored-pack.js";
 
 export const PACK = "toolkit";
@@ -45,7 +41,7 @@ export const applyUnpack = (request: PromoteAuthoredPackRequest) =>
 
 export interface PackWorld {
   readonly workspace: LifecycleFixture;
-  readonly registry: LifecycleRegistry;
+  readonly registry: FileRegistry;
 }
 
 /** A workspace with a `file://` Registry declared as its only source. */
@@ -53,7 +49,7 @@ export const makePackWorld = (
   cleanups: Array<() => void>,
   settings: Readonly<Record<string, unknown>> = {},
 ): PackWorld => {
-  const registry = makeLifecycleRegistry();
+  const registry = makeFileRegistry();
   cleanups.push(registry.cleanup);
   const workspace = makeLifecycleFixture({
     sources: "live",

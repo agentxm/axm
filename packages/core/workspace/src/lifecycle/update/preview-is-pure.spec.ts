@@ -9,12 +9,11 @@ import type { InstallableExtensionType } from "@agentxm/extension-model/unstable
 
 import {
   makeLifecycleFixture,
-  makeLifecycleRegistry,
   writeLocalHookPackage,
   writeLocalRulePackage,
   type LifecycleFixture,
-  type LifecycleRegistry,
 } from "../testing.js";
+import { makeFileRegistry, type FileRegistry } from "@agentxm/registry-client/testing";
 import { applyInstall, installRequest } from "../install/test-helpers.js";
 import {
   applyUpdate,
@@ -79,7 +78,7 @@ interface PreviewRow {
    */
   readonly seed: (args: {
     readonly workspace: LifecycleFixture;
-    readonly registry: LifecycleRegistry;
+    readonly registry: FileRegistry;
   }) => SeedEffect;
   /** What must still be true after a preview: the accepted state, unchanged. */
   readonly expectUnadvanced: (workspace: LifecycleFixture) => void;
@@ -244,8 +243,8 @@ describe("Update preview purity", () => {
    */
   const world = (
     options: { readonly settings?: Readonly<Record<string, unknown>> } = {},
-  ): { workspace: LifecycleFixture; registry: LifecycleRegistry } => {
-    const registry = makeLifecycleRegistry();
+  ): { workspace: LifecycleFixture; registry: FileRegistry } => {
+    const registry = makeFileRegistry();
     cleanups.push(registry.cleanup);
     const workspace = makeLifecycleFixture({
       sources: "live",
@@ -265,7 +264,7 @@ describe("Update preview purity", () => {
       ? world({ settings: { packs: { [TOOLKIT]: `@acme/packs/${TOOLKIT}` } } })
       : world();
 
-  const publishToolkit = (registry: LifecycleRegistry): void => {
+  const publishToolkit = (registry: FileRegistry): void => {
     registry.writeSkill("member-skill", [{ version: "1.0.0", body: "Member guidance." }]);
     registry.writePack(TOOLKIT, [
       { version: "1.0.0", dependencies: { "@acme/skills/member-skill": "^1.0.0" } },

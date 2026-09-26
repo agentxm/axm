@@ -5,7 +5,6 @@ import { usableAcceptedCanonical } from "../desired-state/index.js";
 /** Lifecycle manager for isolated Open Knowledge Format bundles. */
 
 import * as Effect from "effect/Effect";
-import { extensionRefLifecycleWarnings } from "../lifecycle/warnings.js";
 import * as Ref from "effect/Ref";
 import {
   DesiredStateReader,
@@ -46,10 +45,9 @@ import {
   resolveInstructionsConfig,
 } from "../projection/index.js";
 import {
-  reusableCanonicalTree,
-  materializeExternalPackage,
-} from "../acquisition/canonical-directory.js";
-import { materializeRegistryPackage } from "../materialization/registry-materialization.js";
+  acquireCanonicalForRef,
+  verifyWorkspaceRefLocation,
+} from "../materialization/acquire-canonical.js";
 import {
   computeExtensionPathsForLayout,
   observeCanonicalExtension,
@@ -61,7 +59,6 @@ import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "../desired
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import type { KnowledgeLockEntry } from "../desired-state/index.js";
 import { SourceHostProviders, WorkspaceCatalog } from "../resolution/sources/index.js";
-import { acquiredDirectoryForRef } from "../acquisition/acquired-content.js";
 import type { KnowledgeMap } from "../desired-state/index.js";
 import { lockEntryToRef } from "../desired-state/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
@@ -179,64 +176,6 @@ export const KnowledgeManagerLive = Layer.effect(
         ref.name,
       ).canonicalPath;
 
-    const materializePackage = (
-      ref: KnowledgeExtensionRef,
-      options?: {
-        readonly baseDir?: string;
-        readonly destinationPath?: string;
-      },
-    ) => {
-      const canonicalPath = options?.destinationPath ?? canonicalPathForRef(ref);
-      const materializationBaseDir = options?.baseDir ?? baseDir;
-      switch (ref.refType) {
-        case "registry":
-          return Effect.gen(function* () {
-            return yield* provide(
-              materializeRegistryPackage({
-                baseDir: materializationBaseDir,
-                destinationPath: canonicalPath,
-                sourceLocation: ref.source.location,
-                owner: ref.owner,
-                type: "knowledge",
-                name: ref.name,
-                version: ref.version,
-                integrity: ref.integrity,
-                publisherBindingId: ref.publisherBindingId,
-                lifecycleWarnings: extensionRefLifecycleWarnings(ref),
-                messages: {
-                  integrityMismatchDetail: `Integrity mismatch for knowledge:${ref.name}@${ref.version}`,
-                },
-              }),
-            );
-          });
-        case "git-hosted":
-        case "local":
-          return Effect.flatMap(acquiredDirectoryForRef(ref, ref.location), (sourceLocation) =>
-            provide(
-              materializeExternalPackage({
-                baseDir: materializationBaseDir,
-                canonicalPath,
-                sourceLocation,
-                copyFailureCode: "validation",
-                copyFailureDetail: (target) => `Failed to copy knowledge package to ${target}`,
-              }),
-            ),
-          );
-        case "workspace":
-          if (
-            ref.scope !== location.scope ||
-            path.resolve(ref.location) !== path.resolve(canonicalPath)
-          ) {
-            return Effect.fail(
-              new KnowledgeDefinitionInvalid({
-                detail: `Invalid workspace knowledge source location: ${ref.location}`,
-              }),
-            );
-          }
-          return Effect.succeed(ref.location);
-      }
-    };
-
     const inspectPackage = (packageRoot: string) =>
       Effect.gen(function* () {
         const raw = yield* fs
@@ -304,7 +243,13 @@ export const KnowledgeManagerLive = Layer.effect(
       Effect.gen(function* () {
         const canonicalPath = canonicalPathForRef(ref);
         if (ref.refType === "workspace") {
-          const root = yield* materializePackage(ref);
+          yield* verifyWorkspaceRefLocation({
+            ref,
+            scope: location.scope,
+            canonicalPath,
+            invalid: (detail) => new KnowledgeDefinitionInvalid({ detail }),
+          });
+          const root = ref.location;
           yield* inspectPackage(root);
           return {
             root,
@@ -313,37 +258,32 @@ export const KnowledgeManagerLive = Layer.effect(
             rollback: Effect.void,
           };
         }
-        // Decide against the canonical tree before staging: the staged path
-        // never exists, so a decision made there would re-extract every time
-        // and revert workspace-owned content on a no-op install.
-        if (ref.refType === "registry") {
-          const reusable = yield* provide(
-            reusableCanonicalTree({
-              canonicalPath,
-              requested: {
-                refType: "registry",
-                owner: ref.owner,
-                name: ref.name,
-                version: ref.version,
-                publisherBindingId: ref.publisherBindingId,
-              },
-              accepted: yield* lockfile.entry("knowledge", ref.knowledge.name),
-              force,
-            }),
-          );
-          if (Option.isSome(reusable)) {
-            return {
-              root: canonicalPath,
-              sourceHash: yield* provide(computePackageContentHash(canonicalPath)),
-              treeIntegrity: reusable.value,
-              commit: Effect.void,
-              rollback: Effect.void,
-            };
-          }
-        }
         const tempDir = yield* fs.makeTempDirectoryScoped({ prefix: "axm-knowledge-package-" });
         const stagedPath = path.join(tempDir, "staged");
         const backupPath = path.join(tempDir, "previous");
+        // Reuse is judged against canonicalPath; acquired bytes go to stagedPath.
+        const acquired = yield* acquireCanonicalForRef({
+          ref,
+          type: "knowledge",
+          baseDir,
+          canonicalPath,
+          accepted: yield* lockfile.entry("knowledge", ref.knowledge.name),
+          force,
+          stage: { baseDir: tempDir, destinationPath: stagedPath },
+          copyFailure: {
+            code: "validation",
+            detail: (target) => `Failed to copy knowledge package to ${target}`,
+          },
+        });
+        if (acquired.reused) {
+          return {
+            root: canonicalPath,
+            sourceHash: yield* provide(computePackageContentHash(canonicalPath)),
+            treeIntegrity: acquired.treeIntegrity,
+            commit: Effect.void,
+            rollback: Effect.void,
+          };
+        }
         const stageState = yield* Ref.make<
           | { readonly phase: "preparing" }
           | { readonly phase: "staged"; readonly hadCanonical: boolean }
@@ -387,13 +327,10 @@ export const KnowledgeManagerLive = Layer.effect(
             ),
           ),
         );
-        const stagedRoot = yield* materializePackage(ref, {
-          baseDir: tempDir,
-          destinationPath: stagedPath,
-        });
+        const stagedRoot = acquired.packageRoot;
         yield* inspectPackage(stagedRoot);
         const sourceHash = yield* provide(computePackageContentHash(stagedRoot));
-        const treeIntegrity = yield* provide(computeMaterializedTreeIntegrity(stagedRoot));
+        const treeIntegrity = acquired.treeIntegrity;
         yield* protectWorkspacePath(canonicalPath);
         const hadCanonical = yield* fs.exists(canonicalPath);
         // The footprint reports byte changes: replacing a tree with an

@@ -13,7 +13,6 @@ import { usableAcceptedCanonical } from "../desired-state/index.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
-import { extensionRefLifecycleWarnings } from "../lifecycle/warnings.js";
 import * as Ref from "effect/Ref";
 import {
   DesiredStateReader,
@@ -50,8 +49,7 @@ import type {
 import type { McpServerLockEntry } from "../desired-state/index.js";
 import type { ExtensionTarget, McpServerExtensionTarget } from "../desired-state/index.js";
 import { mcpRegistryResolutionKey } from "../desired-state/index.js";
-import { reusableCanonicalTree } from "../acquisition/canonical-directory.js";
-import { materializeRegistryPackageWithTreeIntegrity } from "../materialization/registry-materialization.js";
+import { acquireCanonicalForRef } from "../materialization/acquire-canonical.js";
 import { computeExtensionPathsForLayout } from "../desired-state/index.js";
 import { validateExactResolvedVersion } from "../desired-state/index.js";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
@@ -249,35 +247,19 @@ export const McpServerManagerLive = Layer.effect(
           name: registryRef.server.name,
         }),
       );
-      const reusable = yield* reusableCanonicalTree({
+      const packageContent = yield* acquireCanonicalForRef({
+        ref: registryRef,
+        type: "mcp-server",
+        baseDir,
         canonicalPath,
-        requested: {
-          refType: "registry",
-          owner: registryRef.owner,
-          name: registryRef.name,
-          version: registryRef.version,
-          publisherBindingId: registryRef.publisherBindingId,
-        },
         accepted: lockedEntry,
         force: force === true,
-      });
-      if (Option.isSome(reusable)) return acquired(Option.some(reusable.value));
-      const materialized = yield* materializeRegistryPackageWithTreeIntegrity({
-        baseDir,
-        destinationPath: canonicalPath,
-        sourceLocation: registryRef.source.location,
-        owner: registryRef.owner,
-        type: "mcp-server",
-        name: registryRef.name,
-        version: registryRef.version,
-        integrity: registryRef.integrity,
-        publisherBindingId: registryRef.publisherBindingId,
-        lifecycleWarnings: extensionRefLifecycleWarnings(registryRef),
-        messages: {
-          integrityMismatchDetail: `Integrity mismatch for ${registryRef.name}@${registryRef.version}`,
+        copyFailure: {
+          code: "internal",
+          detail: (target) => `Failed to copy MCP server package files to ${target}`,
         },
       });
-      return acquired(Option.some(materialized.treeIntegrity));
+      return acquired(Option.some(packageContent.treeIntegrity));
     });
 
     const makeMaterializeRemoval = (

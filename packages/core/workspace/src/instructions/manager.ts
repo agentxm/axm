@@ -9,7 +9,6 @@ import { usableAcceptedCanonical } from "../desired-state/index.js";
  */
 
 import * as Effect from "effect/Effect";
-import { extensionRefLifecycleWarnings } from "../lifecycle/warnings.js";
 import * as Ref from "effect/Ref";
 import {
   DesiredStateReader,
@@ -47,12 +46,10 @@ import {
 } from "../projection/agent-adapters/index.js";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import {
-  reusableCanonicalTree,
-  materializeExternalPackageWithTreeIntegrity,
-} from "../acquisition/canonical-directory.js";
+  acquireCanonicalForRef,
+  verifyWorkspaceRefLocation,
+} from "../materialization/acquire-canonical.js";
 import { enabledConfiguredEntries } from "../desired-state/index.js";
-import { materializeRegistryPackageWithTreeIntegrity } from "../materialization/registry-materialization.js";
-import { acquiredDirectoryForRef } from "../acquisition/acquired-content.js";
 import { computeExtensionPathsForLayout } from "../desired-state/index.js";
 import type { ProjectionUnitObservation, ResolvedInstructionsConfig } from "../projection/index.js";
 import { RuleManager } from "../materialization/managers.js";
@@ -83,12 +80,7 @@ import {
   RuleManifestSchema,
   type RuleManifest,
 } from "@agentxm/extension-model/unstable/rules/manifest-schema";
-import {
-  type GitHostedRuleRef,
-  type LocalRuleRef,
-  type RegistryRuleRef,
-  type RuleExtensionRef,
-} from "@agentxm/extension-model/unstable/extensions/refs/rule";
+import type { RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
 
 const RULES_REGION = "rules";
 
@@ -161,7 +153,7 @@ export const RuleManagerLive = Layer.effect(
     // state commits, so the closure reads back what the render projected.
     const lastProjection = yield* Ref.make(NO_MATERIALIZATION_OBSERVATION);
 
-    const materializeFromRegistry = (ref: RegistryRuleRef, force: boolean) =>
+    const materializePackage = (ref: RuleExtensionRef, force = false) =>
       Effect.gen(function* () {
         const canonicalPath = computeExtensionPathsForLayout(
           path.join,
@@ -170,101 +162,30 @@ export const RuleManagerLive = Layer.effect(
           RULE_EXTENSION_DIR,
           ref.name,
         ).canonicalPath;
-        const reusable = yield* provide(
-          reusableCanonicalTree({
+        if (ref.refType === "workspace") {
+          yield* verifyWorkspaceRefLocation({
+            ref,
+            scope: location.scope,
             canonicalPath,
-            requested: {
-              refType: "registry",
-              owner: ref.owner,
-              name: ref.name,
-              version: ref.version,
-              publisherBindingId: ref.publisherBindingId,
-            },
-            accepted: yield* lockfile.entry("rule", ref.rule.name),
-            force: force,
-          }),
-        );
-        if (Option.isSome(reusable)) {
-          return { packageRoot: canonicalPath, treeIntegrity: reusable.value };
+            invalid: (detail) => new RuleDefinitionInvalid({ detail }),
+          });
+          return {
+            packageRoot: ref.location,
+            treeIntegrity: yield* provide(computeMaterializedTreeIntegrity(ref.location)),
+          };
         }
-        const materialized = yield* provide(
-          materializeRegistryPackageWithTreeIntegrity({
-            baseDir,
-            destinationPath: canonicalPath,
-            sourceLocation: ref.source.location,
-            owner: ref.owner,
-            type: "rule",
-            name: ref.name,
-            version: ref.version,
-            integrity: ref.integrity,
-            publisherBindingId: ref.publisherBindingId,
-            lifecycleWarnings: extensionRefLifecycleWarnings(ref),
-            messages: {
-              integrityMismatchDetail: `Integrity mismatch for rule:${ref.name}@${ref.version}`,
-            },
-          }),
-        );
-        return {
-          packageRoot: materialized.canonicalPath,
-          treeIntegrity: materialized.treeIntegrity,
-        };
-      });
-
-    const materializeFromExternal = (ref: GitHostedRuleRef | LocalRuleRef) =>
-      Effect.gen(function* () {
-        const canonicalPath = computeExtensionPathsForLayout(
-          path.join,
-          currentLayout(),
+        return yield* acquireCanonicalForRef({
           ref,
-          RULE_EXTENSION_DIR,
-          ref.rule.name,
-        ).canonicalPath;
-        const sourceLocation = yield* acquiredDirectoryForRef(ref, ref.location);
-        const materialized = yield* provide(
-          materializeExternalPackageWithTreeIntegrity({
-            baseDir,
-            canonicalPath,
-            sourceLocation,
-            copyFailureCode: "validation",
-            copyFailureDetail: (target) => `Failed to copy rule package files to ${target}`,
-          }),
-        );
-        return {
-          packageRoot: materialized.canonicalPath,
-          treeIntegrity: materialized.treeIntegrity,
-        };
-      });
-
-    const materializePackage = (ref: RuleExtensionRef, force = false) =>
-      Effect.gen(function* () {
-        switch (ref.refType) {
-          case "registry":
-            return yield* materializeFromRegistry(ref, force);
-          case "git-hosted":
-          case "local":
-            return yield* materializeFromExternal(ref);
-          case "workspace": {
-            const expectedPath = computeExtensionPathsForLayout(
-              path.join,
-              currentLayout(),
-              ref,
-              RULE_EXTENSION_DIR,
-              ref.name,
-            ).canonicalPath;
-            if (
-              ref.scope !== location.scope ||
-              path.resolve(ref.location) !== path.resolve(expectedPath)
-            ) {
-              return yield* new RuleDefinitionInvalid({
-                detail: `Invalid workspace rule source location: ${ref.location}`,
-              });
-            }
-            return {
-              packageRoot: ref.location,
-              treeIntegrity: yield* provide(computeMaterializedTreeIntegrity(ref.location)),
-            };
-          }
-        }
+          type: "rule",
+          baseDir,
+          canonicalPath,
+          accepted: yield* lockfile.entry("rule", ref.rule.name),
+          force,
+          copyFailure: {
+            code: "validation",
+            detail: (target) => `Failed to copy rule package files to ${target}`,
+          },
+        });
       });
 
     const readManifest = (packageRoot: string) =>

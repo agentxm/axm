@@ -121,31 +121,28 @@ test("Required CI rejects failed, cancelled, skipped, and missing secret evidenc
   assert.equal(typeof step?.run, "string");
   const fixture = mkdtempSync(join(tmpdir(), "axm-security-rollup-"));
   try {
-    for (const event of ["pull_request", "merge_group", "push", "workflow_dispatch"]) {
-      for (const state of ["success", "failure", "cancelled", "skipped", "missing"]) {
-        const results = Object.fromEntries(
-          required.needs.map((name) => [name, { result: "success" }]),
-        );
-        if (state === "missing") delete results.secrets;
-        else results.secrets.result = state;
-        const result = spawnSync("bash", ["-c", step.run], {
-          cwd: fixture,
-          encoding: "utf8",
-          env: {
-            ...process.env,
-            RESULTS: JSON.stringify(results),
-            EVENT_NAME: event,
-            DOCS_CHANGED: "false",
-            GITHUB_STEP_SUMMARY: join(fixture, "summary.md"),
-          },
-        });
-        if (result.error) throw result.error;
-        assert.equal(
-          result.status,
-          state === "success" ? 0 : 1,
-          `${event} required rollup with ${state} secret evidence`,
-        );
-      }
+    for (const state of ["success", "failure", "cancelled", "skipped", "missing"]) {
+      const results = Object.fromEntries(
+        required.needs.map((name) => [name, { result: "success" }]),
+      );
+      if (state === "missing") delete results.secrets;
+      else results.secrets.result = state;
+      const result = spawnSync("bash", ["-c", step.run], {
+        cwd: fixture,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          RESULTS: JSON.stringify(results),
+          REQUIRED_JOBS: JSON.stringify(["classify", "secrets"]),
+          GITHUB_STEP_SUMMARY: join(fixture, "summary.md"),
+        },
+      });
+      if (result.error) throw result.error;
+      assert.equal(
+        result.status,
+        state === "success" ? 0 : 1,
+        `required rollup with ${state} secret evidence`,
+      );
     }
   } finally {
     rmSync(fixture, { recursive: true, force: true });

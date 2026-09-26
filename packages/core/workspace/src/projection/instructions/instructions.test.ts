@@ -5,10 +5,13 @@ import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import {
   assertInstructionTargetsSafe,
+  instructionProjectionEffects,
   instructionProjectionIsCurrent,
+  instructionProjectionRemovalEffects,
   observeInstructionProjection,
   probeSymlinkSupport,
   reconcileInstructionTargets,
@@ -946,6 +949,94 @@ describe("agent instructions", () => {
             }),
           ),
         ).toBe(true);
+      }),
+    ),
+  );
+
+  it.effect("names the same changed paths in previews and applied instruction runs", () =>
+    run(
+      Effect.gen(function* () {
+        fs.mkdirSync(path.join(tempDir, ".git"));
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# First\n");
+        yield* sync({
+          configuredAgents: ["claude-code", "gemini-cli", "junie"],
+          config: IGNORED,
+          symlinkSupported: false,
+        });
+
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Second\n");
+        fs.rmSync(path.join(tempDir, "GEMINI.md"));
+        const agents = ["claude-code", "gemini-cli"];
+        const before = yield* observe({
+          configuredAgents: agents,
+          config: IGNORED,
+          symlinkSupported: false,
+        });
+        const effects = instructionProjectionEffects(before);
+        const expectedWritten = effects
+          .filter((effect) => effect.change !== "removed")
+          .map((effect) => effect.path)
+          .sort();
+        const expectedRemoved = effects
+          .filter((effect) => effect.change === "removed")
+          .map((effect) => effect.path)
+          .sort();
+        expect(expectedWritten).toEqual(
+          expect.arrayContaining([
+            path.join(tempDir, "CLAUDE.md"),
+            path.join(tempDir, "GEMINI.md"),
+            path.join(tempDir, ".gitignore"),
+          ]),
+        );
+        expect(expectedRemoved).toContain(path.join(tempDir, ".junie", "AGENTS.md"));
+
+        const preview = yield* sync({
+          configuredAgents: agents,
+          config: IGNORED,
+          symlinkSupported: false,
+          dryRun: true,
+        });
+        expect([...preview.written].sort()).toEqual(expectedWritten);
+        expect([...preview.removed].sort()).toEqual(expectedRemoved);
+        const applied = yield* sync({
+          configuredAgents: agents,
+          config: IGNORED,
+          symlinkSupported: false,
+        });
+        expect([...applied.written].sort()).toEqual(expectedWritten);
+        expect([...applied.removed].sort()).toEqual(expectedRemoved);
+
+        const removal = yield* observe({
+          configuredAgents: agents,
+          config: IGNORED,
+          symlinkSupported: false,
+        });
+        const removalEffects = instructionProjectionRemovalEffects(removal);
+        const removable = removalEffects
+          .filter((effect) => effect.change === "removed")
+          .map((effect) => effect.path)
+          .sort();
+        expect(removalEffects).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ path: path.join(tempDir, ".gitignore"), change: "updated" }),
+          ]),
+        );
+        const removalPreview = yield* removeManagedInstructionTargets({
+          snapshot: removal,
+          dryRun: true,
+        });
+        expect([...removalPreview].sort()).toEqual(removable);
+        const removalApplied = yield* removeManagedInstructionTargets({
+          snapshot: removal,
+          dryRun: false,
+        });
+        expect([...removalApplied].sort()).toEqual(removable);
+        expect(
+          yield* removeInstructionsGitignore({ workspaceRoot: tempDir, dryRun: true }),
+        ).toEqual(Option.some(path.join(tempDir, ".gitignore")));
+        expect(
+          yield* removeInstructionsGitignore({ workspaceRoot: tempDir, dryRun: false }),
+        ).toEqual(Option.some(path.join(tempDir, ".gitignore")));
       }),
     ),
   );

@@ -14,6 +14,7 @@ import * as nodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
 import * as Effect from "effect/Effect";
+import { treeIntegrityOfSync } from "../desired-state/test-support/tree-integrity-sync.js";
 import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "../transitions/settlement/live.js";
 import * as Option from "effect/Option";
@@ -22,7 +23,6 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { HooksLockMapSchema, type HooksLockMap } from "../desired-state/index.js";
-import { computeMaterializedTreeIntegritySync } from "../materialization/test-helpers.js";
 import { HookManager } from "../materialization/managers.js";
 import { applyPlannedProjections, observeProjectionPlans } from "../projection/index.js";
 import { SourceHostProviders } from "../resolution/sources/index.js";
@@ -58,7 +58,7 @@ const registryLock = (baseDir: string, name: string) => ({
     integrity: "sha512-stub",
     publisherBindingId: "hbnd_test",
   },
-  treeIntegrity: computeMaterializedTreeIntegritySync(
+  treeIntegrity: treeIntegrityOfSync(
     nodePath.join(baseDir, "agent_extensions", "registry", OWNER, "hooks", name),
   ),
 });

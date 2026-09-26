@@ -7,6 +7,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import { treeIntegrityOfSync } from "../desired-state/test-support/tree-integrity-sync.js";
 import * as Deferred from "effect/Deferred";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
@@ -47,7 +48,6 @@ import {
   WorkspaceCatalogLive,
 } from "../projection/live.js";
 import {
-  computeMaterializedTreeIntegritySync,
   describeTestFailure,
   exactVersion,
   extensionName,
@@ -133,7 +133,7 @@ const desiredHandbookReadFacts = (
         source: { type: "path" as const, path: decodeRelativePathSync("source") },
         identity: { owner: handle("@acme"), name: extensionName("handbook") },
         resolved: { tree: TEST_CONTENT_IDENTITY },
-        treeIntegrity: computeMaterializedTreeIntegritySync(
+        treeIntegrity: treeIntegrityOfSync(
           nodePath.join(
             workspaceRoot,
             "agent_extensions",
@@ -741,13 +741,13 @@ describe("KnowledgeManager", () => {
               source: { type: "path", path: "sources/healthy" },
               identity: { owner: handle("@acme"), name: extensionName("healthy") },
               resolved: { tree: TEST_CONTENT_IDENTITY },
-              treeIntegrity: computeMaterializedTreeIntegritySync(healthyCanonical),
+              treeIntegrity: treeIntegrityOfSync(healthyCanonical),
             },
             unavailable: {
               source: { type: "path", path: "sources/unavailable" },
               identity: { owner: handle("@acme"), name: extensionName("unavailable") },
               resolved: { tree: TEST_CONTENT_IDENTITY },
-              treeIntegrity: computeMaterializedTreeIntegritySync(unavailableCanonical),
+              treeIntegrity: treeIntegrityOfSync(unavailableCanonical),
             },
           } satisfies Readonly<Record<string, KnowledgeLockEntry>>;
           const layer = managerLayer(workspaceRoot, {

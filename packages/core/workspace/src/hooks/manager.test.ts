@@ -13,6 +13,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import { treeIntegrityOfSync } from "../desired-state/test-support/tree-integrity-sync.js";
 import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "../transitions/settlement/live.js";
 import * as Option from "effect/Option";
@@ -33,12 +34,7 @@ import {
   NativeWriteAuthorityLive,
   WorkspaceCatalogLive,
 } from "../projection/live.js";
-import {
-  computeMaterializedTreeIntegritySync,
-  describeTestFailure,
-  extensionName,
-  handle,
-} from "../materialization/test-helpers.js";
+import { describeTestFailure, extensionName, handle } from "../materialization/test-helpers.js";
 import { HookManagerLive } from "./manager.js";
 import type { LocalHookRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 
@@ -118,7 +114,7 @@ const makeHookManagerLayer = (
             source: { type: "path" as const, path: decodeRelativePathSync("source-hook") },
             identity: { owner: handle("@acme"), name: extensionName(name) },
             resolved: { tree: TEST_CONTENT_IDENTITY },
-            treeIntegrity: computeMaterializedTreeIntegritySync(
+            treeIntegrity: treeIntegrityOfSync(
               nodePath.join(workspaceRoot, "agent_extensions", "path", "@acme", "hooks", name),
             ),
           },

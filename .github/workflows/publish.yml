@@ -69,12 +69,12 @@ jobs:
       tooling_sha: ${{ steps.source.outputs.tooling_sha }}
       ci_run_id: ${{ steps.source.outputs.ci_run_id }}
     steps:
-      - name: Checkout declared source
+      - name: Checkout trusted publication tooling
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || (inputs.mode == 'bootstrap-prerelease' || inputs.mode == 'branch-preview') && inputs.source_sha || 'main' }}
+          ref: main
 
       - name: Set up repository toolchain
         uses: ./.github/actions/setup-workspace

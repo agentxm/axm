@@ -43,10 +43,10 @@ const resolveSelection = (env: NodeJS.ProcessEnv): PublicationSelection => {
     ) {
       return { eligible, mode, tag, sha, toolingSha, ciRunId };
     }
-    if (sha !== env["CI_HEAD_SHA"]) {
-      throw new Error("Workflow-run checkout differs from the completed CI revision.");
-    }
-    const subject = capture("git", ["show", "-s", "--format=%s", "HEAD"]);
+    sha = requireFullSha(env["CI_HEAD_SHA"] ?? "", "workflow-run head_sha");
+    capture("git", ["fetch", "origin", "main", "--no-tags"]);
+    capture("git", ["merge-base", "--is-ancestor", sha, "origin/main"]);
+    const subject = capture("git", ["show", "-s", "--format=%s", sha]);
     const release = parseReleaseCommitSubject(subject);
     if (release === undefined) {
       if (isReleaseLikeSubject(subject)) {
@@ -76,9 +76,7 @@ const resolveSelection = (env: NodeJS.ProcessEnv): PublicationSelection => {
     eligible = true;
   } else if (mode === "branch-preview") {
     const sourceSha = requireFullSha(env["SOURCE_SHA"] ?? "", "branch-preview source_sha");
-    if (sha !== sourceSha) {
-      throw new Error("branch-preview requires the exact checked-out source_sha.");
-    }
+    sha = sourceSha;
     const sourceRef = env["SOURCE_REF"] ?? "";
     if (!/^[a-zA-Z0-9][a-zA-Z0-9/_-]*$/u.test(sourceRef) || sourceRef === "main") {
       throw new Error("branch-preview requires an explicit non-main branch name.");

@@ -9,18 +9,11 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
 import type { McpConfigTarget } from "@agentxm/extension-model/unstable/agent-capabilities";
-import {
-  McpConfigInvalid,
-  McpConfigIoFailed,
-  McpDefinitionInvalid,
-  McpSharedTargetConflict,
-} from "../errors.js";
+import { McpDefinitionInvalid, McpSharedTargetConflict } from "../errors.js";
 import type { CodingAgentFailure } from "../errors.js";
 import {
   MCP_SERVER_MANIFEST_FILENAME,
-  McpServerManifestSchema,
   type McpServerManifest,
 } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import type { NativeWriteAuthority } from "../native-write-authority.js";
@@ -44,6 +37,7 @@ import type {
   RemoveMcpServerArgs,
 } from "../agents/coding-agent.js";
 import type { McpServerDeclaration } from "./expected-entry.js";
+import { decodeMcpServerManifestAt } from "./manifest.js";
 
 export interface SyncInlineMcpServerArgs {
   readonly workspaceRoot: string;
@@ -228,39 +222,6 @@ export const pruneManagedMcpServersForAgent = (
       _tag: "success",
       ...(prunedTargets.length > 0 ? { targets: prunedTargets } : {}),
     } satisfies McpServerSyncOutcome;
-  });
-
-export const decodeMcpServerManifestAt = (
-  manifestPath: string,
-): Effect.Effect<McpServerManifest, McpConfigIoFailed | McpConfigInvalid, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const raw = yield* fs.readFileString(manifestPath).pipe(
-      Effect.mapError(
-        (cause) =>
-          new McpConfigIoFailed({
-            detail: `Failed to read MCP server manifest: ${manifestPath}`,
-            cause,
-          }),
-      ),
-    );
-    const parsed = yield* Effect.try({
-      try: () => {
-        const value: unknown = JSON.parse(raw);
-        return value;
-      },
-      catch: (cause) =>
-        new McpConfigInvalid({
-          detail: `Invalid JSON in MCP server manifest: ${manifestPath}`,
-          cause,
-        }),
-    });
-    return yield* Schema.decodeUnknownEffect(McpServerManifestSchema)(parsed).pipe(
-      Effect.mapError(
-        (cause) =>
-          new McpConfigInvalid({ detail: `Invalid MCP server manifest: ${manifestPath}`, cause }),
-      ),
-    );
   });
 
 const manifestDeclaration = (args: {

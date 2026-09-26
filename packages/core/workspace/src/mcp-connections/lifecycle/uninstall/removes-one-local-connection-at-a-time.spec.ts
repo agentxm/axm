@@ -75,4 +75,36 @@ describe("Uninstall a locally named MCP connection", () => {
       )
       .pipe(Effect.provide(NodeServices.layer));
   });
+
+  it.effect(
+    "reports possible credential retention when the acquired manifest is unreadable",
+    () => {
+      const world = makeInstallWorld();
+      cleanups.push(world.cleanup);
+      const { workspace, registry } = world;
+      registry.writeMcp("context", [{ version: "1.0.0" }]);
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* applyInstall(
+              installRequest({
+                type: "mcp-server",
+                subject: { kind: "source", source: "@acme/mcps/context" },
+                localName: "work-context",
+              }),
+            );
+            workspace.writeFile("agent_extensions/registry/@acme/mcps/context/mcp.json", "{");
+
+            const result = yield* applyUninstall(
+              uninstallRequest({ type: "mcp-server", selector: "work-context" }),
+            );
+            expect(result.units.flatMap((unit) => unit.warnings ?? []).join("\n")).toContain(
+              "MCP manifest for work-context could not be read; stored credentials may remain",
+            );
+            expect(JSON.stringify(readSettings(workspace))).not.toContain("work-context");
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
 });

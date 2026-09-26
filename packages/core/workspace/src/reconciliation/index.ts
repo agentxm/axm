@@ -110,7 +110,6 @@ export { isWorkspaceFailure } from "./failure-recognition.js";
 export {
   deleteMcpSecrets,
   installMcpServer,
-  readMcpServerManifest,
   type InstallMcpServerOperation,
   type InstallMcpServerOperationArgs,
   type McpSecretDeletionOutcome,

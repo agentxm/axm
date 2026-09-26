@@ -31,7 +31,7 @@ import * as Schema from "effect/Schema";
 import {
   extensionRefRegistryLifecycle,
   installMcpServer,
-  readMcpServerManifest,
+  workspaceFailureToStepFailure,
 } from "../../../reconciliation/index.js";
 import { materializeRegistryPackage } from "../../../materialization/index.js";
 import { fromFileLocation } from "@agentxm/host-primitives";
@@ -39,8 +39,10 @@ import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstab
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 import {
   configuredMcpCapability,
+  decodeMcpServerManifestAt,
   validateManifestMcpServerTargets,
 } from "../../../projection/agent-adapters/index.js";
+import { MCP_SERVER_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import {
   ExtensionNameSchema,
   type ExtensionName,
@@ -581,16 +583,20 @@ export const planMcpServerInstall: (
               });
             })
           : fromFileLocation(ref.location);
-      const manifest = yield* readMcpServerManifest(manifestPath);
-      if (Option.isNone(manifest)) {
-        return yield* installRefused({
-          category: "validation",
-          detail: `Cannot read MCP manifest for ${intent.localName}`,
-        });
-      }
+      const manifest = yield* decodeMcpServerManifestAt(
+        path.join(manifestPath, MCP_SERVER_MANIFEST_FILENAME),
+      ).pipe(
+        Effect.mapError((cause) =>
+          installRefused({
+            category: "validation",
+            detail: `Cannot read MCP manifest for ${intent.localName}: ${workspaceFailureToStepFailure(cause).detail}`,
+            cause,
+          }),
+        ),
+      );
       const entries = yield* settings.entries("mcp-server");
       yield* validateManifestMcpServerTargets({
-        manifest: manifest.value,
+        manifest,
         agentIds: yield* settings.configuredAgents,
         scope: location.scope,
         serverName: intent.localName,

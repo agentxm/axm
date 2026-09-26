@@ -216,7 +216,14 @@ export {
   type DecodedJsonMcpConfig,
   type NativeMcpConfigRead,
 } from "./mcps/native-config.js";
-export { collectSecretInputNames, mcpProjectionInputValues } from "./mcps/inputs.js";
+export {
+  collectRequiredInputNames,
+  collectSecretInputNames,
+  manifestInputs,
+  mcpProjectionInputValues,
+  type ManifestInput,
+} from "./mcps/inputs.js";
+export { decodeMcpServerManifestAt, readMcpServerManifestAt } from "./mcps/manifest.js";
 export {
   planMcpServerTargets,
   type McpAgentTargetPlan,
@@ -241,7 +248,6 @@ export {
   type McpTargetGroup,
 } from "./mcps/targeting.js";
 export {
-  decodeMcpServerManifestAt,
   pruneManagedMcpServersForAgent,
   removeMcpServerFromManifest,
   syncInlineMcpServerToAgents,

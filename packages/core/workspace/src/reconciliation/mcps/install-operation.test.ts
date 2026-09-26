@@ -648,6 +648,63 @@ describe("installMcpServer", () => {
         }
       }),
     );
+
+    it.effect("refuses an unset required runtime argument in non-interactive mode", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        const canonicalPath = setupRegistryCanonical(base, "@community");
+        fs.writeFileSync(
+          path.join(canonicalPath, "mcp.json"),
+          JSON.stringify({
+            owner: "@community",
+            type: "mcp-server",
+            name: "my-server",
+            version: "1.0.0",
+            server: {
+              name: "io.github.community/my-server",
+              description: "MCP server my-server",
+              version: "1.0.0",
+              packages: [
+                {
+                  registryType: "npm",
+                  identifier: "@community/my-server",
+                  version: "1.0.0",
+                  transport: { type: "stdio" },
+                  runtimeArguments: [{ type: "named", name: "--profile", isRequired: true }],
+                },
+              ],
+            },
+          }),
+        );
+
+        const result = yield* Effect.result(
+          installMcpServer(makeOp({ ref: makeRegistryRef({ integrity: "" }) })).pipe(
+            Effect.provide(withServices(axmDir)),
+          ),
+        );
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") {
+          expect(result.failure._tag).toBe("McpRequiredInputsMissing");
+          expect(result.failure).toMatchObject({ inputNames: ["--profile"] });
+        }
+      }),
+    );
+
+    it.effect("reports an invalid manifest as a typed failure", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        const canonicalPath = setupRegistryCanonical(base, "@community");
+        fs.writeFileSync(path.join(canonicalPath, "mcp.json"), "{");
+
+        const result = yield* Effect.result(
+          installMcpServer(makeOp({ ref: makeRegistryRef({ integrity: "" }) })).pipe(
+            Effect.provide(withServices(axmDir)),
+          ),
+        );
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") expect(result.failure._tag).toBe("McpConfigInvalid");
+      }),
+    );
   });
 
   describe("registry install — empty integrity without canonical", () => {

@@ -20,12 +20,13 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import { extensionRefLifecycleWarnings } from "../../lifecycle/warnings.js";
 import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
 import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import {
   collectSecretInputNames,
+  collectRequiredInputNames,
   mcpProjectionInputValues,
   NativeWriteAuthority,
+  readMcpServerManifestAt,
   syncManifestMcpServerToAgents,
 } from "../../projection/agent-adapters/index.js";
 import type { McpServerSyncOutcome } from "../../projection/agent-adapters/index.js";
@@ -83,12 +84,7 @@ import { computePackageContentHash } from "../../desired-state/index.js";
 import { mcpResolutionKey } from "../../desired-state/index.js";
 import { buildExternalMcpServerLockEntry } from "../../mcp-connections/lock-entry-builder.js";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
-import {
-  MCP_SERVER_MANIFEST_FILENAME,
-  type McpRegistryKeyValueInput,
-  type McpServerManifest,
-  McpServerManifestSchema,
-} from "@agentxm/extension-model/unstable/mcps/manifest-schema";
+import type { McpServerManifest } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import type { McpServerEntry } from "../../desired-state/index.js";
 import {
   agentConfigTargets,
@@ -173,30 +169,6 @@ export type McpSecretDeletionOutcome =
   | { readonly _tag: "absent"; readonly inputName: string }
   | { readonly _tag: "failed"; readonly inputName: string };
 
-/**
- * Named environment inputs the manifest marks required. Only key/value inputs
- * are collected: an unnamed input has nothing a caller could pass through
- * `--env KEY=VALUE`, so it cannot be reported as a missing name.
- */
-const collectRequiredInputNames = (manifest: McpServerManifest): ReadonlySet<string> => {
-  const names = new Set<string>();
-  const add = (input: McpRegistryKeyValueInput) => {
-    if (input.isRequired === true && input.value === undefined && input.default === undefined) {
-      names.add(input.name);
-    }
-  };
-
-  for (const pkg of manifest.server.packages ?? []) {
-    for (const input of pkg.environmentVariables ?? []) add(input);
-  }
-
-  for (const remote of manifest.server.remotes ?? []) {
-    for (const input of remote.headers ?? []) add(input);
-  }
-
-  return names;
-};
-
 // -----------------------------------------------------------------------------
 // Registry install
 // -----------------------------------------------------------------------------
@@ -256,38 +228,6 @@ const installFromRegistry = (
     }
 
     return canonicalPath;
-  });
-
-export const readMcpServerManifest = (
-  canonicalPath: string,
-): Effect.Effect<Option.Option<McpServerManifest>, never, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const manifestPath = path.join(canonicalPath, MCP_SERVER_MANIFEST_FILENAME);
-    const exists = yield* fs.exists(manifestPath).pipe(Effect.catch(() => Effect.succeed(false)));
-    if (!exists) {
-      return Option.none();
-    }
-
-    const manifest = yield* fs.readFileString(manifestPath).pipe(
-      Effect.flatMap((raw) =>
-        Effect.try({
-          try: () => {
-            const parsed: unknown = JSON.parse(raw);
-            return Schema.decodeUnknownSync(McpServerManifestSchema)(parsed);
-          },
-          catch: () => undefined,
-        }),
-      ),
-      Effect.catch(() => Effect.void),
-    );
-
-    if (manifest === undefined) {
-      return Option.none();
-    }
-
-    return Option.some(manifest);
   });
 
 const isNothingRunnableManifest = (manifest: Option.Option<McpServerManifest>): boolean =>
@@ -700,7 +640,7 @@ export const installMcpServer: (
                 return destination;
               }),
             );
-    const manifest = yield* readMcpServerManifest(canonicalPath);
+    const manifest = yield* readMcpServerManifestAt(canonicalPath);
     const resolvedVersion =
       ref.refType === "registry" || ref.refType === "workspace"
         ? ref.version

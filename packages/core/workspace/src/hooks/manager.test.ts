@@ -114,9 +114,7 @@ const makeHookManagerLayer = (
             source: { type: "path" as const, path: decodeRelativePathSync("source-hook") },
             identity: { owner: handle("@acme"), name: extensionName(name) },
             resolved: { tree: TEST_CONTENT_IDENTITY },
-            treeIntegrity: treeIntegrityOfSync(
-              nodePath.join(workspaceRoot, "agent_extensions", "path", "@acme", "hooks", name),
-            ),
+            treeIntegrity: treeIntegrityOfSync(nodePath.join(workspaceRoot, "source-hook")),
           },
         ]),
       ),

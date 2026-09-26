@@ -133,16 +133,7 @@ const desiredHandbookReadFacts = (
         source: { type: "path" as const, path: decodeRelativePathSync("source") },
         identity: { owner: handle("@acme"), name: extensionName("handbook") },
         resolved: { tree: TEST_CONTENT_IDENTITY },
-        treeIntegrity: treeIntegrityOfSync(
-          nodePath.join(
-            workspaceRoot,
-            "agent_extensions",
-            "path",
-            "@acme",
-            "knowledge",
-            "handbook",
-          ),
-        ),
+        treeIntegrity: treeIntegrityOfSync(nodePath.join(workspaceRoot, "source")),
       },
     },
   })),

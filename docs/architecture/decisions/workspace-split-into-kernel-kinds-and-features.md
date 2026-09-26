@@ -22,8 +22,8 @@ under `packages/core/`. Like the package they replace, they are bundled into
 | `@agentxm/workspace-features` | `role:feature`    | Lifecycle, authoring, publishing, configuration, inspection, linting, discovery, sync, Knowledge query, and sharing use cases                                                                         |
 
 Dependencies point one way: features depend on kinds and the kernel, kinds
-depend on the kernel, and the kernel depends only on contracts and on
-supporting and generic packages. The kernel knows no kind and no feature, not
+depend on the kernel, and the kernel depends only on contracts, the
+`@agentxm/extension-content` capability, and supporting and generic packages. The kernel knows no kind and no feature, not
 even as a type.
 
 **Every unit is a flat slice.** Inside each package, each unit is exactly one
@@ -31,8 +31,9 @@ folder under `src/`, and its `index.ts` is its entry. The package exports one
 `./<slice>` per folder and no root. A slice adds `./<slice>/live` or
 `./<slice>/testing` only when that folder has a `live.ts` or `testing.ts`.
 `@agentxm/extension-kinds` also exports `./live`, which composes every kind's
-manager Layer and the keychain-backed MCP secret store. Nested entry points
-are retired.
+manager Layer and the keychain-backed MCP secret store. Nested subpaths such
+as the former `transitions/planning` or `resolution/sources` are retired; a
+slice's `/live` and `/testing` entries are the only second-level subpaths.
 
 **Kernel slices are ordered.** From lowest to highest: `settlement`,
 `operations`, `agent-adapters`, `workspace-state`, `projection`, `acquisition`,
@@ -43,8 +44,8 @@ refusal, install-selection, and `StepFailure` vocabulary that every layer above
 it speaks, and it imports nothing from the workspace.
 
 **No kind imports another kind, and no feature imports another feature.** What
-two kinds or two features share moves inward: into a kernel slice, or into the
-kinds package's composition entry. Features share test support only through
+two kinds or two features share moves inward, into a kernel slice. Features
+share test support only through
 `workspace-features/src/testing/`, which is not exported and is importable only
 from feature test files.
 

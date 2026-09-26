@@ -483,7 +483,8 @@ unit. A single-unit package exports its root `.`: the public service contract,
 schemas, domain types, and pure behaviour that inward consumers may use. A
 sliced package — `@agentxm/workspace-kernel`, `@agentxm/extension-kinds`,
 `@agentxm/workspace-features`, and `@agentxm/registry-access` — exports one
-`./<slice>` per `src/<slice>/` folder, mapped to that folder's `index.ts`, and
+`./<slice>` per slice folder under `src/` (a test-support folder such as
+`workspace-features/src/testing/` is not exported), mapped to that folder's `index.ts`, and
 no root. The `./live` and `./testing` rules below apply to each entry: a slice
 adds `./<slice>/live` or `./<slice>/testing` only when its folder has a
 `live.ts` or `testing.ts`. `@agentxm/extension-kinds` also exports a

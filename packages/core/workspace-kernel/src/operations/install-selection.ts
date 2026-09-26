@@ -38,4 +38,4 @@ export class InstallSelectionInteraction extends Context.Service<
       InstallSelectionCancelled | InstallSelectionUnavailable
     >;
   }
->()("@agentxm/workspace/lifecycle/install/InstallSelectionInteraction") {}
+>()("@agentxm/workspace-kernel/operations/install-selection/InstallSelectionInteraction") {}

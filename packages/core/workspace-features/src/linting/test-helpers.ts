@@ -9,7 +9,7 @@
  * a run observes the same bytes the product observes; a transport that
  * refuses every request, so current deprecation assessment remains unavailable
  * without reaching the network;
- * and no projection participants, so nothing outside `@agentxm/workspace/linting`
+ * and no projection participants, so nothing outside `@agentxm/workspace-features/linting`
  * decides what a fixture's workspace is expected to contain.
  */
 

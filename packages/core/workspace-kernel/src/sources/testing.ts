@@ -1,5 +1,5 @@
 /**
- * @agentxm/workspace/resolution/sources deterministic test ports.
+ * @agentxm/workspace-kernel/sources deterministic test ports.
  *
  * The four seams this integration declares but does not implement — the
  * workspace catalog it reads facts from, the official-skill gate, the
@@ -91,7 +91,7 @@ export const AxmSkillCandidateGateTest = (
  * The Registry's own selection rule with no release-age policy applied: every
  * matching version is a selectable candidate, newest first; nothing is
  * withheld and nothing is exempted. A test that needs the age gate composes
- * the real policy from `@agentxm/workspace/resolution` instead.
+ * the real policy from `@agentxm/workspace-kernel/resolution` instead.
  */
 export const RegistryResolutionPolicyTest: Layer.Layer<RegistryResolutionPolicy> = Layer.succeed(
   RegistryResolutionPolicy,

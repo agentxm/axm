@@ -76,7 +76,7 @@ export interface AcquiredContentService {
 
 /** Present only while a candidate consumes the trees acquired for that candidate. */
 export class AcquiredContent extends ServiceMap.Service<AcquiredContent, AcquiredContentService>()(
-  "@agentxm/workspace/acquisition/AcquiredContent",
+  "@agentxm/workspace-kernel/acquisition/AcquiredContent",
 ) {}
 
 /** How a reader would obtain a source's bytes when the transition holds none. */

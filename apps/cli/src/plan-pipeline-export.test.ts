@@ -1,6 +1,6 @@
 /**
  * Spec test for lint-engine Phase 1: the plan pipeline primitives MUST be
- * reachable from the stable kernel export path `@agentxm/workspace/transitions/planning`
+ * reachable from the stable kernel export path `@agentxm/workspace-kernel/planning`
  * so that both this CLI and registry-side consumers can compose workspace
  * Operations without reaching into workspace-state internals. The interactive
  * preview/apply backbone lives on the same kernel path now that its

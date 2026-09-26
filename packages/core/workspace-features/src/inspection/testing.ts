@@ -1,5 +1,5 @@
 /**
- * @agentxm/workspace/inspection deterministic fixtures and ports.
+ * @agentxm/workspace-features/inspection deterministic fixtures and ports.
  *
  * A throwaway workspace with settings, lockfile, and native files written as
  * the product writes them; the workspace-state services over it; a recorded

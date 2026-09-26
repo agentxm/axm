@@ -38,7 +38,7 @@ export interface AgentPresenceProbeService {
 export class AgentPresenceProbe extends ServiceMap.Service<
   AgentPresenceProbe,
   AgentPresenceProbeService
->()("@agentxm/workspace/projection/agent-adapters/AgentPresenceProbe") {}
+>()("@agentxm/workspace-kernel/agent-adapters/AgentPresenceProbe") {}
 
 /** Detection-backed presence facts for the workspace read model. */
 export const AgentPresenceProbeLive = Layer.effect(

@@ -86,7 +86,7 @@ export class WorkspaceInitializationInteraction extends ServiceMap.Service<
   WorkspaceInitializationInteraction,
   WorkspaceInitializationInteractionService
 >()(
-  "@agentxm/workspace/configuration/initialization-interaction/WorkspaceInitializationInteraction",
+  "@agentxm/workspace-features/configuration/initialization-interaction/WorkspaceInitializationInteraction",
 ) {}
 
 export interface WorkspaceInitializationInteractionTestState {

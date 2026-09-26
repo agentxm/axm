@@ -61,7 +61,7 @@ export interface WorkspaceLocationService extends StateCellPaths {
 export class WorkspaceLocation extends ServiceMap.Service<
   WorkspaceLocation,
   WorkspaceLocationService
->()("@agentxm/workspace/desired-state/WorkspaceLocation") {}
+>()("@agentxm/workspace-kernel/workspace-state/WorkspaceLocation") {}
 
 const requireInitializedWorkspace = <R>(
   settingsPath: string,

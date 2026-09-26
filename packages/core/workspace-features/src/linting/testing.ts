@@ -1,5 +1,5 @@
 /**
- * @agentxm/workspace/linting deterministic test fixtures.
+ * @agentxm/workspace-features/linting deterministic test fixtures.
  *
  * A lint run reads a real workspace through the state, agent-repository and
  * invariant-fact services, so a fixture here composes those over a throwaway
@@ -11,10 +11,10 @@
  *
  * `ProjectionParticipants` stays in the layer's requirements on purpose. Which
  * extension types contribute projections is a fact this package may not
- * invent — `@agentxm/workspace/linting` does not depend on the materialization
+ * invent — `@agentxm/workspace-features/linting` does not depend on the materialization
  * managers — so the caller states it, either with the real registry from
- * `@agentxm/workspace/reconciliation/live` or with a deliberate stand-in from
- * `@agentxm/workspace/projection/testing`.
+ * `@agentxm/workspace-kernel/reconciliation/live` or with a deliberate stand-in from
+ * `@agentxm/workspace-kernel/projection/testing`.
  *
  * Production source never imports this module.
  *

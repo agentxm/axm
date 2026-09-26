@@ -61,5 +61,5 @@ export interface McpSecretStoreService {
 }
 
 export class McpSecretStore extends ServiceMap.Service<McpSecretStore, McpSecretStoreService>()(
-  "@agentxm/workspace/materialization/mcps/McpSecretStore",
+  "@agentxm/workspace-kernel/materialization/mcps/McpSecretStore",
 ) {}

@@ -78,7 +78,7 @@ export interface DesiredStateWriterService {
 export class DesiredStateWriter extends ServiceMap.Service<
   DesiredStateWriter,
   DesiredStateWriterService
->()("@agentxm/workspace/desired-state/DesiredStateWriter") {}
+>()("@agentxm/workspace-kernel/workspace-state/DesiredStateWriter") {}
 
 /** The settings source locator a Registry resolution is declared under. */
 const registryLocator = (

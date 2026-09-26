@@ -1,5 +1,5 @@
 /**
- * @agentxm/workspace/reconciliation/sync deterministic test ports.
+ * @agentxm/workspace-features/sync deterministic test ports.
  *
  * A reconciliation runs over a real workspace and the real per-type managers,
  * so this module does not answer for those. What it supplies is the

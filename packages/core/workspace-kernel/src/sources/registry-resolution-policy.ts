@@ -3,7 +3,7 @@
  *
  * The registry host provider owns index retrieval, ref mapping, and archive
  * probing; which version a request selects under the minimum-release-age
- * policy is application policy that lives in `@agentxm/workspace/resolution`.
+ * policy is application policy that lives in `@agentxm/workspace-kernel/resolution`.
  * This integration may not import that core package, so it declares the
  * port and the composition root binds the policy.
  *
@@ -44,4 +44,4 @@ export interface RegistryResolutionPolicyService {
 export class RegistryResolutionPolicy extends ServiceMap.Service<
   RegistryResolutionPolicy,
   RegistryResolutionPolicyService
->()("@agentxm/workspace/resolution/sources/registry-resolution-policy/RegistryResolutionPolicy") {}
+>()("@agentxm/workspace-kernel/sources/registry-resolution-policy/RegistryResolutionPolicy") {}

@@ -1,5 +1,5 @@
 /**
- * @agentxm/workspace/transitions/planning deterministic test layers.
+ * @agentxm/workspace-kernel/planning deterministic test layers.
  *
  * In-memory implementations of this package's own ports for tests and
  * executable specifications. Production source never imports this module.

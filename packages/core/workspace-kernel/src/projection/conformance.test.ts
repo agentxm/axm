@@ -11,8 +11,10 @@ import * as nodePath from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const packageSrc = nodePath.dirname(fileURLToPath(import.meta.url));
-const packagesRoot = nodePath.resolve(packageSrc, "..", "..", "..", "..");
+const projectionSrc = nodePath.dirname(fileURLToPath(import.meta.url));
+const kernelSrc = nodePath.resolve(projectionSrc, "..");
+const agentAdaptersSrc = nodePath.join(kernelSrc, "agent-adapters");
+const kindsSrc = nodePath.resolve(kernelSrc, "..", "..", "extension-kinds", "src");
 
 const productionTypeScriptFiles = (root: string): ReadonlyArray<string> =>
   nodeFs.readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
@@ -28,59 +30,55 @@ describe("aggregate ownership unit conformance", () => {
     // Reading and rendering a managed region is a single decision. Native
     // format adapters own the primitives; workspace projection policy reaches
     // them only through `reconcileManagedRegionFile`.
-    const regionOffenders = productionTypeScriptFiles(packageSrc)
-      .filter((file) => !file.includes(`${nodePath.sep}agent-adapters${nodePath.sep}`))
+    const regionOffenders = productionTypeScriptFiles(projectionSrc)
       .filter((file) => nodePath.basename(file) !== "managed-region-adapter.ts")
       .filter((file) => {
         const source = nodeFs.readFileSync(file, "utf8");
         return source.includes("inspectManagedRegion") || source.includes("renderManagedRegion");
       })
-      .map((file) => nodePath.relative(packageSrc, file));
+      .map((file) => nodePath.relative(kernelSrc, file));
     expect(regionOffenders).toEqual([]);
 
-    const markerReaderOffenders = productionTypeScriptFiles(packageSrc)
+    const markerReaderOffenders = [projectionSrc, agentAdaptersSrc]
+      .flatMap(productionTypeScriptFiles)
       .filter((file) => !file.includes(`${nodePath.sep}__generated__${nodePath.sep}`))
       .filter((file) => {
         const source = nodeFs.readFileSync(file, "utf8");
         return source.includes('.includes("axm:') || source.includes(".includes('axm:");
       })
-      .map((file) => nodePath.relative(packageSrc, file));
+      .map((file) => nodePath.relative(kernelSrc, file));
     expect(markerReaderOffenders).toEqual([]);
 
-    const planningSource = nodeFs.readFileSync(nodePath.join(packageSrc, "planning.ts"), "utf8");
+    const planningSource = nodeFs.readFileSync(nodePath.join(projectionSrc, "planning.ts"), "utf8");
     expect(planningSource).toContain("ProjectionRenderInputTypeId");
     expect(planningSource).toContain("planAggregateProjection");
     expect(planningSource).toContain("planSingletonProjection");
 
     // The ownership marker grammar is native format mechanics and remains the
-    // single marker reader in the workspace's agent adapter boundary.
+    // single marker reader in the kernel's agent adapter boundary.
     expect(
-      nodeFs.readFileSync(
-        nodePath.join(packageSrc, "agent-adapters", "managed-markers.ts"),
-        "utf8",
-      ),
+      nodeFs.readFileSync(nodePath.join(agentAdaptersSrc, "managed-markers.ts"), "utf8"),
     ).toContain("export const parseMarker");
   });
 
   it("routes every ownership-unit cardinality through shared plans", () => {
-    // Kind managers and lifecycle operations live beside projection in the
-    // workspace package.
-    const workspaceSrc = nodePath.join(packagesRoot, "core", "workspace", "src");
+    // Kind managers live in the extension kinds package and reach projection
+    // through its shared plans.
     const aggregateParticipants = [
       "instructions/manager.ts",
       "hooks/manager.ts",
       "knowledge/manager.ts",
     ];
     for (const relativePath of aggregateParticipants) {
-      expect(nodeFs.readFileSync(nodePath.join(workspaceSrc, relativePath), "utf8")).toContain(
+      expect(nodeFs.readFileSync(nodePath.join(kindsSrc, relativePath), "utf8")).toContain(
         "planAggregateProjection",
       );
     }
 
     const singletonParticipants = [
-      [workspaceSrc, "skills/manager.ts"],
-      [workspaceSrc, "subagents/manager.ts"],
-      [workspaceSrc, "mcp-connections/manager.ts"],
+      [kindsSrc, "skills/manager.ts"],
+      [kindsSrc, "subagents/manager.ts"],
+      [kindsSrc, "mcp-connections/manager.ts"],
     ] as const;
     for (const [root, relativePath] of singletonParticipants) {
       expect(nodeFs.readFileSync(nodePath.join(root, relativePath), "utf8")).toContain(
@@ -88,7 +86,7 @@ describe("aggregate ownership unit conformance", () => {
       );
     }
     const sharedMcpParticipants = [
-      [workspaceSrc, "mcp-connections/install/install-operation.ts"],
+      [kindsSrc, "mcp-connections/install/install-operation.ts"],
     ] as const;
     for (const [root, relativePath] of sharedMcpParticipants) {
       expect(nodeFs.readFileSync(nodePath.join(root, relativePath), "utf8")).toContain(
@@ -97,15 +95,7 @@ describe("aggregate ownership unit conformance", () => {
     }
 
     const serviceContract = nodeFs.readFileSync(
-      nodePath.join(
-        packagesRoot,
-        "core",
-        "workspace",
-        "src",
-        "desired-state",
-        "workspace",
-        "contracts.ts",
-      ),
+      nodePath.join(kernelSrc, "workspace-state", "workspace", "contracts.ts"),
       "utf8",
     );
     expect(serviceContract).not.toContain("reconcileProjections");
@@ -115,7 +105,7 @@ describe("aggregate ownership unit conformance", () => {
     // Projection must not reach back into the capability that materializes a
     // unit; owners register through `ProjectionParticipants`.
     const factsSource = nodeFs.readFileSync(
-      nodePath.join(packageSrc, "invariant-facts.ts"),
+      nodePath.join(projectionSrc, "invariant-facts.ts"),
       "utf8",
     );
     expect(factsSource).toContain("ProjectionParticipants");

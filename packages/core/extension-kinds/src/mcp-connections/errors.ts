@@ -4,7 +4,7 @@
  * and the rendering the kind chose for it.
  *
  * The native-config failures the agent writers construct live in
- * `@agentxm/workspace/projection/agent-adapters`; this module owns what materialization itself
+ * `@agentxm/workspace-kernel/agent-adapters`; this module owns what materialization itself
  * decides.
  *
  * @experimental This API is unstable and may change without notice.

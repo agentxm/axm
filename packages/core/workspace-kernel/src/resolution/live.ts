@@ -2,7 +2,7 @@
  * Implementations of the source-resolution composition ports this package
  * owns the policy for.
  *
- * `@agentxm/workspace/resolution/sources` declares the official AXM skill
+ * `@agentxm/workspace-kernel/sources` declares the official AXM skill
  * candidate gate and the Registry resolution policy as ports because a
  * supporting integration may not own AXM trust policy or release-age
  * admission. Resolution owns both policies, so their Lives are composed here
@@ -10,7 +10,7 @@
  * fixture that composes the production managers only compose Layers.
  *
  * The catalog port's Live ships beside its port in
- * `@agentxm/workspace/resolution/sources/live`.
+ * `@agentxm/workspace-kernel/sources/live`.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation

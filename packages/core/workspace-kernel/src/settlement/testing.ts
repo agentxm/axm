@@ -1,5 +1,5 @@
 /**
- * @agentxm/workspace/transitions/settlement deterministic test ports.
+ * @agentxm/workspace-kernel/settlement deterministic test ports.
  *
  * An in-memory transaction scope whose admission never touches a lock file,
  * and the fault-injection hooks that let a test or specification prove the

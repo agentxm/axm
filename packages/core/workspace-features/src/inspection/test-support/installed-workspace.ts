@@ -7,7 +7,7 @@
  * fixture agrees with itself, not that a shown extension reports the source
  * and version it was installed from. So the Registry here is the real
  * file-backed layout the production local client reads, the resolution is
- * `@agentxm/workspace/resolution`'s, and the installation is the
+ * `@agentxm/workspace-kernel/resolution`'s, and the installation is the
  * materialization capability's own install recipe over the production skill
  * manager. Only the process boundary stands in — a temporary directory and a
  * Registry on disk instead of one over the network.

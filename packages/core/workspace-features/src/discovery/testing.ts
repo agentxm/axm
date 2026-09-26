@@ -1,5 +1,5 @@
 /**
- * @agentxm/workspace/discovery deterministic test ports and fixtures.
+ * @agentxm/workspace-features/discovery deterministic test ports and fixtures.
  *
  * Discovery reads a project directory and consults the Registry through the
  * `RegistryClientFactory` port; both of those become fixtures here. A

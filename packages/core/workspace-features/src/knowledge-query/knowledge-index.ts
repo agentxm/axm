@@ -614,5 +614,5 @@ export interface KnowledgeIndexService {
 }
 
 export class KnowledgeIndex extends ServiceMap.Service<KnowledgeIndex, KnowledgeIndexService>()(
-  "@agentxm/workspace/knowledge/query/knowledge-index/KnowledgeIndex",
+  "@agentxm/workspace-features/knowledge-query/knowledge-index/KnowledgeIndex",
 ) {}

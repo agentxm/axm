@@ -16,7 +16,7 @@ import { hasProperty } from "effect/Predicate";
 import type { FailureSuggestedAction, OperationErrorCategory } from "../operations/index.js";
 
 export const ExtensionKindFailureTypeId: unique symbol = Symbol.for(
-  "@agentxm/workspace/materialization/ExtensionKindFailure",
+  "@agentxm/workspace-kernel/materialization/ExtensionKindFailure",
 );
 
 /** A failure an extension kind constructs, carrying its own rendering. */

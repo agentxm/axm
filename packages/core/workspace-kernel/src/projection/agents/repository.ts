@@ -3,7 +3,7 @@
  *
  * Selecting the configured and materialization agents is a workspace
  * decision made from settings; the decision itself is pure (`selection.ts`)
- * and the per-agent adapters come from `@agentxm/workspace/projection/agent-adapters`.
+ * and the per-agent adapters come from `@agentxm/workspace-kernel/agent-adapters`.
  *
  * @experimental This API is unstable and may change without notice.
  */

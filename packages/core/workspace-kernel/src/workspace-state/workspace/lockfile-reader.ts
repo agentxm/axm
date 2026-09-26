@@ -52,7 +52,7 @@ export interface LockfileReaderService {
 }
 
 export class LockfileReader extends ServiceMap.Service<LockfileReader, LockfileReaderService>()(
-  "@agentxm/workspace/desired-state/LockfileReader",
+  "@agentxm/workspace-kernel/workspace-state/LockfileReader",
 ) {}
 
 export const makeLockfileReader = (

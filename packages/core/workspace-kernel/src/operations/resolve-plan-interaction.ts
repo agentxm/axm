@@ -44,6 +44,4 @@ export interface ResolvePlanInteractionService {
 export class ResolvePlanInteraction extends ServiceMap.Service<
   ResolvePlanInteraction,
   ResolvePlanInteractionService
->()(
-  "@agentxm/workspace/transitions/planning/plan/resolve-plan-interaction/ResolvePlanInteraction",
-) {}
+>()("@agentxm/workspace-kernel/operations/resolve-plan-interaction/ResolvePlanInteraction") {}

@@ -60,5 +60,5 @@ export interface PackManifestsPort {
 }
 
 export class PackManifests extends Context.Service<PackManifests, PackManifestsPort>()(
-  "@agentxm/workspace/desired-state/PackManifests",
+  "@agentxm/workspace-kernel/workspace-state/PackManifests",
 ) {}

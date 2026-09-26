@@ -47,7 +47,7 @@ export interface DesiredStateReaderService {
 export class DesiredStateReader extends ServiceMap.Service<
   DesiredStateReader,
   DesiredStateReaderService
->()("@agentxm/workspace/desired-state/DesiredStateReader") {}
+>()("@agentxm/workspace-kernel/workspace-state/DesiredStateReader") {}
 
 export const makeDesiredStateReader = (
   location: WorkspaceLocationService,

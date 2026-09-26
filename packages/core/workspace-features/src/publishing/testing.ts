@@ -1,5 +1,5 @@
 /**
- * @agentxm/workspace/publishing deterministic test ports and fixtures.
+ * @agentxm/workspace-features/publishing deterministic test ports and fixtures.
  *
  * Publishing is the one operation whose effects leave the workspace, so its
  * seams have to be real rather than stubbed: a `file://` Registry target whose

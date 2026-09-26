@@ -1,7 +1,7 @@
 /**
  * Rendering for whole-extension Registry visibility. Intent resolution, the
  * revision precondition, and authority kind belong to
- * `@agentxm/workspace/publishing`; this module parses inputs and renders.
+ * `@agentxm/workspace-features/publishing`; this module parses inputs and renders.
  */
 
 import * as Effect from "effect/Effect";

@@ -158,7 +158,7 @@ export interface WorkspaceReadModelConfigService {
 export class WorkspaceReadModelConfig extends ServiceMap.Service<
   WorkspaceReadModelConfig,
   WorkspaceReadModelConfigService
->()("@agentxm/workspace/desired-state/workspace/read-model/service/WorkspaceReadModelConfig") {}
+>()("@agentxm/workspace-kernel/workspace-state/observed/service/WorkspaceReadModelConfig") {}
 
 // ---------------------------------------------------------------------------
 // Workspace-root validation

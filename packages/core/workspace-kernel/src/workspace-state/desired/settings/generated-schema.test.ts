@@ -9,7 +9,7 @@ import { SETTINGS_KEY_ORDER } from "./schema.js";
 
 const generatedSchemasDir = resolve(
   dirname(fileURLToPath(import.meta.url)),
-  "../../../../../../apps/cli/site-content/__generated__/schemas",
+  "../../../../../../../apps/cli/site-content/__generated__/schemas",
 );
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>

@@ -153,7 +153,7 @@ export interface SkillManagerService
 }
 
 export class SkillManager extends ServiceMap.Service<SkillManager, SkillManagerService>()(
-  "@agentxm/workspace/materialization/managers/SkillManager",
+  "@agentxm/workspace-kernel/materialization/managers/SkillManager",
 ) {}
 
 /**
@@ -268,7 +268,7 @@ export interface McpServerManagerService
 export class McpServerManager extends ServiceMap.Service<
   McpServerManager,
   McpServerManagerService
->()("@agentxm/workspace/materialization/managers/McpServerManager") {}
+>()("@agentxm/workspace-kernel/materialization/managers/McpServerManager") {}
 
 export interface SubagentManagerService
   extends
@@ -309,7 +309,7 @@ export interface SubagentManagerService
 }
 
 export class SubagentManager extends ServiceMap.Service<SubagentManager, SubagentManagerService>()(
-  "@agentxm/workspace/materialization/managers/SubagentManager",
+  "@agentxm/workspace-kernel/materialization/managers/SubagentManager",
 ) {}
 
 export interface RuleManagerService
@@ -354,7 +354,7 @@ export interface RuleManagerService
 }
 
 export class RuleManager extends ServiceMap.Service<RuleManager, RuleManagerService>()(
-  "@agentxm/workspace/materialization/managers/RuleManager",
+  "@agentxm/workspace-kernel/materialization/managers/RuleManager",
 ) {}
 
 /** Hook contributors verified during preparation, before they enter the lockfile. */
@@ -428,7 +428,7 @@ export interface HookManagerService
 }
 
 export class HookManager extends ServiceMap.Service<HookManager, HookManagerService>()(
-  "@agentxm/workspace/materialization/managers/HookManager",
+  "@agentxm/workspace-kernel/materialization/managers/HookManager",
 ) {}
 
 export interface KnowledgeSyncResult {
@@ -496,7 +496,7 @@ export interface KnowledgeManagerService
 export class KnowledgeManager extends ServiceMap.Service<
   KnowledgeManager,
   KnowledgeManagerService
->()("@agentxm/workspace/materialization/managers/KnowledgeManager") {}
+>()("@agentxm/workspace-kernel/materialization/managers/KnowledgeManager") {}
 
 export interface PackManagerService
   extends
@@ -526,5 +526,5 @@ export interface PackManagerService
     > {}
 
 export class PackManager extends ServiceMap.Service<PackManager, PackManagerService>()(
-  "@agentxm/workspace/materialization/managers/PackManager",
+  "@agentxm/workspace-kernel/materialization/managers/PackManager",
 ) {}

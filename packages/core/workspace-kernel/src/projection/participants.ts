@@ -101,7 +101,7 @@ export interface ProjectionParticipantsService {
 export class ProjectionParticipants extends ServiceMap.Service<
   ProjectionParticipants,
   ProjectionParticipantsService
->()("@agentxm/workspace/projection/participants/ProjectionParticipants") {}
+>()("@agentxm/workspace-kernel/projection/participants/ProjectionParticipants") {}
 
 /**
  * How an aggregate unit is named and owned when its participant could not

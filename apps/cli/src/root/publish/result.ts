@@ -2,7 +2,7 @@
  * Emission of the publish result document.
  *
  * The `publish-result-v3` contract, its counts, and its execution status are
- * owned by `@agentxm/workspace/publishing`; this module renders that outcome —
+ * owned by `@agentxm/workspace-features/publishing`; this module renders that outcome —
  * machine document or human view — and summarizes it for telemetry.
  */
 

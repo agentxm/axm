@@ -1,5 +1,5 @@
 /**
- * @agentxm/workspace/resolution deterministic test ports and decoders.
+ * @agentxm/workspace-kernel/resolution deterministic test ports and decoders.
  *
  * The minimum-release-age posture the operator decides, bound to a fixed
  * value, plus the branded-value

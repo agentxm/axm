@@ -58,7 +58,7 @@ export interface OperationJournalService {
 export class OperationJournal extends ServiceMap.Service<
   OperationJournal,
   OperationJournalService
->()("@agentxm/workspace/transitions/planning/plan/operation-journal/OperationJournal") {}
+>()("@agentxm/workspace-kernel/operations/operation-journal/OperationJournal") {}
 
 /** Record the operation's frozen facts. */
 export const recordOperationJournal = (

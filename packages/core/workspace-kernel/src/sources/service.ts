@@ -76,7 +76,7 @@ export interface SourceHostProvidersService {
 export class SourceHostProviders extends ServiceMap.Service<
   SourceHostProviders,
   SourceHostProvidersService
->()("@agentxm/workspace/resolution/sources/service/SourceHostProviders") {}
+>()("@agentxm/workspace-kernel/sources/service/SourceHostProviders") {}
 
 // -----------------------------------------------------------------------------
 // Clone URL Building

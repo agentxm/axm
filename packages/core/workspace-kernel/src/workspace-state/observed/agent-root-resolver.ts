@@ -39,9 +39,7 @@ export interface AgentRootResolverShape {
 export class AgentRootResolver extends ServiceMap.Service<
   AgentRootResolver,
   AgentRootResolverShape
->()(
-  "@agentxm/workspace/desired-state/workspace/read-model/agent-root-resolver/AgentRootResolver",
-) {}
+>()("@agentxm/workspace-kernel/workspace-state/observed/agent-root-resolver/AgentRootResolver") {}
 
 /**
  * Live layer for {@link AgentRootResolver}. Allocates the shared state and

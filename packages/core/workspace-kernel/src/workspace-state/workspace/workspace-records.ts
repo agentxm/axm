@@ -55,7 +55,7 @@ export interface WorkspaceRecordsService {
 export class WorkspaceRecords extends ServiceMap.Service<
   WorkspaceRecords,
   WorkspaceRecordsService
->()("@agentxm/workspace/desired-state/WorkspaceRecords") {}
+>()("@agentxm/workspace-kernel/workspace-state/WorkspaceRecords") {}
 
 export const makeWorkspaceRecords = (
   location: WorkspaceLocationService,

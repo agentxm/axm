@@ -51,7 +51,7 @@ export interface ExtensionPathsService {
 }
 
 export class ExtensionPaths extends ServiceMap.Service<ExtensionPaths, ExtensionPathsService>()(
-  "@agentxm/workspace/desired-state/ExtensionPaths",
+  "@agentxm/workspace-kernel/workspace-state/ExtensionPaths",
 ) {}
 
 export const makeExtensionPaths = (

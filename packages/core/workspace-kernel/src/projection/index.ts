@@ -1,5 +1,5 @@
 /**
- * @agentxm/workspace/projection public API.
+ * @agentxm/workspace-kernel/projection public API.
  *
  * What AXM owns in agent-facing output, and what its current state means: the
  * ownership-unit registry and its region identities, projection planning and

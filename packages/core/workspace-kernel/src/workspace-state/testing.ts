@@ -1,5 +1,5 @@
 /**
- * @agentxm/workspace/desired-state deterministic test layers and fixtures.
+ * @agentxm/workspace-kernel/workspace-state deterministic test layers and fixtures.
  *
  * In-memory and fixture-backed implementations of this package's own
  * services for tests and executable specifications. Production source never
@@ -210,7 +210,7 @@ export const treeIntegrityOfSync = (root: string): TreeIntegrity =>
 /**
  * A transaction scope over the located workspace with the given admission —
  * one invocation of a memory transition-lock world from
- * `@agentxm/workspace/transitions/settlement/testing`, so no lock file is created and
+ * `@agentxm/workspace-kernel/settlement/testing`, so no lock file is created and
  * waits use Effect time. Compose beside `WorkspaceStateLive` from `./live`
  * in place of the production scope.
  */

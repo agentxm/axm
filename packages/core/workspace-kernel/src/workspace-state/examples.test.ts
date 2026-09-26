@@ -27,7 +27,7 @@ function readYamlFile(filePath: string): unknown {
 
 describe("example files", () => {
   it("axm-lock.example.yaml conforms to LockfileSchema", () => {
-    const example = readYamlFile(path.join(SRC, "lockfile/axm-lock.example.yaml"));
+    const example = readYamlFile(path.join(SRC, "desired/lockfile/axm-lock.example.yaml"));
     const result = Schema.decodeUnknownSync(LockfileSchema)(example);
     expect(result).toBeDefined();
     expect(result.lockfileVersion).toBe(8);
@@ -35,7 +35,7 @@ describe("example files", () => {
   });
 
   it("settings.example.json conforms to SettingsSchema", () => {
-    const example = readJsonFile(path.join(SRC, "settings/settings.example.json"));
+    const example = readJsonFile(path.join(SRC, "desired/settings/settings.example.json"));
     const result = Schema.decodeUnknownSync(SettingsSchema)(example, {
       onExcessProperty: "error",
     });

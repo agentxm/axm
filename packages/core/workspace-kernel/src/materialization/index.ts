@@ -1,5 +1,5 @@
 /**
- * @agentxm/workspace/materialization public API.
+ * @agentxm/workspace-kernel/materialization public API.
  *
  * The materialization capability: the per-extension-type manager contract and
  * service tags each extension kind implements, the kernel failure families and

@@ -33,7 +33,7 @@ import {
   buildUninstallOperation,
   prepareUninstallArtifact,
   collectCleanupStep,
-  type SyncPolicyFailure,
+  type KernelFailure,
   proposeDesiredState,
 } from "../../../reconciliation/index.js";
 import { expectedProjectionNames } from "../../../projection/index.js";
@@ -63,7 +63,7 @@ import {
 } from "../../../desired-state/index.js";
 
 import { expandGlob } from "@agentxm/extension-model/unstable/extensions/name-patterns";
-import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
+import { StepFailureConversion } from "../../../reconciliation/index.js";
 import {
   exclusiveMemberRetentionPolicy,
   makeWorkspaceRetentionPolicy,
@@ -274,6 +274,7 @@ export type PackUninstallRequirements =
   | PackManager
   | RuleManager
   | SkillManager
+  | StepFailureConversion
   | SubagentManager;
 
 /** The single atomic closure a settled pack removal becomes. */
@@ -284,6 +285,7 @@ export const planPackUninstall: (
   ExtensionLifecycleFailed,
   PackUninstallRequirements
 > = Effect.fn("UninstallExtensions.planPacks")(function* (intent: PackUninstallIntent) {
+  const conversion = yield* StepFailureConversion;
   const location = yield* WorkspaceLocation;
   const layout = yield* Ref.get(location.layout);
   const desiredState = yield* DesiredStateReader;
@@ -371,7 +373,7 @@ export const planPackUninstall: (
     }),
   );
 
-  const retentionPolicy = makeWorkspaceRetentionPolicy(desiredState, kernelFailureToStepFailure);
+  const retentionPolicy = makeWorkspaceRetentionPolicy(desiredState, conversion.toStepFailure);
 
   const allTargets = new Map<string, ExtensionTarget>();
   for (const pack of intent.packsToUninstall) {
@@ -431,7 +433,7 @@ export const planPackUninstall: (
         const retirement = retirementByPackName.get(target.name);
         return buildUninstallOperation(packManager, retentionPolicy, {
           target,
-          toStepFailure: kernelFailureToStepFailure,
+          toStepFailure: conversion.toStepFailure,
           ...(retirement === undefined
             ? {}
             : {
@@ -446,34 +448,34 @@ export const planPackUninstall: (
       }
       case "skill":
         return buildUninstallOperation(skillManager, exclusiveMemberRetentionPolicy, {
-          toStepFailure: kernelFailureToStepFailure,
+          toStepFailure: conversion.toStepFailure,
           target,
         });
       case "mcp-server":
         return buildUninstallOperation(mcpServerManager, exclusiveMemberRetentionPolicy, {
-          toStepFailure: kernelFailureToStepFailure,
+          toStepFailure: conversion.toStepFailure,
           target,
         });
       case "subagent":
         return buildUninstallOperation(subagentManager, exclusiveMemberRetentionPolicy, {
-          toStepFailure: kernelFailureToStepFailure,
+          toStepFailure: conversion.toStepFailure,
           target,
         });
       case "rule":
         return buildUninstallOperation(ruleManager, exclusiveMemberRetentionPolicy, {
-          toStepFailure: kernelFailureToStepFailure,
+          toStepFailure: conversion.toStepFailure,
           target,
           enclosingClosure: { projections: [target.type] },
         });
       case "hook":
         return buildUninstallOperation(hookManager, exclusiveMemberRetentionPolicy, {
-          toStepFailure: kernelFailureToStepFailure,
+          toStepFailure: conversion.toStepFailure,
           target,
           enclosingClosure: { projections: [target.type] },
         });
       case "knowledge":
         return buildUninstallOperation(knowledgeManager, exclusiveMemberRetentionPolicy, {
-          toStepFailure: kernelFailureToStepFailure,
+          toStepFailure: conversion.toStepFailure,
           target,
           enclosingClosure: { projections: [target.type] },
         });
@@ -487,8 +489,8 @@ export const planPackUninstall: (
           expectedNames: expectedProjectionNames(proposal.after),
           subjects: orderedTargets,
           adapter: {
-            toStepFailure: (cause: SyncPolicyFailure) =>
-              kernelFailureToStepFailure(
+            toStepFailure: (cause: KernelFailure) =>
+              conversion.toStepFailure(
                 installRefused({
                   category: "conflict",
                   detail: ("detail" in cause ? cause.detail : undefined) ?? failureTag(cause),
@@ -513,7 +515,7 @@ export const planPackUninstall: (
       ? ""
       : ` (${plannedRetirements.length} pack${plannedRetirements.length === 1 ? "" : "s"} unregistered without removing package content)`;
   const graphStep = yield* buildReconciliationClosure({
-    toStepFailure: kernelFailureToStepFailure,
+    toStepFailure: conversion.toStepFailure,
     label: `${intent.packsToUninstall.length} pack${intent.packsToUninstall.length === 1 ? "" : "s"}`,
     message: `Uninstalled ${intent.packsToUninstall.length} pack${intent.packsToUninstall.length === 1 ? "" : "s"} and ${depTargets.length} exclusive member${depTargets.length === 1 ? "" : "s"}${registrationOnly}`,
     artifact: {

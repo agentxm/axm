@@ -101,9 +101,12 @@ import { inlineMcpNotApplicablePlan } from "../install/inline-mcp-operation.js";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
 
-import { toTypedLabel, kernelFailureToStepFailure } from "../../reconciliation/index.js";
+import {
+  toTypedLabel,
+  StepFailureConversion,
+  type StepFailureConversionService,
+} from "../../reconciliation/index.js";
 import { settleMcpSourceIdentityFor } from "../../mcp-connections/source-identity.js";
-import { StepFailureConversion } from "../step-failure-conversion.js";
 import type { InstallStepRequirements } from "../../reconciliation/index.js";
 import type { HookInstallIntent } from "../../hooks/index.js";
 import type { KnowledgeInstallIntent } from "../../knowledge/index.js";
@@ -292,6 +295,7 @@ const workspacePlanningErrorPlan = (
   type: InstallableExtensionType,
   name: string,
   error: ConfiguredUpdateFailure,
+  conversion: StepFailureConversionService,
 ): Plan<InstallStepRequirements> => ({
   _tag: "Plan",
   name: `Block configured ${type} update`,
@@ -304,7 +308,7 @@ const workspacePlanningErrorPlan = (
           key: `${type}:${name}:planning-error`,
           readiness: "ready",
           label: toTypedLabel(type, name),
-          run: Effect.fail(kernelFailureToStepFailure(error)),
+          run: Effect.fail(conversion.toStepFailure(error)),
         },
       ],
     },
@@ -734,6 +738,7 @@ const resolveMcpServerIntent = (
           : undefined,
     });
     if (resolution.kind !== "selected") return resolution;
+    const conversion = yield* StepFailureConversion;
     const sourceIdentity = yield* settleMcpSourceIdentityFor(
       graph,
       resolution.intent.ref,
@@ -743,7 +748,7 @@ const resolveMcpServerIntent = (
         (cause) =>
           new ExtensionLifecycleFailed({
             category: "conflict",
-            detail: kernelFailureToStepFailure(cause).detail,
+            detail: conversion.toStepFailure(cause).detail,
             cause,
           }),
       ),
@@ -873,6 +878,7 @@ const collectSkillPlans = (selection: WorkspaceUpdateCollectionRequest, graph: D
   Effect.gen(function* () {
     const settings = yield* SettingsReader;
     const location = yield* WorkspaceLocation;
+    const conversion = yield* StepFailureConversion;
     const configured = yield* settings.entries("skill");
     const entries = selectedEntries(acquisitionConfiguredEntries(configured), selection).filter(
       hasConfiguredSource,
@@ -890,7 +896,7 @@ const collectSkillPlans = (selection: WorkspaceUpdateCollectionRequest, graph: D
               collectResolvedPlan(
                 resolveSkillIntent(name, entry.source, selection.releaseAgeEvaluation, effective),
                 planSkillInstall,
-                (error) => workspacePlanningErrorPlan("skill", name, error),
+                (error) => workspacePlanningErrorPlan("skill", name, error, conversion),
                 toTypedLabel("skill", name),
               ),
             ),
@@ -908,6 +914,7 @@ const collectRulePlans = (selection: WorkspaceUpdateCollectionRequest, graph: De
   Effect.gen(function* () {
     const settings = yield* SettingsReader;
     const location = yield* WorkspaceLocation;
+    const conversion = yield* StepFailureConversion;
     const configured = yield* settings.entries("rule");
     const entries = selectedEntries(acquisitionConfiguredEntries(configured), selection);
 
@@ -924,7 +931,7 @@ const collectRulePlans = (selection: WorkspaceUpdateCollectionRequest, graph: De
               collectResolvedPlan(
                 resolveRuleIntent(name, entry.source, selection.releaseAgeEvaluation, effective),
                 (intent) => planRuleInstall(intent),
-                (error) => workspacePlanningErrorPlan("rule", name, error),
+                (error) => workspacePlanningErrorPlan("rule", name, error, conversion),
                 toTypedLabel("rule", name),
               ),
             ),
@@ -942,6 +949,7 @@ const collectHookPlans = (selection: WorkspaceUpdateCollectionRequest, graph: De
   Effect.gen(function* () {
     const settings = yield* SettingsReader;
     const location = yield* WorkspaceLocation;
+    const conversion = yield* StepFailureConversion;
     const configured = yield* settings.entries("hook");
     const entries = selectedEntries(acquisitionConfiguredEntries(configured), selection);
 
@@ -958,7 +966,7 @@ const collectHookPlans = (selection: WorkspaceUpdateCollectionRequest, graph: De
               collectResolvedPlan(
                 resolveHookIntent(name, entry.source, selection.releaseAgeEvaluation, effective),
                 (intent) => planHookInstall(intent),
-                (error) => workspacePlanningErrorPlan("hook", name, error),
+                (error) => workspacePlanningErrorPlan("hook", name, error, conversion),
                 toTypedLabel("hook", name),
               ),
             ),
@@ -979,6 +987,7 @@ const collectKnowledgePlans = (
   Effect.gen(function* () {
     const settings = yield* SettingsReader;
     const location = yield* WorkspaceLocation;
+    const conversion = yield* StepFailureConversion;
     const configured = yield* settings.entries("knowledge");
     const entries = selectedEntries(acquisitionConfiguredEntries(configured), selection);
 
@@ -1000,7 +1009,7 @@ const collectKnowledgePlans = (
                   effective,
                 ),
                 (intent) => planKnowledgeInstall(intent),
-                (error) => workspacePlanningErrorPlan("knowledge", name, error),
+                (error) => workspacePlanningErrorPlan("knowledge", name, error, conversion),
                 toTypedLabel("knowledge", name),
               ),
             ),
@@ -1021,6 +1030,7 @@ const collectSubagentPlans = (
   Effect.gen(function* () {
     const settings = yield* SettingsReader;
     const location = yield* WorkspaceLocation;
+    const conversion = yield* StepFailureConversion;
     const configured = yield* settings.entries("subagent");
     const entries = selectedEntries(acquisitionConfiguredEntries(configured), selection).filter(
       hasConfiguredSource,
@@ -1044,7 +1054,7 @@ const collectSubagentPlans = (
                   effective,
                 ),
                 (intent) => planSubagentInstall(intent),
-                (error) => workspacePlanningErrorPlan("subagent", name, error),
+                (error) => workspacePlanningErrorPlan("subagent", name, error, conversion),
                 toTypedLabel("subagent", name),
               ),
             ),
@@ -1065,6 +1075,7 @@ const collectMcpServerPlans = (
   Effect.gen(function* () {
     const settings = yield* SettingsReader;
     const location = yield* WorkspaceLocation;
+    const conversion = yield* StepFailureConversion;
     const configured = yield* settings.entries("mcp-server");
     const seenSourceClosures = new Set<string>();
     const entries = selectedEntries(acquisitionConfiguredEntries(configured), selection).flatMap(
@@ -1112,7 +1123,7 @@ const collectMcpServerPlans = (
                     selection.nonInteractive,
                   ),
                   (intent) => planMcpServerInstall(intent),
-                  (error) => workspacePlanningErrorPlan("mcp-server", name, error),
+                  (error) => workspacePlanningErrorPlan("mcp-server", name, error, conversion),
                   name,
                 ),
               ),
@@ -1130,6 +1141,7 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
   Effect.gen(function* () {
     const settings = yield* SettingsReader;
     const location = yield* WorkspaceLocation;
+    const conversion = yield* StepFailureConversion;
     const configured = yield* settings.entries("pack");
     const entries = selectedEntries(acquisitionConfiguredEntries(configured), selection).filter(
       hasConfiguredSource,
@@ -1184,7 +1196,7 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
                       : Effect.succeed({
                           kind: "planned",
                           collection: toCollectedWorkspaceUpdatePlans({
-                            plans: [workspacePlanningErrorPlan("pack", name, error)],
+                            plans: [workspacePlanningErrorPlan("pack", name, error, conversion)],
                           }),
                         } satisfies CollectedPackResolution),
                   ),

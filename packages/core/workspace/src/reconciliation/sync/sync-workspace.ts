@@ -75,11 +75,7 @@ import {
   collectUnreachableRetirement,
   collectConfiguredPackRecovery,
 } from "../index.js";
-import {
-  SyncStepFailureConversion,
-  WorkspaceSyncFailed,
-  type SyncPolicyFailure,
-} from "../index.js";
+import { StepFailureConversion, WorkspaceSyncFailed, type SyncPolicyFailure } from "../index.js";
 import {
   collectMaterializeSteps,
   type CollectedMaterializeSteps,
@@ -112,7 +108,7 @@ export type SyncWorkspaceRequirements =
   | RuleManager
   | SkillManager
   | SubagentManager
-  | SyncStepFailureConversion
+  | StepFailureConversion
   | OperationJournal
   | ResolvePlanInteraction
   | SyncStepRequirements
@@ -229,7 +225,7 @@ export const planWorkspaceMaterialization = (args: {
   readonly configuredAgents?: ReadonlyArray<string>;
 }): Effect.Effect<CollectedMaterializeSteps, SyncWorkspaceFailure, SyncWorkspaceRequirements> =>
   Effect.gen(function* () {
-    const conversion = yield* SyncStepFailureConversion;
+    const conversion = yield* StepFailureConversion;
     return yield* collectMaterializeSteps({
       ...(args.selection === undefined ? {} : { selection: args.selection }),
       ...(args.configuredAgents === undefined ? {} : { configuredAgents: args.configuredAgents }),
@@ -258,7 +254,7 @@ export const prepareSyncWorkspace = (
     const lockfile = yield* LockfileReader;
     const location = yield* WorkspaceLocation;
     const invariantFacts = yield* WorkspaceInvariantFacts;
-    const conversion = yield* SyncStepFailureConversion;
+    const conversion = yield* StepFailureConversion;
     const selection: SyncSelection = { target: request.target, type: request.type };
     const scoped = Option.isSome(request.target) || Option.isSome(request.type);
     const scopeLabel = scopeLabelFor(selection);

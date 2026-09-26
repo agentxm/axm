@@ -5,7 +5,7 @@ import * as Option from "effect/Option";
 import { RegistryClientFactory } from "@agentxm/registry-client";
 import type { BundledAxmSkillAsset } from "../skills/lifecycle/install/bundled.js";
 import type { PackUninstallRequirements } from "../packs/lifecycle/uninstall/plan.js";
-import { buildReconciliationClosure, kernelFailureToStepFailure } from "../reconciliation/index.js";
+import { buildReconciliationClosure, StepFailureConversion } from "../reconciliation/index.js";
 import {
   DesiredStateReader,
   WorkspaceLocation,
@@ -104,6 +104,7 @@ export const prepareDeprecatedMigration = Effect.fn("MigrateDeprecated.prepare")
         });
   const uninstall = yield* UninstallExtensions.prepare({ type: Option.none(), selector: fqn });
   const location = yield* WorkspaceLocation;
+  const conversion = yield* StepFailureConversion;
   const steps = [
     ...(install?.execution.plan.jobs.flatMap((job) => job.steps) ?? []),
     ...uninstall.execution.plan.jobs.flatMap((job) => job.steps),
@@ -112,7 +113,7 @@ export const prepareDeprecatedMigration = Effect.fn("MigrateDeprecated.prepare")
     never,
     InstallStepRequirements | BundledAxmSkillAsset | PackUninstallRequirements
   >({
-    toStepFailure: kernelFailureToStepFailure,
+    toStepFailure: conversion.toStepFailure,
     label: fqn,
     message:
       replacementFqn === undefined

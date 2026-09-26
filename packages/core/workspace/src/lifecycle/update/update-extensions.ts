@@ -102,8 +102,7 @@ import type { WorkspaceTransactionScope } from "../../transitions/settlement/ind
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 
-import type { InstallStepRequirements } from "../../reconciliation/index.js";
-import type { StepFailureConversion } from "../step-failure-conversion.js";
+import { StepFailureConversion, type InstallStepRequirements } from "../../reconciliation/index.js";
 import { buildPackMemberStep, type PackMemberRef } from "../../reconciliation/index.js";
 import { withPublisherTrust } from "../publisher-binding.js";
 import { planHookInstall } from "../../hooks/lifecycle/install/plan.js";
@@ -119,7 +118,7 @@ import { buildWorkspaceUpdatePlan, type WorkspaceUpdatableType } from "./configu
 import { resolveConfiguredUpdateSelection, type ConfiguredUpdateSelector } from "./selector.js";
 import { resolveRootUpdateIntent, type RootUpdateIntent } from "./root-request.js";
 import { wrapTargetedUpdatePlan } from "./targeted-plan.js";
-import { nameFromLabel, kernelFailureToStepFailure } from "../../reconciliation/index.js";
+import { nameFromLabel } from "../../reconciliation/index.js";
 import { desiredPackageKey } from "../../desired-state/index.js";
 
 // -----------------------------------------------------------------------------
@@ -425,12 +424,13 @@ const planResolvedTarget = Effect.fn("UpdateExtensions.planResolvedTarget")(func
       const graph = yield* desiredState.graph();
       const desired = desiredNodeForIntent(graph, intent);
       const localName = decodeExtensionNameSync(desired?.name ?? ref.server.name);
+      const conversion = yield* StepFailureConversion;
       const sourceIdentity = yield* settleMcpSourceIdentityFor(graph, ref, localName).pipe(
         Effect.mapError(
           (cause) =>
             new ExtensionLifecycleFailed({
               category: "conflict",
-              detail: kernelFailureToStepFailure(cause).detail,
+              detail: conversion.toStepFailure(cause).detail,
               cause,
             }),
         ),
@@ -615,7 +615,7 @@ const prepareTargeted = Effect.fn("UpdateExtensions.prepareTargeted")(function* 
                     ref: yield* requirePackMemberRef(intent, selected.ref),
                     nonInteractive: request.nonInteractive,
                     strictAgentSync: true,
-                    toStepFailure: kernelFailureToStepFailure,
+                    toStepFailure: (yield* StepFailureConversion).toStepFailure,
                   }),
                 ],
               },

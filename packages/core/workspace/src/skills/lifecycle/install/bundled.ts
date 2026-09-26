@@ -52,7 +52,7 @@ import { CodingAgentRepository } from "../../../projection/index.js";
 import { sanitizeName } from "../../../desired-state/index.js";
 import { runWorkspaceTransaction } from "../../../transitions/settlement/index.js";
 
-import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
+import { StepFailureConversion } from "../../../reconciliation/index.js";
 import type { InstallStepRequirements } from "../../../reconciliation/index.js";
 
 /** One file of the bundled skill's source tree. */
@@ -342,8 +342,9 @@ export const installBundledAxmSkill = Effect.gen(function* () {
 export const planBundledAxmSkillInstall: Effect.Effect<
   Plan<InstallStepRequirements | BundledAxmSkillAsset>,
   ExtensionLifecycleFailed,
-  InstallStepRequirements
+  InstallStepRequirements | StepFailureConversion
 > = Effect.gen(function* () {
+  const conversion = yield* StepFailureConversion;
   const location = yield* WorkspaceLocation;
   const readiness = yield* inspectBundledAxmSkillReadiness.pipe(
     Effect.mapError((cause) =>
@@ -374,7 +375,7 @@ export const planBundledAxmSkillInstall: Effect.Effect<
           label: AXM_SKILL_FQN,
           artifact,
           run: installBundledAxmSkill.pipe(
-            Effect.mapError(kernelFailureToStepFailure),
+            Effect.mapError(conversion.toStepFailure),
             Effect.as({
               result: "success",
               message: "Installed the bundled AXM skill",

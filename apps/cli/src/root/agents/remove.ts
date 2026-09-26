@@ -1,7 +1,7 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { collectCleanupStep, syncFailureRendering } from "@agentxm/workspace/reconciliation";
+import { collectCleanupStep, StepFailureConversion } from "@agentxm/workspace/reconciliation";
 import { ConfigureAgents } from "@agentxm/workspace/configuration";
 import { failureToAppError, toAppError } from "../../app-error/conversions.js";
 import { acceptWarningsFlag } from "../../cli-flags/index.js";
@@ -53,7 +53,7 @@ const handleAgentsRemoveBody = Effect.fn("Agents.remove")(function* (args: Agent
   const cleanup = yield* collectCleanupStep({
     expectedNames: candidate.reconciliation.expectedNames,
     desiredAgentIds: candidate.reconciliation.desiredAgentIds,
-    adapter: syncFailureRendering,
+    adapter: yield* StepFailureConversion,
   }).pipe(Effect.mapError(toAppError));
 
   const { execution, recovery } = yield* makePublicPositionalPlanInvocation(

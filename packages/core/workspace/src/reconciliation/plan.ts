@@ -5,7 +5,7 @@
  * and the plan-assembly ordering that realizes desired state. The CLI keeps
  * argument parsing, confirmation, rendering, and plan execution.
  *
- * The application supplies a {@link SyncFailureAdapter}: its boundary mapping
+ * The application supplies a {@link StepFailureConversionService}: its boundary mapping
  * from typed failures to the kernel's `StepFailure`, so step categories and
  * details stay byte-identical with the boundary's own rendering.
  *
@@ -66,7 +66,7 @@ import {
 import { buildReconciliationClosure } from "./closure.js";
 import { reconcileAgentOutputs } from "./rendered-file-cleanup.js";
 import type { WorkspaceSyncCleanupFailure } from "./errors.js";
-import type { SyncFailureAdapter } from "./failure-adapter.js";
+import type { StepFailureConversionService } from "./step-failure-conversion.js";
 import { desiredPackageKey } from "../desired-state/index.js";
 
 export const SYNC_RECOVERY_IDS = {
@@ -189,7 +189,7 @@ export const buildInlineMcpServerSyncOperation = ({
   /** What the planning inspection found wrong, per agent. */
   readonly inspectionWarnings: ReadonlyArray<string>;
   readonly location: WorkspaceLocationService;
-  readonly adapter: SyncFailureAdapter;
+  readonly adapter: StepFailureConversionService;
 }): PlannedJobStep<SyncStepRequirements> => ({
   key: `mcp-server:inline:${name}`,
   label: `mcp-server ${name}`,
@@ -232,7 +232,7 @@ export const buildMcpServerPruneOperation = ({
   readonly declaredServerNames: ReadonlySet<string>;
   readonly agentIds: ReadonlyArray<string>;
   readonly location: WorkspaceLocationService;
-  readonly adapter: SyncFailureAdapter;
+  readonly adapter: StepFailureConversionService;
 }): PlannedJobStep<SyncStepRequirements> => ({
   key: "mcp-server:prune",
   label: "mcp-server stale managed entries",
@@ -275,7 +275,7 @@ export const buildMcpServerPruneOperation = ({
  * that contributes to it — including packages this one does not declare.
  */
 export const collectKnowledgeStep: (args: {
-  readonly adapter: SyncFailureAdapter;
+  readonly adapter: StepFailureConversionService;
   readonly deferPreview?: boolean;
   readonly facts?: ReadonlyArray<ProjectionInvariantFact>;
 }) => Effect.Effect<
@@ -374,7 +374,7 @@ export const collectKnowledgeStep: (args: {
 export const collectCleanupStep: (args: {
   readonly expectedNames: ExpectedProjectionNames;
   readonly desiredAgentIds?: ReadonlySet<string>;
-  readonly adapter: SyncFailureAdapter;
+  readonly adapter: StepFailureConversionService;
   readonly subjects?: ReadonlyArray<{ readonly type: string; readonly name: string }>;
 }) => Effect.Effect<
   Option.Option<PlannedJobStep<SyncStepRequirements>>,
@@ -436,7 +436,7 @@ export const collectCleanupStep: (args: {
 
 export const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (args: {
   readonly facts: ReadonlyArray<ProjectionInvariantFact>;
-  readonly adapter: SyncFailureAdapter;
+  readonly adapter: StepFailureConversionService;
   readonly prepared?: PreparedHookProjection;
 }) {
   const facts = args.facts;
@@ -511,7 +511,7 @@ export const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (ar
 export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function* (args: {
   readonly projectionFacts: ReadonlyArray<ProjectionInvariantFact>;
   readonly touchesRule: boolean;
-  readonly adapter: SyncFailureAdapter;
+  readonly adapter: StepFailureConversionService;
 }) {
   const projectionFacts = args.projectionFacts;
   const settings = yield* SettingsReader;
@@ -647,7 +647,7 @@ export const makeSyncPlan = <R>({
 }: {
   readonly graph: DesiredStateGraph;
   readonly scope: JobStepArtifact["scope"];
-  readonly adapter: SyncFailureAdapter;
+  readonly adapter: StepFailureConversionService;
   readonly materializeSteps: ReadonlyArray<PlannedJobStep<R>>;
   readonly knowledgeStep: Option.Option<PlannedJobStep<R>>;
   readonly hooksStep: Option.Option<PlannedJobStep<R>>;

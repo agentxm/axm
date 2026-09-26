@@ -105,7 +105,7 @@ import {
 } from "../../reconciliation/index.js";
 import type { PackInstallIntent } from "../../packs/index.js";
 import { findGitReinstallRefs, pinGitReinstallRef } from "./git-reinstall.js";
-import { nameFromLabel, kernelFailureToStepFailure } from "../../reconciliation/index.js";
+import { nameFromLabel, StepFailureConversion } from "../../reconciliation/index.js";
 import { withPackRegistryIndexMemo } from "../../resolution/sources/providers/registry/index-memo.js";
 
 /** Which extension types a configured-entry sweep covers. */
@@ -691,6 +691,7 @@ const collectSimpleTypePlans = (
                   ref.type === "mcp-server"
                     ? Effect.gen(function* () {
                         const localName = decodeExtensionNameSync(name);
+                        const conversion = yield* StepFailureConversion;
                         const sourceIdentity = yield* settleMcpSourceIdentityFor(
                           graph,
                           ref,
@@ -699,7 +700,7 @@ const collectSimpleTypePlans = (
                           Effect.mapError((cause) =>
                             installRefused({
                               category: "conflict",
-                              detail: kernelFailureToStepFailure(cause).detail,
+                              detail: conversion.toStepFailure(cause).detail,
                               cause,
                             }),
                           ),

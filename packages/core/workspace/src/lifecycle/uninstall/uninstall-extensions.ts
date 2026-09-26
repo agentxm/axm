@@ -17,8 +17,7 @@ import {
   prepareUninstallArtifact,
   collectCleanupStep,
   buildReconciliationClosure,
-  syncFailureRendering,
-  kernelFailureToStepFailure,
+  StepFailureConversion,
 } from "../../reconciliation/index.js";
 import { expectedProjectionNames } from "../../projection/index.js";
 
@@ -199,6 +198,7 @@ export const prepareUninstallExtensions: (
   UninstallExtensionsFailure,
   PrepareUninstallRequirements
 > = Effect.fn("UninstallExtensions.prepare")(function* (request: UninstallExtensionsRequest) {
+  const conversion = yield* StepFailureConversion;
   const resolved = yield* Option.match(request.type, {
     onSome: (type) =>
       Effect.succeed({
@@ -286,7 +286,7 @@ export const prepareUninstallExtensions: (
           const cleanup = yield* collectCleanupStep({
             expectedNames: expectedProjectionNames(proposal.after),
             subjects: [{ type: leafType, name: nameFromLabel(step.label) }],
-            adapter: syncFailureRendering,
+            adapter: conversion,
           }).pipe(
             Effect.mapError(
               (cause) =>
@@ -315,7 +315,7 @@ export const prepareUninstallExtensions: (
               { step: cleanup.value, coverage: "ineligible" },
               { step: removal, coverage: "eligible" },
             ],
-            toStepFailure: kernelFailureToStepFailure,
+            toStepFailure: conversion.toStepFailure,
             validate: Effect.void,
           });
         }),

@@ -28,12 +28,12 @@ import {
 import { protectWorkspacePath, runWorkspaceTransaction } from "../transitions/settlement/index.js";
 import type { PlannedJobStep } from "../operations/index.js";
 import { WorkspaceSyncFailed } from "./errors.js";
-import type { SyncFailureAdapter } from "./failure-adapter.js";
+import type { StepFailureConversionService } from "./step-failure-conversion.js";
 import type { SyncStepRequirements } from "./plan.js";
 
 /** A full-graph maintenance closure; never infers intent from accepted records. */
 export const collectUnreachableRetirement = (
-  adapter: SyncFailureAdapter,
+  adapter: StepFailureConversionService,
   scope?: {
     readonly resultingGraph: DesiredStateGraph;
     readonly subjects: ReadonlyArray<Pick<ExtensionTarget, "type" | "name">>;
@@ -249,7 +249,7 @@ const leftoverIdentity = (entry: InstalledPackageEntry) =>
  * install-root entries are never planned.
  */
 export const collectLeftoverRetirement = (
-  adapter: SyncFailureAdapter,
+  adapter: StepFailureConversionService,
   scope?: { readonly subjects: ReadonlyArray<Pick<ExtensionTarget, "type" | "name">> },
   observedGraph?: DesiredStateGraph,
 ) =>

@@ -111,6 +111,11 @@
       "axm-source": "./src/reconciliation/index.ts",
       "default": "./dist/src/reconciliation/index.js"
     },
+    "./reconciliation/live": {
+      "types": "./dist/src/reconciliation/live.d.ts",
+      "axm-source": "./src/reconciliation/live.ts",
+      "default": "./dist/src/reconciliation/live.js"
+    },
     "./reconciliation/testing": {
       "types": "./dist/src/reconciliation/testing.d.ts",
       "axm-source": "./src/reconciliation/testing.ts",

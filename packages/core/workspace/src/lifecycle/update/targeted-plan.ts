@@ -1,5 +1,5 @@
-import { kernelFailureToStepFailure } from "../../reconciliation/index.js";
 import {
+  StepFailureConversion,
   buildReconciliationClosure,
   type ReconciliationChild,
 } from "../../reconciliation/index.js";
@@ -93,9 +93,14 @@ export const wrapTargetedUpdatePlan = (args: {
 }): Effect.Effect<
   Plan<InstallStepRequirements>,
   TargetedUpdateContextFailure,
-  WorkspaceLocation | WorkspaceTransactionScope | FileSystem.FileSystem | Path.Path
+  | StepFailureConversion
+  | WorkspaceLocation
+  | WorkspaceTransactionScope
+  | FileSystem.FileSystem
+  | Path.Path
 > =>
   Effect.gen(function* () {
+    const conversion = yield* StepFailureConversion;
     const location = yield* WorkspaceLocation;
     const children: ReadonlyArray<ReconciliationChild<InstallStepRequirements>> =
       args.plan.jobs.flatMap((job) =>
@@ -112,7 +117,7 @@ export const wrapTargetedUpdatePlan = (args: {
       change: "updated" as const,
     };
     const builtStep = yield* buildReconciliationClosure({
-      toStepFailure: kernelFailureToStepFailure,
+      toStepFailure: conversion.toStepFailure,
       label: args.context.public.target.fqn,
       message: `Updated ${args.context.public.target.fqn}`,
       artifact,

@@ -38,7 +38,7 @@ import {
 } from "../projection/index.js";
 import type { JobStepArtifact, PlannedJobStep } from "../operations/index.js";
 import { WorkspaceSyncFailed } from "./errors.js";
-import type { SyncFailureAdapter } from "./failure-adapter.js";
+import type { StepFailureConversionService } from "./step-failure-conversion.js";
 import {
   collectMaterializeSteps,
   type CollectedMaterializeSteps,
@@ -81,7 +81,7 @@ export const prepareActivationRealization = (args: {
   readonly subjects: ReadonlyArray<DesiredExtensionNode>;
   /** Selects the subjects within the proposed graph for materialization. */
   readonly selection: SyncSelection;
-  readonly adapter: SyncFailureAdapter;
+  readonly adapter: StepFailureConversionService;
   readonly retireUnreachable: boolean;
 }) =>
   Effect.gen(function* () {

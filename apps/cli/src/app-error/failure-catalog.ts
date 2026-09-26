@@ -23,7 +23,6 @@ import {
   isConfigurationFamilyFailure,
   type ConfigurationFamilyFailure,
 } from "@agentxm/workspace/configuration";
-import { StepFailureConversion } from "@agentxm/workspace/lifecycle";
 import type { StepFailure } from "@agentxm/workspace/operations";
 import {
   isPublishFamilyFailure,
@@ -33,6 +32,7 @@ import {
 import {
   isKernelFailure,
   renderKernelFailure,
+  StepFailureConversion,
   type KernelFailure,
 } from "@agentxm/workspace/reconciliation";
 

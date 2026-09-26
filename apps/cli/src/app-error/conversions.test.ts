@@ -29,14 +29,11 @@ import { ExtensionNameSchema, HandleSchema } from "@agentxm/extension-model/unst
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
-import { StepFailureConversion, selectInstallRefs } from "@agentxm/workspace/lifecycle";
+import { selectInstallRefs } from "@agentxm/workspace/lifecycle";
 
 import { makeJsonErrorEnvelopeFromAppError } from "../cli-runtime/index.js";
 import { makeAppError } from "./app-error.js";
-import {
-  ReconciliationFailureConversionLive,
-  SyncStepFailureConversion,
-} from "@agentxm/workspace/reconciliation";
+import { StepFailureConversion } from "@agentxm/workspace/reconciliation";
 import { failureToAppError, toAppError } from "./conversions.js";
 import { WorkspaceFailureConversionLive, isWorkspaceFailure } from "./failure-catalog.js";
 import { renderAppError } from "./index.js";
@@ -98,17 +95,11 @@ describe("the application boundary projection", () => {
         retained: ["axm.json"],
       });
       const expected = `Transition failed: ${toAppError(deciding).detail}. Workspace restoration did not complete;`;
-      const lifecycle = yield* StepFailureConversion;
-      const reconciliation = yield* SyncStepFailureConversion;
+      const conversion = yield* StepFailureConversion;
 
       expect(toAppError(restoration).detail.startsWith(expected)).toBe(true);
-      expect(lifecycle.toStepFailure(restoration).detail.startsWith(expected)).toBe(true);
-      expect(reconciliation.toStepFailure(restoration).detail.startsWith(expected)).toBe(true);
-    }).pipe(
-      Effect.provide(
-        Layer.mergeAll(WorkspaceFailureConversionLive, ReconciliationFailureConversionLive),
-      ),
-    ),
+      expect(conversion.toStepFailure(restoration).detail.startsWith(expected)).toBe(true);
+    }).pipe(Effect.provide(WorkspaceFailureConversionLive)),
   );
 
   it("reports an unrecognized value as an internal error", () => {

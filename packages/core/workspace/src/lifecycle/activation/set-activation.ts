@@ -52,8 +52,10 @@ import {
   proposeDesiredState,
   realizeActivation,
   type ActivationRealization,
-  syncFailureRendering,
-  type SyncFailureAdapter,
+  StepFailureConversion,
+  withAdaptedStepFailures,
+  type KernelFailure,
+  type StepFailureConversionService,
   type SyncPolicyFailure,
   type RecipeRequirements,
 } from "../../reconciliation/index.js";
@@ -115,11 +117,6 @@ import {
   WorkspaceTransactionScope,
 } from "../../transitions/settlement/index.js";
 
-import {
-  StepFailureConversion,
-  withAdaptedStepFailures,
-  type LifecycleFailure,
-} from "../step-failure-conversion.js";
 import type { SetActivationExecutionFailure } from "./errors.js";
 
 // -----------------------------------------------------------------------------
@@ -430,7 +427,7 @@ const conflictFrom = (detail: string) => (cause: SyncPolicyFailure) =>
  * Settle a leaf activation: the graph decides whether the request changes
  * anything, and the recipe decides how the resulting graph is realized.
  */
-const settleLeaf = (request: SetActivationRequest, adapter: SyncFailureAdapter) =>
+const settleLeaf = (request: SetActivationRequest, adapter: StepFailureConversionService) =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const desiredState = yield* DesiredStateReader;
@@ -544,7 +541,7 @@ const settleLeaf = (request: SetActivationRequest, adapter: SyncFailureAdapter) 
  * contributes; disabling withdraws the members that lose their last active
  * origin and retires the acquired content nothing reaches any more.
  */
-const settlePack = (request: SetActivationRequest, adapter: SyncFailureAdapter) =>
+const settlePack = (request: SetActivationRequest, adapter: StepFailureConversionService) =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const settings = yield* SettingsReader;
@@ -677,7 +674,7 @@ const settlePack = (request: SetActivationRequest, adapter: SyncFailureAdapter) 
  */
 const settleActivation = (request: SetActivationRequest) =>
   Effect.gen(function* () {
-    const adapter = syncFailureRendering;
+    const adapter = yield* StepFailureConversion;
     return request.type === "pack"
       ? yield* settlePack(request, adapter)
       : yield* settleLeaf(request, adapter);
@@ -697,7 +694,7 @@ const validatePackActivation = (candidate: {
   readonly name: string;
   readonly enabled: boolean;
   readonly members: ReadonlyArray<DesiredExtensionNode>;
-}): Effect.Effect<void, LifecycleFailure, DesiredStateReader> =>
+}): Effect.Effect<void, KernelFailure, DesiredStateReader> =>
   Effect.gen(function* () {
     const desiredState = yield* DesiredStateReader;
     const graph = yield* desiredState.graph();

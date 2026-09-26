@@ -43,12 +43,16 @@ export {
 export { buildAggregateProjectionStep } from "./aggregate-projection-step.js";
 export { buildPackMemberStep, type PackMemberRef } from "./extensions/pack-member-step.js";
 
-export { WorkspaceSyncFailed, type WorkspaceSyncCleanupFailure } from "./errors.js";
 export {
-  SyncStepFailureConversion,
-  type SyncFailureAdapter,
+  WorkspaceSyncFailed,
   type SyncPolicyFailure,
-} from "./failure-adapter.js";
+  type WorkspaceSyncCleanupFailure,
+} from "./errors.js";
+export {
+  StepFailureConversion,
+  withAdaptedStepFailures,
+  type StepFailureConversionService,
+} from "./step-failure-conversion.js";
 export { collectConfiguredPackRecovery } from "./configured-pack-recovery.js";
 
 export {
@@ -112,7 +116,6 @@ export {
   exclusiveMemberRetentionPolicy,
 } from "./retention-policy.js";
 
-export { ReconciliationFailureConversionLive, syncFailureRendering } from "./layer.js";
 export {
   isKernelFailure,
   kernelFailureDetail,

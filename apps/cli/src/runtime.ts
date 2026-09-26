@@ -51,7 +51,6 @@ import {
 } from "./cli-flags/index.js";
 
 import {
-  ConfiguredAgentOutcomesProviderLive,
   HookManagerLive,
   KnowledgeManagerLive,
   McpSecretStoreLive,
@@ -67,7 +66,7 @@ import { WorkspaceInvariantFactsLive } from "@agentxm/workspace/projection/live"
 import { AuthLoginPresenterLive } from "./auth-login-presenter.js";
 import { failureToAppError } from "./app-error/conversions.js";
 import { WorkspaceFailureConversionLive } from "./app-error/failure-catalog.js";
-import { ReconciliationFailureConversionLive } from "@agentxm/workspace/reconciliation";
+import { ConfiguredAgentOutcomesProviderLive } from "@agentxm/workspace/reconciliation/live";
 import { WorkspaceInitializationInteractionLive } from "./workspace-initialization-interaction-live.js";
 import {
   GitDirectoryComparisonLive,
@@ -367,7 +366,6 @@ const makeWorkspaceProgramLayer = (workspace: Omit<WorkspaceStateOptions, "built
     gitDirectoryComparisonLayer,
     CodingAgentRepositoryLive,
     WorkspaceFailureConversionLive,
-    ReconciliationFailureConversionLive,
     McpSecretStoreLive,
   );
 

@@ -114,7 +114,8 @@ import {
   buildInlineMcpServerSyncOperation,
   type SyncStepRequirements,
 } from "./plan.js";
-import type { SyncFailureAdapter, SyncPolicyFailure } from "./failure-adapter.js";
+import type { SyncPolicyFailure } from "./errors.js";
+import type { StepFailureConversionService } from "./step-failure-conversion.js";
 import {
   desiredMcpSourceKey,
   desiredPackageKey,
@@ -321,7 +322,7 @@ const buildMcpServerSyncOperation = ({
   readonly sourceIdentity: string;
   readonly force: boolean;
   readonly transitionLabel: string;
-  readonly adapter: SyncFailureAdapter;
+  readonly adapter: StepFailureConversionService;
 }): PlannedJobStep<SyncStepRequirements | McpServerInstallRequirements> => {
   const target = targetFromRef(ref);
   const lifecycleWarnings = extensionRefLifecycleWarnings(ref);
@@ -485,7 +486,7 @@ export const collectMaterializeSteps = (args: {
   /** Desired agent set for membership preflight before settings are committed. */
   readonly configuredAgents?: ReadonlyArray<string>;
   readonly packRecovery?: ConfiguredPackRecovery;
-  readonly adapter: SyncFailureAdapter;
+  readonly adapter: StepFailureConversionService;
 }): Effect.Effect<
   CollectedMaterializeSteps,
   SyncPolicyFailure,

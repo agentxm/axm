@@ -13,6 +13,7 @@
 import type {
   InstallStepRequirements,
   ResolveInstallRequirements,
+  StepFailureConversion,
 } from "../../reconciliation/index.js";
 import type {
   ApprovalRecoveryMissing,
@@ -64,4 +65,5 @@ export type PrepareInstallRequirements =
   | OperationJournal
   | ResolvePlanInteraction
   | WorkspaceRecords
+  | StepFailureConversion
   | WorkspaceTransactionScope;

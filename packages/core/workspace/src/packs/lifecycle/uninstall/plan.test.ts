@@ -532,9 +532,7 @@ describe("pack removal", () => {
           expect(deriveOperationOutcome(resolution)).toBe("blocked");
           expect(resolution.blocking).toMatchObject({ class: "stale-candidate" });
           expect(JSON.stringify(readSettings(workspace))).toContain("toolkit");
-          expect(workspace.readFile("axm-lock.yaml")).toBe(
-            Object.fromEntries(before)["axm-lock.yaml"],
-          );
+          expect(workspace.snapshot()["axm-lock.yaml"]).toBe(before["axm-lock.yaml"]);
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));

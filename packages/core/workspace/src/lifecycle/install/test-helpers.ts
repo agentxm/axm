@@ -251,16 +251,15 @@ export const entriesUnder = (
   workspace: LifecycleFixture,
   directory: string,
 ): ReadonlyArray<string> =>
-  workspace
-    .snapshot()
-    .map(([relative]) => relative)
-    .filter((relative) => relative === directory || relative.startsWith(`${directory}/`));
+  Object.keys(workspace.snapshot()).filter(
+    (relative) => relative === directory || relative.startsWith(`${directory}/`),
+  );
 
 /** Workspace-relative path and content of everything under one directory. */
 export const contentUnder = (
   workspace: LifecycleFixture,
   directory: string,
 ): ReadonlyArray<readonly [string, string]> =>
-  workspace
-    .snapshot()
-    .filter(([relative]) => relative === directory || relative.startsWith(`${directory}/`));
+  Object.entries(workspace.snapshot()).filter(
+    ([relative]) => relative === directory || relative.startsWith(`${directory}/`),
+  );

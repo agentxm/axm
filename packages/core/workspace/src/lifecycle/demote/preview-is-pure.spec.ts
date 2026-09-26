@@ -48,7 +48,7 @@ describe("Demote preview purity", () => {
   const authoredWorkspace = (): {
     readonly workspace: LifecycleFixture;
     readonly replacement: string;
-    readonly before: ReadonlyArray<readonly [string, string]>;
+    readonly before: Readonly<Record<string, string>>;
   } => {
     const workspace = makeLifecycleFixture({
       sources: "live",

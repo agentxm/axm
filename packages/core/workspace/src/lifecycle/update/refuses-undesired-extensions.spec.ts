@@ -179,9 +179,9 @@ describe("Update an extension the workspace does not desire", () => {
           );
           expect(workspace.readFile(PACK_RELEASE)).toBe("First Pack release.\n");
           expect(workspace.readFile(MEMBER_PROJECTION)).toContain("Required Pack member.");
-          const neighborBefore = workspace
-            .snapshot()
-            .filter(([relative]) => relative.includes(NEIGHBOR));
+          const neighborBefore = Object.entries(workspace.snapshot()).filter(([relative]) =>
+            relative.includes(NEIGHBOR),
+          );
           registry.writePack("toolkit", [
             {
               version: "1.0.0",
@@ -201,9 +201,11 @@ describe("Update an extension the workspace does not desire", () => {
 
           expect(deriveOperationOutcome(resolution)).toBe("applied");
           expect(workspace.readFile(PACK_RELEASE)).toBe("Second Pack release.\n");
-          expect(workspace.snapshot().filter(([relative]) => relative.includes(NEIGHBOR))).toEqual(
-            neighborBefore,
-          );
+          expect(
+            Object.entries(workspace.snapshot()).filter(([relative]) =>
+              relative.includes(NEIGHBOR),
+            ),
+          ).toEqual(neighborBefore);
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));

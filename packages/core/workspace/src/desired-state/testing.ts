@@ -9,6 +9,7 @@
  * @packageDocumentation
  */
 
+import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
 import * as Effect from "effect/Effect";
@@ -43,6 +44,44 @@ export const withTestRegistryDefault = <Settings extends Readonly<object>>(
   return hasTestRegistry && defaultRegistry === undefined
     ? { defaultRegistry: "test", ...settings }
     : settings;
+};
+
+/** A byte-preserving snapshot of a fixture tree, including empty directories and links. */
+export const snapshotTree = (root: string): Readonly<Record<string, string>> => {
+  if (!fs.existsSync(root)) return {};
+  const entries: Array<readonly [string, string]> = [];
+  const walk = (directory: string): void => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const absolute = nodePath.join(directory, entry.name);
+      const relative = nodePath.relative(root, absolute);
+      if (entry.isSymbolicLink()) {
+        entries.push([relative, `symlink:${fs.readlinkSync(absolute)}`]);
+      } else if (entry.isDirectory()) {
+        entries.push([relative, "directory"]);
+        walk(absolute);
+      } else {
+        entries.push([relative, `file:${fs.readFileSync(absolute).toString("base64")}`]);
+      }
+    }
+  };
+  walk(root);
+  return Object.fromEntries(entries.sort(([left], [right]) => left.localeCompare(right, "en")));
+};
+
+/** The same encoding for one fixture path; an absent path has no snapshot. */
+export const snapshotPath = (absolute: string): string | undefined => {
+  let stat: fs.Stats;
+  try {
+    stat = fs.lstatSync(absolute);
+  } catch (error) {
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
+      return undefined;
+    }
+    throw error;
+  }
+  if (stat.isSymbolicLink()) return `symlink:${fs.readlinkSync(absolute)}`;
+  if (stat.isDirectory()) return "directory";
+  return `file:${fs.readFileSync(absolute).toString("base64")}`;
 };
 
 /**

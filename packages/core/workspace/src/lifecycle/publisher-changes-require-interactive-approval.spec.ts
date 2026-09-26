@@ -366,9 +366,9 @@ const expectSubagentContent = (
  * replacing only this Subagent's accepted row with its prior value.
  */
 const outsideSubagentUpdate = (
-  snapshot: ReadonlyArray<readonly [string, string]>,
+  snapshot: Readonly<Record<string, string>>,
 ): ReadonlyArray<readonly [string, string]> =>
-  snapshot.filter(
+  Object.entries(snapshot).filter(
     ([relative]) =>
       relative !== "axm-lock.yaml" &&
       relative !== SUBAGENT_CANONICAL &&

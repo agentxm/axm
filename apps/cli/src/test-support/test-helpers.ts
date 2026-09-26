@@ -62,7 +62,7 @@ import { SourceHostProvidersLive } from "@agentxm/workspace/resolution/sources/l
 export { SourceHostProvidersLive };
 import { workspaceInvariantFactsLive } from "./workspace-invariant-facts-live.js";
 export { KnowledgeIndexLive };
-export { ConfiguredAgentOutcomesProviderLive } from "@agentxm/workspace/lifecycle/live";
+export { ConfiguredAgentOutcomesProviderLive } from "@agentxm/workspace/materialization/live";
 import {
   HookManagerLive,
   KnowledgeManagerLive,

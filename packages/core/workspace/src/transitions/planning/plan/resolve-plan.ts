@@ -95,6 +95,7 @@ import {
   WorkspaceLocation,
   WorkspaceRecords,
   configuredAgentLifecycleOutcomes,
+  resolveConfiguredAgentOutcomes,
   type ConfiguredAgentOutcome,
   type ConfiguredAgentOutcomesProviderService,
 } from "../../../desired-state/index.js";
@@ -122,7 +123,6 @@ import {
 import {
   candidateFingerprintFailedToStepFailure,
   configErrorToStepFailure,
-  configuredAgentOutcomesUnavailableToStepFailure,
   restorationIncompleteToStepFailure,
   workspaceStateReadFailureToStepFailure,
   workspaceTransactionFailureToStepFailure,
@@ -230,15 +230,23 @@ const outcomesFor = (
     installed: state === "projected",
     observedAgentIds: state === "projected" ? configuredAgents : [],
   });
-  const override = provider.byExtensionType[operation.extensionType];
-  if (operation.plannedState === "enabled" && override !== undefined) {
-    return override(state).pipe(
-      Effect.map((outcomes) => outcomes.filter(({ name }) => name === operation.name)),
-      Effect.map((outcomes) => (outcomes.length === 0 ? generic : outcomes)),
-      Effect.catch(() => Effect.succeed(generic)),
-    );
-  }
-  return Effect.succeed(generic);
+  return resolveConfiguredAgentOutcomes(provider, {
+    type: operation.extensionType,
+    state,
+    scope,
+    agentIds: configuredAgents,
+    rows: [
+      {
+        name: operation.name,
+        targetState: operation.plannedState,
+        installed: state === "projected",
+        observedAgentIds: state === "projected" ? configuredAgents : [],
+      },
+    ],
+  }).pipe(
+    Effect.map((outcomes) => outcomes.get(operation.name) ?? generic),
+    Effect.catchTag("ConfiguredAgentOutcomesUnavailable", () => Effect.succeed(generic)),
+  );
 };
 
 /** The readiness blockers a plan's error steps contribute beyond declared conditions. */
@@ -381,7 +389,6 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
   const location = yield* WorkspaceLocation;
   const records = yield* WorkspaceRecords;
   const settings = yield* SettingsReader;
-  const provider = yield* ConfiguredAgentOutcomesProvider;
   const interaction = yield* ResolvePlanInteraction;
   const path = yield* Path.Path;
   // The journal and footprint recorder are requirements of the operation
@@ -873,7 +880,6 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
     }
     yield* enterPhase("verification");
     type Readback = {
-      readonly override: boolean;
       readonly byName: ReadonlyMap<string, ReadonlyArray<ConfiguredAgentOutcome>>;
     };
     const readbacks = new Map<ConfiguredAgentOperation["extensionType"], Readback>(
@@ -889,26 +895,13 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
           observeUnit(
             { id: `agent-readback:${type}`, label: `current ${type} agent state` },
             Effect.gen(function* () {
-              const override = provider.byExtensionType[type];
-              if (override !== undefined) {
-                const outcomes = yield* override("current").pipe(
-                  Effect.mapError(configuredAgentOutcomesUnavailableToStepFailure),
-                );
-                const byName = new Map<string, Array<ConfiguredAgentOutcome>>();
-                for (const outcome of outcomes) {
-                  const grouped = byName.get(outcome.name) ?? [];
-                  grouped.push(outcome);
-                  byName.set(outcome.name, grouped);
-                }
-                return [type, { override: true, byName } satisfies Readback] as const;
-              }
               const inventory = yield* records
                 .getExtensionInventory(type, {})
                 .pipe(Effect.mapError(workspaceStateReadFailureToStepFailure));
               const byName = new Map(
                 inventory.items.map((item) => [item.name, item.agentOutcomes] as const),
               );
-              return [type, { override: false, byName } satisfies Readback] as const;
+              return [type, { byName } satisfies Readback] as const;
             }),
           ),
       ),
@@ -929,17 +922,15 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
       const observed = readback?.byName.get(operation.name);
       return (
         observed ??
-        (readback?.override === true
-          ? []
-          : configuredAgentLifecycleOutcomes({
-              type: operation.extensionType,
-              name: operation.name,
-              agentIds: configuredAgents,
-              scope: location.scope,
-              state: "current",
-              targetState: "enabled",
-              installed: false,
-            }))
+        configuredAgentLifecycleOutcomes({
+          type: operation.extensionType,
+          name: operation.name,
+          agentIds: configuredAgents,
+          scope: location.scope,
+          state: "current",
+          targetState: "enabled",
+          installed: false,
+        })
       );
     });
     const incomplete = currentOutcomes.find(

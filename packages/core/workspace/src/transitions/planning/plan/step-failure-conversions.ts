@@ -575,14 +575,6 @@ export const candidateFingerprintFailedToStepFailure = (
     cause: error.cause,
   });
 
-/**
- * Translate a provider failure: the implementation chose the category and
- * wording at construction, so the fields carry over 1:1.
- */
-export const configuredAgentOutcomesUnavailableToStepFailure = (
-  error: ConfiguredAgentOutcomesUnavailable,
-): StepFailure => workspaceStateFailureToStepFailure(error);
-
 /** Every plan-execution failure the kernel constructs. */
 export type PlanExecutionFailure =
   | StaleExecutionCandidate

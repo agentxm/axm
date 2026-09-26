@@ -186,11 +186,6 @@
       "axm-source": "./src/lifecycle/testing.ts",
       "default": "./dist/src/lifecycle/testing.js"
     },
-    "./lifecycle/live": {
-      "types": "./dist/src/lifecycle/live.d.ts",
-      "axm-source": "./src/lifecycle/live.ts",
-      "default": "./dist/src/lifecycle/live.js"
-    },
     "./discovery": {
       "types": "./dist/src/discovery/index.d.ts",
       "axm-source": "./src/discovery/index.ts",

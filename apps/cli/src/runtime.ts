@@ -50,8 +50,8 @@ import {
   directoryFlag,
 } from "./cli-flags/index.js";
 
-import { ConfiguredAgentOutcomesProviderLive } from "@agentxm/workspace/lifecycle/live";
 import {
+  ConfiguredAgentOutcomesProviderLive,
   HookManagerLive,
   KnowledgeManagerLive,
   McpSecretStoreLive,

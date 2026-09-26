@@ -186,7 +186,9 @@ dispatch needed by reconciliation. The implementations live with their kind
 owners under `skills`, `subagents`, `mcp-connections`, `instructions`, `hooks`,
 `knowledge`, and `packs`. They keep platform, Registry transport, and native
 write requirements explicit in `R`; desired-state and accepted-resolution
-writes remain coordinated above the manager boundary.
+writes remain coordinated above the manager boundary. Materialization registers
+their projection participants and the cross-kind configured-agent-outcomes
+provider for application composition.
 
 `workspace/projection` owns what AXM claims in agent-facing output and what its
 observed state means: the ownership units, who may contribute to each, the

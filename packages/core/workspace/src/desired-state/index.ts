@@ -127,6 +127,8 @@ export {
 export {
   ConfiguredAgentOutcomesProvider,
   ConfiguredAgentOutcomesUnavailable,
+  resolveConfiguredAgentOutcomes,
+  type ConfiguredAgentOutcomesRequest,
   type ConfiguredAgentOutcomesFailureCategory,
   type ConfiguredAgentOutcomesForState,
   type ConfiguredAgentOutcomesProviderService,

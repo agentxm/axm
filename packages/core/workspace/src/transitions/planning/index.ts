@@ -186,7 +186,6 @@ export {
 // wherever the step was assembled.
 export {
   candidateFingerprintFailedToStepFailure,
-  configuredAgentOutcomesUnavailableToStepFailure,
   workspaceStateReadFailureToStepFailure,
 } from "./plan/step-failure-conversions.js";
 

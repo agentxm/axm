@@ -13,7 +13,12 @@ import {
   type InstallableExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { createDefaultSettings } from "../settings/index.js";
-import { configuredAgentLifecycleOutcomes } from "./configured-agent-outcomes.js";
+import {
+  ConfiguredAgentOutcomesProvider,
+  genericConfiguredAgentOutcomes,
+  resolveConfiguredAgentOutcomes,
+  type ConfiguredAgentOutcomesProviderService,
+} from "./configured-agent-outcomes-provider.js";
 import type { WorkspaceStateReadFailure } from "./contracts.js";
 import { packMemberBindings } from "./desired-pack-members.js";
 import { DesiredStateReader, type DesiredStateReaderService } from "./desired-state-reader.js";
@@ -59,6 +64,7 @@ export const makeWorkspaceRecords = (
   const withScoped = <A>(
     use: (context: {
       readonly configuredAgents: ReadonlyArray<string>;
+      readonly provider: ConfiguredAgentOutcomesProviderService;
       readonly project: (
         type: InstallableExtensionType,
       ) => Effect.Effect<ReadonlyArray<WorkspaceRecordRow>, SettingsReadError | LockfileReadError>;
@@ -67,6 +73,12 @@ export const makeWorkspaceRecords = (
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
+      const provider = Option.getOrElse(
+        yield* Effect.serviceOption(ConfiguredAgentOutcomesProvider),
+        () => ({
+          byExtensionType: {},
+        }),
+      );
       const provide = <X, E>(effect: Effect.Effect<X, E, FileSystem.FileSystem | Path.Path>) =>
         effect.pipe(
           Effect.provideService(FileSystem.FileSystem, fs),
@@ -90,49 +102,67 @@ export const makeWorkspaceRecords = (
                 relative: (absolute) => path.relative(location.baseDir, absolute),
                 isWithin: (root, target) => isWithinOrEqual(path, root, target),
               });
-            return yield* use({ configuredAgents, project });
+            return yield* use({ configuredAgents, provider, project });
           }),
         ),
       );
     });
 
   const inventoryFor = (
+    type: InstallableExtensionType,
     rows: ReadonlyArray<WorkspaceRecordRow>,
     configuredAgents: ReadonlyArray<string>,
+    provider: ConfiguredAgentOutcomesProviderService,
     agents?: ReadonlyArray<string>,
   ) =>
-    projectExtensionInventory(rows, {
-      outcomes: (row) =>
-        isDesiredInventoryLifecycle(row.classification.lifecycle)
-          ? configuredAgentLifecycleOutcomes({
-              type: row.type,
-              name: row.name,
-              agentIds: configuredAgents,
-              scope: row.scope,
-              state: "current",
-              targetState: row.enabled === false ? "disabled" : "enabled",
-              installed: row.installed,
-              observedAgentIds: row.agents,
-            })
-          : [],
-      ...(agents === undefined ? {} : { agents }),
+    Effect.gen(function* () {
+      const desired = rows.filter((row) =>
+        isDesiredInventoryLifecycle(row.classification.lifecycle),
+      );
+      const request = {
+        type,
+        state: "current" as const,
+        scope: location.scope,
+        agentIds: configuredAgents,
+        rows: desired.map((row) => ({
+          name: row.name,
+          targetState: row.enabled === false ? ("disabled" as const) : ("enabled" as const),
+          installed: row.installed,
+          observedAgentIds: row.agents,
+        })),
+      };
+      const outcomes = yield* resolveConfiguredAgentOutcomes(provider, request).pipe(
+        Effect.catchTag("ConfiguredAgentOutcomesUnavailable", () =>
+          Effect.succeed(genericConfiguredAgentOutcomes(request)),
+        ),
+      );
+      return projectExtensionInventory(rows, {
+        outcomes: (row) => outcomes.get(row.name) ?? [],
+        ...(agents === undefined ? {} : { agents }),
+      });
     });
 
   return {
     rows: (type) => withScoped(({ project }) => project(type)),
     getExtensionInventory: (type, options) =>
-      withScoped(({ project, configuredAgents }) =>
+      withScoped(({ project, configuredAgents, provider }) =>
         project(type).pipe(
-          Effect.map((rows) => inventoryFor(rows, configuredAgents, options.agents)),
+          Effect.flatMap((rows) =>
+            inventoryFor(type, rows, configuredAgents, provider, options.agents),
+          ),
         ),
       ),
     getInventory: (options) =>
-      withScoped(({ project, configuredAgents }) =>
+      withScoped(({ project, configuredAgents, provider }) =>
         Effect.gen(function* () {
           const types = options.type === undefined ? installableExtensionTypes : [options.type];
-          const groups = yield* Effect.forEach(types, project);
-          const items = groups
-            .flatMap((rows) => inventoryFor(rows, configuredAgents).items)
+          const inventories = yield* Effect.forEach(types, (type) =>
+            project(type).pipe(
+              Effect.flatMap((rows) => inventoryFor(type, rows, configuredAgents, provider)),
+            ),
+          );
+          const items = inventories
+            .flatMap((inventory) => inventory.items)
             .sort((left, right) =>
               left.type === right.type
                 ? left.name.localeCompare(right.name)

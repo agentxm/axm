@@ -2,9 +2,9 @@
  * Extension-manager-backed implementation of the workspace-state
  * `ConfiguredAgentOutcomesProvider` port.
  *
- * The plan pipeline consumes the port; extension managers own the effective
- * per-agent outcome facts. Only the composition root sees both, so the
- * application wires this layer over the manager, supplying its own failure
+ * Materialization registers this provider beside its projection participants.
+ * Extension managers own the effective per-agent outcome facts; application
+ * composition wires this layer over the managers, supplying its own failure
  * serialization so plan resolutions embed byte-identical step failures on
  * either side of the seam.
  *
@@ -16,7 +16,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import { RegistryClientFactory } from "@agentxm/registry-client";
-import { NativeWriteAuthority } from "../../projection/agent-adapters/index.js";
+import { NativeWriteAuthority } from "../projection/agent-adapters/index.js";
 import {
   ConfiguredAgentOutcomesProvider,
   ConfiguredAgentOutcomesUnavailable,
@@ -24,9 +24,9 @@ import {
   LockfileReader,
   SettingsReader,
   WorkspaceLocation,
-} from "../../desired-state/index.js";
-import { StepFailureConversion } from "../../lifecycle/step-failure-conversion.js";
-import { HookManager, McpServerManager } from "../../materialization/index.js";
+} from "../desired-state/index.js";
+import { StepFailureConversion } from "../lifecycle/step-failure-conversion.js";
+import { HookManager, McpServerManager } from "./managers.js";
 export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
   ConfiguredAgentOutcomesProvider,
   Effect.gen(function* () {

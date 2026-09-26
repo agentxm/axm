@@ -21,6 +21,7 @@ import type { ConfirmationRecovery } from "@agentxm/workspace/transitions/planni
 
 import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";
 import {
+  emitNoOpOutcome,
   emitOperationResolution,
   operationResolutionSummary,
   retryCanHelp,
@@ -35,7 +36,6 @@ import {
   narrowUpdateNames,
   retrySuggestion,
 } from "../shared/confirmation-recovery.js";
-import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
 export interface WorkspaceUpdateFlags {

@@ -9,11 +9,10 @@ import {
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { emitOperationResolution } from "../../operation-output.js";
+import { emitNoOpOutcome, emitOperationResolution } from "../../operation-output.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { makePlanInvocation } from "../shared/confirmation-recovery.js";
-import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 import { failureToAppError } from "../../app-error/conversions.js";
 

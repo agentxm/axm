@@ -8,7 +8,7 @@ import { acceptWarningsFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { emitOperationResolution } from "../../operation-output.js";
+import { emitNoOpOutcome, emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 import { makePublicPositionalPlanInvocation } from "../shared/confirmation-recovery.js";
 import {
@@ -16,7 +16,6 @@ import {
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { emitNoOpOutcome } from "../shared/no-op-output.js";
 
 export interface AgentsRemoveArgs {
   readonly ids: ReadonlyArray<string>;

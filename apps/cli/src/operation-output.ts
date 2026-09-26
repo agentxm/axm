@@ -44,6 +44,7 @@ import {
   countUnitStates,
   deriveOperationOutcome,
   makeOperationResolution,
+  OperationLifecycle,
   renderConfirmationRecoveryCommand,
   settleOperation,
   unitsByStableIdentity,
@@ -1068,31 +1069,33 @@ export const emitOperationResolution = (
 
 /**
  * Terminate a plan-family invocation that planned nothing: an empty resolution
- * in the invocation's actual mode whose outcome derives `no-op`, with the
+ * in the active lifecycle's mode whose outcome derives `no-op`, with the
  * stated message.
  */
-export const emitNoOpOperation = (args: {
-  readonly mode: "preview" | "apply";
+export const emitNoOpOutcome = (args: {
   readonly planName: string;
   readonly planDescription?: string;
   readonly message: string;
   readonly suggestions?: ReadonlyArray<SuggestedAction>;
   readonly withoutSuggestions?: boolean;
 }) =>
-  emitOperationResolution(
-    makeOperationResolution({
-      name: args.planName,
-      description:
-        args.planDescription === undefined ? Option.none() : Option.some(args.planDescription),
-      mode: args.mode,
-      atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
-      units: [],
-    }),
-    {
-      message: args.message,
-      ...(args.suggestions === undefined ? {} : { suggestions: args.suggestions }),
-      ...(args.withoutSuggestions === undefined
-        ? {}
-        : { withoutSuggestions: args.withoutSuggestions }),
-    },
-  );
+  Effect.gen(function* () {
+    const { mode } = yield* OperationLifecycle;
+    return yield* emitOperationResolution(
+      makeOperationResolution({
+        name: args.planName,
+        description:
+          args.planDescription === undefined ? Option.none() : Option.some(args.planDescription),
+        mode,
+        atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
+        units: [],
+      }),
+      {
+        message: args.message,
+        ...(args.suggestions === undefined ? {} : { suggestions: args.suggestions }),
+        ...(args.withoutSuggestions === undefined
+          ? {}
+          : { withoutSuggestions: args.withoutSuggestions }),
+      },
+    );
+  });

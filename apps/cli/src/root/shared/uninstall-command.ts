@@ -23,13 +23,13 @@ import {
 import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";
 import { failureToAppError } from "../../app-error/conversions.js";
 import {
+  emitNoOpOutcome,
   emitOperationResolution,
   operationResolutionSummary,
   retryCanHelp,
 } from "../../operation-output.js";
 import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
 import { makePublicPositionalPlanInvocation, retrySuggestion } from "./confirmation-recovery.js";
-import { emitNoOpOutcome } from "./no-op-output.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
 export interface UninstallCommandArgs {

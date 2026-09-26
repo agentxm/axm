@@ -18,10 +18,9 @@ import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/sugges
 
 import { AppError } from "../app-error/index.js";
 import { failureToAppError } from "../app-error/conversions.js";
-import { emitOperationResolution } from "../operation-output.js";
+import { emitNoOpOutcome, emitOperationResolution } from "../operation-output.js";
 import { EXTENSION_TYPE_PRESENTATION } from "./extension-type-presentation.js";
 import { makePublicPositionalPlanInvocation } from "./shared/confirmation-recovery.js";
-import { emitNoOpOutcome } from "./shared/no-op-output.js";
 import { withOperationLifecycle } from "../operation-lifecycle.js";
 
 export interface ActivationCommandArgs extends SetActivationRequest {

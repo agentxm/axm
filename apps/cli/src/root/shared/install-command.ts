@@ -30,6 +30,7 @@ import {
 import { Verbosity } from "../../cli-flags/index.js";
 import { failureToAppError } from "../../app-error/conversions.js";
 import {
+  emitNoOpOutcome,
   emitOperationResolution,
   operationResolutionSummary,
   retryCanHelp,
@@ -40,7 +41,6 @@ import {
   narrowInstallSelection,
   retrySuggestion,
 } from "./confirmation-recovery.js";
-import { emitNoOpOutcome } from "./no-op-output.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
 export interface InstallCommandArgs {

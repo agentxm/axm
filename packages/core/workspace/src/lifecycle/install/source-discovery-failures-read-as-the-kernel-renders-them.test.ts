@@ -26,7 +26,7 @@ import type { SourceResolutionFailure } from "../../resolution/sources/index.js"
 import type { ExtensionLifecycleFailed } from "../../operations/index.js";
 import { makeLifecycleFixture } from "../testing.js";
 import { discoverInstallRefs } from "./request.js";
-import type { ResolveInstallRequirements } from "./vocabulary.js";
+import type { ResolveInstallRequirements } from "../../reconciliation/index.js";
 
 const registry: RegistrySource = {
   type: "registry",

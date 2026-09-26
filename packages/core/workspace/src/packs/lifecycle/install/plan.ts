@@ -110,20 +110,6 @@ import {
 } from "../../../desired-state/index.js";
 
 import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
-import { buildAggregateProjectionStep } from "../../../lifecycle/install/aggregate-projection-step.js";
-import { parseRegistryInstallTarget } from "../../../lifecycle/install/registry-install-target.js";
-import { registryLoginSuggestions } from "../../../lifecycle/install/registry-login-suggestion.js";
-import {
-  formatRegistryProbe,
-  type RegistryLookupProbe,
-} from "../../../lifecycle/install/registry-source-resolution.js";
-import {
-  sourceResolutionFailureDetail,
-  sourceResolutionRefused,
-  type InstallStepRequirements,
-  type PackInstallIntent,
-  type ResolveInstallRequirements,
-} from "../../../lifecycle/install/vocabulary.js";
 import {
   configuredPackConstraintBlockPlan,
   type AcceptedMemberMismatch,
@@ -145,6 +131,50 @@ import {
   packMemberSourceAuthority,
   type DesiredExtensionOrigin,
 } from "../../../desired-state/index.js";
+import {
+  buildAggregateProjectionStep,
+  sourceResolutionFailureDetail,
+  sourceResolutionRefused,
+  type InstallStepRequirements,
+  type PackRecoveryDependencyResolver,
+  type ResolveInstallRequirements,
+} from "../../../reconciliation/index.js";
+import {
+  formatRegistryProbe,
+  parseRegistryInstallTarget,
+  registryLoginSuggestions,
+  type RegistryLookupProbe,
+} from "../../../resolution/sources/index.js";
+import type { ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
+import type { HeldReleasePolicy } from "../../../resolution/index.js";
+
+/** One pack graph transition and the policy that governs it. */
+export interface PackInstallIntent {
+  readonly packToInstall: PackRef;
+  readonly versionRange: Option.Option<VersionRange>;
+  readonly nonInteractive: boolean;
+  /** The one evaluation every member is selected under. */
+  readonly releaseAgeEvaluation: ReleaseAgeEvaluation;
+  /** The policy the operation that classified this intent declared. */
+  readonly heldRelease: HeldReleasePolicy;
+  /** Immutable dependency authority a deterministic recovery workflow supplies. */
+  readonly dependencyResolver?: PackRecoveryDependencyResolver;
+  /** Render shared aggregate projections after a larger enclosing transition. */
+  readonly deferProjections?: boolean;
+  /**
+   * Reacquire the Pack's canonical content instead of reusing the installed
+   * tree. Recovery sets this because the observed tree already diverged from
+   * the accepted resolution, so reusing it would preserve the divergence.
+   */
+  readonly forceCanonical?: boolean;
+  /**
+   * The proposed desired-state graph whose effective constraints the members
+   * are selected within. A sweep that advances several Packs builds it once
+   * with every selected Pack's manifest; omitted, this Pack's manifest is the
+   * only proposed change.
+   */
+  readonly desiredGraph?: DesiredStateGraph;
+}
 
 /** A pack install request after grammar parsing, before anything is discovered. */
 export interface ParsedPackInstallRequest {

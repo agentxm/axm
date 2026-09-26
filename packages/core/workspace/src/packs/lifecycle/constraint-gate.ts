@@ -12,8 +12,8 @@ import type { ExtensionConstraintInvariantFact } from "../../projection/index.js
 import { toTypedLabel } from "../../reconciliation/index.js";
 import { operationPresentation, type Plan } from "../../operations/index.js";
 
-import type { InstallStepRequirements } from "../../lifecycle/install/vocabulary.js";
 import { desiredPackageKey } from "../../desired-state/index.js";
+import type { InstallStepRequirements } from "../../reconciliation/index.js";
 
 const packOrigins = (origins: ReadonlyArray<DesiredExtensionOrigin>): ReadonlyArray<string> =>
   origins.flatMap((origin) => (origin.type === "pack" ? [origin.pack.fqn] : []));

@@ -33,14 +33,18 @@ import {
 } from "../../../desired-state/index.js";
 
 import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
-import { type InstallStepRequirements } from "../../../lifecycle/install/vocabulary.js";
 import { makeWorkspaceRetentionPolicy } from "../../../reconciliation/index.js";
-import type { HookUninstallIntent } from "../../../lifecycle/uninstall/vocabulary.js";
 import {
   acquiredRootDisplayPath,
   lockfileDisplayPath,
   settingsDisplayPath,
 } from "../../../desired-state/index.js";
+import type { InstallStepRequirements } from "../../../reconciliation/index.js";
+
+/** One hooks-package removal. */
+export interface HookUninstallIntent {
+  readonly targets: ReadonlyArray<HookExtensionTarget>;
+}
 
 const hookUninstallArtifactTargets = (
   entry: Option.Option<HookLockEntry>,

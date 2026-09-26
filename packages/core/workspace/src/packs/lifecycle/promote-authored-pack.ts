@@ -57,13 +57,13 @@ import {
 import { usableAcceptedCanonical, type DesiredExtensionNode } from "../../desired-state/index.js";
 
 import { kernelFailureToStepFailure } from "../../reconciliation/index.js";
-import type { InstallStepRequirements } from "../../lifecycle/install/vocabulary.js";
 import { validatePackGraphPostcondition } from "./graph-transition.js";
 import {
   desiredPackageKey,
   formatDesiredIdentity,
   type DesiredNodeIdentity,
 } from "../../desired-state/index.js";
+import type { InstallStepRequirements } from "../../reconciliation/index.js";
 
 // -----------------------------------------------------------------------------
 // Request and candidate

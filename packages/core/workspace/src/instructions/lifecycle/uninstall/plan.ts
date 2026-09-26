@@ -20,9 +20,13 @@ import {
 import { DesiredStateReader, type RuleExtensionTarget } from "../../../desired-state/index.js";
 
 import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
-import { type InstallStepRequirements } from "../../../lifecycle/install/vocabulary.js";
 import { makeWorkspaceRetentionPolicy } from "../../../reconciliation/index.js";
-import type { RuleUninstallIntent } from "../../../lifecycle/uninstall/vocabulary.js";
+import type { InstallStepRequirements } from "../../../reconciliation/index.js";
+
+/** One rule removal. */
+export interface RuleUninstallIntent {
+  readonly targets: ReadonlyArray<RuleExtensionTarget>;
+}
 
 /** Settle whether this rule has anything to remove. */
 export const parseRuleUninstallRequest: (

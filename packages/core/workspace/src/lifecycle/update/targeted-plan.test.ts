@@ -13,7 +13,7 @@ import { SettingsWriter } from "../../desired-state/index.js";
 import { resolveTargetedUpdateContext } from "../../resolution/index.js";
 
 import { kernelFailureToStepFailure } from "../../reconciliation/index.js";
-import type { InstallStepRequirements } from "../install/vocabulary.js";
+import type { InstallStepRequirements } from "../../reconciliation/index.js";
 import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";
 import { TARGETED_UPDATE_STALE_DETAIL, wrapTargetedUpdatePlan } from "./targeted-plan.js";
 

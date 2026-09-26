@@ -63,7 +63,7 @@ import {
 import type { PackageUrlParts } from "@agentxm/extension-model/unstable/packaging/package-url";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { evaluateSourceAuthority } from "../../resolution/index.js";
-import { extensionRefLifecycleWarnings } from "../../lifecycle/warnings.js";
+import { extensionRefLifecycleWarnings } from "../../resolution/index.js";
 import {
   FootprintRecorder,
   isWorkspaceFootprint,

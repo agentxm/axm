@@ -39,7 +39,7 @@ import {
   targetFromRef,
   toStepKey,
 } from "./extensions/operations.js";
-import { extensionRefLifecycleWarnings } from "../lifecycle/warnings.js";
+import { extensionRefLifecycleWarnings } from "../resolution/index.js";
 import { settingsEntries, type Settings } from "../desired-state/index.js";
 import {
   acceptedResolutionIncompatibleRecovery,

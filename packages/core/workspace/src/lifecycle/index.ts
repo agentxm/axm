@@ -9,7 +9,6 @@
  * @packageDocumentation
  */
 
-export { formatDeprecationWarning } from "./warnings.js";
 export {
   StepFailureConversion,
   withAdaptedStepFailures,
@@ -68,19 +67,7 @@ export {
   type InstallSelectionFailure,
   type InstallSelectionRequest,
 } from "./install/selection.js";
-export {
-  type HookInstallIntent,
-  type InstallStepRequirements,
-  type KnowledgeInstallIntent,
-  type McpServerInstallIntent,
-  type PackInstallIntent,
-  type PackRecoveryDependencyResolver,
-  type PrepareInstallRequirements,
-  type ResolveInstallRequirements,
-  type RuleInstallIntent,
-  type SkillInstallIntent,
-  type SubagentInstallIntent,
-} from "./install/vocabulary.js";
+export { type PrepareInstallRequirements } from "./install/vocabulary.js";
 export {
   resolveRootInstallIntent,
   rootInstallableTypeSegments,
@@ -100,12 +87,7 @@ export {
   type ConfiguredInstallRequirements,
   type ConfiguredInstallableType,
 } from "./install/configured.js";
-export { buildAggregateProjectionStep } from "./install/aggregate-projection-step.js";
 export { inlineMcpNotApplicablePlan } from "./install/inline-mcp-operation.js";
-export {
-  formatRegistryProbe,
-  type RegistryLookupProbe,
-} from "./install/registry-source-resolution.js";
 
 // The per-type install planners every install and update route shares.
 export { planHookInstall } from "../hooks/lifecycle/install/plan.js";
@@ -187,11 +169,6 @@ export {
   type ReleaseAgeAwarePackExpansion,
 } from "../packs/lifecycle/expansion.js";
 export { validateExactPackDependencyVersions } from "../packs/lifecycle/resolved-dependency.js";
-export {
-  installPack,
-  type InstallPackOperation,
-  type InstallPackOperationArgs,
-} from "../packs/lifecycle/operations/install.js";
 
 // Update: advancing what the workspace already accepted, for a named
 // extension or for the configured entries as a whole.

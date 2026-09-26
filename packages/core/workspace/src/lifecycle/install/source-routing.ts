@@ -19,7 +19,7 @@ import {
   type InstallableRegistryType,
   type RegistryResolutionOptions,
 } from "./registry-source-resolution.js";
-import { type ResolveInstallRequirements } from "./vocabulary.js";
+import { type ResolveInstallRequirements } from "../../reconciliation/index.js";
 
 export type LocatorInstallType = InstallableRegistryType;
 

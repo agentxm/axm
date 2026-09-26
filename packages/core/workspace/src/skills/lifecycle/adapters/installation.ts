@@ -30,11 +30,11 @@ import { RegistryClientFactory } from "@agentxm/registry-client";
 import { CodingAgentRepository } from "../../../projection/index.js";
 import { sanitizeName, type SkillPathSource } from "../../../desired-state/index.js";
 import { type ExtensionLifecycleFailed, installRefused } from "../../../operations/index.js";
-import { type InstallStepRequirements } from "../../../lifecycle/install/vocabulary.js";
 import type {
   SkillInstallationFacts,
   SkillInstallationInspection,
 } from "../application/installation.js";
+import type { InstallStepRequirements } from "../../../reconciliation/index.js";
 
 const countFiles = (
   fs: FileSystem.FileSystem,

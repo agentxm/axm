@@ -96,14 +96,14 @@ import {
 import { planRuleInstall } from "../../instructions/lifecycle/install/plan.js";
 import { planSkillInstall } from "../../skills/lifecycle/install/plan.js";
 import { planSubagentInstall } from "../../subagents/lifecycle/install/plan.js";
-import { buildAggregateProjectionStep } from "./aggregate-projection-step.js";
 import { inlineMcpNotApplicablePlan } from "./inline-mcp-operation.js";
 import {
+  buildAggregateProjectionStep,
   INSTALL_HELD_RELEASE_POLICY,
   type InstallStepRequirements,
-  type PackInstallIntent,
   type ResolveInstallRequirements,
-} from "./vocabulary.js";
+} from "../../reconciliation/index.js";
+import type { PackInstallIntent } from "../../packs/index.js";
 import { findGitReinstallRefs, pinGitReinstallRef } from "./git-reinstall.js";
 import { nameFromLabel, kernelFailureToStepFailure } from "../../reconciliation/index.js";
 import { withPackRegistryIndexMemo } from "../../resolution/sources/providers/registry/index-memo.js";

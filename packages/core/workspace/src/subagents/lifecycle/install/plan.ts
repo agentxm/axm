@@ -21,12 +21,16 @@ import {
 } from "../../../operations/index.js";
 
 import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
-import {
-  type InstallStepRequirements,
-  type SubagentInstallIntent,
-} from "../../../lifecycle/install/vocabulary.js";
 import { prepareSubagentInstallations } from "../application/installation.js";
 import { subagentInstallationFacts } from "../adapters/installation.js";
+import type { InstallStepRequirements, ResolvedInstallRef } from "../../../reconciliation/index.js";
+import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
+
+/** Subagents the request selected, and whether to re-materialize regardless. */
+export interface SubagentInstallIntent {
+  readonly subagentsToInstall: ReadonlyArray<ResolvedInstallRef<SubagentExtensionRef>>;
+  readonly force?: boolean;
+}
 
 /** The closures a settled subagent intent becomes. */
 export const planSubagentInstall: (

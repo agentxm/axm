@@ -31,7 +31,16 @@ export {
   type UninstallSettlement,
   type UnreadablePackageRetirement,
 } from "./extensions/operations.js";
-export { extensionRefLifecycleWarnings } from "../lifecycle/warnings.js";
+export {
+  INSTALL_HELD_RELEASE_POLICY,
+  sourceResolutionFailureDetail,
+  sourceResolutionRefused,
+  type InstallStepRequirements,
+  type PackRecoveryDependencyResolver,
+  type ResolvedInstallRef,
+  type ResolveInstallRequirements,
+} from "./install-vocabulary.js";
+export { buildAggregateProjectionStep } from "./aggregate-projection-step.js";
 export { buildPackMemberStep, type PackMemberRef } from "./extensions/pack-member-step.js";
 
 export { WorkspaceSyncFailed, type WorkspaceSyncCleanupFailure } from "./errors.js";

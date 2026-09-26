@@ -38,7 +38,7 @@ import {
   type TargetedUpdateContextFailure,
 } from "../../resolution/index.js";
 
-import type { InstallStepRequirements } from "../install/vocabulary.js";
+import type { InstallStepRequirements } from "../../reconciliation/index.js";
 
 export const TARGETED_UPDATE_STALE_DETAIL =
   "The targeted update ownership context became stale before apply.";

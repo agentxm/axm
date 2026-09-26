@@ -50,12 +50,7 @@ import {
 
 import { expandGlob } from "@agentxm/extension-model/unstable/extensions/name-patterns";
 import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
-import {
-  type InstallStepRequirements,
-  type ResolveInstallRequirements,
-} from "../../../lifecycle/install/vocabulary.js";
 import { makeWorkspaceRetentionPolicy } from "../../../reconciliation/index.js";
-import type { SkillUninstallIntent } from "../../../lifecycle/uninstall/vocabulary.js";
 import {
   authoredDisplayPath,
   acquiredDisplayPath,
@@ -63,6 +58,15 @@ import {
   lockfileDisplayPath,
   settingsDisplayPath,
 } from "../../../desired-state/index.js";
+import type {
+  InstallStepRequirements,
+  ResolveInstallRequirements,
+} from "../../../reconciliation/index.js";
+
+/** One skill removal. */
+export interface SkillUninstallIntent {
+  readonly targets: ReadonlyArray<SkillExtensionTarget>;
+}
 
 const skillSourceTarget = (
   location: WorkspaceLocationService,

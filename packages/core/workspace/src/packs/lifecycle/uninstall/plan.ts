@@ -64,8 +64,6 @@ import {
 
 import { expandGlob } from "@agentxm/extension-model/unstable/extensions/name-patterns";
 import { kernelFailureToStepFailure } from "../../../reconciliation/index.js";
-import { buildAggregateProjectionStep } from "../../../lifecycle/install/aggregate-projection-step.js";
-import { type InstallStepRequirements } from "../../../lifecycle/install/vocabulary.js";
 import {
   exclusiveMemberRetentionPolicy,
   makeWorkspaceRetentionPolicy,
@@ -76,6 +74,10 @@ import {
   planPackUninstallGraphReadiness,
   type PackRetirement,
 } from "./readiness.js";
+import {
+  buildAggregateProjectionStep,
+  type InstallStepRequirements,
+} from "../../../reconciliation/index.js";
 
 /** How the request named the pack to remove. */
 export type PackUninstallSelector =

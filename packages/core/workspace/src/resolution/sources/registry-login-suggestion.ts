@@ -4,7 +4,7 @@
  * When a registry lookup finds nothing, the extension may simply be private
  * to an account this invocation is not signed in to. Whether every consulted
  * origin already has a credential is the `registry-access` capability's
- * decision; the wording of the hint is this feature's.
+ * decision; the wording of the hint is this module's.
  *
  * @experimental This API is unstable and may change without notice.
  */

@@ -7,8 +7,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   classifyCiChanges,
+  detectsReleasePreparation,
   parseChangedPaths,
   selectCodeVerificationPaths,
+  selectsReleaseArtifacts,
   validateRunnerCommandFile,
 } from "./classify-ci-changes.js";
 
@@ -61,6 +63,38 @@ const declaredGenerationPaths = (projectRoot: string): readonly string[] => {
 };
 
 describe("classifyCiChanges", () => {
+  it.each([
+    ["push", "refs/heads/main", "release: cli-v0.30.2", true],
+    ["push", "refs/heads/main", "Improve workspace policy", false],
+    ["workflow_dispatch", "refs/tags/cli-v0.30.2", "release: cli-v0.30.2", true],
+    ["workflow_dispatch", "refs/tags/cli-v0.30.1", "release: cli-v0.30.2", false],
+    ["pull_request", "refs/heads/main", "release: cli-v0.30.2", false],
+  ])("selects publication artifacts for %s on %s with %s", (event, ref, subject, selected) => {
+    expect(selectsReleaseArtifacts({ event, ref, subject })).toBe(selected);
+  });
+
+  it.each([
+    ["pull_request", "release/cli-v0.30.2", "agentxm/axm", "release: cli-v0.30.2", true],
+    ["pull_request", "feature/example", "agentxm/axm", "release: cli-v0.30.2", false],
+    ["pull_request", "release/cli-v0.30.2", "example/fork", "release: cli-v0.30.2", false],
+    ["merge_group", "", "", "release: cli-v0.30.2 (#327)", true],
+    ["merge_group", "", "", "Improve workspace policy (#328)", false],
+    ["merge_group", "", "", "release: cli-v0.30.2 unreviewed suffix (#327)", false],
+  ])(
+    "detects release preparation for %s with %s",
+    (event, headRef, headRepository, subject, prepared) => {
+      expect(
+        detectsReleasePreparation({
+          event,
+          headRef,
+          headRepository,
+          repository: "agentxm/axm",
+          subjects: [subject],
+        }),
+      ).toBe(prepared);
+    },
+  );
+
   it("falls back to full verification when no trustworthy history is available", () => {
     expect(classifyCiChanges([])).toMatchObject({
       full: true,

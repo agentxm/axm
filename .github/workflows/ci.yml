@@ -49,6 +49,7 @@ jobs:
       documentation: ${{ steps.classify.outputs.documentation }}
       cli-e2e: ${{ steps.classify.outputs.cli_e2e }}
       release-artifacts: ${{ steps.classify.outputs.release_artifacts }}
+      release-preparation: ${{ steps.classify.outputs.release_preparation }}
       selection: ${{ steps.classify.outputs.selection }}
       windows: ${{ steps.classify.outputs.windows }}
       workflow: ${{ steps.classify.outputs.workflow }}
@@ -81,21 +82,13 @@ jobs:
         env:
           BASE_SHA: ${{ steps.set-shas.outputs.base }}
           EVENT_NAME: ${{ github.event_name }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
           HEAD_SHA: ${{ steps.set-shas.outputs.head }}
           REF_NAME: ${{ github.ref }}
         run: |
-          release_artifacts=false
-          subject="$(git show -s --format=%s "$HEAD_SHA")"
-          if [[ "$subject" =~ ^release:\ (cli-v[^[:space:]]+)(\ \(\#[0-9]+\))?$ ]]; then
-            release_tag="${BASH_REMATCH[1]}"
-            if [[ "$EVENT_NAME:$REF_NAME" == "push:refs/heads/main" ||
-              "$EVENT_NAME:$REF_NAME" == "workflow_dispatch:refs/tags/${release_tag}" ]]; then
-              release_artifacts=true
-            fi
-          fi
           pnpm --config.verify-deps-before-run=warn run classify:ci -- \
-            --base "$BASE_SHA" --head "$HEAD_SHA" \
-            --release-artifacts "$release_artifacts"
+            --base "$BASE_SHA" --head "$HEAD_SHA"
 
   workflow-validation:
     name: Workflow security
@@ -215,34 +208,13 @@ jobs:
           restore-keys: |
             axm-ci-pnpm-v1-${{ runner.os }}-${{ runner.arch }}-
 
-      - name: Determine release verification mode
-        id: release-mode
-        env:
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
-          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
-          HEAD_SHA: ${{ needs.classify.outputs.head }}
-          EVENT_NAME: ${{ github.event_name }}
-        run: |
-          release_preparation=false
-          release_subject="release: ${HEAD_REF#release/}"
-          if [[ "$EVENT_NAME" == "pull_request" ]] &&
-            [[ "$HEAD_REPOSITORY" == "$GITHUB_REPOSITORY" ]] &&
-            [[ "$HEAD_REF" =~ ^release/cli-v[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.-]+)?$ ]] &&
-            git log --format=%s "main..$HEAD_SHA" | grep --fixed-strings --line-regexp --quiet -- "$release_subject"; then
-            release_preparation=true
-          elif [[ "$EVENT_NAME" == "merge_group" ]] &&
-            git log --format=%s "main..$HEAD_SHA" | grep --extended-regexp --line-regexp --quiet -- 'release: cli-v[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.-]+)?( \(#[0-9]+\))?'; then
-            release_preparation=true
-          fi
-          echo "release_preparation=$release_preparation" >> "$GITHUB_OUTPUT"
-
       - name: Verify affected changes
         id: verify
         env:
           pnpm_config_store_dir: ${{ runner.temp }}/axm-ci-cache/pnpm-store
           NX_PARALLEL: "3"
           VITEST_MAX_WORKERS: "2"
-          AXM_RELEASE_PREPARATION: ${{ steps.release-mode.outputs.release_preparation }}
+          AXM_RELEASE_PREPARATION: ${{ needs.classify.outputs.release-preparation }}
           NX_BASE: ${{ needs.classify.outputs.base }}
           NX_HEAD: ${{ needs.classify.outputs.head }}
         run: |

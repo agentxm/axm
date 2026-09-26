@@ -534,7 +534,6 @@ const featureLiveFixtures = [
   "packages/core/workspace-features/src/knowledge-query/testing.ts",
   "packages/core/workspace-features/src/inspection/testing.ts",
   "packages/core/workspace-features/src/configuration/testing.ts",
-  "packages/core/workspace-features/src/lifecycle/testing.ts",
   // A lint run reads a real workspace through the state and projection
   // services; a fixture that stubbed them would be linting itself.
   "packages/core/workspace-features/src/linting/testing.ts",

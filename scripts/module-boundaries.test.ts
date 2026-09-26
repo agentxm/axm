@@ -171,6 +171,41 @@ describe("module-boundary constraint reachability", () => {
     }
   });
 
+  it("resolves the workspace tier rows for production and test files", async () => {
+    // Nx reports a circular project dependency before a scope row, so a lint
+    // case alone cannot show that these rows are still declared.
+    const eslint = new ESLint({ cwd: repoRoot });
+    for (const file of [
+      "packages/core/workspace-kernel/src/materialization/index.ts",
+      "packages/core/extension-kinds/src/skills/source-hash.test.ts",
+    ]) {
+      const config: unknown = await eslint.calculateConfigForFile(file);
+      const rules: unknown =
+        typeof config === "object" && config !== null ? Reflect.get(config, "rules") : undefined;
+      const rule: unknown =
+        typeof rules === "object" && rules !== null
+          ? Reflect.get(rules, "@nx/enforce-module-boundaries")
+          : undefined;
+      if (!Array.isArray(rule) || typeof rule[1] !== "object" || rule[1] === null) {
+        throw new Error(`No resolved module-boundary options for ${file}`);
+      }
+      const constraints: unknown = Reflect.get(rule[1], "depConstraints");
+      const tierRows = (Array.isArray(constraints) ? constraints : []).flatMap(
+        (constraint: unknown) => {
+          if (typeof constraint !== "object" || constraint === null) return [];
+          const sourceTag: unknown = Reflect.get(constraint, "sourceTag");
+          return sourceTag === "scope:workspace-kernel" || sourceTag === "scope:extension-kinds"
+            ? [[sourceTag, Reflect.get(constraint, "notDependOnLibsWithTags")]]
+            : [];
+        },
+      );
+      expect(tierRows, file).toEqual([
+        ["scope:workspace-kernel", ["scope:extension-kinds", "scope:workspace-features"]],
+        ["scope:extension-kinds", ["scope:workspace-features"]],
+      ]);
+    }
+  });
+
   it("reports an extension kind importing a feature", async () => {
     for (const filePath of [
       "packages/core/extension-kinds/src/skills/index.ts",

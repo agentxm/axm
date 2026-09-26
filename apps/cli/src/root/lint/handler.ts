@@ -2,7 +2,7 @@
  * `axm lint` rendering.
  *
  * The lint run itself — input admission, fact gathering, evaluation, and the
- * machine document — belongs to `@agentxm/workspace/linting`. What is left here
+ * machine document — belongs to `@agentxm/workspace-features/linting`. What is left here
  * is the adapter's own work: wrap the feature's document in the machine
  * envelope, render the human findings ledger on stdout at the requested
  * verbosity, and translate the severity verdict into a process exit code.

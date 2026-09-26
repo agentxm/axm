@@ -18,7 +18,7 @@ export interface WorkspaceFileWriteLocksService {
 export class WorkspaceFileWriteLocks extends Context.Service<
   WorkspaceFileWriteLocks,
   WorkspaceFileWriteLocksService
->()("@agentxm/workspace/transitions/settlement/WorkspaceFileWriteLocks") {}
+>()("@agentxm/workspace-kernel/settlement/WorkspaceFileWriteLocks") {}
 
 export const makeWorkspaceFileWriteLocks = Effect.gen(function* () {
   const path = yield* Path.Path;

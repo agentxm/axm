@@ -3,7 +3,7 @@ import {
   WorkspaceFileWriteLocksLive,
 } from "@agentxm/workspace-kernel/settlement/live";
 /**
- * @agentxm/workspace/configuration deterministic fixtures and ports.
+ * @agentxm/workspace-features/configuration deterministic fixtures and ports.
  *
  * A throwaway workspace with settings, lockfile, and agent-native files
  * written as the product writes them, plus every service a configuration use

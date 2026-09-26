@@ -94,4 +94,4 @@ export interface WorkspaceCatalogService {
 export class WorkspaceCatalog extends ServiceMap.Service<
   WorkspaceCatalog,
   WorkspaceCatalogService
->()("@agentxm/workspace/resolution/sources/workspace-catalog/WorkspaceCatalog") {}
+>()("@agentxm/workspace-kernel/sources/workspace-catalog/WorkspaceCatalog") {}

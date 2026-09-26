@@ -1,5 +1,5 @@
 /**
- * @agentxm/workspace/desired-state environment-backed composition.
+ * @agentxm/workspace-kernel/workspace-state environment-backed composition.
  *
  * The workspace-state layers every entry point composes: the resolved
  * location, the narrow reader and writer services over it, the workspace

@@ -17,4 +17,4 @@ export interface InterruptionSignalSourceService {
 export class InterruptionSignalSource extends ServiceMap.Service<
   InterruptionSignalSource,
   InterruptionSignalSourceService
->()("@agentxm/workspace/transitions/planning/plan/interruption-signal/InterruptionSignalSource") {}
+>()("@agentxm/workspace-kernel/operations/interruption-signal/InterruptionSignalSource") {}

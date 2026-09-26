@@ -1,6 +1,6 @@
 /**
  * Destructive reconciliation of AXM-owned agent-native outputs. Read-only
- * ownership and claimant discovery lives in `@agentxm/workspace/projection`.
+ * ownership and claimant discovery lives in `@agentxm/workspace-kernel/projection`.
  *
  * @experimental This API is unstable and may change without notice.
  */

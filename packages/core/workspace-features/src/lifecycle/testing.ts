@@ -1,5 +1,5 @@
 /**
- * @agentxm/workspace/lifecycle deterministic fixtures and ports.
+ * @agentxm/workspace-features/lifecycle deterministic fixtures and ports.
  *
  * A throwaway workspace with settings, lockfile, and authored extension
  * content written as the product writes them, plus every service a lifecycle

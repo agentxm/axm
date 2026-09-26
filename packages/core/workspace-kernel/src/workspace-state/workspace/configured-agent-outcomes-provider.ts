@@ -44,7 +44,7 @@ export class ConfiguredAgentOutcomesProvider extends ServiceMap.Service<
   ConfiguredAgentOutcomesProvider,
   ConfiguredAgentOutcomesProviderService
 >()(
-  "@agentxm/workspace/desired-state/workspace/configured-agent-outcomes-provider/ConfiguredAgentOutcomesProvider",
+  "@agentxm/workspace-kernel/workspace-state/workspace/configured-agent-outcomes-provider/ConfiguredAgentOutcomesProvider",
 ) {}
 
 export interface ConfiguredAgentOutcomesRequest {

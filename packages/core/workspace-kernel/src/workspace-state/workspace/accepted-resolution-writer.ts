@@ -43,7 +43,7 @@ export interface AcceptedResolutionWriterService {
 export class AcceptedResolutionWriter extends ServiceMap.Service<
   AcceptedResolutionWriter,
   AcceptedResolutionWriterService
->()("@agentxm/workspace/desired-state/AcceptedResolutionWriter") {}
+>()("@agentxm/workspace-kernel/workspace-state/AcceptedResolutionWriter") {}
 
 const normalizeForStableCompare = (value: unknown): unknown => {
   if (DateTime.isDateTime(value)) return DateTime.formatIso(value);

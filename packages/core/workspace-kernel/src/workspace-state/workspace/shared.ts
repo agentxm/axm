@@ -23,7 +23,7 @@ export interface WorkspaceStateSharedService {
 export class WorkspaceStateShared extends ServiceMap.Service<
   WorkspaceStateShared,
   WorkspaceStateSharedService
->()("@agentxm/workspace/desired-state/WorkspaceStateShared") {}
+>()("@agentxm/workspace-kernel/workspace-state/WorkspaceStateShared") {}
 
 export const makeWorkspaceStateShared: Effect.Effect<WorkspaceStateSharedService> = Effect.gen(
   function* () {

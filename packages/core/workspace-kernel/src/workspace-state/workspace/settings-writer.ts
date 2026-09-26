@@ -61,7 +61,7 @@ export interface SettingsWriterService {
 }
 
 export class SettingsWriter extends ServiceMap.Service<SettingsWriter, SettingsWriterService>()(
-  "@agentxm/workspace/desired-state/SettingsWriter",
+  "@agentxm/workspace-kernel/workspace-state/SettingsWriter",
 ) {}
 
 /** Entry types whose update of a missing entry is a typed failure. */

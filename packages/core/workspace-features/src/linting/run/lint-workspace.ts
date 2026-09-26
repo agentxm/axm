@@ -8,7 +8,7 @@
  * catalogs; assembling them here rather than in an adapter is what makes the
  * answer the same however lint is invoked. In particular the reconciliation
  * facts (ownership proofs and realized agent outputs) come from
- * `@agentxm/workspace/projection`, the capability the reconciliation feature
+ * `@agentxm/workspace-kernel/projection`, the capability the reconciliation feature
  * also reads them from, so lint and sync cannot disagree about what AXM owns.
  *
  * Two decisions about lint's inputs live here because they are decisions

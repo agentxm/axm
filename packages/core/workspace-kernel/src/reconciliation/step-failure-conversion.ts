@@ -26,7 +26,7 @@ export interface StepFailureConversionService {
 export class StepFailureConversion extends ServiceMap.Service<
   StepFailureConversion,
   StepFailureConversionService
->()("@agentxm/workspace/reconciliation/step-failure-conversion/StepFailureConversion") {}
+>()("@agentxm/workspace-kernel/reconciliation/step-failure-conversion/StepFailureConversion") {}
 
 /**
  * Serialize every failure of one operation into the plan-step vocabulary

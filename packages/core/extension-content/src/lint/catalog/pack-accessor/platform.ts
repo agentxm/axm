@@ -10,11 +10,11 @@
  *
  * Packs are registry-only at v1 — there is no non-native variant. The caller
  * (`buildPackRuleContexts` or the CLI entry point) picks the root from
- * `computePackPathsForLayout` in `@agentxm/workspace/desired-state`.
+ * `computePackPathsForLayout` in `@agentxm/workspace-kernel/workspace-state`.
  *
  * The `pack.json` sits directly under `canonicalPath`; there is no
  * `src/` subdirectory like skills have — the pack install operation in
- * `@agentxm/workspace/lifecycle` owns the authoritative layout.
+ * `@agentxm/extension-kinds/packs` owns the authoritative layout.
  *
  * Bounds enforcement:
  *
@@ -59,7 +59,7 @@ type ResolveResult =
  *
  * `absoluteRoot` SHOULD be the absolute path to the pack root directory
  * (`canonicalPath` from `computePackPathsForLayout` in
- * `@agentxm/workspace/desired-state`).
+ * `@agentxm/workspace-kernel/workspace-state`).
  *
  * @experimental This API is unstable and may change without notice.
  */

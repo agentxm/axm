@@ -45,4 +45,4 @@ export interface NativeWriteAuthorityService {
 export class NativeWriteAuthority extends ServiceMap.Service<
   NativeWriteAuthority,
   NativeWriteAuthorityService
->()("@agentxm/workspace/projection/agent-adapters/NativeWriteAuthority") {}
+>()("@agentxm/workspace-kernel/agent-adapters/NativeWriteAuthority") {}

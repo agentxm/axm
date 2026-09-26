@@ -1,7 +1,7 @@
 /**
  * Publisher-change plan shaping.
  *
- * `@agentxm/workspace/resolution` classifies whether a proposed Registry
+ * `@agentxm/workspace-kernel/resolution` classifies whether a proposed Registry
  * acceptance replaces an accepted publisher binding. This module turns that
  * classification into plan vocabulary: the per-step warning, the
  * interactive-only risk condition, and the blocking condition raised when an

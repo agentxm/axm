@@ -40,4 +40,4 @@ export interface WorkspaceDocumentsService {
 export class WorkspaceDocuments extends Context.Service<
   WorkspaceDocuments,
   WorkspaceDocumentsService
->()("@agentxm/workspace/desired-state/WorkspaceDocuments") {}
+>()("@agentxm/workspace-kernel/workspace-state/WorkspaceDocuments") {}

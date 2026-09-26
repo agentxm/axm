@@ -1,5 +1,5 @@
 /**
- * @agentxm/workspace/authoring deterministic test fixtures.
+ * @agentxm/workspace-features/authoring deterministic test fixtures.
  *
  * A throwaway project workspace on a temporary directory, and the per-type
  * creation request an authoring command is admitted with.

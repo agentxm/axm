@@ -67,7 +67,7 @@ export interface WorkspaceTransactionScopeService {
 export class WorkspaceTransactionScope extends ServiceMap.Service<
   WorkspaceTransactionScope,
   WorkspaceTransactionScopeService
->()("@agentxm/workspace/transitions/settlement/WorkspaceTransactionScope") {}
+>()("@agentxm/workspace-kernel/settlement/WorkspaceTransactionScope") {}
 
 /** Creates an invocation-owned scope when an application selects a workspace at runtime. */
 export class WorkspaceTransactionScopes extends ServiceMap.Service<
@@ -77,7 +77,7 @@ export class WorkspaceTransactionScopes extends ServiceMap.Service<
       paths: WorkspaceTransactionPaths,
     ) => Effect.Effect<WorkspaceTransactionScopeService>;
   }
->()("@agentxm/workspace/transitions/settlement/WorkspaceTransactionScopes") {}
+>()("@agentxm/workspace-kernel/settlement/WorkspaceTransactionScopes") {}
 
 /** Admission is held until the calling scope closes. */
 export const acquireWorkspaceTransition = (

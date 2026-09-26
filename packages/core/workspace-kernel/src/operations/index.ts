@@ -1,12 +1,12 @@
 /**
- * @agentxm/workspace/operations public API.
+ * @agentxm/workspace-kernel/operations public API.
  *
  * The operations contract every workspace operation speaks: the plan and its
  * steps, operation resolutions, lifecycle events and journals, interruption
  * handling, the serialized failure vocabulary, plan-execution recovery
  * values, the evidence an operation carries, and the interaction ports the
  * CLI implements. Plan execution mechanics live in
- * `@agentxm/workspace/transitions/planning`.
+ * `@agentxm/workspace-kernel/planning`.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation

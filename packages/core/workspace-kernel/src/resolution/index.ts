@@ -1,5 +1,5 @@
 /**
- * @agentxm/workspace/resolution public API.
+ * @agentxm/workspace-kernel/resolution public API.
  *
  * Extension resolution policy: which source is allowed to supply a
  * configured extension, which visible version that source resolves to under

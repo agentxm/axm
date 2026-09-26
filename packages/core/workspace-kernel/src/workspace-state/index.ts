@@ -1,13 +1,13 @@
 /**
- * @agentxm/workspace/desired-state public API.
+ * @agentxm/workspace-kernel/workspace-state public API.
  *
  * The workspace-state kernel: settings and lockfile authority, the workspace
  * read model, desired-state and canonical-observation vocabulary, extension
  * paths and layout, and the narrow workspace-state services (`WorkspaceLocation`,
  * readers, and writers). Extension ref and source vocabulary lives in
  * `@agentxm/extension-model`; workspace transactions live in
- * `@agentxm/workspace/transitions/settlement`; plan execution in
- * `@agentxm/workspace/transitions/planning`.
+ * `@agentxm/workspace-kernel/settlement`; plan execution in
+ * `@agentxm/workspace-kernel/planning`.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation

@@ -1,5 +1,5 @@
 /**
- * @agentxm/workspace/transitions/settlement public API.
+ * @agentxm/workspace-kernel/settlement public API.
  *
  * The workspace transaction capability: the process transition lock and the
  * scope that owns it, the transaction runner, the write registration
@@ -7,7 +7,7 @@
  * footprint observation, and the typed failure vocabulary. The closure API
  * (`withWorkspaceClosure`, `settleWorkspaceClosure`,
  * `rollbackWorkspaceClosure`, `pendingClosureRestorations`) is exported for
- * `@agentxm/workspace/transitions/planning` alone, which settles each semantic closure;
+ * `@agentxm/workspace-kernel/planning` alone, which settles each semantic closure;
  * lint refuses it elsewhere. The transaction context and its ledger are not
  * exported.
  *

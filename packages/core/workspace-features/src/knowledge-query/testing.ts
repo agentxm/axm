@@ -1,5 +1,5 @@
 /**
- * @agentxm/workspace/knowledge/query deterministic fixtures and ports.
+ * @agentxm/workspace-features/knowledge-query deterministic fixtures and ports.
  *
  * A throwaway workspace with authored Knowledge bundles, the layer discovery
  * needs over it, and the changing-source port that proves capture refuses an

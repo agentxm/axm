@@ -123,7 +123,7 @@ export interface SettingsReaderService {
 }
 
 export class SettingsReader extends ServiceMap.Service<SettingsReader, SettingsReaderService>()(
-  "@agentxm/workspace/desired-state/SettingsReader",
+  "@agentxm/workspace-kernel/workspace-state/SettingsReader",
 ) {}
 
 /**

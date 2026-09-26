@@ -1,13 +1,13 @@
 /**
- * @agentxm/workspace/transitions/planning public API.
+ * @agentxm/workspace-kernel/planning public API.
  *
  * Plan execution mechanics: the two-phase candidate orchestration
  * (`prepareExecutionCandidate` then `resolveExecutionCandidate`), plan
  * application, and plan readiness and reconciliation gating. The plan,
  * operation, and failure vocabulary they execute lives in
- * `@agentxm/workspace/operations`; transactions and the transition lock in
- * `@agentxm/workspace/transitions/settlement`; the composed workspace layer in
- * `@agentxm/workspace/desired-state/live`.
+ * `@agentxm/workspace-kernel/operations`; transactions and the transition lock in
+ * `@agentxm/workspace-kernel/settlement`; the composed workspace layer in
+ * `@agentxm/workspace-kernel/workspace-state/live`.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation

@@ -26,7 +26,7 @@ export interface FootprintObservation {
 export class FootprintRecorder extends ServiceMap.Service<
   FootprintRecorder,
   { readonly ref: Ref.Ref<ReadonlyArray<FootprintObservation>> }
->()("@agentxm/workspace/transitions/settlement/FootprintRecorder") {}
+>()("@agentxm/workspace-kernel/settlement/FootprintRecorder") {}
 
 /** Record one observed durable change. No-op without a recorder. */
 export const recordFootprint = (observation: FootprintObservation): Effect.Effect<void> =>

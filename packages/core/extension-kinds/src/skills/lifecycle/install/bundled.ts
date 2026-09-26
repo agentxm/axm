@@ -80,7 +80,7 @@ export interface BundledAxmSkillAssetService {
 export class BundledAxmSkillAsset extends ServiceMap.Service<
   BundledAxmSkillAsset,
   BundledAxmSkillAssetService
->()("@agentxm/workspace/skills/lifecycle/BundledAxmSkillAsset") {}
+>()("@agentxm/extension-kinds/skills/lifecycle/BundledAxmSkillAsset") {}
 
 const BUNDLED_AXM_SKILL_NAME = sanitizeName("axm");
 

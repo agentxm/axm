@@ -79,7 +79,7 @@ export interface RegistryIndexMemoService {
 export class RegistryIndexMemo extends ServiceMap.Service<
   RegistryIndexMemo,
   RegistryIndexMemoService
->()("@agentxm/workspace/resolution/registry-index-memo/RegistryIndexMemo") {}
+>()("@agentxm/workspace-kernel/sources/registry-index-memo/RegistryIndexMemo") {}
 
 export const makeRegistryIndexMemo = <R>(
   lookup: (

@@ -231,7 +231,7 @@ export interface OperationLifecycleService {
 export class OperationLifecycle extends ServiceMap.Service<
   OperationLifecycle,
   OperationLifecycleService
->()("@agentxm/workspace/transitions/planning/plan/operation-events/OperationLifecycle") {}
+>()("@agentxm/workspace-kernel/operations/operation-events/OperationLifecycle") {}
 
 interface DrainState {
   readonly settled: boolean;
@@ -342,7 +342,7 @@ export const publishWaitEnded = (subject: string): Effect.Effect<void> =>
 export class CurrentOperationUnit extends ServiceMap.Service<
   CurrentOperationUnit,
   { readonly unitId: string }
->()("@agentxm/workspace/transitions/planning/plan/operation-events/CurrentOperationUnit") {}
+>()("@agentxm/workspace-kernel/operations/operation-events/CurrentOperationUnit") {}
 
 /**
  * Publish a continuous measurement for the current unit, and the attempt it

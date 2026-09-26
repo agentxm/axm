@@ -2,7 +2,7 @@
  * The coding-agent repository service.
  *
  * The per-agent adapter contract (`CodingAgent`) is native format mechanics
- * and lives in `@agentxm/workspace/projection/agent-adapters`; deciding which agents a
+ * and lives in `@agentxm/workspace-kernel/agent-adapters`; deciding which agents a
  * workspace projects onto is a core decision, so the repository that answers
  * it lives here.
  *
@@ -44,4 +44,4 @@ export interface CodingAgentRepositoryService {
 export class CodingAgentRepository extends ServiceMap.Service<
   CodingAgentRepository,
   CodingAgentRepositoryService
->()("@agentxm/workspace/projection/agents/CodingAgentRepository") {}
+>()("@agentxm/workspace-kernel/projection/agents/CodingAgentRepository") {}

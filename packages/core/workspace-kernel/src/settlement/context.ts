@@ -33,7 +33,7 @@ export interface WorkspaceTransactionContext {
 /** The active transaction, when one is running on this fiber's context. */
 export const CurrentWorkspaceTransaction = ServiceMap.Reference<
   Option.Option<WorkspaceTransactionContext>
->("@agentxm/workspace/transitions/settlement/CurrentWorkspaceTransaction", {
+>("@agentxm/workspace-kernel/settlement/CurrentWorkspaceTransaction", {
   defaultValue: () => Option.none(),
 });
 
@@ -45,7 +45,7 @@ export const CurrentWorkspaceTransaction = ServiceMap.Reference<
  * by the transaction's own failure handling.
  */
 export const CurrentWorkspaceClosure = ServiceMap.Reference<string | undefined>(
-  "@agentxm/workspace/transitions/settlement/CurrentWorkspaceClosure",
+  "@agentxm/workspace-kernel/settlement/CurrentWorkspaceClosure",
   { defaultValue: () => undefined },
 );
 

@@ -218,7 +218,7 @@ export interface WorkspaceInvariantFactsService {
 export class WorkspaceInvariantFacts extends ServiceMap.Service<
   WorkspaceInvariantFacts,
   WorkspaceInvariantFactsService
->()("@agentxm/workspace/projection/invariant-facts/WorkspaceInvariantFacts") {}
+>()("@agentxm/workspace-kernel/projection/invariant-facts/WorkspaceInvariantFacts") {}
 
 /**
  * Build the live facts service over the participant registry and workspace

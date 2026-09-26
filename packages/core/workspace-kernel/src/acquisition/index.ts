@@ -1,5 +1,5 @@
 /**
- * @agentxm/workspace/acquisition public API.
+ * @agentxm/workspace-kernel/acquisition public API.
  *
  * Acquisition of extension content into the workspace: the verified source
  * trees a transition retains, the bounded acquisition queue and tree

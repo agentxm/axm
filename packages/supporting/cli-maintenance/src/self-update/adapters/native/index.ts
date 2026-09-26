@@ -5,7 +5,7 @@
  *
  * The capability owns its own process lock and atomic executable replacement:
  * it acts on a file outside any workspace, so it is deliberately not a
- * `@agentxm/workspace/transitions/settlement` closure.
+ * `@agentxm/workspace-kernel/settlement` closure.
  *
  * @experimental All exports from this module are unstable and may change without notice.
  * @packageDocumentation

@@ -23,10 +23,10 @@ import type {
 } from "./units.js";
 
 const ProjectionRenderInputTypeId: unique symbol = Symbol.for(
-  "@agentxm/workspace/projection/planning/ProjectionRenderInput",
+  "@agentxm/workspace-kernel/projection/planning/ProjectionRenderInput",
 );
 const ProjectionPlanTypeId: unique symbol = Symbol.for(
-  "@agentxm/workspace/projection/planning/ProjectionPlan",
+  "@agentxm/workspace-kernel/projection/planning/ProjectionPlan",
 );
 
 // Projection observation and application use the same local filesystem as the

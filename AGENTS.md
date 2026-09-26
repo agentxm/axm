@@ -331,12 +331,17 @@ requirements.
 - Maintainer-authored changes require passing evidence and an acceptance
   decision, not a second human reviewer. External contributions require
   maintainer acceptance. GitHub's native merge queue verifies the synthesized
-  integration revision before squash merge; authors do not refresh accepted
+  integration revision before rebase merge; authors do not refresh accepted
   branches merely because `main` advances. Follow the
   [merge-queue runbook](devops/runbooks/operate-merge-queue.md) for enqueue,
   failure recovery, and live-setting verification. Zero approvals are required
   so maintainer-authored work needs no second human; external maintainer
   acceptance remains a process boundary
+- Every pull-request commit lands on public `main` unchanged. Before
+  enqueueing, clean the branch with `git rebase --autosquash` so each commit is
+  one coherent change with an imperative subject. Rebase onto `main` instead of
+  merging it into the branch. See
+  [Commit history](CONTRIBUTING.md#commit-history)
 
 - This repo is public; the executable specification
   `system/process/public-artifacts-protect-private-context` owns the

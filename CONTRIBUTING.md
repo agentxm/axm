@@ -83,7 +83,7 @@ Landing changes through short-lived pull requests with passing aggregate
 verification is repository policy. GitHub requires pull requests for `main`, a
 successful `Required CI` check produced by GitHub Actions for the native merge
 queue's synthesized integration revision, resolved conversations, linear
-history, and squash integration; the same rules bind administrators.
+history, and rebase integration; the same rules bind administrators.
 Maintainer-authored changes need an explicit acceptance decision but not a
 second human reviewer, so the host requires zero approving reviews. External
 contributions still require maintainer acceptance as a process boundary because
@@ -99,10 +99,30 @@ reviewer for maintainer-authored work.
    `pnpm run verify:pr` when reproducing a merge-queue failure.
 5. Open a pull request against `main`. After acceptance, enable auto-merge to
    enter GitHub's native merge queue. GitHub tests the synthesized merge-group
-   revision and squash-merges only after its `Required CI` succeeds. Do not
+   revision and rebase-merges only after its `Required CI` succeeds. Do not
    refresh an accepted branch solely because `main` advanced; GitHub rebuilds
    or requeues it when the integration candidate changes. See
    [Operate the merge queue](devops/runbooks/operate-merge-queue.md).
+
+### Commit history
+
+The merge queue rebases every pull-request commit onto `main` unchanged, so
+each commit becomes permanent public history. Before you enqueue a pull
+request:
+
+- Make each commit one coherent change that builds and passes its own tests.
+- Write an imperative subject, such as `Show whether a password is set`, and
+  explain why in the body when the diff does not.
+- Fold review fixes in with `git commit --fixup` and
+  `git rebase --autosquash main`, then force-push your own branch.
+- Rebase onto `main` to pick up upstream changes; do not merge `main` into the
+  branch.
+
+The `Commit history` check in `Required CI` rejects merge commits, `fixup!`,
+`squash!`, or `amend!` subjects, work-in-progress subjects, and messages that
+reference private coordination context. A single-commit pull request lands the
+same way, so its commit message, not the pull-request title, is what `main`
+records.
 
 Do not edit, commit, or push directly on `main`. Use a separate worktree for
 concurrent tasks or coding-agent sessions so the primary checkout can remain

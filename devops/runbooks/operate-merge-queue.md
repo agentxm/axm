@@ -26,7 +26,7 @@ clean source branch, resolved conversations, and a successful pull-request
 on synthesized revisions.
 
 Success means the accepted change entered the native queue, `Required CI`
-succeeded on the exact merge-group SHA, GitHub squash-merged the resulting entry
+succeeded on the exact merge-group SHA, GitHub rebase-merged the resulting entry
 without bypass, and the corresponding `main` CI completed. Release publication
 and deployment workflows remain eligible only for their explicit trusted-main
 events; a `merge_group` run never publishes or deploys.
@@ -38,7 +38,7 @@ the returned JSON as rollback evidence. The intended queue profile is:
 
 | Setting                | Value                                     | Reason                                                                  |
 | ---------------------- | ----------------------------------------- | ----------------------------------------------------------------------- |
-| Merge method           | Squash                                    | Preserve linear history and one reviewed integration commit             |
+| Merge method           | Rebase                                    | Preserve linear history and each reviewed commit                        |
 | Build concurrency      | 2 entries                                 | Exercise useful overlap without multiplying the current hosted workload |
 | Merge concurrency      | 1 entry                                   | Make the admitted order and resulting base unambiguous                  |
 | Grouping               | All entries green                         | Do not merge one entry from a failing tested group                      |
@@ -53,10 +53,14 @@ API response alone is not configuration evidence.
 
 ## Enqueue and inspect
 
-After the acceptance decision, enable auto-merge with squash integration:
+Before enqueueing, confirm that each source commit is one reviewed change: the
+queue lands every commit on `main` unchanged, and `Required CI` includes the
+`Commit history` check described in
+[Contributing](../../CONTRIBUTING.md#commit-history). After the acceptance
+decision, enable auto-merge with rebase integration:
 
 ```bash
-gh pr merge <number> --repo agentxm/axm --auto --squash
+gh pr merge <number> --repo agentxm/axm --auto --rebase
 ```
 
 For release pull requests, retain the generated release title and bind the
@@ -68,9 +72,10 @@ that exact head SHA, the pull requests represented by it, and the aggregate
 result. Cancellation is isolated by event and merge-group head ref, so a newer
 pull-request run, another queue group, or trusted-main run must not cancel it.
 
-After merge, verify the pull request's squash commit is reachable from `main`
-and that trusted-main CI ran for that new SHA. The merge-group SHA is temporary
-and need not equal the squash commit.
+After merge, verify the pull request's rebased commits are reachable from `main`
+and that trusted-main CI ran for the new tip SHA. The queue fast-forwards
+`main` to the verified merge-group revision, so trusted-main CI reports on that
+tip; intermediate commits are verified by their authors, not by the queue.
 
 ## Recover a rejected entry
 
@@ -83,8 +88,9 @@ and need not equal the squash commit.
   failure, let GitHub dequeue it, force a fresh pull-request synchronization,
   verify the new head, and enqueue again. Do not bypass the check or rerun
   unrelated work to hide the failure.
-- If the pull request conflicts with the current base, resolve the conflict on
-  its source branch once, run the normal pull-request gate, and enqueue it again.
+- If the pull request conflicts with the current base, rebase its source branch
+  onto current `main`, resolve each conflicting commit once, force-push the
+  source branch, run the normal pull-request gate, and enqueue it again.
 - If an entry was rebuilt because an earlier merge changed its base, treat the
   replacement merge-group SHA as the authoritative integration candidate. No
   author-managed refresh is required unless GitHub reports an actual conflict.
@@ -114,7 +120,7 @@ gh api graphql \
   (`mergeQueueEntry` is `null`). Submitting it again while auto-merge is
   enabled does not enqueue it. Disable auto-merge, then submit the pull request
   without a merge strategy; with required checks passed, GitHub adds it to the
-  queue, which applies the queue's squash method:
+  queue, which applies the queue's rebase method:
 
   ```bash
   gh pr merge <number> --repo agentxm/axm --disable-auto

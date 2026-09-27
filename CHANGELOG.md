@@ -1,3 +1,17 @@
+## 0.36.0 (2026-09-27)
+
+### 🚀 Features
+
+- Device-code sign-in no longer prints security warnings or copies to the clipboard on its own; pressing `c` copies the pre-filled link, over SSH through the terminal (OSC 52). `axm login` also chooses device code on Linux outside WSL when no display or `BROWSER` is set. ([#453](https://github.com/agentxm/axm/pull/453))
+
+### ⚠️ Breaking Changes
+
+- Split the workspace package into `@agentxm/workspace-kernel`, `@agentxm/extension-kinds`, and `@agentxm/workspace-features`, each exposing one entry point per slice. Consumers of the unstable programmatic APIs must adopt the new package coordinates and slice entry points. ([6e13590fb](https://github.com/agentxm/axm/commit/6e13590fb))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.35.0 (2026-09-25)
 
 ### 🩹 Fixes

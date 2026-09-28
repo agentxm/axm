@@ -288,7 +288,8 @@ export const FIXTURE_CLI_VERSION = "1.2.3";
 export const FIXTURE_PRERELEASE_CLI_VERSION = "1.3.0-preview.1";
 
 /** The bounded, wildcard-free range the fixture skills declare. */
-const FIXTURE_CLI_VERSION_RANGE = ">=1.0.0 <2.0.0";
+/** The bounded CLI range every compatible official-skill fixture declares. */
+export const FIXTURE_CLI_VERSION_RANGE = ">=1.0.0 <2.0.0";
 
 const officialSkillManifest = (version: string): string =>
   `${JSON.stringify(

@@ -6,8 +6,13 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { lintProject, lintServices, ruleSeverityRows } from "../../test-helpers.js";
 import {
+  EXTRANEOUS_AXM_SKILL_PACKAGE_ROOT,
+  FIXTURE_CLI_VERSION,
+  FIXTURE_CLI_VERSION_RANGE,
+  OFFICIAL_AXM_SKILL_PACKAGE_ROOT,
   isolateOfficialAxmSkillRules,
   makeOfficialAxmSkillWorkspace,
+  officialAxmSkillPackage,
   type OfficialAxmSkillState,
 } from "../../testing.js";
 
@@ -15,7 +20,7 @@ export const specification = defineSpecification({
   requirement: "cli/lint/undeclared-official-skill-is-informational",
   title: "Lint reports an undeclared official AXM skill as informational",
   statement:
-    "When the workspace does not declare the official AXM skill, lint shall report one informational finding for the declared-skill rule, shall report no compatibility finding, and shall succeed.",
+    "When the workspace does not declare the official AXM skill, lint shall report one informational finding for the declared-skill rule, shall report no compatibility finding or compatibility result, and shall succeed; official-skill content that happens to be on disk, or another owner's skill named axm, shall not change that.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
@@ -29,9 +34,31 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
-const cases: ReadonlyArray<{ readonly state: OfficialAxmSkillState }> = [
-  { state: "undeclared" },
-  { state: "non-official" },
+/**
+ * Official-skill packages nothing declares: a compatible one where the
+ * Registry would place it, and an incompatible one an older layout left.
+ */
+const incidentalOfficialContent = {
+  ...officialAxmSkillPackage({
+    packageRoot: OFFICIAL_AXM_SKILL_PACKAGE_ROOT,
+    version: FIXTURE_CLI_VERSION,
+    metadata: { cliVersion: FIXTURE_CLI_VERSION, cliVersionRange: FIXTURE_CLI_VERSION_RANGE },
+  }),
+  ...officialAxmSkillPackage({
+    packageRoot: EXTRANEOUS_AXM_SKILL_PACKAGE_ROOT,
+    version: "0.0.1",
+    metadata: { cliVersion: "0.0.1", cliVersionRange: ">=0.0.1 <0.1.0" },
+  }),
+};
+
+const cases: ReadonlyArray<{
+  readonly state: OfficialAxmSkillState;
+  readonly content: "no" | "incidental";
+}> = [
+  { state: "undeclared", content: "no" },
+  { state: "undeclared", content: "incidental" },
+  { state: "non-official", content: "no" },
+  { state: "non-official", content: "incidental" },
 ];
 
 describe("Undeclared official AXM skill", () => {
@@ -40,20 +67,25 @@ describe("Undeclared official AXM skill", () => {
     for (const cleanup of cleanups.splice(0)) cleanup();
   });
 
-  it.effect.each(cases)("is informational when the workspace is $state", ({ state }) => {
-    const workspace = makeOfficialAxmSkillWorkspace(state, {
-      settings: { lint: { rules: isolateOfficialAxmSkillRules() } },
-    });
-    cleanups.push(workspace.cleanup);
+  it.effect.each(cases)(
+    "is informational when the workspace is $state with $content official content",
+    ({ state, content }) => {
+      const workspace = makeOfficialAxmSkillWorkspace(state, {
+        settings: { lint: { rules: isolateOfficialAxmSkillRules() } },
+        ...(content === "incidental" ? { files: incidentalOfficialContent } : {}),
+      });
+      cleanups.push(workspace.cleanup);
 
-    return Effect.gen(function* () {
-      const result = yield* lintProject(workspace);
+      return Effect.gen(function* () {
+        const result = yield* lintProject(workspace);
 
-      expect(ruleSeverityRows(result.document.findings)).toEqual([
-        ["workspace/axm-skill-declared", "info"],
-      ]);
-      expect(result.document.summary.exitCategory).toBe("clean");
-      expect(result.outcome).toBe("success");
-    }).pipe(Effect.provide(lintServices(workspace)));
-  });
+        expect(ruleSeverityRows(result.document.findings)).toEqual([
+          ["workspace/axm-skill-declared", "info"],
+        ]);
+        expect(result.document.axmSkillCompatibility).toBeUndefined();
+        expect(result.document.summary.exitCategory).toBe("clean");
+        expect(result.outcome).toBe("success");
+      }).pipe(Effect.provide(lintServices(workspace)));
+    },
+  );
 });

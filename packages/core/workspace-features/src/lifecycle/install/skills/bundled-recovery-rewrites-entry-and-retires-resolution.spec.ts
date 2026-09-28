@@ -1,11 +1,13 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
+import { acceptedCanonicalObservation } from "@agentxm/workspace-kernel/workspace-state";
 import { makeRegistrySkillLockEntry } from "@agentxm/workspace-kernel/workspace-state/testing";
 import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 
@@ -56,6 +58,22 @@ const bundledRecovery = applyInstall(
     planName: "Install bundled AXM skill",
   }),
 );
+
+/**
+ * The generated asset with what the executable claims about it changed, so
+ * the claim and the bytes it installs disagree.
+ */
+const assetClaiming = (
+  claim: Partial<typeof BundledAxmSkillAsset.Service>,
+  base: Layer.Layer<BundledAxmSkillAsset> = bundledAxmSkillAsset(),
+): Layer.Layer<BundledAxmSkillAsset> =>
+  Layer.effect(
+    BundledAxmSkillAsset,
+    Effect.gen(function* () {
+      const asset = yield* BundledAxmSkillAsset;
+      return { ...asset, ...claim };
+    }),
+  ).pipe(Layer.provide(base));
 
 describe("Bundled official-skill recovery", () => {
   const cleanups: Array<() => void> = [];
@@ -135,14 +153,25 @@ describe("Bundled official-skill recovery", () => {
     {
       // The executable claims 1.0.0 but carries compatible 1.0.1 bytes.
       installed: "a compatible release other than the bundled one",
-      asset: Layer.effect(
-        BundledAxmSkillAsset,
-        Effect.gen(function* () {
-          const asset = yield* BundledAxmSkillAsset;
-          return { ...asset, version: "1.0.0" };
-        }),
-      ).pipe(Layer.provide(bundledAxmSkillAsset({ version: "1.0.1" }))),
+      asset: assetClaiming({ version: "1.0.0" }, bundledAxmSkillAsset({ version: "1.0.1" })),
     },
+    {
+      // The executable claims a range that admits it, but the entry document
+      // it carries declares one that does not.
+      installed: "an entry document whose range excludes the running CLI",
+      asset: assetClaiming(
+        { cliVersionRange: ">=1.0.0 <2.0.0" },
+        bundledAxmSkillAsset({ version: "1.0.0", cliVersionRange: ">=2.0.0 <3.0.0" }),
+      ),
+    },
+    {
+      installed: "a manifest without a valid version",
+      asset: assetClaiming({
+        manifestJson: `${JSON.stringify({ owner: "@agentxm", type: "skill", name: "axm", version: "next" })}\n`,
+      }),
+    },
+    { installed: "a manifest that is not JSON", asset: assetClaiming({ manifestJson: "{" }) },
+    { installed: "no entry document at all", asset: assetClaiming({ sourceFiles: [] }) },
   ])("fails and restores the workspace when the installed bytes are $installed", ({ asset }) =>
     Effect.gen(function* () {
       const world = yield* registryResolvedWorkspace();
@@ -154,6 +183,32 @@ describe("Bundled official-skill recovery", () => {
 
       expect(deriveOperationOutcome(resolution)).not.toBe("applied");
       expect(world.workspace.snapshot()).toEqual(before);
+    }),
+  );
+
+  it.effect("judges the installed package even after the previous state was observed", () =>
+    Effect.gen(function* () {
+      const world = yield* registryResolvedWorkspace();
+
+      yield* world.workspace
+        .provide(
+          Effect.gen(function* () {
+            // Observing the Registry-desired package first must not leave a
+            // stale observation for the readback to accept.
+            const primed = yield* acceptedCanonicalObservation({ type: "skill", name: "axm" });
+            expect(Option.map(primed, ({ desired }) => desired.identity.authority)).toEqual(
+              Option.some("registry"),
+            );
+            yield* bundledRecovery;
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+
+      expect(readSettings(world.workspace)).toMatchObject({
+        skills: { axm: { source: "workspace", origin: "bundled" } },
+      });
+      expect(world.workspace.readFile("axm-lock.yaml")).not.toContain("axm:");
+      expect(world.workspace.exists(CANONICAL_SKILL)).toBe(true);
     }),
   );
 

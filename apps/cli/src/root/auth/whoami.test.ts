@@ -7,7 +7,11 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
-import { AuthClientTest, CredentialStoreTest } from "@agentxm/registry-access/testing";
+import {
+  AuthClientTest,
+  CredentialStoreTest,
+  WorkloadCredentialsTest,
+} from "@agentxm/registry-access/testing";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
@@ -26,6 +30,7 @@ const defaultWhoami = {
   resourceRestrictions: null,
   expiresAt: null,
   approvedAt: null,
+  trustedPublisher: null,
 };
 
 const makeLayers = (opts?: {
@@ -68,6 +73,7 @@ const makeLayers = (opts?: {
     rendererLayer,
     TestFlagsLayer(),
     credStoreLayer,
+    WorkloadCredentialsTest(),
     authClientLayer,
     registryUrlLayer,
   );

@@ -24,7 +24,9 @@ order:
 1. a non-empty `AXM_TOKEN` value;
 2. the trimmed, non-empty contents of the readable file named by
    `AXM_TOKEN_FILE`;
-3. the stored credential from `axm login`.
+3. in a GitHub Actions job granted `permissions: id-token: write`, a workload
+   token for the job's trusted publisher (see below);
+4. the stored credential from `axm login`.
 
 Prefer `AXM_TOKEN_FILE` in automation so the secret does not need to live in
 the process environment or command line. Restrict the file to the account that
@@ -33,6 +35,31 @@ persisted as login sessions. `axm token --output token` writes the effective
 token, and nothing else, to stdout. Ambient credentials are never forwarded to
 any non-default Registry origin. Configure the durable Registry choice with
 `defaultRegistry` and `sources` in settings; see `axm help settings`.
+
+## Publishing from GitHub Actions
+
+A GitHub Actions job granted `permissions: id-token: write` can authenticate
+without a stored secret. GitHub gives such a job `ACTIONS_ID_TOKEN_REQUEST_URL`
+and `ACTIONS_ID_TOKEN_REQUEST_TOKEN`. When both are set, no explicit token is
+supplied, and `AXM_TRUSTED_PUBLISHING` is not `0`, AXM requests an ID token
+whose audience is the default Registry's origin and exchanges it at that
+Registry for a short-lived workload token. The exchange happens when a command
+first needs a credential, such as publishing, `axm whoami`, or `axm token`, at
+most once per invocation; reads that need no credential stay anonymous and ask
+for no ID token. From then on the workload token is presented only to the
+default Registry origin. The Registry accepts the exchange only when an active
+trusted publisher matches the job's repository, workflow file, and
+environment; register one in
+[web settings](https://agentxm.ai/u/settings/trusted-publishers). The workload
+token can do only what that trusted publisher permits, has no refresh token,
+and is never retried after the Registry rejects it. `axm whoami` names the
+trusted publisher, and `axm token --output token` writes the workload token.
+
+When the job cannot obtain an ID token, or no trusted publisher accepts it, AXM
+fails with `auth_required` and names what to change. A job that holds the
+ID-token variables for another purpose and should not use trusted publishing
+sets `AXM_TRUSTED_PUBLISHING=0`; an explicit `AXM_TOKEN` or `AXM_TOKEN_FILE`
+also takes precedence.
 
 ## Creating a token for automation
 
@@ -144,6 +171,7 @@ characters. These display controls do not change JSON documents.
 | --------------------------- | ----------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `AXM_TOKEN_FILE`            | stable automation | Readable file path; unset                                   | Preferred non-interactive credential. Its trimmed contents take precedence over stored credentials, but follow `AXM_TOKEN`. Applies only to the effective default Registry origin. |
 | `AXM_TOKEN`                 | stable automation | Non-empty token; unset                                      | Highest-precedence ambient credential for the effective default Registry origin. More exposed than `AXM_TOKEN_FILE`; never log it.                                                 |
+| `AXM_TRUSTED_PUBLISHING`    | stable automation | `0` disables; enabled otherwise                             | `0` stops AXM from exchanging a GitHub Actions job's ID token for a workload token, even when the job offers one.                                                                  |
 | `AXM_USER_HOME`             | stable automation | Non-empty home-directory path; platform home when unset     | Relocates the user workspace and application resources described above; project state remains in the selected project.                                                             |
 | `AXM_NO_UPDATE_CHECK`       | stable automation | `1` disables; enabled otherwise                             | Unconditionally disables the informational startup update check in every output and interaction mode.                                                                              |
 | `AXM_TELEMETRY`             | stable automation | `0`, `false`, `errors`, `1`, or `true`; off by default      | Controls telemetry for the current process. `DO_NOT_TRACK=1` wins. Unset or unrecognized values remain off.                                                                        |

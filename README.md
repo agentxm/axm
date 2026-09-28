@@ -243,6 +243,15 @@ uses device-code sign-in.
 `axm token create --output token` writes only a new token to stdout for a
 pipe; `axm help environment` shows a guarded recipe for storing it.
 
+A GitHub Actions job granted `permissions: id-token: write` needs no stored
+secret: register its repository and workflow as a trusted publisher in
+[AgentXM settings](https://agentxm.ai/u/settings/trusted-publishers), and AXM
+exchanges the job's ID token for a short-lived workload token scoped to that
+trusted publisher. `AXM_TOKEN` and `AXM_TOKEN_FILE` still take precedence, and
+`AXM_TRUSTED_PUBLISHING=0` turns the exchange off. See
+[Publishing from GitHub Actions](apps/cli/site-content/docs/quickstart.md#publishing-from-github-actions)
+for a workflow, and `axm help environment` for the full credential order.
+
 ## Supported agents
 
 AXM supports nearly 40 agents — Claude Code, Codex, Cursor,

@@ -27,6 +27,7 @@ const SENSITIVE_KEYS: ReadonlySet<string> = new Set([
   "token",
   "accesstoken",
   "refreshtoken",
+  "subjecttoken",
   "stepuptoken",
   "idtoken",
   "apikey",
@@ -50,15 +51,18 @@ const redactCredentialShapes = (input: string): string =>
     .replaceAll(/:\/\/([^\s/:@]+):[^\s/@]+@/g, `://$1:${REDACTED_SECRET}@`)
     .replaceAll(/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi, `$1 ${REDACTED_SECRET}`)
     .replaceAll(
-      /([?&](?:access_token|refresh_token|token|api_key|apikey|key|secret|password|code|initiator_proof|code_verifier|device_code)=)[^&#\s]*/gi,
+      /([?&](?:access_token|refresh_token|subject_token|token|api_key|apikey|key|secret|password|code|initiator_proof|code_verifier|device_code)=)[^&#\s]*/gi,
       `$1${REDACTED_SECRET}`,
     )
     .replaceAll(
-      /((?:access_token|refresh_token|step_up_token|token|api_key|apikey|client_secret|secret|password|authorization|initiator_?proof|code_?verifier|device_?code)["']?\s*[:=]\s*["']?)[^"',\s&}]+/gi,
+      /((?:access_token|refresh_token|subject_token|step_up_token|token|api_key|apikey|client_secret|secret|password|authorization|initiator_?proof|code_?verifier|device_?code)["']?\s*[:=]\s*["']?)[^"',\s&}]+/gi,
       `$1${REDACTED_SECRET}`,
     )
     .replaceAll(/\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})\b/g, REDACTED_SECRET)
     .replaceAll(/\b(?:sk|npm)_[A-Za-z0-9_-]{16,}\b/g, REDACTED_SECRET)
+    // AgentXM bearer credentials: session, refresh, personal access, and
+    // workload tokens.
+    .replaceAll(/\baxm[stwr]_[A-Za-z0-9]{20,}/g, REDACTED_SECRET)
     .replaceAll(/\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g, REDACTED_SECRET);
 
 const redactKnownSecret = (text: string, secret: string): string =>

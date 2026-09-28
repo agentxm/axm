@@ -29,6 +29,7 @@ export const WhoamiDataSchema = Schema.Struct({
   ),
   expiresAt: Schema.NullOr(DateTimeUtcSchema),
   approvedAt: Schema.NullOr(DateTimeUtcSchema),
+  trustedPublisher: Schema.NullOr(Schema.Struct({ name: Schema.String })),
 });
 const WhoamiDocumentFields = {
   data: WhoamiDataSchema,
@@ -63,6 +64,11 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(
           `Authenticated as ${identity.user}`,
           `Registry  ${identity.registry}`,
           `Credential  ${identity.credentialType}`,
+          // A workload token acts for its owner under a trusted publisher's
+          // permissions; which publisher is what a CI log reader needs.
+          ...(identity.trustedPublisher === null
+            ? []
+            : [`Trusted publisher  ${identity.trustedPublisher.name}`]),
           ...limits,
           // Only a CLI session has an approving sign-in, and how recently that
           // person authenticated is what stands behind this session's

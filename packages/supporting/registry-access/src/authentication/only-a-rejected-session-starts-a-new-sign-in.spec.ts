@@ -64,6 +64,7 @@ describe("Login over a stored session", () => {
               resourceRestrictions: null,
               expiresAt: null,
               approvedAt: null,
+              trustedPublisher: null,
             };
           }),
       },

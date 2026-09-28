@@ -37,6 +37,10 @@ import {
   type PendingDeviceLogin,
 } from "../pending-device-login-store.js";
 import type { CredentialFile } from "../../credentials/schema.js";
+import {
+  WorkloadCredentialsTest,
+  type WorkloadCredentialsService,
+} from "../../credentials/workload-credentials.js";
 
 /** The category a typed auth failure carries, or undefined for any other failure. */
 export const authFailureCategory = (failure: unknown): string | undefined =>
@@ -81,6 +85,8 @@ export interface AuthPortsOptions {
   readonly auth?: Partial<AuthClientService>;
   /** The token endpoints a stored session is renewed and revoked through. */
   readonly exchange?: Partial<TokenExchangeService>;
+  /** How a GitHub Actions identity becomes a workload token. */
+  readonly workload?: Partial<WorkloadCredentialsService>;
   /**
    * The environment auth policy reads. Defaults to an empty environment, so
    * no specification observes the developer's own `AXM_TOKEN`.
@@ -132,6 +138,7 @@ export const makeAuthPorts = (options: AuthPortsOptions = {}) => {
         resourceRestrictions: null,
         expiresAt: authExpiry,
         approvedAt: null,
+        trustedPublisher: null,
       }),
     ...options.auth,
   });
@@ -164,6 +171,7 @@ export const makeAuthPorts = (options: AuthPortsOptions = {}) => {
     deviceInteraction.layer,
     auth,
     TokenExchangeTest(options.exchange),
+    WorkloadCredentialsTest(options.workload),
     Layer.provide(CredentialStoreSessionLive, credentialStore),
     PendingDeviceLoginStoreTest(options.pending),
     Layer.succeed(AuthEnvironment, ConfigProvider.fromEnvRecord(options.environment ?? {})),

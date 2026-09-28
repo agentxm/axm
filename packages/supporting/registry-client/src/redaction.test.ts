@@ -31,6 +31,31 @@ describe("redactRegistryText", () => {
     );
   });
 
+  it.each(["axms_", "axmr_", "axmt_", "axmw_"])(
+    "redacts a bare %s AgentXM credential wherever it appears",
+    (prefix) => {
+      const credential = `${prefix}${"a".repeat(30)}${"b".repeat(6)}`;
+      expect(redactRegistryText(`Token ${credential} was revoked.`)).toBe(
+        "Token [REDACTED] was revoked.",
+      );
+    },
+  );
+
+  it("leaves AgentXM-prefixed words too short to be a credential unchanged", () => {
+    expect(redactRegistryText("see axmt_docs for the token format")).toBe(
+      "see axmt_docs for the token format",
+    );
+  });
+
+  it("redacts the identity token a token exchange presents", () => {
+    expect(redactRegistryText("grant_type=exchange&subject_token=plain-identity-token")).toBe(
+      "grant_type=exchange&subject_token=[REDACTED]",
+    );
+    expect(collectSensitiveStrings({ subject_token: "plain-identity-token" })).toEqual([
+      "plain-identity-token",
+    ]);
+  });
+
   it("leaves text without a credential shape unchanged", () => {
     expect(redactRegistryText("version 1.2.3 is already published")).toBe(
       "version 1.2.3 is already published",

@@ -8,6 +8,7 @@ import { AuthEnvironment } from "@agentxm/registry-access/adapters";
 import {
   AuthClientTest,
   CredentialStoreTest,
+  WorkloadCredentialsTest,
   DeviceLoginInteractionTest,
 } from "@agentxm/registry-access/testing";
 import { RegistryUrl } from "@agentxm/registry-client";
@@ -58,6 +59,7 @@ describe("Token inventory", () => {
       };
       const renderer = TestMachineRenderer.make();
       const ports = Layer.mergeAll(
+        WorkloadCredentialsTest(),
         renderer.layer,
         TestFlagsLayer({ json: true }),
         Layer.succeed(RegistryUrl, registry),

@@ -148,6 +148,7 @@ export type TokenOAuthErrorEncoded = {
     | "invalid_grant"
     | "unauthorized_client"
     | "unsupported_grant_type"
+    | "invalid_scope"
     | "authorization_pending"
     | "slow_down"
     | "expired_token"
@@ -162,6 +163,7 @@ export const TokenOAuthErrorEncoded = Schema.Struct({
     "invalid_grant",
     "unauthorized_client",
     "unsupported_grant_type",
+    "invalid_scope",
     "authorization_pending",
     "slow_down",
     "expired_token",
@@ -216,6 +218,18 @@ export const ResourceRestrictions = Schema.Struct({
     "What this credential is allowed to access. Present only when the authority is `limited`.",
   identifier: "ResourceRestrictions",
 });
+export type TrustedPublisherId = string;
+export const TrustedPublisherId = Schema.String.annotate({
+  title: "Trusted Publisher ID",
+  description:
+    "Identifies a trusted publisher: a CI workflow identity a user allowed to exchange its OIDC token for a short-lived workload token.",
+  examples: ["tpub_01h455vb4pexka56gq5w2r7cpc"],
+}).check(
+  Schema.isPattern(new RegExp("^tpub_[0-7][0-9a-hjkmnp-tv-z]{25}$")).annotate({
+    expected: "a string matching the RegExp ^tpub_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+    identifier: "TrustedPublisherId",
+  }),
+);
 export type TokenId = string;
 export const TokenId = Schema.String.annotate({
   title: "Token ID",
@@ -991,6 +1005,27 @@ export const LibraryMemberId = Schema.String.annotate({
     identifier: "LibraryMemberId",
   }),
 );
+export type SecretScanningLabel = {
+  readonly token_hash: string;
+  readonly token_type: string;
+  readonly label: "true_positive" | "false_positive";
+};
+export const SecretScanningLabel = Schema.Struct({
+  token_hash: Schema.String.annotate({
+    description: "Lowercase hex SHA-256 of the reported token.",
+  }),
+  token_type: Schema.String.annotate({
+    description: "The token type GitHub reported for the match.",
+  }),
+  label: Schema.Literals(["true_positive", "false_positive"]).annotate({
+    description:
+      "`true_positive` when the match was a live AgentXM token, now revoked; otherwise `false_positive`.",
+  }),
+}).annotate({
+  title: "Secret Scanning Label",
+  description: "What one reported match turned out to be.",
+  identifier: "SecretScanningLabel",
+});
 export type DebugStreamEventEncoded = string;
 export const DebugStreamEventEncoded = Schema.String.annotate({
   contentMediaType: "application/json",
@@ -1047,27 +1082,45 @@ export const PreconditionFailedErrorEncoded = Schema.Struct({
   ]),
   details: Schema.optionalKey(PublishDetails),
 }).annotate({ identifier: "PreconditionFailedErrorEncoded" });
-export type SessionTokenResponse = {
+export type TokenResponse = {
   readonly access_token: string;
-  readonly refresh_token: string;
+  readonly refresh_token?: string;
+  readonly issued_token_type?: "urn:ietf:params:oauth:token-type:access_token";
   readonly token_type: "Bearer";
   readonly expires_in: number;
   readonly expires_at: IsoDateTimeString;
+  readonly scope?: string;
 };
-export const SessionTokenResponse = Schema.Struct({
+export const TokenResponse = Schema.Struct({
   access_token: Schema.String.annotate({ description: "OAuth 2.0 access token." }),
-  refresh_token: Schema.String.annotate({
-    description: "OAuth 2.0 refresh token for obtaining new token pairs.",
-  }),
+  refresh_token: Schema.optionalKey(
+    Schema.String.annotate({
+      description:
+        "OAuth 2.0 refresh token for obtaining a new token pair. Present for a signed-in session; absent for a workload token, which is exchanged again instead.",
+    }),
+  ),
+  issued_token_type: Schema.optionalKey(
+    Schema.Literal("urn:ietf:params:oauth:token-type:access_token").annotate({
+      description:
+        "Token exchange (RFC 8693): the type of the issued token. Present only for a token exchange.",
+    }),
+  ),
   token_type: Schema.Literal("Bearer"),
   expires_in: Schema.Number.annotate({
     description: "Access token lifetime remaining in seconds.",
   }).check(Schema.isInt().annotate({ expected: "an integer" })),
   expires_at: IsoDateTimeString,
+  scope: Schema.optionalKey(
+    Schema.String.annotate({
+      description:
+        "Space-delimited scopes the workload token carries. Absent for a signed-in session, which carries its holder's whole authority.",
+    }),
+  ),
 }).annotate({
-  title: "Session Token Response",
-  description: "OAuth 2.0 token response containing an access/refresh token pair.",
-  identifier: "SessionTokenResponse",
+  title: "Token Response",
+  description:
+    "OAuth 2.0 token response: a session's access and refresh token pair, or a workload token exchanged for a CI identity token.",
+  identifier: "TokenResponse",
 });
 export type ArchivalView = {
   readonly archivedAt: IsoDateTimeString;
@@ -1112,46 +1165,14 @@ export const AuthMeUser = Schema.Struct({
   description: "Your profile information.",
   identifier: "AuthMeUser",
 });
-export type AuthMeToken = {
-  readonly id: string;
-  readonly type: "session" | "pat" | "oidc";
-  readonly name: string | null;
-  readonly permissions: TokenPermissions | null;
-  readonly authority: "account" | "limited";
-  readonly resource_restrictions?: ResourceRestrictions;
-  readonly expires_at: IsoDateTimeString | null;
-  readonly approved_at: IsoDateTimeString | null;
-};
-export const AuthMeToken = Schema.Struct({
-  id: Schema.String.annotate({
-    description: "Opaque identifier of the credential used for this request.",
-  }),
-  type: Schema.Literals(["session", "pat", "oidc"]).annotate({
-    title: "Token Type",
-    description: "The type of authentication token.",
-  }),
-  name: Schema.Union([
-    Schema.String.annotate({ description: "Human-readable name of the token, if assigned." }),
-    Schema.Null,
-  ]),
-  permissions: Schema.Union([TokenPermissions, Schema.Null]).annotate({
-    description: "What this credential may do. Null when the authority is `account`.",
-  }),
-  authority: Schema.Literals(["account", "limited"]).annotate({
-    title: "Credential Authority",
-    description:
-      "`account` when the credential is you signed in, bounded only by your permissions. `limited` when it is a credential you deliberately made narrower than yourself.",
-  }),
-  resource_restrictions: Schema.optionalKey(ResourceRestrictions),
-  expires_at: Schema.Union([IsoDateTimeString, Schema.Null]),
-  approved_at: Schema.Union([IsoDateTimeString, Schema.Null]).annotate({
-    description:
-      "When the browser sign-in that approved this CLI session approved it. Null for any other kind of credential.",
-  }),
+export type AuthMeTrustedPublisher = { readonly id: TrustedPublisherId; readonly name: string };
+export const AuthMeTrustedPublisher = Schema.Struct({
+  id: TrustedPublisherId,
+  name: Schema.String.annotate({ description: "The trusted publisher's name." }),
 }).annotate({
-  title: "Token Info",
-  description: "Details about the token you used to authenticate.",
-  identifier: "AuthMeToken",
+  title: "Trusted Publisher",
+  description: "The trusted publisher a workload token was exchanged through.",
+  identifier: "AuthMeTrustedPublisher",
 });
 export type TokenListItem = {
   readonly id: TokenId;
@@ -1693,11 +1714,51 @@ export const LibraryMember = Schema.Struct({
     Schema.Null,
   ]),
 }).annotate({ title: "Library Member", identifier: "LibraryMember" });
-export type AuthMeResponse = { readonly user: AuthMeUser; readonly token: AuthMeToken };
-export const AuthMeResponse = Schema.Struct({ user: AuthMeUser, token: AuthMeToken }).annotate({
-  title: "Auth Me Response",
-  description: "Your user profile and credential details.",
-  identifier: "AuthMeResponse",
+export type AuthMeToken = {
+  readonly id: string;
+  readonly type: "session" | "pat" | "oidc";
+  readonly name: string | null;
+  readonly permissions: TokenPermissions | null;
+  readonly authority: "account" | "limited";
+  readonly resource_restrictions?: ResourceRestrictions;
+  readonly expires_at: IsoDateTimeString | null;
+  readonly approved_at: IsoDateTimeString | null;
+  readonly trusted_publisher: AuthMeTrustedPublisher | null;
+};
+export const AuthMeToken = Schema.Struct({
+  id: Schema.String.annotate({
+    description: "Opaque identifier of the credential used for this request.",
+  }),
+  type: Schema.Literals(["session", "pat", "oidc"]).annotate({
+    title: "Token Type",
+    description: "The type of authentication token.",
+  }),
+  name: Schema.Union([
+    Schema.String.annotate({ description: "Human-readable name of the token, if assigned." }),
+    Schema.Null,
+  ]),
+  permissions: Schema.Union([TokenPermissions, Schema.Null]).annotate({
+    description: "What this credential may do. Null when the authority is `account`.",
+  }),
+  authority: Schema.Literals(["account", "limited"]).annotate({
+    title: "Credential Authority",
+    description:
+      "`account` when the credential is you signed in, bounded only by your permissions. `limited` when it is a credential you deliberately made narrower than yourself.",
+  }),
+  resource_restrictions: Schema.optionalKey(ResourceRestrictions),
+  expires_at: Schema.Union([IsoDateTimeString, Schema.Null]),
+  approved_at: Schema.Union([IsoDateTimeString, Schema.Null]).annotate({
+    description:
+      "When the browser sign-in that approved this CLI session approved it. Null for any other kind of credential.",
+  }),
+  trusted_publisher: Schema.Union([AuthMeTrustedPublisher, Schema.Null]).annotate({
+    description:
+      "The trusted publisher this workload token acts through. Null for any other kind of credential.",
+  }),
+}).annotate({
+  title: "Token Info",
+  description: "Details about the token you used to authenticate.",
+  identifier: "AuthMeToken",
 });
 export type TokenListResponse = {
   readonly tokens: ReadonlyArray<TokenListItem>;
@@ -2086,6 +2147,12 @@ export const ListLibraryMembersResponse = Schema.Struct({
   offset: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })),
   viewerRelative: Schema.Literal(true),
 }).annotate({ title: "List Library Members Response", identifier: "ListLibraryMembersResponse" });
+export type AuthMeResponse = { readonly user: AuthMeUser; readonly token: AuthMeToken };
+export const AuthMeResponse = Schema.Struct({ user: AuthMeUser, token: AuthMeToken }).annotate({
+  title: "Auth Me Response",
+  description: "Your user profile and credential details.",
+  identifier: "AuthMeResponse",
+});
 export type DeprecationManagementView = {
   readonly deprecation: DeprecationView | null;
   readonly revision: DeprecationRevision;
@@ -2479,6 +2546,12 @@ export type AuthExchangeTokenRequestFormUrlEncoded = {
   readonly redirect_uri?: string | null;
   readonly device_code?: string | null;
   readonly refresh_token?: string | null;
+  readonly subject_token?: string | null;
+  readonly subject_token_type?: string | null;
+  readonly audience?: string | null;
+  readonly requested_token_type?: string | null;
+  readonly scope?: string | null;
+  readonly expires_in?: string | null;
 };
 export const AuthExchangeTokenRequestFormUrlEncoded = Schema.Struct({
   grant_type: Schema.String.annotate({
@@ -2487,6 +2560,7 @@ export const AuthExchangeTokenRequestFormUrlEncoded = Schema.Struct({
       "authorization_code",
       "urn:ietf:params:oauth:grant-type:device_code",
       "refresh_token",
+      "urn:ietf:params:oauth:grant-type:token-exchange",
     ],
   }),
   code: Schema.optionalKey(
@@ -2534,9 +2608,65 @@ export const AuthExchangeTokenRequestFormUrlEncoded = Schema.Struct({
       Schema.Null,
     ]),
   ),
+  subject_token: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({
+        description: "Token exchange (RFC 8693): the GitHub Actions ID token of the workflow run.",
+      }),
+      Schema.Null,
+    ]),
+  ),
+  subject_token_type: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({
+        description:
+          "Token exchange: the type of subject_token. Only urn:ietf:params:oauth:token-type:jwt is accepted.",
+        examples: ["urn:ietf:params:oauth:token-type:jwt"],
+      }),
+      Schema.Null,
+    ]),
+  ),
+  audience: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({
+        description:
+          "Token exchange: this Registry's origin. The subject token must name the same audience.",
+      }),
+      Schema.Null,
+    ]),
+  ),
+  requested_token_type: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({
+        description:
+          "Token exchange: the type of token requested. Only urn:ietf:params:oauth:token-type:access_token is issued.",
+        examples: ["urn:ietf:params:oauth:token-type:access_token"],
+      }),
+      Schema.Null,
+    ]),
+  ),
+  scope: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({
+        description:
+          "Token exchange: space-delimited scopes narrowing what the trusted publisher grants. Absent means everything it grants.",
+      }),
+      Schema.Null,
+    ]),
+  ),
+  expires_in: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({
+        description:
+          "Token exchange: requested lifetime of the workload token in whole seconds. Defaults to 15 minutes; at most 1 hour.",
+        examples: ["900"],
+      }),
+      Schema.Null,
+    ]),
+  ),
 });
-export type AuthExchangeToken200 = SessionTokenResponse;
-export const AuthExchangeToken200 = SessionTokenResponse;
+export type AuthExchangeToken200 = TokenResponse;
+export const AuthExchangeToken200 = TokenResponse;
 export type AuthExchangeToken400 =
   ProblemDetails | DecodeErrorResponseEncoded | TokenOAuthErrorEncoded;
 export const AuthExchangeToken400 = Schema.Union([
@@ -3872,6 +4002,41 @@ export type SearchSearchExtensions500 = ProblemDetails;
 export const SearchSearchExtensions500 = ProblemDetails;
 export type SearchSearchExtensions503 = ProblemDetails;
 export const SearchSearchExtensions503 = ProblemDetails;
+export type SecretScanningReportAlertParams = {
+  readonly "github-public-key-identifier"?: string | null;
+  readonly "github-public-key-signature"?: string | null;
+};
+export const SecretScanningReportAlertParams = Schema.Struct({
+  "github-public-key-identifier": Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({
+        description: "Identifier of the GitHub secret scanning key that signed the alert.",
+      }),
+      Schema.Null,
+    ]),
+  ),
+  "github-public-key-signature": Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({
+        description: "Base64 ECDSA P-256 SHA-256 signature over the exact request body.",
+      }),
+      Schema.Null,
+    ]),
+  ),
+});
+export type SecretScanningReportAlertRequestJson = string;
+export const SecretScanningReportAlertRequestJson = Schema.String;
+export type SecretScanningReportAlert200 = ReadonlyArray<SecretScanningLabel>;
+export const SecretScanningReportAlert200 = Schema.Array(SecretScanningLabel);
+export type SecretScanningReportAlert400 = ProblemDetails | DecodeErrorResponseEncoded;
+export const SecretScanningReportAlert400 = Schema.Union([
+  ProblemDetails,
+  DecodeErrorResponseEncoded,
+]);
+export type SecretScanningReportAlert401 = ProblemDetails;
+export const SecretScanningReportAlert401 = ProblemDetails;
+export type SecretScanningReportAlert503 = ProblemDetails;
+export const SecretScanningReportAlert503 = ProblemDetails;
 export type DebugDebugStreamParams = {
   readonly count?: string | null;
   readonly failAfter?: string | null;
@@ -5201,6 +5366,25 @@ export const make = (
           }),
         ),
       ),
+    SecretScanningReportAlert: (options) =>
+      HttpClientRequest.post("/v1/secret-scanning/alerts").pipe(
+        HttpClientRequest.setHeaders({
+          "github-public-key-identifier":
+            options.params?.["github-public-key-identifier"] ?? undefined,
+          "github-public-key-signature":
+            options.params?.["github-public-key-signature"] ?? undefined,
+        }),
+        HttpClientRequest.bodyJsonUnsafe(options.payload),
+        withResponse(options.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(SecretScanningReportAlert200),
+            "400": decodeError("SecretScanningReportAlert400", SecretScanningReportAlert400),
+            "401": decodeError("SecretScanningReportAlert401", SecretScanningReportAlert401),
+            "503": decodeError("SecretScanningReportAlert503", SecretScanningReportAlert503),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
     DebugDebugStream: (options) =>
       HttpClientRequest.get("/v1/debug/stream").pipe(
         HttpClientRequest.setUrlParams({
@@ -5252,7 +5436,7 @@ export interface RegistryClient {
     | RegistryClientError<"AuthIssueDeviceCode500", typeof AuthIssueDeviceCode500.Type>
   >;
   /**
-   * Exchange OAuth grant for access token
+   * Issues a signed-in session's token pair for an authorization code, device code, or refresh token. With the RFC 8693 token-exchange grant, exchanges a GitHub Actions ID token that a trusted publisher trusts for a short-lived workload token with no refresh token; every refusal of the subject token is the same `invalid_grant`.
    */
   readonly AuthExchangeToken: <Config extends OperationConfig>(options: {
     readonly payload: typeof AuthExchangeTokenRequestFormUrlEncoded.Encoded;
@@ -6138,6 +6322,21 @@ export interface RegistryClient {
     | RegistryClientError<"SearchSearchExtensions401", typeof SearchSearchExtensions401.Type>
     | RegistryClientError<"SearchSearchExtensions500", typeof SearchSearchExtensions500.Type>
     | RegistryClientError<"SearchSearchExtensions503", typeof SearchSearchExtensions503.Type>
+  >;
+  /**
+   * GitHub secret scanning partner endpoint. The body is GitHub's JSON array of `{ token, type, url, source }` matches, signed over its exact bytes by a key GitHub publishes; an unsigned or badly signed alert is refused with 401 and nothing is revoked. Each live AgentXM token in a signed alert is revoked and its holder is told. The answer labels each match by the SHA-256 of its token, never the token.
+   */
+  readonly SecretScanningReportAlert: <Config extends OperationConfig>(options: {
+    readonly params?: typeof SecretScanningReportAlertParams.Encoded | undefined;
+    readonly payload: typeof SecretScanningReportAlertRequestJson.Encoded;
+    readonly config?: Config | undefined;
+  }) => Effect.Effect<
+    WithOptionalResponse<typeof SecretScanningReportAlert200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"SecretScanningReportAlert400", typeof SecretScanningReportAlert400.Type>
+    | RegistryClientError<"SecretScanningReportAlert401", typeof SecretScanningReportAlert401.Type>
+    | RegistryClientError<"SecretScanningReportAlert503", typeof SecretScanningReportAlert503.Type>
   >;
   /**
    * Experimental diagnostic endpoint. Emits a finite server-sent event stream of sequenced JSON events, optionally terminating with a typed mid-stream failure. Intended for client streaming conformance checks; not a stable product surface.

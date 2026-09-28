@@ -125,6 +125,16 @@ export const registryAccessFailureToStepFailure = (error: RegistryAccessFailure)
       });
     case "AuthInteractionAbandoned":
       return makeStepFailure({ category: "usage", detail: error.message });
+    case "WorkloadTokenUnavailable":
+      // A CI job whose identity no trusted publisher accepts cannot sign in
+      // on its own; a person changes the job's permissions or registers it.
+      return makeStepFailure({
+        category: "auth_required",
+        detail: error.detail,
+        blockedOn: "human",
+        suggestions: error.suggestions,
+        cause: error.cause,
+      });
     case "AuthExchangeFailed": {
       // The flow assigns auth semantics to a token-exchange transport
       // failure: its own sentence and recoveries over the transport's

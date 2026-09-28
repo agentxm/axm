@@ -34,6 +34,7 @@ import {
   DeviceLoginDenied,
   RegistryAccessFailed,
   SignedOut,
+  WorkloadTokenUnavailable,
   type RegistryAccessFailure,
 } from "@agentxm/registry-access/authentication";
 
@@ -309,6 +310,7 @@ const kernelFailureClasses = () =>
     DeviceAuthorizationPending,
     AuthInteractionAbandoned,
     AuthExchangeFailed,
+    WorkloadTokenUnavailable,
     ExtensionLifecycleFailed,
     InstallSelectionUnavailable,
     WorkspaceSyncFailed,
@@ -486,6 +488,7 @@ export const renderKernelFailure = (
     case "DeviceAuthorizationPending":
     case "AuthInteractionAbandoned":
     case "AuthExchangeFailed":
+    case "WorkloadTokenUnavailable":
       return registryAccessFailureToStepFailure(failure);
     case "ExtensionLifecycleFailed":
       return makeStepFailure({

@@ -92,6 +92,7 @@ describe("Truthful browser sign-in completion", () => {
                 resourceRestrictions: null,
                 expiresAt: null,
                 approvedAt: null,
+                trustedPublisher: null,
               }),
           }),
           Layer.succeed(CredentialStore, {

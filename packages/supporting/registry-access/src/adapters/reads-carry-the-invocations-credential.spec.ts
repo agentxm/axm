@@ -25,6 +25,7 @@ import {
 import { SessionRefresherLive } from "../credentials/session-refresh.js";
 import { AuthMiddlewareLive } from "./auth-middleware.js";
 import { AuthEnvironment } from "./environment.js";
+import { WorkloadCredentialsTest } from "../credentials/workload-credentials.js";
 
 export const specification = defineSpecification({
   requirement: "cli/reads-carry-the-invocations-credential",
@@ -80,6 +81,7 @@ const readWith = (credentials?: typeof signedIn) => {
   const layer = Layer.provide(
     AuthMiddlewareLive,
     Layer.mergeAll(
+      WorkloadCredentialsTest(),
       transportLayer,
       store,
       Layer.provide(SessionRefresherLive, Layer.merge(TokenExchangeTest(), store)),
@@ -136,6 +138,7 @@ const rejectingReadsOf = (options: {
     Layer.provide(
       AuthMiddlewareLive,
       Layer.mergeAll(
+        WorkloadCredentialsTest(),
         Layer.succeed(HttpClient.HttpClient, transport),
         store,
         Layer.provide(SessionRefresherLive, Layer.merge(exchange, store)),
@@ -184,6 +187,7 @@ describe("Reads carry the invocation's credential", () => {
         const layer = AuthMiddlewareLive.pipe(
           Layer.provide(
             Layer.mergeAll(
+              WorkloadCredentialsTest(),
               Layer.succeed(HttpClient.HttpClient, transport),
               store,
               SessionRefresherLive.pipe(Layer.provide(Layer.merge(TokenExchangeTest(), store))),
@@ -268,6 +272,7 @@ describe("Reads carry the invocation's credential", () => {
         const layer = AuthMiddlewareLive.pipe(
           Layer.provide(
             Layer.mergeAll(
+              WorkloadCredentialsTest(),
               Layer.succeed(HttpClient.HttpClient, transport),
               store,
               SessionRefresherLive.pipe(Layer.provide(Layer.merge(TokenExchangeTest(), store))),

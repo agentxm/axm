@@ -479,6 +479,19 @@ People and agents can understand invalid workspace state and recover it through 
 - Supersedes: `cli/whoami/refreshes-rejected-stored-credentials`
 - Source: [`packages/supporting/registry-access/src/adapters/renews-the-stored-session-once.spec.ts`](../packages/supporting/registry-access/src/adapters/renews-the-stored-session-once.spec.ts)
 
+##### A refused workload token points at the trusted publisher's permissions
+
+- Requirement: `cli/trusted-publishing/refusals-name-the-trusted-publishers-permissions`
+- Owner: `cli`
+- Statement: When the invocation's credential for its default Registry comes from a GitHub Actions identity and the Registry forbids an operation for the credential's scope or resource limits or for a publish rule other than an exhausted quota, AXM shall recover by pointing at the trusted publisher's permissions in AgentXM settings rather than at a signed-in session, on the command and plan-step paths alike, and shall leave every other refusal and every other credential's refusal as the Registry's own recovery reads.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: decision-table
+- Derived from: `apps/cli/help/topics/environment.md`
+- Source: [`apps/cli/src/app-error/trusted-publisher-refusals-name-its-permissions.spec.ts`](../apps/cli/src/app-error/trusted-publisher-refusals-name-its-permissions.spec.ts)
+
 ##### A unit that did not settle as planned says why, and what it was left in
 
 - Requirement: `cli/unsettled-units-state-their-reason`
@@ -511,7 +524,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/whoami/reports-safe-effective-identity`
 - Owner: `cli`
-- Statement: When signed in, whoami shall report the handle, Registry, credential type, credential authority, the approving sign-in time when there is one, and source-backed or unavailable expiry from the canonical Registry identity operation in human and machine output; it shall report the permission level, its owner and extension allowlist, and enforced extension restrictions only for a limited credential, in the vocabulary a token is described in, and shall exclude email, credential identifiers, token material, and the Registry's internal scope strings and permission markers.
+- Statement: When signed in, whoami shall report the handle, Registry, credential type, credential authority, the approving sign-in time when there is one, the name of the trusted publisher behind a workload token when there is one, and source-backed or unavailable expiry from the canonical Registry identity operation in human and machine output; it shall report the permission level, its owner and extension allowlist, and enforced extension restrictions only for a limited credential, in the vocabulary a token is described in, and shall exclude email, credential identifiers, token material, and the Registry's internal scope strings and permission markers.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `machine-automation`
@@ -550,7 +563,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/errors-do-not-disclose-credentials`
 - Owner: `cli`
-- Statement: AXM shall redact credential values, including an exact credential the Registry echoed under a sensitive key, from error reports and their diagnostic details in human and machine output at every supported verbosity level, from the plan result document, from the publish result's cause including a Git reason it reports, and from the failure detail a resolved unit publishes on the lifecycle event stream.
+- Statement: AXM shall redact credential values, including an exact credential the Registry echoed under a sensitive key and an AgentXM session, refresh, personal access, or workload token wherever it appears, from error reports and their diagnostic details in human and machine output at every supported verbosity level, from the plan result document, from the publish result's cause including a Git reason it reports, and from the failure detail a resolved unit publishes on the lifecycle event stream.
 - Class: quality (security)
 - Role: experience
 - Product goals: `actionable-diagnostics`, `machine-automation`
@@ -1654,13 +1667,13 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 - Requirement: `cli/credentials-follow-explicit-source-precedence`
 - Owner: `registry-access`
-- Statement: For commands using the selected Registry, AXM shall use a nonempty AXM_TOKEN before AXM_TOKEN_FILE and a valid token file before saved Registry credentials, refusing an unreadable or empty selected token file instead of silently using a saved session.
+- Statement: For commands using the selected Registry, AXM shall use a nonempty AXM_TOKEN before AXM_TOKEN_FILE, a valid token file before a GitHub Actions identity, and a GitHub Actions identity before saved Registry credentials, refusing an unreadable or empty selected token file instead of silently using another source. A GitHub Actions identity is offered when both ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN are nonempty and AXM_TRUSTED_PUBLISHING is not 0.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/supporting/registry-access/src/credentials/token-resolution.ts`
+- Derived from: `packages/supporting/registry-access/src/credentials/token-resolution.ts`, `apps/cli/help/topics/environment.md`
 - Additional evidence: process via [`apps/cli-e2e/src/auth.e2e.test.ts`](../apps/cli-e2e/src/auth.e2e.test.ts) — This Vitest entrypoint executes the imported cli-commands/auth/token/token.e2e.ts scenarios through real CLI processes. They observe raw/JSON token stdout and the Registry's browser-only token creation refusal. Imported source bytes remain part of the repository execution inputs; this binding attributes evidence to the selected entrypoint, not to an import alone.
 - Source: [`packages/supporting/registry-access/src/credentials/credentials-follow-explicit-source-precedence.spec.ts`](../packages/supporting/registry-access/src/credentials/credentials-follow-explicit-source-precedence.spec.ts)
 
@@ -1668,7 +1681,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 - Requirement: `cli/disabled-credential-persistence-requires-explicit-token`
 - Owner: `registry-access`
-- Statement: When persisted credentials are disabled, AXM shall refuse sign-in and saved-session authentication with the explicit-token policy failure while allowing commands to use an explicitly supplied environment token.
+- Statement: When persisted credentials are disabled, AXM shall refuse sign-in and saved-session authentication with the explicit-token policy failure while allowing commands to use an explicitly supplied environment token or the workload token a GitHub Actions identity is exchanged for.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
@@ -1892,6 +1905,21 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Methods: example
 - Derived from: `packages/supporting/registry-access/src/authentication/tokens.ts`
 - Source: [`packages/supporting/registry-access/src/authentication/tokens/revoke-revokes-only-selected-token.spec.ts`](../packages/supporting/registry-access/src/authentication/tokens/revoke-revokes-only-selected-token.spec.ts)
+
+##### A GitHub Actions identity becomes one workload token for the default Registry
+
+- Requirement: `cli/trusted-publishing/ci-identity-becomes-one-workload-token`
+- Owner: `registry-access`
+- Statement: When AXM runs in a GitHub Actions job that offers an ID token and no explicit token is supplied, AXM shall read anonymously until a command needs a credential for the default Registry; shall then request the ID token with that Registry's origin as its audience and exchange it at that Registry's token endpoint for a workload token with an RFC 8693 token-exchange grant; shall present the workload token only to the default Registry origin, for the rest of the invocation; shall exchange at most once per invocation; shall never renew a workload token the Registry rejects; and, when the identity cannot be exchanged, shall refuse as requiring authentication with guidance to grant the job the id-token permission and to register the workflow as a trusted publisher, keeping neither the job's request token nor its identity token in the refusal.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `apps/cli/help/topics/environment.md`, `apps/cli/site-content/docs/quickstart.md`
+- Assumptions: GitHub Actions offers an ID token to a job through ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN, answering a request carrying the request token as a bearer and an `audience` query parameter with a JSON document whose `value` is the ID token.
+- Additional evidence: process via [`apps/cli-e2e/src/trusted-publishing.e2e.test.ts`](../apps/cli-e2e/src/trusted-publishing.e2e.test.ts) — Only a built CLI invoked with a CI job's environment against real HTTP endpoints shows the ID token requested for the Registry audience, one exchange shared by every command layer of the invocation, and the workload token carrying a publish with no stored secret.
+- Source: [`packages/supporting/registry-access/src/credentials/ci-identity-becomes-one-workload-token.spec.ts`](../packages/supporting/registry-access/src/credentials/ci-identity-becomes-one-workload-token.spec.ts)
 
 ##### View reports archival and the effective lifecycle state
 

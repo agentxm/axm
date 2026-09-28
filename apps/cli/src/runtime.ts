@@ -63,6 +63,10 @@ import {
 import { AuthLoginPresenterLive } from "./auth-login-presenter.js";
 import { failureToAppError } from "./app-error/conversions.js";
 import { WorkspaceFailureConversionLive } from "./app-error/failure-catalog.js";
+import {
+  InvocationCredentialSource,
+  appErrorForCredentialSource,
+} from "./app-error/trusted-publisher-recoveries.js";
 import { WorkspaceInitializationInteractionLive } from "./workspace-initialization-interaction-live.js";
 import {
   GitDirectoryComparisonLive,
@@ -78,7 +82,9 @@ import {
   PendingDeviceLoginStoreLive,
   SessionRefresherLive,
   TokenExchangeLive,
+  WorkloadCredentialsLive,
 } from "@agentxm/registry-access/adapters";
+import { ambientCredentialSource } from "@agentxm/registry-access/credentials";
 import { RegistryClientFactoryLive, RegistryUrl } from "@agentxm/registry-client";
 import { resolveTelemetryMode, type TelemetryClientOptions } from "./telemetry/index.js";
 import {
@@ -173,6 +179,15 @@ const credentialStoreLayer = (registryUrl: string) =>
 // sent through it would renew the session it is ending. They are built on the
 // plain client, and nothing else is.
 const TokenExchangeLayer = Layer.provide(TokenExchangeLive, PlatformLayer);
+
+// A GitHub Actions job's identity is exchanged for a workload token on the
+// plain client too, and once per invocation: every layer below that resolves
+// a credential leaves the exchange in its requirements, and the runner provides
+// this one instance outside all of them.
+const WorkloadCredentialsLayer = Layer.provide(
+  WorkloadCredentialsLive,
+  Layer.merge(PlatformLayer, TokenExchangeLayer),
+);
 
 const sessionRefreshLayer = (registryUrl: string) =>
   Layer.provide(
@@ -483,6 +498,13 @@ export const withRuntime =
       const config = resolveRuntimeConfig();
       const defaultRegistry = yield* resolveDefaultRegistryTarget(executionDirectory.path);
       const format = yield* resolveCliFormat;
+      // Only the recovery a refusal names depends on this, so a configuration
+      // source that cannot be read leaves the Registry's own recovery rather
+      // than failing the command; resolving the credential reports that
+      // failure where it matters.
+      const credentialSource = yield* ambientCredentialSource.pipe(
+        Effect.catch(() => Effect.succeed(Option.none())),
+      );
       const foundationLayer = makeFoundationLayer(format, {
         envVerbose: config.envVerbose,
         envDebug: config.envDebug,
@@ -518,6 +540,12 @@ export const withRuntime =
           Effect.provideService(ExecutionDirectory, executionDirectory),
           Effect.provide(makeAuthLayer(defaultRegistry.url)),
           Effect.catchTag("RegistryAccessFailed", (error) => Effect.fail(failureToAppError(error))),
+          Effect.mapError((error) =>
+            error instanceof AppError
+              ? appErrorForCredentialSource(credentialSource, error)
+              : error,
+          ),
+          Effect.provideService(InvocationCredentialSource, credentialSource),
         ),
         { command, format },
       ).pipe(
@@ -528,6 +556,7 @@ export const withRuntime =
             registryClientFactoryLayer(defaultRegistry.url),
           ),
         ),
+        Effect.provide(WorkloadCredentialsLayer),
         Effect.scoped,
         Effect.catchTag("RegistryAccessFailed", (error) => Effect.fail(failureToAppError(error))),
       );

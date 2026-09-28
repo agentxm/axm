@@ -168,6 +168,42 @@ export AXM_TOKEN_FILE=/path/to/axm-token
 process environments. Run `axm help environment` for credential precedence and
 the complete automation contract. Never print a token into logs.
 
+### Publishing from GitHub Actions
+
+A GitHub Actions workflow can publish without storing any AgentXM secret. In
+[web settings](https://agentxm.ai/u/settings/trusted-publishers), register the
+repository and workflow file (and, optionally, its environment) as a trusted
+publisher for the extensions you want it to publish. Then grant the job
+`id-token: write`:
+
+```yaml
+name: Publish extensions
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - run: |
+          curl -fsSL https://axm.sh/install.sh | sh
+          echo "$HOME/.axm/bin" >> "$GITHUB_PATH"
+      - run: axm whoami
+      - run: axm publish
+```
+
+AXM exchanges the job's GitHub Actions ID token for a short-lived workload
+token that can do only what the trusted publisher permits. `axm whoami` names
+the trusted publisher. If the job lacks `id-token: write` or no trusted
+publisher matches it, AXM fails with `auth_required` and says which to fix.
+Set `AXM_TRUSTED_PUBLISHING=0` in a job that should not use trusted publishing.
+
 ---
 
 ## Troubleshooting

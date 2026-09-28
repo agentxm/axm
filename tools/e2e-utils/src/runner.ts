@@ -38,7 +38,18 @@ export const runCommand = async (
 
   const subprocess = execa(command, [...args], {
     cwd,
-    env: { ...parentEnv, CI: "", ...env, NO_COLOR: "1", AXM_TELEMETRY: "0" },
+    env: {
+      ...parentEnv,
+      CI: "",
+      // A test runner in a GitHub Actions job granted `id-token: write` must not
+      // hand that job's identity to every CLI it starts; a test that wants
+      // trusted publishing supplies its own.
+      ACTIONS_ID_TOKEN_REQUEST_URL: "",
+      ACTIONS_ID_TOKEN_REQUEST_TOKEN: "",
+      ...env,
+      NO_COLOR: "1",
+      AXM_TELEMETRY: "0",
+    },
     extendEnv: false,
     timeout,
     reject: false,

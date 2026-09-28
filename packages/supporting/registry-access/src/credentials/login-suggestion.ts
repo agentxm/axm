@@ -10,10 +10,9 @@
  */
 
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 
 import { CredentialStore } from "./credential-store.js";
-import { resolveRequestToken } from "./token-resolution.js";
+import { hasRequestCredential } from "./token-resolution.js";
 
 const remoteOrigins = (locations: ReadonlyArray<string>): ReadonlyArray<string> => {
   const origins = new Set<string>();
@@ -37,8 +36,7 @@ export const hasCredentialsForAll = (
   defaultRegistryUrl: string,
 ): Effect.Effect<boolean, never, CredentialStore> =>
   Effect.forEach(remoteOrigins(locations), (origin) =>
-    resolveRequestToken(origin, defaultRegistryUrl).pipe(
-      Effect.map(Option.isSome),
+    hasRequestCredential(origin, defaultRegistryUrl).pipe(
       Effect.catch(() => Effect.succeed(false)),
     ),
   ).pipe(Effect.map((present) => present.every((hasCredential) => hasCredential)));

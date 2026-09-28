@@ -11,6 +11,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
 import {
@@ -24,6 +25,11 @@ import {
   type ConfigurationFamilyFailure,
 } from "@agentxm/workspace-features/configuration";
 import type { StepFailure } from "@agentxm/workspace-kernel/operations";
+
+import {
+  InvocationCredentialSource,
+  stepFailureForCredentialSource,
+} from "./trusted-publisher-recoveries.js";
 import {
   isPublishFamilyFailure,
   publishFailureToStepFailure,
@@ -62,7 +68,17 @@ export const workspaceFailureToStepFailure = (failure: WorkspaceFailure): StepFa
   return renderKernelFailure(failure, { detailOf: workspaceFailureDetail });
 };
 
-/** The application's step-failure conversion, provided once per invocation. */
-export const WorkspaceFailureConversionLive = Layer.succeed(StepFailureConversion, {
-  toStepFailure: (failure) => workspaceFailureToStepFailure(failure),
-});
+/**
+ * The application's step-failure conversion, provided once per invocation. A
+ * refusal reads for the credential this invocation presents.
+ */
+export const WorkspaceFailureConversionLive = Layer.effect(
+  StepFailureConversion,
+  Effect.gen(function* () {
+    const source = yield* InvocationCredentialSource;
+    return {
+      toStepFailure: (failure: WorkspaceFailure) =>
+        stepFailureForCredentialSource(source, workspaceFailureToStepFailure(failure)),
+    };
+  }),
+);

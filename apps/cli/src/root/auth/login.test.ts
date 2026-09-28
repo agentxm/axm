@@ -93,6 +93,7 @@ const makeLayers = (opts?: {
     resourceRestrictions: null,
     expiresAt: null,
     approvedAt: null,
+    trustedPublisher: null,
   };
 
   const authClientLayer = AuthClientTest({

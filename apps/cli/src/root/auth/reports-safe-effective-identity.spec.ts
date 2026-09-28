@@ -3,7 +3,11 @@ import * as Schema from "effect/Schema";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { AuthClientTest, CredentialStoreTest } from "@agentxm/registry-access/testing";
+import {
+  AuthClientTest,
+  CredentialStoreTest,
+  WorkloadCredentialsTest,
+} from "@agentxm/registry-access/testing";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { RegistryUrl } from "@agentxm/registry-client";
@@ -16,7 +20,7 @@ export const specification = defineSpecification({
   requirement: "cli/whoami/reports-safe-effective-identity",
   title: "Identity inspection shows the active identity and permissions",
   statement:
-    "When signed in, whoami shall report the handle, Registry, credential type, credential authority, the approving sign-in time when there is one, and source-backed or unavailable expiry from the canonical Registry identity operation in human and machine output; it shall report the permission level, its owner and extension allowlist, and enforced extension restrictions only for a limited credential, in the vocabulary a token is described in, and shall exclude email, credential identifiers, token material, and the Registry's internal scope strings and permission markers.",
+    "When signed in, whoami shall report the handle, Registry, credential type, credential authority, the approving sign-in time when there is one, the name of the trusted publisher behind a workload token when there is one, and source-backed or unavailable expiry from the canonical Registry identity operation in human and machine output; it shall report the permission level, its owner and extension allowlist, and enforced extension restrictions only for a limited credential, in the vocabulary a token is described in, and shall exclude email, credential identifiers, token material, and the Registry's internal scope strings and permission markers.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "machine-automation"],
@@ -30,6 +34,22 @@ export const specification = defineSpecification({
 const registry = "https://registry.example.test";
 const credential = "axm_ses_secret_fixture";
 const expiryCases = [null, "2099-06-01T00:00:00.000Z"];
+
+const signedInStore = CredentialStoreTest("restricted-file", {
+  version: 1,
+  registries: {
+    [registry]: {
+      accounts: {
+        [normalizeHandle("@alice")]: {
+          access_token: credential,
+          refresh_token: "axm_ref_private_fixture",
+          expires_at: DateTime.makeUnsafe("2099-01-01"),
+          active: true,
+        },
+      },
+    },
+  },
+});
 
 describe("Safe effective identity", () => {
   for (const machine of [false, true]) {
@@ -59,6 +79,7 @@ describe("Safe effective identity", () => {
                   resourceRestrictions: { extensions: ["@alice/skills/review"] },
                   expiresAt: expiresAt === null ? null : DateTime.makeUnsafe(expiresAt),
                   approvedAt: null,
+                  trustedPublisher: null,
                   email: "private@example.test",
                   userId: "user_01h455vb4pexka56gq5w2r7cpc",
                   credentialId: "tok_01h455vb4pexka56gq5w2r7cpc",
@@ -72,21 +93,8 @@ describe("Safe effective identity", () => {
               TestFlagsLayer(),
               registryLayer,
               authLayer,
-              CredentialStoreTest("restricted-file", {
-                version: 1,
-                registries: {
-                  [registry]: {
-                    accounts: {
-                      [normalizeHandle("@alice")]: {
-                        access_token: credential,
-                        refresh_token: "axm_ref_private_fixture",
-                        expires_at: DateTime.makeUnsafe("2099-01-01"),
-                        active: true,
-                      },
-                    },
-                  },
-                },
-              }),
+              signedInStore,
+              WorkloadCredentialsTest(),
             );
             yield* handleWhoami().pipe(Effect.provide(layer));
             const output = JSON.stringify(machine ? renderer.state.results : renderer.state.logs);
@@ -117,6 +125,7 @@ describe("Safe effective identity", () => {
                   resourceRestrictions: { extensions: ["@alice/skills/review"] },
                   expiresAt,
                   approvedAt: null,
+                  trustedPublisher: null,
                 },
               });
             } else {
@@ -133,5 +142,52 @@ describe("Safe effective identity", () => {
           }),
       );
     }
+  }
+
+  for (const machine of [false, true]) {
+    it.effect(
+      `names the trusted publisher behind a workload token in ${machine ? "machine" : "human"} output`,
+      () =>
+        Effect.gen(function* () {
+          const renderer = machine ? TestMachineRenderer.make() : TestRenderer.make();
+          const layer = Layer.mergeAll(
+            renderer.layer,
+            TestFlagsLayer(),
+            Layer.succeed(RegistryUrl, registry),
+            AuthClientTest({
+              getMe: () =>
+                Effect.sync(() => ({
+                  userHandle: normalizeHandle("@alice"),
+                  tokenType: "oidc",
+                  authority: "limited" as const,
+                  permissions: {
+                    owners: ["@alice"],
+                    extensions: [],
+                    permission: "publish" as const,
+                  },
+                  resourceRestrictions: { extensions: null },
+                  expiresAt: DateTime.makeUnsafe("2099-06-01T00:15:00.000Z"),
+                  approvedAt: null,
+                  trustedPublisher: { name: "release" },
+                  trustedPublisherId: "tpub_01h455vb4pexka56gq5w2r7cpc",
+                })),
+            }),
+            signedInStore,
+            WorkloadCredentialsTest(),
+          );
+          yield* handleWhoami().pipe(Effect.provide(layer));
+          const output = JSON.stringify(machine ? renderer.state.results : renderer.state.logs);
+          expect(output).not.toContain("tpub_01h455vb4pexka56gq5w2r7cpc");
+          if (machine) {
+            expect(
+              Schema.encodeUnknownSync(WhoamiDocumentSchema)(renderer.state.results[0]?.data),
+            ).toMatchObject({
+              data: { credentialType: "oidc", trustedPublisher: { name: "release" } },
+            });
+          } else {
+            expect(output).toContain("Trusted publisher  release");
+          }
+        }),
+    );
   }
 });

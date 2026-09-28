@@ -19,6 +19,7 @@ export {
   EnvVarTokenSource,
   FileTokenSource,
   RegistryAccountsSchema,
+  WorkloadTokenSource,
 } from "./schema.js";
 
 export type { CredentialStoreService, EnvironmentInfo } from "./credential-store.js";
@@ -31,13 +32,18 @@ export {
 } from "./credential-store.js";
 
 export {
+  ambientCredentialSource,
   getCurrentUserHandle,
   resolveAmbientToken,
   resolveRequestToken,
   resolveRequiredToken,
   resolveStoredToken,
   resolveToken,
+  type AmbientCredentialSource,
 } from "./token-resolution.js";
 export { hasCredentialsForAll } from "./login-suggestion.js";
 
 export { SessionRefresher } from "./session-refresh.js";
+
+export type { WorkloadCredentialsService } from "./workload-credentials.js";
+export { GitHubActionsIdentity, WorkloadCredentials } from "./workload-credentials.js";

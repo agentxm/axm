@@ -1,10 +1,8 @@
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryRule } from "@agentxm/extension-content/lint";
-import { acquiredRootDisplayPath } from "@agentxm/workspace-kernel/workspace-state";
 import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
 import {
   formatAxmSkillCompatibilityTarget,
@@ -13,6 +11,19 @@ import {
 
 const RULE_ID = "workspace/axm-skill-compatible";
 
+const finding = (message: string, file: string) => ({
+  kind: "advisory" as const,
+  ruleId: RULE_ID,
+  severity: "error" as const,
+  message,
+  location: { file },
+});
+
+/**
+ * Holds the official AXM skill the desired state selects to compatibility.
+ * A canonical state that prevents assessment is reported once, by the rule
+ * the canonical observation routes it to, not restated here.
+ */
 export const axmSkillCompatibleRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
   description: "The official AXM skill is compatible with the running AXM CLI.",
@@ -20,42 +31,40 @@ export const axmSkillCompatibleRule: AdvisoryRule<WorkspaceRuleContext> = {
   severity: "error",
   check: (context) =>
     Effect.gen(function* () {
-      if (context.axmSkillCompatibility === undefined) return EMPTY_ADVISORY_FINDINGS;
-      const compatibilityResult = yield* Effect.result(context.axmSkillCompatibility);
-      if (Result.isFailure(compatibilityResult)) {
+      if (context.officialAxmSkill === undefined) return EMPTY_ADVISORY_FINDINGS;
+      const result = yield* Effect.result(context.officialAxmSkill);
+      if (Result.isFailure(result)) {
         return [
-          {
-            kind: "advisory" as const,
-            ruleId: RULE_ID,
-            severity: "error" as const,
-            message: `The official AXM skill compatibility state is unreadable: ${compatibilityResult.failure._tag}. Repair the workspace state, then rerun lint.`,
-            location: {
-              file:
-                context.subject.scope === "project"
-                  ? "skills/axm"
-                  : `${acquiredRootDisplayPath(context.subject.scope)}/@agentxm/skills/axm`,
-            },
-          },
+          finding(
+            `The official AXM skill compatibility state is unreadable: ${result.failure._tag}. Repair the workspace state, then rerun lint.`,
+            "axm.json",
+          ),
         ];
       }
-      if (Option.isNone(compatibilityResult.success)) return EMPTY_ADVISORY_FINDINGS;
-      const compatibility = compatibilityResult.success.value;
-      if (compatibility.status === "compatible") return EMPTY_ADVISORY_FINDINGS;
-      const recovery = renderAxmSkillRecovery(compatibility.recovery).nextAction;
-      const target = formatAxmSkillCompatibilityTarget(compatibility.recovery);
-      return [
-        {
-          kind: "advisory",
-          ruleId: RULE_ID,
-          severity: "error",
-          message: `${compatibility.detail ?? "The official AXM skill is incompatible with this AXM CLI."} Reason: ${compatibility.reasonCode ?? "unknown"}. Target: ${target}.${recovery === null ? "" : ` Next: \`${recovery}\`.`}`,
-          location: {
-            file:
-              context.subject.scope === "project"
-                ? "skills/axm"
-                : `${acquiredRootDisplayPath(context.subject.scope)}/@agentxm/skills/axm`,
-          },
-        },
-      ];
+      const assessment = result.success;
+      switch (assessment._tag) {
+        case "undeclared":
+        case "canonical-state":
+          return EMPTY_ADVISORY_FINDINGS;
+        case "unavailable":
+          return [
+            finding(
+              `The official AXM skill package could not be read: ${assessment.detail}. Repair access to the package, then rerun lint.`,
+              assessment.path,
+            ),
+          ];
+        case "assessed": {
+          const compatibility = assessment.compatibility;
+          if (compatibility.status === "compatible") return EMPTY_ADVISORY_FINDINGS;
+          const recovery = renderAxmSkillRecovery(compatibility.recovery).nextAction;
+          const target = formatAxmSkillCompatibilityTarget(compatibility.recovery);
+          return [
+            finding(
+              `${compatibility.detail ?? "The official AXM skill is incompatible with this AXM CLI."} Reason: ${compatibility.reasonCode ?? "unknown"}. Target: ${target}.${recovery === null ? "" : ` Next: \`${recovery}\`.`}`,
+              assessment.path ?? "axm.json",
+            ),
+          ];
+        }
+      }
     }),
 };

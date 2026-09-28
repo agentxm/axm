@@ -124,9 +124,11 @@ export {
   type ValidateAxmSkillCandidateArgs,
 } from "./axm-skill-candidate.js";
 export {
-  declaresOfficialAxmSkill,
-  readAxmSkillWorkspaceCompatibility,
-  type ReadAxmSkillWorkspaceCompatibilityArgs,
+  assessOfficialAxmSkill,
+  selectOfficialAxmSkill,
+  type ObservedOfficialAxmSkillCandidate,
+  type OfficialAxmSkillAssessment,
+  type SelectedOfficialAxmSkill,
 } from "./axm-skill-workspace-compatibility.js";
 
 // Targeted update classification: who owns the declaration a named update

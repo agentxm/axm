@@ -12,6 +12,7 @@ export {
   AxmSkillCompatibilitySchema,
   type AxmSkillCompatibility,
   type AxmSkillCompatibilityCandidate,
+  type AxmSkillSourceAuthority,
   type AxmSkillCompatibilityInput,
   type AxmSkillCliVersionRangeValidation,
   validateAxmSkillCliVersionRange,

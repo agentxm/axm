@@ -14,7 +14,9 @@
 import {
   bundledSkillCanonicalRoot,
   AcceptedResolutionWriter,
+  DesiredStateReader,
   LockfileReader,
+  observeDesiredCanonical,
   SettingsReader,
   SettingsWriter,
   WorkspaceLocation,
@@ -31,8 +33,10 @@ import * as Path from "effect/Path";
 
 import { ensureSkillAgentArtifact } from "../../materialization.js";
 import {
-  AXM_SKILL_CLI_VERSION_METADATA_KEY,
-  AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
+  assessOfficialAxmSkill,
+  selectOfficialAxmSkill,
+} from "@agentxm/workspace-kernel/resolution";
+import {
   AXM_SKILL_FQN,
   evaluateAxmSkillCompatibility,
   renderAxmSkillRecovery,
@@ -222,6 +226,7 @@ export const installBundledAxmSkill = Effect.gen(function* () {
   const location = yield* WorkspaceLocation;
   const settings = yield* SettingsReader;
   const lockfile = yield* LockfileReader;
+  const desiredState = yield* DesiredStateReader;
   const path = yield* Path.Path;
   const agentRepo = yield* CodingAgentRepository;
   const asset = yield* BundledAxmSkillAsset;
@@ -296,19 +301,37 @@ export const installBundledAxmSkill = Effect.gen(function* () {
             detail: "Bundled AXM skill retained a superseded accepted external resolution",
           });
         }
-        // The installed skill must be usable by the executable that installed
-        // it, so the same compatibility policy runs inside the transaction.
-        const compatibility = evaluateAxmSkillCompatibility({
-          cliVersion: asset.runningCliVersion,
-          skill: {
-            manifestVersion: asset.version,
-            source: `bundled:@agentxm/skills/axm@${asset.version}`,
-            metadata: {
-              [AXM_SKILL_CLI_VERSION_METADATA_KEY]: asset.cliVersion,
-              [AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY]: asset.cliVersionRange,
-            },
+        // What is on disk now decides: the desired state reread after the
+        // transition selects the package, and its installed bytes must be the
+        // bundled release this executable carries and compatible with it.
+        const desired = (yield* desiredState.graph()).nodes;
+        const observed = yield* Effect.forEach(
+          desired.filter((node) => node.type === "skill" && node.name === BUNDLED_AXM_SKILL_NAME),
+          observeDesiredCanonical,
+        ).pipe(Effect.provideService(LockfileReader, lockfile));
+        const selected = selectOfficialAxmSkill(observed);
+        const assessment = yield* assessOfficialAxmSkill({
+          selected,
+          policy: {
+            evaluate: ({ candidate }) =>
+              evaluateAxmSkillCompatibility({
+                cliVersion: asset.runningCliVersion,
+                skill: candidate,
+              }),
           },
         });
+        if (
+          Option.isNone(selected) ||
+          selected.value.authority !== "bundled" ||
+          selected.value.observation.status !== "usable" ||
+          assessment._tag !== "assessed"
+        ) {
+          return yield* installRefused({
+            category: "internal",
+            detail: "Bundled AXM skill was not usable at its canonical location after installation",
+          });
+        }
+        const compatibility = assessment.compatibility;
         if (compatibility.status === "incompatible") {
           const recovery = renderAxmSkillRecovery(compatibility.recovery);
           return yield* installRefused({
@@ -317,6 +340,12 @@ export const installBundledAxmSkill = Effect.gen(function* () {
               compatibility.detail ??
               "Bundled AXM skill remained incompatible after workspace installation",
             ...(recovery.nextAction === null ? {} : { cmd: recovery.nextAction }),
+          });
+        }
+        if (compatibility.skillVersion !== asset.version) {
+          return yield* installRefused({
+            category: "internal",
+            detail: `Bundled AXM skill installed ${compatibility.skillVersion ?? "an unversioned release"}, not the bundled ${asset.version}`,
           });
         }
       }),

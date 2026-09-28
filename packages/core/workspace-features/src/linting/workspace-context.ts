@@ -26,13 +26,11 @@ import type {
   InstallRootInventory,
   DesiredExtensionNode,
   DesiredStateGraph,
-  LockfileReadError,
-  SettingsReadError,
   WorkspaceReadModel,
 } from "@agentxm/workspace-kernel/workspace-state";
 import type { AuthoredPackageObservation } from "./run/authored-packages.js";
 import type { AgentContentEntry, UserScopeObservation } from "./run/agent-scopes.js";
-import { type AxmSkillCompatibility } from "@agentxm/cli-maintenance/official-skill/domain";
+import type { OfficialAxmSkillAssessment } from "@agentxm/workspace-kernel/resolution";
 
 /**
  * Context passed to `workspace/*` rules.
@@ -92,11 +90,11 @@ export interface WorkspaceRuleContext {
   >;
   /** Effective configured owner (project, then user scope), when available. */
   readonly owner?: Effect.Effect<Option.Option<Handle>>;
-  /** One caller-built evaluation over the authoritative installed AXM skill. */
-  readonly axmSkillCompatibility?: Effect.Effect<
-    Option.Option<AxmSkillCompatibility>,
-    SettingsReadError | LockfileReadError
-  >;
+  /**
+   * One caller-built assessment of the official AXM skill the desired state
+   * selects, shared by every rule and the machine document of a run.
+   */
+  readonly officialAxmSkill?: Effect.Effect<OfficialAxmSkillAssessment, WorkspaceHealthFailure>;
   /** Deterministic desired-state preflight used by local reconciliation-health rules. */
   readonly health?: {
     readonly desiredState: Effect.Effect<DesiredStateGraph, WorkspaceHealthFailure>;

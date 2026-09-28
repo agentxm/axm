@@ -1,6 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 
 import { contextFor, validLockfile, validSettings } from "./conformance/test-helpers.js";
 import { axmSkillDeclaredRule } from "./axm-skill-declared.js";
@@ -15,6 +14,7 @@ const compatible = evaluateAxmSkillCompatibility({
   skill: {
     manifestVersion: "1.2.0",
     source: "@agentxm/skills/axm@1.2.0",
+    authority: "registry",
     metadata: {
       [AXM_SKILL_CLI_VERSION_METADATA_KEY]: "1.2.0",
       [AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY]: ">=1.2.0 <1.3.0",
@@ -38,7 +38,7 @@ describe("workspace/axm-skill-declared", () => {
       expect(
         yield* axmSkillDeclaredRule.check({
           ...context,
-          axmSkillCompatibility: Effect.succeed(Option.none()),
+          officialAxmSkill: Effect.succeed({ _tag: "undeclared" } as const),
         }),
       ).toEqual([
         {
@@ -59,7 +59,29 @@ describe("workspace/axm-skill-declared", () => {
       expect(
         yield* axmSkillDeclaredRule.check({
           ...context,
-          axmSkillCompatibility: Effect.succeed(Option.some(compatible)),
+          officialAxmSkill: Effect.succeed({
+            _tag: "assessed",
+            path: "/workspace/agent_extensions/registry/@agentxm/skills/axm",
+            authority: "registry",
+            compatibility: compatible,
+          } as const),
+        }),
+      ).toEqual([]);
+    }),
+  );
+
+  it.effect("stays silent when declared canonical state cannot be assessed", () =>
+    Effect.gen(function* () {
+      const context = yield* contextFor({ settings: validSettings(), lockfile: validLockfile });
+      expect(
+        yield* axmSkillDeclaredRule.check({
+          ...context,
+          officialAxmSkill: Effect.succeed({
+            _tag: "canonical-state",
+            path: undefined,
+            authority: "registry",
+            status: "missing-resolution",
+          } as const),
         }),
       ).toEqual([]);
     }),

@@ -2,7 +2,6 @@ import * as Schema from "effect/Schema";
 import * as semver from "semver";
 
 export const AXM_SKILL_FQN = "@agentxm/skills/axm";
-const AXM_SKILL_AGENTXM_SOURCE = `agentxm:${AXM_SKILL_FQN}`;
 export const AXM_SKILL_CLI_VERSION_METADATA_KEY = "axm.sh/cli-version";
 export const AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY = "axm.sh/cli-version-range";
 
@@ -49,10 +48,19 @@ export const AxmSkillCompatibilitySchema = Schema.Struct({
 });
 export type AxmSkillCompatibility = typeof AxmSkillCompatibilitySchema.Type;
 
+/**
+ * Who is authoritative for the selected official skill's content, which
+ * decides the workspace recovery. Content under no recognized authority
+ * recovers through the bundled skill.
+ */
+export type AxmSkillSourceAuthority = "registry" | "bundled" | "workspace";
+
 export interface AxmSkillCompatibilityCandidate {
   readonly manifestVersion: string | null;
   readonly metadata: Readonly<Record<string, string>> | null;
+  /** The rendered source the report names. */
   readonly source: string | null;
+  readonly authority: AxmSkillSourceAuthority | null;
 }
 
 export interface AxmSkillCompatibilityInput {
@@ -126,14 +134,6 @@ const bundledSkillRecovery = (cliVersion: string): AxmSkillCompatibilityRecovery
   targetSkillVersion: cliVersion,
 });
 
-const isAuthoredSource = (source: string | null): boolean => source === "workspace";
-
-const isRegistrySource = (source: string | null): boolean =>
-  source === AXM_SKILL_FQN ||
-  source?.startsWith(`${AXM_SKILL_FQN}@`) === true ||
-  source === AXM_SKILL_AGENTXM_SOURCE ||
-  source?.startsWith(`${AXM_SKILL_AGENTXM_SOURCE}@`) === true;
-
 const registrySkillRecovery = (cliVersion: string): AxmSkillCompatibilityRecovery => ({
   action: "update-registry-skill",
   targetCliVersion: cliVersion,
@@ -142,6 +142,7 @@ const registrySkillRecovery = (cliVersion: string): AxmSkillCompatibilityRecover
 
 const deriveRecovery = (
   compatibility: CompatibilityWithoutRecovery,
+  authority: AxmSkillSourceAuthority | null,
 ): AxmSkillCompatibilityRecovery => {
   if (compatibility.status === "compatible") {
     return {
@@ -173,7 +174,7 @@ const deriveRecovery = (
     }
   }
 
-  if (isAuthoredSource(compatibility.source)) {
+  if (authority === "workspace") {
     return {
       action: "preserve-authored-skill",
       targetCliVersion: compatibility.cliVersion,
@@ -181,29 +182,20 @@ const deriveRecovery = (
     };
   }
 
-  if (isRegistrySource(compatibility.source)) {
+  if (authority === "registry") {
     return registrySkillRecovery(compatibility.cliVersion);
   }
 
   return bundledSkillRecovery(compatibility.cliVersion);
 };
 
-const withRecovery = (compatibility: CompatibilityWithoutRecovery): AxmSkillCompatibility => ({
+const withRecovery = (
+  compatibility: CompatibilityWithoutRecovery,
+  authority: AxmSkillSourceAuthority | null,
+): AxmSkillCompatibility => ({
   ...compatibility,
-  recovery: deriveRecovery(compatibility),
+  recovery: deriveRecovery(compatibility, authority),
 });
-
-const incompatible = (
-  fields: CompatibilityFields,
-  reasonCode: AxmSkillCompatibilityReason,
-  detail: string,
-): AxmSkillCompatibility =>
-  withRecovery({
-    status: "incompatible",
-    ...fields,
-    reasonCode,
-    detail,
-  });
 
 export const evaluateAxmSkillCompatibility = (
   input: AxmSkillCompatibilityInput,
@@ -221,17 +213,21 @@ export const evaluateAxmSkillCompatibility = (
     declaredCliVersion,
     declaredCliVersionRange,
   } satisfies CompatibilityFields;
+  const authority = input.skill?.authority ?? null;
+  const incompatible = (
+    reasonCode: AxmSkillCompatibilityReason,
+    detail: string,
+  ): AxmSkillCompatibility =>
+    withRecovery({ status: "incompatible", ...fields, reasonCode, detail }, authority);
 
   if (cliVersion === null) {
     return incompatible(
-      fields,
       "cli-version-unavailable",
       "The running AXM CLI version is unavailable or invalid.",
     );
   }
   if (input.skill === null) {
     return incompatible(
-      fields,
       "axm-skill-missing",
       "The official @agentxm/skills/axm skill is not installed.",
     );
@@ -240,14 +236,12 @@ export const evaluateAxmSkillCompatibility = (
     input.skill.manifestVersion === null ? null : semver.valid(input.skill.manifestVersion);
   if (validSkillVersion === null) {
     return incompatible(
-      fields,
       "axm-skill-manifest-invalid",
       "The official AXM skill manifest has a missing or invalid version.",
     );
   }
   if (declaredCliVersion === null || declaredCliVersionRange === null) {
     return incompatible(
-      fields,
       "compatibility-metadata-missing",
       `The official AXM skill must declare ${AXM_SKILL_CLI_VERSION_METADATA_KEY} and ${AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY}.`,
     );
@@ -257,37 +251,31 @@ export const evaluateAxmSkillCompatibility = (
     !validateAxmSkillCliVersionRange(declaredCliVersionRange).valid
   ) {
     return incompatible(
-      fields,
       "compatibility-metadata-malformed",
       "The official AXM skill compatibility metadata must contain an exact release and a bounded, wildcard-free semver range.",
     );
   }
   if (validSkillVersion !== declaredCliVersion) {
     return incompatible(
-      fields,
       "skill-release-mismatch",
       `The AXM skill manifest reports ${validSkillVersion}, but ${AXM_SKILL_CLI_VERSION_METADATA_KEY} reports ${declaredCliVersion}.`,
     );
   }
   if (!compatibilitySatisfies(declaredCliVersion, declaredCliVersionRange)) {
     return incompatible(
-      fields,
       "skill-release-range-mismatch",
       `The AXM skill release ${declaredCliVersion} is outside its declared CLI range ${declaredCliVersionRange}.`,
     );
   }
   if (!compatibilitySatisfies(cliVersion, declaredCliVersionRange)) {
     return incompatible(
-      fields,
       "cli-version-incompatible",
       `AXM CLI ${cliVersion} is outside the official AXM skill range ${declaredCliVersionRange}.`,
     );
   }
 
-  return withRecovery({
-    status: "compatible",
-    ...fields,
-    reasonCode: null,
-    detail: null,
-  });
+  return withRecovery(
+    { status: "compatible", ...fields, reasonCode: null, detail: null },
+    authority,
+  );
 };

@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
@@ -6,8 +7,11 @@ import { afterEach } from "vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
 import { makeRegistrySkillLockEntry } from "@agentxm/workspace-kernel/workspace-state/testing";
+import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 
 import { readSettings } from "../test-helpers.js";
+import { BundledAxmSkillAsset } from "@agentxm/extension-kinds/skills";
+import { bundledAxmSkillAsset } from "../../testing.js";
 import { applyInstall, installRequest, makeInstallWorld } from "../../../testing/install-world.js";
 
 export const specification = defineSpecification({
@@ -15,7 +19,7 @@ export const specification = defineSpecification({
   title:
     "Bundled official-skill recovery rewrites the settings entry to bundled ownership and retires the Registry resolution",
   statement:
-    "When the workspace desires the official AXM skill from the Registry, installing the bundled official AXM skill shall rewrite that skill's axm.json entry to bundled workspace-owned content, retire its accepted Registry resolution, materialize the canonical content and the agent projection, leave every other accepted resolution intact, and change nothing when repeated.",
+    "When the workspace desires the official AXM skill from the Registry, installing the bundled official AXM skill shall rewrite that skill's axm.json entry to bundled workspace-owned content, retire its accepted Registry resolution, materialize the canonical content and the agent projection, leave every other accepted resolution and every other copy of the skill intact, and change nothing when repeated. The installation shall succeed only when the package the rewritten state selects is the bundled release, read back from its installed manifest and entry document, and compatible with the running AXM CLI; otherwise it shall fail and restore the configuration, lock state, and canonical content it found.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition", "actionable-diagnostics"],
@@ -33,6 +37,14 @@ export const specification = defineSpecification({
 });
 
 const CANONICAL_SKILL = "agent_extensions/registry/@agentxm/skills/axm/src/SKILL.md";
+/** An older copy of the official skill outside the selected canonical location. */
+const STALE_COPY = "agent_extensions/agentxm/@agentxm/skills/axm/skill.json";
+const STALE_MANIFEST = JSON.stringify({
+  owner: "@agentxm",
+  type: "skill",
+  name: "axm",
+  version: "0.0.1",
+});
 const PROJECTED_SKILL = ".claude/skills/axm/SKILL.md";
 
 /** The request `axm skills install --bundled` builds. */
@@ -86,6 +98,7 @@ describe("Bundled official-skill recovery", () => {
         )
         .pipe(Effect.provide(NodeServices.layer));
 
+      world.workspace.writeFile(STALE_COPY, STALE_MANIFEST);
       const lockBefore = world.workspace.readFile("axm-lock.yaml");
       expect(lockBefore).toContain("axm:");
       expect(lockBefore).toContain("review-helper:");
@@ -108,7 +121,40 @@ describe("Bundled official-skill recovery", () => {
         expect(lockAfter).toContain("review-helper:");
         expect(world.workspace.exists(CANONICAL_SKILL)).toBe(true);
         expect(world.workspace.exists(PROJECTED_SKILL)).toBe(true);
+        expect(world.workspace.readFile(STALE_COPY)).toBe(STALE_MANIFEST);
       }),
+  );
+
+  it.effect.each([
+    {
+      installed: "an entry document without compatibility metadata",
+      asset: bundledAxmSkillAsset({
+        body: "---\nname: axm\ndescription: The official AXM skill.\n---\n\n# axm\n",
+      }),
+    },
+    {
+      // The executable claims 1.0.0 but carries compatible 1.0.1 bytes.
+      installed: "a compatible release other than the bundled one",
+      asset: Layer.effect(
+        BundledAxmSkillAsset,
+        Effect.gen(function* () {
+          const asset = yield* BundledAxmSkillAsset;
+          return { ...asset, version: "1.0.0" };
+        }),
+      ).pipe(Layer.provide(bundledAxmSkillAsset({ version: "1.0.1" }))),
+    },
+  ])("fails and restores the workspace when the installed bytes are $installed", ({ asset }) =>
+    Effect.gen(function* () {
+      const world = yield* registryResolvedWorkspace();
+      const before = world.workspace.snapshot();
+
+      const resolution = yield* world.workspace
+        .provide(bundledRecovery.pipe(Effect.provide(asset)))
+        .pipe(Effect.provide(NodeServices.layer));
+
+      expect(deriveOperationOutcome(resolution)).not.toBe("applied");
+      expect(world.workspace.snapshot()).toEqual(before);
+    }),
   );
 
   it.effect("changes nothing when the recovery is repeated", () =>

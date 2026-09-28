@@ -15,7 +15,13 @@ import { NoProjectionParticipants } from "@agentxm/workspace-kernel/projection/t
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { OfflineHttpClient } from "../test-helpers.js";
-import { lintWorkspaceServices, makeOfficialAxmSkillWorkspace } from "../testing.js";
+import {
+  EXTRANEOUS_AXM_SKILL_PACKAGE_ROOT,
+  OFFICIAL_AXM_SKILL_PACKAGE_ROOT,
+  lintWorkspaceServices,
+  makeOfficialAxmSkillWorkspace,
+  officialAxmSkillPackage,
+} from "../testing.js";
 import { admitLintRequest, lintSelectionRoot, queryLintWorkspace } from "./lint-workspace.js";
 import { isolatedGitEnvironment } from "./staged-workspace.js";
 
@@ -23,7 +29,7 @@ export const specification = defineSpecification({
   requirement: "cli/lint/observes-selected-filesystem-view",
   title: "Lint observes only the selected filesystem view",
   statement:
-    "When lint runs without --fix, it shall evaluate only the selected view — the staged content and its index fingerprint for git-index, the working tree for workspace — report diagnostic locations against the selected workspace rather than any snapshot of it, and leave the Git index unchanged.",
+    "When lint runs without --fix, it shall evaluate only the selected view — the staged content and its index fingerprint for git-index, the working tree for workspace — including which official AXM skill package that view's settings and lock state select, report diagnostic locations against the selected workspace rather than any snapshot of it, and leave the Git index unchanged.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "workspace-intent-fidelity", "machine-automation"],
@@ -68,10 +74,97 @@ const addDeclaredSkill = (settingsText: string): string => {
   )}\n`;
 };
 
+const lintView = (
+  workspace: { readonly root: string; readonly cliVersion: string },
+  view: "workspace" | "git-index",
+) =>
+  Effect.gen(function* () {
+    const selection = yield* admitLintRequest({
+      path: workspace.root,
+      scope: "project",
+      view,
+      fix: false,
+      cwd: workspace.root,
+      userHome: workspace.root,
+    });
+    return yield* queryLintWorkspace(selection, { strict: false }).pipe(
+      Effect.provide(
+        lintWorkspaceServices({
+          workspaceRoot: lintSelectionRoot(selection),
+          cliVersion: workspace.cliVersion,
+        }),
+      ),
+    );
+  }).pipe(Effect.scoped);
+
+const viewServices = Layer.mergeAll(
+  Layer.provideMerge(RegistryTransportTest(OfflineHttpClient), NodeServices.layer),
+  NoProjectionParticipants,
+);
+
 describe("Selected lint filesystem view", () => {
   const cleanups: Array<() => void> = [];
   afterEach(() => {
     for (const cleanup of cleanups.splice(0)) cleanup();
+  });
+
+  it.effect("judges the official skill each view selects, beside an extraneous copy", () => {
+    const incompatible = officialAxmSkillPackage({
+      packageRoot: OFFICIAL_AXM_SKILL_PACKAGE_ROOT,
+      version: "0.0.1",
+      metadata: { cliVersion: "0.0.1", cliVersionRange: ">=0.0.1 <0.1.0" },
+    });
+    const workspace = makeOfficialAxmSkillWorkspace("official-compatible", {
+      files: officialAxmSkillPackage({
+        packageRoot: EXTRANEOUS_AXM_SKILL_PACKAGE_ROOT,
+        version: "0.0.1",
+        metadata: { cliVersion: "0.0.1", cliVersionRange: ">=0.0.1 <0.1.0" },
+      }),
+    });
+    cleanups.push(workspace.cleanup);
+    const compatible = Object.fromEntries(
+      Object.keys(incompatible).map((file) => [file, workspace.readFile(file)]),
+    );
+    initializeGit(workspace.root);
+    // Stage an incompatible canonical package, then repair only the working tree.
+    for (const [file, contents] of Object.entries(incompatible))
+      workspace.writeFile(file, contents);
+    git(workspace.root, ["add", "."]);
+    git(workspace.root, ["commit", "--quiet", "-m", "fixture"]);
+    for (const [file, contents] of Object.entries(compatible)) workspace.writeFile(file, contents);
+    const indexBefore = git(workspace.root, ["ls-files", "--stage", "-z"]);
+    const canonicalRoot = nodePath.join(workspace.root, OFFICIAL_AXM_SKILL_PACKAGE_ROOT);
+    const compatibilityFindings = (result: Effect.Success<ReturnType<typeof lintView>>) =>
+      result.document.findings.filter(({ ruleId }) => ruleId === "workspace/axm-skill-compatible");
+
+    return Effect.gen(function* () {
+      const staged = yield* lintView(workspace, "git-index");
+
+      expect(staged.document.axmSkillCompatibility).toMatchObject({
+        status: "incompatible",
+        skillVersion: "0.0.1",
+      });
+      const [stagedFinding, ...others] = compatibilityFindings(staged);
+      expect(others).toEqual([]);
+      if (stagedFinding === undefined) throw new Error("Expected the staged compatibility finding");
+      const displayedRoot = nodePath.resolve(workspace.root, stagedFinding.displayRoot);
+      expect(nodePath.resolve(displayedRoot, stagedFinding.path)).toBe(canonicalRoot);
+
+      const live = yield* lintView(workspace, "workspace");
+
+      expect(live.document.axmSkillCompatibility).toMatchObject({
+        status: "compatible",
+        skillVersion: workspace.cliVersion,
+      });
+      expect(compatibilityFindings(live)).toEqual([]);
+      expect(git(workspace.root, ["ls-files", "--stage", "-z"])).toBe(indexBefore);
+
+      git(workspace.root, ["add", "."]);
+      const restaged = yield* lintView(workspace, "git-index");
+
+      expect(restaged.document.axmSkillCompatibility).toMatchObject({ status: "compatible" });
+      expect(compatibilityFindings(restaged)).toEqual([]);
+    }).pipe(Effect.provide(viewServices));
   });
 
   it.effect("distinguishes the exact Git index from the working tree without changing it", () => {
@@ -90,26 +183,7 @@ describe("Selected lint filesystem view", () => {
     const statusBefore = git(workspace.root, ["status", "--porcelain=v2", "-z"]);
     const indexBefore = git(workspace.root, ["ls-files", "--stage", "-z"]);
 
-    const lint = (view: "workspace" | "git-index") =>
-      Effect.gen(function* () {
-        const selection = yield* admitLintRequest({
-          path: workspace.root,
-          scope: "project",
-          view,
-          fix: false,
-          cwd: workspace.root,
-          userHome: workspace.root,
-        });
-        const result = yield* queryLintWorkspace(selection, { strict: false }).pipe(
-          Effect.provide(
-            lintWorkspaceServices({
-              workspaceRoot: lintSelectionRoot(selection),
-              cliVersion: workspace.cliVersion,
-            }),
-          ),
-        );
-        return result;
-      }).pipe(Effect.scoped);
+    const lint = (view: "workspace" | "git-index") => lintView(workspace, view);
 
     return Effect.gen(function* () {
       const staged = yield* lint("git-index");
@@ -148,13 +222,6 @@ describe("Selected lint filesystem view", () => {
       expect(git(workspace.root, ["ls-files", "--stage", "-z"])).toBe(indexBefore);
       expect(git(workspace.root, ["status", "--porcelain=v2", "-z"])).toBe(statusBefore);
       expect(fs.readFileSync(settingsPath, "utf8")).toBe(validSettings);
-    }).pipe(
-      Effect.provide(
-        Layer.mergeAll(
-          Layer.provideMerge(RegistryTransportTest(OfflineHttpClient), NodeServices.layer),
-          NoProjectionParticipants,
-        ),
-      ),
-    );
+    }).pipe(Effect.provide(viewServices));
   });
 });

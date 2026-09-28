@@ -55,7 +55,7 @@ const configuredSubagentContext = (canonicalPresent: boolean) =>
           ...context,
           health: {
             desiredState: Effect.succeed({
-              complete: true,
+              packMembership: [],
               nodes: [desiredSubagent],
               mcpSourceClosures: [],
               problems: [],
@@ -154,7 +154,7 @@ const skillLockContext = (accepted: boolean) =>
           ...context,
           health: {
             desiredState: Effect.succeed({
-              complete: true,
+              packMembership: [],
               nodes: [desiredReviewer],
               mcpSourceClosures: [],
               problems: [],
@@ -315,7 +315,7 @@ const packDependencyContext = (accepted: boolean) =>
           ...context,
           health: {
             desiredState: Effect.succeed({
-              complete: true,
+              packMembership: [],
               nodes: [packDeclaredReviewer],
               mcpSourceClosures: [],
               problems: [],
@@ -342,7 +342,7 @@ const sharedPackDistributionContext = (distribute: boolean) =>
           ...context,
           health: {
             desiredState: Effect.succeed({
-              complete: true,
+              packMembership: [],
               nodes: [packDeclaredReviewer],
               mcpSourceClosures: [],
               problems: [],

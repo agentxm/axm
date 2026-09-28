@@ -62,8 +62,10 @@ import {
   acceptedCanonicalObservation,
   observeDesiredCanonical,
   isSourcedDesiredExtension,
+  desiredProblemSubject,
   desiredStateProblemsText,
   DesiredStateReader,
+  unresolvedPackRoutes,
   type LockfileReader,
   SettingsReader,
   type SettingsReaderService,
@@ -172,49 +174,55 @@ export const selectedDesiredNodes = (
   return graph.nodes;
 };
 
+/** The problems a selection is about: every Pack problem for a type sweep, else the subjects' own. */
 export const scopedProblems = (
   graph: DesiredStateGraph,
   selection: SyncSelection,
 ): DesiredStateGraph["problems"] => {
   if (selection.subjects !== undefined) {
-    return graph.problems.filter(
-      (problem) =>
-        "extensionType" in problem &&
-        isSubject(selection, { type: problem.extensionType, name: problem.name }),
-    );
+    return graph.problems.filter((problem) => {
+      const subject = desiredProblemSubject(problem);
+      return (
+        subject.kind === "extension" &&
+        isSubject(selection, { type: subject.type, name: subject.name })
+      );
+    });
   }
   if (Option.isNone(selection.target) && Option.isNone(selection.type)) return graph.problems;
   if (Option.isSome(selection.type)) {
     const type = selection.type.value;
-    return graph.problems.filter(
-      (problem) =>
-        problem.type.startsWith("pack-") ||
-        ("extensionType" in problem && problem.extensionType === type),
-    );
+    return graph.problems.filter((problem) => {
+      const subject = desiredProblemSubject(problem);
+      return subject.kind === "pack" || subject.type === type;
+    });
   }
   if (Option.isNone(selection.target)) return graph.problems;
   const target = selection.target.value;
   const parsed = parseExtensionFqnParts(target);
   if (parsed === undefined) return graph.problems;
   if (parsed.type === "pack") {
-    return graph.problems.filter((problem) => "pack" in problem && problem.pack === target);
+    return graph.problems.filter((problem) => {
+      const subject = desiredProblemSubject(problem);
+      return subject.kind === "pack" && subject.pack === target;
+    });
   }
-  return graph.problems.filter(
-    (problem) =>
-      "extensionType" in problem &&
-      problem.extensionType === parsed.type &&
-      problem.name === parsed.name,
-  );
+  return graph.problems.filter((problem) => {
+    const subject = desiredProblemSubject(problem);
+    return (
+      subject.kind === "extension" && subject.type === parsed.type && subject.name === parsed.name
+    );
+  });
 };
 
 export const recoverableExternalPackName = (
   graph: DesiredStateGraph,
   problem: DesiredStateGraph["problems"][number],
 ): string | undefined => {
-  if (!("pack" in problem)) return undefined;
+  const subject = desiredProblemSubject(problem);
+  if (subject.kind !== "pack") return undefined;
   const node = graph.nodes.find(
     (candidate) =>
-      candidate.type === "pack" && desiredPackageKey(candidate.identity) === problem.pack,
+      candidate.type === "pack" && desiredPackageKey(candidate.identity) === subject.pack,
   );
   if (node === undefined || node.identity.authority === "workspace") return undefined;
   return node.name;
@@ -541,14 +549,19 @@ export const collectMaterializeSteps = (args: {
       );
     const selection = args.selection ?? { target: Option.none(), type: Option.none() };
     const problems = scopedProblems(desiredState, selection);
-    const blockers = problems.filter((problem) => {
+    // A Pack whose routes cannot be established leaves the selection's
+    // membership unknown, so nothing in it can be planned unless recovery
+    // re-acquires that Pack. A problem about one identified extension blocks
+    // that extension's closure alone; its evidence travels with the step.
+    const routeBlockers = problems.filter((problem) => {
+      if (desiredProblemSubject(problem).kind !== "pack") return false;
       const name = recoverableExternalPackName(desiredState, problem);
       return name === undefined || args.packRecovery?.packNames.has(name) !== true;
     });
-    if (blockers.length > 0) {
+    if (routeBlockers.length > 0) {
       return yield* new WorkspaceSyncFailed({
         category: "conflict",
-        detail: `Cannot reconcile the selected incomplete desired extension graph: ${desiredStateProblemsText(blockers)}`,
+        detail: `Cannot reconcile the selected incomplete desired extension graph: ${desiredStateProblemsText(routeBlockers)}`,
         suggestions: [
           {
             description: "Inspect workspace facts",
@@ -557,6 +570,13 @@ export const collectMaterializeSteps = (args: {
         ],
       });
     }
+    const subjectBlockers = (node: DesiredExtensionNode) =>
+      problems.filter((problem) => {
+        const subject = desiredProblemSubject(problem);
+        return (
+          subject.kind === "extension" && subject.type === node.type && subject.name === node.name
+        );
+      });
     const packRecoverySteps = args.packRecovery?.steps ?? [];
     if (
       Option.isSome(selection.target) &&
@@ -568,9 +588,22 @@ export const collectMaterializeSteps = (args: {
       });
     }
 
-    const selected = selectedDesiredNodes(desiredState, selection)
+    const selectable = selectedDesiredNodes(desiredState, selection)
       .filter(isSourcedDesiredExtension)
       .filter((node) => node.type !== "pack" || !node.enabled);
+    const problemBlocked = selectable.flatMap((node) => {
+      const problems = subjectBlockers(node);
+      return problems.length === 0 ? [] : [{ node, problems }];
+    });
+    const problemSteps = problemBlocked.map(
+      ({ node, problems }): PlannedJobStep<MaterializeStepRequirements> => ({
+        readiness: "error",
+        key: `${node.type}:${node.name}`,
+        label: node.name,
+        errorMessage: desiredStateProblemsText(problems),
+      }),
+    );
+    const selected = selectable.filter((node) => subjectBlockers(node).length === 0);
     // Every node of a type judges currency against the same physical inventory
     // in this planning phase. Keep the shared read local to this invocation.
     const inventoryOptions = (type: DesiredExtensionNode["type"]) =>
@@ -732,8 +765,19 @@ export const collectMaterializeSteps = (args: {
     const failures = evaluated.flatMap(({ node, result }) =>
       Result.isFailure(result) ? [{ node, failure: result.failure }] : [],
     );
-    if (reconciled.length === 0 && failures[0] !== undefined)
-      return yield* Effect.fail(failures[0].failure);
+    // With nothing reconcilable in the selection, the first blocker is the
+    // operation's own refusal; beside reconcilable work it is a blocked step.
+    if (reconciled.length === 0) {
+      const blocked = problemBlocked[0];
+      if (blocked !== undefined) {
+        return yield* new WorkspaceSyncFailed({
+          category: "conflict",
+          detail: `Cannot reconcile ${blocked.node.type} ${blocked.node.name}: ${desiredStateProblemsText(blocked.problems)}`,
+          suggestions: [{ description: "Inspect workspace facts", cmd: "axm lint" }],
+        });
+      }
+      if (failures[0] !== undefined) return yield* Effect.fail(failures[0].failure);
+    }
     const blockedSteps = failures.map(
       ({ node, failure }): PlannedJobStep<MaterializeStepRequirements> => ({
         readiness: "error",
@@ -1019,7 +1063,10 @@ export const collectMaterializeSteps = (args: {
     )).flat();
     return {
       ...(preparedHookProjection === undefined ? {} : { preparedHookProjection }),
-      cleanupSafe: problems.length === 0,
+      // The whole-graph sweeps act on absence from the graph, so they wait
+      // while any active Pack's routes are unresolved; a problem about one
+      // identified extension does not stop them.
+      cleanupSafe: unresolvedPackRoutes(desiredState).length === 0,
       knowledgeMayChange:
         packRecoverySteps.length > 0 || knowledgeRefs.some(({ materialize }) => materialize),
       serialMaterialization: packRecoverySteps.length > 0,
@@ -1037,6 +1084,7 @@ export const collectMaterializeSteps = (args: {
         ]),
       } satisfies ReleaseAgeOperationEvidence,
       steps: [
+        ...problemSteps,
         ...blockedSteps,
         ...packRecoverySteps,
         ...packRefs

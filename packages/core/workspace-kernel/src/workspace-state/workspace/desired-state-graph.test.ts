@@ -19,7 +19,13 @@ import {
   decodeVersionSync,
   versionSatisfiesRange,
 } from "@agentxm/extension-model/unstable/version-constraints";
-import { buildDesiredStateGraph, type ProspectivePackRef } from "./desired-state-graph.js";
+import { evaluateDesiredState } from "./desired-state-evaluation.js";
+import type { ProspectivePackRef } from "./desired-state-graph.js";
+import { desiredStateSettled, unresolvedPackRoutes } from "./desired-state-queries.js";
+import {
+  captureDesiredStateInputs,
+  type CaptureDesiredStateInputsArgs,
+} from "./desired-state-reader.js";
 
 const writePack = (
   root: string,
@@ -78,6 +84,13 @@ const prospectivePack = (
   };
 };
 
+/** Capture over the filesystem port, then evaluate: the reader's two steps, in a test's hands. */
+const evaluate = (args: Omit<CaptureDesiredStateInputsArgs, "manifests">) =>
+  Effect.gen(function* () {
+    const inputs = yield* captureDesiredStateInputs({ manifests: yield* PackManifests, ...args });
+    return evaluateDesiredState(inputs);
+  });
+
 layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
   excludeTestServices: true,
 })("desired workspace state graph", (it) => {
@@ -102,17 +115,53 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
         "@acme/knowledge/handbook": "^1.0.0",
       });
 
-      const graph = yield* buildDesiredStateGraph({
-        manifests: yield* PackManifests,
+      const graph = yield* evaluate({
         baseDir: root,
         settings: {
           packs: {
             complete: { source: "@acme/packs/complete", enabled: true },
           },
         },
+        prospectivePacks: [],
       });
 
-      expect(graph.complete).toBe(true);
+      // An external Pack with no accepted resolution keeps its membership
+      // known while its routes are withheld; a proposal authorizes them.
+      expect(graph.packMembership).toEqual([
+        expect.objectContaining({
+          pack: "@acme/packs/complete",
+          declared: expect.objectContaining({ status: "known" }),
+          routes: "unauthorized",
+        }),
+      ]);
+      expect(graph.problems).toEqual([
+        expect.objectContaining({ type: "pack-resolution-unavailable" }),
+      ]);
+    }),
+  );
+
+  it.effect("routes a proposed pack's members across every leaf extension type", () =>
+    Effect.gen(function* () {
+      const graph = yield* evaluate({
+        baseDir: root,
+        settings: {
+          packs: {
+            complete: { source: "@acme/packs/complete", enabled: true },
+          },
+        },
+        prospectivePacks: [
+          prospectivePack("complete", {
+            "@acme/skills/review": "^1.0.0",
+            "@acme/mcps/browser": "^1.0.0",
+            "@acme/subagents/planner": "^1.0.0",
+            "@acme/rules/security": "^1.0.0",
+            "@acme/hooks/preflight": "^1.0.0",
+            "@acme/knowledge/handbook": "^1.0.0",
+          }),
+        ],
+      });
+
+      expect(desiredStateSettled(graph)).toBe(true);
       expect(graph.problems).toEqual([]);
       expect(graph.nodes.map((node) => node.type)).toEqual([
         "skill",
@@ -126,27 +175,40 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
       expect(
         graph.nodes.filter((node) => node.origins.some((origin) => origin.type === "pack")),
       ).toHaveLength(6);
+      expect(unresolvedPackRoutes(graph)).toEqual([]);
     }),
   );
 
   it.effect("binds a Pack member to its declared Registry under the accepted-resolution key", () =>
     Effect.gen(function* () {
       const declared = new URL("https://registry.example/");
-      writePack(root, "@acme", "platform", {
-        "@acme/mcps/context": {
-          versionRange: "^1.0.0",
-          source: { type: "registry", url: declared.href },
-        },
-        "@acme/mcps/inherited": "^1.0.0",
-      });
       const configured = new URL("https://corp.example.test/");
+      const manifest = Schema.decodeUnknownSync(PackManifestSchema)({
+        owner: "@acme",
+        type: "pack",
+        name: "platform",
+        version: "1.0.0",
+        dependencies: {
+          "@acme/mcps/context": {
+            versionRange: "^1.0.0",
+            source: { type: "registry", url: declared.href },
+          },
+          "@acme/mcps/inherited": "^1.0.0",
+        },
+      });
 
-      const graph = yield* buildDesiredStateGraph({
-        manifests: yield* PackManifests,
+      const graph = yield* evaluate({
         baseDir: root,
         settings: { packs: { platform: { source: "corp:@acme/packs/platform", enabled: true } } },
         defaultRegistry: "agentxm",
         registryEndpoints: { corp: configured },
+        prospectivePacks: [
+          {
+            owner: manifest.owner,
+            version: manifest.version,
+            pack: { name: manifest.name, dependencies: manifest.dependencies },
+          },
+        ],
       });
 
       const context = graph.nodes.find((node) => node.name === "context");
@@ -185,65 +247,9 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
     }),
   );
 
-  it.effect("retains multiple pack constraints and rejects an empty intersection", () =>
-    Effect.gen(function* () {
-      writePack(root, "@acme", "one", {
-        "@acme/skills/review": "^1.0.0",
-      });
-      writePack(root, "@acme", "two", {
-        "@acme/skills/review": "^2.0.0",
-      });
-
-      const graph = yield* buildDesiredStateGraph({
-        manifests: yield* PackManifests,
-        baseDir: root,
-        settings: {
-          packs: {
-            one: { source: "@acme/packs/one", enabled: true },
-            two: { source: "@acme/packs/two", enabled: true },
-          },
-        },
-      });
-
-      const review = graph.nodes.find((node) => node.type === "skill" && node.name === "review");
-      expect(review && Result.isFailure(review.constraint)).toBe(true);
-      expect(review && desiredConstraintContributors(review).map(({ range }) => range)).toEqual([
-        "^1.0.0",
-        "^2.0.0",
-      ]);
-      expect(graph.complete).toBe(false);
-      expect(graph.problems).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            type: "constraint-conflict",
-            extensionType: "skill",
-            name: "review",
-          }),
-        ]),
-      );
-      expect(
-        graph.problems.find((problem) => problem.type === "constraint-conflict"),
-      ).toMatchObject({
-        contributors: [
-          {
-            source: "pack",
-            dependingPack: "@acme/packs/one",
-            range: "^1.0.0",
-          },
-          {
-            source: "pack",
-            dependingPack: "@acme/packs/two",
-            range: "^2.0.0",
-          },
-        ],
-      });
-    }),
-  );
-
   it.effect("gates prospective Pack manifests before either Pack is materialized", () =>
     Effect.gen(function* () {
-      const graph = yield* buildDesiredStateGraph({
-        manifests: yield* PackManifests,
+      const graph = yield* evaluate({
         baseDir: root,
         settings: {
           packs: {
@@ -260,36 +266,30 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
       expect(graph.problems).not.toEqual(
         expect.arrayContaining([expect.objectContaining({ type: "pack-manifest-unavailable" })]),
       );
-      expect(graph.problems).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            type: "constraint-conflict",
-            extensionType: "skill",
-            name: "review",
-            contributors: [
-              expect.objectContaining({ dependingPack: "@acme/packs/one", range: "^1.0.0" }),
-              expect.objectContaining({ dependingPack: "@acme/packs/two", range: "^2.0.0" }),
-            ],
-          }),
-        ]),
-      );
+      const review = graph.nodes.find((node) => node.type === "skill" && node.name === "review");
+      expect(review && Result.isFailure(review.constraint)).toBe(true);
+      expect(review && desiredConstraintContributors(review).map(({ range }) => range)).toEqual([
+        "^1.0.0",
+        "^2.0.0",
+      ]);
+      expect(desiredStateSettled(graph)).toBe(false);
+      expect(graph.problems).toEqual([
+        expect.objectContaining({
+          type: "constraint-conflict",
+          extensionType: "skill",
+          name: "review",
+          contributors: [
+            expect.objectContaining({ dependingPack: "@acme/packs/one", range: "^1.0.0" }),
+            expect.objectContaining({ dependingPack: "@acme/packs/two", range: "^2.0.0" }),
+          ],
+        }),
+      ]);
     }),
   );
 
   it.effect("rejects a three-way conflict even when every pair intersects", () =>
     Effect.gen(function* () {
-      writePack(root, "@acme", "one", {
-        "@acme/skills/review": "^1.0.0 || ^3.0.0",
-      });
-      writePack(root, "@acme", "two", {
-        "@acme/skills/review": "^1.0.0 || ^2.0.0",
-      });
-      writePack(root, "@acme", "three", {
-        "@acme/skills/review": "^2.0.0 || ^3.0.0",
-      });
-
-      const graph = yield* buildDesiredStateGraph({
-        manifests: yield* PackManifests,
+      const graph = yield* evaluate({
         baseDir: root,
         settings: {
           packs: {
@@ -298,9 +298,14 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
             three: { source: "@acme/packs/three", enabled: true },
           },
         },
+        prospectivePacks: [
+          prospectivePack("one", { "@acme/skills/review": "^1.0.0 || ^3.0.0" }),
+          prospectivePack("two", { "@acme/skills/review": "^1.0.0 || ^2.0.0" }),
+          prospectivePack("three", { "@acme/skills/review": "^2.0.0 || ^3.0.0" }),
+        ],
       });
 
-      expect(graph.complete).toBe(false);
+      expect(desiredStateSettled(graph)).toBe(false);
       expect(graph.problems).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
@@ -315,8 +320,7 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
 
   it.effect("treats a missing authoritative pack manifest as unknown desired state", () =>
     Effect.gen(function* () {
-      const graph = yield* buildDesiredStateGraph({
-        manifests: yield* PackManifests,
+      const graph = yield* evaluate({
         baseDir: root,
         settings: {
           packs: {
@@ -325,11 +329,19 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
         },
       });
 
-      expect(graph.complete).toBe(false);
+      expect(desiredStateSettled(graph)).toBe(false);
       expect(graph.problems).toEqual([
         expect.objectContaining({
           type: "pack-manifest-unavailable",
           pack: "@acme/packs/missing",
+          reason: "absent",
+        }),
+      ]);
+      expect(graph.packMembership).toEqual([
+        expect.objectContaining({
+          pack: "@acme/packs/missing",
+          declared: { status: "unknown", reason: "absent" },
+          routes: "unknown",
         }),
       ]);
     }),
@@ -337,12 +349,7 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
 
   it.effect("lets an explicit member disable override an enabled pack requirement", () =>
     Effect.gen(function* () {
-      writePack(root, "@acme", "reviewers", {
-        "@acme/skills/review": "^1.0.0",
-      });
-
-      const graph = yield* buildDesiredStateGraph({
-        manifests: yield* PackManifests,
+      const graph = yield* evaluate({
         baseDir: root,
         settings: {
           skills: {
@@ -355,6 +362,7 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
             reviewers: { source: "@acme/packs/reviewers", enabled: true },
           },
         },
+        prospectivePacks: [prospectivePack("reviewers", { "@acme/skills/review": "^1.0.0" })],
       });
 
       const review = graph.nodes.find((node) => node.type === "skill" && node.name === "review");
@@ -368,9 +376,6 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
     "retains a direct Knowledge override as desired intent alongside and after a Pack",
     () =>
       Effect.gen(function* () {
-        writePack(root, "@acme", "platform", {
-          "@acme/knowledge/handbook": "^1.0.0",
-        });
         const knowledge = {
           handbook: {
             source: "@acme/knowledge/handbook@^1.1.0",
@@ -379,8 +384,7 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
           },
         };
 
-        const withPack = yield* buildDesiredStateGraph({
-          manifests: yield* PackManifests,
+        const withPack = yield* evaluate({
           baseDir: root,
           settings: {
             knowledge,
@@ -388,9 +392,9 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
               platform: { source: "@acme/packs/platform", enabled: true },
             },
           },
+          prospectivePacks: [prospectivePack("platform", { "@acme/knowledge/handbook": "^1.0.0" })],
         });
-        const directOnly = yield* buildDesiredStateGraph({
-          manifests: yield* PackManifests,
+        const directOnly = yield* evaluate({
           baseDir: root,
           settings: { knowledge },
         });
@@ -430,15 +434,7 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
 
   it.effect("keeps a member active when another enabled pack still requires it", () =>
     Effect.gen(function* () {
-      writePack(root, "@acme", "reviewers", {
-        "@acme/skills/review": "^1.0.0",
-      });
-      writePack(root, "@acme", "maintainers", {
-        "@acme/skills/review": "^1.0.0",
-      });
-
-      const graph = yield* buildDesiredStateGraph({
-        manifests: yield* PackManifests,
+      const graph = yield* evaluate({
         baseDir: root,
         settings: {
           packs: {
@@ -446,6 +442,10 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
             maintainers: { source: "@acme/packs/maintainers", enabled: true },
           },
         },
+        prospectivePacks: [
+          prospectivePack("reviewers", { "@acme/skills/review": "^1.0.0" }),
+          prospectivePack("maintainers", { "@acme/skills/review": "^1.0.0" }),
+        ],
       });
 
       const review = graph.nodes.find((node) => node.type === "skill" && node.name === "review");
@@ -456,6 +456,10 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
           pack: { authority: "registry", fqn: "@acme/packs/maintainers" },
         }),
       ]);
+      expect(graph.packMembership).toEqual([
+        expect.objectContaining({ pack: "@acme/packs/maintainers", routes: "active" }),
+        expect.objectContaining({ pack: "@acme/packs/reviewers", routes: "dormant" }),
+      ]);
     }),
   );
 
@@ -465,8 +469,7 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
         "@acme/skills/review": "^1.0.0",
       });
 
-      const graph = yield* buildDesiredStateGraph({
-        manifests: yield* PackManifests,
+      const graph = yield* evaluate({
         baseDir: root,
         settings: {
           skills: {
@@ -492,8 +495,7 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
         "@acme/skills/review": "^1.0.0",
       });
 
-      const graph = yield* buildDesiredStateGraph({
-        manifests: yield* PackManifests,
+      const graph = yield* evaluate({
         baseDir: root,
         settings: {
           packs: {
@@ -502,9 +504,15 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
         },
       });
 
-      expect(graph.complete).toBe(true);
+      expect(desiredStateSettled(graph)).toBe(true);
       expect(graph.nodes).toEqual([
         expect.objectContaining({ type: "pack", name: "reviewers", enabled: false }),
+      ]);
+      expect(graph.packMembership).toEqual([
+        expect.objectContaining({
+          declared: { status: "known", members: [{ type: "skill", name: "review" }] },
+          routes: "dormant",
+        }),
       ]);
     }),
   );
@@ -513,8 +521,7 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
     "does not require a disabled Pack manifest to establish its absent dependency route",
     () =>
       Effect.gen(function* () {
-        const graph = yield* buildDesiredStateGraph({
-          manifests: yield* PackManifests,
+        const graph = yield* evaluate({
           baseDir: root,
           settings: {
             packs: {
@@ -523,11 +530,19 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
           },
         });
 
-        expect(graph.complete).toBe(true);
+        expect(desiredStateSettled(graph)).toBe(true);
         expect(graph.problems).toEqual([]);
         expect(graph.nodes).toEqual([
           expect.objectContaining({ type: "pack", name: "missing", enabled: false }),
         ]);
+        // Nothing is routed, and nothing is claimed about what would be.
+        expect(graph.packMembership).toEqual([
+          expect.objectContaining({
+            declared: { status: "unknown", reason: "absent" },
+            routes: "dormant",
+          }),
+        ]);
+        expect(unresolvedPackRoutes(graph)).toEqual([]);
       }),
   );
 
@@ -537,8 +552,7 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
         "@acme/skills/review": "^1.0.0",
       });
 
-      const graph = yield* buildDesiredStateGraph({
-        manifests: yield* PackManifests,
+      const graph = yield* evaluate({
         baseDir: root,
         settings: {
           owner: handle("@acme"),
@@ -555,7 +569,7 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
       });
 
       const review = graph.nodes.find((node) => node.type === "skill" && node.name === "review");
-      expect(graph.complete).toBe(true);
+      expect(desiredStateSettled(graph)).toBe(true);
       expect(review?.identity).toEqual({ authority: "workspace", fqn: "@acme/skills/review" });
       expect(review && desiredConstraintContributors(review).map(({ range }) => range)).toEqual([
         "^1.0.0",
@@ -566,15 +580,21 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
 
   it.effect("rejects different owners competing for one simple-name projection", () =>
     Effect.gen(function* () {
-      writePack(root, "@one", "one", {
-        "@one/skills/review": "^1.0.0",
+      const one = Schema.decodeUnknownSync(PackManifestSchema)({
+        owner: "@one",
+        type: "pack",
+        name: "one",
+        version: "1.0.0",
+        dependencies: { "@one/skills/review": "^1.0.0" },
       });
-      writePack(root, "@two", "two", {
-        "@two/skills/review": "^1.0.0",
+      const two = Schema.decodeUnknownSync(PackManifestSchema)({
+        owner: "@two",
+        type: "pack",
+        name: "two",
+        version: "1.0.0",
+        dependencies: { "@two/skills/review": "^1.0.0" },
       });
-
-      const graph = yield* buildDesiredStateGraph({
-        manifests: yield* PackManifests,
+      const graph = yield* evaluate({
         baseDir: root,
         settings: {
           packs: {
@@ -582,18 +602,25 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
             two: { source: "@two/packs/two", enabled: true },
           },
         },
+        prospectivePacks: [one, two].map((manifest) => ({
+          owner: manifest.owner,
+          version: manifest.version,
+          pack: { name: manifest.name, dependencies: manifest.dependencies },
+        })),
       });
 
-      expect(graph.complete).toBe(false);
-      expect(graph.problems).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            type: "projection-collision",
-            extensionType: "skill",
-            name: "review",
-          }),
-        ]),
-      );
+      expect(desiredStateSettled(graph)).toBe(false);
+      expect(graph.problems).toEqual([
+        expect.objectContaining({
+          type: "projection-collision",
+          extensionType: "skill",
+          name: "review",
+          identities: [
+            expect.objectContaining({ fqn: "@one/skills/review" }),
+            expect.objectContaining({ fqn: "@two/skills/review" }),
+          ],
+        }),
+      ]);
     }),
   );
 
@@ -613,8 +640,7 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
       manifest.name = "other";
       nodeFs.writeFileSync(manifestPath, JSON.stringify(manifest));
 
-      const graph = yield* buildDesiredStateGraph({
-        manifests: yield* PackManifests,
+      const graph = yield* evaluate({
         baseDir: root,
         settings: {
           packs: {
@@ -623,13 +649,60 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
         },
       });
 
-      expect(graph.complete).toBe(false);
+      expect(desiredStateSettled(graph)).toBe(false);
       expect(graph.problems).toEqual([
         expect.objectContaining({
           type: "pack-identity-mismatch",
           pack: "@acme/packs/expected",
         }),
       ]);
+      expect(graph.packMembership).toEqual([
+        expect.objectContaining({ declared: { status: "unknown", reason: "identity-mismatch" } }),
+      ]);
+    }),
+  );
+
+  it.effect("reports a document that is not JSON and one that violates the schema distinctly", () =>
+    Effect.gen(function* () {
+      const dir = nodePath.join(root, "agent_extensions", "registry", "@acme", "packs");
+      nodeFs.mkdirSync(nodePath.join(dir, "malformed"), { recursive: true });
+      nodeFs.writeFileSync(nodePath.join(dir, "malformed", "pack.json"), "{ not json");
+      nodeFs.mkdirSync(nodePath.join(dir, "broken"), { recursive: true });
+      nodeFs.writeFileSync(
+        nodePath.join(dir, "broken", "pack.json"),
+        JSON.stringify({
+          owner: "@acme",
+          type: "pack",
+          name: "broken",
+          version: "1.0.0",
+          dependencies: { "@acme/skills/review": 4242 },
+        }),
+      );
+
+      const graph = yield* evaluate({
+        baseDir: root,
+        settings: {
+          packs: {
+            malformed: { source: "@acme/packs/malformed", enabled: true },
+            broken: { source: "@acme/packs/broken", enabled: true },
+          },
+        },
+      });
+
+      expect(graph.problems).toEqual([
+        expect.objectContaining({
+          type: "pack-manifest-invalid",
+          pack: "@acme/packs/broken",
+          reason: "schema-invalid",
+          issues: [expect.objectContaining({ path: expect.stringContaining("dependencies") })],
+        }),
+        expect.objectContaining({
+          type: "pack-manifest-invalid",
+          pack: "@acme/packs/malformed",
+          reason: "malformed",
+        }),
+      ]);
+      expect(JSON.stringify(graph.problems)).not.toContain("4242");
     }),
   );
 });

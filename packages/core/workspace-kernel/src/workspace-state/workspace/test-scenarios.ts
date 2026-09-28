@@ -17,8 +17,15 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
+import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
+import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
+import { LOCKFILE_VERSION, type Lockfile } from "../desired/lockfile/index.js";
 import { SettingsSchema } from "../desired/settings/index.js";
-import { buildDesiredStateGraph, type DesiredStateGraph } from "./desired-state-graph.js";
+import { computePackManifestContentIdentity } from "./pack-manifest-content-identity.js";
+import { makeRegistryPackLockEntry } from "./test-stubs.js";
+import { evaluateDesiredState } from "./desired-state-evaluation.js";
+import type { DesiredStateGraph } from "./desired-state-graph.js";
+import { captureDesiredStateInputs } from "./desired-state-reader.js";
 import { observePackManifest, type PackManifestsPort } from "./pack-manifests.js";
 
 /** The skill both Packs require and the workspace pins. */
@@ -170,6 +177,16 @@ export const sharedSubagentSettings = (pin: string) => ({
   packs: Object.fromEntries(SHARED_SUBAGENT_PACKS.map((pack) => [pack.name, pack.fqn])),
 });
 
+/** The manifest text each scenario Pack is materialized with. */
+const scenarioManifestText = (name: string, range: string): string =>
+  JSON.stringify({
+    owner: SHARED_MEMBER.owner,
+    type: "pack",
+    name,
+    version: PACK_VERSION,
+    dependencies: { [SHARED_MEMBER.fqn]: range },
+  });
+
 /** Pack manifests held in memory, located where a registry Pack is materialized. */
 const scenarioPackManifests: PackManifestsPort = {
   locate: ({ owner, name }) => {
@@ -182,26 +199,41 @@ const scenarioPackManifests: PackManifestsPort = {
         observePackManifest(
           pack === undefined || owner !== SHARED_MEMBER.owner
             ? undefined
-            : JSON.stringify({
-                owner,
-                type: "pack",
-                name,
-                version: PACK_VERSION,
-                dependencies: { [SHARED_MEMBER.fqn]: pack.range },
-              }),
+            : scenarioManifestText(name, pack.range),
         ),
       ),
     };
   },
 };
 
+/** The accepted resolutions that authorize each scenario Pack's materialized manifest. */
+const scenarioAcceptedResolutions: Lockfile = {
+  lockfileVersion: LOCKFILE_VERSION,
+  skills: {},
+  packs: Object.fromEntries(
+    SHARED_MEMBER_PACKS.map((pack) => [
+      pack.name,
+      makeRegistryPackLockEntry({
+        owner: decodeHandleSync(SHARED_MEMBER.owner),
+        name: pack.name,
+        sourceHash: computePackManifestContentIdentity(
+          Schema.decodeUnknownSync(PackManifestSchema)(
+            JSON.parse(scenarioManifestText(pack.name, pack.range)),
+          ),
+        ),
+      }),
+    ]),
+  ),
+};
+
 /** The scenario's desired-state graph with the given direct pin, evaluated in memory. */
 export const sharedMemberGraph = (pin: string): Effect.Effect<DesiredStateGraph> =>
-  buildDesiredStateGraph({
+  captureDesiredStateInputs({
     manifests: scenarioPackManifests,
     baseDir: "/workspace",
     settings: Schema.decodeUnknownSync(SettingsSchema)({
       owner: SHARED_MEMBER.owner,
       ...sharedMemberSettings(pin),
     }),
-  });
+    acceptedResolutions: scenarioAcceptedResolutions,
+  }).pipe(Effect.map(evaluateDesiredState));

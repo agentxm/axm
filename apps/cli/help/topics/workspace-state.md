@@ -186,9 +186,13 @@ the invalid fields. Those diagnoses do not claim an unsupported version.
 
 ## Safe reconciliation
 
-AXM stops an affected semantic closure when its desired graph is incomplete,
-its accepted resolution is invalid or incompatible, or a target is unowned or
-ambiguously owned. Independent ready closures may still apply.
+AXM stops an affected semantic closure when a configured Pack's routes are
+unresolved (its manifest is absent, unreadable, invalid, or not authorized by
+its accepted resolution), when an accepted resolution is invalid or
+incompatible, or when a target is unowned or ambiguously owned. A problem
+confined to one identified extension stops that extension's closure alone;
+independent ready closures still apply. Nothing is removed on the strength of
+an unresolved Pack: an unknown membership never proves an extension absent.
 
 Lint reports intrinsic workspace facts without modifying state. Use `axm sync`
 for reconciliation work.

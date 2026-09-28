@@ -16,12 +16,15 @@ import * as Ref from "effect/Ref";
 
 import { KNOWLEDGE_SOURCE_DIR } from "@agentxm/extension-model/unstable/knowledge";
 import {
+  contributorSetBlockers,
+  contributorSetComplete,
   DesiredStateReader,
   LockfileReader,
   observeCanonicalExtension,
   WorkspaceLocation,
   type CanonicalObservationStatus,
 } from "../../workspace-state/index.js";
+import { contributorBlockersText } from "../contributors.js";
 
 /** One installed, enabled Knowledge bundle in the selected workspace. */
 export interface InstalledKnowledgeBundle {
@@ -58,11 +61,11 @@ export const selectInstalledKnowledgeBundles = Effect.fn(
   const path = yield* Path.Path;
   const layout = yield* Ref.get(location.layout);
   const graph = yield* desiredState.graph();
-  if (!graph.complete) {
+  const blockers = contributorSetBlockers(graph, "knowledge");
+  if (!contributorSetComplete(blockers)) {
     return yield* new InstalledKnowledgeUnavailable({
       reason: "desired-state-incomplete",
-      detail:
-        "AXM could not determine which Knowledge bundles should be installed because some pack or axm.json entries are invalid",
+      detail: `AXM could not determine which Knowledge bundles should be installed: ${contributorBlockersText(blockers)}`,
     });
   }
   const locked = yield* lockfile.entries("knowledge");

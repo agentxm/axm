@@ -128,9 +128,10 @@ export class SettingsReader extends ServiceMap.Service<SettingsReader, SettingsR
 
 /**
  * Three-layer merge: project sources, then user-scope sources, then built-in
- * sources. Name-based deduplication: earlier layers win.
+ * sources. Name-based deduplication: earlier layers win. Desired-state
+ * collection applies the same merge to the settings it captured.
  */
-const mergeSources = (
+export const mergeSources = (
   projectSources: ReadonlyArray<SourceHostConfig>,
   globalSources: ReadonlyArray<SourceHostConfig>,
   builtInSources: ReadonlyArray<SourceHostConfig>,

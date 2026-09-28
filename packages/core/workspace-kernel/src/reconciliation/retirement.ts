@@ -21,6 +21,7 @@ import {
   validatePathSafety,
   lockEntrySemanticallyEqual,
   observeInstallRoot,
+  unresolvedPackRoutes,
   type DesiredStateGraph,
   type ExtensionTarget,
   type InstalledPackageEntry,
@@ -48,7 +49,9 @@ export const collectUnreachableRetirement = (
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const graph = observedGraph ?? scope?.resultingGraph ?? (yield* desiredState.graph());
-    if (!graph.complete)
+    // Retiring a row rests on proving no desired route reaches it; while an
+    // active Pack's routes are unresolved, that proof is unavailable.
+    if (unresolvedPackRoutes(graph).length > 0)
       return Option.none<PlannedJobStep<SyncStepRequirements | LockfileReader>>();
     const accepted = (yield* Effect.forEach(extensionTypes, (type) =>
       locks
@@ -155,7 +158,10 @@ export const collectUnreachableRetirement = (
       run: runWorkspaceTransaction({
         transition: Effect.gen(function* () {
           const current = yield* desiredState.graph();
-          if (!current.complete || retired.some((row) => desiredReachesAcceptedRow(current, row))) {
+          if (
+            unresolvedPackRoutes(current).length > 0 ||
+            retired.some((row) => desiredReachesAcceptedRow(current, row))
+          ) {
             return yield* new WorkspaceSyncFailed({
               category: "conflict",
               detail: "Desired reachability changed before retirement",
@@ -261,7 +267,7 @@ export const collectLeftoverRetirement = (
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const graph = observedGraph ?? (yield* desiredState.graph());
-    if (!graph.complete) return [];
+    if (unresolvedPackRoutes(graph).length > 0) return [];
     const inventory = yield* observeInstallRoot({ layout, graph, locks });
     const acceptedPaths = (yield* Effect.forEach(extensionTypes, (type) =>
       locks
@@ -323,7 +329,11 @@ export const collectLeftoverRetirement = (
               });
               const entry = observed.packages.find(({ path: at }) => at === leftover.path);
               if (entry === undefined) return;
-              if (!current.complete || entry.reached || entry.lockKey !== undefined)
+              if (
+                unresolvedPackRoutes(current).length > 0 ||
+                entry.reached ||
+                entry.lockKey !== undefined
+              )
                 return yield* failed(
                   `Desired reachability of ${leftover.type} ${identity} changed before removal`,
                 );

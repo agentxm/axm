@@ -138,7 +138,7 @@ const makeHookManagerLayer = (
           Effect.map((hooks) => ({ lockfileVersion: 8, skills: {}, hooks })),
         ),
         graph: {
-          complete: true,
+          packMembership: [],
           nodes: hookNames.map((name) => ({
             type: "hook" as const,
             name,

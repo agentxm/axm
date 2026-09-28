@@ -27,8 +27,12 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
+  contributorSetBlockers,
+  contributorSetComplete,
   desiredStateProblemsText,
   observeCanonicalExtension,
+  unresolvedPackRoutesText,
+  type DesiredContributorBlockers,
   type LockEntry,
   type DesiredExtensionNode,
   type DesiredStateGraph,
@@ -47,20 +51,32 @@ export interface AggregateContributor {
   readonly identityOwner: Option.Option<Handle>;
 }
 
-/** Stable recovery-conformance identity for aggregate writes blocked by an incomplete graph. */
+/** Stable recovery-conformance identity for aggregate writes blocked by an incomplete contributor set. */
 export const INCOMPLETE_DESIRED_STATE_BLOCKER_ID =
   "projection/desired-state-graph-complete" as const;
 
+/** Stable text naming every blocker of one contributor set: unresolved Packs, then problems. */
+export const contributorBlockersText = (blockers: DesiredContributorBlockers): string =>
+  [
+    ...(blockers.routes.length === 0 ? [] : [unresolvedPackRoutesText(blockers.routes)]),
+    ...(blockers.problems.length === 0 ? [] : [desiredStateProblemsText(blockers.problems)]),
+  ].join("; ");
+
 /**
- * Gate aggregate-unit writes on a complete desired-state graph. An operation
- * that cannot enumerate the complete contributor set writes nothing.
+ * Gate aggregate-unit writes on a complete contributor set for one extension
+ * type: every active Pack's routes established, and no problem about an
+ * extension of that type. A problem about another type does not block the
+ * unit, and an operation that cannot enumerate the set writes nothing.
  */
-export const requireCompleteGraph = (
+export const requireCompleteContributors = (
   graph: DesiredStateGraph,
-): Effect.Effect<DesiredStateGraph, DesiredStateIncomplete> =>
-  graph.complete
+  type: ExtensionType,
+): Effect.Effect<DesiredStateGraph, DesiredStateIncomplete> => {
+  const blockers = contributorSetBlockers(graph, type);
+  return contributorSetComplete(blockers)
     ? Effect.succeed(graph)
-    : new DesiredStateIncomplete({ problems: desiredStateProblemsText(graph.problems) });
+    : new DesiredStateIncomplete({ problems: contributorBlockersText(blockers) });
+};
 
 /** Enabled desired nodes of one extension type. */
 export const activeNodesOfType = (
@@ -127,8 +143,9 @@ export const contributorForNode = (args: {
 
 /**
  * Resolve the complete contributor set for one extension type: every enabled
- * node the complete desired-state graph reaches, whether declared directly or
- * contributed by a Pack, each resolved to its canonical package root.
+ * node the desired-state graph reaches, whether declared directly or
+ * contributed by a Pack, each resolved to its canonical package root. The
+ * set is proven complete for that type before any contributor is resolved.
  */
 export const activeContributors = (args: {
   readonly layout: WorkspaceLayout;
@@ -144,7 +161,7 @@ export const activeContributors = (args: {
   | ContributorTreeMismatch,
   FileSystem.FileSystem | Path.Path
 > =>
-  requireCompleteGraph(args.graph).pipe(
+  requireCompleteContributors(args.graph, args.type).pipe(
     Effect.flatMap((graph) =>
       Effect.forEach(activeNodesOfType(graph, args.type), (node) =>
         contributorForNode({ layout: args.layout, node, accepted: args.accepted[node.name] }),

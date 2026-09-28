@@ -14,7 +14,11 @@ import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
-import { bindRegistrySource } from "../workspace-state/index.js";
+import {
+  bindRegistrySource,
+  desiredReachability,
+  unresolvedPackRoutesText,
+} from "../workspace-state/index.js";
 import * as Option from "effect/Option";
 import type { RegistryClientFactory } from "@agentxm/registry-client";
 
@@ -189,16 +193,18 @@ export const routeNameInput = (
   Effect.gen(function* () {
     const catalog = yield* WorkspaceCatalog;
     const graph = yield* catalog.desiredExtensionGraph;
-    if (!graph.complete) {
+    // A desired node answers the name whatever else is unresolved; only the
+    // negative answer needs every active Pack's routes established.
+    const reachability = desiredReachability(graph, { type: expectedType, name });
+    if (reachability.decision === "reached" && reachability.node.source !== undefined) {
+      return yield* resolveSource(reachability.node.source);
+    }
+    if (reachability.decision === "unknown") {
       return yield* new SourceNotResolvable({
         category: "conflict",
-        detail: `Cannot resolve the ${extensionTypeSentenceLabels[expectedType]} while the desired extension graph is incomplete.`,
+        detail: `Cannot resolve the ${extensionTypeSentenceLabels[expectedType]} while a configured Pack's routes are unresolved: ${unresolvedPackRoutesText(reachability.blockers)}.`,
         recover: "Repair or reinstall the configured packs, then retry.",
       });
-    }
-    const desired = graph.nodes.find((node) => node.type === expectedType && node.name === name);
-    if (desired?.source !== undefined) {
-      return yield* resolveSource(desired.source);
     }
 
     return yield* new SourceNotResolvable({

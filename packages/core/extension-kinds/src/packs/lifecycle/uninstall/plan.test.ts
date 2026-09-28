@@ -66,7 +66,7 @@ const packNode = (identity: DesiredNodeIdentity, name = "toolkit"): DesiredExten
 });
 
 const completeGraph = (nodes: ReadonlyArray<DesiredExtensionNode>): DesiredStateGraph => ({
-  complete: true,
+  packMembership: [],
   nodes,
   mcpSourceClosures: [],
   problems: [],
@@ -138,10 +138,19 @@ describe("pack uninstall target precondition", () => {
   it.effect("revalidates target identity without introducing a graph-completeness rule", () =>
     validateResolvedPackUninstallTargets(
       {
-        complete: false,
         nodes: [packNode(selected.desiredIdentity)],
         mcpSourceClosures: [],
         problems: [],
+        // Another Pack's routes are unresolved; target validation is unmoved.
+        packMembership: [
+          {
+            settingsName: "other",
+            pack: "@acme/packs/other",
+            enabled: true,
+            declared: { status: "unknown", reason: "absent" },
+            routes: "unknown",
+          },
+        ],
       },
       [selected],
     ),

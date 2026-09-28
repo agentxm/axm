@@ -81,7 +81,8 @@ export {
   activeNodesOfType,
   contributorForNode,
   INCOMPLETE_DESIRED_STATE_BLOCKER_ID,
-  requireCompleteGraph,
+  contributorBlockersText,
+  requireCompleteContributors,
   type AggregateContributor,
 } from "./contributors.js";
 export {

@@ -30,6 +30,9 @@ import {
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 import {
+  problemsAffectingPack,
+  unresolvedPackRoutes,
+  unresolvedPackRoutesText,
   DesiredStateReader,
   SettingsWriter,
   WorkspaceLocation,
@@ -223,11 +226,12 @@ const settleUnpack = Effect.fn("PromoteAuthoredPack.prepare")(function* (
   const path = yield* Path.Path;
 
   const graph = yield* desiredState.graph();
-  if (!graph.complete) {
+  const unresolved = unresolvedPackRoutes(graph);
+  if (unresolved.length > 0) {
     return yield* new ExtensionLifecycleFailed({
       category: "validation",
-      detail: `Cannot unpack "${request.name}" because some pack manifests are missing or invalid`,
-      suggestions: graph.problems.map((problem) => ({
+      detail: `Cannot unpack "${request.name}" while a configured Pack's routes are unresolved: ${unresolvedPackRoutesText(unresolved)}`,
+      suggestions: problemsAffectingPack(graph, unresolved[0]?.pack ?? "").map((problem) => ({
         description: `Resolve ${problem.type} before unpacking.`,
       })),
     });

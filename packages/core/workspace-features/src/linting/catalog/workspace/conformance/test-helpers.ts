@@ -4,7 +4,8 @@ import * as Effect from "effect/Effect";
 import type { AdvisoryFinding, LintRule } from "@agentxm/extension-content/lint";
 import * as Option from "effect/Option";
 import {
-  buildDesiredStateGraph,
+  captureDesiredStateInputs,
+  evaluateDesiredState,
   makeWorkspaceReadModel,
   type PackManifestsPort,
 } from "@agentxm/workspace-kernel/workspace-state";
@@ -37,12 +38,12 @@ export const validSettings = (contents: object = { agents: ["claude-code"] }) =>
   contents,
 });
 
-/** No Pack manifest is readable in an in-memory fixture; a configured Pack reports as unavailable. */
+/** No Pack manifest exists in an in-memory fixture; a configured Pack reports as absent. */
 const noPackManifests: PackManifestsPort = {
   locate: () => ({
     path: "",
     relativePath: "",
-    manifest: Effect.succeed({ status: "unavailable" as const }),
+    manifest: Effect.succeed({ status: "absent" as const }),
   }),
 };
 
@@ -56,7 +57,7 @@ export const contextFor = (project: ScopeFiles): Effect.Effect<WorkspaceRuleCont
     const desiredState = Effect.gen(function* () {
       const settings = yield* workspace.state.settings;
       const sources = yield* workspace.sourceHosts.declared;
-      return yield* buildDesiredStateGraph({
+      const inputs = yield* captureDesiredStateInputs({
         manifests: noPackManifests,
         baseDir: "/workspace",
         settings: Option.getOrElse(settings, () => ({})),
@@ -66,6 +67,7 @@ export const contextFor = (project: ScopeFiles): Effect.Effect<WorkspaceRuleCont
           ),
         ),
       });
+      return evaluateDesiredState(inputs);
     });
     return {
       subject: { root: "/workspace", scope: "project" },

@@ -41,7 +41,7 @@ const observedUnprojectedReviewer = (
         ...context,
         health: {
           desiredState: Effect.succeed({
-            complete: true,
+            packMembership: [],
             nodes: [desiredReviewer],
             mcpSourceClosures: [],
             problems: [],

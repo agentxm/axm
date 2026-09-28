@@ -1,125 +1,67 @@
-import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
-import type { Lockfile } from "../desired/lockfile/schema.js";
+import type { PackManifest } from "@agentxm/extension-model/unstable/packs/manifest-schema";
+import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
+import type { PackLockEntry } from "../desired/lockfile/schema.js";
 import { observeAcceptedResolution } from "./canonical-observation.js";
-import { lockEntries } from "./entry-accessors.js";
-import type {
-  DesiredStateGraph,
-  DesiredStateProblem,
-  ProspectivePackRef,
-} from "./desired-state-graph.js";
-import type { WorkspaceLayout } from "./layout.js";
-import type { PackManifestsPort } from "./pack-manifests.js";
 import { desiredPackageKey } from "./desired-identity.js";
+import type { DesiredExtensionNode, DesiredStateProblem } from "./desired-state-graph.js";
 
-interface ValidateDesiredPackLockArgs {
-  readonly manifests: PackManifestsPort;
-  readonly graph: DesiredStateGraph;
-  readonly lockfile: Lockfile;
-  readonly layout: WorkspaceLayout;
-  readonly prospectivePacks?: ReadonlyArray<ProspectivePackRef>;
-}
-
-/** What validating the accepted Pack state found. */
-export interface DesiredPackLockValidation {
-  readonly problems: ReadonlyArray<DesiredStateProblem>;
-  /** Fully qualified names of the Packs whose accepted state cannot authorize their manifest. */
-  readonly invalidPacks: ReadonlySet<string>;
-}
+/** Whether an external Pack's observed manifest may route members. */
+export type ExternalPackRouteAuthorization =
+  | { readonly authorized: true }
+  | { readonly authorized: false; readonly problem: DesiredStateProblem };
 
 /**
- * Authorize enabled external Pack manifests against their accepted lock row.
- * Workspace-authored Pack manifests are desired authority and need no lock
- * row. The result names the Packs the builder must exclude; the builder, not
- * this validation, derives the graph without their routes.
+ * Authorize an enabled external Pack's observed manifest against its accepted
+ * lock row. Workspace-authored Pack manifests are desired authority and need
+ * no lock row; a proposed manifest is the proposal a planner evaluates, so
+ * the accepted row does not judge it. The canonical observation's own
+ * judgment decides whether the accepted resolution can authorize anything;
+ * this rule adds only the content comparison.
  */
-export const validateDesiredPackLock = ({
-  manifests,
-  graph,
-  lockfile,
-  layout,
-  prospectivePacks = [],
-}: ValidateDesiredPackLockArgs): Effect.Effect<DesiredPackLockValidation, never> =>
-  Effect.gen(function* () {
-    const problems: DesiredStateProblem[] = [];
-    const invalidPacks = new Set<string>();
-
-    for (const node of graph.nodes) {
-      if (node.type !== "pack" || !node.enabled || node.identity.authority === "workspace") {
-        continue;
-      }
-      const packFqn = desiredPackageKey(node.identity);
-      const identity = parseExtensionFqnParts(packFqn);
-      // A prospective Pack is the proposal a planner evaluates: its manifest
-      // supersedes whatever is accepted today, so the accepted row does not
-      // judge it and its routes count in the proposed graph.
-      if (
-        identity !== undefined &&
-        prospectivePacks.some(
-          (ref) => ref.owner === identity.owner && ref.pack.name === identity.name,
-        )
-      ) {
-        continue;
-      }
-
-      const entry = Option.getOrUndefined(lockEntries.pack.entry(lockfile, node.name));
-      // The canonical observation's own judgment: a missing, foreign-origin, or
-      // constraint-violating accepted resolution cannot authorize the manifest.
-      const unusable = observeAcceptedResolution(node, entry);
-      if (
-        Option.isSome(unusable) ||
-        entry === undefined ||
-        identity === undefined ||
-        identity.type !== "pack"
-      ) {
-        problems.push({
-          type: "pack-resolution-unavailable",
-          pack: packFqn,
-          detail: "The configured external Pack has no matching accepted resolution.",
-        });
-        invalidPacks.add(packFqn);
-        continue;
-      }
-
-      const document = manifests.locate({
-        owner: identity.owner,
-        name: identity.name,
-        sourceFamily:
-          entry.source.type === "registry"
-            ? "registry"
-            : entry.source.type === "path"
-              ? "path"
-              : "git",
-        relativeTo: layout.workspaceRoot,
-        workspace: { layout },
-      });
-      const manifestPath = document.path;
-      const observed = yield* document.manifest;
-      const observedManifest = observed.status === "decoded" ? observed.manifest : undefined;
-      const observedContentIdentity =
-        observed.status === "decoded" ? observed.contentIdentity : undefined;
-      if (
-        observedManifest === undefined ||
-        observedContentIdentity !== entry.manifestContentIdentity
-      ) {
-        problems.push({
-          type: "pack-manifest-content-mismatch",
-          pack: packFqn,
-          path: manifestPath,
-          status: observedManifest === undefined ? "missing" : "changed",
-          acceptedVersion: entry.manifestVersion,
-          acceptedContentIdentity: entry.manifestContentIdentity,
-          ...(observedManifest === undefined || observedContentIdentity === undefined
-            ? {}
-            : {
-                observedVersion: observedManifest.version,
-                observedContentIdentity,
-              }),
-        });
-        invalidPacks.add(packFqn);
-      }
-    }
-
-    return { problems, invalidPacks };
-  });
+export const authorizeExternalPackRoutes = (args: {
+  readonly node: DesiredExtensionNode;
+  readonly accepted: PackLockEntry | undefined;
+  readonly manifestPath: string;
+  readonly manifest: PackManifest;
+  readonly contentIdentity: SourceHash;
+}): ExternalPackRouteAuthorization => {
+  const { node, accepted } = args;
+  const packFqn = desiredPackageKey(node.identity);
+  const identity = parseExtensionFqnParts(packFqn);
+  // A missing, foreign-origin, or constraint-violating accepted resolution
+  // cannot authorize the manifest.
+  const unusable = observeAcceptedResolution(node, accepted);
+  if (
+    Option.isSome(unusable) ||
+    accepted === undefined ||
+    identity === undefined ||
+    identity.type !== "pack"
+  ) {
+    return {
+      authorized: false,
+      problem: {
+        type: "pack-resolution-unavailable",
+        pack: packFqn,
+        detail: "The configured external Pack has no matching accepted resolution.",
+      },
+    };
+  }
+  if (args.contentIdentity !== accepted.manifestContentIdentity) {
+    return {
+      authorized: false,
+      problem: {
+        type: "pack-manifest-content-mismatch",
+        pack: packFqn,
+        path: args.manifestPath,
+        status: "changed",
+        acceptedVersion: accepted.manifestVersion,
+        acceptedContentIdentity: accepted.manifestContentIdentity,
+        observedVersion: args.manifest.version,
+        observedContentIdentity: args.contentIdentity,
+      },
+    };
+  }
+  return { authorized: true };
+};

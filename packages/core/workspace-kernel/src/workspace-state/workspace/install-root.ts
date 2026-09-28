@@ -30,6 +30,7 @@ import {
 import { acceptedRowKey, desiredReachesAcceptedRow } from "./accepted-reachability.js";
 import { isInstallRootStagingName } from "./constants.js";
 import type { DesiredStateGraph } from "./desired-state-graph.js";
+import { unresolvedPackRoutes } from "./desired-state-queries.js";
 import { sanitizeName } from "./extension-name.js";
 import { computeExtensionPathsForLayout } from "./extension-paths.js";
 import { extensionPathSourceFromLockEntry } from "./lock-entry.js";
@@ -124,8 +125,9 @@ export interface ObserveInstallRootArgs {
 }
 
 /**
- * Observe the install root. When desired state is incomplete, every installed
- * package counts as reached: no leftover is claimed without full reachability.
+ * Observe the install root. While any active Pack's routes are unresolved,
+ * every installed package counts as reached: no leftover is claimed without
+ * the evidence that no desired route reaches it.
  */
 export const observeInstallRoot = ({ layout, graph, locks }: ObserveInstallRootArgs) =>
   Effect.gen(function* () {
@@ -156,6 +158,7 @@ export const observeInstallRoot = ({ layout, graph, locks }: ObserveInstallRootA
     );
     // A desired extension whose resolution is not yet accepted may still be
     // materialized into this path, so it reaches every same-named package.
+    const routesUnresolved = unresolvedPackRoutes(graph).length > 0;
     const unlockedDesired = graph.nodes.filter((node) =>
       Option.match(acceptedRowKey(node), {
         onNone: () => true,
@@ -203,7 +206,7 @@ export const observeInstallRoot = ({ layout, graph, locks }: ObserveInstallRootA
             // A path without a source directory is authored content, which is
             // never inferred to be undesired.
             const reached =
-              !graph.complete ||
+              routesUnresolved ||
               (locked === undefined && identity?.sourceDirectory === undefined) ||
               (locked?.reached ?? false) ||
               unlockedDesired.some((node) => node.type === type && node.name === packageName);

@@ -1,9 +1,9 @@
 /**
  * The Pack-uninstall graph gate.
  *
- * Classifying one incomplete desired-state graph is a decision over data, so
+ * Classifying one unsettled desired-state graph is a decision over data, so
  * these examples hand `planPackUninstallGraphReadiness` the exact problem set
- * the lock pass emits and read the decision back. The end-to-end consequences
+ * the evaluation emits and read the decision back. The end-to-end consequences
  * of that decision — what is removed, what is preserved, what stays blocked —
  * belong to `cli/uninstall/retires-a-desired-pack-whose-package-is-unreadable`.
  */
@@ -17,27 +17,32 @@ import type {
 
 import { PACK_UNINSTALL_GRAPH_BLOCKER_ID, planPackUninstallGraphReadiness } from "./readiness.js";
 
-const completeGraph = (nodes: ReadonlyArray<DesiredExtensionNode>): DesiredStateGraph => ({
-  complete: true,
+const settledGraph = (nodes: ReadonlyArray<DesiredExtensionNode>): DesiredStateGraph => ({
   nodes,
   mcpSourceClosures: [],
   problems: [],
+  packMembership: [],
 });
 
-const incompleteGraph = (problems: DesiredStateGraph["problems"]): DesiredStateGraph => ({
-  complete: false,
+const unsettledGraph = (problems: DesiredStateGraph["problems"]): DesiredStateGraph => ({
   nodes: [],
   mcpSourceClosures: [],
   problems,
+  packMembership: [],
 });
 
 const manifestPath = "packs/toolkit/pack.json";
 
 describe("pack uninstall graph readiness", () => {
-  it("retires a selected pack whose own manifest is missing", () => {
+  it("retires a selected pack whose own manifest is confirmed absent", () => {
     const decision = planPackUninstallGraphReadiness(
-      incompleteGraph([
-        { type: "pack-manifest-unavailable", pack: "@acme/packs/toolkit", path: manifestPath },
+      unsettledGraph([
+        {
+          type: "pack-manifest-unavailable",
+          pack: "@acme/packs/toolkit",
+          path: manifestPath,
+          reason: "absent",
+        },
       ]),
       ["workspace:@acme/packs/toolkit"],
       "project",
@@ -51,8 +56,13 @@ describe("pack uninstall graph readiness", () => {
 
   it("retires a selected pack whose own manifest cannot be decoded", () => {
     const decision = planPackUninstallGraphReadiness(
-      incompleteGraph([
-        { type: "pack-manifest-invalid", pack: "@acme/packs/toolkit", path: manifestPath },
+      unsettledGraph([
+        {
+          type: "pack-manifest-invalid",
+          pack: "@acme/packs/toolkit",
+          path: manifestPath,
+          reason: "malformed",
+        },
       ]),
       ["@acme/packs/toolkit"],
       "project",
@@ -64,39 +74,41 @@ describe("pack uninstall graph readiness", () => {
     });
   });
 
-  it("retires past the lock problems an unreadable manifest causes for the same pack", () => {
+  it("stays blocked when an I/O failure hid the target's manifest", () => {
     const decision = planPackUninstallGraphReadiness(
-      incompleteGraph([
-        { type: "pack-manifest-unavailable", pack: "@acme/packs/toolkit", path: manifestPath },
+      unsettledGraph([
         {
-          type: "pack-manifest-content-mismatch",
+          type: "pack-manifest-unavailable",
           pack: "@acme/packs/toolkit",
           path: manifestPath,
-          status: "missing",
-          acceptedVersion: "1.0.0",
-          acceptedContentIdentity: "sha256-accepted",
-        },
-        {
-          type: "pack-resolution-unavailable",
-          pack: "@acme/packs/toolkit",
-          detail: "The configured external Pack has no matching accepted resolution.",
+          reason: "unreadable",
+          cause: "PermissionDenied",
         },
       ]),
       ["@acme/packs/toolkit"],
       "project",
     );
 
-    expect(decision).toMatchObject({ readiness: "ready", retirements: [{ reason: "missing" }] });
+    expect(decision).toMatchObject({ readiness: "blocked", id: PACK_UNINSTALL_GRAPH_BLOCKER_ID });
+    if (decision.readiness === "blocked") {
+      expect(decision.detail).toContain("PermissionDenied");
+    }
   });
 
-  it("stays blocked when a pack other than the target is incomplete", () => {
+  it("stays blocked when a pack other than the target is unresolved", () => {
     const decision = planPackUninstallGraphReadiness(
-      incompleteGraph([
-        { type: "pack-manifest-unavailable", pack: "@acme/packs/toolkit", path: manifestPath },
+      unsettledGraph([
+        {
+          type: "pack-manifest-unavailable",
+          pack: "@acme/packs/toolkit",
+          path: manifestPath,
+          reason: "absent",
+        },
         {
           type: "pack-manifest-unavailable",
           pack: "@acme/packs/sibling",
           path: "packs/sibling/pack.json",
+          reason: "absent",
         },
       ]),
       ["workspace:@acme/packs/toolkit"],
@@ -111,8 +123,13 @@ describe("pack uninstall graph readiness", () => {
 
   it("stays blocked on a graph problem that belongs to no pack", () => {
     const decision = planPackUninstallGraphReadiness(
-      incompleteGraph([
-        { type: "pack-manifest-unavailable", pack: "@acme/packs/toolkit", path: manifestPath },
+      unsettledGraph([
+        {
+          type: "pack-manifest-unavailable",
+          pack: "@acme/packs/toolkit",
+          path: manifestPath,
+          reason: "absent",
+        },
         { type: "workspace-owner-missing", extensionType: "skill", name: "orphan" },
       ]),
       ["workspace:@acme/packs/toolkit"],
@@ -124,7 +141,7 @@ describe("pack uninstall graph readiness", () => {
 
   it("stays blocked when the target's readable manifest declares another identity", () => {
     const decision = planPackUninstallGraphReadiness(
-      incompleteGraph([
+      unsettledGraph([
         {
           type: "pack-identity-mismatch",
           pack: "@acme/packs/toolkit",
@@ -145,7 +162,7 @@ describe("pack uninstall graph readiness", () => {
 
   it("stays blocked when the target only disagrees with its accepted resolution", () => {
     const decision = planPackUninstallGraphReadiness(
-      incompleteGraph([
+      unsettledGraph([
         {
           type: "pack-manifest-content-mismatch",
           pack: "@acme/packs/toolkit",
@@ -166,11 +183,12 @@ describe("pack uninstall graph readiness", () => {
 
   it("reports structured Pack and authority facts when it stays blocked", () => {
     const decision = planPackUninstallGraphReadiness(
-      incompleteGraph([
+      unsettledGraph([
         {
           type: "pack-manifest-unavailable",
           pack: "@acme/packs/sibling",
           path: "agent_extensions/registry/@acme/packs/sibling/pack.json",
+          reason: "absent",
         },
       ]),
       ["@acme/packs/toolkit"],
@@ -194,14 +212,8 @@ describe("pack uninstall graph readiness", () => {
     }
   });
 
-  it("stays blocked on an incomplete graph that reported no problem", () => {
-    expect(
-      planPackUninstallGraphReadiness(incompleteGraph([]), ["@acme/packs/toolkit"], "project"),
-    ).toMatchObject({ readiness: "blocked", facts: [{ problemType: "unknown" }] });
-  });
-
-  it("returns the complete graph as ready with nothing to retire", () => {
-    expect(planPackUninstallGraphReadiness(completeGraph([]), [], "project")).toMatchObject({
+  it("returns the settled graph as ready with nothing to retire", () => {
+    expect(planPackUninstallGraphReadiness(settledGraph([]), [], "project")).toMatchObject({
       readiness: "ready",
       retirements: [],
     });

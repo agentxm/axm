@@ -14,6 +14,7 @@ import {
   LockfileReader,
   WorkspaceRecords,
   observeInstallRoot,
+  unresolvedPackRoutes,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 export const specification = defineSpecification({
@@ -111,7 +112,7 @@ describe("Workspace inventory leftover reachability", () => {
           const locks = yield* LockfileReader;
           const records = yield* WorkspaceRecords;
           const graph = yield* desiredState.graph();
-          expect(graph.complete).toBe(!row.incomplete);
+          expect(unresolvedPackRoutes(graph).length > 0).toBe(row.incomplete);
           const installRoot = yield* observeInstallRoot({
             layout: yield* Ref.get(location.layout),
             graph,

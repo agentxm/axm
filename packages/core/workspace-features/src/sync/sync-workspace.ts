@@ -61,6 +61,7 @@ import {
 import {
   ConfiguredAgentOutcomesProvider,
   DesiredStateReader,
+  desiredStateIdentity,
   LockfileReader,
   WorkspaceLocation,
   WorkspaceRecords,
@@ -185,8 +186,9 @@ const observationsStillCurrent = (observation: {
 }) =>
   Effect.gen(function* () {
     if (!(yield* isExecutionCandidateFresh(observation.preflightMaterial))) return false;
+    // An uncached evaluation; equal desired state is semantic equality.
     const graph = yield* (yield* DesiredStateReader).graph();
-    if (JSON.stringify(graph) !== JSON.stringify(observation.graph)) return false;
+    if (desiredStateIdentity(graph) !== desiredStateIdentity(observation.graph)) return false;
     const projectionFacts = yield* (yield* WorkspaceInvariantFacts).projectionFactsForGraph(graph);
     if (JSON.stringify(projectionFacts) !== JSON.stringify(observation.projectionFacts)) {
       return false;
@@ -266,19 +268,30 @@ export const prepareSyncWorkspace = (
     const upToDateMessage = scoped
       ? `${scopeLabel} materialization is up to date`
       : "Workspace materialization is up to date";
-    const preflightMaterial = yield* makeExecutionCandidate(
-      { _tag: "Plan", name: planName, description: Option.none(), jobs: [] },
-      {
-        settingsPath: location.settingsPath,
-        lockPath: location.lockPath,
-        baseDir: location.baseDir,
-      },
-    );
 
     const preflight = yield* observeUnit(
       { id: "sync-preflight", label: `${scopeLabel} sync plan` },
       Effect.gen(function* () {
-        const graph = yield* desiredState.graph();
+        const evaluation = yield* desiredState.evaluate();
+        const graph = evaluation.graph;
+        // The materials this plan rests on: every document the evaluation
+        // read or found absent, fingerprinted so a change refuses the
+        // candidate rather than letting a different plan run under its name.
+        const evaluatedPaths = evaluation.inputs.readSet.map(({ path }) => path);
+        const preflightMaterial = yield* makeExecutionCandidate(
+          {
+            _tag: "Plan",
+            name: planName,
+            description: Option.none(),
+            jobs: [],
+            materialPaths: evaluatedPaths,
+          },
+          {
+            settingsPath: location.settingsPath,
+            lockPath: location.lockPath,
+            baseDir: location.baseDir,
+          },
+        );
         const packRecovery = yield* collectConfiguredPackRecovery({
           selection,
           adapter: conversion,
@@ -330,13 +343,16 @@ export const prepareSyncWorkspace = (
                 : { prepared: collected.preparedHookProjection }),
             })
           : Option.none();
-        const cleanupStep: Option.Option<SyncPlanStep> = !collected.cleanupSafe
-          ? Option.none()
-          : yield* collectCleanupStep({
-              ...(subjects === undefined ? {} : { subjects }),
-              expectedNames: collected.expectedNames,
-              adapter: conversion,
-            });
+        // A subject-bounded cleanup acts on the selected subjects' own known
+        // state; the whole-workspace sweep waits for every route to resolve.
+        const cleanupStep: Option.Option<SyncPlanStep> =
+          !collected.cleanupSafe && subjects === undefined
+            ? Option.none()
+            : yield* collectCleanupStep({
+                ...(subjects === undefined ? {} : { subjects }),
+                expectedNames: collected.expectedNames,
+                adapter: conversion,
+              });
         const instructionStep: Option.Option<SyncPlanStep> =
           selectionTouches(selection, "rule") ||
           selectionTouches(selection, "hook") ||
@@ -387,6 +403,8 @@ export const prepareSyncWorkspace = (
             );
         return {
           graph,
+          evaluatedPaths,
+          preflightMaterial,
           projectionFacts,
           collected,
           knowledgeStep,
@@ -401,6 +419,8 @@ export const prepareSyncWorkspace = (
 
     const {
       graph,
+      evaluatedPaths,
+      preflightMaterial,
       projectionFacts,
       collected,
       knowledgeStep,
@@ -442,7 +462,7 @@ export const prepareSyncWorkspace = (
       };
     }
 
-    const plan = yield* makeSyncPlan({
+    const assembled = yield* makeSyncPlan({
       graph,
       scope: location.scope,
       adapter: conversion,
@@ -458,12 +478,15 @@ export const prepareSyncWorkspace = (
       name: planName,
       description: planDescription,
     });
+    // The evaluated documents are the plan's materials too, so the candidate
+    // that apply revalidates under the lock covers them.
+    const plan: Plan<SyncWorkspaceRequirements> = { ...assembled, materialPaths: evaluatedPaths };
     const observedInputFingerprint = crypto
       .createHash("sha256")
       .update(
         JSON.stringify({
           preflightMaterial: preflightMaterial.materialFingerprint,
-          graph,
+          graph: desiredStateIdentity(graph),
           projectionFacts,
           inventories: collected.inventoryObservations,
         }),

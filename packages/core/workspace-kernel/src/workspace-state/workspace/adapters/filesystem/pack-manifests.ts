@@ -6,7 +6,11 @@ import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/
 import { ACQUIRED_EXTENSIONS_DIR } from "../../constants.js";
 import { configuredAuthoredDirectory } from "../../layout.js";
 import { computePackPathsForLayout } from "../../pack-paths.js";
-import { observePackManifest, PackManifests } from "../../pack-manifests.js";
+import {
+  decodePackManifestDocument,
+  PackManifests,
+  type PackManifestObservation,
+} from "../../pack-manifests.js";
 
 export const FilesystemPackManifests = Layer.effect(
   PackManifests,
@@ -30,10 +34,15 @@ export const FilesystemPackManifests = Layer.effect(
         return {
           path: manifestPath,
           relativePath: path.relative(relativeTo, manifestPath),
+          // Not found is absence; every other failure is an I/O fact that
+          // proves nothing about the document, and is reported as such.
           manifest: fs.readFileString(manifestPath).pipe(
             Effect.match({
-              onSuccess: observePackManifest,
-              onFailure: () => ({ status: "unavailable" as const }),
+              onSuccess: decodePackManifestDocument,
+              onFailure: (error): PackManifestObservation =>
+                error.reason._tag === "NotFound"
+                  ? { status: "absent" }
+                  : { status: "unreadable", reason: error.reason._tag },
             }),
           ),
         };

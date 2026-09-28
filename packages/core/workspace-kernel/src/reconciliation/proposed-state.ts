@@ -2,7 +2,6 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import {
-  SettingsReader,
   SettingsWriter,
   settingsEntries,
   DesiredStateReader,
@@ -35,14 +34,19 @@ const activatedSettings = (
   change: Extract<DesiredStateChange, { readonly kind: "activation" }>,
 ): Settings => settingsEntries[change.type].setActivation(settings, change.name, change.enabled);
 
-/** Evaluate proposed intent without writing settings, locks, or package content. */
+/**
+ * Evaluate proposed intent without writing settings, locks, or package
+ * content. The proposal is evaluated against the same captured base as the
+ * current state: the settings it rewrites, the inherited settings, the
+ * accepted resolutions, and every Pack document are the ones one collection
+ * observed, so before and after differ only by the changes named here.
+ */
 export const proposeDesiredState = (changes: ReadonlyArray<DesiredStateChange>) =>
   Effect.gen(function* () {
     const desiredState = yield* DesiredStateReader;
-    const reader = yield* SettingsReader;
-    const before = yield* desiredState.graph();
-    const original = yield* reader.settings;
-    let settings = original;
+    const base = yield* desiredState.evaluate();
+    const before = base.graph;
+    let settings = base.inputs.settings;
     for (const change of changes) {
       if (change.kind === "remove") {
         settings = settingsEntries[change.type].remove(settings, change.name);
@@ -59,7 +63,7 @@ export const proposeDesiredState = (changes: ReadonlyArray<DesiredStateChange>) 
       }
       settings = activatedSettings(settings, change);
     }
-    const after = yield* desiredState.graph({ settings });
+    const after = (yield* desiredState.propose(base, settings)).graph;
     return { before, after, settings, changes };
   });
 

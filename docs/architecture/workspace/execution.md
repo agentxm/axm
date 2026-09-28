@@ -77,9 +77,12 @@ together. Work joins one closure through:
 - an invariant that requires joint validation.
 
 Physical co-location in a settings file, lockfile, or native file does not by
-itself merge otherwise independent closures. Cleanup that requires a complete
-desired graph is a separate maintenance closure and does not run when graph
-construction is incomplete.
+itself merge otherwise independent closures. Cleanup that requires every
+desired route to be known is a separate maintenance closure and does not run
+while an active Pack's routes are unresolved. A problem confined to one
+identified extension blocks that extension's closure alone, and an aggregate
+unit renders only when the contributor set for its own extension type is
+complete.
 
 Contributors to one aggregate ownership unit share that unit and therefore join
 one closure. An operation touching several of them plans one write of the unit

@@ -25,7 +25,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import { RegistryClientFactory } from "@agentxm/registry-client";
 import { WorkspaceCatalog } from "./workspace-catalog.js";
-import { desiredPackageKey } from "../workspace-state/index.js";
+import { desiredPackageKey, unresolvedPackRoutes } from "../workspace-state/index.js";
 
 /**
  * Every installable extension type an installed identifier can name.
@@ -171,7 +171,11 @@ const installedCandidates = (
     const graph = yield* catalog.desiredExtensionGraph;
     // A constraint conflict leaves membership intact, so identifiers still
     // resolve safely; the planner that selects a version reports the conflict.
-    if (graph.problems.some((problem) => problem.type !== "constraint-conflict")) {
+    // Unresolved Pack routes or an identity problem leave the name set unknown.
+    if (
+      unresolvedPackRoutes(graph).length > 0 ||
+      graph.problems.some((problem) => problem.type !== "constraint-conflict")
+    ) {
       return yield* new SourceNotResolvable({
         category: "conflict",
         detail:

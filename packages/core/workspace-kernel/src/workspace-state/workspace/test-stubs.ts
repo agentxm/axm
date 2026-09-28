@@ -6,7 +6,11 @@ import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
-import { DesiredStateReader, type DesiredStateReaderService } from "./desired-state-reader.js";
+import {
+  DesiredStateReader,
+  type DesiredStateEvaluation,
+  type DesiredStateReaderService,
+} from "./desired-state-reader.js";
 import { LockfileReader, makeLockfileReader } from "./lockfile-reader.js";
 import { makeSettingsReader, SettingsReader } from "./settings-reader.js";
 import { WorkspaceLocation, type WorkspaceLocationService } from "./location.js";
@@ -241,17 +245,36 @@ export const WorkspaceReadTest = (
         writeSettings: () => Effect.void,
         commitAcceptedResolutions: () => Effect.void,
       };
+      const graph: DesiredStateReaderService["graph"] = () =>
+        facts.graphDocument ??
+        Effect.succeed(
+          facts.graph ?? {
+            nodes: [],
+            mcpSourceClosures: [],
+            problems: [],
+            packMembership: [],
+          },
+        );
+      // The stubbed evaluation carries the facts as its input view; a
+      // proposal keeps the same graph, as the stubbed graph ignored options.
+      const evaluationOf = (evaluated: DesiredStateGraph): DesiredStateEvaluation => ({
+        inputs: {
+          scope: selectedLayout.scope,
+          settings: settingsDocument,
+          inheritedSettings: {},
+          defaultRegistry: settingsDocument.defaultRegistry ?? "agentxm",
+          registryEndpoints: {},
+          acceptedResolutions: lockfileDocument,
+          packDocuments: [],
+          readSet: [],
+        },
+        graph: evaluated,
+      });
       const desired: DesiredStateReaderService = {
-        graph: () =>
-          facts.graphDocument ??
-          Effect.succeed(
-            facts.graph ?? {
-              complete: true,
-              nodes: [],
-              mcpSourceClosures: [],
-              problems: [],
-            },
-          ),
+        evaluate: () => Effect.map(graph(), evaluationOf),
+        graph,
+        propose: (base, settings) =>
+          Effect.succeed({ inputs: { ...base.inputs, settings }, graph: base.graph }),
         isRequiredByInstalledPack: (target) =>
           Effect.succeed(
             facts.graph?.nodes.some(

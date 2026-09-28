@@ -28,6 +28,7 @@ import {
   type VersionRange,
 } from "@agentxm/extension-model/unstable/version-constraints";
 import {
+  desiredStateSettled,
   DesiredStateReader,
   LockfileReader,
   SettingsReader,
@@ -356,7 +357,9 @@ export const heldPackGraphPreservable: (
 )(function* (intent: Pick<PackGraphSelectionRequest, "packToInstall" | "versionRange">) {
   const packIdentity = `${intent.packToInstall.owner}/packs/${intent.packToInstall.name}`;
   const graph = yield* readDesiredGraph;
-  if (!graph.complete) return false;
+  // Nothing is preservable while the graph reports any problem: preserving
+  // the current graph means keeping a graph that is whole.
+  if (!desiredStateSettled(graph)) return false;
   const currentPack = yield* usableAcceptedCanonical({
     type: "pack",
     name: intent.packToInstall.pack.name,

@@ -120,7 +120,7 @@ const makeTestLayer = (overrides?: {
   const testAgents = overrides?.agents ?? [makeMockCodingAgent("claude-code")];
   const configuredSubagents = overrides?.configuredSubagents ?? {};
   const graph = {
-    complete: true,
+    packMembership: [],
     // A configuration-only entry declares no source, so it contributes no node
     // of its own; these fixtures describe declared subagents.
     nodes: Object.entries(configuredSubagents).flatMap(([name, entry]) => {

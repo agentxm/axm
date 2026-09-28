@@ -3,23 +3,24 @@
  *
  * A render input is branded with a module-private symbol. Callers can define
  * adapters that consume the input, but only this module can construct one.
- * Aggregate construction first proves the desired-state graph complete. Plan
- * application serializes units that share a target file while retaining
+ * Aggregate construction first proves the unit's contributor set complete.
+ * Plan application serializes units that share a target file while retaining
  * concurrency across independent targets.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import * as Effect from "effect/Effect";
-import type { DesiredStateGraph } from "../workspace-state/index.js";
-import { requireCompleteGraph } from "./contributors.js";
+import { desiredStateSettled, type DesiredStateGraph } from "../workspace-state/index.js";
+import { requireCompleteContributors } from "./contributors.js";
 import { formatProjectionExclusions, type ProjectionContributorExclusion } from "./exclusions.js";
 import type { DesiredStateIncomplete, ProjectionError } from "./errors.js";
-import type {
-  AggregateOwnershipUnitId,
-  OwnershipUnitId,
-  ProjectionUnitObservation,
-  SingletonOwnershipUnitId,
+import {
+  ownershipUnits,
+  type AggregateOwnershipUnitId,
+  type OwnershipUnitId,
+  type ProjectionUnitObservation,
+  type SingletonOwnershipUnitId,
 } from "./units.js";
 
 const ProjectionRenderInputTypeId: unique symbol = Symbol.for(
@@ -33,7 +34,7 @@ const ProjectionPlanTypeId: unique symbol = Symbol.for(
 // workspace scanners. Their measured allowance is sixteen concurrent reads.
 export const PROJECTION_IO_CONCURRENCY = 16;
 
-/** Shared semantic decision made before a desired-state-dependent plan is exposed. */
+/** The whole-graph decision a Pack transition makes before it is exposed. */
 export type DesiredStateGraphPlanningDecision =
   | { readonly readiness: "ready"; readonly graph: DesiredStateGraph }
   | {
@@ -42,16 +43,26 @@ export type DesiredStateGraphPlanningDecision =
     };
 
 /**
- * Classify whether the desired-state graph can safely supply a complete plan.
+ * Classify whether the whole desired-state graph is settled enough for a
+ * Pack transition, which changes the graph itself: any problem blocks it.
+ * This is deliberately the blanket decision; an operation acting on one
+ * extension or one unit asks the narrower query that matches its decision.
  * Preview and apply consumers retain this exact decision; apply only checks
  * that the candidate's authoritative inputs have not changed.
  */
 export const planDesiredStateGraph = (
   graph: DesiredStateGraph,
 ): DesiredStateGraphPlanningDecision =>
-  graph.complete
+  desiredStateSettled(graph)
     ? { readiness: "ready", graph }
     : { readiness: "blocked", problems: graph.problems };
+
+/** The extension type whose contributor set an ownership unit renders. */
+const unitContributorType = (unitId: OwnershipUnitId) => {
+  const unit = ownershipUnits.find((candidate) => candidate.unitId === unitId);
+  if (unit === undefined) throw new Error(`Unregistered ownership unit ${unitId}`);
+  return unit.type;
+};
 
 /** Complete contributor input. Its module-private brand prevents construction by adapters. */
 export interface ProjectionRenderInput<Contributor> {
@@ -133,7 +144,7 @@ const makePlan = <Contributor, ApplyResult, E, R>(args: {
   };
 };
 
-/** Construct one aggregate-unit plan only after graph completeness is proven. */
+/** Construct one aggregate-unit plan only after the unit's contributor set is proven complete. */
 export const planAggregateProjection = <
   Contributor,
   ApplyResult,
@@ -154,7 +165,7 @@ export const planAggregateProjection = <
   ESelect | DesiredStateIncomplete,
   RSelect
 > =>
-  requireCompleteGraph(args.graph).pipe(
+  requireCompleteContributors(args.graph, unitContributorType(args.unitId)).pipe(
     Effect.flatMap(args.select),
     Effect.map((selection) => makePlan({ ...args, ...selection })),
   );

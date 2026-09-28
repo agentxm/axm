@@ -99,7 +99,7 @@ const packHookNode = (name: string, pack: string): DesiredExtensionNode => ({
 });
 
 const completeGraph = (nodes: ReadonlyArray<DesiredExtensionNode>): DesiredStateGraph => ({
-  complete: true,
+  packMembership: [],
   nodes,
   mcpSourceClosures: [],
   problems: [],
@@ -310,7 +310,6 @@ describe("HookManager graph-derived unit projection", () => {
     const settingsPath = nodePath.join(baseDir, ".claude", "settings.json");
     const layer = makeTestLayer({
       graph: {
-        complete: false,
         nodes: [packHookNode("pack-a-hook", "pack-a")],
         mcpSourceClosures: [],
         problems: [
@@ -318,6 +317,16 @@ describe("HookManager graph-derived unit projection", () => {
             type: "pack-manifest-unavailable",
             pack: `${OWNER}/packs/pack-a`,
             path: "agent_extensions/@acme/packs/pack-a/pack.json",
+            reason: "absent",
+          },
+        ],
+        packMembership: [
+          {
+            settingsName: "pack-a",
+            pack: `${OWNER}/packs/pack-a`,
+            enabled: true,
+            declared: { status: "unknown", reason: "absent" },
+            routes: "unknown",
           },
         ],
       },

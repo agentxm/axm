@@ -89,6 +89,7 @@ import {
   type ExecutionCandidate,
 } from "@agentxm/workspace-kernel/planning";
 import {
+  desiredStateSettled,
   DesiredStateReader,
   WorkspaceRecords,
   acceptedResolutionRef,
@@ -321,7 +322,8 @@ const preservableRegistryVersion = Effect.fn("UpdateExtensions.preservableVersio
 ) {
   const desiredState = yield* DesiredStateReader;
   const graph = yield* desiredState.graph();
-  if (!graph.complete) return Option.none<string>();
+  // Preserving the current graph means keeping a graph that is whole.
+  if (!desiredStateSettled(graph)) return Option.none<string>();
 
   const desired = desiredNodeForIntent(graph, intent);
   if (desired === undefined) return Option.none<string>();

@@ -4,6 +4,8 @@
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 import {
+  contributorSetBlockers,
+  contributorSetComplete,
   DesiredStateReader,
   LockfileReader,
   SettingsReader,
@@ -64,7 +66,7 @@ import {
   type ProjectionContributorExclusion,
   type ProjectionPlan,
   type ProjectionSelection,
-  requireCompleteGraph,
+  requireCompleteContributors,
   KNOWLEDGE_REGION_OWNER,
   reconcileKnowledgeDiscovery,
   type KnowledgeDiscoveryBundle,
@@ -428,12 +430,14 @@ export const KnowledgeManagerLive = Layer.effect(
         : { description: inspected.manifest.description }),
     });
 
+    // The active Knowledge set is complete exactly when the Knowledge
+    // contributor set is: a problem about another type does not hide it.
     const activeKnowledgeNodes = () =>
       desiredState
         .graph()
         .pipe(
           Effect.flatMap((graph) =>
-            graph.complete
+            contributorSetComplete(contributorSetBlockers(graph, "knowledge"))
               ? Effect.succeed(
                   graph.nodes
                     .filter(isSourcedDesiredExtension)
@@ -636,7 +640,7 @@ export const KnowledgeManagerLive = Layer.effect(
     const reconcileDiscovery = (options?: { readonly dryRun?: boolean }) =>
       resolveKnowledgeProjection().pipe(
         Effect.flatMap(({ graph, locked, configured, config, instructionsTarget }) =>
-          requireCompleteGraph(graph).pipe(
+          requireCompleteContributors(graph, "knowledge").pipe(
             Effect.flatMap((completeGraph) =>
               selectKnowledgeBundles(
                 completeGraph,

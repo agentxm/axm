@@ -21,6 +21,8 @@ describe("Sync inventory observation", () => {
   });
 
   it.effect("shares planning reads and performs one uncached validation read", () => {
+    // Planning captures the input view once; validation evaluates once more,
+    // uncached, and compares semantic identity.
     const names = ["review", "triage", "summarize"];
     const workspace = makeSyncFixture({
       settings: {
@@ -48,6 +50,10 @@ describe("Sync inventory observation", () => {
           } satisfies typeof records;
           const observedGraph = {
             ...desiredState,
+            evaluate: (options) =>
+              Effect.sync(() => {
+                graphReads += 1;
+              }).pipe(Effect.andThen(desiredState.evaluate(options))),
             graph: (options) =>
               Effect.sync(() => {
                 graphReads += 1;
@@ -88,6 +94,10 @@ describe("Sync inventory observation", () => {
           let graphReads = 0;
           const observed = {
             ...desiredState,
+            evaluate: (options) =>
+              Effect.sync(() => {
+                graphReads += 1;
+              }).pipe(Effect.andThen(desiredState.evaluate(options))),
             graph: (options) =>
               Effect.sync(() => {
                 graphReads += 1;

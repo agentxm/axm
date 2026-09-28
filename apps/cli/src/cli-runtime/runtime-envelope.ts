@@ -43,13 +43,21 @@ import {
   CommandSemanticPropertiesLive,
   ProductActivityLive,
   type CommandSettlement,
+  type CommandSettlementFailure,
 } from "./telemetry.js";
-import { CommandArgv, serializeArgv } from "./command-argv.js";
 import {
-  TelemetryClientLive,
-  type TelemetryClientOptions,
-  type TelemetryProperties,
-} from "../telemetry/index.js";
+  causeCarriesOutputFailure,
+  causeDefect,
+  defectIdentity,
+  handledFailureIdentity,
+} from "./failure-identity.js";
+import {
+  ConfigurationFailure,
+  recordedConfigurationFailure,
+  type ConfigurationFailureRecord,
+} from "./configuration-failure.js";
+import { CommandArgv, serializeArgv } from "./command-argv.js";
+import { TelemetryPreviewFraming, type TelemetryProperties } from "../telemetry/index.js";
 
 import {
   InteractiveScreen,
@@ -66,17 +74,6 @@ import {
 } from "../cli-flags/index.js";
 import { Screen } from "../screen/index.js";
 import { ScreenLogDrain } from "../screen/logger.js";
-
-export interface CliTelemetryConfig {
-  readonly mode: TelemetryClientOptions["mode"];
-  readonly client: TelemetryClientOptions["client"];
-  /** Deliver while the repository's own test run executes. Off by default. */
-  readonly deliverInTest?: TelemetryClientOptions["deliverInTest"];
-  /** Where non-identifying operating-system facts come from. */
-  readonly host?: TelemetryClientOptions["host"];
-  readonly installationId?: TelemetryClientOptions["installationId"];
-  readonly eventIdFactory?: TelemetryClientOptions["eventIdFactory"];
-}
 
 /**
  * Emit a defect (unhandled panic). The squashed cause classifies through the
@@ -132,7 +129,9 @@ const settlementForExit = (
   const code = isAppErrorCode(recorded) ? recorded : appErrorCodeForExit(exitCode);
   return {
     result: "error",
-    ...(code === undefined ? {} : { failure: { code, level: "error", handled: true } }),
+    ...(code === undefined
+      ? {}
+      : { failure: { code, phase: "command", kind: code, handled: true } }),
   };
 };
 
@@ -243,37 +242,20 @@ export const resolveCliFormat = Effect.gen(function* () {
 });
 
 /**
- * Wrap a pre-provided program in CLI error handling + telemetry.
+ * Wrap a pre-provided program in CLI error handling and settlement telemetry.
  *
  * The program should already have all its service dependencies satisfied
- * except for TelemetryClient (provided via telemetryLayer internally)
- * and HttpClient (required by the telemetry layer).
- * Callers compose their own layers before passing the program here.
+ * except for the process-owned TelemetryClient, which the envelope requires
+ * from its caller so one reporter serves the whole invocation.
  */
 export const withCliErrorHandling = <A, R>(
   program: Effect.Effect<A, ExpectedCliError, R>,
   options: {
     readonly command?: string | undefined;
     readonly format: OutputFormat;
-    readonly telemetryConfig: CliTelemetryConfig;
   },
 ) => {
   const command = options.command ?? "unknown";
-  const telemetryLayer = TelemetryClientLive({
-    mode: options.telemetryConfig.mode,
-    command,
-    client: options.telemetryConfig.client,
-    ...(options.telemetryConfig.deliverInTest === undefined
-      ? {}
-      : { deliverInTest: options.telemetryConfig.deliverInTest }),
-    ...(options.telemetryConfig.host === undefined ? {} : { host: options.telemetryConfig.host }),
-    ...(options.telemetryConfig.installationId === undefined
-      ? {}
-      : { installationId: options.telemetryConfig.installationId }),
-    ...(options.telemetryConfig.eventIdFactory === undefined
-      ? {}
-      : { eventIdFactory: options.telemetryConfig.eventIdFactory }),
-  });
 
   const enrichedProgram = Effect.gen(function* () {
     // Collection is an observation boundary too: a faulty collector cannot
@@ -297,7 +279,7 @@ export const withCliErrorHandling = <A, R>(
         if (yield* Ref.getAndSet(settled, true)) return;
         const semanticProperties = yield* getCommandSemanticProperties;
         yield* recordCommandSettlement({
-          command,
+          ...(options.command === undefined ? {} : { command: options.command }),
           ...settlement,
           durationMs: elapsedMilliseconds(startTime, yield* Clock.monotonicTimeNanos),
           semanticProperties,
@@ -319,8 +301,51 @@ export const withCliErrorHandling = <A, R>(
       yield* screen.settle;
     });
 
+    // Undelivered output settles as an internal failure of the output phase.
+    const settleOutputFailure = (error: OutputWriteFailed) =>
+      settle({
+        result: "error",
+        failure: { ...handledFailureIdentity(error), phase: "output" },
+      }).pipe(Effect.as(processOutcome(ExitCode.Internal)));
+
+    // A failure raised while building the command's workspace settles in the
+    // configuration phase, under the identity the workspace boundary recorded
+    // before converting it; anything the command itself raised settles in the
+    // command phase.
+    const configurationFailures = yield* Ref.make(Option.none<ConfigurationFailureRecord>());
+    const commandFailure = (error: ExpectedCliError): Effect.Effect<CommandSettlementFailure> =>
+      Effect.map(
+        recordedConfigurationFailure(configurationFailures, error),
+        Option.match({
+          onNone: (): CommandSettlementFailure => ({
+            ...handledFailureIdentity(error),
+            phase: "command",
+          }),
+          onSome: (identity): CommandSettlementFailure => ({ ...identity, phase: "configuration" }),
+        }),
+      );
+    const defectFailure = (
+      cause: Cause.Cause<unknown>,
+      code: AppErrorCode,
+    ): Effect.Effect<CommandSettlementFailure> => {
+      const defect = causeDefect(cause);
+      return Effect.map(
+        recordedConfigurationFailure(configurationFailures, defect),
+        (configuration): CommandSettlementFailure => ({
+          ...defectIdentity(defect),
+          code,
+          phase: causeCarriesOutputFailure(cause)
+            ? "output"
+            : Option.isSome(configuration)
+              ? "configuration"
+              : "command",
+        }),
+      );
+    };
+
     return yield* program.pipe(
       Effect.provideService(CommandCompletion, { record: settleForExit }),
+      Effect.provideService(ConfigurationFailure, { ref: configurationFailures }),
       Effect.tap(() => settleOutput),
       Effect.flatMap((value) =>
         Effect.gen(function* () {
@@ -334,10 +359,7 @@ export const withCliErrorHandling = <A, R>(
         }),
       ),
       Effect.catch((error: ExpectedCliError) => {
-        if (error instanceof OutputWriteFailed)
-          return settleForExit(ExitCode.Internal).pipe(
-            Effect.as(processOutcome(ExitCode.Internal)),
-          );
+        if (error instanceof OutputWriteFailed) return settleOutputFailure(error);
         const resolved = expectedErrorToAppError(error);
         const exitCode = resolved === undefined ? ExitCode.Success : exitCodeFor(resolved.code);
 
@@ -353,14 +375,11 @@ export const withCliErrorHandling = <A, R>(
               : settleOutput.pipe(Effect.catchTag("OutputWriteFailed", () => Effect.void)),
           ),
           Effect.andThen(
-            settle(
-              resolved === undefined
-                ? { result: "cancelled" }
-                : {
-                    result: "error",
-                    failure: { code: resolved.code, level: "error", handled: true },
-                  },
-            ),
+            resolved === undefined
+              ? settle({ result: "cancelled" })
+              : Effect.flatMap(commandFailure(error), (failure) =>
+                  settle({ result: "error", failure }),
+                ),
           ),
           Effect.as(processOutcome(exitCode)),
         );
@@ -372,9 +391,7 @@ export const withCliErrorHandling = <A, R>(
           Option.isSome(failure) &&
           failure.value instanceof OutputWriteFailed
         ) {
-          return settleForExit(ExitCode.Internal).pipe(
-            Effect.as(processOutcome(ExitCode.Internal)),
-          );
+          return settleOutputFailure(failure.value);
         }
         // An interruption is never a defect: it continues to the process
         // owner, which reports the signal's exit.
@@ -386,10 +403,9 @@ export const withCliErrorHandling = <A, R>(
           Effect.flatMap((defect) =>
             settleOutput.pipe(
               Effect.andThen(
-                settle({
-                  result: "defect",
-                  failure: { code: defect.code, level: "fatal", handled: false },
-                }),
+                Effect.flatMap(defectFailure(cause, defect.code), (failure) =>
+                  settle({ result: "defect", failure }),
+                ),
               ),
               Effect.as(processOutcome(exitCodeFor(defect.code))),
             ),
@@ -405,36 +421,12 @@ export const withCliErrorHandling = <A, R>(
       ? inherited.value
       : { ref: yield* Ref.make(Option.none<number>()) };
     const outcome = yield* enrichedProgram.pipe(
-      Effect.provide(
-        Layer.mergeAll(telemetryLayer, CommandSemanticPropertiesLive, ProductActivityLive),
-      ),
+      Effect.provide(Layer.mergeAll(CommandSemanticPropertiesLive, ProductActivityLive)),
       Effect.provideService(OperationExit, operationExit),
+      // Telemetry previewed while the command runs joins its Screen's stderr.
+      Effect.provideService(TelemetryPreviewFraming, options.format),
     );
     yield* Ref.set(operationExit.ref, Option.some(outcome.exitCode));
     return outcome;
   });
 };
-
-// ---------------------------------------------------------------------------
-// Convenience — for callers that don't need a programLayer
-// ---------------------------------------------------------------------------
-
-export interface WithCliRuntimeOptions {
-  readonly command?: string | undefined;
-  readonly telemetryConfig: CliTelemetryConfig;
-}
-
-export const withCliRuntime = <A, R>(
-  program: Effect.Effect<A, ExpectedCliError, R>,
-  options: WithCliRuntimeOptions,
-) =>
-  Effect.gen(function* () {
-    const format = yield* resolveCliFormat;
-    const foundationLayer = makeFoundationLayer(format);
-
-    return yield* withCliErrorHandling(program, {
-      command: options.command,
-      format,
-      telemetryConfig: options.telemetryConfig,
-    }).pipe(Effect.provide(foundationLayer), Effect.scoped);
-  });

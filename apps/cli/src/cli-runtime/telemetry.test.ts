@@ -1,13 +1,25 @@
 import { describe, expect, it } from "@effect/vitest";
+import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Ref from "effect/Ref";
+import { CliError } from "effect/unstable/cli";
 import { makeOperationLifecycle } from "@agentxm/workspace-kernel/operations";
 
-import { TelemetryClient, type TelemetryClientService } from "../telemetry/index.js";
-import type { TelemetryProperties } from "../telemetry/client.js";
+import { makeAppError } from "../app-error/index.js";
+import { OutputWriteFailed } from "../screen/streams.js";
+import { captureTelemetry, telemetryReporterLayer } from "../test-support/telemetry-harness.js";
+import {
+  TelemetryClient,
+  type TelemetryClientService,
+  type TelemetryFailureReport,
+  type TelemetryProperties,
+} from "../telemetry/index.js";
 import {
   recordCommandSettlement,
+  reportProcessFailure,
+  withProcessTelemetry,
   trackCliCommand,
   trackCliCommandCompleted,
   CommandSemanticProperties,
@@ -21,33 +33,20 @@ import {
 
 interface Capture {
   readonly events: Array<{ event: string; properties?: TelemetryProperties }>;
-  readonly errors: Array<{
-    name: string;
-    category?: string;
-    level: "error" | "fatal";
-    errorClass: "internal" | "user" | "external";
-    handled: boolean;
-    command: string;
-  }>;
+  readonly errors: Array<TelemetryFailureReport>;
 }
 
 const makeCaptureLayer = (): readonly [Layer.Layer<TelemetryClient>, Capture] => {
   const capture: Capture = { events: [], errors: [] };
   const layer = Layer.succeed(TelemetryClient, {
+    invocationId: "00000000-0000-4000-8000-000000000009",
     trackEvent: (event, properties) =>
       Effect.sync(() => {
         capture.events.push({ event, ...(properties !== undefined && { properties }) });
       }),
-    reportError: (error) =>
+    reportError: (failure) =>
       Effect.sync(() => {
-        capture.errors.push({
-          name: error.name,
-          ...(error.category === undefined ? {} : { category: error.category }),
-          level: error.level,
-          errorClass: error.errorClass,
-          handled: error.handled,
-          command: error.command,
-        });
+        capture.errors.push(failure);
       }),
   } satisfies TelemetryClientService);
 
@@ -81,15 +80,15 @@ describe("cli telemetry helpers", () => {
         command: "setup",
         result: "error",
         durationMs: 42,
-        failure: { code: "not_found", level: "error", handled: true },
+        failure: { code: "not_found", phase: "command", kind: "not_found", handled: true },
         semanticProperties: { "cli.outcome": "failed" },
       }).pipe(Effect.provide(layer));
 
       expect(capture.errors).toEqual([
         {
-          name: "not_found",
+          phase: "command",
+          kind: "not_found",
           category: "not_found",
-          level: "error",
           errorClass: "user",
           handled: true,
           command: "setup",
@@ -111,7 +110,7 @@ describe("cli telemetry helpers", () => {
     }),
   );
 
-  it.effect("settles a defect as a fatal, unhandled report of its category", () =>
+  it.effect("settles a defect as an unhandled report of its kind and category", () =>
     Effect.gen(function* () {
       const [layer, capture] = makeCaptureLayer();
 
@@ -119,13 +118,14 @@ describe("cli telemetry helpers", () => {
         command: "skills list",
         result: "defect",
         durationMs: 7,
-        failure: { code: "internal", level: "fatal", handled: false },
+        failure: { code: "internal", phase: "output", kind: "defect.type-error", handled: false },
       }).pipe(Effect.provide(layer));
 
       expect(capture.errors).toEqual([
         {
-          name: "Defect",
-          level: "fatal",
+          phase: "output",
+          kind: "defect.type-error",
+          category: "internal",
           errorClass: "internal",
           handled: false,
           command: "skills list",
@@ -134,6 +134,35 @@ describe("cli telemetry helpers", () => {
       expect(
         capture.events.map(({ event, properties }) => [event, properties?.["cli.result"]]),
       ).toEqual([["command_completed", "defect"]]);
+    }),
+  );
+
+  it.effect("carries the product activity identity into the report", () =>
+    Effect.gen(function* () {
+      const [captureLayer, capture] = makeCaptureLayer();
+
+      yield* Effect.gen(function* () {
+        yield* startProductActivity({ activity: "install", activationEligible: true });
+        yield* recordCommandSettlement({
+          result: "error",
+          durationMs: 3,
+          failure: { code: "network", phase: "command", kind: "network", handled: true },
+        });
+      }).pipe(Effect.provide(Layer.mergeAll(captureLayer, ProductActivityLive)));
+
+      const started = capture.events[0]?.properties?.["product.activity_id"];
+      expect(typeof started).toBe("string");
+      expect(capture.errors).toEqual([
+        {
+          phase: "command",
+          kind: "network",
+          category: "network",
+          errorClass: "external",
+          handled: true,
+          activityId: started,
+        },
+      ]);
+      expect(capture.events[1]?.properties?.["cli.command"]).toBe("unknown");
     }),
   );
 
@@ -159,6 +188,7 @@ describe("cli telemetry helpers", () => {
   it.effect("swallows a reporting failure so the settlement never fails the command", () =>
     Effect.gen(function* () {
       const layer = Layer.succeed(TelemetryClient, {
+        invocationId: "00000000-0000-4000-8000-000000000009",
         trackEvent: () => Effect.die(new Error("transport down")),
         reportError: () => Effect.die(new Error("transport down")),
       } satisfies TelemetryClientService);
@@ -167,11 +197,131 @@ describe("cli telemetry helpers", () => {
         command: "setup",
         result: "error",
         durationMs: 1,
-        failure: { code: "network", level: "error", handled: true },
+        failure: { code: "network", phase: "command", kind: "network", handled: true },
       }).pipe(Effect.provide(layer));
     }),
   );
+});
 
+describe("process failure reporting", () => {
+  const reportCause = (cause: Cause.Cause<unknown>) =>
+    Effect.gen(function* () {
+      const [layer, capture] = makeCaptureLayer();
+      yield* reportProcessFailure(cause).pipe(Effect.provide(layer));
+      return capture.errors;
+    });
+
+  it.effect("reports a startup rejection as a handled bootstrap failure", () =>
+    Effect.gen(function* () {
+      const errors = yield* reportCause(
+        Cause.fail(makeAppError({ code: "usage", detail: "SYNTHETIC_DETAIL_91" })),
+      );
+      expect(errors).toEqual([
+        {
+          phase: "bootstrap",
+          kind: "usage",
+          category: "usage",
+          errorClass: "user",
+          handled: true,
+        },
+      ]);
+      expect(JSON.stringify(errors)).not.toContain("SYNTHETIC_DETAIL_91");
+    }),
+  );
+
+  it.effect("reports an output write failure in the output phase", () =>
+    Effect.gen(function* () {
+      const errors = yield* reportCause(
+        Cause.fail(new OutputWriteFailed({ channel: "stderr", reason: "EPIPE" })),
+      );
+      expect(errors).toEqual([
+        {
+          phase: "output",
+          kind: "output-write-failed",
+          category: "internal",
+          errorClass: "internal",
+          handled: true,
+        },
+      ]);
+    }),
+  );
+
+  it.effect("reports a defect as an unhandled bootstrap failure of its error kind", () =>
+    Effect.gen(function* () {
+      const errors = yield* reportCause(Cause.die(new TypeError("SYNTHETIC_MESSAGE_92")));
+      expect(errors).toEqual([
+        {
+          phase: "bootstrap",
+          kind: "defect.type-error",
+          category: "internal",
+          errorClass: "internal",
+          handled: false,
+        },
+      ]);
+      expect(JSON.stringify(errors)).not.toContain("SYNTHETIC_MESSAGE_92");
+    }),
+  );
+
+  it.effect("reports nothing for an interruption or help that exits successfully", () =>
+    Effect.gen(function* () {
+      expect(yield* reportCause(Cause.interrupt())).toEqual([]);
+      expect(
+        yield* reportCause(Cause.fail(new CliError.ShowHelp({ commandPath: ["axm"], errors: [] }))),
+      ).toEqual([]);
+    }),
+  );
+});
+
+describe("process-owned telemetry", () => {
+  const deliveringReporter = (client: ReturnType<typeof captureTelemetry>["client"]) =>
+    telemetryReporterLayer({
+      client,
+      reporter: {
+        mode: "errors",
+        client: { name: "cli", version: "1.2.3" },
+        deliverInTest: true,
+        installationId: "00000000-0000-4000-8000-000000000001",
+        eventIdFactory: () => "00000000-0000-4000-8000-000000000002",
+      },
+    });
+
+  it.effect("reports an escaped failure before it surfaces, then fails with it unchanged", () =>
+    Effect.gen(function* () {
+      const capture = captureTelemetry();
+      const failure = makeAppError({ code: "usage", detail: "Unrecognized command: auth" });
+
+      const exit = yield* Effect.fail(failure).pipe(
+        withProcessTelemetry(deliveringReporter(capture.client)),
+        Effect.exit,
+      );
+
+      expect(Exit.isFailure(exit) && Cause.squash(exit.cause)).toBe(failure);
+      expect(capture.requests.map(({ body }) => body)).toEqual([
+        expect.objectContaining({
+          phase: "bootstrap",
+          failure: { kind: "usage", category: "usage", class: "user", handled: true },
+        }),
+      ]);
+    }),
+  );
+
+  it.effect("reports nothing for a success or an interruption", () =>
+    Effect.gen(function* () {
+      const capture = captureTelemetry();
+
+      yield* Effect.succeed("done").pipe(withProcessTelemetry(deliveringReporter(capture.client)));
+      const interrupted = yield* Effect.interrupt.pipe(
+        withProcessTelemetry(deliveringReporter(capture.client)),
+        Effect.exit,
+      );
+
+      expect(Exit.hasInterrupts(interrupted)).toBe(true);
+      expect(capture.requests).toEqual([]);
+    }),
+  );
+});
+
+describe("command completion events", () => {
   it.effect("trackCliCommandCompleted emits success event", () =>
     Effect.gen(function* () {
       const [layer, capture] = makeCaptureLayer();

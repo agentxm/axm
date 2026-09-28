@@ -1,74 +1,67 @@
 // @effect-diagnostics anyUnknownInErrorContext:off — telemetry is a best-effort boundary over generated opaque transport failures
 import { randomUUID } from "node:crypto";
-import * as os from "node:os";
-import { resolveUserAxmHome } from "@agentxm/workspace-kernel/workspace-state";
 import * as DateTime from "effect/DateTime";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
+import * as Exit from "effect/Exit";
+import * as FiberSet from "effect/FiberSet";
+import type * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as ServiceMap from "effect/Context";
 import * as Option from "effect/Option";
-import * as Path from "effect/Path";
+import type * as Path from "effect/Path";
+import * as Ref from "effect/Ref";
+import * as Schema from "effect/Schema";
+import type * as Scope from "effect/Scope";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import { envWithDefault, isCI } from "@agentxm/host-primitives";
+import { writeDiagnosticLine } from "../screen/streams.js";
 import * as GeneratedTelemetryClient from "./__generated__/telemetry-client.js";
+import { loadOrCreateInstallationId } from "./installation-identity.js";
 import type { TelemetryMode } from "./mode.js";
-
-export type TelemetryPropertyValue = string | number | boolean | null;
-export type TelemetryProperties = Record<string, TelemetryPropertyValue>;
-export type TelemetryErrorClass = "internal" | "user" | "external";
+import {
+  buildErrorReport,
+  buildEventsRequest,
+  previewLine,
+  reportingClientFacts,
+  usageEventContext,
+  type TelemetryClientIdentity,
+  type TelemetryFailureReport,
+  type TelemetryPreviewFormat,
+  type TelemetryProperties,
+} from "./payloads.js";
 
 export interface TelemetryClientService {
-  readonly trackEvent: (
-    event: string,
-    properties?: TelemetryProperties,
-    options?: {
-      /** Await the send (bounded) so the event lands before process exit. */
-      readonly bounded?: boolean;
-    },
-  ) => Effect.Effect<void>;
-  readonly reportError: (error: {
-    readonly name: string;
-    readonly category?: string;
-    readonly level: "error" | "fatal";
-    readonly errorClass: TelemetryErrorClass;
-    readonly handled: boolean;
-    readonly command: string;
-  }) => Effect.Effect<void>;
+  /** This process invocation's identity, shared by its usage events and its error report. */
+  readonly invocationId: string;
+  readonly trackEvent: (event: string, properties?: TelemetryProperties) => Effect.Effect<void>;
+  /** Report the invocation's terminal failure; an invocation reports at most one. */
+  readonly reportError: (failure: TelemetryFailureReport) => Effect.Effect<void>;
 }
-
-/**
- * The host facts telemetry observes. It is a port because observing the host
- * is a native boundary that can fail, and a failure there must be invisible
- * to the command — which is only demonstrable when the failure can be stated.
- */
-export interface TelemetryHostObservation {
-  readonly osRelease: () => string;
-}
-
-export const nodeTelemetryHost: TelemetryHostObservation = {
-  osRelease: () => os.release(),
-};
 
 export interface TelemetryClientOptions {
   readonly mode: TelemetryMode;
-  readonly command: string;
-  readonly client: {
-    readonly name: string;
-    readonly version: string;
-  };
+  readonly client: TelemetryClientIdentity;
+  /** Write each payload to the diagnostic channel instead of sending it. */
+  readonly preview?: boolean;
+  /**
+   * How a preview line is framed where no command runtime states its output
+   * format (see `TelemetryPreviewFraming`); machine output keeps stderr
+   * NDJSON. Defaults to text.
+   */
+  readonly previewFormat?: TelemetryPreviewFormat;
+  /** Where preview lines go. Defaults to one line on stderr; a failed write is dropped. */
+  readonly diagnostic?: (line: string) => Effect.Effect<void, unknown>;
   /**
    * Deliver even while the repository's own test run is executing. Delivery
    * is suppressed under Vitest so no test reaches the telemetry service; a
    * specification that observes delivery asks for it explicitly here.
    */
   readonly deliverInTest?: boolean;
-  /** Where non-identifying operating-system facts come from. */
-  readonly host?: TelemetryHostObservation;
   /** Deterministic test seam; production persists a random installation ID. */
   readonly installationId?: string;
-  /** Deterministic test seam; production assigns a fresh event ID per event. */
+  /** Deterministic test seam; production assigns a fresh event ID per event and report. */
   readonly eventIdFactory?: () => string;
 }
 
@@ -76,27 +69,32 @@ export class TelemetryClient extends ServiceMap.Service<TelemetryClient, Telemet
   "axm.sh/telemetry/client/TelemetryClient",
 ) {}
 
-const disabledTelemetry: TelemetryClientService = {
+/**
+ * The output format of the stream a preview line joins. A command runtime
+ * provides the format it resolved from the parsed command line, so a line
+ * written while it runs matches its Screen's stderr; elsewhere the reporter's
+ * own `previewFormat` applies.
+ */
+export class TelemetryPreviewFraming extends ServiceMap.Service<
+  TelemetryPreviewFraming,
+  TelemetryPreviewFormat
+>()("axm.sh/telemetry/client/TelemetryPreviewFraming") {}
+
+const disabledTelemetry = (): TelemetryClientService => ({
+  invocationId: randomUUID(),
   trackEvent: () => Effect.void,
   reportError: () => Effect.void,
-};
+});
 
-export const TelemetryClientTest = Layer.succeed(TelemetryClient, disabledTelemetry);
+export const TelemetryClientTest = Layer.sync(TelemetryClient, disabledTelemetry);
 
 const DEFAULT_BASE_URL = "https://t.agentxm.ai";
-export const TELEMETRY_EVENT_TIMEOUT = "250 millis";
 
-const swallowFailure = (effect: Effect.Effect<unknown, unknown, never>) =>
-  effect.pipe(Effect.catchCause(() => Effect.void));
-
-const fireAndForget = (effect: Effect.Effect<unknown, unknown, never>) =>
-  effect.pipe(
-    Effect.timeoutOption(TELEMETRY_EVENT_TIMEOUT),
-    swallowFailure,
-    Effect.asVoid,
-    Effect.forkDetach,
-    Effect.asVoid,
-  );
+/**
+ * The most an invocation waits, in total, for its pending telemetry when it
+ * ends. Whatever is still pending then is interrupted.
+ */
+export const TELEMETRY_SHUTDOWN_BUDGET = "250 millis";
 
 const isTest = (options: TelemetryClientOptions) =>
   Effect.gen(function* () {
@@ -107,144 +105,162 @@ const isTest = (options: TelemetryClientOptions) =>
 
 const readBaseUrl = envWithDefault("AXM_TELEMETRY_BASE_URL", DEFAULT_BASE_URL);
 
-const readRuntime = (): { readonly name: string; readonly version: string } => ({
-  name: "bun",
-  version: process.versions["bun"] ?? "unknown",
-});
+type TelemetryRoute = "/v1/errors" | "/v1/events";
 
-const INSTALLATION_ID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+const startReporter = (
+  options: TelemetryClientOptions,
+  transport: GeneratedTelemetryClient.TelemetryClient,
+  ci: boolean,
+) =>
+  Effect.gen(function* () {
+    const invocationId = randomUUID();
+    const nextEventId = options.eventIdFactory ?? randomUUID;
+    const facts = reportingClientFacts(options.client, ci);
+    const context = usageEventContext(facts, invocationId);
+    const diagnostic = options.diagnostic ?? writeDiagnosticLine;
+    const previewFormat = options.previewFormat ?? "text";
 
-const readInstallationId = (fs: FileSystem.FileSystem, filePath: string) =>
-  fs.readFileString(filePath).pipe(
-    Effect.map((value) => value.trim()),
-    Effect.filterOrFail((value) => INSTALLATION_ID_PATTERN.test(value)),
-  );
+    // Every send and the identity load are owned work of this invocation:
+    // forked off the caller's path, awaited at release within one shared
+    // budget, and interrupted by the set's own finalizer if still running.
+    const pending = yield* FiberSet.make();
+    const intakeOpen = yield* Ref.make(true);
+    const reported = yield* Ref.make(false);
+    const identity = yield* Deferred.make<Option.Option<string>>();
 
-const loadOrCreateInstallationId = Effect.gen(function* () {
-  const fs = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
-  const axmHome = yield* resolveUserAxmHome();
-  const directory = path.join(axmHome, "telemetry");
-  const filePath = path.join(directory, "installation-id");
-  const existing = yield* readInstallationId(fs, filePath).pipe(Effect.option);
-  if (Option.isSome(existing)) return existing.value;
+    yield* Effect.addFinalizer((exit) =>
+      Effect.gen(function* () {
+        yield* Ref.set(intakeOpen, false);
+        // A cancelled invocation exits at once; its pending sends are interrupted.
+        if (Exit.hasInterrupts(exit)) return;
+        yield* FiberSet.awaitEmpty(pending).pipe(Effect.timeoutOption(TELEMETRY_SHUTDOWN_BUDGET));
+      }),
+    );
 
-  yield* fs.makeDirectory(directory, { recursive: true, mode: 0o700 });
-  const candidate = randomUUID();
-  const created = yield* fs
-    .writeFileString(filePath, `${candidate}\n`, { flag: "wx", mode: 0o600 })
-    .pipe(Effect.result);
-  if (created._tag === "Success") return candidate;
-  if (created.failure.reason._tag === "AlreadyExists") {
-    return yield* readInstallationId(fs, filePath);
-  }
-  return yield* Effect.fail(created.failure);
-});
+    const own = <R>(work: Effect.Effect<unknown, unknown, R>) =>
+      Effect.gen(function* () {
+        if (!(yield* Ref.get(intakeOpen))) return;
+        yield* FiberSet.run(pending, work.pipe(Effect.catchCause(() => Effect.void)));
+      });
 
-export const makeTelemetryClient = (
+    // Identity storage is never repaired and never replaced by a shared
+    // stand-in: when it cannot be read or created the invocation has none.
+    // An interrupted load leaves the identity unresolved; only release
+    // interrupts it, and release interrupts every send waiting on it too.
+    if (options.installationId === undefined) {
+      yield* own(
+        loadOrCreateInstallationId.pipe(
+          Effect.map(Option.some),
+          Effect.catchCause(() => Effect.succeed(Option.none<string>())),
+          Effect.flatMap((installationId) => Deferred.succeed(identity, installationId)),
+        ),
+      );
+    } else {
+      yield* Deferred.succeed(identity, Option.some(options.installationId));
+    }
+
+    // A send runs with the context of the caller that started it, so a
+    // preview takes the framing of the command runtime it was written in.
+    const deliver = (
+      route: TelemetryRoute,
+      encoded: unknown,
+      send: Effect.Effect<unknown, unknown>,
+    ): Effect.Effect<unknown, unknown> =>
+      options.preview === true
+        ? Effect.flatMap(Effect.serviceOption(TelemetryPreviewFraming), (framing) =>
+            diagnostic(
+              previewLine(
+                Option.getOrElse(framing, () => previewFormat),
+                route,
+                encoded,
+              ),
+            ),
+          )
+        : send;
+
+    const trackEvent: TelemetryClientService["trackEvent"] = (event, properties) =>
+      options.mode === "errors"
+        ? Effect.void
+        : Effect.gen(function* () {
+            const timestamp = DateTime.formatIso(yield* DateTime.now);
+            const eventId = nextEventId();
+            yield* own(
+              Effect.gen(function* () {
+                const installationId = yield* Deferred.await(identity);
+                // A usage event is attributed to the installation or not sent.
+                if (Option.isNone(installationId)) return;
+                const request = buildEventsRequest({
+                  eventId,
+                  event,
+                  installationId: installationId.value,
+                  timestamp,
+                  sentAt: DateTime.formatIso(yield* DateTime.now),
+                  properties: properties ?? {},
+                  context,
+                });
+                const encoded = yield* Schema.encodeEffect(
+                  GeneratedTelemetryClient.TelemetryEventsRequest,
+                )(request);
+                yield* deliver("/v1/events", encoded, transport.EventsIngest({ payload: encoded }));
+              }),
+            );
+          }).pipe(
+            Effect.catchCause(() => Effect.void),
+            Effect.withSpan("TelemetryClient.trackEvent"),
+          );
+
+    const reportError: TelemetryClientService["reportError"] = (failure) =>
+      Effect.gen(function* () {
+        if (yield* Ref.getAndSet(reported, true)) return;
+        const occurredAt = DateTime.formatIso(yield* DateTime.now);
+        const eventId = nextEventId();
+        yield* own(
+          Effect.gen(function* () {
+            const report = buildErrorReport({
+              eventId,
+              invocationId,
+              occurredAt,
+              installationId: yield* Deferred.await(identity),
+              client: facts,
+              failure,
+            });
+            const encoded = yield* Schema.encodeEffect(
+              GeneratedTelemetryClient.TelemetryErrorReport,
+            )(report);
+            yield* deliver("/v1/errors", encoded, transport.ErrorsIngest({ payload: encoded }));
+          }),
+        );
+      }).pipe(
+        Effect.catchCause(() => Effect.void),
+        Effect.withSpan("TelemetryClient.reportError"),
+      );
+
+    return { invocationId, trackEvent, reportError } satisfies TelemetryClientService;
+  });
+
+/**
+ * The process-owned telemetry reporter. It is disabled — no identity I/O, no
+ * network, no preview — when collection is off, and it releases with its
+ * scope: intake stops, pending work gets one shared shutdown budget unless
+ * the invocation was interrupted, and whatever remains is interrupted.
+ */
+const makeTelemetryClient = (
   options: TelemetryClientOptions,
 ): Effect.Effect<
   TelemetryClientService,
   never,
-  HttpClient.HttpClient | FileSystem.FileSystem | Path.Path
+  Scope.Scope | HttpClient.HttpClient | FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
-    const inTest = yield* isTest(options);
-    if (options.mode === "off" || inTest) {
-      return disabledTelemetry;
-    }
-
+    if (options.mode === "off" || (yield* isTest(options))) return disabledTelemetry();
     const httpClient = yield* HttpClient.HttpClient;
     const ci = yield* isCI;
-    const host = options.host ?? nodeTelemetryHost;
-
-    const context = {
-      client: options.client,
-      os: { name: process.platform, version: host.osRelease() },
-      runtime: readRuntime(),
-      device: { arch: process.arch },
-      ci,
-    };
-
     const baseUrl = yield* readBaseUrl;
-    const distinctId = options.installationId ?? (yield* loadOrCreateInstallationId);
-    const eventIdFactory = options.eventIdFactory ?? randomUUID;
-
-    const client = GeneratedTelemetryClient.make(
+    const transport = GeneratedTelemetryClient.make(
       httpClient.pipe(HttpClient.mapRequest(HttpClientRequest.prependUrl(baseUrl))),
     );
-
-    const trackEvent: TelemetryClientService["trackEvent"] = (event, properties, sendOptions) => {
-      if (options.mode === "errors") return Effect.void;
-
-      return Effect.gen(function* () {
-        const now = DateTime.formatIso(yield* DateTime.now);
-        const payload = {
-          events: [
-            {
-              eventId: eventIdFactory(),
-              event,
-              distinctId,
-              timestamp: now,
-              properties: properties ?? {},
-              anonymous: true,
-            },
-          ],
-          sentAt: now,
-          context,
-        };
-
-        const send = client.EventsIngest({ payload });
-        // A bounded send completes (or times out) before the caller proceeds,
-        // so a terminal event lands before process exit on die paths too.
-        if (sendOptions?.bounded === true) {
-          return yield* send.pipe(
-            Effect.timeoutOption(TELEMETRY_EVENT_TIMEOUT),
-            swallowFailure,
-            Effect.asVoid,
-          );
-        }
-        return yield* fireAndForget(send);
-      }).pipe(swallowFailure, Effect.withSpan("TelemetryClient.trackEvent"));
-    };
-
-    // Await error delivery before exit, but bound both transport and collection.
-    const reportError: TelemetryClientService["reportError"] = (error) =>
-      Effect.gen(function* () {
-        const now = DateTime.formatIso(yield* DateTime.now);
-        const payload = {
-          errors: [
-            {
-              // Free text can contain package content or secrets even after
-              // credential-pattern redaction. Only the category crosses here.
-              message: error.name,
-              name: error.name,
-            },
-          ],
-          level: error.level,
-          errorClass: error.errorClass,
-          handled: error.handled,
-          tags: {
-            errorCode: error.name,
-            ...(error.category !== undefined ? { errorCategory: error.category } : {}),
-          },
-          fingerprint: [error.name],
-          user: { id: distinctId },
-          sentAt: now,
-          context: { ...context, command: error.command || options.command },
-        };
-
-        return yield* client.ErrorsIngest({ payload });
-      }).pipe(
-        Effect.timeoutOption(TELEMETRY_EVENT_TIMEOUT),
-        swallowFailure,
-        Effect.asVoid,
-        Effect.withSpan("TelemetryClient.reportError"),
-      );
-
-    return { trackEvent, reportError };
-  }).pipe(Effect.catchCause(() => Effect.succeed(disabledTelemetry)));
+    return yield* startReporter(options, transport, ci);
+  }).pipe(Effect.catchCause(() => Effect.sync(disabledTelemetry)));
 
 export const TelemetryClientLive = (
   options: TelemetryClientOptions,

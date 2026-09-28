@@ -70,12 +70,9 @@ export {
 export { ResolvePlanInteractionLive } from "./resolve-plan-interaction-live.js";
 export { InstallSelectionLive } from "./extension-selection-interaction-live.js";
 export { BundledAxmSkillAssetLive } from "./bundled-axm-skill-asset-live.js";
-export { runCliMain, resolveCliContext, type CliMainContext } from "./run-cli-main.js";
+export { runCliMain } from "./run-cli-main.js";
 export {
-  type CliTelemetryConfig,
   type CliRuntimeFoundation,
-  type WithCliRuntimeOptions,
-  withCliRuntime,
   type ExpectedCliError,
   type WorkspaceInitializationCancelled,
   makeFoundationLayer,
@@ -86,6 +83,9 @@ export {
   trackCliCommand,
   trackCliCommandCompleted,
   recordCommandSettlement,
+  reportProcessFailure,
+  withCommandFailureReport,
+  withProcessTelemetry,
   setCommandSemanticProperties,
   getCommandSemanticProperties,
   observeLifecycleForTelemetry,

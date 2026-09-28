@@ -30,13 +30,21 @@ import {
   runCliMain,
   processOutcome,
   getOperationExitCode,
+  withProcessTelemetry,
 } from "./cli-runtime/index.js";
+import { TelemetryClientLive } from "./telemetry/index.js";
 
 import { LearnMore, formatLearnMore, makeAxmFormatter } from "./formatter.js";
 import { presentBuiltInOutput } from "./built-in-output.js";
 import { withUpdateCheck, resolveNonInteractiveFromArgv } from "./update-check-startup.js";
 
-import { axmGlobalFlags, baseLayer, startupUpdateCheckLayer } from "./runtime.js";
+import {
+  PlatformLayer,
+  axmGlobalFlags,
+  baseLayer,
+  resolveProcessTelemetryOptions,
+  startupUpdateCheckLayer,
+} from "./runtime.js";
 import { loadVersion } from "./version.js";
 import { groupCapabilities, withCommandCapabilities } from "./root/shared/command-capabilities.js";
 import { ScopedRoutesLive } from "./root/shared/scoped-command.js";
@@ -317,6 +325,16 @@ export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): 
             // Recovery commands are addressed to the workspace scope only where
             // the registered route takes `--scope`; the tree says which do.
             ScopedRoutesLive(rootCommand),
+          ),
+        ),
+        // One reporter, on the plain AXM transport, serves the invocation.
+        withProcessTelemetry(
+          Layer.provide(
+            TelemetryClientLive({
+              ...resolveProcessTelemetryOptions(),
+              previewFormat: isJson ? "json" : "text",
+            }),
+            PlatformLayer,
           ),
         ),
         // An explicitly empty override remains distinct from an absent key.

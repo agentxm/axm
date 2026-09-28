@@ -42,6 +42,19 @@ const capturedEvents = (
     });
   });
 
+/** The invocation identities the captured payloads carry; one invocation carries one. */
+const invocationIdentities = (
+  requests: ReadonlyArray<{ readonly body: unknown }>,
+): ReadonlySet<unknown> =>
+  new Set(
+    requests.map(({ body }) => {
+      const payload = expectRecord(body);
+      return "events" in payload
+        ? property(expectRecord(property(payload, "context")), "invocationId")
+        : property(payload, "invocationId");
+    }),
+  );
+
 const byName = (events: ReadonlyArray<CapturedEvent>, name: string): CapturedEvent => {
   const event = events.find((candidate) => candidate.event === name);
   if (event === undefined) throw new Error(`Missing ${name}`);
@@ -73,6 +86,7 @@ describe("Purposeful product activity telemetry", () => {
           const appliedCount = finished.properties["cli.applied_count"];
           expect(typeof appliedCount).toBe("number");
           if (typeof appliedCount === "number") expect(appliedCount).toBeGreaterThan(0);
+          expect([...invocationIdentities(capture.requests)]).toEqual([expect.any(String)]);
         }),
       (operation) => Effect.sync(operation.cleanup),
     );
@@ -116,6 +130,8 @@ describe("Purposeful product activity telemetry", () => {
           expect(finished.properties["product.value_completed"]).toBe(false);
           expect(finished.properties["product.activation_completed"]).toBe(false);
           expect(finished.properties["cli.result"]).toBe("error");
+          // The failure report and the lifecycle belong to the same invocation.
+          expect([...invocationIdentities(capture.requests)]).toEqual([expect.any(String)]);
         }),
       (operation) => Effect.sync(operation.cleanup),
     );

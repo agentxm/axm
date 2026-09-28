@@ -88,6 +88,7 @@ import {
   isWorkspaceFailure,
 } from "../app-error/failure-catalog.js";
 import { ExecutionDirectory } from "../execution-directory.js";
+import { TelemetryClientTest } from "../telemetry/index.js";
 import { ReleaseAgePosture } from "@agentxm/workspace-kernel/resolution";
 import { WorkspaceInitializationInteractionLive } from "../workspace-initialization-interaction-live.js";
 
@@ -585,6 +586,9 @@ export const makeCliTestContext = (opts?: {
     Layer.succeed(ExecutionDirectory, { path: decodeAbsolutePathSync(process.cwd()) }),
     Layer.succeed(RegistryUrl, cliTestRegistryUrl),
     CredentialStoreTest(),
+    // The process-owned reporter a command envelope requires; a test that
+    // observes telemetry provides a delivering reporter closer to its program.
+    TelemetryClientTest,
     // The posture a command boundary discharges when it registers no
     // override. A test that wants the one-shot bypass provides "ignore"
     // closer to the handler it drives.

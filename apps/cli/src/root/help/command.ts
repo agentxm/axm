@@ -20,7 +20,11 @@ import {
   tableDoc,
   type ViewColumn,
 } from "../../screen/index.js";
-import { resolveCliFormat, withArgvTracking } from "../../cli-runtime/index.js";
+import {
+  resolveCliFormat,
+  withArgvTracking,
+  withCommandFailureReport,
+} from "../../cli-runtime/index.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
@@ -210,7 +214,9 @@ export const handleHelpPath = (
 };
 
 export const makeHelpCommand = (getRootCommand: () => Command.Command.Any) =>
-  Command.make("help", helpConfig, ({ path }) => handleHelpPath(path, getRootCommand())).pipe(
+  Command.make("help", helpConfig, ({ path }) =>
+    handleHelpPath(path, getRootCommand()).pipe(withCommandFailureReport("help")),
+  ).pipe(
     Command.provide(helpRendererLayer),
     withArgvTracking(helpConfig),
     withCommandCapabilities(readOnlyCapabilities()),

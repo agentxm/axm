@@ -1995,6 +1995,19 @@ Observation of product use stays within the documented data boundary and under t
 - Derived from: `AgentXM Registry API 0.1.0`
 - Source: [`packages/core/workspace-features/src/publishing/lifecycle/registry-management-preserves-authentication-failures.spec.ts`](../packages/core/workspace-features/src/publishing/lifecycle/registry-management-preserves-authentication-failures.spec.ts)
 
+##### An opted-in invocation reports at most one terminal failure
+
+- Requirement: `system/reliability/telemetry-reports-terminal-failures-once`
+- Owner: `cli`
+- Statement: After consent is resolved, an opted-in invocation shall report at most one terminal failure, covering startup, configuration, command, and output settlement, and shall report none for success, cancellation, or a recovered failure.
+- Class: functional
+- Role: experience
+- Product goals: `privacy-and-consent`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `system/security/telemetry-consent-and-precedence`, `system/reliability/telemetry-failure-never-alters-outcomes`
+- Source: [`apps/cli/src/cli-runtime/telemetry-reports-terminal-failures-once.spec.ts`](../apps/cli/src/cli-runtime/telemetry-reports-terminal-failures-once.spec.ts)
+
 ##### Telemetry collection requires the operator's environment consent
 
 - Requirement: `system/security/telemetry-consent-and-precedence`
@@ -2006,6 +2019,19 @@ Observation of product use stays within the documented data boundary and under t
 - Boundary: memory; selection: per-change
 - Methods: decision-table, example
 - Source: [`apps/cli/src/telemetry/telemetry-consent-and-precedence.spec.ts`](../apps/cli/src/telemetry/telemetry-consent-and-precedence.spec.ts)
+
+##### Telemetry preview shows the payload without sending it
+
+- Requirement: `system/security/telemetry-preview-never-transmits`
+- Owner: `cli`
+- Statement: When the operator enables telemetry preview, AXM shall write the exact sanitized wire payload it would otherwise send to the diagnostic channel, shall not transmit it, and shall write nothing when telemetry is off.
+- Class: functional
+- Role: experience
+- Product goals: `privacy-and-consent`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `system/security/telemetry-consent-and-precedence`, `system/security/telemetry-payloads-respect-data-boundary`
+- Source: [`apps/cli/src/telemetry/telemetry-preview-never-transmits.spec.ts`](../apps/cli/src/telemetry/telemetry-preview-never-transmits.spec.ts)
 
 #### Quality
 
@@ -5093,7 +5119,7 @@ Observation of product use stays within the documented data boundary and under t
 
 - Requirement: `system/security/telemetry-payloads-respect-data-boundary`
 - Owner: `cli`
-- Statement: Every telemetry event and error report AXM sends shall conform to AgentXM Telemetry Ingest API 0.2.0 and contain only identity, timing, and command-observation data, excluding extension content, authored instructions and knowledge, credentials, and resolved secret values.
+- Statement: Every telemetry event and error report AXM sends shall conform to AgentXM Telemetry Ingest API 0.3.0 and contain only identity, correlation, timing, client, command-observation, and allowlisted failure-identity data, excluding extension content, authored instructions and knowledge, credentials, and resolved secret values.
 - Class: quality (privacy)
 - Role: interface
 - Product goals: `privacy-and-consent`
@@ -5105,7 +5131,7 @@ Observation of product use stays within the documented data boundary and under t
 
 - Requirement: `system/security/telemetry-uses-anonymous-installation-identity`
 - Owner: `cli`
-- Statement: When an operator enables telemetry, AXM shall use a persisted random installation identity rather than a machine-derived identity, mark usage events anonymous, assign each usage event a fresh retry-stable event identity, and create no telemetry identity while collection is disabled.
+- Statement: When an operator enables telemetry, AXM shall use a persisted random installation identity rather than a machine-derived identity, mark usage events anonymous, assign each usage event and error report a fresh retry-stable event identity, create no telemetry identity while collection is disabled, and, when identity storage is unavailable, send an opted-in error report without an installation identity, skip usage events that require one, and never substitute a shared fallback identity.
 - Class: quality (privacy)
 - Role: interface
 - Product goals: `privacy-and-consent`

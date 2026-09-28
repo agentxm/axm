@@ -1,16 +1,18 @@
 // @effect-diagnostics anyUnknownInErrorContext:off — parser failures are foreign CliError values asserted by tag
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import { Command } from "effect/unstable/cli";
 
 import { rootCommand } from "../app.js";
 import { TEST_VERSION } from "../test-support/command-tree-test-helpers.js";
 import { baseLayer } from "../runtime.js";
+import { TelemetryClientTest } from "../telemetry/index.js";
 import { agentFlag } from "./agent-flag.js";
 
 const parseRoot = (args: ReadonlyArray<string>) =>
   Command.runWith(rootCommand, { version: TEST_VERSION })(args).pipe(
-    Effect.provide(baseLayer),
+    Effect.provide(Layer.mergeAll(baseLayer, TelemetryClientTest)),
     Effect.result,
   );
 

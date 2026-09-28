@@ -13,8 +13,6 @@ import {
 } from "@agentxm/workspace-kernel/operations";
 
 import * as Schema from "effect/Schema";
-import * as HttpClient from "effect/unstable/http/HttpClient";
-import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { Screen, OutputStreams, ScreenLoggerLive, QuestionCancelled } from "../screen/index.js";
 import { Verbosity } from "../cli-flags/index.js";
@@ -23,7 +21,8 @@ import { nonInteractiveFlag } from "../cli-flags/index.js";
 import { ExitCode, makeAppError } from "../app-error/index.js";
 import * as Data from "effect/Data";
 import { processOutcome } from "./process-outcome.js";
-import { captureTelemetry } from "../test-support/telemetry-harness.js";
+import { captureTelemetry, telemetryReporterLayer } from "../test-support/telemetry-harness.js";
+import { TelemetryClientTest } from "../telemetry/index.js";
 import {
   makeFoundationLayer,
   withCliErrorHandling,
@@ -427,15 +426,6 @@ describe("withCliErrorHandling cancellation", () => {
     stderrWriteSpy.mockRestore();
   });
 
-  const stubHttpClient = HttpClient.make((request) =>
-    Effect.succeed(
-      HttpClientResponse.fromWeb(
-        request,
-        new Response("Unexpected test HTTP request", { status: 500 }),
-      ),
-    ),
-  );
-
   for (const outcome of [
     {
       program: Effect.succeed(processOutcome(0)),
@@ -472,14 +462,21 @@ describe("withCliErrorHandling cancellation", () => {
           const exit = yield* withCliErrorHandling(outcome.program, {
             command: "test",
             format: "text",
-            telemetryConfig: {
-              mode: "all",
-              client: { name: "cli", version: "1.2.3" },
-              deliverInTest: true,
-              installationId: "00000000-0000-4000-8000-000000000001",
-              eventIdFactory: () => "00000000-0000-4000-8000-000000000002",
-            },
-          }).pipe(Effect.provideService(HttpClient.HttpClient, capture.client), Effect.exit);
+          }).pipe(
+            Effect.provide(
+              telemetryReporterLayer({
+                client: capture.client,
+                reporter: {
+                  mode: "all",
+                  client: { name: "cli", version: "1.2.3" },
+                  deliverInTest: true,
+                  installationId: "00000000-0000-4000-8000-000000000001",
+                  eventIdFactory: () => "00000000-0000-4000-8000-000000000002",
+                },
+              }),
+            ),
+            Effect.exit,
+          );
           expect(exit).toEqual(Exit.succeed(processOutcome(outcome.exitCode)));
           expect(capture.requests.map((request) => request.body)).toEqual(
             expect.arrayContaining([
@@ -529,14 +526,21 @@ describe("withCliErrorHandling cancellation", () => {
       const exit = yield* withCliErrorHandling(emitOperationResolution(failed), {
         command: "update",
         format: "text",
-        telemetryConfig: {
-          mode: "errors",
-          client: { name: "cli", version: "1.2.3" },
-          deliverInTest: true,
-          installationId: "00000000-0000-4000-8000-000000000001",
-          eventIdFactory: () => "00000000-0000-4000-8000-000000000002",
-        },
-      }).pipe(Effect.provideService(HttpClient.HttpClient, capture.client), Effect.exit);
+      }).pipe(
+        Effect.provide(
+          telemetryReporterLayer({
+            client: capture.client,
+            reporter: {
+              mode: "errors",
+              client: { name: "cli", version: "1.2.3" },
+              deliverInTest: true,
+              installationId: "00000000-0000-4000-8000-000000000001",
+              eventIdFactory: () => "00000000-0000-4000-8000-000000000002",
+            },
+          }),
+        ),
+        Effect.exit,
+      );
 
       // The operation exits as failed work; the report names the category the
       // failed unit settled with, so a unit-level failure is never unreported.
@@ -545,10 +549,9 @@ describe("withCliErrorHandling cancellation", () => {
         "/v1/errors",
       ]);
       expect(capture.requests[0]?.body).toMatchObject({
-        context: { command: "update" },
-        errors: [{ name: "network" }],
-        handled: true,
-        tags: { errorCode: "network", errorCategory: "network" },
+        command: "update",
+        phase: "command",
+        failure: { kind: "network", category: "network", class: "external", handled: true },
       });
     }).pipe(
       Effect.provide(
@@ -587,7 +590,6 @@ describe("withCliErrorHandling cancellation", () => {
       const exit = yield* withCliErrorHandling(program, {
         command: "token create",
         format: "text",
-        telemetryConfig: { mode: "off", client: { name: "cli", version: "0.0.0" } },
       }).pipe(Effect.exit);
       expect(exit).toEqual(Exit.succeed(processOutcome(ExitCode.Unavailable)));
       expect(stdoutWrites).toEqual(["credential\n"]);
@@ -599,7 +601,7 @@ describe("withCliErrorHandling cancellation", () => {
           globalFlagLayer,
           Layer.provideMerge(ScreenLoggerLive("normal"), testLayer("text")),
           Layer.succeed(jsonFlag, Option.none()),
-          Layer.succeed(HttpClient.HttpClient, stubHttpClient),
+          TelemetryClientTest,
           NodeServices.layer,
         ),
       ),
@@ -644,7 +646,6 @@ describe("withCliErrorHandling cancellation", () => {
         const exit = yield* withCliErrorHandling(program, {
           command: "test",
           format: "text",
-          telemetryConfig: { mode: "off", client: { name: "cli", version: "0.0.0" } },
         }).pipe(Effect.exit);
         expect(exit).toEqual(Exit.succeed(processOutcome(ExitCode.Internal)));
         expect(stdoutWrites.length + stderrWrites.length).toBe(1);
@@ -655,7 +656,7 @@ describe("withCliErrorHandling cancellation", () => {
             globalFlagLayer,
             Layer.provideMerge(ScreenLoggerLive("normal"), testLayer("text")),
             Layer.succeed(jsonFlag, Option.none()),
-            Layer.succeed(HttpClient.HttpClient, stubHttpClient),
+            TelemetryClientTest,
             NodeServices.layer,
           ),
         ),
@@ -670,7 +671,6 @@ describe("withCliErrorHandling cancellation", () => {
         {
           command: "test",
           format: "text",
-          telemetryConfig: { mode: "off", client: { name: "cli", version: "0.0.0" } },
         },
       ).pipe(Effect.exit);
 
@@ -682,7 +682,7 @@ describe("withCliErrorHandling cancellation", () => {
           globalFlagLayer,
           testLayer("text"),
           Layer.succeed(jsonFlag, Option.none()),
-          Layer.succeed(HttpClient.HttpClient, stubHttpClient),
+          TelemetryClientTest,
           NodeServices.layer,
         ),
       ),
@@ -697,7 +697,6 @@ describe("withCliErrorHandling cancellation", () => {
           {
             command: "setup",
             format: "text",
-            telemetryConfig: { mode: "off", client: { name: "cli", version: "0.0.0" } },
           },
         ).pipe(Effect.exit);
 
@@ -710,7 +709,7 @@ describe("withCliErrorHandling cancellation", () => {
             globalFlagLayer,
             testLayer("text"),
             Layer.succeed(jsonFlag, Option.none()),
-            Layer.succeed(HttpClient.HttpClient, stubHttpClient),
+            TelemetryClientTest,
             NodeServices.layer,
           ),
         ),

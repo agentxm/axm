@@ -11,6 +11,7 @@ import { makeAxmFormatter } from "../formatter.js";
 import { handleInstall } from "../root/install/handler.js";
 import { handleList as handleSkillsList } from "../root/skills/list.js";
 import { baseLayer } from "../runtime.js";
+import { TelemetryClientTest } from "../telemetry/index.js";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { captureHelpDoc } from "../test-support/command-tree-test-helpers.js";
@@ -122,7 +123,12 @@ describe("Non-terminal human output", () => {
         CliError.isCliError(error) && error._tag === "ShowHelp" ? Effect.void : Effect.fail(error),
       ),
       Effect.provide(
-        Layer.mergeAll(baseLayer, humanScreenLayer(streams), CliOutput.layer(makeAxmFormatter())),
+        Layer.mergeAll(
+          baseLayer,
+          humanScreenLayer(streams),
+          CliOutput.layer(makeAxmFormatter()),
+          TelemetryClientTest,
+        ),
       ),
     );
 

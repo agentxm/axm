@@ -5,7 +5,7 @@ import { describe, expect, it } from "@effect/vitest";
 
 import { SETTINGS_KEY_ORDER, SettingsSchema } from "@agentxm/workspace-kernel/workspace-state";
 
-import { resolveTelemetryMode } from "./index.js";
+import { resolveProcessTelemetryOptions } from "../runtime.js";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
@@ -28,6 +28,7 @@ interface ConsentCase {
   readonly label: string;
   readonly doNotTrack?: string;
   readonly telemetry?: string;
+  readonly preview?: string;
   readonly expected: "all" | "errors" | "off";
 }
 
@@ -47,17 +48,27 @@ const consentCases: readonly ConsentCase[] = [
     telemetry: "sometimes",
     expected: "off",
   },
+  {
+    label: "the preview control alone does not enable collection",
+    preview: "1",
+    expected: "off",
+  },
 ];
 
 describe("Telemetry consent", () => {
   it.effect.each(consentCases)("$label", (testCase) =>
     Effect.sync(() => {
-      expect(
-        resolveTelemetryMode({
-          doNotTrack: testCase.doNotTrack,
-          telemetry: testCase.telemetry,
-        }),
-      ).toBe(testCase.expected);
+      // The process entry resolves consent once, from the operator's
+      // environment and nothing else.
+      const resolved = resolveProcessTelemetryOptions({
+        DO_NOT_TRACK: testCase.doNotTrack,
+        AXM_TELEMETRY: testCase.telemetry,
+        AXM_TELEMETRY_PREVIEW: testCase.preview,
+      });
+      expect(resolved.mode).toBe(testCase.expected);
+      // A recognized preview request changes where payloads go, never whether
+      // they are collected.
+      expect(resolved.preview).toBe(testCase.preview !== undefined);
     }),
   );
 

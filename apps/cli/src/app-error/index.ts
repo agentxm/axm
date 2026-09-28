@@ -20,8 +20,4 @@ export {
   serializeErrorCauseChain,
   type SerializedErrorCause,
 } from "./cause-chain.js";
-export {
-  redactCredentialBearingLocator,
-  redactAppErrorMetadata,
-  redactSuggestedAction,
-} from "./secret-redaction.js";
+export { redactAppErrorMetadata, redactSuggestedAction } from "./secret-redaction.js";

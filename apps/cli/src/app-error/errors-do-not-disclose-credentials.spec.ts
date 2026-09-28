@@ -1,8 +1,9 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
 import { REDACTED_SECRET, RegistryProblem, redactRegistryText } from "@agentxm/registry-client";
-import { publishCause } from "@agentxm/workspace-features/publishing";
+import { PublishFailed, publishCause } from "@agentxm/workspace-features/publishing";
 import { StepFailure, makeOperationResolution } from "@agentxm/workspace-kernel/operations";
+import { GitOperationFailed } from "@agentxm/workspace-kernel/sources";
 
 import { initialProgress, reduceProgress } from "../screen/progress.js";
 import { AppError } from "./app-error.js";
@@ -14,7 +15,7 @@ export const specification = defineSpecification({
   requirement: "cli/errors-do-not-disclose-credentials",
   title: "Error reports keep credentials out of diagnostic details",
   statement:
-    "AXM shall redact credential values, including an exact credential the Registry echoed under a sensitive key, from error reports and their diagnostic details in human and machine output at every supported verbosity level, from the plan result document, from the publish result's cause, and from the failure detail a resolved unit publishes on the lifecycle event stream.",
+    "AXM shall redact credential values, including an exact credential the Registry echoed under a sensitive key, from error reports and their diagnostic details in human and machine output at every supported verbosity level, from the plan result document, from the publish result's cause including a Git reason it reports, and from the failure detail a resolved unit publishes on the lifecycle event stream.",
   class: "quality",
   characteristic: "security",
   role: "experience",
@@ -123,6 +124,43 @@ describe("Credential-safe error reports", () => {
     expect(JSON.stringify(cause)).not.toContain(echoed);
     expect(cause.message).toBe(`Credential ${REDACTED_SECRET} was revoked.`);
   });
+
+  const gitCredential = "DISPOSABLE_GIT_CREDENTIAL";
+  const gitReason = (url: string) =>
+    `Failed to compare 'skills/review' with Git HEAD: fatal: unable to access '${url}': bad object HEAD`;
+  const gitAssessmentFailure = new PublishFailed({
+    category: "internal",
+    detail: `Could not assess the published source state for @acme/skills/review. ${gitReason(
+      `https://robot:${gitCredential}@example.test/repo.git`,
+    )}`,
+    cause: new GitOperationFailed({
+      operation: "compare-directory-to-head",
+      detail: gitReason(`https://robot:${gitCredential}@example.test/repo.git`),
+      cause: new Error(
+        `fatal: unable to access 'https://robot:${gitCredential}@example.test/repo.git': bad object HEAD`,
+      ),
+    }),
+  });
+
+  it("redacts URL userinfo from a Git reason in the publish result's cause", () => {
+    const cause = publishCause(gitAssessmentFailure);
+    expect(JSON.stringify(cause)).not.toContain(gitCredential);
+    expect(cause.message).toBe(
+      `Could not assess the published source state for @acme/skills/review. ${gitReason(
+        `https://robot:${REDACTED_SECRET}@example.test/repo.git`,
+      )}`,
+    );
+  });
+
+  for (const format of ["text", "json"] as const) {
+    for (const level of levels) {
+      it(`${format} ${level.name} Git assessment failures keep the reason without the credential`, () => {
+        const rendered = JSON.stringify(classifyError(gitAssessmentFailure, format, level));
+        expect(rendered).not.toContain(gitCredential);
+        expect(rendered).toContain("bad object HEAD");
+      });
+    }
+  }
 
   for (const format of ["text", "json"] as const) {
     it(`${format} diagnostics redact proofs embedded in a JSON response string`, () => {

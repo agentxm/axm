@@ -6,7 +6,7 @@ import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect, it, vi } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
@@ -30,7 +30,7 @@ export const specification = defineSpecification({
   goals: ["extension-adoption", "trustworthy-distribution"],
   boundary: "process",
   boundaryRationale:
-    "The Git case clones a real committed repository through the production acquisition boundary, while the path case reads the same fixture directly; both then use the shared manifest finder.",
+    "The Git case clones a real committed repository through the production acquisition boundary, with and without inherited editor and pager settings, while the path case reads the same fixture directly; all then use the shared manifest finder.",
   methods: ["decision-table", "example"],
   derivedFrom: ["extension-installability/source-family-policy-is-total"],
   supersedes: [],
@@ -113,6 +113,7 @@ describe("Git and path manifest discovery", () => {
   const roots: Array<string> = [];
 
   afterEach(() => {
+    vi.unstubAllEnvs();
     for (const root of roots.splice(0)) {
       fs.rmSync(root, { recursive: true, force: true });
     }
@@ -196,6 +197,40 @@ describe("Git and path manifest discovery", () => {
         expect(packages.map((candidate) => candidate.identity.name)).not.toContain("review");
         expect(packages).toHaveLength(6);
       }
+    }),
+  );
+  it.effect("finds all seven manifest kinds through Git when the shell exports editors", () =>
+    Effect.gen(function* () {
+      const root = fs.mkdtempSync(path.join(os.tmpdir(), "axm-all-manifests-editor-"));
+      roots.push(root);
+      writeEveryManifest(root);
+      git(root, ["init", "--quiet", "--initial-branch=main"]);
+      git(root, ["config", "user.email", "test@example.com"]);
+      git(root, ["config", "user.name", "Test"]);
+      git(root, ["add", "."]);
+      git(root, ["commit", "--quiet", "-m", "fixture"]);
+      for (const key of ["EDITOR", "VISUAL", "GIT_EDITOR", "GIT_SEQUENCE_EDITOR", "GIT_PAGER"]) {
+        vi.stubEnv(key, "true");
+      }
+
+      const packages = yield* findExtensionPackagesFromSource(
+        { type: "git", url: pathToFileURL(root), ref: Option.none(), subPath: Option.none() },
+        { names: [], owner: Option.none(), type: "*" },
+      ).pipe(
+        Effect.provideService(SourceHostProviders, providers),
+        Effect.provide(NodeServices.layer),
+        Effect.scoped,
+      );
+
+      expect(packages.map((candidate) => candidate.identity.type).sort()).toStrictEqual([
+        "hook",
+        "knowledge",
+        "mcp-server",
+        "pack",
+        "rule",
+        "skill",
+        "subagent",
+      ]);
     }),
   );
 });

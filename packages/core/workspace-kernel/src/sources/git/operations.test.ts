@@ -9,7 +9,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import {
   compareDirectoryToHead,
@@ -30,6 +30,7 @@ describe("git", () => {
   });
 
   afterEach(() => {
+    vi.unstubAllEnvs();
     // Clean up temp directory
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
@@ -49,64 +50,76 @@ describe("git", () => {
     execSync("git commit -m 'Initial commit'", gitOptions);
   };
 
-  it.effect("passes inherited transport settings and noninteractive overrides to Git", () =>
-    Effect.sync(() => {
-      const binDir = path.join(tempDir, "bin");
-      const resultPath = path.join(tempDir, "observed-env.txt");
-      fs.mkdirSync(binDir);
-      fs.writeFileSync(
-        path.join(binDir, "git"),
-        `#!/bin/sh
+  it.effect(
+    "passes inherited transport settings and noninteractive overrides without editors or pagers",
+    () =>
+      Effect.sync(() => {
+        const binDir = path.join(tempDir, "bin");
+        const resultPath = path.join(tempDir, "observed-env.txt");
+        fs.mkdirSync(binDir);
+        fs.writeFileSync(
+          path.join(binDir, "git"),
+          `#!/bin/sh
 case "$PATH" in "$AXM_GIT_PROBE_BIN":*) path_state=ok ;; *) path_state=missing ;; esac
 if [ "$HTTPS_PROXY" = "proxy-sentinel" ]; then proxy_state=ok; else proxy_state=missing; fi
 if [ "$SSH_AUTH_SOCK" = "ssh-sentinel" ]; then ssh_state=ok; else ssh_state=missing; fi
 if [ "$GIT_SSH_COMMAND" = "ssh-command-sentinel" ]; then ssh_command_state=ok; else ssh_command_state=missing; fi
-if [ -z "$PAGER" ] && [ -z "$GIT_PAGER" ]; then pager_state=ok; else pager_state=present; fi
+if env | grep -iqE '^(editor|visual|git_editor|git_sequence_editor|pager|git_pager)='; then interactive_state=present; else interactive_state=ok; fi
 if [ "$GIT_TERMINAL_PROMPT" = "0" ]; then prompt_state=ok; else prompt_state=missing; fi
 if [ "$GIT_LFS_SKIP_SMUDGE" = "1" ]; then lfs_state=ok; else lfs_state=missing; fi
-printf '%s\\n' "$path_state" "$proxy_state" "$ssh_state" "$ssh_command_state" "$pager_state" "$prompt_state" "$lfs_state" > "$AXM_GIT_PROBE_RESULT"
+printf '%s\\n' "$path_state" "$proxy_state" "$ssh_state" "$ssh_command_state" "$interactive_state" "$prompt_state" "$lfs_state" > "$AXM_GIT_PROBE_RESULT"
 printf '0000000000000000000000000000000000000000\\trefs/heads/main\\n'
 `,
-        { mode: 0o700 },
-      );
-      const program = `
+          { mode: 0o700 },
+        );
+        const program = `
 import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 const { listRemoteRefs } = await import(process.argv[1]);
 const refs = await Effect.runPromise(listRemoteRefs("probe").pipe(Effect.provide(NodeServices.layer)));
 if (!refs.branches.includes("main")) process.exitCode = 2;
+if (process.env.GIT_EDITOR !== "git-editor-sentinel" || process.env.git_pager !== "pager-alias-sentinel") {
+  process.exitCode = 3;
+}
 `;
-      const operationsUrl = new URL("../../../dist/src/sources/git/operations.js", import.meta.url)
-        .href;
-      execFileSync(process.execPath, ["--input-type=module", "-e", program, operationsUrl], {
-        cwd: process.cwd(),
-        env: {
-          ...isolatedGitEnv(process.env),
-          PATH: `${binDir}${path.delimiter}${process.env["PATH"] ?? ""}`,
-          HTTPS_PROXY: "proxy-sentinel",
-          SSH_AUTH_SOCK: "ssh-sentinel",
-          GIT_SSH_COMMAND: "ssh-command-sentinel",
-          PAGER: "pager-sentinel",
-          GIT_PAGER: "git-pager-sentinel",
-          GIT_TERMINAL_PROMPT: "1",
-          GIT_LFS_SKIP_SMUDGE: "0",
-          AXM_GIT_PROBE_BIN: binDir,
-          AXM_GIT_PROBE_RESULT: resultPath,
-        },
-        timeout: 10_000,
-        stdio: "pipe",
-      });
+        const operationsUrl = new URL(
+          "../../../dist/src/sources/git/operations.js",
+          import.meta.url,
+        ).href;
+        execFileSync(process.execPath, ["--input-type=module", "-e", program, operationsUrl], {
+          cwd: process.cwd(),
+          env: {
+            ...isolatedGitEnv(process.env),
+            PATH: `${binDir}${path.delimiter}${process.env["PATH"] ?? ""}`,
+            HTTPS_PROXY: "proxy-sentinel",
+            SSH_AUTH_SOCK: "ssh-sentinel",
+            GIT_SSH_COMMAND: "ssh-command-sentinel",
+            PAGER: "pager-sentinel",
+            GIT_PAGER: "git-pager-sentinel",
+            git_pager: "pager-alias-sentinel",
+            EDITOR: "editor-sentinel",
+            VISUAL: "visual-sentinel",
+            GIT_EDITOR: "git-editor-sentinel",
+            Git_Sequence_Editor: "sequence-editor-sentinel",
+            GIT_TERMINAL_PROMPT: "1",
+            GIT_LFS_SKIP_SMUDGE: "0",
+            AXM_GIT_PROBE_BIN: binDir,
+            AXM_GIT_PROBE_RESULT: resultPath,
+          },
+          timeout: 10_000,
+          stdio: "pipe",
+        });
 
-      expect(fs.readFileSync(resultPath, "utf8").trim().split("\n")).toEqual([
-        "ok",
-        "ok",
-        "ok",
-        "ok",
-        "ok",
-        "ok",
-        "ok",
-      ]);
-    }),
+        expect(fs.readFileSync(resultPath, "utf8").trim().split("\n")).toEqual([
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+        ]);
+      }),
   );
 
   it.effect("terminates a timed-out Git child and returns a typed failure", () =>
@@ -236,7 +249,9 @@ if (failure.operation !== "list-remote-refs" || !failure.detail.includes("deadli
 
         expect(error._tag).toBe("GitOperationFailed");
         expect(error.operation).toBe("get-tree-sha");
-        expect(error.detail).toBe("Failed to get tree SHA for 'non-existent'");
+        expect(error.detail).toBe(
+          "Failed to get tree SHA for 'non-existent': Path 'non-existent' not found in repository",
+        );
       }),
     );
 
@@ -442,6 +457,91 @@ if (failure.operation !== "list-remote-refs" || !failure.detail.includes("deadli
 
         expect(comparison.headRevision).toBeUndefined();
         expect(comparison.differences).toEqual([{ path: "skill.json", change: "added" }]);
+      }),
+    );
+  });
+
+  describe("inherited editor and pager settings", () => {
+    const cases: ReadonlyArray<{
+      readonly name: string;
+      readonly variables: (marker: string) => Readonly<Record<string, string>>;
+    }> = [
+      ...["EDITOR", "VISUAL", "GIT_EDITOR", "GIT_SEQUENCE_EDITOR", "PAGER", "GIT_PAGER"].map(
+        (key) => ({ name: key, variables: (marker: string) => ({ [key]: `touch ${marker}` }) }),
+      ),
+      {
+        name: "every editor and pager together",
+        variables: (marker) => ({
+          EDITOR: `touch ${marker}`,
+          VISUAL: `touch ${marker}`,
+          GIT_EDITOR: `touch ${marker}`,
+          GIT_SEQUENCE_EDITOR: `touch ${marker}`,
+          PAGER: `touch ${marker}`,
+          GIT_PAGER: `touch ${marker}`,
+        }),
+      },
+      { name: "empty values", variables: () => ({ GIT_EDITOR: "", EDITOR: "", PAGER: "" }) },
+      {
+        name: "case and whitespace aliases",
+        variables: (marker) => ({
+          git_editor: `touch ${marker}`,
+          Visual: `touch ${marker}`,
+          " GIT_SEQUENCE_EDITOR ": `touch ${marker}`,
+        }),
+      },
+    ];
+
+    for (const { name, variables } of cases) {
+      it.effect(`reads and compares a repository unchanged with ${name}`, () =>
+        Effect.gen(function* () {
+          const repoPath = path.join(tempDir, "repo");
+          const marker = path.join(tempDir, "interactive-command-ran");
+          yield* Effect.promise(() => createLocalRepo(repoPath));
+          const clean = yield* getTreeSha(repoPath);
+
+          const inherited = variables(marker);
+          for (const [key, value] of Object.entries(inherited)) vi.stubEnv(key, value);
+
+          expect(yield* getTreeSha(repoPath)).toBe(clean);
+          const comparison = yield* compareDirectoryToHead(repoPath, repoPath, ["README.md"]).pipe(
+            Effect.provide(NodeServices.layer),
+          );
+          expect(comparison.headRevision).toMatch(/^[a-f0-9]{40}$/);
+          expect(comparison.differences).toEqual([]);
+          expect(fs.existsSync(marker)).toBe(false);
+          for (const [key, value] of Object.entries(inherited)) {
+            expect(process.env[key]).toBe(value);
+          }
+        }),
+      );
+    }
+  });
+
+  describe("failure detail", () => {
+    it.effect("keeps Git's reason and redacts credentials in the locator and reason", () =>
+      Effect.gen(function* () {
+        const binDir = path.join(tempDir, "bin");
+        fs.mkdirSync(binDir);
+        fs.writeFileSync(
+          path.join(binDir, "git"),
+          `#!/bin/sh
+printf "fatal: unable to access 'https://robot:s3cret-sentinel@example.invalid/repo.git/': Could not resolve host: example.invalid\\n" >&2
+exit 128
+`,
+          { mode: 0o700 },
+        );
+        vi.stubEnv("PATH", `${binDir}${path.delimiter}${process.env["PATH"] ?? ""}`);
+
+        const failure = yield* listRemoteRefs(
+          "https://robot:s3cret-sentinel@example.invalid/repo.git",
+        ).pipe(Effect.provide(NodeServices.layer), Effect.flip);
+
+        expect(failure.detail).toContain(
+          "Failed to list remote Git refs from https://robot:[REDACTED]@example.invalid/repo.git: fatal: unable to access",
+        );
+        expect(failure.detail).toContain("Could not resolve host: example.invalid");
+        expect(failure.detail).not.toContain("s3cret-sentinel");
+        expect(failure.cause).toBeDefined();
       }),
     );
   });

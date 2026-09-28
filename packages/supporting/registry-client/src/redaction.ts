@@ -3,10 +3,11 @@
  *
  * Registry problem details, response bodies, and request URLs can quote a
  * credential back at the caller, either in a recognizable shape (a bearer
- * token, a query parameter, a well-known key prefix) or as the exact value the
- * Registry returned under a sensitive key (`token`, `password`, `device_code`
- * and the like). Every surface that copies such text or structure into
- * durable or machine-readable output redacts it through this module first:
+ * token, a query parameter, a URL userinfo password, a well-known key
+ * prefix) or as the exact value the Registry returned under a sensitive key
+ * (`token`, `password`, `device_code` and the like). Every surface that
+ * copies such text or structure into durable or machine-readable output
+ * redacts it through this module first:
  * `collectSensitiveStrings` harvests the exact values a structured boundary
  * carries, and the two redactors erase both the shapes and those values.
  *
@@ -46,6 +47,7 @@ const isSensitiveKey = (key: string): boolean => SENSITIVE_KEYS.has(normalizedKe
 
 const redactCredentialShapes = (input: string): string =>
   input
+    .replaceAll(/:\/\/([^\s/:@]+):[^\s/@]+@/g, `://$1:${REDACTED_SECRET}@`)
     .replaceAll(/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi, `$1 ${REDACTED_SECRET}`)
     .replaceAll(
       /([?&](?:access_token|refresh_token|token|api_key|apikey|key|secret|password|code|initiator_proof|code_verifier|device_code)=)[^&#\s]*/gi,

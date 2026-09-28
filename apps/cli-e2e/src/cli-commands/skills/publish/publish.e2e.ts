@@ -238,6 +238,122 @@ describe("axm skills publish", () => {
       }
     });
 
+    it("previews committed source as matching HEAD when the shell exports editors", async () => {
+      const temp = createTempDir();
+      const registryDir = createTempDir("axm-registry-");
+      const binDir = createTempDir("axm-failing-git-");
+      try {
+        await runCli(
+          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+          { cwd: temp.path },
+        );
+        const settingsPath = path.join(temp.path, "axm.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        settings.defaultRegistry = "test";
+        settings.sources = [
+          { name: "test", type: "registry", location: `file://${registryDir.path}` },
+        ];
+        settings.owner = "@test";
+        settings.skills = { ...settings.skills, "editor-source-review": "workspace" };
+        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+
+        const extensionDir = path.join(temp.path, "skills", "editor-source-review");
+        fs.mkdirSync(path.join(extensionDir, "src"), { recursive: true });
+        fs.writeFileSync(
+          path.join(extensionDir, "skill.json"),
+          `${JSON.stringify({
+            owner: "@test",
+            type: "skill",
+            name: "editor-source-review",
+            version: "1.0.0",
+          })}\n`,
+        );
+        fs.writeFileSync(
+          path.join(extensionDir, "src", "SKILL.md"),
+          '---\nname: "editor-source-review"\ndescription: "Review source with editors set"\n---\n\n# Editor source review\n',
+        );
+
+        git(temp.path, ["init"]);
+        git(temp.path, ["config", "user.email", "test@example.com"]);
+        git(temp.path, ["config", "user.name", "Test"]);
+        git(temp.path, ["add", "."]);
+        git(temp.path, ["commit", "-m", "Initial source"]);
+        const head = execFileSync("git", ["rev-parse", "HEAD"], {
+          cwd: temp.path,
+          env: withoutLocalGitEnvironment(process.env),
+          encoding: "utf-8",
+        }).trim();
+
+        const editors = {
+          EDITOR: "true",
+          VISUAL: "true",
+          GIT_EDITOR: "true",
+          GIT_SEQUENCE_EDITOR: "true",
+        };
+        const preview = ["skills", "publish", "@test/skills/editor-source-review", "--preview"];
+        for (const env of [{}, editors]) {
+          const result = await runCli([...preview, "--json"], {
+            cwd: temp.path,
+            env: { AXM_TOKEN: "e2e-test-token", ...env },
+          });
+          expect(result.exitCode, `${result.stderr}\n${result.stdout}`).toBe(0);
+          expect(JSON.parse(result.stdout).result.execution.outcomes).toMatchObject([
+            {
+              sourceState: {
+                basis: "git-head",
+                status: "matches-head",
+                revision: head,
+                differences: [],
+                differenceCount: 0,
+              },
+            },
+          ]);
+        }
+        expect(fs.readdirSync(registryDir.path)).toEqual([]);
+
+        fs.writeFileSync(
+          path.join(binDir.path, "git"),
+          `#!/bin/sh
+printf '%s\\n' "fatal: controlled Git failure reading https://robot:s3cret-sentinel@example.test/repo.git" >&2
+exit 128
+`,
+          { mode: 0o700 },
+        );
+        const failingGit = {
+          ...editors,
+          AXM_TOKEN: "e2e-test-token",
+          PATH: `${binDir.path}${path.delimiter}${process.env["PATH"] ?? ""}`,
+        };
+        const reason =
+          "fatal: controlled Git failure reading https://robot:[REDACTED]@example.test/repo.git";
+
+        const failedJson = await runCli([...preview, "--json"], {
+          cwd: temp.path,
+          env: failingGit,
+        });
+        expect(failedJson.exitCode).not.toBe(0);
+        expect(failedJson.stdout).not.toContain("s3cret-sentinel");
+        const [outcome] = JSON.parse(failedJson.stdout).result.execution.outcomes;
+        expect(outcome).toMatchObject({ status: "failed" });
+        expect(outcome).not.toHaveProperty("sourceState");
+        expect(outcome.message).toContain(
+          "Could not assess the published source state for @test/skills/editor-source-review.",
+        );
+        expect(outcome.message).toContain(reason);
+        expect(outcome.cause.message).toBe(outcome.message);
+
+        const failedHuman = await runCli(preview, { cwd: temp.path, env: failingGit });
+        expect(failedHuman.exitCode).not.toBe(0);
+        expect(`${failedHuman.stdout}\n${failedHuman.stderr}`).toContain(reason);
+        expect(`${failedHuman.stdout}\n${failedHuman.stderr}`).not.toContain("s3cret-sentinel");
+        expect(fs.readdirSync(registryDir.path)).toEqual([]);
+      } finally {
+        temp.cleanup();
+        registryDir.cleanup();
+        binDir.cleanup();
+      }
+    });
+
     it("publishes with bare name (resolves owner from settings)", async () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");

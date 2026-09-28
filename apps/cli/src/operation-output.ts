@@ -66,7 +66,6 @@ import {
   appErrorCodeForExit,
   defaultTitleFor,
   redactAppErrorMetadata,
-  redactCredentialBearingLocator,
 } from "./app-error/index.js";
 import { SerializedErrorCauseSchema, serializeErrorCauseChain } from "./app-error/cause-chain.js";
 import {
@@ -498,11 +497,11 @@ const artifactForJson = (
             ...sourceSwitch,
             before: {
               ...sourceSwitch.before,
-              locator: redactCredentialBearingLocator(sourceSwitch.before.locator),
+              locator: redactRegistryText(sourceSwitch.before.locator),
             },
             after: {
               ...sourceSwitch.after,
-              locator: redactCredentialBearingLocator(sourceSwitch.after.locator),
+              locator: redactRegistryText(sourceSwitch.after.locator),
             },
             ...(sourceSwitch.packMembers === undefined
               ? {}
@@ -514,7 +513,7 @@ const artifactForJson = (
                       : {
                           before: {
                             ...member.before,
-                            locator: redactCredentialBearingLocator(member.before.locator),
+                            locator: redactRegistryText(member.before.locator),
                           },
                         }),
                     ...(member.after === undefined
@@ -522,7 +521,7 @@ const artifactForJson = (
                       : {
                           after: {
                             ...member.after,
-                            locator: redactCredentialBearingLocator(member.after.locator),
+                            locator: redactRegistryText(member.after.locator),
                           },
                         }),
                   })),

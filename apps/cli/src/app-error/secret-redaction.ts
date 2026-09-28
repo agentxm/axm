@@ -13,13 +13,6 @@ import {
 import type { FailureMetadata } from "@agentxm/workspace-kernel/operations";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
-/** Redact URL userinfo in addition to the general credential shapes. */
-export const redactCredentialBearingLocator = (locator: string): string =>
-  redactRegistryText(locator).replace(
-    /([a-z][a-z0-9+.-]*:\/\/[^\s/:@]+:)[^\s/@]+@/giu,
-    "$1[REDACTED]@",
-  );
-
 export const redactAppErrorMetadata = (
   metadata: FailureMetadata,
   secrets: ReadonlyArray<string> = collectSensitiveStrings(metadata),

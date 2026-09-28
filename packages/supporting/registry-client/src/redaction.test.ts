@@ -15,6 +15,22 @@ describe("redactRegistryText", () => {
     );
   });
 
+  it("redacts a URL userinfo password while keeping the rest of a Git reason", () => {
+    expect(
+      redactRegistryText(
+        "fatal: unable to access 'https://robot:s3cret@example.test/repo.git/': Could not resolve host",
+      ),
+    ).toBe(
+      "fatal: unable to access 'https://robot:[REDACTED]@example.test/repo.git/': Could not resolve host",
+    );
+  });
+
+  it("leaves scp-style Git locators and email addresses unchanged", () => {
+    expect(redactRegistryText("git@example.test:acme/repo.git from dev@example.test")).toBe(
+      "git@example.test:acme/repo.git from dev@example.test",
+    );
+  });
+
   it("leaves text without a credential shape unchanged", () => {
     expect(redactRegistryText("version 1.2.3 is already published")).toBe(
       "version 1.2.3 is already published",

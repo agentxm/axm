@@ -37,8 +37,8 @@ The configuration permits one weekly npm minor/patch proposal for direct
 manifest dependencies and grouped Actions updates. `allow` limits routine
 updates to direct dependencies and minor/patch versions; security updates can
 still address vulnerable indirect dependencies and major fixes. The cooldown
-and version PR limit do not delay security
-updates. Separate npm and Actions security groups consolidate compatible fixes.
+and version PR limit do not delay security updates. Separate npm and Actions
+security groups consolidate compatible fixes.
 Automatic rebasing is disabled because the merge queue verifies integration;
 maintainers resolve actual conflicts. GitHub documents these semantics in its
 options reference.[^options]
@@ -93,10 +93,11 @@ and GitHub closed the three earlier individual npm proposals. The job reported
 four failed indirect Babel updates: pnpm rejected a pinned version for packages
 that are not direct dependencies (`ERR_PNPM_UPDATE_VERSION_ON_INDIRECT_DEP`).
 Routine updates now select direct manifest dependencies to avoid that work;
-their transitive lockfile changes remain part of the resulting proposal.
-The grouped proposal's first CI run failed because `allure-vitest` resolved
-`@vitest/runner` 4.1.11 alongside Vitest 5.0.1; the proposal remains subject to
-the normal review and verification gates.
+their transitive lockfile changes remain part of the resulting proposal. GitHub
+closed the initial proposal and opened a [replacement group with 13 updates](https://github.com/agentxm/axm/pull/472).
+Both proposals' first CI runs failed because `allure-vitest` resolved
+`@vitest/runner` 4.1.11 alongside Vitest 5.0.1. The replacement proposal
+remains subject to the normal review and verification gates.
 
 Repository and organization Actions inventories
 checked on 2026-09-22 contained no `RENOVATE_*` secrets or variables, and the

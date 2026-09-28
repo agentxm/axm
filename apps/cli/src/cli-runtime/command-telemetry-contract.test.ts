@@ -1,8 +1,11 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { TelemetryClient, type TelemetryClientService } from "../telemetry/index.js";
-import type { TelemetryProperties } from "../telemetry/client.js";
+import {
+  TelemetryClient,
+  type TelemetryClientService,
+  type TelemetryProperties,
+} from "../telemetry/index.js";
 import { trackCliCommandCompleted, setCommandSemanticProperties } from "./telemetry.js";
 import { summarizeCommandOutcome } from "./command-summary.js";
 
@@ -17,6 +20,7 @@ interface Capture {
 const makeCaptureLayer = (): readonly [Layer.Layer<TelemetryClient>, Capture] => {
   const capture: Capture = { events: [] };
   const layer = Layer.succeed(TelemetryClient, {
+    invocationId: "00000000-0000-4000-8000-000000000009",
     trackEvent: (event, properties) =>
       Effect.sync(() => {
         capture.events.push({ event, ...(properties !== undefined && { properties }) });

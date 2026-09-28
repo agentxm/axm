@@ -1,5 +1,5 @@
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
-import type { TelemetryProperties } from "../telemetry/client.js";
+import type { TelemetryProperties } from "../telemetry/index.js";
 
 // ---------------------------------------------------------------------------
 // Bounded vocabularies

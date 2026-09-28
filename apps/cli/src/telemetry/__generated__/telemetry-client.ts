@@ -218,58 +218,94 @@ export const TelemetryPayloadTooLargeErrorEncoded = Schema.Struct({
   instance: Schema.optionalKey(Schema.String),
   code: Schema.String,
 }).annotate({ identifier: "TelemetryPayloadTooLargeErrorEncoded" });
-export type TelemetryStackFrame = {
-  readonly filename?: string;
-  readonly function?: string;
-  readonly lineno?: number;
-  readonly colno?: number;
-  readonly absPath?: string;
-  readonly inApp?: boolean;
-  readonly contextLine?: string;
-  readonly preContext?: ReadonlyArray<string>;
-  readonly postContext?: ReadonlyArray<string>;
+export type TelemetryReportingClient = {
+  readonly name: string;
+  readonly version: string;
+  readonly runtime: "bun" | "node";
+  readonly runtimeVersion: string;
+  readonly platform: string;
+  readonly architecture: string;
+  readonly ci: boolean;
 };
-export const TelemetryStackFrame = Schema.Struct({
-  filename: Schema.optionalKey(Schema.String),
-  function: Schema.optionalKey(Schema.String),
-  lineno: Schema.optionalKey(
-    Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })),
-  ),
-  colno: Schema.optionalKey(
-    Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })),
-  ),
-  absPath: Schema.optionalKey(Schema.String),
-  inApp: Schema.optionalKey(Schema.Boolean),
-  contextLine: Schema.optionalKey(Schema.String),
-  preContext: Schema.optionalKey(Schema.Array(Schema.String)),
-  postContext: Schema.optionalKey(Schema.Array(Schema.String)),
-}).annotate({ identifier: "TelemetryStackFrame" });
-export type TelemetryBreadcrumb = {
-  readonly type?: string;
-  readonly category?: string;
-  readonly message?: string;
-  readonly timestamp?: string;
-  readonly level?: "fatal" | "error" | "warning" | "info" | "debug";
-  readonly data?: { readonly [x: string]: Schema.Json };
-};
-export const TelemetryBreadcrumb = Schema.Struct({
-  type: Schema.optionalKey(Schema.String),
-  category: Schema.optionalKey(Schema.String),
-  message: Schema.optionalKey(Schema.String),
-  timestamp: Schema.optionalKey(Schema.String.annotate({ format: "date-time" })),
-  level: Schema.optionalKey(
-    Schema.Literals(["fatal", "error", "warning", "info", "debug"]).annotate({
-      title: "Severity Level",
-      description: "Severity level associated with an error report or breadcrumb.",
+export const TelemetryReportingClient = Schema.Struct({
+  name: Schema.String.annotate({ description: "Stable client identifier, for example `cli`." })
+    .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
+    .check(Schema.isMaxLength(32).annotate({ expected: "a value with a length of at most 32" }))
+    .check(
+      Schema.isPattern(new RegExp("^[a-z][a-z0-9-]*$")).annotate({
+        expected: "a string matching the RegExp ^[a-z][a-z0-9-]*$",
+      }),
+    ),
+  version: Schema.String.annotate({
+    description: "Released client version; development builds carry their build suffix here.",
+  })
+    .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
+    .check(Schema.isMaxLength(64).annotate({ expected: "a value with a length of at most 64" }))
+    .check(
+      Schema.isPattern(new RegExp("^[0-9A-Za-z.+-]+$")).annotate({
+        expected: "a string matching the RegExp ^[0-9A-Za-z.+-]+$",
+      }),
+    ),
+  runtime: Schema.Literals(["bun", "node"]).annotate({
+    description: "JavaScript runtime executing the client.",
+  }),
+  runtimeVersion: Schema.String.annotate({
+    description: "Version of the executing runtime, or `unknown`.",
+  })
+    .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
+    .check(Schema.isMaxLength(64).annotate({ expected: "a value with a length of at most 64" }))
+    .check(
+      Schema.isPattern(new RegExp("^[0-9A-Za-z.+-]+$")).annotate({
+        expected: "a string matching the RegExp ^[0-9A-Za-z.+-]+$",
+      }),
+    ),
+  platform: Schema.String.annotate({
+    description: "Operating system platform identifier, for example `darwin`.",
+  })
+    .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
+    .check(Schema.isMaxLength(32).annotate({ expected: "a value with a length of at most 32" }))
+    .check(
+      Schema.isPattern(new RegExp("^[a-z][a-z0-9-]*$")).annotate({
+        expected: "a string matching the RegExp ^[a-z][a-z0-9-]*$",
+      }),
+    ),
+  architecture: Schema.String.annotate({
+    description: "CPU architecture identifier, for example `arm64`.",
+  })
+    .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
+    .check(Schema.isMaxLength(32).annotate({ expected: "a value with a length of at most 32" }))
+    .check(
+      Schema.isPattern(new RegExp("^[a-z][a-z0-9-]*$")).annotate({
+        expected: "a string matching the RegExp ^[a-z][a-z0-9-]*$",
+      }),
+    ),
+  ci: Schema.Boolean.annotate({
+    description: "Whether the client detected a continuous-integration host.",
+  }),
+}).annotate({
+  title: "Telemetry Reporting Client",
+  description: "Bounded facts about the client build and host that reported a failure.",
+  identifier: "TelemetryReportingClient",
+});
+export type TelemetryErrorReceipt = { readonly eventId: string; readonly receipt: "received" };
+export const TelemetryErrorReceipt = Schema.Struct({
+  eventId: Schema.String.annotate({
+    description: "Identity of the received report.",
+    format: "uuid",
+  }).check(
+    Schema.isPattern(
+      new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"),
+    ).annotate({
+      expected:
+        "a string matching the RegExp ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
     }),
   ),
-  data: Schema.optionalKey(
-    Schema.Record(Schema.String, Schema.Json.annotate({ expected: "JSON value" })),
-  ),
+  receipt: Schema.Literal("received"),
 }).annotate({
-  title: "Telemetry Breadcrumb",
-  description: "Lightweight diagnostic breadcrumb attached to an error report.",
-  identifier: "TelemetryBreadcrumb",
+  title: "Telemetry Error Receipt",
+  description:
+    "Synchronous receipt for a validated report. It is not durable acceptance, provider ingestion, or issue creation.",
+  identifier: "TelemetryErrorReceipt",
 });
 export type TelemetryContext = {
   readonly client: TelemetryClientContext;
@@ -279,6 +315,7 @@ export type TelemetryContext = {
   readonly ide?: { readonly name: string; readonly version: string };
   readonly environment?: string;
   readonly ci?: boolean;
+  readonly invocationId?: string;
 };
 export const TelemetryContext = Schema.Struct({
   client: TelemetryClientContext,
@@ -332,114 +369,150 @@ export const TelemetryContext = Schema.Struct({
   ),
   environment: Schema.optionalKey(Schema.String),
   ci: Schema.optionalKey(Schema.Boolean),
+  invocationId: Schema.optionalKey(
+    Schema.String.annotate({
+      description:
+        "Identity of the client process invocation that produced the batch; the same identity appears on that invocation's client error reports.",
+      format: "uuid",
+    }).check(
+      Schema.isPattern(
+        new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"),
+      ).annotate({
+        expected:
+          "a string matching the RegExp ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      }),
+    ),
+  ),
 }).annotate({
   title: "Telemetry Context",
   description: "Shared environment metadata attached to analytics event batches.",
   identifier: "TelemetryContext",
 });
-export type TelemetryErrorContext = {
-  readonly command: string;
-  readonly client: TelemetryClientContext;
-  readonly os?: { readonly name: string; readonly version?: string };
-  readonly runtime?: { readonly name: string; readonly version: string };
-  readonly device?: { readonly arch: string };
-  readonly ide?: { readonly name: string; readonly version: string };
-  readonly environment?: string;
-  readonly ci?: boolean;
+export type TelemetryErrorReport = {
+  readonly eventId: string;
+  readonly invocationId: string;
+  readonly occurredAt: IsoDateTimeString;
+  readonly installationId?: string;
+  readonly activityId?: string;
+  readonly client: TelemetryReportingClient;
+  readonly command?: string;
+  readonly phase: "bootstrap" | "configuration" | "command" | "output";
+  readonly failure: {
+    readonly kind: string;
+    readonly category: string;
+    readonly class: "internal" | "user" | "external";
+    readonly handled: boolean;
+  };
 };
-export const TelemetryErrorContext = Schema.Struct({
-  command: Schema.String.check(
-    Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
-  ),
-  client: TelemetryClientContext,
-  os: Schema.optionalKey(
-    Schema.Struct({
-      name: Schema.String.check(
-        Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
-      ),
-      version: Schema.optionalKey(Schema.String),
-    }).annotate({
-      title: "Operating System Context",
-      description: "Operating system metadata captured alongside telemetry.",
+export const TelemetryErrorReport = Schema.Struct({
+  eventId: Schema.String.annotate({
+    description:
+      "Report identity, fresh per report and unchanged when the same report is resubmitted.",
+    format: "uuid",
+  }).check(
+    Schema.isPattern(
+      new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"),
+    ).annotate({
+      expected:
+        "a string matching the RegExp ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
     }),
   ),
-  runtime: Schema.optionalKey(
-    Schema.Struct({
-      name: Schema.String.check(
-        Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
-      ),
-      version: Schema.String.check(
-        Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
-      ),
-    }).annotate({
-      title: "Runtime Context",
-      description: "Language or process runtime metadata captured alongside telemetry.",
+  invocationId: Schema.String.annotate({
+    description: "Identity of the client process invocation that failed.",
+    format: "uuid",
+  }).check(
+    Schema.isPattern(
+      new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"),
+    ).annotate({
+      expected:
+        "a string matching the RegExp ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
     }),
   ),
-  device: Schema.optionalKey(
-    Schema.Struct({
-      arch: Schema.String.check(
-        Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
-      ),
-    }).annotate({
-      title: "Device Context",
-      description: "Device characteristics attached to telemetry submissions.",
-    }),
-  ),
-  ide: Schema.optionalKey(
-    Schema.Struct({
-      name: Schema.String.check(
-        Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
-      ),
-      version: Schema.String.check(
-        Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
-      ),
-    }).annotate({
-      title: "IDE Context",
+  occurredAt: IsoDateTimeString,
+  installationId: Schema.optionalKey(
+    Schema.String.annotate({
       description:
-        "Editor or IDE metadata attached when telemetry originates from a development tool.",
-    }),
-  ),
-  environment: Schema.optionalKey(Schema.String),
-  ci: Schema.optionalKey(Schema.Boolean),
-}).annotate({
-  title: "Telemetry Error Context",
-  description: "Execution context attached to error-report submissions.",
-  identifier: "TelemetryErrorContext",
-});
-export type TelemetryErrorItem = {
-  readonly message: string;
-  readonly name: string;
-  readonly module?: string;
-  readonly stackFrames?: ReadonlyArray<TelemetryStackFrame>;
-  readonly stack?: string;
-  readonly details?: ReadonlyArray<string>;
-};
-export const TelemetryErrorItem = Schema.Struct({
-  message: Schema.String.check(
-    Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
-  ),
-  name: Schema.String.check(
-    Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
-  ),
-  module: Schema.optionalKey(Schema.String),
-  stackFrames: Schema.optionalKey(
-    Schema.Array(TelemetryStackFrame).check(
-      Schema.isMaxLength(100).annotate({ expected: "a value with a length of at most 100" }),
+        "Random persisted installation identity; absent when the client could not load or create it.",
+      format: "uuid",
+    }).check(
+      Schema.isPattern(
+        new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"),
+      ).annotate({
+        expected:
+          "a string matching the RegExp ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      }),
     ),
   ),
-  stack: Schema.optionalKey(Schema.String),
-  details: Schema.optionalKey(
-    Schema.Array(
-      Schema.String.check(
-        Schema.isMaxLength(512).annotate({ expected: "a value with a length of at most 512" }),
-      ),
-    ).check(Schema.isMaxLength(16).annotate({ expected: "a value with a length of at most 16" })),
+  activityId: Schema.optionalKey(
+    Schema.String.annotate({
+      description: "Product activity correlation identity when the invocation started one.",
+      format: "uuid",
+    }).check(
+      Schema.isPattern(
+        new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"),
+      ).annotate({
+        expected:
+          "a string matching the RegExp ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      }),
+    ),
   ),
+  client: TelemetryReportingClient,
+  command: Schema.optionalKey(
+    Schema.String.annotate({
+      description:
+        "Canonical command identity when known, for example `extensions install`. Never arguments.",
+    })
+      .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
+      .check(Schema.isMaxLength(64).annotate({ expected: "a value with a length of at most 64" }))
+      .check(
+        Schema.isPattern(new RegExp("^[a-z][a-z0-9:_-]*( [a-z][a-z0-9:_-]*)*$")).annotate({
+          expected: "a string matching the RegExp ^[a-z][a-z0-9:_-]*( [a-z][a-z0-9:_-]*)*$",
+        }),
+      ),
+  ),
+  phase: Schema.Literals(["bootstrap", "configuration", "command", "output"]).annotate({
+    title: "Failure Phase",
+    description:
+      "The invocation phase that settled with the failure: startup, workspace configuration, command execution, or output writing.",
+  }),
+  failure: Schema.Struct({
+    kind: Schema.String.annotate({
+      description: "Stable diagnostic identifier from the client's enumerated failure set.",
+    })
+      .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
+      .check(Schema.isMaxLength(64).annotate({ expected: "a value with a length of at most 64" }))
+      .check(
+        Schema.isPattern(new RegExp("^[a-z0-9]+([._-][a-z0-9]+)*$")).annotate({
+          expected: "a string matching the RegExp ^[a-z0-9]+([._-][a-z0-9]+)*$",
+        }),
+      ),
+    category: Schema.String.annotate({
+      description: "AXM error category, for example `validation` or `network`.",
+    })
+      .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
+      .check(Schema.isMaxLength(32).annotate({ expected: "a value with a length of at most 32" }))
+      .check(
+        Schema.isPattern(new RegExp("^[a-z0-9]+([._-][a-z0-9]+)*$")).annotate({
+          expected: "a string matching the RegExp ^[a-z0-9]+([._-][a-z0-9]+)*$",
+        }),
+      ),
+    class: Schema.Literals(["internal", "user", "external"]).annotate({
+      title: "Error Class",
+      description:
+        "Classifies whether a failure is an AXM defect, a user-correctable failure, or an external dependency failure.",
+    }),
+    handled: Schema.Boolean.annotate({
+      description: "False when the failure is an unexpected defect rather than an expected error.",
+    }),
+  }).annotate({
+    title: "Reported Failure",
+    description: "Allowlisted diagnostic identity of one terminal failure.",
+  }),
 }).annotate({
-  title: "Telemetry Error Item",
-  description: "One error instance included in a telemetry error report.",
-  identifier: "TelemetryErrorItem",
+  title: "Telemetry Error Report",
+  description:
+    "One bounded, allowlisted report of an opted-in client invocation's terminal failure. It carries no messages, stacks, arguments, paths, or other free-form content.",
+  identifier: "TelemetryErrorReport",
 });
 export type TelemetryEventsRequest = {
   readonly events: ReadonlyArray<TelemetryEvent>;
@@ -454,67 +527,6 @@ export const TelemetryEventsRequest = Schema.Struct({
   title: "Telemetry Events Request",
   description: "Request payload accepted by the telemetry events ingestion endpoint.",
   identifier: "TelemetryEventsRequest",
-});
-export type TelemetryErrorsRequest = {
-  readonly errors: ReadonlyArray<TelemetryErrorItem>;
-  readonly level?: "fatal" | "error" | "warning" | "info" | "debug";
-  readonly errorClass?: "internal" | "user" | "external";
-  readonly handled?: boolean;
-  readonly breadcrumbs?: ReadonlyArray<TelemetryBreadcrumb>;
-  readonly tags?: { readonly [x: string]: string };
-  readonly fingerprint?: ReadonlyArray<string>;
-  readonly user?: { readonly id?: string; readonly username?: string };
-  readonly sentAt?: string;
-  readonly context: TelemetryErrorContext;
-};
-export const TelemetryErrorsRequest = Schema.Struct({
-  errors: Schema.Array(TelemetryErrorItem)
-    .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
-    .check(Schema.isMaxLength(10).annotate({ expected: "a value with a length of at most 10" })),
-  level: Schema.optionalKey(
-    Schema.Literals(["fatal", "error", "warning", "info", "debug"]).annotate({
-      title: "Severity Level",
-      description: "Severity level associated with an error report or breadcrumb.",
-    }),
-  ),
-  errorClass: Schema.optionalKey(
-    Schema.Literals(["internal", "user", "external"]).annotate({
-      title: "Error Class",
-      description:
-        "Classifies whether an error report represents an AXM bug, a user-correctable failure, or an external dependency failure.",
-    }),
-  ),
-  handled: Schema.optionalKey(Schema.Boolean),
-  breadcrumbs: Schema.optionalKey(
-    Schema.Array(TelemetryBreadcrumb).check(
-      Schema.isMaxLength(50).annotate({ expected: "a value with a length of at most 50" }),
-    ),
-  ),
-  tags: Schema.optionalKey(
-    Schema.Record(
-      Schema.String,
-      Schema.String.check(
-        Schema.isMaxLength(200).annotate({ expected: "a value with a length of at most 200" }),
-      ),
-    ),
-  ),
-  fingerprint: Schema.optionalKey(
-    Schema.Array(Schema.String).check(
-      Schema.isMaxLength(10).annotate({ expected: "a value with a length of at most 10" }),
-    ),
-  ),
-  user: Schema.optionalKey(
-    Schema.Struct({
-      id: Schema.optionalKey(Schema.String),
-      username: Schema.optionalKey(Schema.String),
-    }),
-  ),
-  sentAt: Schema.optionalKey(Schema.String.annotate({ format: "date-time" })),
-  context: TelemetryErrorContext,
-}).annotate({
-  title: "Telemetry Errors Request",
-  description: "Request payload accepted by the telemetry error ingestion endpoint.",
-  identifier: "TelemetryErrorsRequest",
 });
 // schemas
 export type MetaGet200 = TelemetryMetaResponse;
@@ -682,8 +694,10 @@ export type EventsIngest400 = DecodeErrorResponseEncoded;
 export const EventsIngest400 = DecodeErrorResponseEncoded;
 export type EventsIngest413 = TelemetryPayloadTooLargeErrorEncoded;
 export const EventsIngest413 = TelemetryPayloadTooLargeErrorEncoded;
-export type ErrorsIngestRequestJson = TelemetryErrorsRequest;
-export const ErrorsIngestRequestJson = TelemetryErrorsRequest;
+export type ErrorsIngestRequestJson = TelemetryErrorReport;
+export const ErrorsIngestRequestJson = TelemetryErrorReport;
+export type ErrorsIngest200 = TelemetryErrorReceipt;
+export const ErrorsIngest200 = TelemetryErrorReceipt;
 export type ErrorsIngest400 = DecodeErrorResponseEncoded;
 export const ErrorsIngest400 = DecodeErrorResponseEncoded;
 
@@ -837,8 +851,8 @@ export const make = (
         HttpClientRequest.bodyJsonUnsafe(options.payload),
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(ErrorsIngest200),
             "400": decodeError("ErrorsIngest400", ErrorsIngest400),
-            "202": () => Effect.void,
             orElse: unexpectedStatus,
           }),
         ),
@@ -919,27 +933,29 @@ export interface TelemetryClient {
     | TelemetryClientError<"EventsIngest413", typeof EventsIngest413.Type>
   >;
   /**
-   * Accepts telemetry error reports as JSON.
+   * Receives one bounded, allowlisted failure report from an opted-in client invocation.
    *
-   * **PII and secret filtering.** The server stores and forwards error reports
-   * as-is; it does not scrub, redact, or transform payload contents. Clients
-   * are responsible for stripping secrets, credentials, tokens, and personally
-   * identifiable information before submission. In particular:
+   * **Receipt.** A `200` response is a synchronous receipt: the report passed
+   * validation and its forwarding was registered as bounded, best-effort
+   * background work of the receiving invocation. The receipt is not durable
+   * acceptance, provider ingestion, or issue creation, and the service stores
+   * nothing. Forwarding may be dropped when a provider fails or the invocation's
+   * background deadline passes; no exactly-once delivery is promised.
    *
-   * - Remove environment variables, auth tokens, and API keys from stack traces,
-   *   breadcrumb data, and tags before sending.
-   * - The `user` field should contain only opaque identifiers (user ID or handle),
-   *   never email addresses, real names, or other PII.
-   * - Breadcrumb `data` maps must not include request/response bodies that may
-   *   carry user-generated content or credentials.
-   * - The `context` fields (os, runtime, device, ide) are considered low-risk
-   *   metadata but should still be reviewed for unexpected PII.
+   * **Report identity.** Resubmitting the same report keeps its `eventId`. The
+   * service carries that identity into the provider insert and event
+   * identities, but provider deduplication is not an end-to-end guarantee.
+   *
+   * **Declared fields only.** Only the declared, bounded fields are accepted.
+   * Undeclared fields are ignored: the platform's request decoding drops them
+   * before the report is processed. Reports carry no messages, stack traces,
+   * arguments, paths, or other free-form content.
    */
   readonly ErrorsIngest: <Config extends OperationConfig>(options: {
     readonly payload: typeof ErrorsIngestRequestJson.Encoded;
     readonly config?: Config | undefined;
   }) => Effect.Effect<
-    WithOptionalResponse<void, Config>,
+    WithOptionalResponse<typeof ErrorsIngest200.Type, Config>,
     | HttpClientError.HttpClientError
     | SchemaError
     | TelemetryClientError<"ErrorsIngest400", typeof ErrorsIngest400.Type>

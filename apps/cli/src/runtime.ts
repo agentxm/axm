@@ -4,6 +4,7 @@ import {
 } from "@agentxm/workspace-kernel/settlement/live";
 import { UpdateCheckCacheLive } from "./cli-runtime/update-cache.js";
 import { CliUpgradeObservationLive } from "./cli-runtime/upgrade-observation.js";
+import { recordingConfigurationFailure } from "./cli-runtime/configuration-failure.js";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import * as HttpClient from "effect/unstable/http/HttpClient";
@@ -26,7 +27,6 @@ import {
 } from "@agentxm/workspace-kernel/resolution/live";
 import {
   BundledAxmSkillAssetLive,
-  type CliTelemetryConfig,
   InstallSelectionLive,
   type ExpectedCliError,
   getCommandSemanticProperties,
@@ -80,7 +80,7 @@ import {
   TokenExchangeLive,
 } from "@agentxm/registry-access/adapters";
 import { RegistryClientFactoryLive, RegistryUrl } from "@agentxm/registry-client";
-import { resolveTelemetryMode } from "./telemetry/index.js";
+import { resolveTelemetryMode, type TelemetryClientOptions } from "./telemetry/index.js";
 import {
   SettingsReader,
   type RegistryTarget,
@@ -153,7 +153,11 @@ const AxmHttpClientLayer = Layer.provide(
   FetchHttpClient.layer.pipe(Layer.provide(AxmFetchLayer)),
 );
 
-const PlatformLayer = Layer.mergeAll(NodeServices.layer, AxmHttpClientLayer);
+/**
+ * Node services and the plain AXM transport, with no Registry credentials.
+ * Process-level observers such as telemetry build on this layer.
+ */
+export const PlatformLayer = Layer.mergeAll(NodeServices.layer, AxmHttpClientLayer);
 const registryRuntimeLayer = (registryUrl: string) =>
   Layer.mergeAll(PlatformLayer, registryUrlLayer(registryUrl));
 
@@ -265,8 +269,6 @@ const makeRuntimeLoggerLayer = Layer.unwrap(
 );
 
 interface RuntimeEnvConfig {
-  readonly doNotTrack: Option.Option<string>;
-  readonly telemetry: Option.Option<string>;
   readonly verbose: Option.Option<string>;
   readonly debug: Option.Option<string>;
 }
@@ -276,10 +278,26 @@ export const getBuiltInSources = (): ReadonlyArray<SourceHostConfig> => [
 ];
 
 const readRuntimeEnvConfig = (): RuntimeEnvConfig => ({
-  doNotTrack: Option.fromUndefinedOr(process.env["DO_NOT_TRACK"]),
-  telemetry: Option.fromUndefinedOr(process.env["AXM_TELEMETRY"]),
   verbose: Option.fromUndefinedOr(process.env["AXM_VERBOSE"]),
   debug: Option.fromUndefinedOr(process.env["AXM_DEBUG"]),
+});
+
+const isPreviewRequest = (value: string | undefined): boolean => value === "1" || value === "true";
+
+/**
+ * The operator's telemetry consent and preview request for this process,
+ * resolved once at the process entry from the environment (the process
+ * environment unless another is given).
+ */
+export const resolveProcessTelemetryOptions = (
+  environment: Readonly<Record<string, string | undefined>> = process.env,
+): Pick<TelemetryClientOptions, "mode" | "preview" | "client"> => ({
+  mode: resolveTelemetryMode({
+    doNotTrack: environment["DO_NOT_TRACK"],
+    telemetry: environment["AXM_TELEMETRY"],
+  }),
+  preview: isPreviewRequest(environment["AXM_TELEMETRY_PREVIEW"]),
+  client: { name: "cli", version: loadVersion() },
 });
 
 /**
@@ -324,14 +342,6 @@ export const resolveDefaultRegistryTarget = (projectRoot: AbsolutePath) => {
     }),
   );
 };
-
-const makeCliTelemetryConfig = (envConfig: RuntimeEnvConfig): CliTelemetryConfig => ({
-  mode: resolveTelemetryMode({
-    doNotTrack: Option.getOrUndefined(envConfig.doNotTrack),
-    telemetry: Option.getOrUndefined(envConfig.telemetry),
-  }),
-  client: { name: "cli", version: loadVersion() },
-});
 
 const makeWorkspaceProgramLayer = (workspace: Omit<WorkspaceStateOptions, "builtInSources">) => {
   // -- Workspace-state foundation --
@@ -381,10 +391,8 @@ const envToBool = (opt: Option.Option<string>): boolean =>
 const resolveRuntimeConfig = () => {
   const envConfig = readRuntimeEnvConfig();
   return {
-    envConfig,
     envVerbose: envToBool(envConfig.verbose),
     envDebug: envToBool(envConfig.debug),
-    telemetryConfig: makeCliTelemetryConfig(envConfig),
   } as const;
 };
 
@@ -407,16 +415,20 @@ export const withWorkspace =
         onNone: (): ReadonlySet<string> => new Set(),
         onSome: ({ routes }) => routes,
       });
+      // Naming the channel keeps the emitted declaration on the alias rather
+      // than on every workspace failure it spans.
+      const scopedFailure = (error: ExpectedCliError): ExpectedCliError =>
+        failureForWorkspaceScope(error, resolved.scope, scopedRoutes);
       return yield* Effect.scoped(
         Layer.build(wsLayer).pipe(
-          Effect.flatMap((workspaceContext) => Effect.provide(program, workspaceContext)),
+          // Building the workspace reads its settings and state before the
+          // command runs, so a failure here is a configuration failure.
+          recordingConfigurationFailure(scopedFailure),
+          Effect.flatMap((workspaceContext) =>
+            Effect.provide(program, workspaceContext).pipe(Effect.mapError(scopedFailure)),
+          ),
         ),
       ).pipe(
-        // Naming the channel keeps the emitted declaration on the alias
-        // rather than on every workspace failure it spans.
-        Effect.mapError((error): ExpectedCliError =>
-          failureForWorkspaceScope(error, resolved.scope, scopedRoutes),
-        ),
         Effect.ensuring(
           Effect.gen(function* () {
             const semanticProperties = yield* getCommandSemanticProperties;
@@ -507,11 +519,7 @@ export const withRuntime =
           Effect.provide(makeAuthLayer(defaultRegistry.url)),
           Effect.catchTag("RegistryAccessFailed", (error) => Effect.fail(failureToAppError(error))),
         ),
-        {
-          command,
-          format,
-          telemetryConfig: config.telemetryConfig,
-        },
+        { command, format },
       ).pipe(
         Effect.provide(appLayer),
         Effect.provide(

@@ -8,11 +8,13 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import { CliOutput, Command } from "effect/unstable/cli";
 import type { HelpDoc } from "effect/unstable/cli/HelpDoc";
 
 import { rootCommand } from "../../app.js";
 import { baseLayer } from "../../runtime.js";
+import { TelemetryClientTest } from "../../telemetry/index.js";
 
 const TEST_VERSION = "0.0.0-test";
 
@@ -28,7 +30,7 @@ const captureHelpDoc = (path: ReadonlyArray<string>): Effect.Effect<HelpDoc, unk
     };
 
     yield* Command.runWith(rootCommand, { version: TEST_VERSION })([...path, "--help"]).pipe(
-      Effect.provide(baseLayer),
+      Effect.provide(Layer.mergeAll(baseLayer, TelemetryClientTest)),
       Effect.provideService(CliOutput.Formatter, formatter),
     );
 
@@ -57,7 +59,7 @@ const captureRunError = (
       },
     };
     const exit = yield* Command.runWith(rootCommand, { version: TEST_VERSION })(args).pipe(
-      Effect.provide(baseLayer),
+      Effect.provide(Layer.mergeAll(baseLayer, TelemetryClientTest)),
       Effect.provideService(CliOutput.Formatter, formatter),
       Effect.exit,
     );

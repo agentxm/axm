@@ -5,17 +5,6 @@ import { handleError } from "./handle-error.js";
 import { isProcessOutcome } from "./process-outcome.js";
 import { withGracefulShutdown } from "./graceful-shutdown.js";
 import { resolveFormatFromArgv } from "./resolve-format.js";
-import { resolveVerbosityFromArgv } from "../cli-flags/resolve-verbosity.js";
-import type { VerbosityLevel } from "../cli-flags/verbosity.js";
-
-export interface CliMainContext {
-  readonly verbosityLevel: VerbosityLevel;
-}
-
-/** Resolve CLI context from argv before Effect runs. */
-export const resolveCliContext = (args: ReadonlyArray<string>): CliMainContext => ({
-  verbosityLevel: resolveVerbosityFromArgv(args),
-});
 
 /**
  * Run one CLI invocation. Runtime output is owned by Screen; this process

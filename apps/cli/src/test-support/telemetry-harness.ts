@@ -1,23 +1,29 @@
 /**
  * Telemetry-slice fixtures.
  *
- * Drives one real command through the production CLI envelope with telemetry
- * delivery turned on explicitly, so a specification can compare the outcome
+ * Drives one real command through the production CLI envelope with a
+ * delivering telemetry reporter, so a specification can compare the outcome
  * and the workspace against the same command run without telemetry, and read
  * every payload the transport was handed.
  */
 
 import * as fs from "node:fs";
+import * as os from "node:os";
+import * as nodePath from "node:path";
 
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
+import type * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
 import { CommandArgv, withCliErrorHandling } from "../cli-runtime/index.js";
 import { handleInstall } from "../root/install/handler.js";
-import type { TelemetryHostObservation } from "../telemetry/index.js";
+import { TelemetryClientLive, type TelemetryClientOptions } from "../telemetry/index.js";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "./install-harness.js";
 import { writeWorkspaceFiles } from "./test-stubs.js";
 import { snapshotTree } from "@agentxm/test-support";
@@ -29,6 +35,28 @@ export const sensitiveSentinels = [
   "SYNTHETIC_CREDENTIAL_74",
   "SYNTHETIC_RESOLVED_SECRET_75",
 ] as const;
+
+const reportEventId = (body: unknown): unknown =>
+  typeof body === "object" && body !== null && "eventId" in body ? body.eventId : undefined;
+
+/**
+ * The ingest service's answer to one captured request: a receipt naming the
+ * report's event identity for an error report, an empty acceptance for a
+ * usage event batch.
+ */
+export const telemetryIngestResponse = (
+  request: HttpClientRequest.HttpClientRequest,
+  body: unknown,
+): HttpClientResponse.HttpClientResponse =>
+  request.url.endsWith("/v1/errors")
+    ? HttpClientResponse.fromWeb(
+        request,
+        new Response(JSON.stringify({ eventId: reportEventId(body), receipt: "received" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      )
+    : HttpClientResponse.fromWeb(request, new Response("", { status: 202 }));
 
 export const captureTelemetry = () => {
   const requests: Array<{ readonly url: string; readonly body: unknown }> = [];
@@ -42,22 +70,46 @@ export const captureTelemetry = () => {
     return Effect.sync(() => {
       const body: unknown = JSON.parse(new TextDecoder().decode(payload.body));
       requests.push({ url: request.url, body });
-      return HttpClientResponse.fromWeb(request, new Response("", { status: 202 }));
+      return telemetryIngestResponse(request, body);
     });
   });
   return { requests, client };
 };
 
-/** Host facts that cannot be observed, so the failure is a port failure. */
-export const unobservableHost: TelemetryHostObservation = {
-  osRelease: () => {
-    throw new Error("synthetic host observation failure");
-  },
+/**
+ * A user home whose telemetry directory cannot be created: the home is a
+ * regular file, so identity storage is unavailable to every reporter that
+ * resolves its installation identity there.
+ */
+export const makeUnavailableIdentityStorage = () => {
+  const directory = fs.mkdtempSync(nodePath.join(os.tmpdir(), "axm-telemetry-identity-"));
+  const userHome = nodePath.join(directory, "home");
+  fs.writeFileSync(userHome, "not a directory\n");
+  return {
+    userHome,
+    cleanup: () => fs.rmSync(directory, { recursive: true, force: true }),
+  };
 };
+
+/** A delivering reporter over the given transport, as the process entry builds it. */
+export const telemetryReporterLayer = (options: {
+  readonly client: HttpClient.HttpClient;
+  readonly reporter: TelemetryClientOptions;
+  readonly environment?: Readonly<Record<string, string>>;
+}) =>
+  Layer.provide(
+    TelemetryClientLive(options.reporter),
+    Layer.mergeAll(
+      NodeServices.layer,
+      Layer.succeed(HttpClient.HttpClient, options.client),
+      ConfigProvider.layer(ConfigProvider.fromEnv({ env: { ...options.environment } })),
+    ),
+  );
 
 /** The production command envelope and install handler share controlled ports. */
 export const makeTelemetryOperation = () => {
   const workspace = makeSpecWorkspace({ machine: true, flags: { json: true } });
+  const identityStorage = makeUnavailableIdentityStorage();
   const reset = () => {
     fs.rmSync(workspace.root, { recursive: true, force: true });
     fs.mkdirSync(workspace.root, { recursive: true });
@@ -71,11 +123,12 @@ export const makeTelemetryOperation = () => {
   };
   const run = (options: {
     readonly client: HttpClient.HttpClient;
-    readonly mode?: "all" | "off";
+    readonly mode?: "all" | "errors" | "off";
     readonly fail?: boolean;
     readonly preview?: boolean;
     readonly collectionFailure?: boolean;
-    readonly host?: TelemetryHostObservation;
+    /** Resolve identity from storage that cannot hold one, instead of a fixed identity. */
+    readonly identityFailure?: boolean;
   }) =>
     Effect.gen(function* () {
       const source = reset();
@@ -100,27 +153,35 @@ export const makeTelemetryOperation = () => {
           localName: Option.none(),
           bundled: false,
         }),
-        {
-          command: "install",
-          format: "json",
-          telemetryConfig: {
-            mode: options.mode ?? "all",
-            client: { name: "cli", version: "1.2.3" },
-            // The repository's own test run suppresses delivery; a telemetry
-            // specification observes it, so it asks for delivery explicitly.
-            deliverInTest: true,
-            installationId: "00000000-0000-4000-8000-000000000001",
-            eventIdFactory: () => "00000000-0000-4000-8000-000000000002",
-            ...(options.host === undefined ? {} : { host: options.host }),
-          },
-        },
+        { command: "install", format: "json" },
       ).pipe(
         Effect.provideService(CommandArgv, {
           value: argv,
           paramKinds: { source: "argument", env: "flag", authorization: "flag", force: "flag" },
         }),
-        Effect.provideService(HttpClient.HttpClient, options.client),
-        Effect.provide(workspace.layer),
+        // The delivering reporter replaces the workspace's disabled one.
+        Effect.provide(
+          Layer.mergeAll(
+            workspace.layer,
+            telemetryReporterLayer({
+              client: options.client,
+              reporter: {
+                mode: options.mode ?? "all",
+                client: { name: "cli", version: "1.2.3" },
+                // The repository's own test run suppresses delivery; a telemetry
+                // specification observes it, so it asks for delivery explicitly.
+                deliverInTest: true,
+                eventIdFactory: () => "00000000-0000-4000-8000-000000000002",
+                ...(options.identityFailure === true
+                  ? {}
+                  : { installationId: "00000000-0000-4000-8000-000000000001" }),
+              },
+              ...(options.identityFailure === true
+                ? { environment: { AXM_USER_HOME: identityStorage.userHome } }
+                : {}),
+            }),
+          ),
+        ),
         Effect.exit,
       );
       const exitCode = Exit.isSuccess(exit) ? exit.value.exitCode : undefined;
@@ -137,5 +198,11 @@ export const makeTelemetryOperation = () => {
         results: workspace.rendererState.results.map(({ data, ok }) => ({ data, ok })),
       };
     });
-  return { run, cleanup: workspace.cleanup };
+  return {
+    run,
+    cleanup: () => {
+      identityStorage.cleanup();
+      workspace.cleanup();
+    },
+  };
 };

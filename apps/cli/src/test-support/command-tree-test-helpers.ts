@@ -21,6 +21,7 @@ import { toJsonHelpDoc } from "../cli-runtime/index.js";
 import { LearnMore } from "../formatter.js";
 import { commandHelpDoc } from "../root/help/command-help-view.js";
 import { baseLayer } from "../runtime.js";
+import { TelemetryClientTest } from "../telemetry/index.js";
 import { paintText } from "../screen/index.js";
 
 export const TEST_VERSION = "0.0.0-test";
@@ -48,7 +49,7 @@ const captureHelpDocForArgs = (
       Effect.catchTag("ShowHelp", (error) =>
         error.errors.length === 0 ? Effect.void : Effect.fail(error),
       ),
-      Effect.provide(Layer.mergeAll(baseLayer, renderer.layer)),
+      Effect.provide(Layer.mergeAll(baseLayer, renderer.layer, TelemetryClientTest)),
       Effect.provideService(CliOutput.Formatter, formatter),
     );
 

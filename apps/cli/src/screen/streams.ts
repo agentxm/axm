@@ -176,6 +176,15 @@ export const OutputStreamsLive: Layer.Layer<OutputStreams> = Layer.effect(
 /** Pre-runtime TTY fact for startup policy without exposing Node streams. */
 export const stderrIsTTY = (): boolean => process.stderr.isTTY === true;
 
+/**
+ * Write one diagnostic line to stderr outside the Screen, for process-level
+ * observers that run before a Screen exists or after it settled. Like every
+ * Screen write it owns the stream's failure, so a broken stderr fails the
+ * write, typed, instead of the process.
+ */
+export const writeDiagnosticLine = (line: string): Effect.Effect<void, OutputWriteFailed> =>
+  writeOutput(process.stderr, "stderr", `${line}\n`);
+
 interface TestOutputStreamsState {
   readonly stdout: Array<string>;
   readonly stderr: Array<string>;

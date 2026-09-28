@@ -1,14 +1,16 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import { Command } from "effect/unstable/cli";
 
 import { rootCommand } from "../../app.js";
 import { baseLayer } from "../../runtime.js";
+import { TelemetryClientTest } from "../../telemetry/index.js";
 import { captureHelpText as captureHelp } from "../../test-support/command-tree-test-helpers.js";
 
 const parseCommand = (path: ReadonlyArray<string>) =>
   Command.runWith(rootCommand, { version: "0.0.0-test" })(path).pipe(
-    Effect.provide(baseLayer),
+    Effect.provide(Layer.mergeAll(baseLayer, TelemetryClientTest)),
     Effect.result,
   );
 

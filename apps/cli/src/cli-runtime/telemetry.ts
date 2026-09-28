@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type * as Cause from "effect/Cause";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -13,8 +14,12 @@ import {
   type OperationLifecycleService,
 } from "@agentxm/workspace-kernel/operations";
 import { errorClassForAppErrorCode, type AppErrorCode } from "../app-error/index.js";
-import { TelemetryClient } from "../telemetry/index.js";
-import type { TelemetryProperties } from "../telemetry/client.js";
+import {
+  TelemetryClient,
+  type TelemetryFailurePhase,
+  type TelemetryProperties,
+} from "../telemetry/index.js";
+import { processTerminalFailure } from "./failure-identity.js";
 import {
   nonInteractiveFlag,
   jsonFlag,
@@ -93,7 +98,6 @@ export const startProductActivity = (intent: ProductActivityIntent): Effect.Effe
       yield* telemetry.value.trackEvent(
         "product_activity_started",
         productActivityProperties(attempt),
-        { bounded: true },
       );
     }
   }).pipe(Effect.catchCause(() => Effect.void));
@@ -141,21 +145,15 @@ export const trackCliCommandCompleted = (
             productActivity.value.activationEligible && valueCompleted,
         }
       : {};
-    yield* telemetry.trackEvent(
-      event,
-      {
-        "cli.command": options.command,
-        "cli.result": options.result,
-        "cli.duration_ms": options.durationMs,
-        ...(options.errorCode !== undefined && { "cli.error_code": options.errorCode }),
-        ...(options.errorCategory !== undefined && { "cli.error_category": options.errorCategory }),
-        ...(options.semanticProperties ?? {}),
-        ...productProperties,
-      },
-      // The completion event orders before process exit on every termination
-      // path, bounded by the client's event timeout.
-      { bounded: true },
-    );
+    yield* telemetry.trackEvent(event, {
+      "cli.command": options.command,
+      "cli.result": options.result,
+      "cli.duration_ms": options.durationMs,
+      ...(options.errorCode !== undefined && { "cli.error_code": options.errorCode }),
+      ...(options.errorCategory !== undefined && { "cli.error_category": options.errorCategory }),
+      ...(options.semanticProperties ?? {}),
+      ...productProperties,
+    });
   }).pipe(Effect.catchCause(() => Effect.void));
 
 // ---------------------------------------------------------------------------
@@ -185,13 +183,17 @@ export const readGlobalFlagProperties = Effect.gen(function* () {
 /** The failure a command settled with, as telemetry reports it. */
 export interface CommandSettlementFailure {
   readonly code: AppErrorCode;
-  readonly level: "error" | "fatal";
+  /** Where in the invocation the command settled with the failure. */
+  readonly phase: Exclude<TelemetryFailurePhase, "bootstrap">;
+  /** Allowlisted diagnostic identity; see `failure-identity.ts`. */
+  readonly kind: string;
   /** True when the command handled the failure; false for a defect. */
   readonly handled: boolean;
 }
 
 export interface CommandSettlement {
-  readonly command: string;
+  /** Canonical command identity; absent when the envelope was given none. */
+  readonly command?: string;
   readonly result: CliCommandCompletedOptions["result"];
   readonly durationMs: number;
   /** Absent for a success or a cancellation. */
@@ -206,7 +208,7 @@ export interface CommandSettlement {
  * error, a defect, a cancellation — settles through this one reporter, so a
  * failure is reported the same way whichever path it took. Error details can
  * quote arbitrary package content or resolved input; telemetry reports the
- * stable category and local output owns the detail.
+ * failure's allowlisted identity and local output owns the detail.
  */
 export const recordCommandSettlement = (
   settlement: CommandSettlement,
@@ -215,19 +217,23 @@ export const recordCommandSettlement = (
     const telemetry = yield* TelemetryClient;
     const failure = settlement.failure;
     if (failure !== undefined) {
+      const productActivity = yield* currentProductActivity;
       yield* telemetry
         .reportError({
-          name: failure.handled ? failure.code : "Defect",
-          ...(failure.handled ? { category: failure.code } : {}),
-          level: failure.level,
+          phase: failure.phase,
+          kind: failure.kind,
+          category: failure.code,
           errorClass: errorClassForAppErrorCode(failure.code),
           handled: failure.handled,
-          command: settlement.command,
+          ...(settlement.command === undefined ? {} : { command: settlement.command }),
+          ...(Option.isSome(productActivity)
+            ? { activityId: productActivity.value.activityId }
+            : {}),
         })
         .pipe(Effect.catchCause(() => Effect.void));
     }
     yield* trackCliCommandCompleted({
-      command: settlement.command,
+      command: settlement.command ?? "unknown",
       result: settlement.result,
       durationMs: settlement.durationMs,
       ...(failure === undefined ? {} : { errorCode: failure.code, errorCategory: failure.code }),
@@ -236,6 +242,65 @@ export const recordCommandSettlement = (
         : { semanticProperties: settlement.semanticProperties }),
     });
   }).pipe(Effect.catchCause(() => Effect.void));
+
+const reportTerminalFailure = <E>(
+  cause: Cause.Cause<E>,
+  settledIn:
+    { readonly phase: "bootstrap" } | { readonly phase: "command"; readonly command: string },
+): Effect.Effect<void, never, TelemetryClient> =>
+  Effect.gen(function* () {
+    const failure = processTerminalFailure(cause, settledIn.phase);
+    if (Option.isNone(failure)) return;
+    const telemetry = yield* TelemetryClient;
+    yield* telemetry.reportError({
+      phase: failure.value.phase,
+      kind: failure.value.kind,
+      category: failure.value.code,
+      errorClass: errorClassForAppErrorCode(failure.value.code),
+      handled: failure.value.handled,
+      ...(settledIn.phase === "command" ? { command: settledIn.command } : {}),
+    });
+  }).pipe(Effect.catchCause(() => Effect.void));
+
+/**
+ * Report the failure that ended the invocation after escaping every command
+ * envelope — a startup rejection, a parse error, a configuration failure
+ * before the command ran, or an output failure after it — once, before the
+ * process renders it. A cancellation, or help that exits successfully,
+ * reports nothing.
+ */
+export const reportProcessFailure = <E>(
+  cause: Cause.Cause<E>,
+): Effect.Effect<void, never, TelemetryClient> =>
+  reportTerminalFailure(cause, { phase: "bootstrap" });
+
+/**
+ * Report the failure of a command that runs without the runtime envelope —
+ * help, which renders before any command runtime exists — in the command
+ * phase under the command's canonical identity. The failure then continues
+ * unchanged to the process, which renders it; the invocation has already
+ * reported its one failure, so the process reports nothing more.
+ */
+export const withCommandFailureReport =
+  (command: string) =>
+  <A, E, R>(program: Effect.Effect<A, E, R>): Effect.Effect<A, E, R | TelemetryClient> =>
+    program.pipe(
+      Effect.onError((cause) => reportTerminalFailure(cause, { phase: "command", command })),
+    );
+
+/**
+ * Give a whole invocation one process-owned telemetry reporter. A failure
+ * that escapes every command envelope is reported once and then fails the
+ * invocation unchanged, so the process renders and exits exactly as it would
+ * without telemetry; the reporter releases, within its shutdown budget,
+ * before that rendering.
+ */
+export const withProcessTelemetry =
+  <RIn>(reporter: Layer.Layer<TelemetryClient, never, RIn>) =>
+  <A, E, R>(
+    program: Effect.Effect<A, E, R>,
+  ): Effect.Effect<A, E, RIn | Exclude<R, TelemetryClient>> =>
+    program.pipe(Effect.onError(reportProcessFailure), Effect.provide(reporter));
 
 // ---------------------------------------------------------------------------
 // Command semantic properties (Ref-based forwarding)

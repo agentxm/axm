@@ -2,24 +2,26 @@ import * as nodeFs from "node:fs";
 import * as nodeOs from "node:os";
 import * as nodePath from "node:path";
 
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
-import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as HttpClient from "effect/unstable/http/HttpClient";
-import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
+import * as Schema from "effect/Schema";
+import type * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
+import {
+  captureTelemetry,
+  makeUnavailableIdentityStorage,
+  telemetryReporterLayer,
+} from "../test-support/telemetry-harness.js";
 import { at, expectRecord, property } from "../test-support/test-helpers.js";
-import { TelemetryClient, TelemetryClientLive } from "./client.js";
+import { TelemetryClient, type TelemetryClientService, TelemetryErrorReport } from "./index.js";
 
 export const specification = defineSpecification({
   requirement: "system/security/telemetry-uses-anonymous-installation-identity",
   title: "Enabled telemetry uses anonymous random installation identity",
   statement:
-    "When an operator enables telemetry, AXM shall use a persisted random installation identity rather than a machine-derived identity, mark usage events anonymous, assign each usage event a fresh retry-stable event identity, and create no telemetry identity while collection is disabled.",
+    "When an operator enables telemetry, AXM shall use a persisted random installation identity rather than a machine-derived identity, mark usage events anonymous, assign each usage event and error report a fresh retry-stable event identity, create no telemetry identity while collection is disabled, and, when identity storage is unavailable, send an opted-in error report without an installation identity, skip usage events that require one, and never substitute a shared fallback identity.",
   class: "quality",
   characteristic: "privacy",
   role: "interface",
@@ -34,97 +36,154 @@ export const specification = defineSpecification({
 const installationIdPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
-const makeCaptureClient = () => {
-  const bodies: Array<Record<string, unknown>> = [];
-  const client = HttpClient.make((request) =>
-    Effect.sync(() => {
-      const body =
-        request.body._tag === "Uint8Array"
-          ? expectRecord(JSON.parse(new TextDecoder().decode(request.body.body)))
-          : {};
-      bodies.push(body);
-      return HttpClientResponse.fromWeb(request, new Response("", { status: 202 }));
-    }),
-  );
-  return { bodies, client };
-};
+const decodeErrorReport = (input: unknown) =>
+  Schema.decodeUnknownEffect(TelemetryErrorReport)(input, { onExcessProperty: "error" });
 
-const telemetryFor = (home: string, client: HttpClient.HttpClient, mode: "all" | "off" = "all") => {
-  const platform = Layer.mergeAll(
-    NodeServices.layer,
-    ConfigProvider.layer(ConfigProvider.fromEnv({ env: { AXM_USER_HOME: home } })),
-  );
-  return TelemetryClient.pipe(
+/**
+ * One invocation's reporter resolving its identity from the given user home.
+ * The reporter releases — flushing what it sent — before this returns.
+ */
+const invocation = <A>(
+  home: string,
+  client: HttpClient.HttpClient,
+  use: (telemetry: TelemetryClientService) => Effect.Effect<A>,
+  mode: "all" | "off" = "all",
+) =>
+  TelemetryClient.use(use).pipe(
     Effect.provide(
-      Layer.provide(
-        TelemetryClientLive({
-          mode,
-          command: "install",
-          client: { name: "cli", version: "1.2.3" },
-          deliverInTest: true,
-          host: { osRelease: () => "synthetic-release" },
-        }),
-        Layer.mergeAll(platform, Layer.succeed(HttpClient.HttpClient, client)),
-      ),
+      telemetryReporterLayer({
+        client,
+        reporter: { mode, client: { name: "cli", version: "1.2.3" }, deliverInTest: true },
+        environment: { AXM_USER_HOME: home },
+      }),
     ),
   );
-};
 
-const onlyEvent = (body: Record<string, unknown>): Record<string, unknown> => {
-  const events = property(body, "events");
+const reportFailure = (telemetry: TelemetryClientService) =>
+  telemetry.reportError({
+    phase: "command",
+    kind: "not_found",
+    category: "not_found",
+    errorClass: "user",
+    handled: true,
+    command: "install",
+  });
+
+const onlyEvent = (body: unknown): Record<string, unknown> => {
+  const events = property(expectRecord(body), "events");
   expect(Array.isArray(events)).toBe(true);
   if (!Array.isArray(events)) throw new Error("Expected telemetry events.");
   expect(events).toHaveLength(1);
   return expectRecord(at(events, 0));
 };
 
+const temporaryHome = Effect.acquireRelease(
+  Effect.sync(() => nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), "axm-telemetry-"))),
+  (home) => Effect.sync(() => nodeFs.rmSync(home, { recursive: true, force: true })),
+);
+
 describe("Anonymous telemetry identity", () => {
   it.effect("persists a random installation ID and assigns unique anonymous event IDs", () =>
-    Effect.acquireUseRelease(
-      Effect.sync(() => nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), "axm-telemetry-"))),
-      (home) =>
-        Effect.gen(function* () {
-          const capture = makeCaptureClient();
-          const first = yield* telemetryFor(home, capture.client);
-          yield* first.trackEvent("command_invoked", undefined, { bounded: true });
+    Effect.scoped(
+      Effect.gen(function* () {
+        const home = yield* temporaryHome;
+        const capture = captureTelemetry();
+        yield* invocation(home, capture.client, (telemetry) =>
+          telemetry.trackEvent("command_invoked"),
+        );
+        yield* invocation(home, capture.client, (telemetry) =>
+          telemetry.trackEvent("command_completed").pipe(Effect.andThen(reportFailure(telemetry))),
+        );
 
-          const second = yield* telemetryFor(home, capture.client);
-          yield* second.trackEvent("command_completed", undefined, { bounded: true });
+        const events = capture.requests.filter(({ url }) => url.endsWith("/v1/events"));
+        const reports = capture.requests.filter(({ url }) => url.endsWith("/v1/errors"));
+        expect(events).toHaveLength(2);
+        expect(reports).toHaveLength(1);
+        const firstEvent = onlyEvent(at(events, 0).body);
+        const secondEvent = onlyEvent(at(events, 1).body);
+        const report = yield* decodeErrorReport(at(reports, 0).body);
+        const firstInstallationId = property(firstEvent, "distinctId");
+        expect(typeof firstInstallationId).toBe("string");
+        expect(String(firstInstallationId)).toMatch(installationIdPattern);
+        expect(property(secondEvent, "distinctId")).toBe(firstInstallationId);
+        expect(report.installationId).toBe(firstInstallationId);
+        expect(property(firstEvent, "anonymous")).toBe(true);
+        expect(property(secondEvent, "anonymous")).toBe(true);
+        const eventIds = [
+          property(firstEvent, "eventId"),
+          property(secondEvent, "eventId"),
+          report.eventId,
+        ];
+        expect(new Set(eventIds).size).toBe(eventIds.length);
 
-          expect(capture.bodies).toHaveLength(2);
-          const firstEvent = onlyEvent(at(capture.bodies, 0));
-          const secondEvent = onlyEvent(at(capture.bodies, 1));
-          const firstInstallationId = property(firstEvent, "distinctId");
-          const secondInstallationId = property(secondEvent, "distinctId");
-          expect(typeof firstInstallationId).toBe("string");
-          expect(firstInstallationId).toBe(secondInstallationId);
-          expect(String(firstInstallationId)).toMatch(installationIdPattern);
-          expect(property(firstEvent, "anonymous")).toBe(true);
-          expect(property(secondEvent, "anonymous")).toBe(true);
-          expect(property(firstEvent, "eventId")).not.toBe(property(secondEvent, "eventId"));
-
-          const persisted = nodeFs
-            .readFileSync(nodePath.join(home, ".axm", "telemetry", "installation-id"), "utf8")
-            .trim();
-          expect(persisted).toBe(firstInstallationId);
-        }),
-      (home) => Effect.sync(() => nodeFs.rmSync(home, { recursive: true, force: true })),
+        const persisted = nodeFs
+          .readFileSync(nodePath.join(home, ".axm", "telemetry", "installation-id"), "utf8")
+          .trim();
+        expect(persisted).toBe(firstInstallationId);
+      }),
     ),
   );
 
   it.effect("creates no installation identity while telemetry is disabled", () =>
-    Effect.acquireUseRelease(
-      Effect.sync(() => nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), "axm-telemetry-"))),
-      (home) =>
-        Effect.gen(function* () {
-          const capture = makeCaptureClient();
-          const telemetry = yield* telemetryFor(home, capture.client, "off");
-          yield* telemetry.trackEvent("command_invoked", undefined, { bounded: true });
+    Effect.scoped(
+      Effect.gen(function* () {
+        const home = yield* temporaryHome;
+        const capture = captureTelemetry();
+        yield* invocation(
+          home,
+          capture.client,
+          (telemetry) =>
+            telemetry.trackEvent("command_invoked").pipe(Effect.andThen(reportFailure(telemetry))),
+          "off",
+        );
 
-          expect(capture.bodies).toHaveLength(0);
-          expect(nodeFs.existsSync(nodePath.join(home, ".axm", "telemetry"))).toBe(false);
-        }),
-      (home) => Effect.sync(() => nodeFs.rmSync(home, { recursive: true, force: true })),
+        expect(capture.requests).toHaveLength(0);
+        expect(nodeFs.existsSync(nodePath.join(home, ".axm", "telemetry"))).toBe(false);
+      }),
     ),
+  );
+
+  it.effect(
+    "reports a failure without an installation identity when identity storage is unavailable",
+    () =>
+      Effect.acquireUseRelease(
+        Effect.sync(makeUnavailableIdentityStorage),
+        (storage) =>
+          Effect.gen(function* () {
+            const capture = captureTelemetry();
+            // Two invocations over the same unusable storage: neither invents an
+            // identity, and nothing links them.
+            const invocationIds = yield* Effect.forEach(
+              ["first", "second"],
+              () =>
+                invocation(storage.userHome, capture.client, (telemetry) =>
+                  telemetry
+                    .trackEvent("command_invoked")
+                    .pipe(
+                      Effect.andThen(reportFailure(telemetry)),
+                      Effect.as(telemetry.invocationId),
+                    ),
+                ),
+              { concurrency: 1 },
+            );
+
+            // Usage events are attributed to an installation or not sent.
+            expect(capture.requests.map(({ url }) => url.replace(/^.*\/v1\//u, "/v1/"))).toEqual([
+              "/v1/errors",
+              "/v1/errors",
+            ]);
+            const reports = [];
+            for (const request of capture.requests) {
+              const report = yield* decodeErrorReport(request.body);
+              expect(report).not.toHaveProperty("installationId");
+              reports.push(report);
+            }
+            expect(reports.map((report) => report.invocationId)).toEqual(invocationIds);
+            expect(new Set(invocationIds).size).toBe(2);
+            expect(new Set(reports.map((report) => report.eventId)).size).toBe(2);
+            expect(JSON.stringify(capture.requests)).not.toContain("distinctId");
+          }),
+        (storage) => Effect.sync(storage.cleanup),
+      ),
   );
 });

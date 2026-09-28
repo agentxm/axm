@@ -4,9 +4,12 @@
  * Bound at the CLI runtime envelope over a real install: each behaviour is
  * compared against the same command run with telemetry off, so "the outcome
  * it would have had" is an observed baseline rather than a restated
- * expectation. Collection failure and host-observation failure are stated
- * through ports the envelope is given, not through environment toggles or a
- * module mock.
+ * expectation. Collection failure and identity-storage failure are stated
+ * through ports the envelope and its reporter are given — an argument
+ * collector that throws, a user home that cannot hold the telemetry
+ * directory — not through environment toggles or a module mock. Delivery
+ * that rejects, crashes, or stalls is finalized within the invocation: every
+ * send it started is completed or interrupted before the command returns.
  */
 
 import * as Effect from "effect/Effect";
@@ -17,11 +20,7 @@ import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import {
-  captureTelemetry,
-  makeTelemetryOperation,
-  unobservableHost,
-} from "../test-support/telemetry-harness.js";
+import { captureTelemetry, makeTelemetryOperation } from "../test-support/telemetry-harness.js";
 
 export const specification = defineSpecification({
   requirement: "system/reliability/telemetry-failure-never-alters-outcomes",
@@ -104,7 +103,7 @@ describe("Telemetry failure isolation", () => {
               client,
               fail,
               collectionFailure: behavior === "collection-failure",
-              ...(behavior === "identity-failure" ? { host: unobservableHost } : {}),
+              ...(behavior === "identity-failure" ? { identityFailure: true } : {}),
             });
             expect(observed.exit._tag).toBe(baseline.exit._tag);
             expect(observed.exitCode).toBe(baseline.exitCode);
@@ -114,7 +113,16 @@ describe("Telemetry failure isolation", () => {
             expect(observed.lock).toBe(baseline.lock);
             expect(observed.native).toBe(baseline.native);
             expect(observed.results).toEqual(baseline.results);
-            if (behavior === "identity-failure") expect(capture.requests).toHaveLength(0);
+            if (behavior === "identity-failure") {
+              // Without an installation identity no usage event is sent, and a
+              // failure is still reported, without one.
+              expect(capture.requests.map(({ url }) => url.replace(/^.*\/v1\//u, "/v1/"))).toEqual(
+                fail ? ["/v1/errors"] : [],
+              );
+              for (const { body } of capture.requests) {
+                expect(body).not.toHaveProperty("installationId");
+              }
+            }
             if (behavior === "success") expect(capture.requests.length).toBeGreaterThanOrEqual(2);
             if (behavior === "reject" || behavior === "crash" || behavior === "stall") {
               expect(attempts).toBeGreaterThanOrEqual(2);

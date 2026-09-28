@@ -82,17 +82,18 @@ Repository administrators must also ensure the dependency graph, Dependabot
 alerts, and security updates are enabled. These are separate repository
 settings, not effects of writing the configuration.[^security]
 
-Readback on 2026-09-22 found alerts enabled and security updates disabled.
-Repository and organization Actions inventories contained no `RENOVATE_*`
-secrets or variables. The organization installation list contained no
-Renovate/Mend App; the repository had no matching Renovate branches, open PRs,
-or open dependency dashboard. This is a dated observation, not proof of
-current settings. No native update job or generated PR has yet been verified
-for this configuration.
+On 2026-09-28, readback confirmed vulnerability alerts and Dependabot security
+updates enabled after the grouped configuration merged through the queue.
+GitHub started native update jobs from that main revision, including the
+[npm job](https://github.com/agentxm/axm/actions/runs/36443579775).
+Repository and organization Actions inventories
+checked on 2026-09-22 contained no `RENOVATE_*` secrets or variables, and the
+organization installation list contained no Renovate/Mend App. That older
+inventory does not establish current settings.
 
-At integration, reconcile the required settings through their configuration
-owner, then read them back. Use GitHub's Dependabot update-job history to
-request a check, inspect errors, and link actual proposal evidence.[^jobs]
+For later configuration changes, read the repository settings back. Use
+GitHub's Dependabot update-job history to inspect errors and link proposal
+evidence.[^jobs]
 Verify catalog/lockfile updates and workflow/composite-action updates through
 ordinary CI; preserve SHA pins and manual exceptions in the resulting diffs.
 

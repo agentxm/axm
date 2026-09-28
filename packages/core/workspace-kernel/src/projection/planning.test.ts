@@ -11,13 +11,12 @@ import {
 } from "./planning.js";
 
 const completeGraph: DesiredStateGraph = {
-  complete: true,
   nodes: [],
   mcpSourceClosures: [],
   problems: [],
+  packMembership: [],
 };
 const incompleteGraph: DesiredStateGraph = {
-  complete: false,
   nodes: [],
   mcpSourceClosures: [],
   problems: [
@@ -25,6 +24,16 @@ const incompleteGraph: DesiredStateGraph = {
       type: "pack-manifest-unavailable",
       pack: "@acme/packs/missing",
       path: "agent_extensions/@acme/packs/missing/pack.json",
+      reason: "absent",
+    },
+  ],
+  packMembership: [
+    {
+      settingsName: "missing",
+      pack: "@acme/packs/missing",
+      enabled: true,
+      declared: { status: "unknown", reason: "absent" },
+      routes: "unknown",
     },
   ],
 };

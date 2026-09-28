@@ -25,10 +25,10 @@ const graph = (
   nodes: ReadonlyArray<DesiredExtensionNode>,
   problems: DesiredStateGraph["problems"] = [],
 ): DesiredStateGraph => ({
-  complete: problems.length === 0,
   nodes,
   mcpSourceClosures: [],
   problems,
+  packMembership: [],
 });
 
 type DesiredOrigin = DesiredExtensionNode["origins"][number];
@@ -377,6 +377,7 @@ describe("classifyTargetedUpdate", () => {
             type: "pack-manifest-unavailable",
             pack: "@acme/packs/toolkit",
             path: "/secret/workspace/pack.json",
+            reason: "absent",
           },
         ],
       ),
@@ -385,7 +386,7 @@ describe("classifyTargetedUpdate", () => {
 
     expect(context.public.blocker).toBe("incomplete-graph");
     expect(context.public.relevantProblems).toEqual([
-      "pack-manifest-unavailable: @acme/packs/toolkit: installed pack manifest is unavailable",
+      "pack-manifest-unavailable: @acme/packs/toolkit: installed pack manifest is absent",
     ]);
     expect(JSON.stringify(context.public)).not.toContain("/secret/workspace");
   });

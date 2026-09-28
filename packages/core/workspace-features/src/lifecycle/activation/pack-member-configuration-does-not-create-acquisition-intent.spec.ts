@@ -6,7 +6,7 @@ import { afterEach } from "vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
-import { DesiredStateReader } from "@agentxm/workspace-kernel/workspace-state";
+import { desiredStateSettled, DesiredStateReader } from "@agentxm/workspace-kernel/workspace-state";
 import { readSettings } from "../install/test-helpers.js";
 import {
   applyInstall,
@@ -228,7 +228,7 @@ describe("Pack-member configuration does not create acquisition intent", () => {
           // same transition rather than lingering as an unbound entry.
           expect(ruleEntry(workspace)).toBeUndefined();
           const graph = yield* (yield* DesiredStateReader).graph();
-          expect(graph.complete).toBe(true);
+          expect(desiredStateSettled(graph)).toBe(true);
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));
@@ -294,7 +294,7 @@ describe("Pack-member configuration does not create acquisition intent", () => {
           // The disabled Pack still supplies the member, so the preference is
           // bound and valid; it enables nothing the Pack no longer routes.
           expect(graph.problems).toEqual([]);
-          expect(graph.complete).toBe(true);
+          expect(desiredStateSettled(graph)).toBe(true);
           expect(graph.nodes.some((node) => node.type === "rule" && node.name === RULE)).toBe(
             false,
           );
@@ -317,7 +317,7 @@ describe("Pack-member configuration does not create acquisition intent", () => {
 
           const graph = yield* (yield* DesiredStateReader).graph();
 
-          expect(graph.complete).toBe(false);
+          expect(desiredStateSettled(graph)).toBe(false);
           expect(
             graph.problems.some(
               (problem) =>

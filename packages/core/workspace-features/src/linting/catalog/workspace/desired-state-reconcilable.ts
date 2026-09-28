@@ -3,6 +3,8 @@ import * as Result from "effect/Result";
 import {
   formatConstraintContributors,
   packManifestContentMismatchText,
+  packManifestInvalidText,
+  packManifestUnavailableText,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { canonicalObservationFactText } from "@agentxm/workspace-kernel/projection";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
@@ -21,34 +23,49 @@ export const desiredStateReconcilableRule: AdvisoryRule<WorkspaceRuleContext> = 
       if (context.health === undefined) return [];
       const graph = yield* Effect.result(context.health.desiredState);
       if (Result.isFailure(graph)) return [];
+      // Each finding carries the evaluation's own reason; it infers none.
+      const packFinding = (pack: string, observed: string): AdvisoryFinding => ({
+        kind: "advisory",
+        ruleId: RULE_ID,
+        severity: "error",
+        message: `Pack '${pack}' does not currently form a reconcilable desired-state route.${observed}`,
+        location: { file: "axm.json" },
+      });
+      const extensionFinding = (message: string): AdvisoryFinding => ({
+        kind: "advisory",
+        ruleId: RULE_ID,
+        severity: "error",
+        message,
+        location: { file: "axm.json" },
+      });
       const graphFindings = graph.success.problems.map((problem): AdvisoryFinding => {
-        if ("pack" in problem) {
-          const observed =
-            problem.type === "pack-manifest-content-mismatch"
-              ? ` ${packManifestContentMismatchText(problem)}.`
-              : "";
-          return {
-            kind: "advisory",
-            ruleId: RULE_ID,
-            severity: "error",
-            message: `Pack '${problem.pack}' does not currently form a reconcilable desired-state route.${observed}`,
-            location: { file: "axm.json" },
-          };
+        switch (problem.type) {
+          case "pack-manifest-content-mismatch":
+            return packFinding(problem.pack, ` ${packManifestContentMismatchText(problem)}.`);
+          case "pack-manifest-unavailable":
+            return packFinding(problem.pack, ` The ${packManifestUnavailableText(problem)}.`);
+          case "pack-manifest-invalid":
+            return packFinding(problem.pack, ` The ${packManifestInvalidText(problem)}.`);
+          case "pack-identity-mismatch":
+          case "pack-resolution-unavailable":
+            return packFinding(problem.pack, "");
+          case "workspace-owner-missing":
+            return extensionFinding(
+              `${problem.extensionType} '${problem.name}' uses source 'workspace', but axm.json does not declare an owner.`,
+            );
+          case "member-configuration-unbound":
+            return extensionFinding(
+              `${problem.extensionType} '${problem.name}' is configured in ${problem.location}, but no configured pack supplies it. Remove the entry, or declare a source to install it directly.`,
+            );
+          case "projection-collision":
+            return extensionFinding(
+              `${problem.extensionType} '${problem.name}' has competing desired identities: ${problem.identities.join(", ")}.`,
+            );
+          case "constraint-conflict":
+            return extensionFinding(
+              `${problem.extensionType} '${problem.name}' has incompatible constraints: ${formatConstraintContributors(problem.contributors)}. Decision=blocked; reason=no-satisfying-version.`,
+            );
         }
-        return {
-          kind: "advisory",
-          ruleId: RULE_ID,
-          severity: "error",
-          message:
-            problem.type === "workspace-owner-missing"
-              ? `${problem.extensionType} '${problem.name}' uses source 'workspace', but axm.json does not declare an owner.`
-              : problem.type === "member-configuration-unbound"
-                ? `${problem.extensionType} '${problem.name}' is configured in ${problem.location}, but no configured pack supplies it. Remove the entry, or declare a source to install it directly.`
-                : problem.type === "projection-collision"
-                  ? `${problem.extensionType} '${problem.name}' has competing desired identities: ${problem.identities.join(", ")}.`
-                  : `${problem.extensionType} '${problem.name}' has incompatible constraints: ${formatConstraintContributors(problem.contributors)}. Decision=blocked; reason=no-satisfying-version.`,
-          location: { file: "axm.json" },
-        };
       });
       const observed = yield* observationsReportedBy(context, RULE_ID);
       const observationFindings = observed.map(({ desired, observation }): AdvisoryFinding => ({

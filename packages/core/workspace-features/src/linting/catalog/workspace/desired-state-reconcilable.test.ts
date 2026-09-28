@@ -26,7 +26,7 @@ const makeContext = (
       axmDirExists: Effect.succeed(true),
       health: {
         desiredState: Effect.succeed({
-          complete: true,
+          packMembership: [],
           nodes: [desired],
           mcpSourceClosures: [],
           problems: [],

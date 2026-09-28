@@ -80,7 +80,7 @@ const desiredStateContext = (observation: CanonicalObservation) =>
           ...context,
           health: {
             desiredState: Effect.succeed({
-              complete: true,
+              packMembership: [],
               nodes: [desiredSkill],
               mcpSourceClosures: [],
               problems: [],

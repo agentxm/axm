@@ -5933,6 +5933,32 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Derived from: `docs/architecture/workspace/invariants.md`
 - Source: [`packages/core/workspace-kernel/src/workspace-state/workspace/effective-constraint-has-one-owner.spec.ts`](../packages/core/workspace-kernel/src/workspace-state/workspace/effective-constraint-has-one-owner.spec.ts)
 
+##### Equivalent declarations evaluate to one desired state
+
+- Requirement: `workspace/desired-state/evaluation-is-deterministic`
+- Owner: `workspace-kernel`
+- Statement: For equivalent settings, Registry bindings, accepted resolutions, and Pack documents, desired-state evaluation shall settle the same nodes, closures, problems, membership knowledge, and semantic identity regardless of the order declarations are enumerated in, and a difference confined to diagnostic wording shall not change that identity.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/sync/no-op-convergence-validates-current-observation`, `workspace/desired-state/effective-constraint-has-one-owner`
+- Source: [`packages/core/workspace-kernel/src/workspace-state/workspace/evaluation-is-deterministic.spec.ts`](../packages/core/workspace-kernel/src/workspace-state/workspace/evaluation-is-deterministic.spec.ts)
+
+##### Unknown Pack membership never proves an extension absent
+
+- Requirement: `workspace/desired-state/uncertainty-never-proves-absence`
+- Owner: `workspace-kernel`
+- Statement: When a configured Pack's document is absent, unreadable, malformed, or schema-invalid, or its accepted resolution cannot authorize its routes, the desired state shall record that Pack's membership or routes as unresolved with its distinct reason and shall answer every question about an extension's absence as unknown rather than not reached, while a valid empty manifest, a disabled Pack, an identity collision, and a constraint conflict shall each prove exactly what they declare.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `workspace-inventory/leftover-follows-desired-state-reachability`, `workspace/desired-state/effective-constraint-has-one-owner`, `cli/pack-member-configuration-does-not-create-acquisition-intent`
+- Source: [`packages/core/workspace-kernel/src/workspace-state/workspace/uncertainty-never-proves-absence.spec.ts`](../packages/core/workspace-kernel/src/workspace-state/workspace/uncertainty-never-proves-absence.spec.ts)
+
 #### Quality
 
 ##### MCP secrets stay in a per-connection credential namespace and out of workspace files

@@ -34,11 +34,22 @@ const node = (
   origins: [{ type: "settings", source: `agentxm:@acme/skills/${name}@^1.0.0`, enabled: true }],
 });
 
-const graph = (nodes: ReadonlyArray<DesiredExtensionNode>, complete = true): DesiredStateGraph => ({
-  complete,
+const graph = (nodes: ReadonlyArray<DesiredExtensionNode>, settled = true): DesiredStateGraph => ({
   nodes,
   mcpSourceClosures: [],
   problems: [],
+  // An unsettled graph has an active Pack whose membership is unknown.
+  packMembership: settled
+    ? []
+    : [
+        {
+          settingsName: "missing",
+          pack: "@acme/packs/missing",
+          enabled: true,
+          declared: { status: "unknown", reason: "absent" },
+          routes: "unknown",
+        },
+      ],
 });
 
 const noLocks = {

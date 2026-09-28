@@ -19,9 +19,9 @@ const node = (type: ExtensionType, name: string, enabled: boolean): DesiredExten
 });
 
 const graph: DesiredStateGraph = {
-  complete: true,
   problems: [],
   mcpSourceClosures: [],
+  packMembership: [],
   nodes: [
     node("skill", "alpha", true),
     node("skill", "retired", false),

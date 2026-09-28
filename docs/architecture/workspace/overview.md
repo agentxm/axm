@@ -195,8 +195,17 @@ uses its accepted content. Re-enabling a Pack realizes its resulting dependency
 graph, including acquiring members that were retired.
 
 Removing one route to an extension does not remove it while another desired
-route still reaches it. Cleanup that depends on knowing the complete desired
-graph waits until that graph can be resolved completely.
+route still reaches it. Desired state is evaluated from one explicit input
+view — the selected and inherited settings, the accepted resolutions, and one
+observation of each configured Pack document — and records what it knows about
+each Pack's membership separately from the problems it found. An absent,
+unreadable, malformed, or schema-invalid Pack document leaves that Pack's
+membership unknown; an accepted resolution that cannot authorize a readable
+manifest leaves its routes withheld while its membership stays known. Unknown
+membership never proves an extension absent: cleanup and retirement that
+depend on knowing every desired route wait while any active Pack's routes are
+unresolved, and a problem confined to one identified extension blocks that
+extension's closure alone.
 
 Registry packs depend on registry extension identities and version constraints.
 A local copy of a registry pack contributes dependency meaning only when its

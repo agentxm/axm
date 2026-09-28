@@ -26,8 +26,8 @@ const catalog = WorkspaceCatalogTest({
   ],
   defaultRegistry: "company",
   desiredExtensionGraph: {
-    complete: true,
     problems: [],
+    packMembership: [],
     nodes: [
       {
         type: "mcp-server",

@@ -32,6 +32,8 @@ import {
 } from "./participants.js";
 import {
   acceptedResolutionRef,
+  contributorSetBlockers,
+  contributorSetComplete,
   DesiredStateReader,
   LockfileReader,
   resolveWorkspaceExtensionRef,
@@ -293,8 +295,11 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
           observedGraph === undefined
             ? yield* Effect.result(desiredState.graph())
             : Result.succeed(observedGraph);
+        // Subagent facts need the complete subagent contributor set, not a
+        // settled graph: a problem about another type does not hide them.
         const completeGraph =
-          Result.isSuccess(graph) && graph.success.complete
+          Result.isSuccess(graph) &&
+          contributorSetComplete(contributorSetBlockers(graph.success, "subagent"))
             ? Option.some(graph.success)
             : Option.none();
         if (Option.isSome(completeGraph) && Option.isSome(participants.subagents)) {

@@ -3,6 +3,8 @@ import {
   type DesiredStateGraph,
   type DesiredStateProblem,
   acquiredRootDisplayPath,
+  desiredProblemSubject,
+  desiredStateProblemText,
   lockfileDisplayPath,
   settingsDisplayPath,
 } from "@agentxm/workspace-kernel/workspace-state";
@@ -16,7 +18,7 @@ export const PACK_UNINSTALL_GRAPH_BLOCKER_ID =
 export const packUninstallRecoveryIdentifiers = [PACK_UNINSTALL_GRAPH_BLOCKER_ID] as const;
 
 export interface PackUninstallGraphBlockerFact {
-  readonly problemType: DesiredStateProblem["type"] | "unknown";
+  readonly problemType: DesiredStateProblem["type"];
   readonly packs: ReadonlyArray<string>;
   readonly member?: { readonly type: string; readonly name: string };
   readonly authoritativeLocations: ReadonlyArray<string>;
@@ -27,9 +29,10 @@ export interface PackUninstallGraphBlockerFact {
 export type PackRetirementReason = "missing" | "invalid";
 
 /**
- * A selected Pack whose own package manifest is unreadable. Its registration is
- * removable from positive evidence about the Pack itself; its content is not,
- * because nothing about that content can be verified.
+ * A selected Pack whose own package manifest is confirmed absent or
+ * undecodable. Its registration is removable from positive evidence about
+ * the Pack itself; its content is not, because nothing about that content
+ * can be verified. A manifest an I/O failure hid is neither, and blocks.
  */
 export interface PackRetirement {
   readonly pack: string;
@@ -54,26 +57,19 @@ const normalizedPack = (identity: string): string =>
   identity.startsWith("workspace:") ? identity.slice("workspace:".length) : identity;
 
 /**
- * Problems the lock pass emits for a Pack as a consequence of its unreadable
- * manifest. They add no information the gate does not already have from the
- * primary problem, so they never block on their own account.
- */
-const isCompanionProblem = (problem: DesiredStateProblem): boolean =>
-  problem.type === "pack-manifest-content-mismatch" ||
-  problem.type === "pack-resolution-unavailable";
-
-/**
  * Classify the selected Packs' own problems into retirements, or report that
- * some selected Pack disagrees with the workspace in a way absence cannot
- * explain. Readable-but-disagreeing state is drift, and stays blocked.
+ * some selected Pack disagrees with the workspace in a way confirmed absence
+ * cannot explain. A document an I/O failure hid, and readable-but-disagreeing
+ * state, are drift, and stay blocked.
  */
 const retirementsFor = (
   problems: ReadonlyArray<DesiredStateProblem>,
 ): ReadonlyArray<PackRetirement> | undefined => {
   const problemsByPack = new Map<string, Array<DesiredStateProblem>>();
   for (const problem of problems) {
-    if (!("pack" in problem)) return undefined;
-    const pack = normalizedPack(problem.pack);
+    const subject = desiredProblemSubject(problem);
+    if (subject.kind !== "pack") return undefined;
+    const pack = normalizedPack(subject.pack);
     const existing = problemsByPack.get(pack);
     if (existing === undefined) problemsByPack.set(pack, [problem]);
     else existing.push(problem);
@@ -83,7 +79,7 @@ const retirementsFor = (
   for (const [pack, packProblems] of problemsByPack) {
     let unreadable: Omit<PackRetirement, "pack"> | undefined;
     for (const problem of packProblems) {
-      if (problem.type === "pack-manifest-unavailable") {
+      if (problem.type === "pack-manifest-unavailable" && problem.reason === "absent") {
         unreadable ??= { manifestPath: problem.path, reason: "missing" };
         continue;
       }
@@ -91,7 +87,6 @@ const retirementsFor = (
         unreadable ??= { manifestPath: problem.path, reason: "invalid" };
         continue;
       }
-      if (isCompanionProblem(problem)) continue;
       return undefined;
     }
     if (unreadable === undefined) return undefined;
@@ -104,8 +99,9 @@ const locationsFor = (
   problem: DesiredStateProblem,
   scope: WorkspaceScope,
 ): ReadonlyArray<string> => {
-  if ("path" in problem && problem.path !== undefined) return [problem.path];
-  if ("pack" in problem) return [settingsDisplayPath(scope), lockfileDisplayPath(scope)];
+  if ("path" in problem && problem.path !== "") return [problem.path];
+  if (desiredProblemSubject(problem).kind === "pack")
+    return [settingsDisplayPath(scope), lockfileDisplayPath(scope)];
   return [settingsDisplayPath(scope), `${acquiredRootDisplayPath(scope)}/*/packs/*/pack.json`];
 };
 
@@ -114,27 +110,20 @@ const factFor = (
   selectedPacks: ReadonlyArray<string>,
   scope: WorkspaceScope,
 ): PackUninstallGraphBlockerFact => {
+  const about = desiredProblemSubject(problem);
   const packs =
-    "pack" in problem ? [normalizedPack(problem.pack)] : selectedPacks.map(normalizedPack);
+    about.kind === "pack" ? [normalizedPack(about.pack)] : selectedPacks.map(normalizedPack);
   const authoritativeLocations = locationsFor(problem, scope);
-  const member =
-    "extensionType" in problem ? { type: problem.extensionType, name: problem.name } : undefined;
+  const member = about.kind === "extension" ? { type: about.type, name: about.name } : undefined;
   const subject =
     member === undefined ? `Pack ${packs.join(", ")}` : `${member.type} member ${member.name}`;
-  const problemDetail =
-    "detail" in problem
-      ? problem.detail
-      : "constraints" in problem
-        ? `constraints ${problem.constraints.join(", ")}`
-        : "identities" in problem
-          ? `identities ${problem.identities.join(", ")}`
-          : problem.type;
+  // The fact carries the evaluation's own sentence for the problem.
   return {
     problemType: problem.type,
     packs,
     ...(member === undefined ? {} : { member }),
     authoritativeLocations,
-    detail: `${subject}: ${problem.type} (${problemDetail}); authoritative location${authoritativeLocations.length === 1 ? "" : "s"}: ${authoritativeLocations.join(", ")}`,
+    detail: `${subject}: ${problem.type} (${desiredStateProblemText(problem)}); authoritative location${authoritativeLocations.length === 1 ? "" : "s"}: ${authoritativeLocations.join(", ")}`,
   };
 };
 
@@ -160,7 +149,8 @@ export const planPackUninstallGraphReadiness = (
   const foreign: Array<DesiredStateProblem> = [];
   const own: Array<DesiredStateProblem> = [];
   for (const problem of decision.problems) {
-    if ("pack" in problem && selected.has(normalizedPack(problem.pack))) own.push(problem);
+    const subject = desiredProblemSubject(problem);
+    if (subject.kind === "pack" && selected.has(normalizedPack(subject.pack))) own.push(problem);
     else foreign.push(problem);
   }
 
@@ -169,20 +159,13 @@ export const planPackUninstallGraphReadiness = (
     if (retirements !== undefined) return { readiness: "ready", graph, retirements };
   }
 
-  const facts =
-    decision.problems.length === 0
-      ? [
-          {
-            problemType: "unknown" as const,
-            packs: selectedPacks.map(normalizedPack),
-            authoritativeLocations: [settingsDisplayPath(scope), lockfileDisplayPath(scope)],
-            detail: `Pack ${selectedPacks.map(normalizedPack).join(", ")}: desired-state graph is incomplete; authoritative locations: ${settingsDisplayPath(scope)}, ${lockfileDisplayPath(scope)}`,
-          },
-        ]
-      : decision.problems.map((problem) => factFor(problem, selectedPacks, scope));
+  const facts = decision.problems.map((problem) => factFor(problem, selectedPacks, scope));
   const foreignPacks = [
     ...new Set(
-      foreign.flatMap((problem) => ("pack" in problem ? [normalizedPack(problem.pack)] : [])),
+      foreign.flatMap((problem) => {
+        const subject = desiredProblemSubject(problem);
+        return subject.kind === "pack" ? [normalizedPack(subject.pack)] : [];
+      }),
     ),
   ];
   const remedy =

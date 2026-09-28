@@ -33,7 +33,7 @@ const contextFor = (
       axmDirExists: Effect.succeed(state.existingPaths.has(".axm")),
       health: {
         desiredState: Effect.succeed({
-          complete: true,
+          packMembership: [],
           nodes,
           mcpSourceClosures: [],
           problems: [],

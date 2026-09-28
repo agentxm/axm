@@ -29,6 +29,7 @@ import {
 } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import {
+  desiredStateProblemText,
   acceptedCanonicalObservation,
   DesiredStateReader,
   LockfileReader,
@@ -240,8 +241,8 @@ export const ShowPack = {
             : "missing",
       canonicalStatus: Option.isSome(canonical) ? canonical.value.observation.status : "missing",
       desiredDependencies,
-      problems: graph.problems.map((problem) =>
-        "detail" in problem ? `${problem.type}: ${problem.detail}` : problem.type,
+      problems: graph.problems.map(
+        (problem) => `${problem.type}: ${desiredStateProblemText(problem)}`,
       ),
     } satisfies PackShowResult;
   }),

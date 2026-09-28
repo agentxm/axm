@@ -150,8 +150,8 @@ describe("resolveIdentifier", () => {
         }),
         {
           nodes: {
-            complete: true,
             problems: [],
+            packMembership: [],
             nodes: [desiredNode("skill", "localKey", "agentxm:@acme/skills/code-review")],
           },
         },
@@ -173,8 +173,8 @@ describe("resolveIdentifier", () => {
           }),
           {
             nodes: {
-              complete: true,
               problems: [],
+              packMembership: [],
               nodes: [
                 desiredNode("skill", "acmeReview", "@acme/skills/code-review"),
                 desiredNode("skill", "otherReview", "@other/skills/code-review"),
@@ -209,8 +209,8 @@ describe("resolveIdentifier", () => {
         // sees only the desired graph, so the stale receipt cannot leak in.
         {
           nodes: {
-            complete: true,
             problems: [],
+            packMembership: [],
             nodes: [desiredNode("skill", "codeReview", "@current/skills/code-review")],
           },
         },
@@ -249,8 +249,8 @@ describe("resolveIdentifier", () => {
         }),
         {
           nodes: {
-            complete: true,
             problems: [],
+            packMembership: [],
             nodes: [desiredNode("skill", "codeReview", "@installed/skills/code-review")],
           },
         },
@@ -286,8 +286,8 @@ describe("resolveIdentifier", () => {
  * identifier resolution exhaustive when a new catalog type is introduced.
  */
 const desiredGraphFor = (type: CatalogExtensionType) => ({
-  complete: true,
   problems: [],
+  packMembership: [],
   nodes: [desiredNode(type, "installed", `@acme/${toExtensionTypePlural(type)}/shared`)],
 });
 

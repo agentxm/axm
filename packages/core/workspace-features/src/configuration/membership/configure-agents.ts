@@ -52,6 +52,8 @@ import {
   resolveInstructionsConfig,
 } from "@agentxm/workspace-kernel/projection";
 import {
+  unresolvedPackRoutes,
+  unresolvedPackRoutesText,
   ConfiguredAgentOutcomesProvider,
   DesiredStateReader,
   LockfileReader,
@@ -491,10 +493,13 @@ export const prepareRemoveConfiguredAgents = (
     }
 
     const graph = yield* desiredState.graph();
-    if (!graph.complete) {
+    // Cleaning a departing agent's projections removes what the graph does
+    // not expect, so every active Pack's membership must be known.
+    const unresolved = unresolvedPackRoutes(graph);
+    if (unresolved.length > 0) {
       return yield* new WorkspaceConfigurationFailed({
         category: "validation",
-        detail: "Cannot safely clean agent projections while desired workspace state is incomplete",
+        detail: `Cannot safely clean agent projections while a configured Pack's routes are unresolved: ${unresolvedPackRoutesText(unresolved)}`,
         suggestions: [{ description: "Inspect workspace facts.", cmd: "axm lint" }],
       });
     }

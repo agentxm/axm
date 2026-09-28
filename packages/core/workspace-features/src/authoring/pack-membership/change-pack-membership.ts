@@ -48,6 +48,7 @@ import {
   type ExecutionCandidate,
 } from "@agentxm/workspace-kernel/planning";
 import {
+  problemsAffectingPack,
   DesiredStateReader,
   SettingsReader,
   WorkspaceLocation,
@@ -361,9 +362,7 @@ const additions = Effect.fn("ChangePackMembership.additions")(function* (args: {
     type: "pack",
     name: decodeExtensionNameSync(args.pack),
   });
-  const targetPackProblems = graph.problems.filter(
-    (problem) => "pack" in problem && problem.pack === packFqn,
-  );
+  const targetPackProblems = problemsAffectingPack(graph, packFqn);
   if (targetPackProblems.length > 0) return yield* new PackGraphInvalid({ packFqn });
 
   const requestedFqn = parseExtensionFqnParts(args.request.selector);

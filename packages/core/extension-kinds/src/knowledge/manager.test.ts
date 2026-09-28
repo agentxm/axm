@@ -138,7 +138,7 @@ const desiredHandbookReadFacts = (
     },
   })),
   graph: {
-    complete: true,
+    packMembership: [],
     nodes: [
       {
         type: "knowledge",
@@ -250,7 +250,7 @@ describe("KnowledgeManager", () => {
               read: {
                 settings: { knowledge: { handbook: { source: "workspace", enabled: true } } },
                 graph: {
-                  complete: true,
+                  packMembership: [],
                   mcpSourceClosures: [],
                   nodes: [
                     {
@@ -436,7 +436,6 @@ describe("KnowledgeManager", () => {
               managerLayer(workspaceRoot, {
                 read: {
                   graph: {
-                    complete: false,
                     nodes: [],
                     mcpSourceClosures: [],
                     problems: [
@@ -444,6 +443,15 @@ describe("KnowledgeManager", () => {
                         type: "pack-resolution-unavailable",
                         pack: "still-unresolved",
                         detail: "accepted resolution is missing",
+                      },
+                    ],
+                    packMembership: [
+                      {
+                        settingsName: "still-unresolved",
+                        pack: "still-unresolved",
+                        enabled: true,
+                        declared: { status: "known", members: [] },
+                        routes: "unauthorized",
                       },
                     ],
                   },
@@ -493,7 +501,7 @@ describe("KnowledgeManager", () => {
               managerLayer(workspaceRoot, {
                 read: {
                   graph: {
-                    complete: true,
+                    packMembership: [],
                     mcpSourceClosures: [],
                     nodes: [
                       {
@@ -754,7 +762,7 @@ describe("KnowledgeManager", () => {
               },
               lockfile: { lockfileVersion: 8, skills: {}, knowledge: locked },
               graph: {
-                complete: true,
+                packMembership: [],
                 nodes: ["healthy", "unavailable"].map((name) => ({
                   type: "knowledge" as const,
                   name,

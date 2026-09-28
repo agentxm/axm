@@ -35,8 +35,35 @@ describe("desiredStateProblemText", () => {
       type: "pack-manifest-unavailable",
       pack: "@acme/packs/missing",
       path: "/secret/workspace/agent_extensions/registry/@acme/packs/missing/pack.json",
+      reason: "absent",
     });
-    expect(text).toBe("@acme/packs/missing: installed pack manifest is unavailable");
+    expect(text).toBe("@acme/packs/missing: installed pack manifest is absent");
     expect(text).not.toContain("/secret/workspace");
+  });
+
+  it("names the I/O failure that hid a Pack manifest without claiming absence", () => {
+    expect(
+      desiredStateProblemText({
+        type: "pack-manifest-unavailable",
+        pack: "@acme/packs/locked",
+        path: "/secret/workspace/agent_extensions/registry/@acme/packs/locked/pack.json",
+        reason: "unreadable",
+        cause: "PermissionDenied",
+      }),
+    ).toBe("@acme/packs/locked: installed pack manifest is unreadable (PermissionDenied)");
+  });
+
+  it("names each schema violation's path but never the value found there", () => {
+    expect(
+      desiredStateProblemText({
+        type: "pack-manifest-invalid",
+        pack: "@acme/packs/broken",
+        path: "/secret/workspace/agent_extensions/registry/@acme/packs/broken/pack.json",
+        reason: "schema-invalid",
+        issues: [{ path: "dependencies.@acme/skills/review", message: "Expected string" }],
+      }),
+    ).toBe(
+      "@acme/packs/broken: installed pack manifest does not match the schema (dependencies.@acme/skills/review: Expected string)",
+    );
   });
 });

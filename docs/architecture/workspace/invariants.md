@@ -141,7 +141,8 @@ Facts and operational blockers identify their semantic mutation closure. A
 command is blocked only by state relevant to the selected closure. Global sync
 applies every ready independent closure automatically, leaves blocked closures
 unwritten, and continues after a handled failure in another closure. Cleanup
-that depends on a complete graph is a separate maintenance closure.
+that depends on every desired route being known is a separate maintenance
+closure, and unknown Pack membership never proves an extension absent.
 
 ## Recovery ownership
 

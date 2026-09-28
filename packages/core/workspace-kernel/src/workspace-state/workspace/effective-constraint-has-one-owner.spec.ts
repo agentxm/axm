@@ -6,7 +6,11 @@ import { describe, expect, it } from "@effect/vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { effectiveDesiredConstraint, type DesiredEffectiveConstraint } from "../index.js";
+import {
+  desiredStateSettled,
+  effectiveDesiredConstraint,
+  type DesiredEffectiveConstraint,
+} from "../index.js";
 import {
   DISABLED_MCP,
   SHARED_MEMBER,
@@ -89,7 +93,7 @@ describe("The effective constraint has one owner", () => {
           ...packContributors,
         ]);
         // The graph reports the same blocker the query returns, once.
-        expect(graph.complete).toBe(false);
+        expect(desiredStateSettled(graph)).toBe(false);
         expect(graph.problems.filter((problem) => problem.type === "constraint-conflict")).toEqual([
           effective.failure,
         ]);

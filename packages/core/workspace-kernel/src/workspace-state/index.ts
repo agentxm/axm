@@ -89,10 +89,12 @@ export { sanitizeName, normalizeExtensionName } from "./workspace/extension-name
 export { computePackPathsForLayout, type PackDirPath } from "./workspace/pack-paths.js";
 export { computePackManifestContentIdentity } from "./workspace/pack-manifest-content-identity.js";
 export {
+  decodePackManifestDocument,
   observePackManifest,
   PackManifests,
   type LocatedPackManifest,
   type PackManifestObservation,
+  type PackManifestSchemaIssue,
   type PackManifestsPort,
 } from "./workspace/pack-manifests.js";
 export {
@@ -184,7 +186,6 @@ export {
 } from "./observed/records.js";
 
 export {
-  buildDesiredStateGraph,
   effectiveDesiredConstraint,
   settleDesiredConstraint,
   settleDesiredNodeConstraint,
@@ -199,10 +200,41 @@ export {
   type DesiredConstraintContributor,
   type DesiredConstraintProposal,
   type DesiredEffectiveConstraint,
+  type DesiredMemberSubject,
+  type DesiredMembershipUnknownReason,
+  type DesiredPackMembership,
+  type DesiredPackRoutes,
   type DesiredStateGraph,
   type DesiredStateProblem,
   type ProspectivePackRef,
 } from "./workspace/desired-state-graph.js";
+// The explicit input view an evaluation derives from, and the pure evaluation.
+export {
+  type DesiredEvaluationInputs,
+  type DesiredInputRead,
+  type DesiredInputRole,
+  type ObservedPackDocument,
+  type PackDocumentProvenance,
+} from "./workspace/desired-evaluation-inputs.js";
+export { evaluateDesiredState } from "./workspace/desired-state-evaluation.js";
+// Evidence-bearing queries over one evaluation.
+export {
+  contributorSetBlockers,
+  contributorSetComplete,
+  desiredMembershipKnown,
+  desiredProblemSubject,
+  desiredReachability,
+  desiredStateIdentity,
+  desiredStateSettled,
+  problemsAffectingPack,
+  problemsAffectingSubject,
+  problemsAffectingType,
+  unresolvedPackRoutes,
+  unresolvedPackRoutesText,
+  type DesiredContributorBlockers,
+  type DesiredProblemSubject,
+  type DesiredReachability,
+} from "./workspace/desired-state-queries.js";
 // Whether desired state reaches an accepted lock row.
 export {
   acceptedRowKey,
@@ -237,10 +269,12 @@ export {
   desiredStateProblemsText,
   formatConstraintContributors,
   packManifestContentMismatchText,
+  packManifestInvalidText,
+  packManifestUnavailableText,
 } from "./workspace/desired-state-problem-text.js";
 export {
-  validateDesiredPackLock,
-  type DesiredPackLockValidation,
+  authorizeExternalPackRoutes,
+  type ExternalPackRouteAuthorization,
 } from "./workspace/desired-pack-lock.js";
 export {
   observeCanonicalExtension,
@@ -369,9 +403,12 @@ export {
 export { LockfileReader, type LockfileReaderService } from "./workspace/lockfile-reader.js";
 export { readOtherScopeState, type OtherScopeState } from "./workspace/other-scope-reader.js";
 export {
+  captureDesiredStateInputs,
   DesiredStateReader,
+  type CaptureDesiredStateInputsArgs,
+  type DesiredStateCandidateInputs,
+  type DesiredStateEvaluation,
   type DesiredStateReaderService,
-  type DesiredStateGraphInputs,
 } from "./workspace/desired-state-reader.js";
 export { WorkspaceRecords, type WorkspaceRecordsService } from "./workspace/workspace-records.js";
 export { ExtensionPaths, type ExtensionPathsService } from "./workspace/extension-paths-service.js";

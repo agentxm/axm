@@ -13,7 +13,7 @@
  */
 
 import type * as Config from "effect/Config";
-import type { DesiredNodeIdentity } from "../workspace-state/index.js";
+import type { DesiredNodeIdentity, DesiredPackMembership } from "../workspace-state/index.js";
 import type * as Effect from "effect/Effect";
 import * as Data from "effect/Data";
 import * as ServiceMap from "effect/Context";
@@ -52,10 +52,11 @@ export interface DesiredExtensionNodeView {
 }
 
 export interface DesiredExtensionGraphView {
-  readonly complete: boolean;
   readonly nodes: ReadonlyArray<DesiredExtensionNodeView>;
-  /** The kind of every fact that leaves the graph incomplete. */
+  /** The kind of every fact the evaluation reported. */
   readonly problems: ReadonlyArray<{ readonly type: string }>;
+  /** What the evaluation knows about each configured Pack's routes. */
+  readonly packMembership: ReadonlyArray<DesiredPackMembership>;
 }
 
 /**

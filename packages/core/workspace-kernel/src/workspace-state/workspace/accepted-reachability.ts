@@ -53,9 +53,20 @@ export const desiredNodeReachesRow = (
 /**
  * Whether any desired node reaches the accepted row. Only desired state
  * creates reachability: a row nothing desires, or that a workspace-authored
- * declaration shadows, is unreached and is retirement's to remove.
+ * declaration shadows, is unreached and is retirement's to remove. Every
+ * contender in an identity collision counts as desired, so the row of a
+ * contender the graph did not represent is never read as unreached.
  */
 export const desiredReachesAcceptedRow = (
-  graph: Pick<DesiredStateGraph, "nodes">,
+  graph: Pick<DesiredStateGraph, "nodes" | "problems">,
   row: AcceptedRowRef,
-): boolean => graph.nodes.some((node) => desiredNodeReachesRow(node, row));
+): boolean =>
+  graph.nodes.some((node) => desiredNodeReachesRow(node, row)) ||
+  graph.problems.some(
+    (problem) =>
+      problem.type === "projection-collision" &&
+      problem.extensionType === row.type &&
+      problem.identities.some((identity) =>
+        desiredNodeReachesRow({ type: row.type, name: problem.name, identity }, row),
+      ),
+  );

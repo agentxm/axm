@@ -94,7 +94,7 @@ const contextObserving = (observations: ReadonlyArray<ReturnType<typeof observed
         ...context,
         health: {
           desiredState: Effect.succeed({
-            complete: true,
+            packMembership: [],
             nodes: observations.map(({ desired }) => desired),
             mcpSourceClosures: [],
             problems: [],

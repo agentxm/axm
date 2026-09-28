@@ -95,6 +95,9 @@ import {
   type ExecutionCandidate,
 } from "@agentxm/workspace-kernel/planning";
 import {
+  problemsAffectingSubject,
+  unresolvedPackRoutes,
+  unresolvedPackRoutesText,
   acceptedCanonicalObservation,
   desiredPackageKey,
   desiredStateProblemsText,
@@ -298,16 +301,33 @@ const findNode = (
 ): DesiredExtensionNode | undefined =>
   graph.nodes.find((node) => node.type === type && node.name === name);
 
-const requireCompleteProposal = (proposal: {
-  readonly before: DesiredStateGraph;
-  readonly after: DesiredStateGraph;
-}) =>
-  proposal.before.complete && proposal.after.complete
-    ? Effect.void
-    : new ExtensionLifecycleFailed({
-        category: "conflict",
-        detail: "Activation requires complete desired state",
-      });
+/**
+ * A leaf activation is decidable when every active Pack's routes are
+ * established and nothing is wrong with the subject itself. A problem about
+ * an unrelated extension does not block it.
+ */
+const requireDecidableProposal = (
+  proposal: {
+    readonly before: DesiredStateGraph;
+    readonly after: DesiredStateGraph;
+  },
+  subject: { readonly type: ExtensionType; readonly name: string },
+) => {
+  const routes = unresolvedPackRoutes(proposal.after);
+  const problems = [
+    ...problemsAffectingSubject(proposal.before, subject),
+    ...problemsAffectingSubject(proposal.after, subject),
+  ];
+  if (routes.length === 0 && problems.length === 0) return Effect.void;
+  return new ExtensionLifecycleFailed({
+    category: "conflict",
+    detail: `Activation of ${subject.type} ${subject.name} requires decidable desired state: ${[
+      ...(routes.length === 0 ? [] : [unresolvedPackRoutesText(routes)]),
+      ...(problems.length === 0 ? [] : [desiredStateProblemsText(problems)]),
+    ].join("; ")}`,
+    suggestions: [{ description: "Inspect workspace facts", cmd: "axm lint" }],
+  });
+};
 
 /** Every distinct target, first mention wins. */
 const distinctTargets = (
@@ -451,7 +471,7 @@ const settleLeaf = (request: SetActivationRequest, adapter: StepFailureConversio
           }),
       ),
     );
-    yield* requireCompleteProposal(proposal);
+    yield* requireDecidableProposal(proposal, { type: request.type, name });
     // Enabling an MCP server always re-projects it, so an agent whose native
     // entry drifted is brought back even when desired state already agrees.
     const reprojects = request.type === "mcp-server" && request.enabled;
@@ -563,10 +583,18 @@ const settlePack = (request: SetActivationRequest, adapter: StepFailureConversio
           }),
       ),
     );
-    if (!proposal.before.complete) {
+    // Every other active Pack's routes must be established, and enabling
+    // this Pack needs its own membership known; disabling it never does.
+    const unresolved = [
+      ...unresolvedPackRoutes(proposal.before).filter(
+        (membership) => membership.settingsName !== request.name,
+      ),
+      ...unresolvedPackRoutes(proposal.after),
+    ];
+    if (unresolved.length > 0) {
       return yield* new ExtensionLifecycleFailed({
         category: "conflict",
-        detail: `Cannot ${request.enabled ? "enable" : "disable"} the pack while desired state is unresolved`,
+        detail: `Cannot ${request.enabled ? "enable" : "disable"} the pack while desired state is unresolved: ${unresolvedPackRoutesText(unresolved)}`,
         suggestions: [{ description: "Inspect workspace facts", cmd: "axm lint" }],
       });
     }

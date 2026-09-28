@@ -125,7 +125,7 @@ const packRuleNode = (name: string, pack: string): DesiredExtensionNode => ({
 });
 
 const completeGraph = (nodes: ReadonlyArray<DesiredExtensionNode>): DesiredStateGraph => ({
-  complete: true,
+  packMembership: [],
   nodes,
   mcpSourceClosures: [],
   problems: [],
@@ -390,7 +390,6 @@ describe("RuleManager graph-derived region projection", () => {
     nodeFs.writeFileSync(instructionsPath(), "# Project\n");
     const layer = makeTestLayer({
       graph: {
-        complete: false,
         nodes: [packRuleNode("pack-a-rule", "pack-a")],
         mcpSourceClosures: [],
         problems: [
@@ -398,6 +397,16 @@ describe("RuleManager graph-derived region projection", () => {
             type: "pack-manifest-unavailable",
             pack: `${OWNER}/packs/pack-a`,
             path: "agent_extensions/registry/@acme/packs/pack-a/pack.json",
+            reason: "absent",
+          },
+        ],
+        packMembership: [
+          {
+            settingsName: "pack-a",
+            pack: `${OWNER}/packs/pack-a`,
+            enabled: true,
+            declared: { status: "unknown", reason: "absent" },
+            routes: "unknown",
           },
         ],
       },

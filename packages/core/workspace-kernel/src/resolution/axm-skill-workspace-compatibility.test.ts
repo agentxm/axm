@@ -125,6 +125,30 @@ describe("selectOfficialAxmSkill", () => {
     ).toEqual(Option.none());
   });
 
+  it("selects the official skill a Pack desires, with or without a configuration-only entry", () => {
+    const viaPack: DesiredExtensionNode = {
+      ...official,
+      origins: [
+        {
+          type: "pack",
+          pack: { authority: "registry", fqn: "@acme/packs/reviews" },
+          manifestPath: "/workspace/agent_extensions/registry/@acme/packs/reviews/pack.json",
+          source: REGISTRY_SOURCE,
+          constraint: "^1.2.0",
+          enabled: true,
+        },
+      ],
+    };
+    const configuredMember: DesiredExtensionNode = {
+      ...viaPack,
+      preference: { localName: "axm", location: "axm.json", enabled: true },
+    };
+    for (const desired of [viaPack, configuredMember]) {
+      const row = observed(desired, "usable", "/canonical");
+      expect(selectOfficialAxmSkill([row])).toEqual(Option.some({ ...row, authority: "registry" }));
+    }
+  });
+
   it("maps the desired identity to the recovery authority", () => {
     const authorities = [
       registry("@agentxm/skills/axm"),

@@ -3593,7 +3593,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/lint/undeclared-official-skill-is-informational`
 - Owner: `workspace-features`
-- Statement: When the workspace does not declare the official AXM skill, lint shall report one informational finding for the declared-skill rule, shall report no compatibility finding, and shall succeed.
+- Statement: When the workspace does not declare the official AXM skill, lint shall report one informational finding for the declared-skill rule, shall report no compatibility finding or compatibility result, and shall succeed; official-skill content that happens to be on disk, or another owner's skill named axm, shall not change that.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`

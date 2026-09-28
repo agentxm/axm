@@ -12,6 +12,7 @@ updates:
       # Match the existing zizmor policy; security updates bypass this delay.
       default-days: 7
     open-pull-requests-limit: 4
+    rebase-strategy: disabled
     versioning-strategy: increase
     # Version-only restriction: security fixes may still require a major update.
     allow:
@@ -28,24 +29,12 @@ updates:
       - dependency-name: "@types/node"
         versions: [">=25"]
     groups:
-      nx:
-        patterns: [nx, "@nx/*"]
-      typescript:
-        patterns: [typescript, "@typescript/*"]
-      eslint:
-        patterns:
-          - eslint
-          - "@eslint/*"
-          - "eslint-config-*"
-          - "eslint-import-resolver-*"
-          - "eslint-plugin-*"
-          - typescript-eslint
-          - "@typescript-eslint/*"
-          - jsonc-eslint-parser
-      vite-vitest:
-        patterns: [vite, "@vitejs/*", vitest, "@vitest/*"]
-      allure:
-        patterns: [allure, allure-js-commons, allure-vitest]
+      weekly-npm:
+        patterns: ["*"]
+        update-types: [minor, patch]
+      security-npm:
+        applies-to: security-updates
+        patterns: ["*"]
 
   - package-ecosystem: github-actions
     # Root covers workflows; local composite actions need their own directories.
@@ -58,6 +47,10 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 1
+    rebase-strategy: disabled
     groups:
       github-actions:
+        patterns: ["*"]
+      security-actions:
+        applies-to: security-updates
         patterns: ["*"]

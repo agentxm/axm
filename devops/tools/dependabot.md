@@ -33,11 +33,13 @@ action SHA pins and version comments when reviewing updates. Native catalog
 support removes the original reason for selecting Renovate; its configuration
 and self-hosted workflow are retired.
 
-The configuration permits routine npm minor/patch updates and grouped Actions
-updates. `allow.update-types` limits version updates without excluding major
-security fixes; the cooldown and version PR limit do not delay security
-updates. Groups apply only to version updates, leaving security PRs separate.
-GitHub documents these semantics in its options reference.[^options]
+The configuration permits one weekly npm minor/patch proposal and grouped
+Actions updates. `allow.update-types` limits version updates without excluding
+major security fixes; the cooldown and version PR limit do not delay security
+updates. Separate npm and Actions security groups consolidate compatible fixes.
+Automatic rebasing is disabled because the merge queue verifies integration;
+maintainers resolve actual conflicts. GitHub documents these semantics in its
+options reference.[^options]
 
 ## Review and manual maintenance
 

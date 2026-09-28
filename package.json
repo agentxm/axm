@@ -108,7 +108,7 @@
     "eslint-plugin-boundaries": "catalog:",
     "husky": "catalog:",
     "jsonc-eslint-parser": "catalog:",
-    "knip": "6.35.1",
+    "knip": "6.37.0",
     "lint-staged": "catalog:",
     "nx": "catalog:",
     "prettier": "catalog:",

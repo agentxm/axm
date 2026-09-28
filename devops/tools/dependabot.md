@@ -86,6 +86,14 @@ On 2026-09-28, readback confirmed vulnerability alerts and Dependabot security
 updates enabled after the grouped configuration merged through the queue.
 GitHub started native update jobs from that main revision, including the
 [npm job](https://github.com/agentxm/axm/actions/runs/36443579775).
+That job opened [one weekly npm proposal with 162 updates](https://github.com/agentxm/axm/pull/467),
+and GitHub closed the three earlier individual npm proposals. The job reported
+four failed indirect Babel updates: pnpm rejected a pinned version for packages
+that are not direct dependencies (`ERR_PNPM_UPDATE_VERSION_ON_INDIRECT_DEP`).
+The grouped proposal's first CI run failed because `allure-vitest` resolved
+`@vitest/runner` 4.1.11 alongside Vitest 5.0.1; the proposal remains subject to
+the normal review and verification gates.
+
 Repository and organization Actions inventories
 checked on 2026-09-22 contained no `RENOVATE_*` secrets or variables, and the
 organization installation list contained no Renovate/Mend App. That older
@@ -111,8 +119,7 @@ membership and recovery-accountability gaps. Documentation maintenance follows
 the [bundle adoption](../README.md).
 
 Review this record when updater scope, patches, dependency cohorts, toolchain
-floors, CI permissions, registry access, or security settings change. Activation
-readback and representative native PR evidence remain integration work.
+floors, CI permissions, registry access, or security settings change.
 
 [^options]: [Dependabot options reference](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference).
 

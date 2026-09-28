@@ -189,6 +189,8 @@ const requireCompatibleSkillDeclaration = (
         [AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY]: declaration.cliVersionRange,
       },
       source,
+      // Release preparation checks the skill this repository authors.
+      authority: "workspace",
     },
   });
   if (result.status !== "compatible") {

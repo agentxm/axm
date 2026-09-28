@@ -1,5 +1,4 @@
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
@@ -12,8 +11,7 @@ import {
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { BundledAxmSkillAsset } from "@agentxm/extension-kinds/skills";
-import { makeLifecycleFixture } from "../testing.js";
+import { bundledAxmSkillAsset, makeLifecycleFixture } from "../testing.js";
 import { applyInstall, installRequest } from "../../testing/install-world.js";
 import { UpdateExtensions } from "./update-extensions.js";
 import { targetedUpdateRequest } from "./test-helpers.js";
@@ -39,37 +37,6 @@ export const specification = defineSpecification({
 });
 
 const AXM_SKILL = "@agentxm/skills/axm";
-
-/**
- * The official skill as a compatible executable carries it: an exact release
- * and a bounded range, which is what the product requires before it will
- * install the embedded copy.
- */
-const compatibleBundledAsset = Layer.succeed(BundledAxmSkillAsset, {
-  manifestJson: `${JSON.stringify(
-    {
-      owner: "@agentxm",
-      type: "skill",
-      name: "axm",
-      version: "1.0.0",
-      description: "The official AXM skill.",
-    },
-    null,
-    2,
-  )}\n`,
-  version: "1.0.0",
-  cliVersion: "1.0.0",
-  cliVersionRange: ">=1.0.0 <2.0.0",
-  sourceFiles: [
-    {
-      path: "SKILL.md",
-      base64: Buffer.from(
-        "---\nname: axm\ndescription: The official AXM skill.\n---\n\n# axm\n",
-      ).toString("base64"),
-    },
-  ],
-  runningCliVersion: "1.0.0",
-});
 
 describe("Targeted update of a bundled official skill", () => {
   const cleanups: Array<() => void> = [];
@@ -128,7 +95,7 @@ describe("Targeted update of a bundled official skill", () => {
             // lockfile, canonical content and the agent projection all stand.
             expect(workspace.snapshot(), mode).toEqual(before);
           }
-        }).pipe(Effect.provide(compatibleBundledAsset)),
+        }).pipe(Effect.provide(bundledAxmSkillAsset())),
       )
       .pipe(Effect.provide(NodeServices.layer));
   });

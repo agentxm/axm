@@ -19,7 +19,7 @@ export const specification = defineSpecification({
   requirement: "cli/skills/install/preserves-authored-official-skill",
   title: "Bundled official-skill recovery never overwrites a workspace-authored official skill",
   statement:
-    "When the workspace authors a skill named axm, installing the bundled official AXM skill shall be blocked before any change in preview and in a forced apply, shall name the authored skill as the cause, and shall leave configuration, lock state, and the authored source byte-for-byte intact.",
+    "When the workspace authors a skill named axm, installing the bundled official AXM skill shall be blocked before any change in preview and in a forced apply, even beside another copy of the official skill, shall name the authored skill as the cause, and shall leave configuration, lock state, the authored source, and every other copy byte-for-byte intact.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
@@ -52,10 +52,21 @@ describe("Bundled official-skill recovery over an authored official skill", () =
     });
     cleanups.push(workspace.cleanup);
     const authoredPath = nodePath.join(workspace.root, "skills", "axm", "src", "SKILL.md");
+    // A stale acquired copy beside the authored skill never makes it replaceable.
+    const stalePath = nodePath.join(
+      workspace.root,
+      "agent_extensions/agentxm/@agentxm/skills/axm/skill.json",
+    );
+    fs.mkdirSync(nodePath.dirname(stalePath), { recursive: true });
+    fs.writeFileSync(
+      stalePath,
+      JSON.stringify({ owner: "@agentxm", type: "skill", name: "axm", version: "0.0.1" }),
+    );
     const before = {
       settings: workspace.readFile("axm.json"),
       lock: workspace.readFile("axm-lock.yaml"),
       authored: fs.readFileSync(authoredPath, "utf8"),
+      stale: fs.readFileSync(stalePath, "utf8"),
     };
     const expectBlocked = (resolution: OperationResolution): void => {
       expect(deriveOperationOutcome(resolution)).toBe("blocked");
@@ -80,6 +91,7 @@ describe("Bundled official-skill recovery over an authored official skill", () =
           expect(workspace.readFile("axm.json")).toBe(before.settings);
           expect(workspace.readFile("axm-lock.yaml")).toBe(before.lock);
           expect(fs.readFileSync(authoredPath, "utf8")).toBe(before.authored);
+          expect(fs.readFileSync(stalePath, "utf8")).toBe(before.stale);
           expect(workspace.exists("agent_extensions/registry/@agentxm/skills/axm")).toBe(false);
           expect(workspace.exists(".claude/skills/axm")).toBe(false);
         }),

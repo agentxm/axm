@@ -27,7 +27,11 @@ import {
   snapshotTree,
   withTestRegistryDefault,
   ConfiguredAgentOutcomesProviderTest,
+  makeRegistrySkillLockEntry,
+  treeIntegrityOfSync,
 } from "@agentxm/workspace-kernel/workspace-state/testing";
+import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
+import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import * as os from "node:os";
 import * as nodePath from "node:path";
 
@@ -221,6 +225,12 @@ export const makeLintWorkspace = (
 /** Where a project workspace keeps the official AXM skill's canonical package. */
 export const OFFICIAL_AXM_SKILL_PACKAGE_ROOT = "agent_extensions/registry/@agentxm/skills/axm";
 
+/**
+ * An extraneous copy of the official skill outside the selected canonical
+ * location, as an older CLI's install layout left it.
+ */
+export const EXTRANEOUS_AXM_SKILL_PACKAGE_ROOT = "agent_extensions/agentxm/@agentxm/skills/axm";
+
 /** Where a workspace that authors its own `axm` skill keeps it. */
 export const AUTHORED_AXM_SKILL_PACKAGE_ROOT = "skills/axm";
 
@@ -232,13 +242,17 @@ export const CLAUDE_CODE_SKILLS_DIR = ".claude/skills";
  * all, declared under another owner's name, or declared as the official skill
  * and then missing, registry-sourced at an incompatible release,
  * version-skewed, workspace-authored, compatible (including a prerelease
- * inside the declared range), or unreadable.
+ * inside the declared range), or unreadable. The `-beside-` states keep an
+ * extraneous copy of the opposite compatibility next to the selected package.
  */
 export type OfficialAxmSkillState =
   | "undeclared"
   | "non-official"
   | "official-missing"
   | "official-registry"
+  | "official-registry-beside-compatible-copy"
+  | "official-registry-compatible-beside-stale-copy"
+  | "official-registry-unaccepted"
   | "official-skewed"
   | "official-authored"
   | "official-compatible"
@@ -340,6 +354,8 @@ interface OfficialSkillArrangement {
   readonly files: Readonly<Record<string, string>>;
   /** Agent directory entries realized from the canonical package. */
   readonly realized: ReadonlyArray<readonly [linkPath: string, targetPath: string]>;
+  /** The Registry release the lockfile accepts for the canonical package. */
+  readonly acceptedVersion?: string;
 }
 
 const BUNDLED_ENTRY = { source: "workspace", enabled: true, origin: "bundled" } as const;
@@ -356,6 +372,36 @@ const bundled = (version: string, metadataVersion: string): OfficialSkillArrange
   realized: [[`${CLAUDE_CODE_SKILLS_DIR}/axm`, `${OFFICIAL_AXM_SKILL_PACKAGE_ROOT}/src`]],
 });
 
+/** A Registry-desired official skill whose canonical package the lockfile accepts. */
+const registryAccepted = (
+  version: string,
+  cliVersionRange: string,
+  extraneous: Readonly<Record<string, string>> = {},
+): OfficialSkillArrangement => ({
+  cliVersion: FIXTURE_CLI_VERSION,
+  skills: { axm: REGISTRY_SOURCE },
+  acceptedVersion: version,
+  files: {
+    ...officialAxmSkillPackage({
+      packageRoot: OFFICIAL_AXM_SKILL_PACKAGE_ROOT,
+      version,
+      metadata: { cliVersion: version, cliVersionRange },
+    }),
+    ...extraneous,
+  },
+  realized: [[`${CLAUDE_CODE_SKILLS_DIR}/axm`, `${OFFICIAL_AXM_SKILL_PACKAGE_ROOT}/src`]],
+});
+
+const INCOMPATIBLE_VERSION = "0.0.1";
+const INCOMPATIBLE_RANGE = ">=0.0.1 <0.1.0";
+
+const extraneousCopy = (version: string, cliVersionRange: string) =>
+  officialAxmSkillPackage({
+    packageRoot: EXTRANEOUS_AXM_SKILL_PACKAGE_ROOT,
+    version,
+    metadata: { cliVersion: version, cliVersionRange },
+  });
+
 const arrangeOfficialSkill = (state: OfficialAxmSkillState): OfficialSkillArrangement => {
   switch (state) {
     case "undeclared":
@@ -370,23 +416,38 @@ const arrangeOfficialSkill = (state: OfficialAxmSkillState): OfficialSkillArrang
         realized: [],
       };
     case "official-missing":
+      // Accepted, but the canonical package is absent.
       return {
         cliVersion: FIXTURE_CLI_VERSION,
         skills: { axm: REGISTRY_SOURCE },
+        acceptedVersion: FIXTURE_CLI_VERSION,
         files: {},
         realized: [],
       };
     case "official-registry":
-      return {
-        cliVersion: FIXTURE_CLI_VERSION,
-        skills: { axm: REGISTRY_SOURCE },
-        files: officialAxmSkillPackage({
-          packageRoot: OFFICIAL_AXM_SKILL_PACKAGE_ROOT,
-          version: "0.0.1",
-          metadata: { cliVersion: "0.0.1", cliVersionRange: ">=0.0.1 <0.1.0" },
-        }),
-        realized: [[`${CLAUDE_CODE_SKILLS_DIR}/axm`, `${OFFICIAL_AXM_SKILL_PACKAGE_ROOT}/src`]],
-      };
+      return registryAccepted(INCOMPATIBLE_VERSION, INCOMPATIBLE_RANGE);
+    case "official-registry-beside-compatible-copy":
+      return registryAccepted(
+        INCOMPATIBLE_VERSION,
+        INCOMPATIBLE_RANGE,
+        extraneousCopy(FIXTURE_CLI_VERSION, FIXTURE_CLI_VERSION_RANGE),
+      );
+    case "official-registry-compatible-beside-stale-copy":
+      return registryAccepted(
+        FIXTURE_CLI_VERSION,
+        FIXTURE_CLI_VERSION_RANGE,
+        extraneousCopy(INCOMPATIBLE_VERSION, INCOMPATIBLE_RANGE),
+      );
+    case "official-registry-unaccepted": {
+      // Desired from the Registry with content on disk but no accepted
+      // resolution: nothing selects that content.
+      const { acceptedVersion: _accepted, ...unaccepted } = registryAccepted(
+        FIXTURE_CLI_VERSION,
+        FIXTURE_CLI_VERSION_RANGE,
+        { "axm-lock.yaml": "lockfileVersion: 8\nskills: {}\n" },
+      );
+      return unaccepted;
+    }
     case "official-skewed":
       // The materialized release and the release its compatibility metadata
       // claims disagree, so nothing about the pair can be trusted.
@@ -459,6 +520,29 @@ export const makeOfficialAxmSkillWorkspace = (
   });
   for (const [linkPath, targetPath] of arrangement.realized) {
     fixture.link(linkPath, targetPath);
+  }
+  if (arrangement.acceptedVersion !== undefined) {
+    const entry = makeRegistrySkillLockEntry({
+      owner: decodeHandleSync("@agentxm"),
+      name: "axm",
+      resolvedVersion: decodeVersionSync(arrangement.acceptedVersion),
+    });
+    fixture.writeFile(
+      "axm-lock.yaml",
+      `${JSON.stringify({
+        lockfileVersion: 8,
+        skills: {
+          axm: fixture.exists(OFFICIAL_AXM_SKILL_PACKAGE_ROOT)
+            ? {
+                ...entry,
+                treeIntegrity: treeIntegrityOfSync(
+                  nodePath.join(fixture.root, OFFICIAL_AXM_SKILL_PACKAGE_ROOT),
+                ),
+              }
+            : entry,
+        },
+      })}\n`,
+    );
   }
   return { ...fixture, cliVersion: arrangement.cliVersion };
 };

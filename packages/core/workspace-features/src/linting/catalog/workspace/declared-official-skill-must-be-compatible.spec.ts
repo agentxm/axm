@@ -15,7 +15,7 @@ export const specification = defineSpecification({
   requirement: "cli/lint/declared-official-skill-must-be-compatible",
   title: "Lint holds a declared official AXM skill to compatibility",
   statement:
-    "When the workspace declares the official AXM skill, lint shall report a compatibility error and fail when the declared skill is missing, incompatible, skewed, authored, or unreadable, and shall report clean and succeed when the skill and CLI satisfy the declared bounded compatibility range, including prerelease versions within that range.",
+    "When the workspace declares the official AXM skill, lint shall judge only the package its desired and accepted state select, report a compatibility error and fail when that package is missing, incompatible, skewed, authored, or unreadable, and report clean and succeed when that package and the CLI satisfy its declared bounded compatibility range, including prerelease versions within that range; another copy of the skill elsewhere on disk shall neither rescue nor fail the selected package.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
@@ -48,6 +48,12 @@ const cases: ReadonlyArray<{
 }> = [
   { state: "official-missing", findings: compatibilityError, succeeds: false },
   { state: "official-registry", findings: compatibilityError, succeeds: false },
+  {
+    state: "official-registry-beside-compatible-copy",
+    findings: compatibilityError,
+    succeeds: false,
+  },
+  { state: "official-registry-compatible-beside-stale-copy", findings: [], succeeds: true },
   { state: "official-skewed", findings: compatibilityError, succeeds: false },
   { state: "official-authored", findings: compatibilityError, succeeds: false },
   { state: "official-compatible", findings: [], succeeds: true },
@@ -61,7 +67,9 @@ describe("Declared official AXM skill", () => {
     for (const cleanup of cleanups.splice(0)) cleanup();
   });
 
-  it.effect.each(cases)("is held to compatibility when $state", (testCase) => {
+  // `it.live`: a usable Registry package makes lint ask the (offline) Registry
+  // about deprecation, whose bounded retries need a real clock.
+  it.live.each(cases)("is held to compatibility when $state", (testCase) => {
     const workspace = makeOfficialAxmSkillWorkspace(testCase.state, {
       settings: { lint: { rules: isolateOfficialAxmSkillRules() } },
     });

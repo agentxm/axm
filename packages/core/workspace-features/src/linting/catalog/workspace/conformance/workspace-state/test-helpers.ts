@@ -315,6 +315,7 @@ const skillCompatibility = (cliVersion: string) =>
     skill: {
       manifestVersion: "1.1.0",
       source: "@agentxm/skills/axm@1.1.0",
+      authority: "registry",
       metadata: {
         [AXM_SKILL_CLI_VERSION_METADATA_KEY]: "1.1.0",
         [AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY]: ">=1.1.0 <1.2.0",
@@ -322,13 +323,23 @@ const skillCompatibility = (cliVersion: string) =>
     },
   });
 
+const OFFICIAL_SKILL_PATH = "/workspace/agent_extensions/registry/@agentxm/skills/axm";
+
+const assessedOfficialSkill = (cliVersion: string) =>
+  ({
+    _tag: "assessed",
+    path: OFFICIAL_SKILL_PATH,
+    authority: "registry",
+    compatibility: skillCompatibility(cliVersion),
+  }) as const;
+
 const axmSkillContext = (cliVersion: string) =>
   contextFor({ settings: validSettings(), lockfile: validLockfile }).pipe(
     Effect.map(
       (context) =>
         ({
           ...context,
-          axmSkillCompatibility: Effect.succeed(Option.some(skillCompatibility(cliVersion))),
+          officialAxmSkill: Effect.succeed(assessedOfficialSkill(cliVersion)),
         }) satisfies WorkspaceRuleContext,
     ),
   );
@@ -341,7 +352,7 @@ export const axmSkillCompatibleConformance: WorkspaceRuleConformanceCase = {
     {
       message:
         "AXM CLI 1.2.3 is outside the official AXM skill range >=1.1.0 <1.2.0. Reason: cli-version-incompatible. Target: AXM CLI 1.2.3 + official AXM skill 1.2.3. Next: `axm skills update --name axm --preview`.",
-      location: { file: "skills/axm" },
+      location: { file: OFFICIAL_SKILL_PATH },
     },
   ],
   inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),
@@ -353,8 +364,8 @@ const axmSkillDeclarationContext = (declared: boolean) =>
       (context) =>
         ({
           ...context,
-          axmSkillCompatibility: Effect.succeed(
-            declared ? Option.some(skillCompatibility("1.1.3")) : Option.none(),
+          officialAxmSkill: Effect.succeed(
+            declared ? assessedOfficialSkill("1.1.3") : ({ _tag: "undeclared" } as const),
           ),
         }) satisfies WorkspaceRuleContext,
     ),

@@ -1,5 +1,4 @@
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import type { AdvisoryRule } from "@agentxm/extension-content/lint";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
@@ -14,9 +13,9 @@ export const axmSkillDeclaredRule: AdvisoryRule<WorkspaceRuleContext> = {
   severity: "info",
   check: (context) =>
     Effect.gen(function* () {
-      if (context.axmSkillCompatibility === undefined) return EMPTY_ADVISORY_FINDINGS;
-      const compatibilityResult = yield* Effect.result(context.axmSkillCompatibility);
-      if (Result.isFailure(compatibilityResult) || Option.isSome(compatibilityResult.success)) {
+      if (context.officialAxmSkill === undefined) return EMPTY_ADVISORY_FINDINGS;
+      const assessment = yield* Effect.result(context.officialAxmSkill);
+      if (Result.isFailure(assessment) || assessment.success._tag !== "undeclared") {
         return EMPTY_ADVISORY_FINDINGS;
       }
       return [

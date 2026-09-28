@@ -49,9 +49,17 @@ describe("startup update check and local lint findings", () => {
   it("disabling the startup update check does not hide local compatibility findings", async () => {
     const temp = createTempDir("axm-lint-startup-check-e2e-");
     try {
+      // The bundled official skill is declared but its package is absent.
       fs.writeFileSync(
         path.join(temp.path, "axm.json"),
-        `${JSON.stringify({ agents: [], skills: { axm: "@agentxm/skills/axm" } }, null, 2)}\n`,
+        `${JSON.stringify(
+          {
+            agents: [],
+            skills: { axm: { source: "workspace", enabled: true, origin: "bundled" } },
+          },
+          null,
+          2,
+        )}\n`,
       );
       const before = snapshot(temp.path);
 

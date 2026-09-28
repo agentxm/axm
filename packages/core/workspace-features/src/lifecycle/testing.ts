@@ -30,6 +30,10 @@ import {
 } from "../testing/workspace-world.js";
 
 import { BundledAxmSkillAsset } from "@agentxm/extension-kinds/skills";
+import {
+  AXM_SKILL_CLI_VERSION_METADATA_KEY,
+  AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
+} from "@agentxm/cli-maintenance/official-skill/domain";
 import { StepFailureConversionTest } from "@agentxm/workspace-kernel/reconciliation/testing";
 
 /**
@@ -52,8 +56,23 @@ export const bundledAxmSkillAsset = (
 ): Layer.Layer<BundledAxmSkillAsset> => {
   const version = options.version ?? "1.0.0";
   const nextMajor = `${Number(version.split(".")[0] ?? "0") + 1}.0.0`;
+  const cliVersionRange = options.cliVersionRange ?? `>=${version} <${nextMajor}`;
+  // The installed entry document carries the same compatibility metadata the
+  // asset declares, as the generated asset does.
   const body =
-    options.body ?? "---\nname: axm\ndescription: The official AXM skill.\n---\n\n# axm\n";
+    options.body ??
+    [
+      "---",
+      "name: axm",
+      "description: The official AXM skill.",
+      "metadata:",
+      `  ${AXM_SKILL_CLI_VERSION_METADATA_KEY}: "${version}"`,
+      `  ${AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY}: "${cliVersionRange}"`,
+      "---",
+      "",
+      "# axm",
+      "",
+    ].join("\n");
   return Layer.succeed(BundledAxmSkillAsset, {
     manifestJson: `${JSON.stringify(
       {
@@ -68,7 +87,7 @@ export const bundledAxmSkillAsset = (
     )}\n`,
     version,
     cliVersion: version,
-    cliVersionRange: options.cliVersionRange ?? `>=${version} <${nextMajor}`,
+    cliVersionRange,
     sourceFiles: [{ path: "SKILL.md", base64: Buffer.from(body).toString("base64") }],
     runningCliVersion: options.runningCliVersion ?? version,
   });

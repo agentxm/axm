@@ -21,7 +21,8 @@ export const validateBundledAxmSkillContract = (
     skill: {
       manifestVersion,
       metadata: Option.getOrNull(parsedSkill.metadata),
-      source: `workspace:@agentxm/skills/axm@${manifestVersion}`,
+      source: `bundled:@agentxm/skills/axm@${manifestVersion}`,
+      authority: "bundled",
     },
   });
   if (

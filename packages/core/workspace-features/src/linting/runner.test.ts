@@ -52,6 +52,7 @@ describe("lint fact rendering", () => {
       skill: {
         manifestVersion: "1.0.0",
         source: "@agentxm/skills/axm@1.0.0",
+        authority: "registry",
         metadata: {
           [AXM_SKILL_CLI_VERSION_METADATA_KEY]: "1.0.0",
           [AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY]: ">=1.0.0 <2.0.0",

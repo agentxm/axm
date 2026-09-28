@@ -69,6 +69,7 @@ import {
 import type {
   InstalledExtensionManifest,
   WorkspaceInstructionAccessor,
+  WorkspaceHealthFailure,
   WorkspaceProjectionsAccessor,
   WorkspaceRuleContext,
 } from "../../workspace-context.js";
@@ -95,8 +96,7 @@ import type {
   ExtensionTypePlural,
   ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/common";
-import { type AxmSkillCompatibilityPolicyService } from "@agentxm/cli-maintenance/official-skill/application";
-import { readAxmSkillWorkspaceCompatibility } from "@agentxm/workspace-kernel/resolution";
+import type { OfficialAxmSkillAssessment } from "@agentxm/workspace-kernel/resolution";
 
 // -----------------------------------------------------------------------------
 // LintWorkspaceView
@@ -153,8 +153,8 @@ export interface BuildLintWorkspaceArgs {
    * activation. Without it the view holds only directly declared rows.
    */
   readonly desiredState?: DesiredStateGraph;
-  /** Runtime-pinned evaluator used by status and the compatibility lint rule. */
-  readonly axmSkillCompatibilityPolicy?: AxmSkillCompatibilityPolicyService;
+  /** The caller's one assessment of the official AXM skill for this run. */
+  readonly officialAxmSkill?: Effect.Effect<OfficialAxmSkillAssessment, WorkspaceHealthFailure>;
   /** Caller-bound effective workspace owner accessor. */
   readonly owner?: Effect.Effect<Option.Option<Handle>>;
   /** Caller-bound read-back currency for aggregate managed output units. */
@@ -255,16 +255,7 @@ export const buildLintWorkspace = (
       installedExtensions: { manifests: Effect.succeed(projection.installedManifests) },
       ...(args.owner === undefined ? {} : { owner: args.owner }),
       ...(args.projections === undefined ? {} : { projections: args.projections }),
-      ...(args.axmSkillCompatibilityPolicy === undefined
-        ? {}
-        : {
-            axmSkillCompatibility: readAxmSkillWorkspaceCompatibility({
-              platform: args.platform,
-              workspace: readModel,
-              packMembers: members("skill"),
-              policy: args.axmSkillCompatibilityPolicy,
-            }),
-          }),
+      ...(args.officialAxmSkill === undefined ? {} : { officialAxmSkill: args.officialAxmSkill }),
       displayRoot: args.displayRoot ?? "",
     };
     return { rule, view: projection.view };

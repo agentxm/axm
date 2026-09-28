@@ -1,274 +1,301 @@
-import { describe, expect, it } from "@effect/vitest";
+import * as nodeFs from "node:fs";
+import * as nodeOs from "node:os";
+import * as nodePath from "node:path";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import { describe, expect, it, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
-import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as Path from "effect/Path";
-import { makeRegistrySkillLockEntry, WorkspaceReadModelTest } from "../workspace-state/testing.js";
-import { makeWorkspaceReadModel } from "../workspace-state/index.js";
-import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
-import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
-import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
+import { afterEach, beforeEach } from "vitest";
 import {
   AXM_SKILL_CLI_VERSION_METADATA_KEY,
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
+  evaluateAxmSkillCompatibility,
 } from "@agentxm/cli-maintenance/official-skill/domain";
-import { AxmSkillCompatibilityPolicy } from "@agentxm/cli-maintenance/official-skill/application";
-import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
-import { readAxmSkillWorkspaceCompatibility } from "./axm-skill-workspace-compatibility.js";
+import type { AxmSkillCompatibilityPolicyService } from "@agentxm/cli-maintenance/official-skill/application";
+import {
+  UNCONSTRAINED_DESIRED_NODE,
+  type CanonicalObservationStatus,
+  type DesiredExtensionNode,
+  type DesiredNodeIdentity,
+} from "../workspace-state/index.js";
+import {
+  assessOfficialAxmSkill,
+  selectOfficialAxmSkill,
+  type ObservedOfficialAxmSkillCandidate,
+} from "./axm-skill-workspace-compatibility.js";
 
-const VERSION = "1.2.0";
+const CLI_VERSION = "1.2.3";
 const RANGE = ">=1.2.0 <1.3.0";
+const OLD_RANGE = ">=1.1.0 <1.2.0";
+const REGISTRY_SOURCE = "agentxm:@agentxm/skills/axm";
 
-const compatibleFixture = WorkspaceReadModelTest({
-  workspaceRoot: "/workspace",
-  userHome: "/home/test",
-  project: {
-    settings: {
-      _tag: "valid",
-      contents: {
-        owner: "@team",
-        agents: [],
-        skills: {
-          axm: { source: `agentxm:@agentxm/skills/axm@${VERSION}`, enabled: true },
-        },
-      },
-    },
-    lockfile: { _tag: "absent" },
-    axmExtensions: {
-      "agentxm/@agentxm/skills/axm/skill.json": JSON.stringify({
-        owner: "@agentxm",
-        type: "skill",
-        name: "axm",
-        version: VERSION,
-      }),
-      "agentxm/@agentxm/skills/axm/src/SKILL.md": `---\nname: axm\ndescription: AXM workflow guidance\nmetadata:\n  ${AXM_SKILL_CLI_VERSION_METADATA_KEY}: ${VERSION}\n  ${AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY}: "${RANGE}"\n---\n`,
-    },
-  },
+const policy: AxmSkillCompatibilityPolicyService = {
+  evaluate: ({ fqn, candidate }) =>
+    fqn === "@agentxm/skills/axm"
+      ? evaluateAxmSkillCompatibility({ cliVersion: CLI_VERSION, skill: candidate })
+      : null,
+};
+
+const registry = (fqn: string): DesiredNodeIdentity => ({
+  authority: "registry",
+  fqn,
+  registry: { sourceName: "agentxm", endpoint: undefined },
 });
-const testLayer = Layer.mergeAll(compatibleFixture, makeAxmSkillCompatibilityPolicyLayer("1.2.3"));
 
-describe("readAxmSkillWorkspaceCompatibility", () => {
-  it.effect("reads the canonical manifest and SKILL.md metadata once for evaluation", () =>
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const policy = yield* AxmSkillCompatibilityPolicy;
-      const workspace = yield* makeWorkspaceReadModel("project");
-      const result = yield* readAxmSkillWorkspaceCompatibility({
-        platform: { fs, path },
-        workspace,
-        packMembers: [],
-        policy,
-      });
-      expect(result).toEqual(
-        Option.some({
-          status: "compatible",
-          cliVersion: "1.2.3",
-          skillVersion: VERSION,
-          source: `agentxm:@agentxm/skills/axm@${VERSION}`,
-          declaredCliVersion: VERSION,
-          declaredCliVersionRange: RANGE,
-          reasonCode: null,
-          detail: null,
-          recovery: {
-            action: "none",
-            targetCliVersion: "1.2.3",
-            targetSkillVersion: VERSION,
-          },
-        }),
-      );
-    }).pipe(Effect.provide(testLayer)),
-  );
+const desiredAxm = (
+  identity: DesiredNodeIdentity,
+  source = REGISTRY_SOURCE,
+): DesiredExtensionNode => ({
+  type: "skill",
+  name: "axm",
+  identity,
+  source,
+  enabled: true,
+  constraint: UNCONSTRAINED_DESIRED_NODE,
+  origins: [{ type: "settings", source, enabled: true }],
+});
 
-  it.effect("returns none when no axm skill is declared", () =>
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const policy = yield* AxmSkillCompatibilityPolicy;
-      const workspace = yield* makeWorkspaceReadModel("project");
-      const result = yield* readAxmSkillWorkspaceCompatibility({
-        platform: { fs, path },
-        workspace: {
-          scope: workspace.scope,
-          skills: {
-            ...workspace.skills,
-            declaredByName: () => Effect.succeed(Option.none()),
-            byName: () => Effect.succeed(Option.none()),
+const observed = (
+  desired: DesiredExtensionNode,
+  status: CanonicalObservationStatus,
+  path?: string,
+): ObservedOfficialAxmSkillCandidate =>
+  status === "constraint-mismatch"
+    ? {
+        desired,
+        observation: {
+          type: "skill",
+          name: "axm",
+          status,
+          ...(path === undefined ? {} : { path }),
+          authority: {
+            source: "desired-state-graph",
+            identity: "@agentxm/skills/axm",
+            locator: REGISTRY_SOURCE,
+            constraints: [],
           },
         },
-        packMembers: [],
-        policy,
-      });
-      expect(result).toEqual(Option.none());
-    }).pipe(Effect.provide(testLayer)),
-  );
-
-  it.effect("returns none for a non-official axm declaration", () =>
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const policy = yield* AxmSkillCompatibilityPolicy;
-      const workspace = yield* makeWorkspaceReadModel("project");
-      const installed = yield* workspace.skills.byName("axm");
-      expect(Option.isSome(installed)).toBe(true);
-      const result = yield* readAxmSkillWorkspaceCompatibility({
-        platform: { fs, path },
-        workspace: {
-          scope: workspace.scope,
-          skills: {
-            ...workspace.skills,
-            declaredByName: () =>
-              workspace.skills.declaredByName("axm").pipe(
-                Effect.map(
-                  Option.map((entry) => ({
-                    ...entry,
-                    entry: { source: "github:someone/else", enabled: true },
-                  })),
-                ),
-              ),
-            byName: () =>
-              Effect.succeed(
-                Option.map(installed, (row) => ({
-                  ...row,
-                  installationOrigin: {
-                    _tag: "direct",
-                    declared: {
-                      name: decodeExtensionNameSync("axm"),
-                      entry: { source: "github:someone/else", enabled: true },
-                    },
-                  },
-                })),
-              ),
-          },
-        },
-        packMembers: [],
-        policy,
-      });
-      expect(result).toEqual(Option.none());
-    }).pipe(Effect.provide(testLayer)),
-  );
-
-  it.effect("reports a directly declared official skill with no canonical content as missing", () =>
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const policy = yield* AxmSkillCompatibilityPolicy;
-      const workspace = yield* makeWorkspaceReadModel("project");
-      const installed = yield* workspace.skills.byName("axm");
-      const result = yield* readAxmSkillWorkspaceCompatibility({
-        platform: { fs, path },
-        workspace: {
-          scope: workspace.scope,
-          skills: {
-            ...workspace.skills,
-            byName: () => Effect.succeed(Option.map(installed, (row) => ({ ...row, actual: [] }))),
-          },
-        },
-        packMembers: [],
-        policy,
-      });
-      expect(Option.map(result, ({ reasonCode }) => reasonCode)).toEqual(
-        Option.some("axm-skill-missing"),
-      );
-    }).pipe(Effect.provide(testLayer)),
-  );
-
-  it.effect("treats a resolved official pack member as declared intent", () =>
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const policy = yield* AxmSkillCompatibilityPolicy;
-      const workspace = yield* makeWorkspaceReadModel("project");
-      const installed = yield* workspace.skills.byName("axm");
-      const pack = {
-        key: {
-          scope: "project" as const,
-          type: "pack" as const,
-          name: "toolkit",
+      }
+    : {
+        desired,
+        observation: {
+          type: "skill",
+          name: "axm",
+          status,
+          ...(path === undefined ? {} : { path }),
         },
       };
-      const result = yield* readAxmSkillWorkspaceCompatibility({
-        platform: { fs, path },
-        workspace: {
-          scope: workspace.scope,
-          skills: {
-            ...workspace.skills,
-            declaredByName: () => Effect.succeed(Option.none()),
-            byName: () => Effect.succeed(Option.none()),
-            packMemberRows: (bindings) =>
-              Effect.succeed(
-                Option.toArray(installed).flatMap((row) =>
-                  bindings.map((binding) => ({
-                    ...row,
-                    installationOrigin: {
-                      _tag: "pack-member" as const,
-                      member: { name: binding.name, providingPack: binding.pack },
-                      pack: binding.pack,
-                    },
-                    resolved: Option.some({
-                      name: decodeExtensionNameSync("axm"),
-                      lockEntry: makeRegistrySkillLockEntry({
-                        owner: decodeHandleSync("@agentxm"),
-                        name: "axm",
-                        resolvedVersion: decodeVersionSync(VERSION),
-                      }),
-                    }),
-                  })),
-                ),
-              ),
-          },
-        },
-        packMembers: [{ name: decodeExtensionNameSync("axm"), pack, enabled: true }],
-        policy,
-      });
-      expect(Option.map(result, ({ status }) => status)).toEqual(Option.some("compatible"));
-      expect(Option.map(result, ({ source }) => source)).toEqual(
-        Option.some(`registry:https://registry.agentxm.ai/:@agentxm/skills/axm@${VERSION}`),
+
+const writePackage = (root: string, version: string, range: string): void => {
+  nodeFs.mkdirSync(nodePath.join(root, "src"), { recursive: true });
+  nodeFs.writeFileSync(
+    nodePath.join(root, "skill.json"),
+    JSON.stringify({ owner: "@agentxm", type: "skill", name: "axm", version }),
+  );
+  nodeFs.writeFileSync(
+    nodePath.join(root, "src", "SKILL.md"),
+    `---\nname: axm\ndescription: AXM workflow guidance\nmetadata:\n  ${AXM_SKILL_CLI_VERSION_METADATA_KEY}: "${version}"\n  ${AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY}: "${range}"\n---\n`,
+  );
+};
+
+describe("selectOfficialAxmSkill", () => {
+  const official = desiredAxm(registry("@agentxm/skills/axm"));
+  const otherOwner = desiredAxm({ authority: "workspace", fqn: "@acme/skills/axm" }, "workspace");
+  const gitHosted = desiredAxm({ authority: "git", locator: "github:acme/axm" }, "github:acme/axm");
+
+  it("selects the node whose identity names the official skill, in either order", () => {
+    const officialRow = observed(official, "usable", "/canonical");
+    const otherRow = observed(otherOwner, "usable", "/authored");
+    for (const rows of [
+      [officialRow, otherRow],
+      [otherRow, officialRow],
+    ]) {
+      expect(Option.map(selectOfficialAxmSkill(rows), ({ desired }) => desired)).toEqual(
+        Option.some(official),
       );
-    }).pipe(Effect.provide(testLayer)),
+    }
+  });
+
+  it("never selects another owner's or an unaccepted git-hosted skill named axm", () => {
+    expect(
+      selectOfficialAxmSkill([
+        observed(otherOwner, "usable", "/authored"),
+        observed(gitHosted, "usable", "/git"),
+      ]),
+    ).toEqual(Option.none());
+  });
+
+  it("maps the desired identity to the recovery authority", () => {
+    const authorities = [
+      registry("@agentxm/skills/axm"),
+      { authority: "bundled", fqn: "@agentxm/skills/axm" } as const,
+      { authority: "workspace", fqn: "@agentxm/skills/axm" } as const,
+    ].map((identity) =>
+      Option.map(
+        selectOfficialAxmSkill([observed(desiredAxm(identity), "usable", "/c")]),
+        ({ authority }) => authority,
+      ),
+    );
+    expect(authorities).toEqual([
+      Option.some("registry"),
+      Option.some("bundled"),
+      Option.some("workspace"),
+    ]);
+  });
+});
+
+layer(NodeServices.layer, { excludeTestServices: true })("assessOfficialAxmSkill", (it) => {
+  let root: string;
+  const official = desiredAxm(registry("@agentxm/skills/axm"));
+
+  beforeEach(() => {
+    root = nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), "axm-official-skill-"));
+  });
+  afterEach(() => nodeFs.rmSync(root, { recursive: true, force: true }));
+
+  const canonical = () => nodePath.join(root, "agent_extensions/registry/@agentxm/skills/axm");
+  const extraneous = () => nodePath.join(root, "agent_extensions/agentxm/@agentxm/skills/axm");
+
+  it.effect("reports undeclared when the desired state selects no official skill", () =>
+    Effect.gen(function* () {
+      writePackage(extraneous(), "1.2.0", RANGE);
+      expect(yield* assessOfficialAxmSkill({ selected: Option.none(), policy })).toEqual({
+        _tag: "undeclared",
+      });
+    }),
   );
 
-  it.effect("preserves bundled source authority in the compatibility fact", () =>
+  it.effect("keeps a compatible selected package compatible beside an incompatible copy", () =>
     Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const policy = yield* AxmSkillCompatibilityPolicy;
-      const workspace = yield* makeWorkspaceReadModel("project");
-      const installed = yield* workspace.skills.byName("axm");
-      const result = yield* readAxmSkillWorkspaceCompatibility({
-        platform: { fs, path },
-        workspace: {
-          scope: workspace.scope,
-          skills: {
-            ...workspace.skills,
-            byName: () =>
-              Effect.succeed(
-                Option.map(installed, (row) => ({
-                  ...row,
-                  installationOrigin: {
-                    _tag: "direct",
-                    declared: {
-                      name: decodeExtensionNameSync("axm"),
-                      entry: {
-                        source: "workspace",
-                        enabled: true,
-                        origin: "bundled",
-                      },
-                    },
-                  },
-                })),
-              ),
-          },
-        },
-        packMembers: [],
+      writePackage(canonical(), "1.2.0", RANGE);
+      writePackage(extraneous(), "1.1.0", OLD_RANGE);
+      const assessment = yield* assessOfficialAxmSkill({
+        selected: selectOfficialAxmSkill([observed(official, "usable", canonical())]),
         policy,
       });
+      expect(assessment).toMatchObject({
+        _tag: "assessed",
+        path: canonical(),
+        authority: "registry",
+        compatibility: {
+          status: "compatible",
+          skillVersion: "1.2.0",
+          declaredCliVersionRange: RANGE,
+          source: REGISTRY_SOURCE,
+        },
+      });
+    }),
+  );
 
-      expect(Option.map(result, ({ source }) => source)).toEqual(
-        Option.some(`bundled:@agentxm/skills/axm@${VERSION}`),
-      );
-      expect(Option.map(result, ({ recovery }) => recovery.action)).toEqual(Option.some("none"));
-    }).pipe(Effect.provide(testLayer)),
+  it.effect("fails an incompatible selected package even beside a compatible copy", () =>
+    Effect.gen(function* () {
+      writePackage(canonical(), "1.1.0", OLD_RANGE);
+      writePackage(extraneous(), "1.2.0", RANGE);
+      const assessment = yield* assessOfficialAxmSkill({
+        selected: selectOfficialAxmSkill([observed(official, "usable", canonical())]),
+        policy,
+      });
+      expect(assessment).toMatchObject({
+        _tag: "assessed",
+        path: canonical(),
+        compatibility: {
+          status: "incompatible",
+          skillVersion: "1.1.0",
+          reasonCode: "cli-version-incompatible",
+          recovery: { action: "update-registry-skill" },
+        },
+      });
+    }),
+  );
+
+  it.effect("reports a missing selected package without falling back to a healthy copy", () =>
+    Effect.gen(function* () {
+      writePackage(extraneous(), "1.2.0", RANGE);
+      const assessment = yield* assessOfficialAxmSkill({
+        selected: selectOfficialAxmSkill([observed(official, "missing", canonical())]),
+        policy,
+      });
+      expect(assessment).toMatchObject({
+        _tag: "assessed",
+        path: canonical(),
+        compatibility: { status: "incompatible", reasonCode: "axm-skill-missing" },
+      });
+    }),
+  );
+
+  it.effect.each([
+    "missing-resolution",
+    "wrong-origin",
+    "constraint-mismatch",
+    "materialization-mismatch",
+  ] as const)("leaves %s canonical state unassessed rather than judging other content", (status) =>
+    Effect.gen(function* () {
+      writePackage(canonical(), "1.2.0", RANGE);
+      writePackage(extraneous(), "1.2.0", RANGE);
+      const assessment = yield* assessOfficialAxmSkill({
+        selected: selectOfficialAxmSkill([observed(official, status, canonical())]),
+        policy,
+      });
+      expect(assessment).toEqual({
+        _tag: "canonical-state",
+        path: canonical(),
+        authority: "registry",
+        status,
+      });
+    }),
+  );
+
+  it.effect("keeps the precise invalid-manifest reason for malformed selected content", () =>
+    Effect.gen(function* () {
+      writePackage(canonical(), "1.2.0", RANGE);
+      nodeFs.writeFileSync(nodePath.join(canonical(), "skill.json"), "{not json");
+      const assessment = yield* assessOfficialAxmSkill({
+        selected: selectOfficialAxmSkill([observed(official, "corrupt", canonical())]),
+        policy,
+      });
+      expect(assessment).toMatchObject({
+        _tag: "assessed",
+        compatibility: { reasonCode: "axm-skill-manifest-invalid" },
+      });
+    }),
+  );
+
+  it.effect("names bundled authority in the source it reports", () =>
+    Effect.gen(function* () {
+      writePackage(canonical(), "1.2.0", RANGE);
+      const assessment = yield* assessOfficialAxmSkill({
+        selected: selectOfficialAxmSkill([
+          observed(
+            desiredAxm({ authority: "bundled", fqn: "@agentxm/skills/axm" }, "workspace"),
+            "usable",
+            canonical(),
+          ),
+        ]),
+        policy,
+      });
+      expect(assessment).toMatchObject({
+        _tag: "assessed",
+        authority: "bundled",
+        compatibility: { source: "bundled:@agentxm/skills/axm@1.2.0" },
+      });
+    }),
+  );
+
+  it.effect.skipIf(process.getuid?.() === 0)(
+    "reports an unreadable selected package as unavailable at its location",
+    () =>
+      Effect.gen(function* () {
+        writePackage(canonical(), "1.2.0", RANGE);
+        nodeFs.chmodSync(nodePath.join(canonical(), "skill.json"), 0o000);
+        const assessment = yield* assessOfficialAxmSkill({
+          selected: selectOfficialAxmSkill([observed(official, "usable", canonical())]),
+          policy,
+        });
+        expect(assessment).toMatchObject({
+          _tag: "unavailable",
+          path: canonical(),
+          authority: "registry",
+        });
+      }),
   );
 });

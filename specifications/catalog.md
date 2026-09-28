@@ -227,7 +227,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/lint/observes-selected-filesystem-view`
 - Owner: `workspace-features`
-- Statement: When lint runs without --fix, it shall evaluate only the selected view — the staged content and its index fingerprint for git-index, the working tree for workspace — report diagnostic locations against the selected workspace rather than any snapshot of it, and leave the Git index unchanged.
+- Statement: When lint runs without --fix, it shall evaluate only the selected view — the staged content and its index fingerprint for git-index, the working tree for workspace — including which official AXM skill package that view's settings and lock state select, report diagnostic locations against the selected workspace rather than any snapshot of it, and leave the Git index unchanged.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`, `machine-automation`
@@ -3577,7 +3577,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/lint/declared-official-skill-must-be-compatible`
 - Owner: `workspace-features`
-- Statement: When the workspace declares the official AXM skill, lint shall report a compatibility error and fail when the declared skill is missing, incompatible, skewed, authored, or unreadable, and shall report clean and succeed when the skill and CLI satisfy the declared bounded compatibility range, including prerelease versions within that range.
+- Statement: When the workspace declares the official AXM skill, lint shall judge only the package its desired and accepted state select, report a compatibility error and fail when that package is missing, incompatible, skewed, authored, or unreadable, and report clean and succeed when that package and the CLI satisfy its declared bounded compatibility range, including prerelease versions within that range; another copy of the skill elsewhere on disk shall neither rescue nor fail the selected package.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
@@ -4013,7 +4013,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/skills/install/bundled-recovery-rewrites-entry-and-retires-resolution`
 - Owner: `workspace-features`
-- Statement: When the workspace desires the official AXM skill from the Registry, installing the bundled official AXM skill shall rewrite that skill's axm.json entry to bundled workspace-owned content, retire its accepted Registry resolution, materialize the canonical content and the agent projection, leave every other accepted resolution intact, and change nothing when repeated.
+- Statement: When the workspace desires the official AXM skill from the Registry, installing the bundled official AXM skill shall rewrite that skill's axm.json entry to bundled workspace-owned content, retire its accepted Registry resolution, materialize the canonical content and the agent projection, leave every other accepted resolution and every other copy of the skill intact, and change nothing when repeated. The installation shall succeed only when the package the rewritten state selects is the bundled release, read back from its installed manifest and entry document, and compatible with the running AXM CLI; otherwise it shall fail and restore the configuration, lock state, and canonical content it found.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`, `actionable-diagnostics`
@@ -4027,7 +4027,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/skills/install/preserves-authored-official-skill`
 - Owner: `workspace-features`
-- Statement: When the workspace authors a skill named axm, installing the bundled official AXM skill shall be blocked before any change in preview and in a forced apply, shall name the authored skill as the cause, and shall leave configuration, lock state, and the authored source byte-for-byte intact.
+- Statement: When the workspace authors a skill named axm, installing the bundled official AXM skill shall be blocked before any change in preview and in a forced apply, even beside another copy of the official skill, shall name the authored skill as the cause, and shall leave configuration, lock state, the authored source, and every other copy byte-for-byte intact.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
@@ -4765,14 +4765,14 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 - Requirement: `cli/lint/compatibility-result-names-reason-and-recovery`
 - Owner: `workspace-features`
-- Statement: When lint runs in machine output mode, the result shall carry a compatibility result only when the workspace declares the official AXM skill, and that result shall name the reason the skill is incompatible and the recovery action with its next command, or no action when the skill is compatible.
+- Statement: When lint runs in machine output mode, the result shall carry a compatibility result only when the workspace declares the official AXM skill and its desired and accepted state select a package to assess, and that result shall describe that selected package: its source and version, the reason it is incompatible, and the recovery action for its source authority with its next command, or no action when it is compatible. When settings or accepted state prevent selecting a package, the result shall carry no compatibility result, the workspace shall remain declared, and the canonical-state finding shall name the cause.
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Boundary rationale: The compatibility block is a field of the feature's own machine document, decided from the workspace's declaration and canonical package; the envelope that carries it is the CLI's concern, not this rule's.
 - Methods: decision-table
-- Derived from: `cli/lint/official-skill-findings-follow-declared-intent`
+- Derived from: `cli/lint/official-skill-findings-follow-declared-intent`, `cli/lint/declared-official-skill-must-be-compatible`
 - Supersedes: `cli/lint/official-skill-findings-follow-declared-intent`
 - Open questions: The reason code reported for the authored and unreadable official-skill states is not pinned by the decision table, while every other error state pins one.
 - Source: [`packages/core/workspace-features/src/linting/catalog/workspace/compatibility-result-names-reason-and-recovery.spec.ts`](../packages/core/workspace-features/src/linting/catalog/workspace/compatibility-result-names-reason-and-recovery.spec.ts)

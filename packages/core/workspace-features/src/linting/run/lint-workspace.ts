@@ -54,6 +54,10 @@ import {
   type DesiredExtensionNode,
 } from "@agentxm/workspace-kernel/workspace-state";
 
+import {
+  assessOfficialAxmSkill,
+  selectOfficialAxmSkill,
+} from "@agentxm/workspace-kernel/resolution";
 import { buildLintWorkspace } from "../catalog/index.js";
 import { nodesDeferringToObservation } from "../catalog/workspace/canonical-observation-findings.js";
 import type { WorkspaceHealthFailure } from "../workspace-context.js";
@@ -265,6 +269,21 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
       ? new Set<string>()
       : nodesDeferringToObservation(observed.success);
 
+    // The official AXM skill is the desired node its identity selects, judged
+    // from that node's canonical observation; no other copy on disk counts.
+    const officialAxmSkill = yield* Effect.cached(
+      canonicalObservations.pipe(
+        Effect.flatMap((nodes) =>
+          assessOfficialAxmSkill({
+            selected: selectOfficialAxmSkill(nodes),
+            policy: axmSkillCompatibilityPolicy,
+          }),
+        ),
+        Effect.provideService(FileSystem.FileSystem, fileSystem),
+        Effect.provideService(Path.Path, path),
+      ),
+    );
+
     const desiredGraph = yield* desiredState.graph();
     const { rule: workspaceContext, view } = yield* buildLintWorkspace({
       platform: { fs: fileSystem, path },
@@ -273,7 +292,7 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
       scope: selection.scope,
       desiredState: desiredGraph,
       gitIndexView: selection.input.view === "git-index",
-      axmSkillCompatibilityPolicy,
+      officialAxmSkill,
       owner: settingsReader.owner.pipe(Effect.catch(() => Effect.succeed(Option.none()))),
       projections: { facts: invariantFacts.projectionFacts },
       defersExtensionRules: (type, name) => deferred.has(`${type}:${name}`),
@@ -424,12 +443,11 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
             selection.displayWorkspaceRoot,
             path,
           );
+    const officialAssessment = yield* Effect.result(officialAxmSkill);
     const axmSkillCompatibility =
-      workspaceContext.axmSkillCompatibility === undefined
-        ? undefined
-        : Option.getOrUndefined(
-            Option.flatten(yield* workspaceContext.axmSkillCompatibility.pipe(Effect.option)),
-          );
+      Result.isSuccess(officialAssessment) && officialAssessment.success._tag === "assessed"
+        ? officialAssessment.success.compatibility
+        : undefined;
     const exitCategory = summary.exitCategory;
     const outcome = resolveLintExitCategory({ category: exitCategory, strict: options.strict });
     return {

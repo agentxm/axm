@@ -86,6 +86,10 @@ export const evaluateAxmSkillCandidate = (
         onSome: (skill) => Option.getOrNull(skill.metadata),
       }),
       source: sourceForRef(args.ref),
+      authority:
+        args.ref.refType === "registry" || args.ref.refType === "workspace"
+          ? args.ref.refType
+          : null,
     } satisfies AxmSkillCompatibilityCandidate;
     const policy = yield* Effect.serviceOption(AxmSkillCompatibilityPolicy);
     const result = Option.match(policy, {

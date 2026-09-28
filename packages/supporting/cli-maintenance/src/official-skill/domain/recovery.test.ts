@@ -26,6 +26,7 @@ const compatibleInput = (
   skill: {
     manifestVersion: SKILL_VERSION,
     source: "agentxm:@agentxm/skills/axm@1.2.0",
+    authority: "registry",
     metadata: {
       [AXM_SKILL_CLI_VERSION_METADATA_KEY]: SKILL_VERSION,
       [AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY]: ">=1.2.0 <1.3.0",
@@ -95,6 +96,7 @@ describe("evaluateAxmSkillCompatibility", () => {
         skill: {
           manifestVersion: version,
           source: "bundled:@agentxm/skills/axm",
+          authority: "bundled",
           metadata: {
             [AXM_SKILL_CLI_VERSION_METADATA_KEY]: version,
             [AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY]: ">=1.2.0 <1.3.0",
@@ -111,6 +113,7 @@ describe("evaluateAxmSkillCompatibility", () => {
         skill: {
           manifestVersion: SKILL_VERSION,
           source: "workspace",
+          authority: "workspace",
           metadata: {
             [AXM_SKILL_CLI_VERSION_METADATA_KEY]: SKILL_VERSION,
             [AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY]: ">=1.2.0 <1.3.0",
@@ -155,12 +158,30 @@ describe("evaluateAxmSkillCompatibility", () => {
     });
   });
 
+  it("previews Registry recovery from a named Registry by authority, not source spelling", () => {
+    const input = compatibleInput({ cliVersion: "1.3.0" });
+    const result = evaluateAxmSkillCompatibility({
+      ...input,
+      skill:
+        input.skill === null
+          ? null
+          : { ...input.skill, source: "internal:@agentxm/skills/axm@1.2.0", authority: "registry" },
+    });
+
+    expect(result.recovery).toMatchObject({
+      action: "update-registry-skill",
+      nextAction: "axm skills update --name axm --preview",
+    });
+  });
+
   it("previews bundled workspace recovery for an older bundled skill", () => {
     const input = compatibleInput({ cliVersion: "1.3.0" });
     const result = evaluateAxmSkillCompatibility({
       ...input,
       skill:
-        input.skill === null ? null : { ...input.skill, source: "bundled:@agentxm/skills/axm" },
+        input.skill === null
+          ? null
+          : { ...input.skill, source: "bundled:@agentxm/skills/axm", authority: "bundled" },
     });
 
     expect(result.recovery).toMatchObject({
@@ -178,6 +199,7 @@ describe("evaluateAxmSkillCompatibility", () => {
         skill: {
           manifestVersion: SKILL_VERSION,
           source: "workspace",
+          authority: "workspace",
           metadata: {
             [AXM_SKILL_CLI_VERSION_METADATA_KEY]: SKILL_VERSION,
             [AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY]: ">=1.2.0 <1.3.0",
@@ -209,14 +231,14 @@ describe("evaluateAxmSkillCompatibility", () => {
     {
       name: "invalid manifest version wins over missing metadata",
       input: compatibleInput({
-        skill: { manifestVersion: "invalid", source: null, metadata: null },
+        skill: { manifestVersion: "invalid", source: null, authority: null, metadata: null },
       }),
       reasonCode: "axm-skill-manifest-invalid",
     },
     {
       name: "missing metadata map",
       input: compatibleInput({
-        skill: { manifestVersion: SKILL_VERSION, source: null, metadata: null },
+        skill: { manifestVersion: SKILL_VERSION, source: null, authority: null, metadata: null },
       }),
       reasonCode: "compatibility-metadata-missing",
     },
@@ -226,6 +248,7 @@ describe("evaluateAxmSkillCompatibility", () => {
         skill: {
           manifestVersion: SKILL_VERSION,
           source: null,
+          authority: null,
           metadata: { [AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY]: "not-a-range" },
         },
       }),
@@ -237,6 +260,7 @@ describe("evaluateAxmSkillCompatibility", () => {
         skill: {
           manifestVersion: SKILL_VERSION,
           source: null,
+          authority: null,
           metadata: { "agentxm.ai/cli-version": SKILL_VERSION },
         },
       }),
@@ -248,6 +272,7 @@ describe("evaluateAxmSkillCompatibility", () => {
         skill: {
           manifestVersion: SKILL_VERSION,
           source: null,
+          authority: null,
           metadata: {
             [AXM_SKILL_CLI_VERSION_METADATA_KEY]: "invalid",
             [AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY]: SKILL_VERSION,
@@ -262,6 +287,7 @@ describe("evaluateAxmSkillCompatibility", () => {
         skill: {
           manifestVersion: SKILL_VERSION,
           source: null,
+          authority: null,
           metadata: {
             [AXM_SKILL_CLI_VERSION_METADATA_KEY]: SKILL_VERSION,
             [AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY]: ">=1.0.0",
@@ -276,6 +302,7 @@ describe("evaluateAxmSkillCompatibility", () => {
         skill: {
           manifestVersion: SKILL_VERSION,
           source: null,
+          authority: null,
           metadata: {
             [AXM_SKILL_CLI_VERSION_METADATA_KEY]: "1.2.1",
             [AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY]: ">=1.2.0 <1.3.0",
@@ -290,6 +317,7 @@ describe("evaluateAxmSkillCompatibility", () => {
         skill: {
           manifestVersion: SKILL_VERSION,
           source: null,
+          authority: null,
           metadata: {
             [AXM_SKILL_CLI_VERSION_METADATA_KEY]: SKILL_VERSION,
             [AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY]: ">=1.1.0 <1.2.0",

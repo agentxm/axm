@@ -29,6 +29,37 @@ const removeCompatibilityRange = (content: string): string =>
     .filter((line) => !line.includes("axm.sh/cli-version-range:"))
     .join("\n");
 
+/** An older official-skill copy outside the selected canonical location. */
+const writeStaleCopy = (root: string): void => {
+  const staleRoot = path.join(root, "agent_extensions", "agentxm", "@agentxm", "skills", "axm");
+  fs.mkdirSync(path.join(staleRoot, "src"), { recursive: true });
+  fs.writeFileSync(
+    path.join(staleRoot, "skill.json"),
+    JSON.stringify({ owner: "@agentxm", type: "skill", name: "axm", version: "0.0.1" }),
+  );
+  fs.writeFileSync(
+    path.join(staleRoot, "src", "SKILL.md"),
+    '---\nname: axm\ndescription: Stale copy.\nmetadata:\n  axm.sh/cli-version: "0.0.1"\n  axm.sh/cli-version-range: ">=0.0.1 <0.1.0"\n---\n',
+  );
+};
+
+interface LintDocument {
+  readonly result: {
+    readonly findings: ReadonlyArray<{
+      readonly ruleId: string;
+      readonly path: string;
+      readonly displayRoot: string;
+    }>;
+    readonly axmSkillCompatibility?: {
+      readonly status: string;
+      readonly recovery: { readonly steps: ReadonlyArray<{ readonly command: string }> };
+    };
+  };
+}
+
+const compatibilityFindings = (document: LintDocument) =>
+  document.result.findings.filter(({ ruleId }) => ruleId === "workspace/axm-skill-compatible");
+
 describe("AXM skill compatibility lifecycle", () => {
   it("accepts a compatible bundled pair in human, JSON, quiet, and no-color lint modes", async () => {
     const temp = createTempDir("axm-skill-compatibility-e2e-");
@@ -63,6 +94,78 @@ describe("AXM skill compatibility lifecycle", () => {
       });
       expect(noColor.exitCode).toBe(0);
       expect(noColor.stdout + noColor.stderr).not.toContain("\u001b[");
+    } finally {
+      temp.cleanup();
+    }
+  });
+
+  it("recovers the selected skill beside a stale copy in the workspace and staged views", async () => {
+    const temp = createTempDir("axm-skill-stale-copy-e2e-");
+    try {
+      initializeGit(temp.path);
+      const env = { DO_NOT_TRACK: "1" };
+      const setup = await runCli(
+        ["setup", "--scope", "project", "--agent", "claude-code", "--yes", "--non-interactive"],
+        { cwd: temp.path, env },
+      );
+      expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
+      writeStaleCopy(temp.path);
+      const skillPath = skillMdPath(temp.path);
+      fs.writeFileSync(skillPath, removeCompatibilityRange(fs.readFileSync(skillPath, "utf8")));
+      git(temp.path, ["add", "."]);
+      git(temp.path, ["commit", "--quiet", "-m", "fixture"]);
+      const lintJson = async (view: "workspace" | "git-index"): Promise<LintDocument> => {
+        const run = await runCli(["lint", "--view", view, "--json"], { cwd: temp.path, env });
+        return JSON.parse(run.stdout);
+      };
+
+      const broken = await lintJson("workspace");
+      const [finding, ...others] = compatibilityFindings(broken);
+      expect(others).toEqual([]);
+      expect(path.resolve(temp.path, finding?.displayRoot ?? "", finding?.path ?? "")).toBe(
+        path.dirname(path.dirname(skillPath)),
+      );
+      const commands = broken.result.axmSkillCompatibility?.recovery.steps.map(
+        ({ command }) => command,
+      );
+      expect(commands).toEqual([
+        "axm skills install @agentxm/skills/axm --bundled --preview",
+        "axm skills install @agentxm/skills/axm --bundled",
+        "axm lint",
+      ]);
+
+      const statusBeforePreview = git(temp.path, ["status", "--porcelain"]);
+      const preview = await runCli(
+        ["skills", "install", "@agentxm/skills/axm", "--bundled", "--preview"],
+        { cwd: temp.path, env },
+      );
+      expect(preview.exitCode, `${preview.stderr}\n${preview.stdout}`).toBe(0);
+      expect(git(temp.path, ["status", "--porcelain"])).toBe(statusBeforePreview);
+
+      const apply = await runCli(["skills", "install", "@agentxm/skills/axm", "--bundled"], {
+        cwd: temp.path,
+        env,
+      });
+      expect(apply.exitCode, `${apply.stderr}\n${apply.stdout}`).toBe(0);
+      const repaired = await lintJson("workspace");
+      expect(repaired.result.axmSkillCompatibility?.status).toBe("compatible");
+      expect(compatibilityFindings(repaired)).toEqual([]);
+      expect(fs.existsSync(path.join(temp.path, "agent_extensions", "agentxm"))).toBe(true);
+
+      // The repair is in the working tree only until it is staged.
+      const staged = await lintJson("git-index");
+      expect(staged.result.axmSkillCompatibility?.status).toBe("incompatible");
+      git(temp.path, ["add", "-A"]);
+      const restaged = await lintJson("git-index");
+      expect(restaged.result.axmSkillCompatibility?.status).toBe("compatible");
+
+      const statusAfterApply = git(temp.path, ["status", "--porcelain"]);
+      const repeat = await runCli(["skills", "install", "@agentxm/skills/axm", "--bundled"], {
+        cwd: temp.path,
+        env,
+      });
+      expect(repeat.exitCode, `${repeat.stderr}\n${repeat.stdout}`).toBe(0);
+      expect(git(temp.path, ["status", "--porcelain"])).toBe(statusAfterApply);
     } finally {
       temp.cleanup();
     }

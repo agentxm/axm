@@ -549,7 +549,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/errors-do-not-disclose-credentials`
 - Owner: `cli`
-- Statement: AXM shall redact credential values, including an exact credential the Registry echoed under a sensitive key, from error reports and their diagnostic details in human and machine output at every supported verbosity level, from the plan result document, from the publish result's cause, and from the failure detail a resolved unit publishes on the lifecycle event stream.
+- Statement: AXM shall redact credential values, including an exact credential the Registry echoed under a sensitive key, from error reports and their diagnostic details in human and machine output at every supported verbosity level, from the plan result document, from the publish result's cause including a Git reason it reports, and from the failure detail a resolved unit publishes on the lifecycle event stream.
 - Class: quality (security)
 - Role: experience
 - Product goals: `actionable-diagnostics`, `machine-automation`
@@ -3029,6 +3029,20 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Supersedes: `cli/publish/preview-is-pure-and-gate-is-fixed`
 - Source: [`packages/core/workspace-features/src/publishing/lint-gate/publication-gate-is-fixed.spec.ts`](../packages/core/workspace-features/src/publishing/lint-gate/publication-gate-is-fixed.spec.ts)
 
+##### Publish reports the Git reason when source state cannot be assessed
+
+- Requirement: `cli/publish/reports-git-reason-when-source-assessment-fails`
+- Owner: `workspace-features`
+- Statement: When publish cannot assess an extension's source state against Git, whether while planning or when revalidating before upload, it shall fail the operation, upload nothing for that extension, and report the extension together with the available Git reason with credentials redacted, rather than treating the extension as outside Git, without HEAD, or matching HEAD.
+- Class: functional
+- Role: experience
+- Product goals: `trustworthy-distribution`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/publish/requires-explicit-acceptance-for-non-head-source`
+- Assumptions: The Git comparison reports its failure as a typed Git operation failure whose detail names the operation and Git's reason; every scenario substitutes that failure rather than running Git.
+- Source: [`packages/core/workspace-features/src/publishing/source-state/reports-git-reason-when-source-assessment-fails.spec.ts`](../packages/core/workspace-features/src/publishing/source-state/reports-git-reason-when-source-assessment-fails.spec.ts)
+
 ##### Publication reports differing workspace and consumer versions
 
 - Requirement: `cli/publish/reports-pack-resolution-differences`
@@ -4424,7 +4438,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Role: interface
 - Product goals: `extension-adoption`, `trustworthy-distribution`
 - Boundary: process; selection: per-change
-- Boundary rationale: The Git case clones a real committed repository through the production acquisition boundary, while the path case reads the same fixture directly; both then use the shared manifest finder.
+- Boundary rationale: The Git case clones a real committed repository through the production acquisition boundary, with and without inherited editor and pager settings, while the path case reads the same fixture directly; all then use the shared manifest finder.
 - Methods: decision-table, example
 - Derived from: `extension-installability/source-family-policy-is-total`
 - Source: [`packages/core/workspace-kernel/src/sources/discovers-all-manifest-kinds-from-git-and-path.spec.ts`](../packages/core/workspace-kernel/src/sources/discovers-all-manifest-kinds-from-git-and-path.spec.ts)

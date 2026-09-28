@@ -33,7 +33,7 @@ import {
   RegistryUrl,
   type RegistryPublishWarning,
 } from "@agentxm/registry-client";
-import type { GitDirectoryComparison } from "@agentxm/workspace-kernel/sources";
+import type { GitDirectoryComparison, GitOperationFailed } from "@agentxm/workspace-kernel/sources";
 import {
   AuthClient,
   AuthLoginPresenter,
@@ -124,6 +124,14 @@ import {
 import type { PublishPublicationSet, PublishResult, PublishResultItem } from "./result.js";
 
 const internal = (detail: string) => new PublishFailed({ category: "internal", detail });
+
+/** Name the candidate and keep the Git reason when its source state cannot be assessed. */
+const sourceAssessmentFailed = (fqn: string) => (cause: GitOperationFailed) =>
+  new PublishFailed({
+    category: "internal",
+    detail: `Could not assess the published source state for ${fqn}. ${cause.detail}`,
+    cause,
+  });
 
 /** The selection facts one publish result reports. */
 export type PublishSelectionSummary = Omit<
@@ -305,16 +313,7 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(function* (request
           directory: candidate.extensionDir,
           archivePlan: candidate.archivePlan,
           ...(candidate.publishIgnore === undefined ? {} : { ignore: candidate.publishIgnore }),
-        }).pipe(
-          Effect.mapError(
-            (cause) =>
-              new PublishFailed({
-                category: "internal",
-                detail: `Could not assess the published source state for ${candidate.fqn}.`,
-                cause,
-              }),
-          ),
-        );
+        }).pipe(Effect.mapError(sourceAssessmentFailed(candidate.fqn)));
         return { ...candidate, sourceAssessment } satisfies PublishCandidate;
       }),
     ),
@@ -680,16 +679,7 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
           directory: candidate.extensionDir,
           archivePlan: candidate.archivePlan,
           ...(candidate.publishIgnore === undefined ? {} : { ignore: candidate.publishIgnore }),
-        }).pipe(
-          Effect.mapError(
-            (cause) =>
-              new PublishFailed({
-                category: "internal",
-                detail: `Could not assess the published source state for ${candidate.fqn}.`,
-                cause,
-              }),
-          ),
-        );
+        }).pipe(Effect.mapError(sourceAssessmentFailed(candidate.fqn)));
         if (current.fingerprint !== planned.fingerprint) {
           return yield* Effect.fail(
             new PublishFailed({

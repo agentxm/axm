@@ -59,8 +59,8 @@ import {
   type LedgerRow,
   type Tone,
 } from "./screen/index.js";
+import { redactRegistryText } from "@agentxm/registry-client";
 import { operationExitCode } from "./operation-exit-code.js";
-import { redactCredentialBearingLocator } from "./app-error/index.js";
 import { NO_SCOPED_ROUTES, commandForScope } from "./root/shared/scoped-command.js";
 
 /**
@@ -165,7 +165,7 @@ const sourceSwitchChildren = (artifact: JobStepArtifact | undefined): Doc => {
     const describe = (endpoint: (typeof member)["before"] | (typeof member)["after"]): string =>
       endpoint === undefined
         ? "absent"
-        : `${endpoint.family} ${redactCredentialBearingLocator(endpoint.locator)} (${endpoint.resolution})`;
+        : `${endpoint.family} ${redactRegistryText(endpoint.locator)} (${endpoint.resolution})`;
     return {
       _tag: "paragraph",
       tone: "dim",
@@ -176,7 +176,7 @@ const sourceSwitchChildren = (artifact: JobStepArtifact | undefined): Doc => {
     {
       _tag: "paragraph",
       tone: "dim",
-      text: `Source: ${sourceSwitch.before.family} ${redactCredentialBearingLocator(sourceSwitch.before.locator)} to ${sourceSwitch.after.family} ${redactCredentialBearingLocator(sourceSwitch.after.locator)}`,
+      text: `Source: ${sourceSwitch.before.family} ${redactRegistryText(sourceSwitch.before.locator)} to ${sourceSwitch.after.family} ${redactRegistryText(sourceSwitch.after.locator)}`,
     },
     {
       _tag: "paragraph",

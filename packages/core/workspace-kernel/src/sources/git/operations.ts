@@ -11,7 +11,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { simpleGit, type SimpleGit, type SimpleGitOptions } from "simple-git";
-import { OperationRequestBudget } from "@agentxm/registry-client";
+import { OperationRequestBudget, redactRegistryText } from "@agentxm/registry-client";
 
 import { GitOperationFailed, type GitOperation } from "../errors.js";
 import { inheritedGitEnvironment } from "../../acquisition/index.js";
@@ -41,6 +41,15 @@ const gitRequestOrigin = (url: string): string => {
   }
 };
 
+const INTERACTIVE_COMMAND_VARIABLES: ReadonlySet<string> = new Set([
+  "editor",
+  "visual",
+  "git_editor",
+  "git_sequence_editor",
+  "pager",
+  "git_pager",
+]);
+
 const createGit = (baseDir: string, abort?: AbortSignal): SimpleGit => {
   const options: Partial<SimpleGitOptions> = {
     baseDir,
@@ -50,10 +59,14 @@ const createGit = (baseDir: string, abort?: AbortSignal): SimpleGit => {
     ...(abort === undefined ? {} : { abort }),
   };
 
-  const environment = inheritedGitEnvironment();
-  // Git never needs a pager here, and simple-git rejects inherited pager commands.
-  delete environment["PAGER"];
-  delete environment["GIT_PAGER"];
+  // Git never opens an editor or pager here, and simple-git rejects inherited
+  // editor and pager commands. Remove them under the same trimmed,
+  // case-insensitive key match simple-git applies; keep every other key.
+  const environment = Object.fromEntries(
+    Object.entries(inheritedGitEnvironment()).filter(
+      ([key]) => !INTERACTIVE_COMMAND_VARIABLES.has(key.trim().toLowerCase()),
+    ),
+  );
 
   return simpleGit(options).env({
     ...environment,
@@ -62,17 +75,27 @@ const createGit = (baseDir: string, abort?: AbortSignal): SimpleGit => {
   });
 };
 
+const foreignReason = (error: unknown): string | undefined => {
+  const message =
+    typeof error === "string" ? error : error instanceof Error ? error.message : undefined;
+  const reason = message?.trim();
+  return reason === undefined || reason.length === 0 ? undefined : reason;
+};
+
 /**
- * Maps unknown errors to the typed git failure with appropriate context.
+ * Maps unknown errors to the typed git failure with appropriate context. The
+ * detail carries the foreign reason when there is one, with credential shapes
+ * such as URL userinfo redacted; the original error stays in `cause`.
  */
 const mapGitError =
   (operation: GitOperation, context?: string) =>
   (error: unknown): GitOperationFailed => {
     const baseMessage = context ?? `Git ${operation} failed`;
+    const reason = foreignReason(error);
 
     return new GitOperationFailed({
       operation,
-      detail: baseMessage,
+      detail: redactRegistryText(reason === undefined ? baseMessage : `${baseMessage}: ${reason}`),
       cause: error,
     });
   };

@@ -34,8 +34,8 @@ catalog:
   "@typescript-eslint/parser": ^8.70.0
   "@typescript/native": npm:typescript@^7.0.2
   allure: ^3.17.0
-  allure-js-commons: ^3.12.1
-  allure-vitest: ^3.12.1
+  allure-js-commons: ^3.12.2
+  allure-vitest: ^3.12.2
   effect: 4.0.0-rc.117
   eslint: ^10.10.0
   execa: ^10.0.1

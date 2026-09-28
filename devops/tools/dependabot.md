@@ -33,9 +33,11 @@ action SHA pins and version comments when reviewing updates. Native catalog
 support removes the original reason for selecting Renovate; its configuration
 and self-hosted workflow are retired.
 
-The configuration permits one weekly npm minor/patch proposal and grouped
-Actions updates. `allow.update-types` limits version updates without excluding
-major security fixes; the cooldown and version PR limit do not delay security
+The configuration permits one weekly npm minor/patch proposal for direct
+manifest dependencies and grouped Actions updates. `allow` limits routine
+updates to direct dependencies and minor/patch versions; security updates can
+still address vulnerable indirect dependencies and major fixes. The cooldown
+and version PR limit do not delay security
 updates. Separate npm and Actions security groups consolidate compatible fixes.
 Automatic rebasing is disabled because the merge queue verifies integration;
 maintainers resolve actual conflicts. GitHub documents these semantics in its
@@ -90,6 +92,8 @@ That job opened [one weekly npm proposal with 162 updates](https://github.com/ag
 and GitHub closed the three earlier individual npm proposals. The job reported
 four failed indirect Babel updates: pnpm rejected a pinned version for packages
 that are not direct dependencies (`ERR_PNPM_UPDATE_VERSION_ON_INDIRECT_DEP`).
+Routine updates now select direct manifest dependencies to avoid that work;
+their transitive lockfile changes remain part of the resulting proposal.
 The grouped proposal's first CI run failed because `allure-vitest` resolved
 `@vitest/runner` 4.1.11 alongside Vitest 5.0.1; the proposal remains subject to
 the normal review and verification gates.

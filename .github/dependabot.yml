@@ -14,9 +14,10 @@ updates:
     open-pull-requests-limit: 4
     rebase-strategy: disabled
     versioning-strategy: increase
-    # Version-only restriction: security fixes may still require a major update.
+    # Routine updates cover direct manifests; security fixes can still update
+    # vulnerable indirect packages and may require a major update.
     allow:
-      - dependency-name: "*"
+      - dependency-type: direct
         update-types:
           - version-update:semver-minor
           - version-update:semver-patch

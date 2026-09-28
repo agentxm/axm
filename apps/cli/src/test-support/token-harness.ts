@@ -16,6 +16,7 @@ import {
   AuthClientTest,
   AuthLoginInteractionTest,
   CredentialStoreTest,
+  WorkloadCredentialsTest,
 } from "@agentxm/registry-access/testing";
 import { type AuthError } from "@agentxm/registry-access/authentication";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
@@ -100,6 +101,7 @@ export const makeTokenSpecContext = (options: TokenSpecContextOptions = {}) => {
       ...(options.json === undefined ? {} : { json: options.json }),
     }),
     credentials,
+    WorkloadCredentialsTest(),
     AuthClientTest({
       createToken: (params) =>
         Effect.sync(() => {

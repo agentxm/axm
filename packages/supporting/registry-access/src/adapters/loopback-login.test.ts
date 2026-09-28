@@ -61,6 +61,7 @@ const makeAuthClientLayer = () =>
         resourceRestrictions: null,
         expiresAt: null,
         approvedAt: null,
+        trustedPublisher: null,
       }),
   });
 

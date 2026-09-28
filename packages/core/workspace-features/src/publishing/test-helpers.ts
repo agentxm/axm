@@ -41,6 +41,7 @@ import {
   CredentialStoreTest,
   DeviceLoginInteractionTest,
   TokenExchangeTest,
+  WorkloadCredentialsTest,
 } from "@agentxm/registry-access/testing";
 import { AuthMiddlewareLive, SessionRefresherLive } from "@agentxm/registry-access/adapters";
 import { RegistryClientFactoryLive } from "@agentxm/registry-client";
@@ -237,6 +238,8 @@ export const makePublishWorld = (options: PublishWorldOptions = {}) => {
       // A world without seeded credentials is signed out, which is what a
       // `file://` target example wants and what a remote example refuses.
       CredentialStoreTest("restricted-file", options.credentials),
+      // No example runs in a GitHub Actions job, so no identity is exchanged.
+      WorkloadCredentialsTest(),
       GitDirectoryComparisonTest(options.compare),
       RegistryUrlTest(options.registryUrl ?? testRegistryUrl),
       Layer.succeed(HttpClient.HttpClient, transport),

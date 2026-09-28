@@ -115,7 +115,7 @@ const makeDecodeError = (code: string, status: number) => ({
 });
 
 /** Build a valid AuthGetMe200-compatible JSON response body. */
-const makeMeResponse = () => ({
+const makeMeResponse = (token?: Readonly<Record<string, unknown>>) => ({
   user: {
     id: "user_01h455vb4pexka56gq5w2r7cpc",
     handle: "@alice",
@@ -129,6 +129,8 @@ const makeMeResponse = () => ({
     authority: "account",
     expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
     approved_at: new Date(Date.now() - 60 * 1000).toISOString(),
+    trusted_publisher: null,
+    ...token,
   },
 });
 
@@ -825,6 +827,87 @@ describe("TokenExchange.refreshToken", () => {
 // TokenExchange.revokeToken
 // -----------------------------------------------------------------------------
 
+describe("TokenExchange.exchangeWorkloadToken", () => {
+  const exchangeLayer = (handler: (request: HttpClientRequest.HttpClientRequest) => Response) =>
+    Layer.provide(
+      TokenExchangeLive,
+      Layer.succeed(HttpClient.HttpClient, makeMockHttpClient(handler)),
+    );
+
+  it.effect("returns the workload token without a refresh token", () => {
+    const layer = exchangeLayer(
+      () =>
+        new Response(
+          JSON.stringify({
+            access_token: "fixture-workload-token",
+            issued_token_type: "urn:ietf:params:oauth:token-type:access_token",
+            token_type: "Bearer",
+            expires_in: 900,
+            expires_at: "2099-01-01T00:15:00.000Z",
+            scope: "extensions:publish:version",
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+    );
+
+    return Effect.gen(function* () {
+      const exchange = yield* TokenExchange;
+      const grant = yield* exchange.exchangeWorkloadToken("fixture-id-token", REGISTRY_URL);
+      expect(grant.access_token).toBe("fixture-workload-token");
+      expect(DateTime.formatIso(grant.expires_at)).toBe("2099-01-01T00:15:00.000Z");
+    }).pipe(Effect.provide(layer));
+  });
+
+  it.effect.each([
+    [
+      400,
+      { kind: "TokenOAuthError", error: "invalid_grant", error_description: "No." },
+      "exchange_refused",
+    ],
+    [
+      400,
+      { kind: "TokenOAuthError", error: "invalid_scope", error_description: "No." },
+      "exchange_refused",
+    ],
+    [503, internalErrorResponse, "exchange_unavailable"],
+    [500, internalErrorResponse, "exchange_unavailable"],
+  ] as const)("classifies HTTP %s as %s", ([status, body, reason]) => {
+    const layer = exchangeLayer(
+      () =>
+        new Response(JSON.stringify(body), {
+          status,
+          headers: { "content-type": "application/json" },
+        }),
+    );
+
+    return Effect.gen(function* () {
+      const exchange = yield* TokenExchange;
+      const failure = yield* exchange
+        .exchangeWorkloadToken("fixture-id-token", REGISTRY_URL)
+        .pipe(Effect.flip);
+      expect(failure.reason).toBe(reason);
+      expect(failure.registryUrl).toBe(REGISTRY_URL);
+    }).pipe(Effect.provide(layer));
+  });
+
+  it.effect("classifies an unreachable Registry as undecided", () =>
+    Effect.gen(function* () {
+      const exchange = yield* TokenExchange;
+      const failure = yield* exchange
+        .exchangeWorkloadToken("fixture-id-token", REGISTRY_URL)
+        .pipe(Effect.flip);
+      expect(failure.reason).toBe("exchange_unavailable");
+    }).pipe(
+      Effect.provide(
+        Layer.provide(
+          TokenExchangeLive,
+          Layer.succeed(HttpClient.HttpClient, makeNetworkErrorHttpClient()),
+        ),
+      ),
+    ),
+  );
+});
+
 describe("TokenExchange.revokeToken", () => {
   const exchangeLayer = (handler: (request: HttpClientRequest.HttpClientRequest) => Response) =>
     Layer.provide(
@@ -909,8 +992,34 @@ describe("AuthClient.getMe", () => {
         "permissions",
         "resourceRestrictions",
         "tokenType",
+        "trustedPublisher",
         "userHandle",
       ]);
+      expect(result.trustedPublisher).toBeNull();
+    }).pipe(Effect.provide(layer));
+  });
+
+  it.effect("names the trusted publisher behind a workload token, without its identifier", () => {
+    const layer = makeTestLayer(
+      () =>
+        new Response(
+          JSON.stringify(
+            makeMeResponse({
+              type: "oidc",
+              authority: "limited",
+              approved_at: null,
+              trusted_publisher: { id: "tpub_01h455vb4pexka56gq5w2r7cpc", name: "release" },
+            }),
+          ),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+    );
+
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      const result = yield* client.getMe();
+      expect(result.tokenType).toBe("oidc");
+      expect(result.trustedPublisher).toEqual({ name: "release" });
     }).pipe(Effect.provide(layer));
   });
 

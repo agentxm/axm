@@ -8,6 +8,7 @@
 
 export { AuthClientTest, TokenExchangeTest } from "./authentication/auth-client.js";
 export { CredentialStoreTest } from "./credentials/credential-store.js";
+export { WorkloadCredentialsTest } from "./credentials/workload-credentials.js";
 export {
   DeviceLoginInteractionTest,
   type DeviceLoginInteractionTestState,

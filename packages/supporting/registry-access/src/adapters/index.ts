@@ -15,3 +15,4 @@ export {
   CredentialStoreSessionLive,
 } from "../credentials/credential-store.js";
 export { SessionRefresherLive } from "../credentials/session-refresh.js";
+export { WorkloadCredentialsLive } from "../credentials/workload-credentials.js";

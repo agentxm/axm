@@ -2,7 +2,12 @@
  * Auth middleware — the one place a request acquires a credential.
  *
  * Every outgoing request to a Registry origin is presented with whatever
- * credential the invocation resolved: an ambient token or the stored session.
+ * credential the invocation resolved: an ambient token, the workload token its
+ * GitHub Actions identity was exchanged for, or the stored session. The
+ * transport never exchanges an identity itself: a command that needs a
+ * credential resolves it first, and the transport presents the workload token
+ * from then on. It is never renewed on a rejection: the Registry refusing it
+ * is the answer.
  * A stored session is renewed here — before the request when it is about to
  * expire, and again if the Registry rejects it — through the single
  * `SessionRefresher` authority.
@@ -34,7 +39,8 @@ import {
 } from "@agentxm/registry-client";
 import type { RegistryAccessFailed, SessionEnded } from "../authentication/errors.js";
 import type { CredentialStoreTokenSource } from "../credentials/schema.js";
-import { resolveRequestToken } from "../credentials/token-resolution.js";
+import { resolvePresentedToken } from "../credentials/token-resolution.js";
+import { WorkloadCredentials } from "../credentials/workload-credentials.js";
 
 // -----------------------------------------------------------------------------
 // Credential failures, in the vocabulary the transport's callers read
@@ -131,10 +137,14 @@ export const AuthMiddlewareLive = Layer.effect(
   Effect.gen(function* () {
     const baseClient = yield* HttpClient.HttpClient;
     const store = yield* CredentialStore;
+    const workload = yield* WorkloadCredentials;
     const refresher = yield* SessionRefresher;
     const fs = yield* Effect.serviceOption(FileSystem.FileSystem);
     const defaultRegistryUrl = yield* RegistryUrl;
-    const storeLayerBase = Layer.succeed(CredentialStore, store);
+    const storeLayerBase = Layer.merge(
+      Layer.succeed(CredentialStore, store),
+      Layer.succeed(WorkloadCredentials, workload),
+    );
     const storeLayer = Option.match(fs, {
       onNone: () => storeLayerBase,
       onSome: (fileSystem) =>
@@ -176,7 +186,7 @@ export const AuthMiddlewareLive = Layer.effect(
      * and a private extension would simply not exist.
      */
     const credentialFor = (request: HttpClientRequest.HttpClientRequest) =>
-      resolveRequestToken(request.url, defaultRegistryUrl).pipe(
+      resolvePresentedToken(request.url, defaultRegistryUrl).pipe(
         Effect.provide(storeLayer),
         Effect.mapError((error) =>
           asTransportFailure(

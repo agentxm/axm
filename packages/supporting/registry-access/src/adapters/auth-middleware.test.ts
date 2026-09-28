@@ -28,6 +28,7 @@ import { AuthMiddlewareLive } from "./auth-middleware.js";
 import { RegistryAccessFailed } from "../authentication/errors.js";
 import { RegistryRequestFailed, RegistryUrl } from "@agentxm/registry-client";
 import { handle } from "../test-helpers.js";
+import { WorkloadCredentialsTest } from "../credentials/workload-credentials.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -83,7 +84,13 @@ const makeTestLayers = (
   // Auth middleware depends on HttpClient, CredentialStore, SessionRefresher, RegistryUrl
   const middlewareLayer = Layer.provide(
     AuthMiddlewareLive,
-    Layer.mergeAll(baseClientLayer, credStoreLayer, refresherLayer, registryUrlLayer),
+    Layer.mergeAll(
+      WorkloadCredentialsTest(),
+      baseClientLayer,
+      credStoreLayer,
+      refresherLayer,
+      registryUrlLayer,
+    ),
   );
 
   // Merge credential store so tests can access it
@@ -457,7 +464,13 @@ describe("AuthMiddleware", () => {
 
       const middlewareLayer = Layer.provide(
         AuthMiddlewareLive,
-        Layer.mergeAll(baseClientLayer, credStoreLayer, refresherLayer, registryUrlLayer),
+        Layer.mergeAll(
+          WorkloadCredentialsTest(),
+          baseClientLayer,
+          credStoreLayer,
+          refresherLayer,
+          registryUrlLayer,
+        ),
       );
       const layers = Layer.mergeAll(
         middlewareLayer,

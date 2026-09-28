@@ -75,6 +75,7 @@ const startDeviceAuthServer = async (initialOutcome: DeviceOutcome = "pending") 
           authority: "account",
           expires_at: new Date(Date.now() + 3_600_000).toISOString(),
           approved_at: new Date().toISOString(),
+          trusted_publisher: null,
         },
       });
       return;

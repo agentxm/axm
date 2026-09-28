@@ -15,6 +15,8 @@ export {
   REGISTRY_ACCESS_ERROR_CATEGORIES,
   RegistryAccessFailed,
   SignedOut,
+  TRUSTED_PUBLISHER_SETTINGS_URL,
+  WorkloadTokenUnavailable,
   isAuthError,
   isRegistryAccessFailure,
   signedOut,

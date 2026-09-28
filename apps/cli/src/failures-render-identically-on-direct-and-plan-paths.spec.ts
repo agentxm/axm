@@ -42,6 +42,7 @@ import {
 } from "@agentxm/registry-client";
 import {
   AuthExchangeFailed,
+  WorkloadTokenUnavailable,
   AuthInteractionAbandoned,
   AuthTokenPolicyRequired,
   DeviceAuthorizationPending,
@@ -909,6 +910,20 @@ const representatives: Representatives = {
         detail: "Token exchange failed: the Registry could not be reached.",
         cause: ioCause,
       }),
+    }),
+  ],
+  WorkloadTokenUnavailable: [
+    new WorkloadTokenUnavailable({
+      reason: "exchange_refused",
+      registryUrl: "https://registry.example.test",
+      detail: "The Registry refused this job's GitHub Actions identity.",
+      suggestions: [
+        {
+          description:
+            "Grant the job `permissions: id-token: write` so it can request a GitHub Actions ID token.",
+        },
+      ],
+      cause: ioCause,
     }),
   ],
 };

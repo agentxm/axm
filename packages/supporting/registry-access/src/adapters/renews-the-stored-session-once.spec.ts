@@ -23,6 +23,7 @@ import {
 } from "../credentials/credential-store.js";
 import { SessionRefresherLive } from "../credentials/session-refresh.js";
 import { AuthMiddlewareLive } from "./auth-middleware.js";
+import { WorkloadCredentialsTest } from "../credentials/workload-credentials.js";
 
 export const specification = defineSpecification({
   requirement: "cli/session/renews-the-stored-session-once",
@@ -112,7 +113,13 @@ const harness = ({ expiresAt, refresh, lock, respond }: Harness) => {
   const registryUrlLayer = Layer.succeed(RegistryUrl, registry);
   const middleware = Layer.provide(
     AuthMiddlewareLive,
-    Layer.mergeAll(transportLayer, storeLayer, refresherLayer, registryUrlLayer),
+    Layer.mergeAll(
+      WorkloadCredentialsTest(),
+      transportLayer,
+      storeLayer,
+      refresherLayer,
+      registryUrlLayer,
+    ),
   );
   return { presented, layer: Layer.mergeAll(middleware, storeLayer, registryUrlLayer) };
 };

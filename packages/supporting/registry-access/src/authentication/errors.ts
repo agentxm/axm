@@ -91,6 +91,68 @@ export class RefreshUnavailable extends Data.TaggedError("RefreshUnavailable")<{
   readonly cause?: unknown;
 }> {}
 
+/** Where a person registers a repository's workflow as a trusted publisher. */
+export const TRUSTED_PUBLISHER_SETTINGS_URL = "https://agentxm.ai/u/settings/trusted-publishers";
+
+/** Why a GitHub Actions identity could not become a Registry credential. */
+export type WorkloadTokenUnavailableReason =
+  "id_token_request_failed" | "exchange_refused" | "exchange_unavailable";
+
+/**
+ * The invocation runs in a GitHub Actions job that offers an ID token, and that
+ * identity could not be exchanged for a workload token. The producer owns the
+ * wording, so the failure reads the same whether a command asked for the
+ * credential or the transport did.
+ */
+export class WorkloadTokenUnavailable extends Data.TaggedError("WorkloadTokenUnavailable")<{
+  readonly reason: WorkloadTokenUnavailableReason;
+  readonly registryUrl: string;
+  readonly detail: string;
+  readonly suggestions: ReadonlyArray<SuggestedAction>;
+  readonly cause?: unknown;
+}> {}
+
+const WORKLOAD_TOKEN_UNAVAILABLE_DETAIL: Record<WorkloadTokenUnavailableReason, string> = {
+  id_token_request_failed:
+    "GitHub Actions did not issue an ID token for this job, so it cannot authenticate as a trusted publisher.",
+  exchange_refused:
+    "The Registry refused this job's GitHub Actions identity: no active trusted publisher matches its repository, workflow, and environment.",
+  exchange_unavailable:
+    "The Registry could not be reached to exchange this job's GitHub Actions identity for a token.",
+};
+
+const WORKLOAD_TOKEN_SUGGESTIONS: ReadonlyArray<SuggestedAction> = [
+  {
+    description:
+      "Add `id-token` with `write` access to the job's `permissions` so it can request a GitHub Actions ID token.",
+  },
+  {
+    description:
+      "Register this repository and workflow as a trusted publisher in AgentXM settings.",
+    url: TRUSTED_PUBLISHER_SETTINGS_URL,
+  },
+  {
+    description:
+      "To authenticate with a token instead, set AXM_TOKEN_FILE, or set AXM_TRUSTED_PUBLISHING=0 to stop using this job's identity.",
+  },
+];
+
+export const workloadTokenUnavailable = (
+  reason: WorkloadTokenUnavailableReason,
+  registryUrl: string,
+  cause?: unknown,
+): WorkloadTokenUnavailable =>
+  new WorkloadTokenUnavailable({
+    reason,
+    registryUrl,
+    detail: WORKLOAD_TOKEN_UNAVAILABLE_DETAIL[reason],
+    suggestions:
+      reason === "exchange_unavailable"
+        ? [{ description: "Retry once the Registry is reachable." }, ...WORKLOAD_TOKEN_SUGGESTIONS]
+        : WORKLOAD_TOKEN_SUGGESTIONS,
+    ...(cause === undefined ? {} : { cause }),
+  });
+
 /** The device authorization was denied or cancelled by the person approving it. */
 export class DeviceLoginDenied extends Data.TaggedError("DeviceLoginDenied") {}
 
@@ -151,7 +213,8 @@ export type RegistryAccessFailure =
   | DeviceLoginCodeExpired
   | DeviceAuthorizationPending
   | AuthInteractionAbandoned
-  | AuthExchangeFailed;
+  | AuthExchangeFailed
+  | WorkloadTokenUnavailable;
 
 export const isRegistryAccessFailure = (error: unknown): error is RegistryAccessFailure =>
   error instanceof RegistryAccessFailed ||
@@ -161,7 +224,8 @@ export const isRegistryAccessFailure = (error: unknown): error is RegistryAccess
   error instanceof DeviceLoginCodeExpired ||
   error instanceof DeviceAuthorizationPending ||
   error instanceof AuthInteractionAbandoned ||
-  error instanceof AuthExchangeFailed;
+  error instanceof AuthExchangeFailed ||
+  error instanceof WorkloadTokenUnavailable;
 
 /**
  * Every failure a Registry access use case can surface: the capability's typed

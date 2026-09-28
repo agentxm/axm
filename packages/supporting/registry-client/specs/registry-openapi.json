@@ -123,11 +123,11 @@
         "security": [],
         "responses": {
           "200": {
-            "description": "OAuth 2.0 token response containing an access/refresh token pair.",
+            "description": "OAuth 2.0 token response: a session's access and refresh token pair, or a workload token exchanged for a CI identity token.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionTokenResponse"
+                  "$ref": "#/components/schemas/TokenResponse"
                 }
               }
             }
@@ -175,6 +175,7 @@
             }
           }
         },
+        "description": "Issues a signed-in session's token pair for an authorization code, device code, or refresh token. With the RFC 8693 token-exchange grant, exchanges a GitHub Actions ID token that a trusted publisher trusts for a short-lived workload token with no refresh token; every refusal of the subject token is the same `invalid_grant`.",
         "summary": "Exchange OAuth grant for access token",
         "requestBody": {
           "content": {
@@ -188,7 +189,8 @@
                     "examples": [
                       "authorization_code",
                       "urn:ietf:params:oauth:grant-type:device_code",
-                      "refresh_token"
+                      "refresh_token",
+                      "urn:ietf:params:oauth:grant-type:token-exchange"
                     ]
                   },
                   "code": {
@@ -253,6 +255,75 @@
                       {
                         "type": "string",
                         "description": "Refresh token to exchange for a new token pair."
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "subject_token": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "description": "Token exchange (RFC 8693): the GitHub Actions ID token of the workflow run."
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "subject_token_type": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "description": "Token exchange: the type of subject_token. Only urn:ietf:params:oauth:token-type:jwt is accepted.",
+                        "examples": ["urn:ietf:params:oauth:token-type:jwt"]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "audience": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "description": "Token exchange: this Registry's origin. The subject token must name the same audience."
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "requested_token_type": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "description": "Token exchange: the type of token requested. Only urn:ietf:params:oauth:token-type:access_token is issued.",
+                        "examples": ["urn:ietf:params:oauth:token-type:access_token"]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "scope": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "description": "Token exchange: space-delimited scopes narrowing what the trusted publisher grants. Absent means everything it grants."
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "expires_in": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "description": "Token exchange: requested lifetime of the workload token in whole seconds. Defaults to 15 minutes; at most 1 hour.",
+                        "examples": ["900"]
                       },
                       {
                         "type": "null"
@@ -6222,6 +6293,111 @@
         "summary": "Search extensions"
       }
     },
+    "/v1/secret-scanning/alerts": {
+      "post": {
+        "tags": ["SecretScanning"],
+        "operationId": "SecretScanning.reportAlert",
+        "parameters": [
+          {
+            "name": "github-public-key-identifier",
+            "in": "header",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "Identifier of the GitHub secret scanning key that signed the alert."
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "required": false
+          },
+          {
+            "name": "github-public-key-signature",
+            "in": "header",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "Base64 ECDSA P-256 SHA-256 signature over the exact request body."
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "required": false
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SecretScanningLabel"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "InvalidRequestError | DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DecodeErrorResponseEncoded"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "ServiceUnavailableError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "description": "GitHub secret scanning partner endpoint. The body is GitHub's JSON array of `{ token, type, url, source }` matches, signed over its exact bytes by a key GitHub publishes; an unsigned or badly signed alert is refused with 401 and nothing is revoked. Each live AgentXM token in a signed alert is revoked and its holder is told. The answer labels each match by the SHA-256 of its token, never the token.",
+        "summary": "Revoke tokens found by GitHub secret scanning",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        }
+      }
+    },
     "/v1/debug/stream": {
       "get": {
         "tags": ["Debug"],
@@ -6593,7 +6769,7 @@
         "description": "A date and time string (e.g. 2024-01-15T12:00:00.000Z).",
         "format": "date-time"
       },
-      "SessionTokenResponse": {
+      "TokenResponse": {
         "type": "object",
         "properties": {
           "access_token": {
@@ -6602,7 +6778,12 @@
           },
           "refresh_token": {
             "type": "string",
-            "description": "OAuth 2.0 refresh token for obtaining new token pairs."
+            "description": "OAuth 2.0 refresh token for obtaining a new token pair. Present for a signed-in session; absent for a workload token, which is exchanged again instead."
+          },
+          "issued_token_type": {
+            "type": "string",
+            "enum": ["urn:ietf:params:oauth:token-type:access_token"],
+            "description": "Token exchange (RFC 8693): the type of the issued token. Present only for a token exchange."
           },
           "token_type": {
             "type": "string",
@@ -6614,12 +6795,16 @@
           },
           "expires_at": {
             "$ref": "#/components/schemas/IsoDateTimeString"
+          },
+          "scope": {
+            "type": "string",
+            "description": "Space-delimited scopes the workload token carries. Absent for a signed-in session, which carries its holder's whole authority."
           }
         },
-        "required": ["access_token", "refresh_token", "token_type", "expires_in", "expires_at"],
+        "required": ["access_token", "token_type", "expires_in", "expires_at"],
         "additionalProperties": false,
-        "title": "Session Token Response",
-        "description": "OAuth 2.0 token response containing an access/refresh token pair."
+        "title": "Token Response",
+        "description": "OAuth 2.0 token response: a session's access and refresh token pair, or a workload token exchanged for a CI identity token."
       },
       "TokenOAuthErrorEncoded": {
         "type": "object",
@@ -6636,6 +6821,7 @@
               "invalid_grant",
               "unauthorized_client",
               "unsupported_grant_type",
+              "invalid_scope",
               "authorization_pending",
               "slow_down",
               "expired_token",
@@ -6741,6 +6927,29 @@
         "title": "Resource Restrictions",
         "description": "What this credential is allowed to access. Present only when the authority is `limited`."
       },
+      "TrustedPublisherId": {
+        "type": "string",
+        "pattern": "^tpub_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+        "title": "Trusted Publisher ID",
+        "description": "Identifies a trusted publisher: a CI workflow identity a user allowed to exchange its OIDC token for a short-lived workload token.",
+        "examples": ["tpub_01h455vb4pexka56gq5w2r7cpc"]
+      },
+      "AuthMeTrustedPublisher": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/TrustedPublisherId"
+          },
+          "name": {
+            "type": "string",
+            "description": "The trusted publisher's name."
+          }
+        },
+        "required": ["id", "name"],
+        "additionalProperties": false,
+        "title": "Trusted Publisher",
+        "description": "The trusted publisher a workload token was exchanged through."
+      },
       "AuthMeToken": {
         "type": "object",
         "properties": {
@@ -6805,9 +7014,29 @@
               }
             ],
             "description": "When the browser sign-in that approved this CLI session approved it. Null for any other kind of credential."
+          },
+          "trusted_publisher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AuthMeTrustedPublisher"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The trusted publisher this workload token acts through. Null for any other kind of credential."
           }
         },
-        "required": ["id", "type", "name", "permissions", "authority", "expires_at", "approved_at"],
+        "required": [
+          "id",
+          "type",
+          "name",
+          "permissions",
+          "authority",
+          "expires_at",
+          "approved_at",
+          "trusted_publisher"
+        ],
         "additionalProperties": false,
         "title": "Token Info",
         "description": "Details about the token you used to authenticate."
@@ -10253,6 +10482,28 @@
         "title": "Search Response",
         "description": "A page of extensions matching the search query."
       },
+      "SecretScanningLabel": {
+        "type": "object",
+        "properties": {
+          "token_hash": {
+            "type": "string",
+            "description": "Lowercase hex SHA-256 of the reported token."
+          },
+          "token_type": {
+            "type": "string",
+            "description": "The token type GitHub reported for the match."
+          },
+          "label": {
+            "type": "string",
+            "enum": ["true_positive", "false_positive"],
+            "description": "`true_positive` when the match was a live AgentXM token, now revoked; otherwise `false_positive`."
+          }
+        },
+        "required": ["token_hash", "token_type", "label"],
+        "additionalProperties": false,
+        "title": "Secret Scanning Label",
+        "description": "What one reported match turned out to be."
+      },
       "DebugStreamEventEncoded": {
         "type": "string",
         "contentMediaType": "application/json"
@@ -10321,6 +10572,9 @@
     },
     {
       "name": "Search"
+    },
+    {
+      "name": "SecretScanning"
     },
     {
       "name": "Debug"

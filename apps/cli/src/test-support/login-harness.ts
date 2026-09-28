@@ -61,6 +61,7 @@ export const makeLoginSpecContext = (options: LoginSpecContextOptions = {}) => {
     resourceRestrictions: null,
     expiresAt: null,
     approvedAt: null,
+    trustedPublisher: null,
   };
   const deviceFlowStarts: Array<string> = [];
   const authClient = AuthClientTest({

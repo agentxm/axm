@@ -69,6 +69,8 @@ export interface HttpRegistry {
   readonly metadataRequests: ReadonlyArray<ReadonlyArray<string>>;
   /** Every refresh token presented to the token endpoint, in order. */
   readonly presentedRefreshTokens: ReadonlyArray<string>;
+  /** Every token-exchange request's form fields, in order. */
+  readonly tokenExchanges: ReadonlyArray<Readonly<Record<string, string>>>;
   /** Resolves when the next commit-then-hang upload has been stored. */
   readonly nextHungPublish: () => Promise<string>;
   /** Resolves when a download the server was told to hang has arrived. */
@@ -130,7 +132,22 @@ export interface HttpRegistryOptions {
     /** Hold each grant open this long, so concurrent invocations overlap it. */
     readonly grantDelayMs: number;
   };
+  /**
+   * Accept one CI identity token in an RFC 8693 token exchange whose audience
+   * is this Registry, and issue `accessToken` as a workload token acting for
+   * `@test` under the trusted publisher `publisherName`; with `refuse`, refuse
+   * every exchange as `invalid_grant`, as the Registry does when no trusted
+   * publisher matches.
+   */
+  readonly trustedPublishing?: {
+    readonly subjectToken: string;
+    readonly accessToken: string;
+    readonly publisherName: string;
+    readonly refuse?: boolean;
+  };
 }
+
+const TOKEN_EXCHANGE_GRANT = "urn:ietf:params:oauth:grant-type:token-exchange";
 
 interface StoredVersion {
   readonly version: string;
@@ -377,6 +394,7 @@ export const startHttpRegistry = async (
   const requests: Array<RequestRecord> = [];
   const metadataRequests: Array<ReadonlyArray<string>> = [];
   const presentedRefreshTokens: Array<string> = [];
+  const tokenExchanges: Array<Readonly<Record<string, string>>> = [];
   let session =
     options.rotatingSession === undefined
       ? undefined
@@ -385,8 +403,12 @@ export const startHttpRegistry = async (
           refreshToken: options.rotatingSession.refreshToken,
           rotations: 0,
         };
+  const trustedPublishing = options.trustedPublishing;
   const tokenOwners: Readonly<Record<string, string>> = {
     "e2e-test-token": TEST_OWNER,
+    ...(trustedPublishing === undefined || trustedPublishing.refuse === true
+      ? {}
+      : { [trustedPublishing.accessToken]: TEST_OWNER }),
     ...options.tokenOwners,
   };
 
@@ -408,6 +430,64 @@ export const startHttpRegistry = async (
     });
 
     void (async () => {
+      if (
+        trustedPublishing !== undefined &&
+        request.method === "POST" &&
+        pathname === "/v1/auth/token"
+      ) {
+        const form = new URLSearchParams((await readBody(request)).toString("utf8"));
+        tokenExchanges.push(Object.fromEntries(form));
+        const accepted =
+          trustedPublishing.refuse !== true &&
+          form.get("grant_type") === TOKEN_EXCHANGE_GRANT &&
+          form.get("subject_token") === trustedPublishing.subjectToken &&
+          form.get("subject_token_type") === "urn:ietf:params:oauth:token-type:jwt" &&
+          form.get("audience") === `http://${request.headers.host ?? ""}`;
+        if (!accepted) {
+          // The refusal never says whether a trusted publisher exists.
+          sendJson(response, 400, {
+            kind: "TokenOAuthError",
+            error: "invalid_grant",
+            error_description: "The subject token was not accepted.",
+          });
+          return;
+        }
+        sendJson(response, 200, {
+          access_token: trustedPublishing.accessToken,
+          issued_token_type: "urn:ietf:params:oauth:token-type:access_token",
+          token_type: "Bearer",
+          expires_in: 900,
+          expires_at: "2099-01-01T00:15:00.000Z",
+          scope: "extensions:publish:version",
+        });
+        return;
+      }
+
+      if (
+        trustedPublishing !== undefined &&
+        request.method === "GET" &&
+        pathname === "/v1/auth/me" &&
+        request.headers.authorization === `Bearer ${trustedPublishing.accessToken}`
+      ) {
+        sendJson(response, 200, {
+          user: { id: "user_01h455vb4pexka56gq5w2r7cpc", handle: TEST_OWNER, email: null },
+          token: {
+            id: "tok_01h455vb4pexka56gq5w2r7cpc",
+            type: "oidc",
+            name: trustedPublishing.publisherName,
+            permissions: { owners: [TEST_OWNER], extensions: [], permission: "publish" },
+            authority: "limited",
+            expires_at: "2099-01-01T00:15:00.000Z",
+            approved_at: null,
+            trusted_publisher: {
+              id: "tpub_01h455vb4pexka56gq5w2r7cpc",
+              name: trustedPublishing.publisherName,
+            },
+          },
+        });
+        return;
+      }
+
       if (
         options.rotatingSession !== undefined &&
         request.method === "POST" &&
@@ -466,6 +546,7 @@ export const startHttpRegistry = async (
             authority: "account",
             expires_at: "2099-01-01T00:00:00.000Z",
             approved_at: null,
+            trusted_publisher: null,
           },
         });
         return;
@@ -1071,6 +1152,7 @@ export const startHttpRegistry = async (
     requests,
     metadataRequests,
     presentedRefreshTokens,
+    tokenExchanges,
     failNextIndex: (pluralAndName) => void pendingIndexFailures.add(pluralAndName),
     copyVersion: (owner, plural, name, sourceVersion, targetVersion) => {
       const extensionKey = key(owner, plural, name);

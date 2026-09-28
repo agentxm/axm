@@ -12,6 +12,7 @@ import {
   AuthClientTest,
   AuthLoginInteractionTest,
   CredentialStoreTest,
+  WorkloadCredentialsTest,
 } from "@agentxm/registry-access/testing";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
@@ -70,6 +71,7 @@ const makeLayers = (opts?: {
       ...(opts?.nonInteractive !== undefined && { nonInteractive: opts.nonInteractive }),
     }),
     credStoreLayer,
+    WorkloadCredentialsTest(),
     AuthClientTest(opts?.authOverrides),
     interaction.layer,
     Layer.provide(AuthLoginPresenterLive, Layer.mergeAll(rendererLayer, interaction.layer)),

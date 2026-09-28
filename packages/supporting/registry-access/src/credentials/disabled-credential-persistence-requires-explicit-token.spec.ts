@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { defineSpecification } from "@agentxm/specification-metadata";
@@ -16,12 +17,13 @@ import {
   deviceLoginRequest,
   makeAuthPorts,
 } from "../authentication/test-support/test-helpers.js";
+import { WorkloadTokenSource } from "./schema.js";
 
 export const specification = defineSpecification({
   requirement: "cli/disabled-credential-persistence-requires-explicit-token",
   title: "Environments without session storage require explicit tokens",
   statement:
-    "When persisted credentials are disabled, AXM shall refuse sign-in and saved-session authentication with the explicit-token policy failure while allowing commands to use an explicitly supplied environment token.",
+    "When persisted credentials are disabled, AXM shall refuse sign-in and saved-session authentication with the explicit-token policy failure while allowing commands to use an explicitly supplied environment token or the workload token a GitHub Actions identity is exchanged for.",
   class: "functional",
   role: "experience",
   goals: ["machine-automation", "actionable-diagnostics"],
@@ -45,6 +47,16 @@ describe("Disabled credential persistence", () => {
     const ports = makeAuthPorts({
       credentials: authCredentialFile,
       allowsPersistedCredentials: false,
+      workload: {
+        tokenFor: (_identity, registryOrigin) =>
+          Effect.succeed(
+            new WorkloadTokenSource({
+              token: "fixture-workload-token",
+              expires_at: DateTime.makeUnsafe("2099-01-01T00:00:00.000Z"),
+              registryUrl: registryOrigin,
+            }),
+          ),
+      },
     });
     return Effect.gen(function* () {
       const store = yield* CredentialStore;
@@ -72,6 +84,20 @@ describe("Disabled credential persistence", () => {
           ),
         ),
       ).toBe("fixture-explicit-token");
+
+      // So is a GitHub Actions identity, which needs no stored secret at all.
+      expect(
+        yield* currentToken(authRegistry).pipe(
+          Effect.provideService(
+            AuthEnvironment,
+            ConfigProvider.fromEnvRecord({
+              ACTIONS_ID_TOKEN_REQUEST_URL: "https://actions.example.test/token?api-version=2.0",
+              ACTIONS_ID_TOKEN_REQUEST_TOKEN: "fixture-request-token",
+            }),
+          ),
+        ),
+      ).toBe("fixture-workload-token");
+      expect(yield* store.load(authRegistry)).toEqual(before);
     }).pipe(Effect.provide(ports.layer));
   });
 });

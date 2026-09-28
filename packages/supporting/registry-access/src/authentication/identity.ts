@@ -11,7 +11,6 @@
 
 import type * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 
@@ -19,7 +18,8 @@ import { AuthClient } from "./auth-client.js";
 import type { TokenPermissions } from "./tokens/permissions.js";
 import { CredentialStore } from "../credentials/credential-store.js";
 import { isRejectedCredential, signedOut } from "./errors.js";
-import { resolveRequiredToken, resolveToken } from "../credentials/token-resolution.js";
+import { hasRequestCredential, resolveRequiredToken } from "../credentials/token-resolution.js";
+import type { WorkloadCredentials } from "../credentials/workload-credentials.js";
 
 /** The Registry's canonical answer to "who is this credential". */
 export interface RegistryIdentity {
@@ -34,6 +34,8 @@ export interface RegistryIdentity {
   readonly expiresAt: DateTime.Utc | null;
   /** When the sign-in that approved this CLI session authenticated. */
   readonly approvedAt: DateTime.Utc | null;
+  /** The trusted publisher behind a workload token. Null otherwise. */
+  readonly trustedPublisher: { readonly name: string } | null;
 }
 
 /**
@@ -57,6 +59,7 @@ export const currentIdentity = Effect.fn("Identity.current")(function* (registry
     resourceRestrictions: identity.resourceRestrictions,
     expiresAt: identity.expiresAt,
     approvedAt: identity.approvedAt,
+    trustedPublisher: identity.trustedPublisher,
   } satisfies RegistryIdentity;
 });
 
@@ -77,14 +80,12 @@ export const requireSignedIn = Effect.fn("Identity.requireSignedIn")(function* (
  * Whether this invocation carries a credential at all.
  *
  * Reads that a signed-out person may legitimately make still answer; this
- * only decides whether signing in is worth offering as a recovery, so a
- * storage failure reads as signed out rather than becoming the result.
+ * only decides whether signing in is worth offering as a recovery, so it is
+ * decided offline and a storage failure reads as signed out rather than
+ * becoming the result.
  */
 export const isSignedIn = (registryUrl: string) =>
-  resolveToken(registryUrl).pipe(
-    Effect.map(Option.isSome),
-    Effect.catch(() => Effect.succeed(false)),
-  );
+  hasRequestCredential(registryUrl, registryUrl).pipe(Effect.catch(() => Effect.succeed(false)));
 
 /** The token an invocation would present to the selected Registry. */
 export const currentToken = Effect.fn("Identity.currentToken")(function* (registryUrl: string) {
@@ -92,5 +93,5 @@ export const currentToken = Effect.fn("Identity.currentToken")(function* (regist
   return token.token;
 });
 
-/** Both members keep `CredentialStore` in `R`; declared for the reader. */
-export type IdentityRequirements = AuthClient | CredentialStore;
+/** Every member keeps these in `R`; declared for the reader. */
+export type IdentityRequirements = AuthClient | CredentialStore | WorkloadCredentials;

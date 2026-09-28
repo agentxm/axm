@@ -15,7 +15,7 @@ export const specification = defineSpecification({
   requirement: "cli/errors-do-not-disclose-credentials",
   title: "Error reports keep credentials out of diagnostic details",
   statement:
-    "AXM shall redact credential values, including an exact credential the Registry echoed under a sensitive key, from error reports and their diagnostic details in human and machine output at every supported verbosity level, from the plan result document, from the publish result's cause including a Git reason it reports, and from the failure detail a resolved unit publishes on the lifecycle event stream.",
+    "AXM shall redact credential values, including an exact credential the Registry echoed under a sensitive key and an AgentXM session, refresh, personal access, or workload token wherever it appears, from error reports and their diagnostic details in human and machine output at every supported verbosity level, from the plan result document, from the publish result's cause including a Git reason it reports, and from the failure detail a resolved unit publishes on the lifecycle event stream.",
   class: "quality",
   characteristic: "security",
   role: "experience",
@@ -189,6 +189,28 @@ describe("Credential-safe error reports", () => {
 
   for (const format of ["text", "json"] as const) {
     for (const level of levels) {
+      it(`${format} ${level.name} errors redact AgentXM tokens quoted outside any sensitive key`, () => {
+        const credentials = ["axms_", "axmr_", "axmt_", "axmw_"].map(
+          (prefix) => `${prefix}${"k".repeat(30)}${"c".repeat(6)}`,
+        );
+        const [session = "", refresh = "", personal = "", workload = ""] = credentials;
+        const cause = new Error(`Exchange answered ${workload}`);
+        cause.stack = `Error: Exchange answered ${workload}\n at diagnostic ${refresh}`;
+        const error = new AppError({
+          code: "auth_required",
+          title: "Authentication Required",
+          detail: `The Registry refused ${personal}`,
+          cause,
+          metadata: {
+            response: { status: 401, body: { message: `Session ${session} ended` } },
+          },
+          suggestions: [{ description: `Replace ${workload}` }],
+        });
+        const rendered = JSON.stringify(classifyError(error, format, level));
+        for (const credential of credentials) expect(rendered).not.toContain(credential);
+        expect(rendered).toContain("The Registry refused");
+      });
+
       it(`${format} ${level.name} errors redact credentials while retaining useful context`, () => {
         const token = "DISPOSABLE_ERROR_CREDENTIAL_A";
         const password = "DISPOSABLE_ERROR_CREDENTIAL_B";

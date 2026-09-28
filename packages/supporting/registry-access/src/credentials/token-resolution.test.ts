@@ -16,11 +16,17 @@ import { afterEach, beforeEach, expect } from "vitest";
 import { AuthClientTest } from "../authentication/auth-client.js";
 import { CredentialStoreTest } from "./credential-store.js";
 import { CredentialFileSchema } from "./schema.js";
+import { WorkloadCredentialsTest } from "./workload-credentials.js";
+import { AuthEnvironment } from "../adapters/environment.js";
+import * as ConfigProvider from "effect/ConfigProvider";
+import * as DateTime from "effect/DateTime";
+import { WorkloadTokenSource } from "./schema.js";
 import {
   resolveRequiredToken,
   resolveToken,
   resolveStoredToken,
   resolveAmbientToken,
+  resolvePresentedToken,
   resolveRequestToken,
 } from "./token-resolution.js";
 
@@ -42,6 +48,7 @@ const makeRuntimeLayer = (
   Layer.mergeAll(
     CredentialStoreTest("restricted-file", credentialData, allowsPersistedCredentials),
     authClientLayer,
+    WorkloadCredentialsTest(),
     NodeServices.layer,
   );
 
@@ -324,28 +331,28 @@ describe("resolveAmbientToken", () => {
   it.effect("returns EnvVar token when AXM_TOKEN is set", () => {
     process.env["AXM_TOKEN"] = "axm_ses_env_ambient";
     return Effect.gen(function* () {
-      const result = yield* resolveAmbientToken;
+      const result = yield* resolveAmbientToken(REGISTRY_URL);
       expect(Option.isSome(result)).toBe(true);
       if (Option.isSome(result)) {
         expect(result.value._tag).toBe("EnvVar");
         expect(result.value.token).toBe("axm_ses_env_ambient");
       }
-    });
+    }).pipe(Effect.provide(WorkloadCredentialsTest()));
   });
 
   it.effect("returns none when neither is available", () =>
     Effect.gen(function* () {
-      const result = yield* resolveAmbientToken;
+      const result = yield* resolveAmbientToken(REGISTRY_URL);
       expect(Option.isNone(result)).toBe(true);
-    }),
+    }).pipe(Effect.provide(WorkloadCredentialsTest())),
   );
 
   it.effect("does not access credential store (no CredentialStore layer needed)", () =>
     Effect.gen(function* () {
       // resolveAmbientToken does not require CredentialStore
-      const result = yield* resolveAmbientToken;
+      const result = yield* resolveAmbientToken(REGISTRY_URL);
       expect(Option.isNone(result)).toBe(true);
-    }),
+    }).pipe(Effect.provide(WorkloadCredentialsTest())),
   );
 });
 
@@ -478,4 +485,74 @@ describe("resolveRequestToken", () => {
       }
     }).pipe(Effect.provide(layer));
   });
+});
+
+describe("resolvePresentedToken", () => {
+  const githubActions = {
+    ACTIONS_ID_TOKEN_REQUEST_URL: "https://actions.example.test/token?api-version=2.0",
+    ACTIONS_ID_TOKEN_REQUEST_TOKEN: "fixture-request-token",
+  };
+  const stored = makeCredentialFile({
+    [REGISTRY_URL]: {
+      accounts: {
+        "@alice": {
+          access_token: "axm_ses_stored",
+          refresh_token: "axm_ref_stored",
+          expires_at: futureExpiry(),
+          active: true,
+        },
+      },
+    },
+  });
+  const heldToken = new WorkloadTokenSource({
+    token: "fixture-held-workload",
+    expires_at: DateTime.makeUnsafe("2099-01-01T00:00:00.000Z"),
+    registryUrl: REGISTRY_URL,
+  });
+  const presented = (
+    environment: Record<string, string>,
+    held: Option.Option<WorkloadTokenSource>,
+  ) =>
+    resolvePresentedToken(`${REGISTRY_URL}/v1/extensions`, REGISTRY_URL).pipe(
+      Effect.map(Option.map((source) => source.token)),
+      Effect.provide(
+        Layer.mergeAll(
+          CredentialStoreTest("restricted-file", stored),
+          WorkloadCredentialsTest({
+            held: () => Effect.succeed(held),
+            tokenFor: () => Effect.die(new Error("The transport never exchanges an identity")),
+          }),
+          NodeServices.layer,
+        ),
+      ),
+      Effect.provideService(AuthEnvironment, ConfigProvider.fromEnvRecord(environment)),
+    );
+
+  it.effect("presents nothing for an identity no command has exchanged yet", () =>
+    Effect.gen(function* () {
+      expect(yield* presented(githubActions, Option.none())).toEqual(Option.none());
+    }),
+  );
+
+  it.effect("presents the workload token a command already obtained", () =>
+    Effect.gen(function* () {
+      expect(yield* presented(githubActions, Option.some(heldToken))).toEqual(
+        Option.some("fixture-held-workload"),
+      );
+    }),
+  );
+
+  it.effect("presents an explicit token before a held workload token", () =>
+    Effect.gen(function* () {
+      expect(
+        yield* presented({ ...githubActions, AXM_TOKEN: "axm_ses_env" }, Option.some(heldToken)),
+      ).toEqual(Option.some("axm_ses_env"));
+    }),
+  );
+
+  it.effect("presents the stored session when no identity is offered", () =>
+    Effect.gen(function* () {
+      expect(yield* presented({}, Option.none())).toEqual(Option.some("axm_ses_stored"));
+    }),
+  );
 });

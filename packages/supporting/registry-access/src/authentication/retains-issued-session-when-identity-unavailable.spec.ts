@@ -48,6 +48,7 @@ describe("Identity lookup recovery", () => {
                   resourceRestrictions: null,
                   expiresAt: authExpiry,
                   approvedAt: null,
+                  trustedPublisher: null,
                 })
               : Effect.fail(
                   new RegistryAccessFailed({

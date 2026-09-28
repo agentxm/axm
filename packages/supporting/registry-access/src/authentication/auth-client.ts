@@ -47,7 +47,9 @@ import {
   RefreshUnavailable,
   RegistryAccessFailed,
   SessionEnded,
+  workloadTokenUnavailable,
   type AuthError,
+  type WorkloadTokenUnavailable,
 } from "./errors.js";
 import { readTokenPermissions, type TokenPermissions } from "./tokens/permissions.js";
 
@@ -67,6 +69,9 @@ export const LOGIN_SCOPE = ["openid", "profile", "email", "offline_access"].join
 export const REFRESH_SKEW_SECONDS = 300;
 const DEVICE_CODE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code";
 const AUTHORIZATION_CODE_GRANT_TYPE = "authorization_code";
+const TOKEN_EXCHANGE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:token-exchange";
+const JWT_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:jwt";
+const ACCESS_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:access_token";
 const SLOW_DOWN_INCREMENT_MS = 5000;
 const TRANSIENT_DEVICE_POLL_RETRY_COUNT = 2;
 const TRANSIENT_DEVICE_POLL_RETRY_BASE_DELAY = "250 millis";
@@ -102,6 +107,12 @@ export interface MeResponse {
    * Null for every other kind of credential.
    */
   readonly approvedAt: DateTime.Utc | null;
+  /**
+   * The trusted publisher that issued this workload token. Null for every
+   * other kind of credential. Only its name is kept: its identifier is not
+   * something a person acts on here.
+   */
+  readonly trustedPublisher: { readonly name: string } | null;
 }
 
 export interface TokenPermissionsRequest {
@@ -202,18 +213,28 @@ export class AuthClient extends ServiceMap.Service<AuthClient, AuthClientService
 ) {}
 
 /**
- * The OAuth endpoints that renew and end a stored session.
+ * The OAuth endpoints that renew and end a stored session, and that exchange a
+ * CI identity for a workload token.
  *
  * It is a separate service from `AuthClient` because these are the calls that
  * must not travel through the authenticated transport. The middleware asks for
- * a renewed session while it is deciding what credential a request carries, so
- * a refresh that went back through it would not terminate, and a revoke that
- * did would renew the session it is ending. Both endpoints authenticate the
- * token in the request body, never a bearer. The refresh grant carries its own
+ * a renewed session or a workload token while it is deciding what credential a
+ * request carries, so a grant that went back through it would not terminate,
+ * and a revoke that did would renew the session it is ending. Every one of
+ * these calls authenticates with the token in the request body, never a
+ * bearer. The refresh grant carries its own
  * failure vocabulary because the refresher acts on the difference between a
  * session the Registry ended and one it could not reach.
  */
 export interface TokenExchangeService {
+  /**
+   * Exchange a CI identity token for a workload token (RFC 8693). The Registry
+   * issues an access token only, bound to the Registry origin as its audience.
+   */
+  readonly exchangeWorkloadToken: (
+    subjectToken: string,
+    registryOrigin: string,
+  ) => Effect.Effect<WorkloadTokenGrant, WorkloadTokenUnavailable>;
   readonly refreshToken: (
     refreshTokenValue: string,
     registryUrl: string,
@@ -226,6 +247,12 @@ export interface TokenExchangeService {
     refreshTokenValue: string,
     registryUrl: string,
   ) => Effect.Effect<void, RegistryClientFailure>;
+}
+
+/** The workload token a token exchange issued. */
+export interface WorkloadTokenGrant {
+  readonly access_token: string;
+  readonly expires_at: DateTime.Utc;
 }
 
 export class TokenExchange extends ServiceMap.Service<TokenExchange, TokenExchangeService>()(
@@ -586,6 +613,10 @@ export const AuthClientLive = Layer.effect(
           resourceRestrictions: decoded.token.resource_restrictions ?? null,
           expiresAt: decoded.token.expires_at,
           approvedAt: decoded.token.approved_at,
+          trustedPublisher:
+            decoded.token.trusted_publisher === null
+              ? null
+              : { name: decoded.token.trusted_publisher.name },
         } satisfies MeResponse;
       },
     );
@@ -715,7 +746,52 @@ const refreshAnswer = (error: unknown): "refused" | "unusable" | "undecided" => 
 };
 
 /**
- * The refresh grant, on the unauthenticated transport.
+ * What a failed workload token exchange keeps as its cause: the Registry's
+ * answer and nothing of the request. The request carried the CI identity
+ * token in its body, and a transport failure retains that body as bytes that
+ * text redaction cannot see; a CI log is no place for an identity token that
+ * might still be exchanged.
+ */
+const exchangeAnswer = (registryOrigin: string, error: unknown): RegistryRequestFailed => {
+  const request = {
+    service: "registry",
+    method: "POST",
+    url: `${registryOrigin}/v1/auth/token`,
+  } as const;
+  if (
+    isRegistryClientError("AuthExchangeToken400")(error) ||
+    isRegistryClientError("AuthExchangeToken500")(error) ||
+    isRegistryClientError("AuthExchangeToken503")(error)
+  ) {
+    const status = error.response.status;
+    return new RegistryRequestFailed({
+      category: status === 400 ? "auth" : status === 503 ? "unavailable" : "internal",
+      detail: `The token endpoint answered HTTP ${String(status)}.`,
+      metadata: {
+        request,
+        response: { status, body: retainedRegistryResponseBody(error.response, error.cause) },
+      },
+    });
+  }
+  if (isHttpClientError(error) && error.response !== undefined) {
+    return new RegistryRequestFailed({
+      category: "internal",
+      detail: `The token endpoint answered HTTP ${String(error.response.status)} outside its contract.`,
+      metadata: { request, response: { status: error.response.status } },
+    });
+  }
+  return new RegistryRequestFailed({
+    category: isSchemaError(error) ? "internal" : "network",
+    detail: isSchemaError(error)
+      ? "The token endpoint answered outside its contract."
+      : "The token endpoint could not be reached.",
+    metadata: { request },
+  });
+};
+
+/**
+ * The refresh grant and the workload token exchange, on the unauthenticated
+ * transport.
  *
  * The refresher acts on the line between a session the Registry ended and one
  * it said nothing about. Only the refusal the token endpoint's contract
@@ -774,6 +850,43 @@ export const TokenExchangeLive = Layer.effect(
       );
     });
 
+    /**
+     * Only the refusal the token endpoint's contract declares means the
+     * Registry decided against this identity; every other failure, a response
+     * this client cannot read included, leaves the exchange undecided.
+     */
+    const exchangeWorkloadToken: TokenExchangeService["exchangeWorkloadToken"] = Effect.fn(
+      "TokenExchange.exchangeWorkloadToken",
+    )(function* (subjectToken, registryOrigin) {
+      const issued = yield* makeGeneratedAuthClient(httpClient, registryOrigin)
+        .AuthExchangeToken({
+          payload: {
+            grant_type: TOKEN_EXCHANGE_GRANT_TYPE,
+            subject_token: subjectToken,
+            subject_token_type: JWT_TOKEN_TYPE,
+            audience: registryOrigin,
+            requested_token_type: ACCESS_TOKEN_TYPE,
+          },
+        })
+        .pipe(
+          Effect.mapError((error) =>
+            workloadTokenUnavailable(
+              isRegistryClientError("AuthExchangeToken400")(error)
+                ? "exchange_refused"
+                : "exchange_unavailable",
+              registryOrigin,
+              exchangeAnswer(registryOrigin, error),
+            ),
+          ),
+          Effect.timeoutOrElse({
+            duration: TOKEN_ENDPOINT_DEADLINE,
+            orElse: () =>
+              Effect.fail(workloadTokenUnavailable("exchange_unavailable", registryOrigin)),
+          }),
+        );
+      return { access_token: issued.access_token, expires_at: issued.expires_at };
+    });
+
     const revokeToken: TokenExchangeService["revokeToken"] = Effect.fn("TokenExchange.revokeToken")(
       function* (refreshTokenValue, registryUrl) {
         yield* makeGeneratedAuthClient(httpClient, registryUrl)
@@ -798,12 +911,14 @@ export const TokenExchangeLive = Layer.effect(
       },
     );
 
-    return { refreshToken, revokeToken } satisfies TokenExchangeService;
+    return { exchangeWorkloadToken, refreshToken, revokeToken } satisfies TokenExchangeService;
   }),
 );
 
 export const TokenExchangeTest = (overrides?: Partial<TokenExchangeService>) =>
   Layer.succeed(TokenExchange, {
+    exchangeWorkloadToken: (_subjectToken, registryOrigin) =>
+      Effect.fail(workloadTokenUnavailable("exchange_unavailable", registryOrigin)),
     refreshToken: (_token, registryUrl) =>
       Effect.fail(
         new RefreshUnavailable({

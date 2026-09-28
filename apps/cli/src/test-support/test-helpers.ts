@@ -18,7 +18,11 @@ import { ensureWorkspaceFiles } from "./test-stubs.js";
 import { AppError } from "../app-error/index.js";
 import { toAppError } from "../app-error/conversions.js";
 import { KnowledgeIndexLive } from "@agentxm/workspace-features/knowledge-query/live";
-import { AuthLoginPresenterTest, CredentialStoreTest } from "@agentxm/registry-access/testing";
+import {
+  AuthLoginPresenterTest,
+  CredentialStoreTest,
+  WorkloadCredentialsTest,
+} from "@agentxm/registry-access/testing";
 import { RegistryClientFactoryLive, RegistryUrl } from "@agentxm/registry-client";
 import { TestFlagsLayer } from "../cli-flags/index.js";
 import { type Screen } from "../screen/index.js";
@@ -586,6 +590,7 @@ export const makeCliTestContext = (opts?: {
     Layer.succeed(ExecutionDirectory, { path: decodeAbsolutePathSync(process.cwd()) }),
     Layer.succeed(RegistryUrl, cliTestRegistryUrl),
     CredentialStoreTest(),
+    WorkloadCredentialsTest(),
     // The process-owned reporter a command envelope requires; a test that
     // observes telemetry provides a delivering reporter closer to its program.
     TelemetryClientTest,

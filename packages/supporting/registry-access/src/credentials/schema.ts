@@ -86,7 +86,19 @@ export class CredentialStoreTokenSource extends Data.TaggedClass("CredentialStor
   readonly registryUrl: string;
 }> {}
 
-export type TokenSource = EnvVarTokenSource | FileTokenSource | CredentialStoreTokenSource;
+/**
+ * A short-lived workload token the Registry issued in exchange for this
+ * invocation's GitHub Actions identity. It has no refresh token: when it
+ * lapses, the identity is exchanged again.
+ */
+export class WorkloadTokenSource extends Data.TaggedClass("Workload")<{
+  readonly token: string;
+  readonly expires_at: DateTime.Utc;
+  readonly registryUrl: string;
+}> {}
+
+export type TokenSource =
+  EnvVarTokenSource | FileTokenSource | WorkloadTokenSource | CredentialStoreTokenSource;
 
 // -----------------------------------------------------------------------------
 // Stored Credentials (returned from CredentialStore.load)

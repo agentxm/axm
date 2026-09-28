@@ -162,6 +162,10 @@ request and host:
 - **Credential operation:** login or token management only when required and
   authorized. Keep secrets symbolic; never print, request in chat, place in a
   command, persist in extension files, or expose through telemetry.
+- **CI publishing:** in GitHub Actions, prefer trusted publishing over a stored
+  token: grant the job `permissions: id-token: write` and register the
+  repository and workflow as a trusted publisher in AgentXM settings. Set
+  `AXM_TRUSTED_PUBLISHING=0` only for a job that must not use it.
 - **Executable upgrade:** `axm upgrade` changes installed executable state and
   requires explicit upgrade authority. Keep it separate from workspace repair.
 

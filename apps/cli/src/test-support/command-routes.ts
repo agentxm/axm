@@ -74,6 +74,7 @@ export const COMMAND_ROUTE_ALLOCATION: ReadonlyArray<CommandRouteAllocation> = [
   previewable("agents remove"),
   route("agents capabilities"),
   route("instructions"),
+  previewable("instructions adopt"),
   previewable("instructions enable"),
   previewable("instructions disable"),
   route("lint"),

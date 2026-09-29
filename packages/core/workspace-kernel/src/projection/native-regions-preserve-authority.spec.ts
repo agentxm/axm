@@ -16,7 +16,7 @@ export const specification = defineSpecification({
   requirement: "workspace/projections/native-regions-preserve-scoped-authority",
   title: "Native Rule and Knowledge regions retain source and scoped authority",
   statement:
-    "AXM shall resolve native Rule and Knowledge regions physically, require exact accepted source and scope ownership for mutation, preserve foreign content, and restore the precise insertion baseline only for an eligible new intent followed by its unchanged withdrawal.",
+    "AXM shall resolve native Rule and Knowledge regions physically, require exact accepted source and scope ownership for mutation, preserve foreign content, and restore the precise insertion baseline only for an eligible new intent followed by its unchanged withdrawal. Ownership proof shall use scope-relative roots so it remains valid in another project checkout with the same accepted sources. Explicit adoption shall bind to unchanged observed bytes and scope, change only the ownership marker, and confer no insertion-baseline cleanup eligibility.",
   class: "functional",
   role: "supporting",
   goals: ["workspace-intent-fidelity", "safe-repetition", "agent-interoperability"],
@@ -38,6 +38,107 @@ for (const kind of ["rules", "knowledge"] as const) {
     scope: "project",
   };
   describe(`${kind} native region`, () => {
+    it.effect("keeps accepted region ownership portable between project checkouts", () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const first = yield* fs.makeTempDirectoryScoped();
+        const second = yield* fs.makeTempDirectoryScoped();
+        const authority = yield* makeRecordingNativeWriteAuthority;
+        const args = {
+          nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+          scope: "project" as const,
+          displayPath: "AGENTS.md",
+          owner: `@agentxm/${kind}/instructions`,
+          region: kind,
+          generation: "a".repeat(64),
+          rendered: "Managed body",
+          contributors: [owner],
+          ownership: [owner],
+          configuredAgentIds: ["codex"],
+          eligible: false,
+        };
+        const original = path.join(first, "AGENTS.md");
+        const copy = path.join(second, "AGENTS.md");
+        yield* reconcileNativeManagedRegion({
+          ...args,
+          workspaceRoot: first,
+          ownerRoot: first,
+          targetPath: original,
+        }).pipe(Effect.provide(authority.layer));
+        yield* fs.copyFile(original, copy);
+        const result = yield* reconcileNativeManagedRegion({
+          ...args,
+          workspaceRoot: second,
+          ownerRoot: second,
+          targetPath: copy,
+        }).pipe(Effect.provide(authority.layer));
+        expect(result.changed).toBe(false);
+        expect(result.nativeLocation.ownership).toBe("owned");
+        expect(yield* fs.readFileString(copy)).toBe(yield* fs.readFileString(original));
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    );
+
+    it.effect(
+      "explicitly adopts an unchanged region without rewriting its body or foreign bytes",
+      () =>
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const path = yield* Path.Path;
+          const root = yield* fs.makeTempDirectoryScoped();
+          const file = path.join(root, "AGENTS.md");
+          const body = "Original body\r\nMixed line\n";
+          const before = `# Foreign\r\n<!-- axm:start v=1 region=${kind} ext=@agentxm/${kind}/instructions gen=${"a".repeat(64)} -->\r\n${body}<!-- axm:end v=1 region=${kind} -->\r\nForeign tail`;
+          yield* fs.writeFileString(file, before);
+          const authority = yield* makeRecordingNativeWriteAuthority;
+          const args = {
+            workspaceRoot: root,
+            ownerRoot: root,
+            nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+            scope: "project" as const,
+            targetPath: file,
+            displayPath: "AGENTS.md",
+            owner: `@agentxm/${kind}/instructions`,
+            region: kind,
+            generation: "b".repeat(64),
+            rendered: "Proposed canonical body",
+            contributors: [owner],
+            ownership: [owner],
+            configuredAgentIds: [],
+            eligible: false,
+          };
+          expect(
+            (yield* reconcileNativeManagedRegion(args).pipe(
+              Effect.provide(authority.layer),
+              Effect.result,
+            ))._tag,
+          ).toBe("Failure");
+          const preview = yield* reconcileNativeManagedRegion({
+            ...args,
+            adoption: { expectedRaw: before },
+            dryRun: true,
+          }).pipe(Effect.provide(authority.layer));
+          expect(preview.changed).toBe(true);
+          expect(yield* fs.readFileString(file)).toBe(before);
+          yield* reconcileNativeManagedRegion({ ...args, adoption: { expectedRaw: before } }).pipe(
+            Effect.provide(authority.layer),
+          );
+          const adopted = yield* fs.readFileString(file);
+          expect(adopted).toContain(`\r\n${body}<!-- axm:end`);
+          expect(adopted.startsWith("# Foreign\r\n")).toBe(true);
+          expect(adopted.endsWith("\r\nForeign tail")).toBe(true);
+          expect(adopted).not.toContain("Proposed canonical body");
+          expect(adopted).toContain(`gen=${"a".repeat(64)}`);
+          expect(
+            (yield* reconcileNativeManagedRegion({
+              ...args,
+              adoption: { expectedRaw: before },
+            }).pipe(Effect.provide(authority.layer), Effect.result))._tag,
+          ).toBe("Failure");
+          expect(yield* fs.readFileString(file)).toBe(adopted);
+        }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    );
+
     it.effect("resolves an instruction alias through the captured user vendor root", () =>
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;

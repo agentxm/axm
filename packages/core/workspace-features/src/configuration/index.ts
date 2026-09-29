@@ -96,6 +96,12 @@ export {
 // -----------------------------------------------------------------------------
 
 export {
+  AdoptInstructionRegion,
+  prepareAdoptInstructionRegion,
+  type AdoptableInstructionRegion,
+} from "./instructions/adopt-instruction-region.js";
+
+export {
   InstructionsStatusSchema,
   ManageInstructions,
   instructionsStatus,

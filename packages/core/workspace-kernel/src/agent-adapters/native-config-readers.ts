@@ -217,6 +217,9 @@ export const preflightNativeConfigReaders = (args: {
               entry,
               config: recipe,
               transports: mcp.transports,
+              ...(!("mcpEnvExpansion" in mcp) || mcp.mcpEnvExpansion === undefined
+                ? {}
+                : { envExpansion: mcp.mcpEnvExpansion }),
             });
             if (Option.isNone(interpreted))
               return yield* new McpConfigInvalid({

@@ -5640,7 +5640,7 @@ Configured extensions realize correctly and completely for every configured codi
 
 - Requirement: `workspace/mcps/shared-native-writes-require-compatible-authority`
 - Owner: `workspace-kernel`
-- Statement: AXM shall write each physical MCP file once only when its complete format and rendered entry satisfy all declared native readers and the target entry is absent, proven owned, or explicitly adopted from an unchanged observed declaration; alias escapes and stale adoption shall leave native files unchanged.
+- Statement: AXM shall write each physical MCP file once only when its complete format, declared servers-container path, and rendered entry satisfy all declared native readers and the target entry is absent, proven owned, or explicitly adopted from an unchanged observed declaration; alias escapes and stale adoption shall leave native files unchanged.
 - Class: functional
 - Role: supporting
 - Product goals: `agent-interoperability`, `workspace-intent-fidelity`, `safe-repetition`

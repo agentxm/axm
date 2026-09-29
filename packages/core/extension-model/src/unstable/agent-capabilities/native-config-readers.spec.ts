@@ -36,11 +36,15 @@ describe("independent native configuration readers", () => {
     expect(capability.native).toEqual(original.native);
     expect(capability.axm.writer).toBeNull();
   });
-  it("records OpenCode's documented nested MCP readers and XDG root without inventing a writer", () => {
+  it("binds OpenCode's verified writer to documented nested MCP readers and the XDG root", () => {
     const capability = decode(AGENTS_BY_ID.opencode.capabilities["mcp-server"]);
-    expect(capability.axm.writer).toBeNull();
+    expect(capability.axm.writer).toEqual({ config: { locationIds: ["project", "user"] } });
     expect(capability.native).toMatchObject({
-      entryDialect: null,
+      mcpEnvExpansion: { variables: "env-tag", defaults: false },
+      entryDialect: {
+        stdio: { command: "array", envKey: "environment" },
+        remote: { urlKey: { "streamable-http": "url" } },
+      },
       locations: expect.arrayContaining([
         expect.objectContaining({
           scope: "user",
@@ -116,7 +120,7 @@ describe("independent native configuration readers", () => {
         const declarations = capability.native.locations.filter((location) => location.id === id);
         expect(declarations, `${agent.id}:${id}`).toHaveLength(1);
         expect(declarations[0]).toMatchObject({ shape: "file" });
-        expect(declarations[0]?.keyPath).toHaveLength(1);
+        expect(declarations[0]?.keyPath?.length).toBeGreaterThan(0);
         expect(declarations[0]?.path.startsWith("~/")).toBe(false);
       }
     }

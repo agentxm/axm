@@ -71,17 +71,9 @@ export const declaredMcpWriterTargets = (
 }> =>
   capability.native.locations.flatMap((location) => {
     if (!capability.axm.writer.config.locationIds.includes(location.id)) return [];
-    const key = location.keyPath?.[0];
-    if (
-      location.keyPath?.length !== 1 ||
-      (key !== "mcpServers" &&
-        key !== "servers" &&
-        key !== "mcp" &&
-        key !== "mcp_servers" &&
-        key !== "context_servers") ||
-      location.attribution === undefined
-    )
-      return [];
+    const serversPath = location.keyPath;
+    const attribution = location.attribution;
+    if (serversPath === undefined || attribution === undefined) return [];
     return [
       {
         location,
@@ -89,9 +81,9 @@ export const declaredMcpWriterTargets = (
           scope: location.scope,
           path: location.path,
           format: location.format,
-          attribution: location.attribution,
+          attribution,
         },
-        config: { ...capability.native.entryDialect, serversKey: key },
+        config: { ...capability.native.entryDialect, serversPath },
       },
     ];
   });
@@ -224,16 +216,8 @@ export const resolveConfiguredMcpTargets = (args: {
           const physicalPath = observed.value;
           physicalPaths.set(resolved.path, physicalPath);
           if (physicalPath !== group.path) continue;
-          const key = location.keyPath?.[0];
-          if (
-            native.entryDialect === null ||
-            location.keyPath?.length !== 1 ||
-            (key !== "mcpServers" &&
-              key !== "servers" &&
-              key !== "mcp" &&
-              key !== "mcp_servers" &&
-              key !== "context_servers")
-          ) {
+          const serversPath = location.keyPath;
+          if (native.entryDialect === null || serversPath === undefined) {
             unverifiedReaders.push(
               `${agent.id} has no verified entry dialect for native location '${location.id}'`,
             );
@@ -243,7 +227,7 @@ export const resolveConfiguredMcpTargets = (args: {
             agentId: agent.id,
             locationId: location.id,
             configured: args.agentIds.includes(agent.id),
-            config: { ...native.entryDialect, serversKey: key },
+            config: { ...native.entryDialect, serversPath },
             target: { ...target, nativeRoot: resolved.nativeRoot, path: physicalPath },
             declaredTarget: target,
           });

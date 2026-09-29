@@ -290,6 +290,7 @@ describe("agent capability derivation", () => {
       "kilo",
       "kimi-cli",
       "kiro-cli",
+      "opencode",
       "pochi",
       "qoder",
       "qwen-code",

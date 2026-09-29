@@ -104,7 +104,7 @@ export interface ManagedAgentMcpServer {
   readonly ownership: "owned" | "unowned";
   readonly agentId: string;
   readonly serverName: string;
-  readonly keyPath: readonly [string, string];
+  readonly keyPath: readonly [string, ...string[]];
   readonly path: string;
   readonly absolutePath: string;
   readonly target: McpConfigTarget;
@@ -175,7 +175,7 @@ export const mcpInspectionsCurrent = (
 const inspectActual = (args: {
   readonly target: McpConfigTarget;
   readonly configPath: string;
-  readonly serversKey: string;
+  readonly serversPath: ReadonlyArray<string>;
   readonly serverName: string;
   readonly expected: McpInspectionExpectation;
 }): Effect.Effect<
@@ -209,15 +209,15 @@ const inspectActual = (args: {
         });
       }
       if (actualBlock.body === undefined) {
-        if (!hasTomlMcpEntry(raw.value, args.serversKey, args.serverName)) {
+        if (!hasTomlMcpEntry(raw.value, args.serversPath, args.serverName)) {
           return { status: "absent", fields: [] };
         }
-        const unfenced = parseTomlMcpEntry(raw.value, args.serversKey, args.serverName);
+        const unfenced = parseTomlMcpEntry(raw.value, args.serversPath, args.serverName);
         return isAxmManagedMcpEntry(unfenced)
           ? { status: "drift", fields: ["ownership-marker"], actual: unfenced }
           : { status: "unmanaged", fields: [], actual: unfenced };
       }
-      const actual = parseTomlMcpEntry(actualBlock.body, args.serversKey, args.serverName);
+      const actual = parseTomlMcpEntry(actualBlock.body, args.serversPath, args.serverName);
       if (args.expected._tag === "managed") {
         return isAxmManagedMcpEntry(actual)
           ? { status: "match", fields: [], actual }
@@ -234,7 +234,7 @@ const inspectActual = (args: {
       format: args.target.format,
       configPath: args.configPath,
       raw: raw.value,
-      serversKey: args.serversKey,
+      serversPath: args.serversPath,
       serverName: args.serverName,
     });
     if (Option.isNone(actual)) return { status: "absent", fields: [] };
@@ -329,7 +329,7 @@ const inspectPlannedAgent = (
         const actual = yield* inspectActual({
           target: agent.target,
           configPath: absolutePath,
-          serversKey: agent.config.serversKey,
+          serversPath: agent.config.serversPath,
           serverName: args.node.name,
           expected: { _tag: "projected", entry: agent.entry, warnings: agent.warnings },
         });
@@ -387,7 +387,7 @@ const inspectManagedPresence = (
         const actual = yield* inspectActual({
           target,
           configPath: absolutePath,
-          serversKey: config.serversKey,
+          serversPath: config.serversPath,
           serverName: args.node.name,
           expected: { _tag: "managed" },
         });
@@ -527,14 +527,14 @@ export const collectManagedAgentMcpServers = (
           >();
           const results: Array<ManagedAgentMcpServer> = [];
           for (const member of group.members.filter((candidate) => candidate.configured)) {
-            const key = JSON.stringify([member.target.format, member.config.serversKey]);
+            const key = JSON.stringify([member.target.format, member.config.serversPath]);
             let container = containers.get(key);
             if (container === undefined) {
               const read = {
                 format: member.target.format,
                 configPath: absolutePath,
                 raw: raw.value,
-                serversKey: member.config.serversKey,
+                serversPath: member.config.serversPath,
               };
               container = {
                 names: yield* managedNativeMcpEntryNames(read),
@@ -548,7 +548,8 @@ export const collectManagedAgentMcpServers = (
                   (result) =>
                     result.agentId === member.agentId &&
                     result.serverName === serverName &&
-                    result.keyPath[0] === member.config.serversKey &&
+                    JSON.stringify(result.keyPath) ===
+                      JSON.stringify([...member.config.serversPath, serverName]) &&
                     result.target.format === member.target.format &&
                     result.target.path === member.target.path,
                 )
@@ -563,7 +564,7 @@ export const collectManagedAgentMcpServers = (
                   : "unowned",
                 agentId: member.agentId,
                 serverName,
-                keyPath: [member.config.serversKey, serverName],
+                keyPath: [...member.config.serversPath, serverName],
                 path: member.target.path,
                 absolutePath,
                 target: member.target,

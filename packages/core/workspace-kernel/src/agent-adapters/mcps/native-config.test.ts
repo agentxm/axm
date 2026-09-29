@@ -19,7 +19,7 @@ describe("native MCP config reads", () => {
       const decoded = yield* decodeJsonMcpConfig(
         ".mcp.json",
         JSON.stringify({ mcpServers: { demo: managed, other: { command: "x" } } }),
-        "mcpServers",
+        ["mcpServers"],
       );
       expect(Object.keys(decoded.servers ?? {})).toEqual(["demo", "other"]);
     }),
@@ -31,13 +31,15 @@ describe("native MCP config reads", () => {
     { label: "malformed JSON", raw: "{invalid" },
   ])("refuses $label as a configuration fault", ({ raw }) =>
     Effect.gen(function* () {
-      const failure = yield* decodeJsonMcpConfig(".mcp.json", raw, "mcpServers").pipe(Effect.flip);
+      const failure = yield* decodeJsonMcpConfig(".mcp.json", raw, ["mcpServers"]).pipe(
+        Effect.flip,
+      );
       expect(failure._tag).toBe("McpConfigInvalid");
       const names = yield* managedNativeMcpEntryNames({
         format: "json",
         configPath: ".mcp.json",
         raw,
-        serversKey: "mcpServers",
+        serversPath: ["mcpServers"] as const,
       }).pipe(Effect.flip);
       expect(names._tag).toBe("McpConfigInvalid");
     }),
@@ -49,7 +51,7 @@ describe("native MCP config reads", () => {
         format: "json" as const,
         configPath: ".mcp.json",
         raw: JSON.stringify({ mcpServers: { demo: managed, other: { command: "x" } } }),
-        serversKey: "mcpServers",
+        serversPath: ["mcpServers"] as const,
       };
       expect(yield* managedNativeMcpEntryNames(read)).toEqual(["demo"]);
       expect(yield* readNativeMcpEntry({ ...read, serverName: "other" })).toEqual(
@@ -82,9 +84,52 @@ describe("native MCP config reads", () => {
           format,
           configPath: "config",
           raw,
-          serversKey: "mcpServers",
+          serversPath: ["mcpServers"] as const,
         }),
       ).toEqual({ demo: { command: "node" } });
     }),
+  );
+  it.effect.each([
+    {
+      format: "json" as const,
+      raw: '{"mcp":{"timeout":{"startup":45000},"servers":{"demo":{"command":["node"]},"occupied":42}},"theme":"dark"}',
+    },
+    {
+      format: "jsonc" as const,
+      raw: '{// retain\n"mcp":{"servers":{"demo":{"command":["node"]},"occupied":42}}}',
+    },
+    {
+      format: "yaml" as const,
+      raw: "mcp:\n  servers:\n    demo:\n      command: [node]\n    occupied: 42\n",
+    },
+    {
+      format: "toml" as const,
+      raw: '[mcp.servers]\noccupied = 42\n[mcp.servers.demo]\ncommand = ["node"]\n',
+    },
+  ])("reads the full nested container in $format", ({ format, raw }) =>
+    Effect.gen(function* () {
+      expect(
+        yield* readNativeMcpServers({
+          format,
+          configPath: "native",
+          raw,
+          serversPath: ["mcp", "servers"],
+        }),
+      ).toEqual({ demo: { command: ["node"] } });
+    }),
+  );
+
+  it.effect.each(["null", "42", "[]", "true", '"occupied"'])(
+    "refuses an occupied nested ancestor %s",
+    (value) =>
+      Effect.gen(function* () {
+        const result = yield* decodeJsonMcpConfig("native", `{"mcp":${value}}`, [
+          "mcp",
+          "servers",
+        ]).pipe(Effect.result);
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure")
+          expect(result.failure.detail).toContain("mcp must be an object");
+      }),
   );
 });

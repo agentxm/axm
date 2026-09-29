@@ -103,7 +103,7 @@ const readMcpConfig = (
   diagnostics: Diagnostics,
   filePath: string,
   format: McpConfigTarget["format"],
-  serversKey: string,
+  serversPath: ReadonlyArray<string>,
 ): Effect.Effect<Option.Option<Readonly<Record<string, Readonly<Record<string, unknown>>>>>> =>
   Effect.gen(function* () {
     const read = yield* Effect.result(
@@ -121,7 +121,7 @@ const readMcpConfig = (
     if (Option.isNone(read.success)) return Option.none();
 
     const parsed = yield* Effect.result(
-      readNativeMcpServers({ format, configPath: filePath, raw: read.success.value, serversKey }),
+      readNativeMcpServers({ format, configPath: filePath, raw: read.success.value, serversPath }),
     );
     if (parsed._tag === "Failure") {
       yield* diagnostics.append({
@@ -147,12 +147,12 @@ const readMcpConfigCached = (
   diagnostics: Diagnostics,
   filePath: string,
   format: McpConfigTarget["format"],
-  serversKey: string,
+  serversPath: ReadonlyArray<string>,
 ): Effect.Effect<Option.Option<Readonly<Record<string, Readonly<Record<string, unknown>>>>>> => {
-  const key = JSON.stringify([filePath, format, serversKey]);
+  const key = JSON.stringify([filePath, format, serversPath]);
   const existing = cache.get(key);
   if (existing !== undefined) return Effect.succeed(existing);
-  return readMcpConfig(fs, diagnostics, filePath, format, serversKey).pipe(
+  return readMcpConfig(fs, diagnostics, filePath, format, serversPath).pipe(
     Effect.tap((decoded) =>
       Effect.sync(() => {
         cache.set(key, decoded);
@@ -168,13 +168,17 @@ const readMcpConfigCached = (
 interface McpSurfaceScanPlan {
   readonly surface: McpConfigSurface;
   readonly target: McpConfigTarget;
-  readonly serversKey: string;
+  readonly serversPath: ReadonlyArray<string>;
 }
 
 const surfacePlanKey = (plan: McpSurfaceScanPlan): string =>
-  plan.surface._tag === "shared"
-    ? `shared:${plan.target.scope}:${plan.target.path}:${plan.target.format}:${plan.serversKey}`
-    : `agent:${plan.surface.agentId}:${plan.target.scope}:${plan.target.path}:${plan.target.format}:${plan.serversKey}`;
+  JSON.stringify([
+    plan.surface,
+    plan.target.scope,
+    plan.target.path,
+    plan.target.format,
+    plan.serversPath,
+  ]);
 
 const planMcpSurfaces = (
   deps: McpConfigScannerDeps,
@@ -185,7 +189,7 @@ const planMcpSurfaces = (
     const native = CONFIGURABLE_AGENTS_BY_ID[descriptor.id].capabilities["mcp-server"].native;
     if (!("locations" in native)) continue;
     for (const location of native.locations) {
-      if (location.keyPath?.length !== 1 || location.attribution === undefined) continue;
+      if (location.keyPath === undefined || location.attribution === undefined) continue;
       const resolved = resolveNativeReadLocation(
         deps.path,
         descriptor.id,
@@ -208,7 +212,7 @@ const planMcpSurfaces = (
       const plan = {
         surface,
         target,
-        serversKey: location.keyPath[0],
+        serversPath: location.keyPath,
       } satisfies McpSurfaceScanPlan;
       const key = surfacePlanKey(plan);
       if (!plans.has(key)) plans.set(key, plan);
@@ -245,7 +249,7 @@ const scanMcpSurface = (
       diagnostics,
       resolved.success,
       plan.target.format,
-      plan.serversKey,
+      plan.serversPath,
     );
     if (Option.isNone(decoded)) return [];
     const servers = extractServers(decoded.value);

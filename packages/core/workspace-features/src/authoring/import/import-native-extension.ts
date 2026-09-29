@@ -516,7 +516,7 @@ const mcpConversion = Effect.fn("ImportNativeExtension.mcpConversion")(function*
         retireAgentMcpConfig({
           workspaceRoot: args.workspaceRoot,
           serverName: entry.name,
-          serversKey: entry.serversKey,
+          serversPath: entry.serversPath,
           target: entry.target,
           adoption: { filePath: entry.filePath, expectedEntry: entry.expectedEntry },
         }),

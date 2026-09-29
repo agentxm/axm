@@ -92,14 +92,36 @@ export interface DecodedJsonMcpConfig {
   readonly servers: Readonly<Record<string, unknown>> | undefined;
 }
 
+/** Validate every ancestor so a native writer cannot replace an occupied scalar. */
+const readServersMap = (
+  root: Readonly<Record<string, unknown>>,
+  serversPath: ReadonlyArray<string>,
+  configPath: string,
+): Effect.Effect<Readonly<Record<string, unknown>> | undefined, McpConfigInvalid> =>
+  Effect.gen(function* () {
+    if (serversPath.length === 0)
+      return yield* new McpConfigInvalid({ detail: `Empty MCP servers path: ${configPath}` });
+    let current: Readonly<Record<string, unknown>> = root;
+    for (const [index, key] of serversPath.entries()) {
+      const value = Object.hasOwn(current, key) ? current[key] : undefined;
+      if (value === undefined) return undefined;
+      if (!isRecord(value))
+        return yield* new McpConfigInvalid({
+          detail: `Invalid MCP config format: ${configPath} (${serversPath.slice(0, index + 1).join(".")} must be an object)`,
+        });
+      current = value;
+    }
+    return current;
+  });
+
 /**
  * Decode a JSON, JSONC, Starlark-style, or VS Code settings MCP config. The
- * root must be an object and the servers key, when present, must hold one.
+ * root and each present ancestor of the servers container must be objects.
  */
 export const decodeJsonMcpConfig = (
   configPath: string,
   raw: string,
-  serversKey: string,
+  serversPath: ReadonlyArray<string>,
   format: McpConfigTarget["format"] = "jsonc",
 ): Effect.Effect<DecodedJsonMcpConfig, McpConfigInvalid> =>
   Effect.gen(function* () {
@@ -121,12 +143,7 @@ export const decodeJsonMcpConfig = (
         detail: `Invalid MCP config format: ${configPath} (root must be an object)`,
       });
     }
-    const servers = root[serversKey];
-    if (servers !== undefined && !isRecord(servers)) {
-      return yield* new McpConfigInvalid({
-        detail: `Invalid MCP config format: ${configPath} (${serversKey} must be an object)`,
-      });
-    }
+    const servers = yield* readServersMap(root, serversPath, configPath);
     return { root, servers };
   });
 
@@ -137,7 +154,7 @@ export interface NativeMcpConfigRead {
   readonly format: McpConfigTarget["format"];
   readonly configPath: string;
   readonly raw: string;
-  readonly serversKey: string;
+  readonly serversPath: ReadonlyArray<string>;
 }
 
 /** Decode the complete native document before observing or changing one unit. */
@@ -151,8 +168,12 @@ export const readNativeMcpDocument = (
       case "jsonc":
       case "starlark":
       case "vscode-settings":
-        return (yield* decodeJsonMcpConfig(args.configPath, args.raw, args.serversKey, args.format))
-          .root;
+        return (yield* decodeJsonMcpConfig(
+          args.configPath,
+          args.raw,
+          args.serversPath,
+          args.format,
+        )).root;
       case "yaml":
       case "toml": {
         const root = yield* Effect.try({
@@ -168,11 +189,7 @@ export const readNativeMcpDocument = (
           return yield* new McpConfigInvalid({
             detail: `Invalid MCP config format: ${args.configPath} (root must be an object)`,
           });
-        const servers = root[args.serversKey];
-        if (servers !== undefined && !isRecord(servers))
-          return yield* new McpConfigInvalid({
-            detail: `Invalid MCP config format: ${args.configPath} (${args.serversKey} must be an object)`,
-          });
+        yield* readServersMap(root, args.serversPath, args.configPath);
         return root;
       }
     }
@@ -183,10 +200,11 @@ export const readNativeMcpValues = (
   args: NativeMcpConfigRead,
 ): Effect.Effect<Readonly<Record<string, unknown>>, McpConfigInvalid> =>
   readNativeMcpDocument(args).pipe(
-    Effect.map((root) => {
-      const servers = root[args.serversKey];
-      return isRecord(servers) ? servers : {};
-    }),
+    Effect.flatMap((root) =>
+      readServersMap(root, args.serversPath, args.configPath).pipe(
+        Effect.map((servers) => servers ?? {}),
+      ),
+    ),
   );
 
 /** Record-shaped server declarations from any supported native config. */
@@ -213,7 +231,7 @@ export const readNativeMcpEntry = (
   switch (args.format) {
     case "yaml":
       return Effect.try({
-        try: () => readYamlEntry(args.raw, args.serversKey, args.serverName),
+        try: () => readYamlEntry(args.raw, args.serversPath, args.serverName),
         catch: (cause) => yamlInvalid(args.configPath, cause),
       }).pipe(Effect.map((entry) => Option.fromUndefinedOr(entry)));
     case "toml":
@@ -222,7 +240,7 @@ export const readNativeMcpEntry = (
     case "jsonc":
     case "starlark":
     case "vscode-settings":
-      return decodeJsonMcpConfig(args.configPath, args.raw, args.serversKey, args.format).pipe(
+      return decodeJsonMcpConfig(args.configPath, args.raw, args.serversPath, args.format).pipe(
         Effect.map(({ servers }) => {
           const entry = servers?.[args.serverName];
           return isRecord(entry) ? Option.some(entry) : Option.none();
@@ -240,14 +258,14 @@ export const managedNativeMcpEntryNames = (
       return Effect.succeed(managedKeyedBlockNames(args.raw));
     case "yaml":
       return Effect.try({
-        try: () => managedYamlNames(args.raw, args.serversKey, isAxmManagedMcpEntry),
+        try: () => managedYamlNames(args.raw, args.serversPath, isAxmManagedMcpEntry),
         catch: (cause) => yamlInvalid(args.configPath, cause),
       });
     case "json":
     case "jsonc":
     case "starlark":
     case "vscode-settings":
-      return decodeJsonMcpConfig(args.configPath, args.raw, args.serversKey, args.format).pipe(
+      return decodeJsonMcpConfig(args.configPath, args.raw, args.serversPath, args.format).pipe(
         Effect.map(({ servers }) =>
           Object.entries(servers ?? {}).flatMap(([name, entry]) =>
             isRecord(entry) && isAxmManagedMcpEntry(entry) ? [name] : [],
@@ -257,12 +275,20 @@ export const managedNativeMcpEntryNames = (
   }
 };
 
-const tomlTableHeader = (serversKey: string, serverName: string, suffix?: string): string =>
-  `[${stringifyTomlKey(serversKey)}.${stringifyTomlKey(serverName)}${suffix === undefined ? "" : `.${stringifyTomlKey(suffix)}`}]`;
+const tomlTableHeader = (
+  serversPath: ReadonlyArray<string>,
+  serverName: string,
+  suffix?: string,
+): string =>
+  `[${[...serversPath, serverName, ...(suffix === undefined ? [] : [suffix])].map(stringifyTomlKey).join(".")}]`;
 
 /** Whether a TOML config declares the server's table anywhere, fenced or not. */
-export const hasTomlMcpEntry = (raw: string, serversKey: string, serverName: string): boolean => {
-  const header = tomlTableHeader(serversKey, serverName);
+export const hasTomlMcpEntry = (
+  raw: string,
+  serversPath: ReadonlyArray<string>,
+  serverName: string,
+): boolean => {
+  const header = tomlTableHeader(serversPath, serverName);
   return raw.split(/\r?\n/u).some((line) => line.trim() === header);
 };
 
@@ -273,10 +299,10 @@ export const hasTomlMcpEntry = (raw: string, serversKey: string, serverName: str
  */
 export const parseTomlMcpEntry = (
   rawBlock: string,
-  serversKey: string,
+  serversPath: ReadonlyArray<string>,
   serverName: string,
 ): Readonly<Record<string, unknown>> => {
-  const rootHeader = tomlTableHeader(serversKey, serverName);
+  const rootHeader = tomlTableHeader(serversPath, serverName);
   let currentTable: "root" | string | null = null;
   const root = new Map<string, unknown>();
   const nested = new Map<string, Map<string, unknown>>();

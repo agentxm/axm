@@ -130,7 +130,7 @@ export {
   type McpConfigTarget,
   type McpTargetAttribution,
   type McpRemoteDialect,
-  type McpServersKey,
+  type McpServersPath,
   type McpStdioDialect,
   type McpTypeField,
   type McpTypeFieldRepresentation,

@@ -38,7 +38,7 @@ import {
 import type {
   McpActivationField,
   McpConfigTarget,
-  McpServersKey,
+  McpServersPath,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { NativeArtifactChange } from "../agents/coding-agent.js";
 import { reconcileKeyedBlock } from "../managed-regions-keyed-block.js";
@@ -47,7 +47,7 @@ import { deriveStructuralInverse, type NativeLocationOutcome } from "../../locat
 export interface WriteAgentMcpConfigArgs {
   readonly workspaceRoot: string;
   readonly serverName: string;
-  readonly serversKey: McpServersKey;
+  readonly serversPath: McpServersPath;
   readonly target: McpConfigTarget;
   readonly entry: Readonly<Record<string, unknown>>;
   /** The caller proved this operation introduces a previously unreachable intent or route. */
@@ -68,7 +68,7 @@ export interface RemoveAgentMcpConfigArgs {
   readonly aliases?: ReadonlyArray<string>;
   readonly workspaceRoot: string;
   readonly serverName: string;
-  readonly serversKey: McpServersKey;
+  readonly serversPath: McpServersPath;
   readonly target: McpConfigTarget;
   readonly activationField: McpActivationField;
   readonly disableOnly: boolean;
@@ -77,7 +77,7 @@ export interface RemoveAgentMcpConfigArgs {
 /** One native MCP declaration discovered for conversion into a package. */
 export interface AgentMcpConfigEntryRef {
   readonly filePath: string;
-  readonly serversKey: McpServersKey;
+  readonly serversPath: McpServersPath;
   readonly name: string;
   readonly target: McpConfigTarget;
   readonly expectedEntry: Readonly<Record<string, unknown>>;
@@ -86,7 +86,7 @@ export interface AgentMcpConfigEntryRef {
 export interface RetireAgentMcpConfigArgs {
   readonly workspaceRoot: string;
   readonly serverName: string;
-  readonly serversKey: McpServersKey;
+  readonly serversPath: McpServersPath;
   readonly target: McpConfigTarget;
   readonly adoption: {
     readonly filePath: string;
@@ -175,36 +175,39 @@ const writeIfChanged = (
 const upsertJsonLike = (args: {
   readonly configPath: string;
   readonly raw: string;
-  readonly serversKey: string;
+  readonly serversPath: McpServersPath;
   readonly serverName: string;
   readonly entry: Readonly<Record<string, unknown>>;
   readonly format: McpConfigTarget["format"];
 }): Effect.Effect<string, McpConfigInvalid> =>
   Effect.gen(function* () {
     const initial = args.raw.trim().length === 0 ? "{}\n" : args.raw;
-    yield* decodeJsonMcpConfig(args.configPath, initial, args.serversKey, args.format);
+    yield* decodeJsonMcpConfig(args.configPath, initial, args.serversPath, args.format);
     const formatted = applyEdits(
       initial,
-      modify(initial, [args.serversKey, args.serverName], args.entry, {
+      modify(initial, [...args.serversPath, args.serverName], args.entry, {
         formattingOptions: jsonFormatting(initial),
       }),
     );
     return Option.isSome(deriveStructuralInverse(initial, formatted))
       ? formatted
-      : applyEdits(initial, modify(initial, [args.serversKey, args.serverName], args.entry, {}));
+      : applyEdits(
+          initial,
+          modify(initial, [...args.serversPath, args.serverName], args.entry, {}),
+        );
   });
 
 const removeJsonLike = (args: {
   readonly configPath: string;
   readonly raw: string;
-  readonly serversKey: string;
+  readonly serversPath: McpServersPath;
   readonly serverName: string;
   readonly activationField: McpActivationField;
   readonly disableOnly: boolean;
 }): Effect.Effect<string, McpConfigInvalid | McpEntryUnmanaged> =>
   Effect.gen(function* () {
     if (args.raw.trim().length === 0) return args.raw;
-    const { servers } = yield* decodeJsonMcpConfig(args.configPath, args.raw, args.serversKey);
+    const { servers } = yield* decodeJsonMcpConfig(args.configPath, args.raw, args.serversPath);
     const existing = servers?.[args.serverName];
     if (existing === undefined) return args.raw;
     if (!isRecord(existing) || !isAxmManagedMcpEntry(existing)) {
@@ -217,14 +220,19 @@ const removeJsonLike = (args: {
     if (args.disableOnly && activation !== null) {
       return applyEdits(
         args.raw,
-        modify(args.raw, [args.serversKey, args.serverName, activation.name], activation.disabled, {
-          formattingOptions: jsonFormatting(args.raw),
-        }),
+        modify(
+          args.raw,
+          [...args.serversPath, args.serverName, activation.name],
+          activation.disabled,
+          {
+            formattingOptions: jsonFormatting(args.raw),
+          },
+        ),
       );
     }
     return applyEdits(
       args.raw,
-      modify(args.raw, [args.serversKey, args.serverName], undefined, {
+      modify(args.raw, [...args.serversPath, args.serverName], undefined, {
         formattingOptions: jsonFormatting(args.raw),
       }),
     );
@@ -233,15 +241,15 @@ const removeJsonLike = (args: {
 const retireJsonLike = (args: {
   readonly configPath: string;
   readonly raw: string;
-  readonly serversKey: string;
+  readonly serversPath: McpServersPath;
   readonly serverName: string;
 }): Effect.Effect<string, McpConfigInvalid> =>
   Effect.gen(function* () {
-    const { servers } = yield* decodeJsonMcpConfig(args.configPath, args.raw, args.serversKey);
+    const { servers } = yield* decodeJsonMcpConfig(args.configPath, args.raw, args.serversPath);
     if (servers?.[args.serverName] === undefined) return args.raw;
     return applyEdits(
       args.raw,
-      modify(args.raw, [args.serversKey, args.serverName], undefined, {
+      modify(args.raw, [...args.serversPath, args.serverName], undefined, {
         formattingOptions: jsonFormatting(args.raw),
       }),
     );
@@ -256,19 +264,19 @@ const mapYamlError = (configPath: string, error: unknown): McpConfigInvalid =>
 const upsertYaml = (args: {
   readonly configPath: string;
   readonly raw: string;
-  readonly serversKey: string;
+  readonly serversPath: McpServersPath;
   readonly serverName: string;
   readonly entry: Readonly<Record<string, unknown>>;
 }): Effect.Effect<string, McpConfigInvalid> =>
   Effect.try({
-    try: () => setYamlEntry(args.raw, args.serversKey, args.serverName, args.entry),
+    try: () => setYamlEntry(args.raw, args.serversPath, args.serverName, args.entry),
     catch: (error) => mapYamlError(args.configPath, error),
   });
 
 const removeYaml = (args: {
   readonly configPath: string;
   readonly raw: string;
-  readonly serversKey: string;
+  readonly serversPath: McpServersPath;
   readonly serverName: string;
   readonly activationField: McpActivationField;
   readonly disableOnly: boolean;
@@ -276,7 +284,7 @@ const removeYaml = (args: {
   Effect.try({
     try: () => {
       if (args.raw.trim().length === 0) return args.raw;
-      const existing = readYamlEntry(args.raw, args.serversKey, args.serverName);
+      const existing = readYamlEntry(args.raw, args.serversPath, args.serverName);
       if (existing === undefined) return args.raw;
       if (!isAxmManagedMcpEntry(existing)) {
         throw new McpEntryUnmanaged({
@@ -288,11 +296,11 @@ const removeYaml = (args: {
       if (args.disableOnly && activation !== null) {
         return setYamlScalar(
           args.raw,
-          [args.serversKey, args.serverName, activation.name],
+          [...args.serversPath, args.serverName, activation.name],
           activation.disabled,
         );
       }
-      return deleteYamlEntry(args.raw, args.serversKey, args.serverName);
+      return deleteYamlEntry(args.raw, args.serversPath, args.serverName);
     },
     catch: (error) =>
       error instanceof McpEntryUnmanaged ? error : mapYamlError(args.configPath, error),
@@ -301,14 +309,14 @@ const removeYaml = (args: {
 const retireYaml = (args: {
   readonly configPath: string;
   readonly raw: string;
-  readonly serversKey: string;
+  readonly serversPath: McpServersPath;
   readonly serverName: string;
 }): Effect.Effect<string, McpConfigInvalid> =>
   Effect.try({
     try: () =>
-      readYamlEntry(args.raw, args.serversKey, args.serverName) === undefined
+      readYamlEntry(args.raw, args.serversPath, args.serverName) === undefined
         ? args.raw
-        : deleteYamlEntry(args.raw, args.serversKey, args.serverName),
+        : deleteYamlEntry(args.raw, args.serversPath, args.serverName),
     catch: (error) => mapYamlError(args.configPath, error),
   });
 
@@ -334,17 +342,27 @@ const invalidTomlRegion = (serverName: string, state: "malformed" | "unsupported
 
 const upsertToml = (args: {
   readonly raw: string;
-  readonly serversKey: string;
+  readonly serversPath: McpServersPath;
   readonly serverName: string;
   readonly entry: Readonly<Record<string, unknown>>;
 }): Effect.Effect<string, McpOwnershipMarkerInvalid | McpConfigInvalid> =>
   Effect.gen(function* () {
-    const parentHeader = `[${stringifyTomlKey(args.serversKey)}]`;
-    const block = stringifyToml({
-      [args.serversKey]: { [args.serverName]: args.entry },
-    })
+    const parentHeaders = new Set(
+      args.serversPath.map(
+        (_, index) =>
+          `[${args.serversPath
+            .slice(0, index + 1)
+            .map(stringifyTomlKey)
+            .join(".")}]`,
+      ),
+    );
+    const document = args.serversPath.reduceRight<Readonly<Record<string, unknown>>>(
+      (nested, key) => Object.fromEntries([[key, nested]]),
+      Object.fromEntries([[args.serverName, args.entry]]),
+    );
+    const block = stringifyToml(document)
       .split("\n")
-      .filter((line) => line !== parentHeader)
+      .filter((line) => !parentHeaders.has(line))
       .join("\n")
       .trim();
     const reconciliation = reconcileKeyedBlock({
@@ -361,7 +379,7 @@ const upsertToml = (args: {
 
 const removeToml = (args: {
   readonly raw: string;
-  readonly serversKey: string;
+  readonly serversPath: McpServersPath;
   readonly serverName: string;
   readonly disableOnly: boolean;
   readonly activationField: McpActivationField;
@@ -390,7 +408,7 @@ const removeToml = (args: {
       inspected.state.startMarker.ext ??
       Option.getOrUndefined(
         readAxmMcpMetadata(
-          parseTomlMcpEntry(inspected.state.body, args.serversKey, args.serverName),
+          parseTomlMcpEntry(inspected.state.body, args.serversPath, args.serverName),
         ),
       )?.ext ??
       region;
@@ -424,7 +442,7 @@ const assertAdoptionCurrent = (
 const preserveOtherNativeValues = (args: {
   readonly configPath: string;
   readonly format: McpConfigTarget["format"];
-  readonly serversKey: string;
+  readonly serversPath: McpServersPath;
   readonly serverNames: ReadonlyArray<string>;
   readonly before: string;
   readonly after: string;
@@ -432,13 +450,16 @@ const preserveOtherNativeValues = (args: {
   Effect.gen(function* () {
     const before = yield* readNativeMcpDocument({ ...args, raw: args.before });
     const after = yield* readNativeMcpDocument({ ...args, raw: args.after });
-    const foreignValues = (root: Readonly<Record<string, unknown>>) =>
+    const foreignValues = (
+      root: Readonly<Record<string, unknown>>,
+      depth = 0,
+    ): Readonly<Record<string, unknown>> =>
       Object.fromEntries(
         Object.entries(root).flatMap(([key, value]) => {
-          if (key !== args.serversKey || !isRecord(value)) return [[key, value]];
-          const retained = Object.fromEntries(
-            Object.entries(value).filter(([name]) => !args.serverNames.includes(name)),
-          );
+          if (depth === args.serversPath.length)
+            return args.serverNames.includes(key) ? [] : [[key, value]];
+          if (key !== args.serversPath[depth] || !isRecord(value)) return [[key, value]];
+          const retained = foreignValues(value, depth + 1);
           return Object.keys(retained).length === 0 ? [] : [[key, retained]];
         }),
       );
@@ -455,7 +476,7 @@ const prepareMcpWrite = (args: WriteAgentMcpConfigArgs, configPath: string, raw:
       configPath,
       raw,
       format: target.format,
-      serversKey: args.serversKey,
+      serversPath: args.serversPath,
     });
     const existing = values[args.serverName];
     if (args.adoption !== undefined) {
@@ -492,7 +513,7 @@ const prepareMcpWrite = (args: WriteAgentMcpConfigArgs, configPath: string, raw:
     const renderArgs = {
       configPath,
       raw,
-      serversKey: args.serversKey,
+      serversPath: args.serversPath,
       serverName: args.serverName,
       entry: args.entry,
     };
@@ -513,12 +534,12 @@ const prepareMcpWrite = (args: WriteAgentMcpConfigArgs, configPath: string, raw:
       configPath,
       raw: next,
       format: target.format,
-      serversKey: args.serversKey,
+      serversPath: args.serversPath,
     });
     yield* preserveOtherNativeValues({
       configPath,
       format: target.format,
-      serversKey: args.serversKey,
+      serversPath: args.serversPath,
       serverNames: [args.serverName],
       before: raw,
       after: next,
@@ -539,7 +560,7 @@ const insertionTarget = (
     readonly workspaceRoot: string;
     readonly target: McpConfigTarget;
     readonly serverName: string;
-    readonly serversKey: string;
+    readonly serversPath: McpServersPath;
     readonly aliases?: ReadonlyArray<string>;
   },
   configPath: string,
@@ -552,7 +573,7 @@ const insertionTarget = (
         : args.target.path;
     return {
       path: configPath,
-      unit: JSON.stringify(["mcp-server", args.serversKey, args.serverName]),
+      unit: JSON.stringify(["mcp-server", args.serversPath, args.serverName]),
       aliases: args.aliases ?? [path.resolve(args.workspaceRoot, declaredPath)],
     };
   });
@@ -562,7 +583,7 @@ const describeNativeResult = (
     readonly workspaceRoot: string;
     readonly target: McpConfigTarget;
     readonly serverName: string;
-    readonly serversKey: string;
+    readonly serversPath: McpServersPath;
     readonly aliases?: ReadonlyArray<string>;
   },
   configPath: string,
@@ -576,7 +597,11 @@ const describeNativeResult = (
         ...target,
         nativeLocation: {
           scope: args.target.scope,
-          address: { kind: "key-path", path: configPath, keys: [args.serversKey, args.serverName] },
+          address: {
+            kind: "key-path",
+            path: configPath,
+            keys: [...args.serversPath, args.serverName],
+          },
           aliases: receipt.aliases,
           configuredConsumers: [],
           potentialReaders: [],
@@ -617,7 +642,7 @@ export const writeAgentMcpConfig = (
           configPath,
           raw,
           format: args.target.format,
-          serversKey: args.serversKey,
+          serversPath: args.serversPath,
         });
         const next = yield* prepareMcpWrite(args, configPath, raw);
         const result =
@@ -650,7 +675,7 @@ const renderMcpRemoval = (args: RemoveAgentMcpConfigArgs, configPath: string, ra
       case "toml":
         return yield* removeToml({
           raw,
-          serversKey: args.serversKey,
+          serversPath: args.serversPath,
           serverName: args.serverName,
           disableOnly: args.disableOnly,
           activationField: args.activationField,
@@ -659,7 +684,7 @@ const renderMcpRemoval = (args: RemoveAgentMcpConfigArgs, configPath: string, ra
         return yield* removeYaml({
           configPath,
           raw,
-          serversKey: args.serversKey,
+          serversPath: args.serversPath,
           serverName: args.serverName,
           activationField: args.activationField,
           disableOnly: args.disableOnly,
@@ -671,7 +696,7 @@ const renderMcpRemoval = (args: RemoveAgentMcpConfigArgs, configPath: string, ra
         return yield* removeJsonLike({
           configPath,
           raw,
-          serversKey: args.serversKey,
+          serversPath: args.serversPath,
           serverName: args.serverName,
           activationField: args.activationField,
           disableOnly: args.disableOnly,
@@ -689,7 +714,7 @@ const renderMcpRemovals = (args: RemoveAgentMcpConfigsArgs, configPath: string, 
       configPath,
       raw,
       format: args.target.format,
-      serversKey: args.serversKey,
+      serversPath: args.serversPath,
     });
     let next = raw;
     for (const serverName of [...new Set(args.serverNames)].sort()) {
@@ -711,12 +736,12 @@ const renderMcpRemovals = (args: RemoveAgentMcpConfigsArgs, configPath: string, 
       configPath,
       raw: next,
       format: args.target.format,
-      serversKey: args.serversKey,
+      serversPath: args.serversPath,
     });
     yield* preserveOtherNativeValues({
       configPath,
       format: args.target.format,
-      serversKey: args.serversKey,
+      serversPath: args.serversPath,
       serverNames: args.serverNames,
       before: raw,
       after: next,
@@ -754,7 +779,7 @@ export const removeAgentMcpConfigs = (
           configPath,
           raw,
           format: args.target.format,
-          serversKey: args.serversKey,
+          serversPath: args.serversPath,
         });
         const names = [...new Set(args.serverNames)]
           .filter((name) => Object.hasOwn(values, name))
@@ -790,12 +815,12 @@ export const removeAgentMcpConfigs = (
             configPath,
             raw: next,
             format: args.target.format,
-            serversKey: args.serversKey,
+            serversPath: args.serversPath,
           });
           yield* preserveOtherNativeValues({
             configPath,
             format: args.target.format,
-            serversKey: args.serversKey,
+            serversPath: args.serversPath,
             serverNames: names,
             before: raw,
             after: next,
@@ -844,7 +869,7 @@ export const retireAgentMcpConfig = (
             configPath,
             raw,
             format: args.target.format,
-            serversKey: args.serversKey,
+            serversPath: args.serversPath,
           });
           yield* assertAdoptionCurrent(
             configPath,
@@ -862,7 +887,7 @@ export const retireAgentMcpConfig = (
                 return yield* retireYaml({
                   configPath,
                   raw,
-                  serversKey: args.serversKey,
+                  serversPath: args.serversPath,
                   serverName: args.serverName,
                 });
               case "json":
@@ -872,7 +897,7 @@ export const retireAgentMcpConfig = (
                 return yield* retireJsonLike({
                   configPath,
                   raw,
-                  serversKey: args.serversKey,
+                  serversPath: args.serversPath,
                   serverName: args.serverName,
                 });
             }
@@ -880,7 +905,7 @@ export const retireAgentMcpConfig = (
           yield* preserveOtherNativeValues({
             configPath,
             format: args.target.format,
-            serversKey: args.serversKey,
+            serversPath: args.serversPath,
             serverNames: [args.serverName],
             before: raw,
             after: next,

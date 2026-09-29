@@ -183,6 +183,7 @@ export {
   inferInlineRemoteTransport,
   projectExpectedEntry,
   renderEnvValue,
+  normalizeNativeMcpEnvValue,
   type ExpectedAgentEntry,
   type InlineRemoteTransport,
   type InlineRemoteTransportInference,

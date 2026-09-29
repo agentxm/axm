@@ -1,10 +1,14 @@
 import * as DateTime from "effect/DateTime";
 import type {
   McpConfigTarget,
-  McpServersKey,
+  McpEnvExpansion,
+  McpServersPath,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 
-import { isAxmManagedMcpEntry } from "@agentxm/workspace-kernel/agent-adapters";
+import {
+  isAxmManagedMcpEntry,
+  normalizeNativeMcpEnvValue,
+} from "@agentxm/workspace-kernel/agent-adapters";
 export type InlineMcpDefinition =
   | {
       readonly type: "stdio";
@@ -18,15 +22,16 @@ export type InlineMcpDefinition =
     };
 
 export interface McpImportSource {
+  readonly envExpansion?: McpEnvExpansion;
   readonly filePath: string;
-  readonly serversKey: McpServersKey;
+  readonly serversPath: McpServersPath;
   readonly target: McpConfigTarget;
   readonly servers: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
 }
 
 export interface McpImportAdoption {
   readonly filePath: string;
-  readonly serversKey: McpServersKey;
+  readonly serversPath: McpServersPath;
   readonly name: string;
   readonly target: McpConfigTarget;
   readonly expectedEntry: Readonly<Record<string, unknown>>;
@@ -66,13 +71,22 @@ const stringRecord = (value: unknown): Readonly<Record<string, string>> | undefi
 const sortedRecord = (value: Readonly<Record<string, string>>): Readonly<Record<string, string>> =>
   Object.fromEntries(Object.entries(value).sort(([left], [right]) => left.localeCompare(right)));
 
-const envRefs = (value: unknown): Readonly<Record<string, string>> | undefined => {
+const envRefs = (
+  value: unknown,
+  expansion: McpEnvExpansion | undefined,
+): Readonly<Record<string, string>> | undefined => {
   const env = value === undefined ? {} : stringRecord(value);
   if (env === undefined) return undefined;
   return Object.fromEntries(
     Object.keys(env)
       .sort((left, right) => left.localeCompare(right))
-      .map((name) => [name, `\${${name}}`]),
+      .map((name) => {
+        const normalized = normalizeNativeMcpEnvValue(env[name] ?? "", expansion);
+        return [
+          name,
+          /\$\{[A-Za-z_][A-Za-z0-9_]*\}/u.test(normalized) ? normalized : `\${${name}}`,
+        ];
+      }),
   );
 };
 
@@ -181,9 +195,31 @@ const normalizeServer = (args: {
   readonly config: Readonly<Record<string, unknown>>;
   readonly adoption: McpImportAdoption;
   readonly now: DateTime.Utc;
+  readonly envExpansion?: McpEnvExpansion;
 }): NormalizedServer => {
   if (isAxmManagedMcpEntry(args.config)) {
     return { _tag: "skip", finding: { name: args.name, reason: "Already managed by AXM" } };
+  }
+
+  if (args.envExpansion?.variables === "env-tag") {
+    const text = [
+      ...(typeof args.config["command"] === "string"
+        ? [args.config["command"]]
+        : (stringArray(args.config["command"]) ?? [])),
+      ...(stringArray(args.config["args"]) ?? []),
+      ...(typeof args.config["url"] === "string" ? [args.config["url"]] : []),
+      ...Object.values(stringRecord(args.config["env"] ?? args.config["environment"]) ?? {}),
+      ...Object.values(stringRecord(args.config["headers"] ?? args.config["http_headers"]) ?? {}),
+    ];
+    if (text.some((value) => /\$\{[A-Za-z_][A-Za-z0-9_]*(?::-|\})/u.test(value)))
+      return {
+        _tag: "conflict",
+        finding: {
+          name: args.name,
+          reason:
+            "Native literal uses workspace environment-reference syntax and cannot be imported without changing its meaning",
+        },
+      };
   }
 
   const sensitiveField = literalSensitiveField(args.config);
@@ -194,7 +230,7 @@ const normalizeServer = (args: {
     };
   }
 
-  const env = envRefs(args.config["env"] ?? args.config["environment"]);
+  const env = envRefs(args.config["env"] ?? args.config["environment"], args.envExpansion);
   if (env === undefined) {
     return {
       _tag: "skip",
@@ -202,10 +238,23 @@ const normalizeServer = (args: {
     };
   }
 
-  const url = args.config["url"];
+  const nativeUrl = args.config["url"];
+  const url =
+    typeof nativeUrl === "string"
+      ? normalizeNativeMcpEnvValue(nativeUrl, args.envExpansion)
+      : nativeUrl;
   if (typeof url === "string") {
     const rawHeaders = args.config["headers"] ?? args.config["http_headers"];
-    const headers = rawHeaders === undefined ? {} : stringRecord(rawHeaders);
+    const decodedHeaders = rawHeaders === undefined ? {} : stringRecord(rawHeaders);
+    const headers =
+      decodedHeaders === undefined
+        ? undefined
+        : Object.fromEntries(
+            Object.entries(decodedHeaders).map(([key, value]) => [
+              key,
+              normalizeNativeMcpEnvValue(value, args.envExpansion),
+            ]),
+          );
     if (headers === undefined) {
       return {
         _tag: "skip",
@@ -261,7 +310,10 @@ const normalizeServer = (args: {
       finding: { name: args.name, reason: "Unsupported MCP server configuration" },
     };
   }
-  const argumentConflict = sensitiveArgumentConflict(command.args);
+  const commandArgs = command.args.map((value) =>
+    normalizeNativeMcpEnvValue(value, args.envExpansion),
+  );
+  const argumentConflict = sensitiveArgumentConflict(commandArgs);
   if (argumentConflict !== undefined) {
     return {
       _tag: "conflict",
@@ -274,8 +326,8 @@ const normalizeServer = (args: {
       name: args.name,
       definition: {
         type: "stdio",
-        command: command.executable,
-        args: command.args,
+        command: normalizeNativeMcpEnvValue(command.executable, args.envExpansion),
+        args: commandArgs,
       },
       env,
       adoptions: [args.adoption],
@@ -326,12 +378,13 @@ export const preflightMcpImports = (args: {
         config: value,
         adoption: {
           filePath: source.filePath,
-          serversKey: source.serversKey,
+          serversPath: source.serversPath,
           name,
           target: source.target,
           expectedEntry: value,
         },
         now: args.now,
+        ...(source.envExpansion === undefined ? {} : { envExpansion: source.envExpansion }),
       });
       if (normalized._tag === "skip") {
         skipped.push(normalized.finding);
@@ -360,7 +413,7 @@ export const preflightMcpImports = (args: {
         adoptions: Array.from(
           new Map(
             [...existing.adoptions, ...normalized.candidate.adoptions].map((adoption) => [
-              `${adoption.filePath}\0${adoption.serversKey}\0${adoption.name}`,
+              JSON.stringify([adoption.filePath, adoption.serversPath, adoption.name]),
               adoption,
             ]),
           ).values(),

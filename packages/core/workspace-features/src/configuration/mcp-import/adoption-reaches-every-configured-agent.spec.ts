@@ -118,4 +118,44 @@ describe("Importing a natively configured MCP server", () => {
         .pipe(Effect.provide(NodeServices.layer));
     },
   );
+  it.effect("imports OpenCode's nested symbolic headers and reports both configured agents", () => {
+    const before = JSON.stringify({
+      mcp: {
+        timeout: { startup: 45000 },
+        servers: {
+          demo: {
+            type: "remote",
+            url: "https://example.test/mcp",
+            headers: { Authorization: "Bearer {env:TOKEN}" },
+          },
+        },
+      },
+      model: "foreign-model",
+    });
+    const fixture = makeConfigurationFixture({
+      settings: { agents: ["opencode", "cursor"] },
+      files: { "opencode.json": before },
+    });
+    cleanups.push(fixture.cleanup);
+    return fixture
+      .provide(
+        Effect.gen(function* () {
+          const previewed = yield* runMcpImport("preview");
+          expect(previewed.outcome).toBe("previewed");
+          expect(fixture.readFile("opencode.json")).toBe(before);
+          expect(targetPaths(previewed.resolution)).toContain("opencode.json");
+          expect(targetPaths(previewed.resolution)).toContain(CURSOR_CONFIG);
+          const applied = yield* runMcpImport("apply");
+          expect(applied.outcome).toBe("applied");
+          expect(settingsEntry(fixture, "demo")).toMatchObject({
+            url: "https://example.test/mcp",
+            headers: { Authorization: "Bearer ${TOKEN}" },
+          });
+          expect(fixture.readFile("opencode.json")).toContain("{env:TOKEN}");
+          expect(fixture.readFile("opencode.json")).toContain("foreign-model");
+          expect(fixture.readFile("opencode.json")).toContain("45000");
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
 });

@@ -7,7 +7,7 @@
 import type {
   McpActivationFieldRepresentation,
   McpEntryDialect,
-  McpServersKey,
+  McpServersPath,
   McpConfigTarget,
   McpTypeField,
   McpTypeFieldRepresentation,
@@ -15,7 +15,7 @@ import type {
 
 /** A native entry dialect bound to one reader's static server container. */
 export interface ResolvedMcpConfig extends McpEntryDialect {
-  readonly serversKey: McpServersKey;
+  readonly serversPath: McpServersPath;
 }
 
 export type SharedMcpTransport = "stdio" | "streamable-http" | "sse";
@@ -189,11 +189,13 @@ export const resolveSharedMcpContainer = (args: {
   const target: McpConfigTarget = members.some((member) => member.target.format === "json")
     ? { ...first.target, format: "json" }
     : first.target;
-  if (!allEqual(members.map((member) => member.config.serversKey))) {
+  if (!allEqual(members.map((member) => JSON.stringify(member.config.serversPath)))) {
     return conflict({
       members,
-      axis: "servers key",
-      detail: members.map((member) => member.agentId + "=" + member.config.serversKey).join(", "),
+      axis: "servers path",
+      detail: members
+        .map((member) => member.agentId + "=" + member.config.serversPath.join("."))
+        .join(", "),
     });
   }
 

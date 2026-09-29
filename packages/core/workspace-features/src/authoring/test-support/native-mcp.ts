@@ -109,7 +109,7 @@ export const nativeMcpDiscovery = (
         const { config, target } = selected;
         return {
           filePath: `${workspace.root}/${relative}`,
-          serversKey: config.serversKey,
+          serversPath: config.serversPath,
           name,
           target,
           expectedEntry: Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Unknown))(

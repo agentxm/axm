@@ -20,7 +20,7 @@ describe("MCP import preflight", () => {
       sources: [
         {
           filePath: "/workspace/.cursor/mcp.json",
-          serversKey: "mcpServers",
+          serversPath: ["mcpServers"] as const,
           target: target(".cursor/mcp.json"),
           servers: {
             zebra: { command: "node", args: ["zebra.js"] },
@@ -29,7 +29,7 @@ describe("MCP import preflight", () => {
         },
         {
           filePath: "/workspace/.mcp.json",
-          serversKey: "mcpServers",
+          serversPath: ["mcpServers"] as const,
           target: target(".mcp.json"),
           servers: {
             alpha: { command: ["node", "alpha.js"], env: { TOKEN: "different-secret" } },
@@ -49,6 +49,79 @@ describe("MCP import preflight", () => {
     });
   });
 
+  it("deduplicates native environment tags with canonical references while retaining exact adoption bytes", () => {
+    const native = {
+      type: "remote",
+      url: "https://example.test/mcp",
+      headers: { Authorization: "Bearer {env:TOKEN}" },
+    };
+    const result = preflightMcpImports({
+      configuredNames: new Set(),
+      now,
+      sources: [
+        {
+          filePath: "/workspace/opencode.json",
+          serversPath: ["mcp", "servers"],
+          target: target("opencode.json"),
+          envExpansion: { variables: "env-tag", defaults: false },
+          servers: { context: native },
+        },
+        {
+          filePath: "/workspace/.mcp.json",
+          serversPath: ["mcpServers"],
+          target: target(".mcp.json"),
+          servers: {
+            context: {
+              url: "https://example.test/mcp",
+              headers: { Authorization: "Bearer ${TOKEN}" },
+            },
+          },
+        },
+      ],
+    });
+    expect(result.conflicts).toEqual([]);
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0]?.definition).toEqual({
+      type: "http",
+      url: "https://example.test/mcp",
+      headers: { Authorization: "Bearer ${TOKEN}" },
+    });
+    expect(
+      result.candidates[0]?.adoptions.find((adoption) => adoption.serversPath.length === 2)
+        ?.expectedEntry,
+    ).toEqual(native);
+  });
+
+  it("refuses to reinterpret OpenCode's literal braced placeholder as a secret reference", () => {
+    const result = preflightMcpImports({
+      configuredNames: new Set(),
+      now,
+      sources: [
+        {
+          filePath: "/workspace/opencode.json",
+          serversPath: ["mcp", "servers"],
+          target: target("opencode.json"),
+          envExpansion: { variables: "env-tag", defaults: false },
+          servers: {
+            context: {
+              type: "remote",
+              url: "https://example.test/mcp",
+              headers: { Authorization: "Bearer ${TOKEN}" },
+            },
+          },
+        },
+      ],
+    });
+    expect(result.candidates).toEqual([]);
+    expect(result.conflicts).toEqual([
+      {
+        name: "context",
+        reason:
+          "Native literal uses workspace environment-reference syntax and cannot be imported without changing its meaning",
+      },
+    ]);
+  });
+
   it("reports same-name configuration conflicts without including secret values", () => {
     const result = preflightMcpImports({
       configuredNames: new Set(),
@@ -56,7 +129,7 @@ describe("MCP import preflight", () => {
       sources: [
         {
           filePath: "/workspace/.mcp.json",
-          serversKey: "mcpServers",
+          serversPath: ["mcpServers"] as const,
           target: target(".mcp.json"),
           servers: {
             demo: { command: "node", args: ["one.js"], env: { TOKEN: "first-secret" } },
@@ -64,7 +137,7 @@ describe("MCP import preflight", () => {
         },
         {
           filePath: "/workspace/.cursor/mcp.json",
-          serversKey: "mcpServers",
+          serversPath: ["mcpServers"] as const,
           target: target(".cursor/mcp.json"),
           servers: {
             demo: { command: "node", args: ["two.js"], env: { TOKEN: "second-secret" } },
@@ -91,7 +164,7 @@ describe("MCP import preflight", () => {
       sources: [
         {
           filePath: "/workspace/.mcp.json",
-          serversKey: "mcpServers",
+          serversPath: ["mcpServers"] as const,
           target: target(".mcp.json"),
           servers: {
             configured: { command: "node" },
@@ -126,7 +199,7 @@ describe("MCP import preflight", () => {
       sources: [
         {
           filePath: "/workspace/.mcp.json",
-          serversKey: "mcpServers",
+          serversPath: ["mcpServers"] as const,
           target: target(".mcp.json"),
           servers: {
             referenced: { url: "https://${MCP_USER}:${MCP_PASSWORD}@example.test/mcp" },
@@ -152,7 +225,7 @@ describe("MCP import preflight", () => {
       sources: [
         {
           filePath: "/workspace/.mcp.json",
-          serversKey: "mcpServers",
+          serversPath: ["mcpServers"] as const,
           target: target(".mcp.json"),
           servers: {
             argument: { command: "server", args: ["--api-key", "private-argument"] },

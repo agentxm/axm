@@ -175,7 +175,7 @@ describe("mcps import output", () => {
           format: "jsonc",
           configPath,
           raw: updated,
-          serversKey: "mcp",
+          serversPath: ["mcp"] as const,
         });
         expect(servers).toMatchObject({ demo: { "x-axm": { source: "inline" } } });
       }),

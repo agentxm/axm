@@ -4,6 +4,7 @@ import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
+import { nativeInode } from "../locations/index.js";
 
 /** Flat entry observations allow one writer's delta to update only its own subtree. */
 export type PathState = ReadonlyMap<string, string>;
@@ -20,11 +21,12 @@ export const observeAncestorRoute = (fs: FileSystem.FileSystem, path: Path.Path,
       } else {
         const info = observed.success;
         const physical = yield* fs.realPath(parent);
+        const inode = yield* nativeInode(parent, info);
         route.set(
           parent,
-          info.type !== "Directory" || Option.isNone(info.ino) || Option.isNone(info.birthtime)
+          info.type !== "Directory" || Option.isNone(inode) || Option.isNone(info.birthtime)
             ? "unreadable"
-            : `${physical}:${info.dev}:${info.ino.value}:${info.birthtime.value.getTime()}:${info.mode}`,
+            : `${physical}:${info.dev}:${inode.value}:${info.birthtime.value.getTime()}:${info.mode}`,
         );
       }
       const next = path.dirname(parent);
@@ -45,7 +47,10 @@ export const observePathState = (
     if (info._tag === "Failure") {
       return new Map([["", info.failure.reason._tag === "NotFound" ? "absent" : "unreadable"]]);
     }
-    const identity = `${info.success.dev}:${Option.getOrElse(info.success.ino, () => -1)}:${Option.match(info.success.birthtime, { onNone: () => -1, onSome: (value) => value.getTime() })}:${info.success.mode}`;
+    const inode = yield* nativeInode(target, info.success);
+    if (Option.isNone(inode) || Option.isNone(info.success.birthtime))
+      return new Map([["", "unreadable"]]);
+    const identity = `${info.success.dev}:${inode.value}:${info.success.birthtime.value.getTime()}:${info.success.mode}`;
     if (info.success.type !== "Directory") {
       const bytes = yield* fs.readFile(target);
       return new Map([

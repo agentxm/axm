@@ -1,3 +1,5 @@
+import { stat } from "node:fs/promises";
+
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
@@ -36,6 +38,39 @@ export const specification = defineSpecification({
 });
 
 describe("container receipt continuity", () => {
+  it.effect("keeps exact inode identity when platform stat cannot represent it as a number", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped();
+      const target = path.join(root, "config.json");
+      yield* fs.writeFileString(target, "{}");
+      const withoutNumericInodes = {
+        ...fs,
+        stat: (entry: string) =>
+          fs.stat(entry).pipe(Effect.map((info) => ({ ...info, ino: Option.none<number>() }))),
+      };
+      const context = { nativeRoot: root, target };
+      const identity = yield* captureContainerIdentity(context).pipe(
+        Effect.provideService(FileSystem.FileSystem, withoutNumericInodes),
+      );
+      const raw = yield* Effect.promise(() => stat(target, { bigint: true }));
+      expect(identity.entry.inode).toBe(raw.ino.toString());
+      expect(
+        yield* verifyContainerIdentity(identity, context).pipe(
+          Effect.provideService(FileSystem.FileSystem, withoutNumericInodes),
+        ),
+      ).toBe(true);
+      yield* fs.rename(target, path.join(root, "original"));
+      yield* fs.writeFileString(target, "{}");
+      expect(
+        yield* verifyContainerIdentity(identity, context).pipe(
+          Effect.provideService(FileSystem.FileSystem, withoutNumericInodes),
+        ),
+      ).toBe(false);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
   it.effect(
     "expires an identical-byte replacement, a parent replacement, and a copied workspace",
     () =>

@@ -26,15 +26,24 @@ const target = {
   fqn: "@acme/skills/reviewer",
 };
 
+/** Two configured Registries; a bare declaration binds to `primary`. */
+const registries = {
+  defaultRegistry: "primary",
+  sources: [
+    { name: "primary", type: "registry", location: "https://primary.example.com" },
+    { name: "mirror", type: "registry", location: "https://mirror.example.com" },
+  ],
+};
+
 const settingsWith = (skills: Record<string, unknown>): string =>
-  JSON.stringify({ owner: "@acme", agents: [], skills });
+  JSON.stringify({ owner: "@acme", agents: [], ...registries, skills });
 
 describe("targeted update transaction", () => {
   let workspace: LifecycleFixture;
 
   beforeEach(() => {
     workspace = makeLifecycleFixture({
-      settings: { owner: "@acme", agents: [], skills: { reviewer: target.fqn } },
+      settings: { owner: "@acme", agents: [], ...registries, skills: { reviewer: target.fqn } },
     });
   });
 
@@ -131,6 +140,100 @@ describe("targeted update transaction", () => {
         expect(workspace.readFile("axm.json")).toBe(settingsBefore);
       }),
     ),
+  );
+
+  /** A member step that rewrites the direct declaration to `source`. */
+  const redeclaringStep = (source: string) =>
+    Effect.sync(() => {
+      workspace.writeFile("axm.json", settingsWith({ reviewer: source }));
+      return { result: "success" as const, message: "updated reviewer" };
+    });
+
+  it.effect(
+    "a direct declaration moved to a different Registry before apply resolves as stale-candidate",
+    () =>
+      provide(
+        Effect.gen(function* () {
+          let childRan = false;
+          const context = yield* resolveTargetedUpdateContext({ target });
+          const wrapped = yield* wrapTargetedUpdatePlan({
+            plan: planWithStep(
+              Effect.sync(() => {
+                childRan = true;
+                return { result: "success", message: "updated reviewer" };
+              }),
+            ),
+            context,
+          });
+          workspace.writeFile("axm.json", settingsWith({ reviewer: `mirror:${target.fqn}` }));
+
+          const result = yield* (yield* runnableStep(wrapped)).run;
+          expect(result.result).toBe("error");
+          if (result.result === "error") {
+            expect(result.blocking?.class).toBe("stale-candidate");
+          }
+          expect(childRan).toBe(false);
+        }),
+      ),
+  );
+
+  it.effect(
+    "commits a member step that respells the direct declaration as its qualified Registry locator",
+    () =>
+      provide(
+        Effect.gen(function* () {
+          const context = yield* resolveTargetedUpdateContext({ target });
+          const wrapped = yield* wrapTargetedUpdatePlan({
+            plan: planWithStep(redeclaringStep(`primary:${target.fqn}`)),
+            context,
+          });
+
+          const result = yield* (yield* runnableStep(wrapped)).run;
+          if (result.result === "error") {
+            return yield* result.error;
+          }
+          expect(workspace.readFile("axm.json")).toBe(
+            settingsWith({ reviewer: `primary:${target.fqn}` }),
+          );
+        }),
+      ),
+  );
+
+  it.effect("rolls back a member step that moves the direct declaration to another Registry", () =>
+    provide(
+      Effect.gen(function* () {
+        const settingsBefore = workspace.readFile("axm.json");
+        const context = yield* resolveTargetedUpdateContext({ target });
+        const wrapped = yield* wrapTargetedUpdatePlan({
+          plan: planWithStep(redeclaringStep(`mirror:${target.fqn}`)),
+          context,
+        });
+
+        const error = yield* (yield* runnableStep(wrapped)).run.pipe(Effect.flip);
+        expect(error.category).toBe("internal");
+        expect(error.detail).toContain("changed desired ownership");
+        expect(workspace.readFile("axm.json")).toBe(settingsBefore);
+      }),
+    ),
+  );
+
+  it.effect(
+    "rolls back a member step that changes the direct constraint without a requested range",
+    () =>
+      provide(
+        Effect.gen(function* () {
+          const settingsBefore = workspace.readFile("axm.json");
+          const context = yield* resolveTargetedUpdateContext({ target });
+          const wrapped = yield* wrapTargetedUpdatePlan({
+            plan: planWithStep(redeclaringStep(`${target.fqn}@^2.0.0`)),
+            context,
+          });
+
+          const error = yield* (yield* runnableStep(wrapped)).run.pipe(Effect.flip);
+          expect(error.detail).toContain("changed desired ownership");
+          expect(workspace.readFile("axm.json")).toBe(settingsBefore);
+        }),
+      ),
   );
 
   it.effect("preserves an unchanged child result through the atomic wrapper", () =>

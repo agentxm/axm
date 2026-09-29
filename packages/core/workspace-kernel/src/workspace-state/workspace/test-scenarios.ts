@@ -226,14 +226,22 @@ const scenarioAcceptedResolutions: Lockfile = {
   ),
 };
 
-/** The scenario's desired-state graph with the given direct pin, evaluated in memory. */
-export const sharedMemberGraph = (pin: string): Effect.Effect<DesiredStateGraph> =>
+/**
+ * The scenario's desired-state graph with the given direct pin, evaluated in
+ * memory. `overrides` replaces top-level settings entries, such as the
+ * configured sources or the direct declaration's spelling.
+ */
+export const sharedMemberGraph = (
+  pin: string,
+  overrides: Readonly<Record<string, unknown>> = {},
+): Effect.Effect<DesiredStateGraph> =>
   captureDesiredStateInputs({
     manifests: scenarioPackManifests,
     baseDir: "/workspace",
     settings: Schema.decodeUnknownSync(SettingsSchema)({
       owner: SHARED_MEMBER.owner,
       ...sharedMemberSettings(pin),
+      ...overrides,
     }),
     acceptedResolutions: scenarioAcceptedResolutions,
   }).pipe(Effect.map(evaluateDesiredState));

@@ -37,8 +37,9 @@ const captureWithOptions = (
   command: string,
   args: readonly string[],
   options: { readonly cwd?: string; readonly env?: NodeJS.ProcessEnv },
-): string =>
-  execFileSync(command, [...args], {
+): string => {
+  printCommand(command, args);
+  return execFileSync(command, [...args], {
     encoding: "utf8",
     // Release listings (tracked paths at a ref, paginated GitHub responses)
     // outgrow the 1 MiB default long before they stop being reasonable.
@@ -46,9 +47,16 @@ const captureWithOptions = (
     env: options.env ?? process.env,
     ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
   }).trim();
+};
 
+/**
+ * Unbuffered stderr, so CI job logs timestamp each command rather than the
+ * whole script, and captured stdout stays clean.
+ */
 export const printCommand = (command: string, args: readonly string[]) => {
-  console.log(`\n==> ${command} ${args.join(" ")}`);
+  process.stderr.write(
+    `\n==> [+${Math.round(performance.now())}ms] ${command} ${args.join(" ")}\n`,
+  );
 };
 
 export const run = (command: string, args: readonly string[], env?: NodeJS.ProcessEnv) => {

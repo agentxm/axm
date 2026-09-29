@@ -171,7 +171,7 @@ try {
           },
         };
       }),
-      { timeoutMs: npmObservationTimeoutMs },
+      { timeoutMs: npmObservationTimeoutMs, preflightTimeoutMs: npmObservationTimeoutMs },
     ),
   );
 

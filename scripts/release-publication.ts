@@ -95,10 +95,13 @@ export const publicationHttpError = (
     retryAfterMilliseconds(response.headers.get("retry-after"), now),
   );
 
+const isDeadlineAbort = (error: unknown): boolean =>
+  error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError");
+
 export const isTransientPublicationError = (error: unknown): boolean => {
   if (error instanceof PublicationHttpError) return error.retryable;
   if (error instanceof TypeError) return true;
-  return error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError");
+  return isDeadlineAbort(error);
 };
 
 const defaultSleep = async (delayMs: number, signal: AbortSignal): Promise<void> => {
@@ -110,13 +113,63 @@ const observationSignal = (signal: AbortSignal | undefined, remainingMs: number)
   return signal === undefined ? deadline : AbortSignal.any([signal, deadline]);
 };
 
+/** What the last completed attempt saw before the observation budget expired. */
+export type PublicationObservation =
+  | { readonly kind: "unobserved" }
+  | { readonly kind: "absent" }
+  | { readonly kind: "mismatch" }
+  | { readonly kind: "transient"; readonly status?: number };
+
+const describeObservation = (observation: PublicationObservation): string =>
+  observation.kind === "transient" && observation.status !== undefined
+    ? `transient HTTP ${observation.status}`
+    : observation.kind;
+
+const transientObservation = (error: unknown): PublicationObservation =>
+  error instanceof PublicationHttpError
+    ? { kind: "transient", status: error.status }
+    : { kind: "transient" };
+
+export class PublicationReadbackTimeout extends Error {
+  readonly publication: string;
+  readonly phase: "preflight" | "readback";
+  readonly attempts: number;
+  readonly elapsedMs: number;
+  readonly deadlineMs: number;
+  readonly lastObservation: PublicationObservation;
+
+  constructor(input: {
+    readonly publication: string;
+    readonly phase: "preflight" | "readback";
+    readonly attempts: number;
+    readonly elapsedMs: number;
+    readonly deadlineMs: number;
+    readonly lastObservation: PublicationObservation;
+    readonly cause?: unknown;
+  }) {
+    super(
+      `Published content readback timed out: ${input.publication} (${input.phase}, ${input.attempts} attempts, ${input.elapsedMs}ms of ${input.deadlineMs}ms, last: ${describeObservation(input.lastObservation)}).`,
+      input.cause === undefined ? {} : { cause: input.cause },
+    );
+    this.name = "PublicationReadbackTimeout";
+    this.publication = input.publication;
+    this.phase = input.phase;
+    this.attempts = input.attempts;
+    this.elapsedMs = input.elapsedMs;
+    this.deadlineMs = input.deadlineMs;
+    this.lastObservation = input.lastObservation;
+  }
+}
+
 export const observePublication = async <Value>(input: {
   readonly name: string;
   readonly read: (signal: AbortSignal) => Promise<Value>;
   readonly matches: (value: Value) => boolean;
   readonly conflicts?: (value: Value) => boolean;
   readonly timeoutMs?: number;
+  /** Shared cohort deadline; `startedAt` is when that budget began. */
   readonly deadlineAt?: number;
+  readonly startedAt?: number;
   readonly initialDelayMs?: number;
   readonly maxDelayMs?: number;
   readonly sleep?: (delayMs: number, signal: AbortSignal) => Promise<void>;
@@ -129,10 +182,12 @@ export const observePublication = async <Value>(input: {
   const sleep = input.sleep ?? defaultSleep;
   const random = input.random ?? Math.random;
   const retryError = input.retryError ?? (() => false);
-  const deadlineAt = input.deadlineAt ?? now() + (input.timeoutMs ?? 90_000);
+  const startedAt = input.startedAt ?? now();
+  const deadlineAt = input.deadlineAt ?? startedAt + (input.timeoutMs ?? 90_000);
   const initialDelayMs = input.initialDelayMs ?? 1_000;
   const maxDelayMs = input.maxDelayMs ?? 5_000;
   let lastFailure: unknown;
+  let lastObservation: PublicationObservation = { kind: "unobserved" };
   let attempt = 0;
   const waitForNextRead = async (delayMs: number): Promise<void> => {
     if (delayMs <= 0) return;
@@ -140,12 +195,7 @@ export const observePublication = async <Value>(input: {
       await sleep(delayMs, observationSignal(input.signal, deadlineAt - now()));
     } catch (error) {
       if (input.signal?.aborted === true) input.signal.throwIfAborted();
-      if (
-        now() < deadlineAt ||
-        !(error instanceof Error) ||
-        (error.name !== "AbortError" && error.name !== "TimeoutError")
-      )
-        throw error;
+      if (now() < deadlineAt || !isDeadlineAbort(error)) throw error;
       // A deadline can cancel the final sleep before its timer completes.
       // Report the owning readback timeout, retaining any preceding read failure.
     }
@@ -160,6 +210,7 @@ export const observePublication = async <Value>(input: {
       if (input.signal?.aborted === true) input.signal.throwIfAborted();
       if (!retryError(error)) throw error;
       lastFailure = error;
+      lastObservation = transientObservation(error);
       if (now() >= deadlineAt) break;
       const retryAfterMs = error instanceof PublicationHttpError ? error.retryAfterMs : undefined;
       const backoff = Math.min(maxDelayMs, initialDelayMs * 2 ** Math.min(attempt - 1, 8));
@@ -171,12 +222,19 @@ export const observePublication = async <Value>(input: {
     if (input.matches(value)) return value;
     if (input.conflicts?.(value) === true)
       throw new Error(`Published content integrity conflict: ${input.name}.`);
+    lastObservation = value === null ? { kind: "absent" } : { kind: "mismatch" };
     const backoff = Math.min(maxDelayMs, initialDelayMs * 2 ** Math.min(attempt - 1, 8));
     const delayMs = Math.min(deadlineAt - now(), Math.round(backoff * (0.8 + random() * 0.4)));
     await waitForNextRead(delayMs);
   }
-  throw new Error(`Published content readback timed out: ${input.name}.`, {
-    ...(lastFailure === undefined ? {} : { cause: lastFailure }),
+  throw new PublicationReadbackTimeout({
+    publication: input.name,
+    phase: "readback",
+    attempts: attempt,
+    elapsedMs: now() - startedAt,
+    deadlineMs: deadlineAt - startedAt,
+    lastObservation,
+    cause: lastFailure,
   });
 };
 
@@ -206,33 +264,68 @@ export type ImmutablePublicationOutcome = {
   readonly outcome: "reused" | "published";
 };
 
-/** Preflight every coordinate, submit each missing immutable write once, then observe together. */
+export interface ImmutablePublicationObservation {
+  /** Budget for the post-write readback, starting after the cohort's last submission. */
+  readonly timeoutMs?: number;
+  /** Independent budget for the existence reads before any write. */
+  readonly preflightTimeoutMs?: number;
+  readonly initialDelayMs?: number;
+  readonly maxDelayMs?: number;
+  readonly sleep?: (delayMs: number, signal: AbortSignal) => Promise<void>;
+  readonly now?: () => number;
+  readonly random?: () => number;
+  readonly signal?: AbortSignal;
+}
+
+/**
+ * Preflight every coordinate within its own budget, submit each missing
+ * immutable write once, then observe together within a budget that starts
+ * after the last submission.
+ */
 export const publishImmutableCohort = async (
   publications: ReadonlyArray<ImmutablePublication>,
-  observation: {
-    readonly concurrency?: number;
-    readonly timeoutMs?: number;
-    readonly initialDelayMs?: number;
-    readonly maxDelayMs?: number;
-    readonly sleep?: (delayMs: number, signal: AbortSignal) => Promise<void>;
-    readonly now?: () => number;
-    readonly random?: () => number;
-    readonly signal?: AbortSignal;
-  } = {},
+  observation: ImmutablePublicationObservation & { readonly concurrency?: number } = {},
 ): Promise<ImmutablePublicationOutcome[]> => {
   const concurrency = observation.concurrency ?? 4;
   const now = observation.now ?? Date.now;
-  const deadlineAt = now() + (observation.timeoutMs ?? 90_000);
-  const prepared = await mapWithConcurrency(publications, concurrency, async (publication) => ({
-    publication,
-    existing: await publication.read(observationSignal(observation.signal, deadlineAt - now())),
-  }));
+  const preflightStartedAt = now();
+  const preflightDeadlineMs = observation.preflightTimeoutMs ?? 90_000;
+  const preflightDeadlineAt = preflightStartedAt + preflightDeadlineMs;
+  const preflightTimeout = (
+    publication: ImmutablePublication,
+    attempts: number,
+    lastObservation: PublicationObservation,
+    cause?: unknown,
+  ) =>
+    new PublicationReadbackTimeout({
+      publication: publication.name,
+      phase: "preflight",
+      attempts,
+      elapsedMs: now() - preflightStartedAt,
+      deadlineMs: preflightDeadlineMs,
+      lastObservation,
+      cause,
+    });
+  const prepared = await mapWithConcurrency(publications, concurrency, async (publication) => {
+    if (now() >= preflightDeadlineAt)
+      throw preflightTimeout(publication, 0, { kind: "unobserved" });
+    try {
+      return {
+        publication,
+        existing: await publication.read(
+          observationSignal(observation.signal, preflightDeadlineAt - now()),
+        ),
+      };
+    } catch (error) {
+      if (observation.signal?.aborted === true) observation.signal.throwIfAborted();
+      if (now() < preflightDeadlineAt || !isDeadlineAbort(error)) throw error;
+      throw preflightTimeout(publication, 1, transientObservation(error), error);
+    }
+  });
   for (const { publication, existing } of prepared) {
     if (existing !== null && existing !== publication.integrity)
       throw new Error(`Published content integrity conflict: ${publication.name}.`);
   }
-  if (now() >= deadlineAt)
-    throw new Error("Publication preflight exhausted the shared observation deadline.");
 
   const pending: Array<{
     readonly publication: ImmutablePublication;
@@ -256,6 +349,8 @@ export const publishImmutableCohort = async (
     });
   }
 
+  const observationStartedAt = now();
+  const deadlineAt = observationStartedAt + (observation.timeoutMs ?? 90_000);
   const published = await mapWithConcurrency(pending, concurrency, async (candidate) => {
     try {
       await observePublication({
@@ -263,9 +358,17 @@ export const publishImmutableCohort = async (
         read: candidate.publication.read,
         matches: (value) => value === candidate.publication.integrity,
         conflicts: (value) => value !== null && value !== candidate.publication.integrity,
+        startedAt: observationStartedAt,
         deadlineAt,
         retryError: isTransientPublicationError,
-        ...observation,
+        now,
+        ...(observation.initialDelayMs === undefined
+          ? {}
+          : { initialDelayMs: observation.initialDelayMs }),
+        ...(observation.maxDelayMs === undefined ? {} : { maxDelayMs: observation.maxDelayMs }),
+        ...(observation.sleep === undefined ? {} : { sleep: observation.sleep }),
+        ...(observation.random === undefined ? {} : { random: observation.random }),
+        ...(observation.signal === undefined ? {} : { signal: observation.signal }),
       });
     } catch (readbackFailure) {
       if (candidate.submissionFailure !== undefined)
@@ -287,15 +390,7 @@ export const publishImmutable = async (input: {
   readonly integrity: string;
   readonly read: (signal: AbortSignal) => Promise<string | null>;
   readonly publish: () => Promise<void>;
-  readonly observation?: {
-    readonly timeoutMs?: number;
-    readonly initialDelayMs?: number;
-    readonly maxDelayMs?: number;
-    readonly sleep?: (delayMs: number, signal: AbortSignal) => Promise<void>;
-    readonly now?: () => number;
-    readonly random?: () => number;
-    readonly signal?: AbortSignal;
-  };
+  readonly observation?: ImmutablePublicationObservation;
 }): Promise<"reused" | "published"> => {
   const outcomes = await publishImmutableCohort(
     [{ name: input.name, integrity: input.integrity, read: input.read, publish: input.publish }],
@@ -322,10 +417,7 @@ export class ImmutablePublicationFailed extends Data.TaggedError("ImmutablePubli
  */
 export const publishImmutableInDependencyOrder = (
   publications: ReadonlyArray<ImmutablePublication>,
-  observation: Omit<
-    NonNullable<Parameters<typeof publishImmutable>[0]["observation"]>,
-    "signal"
-  > = {},
+  observation: Omit<ImmutablePublicationObservation, "signal"> = {},
 ) =>
   Effect.gen(function* () {
     const prepared = yield* Effect.forEach(publications, (publication) =>
@@ -336,7 +428,7 @@ export const publishImmutableInDependencyOrder = (
             ? cause
             : new ImmutablePublicationFailed({ name: publication.name, phase: "preflight", cause }),
       }).pipe(Effect.map((existing) => ({ publication, existing }))),
-    ).pipe(Effect.timeout(observation.timeoutMs ?? 90_000));
+    ).pipe(Effect.timeout(observation.preflightTimeoutMs ?? 90_000));
     for (const { publication, existing } of prepared) {
       if (existing !== null && existing !== publication.integrity) {
         return yield* new ImmutablePublicationFailed({

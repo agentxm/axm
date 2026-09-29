@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
@@ -73,7 +74,7 @@ describe("Project outputs shadowed by user scope", () => {
         expect(finding.message).not.toMatch(/\baxm (?:setup|sync|install|uninstall|adopt)\b/);
       }
       expect([project.snapshot(), home.snapshot()]).toEqual(before);
-    }).pipe(Effect.provide(lintServices(project)), Effect.provide(isolatedEnvironment));
+    }).pipe(Effect.provide(Layer.provideMerge(lintServices(project), isolatedEnvironment)));
   });
 
   it.effect("reports nothing when the project folder is the user home, however it is named", () => {
@@ -89,6 +90,6 @@ describe("Project outputs shadowed by user scope", () => {
       expect(same.document.findings).toEqual([]);
       const linked = yield* lintProjectWithHome(project, `${alias.root}/home`, { strict: true });
       expect(linked.document.findings).toEqual([]);
-    }).pipe(Effect.provide(lintServices(project)), Effect.provide(isolatedEnvironment));
+    }).pipe(Effect.provide(Layer.provideMerge(lintServices(project), isolatedEnvironment)));
   });
 });

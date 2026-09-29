@@ -18,6 +18,7 @@ import {
   type RegistrySkillVersion,
 } from "@agentxm/registry-client/testing";
 import { readSettings } from "../install/test-helpers.js";
+import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
 import { applyInstall, installRequest, makeInstallWorld } from "../../testing/install-world.js";
 import {
   SHARED_MEMBER,
@@ -37,6 +38,7 @@ import {
   expectResolved,
   targetedUpdateRequest,
 } from "./test-helpers.js";
+import { UpdateExtensions } from "./update-extensions.js";
 
 const lockSkill = (raw: string, name: string): unknown => {
   const parsed: unknown = YAML.parse(raw);
@@ -66,6 +68,14 @@ const UNRELATED = "release-notes";
 const CANONICAL_SKILL_DOCUMENT = `agent_extensions/registry/@acme/skills/${REVIEW}/src/SKILL.md`;
 
 const firstVersion: RegistrySkillVersion = { version: "1.0.0", body: "First guidance." };
+
+/** The two spellings of one Registry binding a direct declaration may carry. */
+const DECLARATION_SPELLINGS = ["bare", "registry-qualified"] as const;
+type DeclarationSpelling = (typeof DECLARATION_SPELLINGS)[number];
+
+/** A Registry locator spelled bare, or qualified by the configured source it binds to. */
+const spelled = (locator: string, spelling: DeclarationSpelling, sourceName: string): string =>
+  spelling === "bare" ? locator : `${sourceName}:${locator}`;
 
 /** `axm skills update --name <name>`: the configured sweep narrowed to one skill. */
 const typeGroupSkillUpdate = (name: string) =>
@@ -115,10 +125,13 @@ describe("type-group subagent update of a member a direct pin and Packs share", 
 
   /**
    * The shared-subagent scenario accepted at 1.0.0, after which the person
-   * re-declares the subagent in the form install recorded, with `pin` as its
-   * range or with no range at all.
+   * re-declares the subagent with `pin` as its range or with no range at all,
+   * spelled as a bare FQN or qualified by the configured Registry it binds to.
    */
-  const acceptedThenRedeclared = (pin: string | undefined) =>
+  const acceptedThenRedeclared = (
+    pin: string | undefined,
+    spelling: DeclarationSpelling = "bare",
+  ) =>
     Effect.gen(function* () {
       const created = makeInstallWorld({ settings: sharedSubagentSettings("1.0.0") });
       cleanups.push(created.cleanup);
@@ -126,22 +139,16 @@ describe("type-group subagent update of a member a direct pin and Packs share", 
       yield* created.workspace.provide(
         applyInstall(installRequest({ subject: { kind: "configured" } })),
       );
-      const settings = readSettings(created.workspace);
-      const subagents = settings["subagents"];
-      const declared =
-        typeof subagents === "object" && subagents !== null && SHARED_SUBAGENT.name in subagents
-          ? Reflect.get(subagents, SHARED_SUBAGENT.name)
-          : undefined;
-      if (typeof declared !== "string") throw new Error("Expected the recorded direct pin");
       created.workspace.writeFile(
         "axm.json",
         `${JSON.stringify(
           {
-            ...settings,
+            ...readSettings(created.workspace),
             subagents: {
-              [SHARED_SUBAGENT.name]: declared.replace(
-                /@1\.0\.0$/u,
-                pin === undefined ? "" : `@${pin}`,
+              [SHARED_SUBAGENT.name]: spelled(
+                pin === undefined ? SHARED_SUBAGENT.fqn : `${SHARED_SUBAGENT.fqn}@${pin}`,
+                spelling,
+                created.registry.source.name,
               ),
             },
           },
@@ -163,11 +170,11 @@ describe("type-group subagent update of a member a direct pin and Packs share", 
       : undefined;
   };
 
-  it.effect(
-    "advances to the direct pin, not the newest version every Pack admits, and names the Packs that hold it back",
-    () =>
+  it.effect.each(DECLARATION_SPELLINGS)(
+    "advances a %s direct pin to the pin, not the newest version every Pack admits, and names the Packs that hold it back",
+    (spelling) =>
       Effect.gen(function* () {
-        const workspace = yield* acceptedThenRedeclared(SHARED_MEMBER_PIN.inside);
+        const workspace = yield* acceptedThenRedeclared(SHARED_MEMBER_PIN.inside, spelling);
 
         const resolution = expectResolved(
           yield* workspace.provide(typeGroupSubagentUpdate(SHARED_SUBAGENT.name)),
@@ -577,9 +584,10 @@ describe.each(["configured", "targeted", "type-group"] as const)(
 
     /**
      * The shared-member scenario accepted at 1.0.0, after which the person
-     * re-pins the direct declaration.
+     * re-pins the direct declaration, spelled as a bare FQN or qualified by
+     * the configured Registry it binds to. Both spellings name one binding.
      */
-    const acceptedThenRepinned = (pin: string) =>
+    const acceptedThenRepinned = (pin: string, spelling: DeclarationSpelling = "bare") =>
       Effect.gen(function* () {
         const created = makeInstallWorld({ settings: sharedMemberSettings("1.0.0") });
         cleanups.push(created.cleanup);
@@ -587,20 +595,18 @@ describe.each(["configured", "targeted", "type-group"] as const)(
         yield* created.workspace.provide(
           applyInstall(installRequest({ subject: { kind: "configured" } })),
         );
-        // Re-pin in the form install recorded, so only the pin changes.
-        const settings = readSettings(created.workspace);
-        const skills = settings["skills"];
-        const declared =
-          typeof skills === "object" && skills !== null && SHARED_MEMBER.name in skills
-            ? Reflect.get(skills, SHARED_MEMBER.name)
-            : undefined;
-        if (typeof declared !== "string") throw new Error("Expected the recorded direct pin");
         created.workspace.writeFile(
           "axm.json",
           `${JSON.stringify(
             {
-              ...settings,
-              skills: { [SHARED_MEMBER.name]: declared.replace(/@1\.0\.0$/u, `@${pin}`) },
+              ...readSettings(created.workspace),
+              skills: {
+                [SHARED_MEMBER.name]: spelled(
+                  `${SHARED_MEMBER.fqn}@${pin}`,
+                  spelling,
+                  created.registry.source.name,
+                ),
+              },
             },
             null,
             2,
@@ -620,23 +626,73 @@ describe.each(["configured", "targeted", "type-group"] as const)(
       }
     };
 
-    it.effect("advances to the direct pin, not the newest version every Pack admits", () =>
-      Effect.gen(function* () {
-        const workspace = yield* acceptedThenRepinned(SHARED_MEMBER_PIN.inside);
-        const settingsBefore = workspace.readFile("axm.json");
+    it.effect.each(DECLARATION_SPELLINGS)(
+      "advances a %s direct pin to the pin, not the newest version every Pack admits",
+      (spelling) =>
+        Effect.gen(function* () {
+          const workspace = yield* acceptedThenRepinned(SHARED_MEMBER_PIN.inside, spelling);
+          const settingsBefore = workspace.readFile("axm.json");
 
-        const resolution = expectResolved(yield* workspace.provide(update()));
+          const resolution = expectResolved(yield* workspace.provide(update()));
 
-        expect(deriveOperationOutcome(resolution)).toBe("applied");
-        expect(lockSkill(workspace.readFile("axm-lock.yaml"), SHARED_MEMBER.name)).toMatchObject({
-          resolved: { version: SHARED_MEMBER_PIN.inside },
-        });
-        expect(workspace.readFile(`.claude/skills/${SHARED_MEMBER.name}/SKILL.md`)).toContain(
-          sharedMemberBody(SHARED_MEMBER_PIN.inside),
-        );
-        expect(workspace.readFile("axm.json")).toBe(settingsBefore);
-      }).pipe(Effect.provide(NodeServices.layer)),
+          expect(deriveOperationOutcome(resolution)).toBe("applied");
+          expect(lockSkill(workspace.readFile("axm-lock.yaml"), SHARED_MEMBER.name)).toMatchObject({
+            resolved: { version: SHARED_MEMBER_PIN.inside },
+          });
+          expect(workspace.readFile(`.claude/skills/${SHARED_MEMBER.name}/SKILL.md`)).toContain(
+            sharedMemberBody(SHARED_MEMBER_PIN.inside),
+          );
+          expect(workspace.readFile("axm.json")).toBe(settingsBefore);
+        }).pipe(Effect.provide(NodeServices.layer)),
     );
+
+    if (route === "targeted") {
+      it.effect(
+        "a direct pin moved to a different Registry after planning commits nothing and is reported stale",
+        () =>
+          Effect.gen(function* () {
+            const workspace = yield* acceptedThenRepinned(SHARED_MEMBER_PIN.inside);
+            const mirror = makeFileRegistry();
+            cleanups.push(mirror.cleanup);
+            const settings = readSettings(workspace);
+            const configuredSources = Array.isArray(settings["sources"]) ? settings["sources"] : [];
+            const writeSettings = (declared: string) =>
+              workspace.writeFile(
+                "axm.json",
+                `${JSON.stringify(
+                  {
+                    ...settings,
+                    sources: [...configuredSources, { ...mirror.source, name: "mirror" }],
+                    skills: { [SHARED_MEMBER.name]: declared },
+                  },
+                  null,
+                  2,
+                )}\n`,
+              );
+            const pinned = `${SHARED_MEMBER.fqn}@${SHARED_MEMBER_PIN.inside}`;
+            writeSettings(pinned);
+            const lockBefore = workspace.readFile("axm-lock.yaml");
+
+            const resolution = yield* workspace.provide(
+              Effect.gen(function* () {
+                const candidate = yield* UpdateExtensions.prepare(
+                  targetedUpdateRequest({ source: SHARED_MEMBER.fqn }),
+                );
+                if (candidate.outcome === "nothing-configured") {
+                  throw new Error("Expected a planned targeted update");
+                }
+                // The same FQN, now bound to another configured Registry.
+                writeSettings(`mirror:${pinned}`);
+                return yield* UpdateExtensions.previewOrApply(candidate, preapprovedPlanExecution);
+              }),
+            );
+
+            expect(countUnitStates(resolution.units).committed).toBe(0);
+            expect(resolution.blocking?.class).toBe("stale-candidate");
+            expect(workspace.readFile("axm-lock.yaml")).toBe(lockBefore);
+          }).pipe(Effect.provide(NodeServices.layer)),
+      );
+    }
 
     it.effect(
       "a direct pin outside every Pack range changes nothing and names all three contributors",

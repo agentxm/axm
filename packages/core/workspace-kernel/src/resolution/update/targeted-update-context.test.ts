@@ -1,7 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
 
 import { UNCONSTRAINED_DESIRED_NODE } from "../../workspace-state/index.js";
-import { configuredRow, desiredConstraintOf } from "../../workspace-state/testing.js";
+import {
+  SHARED_MEMBER,
+  SHARED_MEMBER_PIN,
+  configuredRow,
+  desiredConstraintOf,
+  sharedMemberGraph,
+} from "../../workspace-state/testing.js";
 import type { DesiredExtensionNode, DesiredStateGraph } from "../../workspace-state/index.js";
 
 import {
@@ -462,4 +469,61 @@ describe("classifyTargetedUpdate", () => {
 
     expect(context.public.blocker).toBe("constraint-conflict");
   });
+});
+
+describe("targeted update fingerprints", () => {
+  /** Two configured Registries; the default one is `primary`. */
+  const sources = [
+    { name: "primary", type: "registry", location: "https://primary.example.com" },
+    { name: "mirror", type: "registry", location: "https://mirror.example.com" },
+  ];
+
+  /** The shared-member context with the direct declaration spelled `declared`. */
+  const contextFor = (declared: string) =>
+    sharedMemberGraph(SHARED_MEMBER_PIN.inside, {
+      sources,
+      defaultRegistry: "primary",
+      skills: { [SHARED_MEMBER.name]: declared },
+    }).pipe(
+      Effect.map((graph) =>
+        classifyTargetedUpdate({
+          target: { type: "skill", name: SHARED_MEMBER.name, fqn: SHARED_MEMBER.fqn },
+          graph,
+          configuredPacks: [],
+        }),
+      ),
+    );
+
+  const bare = `${SHARED_MEMBER.fqn}@${SHARED_MEMBER_PIN.inside}`;
+
+  it.effect("agrees for a bare FQN and a locator qualified by the Registry it binds to", () =>
+    Effect.gen(function* () {
+      const unqualified = yield* contextFor(bare);
+      const qualified = yield* contextFor(`primary:${bare}`);
+
+      expect(qualified.fingerprint).toBe(unqualified.fingerprint);
+      expect(qualified.bindingFingerprint).toBe(unqualified.bindingFingerprint);
+    }),
+  );
+
+  it.effect("differs for the same FQN bound to a different configured Registry", () =>
+    Effect.gen(function* () {
+      const primary = yield* contextFor(bare);
+      const mirror = yield* contextFor(`mirror:${bare}`);
+
+      expect(mirror.public.direct).toEqual(primary.public.direct);
+      expect(mirror.fingerprint).not.toBe(primary.fingerprint);
+      expect(mirror.bindingFingerprint).not.toBe(primary.bindingFingerprint);
+    }),
+  );
+
+  it.effect("differs for a changed direct constraint on the same binding", () =>
+    Effect.gen(function* () {
+      const inside = yield* contextFor(bare);
+      const changed = yield* contextFor(`${SHARED_MEMBER.fqn}@1.2.0`);
+
+      expect(changed.fingerprint).not.toBe(inside.fingerprint);
+      expect(changed.bindingFingerprint).toBe(inside.bindingFingerprint);
+    }),
+  );
 });

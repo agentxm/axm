@@ -45,45 +45,52 @@ export const TARGETED_UPDATE_STALE_DETAIL =
 const same = (left: unknown, right: unknown): boolean =>
   JSON.stringify(left) === JSON.stringify(right);
 
+/**
+ * Whether the transition left ownership as the context settled it: the same
+ * owners, activation, authority, canonical bindings, Pack evidence, and
+ * effective constraint, with the direct declaration's range equal to
+ * `directConstraint`. Settings spelling is not ownership.
+ */
+const preservesOwnership = (
+  expected: TargetedUpdateContext,
+  actual: TargetedUpdateContext,
+  directConstraint: string | undefined,
+): boolean =>
+  actual.public.blocker === undefined &&
+  actual.public.ownership === expected.public.ownership &&
+  actual.public.activation === expected.public.activation &&
+  actual.public.authority === expected.public.authority &&
+  actual.public.direct?.source === expected.public.direct?.source &&
+  actual.public.direct?.enabled === expected.public.direct?.enabled &&
+  actual.public.direct?.constraint === directConstraint &&
+  actual.public.effectiveConstraint === expected.public.effectiveConstraint &&
+  same(actual.public.packs, expected.public.packs) &&
+  same(actual.public.memberClosure, expected.public.memberClosure) &&
+  actual.bindingFingerprint === expected.bindingFingerprint &&
+  actual.packEvidenceFingerprint === expected.packEvidenceFingerprint;
+
 const validatePostcondition = (args: {
   readonly expected: TargetedUpdateContext;
   readonly actual: TargetedUpdateContext;
   readonly explicitRange?: string;
-}): Effect.Effect<void, ExtensionLifecycleFailed, never> => {
-  if (args.explicitRange === undefined) {
-    return args.actual.fingerprint === args.expected.fingerprint
-      ? Effect.void
-      : Effect.fail(
-          new ExtensionLifecycleFailed({
-            category: "internal",
-            detail: "Targeted update changed desired ownership or owning pack evidence",
-          }),
-        );
-  }
-
-  const expectedPublic = args.expected.public;
-  const actualPublic = args.actual.public;
-  const preserved =
-    actualPublic.blocker === undefined &&
-    actualPublic.ownership === expectedPublic.ownership &&
-    actualPublic.activation === expectedPublic.activation &&
-    actualPublic.authority === expectedPublic.authority &&
-    actualPublic.direct?.source === expectedPublic.direct?.source &&
-    actualPublic.direct?.enabled === expectedPublic.direct?.enabled &&
-    actualPublic.direct?.constraint === args.explicitRange &&
-    actualPublic.effectiveConstraint === expectedPublic.effectiveConstraint &&
-    same(actualPublic.packs, expectedPublic.packs) &&
-    same(actualPublic.memberClosure, expectedPublic.memberClosure) &&
-    args.actual.packEvidenceFingerprint === args.expected.packEvidenceFingerprint;
-  return preserved
+}): Effect.Effect<void, ExtensionLifecycleFailed, never> =>
+  // Without a requested range the direct declaration keeps its own; with
+  // one, the declaration must now carry exactly that range.
+  preservesOwnership(
+    args.expected,
+    args.actual,
+    args.explicitRange ?? args.expected.public.direct?.constraint,
+  )
     ? Effect.void
     : Effect.fail(
         new ExtensionLifecycleFailed({
           category: "internal",
-          detail: "Targeted update did not preserve its desired ownership postcondition",
+          detail:
+            args.explicitRange === undefined
+              ? "Targeted update changed desired ownership or owning pack evidence"
+              : "Targeted update did not preserve its desired ownership postcondition",
         }),
       );
-};
 
 export const wrapTargetedUpdatePlan = (args: {
   readonly plan: Plan<InstallStepRequirements>;

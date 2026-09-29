@@ -48,6 +48,7 @@ import {
   configuredRowsByName,
   desiredStateProblemText,
   effectiveDesiredConstraint,
+  formatDesiredSourceAuthority,
 } from "../../workspace-state/index.js";
 import { desiredPackageKey } from "../../workspace-state/index.js";
 
@@ -110,7 +111,15 @@ export interface TargetedUpdatePublicContext {
 
 export interface TargetedUpdateContext {
   readonly public: TargetedUpdatePublicContext;
+  /** Every fact the context was classified from: the freshness witness before apply. */
   readonly fingerprint: string;
+  /**
+   * The canonical bindings ownership rests on: the target's desired identity
+   * with its Registry binding, the direct declaration's local name, and each
+   * owning Pack's canonical member source. Equivalent spellings of one
+   * binding agree; a different Registry, source, or Pack does not.
+   */
+  readonly bindingFingerprint: string;
   readonly packEvidenceFingerprint: string;
 }
 
@@ -306,14 +315,29 @@ export const classifyTargetedUpdate = (args: ClassifyTargetedUpdateArgs): Target
     ...(blocker === undefined ? {} : { blocker }),
   };
 
+  // Canonical facts, never the settings text: a bare FQN and a locator
+  // qualified by the configured Registry it binds to are one binding. The
+  // identity serializes its Registry endpoint as its href.
+  const bindings = {
+    identity: node?.identity,
+    localName: directOrigin?.localName,
+    packSources: packOrigins.map((origin) => ({
+      pack: origin.pack,
+      source:
+        origin.sourceAuthority === undefined
+          ? origin.source
+          : formatDesiredSourceAuthority(origin.sourceAuthority),
+    })),
+  };
+
   return {
     public: publicContext,
     fingerprint: publicFingerprint({
       publicContext,
-      directSource: directOrigin?.source,
-      packSources: packOrigins.map((origin) => origin.source),
+      bindings,
       packEvidence: args.packEvidence ?? [],
     }),
+    bindingFingerprint: publicFingerprint(bindings),
     packEvidenceFingerprint: publicFingerprint(args.packEvidence ?? []),
   };
 };

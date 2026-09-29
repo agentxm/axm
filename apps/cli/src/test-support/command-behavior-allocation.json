@@ -2101,6 +2101,60 @@
         }
       ]
     },
+    "instructions adopt": {
+      "flags": [
+        {
+          "name": "file",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "scope",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          }
+        },
+        {
+          "name": "preview",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        }
+      ],
+      "arguments": [
+        {
+          "name": "region",
+          "rawHelp": {
+            "type": "choice",
+            "required": true,
+            "variadic": false
+          }
+        }
+      ],
+      "relatedRequirements": [
+        "cli/instructions/adopt/records-exact-scoped-authority",
+        "cli/instructions/adopt/preview-is-pure"
+      ],
+      "parameterBindings": [
+        {
+          "parameters": ["argument:region", "flag:file", "flag:scope"],
+          "requirements": ["cli/instructions/adopt/records-exact-scoped-authority"],
+          "when": "Explicitly selecting one complete native region and its accepted scoped source authority."
+        },
+        {
+          "parameters": ["flag:preview"],
+          "requirements": ["cli/instructions/adopt/preview-is-pure"],
+          "when": "Assessing ownership transfer before adoption."
+        }
+      ]
+    },
     "instructions disable": {
       "flags": [
         {

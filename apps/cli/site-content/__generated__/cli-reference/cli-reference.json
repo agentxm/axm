@@ -6308,6 +6308,57 @@
               { "command": "axm instructions disable", "description": "Disable instruction files" }
             ],
             "subcommands": []
+          },
+          {
+            "name": "adopt",
+            "aliases": [],
+            "description": "Explicitly adopt one unchanged instruction region without replacing its body",
+            "arguments": [
+              {
+                "name": "region",
+                "aliases": [],
+                "type": "choice",
+                "required": true,
+                "description": "Exact managed region to adopt",
+                "choices": [
+                  { "value": "rules" },
+                  { "value": "knowledge" },
+                  { "value": "hook-fallbacks" }
+                ]
+              }
+            ],
+            "options": [
+              {
+                "name": "file",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Exact instruction file containing the region"
+              },
+              {
+                "name": "scope",
+                "aliases": [],
+                "type": "choice",
+                "required": false,
+                "description": "Configuration scope: project (default) or user",
+                "choices": [{ "value": "project" }, { "value": "user" }]
+              },
+              {
+                "name": "preview",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Preview explicit ownership adoption without changing files"
+              }
+            ],
+            "globalOptions": [],
+            "examples": [
+              {
+                "command": "axm instructions adopt knowledge --file AGENTS.md --preview",
+                "description": "Review ownership transfer for one existing Knowledge region"
+              }
+            ],
+            "subcommands": []
           }
         ]
       },

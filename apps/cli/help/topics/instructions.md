@@ -47,6 +47,9 @@ All commands accept `--scope project` (default) or `--scope user`:
 - `axm instructions disable` — remove current AXM-owned aliases and the managed
   `.gitignore` block while preserving the canonical source and authored prose,
   then set `instructionFiles: false`. Add `--preview` to inspect the plan.
+- `axm instructions adopt <rules|knowledge|hook-fallbacks> [--file AGENTS.md]`
+  — explicitly accept ownership of one existing contributor region. Add
+  `--preview` to inspect the transfer without writing.
 
 ## Propagation
 
@@ -80,6 +83,26 @@ the surrounding authored prose.
 Top-level instruction management is the outer gate. It does not replace the
 Knowledge-specific precedence or affect enabled Concepts; see `axm help
 knowledge` for per-bundle `instructionEntry` behavior.
+
+### Explicit ownership adoption
+
+When a complete region belongs to the expected AXM contributor but lacks current
+scoped source proof, first inspect its body and the scope's accepted extensions.
+Then preview and adopt that exact region:
+
+```bash
+axm instructions adopt knowledge --file AGENTS.md --preview
+axm instructions adopt knowledge --file AGENTS.md
+axm sync --preview
+```
+
+Adoption updates only the start marker's source proof. It preserves the body,
+generation, surrounding text, workspace settings, and accepted resolutions.
+Ordinary sync never transfers ownership. Adoption refuses malformed regions,
+different contributor owners, missing accepted sources, escaped targets, and
+files or source authority that change after planning. It supplies no authority
+to delete the original file or surrounding content. After adoption, inspect the
+sync preview before reconciling the region from its accepted contributors.
 
 ## Alias `.gitignore` entries
 

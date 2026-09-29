@@ -24,6 +24,7 @@ import {
   type RegionName,
   inspectManagedRegion,
   renderManagedRegion,
+  serializeMarker,
   NativeWriteAuthority,
   preflightNativeConfigReaders,
 } from "../agent-adapters/index.js";
@@ -59,11 +60,15 @@ export const reconcileNativeManagedRegion = (args: {
   readonly configuredAgentIds: ReadonlyArray<string>;
   readonly eligible: boolean;
   readonly dryRun?: boolean;
+  /** Explicit transfer of the exact observed region; ordinary reconciliation never adopts. */
+  readonly adoption?: { readonly expectedRaw: string };
 }) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const authority = yield* NativeWriteAuthority;
+    const portableRoot = (root: string) => root.split(path.sep).join("/");
+    const scopeRoot = portableRoot(path.relative(args.workspaceRoot, args.ownerRoot)) || ".";
     const roots = nativeAuthorityRoots(
       path,
       { workspaceRoot: args.workspaceRoot, scope: args.scope },
@@ -143,7 +148,17 @@ export const reconcileNativeManagedRegion = (args: {
         ),
       );
       const existing = Option.getOrElse(before, () => "");
+      if (args.adoption !== undefined && existing !== args.adoption.expectedRaw)
+        return yield* new ManagedRegionViolation({
+          displayPath: args.displayPath,
+          reason: "Instruction region changed after explicit adoption was planned",
+        });
       const state = inspectManagedRegion(existing, args.region, style.value);
+      if (args.adoption !== undefined && state.state !== "complete")
+        return yield* new ManagedRegionViolation({
+          displayPath: args.displayPath,
+          reason: "Explicit adoption requires an existing complete region",
+        });
       if (state.state === "malformed" || state.state === "unsupported-version")
         return yield* new ManagedRegionViolation({
           displayPath: args.displayPath,
@@ -160,17 +175,30 @@ export const reconcileNativeManagedRegion = (args: {
           state.startMarker.ext === args.owner &&
           Option.isSome(decoded) &&
           decoded.value.scope === args.scope &&
-          decoded.value.root === args.ownerRoot &&
+          decoded.value.root === scopeRoot &&
           decoded.value.owners.length > 0 &&
           decoded.value.owners.every((prior) =>
             args.ownership.some(
               (owner) =>
                 owner.name === prior.name &&
                 owner.ref === prior.ref &&
-                owner.root === prior.root &&
+                portableRoot(owner.root) === prior.root &&
                 owner.scope === args.scope,
             ),
           );
+        if (!owned && args.adoption !== undefined) {
+          if (
+            existing !== args.adoption.expectedRaw ||
+            state.startMarker.ext !== args.owner ||
+            args.rendered.length === 0 ||
+            (Option.isSome(decoded) && decoded.value.scope !== args.scope)
+          )
+            return yield* new ManagedRegionViolation({
+              displayPath: args.displayPath,
+              reason: "Explicit region adoption no longer matches its observed scope and owner",
+            });
+          owned = true;
+        }
         if (!owned) {
           if (args.rendered.length > 0)
             return yield* new ManagedRegionViolation({
@@ -190,9 +218,9 @@ export const reconcileNativeManagedRegion = (args: {
       }
       const source = JSON.stringify({
         scope: args.scope,
-        root: args.ownerRoot,
+        root: scopeRoot,
         owners: args.contributors
-          .map(({ name, ref, root }) => ({ name, ref, root }))
+          .map(({ name, ref, root }) => ({ name, ref, root: portableRoot(root) }))
           .sort(
             (left, right) =>
               left.ref.localeCompare(right.ref) ||
@@ -200,7 +228,7 @@ export const reconcileNativeManagedRegion = (args: {
               left.name.localeCompare(right.name),
           ),
       });
-      const updated = renderManagedRegion({
+      const renderedUpdate = renderManagedRegion({
         content: existing,
         state,
         region: args.region,
@@ -210,6 +238,26 @@ export const reconcileNativeManagedRegion = (args: {
         source,
         generation: args.generation,
       });
+      let updated = renderedUpdate;
+      if (args.adoption !== undefined && state.state === "complete") {
+        let offset = 0;
+        for (let index = 0; index < state.start; index += 1)
+          offset = existing.indexOf("\n", offset) + 1;
+        const newline = existing.indexOf("\n", offset);
+        const end = newline < 0 ? existing.length : newline;
+        const carriageReturn = existing[end - 1] === "\r" ? "\r" : "";
+        updated =
+          existing.slice(0, offset) +
+          serializeMarker(
+            {
+              ...state.startMarker,
+              src: source,
+            },
+            style.value,
+          ) +
+          carriageReturn +
+          existing.slice(end);
+      }
       yield* preflightNativeConfigReaders({
         workspaceRoot: args.workspaceRoot,
         scope: args.scope,

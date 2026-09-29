@@ -2327,6 +2327,20 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Additional evidence: process via [`apps/cli-e2e/src/projection-currency.e2e.test.ts`](../apps/cli-e2e/src/projection-currency.e2e.test.ts) — Runs a real Markdown formatter between projection and the packaged CLI, then proves both lint views, preview, sync, and reinstall preserve the formatted bytes.
 - Source: [`packages/core/workspace-features/src/lifecycle/install/reinstall-is-idempotent.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/reinstall-is-idempotent.spec.ts)
 
+##### Instruction region adoption preview leaves both scopes unchanged
+
+- Requirement: `cli/instructions/adopt/preview-is-pure`
+- Owner: `workspace-features`
+- Statement: When instruction region adoption runs in preview mode, AXM shall report the exact ownership transfer it would apply with a previewed outcome, without modifying instruction files, canonical sources, settings, accepted resolutions, or any other state in the selected or unselected scope. A refused preview shall also leave both scopes unchanged.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Byte-identical snapshots of both scopes establish that native files and accepted sources remain unchanged.
+- Methods: example, decision-table
+- Derived from: `cli/instructions/adopt/records-exact-scoped-authority`
+- Source: [`packages/core/workspace-features/src/configuration/instructions/adopt-preview-is-pure.spec.ts`](../packages/core/workspace-features/src/configuration/instructions/adopt-preview-is-pure.spec.ts)
+
 ##### Disabling already disabled instruction-file management is a successful no-op
 
 - Requirement: `cli/instructions/disable/disable-is-idempotent`
@@ -3551,6 +3565,20 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Derived from: `apps/cli/src/root/scope-contract.ts`, `apps/cli/src/root/agents/list.ts`, `apps/cli/src/root/agents/add.ts`, `apps/cli/src/root/agents/remove.ts`, `apps/cli/src/root/instructions.ts`, `docs/architecture/workspace/agents.md`, `docs/architecture/workspace/instruction-files.md`, `apps/cli-e2e/src/scope-consistency.e2e.test.ts`, `apps/cli-e2e/src/activation-lifecycle.e2e.test.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/scope-consistency.e2e.test.ts`](../apps/cli-e2e/src/scope-consistency.e2e.test.ts) — Runs Pack, Knowledge and Subagent operations in a populated user workspace and verifies that the populated project workspace and native projections remain byte-identical.
 - Source: [`apps/cli-e2e/src/installed-state-stays-in-selected-scope.spec.ts`](../apps/cli-e2e/src/installed-state-stays-in-selected-scope.spec.ts)
+
+##### Explicit instruction-region adoption records current scoped source authority
+
+- Requirement: `cli/instructions/adopt/records-exact-scoped-authority`
+- Owner: `workspace-features`
+- Statement: When explicitly asked to adopt one existing instruction region, AXM shall transfer its ownership to the selected scope's accepted contributors without changing its body, surrounding content, desired settings, or accepted resolutions. Missing, malformed, differently owned, escaped, or changed-since-planning regions, and regions without accepted source authority, shall be refused without mutation; ordinary sync shall not perform this ownership transfer.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`, `extension-adoption`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Exact instruction bytes, physical scope confinement, and stale file observations require a real temporary filesystem.
+- Methods: example, decision-table
+- Derived from: `workspace/projections/native-regions-preserve-scoped-authority`
+- Source: [`packages/core/workspace-features/src/configuration/instructions/adopts-exact-observed-region.spec.ts`](../packages/core/workspace-features/src/configuration/instructions/adopts-exact-observed-region.spec.ts)
 
 ##### Disabling instruction-file management removes only what AXM owns
 
@@ -6360,7 +6388,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `workspace/projections/native-regions-preserve-scoped-authority`
 - Owner: `workspace-kernel`
-- Statement: AXM shall resolve native Rule and Knowledge regions physically, require exact accepted source and scope ownership for mutation, preserve foreign content, and restore the precise insertion baseline only for an eligible new intent followed by its unchanged withdrawal.
+- Statement: AXM shall resolve native Rule and Knowledge regions physically, require exact accepted source and scope ownership for mutation, preserve foreign content, and restore the precise insertion baseline only for an eligible new intent followed by its unchanged withdrawal. Ownership proof shall use scope-relative roots so it remains valid in another project checkout with the same accepted sources. Explicit adoption shall bind to unchanged observed bytes and scope, change only the ownership marker, and confer no insertion-baseline cleanup eligibility.
 - Class: functional
 - Role: supporting
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`, `agent-interoperability`

@@ -930,6 +930,7 @@ const planPaths = [
   "axm rules disable",
   "axm rules enable",
   "axm rules install",
+  "axm instructions adopt",
   "axm instructions disable",
   "axm instructions enable",
   "axm rules new",

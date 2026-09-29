@@ -169,6 +169,7 @@ describe("native artifact parent withdrawal", () => {
               ]),
             );
             expect(yield* fs.exists(target)).toBe(false);
+            expect(yield* fs.readFileString(path.join(source, "SKILL.md"))).toBe("# Review\n");
             expect(yield* fs.exists(directory)).toBe(parentState !== "absent");
             if (parentState === "foreign-child")
               expect(yield* fs.readFileString(path.join(directory, "personal.txt"))).toBe("keep\n");

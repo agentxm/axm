@@ -20,6 +20,10 @@ const packedManifest = Schema.Struct({
   dependencies: Schema.optional(Schema.Record(Schema.String, Schema.String)),
   optionalDependencies: Schema.optional(Schema.Record(Schema.String, Schema.String)),
 });
+const bundledEffectManifest = Schema.Struct({
+  name: Schema.String,
+  version: Schema.String,
+});
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -69,6 +73,17 @@ export const validatePack = async (tarball: string, name: string, version: strin
     throw new Error(`Packed coordinate differs for ${name}.`);
   if (name === "axm.sh" && !/^\.?\/?dist\/.*\.js$/u.test(manifest.bin?.["axm"] ?? ""))
     throw new Error("Packed CLI must expose its compiled bin.");
+  if (name === "axm.sh") {
+    for (const bundled of ["@effect/platform-node", "@effect/platform-node-shared"]) {
+      if (manifest.dependencies?.[bundled] !== undefined)
+        throw new Error(`Packed CLI must resolve ${bundled} from its tested bundle.`);
+      const embedded = Schema.decodeUnknownSync(Schema.fromJsonString(bundledEffectManifest))(
+        capture("tar", ["-xOf", tarball, `package/dist/node_modules/${bundled}/package.json`]),
+      );
+      if (embedded.name !== bundled || embedded.version !== manifest.dependencies?.["effect"])
+        throw new Error(`Packed CLI has an incompatible bundled ${bundled} version.`);
+    }
+  }
   for (const [dependency, reference] of Object.entries({
     ...manifest.dependencies,
     ...manifest.optionalDependencies,

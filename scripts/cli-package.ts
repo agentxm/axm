@@ -16,6 +16,7 @@ const manifestFields = Schema.Struct({
   peerDependencies: Schema.optional(Schema.Record(Schema.String, Schema.String)),
 });
 const manifestJson = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown));
+const bundledEffectPackages = ["@effect/platform-node", "@effect/platform-node-shared"];
 
 export class CliPackageError extends Data.TaggedError("CliPackageError")<{
   readonly message: string;
@@ -176,7 +177,35 @@ export const packCliPackage = (options: {
           return manifest;
         }),
       );
-      const composed = yield* composeCliManifest(cli, internal);
+      // Effect's prerelease platform-node package permits newer, incompatible
+      // platform-node-shared releases. Keep the tested pair inside the CLI so
+      // Yarn Classic cannot resolve a different nested version at install time.
+      const effectPackages = yield* Effect.forEach(bundledEffectPackages, (name) =>
+        Effect.gen(function* () {
+          const source = yield* fs.realPath(
+            path.join(options.repository, "apps", "cli", "node_modules", name),
+          );
+          const manifest = yield* readManifest(path.join(source, "package.json"));
+          const decoded = yield* Schema.decodeUnknownEffect(manifestFields)(manifest);
+          const cliManifest = yield* Schema.decodeUnknownEffect(manifestFields)(cli);
+          if (cliManifest.dependencies?.[name] !== decoded.version) {
+            return yield* new CliPackageError({
+              message: `Bundled CLI dependency ${name} must match its exact installed version.`,
+            });
+          }
+          const directory = path.join(packageRoot, "dist", "node_modules", name);
+          yield* fs.makeDirectory(path.dirname(directory), { recursive: true });
+          yield* fs.copy(source, directory);
+          yield* fs.writeFileString(
+            path.join(directory, "package.json"),
+            `${JSON.stringify(composeBundledPackageManifest(manifest), null, 2)}\n`,
+          );
+          // redis is an optional platform-node peer; dependency composition
+          // needs its actual runtime dependencies, not optional peers.
+          return { ...manifest, peerDependencies: {} };
+        }),
+      );
+      const composed = yield* composeCliManifest(cli, [...internal, ...effectPackages]);
       yield* fs.writeFileString(
         path.join(packageRoot, "package.json"),
         `${JSON.stringify(composed, null, 2)}\n`,

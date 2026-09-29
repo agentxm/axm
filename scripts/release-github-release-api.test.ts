@@ -70,17 +70,18 @@ describe("GitHub Release API readback", () => {
 });
 
 describe("GitHub Release asset readback", () => {
-  it("decodes the exact target and asset names returned by gh release view", () => {
+  it("decodes the exact target and asset states returned by gh release view", () => {
+    const assets = [
+      { name: "axm-linux-x64", state: "uploaded", size: 104_857_600 },
+      { name: "checksums.txt", state: "new", size: 0 },
+    ];
     expect(
       decodeGitHubReleaseAssetView(
         JSON.stringify({
           targetCommitish: "a".repeat(40),
-          assets: [{ name: "axm-linux-x64" }, { name: "checksums.txt" }],
+          assets: assets.map((asset) => ({ ...asset, apiUrl: "https://api.github.com/x" })),
         }),
       ),
-    ).toEqual({
-      targetCommitish: "a".repeat(40),
-      assets: [{ name: "axm-linux-x64" }, { name: "checksums.txt" }],
-    });
+    ).toEqual({ targetCommitish: "a".repeat(40), assets });
   });
 });

@@ -17,12 +17,16 @@ const ReleaseInventoryPage = Schema.Array(ReleaseInventoryEntry);
 
 const ReleaseAssetView = Schema.Struct({
   targetCommitish: Schema.String,
-  assets: Schema.Array(Schema.Struct({ name: Schema.String })),
+  assets: Schema.Array(
+    Schema.Struct({ name: Schema.String, state: Schema.String, size: Schema.Number }),
+  ),
 });
+
+export type GitHubReleaseAssetView = typeof ReleaseAssetView.Type;
 
 type Release = NonNullable<GitHubReleaseObservation["release"]>;
 
-export const decodeGitHubReleaseAssetView = (value: string) =>
+export const decodeGitHubReleaseAssetView = (value: string): GitHubReleaseAssetView =>
   Schema.decodeUnknownSync(Schema.fromJsonString(ReleaseAssetView))(value);
 
 export const readGitHubReleaseByTag = async (input: {

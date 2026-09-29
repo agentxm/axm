@@ -37,6 +37,7 @@ import {
 } from "./release-publication.js";
 import { formulaVersion, prepareFormula } from "./release-formula.js";
 import { decodeGitHubReleaseAssetView } from "./release-github-release-api.js";
+import { makeReleaseAssetReader } from "./release-asset-readback.js";
 
 import { loadNpmPublicationAuth, npmPublicationProcessEnvironment } from "./release-npm-auth.js";
 
@@ -134,53 +135,56 @@ try {
             publish: () =>
               Effect.tryPromise({
                 try: async () => {
-                  const readAsset = async (name: string): Promise<string | null> => {
-                    const release = decodeGitHubReleaseAssetView(
-                      capture("gh", [
+                  const readAsset = makeReleaseAssetReader({
+                    releaseCommit,
+                    viewRelease: async () =>
+                      decodeGitHubReleaseAssetView(
+                        capture("gh", [
+                          "release",
+                          "view",
+                          tag,
+                          "--repo",
+                          RELEASE_REPO,
+                          "--json",
+                          "targetCommitish,assets",
+                        ]),
+                      ),
+                    downloadAsset: async (name) => {
+                      const directory = mkdtempSync(join(temporary, "asset-"));
+                      run("gh", [
                         "release",
-                        "view",
+                        "download",
                         tag,
                         "--repo",
                         RELEASE_REPO,
-                        "--json",
-                        "targetCommitish,assets",
-                      ]),
-                    );
-                    if (release.targetCommitish !== releaseCommit)
-                      throw new Error(
-                        `GitHub Release target integrity conflict: expected ${releaseCommit}, observed ${release.targetCommitish}.`,
-                      );
-                    if (!release.assets.some((asset) => asset.name === name)) return null;
-                    const directory = mkdtempSync(join(temporary, "asset-"));
-                    run("gh", [
-                      "release",
-                      "download",
-                      tag,
-                      "--repo",
-                      RELEASE_REPO,
-                      "--pattern",
-                      name,
-                      "--dir",
-                      directory,
-                    ]);
-                    return contentIntegrity(readFileSync(join(directory, name)));
-                  };
+                        "--pattern",
+                        name,
+                        "--dir",
+                        directory,
+                      ]);
+                      return readFileSync(join(directory, name));
+                    },
+                  });
                   await publishImmutableCohort(
-                    EXPECTED_RELEASE_ASSETS.map((name) => ({
-                      name,
-                      integrity: contentIntegrity(readFileSync(join(assets, name))),
-                      read: () => readAsset(name),
-                      publish: async () => {
-                        run("gh", [
-                          "release",
-                          "upload",
-                          tag,
-                          join(assets, name),
-                          "--repo",
-                          RELEASE_REPO,
-                        ]);
-                      },
-                    })),
+                    EXPECTED_RELEASE_ASSETS.map((name) => {
+                      const bytes = readFileSync(join(assets, name));
+                      const size = bytes.byteLength;
+                      return {
+                        name,
+                        integrity: contentIntegrity(bytes),
+                        read: (signal: AbortSignal) => readAsset({ name, size }, signal),
+                        publish: async () => {
+                          run("gh", [
+                            "release",
+                            "upload",
+                            tag,
+                            join(assets, name),
+                            "--repo",
+                            RELEASE_REPO,
+                          ]);
+                        },
+                      };
+                    }),
                     { concurrency: 3 },
                   );
                 },
@@ -224,7 +228,10 @@ try {
                 });
                 // npm acknowledged two 0.33.0 uploads before registry reads exposed them
                 // more than two minutes later. Keep each dependency readback bounded.
-                yield* publishImmutableInDependencyOrder(publications, { timeoutMs: 360_000 });
+                yield* publishImmutableInDependencyOrder(publications, {
+                  timeoutMs: 360_000,
+                  preflightTimeoutMs: 360_000,
+                });
                 yield* Effect.tryPromise({
                   try: () =>
                     mapWithConcurrency(RELEASE_PACKAGES, 6, async (pkg) =>

@@ -228,7 +228,18 @@ to every release asset. The content assets do not change the installers'
    order. Each package must have confirmed matching bytes before its consumers
    can be published. A dependency failure stops subsequent publication; an
    ambiguous response gets readback within that package's observation window.
-   Independent GitHub Release assets retain concurrent readback.
+
+   GitHub Release assets are preflighted, uploaded serially, then read back
+   concurrently. Preflight and readback have separate 90-second budgets, and
+   the readback budget starts after the last upload, so upload time does not
+   consume it. An asset is read back only after the release view reports it
+   `uploaded`. An uploaded asset of another size is an integrity conflict;
+   otherwise its SHA-512 must match. A
+   `Published content readback timed out` error names the asset, the phase
+   (`preflight` or `readback`), attempts, elapsed and budgeted milliseconds,
+   and the last observation (`absent`, `mismatch`, or `transient` with its
+   HTTP status). Each `==>` command echo carries milliseconds since the script
+   started.
 
    If an exact-commit CI artifact has expired or is missing, publication fails
    before writes. Regenerate it only by dispatching `ci.yml` at the release tag,

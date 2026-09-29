@@ -10,6 +10,7 @@ import {
   contentIntegrity,
   observePublication,
   PublicationHttpError,
+  PublicationReadbackTimeout,
   readNpmDistTag,
   readNpmPublication,
   releaseCohortTarballPath,
@@ -208,6 +209,146 @@ describe("immutable release publication", () => {
   });
 });
 
+describe("phased cohort publication budgets", () => {
+  const cohort = (
+    names: ReadonlyArray<string>,
+    clock: { current: number },
+    options: {
+      readonly publishCostMs?: number;
+      readonly readCostMs?: number;
+      readonly afterPublish?: (name: string, reads: number) => string | null;
+    } = {},
+  ) => {
+    const published = new Map<string, number>();
+    const publish = vi.fn(async (name: string) => {
+      clock.current += options.publishCostMs ?? 0;
+      published.set(name, 0);
+    });
+    const publications = names.map((name) => ({
+      name,
+      integrity,
+      read: async () => {
+        clock.current += options.readCostMs ?? 0;
+        const reads = published.get(name);
+        if (reads === undefined) return null;
+        published.set(name, reads + 1);
+        return options.afterPublish === undefined
+          ? integrity
+          : options.afterPublish(name, reads + 1);
+      },
+      publish: () => publish(name),
+    }));
+    return { publications, publish };
+  };
+  const timing = (clock: { current: number }) => ({
+    initialDelayMs: 1,
+    maxDelayMs: 1,
+    now: () => clock.current,
+    random: () => 0.5,
+    sleep: async (delayMs: number) => {
+      clock.current += delayMs;
+    },
+  });
+
+  it("starts the readback budget after the last submission, not at cohort entry", async () => {
+    const clock = { current: 0 };
+    const { publications } = cohort(["one", "two", "three"], clock, { publishCostMs: 40 });
+    await expect(
+      publishImmutableCohort(publications, {
+        concurrency: 3,
+        timeoutMs: 50,
+        preflightTimeoutMs: 50,
+        ...timing(clock),
+      }),
+    ).resolves.toEqual([
+      { name: "one", outcome: "published" },
+      { name: "two", outcome: "published" },
+      { name: "three", outcome: "published" },
+    ]);
+    expect(clock.current).toBe(120);
+  });
+
+  it("confirms delayed visibility after upload within the readback budget", async () => {
+    const clock = { current: 0 };
+    const { publications, publish } = cohort(["one", "two"], clock, {
+      publishCostMs: 100,
+      afterPublish: (_name, reads) => (reads <= 4 ? null : integrity),
+    });
+    await expect(
+      publishImmutableCohort(publications, { timeoutMs: 10, ...timing(clock) }),
+    ).resolves.toEqual([
+      { name: "one", outcome: "published" },
+      { name: "two", outcome: "published" },
+    ]);
+    expect(publish).toHaveBeenCalledTimes(2);
+  });
+
+  it("still rejects a permanent readback mismatch as an integrity conflict", async () => {
+    const clock = { current: 0 };
+    const { publications } = cohort(["one"], clock, { afterPublish: () => "different" });
+    await expect(
+      publishImmutableCohort(publications, { timeoutMs: 10, ...timing(clock) }),
+    ).rejects.toThrow("Published content integrity conflict: one.");
+  });
+
+  it("fails a preflight slower than its own budget before any write", async () => {
+    const clock = { current: 0 };
+    const { publications, publish } = cohort(["one", "two", "three"], clock, {
+      readCostMs: 30,
+    });
+    const failure = await publishImmutableCohort(publications, {
+      concurrency: 1,
+      timeoutMs: 1_000,
+      preflightTimeoutMs: 50,
+      ...timing(clock),
+    }).catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(PublicationReadbackTimeout);
+    expect(failure).toMatchObject({
+      publication: "three",
+      phase: "preflight",
+      attempts: 0,
+      elapsedMs: 60,
+      deadlineMs: 50,
+      lastObservation: { kind: "unobserved" },
+    });
+    expect(publish).not.toHaveBeenCalled();
+  });
+
+  it("reports a cohort readback timeout against the post-submission budget", async () => {
+    const clock = { current: 0 };
+    const { publications } = cohort(["one"], clock, {
+      publishCostMs: 500,
+      afterPublish: () => null,
+    });
+    const failure = await publishImmutableCohort(publications, {
+      timeoutMs: 5,
+      ...timing(clock),
+    }).catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(PublicationReadbackTimeout);
+    expect(failure).toMatchObject({
+      publication: "one",
+      phase: "readback",
+      attempts: 5,
+      elapsedMs: 5,
+      deadlineMs: 5,
+      lastObservation: { kind: "absent" },
+    });
+  });
+
+  it("reuses every present asset on a same-tag rerun without writing", async () => {
+    const publish = vi.fn(async () => undefined);
+    await expect(
+      publishImmutableCohort(
+        ["one", "two"].map((name) => ({ name, integrity, read: async () => integrity, publish })),
+      ),
+    ).resolves.toEqual([
+      { name: "one", outcome: "reused" },
+      { name: "two", outcome: "reused" },
+    ]);
+    expect(publish).not.toHaveBeenCalled();
+  });
+});
+
 describe("dependency-ordered immutable publication", () => {
   it.effect("waits for dependency visibility before publishing its consumer", () =>
     Effect.gen(function* () {
@@ -353,6 +494,7 @@ describe("dependency-ordered immutable publication", () => {
 });
 
 describe("bounded publication observation", () => {
+  const busy = new PublicationHttpError("busy", 503);
   it.each(["absent", "transient failure"])(
     "reports the readback deadline when the last wait aborts after %s",
     async (outcome) => {
@@ -377,10 +519,68 @@ describe("bounded publication observation", () => {
             throw new DOMException("The operation was aborted.", "AbortError");
           },
         }),
-      ).rejects.toThrow("Published content readback timed out: candidate@1.2.3.");
+      ).rejects.toThrow(
+        "Published content readback timed out: candidate@1.2.3 (readback, 1 attempts",
+      );
       expect(read).toHaveBeenCalledTimes(1);
     },
   );
+
+  it.each([
+    {
+      last: "absent",
+      after: null,
+      expected: { kind: "absent" },
+      summary: "last: absent",
+    },
+    {
+      last: "mismatch",
+      after: "older",
+      expected: { kind: "mismatch" },
+      summary: "last: mismatch",
+    },
+    {
+      last: "transient",
+      after: busy,
+      expected: { kind: "transient", status: 503 },
+      summary: "last: transient HTTP 503",
+    },
+  ])("reports attempts, elapsed budget, and the last $last observation", async (scenario) => {
+    let current = 0;
+    let attempt = 0;
+    const failure = await observePublication<string | null>({
+      name: "candidate@1.2.3",
+      read: async () => {
+        attempt += 1;
+        if (attempt === 1 || scenario.after instanceof PublicationHttpError) throw busy;
+        return scenario.after;
+      },
+      matches: () => false,
+      retryError: (error) => error instanceof PublicationHttpError && error.retryable,
+      timeoutMs: 10,
+      initialDelayMs: 2,
+      maxDelayMs: 2,
+      random: () => 0.5,
+      now: () => current,
+      sleep: async (delayMs) => {
+        current += delayMs;
+      },
+    }).catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(PublicationReadbackTimeout);
+    expect(failure).toMatchObject({
+      publication: "candidate@1.2.3",
+      phase: "readback",
+      attempts: 5,
+      elapsedMs: 10,
+      deadlineMs: 10,
+      lastObservation: scenario.expected,
+      cause: busy,
+    });
+    expect(failure).toHaveProperty(
+      "message",
+      `Published content readback timed out: candidate@1.2.3 (readback, 5 attempts, 10ms of 10ms, ${scenario.summary}).`,
+    );
+  });
 
   it("preserves caller cancellation during the last observation wait", async () => {
     let current = 0;

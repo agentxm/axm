@@ -230,7 +230,7 @@ describe("fork and native import", () => {
     }
   });
 
-  it("refuses symbolic MCP import when a potential shared reader cannot preserve it", async () => {
+  it("imports symbolic MCP headers accepted by every potential shared reader", async () => {
     const temp = createTempDir();
     try {
       const setup = await runCli(
@@ -252,18 +252,26 @@ describe("fork and native import", () => {
       );
       const before = snapshotProtectedState(temp.path);
       for (const flags of [["--preview"], []]) {
-        const refused = await runCli(
+        const imported = await runCli(
           ["mcps", "import", "--as", "@test/mcps/context", ...flags, "--non-interactive", "--json"],
           { cwd: temp.path },
         );
-        expect(refused.exitCode, refused.stdout + refused.stderr).toBe(6);
-        expect(JSON.parse(refused.stdout)).toMatchObject({
-          ok: false,
-          code: "conflict",
-          detail: expect.stringContaining("command-code cannot read shared MCP target"),
+        expect(imported.exitCode, imported.stdout + imported.stderr).toBe(0);
+        expect(JSON.parse(imported.stdout)).toMatchObject({
+          ok: true,
+          result: { outcome: flags.length > 0 ? "previewed" : "applied" },
         });
-        expect(snapshotProtectedState(temp.path)).toEqual(before);
+        if (flags.length > 0) expect(snapshotProtectedState(temp.path)).toEqual(before);
       }
+      expect(readJson(path.join(temp.path, ".mcp.json"))).toEqual({ mcpServers: {} });
+      expect(readJson(path.join(temp.path, "mcps", "context", "mcp.json"))).toMatchObject({
+        server: {
+          remotes: [{ headers: [{ name: "Authorization", value: "Bearer ${CONTEXT_TOKEN}" }] }],
+        },
+      });
+      expect(readJson(path.join(temp.path, "axm.json"))).toMatchObject({
+        mcpServers: { context: { source: "workspace", enabled: false } },
+      });
     } finally {
       temp.cleanup();
     }

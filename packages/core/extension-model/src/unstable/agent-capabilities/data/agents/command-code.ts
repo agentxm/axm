@@ -61,8 +61,8 @@ export const commandCodeAgent = {
         convention: "universal",
         transports: ["stdio", "http", "sse"],
         mcpEnvExpansion: {
-          variables: "none",
-          defaults: false,
+          variables: "braced",
+          defaults: true,
         },
 
         locations: [
@@ -157,7 +157,7 @@ export const commandCodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
+        lastVerified: "2026-09-29",
         writer: {
           config: {
             locationIds: ["project", "user"],

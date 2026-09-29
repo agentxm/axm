@@ -57,16 +57,30 @@ describe("planMcpServerTargets", () => {
     ]);
   });
 
-  it("blocks every reader of a shared file when one of them cannot represent the entry", () => {
-    // claude-code expands braced environment references in `.mcp.json`;
-    // command-code reads the same file and expands none, so the shared file
-    // has no shape both accept.
+  it("shares ordinary environment references with Command Code and Qoder", () => {
     const plan = planMcpServerTargets({
-      agentIds: ["claude-code", "command-code"],
+      agentIds: ["claude-code", "command-code", "qoder"],
       scope: "project",
       serverName: "demo",
       declaration: inline,
       values: inline.env,
+      enabled: true,
+    });
+    expect(plan._tag).toBe("planned");
+    if (plan._tag !== "planned") return;
+    expect(plan.agents.map((agent) => agent._tag)).toEqual(["projected", "projected", "projected"]);
+    expect(plan.writes).toHaveLength(1);
+    expect(plan.writes[0]?.entry).toMatchObject({ env: inline.env });
+  });
+
+  it("blocks every reader of a shared file when one cannot expand a default", () => {
+    const env = { TOKEN: "${TOKEN:-fallback}" };
+    const plan = planMcpServerTargets({
+      agentIds: ["claude-code", "github-copilot-cli"],
+      scope: "project",
+      serverName: "demo",
+      declaration: { ...inline, env },
+      values: env,
       enabled: true,
     });
     expect(plan._tag).toBe("planned");

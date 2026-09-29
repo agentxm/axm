@@ -160,20 +160,28 @@ present lockfile before command-specific work, and `--force` does not bypass
 that check. The error names the lockfile path plus its observed and supported
 versions.
 
-For an older lockfile, explicitly re-accept desired intent into the current
-format:
+**Recovering from a rejected lockfile.** For an older lockfile, explicitly
+re-accept desired intent into the current format by following the route the
+error suggests:
 
-1. Preserve the incompatible lockfile outside its authoritative path.
-2. Review `axm.json`, authored manifests, and the preserved lockfile to confirm
-   the desired intent and prior external resolutions.
-3. Remove the incompatible lockfile from the authoritative path.
-4. Run `axm sync --preview` and review every proposed resolution. Use `--scope
-user` for a user workspace.
-5. Run `axm sync` only after accepting the preview.
+1. Back up the incompatible lockfile outside the workspace, review axm.json,
+   then remove the incompatible file. Review authored manifests and the backup
+   too, to confirm the desired intent and prior external resolutions.
+2. Preview a new lockfile in the supported format: `axm sync --preview`. Review
+   every proposed resolution. Use `--scope user` for a user workspace.
+3. Apply the previewed workspace changes: `axm sync`.
+
+A workspace containing only workspace-authored content may correctly finish
+without a lockfile. `axm install` with no arguments plans the same configured
+sweep as `axm sync`; recovery needs no other command.
 
 This is new resolution, not migration. External versions may differ from the
-preserved lockfile. If the workspace contains only workspace-authored content,
-successful recovery may leave the lockfile absent.
+backup. Each re-accepted extension is selected within its effective constraint:
+a direct pin on a Pack member holds when every Pack that requires the member
+admits it. When no version satisfies the pin and every requiring Pack range,
+the preview and the apply block that member and those Packs, naming every
+contributor, and accept nothing for them; independent extensions still
+converge. Change the pin in `axm.json` and preview again.
 
 For a newer lockfile, run `axm upgrade` before accessing the workspace again.
 Do not run setup, delete or replace the lockfile, restore an older copy, or try

@@ -9,7 +9,9 @@ import YAML from "yaml";
 
 import { LOCKFILE_VERSION } from "@agentxm/workspace-kernel/workspace-state";
 import {
+  DISABLED_MCP,
   SHARED_MEMBER,
+  SHARED_MEMBER_PACKS,
   SHARED_MEMBER_PIN,
   publishSharedMemberScenario,
   sharedMemberSettings,
@@ -18,6 +20,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import {
   applySync,
+  expectResolved,
   makeFileRegistry,
   makeSyncFixture,
   previewSync,
@@ -29,7 +32,7 @@ export const specification = defineSpecification({
   requirement: "cli/lockfile-rejections-name-recovery-routes",
   title: "The recovery route for a rejected lockfile re-accepts the desired state",
   statement:
-    "When a workspace lockfile is rejected as older than the supported version, following the named recovery route (preserving the file outside its authoritative path, previewing, then applying sync) shall re-accept the desired state into a lockfile at the supported version, selecting each re-accepted extension within its effective desired constraint so that a direct pin on a Pack member holds, and a workspace holding only workspace-authored content shall finish that route without a lockfile.",
+    "When a workspace lockfile is rejected as older than the supported version, following the named recovery route (preserving the file outside its authoritative path, previewing, then applying sync) shall re-accept the desired state into a lockfile at the supported version, selecting each re-accepted extension within its effective desired constraint so that a direct pin on a Pack member holds; when no version satisfies a Pack member's direct pin and every requiring Pack range, the preview and the apply shall each block that member and every Pack requiring it, naming every contributor, and the apply shall accept no resolution for them while independent extensions still converge; and a workspace holding only workspace-authored content shall finish that route without a lockfile.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "safe-repetition", "workspace-intent-fidelity"],
@@ -138,6 +141,74 @@ describe("Lockfile rejection recovery routes", () => {
       });
     });
   });
+
+  it.effect(
+    "blocks the shared member and its Packs, naming every contributor, when the direct pin lies outside every Pack",
+    () => {
+      const registry = makeFileRegistry();
+      cleanups.push(registry.cleanup);
+      publishSharedMemberScenario(registry);
+      const workspace = fixture({
+        sources: [registry.source],
+        ...sharedMemberSettings(SHARED_MEMBER_PIN.outside),
+      });
+      const lockPath = writeOlderLockfile(workspace);
+      const run = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+        workspace.provide(effect).pipe(Effect.provide(NodeServices.layer));
+      // The one conflict the desired state reports: the direct pin and both
+      // Pack ranges, and no version that satisfies all three.
+      const conflict = [
+        `skill ${SHARED_MEMBER.name}: incompatible constraints settings range=${SHARED_MEMBER_PIN.outside} location=axm.json`,
+        ...SHARED_MEMBER_PACKS.map(
+          (pack) =>
+            `${pack.fqn} range=${pack.range} location=agent_extensions/registry/${SHARED_MEMBER.owner}/packs/${pack.name}/pack.json`,
+        ),
+      ].join(", ");
+      const blockedUnits = [
+        expect.objectContaining({
+          id: `skill:${SHARED_MEMBER.name}`,
+          state: "blocked",
+          message: `${conflict}; decision=blocked; reason=no-satisfying-version`,
+        }),
+        ...SHARED_MEMBER_PACKS.map((pack) =>
+          expect.objectContaining({
+            id: `pack:manifest-divergence:${pack.name}`,
+            state: "blocked",
+            message: `Configured constraints are unsatisfiable: ${conflict}; decision=blocked; reason=no-satisfying-version`,
+          }),
+        ),
+      ];
+      const connection = (state: string) =>
+        expect.objectContaining({ id: `mcp-server:${DISABLED_MCP.name}`, state });
+      return Effect.gen(function* () {
+        fs.rmSync(lockPath);
+        const before = workspace.snapshot();
+
+        const preview = expectResolved(yield* run(previewSync()));
+        expect(preview.units).toEqual([...blockedUnits, connection("ready")]);
+        expect(workspace.snapshot()).toEqual(before);
+
+        // Apply blocks the same closures; the disabled connection is
+        // independent of the conflict, so it alone is accepted.
+        const applied = expectResolved(yield* run(applySync()));
+        expect(applied.units).toEqual([...blockedUnits, connection("committed")]);
+        expect(YAML.parse(fs.readFileSync(lockPath, "utf8"))).toMatchObject({
+          lockfileVersion: LOCKFILE_VERSION,
+          skills: {},
+        });
+        const connectionRoot = `agent_extensions/registry/${SHARED_MEMBER.owner}/mcps/${DISABLED_MCP.name}`;
+        expect(
+          Object.keys(workspace.snapshot()).filter(
+            (path) =>
+              !(path in before) &&
+              path !== "axm-lock.yaml" &&
+              !connectionRoot.startsWith(path) &&
+              !path.startsWith(connectionRoot),
+          ),
+        ).toEqual([]);
+      });
+    },
+  );
 
   it.effect("allows an authored-only workspace to finish recovery without a lockfile", () => {
     const workspace = fixture();

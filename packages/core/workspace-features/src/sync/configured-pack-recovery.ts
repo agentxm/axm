@@ -260,6 +260,7 @@ export const collectConfiguredPackRecovery = (args: {
             steps: [blockedRecoveryStep({ key, label, reason })],
             holdbacks: packHoldbacks,
             bypasses: packBypasses,
+            conflicts: [],
           });
 
           // The one Pack graph selection install and update also render: the
@@ -274,9 +275,12 @@ export const collectConfiguredPackRecovery = (args: {
             return blocked(selection.blockers.map((fact) => fact.detail).join("; "));
           }
           if (selection.kind === "constraint-blocked") {
-            return blocked(
-              `Configured constraints are unsatisfiable: ${desiredStateProblemsText(selection.conflicts)}`,
-            );
+            return {
+              ...blocked(
+                `Configured constraints are unsatisfiable: ${desiredStateProblemsText(selection.conflicts)}`,
+              ),
+              conflicts: selection.conflicts,
+            };
           }
           if (selection.kind === "accepted-incompatible") {
             return blocked(acceptedResolutionIncompatibleText(selection.mismatch.fact));
@@ -287,7 +291,7 @@ export const collectConfiguredPackRecovery = (args: {
           };
           if (selection.kind === "held") {
             return selection.preserved
-              ? { steps: [], ...held }
+              ? { steps: [], ...held, conflicts: [] }
               : {
                   ...blocked(
                     `Recovering ${identity} requires a release the minimum release age still holds back, and no complete usable accepted resolution can be preserved`,
@@ -389,6 +393,7 @@ export const collectConfiguredPackRecovery = (args: {
               },
             ],
             ...held,
+            conflicts: [],
           };
         }),
       { concurrency },
@@ -407,5 +412,13 @@ export const collectConfiguredPackRecovery = (args: {
               bypasses,
             },
       steps: recovered.flatMap(({ steps }): ReadonlyArray<RecoveryStep> => steps),
+      // Packs sharing a member report its one conflict each; keep it once.
+      memberConflicts: [
+        ...new Map(
+          recovered
+            .flatMap(({ conflicts }) => conflicts)
+            .map((conflict) => [`${conflict.extensionType}:${conflict.name}`, conflict] as const),
+        ).values(),
+      ],
     };
   }).pipe(withPackRegistryIndexMemo);

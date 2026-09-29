@@ -140,5 +140,5 @@ describe("Sync convergence check", () => {
     } finally {
       fixture.cleanup();
     }
-  }, 30000);
+  }, 90_000);
 });

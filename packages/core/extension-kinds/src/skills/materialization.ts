@@ -1,3 +1,6 @@
+// @effect-diagnostics nodeBuiltinImport:off — FileSystem.remove uses rm; unlink removes an owned directory link without traversing its source
+import { unlink } from "node:fs/promises";
+
 /**
  * Canonical skill materialization per source kind, plus the per-agent artifact
  * writers the skill projections apply.
@@ -350,7 +353,6 @@ export const removeSkillAgentArtifact = (args: {
   readonly nativeRoots: ReadonlyArray<string>;
 }) =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const target = path.join(args.targetDir, args.sanitizedName);
     const { address } = yield* assertNativeMutationWithinRoots(
@@ -391,7 +393,7 @@ export const removeSkillAgentArtifact = (args: {
     );
     if (immediate.entryPath !== source || immediate.kind === "symlink") return;
     yield* protectWorkspacePath(address.entryPath);
-    yield* fs.remove(address.entryPath);
+    yield* Effect.tryPromise(() => unlink(address.entryPath));
     yield* recordFootprint({ path: address.entryPath, change: "removed" });
     yield* authority.retireCreatedDirectories(parentTarget);
   }).pipe(

@@ -28,6 +28,22 @@ const fixture = Effect.gen(function* () {
 });
 
 describe("Skill native materialization", () => {
+  it.effect("removes an owned directory link without removing its canonical skill", () =>
+    Effect.gen(function* () {
+      const { fs, path, source, target, args } = yield* fixture;
+      yield* fs.makeDirectory(args.targetDir, { recursive: true });
+      yield* fs.symlink(source, target);
+      yield* removeSkillAgentArtifact(args);
+      expect(yield* fs.exists(target)).toBe(false);
+      expect(yield* fs.readFileString(path.join(source, "SKILL.md"))).toBe(
+        "# Source must survive\n",
+      );
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NodeServices.layer)),
+    ),
+  );
+
   it.effect("does not self-copy through a parent-directory alias", () =>
     Effect.gen(function* () {
       const { fs, path, source, args } = yield* fixture;

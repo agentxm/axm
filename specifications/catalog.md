@@ -367,7 +367,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/lockfile-rejections-name-recovery-routes`
 - Owner: `workspace-features`
-- Statement: When a workspace lockfile is rejected as older than the supported version, following the named recovery route (preserving the file outside its authoritative path, previewing, then applying sync) shall re-accept the desired state into a lockfile at the supported version, selecting each re-accepted extension within its effective desired constraint so that a direct pin on a Pack member holds, and a workspace holding only workspace-authored content shall finish that route without a lockfile.
+- Statement: When a workspace lockfile is rejected as older than the supported version, following the named recovery route (preserving the file outside its authoritative path, previewing, then applying sync) shall re-accept the desired state into a lockfile at the supported version, selecting each re-accepted extension within its effective desired constraint so that a direct pin on a Pack member holds; when no version satisfies a Pack member's direct pin and every requiring Pack range, the preview and the apply shall each block that member and every Pack requiring it, naming every contributor, and the apply shall accept no resolution for them while independent extensions still converge; and a workspace holding only workspace-authored content shall finish that route without a lockfile.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `safe-repetition`, `workspace-intent-fidelity`
@@ -375,6 +375,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Methods: example
 - Derived from: `cli/workspace-lockfile-rejections-name-state-and-recovery`, `workspace/desired-state/effective-constraint-has-one-owner`
 - Supersedes: `cli/workspace-lockfile-rejections-name-state-and-recovery`
+- Additional evidence: process via [`apps/cli-e2e/src/workspace-lockfile-recovery.e2e.test.ts`](../apps/cli-e2e/src/workspace-lockfile-recovery.e2e.test.ts) — Runs the four steps the shipped rejection suggests verbatim through the real CLI process against an HTTP Registry — back up and remove the older lockfile, axm sync --preview, axm sync — and proves the workspace converges: a current-version lockfile accepts the shared Pack member at the direct pin every Pack admits, records the disabled MCP connection, and lint reports no findings.
 - Source: [`packages/core/workspace-features/src/sync/lockfile-rejections-name-recovery-routes.spec.ts`](../packages/core/workspace-features/src/sync/lockfile-rejections-name-recovery-routes.spec.ts)
 
 ##### Browser sign-in completion follows saved credentials

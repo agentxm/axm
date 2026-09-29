@@ -74,6 +74,7 @@ import {
   type WorkspaceLocationService,
   usableAcceptedCanonicalFrom,
   type CanonicalObservation,
+  type DesiredConstraintConflict,
   type DesiredExtensionNode,
   type DesiredStateGraph,
   type ExtensionInventory,
@@ -234,6 +235,12 @@ export interface ConfiguredPackRecovery<
   readonly packNames: ReadonlySet<string>;
   readonly releaseAge: Plan["releaseAge"];
   readonly steps: ReadonlyArray<PlannedJobStep<R>>;
+  /**
+   * Conflicts the recovered graph reports about individual members. The
+   * observed graph lost the recovered Packs' routes, so it cannot state them;
+   * each blocks its member's closure as the observed graph's own problems do.
+   */
+  readonly memberConflicts: ReadonlyArray<DesiredConstraintConflict>;
 }
 
 const configuredReleaseAge = (
@@ -548,7 +555,10 @@ export const collectMaterializeSteps = (args: {
         (node) => node.type === ref.type && node.name === targetFromRef(ref).name && node.enabled,
       );
     const selection = args.selection ?? { target: Option.none(), type: Option.none() };
-    const problems = scopedProblems(desiredState, selection);
+    const problems = [
+      ...scopedProblems(desiredState, selection),
+      ...(args.packRecovery?.memberConflicts ?? []),
+    ];
     // A Pack whose routes cannot be established leaves the selection's
     // membership unknown, so nothing in it can be planned unless recovery
     // re-acquires that Pack. A problem about one identified extension blocks

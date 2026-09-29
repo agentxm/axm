@@ -38,6 +38,7 @@ const runScanner = (
             workspaceRoot: spec.workspaceRoot,
             scope: "project",
             diagnostics: diag,
+            nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
           }
         : {
             fs: deps.fs,
@@ -45,6 +46,7 @@ const runScanner = (
             workspaceRoot: spec.workspaceRoot,
             scope: "project",
             diagnostics: diag,
+            nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
             agentRegistry: options.agentRegistry,
           },
     );
@@ -140,6 +142,39 @@ layer(Path.layer, { excludeTestServices: true })("mcp-config scanner", (it) => {
     }),
   );
 
+  it.effect("retains a strict reader's parse warning when a shared JSONC reader succeeds", () =>
+    Effect.gen(function* () {
+      const { occurrences, warnings } = yield* runScanner(
+        {
+          workspaceRoot: WORKSPACE_ROOT,
+          userHome: USER_HOME,
+          project: {
+            mcpJson: {
+              _tag: "byteCorrupt",
+              bytes: '{\n// JSONC-only comment\n"mcpServers":{"shared":{"command":"echo"}}\n}',
+            },
+          },
+        },
+        {
+          agentRegistry: {
+            "claude-code": AGENT_DESCRIPTORS["claude-code"],
+            codebuddy: AGENT_DESCRIPTORS.codebuddy,
+          },
+        },
+      );
+      expect(occurrences).toHaveLength(1);
+      expect(occurrences[0]?.name).toBe("shared");
+      expect(warnings).toEqual([
+        {
+          source: "scanner",
+          code: "scanner-parse",
+          path: "/ws/.mcp.json",
+          message: "mcp-config: cannot parse JSON at /ws/.mcp.json",
+        },
+      ]);
+    }),
+  );
+
   it.effect("keeps Claude's universal project .mcp.json target shared", () =>
     Effect.gen(function* () {
       const claude = AGENT_DESCRIPTORS["claude-code"];
@@ -215,6 +250,8 @@ layer(Path.layer, { excludeTestServices: true })("mcp-config scanner", (it) => {
           (w) => w.code === "scanner-parse" && w.path === "/ws/.mcp.json",
         );
         expect(parseWarnings).toHaveLength(1);
+        expect(parseWarnings[0]?.message).toContain("cannot parse JSON at");
+        expect(parseWarnings[0]?.message).toContain("cannot parse JSONC at");
       }),
   );
 

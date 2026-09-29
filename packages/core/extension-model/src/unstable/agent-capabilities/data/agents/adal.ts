@@ -29,7 +29,18 @@ export const adalAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".adal/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".adal/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -53,6 +64,10 @@ export const adalAgent = {
           variables: "braced",
           defaults: false,
         },
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -101,7 +116,18 @@ export const adalAgent = {
       standardsCompliance: "full",
       convention: "universal",
       kind: "agents-md",
-      files: ["AGENTS.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "AGENTS.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: true,
       importSyntax: null,
     },
@@ -121,7 +147,7 @@ export const adalAgent = {
       sources: ["https://docs.sylph.ai/features/slash-commands"],
       scopes: ["user"],
       mechanism: ["ui-only"],
-      configFiles: [],
+      locations: [],
       grammar: null,
       prerequisites: [],
       cliFlags: [],

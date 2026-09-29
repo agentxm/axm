@@ -60,6 +60,7 @@ export const makePackWorkspace = (options: PackWorkspaceOptions) => {
   created.writeSettings({
     owner: "@acme",
     agents: options.agents ?? [],
+    defaultRegistry: "test",
     sources: [SPEC_REGISTRY_SOURCE],
     ...declarations,
   });

@@ -63,7 +63,7 @@ describe("Project outputs shadowed by user scope", () => {
           ruleId: RULE_ID,
           severity: "warning",
           message:
-            "Project skill 'axm' at .claude/skills/axm has a same-named user-scope skill at ~/.claude/skills/axm for claude-code; the agent decides which one it loads.",
+            "Project skill 'axm' at .claude/skills/axm has a same-named user-scope skill at ~/.claude/skills/axm for claude-code, opencode; the agent decides which one it loads.",
           file: ".claude/skills/axm",
         },
       ]);

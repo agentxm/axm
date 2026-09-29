@@ -46,8 +46,17 @@ import type * as Scope from "effect/Scope";
 import * as lockfile from "proper-lockfile";
 
 import {
+  readContainerReceipts,
+  verifyContainerIdentity,
+  type ContainerIdentity,
+} from "../locations/index.js";
+import {
+  createWorkspaceDirectories,
+  removeEmptyRuntimeDirectories,
+} from "./runtime-directories.js";
+
+import {
   TransitionLockError,
-  WorkspaceDirectoryError,
   WorkspaceTransitionCompromised,
   type TransitionContention,
   type TransitionLockHolder,
@@ -83,10 +92,12 @@ export interface HeldWorkspaceTransition {
   readonly compromised: Effect.Effect<never, WorkspaceTransitionCompromised>;
   /** Synchronous probe for boundaries that cannot race, such as restoration. */
   readonly isCompromised: () => boolean;
+  readonly createdDirectories: Effect.Effect<ReadonlyArray<ContainerIdentity>>;
 }
 
 export interface AcquireWorkspaceTransitionArgs {
   readonly workspaceDir: string;
+  readonly nativeRoot?: string;
   readonly holder: TransitionLockHolder;
   readonly waitBoundMillis?: number;
   /** Called once when the invocation starts waiting on another holder. */
@@ -272,34 +283,23 @@ const acquireWorkspaceTransitionLock = (
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const workspaceDir = path.resolve(args.workspaceDir);
+    const nativeRoot = path.resolve(args.nativeRoot ?? path.dirname(workspaceDir));
     const scratchDir = path.join(workspaceDir, "tmp");
     const lockPath = path.join(scratchDir, TRANSITION_LOCK_FILENAME);
     const waitBound = args.waitBoundMillis ?? TRANSITION_WAIT_BOUND_MILLIS;
-    const workspaceExisted = yield* fs
-      .exists(workspaceDir)
-      .pipe(
-        Effect.mapError(
-          (cause) => new WorkspaceDirectoryError({ path: workspaceDir, step: "inspect", cause }),
-        ),
-      );
-    const removeEmptyScratch = fs.readDirectory(scratchDir).pipe(
-      Effect.flatMap((entries) =>
-        entries.length === 0
-          ? fs.remove(scratchDir, { recursive: true, force: false })
-          : Effect.void,
-      ),
-      Effect.ignore,
+    const createdDirectories = yield* Ref.make<ReadonlyArray<ContainerIdentity>>([]);
+    const remember = (identity: ContainerIdentity) =>
+      Ref.update(createdDirectories, (current) => [
+        ...current.filter((entry) => entry.physicalPath !== identity.physicalPath),
+        identity,
+      ]);
+    const removeCreatedDirectories = Effect.flatMap(
+      Ref.get(createdDirectories),
+      removeEmptyRuntimeDirectories,
     );
-    const removeNewEmptyWorkspace = workspaceExisted
-      ? Effect.void
-      : fs.readDirectory(workspaceDir).pipe(
-          Effect.flatMap((entries) =>
-            entries.length === 0
-              ? fs.remove(workspaceDir, { recursive: true, force: false })
-              : Effect.void,
-          ),
-          Effect.ignore,
-        );
+    // Registered before acquisition: release runs first, then empty-only
+    // cleanup also covers interruption during the contention wait.
+    yield* Effect.addFinalizer(() => removeCreatedDirectories);
 
     const compromisedSignal = Deferred.makeUnsafe<never, WorkspaceTransitionCompromised>();
     let waitedMillis = 0;
@@ -308,13 +308,13 @@ const acquireWorkspaceTransitionLock = (
       // The previous holder removes an empty scratch directory when it
       // releases. Recreate it before every attempt so that a waiter can
       // acquire after that cleanup instead of mistaking ENOENT for a hold.
-      yield* fs
-        .makeDirectory(scratchDir, { recursive: true })
-        .pipe(
-          Effect.mapError(
-            (cause) => new TransitionLockError({ path: scratchDir, step: "create-scratch", cause }),
-          ),
-        );
+      yield* createWorkspaceDirectories({
+        nativeRoot,
+        identityOwnerRoot: nativeRoot,
+        workspaceDir,
+        target: scratchDir,
+        record: remember,
+      });
       // One attempt is atomic with respect to interruption: from the library
       // granting the hold through finalizer registration there is no
       // interruptible gap, so an interrupt requested mid-acquisition defers
@@ -382,6 +382,7 @@ const acquireWorkspaceTransitionLock = (
             withHeld(current, workspaceDir, {
               compromised: Deferred.await(compromisedSignal),
               isCompromised: () => Deferred.isDoneUnsafe(compromisedSignal),
+              createdDirectories: Ref.get(createdDirectories),
             }),
           );
           yield* Effect.addFinalizer(() =>
@@ -400,19 +401,64 @@ const acquireWorkspaceTransitionLock = (
                 onSome: (value) => value.token === token,
               });
               if (ownsResidual) {
-                yield* Effect.tryPromise({
+                const released = yield* Effect.tryPromise({
                   try: () => release(),
                   catch: (cause) =>
                     new TransitionLockError({ path: lockPath, step: "release", cause }),
-                }).pipe(Effect.ignore);
+                }).pipe(Effect.result);
                 // A compromised hold makes release() refuse; the directory is
-                // still ours by exact token match — remove it directly.
-                yield* fs.remove(lockPath, { recursive: true, force: true }).pipe(Effect.ignore);
+                // removable only if the same token is still observable. A
+                // successful release may already have admitted a successor.
+                if (
+                  released._tag === "Failure" &&
+                  Option.exists(
+                    yield* readHolder(fs, path, lockPath),
+                    (value) => value.token === token,
+                  )
+                ) {
+                  yield* Effect.tryPromise(
+                    () =>
+                      new Promise<void>((resolve, reject) =>
+                        lockDirectoryFs.rmdir(lockPath, (cause) =>
+                          cause === null ? resolve() : reject(cause),
+                        ),
+                      ),
+                  ).pipe(Effect.ignore);
+                }
               }
-              yield* removeEmptyScratch;
-              yield* removeNewEmptyWorkspace;
             }),
           );
+          // A previous command persisted these proofs in the same receipt
+          // store. Keep them in this hold even if withdrawal retires the
+          // final receipt before the lock directory itself can disappear.
+          const stored = yield* readContainerReceipts(workspaceDir).pipe(
+            Effect.mapError(
+              (cause) => new TransitionLockError({ path: workspaceDir, step: "acquire", cause }),
+            ),
+          );
+          for (const identity of stored.createdDirectories) {
+            const runtimeAncestor =
+              identity.target !== nativeRoot &&
+              (workspaceDir === identity.target ||
+                workspaceDir.startsWith(`${identity.target}${path.sep}`));
+            if (
+              identity.nativeRoot !== nativeRoot ||
+              identity.ownerRoot !== path.dirname(workspaceDir) ||
+              (identity.identityOwnerRoot !== nativeRoot &&
+                identity.identityOwnerRoot !== path.dirname(workspaceDir)) ||
+              (!runtimeAncestor && identity.target !== scratchDir)
+            )
+              continue;
+            if (
+              yield* verifyContainerIdentity(identity, {
+                nativeRoot,
+                ownerRoot: identity.ownerRoot,
+                identityOwnerRoot: identity.identityOwnerRoot,
+                target: identity.target,
+              })
+            )
+              yield* remember(identity);
+          }
           return { _tag: "acquired" } as const;
         }),
       );
@@ -420,8 +466,7 @@ const acquireWorkspaceTransitionLock = (
         return Option.none<TransitionContention>();
       }
       if (attempt._tag === "failed") {
-        yield* removeEmptyScratch;
-        yield* removeNewEmptyWorkspace;
+        yield* removeCreatedDirectories;
         return yield* attempt.error;
       }
       // The lock is held: serialize behind the holder with a visible reason,
@@ -433,8 +478,7 @@ const acquireWorkspaceTransitionLock = (
         yield* args.onWaiting(holder);
       }
       if (waitedMillis >= waitBound) {
-        yield* removeEmptyScratch;
-        yield* removeNewEmptyWorkspace;
+        yield* removeCreatedDirectories;
         return Option.some({ holder, waitedMillis });
       }
       yield* Effect.sleep(WAIT_INTERVAL);

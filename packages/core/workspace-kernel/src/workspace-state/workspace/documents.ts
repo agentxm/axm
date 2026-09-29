@@ -29,11 +29,15 @@ export interface WorkspaceDocumentsService {
     LockfileValidationError | WorkspaceRootEscape
   >;
   /** Publish settings atomically, preserving the active transaction's preimage. */
-  readonly writeSettings: (next: Settings) => Effect.Effect<void, WorkspaceSettingsMutationFailure>;
+  readonly writeSettings: (
+    next: Settings,
+    options?: { readonly roundTrip?: boolean },
+  ) => Effect.Effect<void, WorkspaceSettingsMutationFailure>;
   /** Merge the changed entries against current state and preserve the transaction's preimage. */
   readonly commitAcceptedResolutions: (
     base: Lockfile,
     next: Lockfile,
+    options?: { readonly roundTrip?: boolean },
   ) => Effect.Effect<void, WorkspaceLockfileMutationFailure>;
 }
 

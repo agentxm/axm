@@ -29,7 +29,18 @@ export const ibmBobAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".bob/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".bob/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -53,56 +64,84 @@ export const ibmBobAgent = {
           variables: "none",
           defaults: false,
         },
+
+        locations: [
+          {
+            id: "user",
+            scope: "user",
+            root: "home",
+            path: ".bob/mcp.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "json",
+            keyPath: ["mcpServers"],
+            attribution: "agent",
+          },
+          {
+            id: "project",
+            scope: "project",
+            root: "project",
+            path: ".bob/mcp.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "json",
+            keyPath: ["mcpServers"],
+            attribution: "agent",
+          },
+        ],
+
+        entryDialect: {
+          activationField: {
+            required: { name: "disabled", enabled: false, disabled: true },
+            accepted: [{ name: "disabled", enabled: false, disabled: true }, null],
+          },
+          stdio: {
+            typeField: { required: null, accepted: [null] },
+            command: "split",
+            envKey: "env",
+          },
+          remote: {
+            typeField: {
+              required: {
+                name: "type",
+                value: { "streamable-http": "streamable-http" },
+              },
+              accepted: [
+                {
+                  name: "type",
+                  value: { "streamable-http": "streamable-http" },
+                },
+                null,
+              ],
+            },
+            urlKey: {
+              "streamable-http": "url",
+              sse: "url",
+            },
+            headersKey: "headers",
+          },
+        },
       },
       axm: {
         status: "supported",
         lastVerified: "2026-08-05",
         writer: {
           config: {
-            serversKey: "mcpServers",
-            activationField: {
-              required: { name: "disabled", enabled: false, disabled: true },
-              accepted: [{ name: "disabled", enabled: false, disabled: true }, null],
-            },
-            targets: [
-              {
-                scope: "user",
-                path: "~/.bob/mcp.json",
-                format: "json",
-                attribution: "agent",
-              },
-              {
-                scope: "project",
-                path: ".bob/mcp.json",
-                format: "json",
-                attribution: "agent",
-              },
-            ],
-            stdio: {
-              typeField: { required: null, accepted: [null] },
-              command: "split",
-              envKey: "env",
-            },
-            remote: {
-              typeField: {
-                required: {
-                  name: "type",
-                  value: { "streamable-http": "streamable-http" },
-                },
-                accepted: [
-                  {
-                    name: "type",
-                    value: { "streamable-http": "streamable-http" },
-                  },
-                  null,
-                ],
-              },
-              urlKey: {
-                "streamable-http": "url",
-                sse: "url",
-              },
-              headersKey: "headers",
-            },
+            locationIds: ["user", "project"],
           },
         },
       },
@@ -116,11 +155,32 @@ export const ibmBobAgent = {
         docs: [],
         sources: ["https://bob.ibm.com/docs/ide/configuration/custom-modes"],
         scopes: ["user", "project"],
-        directory: ".bob/custom_modes.yaml",
-        layout: "file",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".bob/custom_modes.yaml",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".bob/settings/custom_modes.yaml",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
-        status: "supported",
+        status: "unsupported",
+        reason: "Native ownership is unverified; AXM can offer a role Skill fallback.",
         lastVerified: "2026-08-05",
         writer: null,
       },
@@ -150,9 +210,29 @@ export const ibmBobAgent = {
       scopes: ["user", "project"],
       standardsCompliance: "full",
       convention: "universal",
-      directory: ".bob/rules",
       kind: "agents-md",
-      files: ["AGENTS.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "AGENTS.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+        {
+          scope: "project",
+          root: "project",
+          path: ".bob/rules",
+          shape: "directory",
+          role: "additional",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: false,
       importSyntax: null,
     },
@@ -175,16 +255,38 @@ export const ibmBobAgent = {
       ],
       scopes: ["user", "project"],
       mechanism: ["config-file", "ui-only"],
-      configFiles: [
+      locations: [
         {
+          id: "project",
           scope: "project",
+          root: "project",
           path: ".bob/custom_modes.yaml",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "yaml",
           gitignored: false,
         },
         {
+          id: "user",
           scope: "user",
-          path: "~/.bob/settings/custom_modes.yaml",
+          root: "home",
+          path: ".bob/settings/custom_modes.yaml",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "yaml",
           gitignored: false,
         },

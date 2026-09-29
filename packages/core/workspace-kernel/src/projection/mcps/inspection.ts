@@ -21,17 +21,20 @@ import type { ConfiguredAgentOutcome } from "../../operations/index.js";
 import type { McpServerEntry } from "../../workspace-state/index.js";
 import {
   collectSecretInputNames,
-  configuredMcpCapability,
   decodeMcpServerManifestAt,
-  groupConfiguredMcpTargets,
+  resolveConfiguredMcpTargets,
   hasTomlMcpEntry,
   isAxmManagedMcpEntry,
   managedNativeMcpEntryNames,
+  matchesAcceptedMcpOwnership,
+  readNativeMcpValues,
+  type AxmMcpMetadata,
   McpDefinitionInvalid,
   McpOwnershipMarkerInvalid,
   mcpProjectionInputValues,
   parseTomlMcpEntry,
   planMcpServerTargets,
+  unresolvedMcpAgentTargets,
   readNativeMcpConfig,
   readNativeMcpEntry,
   reconcileKeyedBlock,
@@ -40,10 +43,11 @@ import {
   type McpAgentTargetPlan,
   type McpServerDeclaration,
 } from "../../agent-adapters/index.js";
+import type { NativeDirectoryInputs } from "../../locations/index.js";
 import { diffAgentEntry } from "./drift.js";
 
 export type AgentMcpInspectionStatus =
-  "unsupported" | "blocked" | "absent" | "match" | "drift" | "unmanaged";
+  "unsupported" | "unverified" | "blocked" | "absent" | "match" | "drift" | "unmanaged";
 
 export interface AgentMcpServerInspection {
   readonly agentId: string;
@@ -66,6 +70,7 @@ export interface DesiredMcpServerSubject {
 
 export interface InspectDesiredMcpServerArgs {
   readonly workspaceRoot: string;
+  readonly nativeDirectoryInputs: NativeDirectoryInputs;
   readonly scope: "project" | "user";
   readonly agentIds: ReadonlyArray<string>;
   readonly node: DesiredMcpServerSubject;
@@ -96,15 +101,19 @@ export interface DesiredMcpServerInspection {
 }
 
 export interface ManagedAgentMcpServer {
+  readonly ownership: "owned" | "unowned";
   readonly agentId: string;
   readonly serverName: string;
+  readonly keyPath: readonly [string, string];
   readonly path: string;
   readonly absolutePath: string;
   readonly target: McpConfigTarget;
 }
 
 export interface CollectManagedAgentMcpServersArgs {
+  readonly expectedOwnershipByName: Readonly<Record<string, ReadonlyArray<AxmMcpMetadata>>>;
   readonly workspaceRoot: string;
+  readonly nativeDirectoryInputs: NativeDirectoryInputs;
   readonly scope: "project" | "user";
   readonly agentIds: ReadonlyArray<string>;
 }
@@ -127,7 +136,7 @@ export const mcpInspectionOutcome = (args: {
         ? args.state
         : inspection.status === "unsupported"
           ? "unsupported"
-          : inspection.status === "blocked"
+          : inspection.status === "blocked" || inspection.status === "unverified"
             ? "blocked"
             : "failed",
     reasonCode:
@@ -171,7 +180,7 @@ const inspectActual = (args: {
   readonly expected: McpInspectionExpectation;
 }): Effect.Effect<
   {
-    readonly status: Exclude<AgentMcpInspectionStatus, "unsupported" | "blocked">;
+    readonly status: Exclude<AgentMcpInspectionStatus, "unsupported" | "unverified" | "blocked">;
     readonly fields: ReadonlyArray<string>;
     readonly actual?: Readonly<Record<string, unknown>>;
   },
@@ -245,7 +254,7 @@ const inspectActual = (args: {
 
 const terminalInspection = (args: {
   readonly agentId: string;
-  readonly status: "unsupported" | "blocked";
+  readonly status: "unsupported" | "unverified" | "blocked";
   readonly reason: string;
   readonly target?: McpConfigTarget | undefined;
   readonly absolutePath?: string;
@@ -265,7 +274,7 @@ const terminalInspection = (args: {
 const absolutePathFor = (
   workspaceRoot: string,
   target: McpConfigTarget | undefined,
-): Effect.Effect<string, McpInspectionError, Path.Path> =>
+): Effect.Effect<string, McpInspectionError, FileSystem.FileSystem | Path.Path> =>
   target === undefined
     ? Effect.succeed("")
     : resolveAgentMcpConfigTargetPath(workspaceRoot, target);
@@ -286,10 +295,11 @@ const inspectPlannedAgent = (
           target: agent.target,
           absolutePath,
         });
+      case "unverified":
       case "blocked":
         return terminalInspection({
           agentId: agent.agentId,
-          status: "blocked",
+          status: agent._tag,
           reason: agent.reason,
           target: agent.target,
           absolutePath,
@@ -349,37 +359,30 @@ const inspectManagedPresence = (
   McpInspectionError,
   FileSystem.FileSystem | Path.Path
 > =>
-  Effect.forEach(
-    args.agentIds,
-    (agentId) =>
-      Effect.gen(function* () {
-        const capability = configuredMcpCapability(agentId);
-        if (capability === undefined) {
-          return terminalInspection({
-            agentId,
-            status: "unsupported",
-            reason: `${agentId} does not have MCP config support`,
-          });
-        }
-        const config = capability.axm.writer.config;
-        const target = config.targets.find((item) => item.scope === args.scope);
-        if (target === undefined) {
-          return terminalInspection({
-            agentId,
-            status: "unsupported",
-            reason: `${agentId} has no ${args.scope} MCP config target`,
-          });
-        }
-        const absolutePath = yield* resolveAgentMcpConfigTargetPath(args.workspaceRoot, target);
+  Effect.gen(function* () {
+    const groups = yield* resolveConfiguredMcpTargets(args);
+    const inspections: Array<AgentMcpServerInspection> = [];
+    for (const agentId of args.agentIds) {
+      for (const unresolved of unresolvedMcpAgentTargets(agentId, args.scope, groups)) {
+        inspections.push(
+          terminalInspection({ agentId, status: unresolved._tag, reason: unresolved.reason }),
+        );
+      }
+      for (const member of groups.flatMap((group) =>
+        group.members.filter((candidate) => candidate.agentId === agentId),
+      )) {
+        const { config, target } = member;
+        const absolutePath = target.path;
         if (args.state === "projected") {
-          return {
+          inspections.push({
             agentId,
             path: target.path,
             absolutePath,
-            status: "match" as const,
+            status: "match",
             fields: [],
             warnings: [],
-          };
+          });
+          continue;
         }
         const actual = yield* inspectActual({
           target,
@@ -388,7 +391,7 @@ const inspectManagedPresence = (
           serverName: args.node.name,
           expected: { _tag: "managed" },
         });
-        return {
+        inspections.push({
           agentId,
           path: target.path,
           absolutePath,
@@ -396,10 +399,11 @@ const inspectManagedPresence = (
           fields: actual.fields,
           warnings: [],
           ...(actual.actual === undefined ? {} : { actual: actual.actual }),
-        };
-      }),
-    { concurrency: 16 },
-  );
+        });
+      }
+    }
+    return inspections;
+  });
 
 const findManifestRoot = (
   workspaceRoot: string,
@@ -465,6 +469,7 @@ export const inspectDesiredMcpServer = (
             path.join(manifestRoot.value, MCP_SERVER_MANIFEST_FILENAME),
           );
       const plan = planMcpServerTargets({
+        groups: yield* resolveConfiguredMcpTargets(args),
         agentIds: args.agentIds,
         scope: args.scope,
         serverName: args.node.name,
@@ -496,7 +501,7 @@ export const inspectDesiredMcpServer = (
     };
   });
 
-/** Every AXM-managed entry the configured agents' native files hold, by agent. */
+/** Every marker-bearing native entry, classified against accepted ownership, by agent. */
 export const collectManagedAgentMcpServers = (
   args: CollectManagedAgentMcpServersArgs,
 ): Effect.Effect<
@@ -505,32 +510,67 @@ export const collectManagedAgentMcpServers = (
   FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
-    const groups = groupConfiguredMcpTargets({ agentIds: args.agentIds, scope: args.scope });
+    const groups = yield* resolveConfiguredMcpTargets(args);
     const perGroup = yield* Effect.forEach(
       groups,
       (group) =>
         Effect.gen(function* () {
-          const [first] = group.members;
-          if (first === undefined) return [];
-          const target = first.target;
-          const absolutePath = yield* resolveAgentMcpConfigTargetPath(args.workspaceRoot, target);
+          const absolutePath = group.path;
           const raw = yield* readNativeMcpConfig(absolutePath);
           if (Option.isNone(raw)) return [];
-          const names = yield* managedNativeMcpEntryNames({
-            format: target.format,
-            configPath: absolutePath,
-            raw: raw.value,
-            serversKey: first.config.serversKey,
-          });
-          return names.flatMap((serverName) =>
-            group.members.map((member) => ({
-              agentId: member.agentId,
-              serverName,
-              path: target.path,
-              absolutePath,
-              target,
-            })),
-          );
+          const containers = new Map<
+            string,
+            {
+              readonly names: ReadonlyArray<string>;
+              readonly values: Readonly<Record<string, unknown>>;
+            }
+          >();
+          const results: Array<ManagedAgentMcpServer> = [];
+          for (const member of group.members.filter((candidate) => candidate.configured)) {
+            const key = JSON.stringify([member.target.format, member.config.serversKey]);
+            let container = containers.get(key);
+            if (container === undefined) {
+              const read = {
+                format: member.target.format,
+                configPath: absolutePath,
+                raw: raw.value,
+                serversKey: member.config.serversKey,
+              };
+              container = {
+                names: yield* managedNativeMcpEntryNames(read),
+                values: yield* readNativeMcpValues(read),
+              };
+              containers.set(key, container);
+            }
+            for (const serverName of container.names) {
+              if (
+                results.some(
+                  (result) =>
+                    result.agentId === member.agentId &&
+                    result.serverName === serverName &&
+                    result.keyPath[0] === member.config.serversKey &&
+                    result.target.format === member.target.format &&
+                    result.target.path === member.target.path,
+                )
+              )
+                continue;
+              results.push({
+                ownership: matchesAcceptedMcpOwnership(
+                  container.values[serverName],
+                  args.expectedOwnershipByName[serverName] ?? [],
+                )
+                  ? "owned"
+                  : "unowned",
+                agentId: member.agentId,
+                serverName,
+                keyPath: [member.config.serversKey, serverName],
+                path: member.target.path,
+                absolutePath,
+                target: member.target,
+              });
+            }
+          }
+          return results;
         }),
       { concurrency: 16 },
     );

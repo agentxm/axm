@@ -14,7 +14,10 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import type { NativeMcpDiscovery } from "../import/import-native-extension.js";
-import { configuredMcpCapability } from "@agentxm/workspace-kernel/agent-adapters";
+import {
+  configuredMcpCapability,
+  declaredMcpWriterTargets,
+} from "@agentxm/workspace-kernel/agent-adapters";
 import type { AuthoringWorkspace } from "./authoring-workspace.js";
 
 /** Public, non-secret values; these fixtures do not exercise secret policy. */
@@ -95,18 +98,23 @@ export const nativeMcpDiscovery = (
         Object.hasOwn(readNativeMcpServers(workspace, relative), name),
       ).map((relative) => {
         const agentId = relative === ".mcp.json" ? "claude-code" : "cursor";
-        const config = configuredMcpCapability(agentId)?.axm.writer.config;
-        const target = config?.targets.find(
-          (candidate) => candidate.scope === "project" && candidate.path === relative,
-        );
-        if (config === undefined || target === undefined) {
-          throw new Error(`Missing native MCP target for ${relative}`);
-        }
+        const capability = configuredMcpCapability(agentId);
+        const selected =
+          capability === undefined
+            ? undefined
+            : declaredMcpWriterTargets(capability).find(
+                ({ target }) => target.scope === "project" && target.path === relative,
+              );
+        if (selected === undefined) throw new Error(`Missing native MCP target for ${relative}`);
+        const { config, target } = selected;
         return {
           filePath: `${workspace.root}/${relative}`,
           serversKey: config.serversKey,
           name,
           target,
+          expectedEntry: Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Unknown))(
+            readNativeMcpServers(workspace, relative)[name],
+          ),
         };
       }),
     },

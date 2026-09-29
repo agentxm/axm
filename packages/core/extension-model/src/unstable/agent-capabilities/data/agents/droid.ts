@@ -29,7 +29,18 @@ export const droidAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".factory/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".factory/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -49,6 +60,10 @@ export const droidAgent = {
         convention: "vendor",
         transports: ["stdio", "http", "sse"],
         mcpEnvExpansion: { variables: "braced", defaults: true },
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -64,8 +79,18 @@ export const droidAgent = {
         docs: [],
         sources: ["https://docs.factory.ai/cli/configuration/custom-droids"],
         scopes: ["user", "project"],
-        directory: ".factory/droids",
-        layout: "directory",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".factory/droids",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "unsupported",
@@ -82,16 +107,38 @@ export const droidAgent = {
         sources: ["https://docs.factory.ai/cli/configuration/hooks-guide"],
         scopes: ["user", "project"],
         mechanism: ["command-stdin"],
-        configFiles: [
+        locations: [
           {
+            id: "user",
             scope: "user",
-            path: "~/.factory/hooks.json",
+            root: "home",
+            path: ".factory/hooks.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "json",
             gitignored: false,
           },
           {
+            id: "project",
             scope: "project",
+            root: "project",
             path: ".factory/hooks.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "json",
             gitignored: false,
           },
@@ -180,6 +227,8 @@ export const droidAgent = {
             lastVerified: "2026-08-05",
           },
         ],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -199,7 +248,18 @@ export const droidAgent = {
       standardsCompliance: "full",
       convention: "universal",
       kind: "agents-md",
-      files: ["AGENTS.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "AGENTS.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: true,
       importSyntax: null,
     },
@@ -222,16 +282,38 @@ export const droidAgent = {
       ],
       scopes: ["user", "project"],
       mechanism: ["config-file", "cli-flag"],
-      configFiles: [
+      locations: [
         {
+          id: "user",
           scope: "user",
-          path: "~/.factory/settings.json",
+          root: "home",
+          path: ".factory/settings.json",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "json",
           gitignored: false,
         },
         {
+          id: "project",
           scope: "project",
+          root: "project",
           path: ".factory/settings.json",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "json",
           gitignored: false,
         },

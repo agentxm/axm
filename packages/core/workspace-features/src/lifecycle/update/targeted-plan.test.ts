@@ -1,4 +1,5 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -10,6 +11,7 @@ import {
   ExtensionLifecycleFailed,
 } from "@agentxm/workspace-kernel/operations";
 import { SettingsWriter } from "@agentxm/workspace-kernel/workspace-state";
+import { recordFootprint } from "@agentxm/workspace-kernel/settlement";
 import { resolveTargetedUpdateContext } from "@agentxm/workspace-kernel/resolution";
 
 import {
@@ -147,7 +149,11 @@ describe("targeted update transaction", () => {
     Effect.sync(() => {
       workspace.writeFile("axm.json", settingsWith({ reviewer: source }));
       return { result: "success" as const, message: "updated reviewer" };
-    });
+    }).pipe(
+      Effect.tap(() =>
+        recordFootprint({ path: path.join(workspace.root, "axm.json"), change: "modified" }),
+      ),
+    );
 
   it.effect(
     "a direct declaration moved to a different Registry before apply resolves as stale-candidate",

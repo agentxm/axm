@@ -2,6 +2,6 @@
  ❯ ◯ AdaL                          skills: .adal/skills
    ◯ AiderDesk                     skills: .aider-desk/skills
    ◯ Amp                           skills: .agents/skills
-   ◯ Antigravity                   skills: .agents/skills
-     ↓ 59 more
+   ◯ Antigravity                   skills: .agents/skills, .agent/skills
+     ↓ 58 more
 2 selected · ↑↓ move · space toggle · ^a all · enter confirm

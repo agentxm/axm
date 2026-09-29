@@ -16,6 +16,8 @@ import {
 import { runFilesystemTransaction, type FilesystemTransactionRuntime } from "./transaction.js";
 import { makeWorkspaceTransitionLock, type WorkspaceTransitionLock } from "./transition-lock.js";
 import { makeWorkspaceFileWriteLocks, WorkspaceFileWriteLocks } from "./file-write-locks.js";
+import { assertNativeMutationWithin, captureNativeAuthorityRoots } from "../locations/index.js";
+import { WorkspaceDirectoryError } from "./errors.js";
 
 /** One owner shared across every workspace graph in an invocation. */
 export const WorkspaceFileWriteLocksLive = Layer.effect(
@@ -33,36 +35,64 @@ const makeFilesystemScope = (
     const admission = yield* Semaphore.make(1);
     const lock = providedLock ?? (yield* makeWorkspaceTransitionLock);
     const workspaceDir = path.resolve(paths.workspaceDir);
+    const nativeRoots = paths.nativeRoots ?? [paths.nativeRoot ?? path.dirname(workspaceDir)];
+    const nativeRootWitnesses = yield* captureNativeAuthorityRoots(nativeRoots).pipe(
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
+    );
     const held = lock.held(workspaceDir);
     const acquire: WorkspaceTransactionScopeService["acquire"] = (request) =>
-      lock
-        .acquire({
+      Effect.gen(function* () {
+        const nativeRoot = paths.nativeRoot ?? path.dirname(workspaceDir);
+        for (const target of [workspaceDir, path.join(workspaceDir, "tmp")]) {
+          yield* assertNativeMutationWithin(
+            nativeRoot,
+            target,
+            "content",
+            path.dirname(workspaceDir),
+          ).pipe(
+            Effect.mapError(
+              (cause) => new WorkspaceDirectoryError({ path: target, step: "inspect", cause }),
+            ),
+          );
+        }
+        return yield* lock.acquire({
           workspaceDir,
+          nativeRoot,
           holder: {
             command: request.command,
             pid: process.pid,
             ...(request.candidateId === undefined ? {} : { candidateId: request.candidateId }),
           },
           ...(request.onWaiting === undefined ? {} : { onWaiting: request.onWaiting }),
-        })
-        .pipe(
-          Effect.provideService(FileSystem.FileSystem, fs),
-          Effect.provideService(Path.Path, path),
-        );
+        });
+      }).pipe(
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+      );
     const runtime: FilesystemTransactionRuntime = {
       ...paths,
       workspaceDir,
+      nativeRoots,
+      nativeRootWitnesses,
       fs,
       path,
       admission,
       acquire,
       held,
     };
-    return {
+    const service: WorkspaceTransactionScopeService = {
       acquire,
       isHeld: Effect.map(held, Option.isSome),
-      run: (args) => runFilesystemTransaction(runtime, args),
+      createdDirectories: Effect.flatMap(held, (value) =>
+        Option.isSome(value) ? value.value.createdDirectories : Effect.succeed([]),
+      ),
+      run: (args) =>
+        runFilesystemTransaction(runtime, args).pipe(
+          Effect.provideService(WorkspaceTransactionScope, service),
+        ),
     };
+    return service;
   });
 
 export const makeWorkspaceTransactionScope = (

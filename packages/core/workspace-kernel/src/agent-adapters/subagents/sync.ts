@@ -7,18 +7,17 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
+import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
+import { assertNativeMutationWithinRoots, resolveNativeReferent } from "../../locations/index.js";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import { SubagentIoFailed, type CodingAgentFailure } from "../errors.js";
 import { NativeWriteAuthority, type NativeWriteRefused } from "../native-write-authority.js";
-import {
-  renderSubagent,
-  buildRooModeEntry,
-  mergeRooModes,
-  removeRooMode,
-} from "./rendering/index.js";
+import { markerForFile, commentStyleForTarget } from "../managed-markers.js";
+import { renderSubagent } from "./rendering/index.js";
 import type {
   AddSubagentArgs,
   RemoveSubagentArgs,
@@ -26,55 +25,28 @@ import type {
   SubagentSyncOutcome,
 } from "../agents/coding-agent.js";
 
-/** Failures the shared subagent sync helpers raise. */
-export type SubagentSyncFailure = SubagentIoFailed | NativeWriteRefused;
-
-/**
- * Parse a .roomodes JSON file into its expected shape.
- * Returns a default empty structure if parsing fails.
- */
-const parseRoomodes = (content: string): { customModes: Array<Record<string, unknown>> } => {
-  try {
-    const raw: unknown = JSON.parse(content);
-    if (typeof raw !== "object" || raw === null || !("customModes" in raw)) {
-      return { customModes: [] };
-    }
-    const modes = raw.customModes;
-    if (!Array.isArray(modes)) {
-      return { customModes: [] };
-    }
-    return {
-      customModes: modes.filter(
-        (m): m is Record<string, unknown> => typeof m === "object" && m !== null,
-      ),
-    };
-  } catch {
-    return { customModes: [] };
-  }
+const nativeSubagentMarker = (content: string, filePath: string) => {
+  const style = commentStyleForTarget(filePath);
+  if (Option.isNone(style)) return Option.none();
+  const closingFrontmatter = content.startsWith("---\n") ? content.indexOf("\n---", 4) : -1;
+  const body = closingFrontmatter < 0 ? content : content.slice(closingFrontmatter + 4);
+  return markerForFile(body, style.value);
 };
 
-const readOptionalSubagentConfig = (filePath: string) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const exists = yield* fs.exists(filePath).pipe(
-      Effect.mapError(
-        (cause) =>
-          new SubagentIoFailed({
-            detail: `Failed to inspect subagent config: ${filePath}`,
-            cause,
-          }),
-      ),
-    );
-    if (!exists) return "";
-    return yield* fs
-      .readFileString(filePath)
-      .pipe(
-        Effect.mapError(
-          (cause) =>
-            new SubagentIoFailed({ detail: `Failed to read subagent config: ${filePath}`, cause }),
-        ),
-      );
-  });
+const ownsNativeSubagent = (
+  content: string,
+  filePath: string,
+  expected: { readonly ext: string; readonly src: string } | undefined,
+): boolean => {
+  if (expected === undefined) return false;
+  const marker = nativeSubagentMarker(content, filePath);
+  return (
+    Option.isSome(marker) && marker.value.ext === expected.ext && marker.value.src === expected.src
+  );
+};
+
+/** Failures the shared subagent sync helpers raise. */
+export type SubagentSyncFailure = SubagentIoFailed | NativeWriteRefused;
 
 /**
  * Write rendered subagent files to an agent's subagents directory.
@@ -95,7 +67,21 @@ export const writeSubagentFiles = (
     const path = yield* Path.Path;
     const authority = yield* NativeWriteAuthority;
 
-    // Render using the rendering engine
+    const descriptor = isConfigurableAgentId(args.input.agentId)
+      ? AGENT_DESCRIPTORS[args.input.agentId].subagents
+      : undefined;
+    if (
+      descriptor?.locations.some(
+        (location) => location.scope === args.scope && location.shape === "file",
+      ) === true ||
+      args.input.agentId === "kiro-cli" ||
+      args.input.agentId === "kiro"
+    )
+      return {
+        _tag: "unsupported",
+        reason: `Native Subagent ownership proof is not supported for ${args.input.agentId}`,
+      } as const;
+    // Render filenames; the supplied catalog location alone owns placement.
     const renderResult = renderSubagent(args.input);
     if (renderResult === undefined) {
       return {
@@ -110,58 +96,114 @@ export const writeSubagentFiles = (
       } as const;
     }
 
-    const resolvedOutputs = renderResult.outputs.map((output) => ({
-      output,
-      filePath: path.resolve(args.workspaceRoot, output.path),
-    }));
-
-    // Ensure directory exists and write all files
-    yield* fs.makeDirectory(subagentsDir, { recursive: true }).pipe(
-      Effect.mapError(
-        (cause) =>
-          new SubagentIoFailed({
-            detail: `Failed to create subagents directory: ${subagentsDir}`,
-            cause,
-          }),
-      ),
+    const resolvedOutputs = yield* Effect.forEach(
+      renderResult.outputs,
+      (output) =>
+        assertNativeMutationWithinRoots(
+          args.nativeRoots ?? [args.workspaceRoot],
+          path.resolve(subagentsDir, output.path),
+          "content",
+          args.workspaceRoot,
+        ).pipe(
+          Effect.map(({ address }) => ({
+            output,
+            filePath: address.referentPath ?? address.entryPath,
+          })),
+          Effect.mapError(
+            (cause) =>
+              new SubagentIoFailed({ detail: "Cannot resolve physical Subagent output", cause }),
+          ),
+        ),
+      { concurrency: 1 },
     );
 
+    const eligibleDirectory =
+      args.nativeInsertionEligiblePaths?.has(
+        yield* resolveNativeReferent(subagentsDir).pipe(
+          Effect.mapError(
+            (cause) =>
+              new SubagentIoFailed({
+                detail: "Cannot resolve Subagent publication directory",
+                cause,
+              }),
+          ),
+        ),
+      ) === true;
     const renderedFilePaths: Array<string> = [];
+    const nativeTargets: Array<{
+      path: string;
+      kind: "subagent";
+      change: "created" | "updated" | "unchanged";
+    }> = [];
     for (const { output, filePath } of resolvedOutputs) {
-      // Ensure parent dir exists (for nested paths)
-      const parentDir = path.dirname(filePath);
-      yield* authority.protect(filePath);
-      yield* fs
-        .makeDirectory(parentDir, { recursive: true })
-        .pipe(
-          Effect.mapError(
-            (cause) =>
-              new SubagentIoFailed({ detail: `Failed to create directory: ${parentDir}`, cause }),
-          ),
-        );
-
-      const existing = yield* fs.readFileString(filePath).pipe(Effect.option);
-      if (Option.isSome(existing) && existing.value === output.content) {
-        renderedFilePaths.push(filePath);
-        continue;
-      }
-      yield* fs
-        .writeFileString(filePath, output.content)
-        .pipe(
-          Effect.mapError(
-            (cause) =>
-              new SubagentIoFailed({ detail: `Failed to write subagent file: ${filePath}`, cause }),
-          ),
-        );
-      yield* authority.record({
-        path: filePath,
-        change: Option.isSome(existing) ? "modified" : "created",
-      });
+      const conflict = yield* authority.withExclusiveWrite(
+        filePath,
+        Effect.gen(function* () {
+          const { address } = yield* assertNativeMutationWithinRoots(
+            args.nativeRoots ?? [args.workspaceRoot],
+            filePath,
+            "content",
+            args.workspaceRoot,
+          ).pipe(
+            Effect.mapError(
+              (cause) =>
+                new SubagentIoFailed({ detail: `Unsafe Subagent output: ${filePath}`, cause }),
+            ),
+          );
+          if (address.kind !== "absent" && address.kind !== "file")
+            return {
+              _tag: "conflict",
+              reason: `Preserved unowned Subagent entry: ${filePath}`,
+            } as const;
+          const prior = yield* fs.readFileString(filePath).pipe(Effect.option);
+          const expectedMarker = Option.getOrUndefined(
+            nativeSubagentMarker(output.content, filePath),
+          );
+          if (
+            Option.isSome(prior) &&
+            !ownsNativeSubagent(prior.value, filePath, expectedMarker) &&
+            !args.previousManagedFiles.some((expected) =>
+              ownsNativeSubagent(prior.value, filePath, expected),
+            )
+          )
+            return {
+              _tag: "conflict",
+              reason: `Preserved unowned Subagent file: ${filePath}`,
+            } as const;
+          if (Option.isSome(prior) && prior.value === output.content)
+            return { _tag: "written", change: "unchanged" } as const;
+          const capture = yield* authority.captureCreatedDirectories({
+            path: filePath,
+            unit: JSON.stringify(["subagent-parent-directories", filePath]),
+            eligible: args.nativeInsertionEligible === true || eligibleDirectory,
+          });
+          yield* authority.protect(filePath);
+          const createdDirectories = yield* authority.createParentDirectories(filePath);
+          yield* fs.writeFileString(filePath, output.content).pipe(
+            Effect.mapError(
+              (cause) =>
+                new SubagentIoFailed({
+                  detail: `Failed to write subagent file: ${filePath}`,
+                  cause,
+                }),
+            ),
+          );
+          yield* authority.record({
+            path: filePath,
+            change: Option.isSome(prior) ? "modified" : "created",
+          });
+          yield* authority.recordCreatedDirectories({ capture, createdDirectories });
+          return { _tag: "written", change: Option.isSome(prior) ? "updated" : "created" } as const;
+        }),
+      );
+      if (conflict._tag === "conflict") return conflict;
+      nativeTargets.push({ path: filePath, kind: "subagent", change: conflict.change });
       renderedFilePaths.push(filePath);
     }
 
     return {
       _tag: "success",
+      nativeTargets,
       renderedFilePaths,
       warnings: renderResult.warnings.map((w) => `[${w.agent}] ${w.feature}: ${w.message}`),
     } as const;
@@ -186,31 +228,58 @@ export const removeSubagentFiles = (
 
     const removedPaths: Array<string> = [];
     for (const renderedPath of args.renderedFilePaths) {
-      const filePath = path.resolve(args.workspaceRoot, renderedPath);
-      const exists = yield* fs.exists(filePath).pipe(
+      const { address } = yield* assertNativeMutationWithinRoots(
+        args.nativeRoots ?? [args.workspaceRoot],
+        path.resolve(args.workspaceRoot, renderedPath),
+        "content",
+        args.workspaceRoot,
+      ).pipe(
         Effect.mapError(
           (cause) =>
-            new SubagentIoFailed({
-              detail: `Failed to inspect subagent file: ${filePath}`,
-              cause,
-            }),
+            new SubagentIoFailed({ detail: `Unsafe Subagent removal: ${renderedPath}`, cause }),
         ),
       );
-
-      if (exists) {
-        yield* authority.protect(filePath);
-        yield* fs.remove(filePath).pipe(
-          Effect.mapError(
-            (cause) =>
-              new SubagentIoFailed({
-                detail: `Failed to remove subagent file: ${filePath}`,
-                cause,
-              }),
-          ),
-        );
-        yield* authority.record({ path: filePath, change: "removed" });
-      }
-      removedPaths.push(filePath);
+      const filePath = address.referentPath ?? address.entryPath;
+      const removed = yield* authority.withExclusiveWrite(
+        filePath,
+        Effect.gen(function* () {
+          const { address: current } = yield* assertNativeMutationWithinRoots(
+            args.nativeRoots ?? [args.workspaceRoot],
+            filePath,
+            "content",
+            args.workspaceRoot,
+          ).pipe(
+            Effect.mapError(
+              (cause) =>
+                new SubagentIoFailed({ detail: `Unsafe Subagent removal: ${filePath}`, cause }),
+            ),
+          );
+          if (current.kind !== "file") return false;
+          const raw = yield* fs.readFileString(filePath).pipe(Effect.option);
+          if (
+            Option.isNone(raw) ||
+            !ownsNativeSubagent(raw.value, filePath, args.expectedManagedFile)
+          )
+            return false;
+          yield* authority.protect(filePath);
+          yield* fs.remove(filePath).pipe(
+            Effect.mapError(
+              (cause) =>
+                new SubagentIoFailed({
+                  detail: `Failed to remove subagent file: ${filePath}`,
+                  cause,
+                }),
+            ),
+          );
+          yield* authority.record({ path: filePath, change: "removed" });
+          yield* authority.retireCreatedDirectories({
+            path: filePath,
+            unit: JSON.stringify(["subagent-parent-directories", filePath]),
+          });
+          return true;
+        }),
+      );
+      if (removed) removedPaths.push(filePath);
     }
 
     return {
@@ -278,124 +347,4 @@ export const removeSubagentViaResolve = (
       return dirOutcomeToSubagentSyncOutcome(dirOutcome);
     }
     return yield* removeSubagentFiles(args);
-  });
-
-// ---------------------------------------------------------------------------
-// Roo Code helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Add a subagent as a Roo Code mode entry via read-modify-write.
- *
- * Reads the existing `.roomodes` file, builds a mode entry from the render
- * input, merges it with existing modes, and writes back.
- */
-export const addRooSubagent = (
-  roomodesPath: string,
-  args: AddSubagentArgs,
-): Effect.Effect<
-  SubagentSyncOutcome,
-  SubagentSyncFailure,
-  FileSystem.FileSystem | Path.Path | NativeWriteAuthority
-> =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const authority = yield* NativeWriteAuthority;
-
-    // Build the Roo mode entry
-    const rooResult = buildRooModeEntry(args.input);
-
-    const existingContent = yield* readOptionalSubagentConfig(roomodesPath);
-
-    const existingParsed =
-      existingContent.length > 0 ? parseRoomodes(existingContent) : { customModes: [] };
-
-    // Merge and write back
-    const existingModes = existingParsed.customModes;
-    const mergedModes = mergeRooModes(existingModes, rooResult.entry);
-
-    const newContent = JSON.stringify({ customModes: mergedModes }, null, 2);
-
-    // Ensure parent directory exists
-    const path = yield* Path.Path;
-    const parentDir = path.dirname(roomodesPath);
-    yield* fs
-      .makeDirectory(parentDir, { recursive: true })
-      .pipe(
-        Effect.mapError(
-          (cause) =>
-            new SubagentIoFailed({ detail: `Failed to create directory: ${parentDir}`, cause }),
-        ),
-      );
-
-    yield* authority.protect(roomodesPath);
-    yield* fs.writeFileString(roomodesPath, newContent).pipe(
-      Effect.mapError(
-        (cause) =>
-          new SubagentIoFailed({
-            detail: `Failed to write roomodes file: ${roomodesPath}`,
-            cause,
-          }),
-      ),
-    );
-    yield* authority.record({
-      path: roomodesPath,
-      change: existingContent.length === 0 ? "created" : "modified",
-    });
-
-    return {
-      _tag: "success",
-      renderedFilePaths: [roomodesPath],
-      warnings: rooResult.warnings.map((w) => `[${w.agent}] ${w.feature}: ${w.message}`),
-    } as const;
-  });
-
-/**
- * Remove a subagent mode entry from a Roo Code modes file.
- */
-export const removeRooSubagent = (
-  roomodesPath: string,
-  subagentName: string,
-): Effect.Effect<
-  SubagentSyncOutcome,
-  SubagentSyncFailure,
-  FileSystem.FileSystem | NativeWriteAuthority
-> =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const authority = yield* NativeWriteAuthority;
-
-    const existingContent = yield* readOptionalSubagentConfig(roomodesPath);
-
-    if (existingContent.length === 0) {
-      return {
-        _tag: "success",
-        renderedFilePaths: [roomodesPath],
-        warnings: [],
-      } as const;
-    }
-
-    const parsed = parseRoomodes(existingContent);
-    const existingModes = parsed.customModes;
-    const filtered = removeRooMode(existingModes, subagentName);
-
-    const newContent = JSON.stringify({ customModes: filtered }, null, 2);
-
-    yield* authority.protect(roomodesPath);
-    yield* fs.writeFileString(roomodesPath, newContent).pipe(
-      Effect.mapError(
-        (cause) =>
-          new SubagentIoFailed({
-            detail: `Failed to write roomodes file: ${roomodesPath}`,
-            cause,
-          }),
-      ),
-    );
-    yield* authority.record({ path: roomodesPath, change: "modified" });
-
-    return {
-      _tag: "success",
-      renderedFilePaths: [roomodesPath],
-      warnings: [],
-    } as const;
   });

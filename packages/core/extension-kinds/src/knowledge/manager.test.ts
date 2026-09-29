@@ -188,6 +188,7 @@ const managerLayer = (
   return KnowledgeManagerLive.pipe(
     Layer.provideMerge(WorkspaceCatalogLive),
     Layer.provideMerge(CodingAgentRepositoryLive),
+    Layer.provideMerge(NativeWriteAuthorityLive),
     Layer.provideMerge(
       Layer.mergeAll(
         WorkspaceReadTest({
@@ -227,7 +228,6 @@ const managerLayer = (
         origin: () => "test",
       }),
     ),
-    Layer.provideMerge(NativeWriteAuthorityLive),
     Layer.provideMerge(WorkspaceFileWriteLocksLive),
     Layer.provideMerge(
       Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
@@ -319,54 +319,81 @@ describe("KnowledgeManager", () => {
     }),
   );
 
-  it.effect("restores the previous canonical bundle when installation is interrupted", () =>
-    Effect.gen(function* () {
-      const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-knowledge-manager-"));
-      try {
-        const sourceRoot = nodePath.join(workspaceRoot, "source");
-        writeKnowledgePackage(sourceRoot, "handbook", true);
-        writeFileSync(
-          nodePath.join(sourceRoot, "src", "concept.md"),
-          "---\ntype: concept\n---\n# Replacement concept\n",
-        );
+  for (const foreignChange of [false, true])
+    it.effect(
+      foreignChange
+        ? "preserves a foreign canonical edit when interrupted rollback collides"
+        : "restores the previous canonical bundle when installation is interrupted",
+      () =>
+        Effect.gen(function* () {
+          const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-knowledge-manager-"));
+          try {
+            const sourceRoot = nodePath.join(workspaceRoot, "source");
+            writeKnowledgePackage(sourceRoot, "handbook", true);
+            writeFileSync(
+              nodePath.join(sourceRoot, "src", "concept.md"),
+              "---\ntype: concept\n---\n# Replacement concept\n",
+            );
 
-        const canonicalRoot = nodePath.join(
-          workspaceRoot,
-          "agent_extensions",
-          "path",
-          "@acme",
-          "knowledge",
-          "handbook",
-        );
-        writeKnowledgePackage(canonicalRoot, "handbook", true);
-        const canonicalConcept = nodePath.join(canonicalRoot, "src", "concept.md");
-        writeFileSync(canonicalConcept, "---\ntype: concept\n---\n# Original concept\n");
+            const canonicalRoot = nodePath.join(
+              workspaceRoot,
+              "agent_extensions",
+              "path",
+              "@acme",
+              "knowledge",
+              "handbook",
+            );
+            writeKnowledgePackage(canonicalRoot, "handbook", true);
+            const canonicalConcept = nodePath.join(canonicalRoot, "src", "concept.md");
+            writeFileSync(canonicalConcept, "---\ntype: concept\n---\n# Original concept\n");
 
-        // The accepted-resolution write follows the canonical replacement in
-        // the recipe's transaction; blocking there interrupts the install
-        // with the replacement already on disk.
-        const staged = yield* Deferred.make<void>();
-        const layer = managerLayer(workspaceRoot, {
-          acceptedResolutionWriter: {
-            setAccepted: () =>
-              Deferred.succeed(staged, undefined).pipe(Effect.andThen(Effect.never)),
-          },
-        });
-        const fiber = yield* installKnowledge(localRef("handbook", sourceRoot)).pipe(
-          Effect.provide(layer),
-          Effect.forkChild,
-        );
+            // The accepted-resolution write follows the canonical replacement in
+            // the recipe's transaction; blocking there interrupts the install
+            // with the replacement already on disk.
+            const staged = yield* Deferred.make<void>();
+            const layer = managerLayer(workspaceRoot, {
+              read: {
+                ...desiredHandbookReadFacts(workspaceRoot),
+                acceptedResolutions: Effect.succeed({
+                  lockfileVersion: 8,
+                  skills: {},
+                  knowledge: {
+                    handbook: {
+                      source: { type: "path", path: decodeRelativePathSync("source") },
+                      identity: { owner: handle("@acme"), name: extensionName("handbook") },
+                      resolved: { tree: TEST_CONTENT_IDENTITY },
+                      treeIntegrity: treeIntegrityOfSync(canonicalRoot),
+                    },
+                  },
+                }),
+              },
+              acceptedResolutionWriter: {
+                setAccepted: () =>
+                  Deferred.succeed(staged, undefined).pipe(Effect.andThen(Effect.never)),
+              },
+            });
+            const fiber = yield* installKnowledge(localRef("handbook", sourceRoot)).pipe(
+              Effect.provide(layer),
+              Effect.forkChild,
+            );
 
-        yield* Deferred.await(staged);
-        expect(readFileSync(canonicalConcept, "utf8")).toContain("# Replacement concept");
+            yield* Deferred.await(staged).pipe(Effect.raceFirst(Fiber.join(fiber)));
+            expect(readFileSync(canonicalConcept, "utf8")).toContain("# Replacement concept");
 
-        yield* Fiber.interrupt(fiber);
-        expect(readFileSync(canonicalConcept, "utf8")).toContain("# Original concept");
-      } finally {
-        rmSync(workspaceRoot, { recursive: true, force: true });
-      }
-    }),
-  );
+            if (foreignChange)
+              writeFileSync(
+                canonicalConcept,
+                "---\ntype: concept\n---\n# Foreign concurrent edit\n",
+              );
+            yield* Fiber.interrupt(fiber);
+            expect(readFileSync(canonicalConcept, "utf8")).toContain(
+              foreignChange ? "# Foreign concurrent edit" : "# Original concept",
+            );
+          } finally {
+            rmSync(workspaceRoot, { recursive: true, force: true });
+          }
+        }),
+    );
 
   it.effect("materializes a valid OKF bundle and writes its instruction discovery row", () =>
     Effect.gen(function* () {

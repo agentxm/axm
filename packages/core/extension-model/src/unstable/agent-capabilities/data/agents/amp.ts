@@ -29,7 +29,18 @@ export const ampAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "partial",
         convention: "universal",
-        directory: ".agents/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".agents/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -53,6 +64,10 @@ export const ampAgent = {
           variables: "braced",
           defaults: false,
         },
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -117,6 +132,10 @@ export const ampAgent = {
         sources: ["https://ampcode.com/manual", "https://ampcode.com/manual/plugin-api"],
         scopes: ["user", "project"],
         modeling: "native-unmodeled",
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -137,7 +156,18 @@ export const ampAgent = {
       standardsCompliance: "full",
       convention: "universal",
       kind: "agents-md",
-      files: ["AGENTS.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "AGENTS.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: true,
       importSyntax: "at-path",
     },
@@ -161,16 +191,38 @@ export const ampAgent = {
       ],
       scopes: ["user", "project"],
       mechanism: ["config-file"],
-      configFiles: [
+      locations: [
         {
+          id: "user",
           scope: "user",
-          path: "~/.config/amp/settings.json",
+          root: "home",
+          path: ".config/amp/settings.json",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "json",
           gitignored: false,
         },
         {
+          id: "project",
           scope: "project",
+          root: "project",
           path: ".amp/settings.json",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "json",
           gitignored: false,
         },

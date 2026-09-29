@@ -7,6 +7,7 @@ import {
   WorkspaceInvariantFacts,
   aggregateOwnershipUnits,
   observeAgentOutputs,
+  captureAgentOutputAuthority,
 } from "../projection/index.js";
 import {
   acceptedCanonicalObservation,
@@ -119,6 +120,7 @@ export const prepareUninstallArtifact = (
           .map((node) => node.name),
       );
     const inventory = yield* observeAgentOutputs({
+      nativeDirectoryInputs: location.nativeDirectoryInputs,
       workspaceRoot: location.baseDir,
       scope: location.scope,
       desiredAgentIds: new Set(yield* settings.configuredAgents),
@@ -128,10 +130,7 @@ export const prepareUninstallArtifact = (
         "mcp-server": enabledNames("mcp-server"),
         hook: enabledNames("hook"),
       },
-      skillOwnershipRoots:
-        layout.scope === "project"
-          ? [layout.acquiredRoot, layout.authoredRoot("skill")]
-          : [layout.acquiredRoot],
+      ...(yield* captureAgentOutputAuthority()),
       authoredSkills: { layout, entries: yield* settings.entries("skill") },
     });
     for (const output of inventory.outputs.filter(

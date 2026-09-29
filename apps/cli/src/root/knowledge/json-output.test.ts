@@ -42,6 +42,7 @@ import {
 } from "@agentxm/extension-kinds/live";
 const stubKnowledgeManager = {
   ...managerLifecycleStubs,
+  prepareProjection: () => Effect.succeed([]),
   refreshCatalog: () => Effect.void,
   sync: () => Effect.succeed({ changed: false, warnings: [], artifacts: [] }),
   projectionPlans: () => Effect.succeed([]),

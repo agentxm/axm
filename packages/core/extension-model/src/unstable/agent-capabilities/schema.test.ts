@@ -1,6 +1,77 @@
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
-import { HooksExtensionCapabilitySchema, McpExtensionCapabilitySchema } from "./schema.js";
+import {
+  HooksExtensionCapabilitySchema,
+  McpExtensionCapabilitySchema,
+  NativeReadLocationSchema,
+} from "./schema.js";
+
+describe("native reader location schema", () => {
+  const decodeLocation = Schema.decodeUnknownSync(NativeReadLocationSchema, {
+    onExcessProperty: "error",
+  });
+  const location = {
+    scope: "project",
+    root: "project",
+    path: ".agents/skills",
+    shape: "directory",
+    role: "primary",
+    status: "canonical",
+    applicability: { kind: "always" },
+    provenance: { kind: "capability-sources" },
+  };
+  it("retains explicit scope, root, shape, applicability, and provenance", () => {
+    expect(decodeLocation(location)).toEqual(location);
+    const conditional = {
+      ...location,
+      scope: "user",
+      root: "xdg-config",
+      path: "agent/skills",
+      role: "additional",
+      status: "compat",
+      applicability: { kind: "conditional", condition: "compatibility lookup enabled" },
+      provenance: { kind: "sources", sources: ["https://example.com/native-paths"] },
+    };
+    expect(decodeLocation(conditional)).toEqual(conditional);
+  });
+  it("requires condition text and explicit evidence on conditional reader claims", () => {
+    expect(() => decodeLocation({ ...location, applicability: { kind: "conditional" } })).toThrow(
+      "condition",
+    );
+    expect(() =>
+      decodeLocation({ ...location, provenance: { kind: "sources", sources: [] } }),
+    ).toThrow();
+    expect(() => decodeLocation({ ...location, root: undefined })).toThrow("root");
+    expect(() => decodeLocation({ ...location, status: "legacy" })).toThrow("status");
+  });
+  it("refuses cross-scope roots and escaping path spellings", () => {
+    expect(() => decodeLocation({ ...location, root: "home" })).toThrow("root");
+    expect(() => decodeLocation({ ...location, scope: "user" })).toThrow("root");
+    for (const path of [
+      "/outside",
+      "\\outside",
+      "~/.skills",
+      "C:\\skills",
+      "C:skills",
+      "../skills",
+      "native/../../skills",
+      "native\\..\\skills",
+    ]) {
+      expect(() => decodeLocation({ ...location, path })).toThrow("path");
+    }
+    expect(() => decodeLocation({ ...location, configRootRelativePath: "skills" })).toThrow(
+      "configRootRelativePath",
+    );
+    expect(() =>
+      decodeLocation({
+        ...location,
+        scope: "user",
+        root: "home",
+        configRootRelativePath: "../skills",
+      }),
+    ).toThrow("configRootRelativePath");
+  });
+});
 const decodeMcpCapability = Schema.decodeUnknownSync(McpExtensionCapabilitySchema);
 const decodeHooksCapability = Schema.decodeUnknownSync(HooksExtensionCapabilitySchema);
 const activeMcpCapability = {
@@ -14,63 +85,122 @@ const activeMcpCapability = {
     standardsCompliance: "full",
     convention: "vendor",
     transports: ["stdio", "http"],
+
+    locations: [
+      {
+        id: "project-0",
+        scope: "project",
+        root: "project",
+        path: ".mcp.json",
+        shape: "file",
+        role: "primary",
+        status: "canonical",
+        applicability: { kind: "always" },
+        provenance: { kind: "capability-sources" },
+        format: "json",
+        attribution: "shared",
+        keyPath: ["mcpServers"],
+      },
+    ],
+
+    entryDialect: {
+      activationField: {
+        required: { name: "enabled", enabled: true, disabled: false },
+        accepted: [{ name: "enabled", enabled: true, disabled: false }],
+      },
+      stdio: {
+        typeField: { required: null, accepted: [null] },
+        command: "split",
+        envKey: "env",
+      },
+      remote: {
+        typeField: {
+          required: {
+            name: "type",
+            value: { "streamable-http": "http" },
+          },
+          accepted: [
+            {
+              name: "type",
+              value: { "streamable-http": "http" },
+            },
+          ],
+        },
+        urlKey: { "streamable-http": "url" },
+        headersKey: "headers",
+      },
+    },
   },
   axm: {
     status: "supported",
     lastVerified: "2026-06-05",
     writer: {
       config: {
-        serversKey: "mcpServers",
-        activationField: {
-          required: { name: "enabled", enabled: true, disabled: false },
-          accepted: [{ name: "enabled", enabled: true, disabled: false }],
-        },
-        targets: [
-          {
-            scope: "project",
-            path: ".mcp.json",
-            format: "json",
-            attribution: "shared",
-          },
-        ],
-        stdio: {
-          typeField: { required: null, accepted: [null] },
-          command: "split",
-          envKey: "env",
-        },
-        remote: {
-          typeField: {
-            required: {
-              name: "type",
-              value: { "streamable-http": "http" },
-            },
-            accepted: [
-              {
-                name: "type",
-                value: { "streamable-http": "http" },
-              },
-            ],
-          },
-          urlKey: { "streamable-http": "url" },
-          headersKey: "headers",
-        },
+        locationIds: ["project-0"],
       },
     },
   },
 };
 describe("MCP capability schema", () => {
-  it("requires explicit attribution on every config target", () => {
+  it("preserves a native config reader independently of writer support", () => {
+    expect(
+      decodeMcpCapability({
+        ...activeMcpCapability,
+        axm: {
+          status: "unsupported",
+          writer: null,
+          lastVerified: null,
+          reason: "No safe native writer yet.",
+        },
+      }).native,
+    ).toMatchObject({ locations: activeMcpCapability.native.locations });
+  });
+  it("rejects contradictory writer references and ambiguous native container keys", () => {
+    const writer = activeMcpCapability.axm.writer;
     expect(() =>
       decodeMcpCapability({
         ...activeMcpCapability,
         axm: {
           ...activeMcpCapability.axm,
-          writer: {
-            config: {
-              ...activeMcpCapability.axm.writer.config,
-              targets: [{ scope: "project", path: ".mcp.json", format: "json" }],
-            },
-          },
+          writer: { config: { ...writer.config, locationIds: ["missing"] } },
+        },
+      }),
+    ).toThrow("declared native config location ids");
+    expect(() =>
+      decodeMcpCapability({
+        ...activeMcpCapability,
+        native: {
+          ...activeMcpCapability.native,
+          locations: [
+            ...activeMcpCapability.native.locations,
+            ...activeMcpCapability.native.locations,
+          ],
+        },
+      }),
+    ).toThrow("unique");
+    expect(() =>
+      decodeMcpCapability({
+        ...activeMcpCapability,
+        native: {
+          ...activeMcpCapability.native,
+          locations: activeMcpCapability.native.locations.map((location) => ({
+            ...location,
+            keyPath: ["nested", "mcpServers"],
+          })),
+        },
+      }),
+    ).toThrow("recognized MCP servers key");
+  });
+  it("requires explicit attribution on every config target", () => {
+    expect(() =>
+      decodeMcpCapability({
+        ...activeMcpCapability,
+        native: {
+          ...activeMcpCapability.native,
+          locations: activeMcpCapability.native.locations.map((location) => ({
+            ...location,
+            attribution: undefined,
+          })),
         },
       }),
     ).toThrow("attribution");
@@ -88,7 +218,7 @@ describe("MCP capability schema", () => {
         }),
       ).toMatchObject({
         native: { standardsCompliance },
-        axm: { writer: { config: { serversKey: "mcpServers" } } },
+        axm: { writer: { config: { locationIds: ["project-0"] } } },
       });
     }
   });
@@ -105,6 +235,10 @@ describe("MCP capability schema", () => {
           standardsCompliance: "none",
           convention: "vendor",
           transports: ["http"],
+
+          locations: [],
+
+          entryDialect: null,
         },
         axm: {
           status: "supported",
@@ -124,35 +258,27 @@ describe("MCP capability schema", () => {
       },
     });
   });
-  it("still requires matching config dialects when writer config is present", () => {
+  it("requires a verified native dialect for every selected writer", () => {
+    for (const [field, message] of [
+      ["stdio", "MCP stdio config"],
+      ["remote", "MCP remote config"],
+    ] as const) {
+      expect(() =>
+        decodeMcpCapability({
+          ...activeMcpCapability,
+          native: {
+            ...activeMcpCapability.native,
+            entryDialect: { ...activeMcpCapability.native.entryDialect, [field]: null },
+          },
+        }),
+      ).toThrow(message);
+    }
     expect(() =>
       decodeMcpCapability({
         ...activeMcpCapability,
-        axm: {
-          ...activeMcpCapability.axm,
-          writer: {
-            config: {
-              ...activeMcpCapability.axm.writer.config,
-              stdio: null,
-            },
-          },
-        },
+        native: { ...activeMcpCapability.native, entryDialect: null },
       }),
-    ).toThrow("MCP stdio config is required when stdio transport is supported.");
-    expect(() =>
-      decodeMcpCapability({
-        ...activeMcpCapability,
-        axm: {
-          ...activeMcpCapability.axm,
-          writer: {
-            config: {
-              ...activeMcpCapability.axm.writer.config,
-              remote: null,
-            },
-          },
-        },
-      }),
-    ).toThrow("MCP remote config is required when http or sse transport is supported.");
+    ).toThrow("requires a verified native entry dialect");
   });
 });
 
@@ -168,7 +294,7 @@ describe("Hooks capability schema", () => {
           sources: ["https://example.com/hooks"],
           scopes: ["project"],
           mechanism: ["command-stdin"],
-          configFiles: [],
+          locations: [],
           events: [
             {
               nativeName: "PreToolUse",
@@ -193,6 +319,8 @@ describe("Hooks capability schema", () => {
               lastVerified: "2026-06-06",
             },
           ],
+
+          entryDialect: null,
         },
         axm: {
           status: "unsupported",
@@ -213,6 +341,9 @@ describe("Hooks capability schema", () => {
           sources: ["https://example.com/hooks"],
           scopes: ["project"],
           modeling: "native-unmodeled",
+          locations: [],
+
+          entryDialect: null,
         },
         axm: {
           status: "unsupported",
@@ -222,7 +353,7 @@ describe("Hooks capability schema", () => {
         },
       }),
     ).toMatchObject({
-      native: { availability: { via: "native" }, modeling: "native-unmodeled" },
+      native: { availability: { via: "native" }, modeling: "native-unmodeled", entryDialect: null },
       axm: { writer: null, reason: "In-process plugin writers are not implemented." },
     });
   });

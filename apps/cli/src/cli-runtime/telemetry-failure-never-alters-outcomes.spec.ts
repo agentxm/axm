@@ -108,6 +108,7 @@ describe("Telemetry failure isolation", () => {
             expect(observed.exit._tag).toBe(baseline.exit._tag);
             expect(observed.exitCode).toBe(baseline.exitCode);
             expect(observed.files).toEqual(baseline.files);
+            expect(observed.receipts).toEqual(baseline.receipts);
             expect(observed.docs).toEqual(baseline.docs);
             expect(observed.settings).toBe(baseline.settings);
             expect(observed.lock).toBe(baseline.lock);

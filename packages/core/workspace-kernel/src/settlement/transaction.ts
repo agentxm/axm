@@ -12,9 +12,9 @@
 
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
-import type * as FileSystem from "effect/FileSystem";
+import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
-import type * as Path from "effect/Path";
+import * as Path from "effect/Path";
 import type * as Semaphore from "effect/Semaphore";
 import * as SynchronizedRef from "effect/SynchronizedRef";
 
@@ -28,6 +28,7 @@ import {
   TransitionLockUnavailable,
   WorkspaceDirectoryError,
   WorkspaceRestorationIncomplete,
+  WorkspaceRestorationError,
   WorkspaceTransitionCompromised,
   type WorkspaceTransactionFailure,
 } from "./errors.js";
@@ -50,8 +51,11 @@ import type {
   WorkspaceTransactionScopeService,
 } from "./scope.js";
 import type { HeldWorkspaceTransition } from "./transition-lock.js";
+import { assertNativeMutationWithin, type NativeAuthorityRootWitness } from "../locations/index.js";
+import { cleanupRetirements, recoveryEntries } from "./retirement.js";
 
 export interface FilesystemTransactionRuntime extends WorkspaceTransactionPaths {
+  readonly nativeRootWitnesses: ReadonlyArray<NativeAuthorityRootWitness>;
   readonly fs: FileSystem.FileSystem;
   readonly path: Path.Path;
   readonly admission: Semaphore.Semaphore;
@@ -80,7 +84,24 @@ export const settleWorkspaceClosure = (closureId: string): Effect.Effect<void> =
       Option.match({
         onNone: () => Effect.void,
         onSome: (context) =>
-          SynchronizedRef.update(context.ledger, (ledger) => withoutClosure(ledger, closureId)),
+          SynchronizedRef.updateEffect(context.ledger, (ledger) =>
+            cleanupRetirements(context.fs, context.path, closureSnapshots(ledger, closureId)).pipe(
+              Effect.matchEffect({
+                onSuccess: () => Effect.succeed(withoutClosure(ledger, closureId)),
+                onFailure: (restorationCause) =>
+                  Effect.map(
+                    recoveryEntries(context.fs, context.path, closureSnapshots(ledger, closureId)),
+                    (recovery) =>
+                      withPendingRestoration(withoutClosure(ledger, closureId), {
+                        closureId,
+                        restorationCause,
+                        retained: restorationCause.retained ?? [restorationCause.target],
+                        recovery,
+                      }),
+                  ),
+              }),
+            ),
+          ),
       }),
     ),
   );
@@ -105,16 +126,22 @@ export const rollbackWorkspaceClosure = (closureId: string): Effect.Effect<void>
               if (owned.length === 0) return withoutClosure(ledger, closureId);
               return yield* restoreAll(fs, path, owned, context.isTransitionCompromised).pipe(
                 Effect.andThen(verifySnapshots(fs, path, owned)),
-                Effect.match({
+                Effect.andThen(cleanupRetirements(fs, path, owned)),
+                Effect.matchEffect({
                   onFailure: (restorationCause) =>
-                    withPendingRestoration(withoutClosure(ledger, closureId), {
-                      closureId,
-                      restorationCause,
-                      retained: owned.map((snapshot) =>
-                        workspaceRelative(path, context.workspaceDir, snapshot.target),
-                      ),
-                    }),
-                  onSuccess: () => withoutClosure(ledger, closureId),
+                    Effect.map(recoveryEntries(fs, path, owned), (recovery) =>
+                      withPendingRestoration(withoutClosure(ledger, closureId), {
+                        closureId,
+                        restorationCause,
+                        recovery,
+                        retained: (restorationCause instanceof WorkspaceRestorationError &&
+                        restorationCause.retained !== undefined
+                          ? restorationCause.retained
+                          : owned.map((snapshot) => snapshot.target)
+                        ).map((target) => workspaceRelative(path, context.workspaceDir, target)),
+                      }),
+                    ),
+                  onSuccess: () => Effect.succeed(withoutClosure(ledger, closureId)),
                 }),
               );
             }),
@@ -191,54 +218,20 @@ export const runFilesystemTransaction = <A, E, R>(
 
     const { fs, path } = scope;
     const workspaceDir = path.resolve(scope.workspaceDir);
-    const missingWorkspaceAncestors: Array<string> = [];
-    let ancestor = workspaceDir;
-    while (true) {
-      const exists = yield* fs
-        .exists(ancestor)
-        .pipe(
-          Effect.mapError(
-            (cause) => new WorkspaceDirectoryError({ path: ancestor, step: "inspect", cause }),
-          ),
-        );
-      if (exists) break;
-      missingWorkspaceAncestors.push(ancestor);
-      const parent = path.dirname(ancestor);
-      if (parent === ancestor) break;
-      ancestor = parent;
-    }
-
+    yield* assertNativeMutationWithin(
+      scope.nativeRoot ?? path.dirname(workspaceDir),
+      workspaceDir,
+      "content",
+      path.dirname(workspaceDir),
+    ).pipe(
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
+      Effect.mapError(
+        (cause) => new WorkspaceDirectoryError({ path: workspaceDir, step: "inspect", cause }),
+      ),
+    );
     return yield* scope.admission.withPermits(1)(
       Effect.gen(function* () {
-        yield* fs
-          .makeDirectory(workspaceDir, { recursive: true })
-          .pipe(
-            Effect.mapError(
-              (cause) => new WorkspaceDirectoryError({ path: workspaceDir, step: "create", cause }),
-            ),
-          );
-        const scratchDir = path.join(workspaceDir, "tmp");
-        const removeEmptyScratch = fs.readDirectory(scratchDir).pipe(
-          Effect.flatMap((entries) =>
-            entries.length === 0
-              ? fs.remove(scratchDir, { recursive: true, force: false })
-              : Effect.void,
-          ),
-          Effect.ignore,
-        );
-        const removeNewEmptyWorkspace = Effect.forEach(
-          missingWorkspaceAncestors,
-          (directory) =>
-            fs.readDirectory(directory).pipe(
-              Effect.flatMap((entries) =>
-                entries.length === 0
-                  ? fs.remove(directory, { recursive: true, force: false })
-                  : Effect.void,
-              ),
-              Effect.ignore,
-            ),
-          { concurrency: 1, discard: true },
-        );
         return yield* Effect.scoped(
           Effect.gen(function* () {
             // The invocation-level transition hold already provides
@@ -260,6 +253,9 @@ export const runFilesystemTransaction = <A, E, R>(
               fs,
               path,
               workspaceDir,
+              nativeRoot: scope.nativeRoot ?? path.dirname(workspaceDir),
+              nativeRoots: scope.nativeRoots ?? [scope.nativeRoot ?? path.dirname(workspaceDir)],
+              nativeRootWitnesses: scope.nativeRootWitnesses,
               ledger,
             };
             // The store is removed only when nothing in it is still needed:
@@ -312,9 +308,15 @@ export const runFilesystemTransaction = <A, E, R>(
                   transitionCause: cause,
                   restorationCause,
                   snapshotDir: state.snapshotDir,
-                  retained: state.snapshots.map((snapshot) =>
-                    workspaceRelative(path, workspaceDir, snapshot.target),
-                  ),
+                  recovery: [
+                    ...(yield* recoveryEntries(fs, path, state.snapshots)),
+                    ...state.pendingRestorations.flatMap((failure) => failure.recovery),
+                  ],
+                  retained: (restorationCause instanceof WorkspaceRestorationError &&
+                  restorationCause.retained !== undefined
+                    ? restorationCause.retained
+                    : state.snapshots.map((snapshot) => snapshot.target)
+                  ).map((target) => workspaceRelative(path, workspaceDir, target)),
                 });
               });
 
@@ -342,6 +344,7 @@ export const runFilesystemTransaction = <A, E, R>(
                         Effect.flatMap((state) =>
                           restoreAll(fs, path, state.snapshots, transitionCompromised).pipe(
                             Effect.andThen(verifySnapshots(fs, path, state.snapshots)),
+                            Effect.andThen(cleanupRetirements(fs, path, state.snapshots)),
                           ),
                         ),
                       )
@@ -353,12 +356,23 @@ export const runFilesystemTransaction = <A, E, R>(
                         }),
                       );
                   },
-                  onSuccess: (value) => removeSnapshotStore.pipe(Effect.as(value)),
+                  onSuccess: (value) =>
+                    SynchronizedRef.get(ledger).pipe(
+                      Effect.flatMap((state) =>
+                        state.pendingRestorations.length > 0
+                          ? Effect.void
+                          : cleanupRetirements(fs, path, state.snapshots),
+                      ),
+                      Effect.matchEffect({
+                        onFailure: (cause) => retainAll(Cause.fail(cause), cause),
+                        onSuccess: () => removeSnapshotStore.pipe(Effect.as(value)),
+                      }),
+                    ),
                 }),
               ),
             );
           }),
-        ).pipe(Effect.ensuring(removeEmptyScratch), Effect.ensuring(removeNewEmptyWorkspace));
+        );
       }),
     );
   });

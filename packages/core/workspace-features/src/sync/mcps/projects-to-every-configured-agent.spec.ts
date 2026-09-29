@@ -1,9 +1,19 @@
 import * as Effect from "effect/Effect";
+import * as Ref from "effect/Ref";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { WorkspaceRecords } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  DesiredStateReader,
+  WorkspaceLocation,
+  WorkspaceRecords,
+} from "@agentxm/workspace-kernel/workspace-state";
+import {
+  captureAgentOutputAuthority,
+  expectedProjectionNames,
+  observeAgentOutputs,
+} from "@agentxm/workspace-kernel/projection";
 import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
@@ -13,6 +23,7 @@ import {
   makeFileRegistry,
   makeSyncFixture,
   previewSync,
+  withdrawMcpServer,
   type SyncFixture,
 } from "../../testing/sync-fixture.js";
 import { listedMcpServer, shownMcpServer } from "../../testing/mcp-inspection.js";
@@ -21,7 +32,7 @@ export const specification = defineSpecification({
   requirement: "cli/mcps/projects-to-every-configured-agent",
   title: "MCP servers reach every configured agent that can represent them",
   statement:
-    "When an MCP server is desired and enabled, however it entered the workspace — added, authored inline, adopted from one agent's own native configuration, or supplied by an installed Pack — reconciliation shall write it to the native configuration of every configured agent that can represent it, shall account for every configured agent and report one that cannot represent it as unsupported rather than omitting it, shall judge whether each agent's entry is current from its decoded native value and report a hand-edited entry as stale under one reason code in every inspection surface, shall repair it without further change on the next run, shall write no server that is configured as disabled, and shall remove it from every agent it reached once desired state disables or withdraws it.",
+    "When an MCP server is desired and enabled, however it entered the workspace — added, authored inline, adopted from one agent's own native configuration, or supplied by an installed Pack — reconciliation shall write it to the native configuration of every configured agent that can represent it, shall account for every configured agent and report one that cannot represent it as unsupported rather than omitting it, shall judge whether each agent's entry is current from its decoded native value and report a hand-edited entry as stale under one reason code in every inspection surface, shall repair it without further change on the next run, shall write no server that is configured as disabled, and shall remove proven owned entries from every agent it reached when desired state disables it or a withdrawal captures ownership before removing the declaration. If an external edit removes the only ownership authority, reconciliation shall preserve the unproven native entry.",
   class: "functional",
   role: "experience",
   goals: ["agent-interoperability", "workspace-intent-fidelity"],
@@ -221,7 +232,7 @@ describe("MCP servers project to every configured agent", () => {
   );
 
   it.effect(
-    "withdrawing a server from desired state removes it from every agent it reached",
+    "explicit withdrawal captures ownership and removes the server from every agent it reached",
     () => {
       const workspace = workspaceWithAgents(bothAgents, addedEntry);
       return workspace
@@ -232,13 +243,52 @@ describe("MCP servers project to every configured agent", () => {
               expect(nativeHasServer(workspace, file, "demo"), file).toBe(true);
             }
 
-            workspace.writeSettings({ owner: "@acme", agents: bothAgents, mcpServers: {} });
+            const withdrawn = yield* withdrawMcpServer("demo");
+            expect(deriveOperationOutcome(withdrawn)).toBe("applied");
             yield* applySync();
 
             for (const file of NATIVE_CONFIGS) {
               expect(nativeHasServer(workspace, file, "demo"), file).toBe(false);
             }
             expect(JSON.stringify(workspace.readSettings())).not.toContain('"demo"');
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
+
+  it.effect(
+    "preserves native entries when an external edit discards their only accepted authority",
+    () => {
+      const workspace = workspaceWithAgents(bothAgents, addedEntry);
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* applySync();
+            workspace.writeSettings({ owner: "@acme", agents: bothAgents, mcpServers: {} });
+            const before = workspace.snapshot();
+            yield* applySync();
+            expect(workspace.snapshot()).toEqual(before);
+            const location = yield* WorkspaceLocation;
+            const graph = yield* (yield* DesiredStateReader).graph();
+            const outputs = yield* observeAgentOutputs({
+              workspaceRoot: location.baseDir,
+              scope: location.scope,
+              nativeDirectoryInputs: location.nativeDirectoryInputs,
+              desiredAgentIds: new Set(bothAgents),
+              expectedNames: expectedProjectionNames(graph),
+              ...(yield* captureAgentOutputAuthority()),
+              authoredSkills: { layout: yield* Ref.get(location.layout), entries: {} },
+            });
+            expect(
+              outputs.outputs
+                .filter(
+                  (output) => output.extensionType === "mcp-server" && output.entryName === "demo",
+                )
+                .map((output) => output.ownership),
+            ).toEqual(["unowned", "unowned"]);
+            for (const file of NATIVE_CONFIGS)
+              expect(nativeHasServer(workspace, file, "demo")).toBe(true);
           }),
         )
         .pipe(Effect.provide(NodeServices.layer));

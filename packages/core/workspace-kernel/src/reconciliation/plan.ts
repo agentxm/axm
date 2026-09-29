@@ -22,9 +22,12 @@ import {
   KnowledgeManager,
   RuleManager,
   type PreparedHookProjection,
+  type NativeProjectionOptions,
 } from "../materialization/index.js";
 import {
   CodingAgentRepository,
+  captureAgentOutputAuthority,
+  type AgentOutputAuthority,
   applyPlannedProjections,
   applyProjectionPlans,
   observeInstructionProjection,
@@ -33,12 +36,13 @@ import {
   resolveInstructionsConfig,
   instructionReconciliationReadiness,
   instructionProjectionEffects,
+  instructionProjectionNativeLocations,
   instructionProjectionIsCurrent,
   type ExpectedProjectionNames,
   type ProjectionInvariantFact,
 } from "../projection/index.js";
 import {
-  pruneManagedMcpServersForAgent,
+  pruneManagedMcpServersForAgents,
   syncInlineMcpServerToAgents,
   type NativeWriteAuthority,
 } from "../agent-adapters/index.js";
@@ -56,6 +60,7 @@ import {
 import type { WorkspaceTransactionScope } from "../settlement/index.js";
 import {
   SettingsReader,
+  DesiredStateReader,
   WorkspaceLocation,
   settingsDisplayPath,
   type WorkspaceLocationService,
@@ -65,8 +70,9 @@ import {
 } from "../workspace-state/index.js";
 import { buildReconciliationClosure } from "./closure.js";
 import { reconcileAgentOutputs } from "./rendered-file-cleanup.js";
-import type { WorkspaceSyncCleanupFailure } from "./errors.js";
+import { WorkspaceSyncFailed, type WorkspaceSyncCleanupFailure } from "./errors.js";
 import type { StepFailureConversionService } from "./step-failure-conversion.js";
+import { combineNativeLocationOutcomes, resolveNativeEntry } from "../locations/index.js";
 import { desiredPackageKey } from "../workspace-state/index.js";
 
 export const SYNC_RECOVERY_IDS = {
@@ -180,9 +186,11 @@ export const buildInlineMcpServerSyncOperation = ({
   entry,
   agentIds,
   inspectionWarnings,
+  nativeInsertionEligiblePaths,
   location,
   adapter,
 }: {
+  readonly nativeInsertionEligiblePaths: ReadonlySet<string>;
   readonly name: string;
   readonly entry: McpServerEntry;
   readonly agentIds: ReadonlyArray<string>;
@@ -196,8 +204,11 @@ export const buildInlineMcpServerSyncOperation = ({
   readiness: "ready",
   run: Effect.gen(function* () {
     const batchOutcomes = yield* syncInlineMcpServerToAgents(agentIds, {
+      nativeDirectoryInputs: location.nativeDirectoryInputs,
       workspaceRoot: location.baseDir,
       serverName: name,
+      nativeInsertionEligible: false,
+      nativeInsertionEligiblePaths,
       entry,
       scope: location.scope,
     });
@@ -212,6 +223,16 @@ export const buildInlineMcpServerSyncOperation = ({
       return [`${agentId}: ${outcome.reason}`];
     });
     const warnings = [...inspectionWarnings, ...warningDetails];
+    const nativeLocations = combineNativeLocationOutcomes(
+      batchOutcomes.flatMap((outcome) =>
+        "targets" in outcome
+          ? (outcome.targets ?? []).flatMap((target) =>
+              target.nativeLocation === undefined ? [] : [target.nativeLocation],
+            )
+          : [],
+      ),
+    );
+    const firstNative = nativeLocations[0];
     return {
       result: "success",
       message:
@@ -219,16 +240,28 @@ export const buildInlineMcpServerSyncOperation = ({
           ? `Synced inline MCP server ${name}`
           : `Synced inline MCP server ${name} with ${count(warnings.length, "warning")}`,
       ...(warnings.length > 0 ? { warnings } : {}),
+      ...(firstNative === undefined
+        ? {}
+        : {
+            artifact: {
+              path: firstNative.address.path,
+              scope: location.scope,
+              change: "updated" as const,
+              nativeLocations,
+            },
+          }),
     } satisfies JobStepResult;
   }).pipe(Effect.mapError(adapter.toStepFailure)),
 });
 
 export const buildMcpServerPruneOperation = ({
   declaredServerNames,
+  authority,
   agentIds,
   location,
   adapter,
 }: {
+  readonly authority: AgentOutputAuthority;
   readonly declaredServerNames: ReadonlySet<string>;
   readonly agentIds: ReadonlyArray<string>;
   readonly location: WorkspaceLocationService;
@@ -237,20 +270,37 @@ export const buildMcpServerPruneOperation = ({
   key: "mcp-server:prune",
   label: "mcp-server stale managed entries",
   readiness: "ready",
-  run: Effect.forEach(
-    agentIds,
-    (agentId) =>
-      pruneManagedMcpServersForAgent(agentId, {
-        workspaceRoot: location.baseDir,
-        declaredServerNames,
-        scope: location.scope,
-      }).pipe(Effect.map((outcome) => ({ agentId, outcome }))),
-    { concurrency: 1 },
-  ).pipe(
+  run: pruneManagedMcpServersForAgents(agentIds, {
+    nativeDirectoryInputs: location.nativeDirectoryInputs,
+    workspaceRoot: location.baseDir,
+    declaredServerNames,
+    expectedManagedEntries: authority.expectedMcpEntries,
+    scope: location.scope,
+  }).pipe(
     Effect.map((outcomes) => {
-      const warnings = outcomes.filter(({ outcome }) => outcome._tag !== "success");
+      const warnings = outcomes.filter((outcome) => outcome._tag !== "success");
+      const nativeLocations = combineNativeLocationOutcomes(
+        outcomes.flatMap((outcome) =>
+          "targets" in outcome
+            ? (outcome.targets ?? []).flatMap((target) =>
+                target.nativeLocation === undefined ? [] : [target.nativeLocation],
+              )
+            : [],
+        ),
+      );
+      const firstNative = nativeLocations[0];
       return {
         result: "success",
+        ...(firstNative === undefined
+          ? {}
+          : {
+              artifact: {
+                path: firstNative.address.path,
+                scope: location.scope,
+                change: "updated" as const,
+                nativeLocations,
+              },
+            }),
         message:
           warnings.length === 0
             ? "Pruned stale managed MCP server entries"
@@ -275,6 +325,7 @@ export const buildMcpServerPruneOperation = ({
  * that contributes to it — including packages this one does not declare.
  */
 export const collectKnowledgeStep: (args: {
+  readonly nativeProjection?: NativeProjectionOptions;
   readonly adapter: StepFailureConversionService;
   readonly deferPreview?: boolean;
   readonly facts?: ReadonlyArray<ProjectionInvariantFact>;
@@ -295,7 +346,16 @@ export const collectKnowledgeStep: (args: {
     Option.isSome(instructions) && instructions.value !== false ? instructions.value : undefined,
   ).fileName;
   const previewResult =
-    args.deferPreview === true ? undefined : yield* Effect.result(manager.sync({ dryRun: true }));
+    args.deferPreview === true
+      ? undefined
+      : yield* Effect.result(
+          manager.sync({
+            dryRun: true,
+            ...(args.nativeProjection === undefined
+              ? {}
+              : { nativeProjection: args.nativeProjection }),
+          }),
+        );
   if (previewResult !== undefined && Result.isFailure(previewResult)) {
     return Option.some<PlannedJobStep<SyncStepRequirements>>({
       key: "knowledge:discovery",
@@ -334,30 +394,44 @@ export const collectKnowledgeStep: (args: {
     readiness: "ready",
     artifact,
     ...(message.length === 0 ? {} : { message }),
-    run: manager.sync({ dryRun: false }).pipe(
-      Effect.mapError(args.adapter.toStepFailure),
-      Effect.map((result): JobStepResult => {
-        const mechanism = result.artifacts.find(
-          (artifact) => artifact.mechanism !== undefined,
-        )?.mechanism;
-        return {
-          result: "success",
-          message: result.changed
-            ? "Reconciled Knowledge discovery"
-            : "Knowledge discovery already current",
-          ...(result.warnings.length === 0 ? {} : { warnings: result.warnings }),
-          artifact: {
-            ...artifact,
-            change: result.changed ? "updated" : "unchanged",
-            ...(mechanism === undefined ? {} : { mechanism }),
-            targets: result.artifacts.map((artifact) => ({
-              path: artifact.path,
-              change: artifact.change,
-            })),
-          },
-        };
-      }),
-    ),
+    run: manager
+      .sync({
+        dryRun: false,
+        ...(args.nativeProjection === undefined ? {} : { nativeProjection: args.nativeProjection }),
+      })
+      .pipe(
+        Effect.flatMap((result) =>
+          Effect.map(manager.aggregateProjectionObservation, (observation) => ({
+            result,
+            observation,
+          })),
+        ),
+        Effect.mapError(args.adapter.toStepFailure),
+        Effect.map(({ result, observation }): JobStepResult => {
+          const mechanism = result.artifacts.find(
+            (artifact) => artifact.mechanism !== undefined,
+          )?.mechanism;
+          return {
+            result: "success",
+            message: result.changed
+              ? "Reconciled Knowledge discovery"
+              : "Knowledge discovery already current",
+            ...(result.warnings.length === 0 ? {} : { warnings: result.warnings }),
+            artifact: {
+              ...artifact,
+              change: result.changed ? "updated" : "unchanged",
+              ...(observation.nativeLocations === undefined
+                ? {}
+                : { nativeLocations: observation.nativeLocations }),
+              ...(mechanism === undefined ? {} : { mechanism }),
+              targets: result.artifacts.map((artifact) => ({
+                path: artifact.path,
+                change: artifact.change,
+              })),
+            },
+          };
+        }),
+      ),
   } satisfies PlannedJobStep<SyncStepRequirements>);
 });
 
@@ -384,6 +458,7 @@ export const collectCleanupStep: (args: {
   | Path.Path
   | WorkspaceLocation
   | SettingsReader
+  | DesiredStateReader
   | NativeWriteAuthority
 > = Effect.fn("Sync.collectCleanupStep")(function* (args) {
   const location = yield* WorkspaceLocation;
@@ -391,7 +466,18 @@ export const collectCleanupStep: (args: {
   const desiredAgentIds =
     args.desiredAgentIds ??
     new Set((yield* agentRepo.getMaterializationAgents()).map(({ id }) => id));
+  const authority = yield* captureAgentOutputAuthority().pipe(
+    Effect.mapError(
+      (cause) =>
+        new WorkspaceSyncFailed({
+          category: "internal",
+          detail: "Cannot establish native output ownership",
+          cause,
+        }),
+    ),
+  );
   const preview = yield* reconcileAgentOutputs({
+    authority,
     desiredAgentIds,
     expectedNames: args.expectedNames,
     dryRun: true,
@@ -411,6 +497,7 @@ export const collectCleanupStep: (args: {
       targets: previewPaths.map((filePath) => ({ path: filePath, change: "removed" })),
     },
     run: reconcileAgentOutputs({
+      authority,
       desiredAgentIds,
       expectedNames: args.expectedNames,
       ...(args.subjects === undefined ? {} : { subjects: args.subjects }),
@@ -426,6 +513,9 @@ export const collectCleanupStep: (args: {
             scope: location.scope,
             change: "removed",
             fileCount: removedPaths.length,
+            ...(result.nativeLocations === undefined
+              ? {}
+              : { nativeLocations: result.nativeLocations }),
             targets: removedPaths.map((filePath) => ({ path: filePath, change: "removed" })),
           },
         };
@@ -495,6 +585,7 @@ export const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (ar
     run: Effect.gen(function* () {
       if (args.prepared === undefined) yield* applyPlannedProjections(manager);
       else yield* applyProjectionPlans(args.prepared.plans);
+      const nativeObservation = yield* manager.aggregateProjectionObservation;
       const currentOutcomes =
         manager.configuredAgentOutcomes === undefined
           ? []
@@ -502,13 +593,22 @@ export const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (ar
       return {
         result: "success",
         message: "Reconciled managed hook entries and the fallback region",
-        artifact: { ...artifact, agentOutcomes: currentOutcomes },
+        artifact: {
+          ...artifact,
+          agentOutcomes: currentOutcomes,
+          ...(nativeObservation.nativeLocations === undefined
+            ? {}
+            : { nativeLocations: nativeObservation.nativeLocations }),
+        },
       } satisfies JobStepResult;
     }).pipe(Effect.mapError(args.adapter.toStepFailure)),
   });
 });
 
 export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function* (args: {
+  readonly configuredAgents?: ReadonlyArray<string>;
+  readonly newlyConfiguredAgentIds?: ReadonlyArray<string>;
+  readonly nativeProjection?: NativeProjectionOptions;
   readonly projectionFacts: ReadonlyArray<ProjectionInvariantFact>;
   readonly touchesRule: boolean;
   readonly adapter: StepFailureConversionService;
@@ -553,25 +653,71 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
       readiness: "ready",
       label: projectionDivergenceLabel("managed Rules region", projectionFacts),
       artifact,
-      run: applyPlannedProjections(manager).pipe(
+      run: applyPlannedProjections({
+        projectionPlans: () => manager.projectionPlans(args.nativeProjection),
+      }).pipe(
+        Effect.andThen(manager.aggregateProjectionObservation),
         Effect.mapError(args.adapter.toStepFailure),
-        Effect.as({
+        Effect.map((observation): JobStepResult => ({
           result: "success",
           message: "Reconciled the managed Rules region",
-          artifact,
-        } satisfies JobStepResult),
+          artifact: {
+            ...artifact,
+            ...(observation.nativeLocations === undefined
+              ? {}
+              : { nativeLocations: observation.nativeLocations }),
+          },
+        })),
       ),
     });
   }
 
-  const configuredAgents = yield* settings.configuredAgents;
+  const priorConfiguredAgents = yield* settings.configuredAgents;
+  const configuredAgents = args.configuredAgents ?? priorConfiguredAgents;
+  const eligibleAgentIds = (args.newlyConfiguredAgentIds ?? []).filter(
+    (agent) => !priorConfiguredAgents.includes(agent) && configuredAgents.includes(agent),
+  );
   const resolvedConfig = resolveInstructionsConfig(config.value);
-  const snapshot = yield* observeInstructionProjection({
+  const observed = yield* observeInstructionProjection({
     workspaceRoot: location.baseDir,
+    nativeDirectoryInputs: location.nativeDirectoryInputs,
     scope: location.scope,
     configuredAgents,
+    eligibleAgentIds,
     config: resolvedConfig,
   });
+  const prior =
+    eligibleAgentIds.length === 0
+      ? undefined
+      : yield* observeInstructionProjection({
+          workspaceRoot: location.baseDir,
+          nativeDirectoryInputs: location.nativeDirectoryInputs,
+          scope: location.scope,
+          configuredAgents: priorConfiguredAgents,
+          config: resolvedConfig,
+          symlinkSupported: observed.symlinkSupported,
+        });
+  const priorEntries = yield* Effect.forEach(
+    prior?.plan.items.filter((item) => item.action !== "skip") ?? [],
+    (item) =>
+      resolveNativeEntry(item.targetPath).pipe(
+        Effect.map((entry) => entry.entryPath),
+        Effect.option,
+      ),
+  );
+  const previousPaths = new Set(priorEntries.flatMap(Option.toArray));
+  const priorRoutesKnown = priorEntries.every(Option.isSome);
+  const eligibleTargets = (yield* Effect.forEach(observed.plan.items, (item) =>
+    Effect.gen(function* () {
+      if (!priorRoutesKnown || item.action === "skip" || !eligibleAgentIds.includes(item.agentId))
+        return [];
+      const entry = yield* resolveNativeEntry(item.targetPath).pipe(Effect.option);
+      return Option.isSome(entry) && !previousPaths.has(entry.value.entryPath)
+        ? [entry.value.entryPath]
+        : [];
+    }),
+  )).flat();
+  const snapshot = { ...observed, eligibleTargets };
   const path = yield* Path.Path;
   const regionCurrent = !args.touchesRule || !projectionFactsNeedReconciliation(projectionFacts);
   const current =
@@ -604,6 +750,7 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
     scope: location.scope,
     change: targets[0]?.change ?? "updated",
     managedRegions: args.touchesRule ? managedRegionsForFacts(projectionFacts) : [],
+    nativeLocations: instructionProjectionNativeLocations(snapshot, "reconcile"),
     targets,
   } satisfies JobStepArtifact;
 
@@ -613,14 +760,24 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
     label: projectionDivergenceLabel("instruction files", projectionFacts),
     artifact,
     run: Effect.gen(function* () {
-      if (args.touchesRule) yield* applyPlannedProjections(manager);
-      yield* reconcileInstructionAliases();
+      if (args.touchesRule)
+        yield* applyPlannedProjections({
+          projectionPlans: () => manager.projectionPlans(args.nativeProjection),
+        });
+      const ruleLocations = args.touchesRule
+        ? ((yield* manager.aggregateProjectionObservation).nativeLocations ?? [])
+        : [];
+      const result = yield* reconcileInstructionAliases({ eligibleAgentIds, eligibleTargets });
+      return combineNativeLocationOutcomes([
+        ...ruleLocations,
+        ...(Option.isSome(result) ? result.value.nativeLocations : []),
+      ]);
     }).pipe(
       Effect.mapError(args.adapter.toStepFailure),
-      Effect.map((): JobStepResult => ({
+      Effect.map((nativeLocations): JobStepResult => ({
         result: "success",
         message: "Reconciled canonical instructions, aliases, and gitignore entries",
-        artifact,
+        artifact: { ...artifact, nativeLocations },
       })),
     ),
   });

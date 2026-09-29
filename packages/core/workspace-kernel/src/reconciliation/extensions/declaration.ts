@@ -135,6 +135,7 @@ export const recordMaterialization = <TRef extends ExtensionRef>(args: {
   readonly ref: TRef;
   readonly name: string;
   readonly resolution: Option.Option<AcceptedMaterialization<TRef>>;
+  readonly roundTrip?: boolean;
 }) =>
   Effect.gen(function* () {
     const writer = yield* AcceptedResolutionWriter;
@@ -143,6 +144,7 @@ export const recordMaterialization = <TRef extends ExtensionRef>(args: {
         args.ref.type,
         args.resolution.value.key,
         args.resolution.value.entry,
+        { roundTrip: args.roundTrip === true },
       );
     } else if (args.ref.type !== "mcp-server") {
       yield* writer.removeAccepted(args.ref.type, args.name);

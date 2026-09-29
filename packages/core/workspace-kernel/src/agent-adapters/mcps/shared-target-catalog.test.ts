@@ -5,6 +5,7 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import { AGENTS } from "@agentxm/extension-model/unstable/agent-capabilities";
+import { configuredMcpCapability, declaredMcpWriterTargets } from "./targeting.js";
 import {
   resolveSharedMcpTarget,
   type SharedMcpTargetMember,
@@ -15,12 +16,18 @@ describe("shared MCP writer targets", () => {
   it("keeps every shared MCP writer target compatible", () => {
     const groups = new Map<string, Array<SharedMcpTargetMember>>();
     for (const agent of AGENTS) {
-      const writer = agent.capabilities["mcp-server"].axm.writer;
-      if (writer === null) continue;
-      for (const target of writer.config.targets) {
+      const capability = configuredMcpCapability(agent.id);
+      if (capability === undefined) continue;
+      for (const { target, config, location } of declaredMcpWriterTargets(capability)) {
         const key = target.scope + ":" + target.path;
         const members = groups.get(key) ?? [];
-        members.push({ agentId: agent.id, config: writer.config, target });
+        members.push({
+          agentId: agent.id,
+          locationId: location.id,
+          configured: true,
+          config,
+          target,
+        });
         groups.set(key, members);
       }
     }

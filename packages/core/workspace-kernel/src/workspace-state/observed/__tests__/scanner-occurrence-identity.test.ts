@@ -214,6 +214,7 @@ describe("scanner occurrence identity", () => {
             diagnostics: diag,
           });
           const agentDir = yield* makeAgentDirScanner({
+            nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
             fs: deps.fs,
             path: deps.path,
             workspaceRoot: WORKSPACE_ROOT,
@@ -275,6 +276,7 @@ describe("scanner occurrence identity", () => {
             diagnostics: diag,
           });
           const agentDir = yield* makeAgentDirScanner({
+            nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
             fs: deps.fs,
             path: deps.path,
             workspaceRoot: WORKSPACE_ROOT,
@@ -324,6 +326,7 @@ describe("scanner occurrence identity", () => {
             },
           });
           const occurrences = yield* makeMcpConfigScanner({
+            nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
             fs: deps.fs,
             path: deps.path,
             workspaceRoot: WORKSPACE_ROOT,

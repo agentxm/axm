@@ -62,6 +62,7 @@ export type PackMemberRef =
 
 export interface PackMemberStepArgs {
   readonly ref: PackMemberRef;
+  readonly nativeInsertionEligible?: boolean;
   readonly nonInteractive: boolean;
   /**
    * Whether an agent that cannot accept the member refuses the whole closure.
@@ -83,7 +84,13 @@ const memberPresentation = (args: {
     ManagerRequirements
   >;
 }): Effect.Effect<InstallArtifactPresentation, ExtensionManagerFailure, ManagerRequirements> =>
-  args.observation.pipe(Effect.map(({ agents }) => ({ ...registrySourceArtifact(args), agents })));
+  args.observation.pipe(
+    Effect.map(({ agents, nativeLocations }) => ({
+      ...registrySourceArtifact(args),
+      agents,
+      ...(nativeLocations === undefined ? {} : { nativeLocations }),
+    })),
+  );
 
 /** Build the closure for one Pack member. */
 export const buildPackMemberStep: (
@@ -103,6 +110,9 @@ export const buildPackMemberStep: (
   const { ref, toStepFailure } = args;
   const common = {
     toStepFailure,
+    ...(args.nativeInsertionEligible === undefined
+      ? {}
+      : { nativeInsertionEligible: args.nativeInsertionEligible }),
     enclosingClosure: { projections: [ref.type], postconditions: [ref.type] },
     ...(args.force === undefined ? {} : { force: args.force }),
   } as const;

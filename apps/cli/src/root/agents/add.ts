@@ -74,6 +74,7 @@ const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddAr
     SyncWorkspace.planMaterialization({
       selection: { target: Option.none(), type: Option.none() },
       configuredAgents: candidate.configuredAgents,
+      newlyConfiguredAgentIds: candidate.agentIds,
     }).pipe(Effect.mapError(toAppError)),
   );
 

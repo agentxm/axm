@@ -9,6 +9,7 @@
  */
 
 import type { PlatformError } from "effect/PlatformError";
+import { assertNoPhysicalOverlap, type NativeLocationError } from "../locations/index.js";
 import * as Data from "effect/Data";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -25,7 +26,7 @@ import * as Stream from "effect/Stream";
  * package content, and copying a `.git` directory from a git-hosted or local
  * source would only bloat the canonical copy.
  */
-const ALWAYS_EXCLUDED_NAMES = new Set([".git"]);
+const ALWAYS_EXCLUDED_NAMES = new Set([".git", ".axm-copy.json"]);
 
 /**
  * Entries additionally omitted from an agent-facing artifact: human files,
@@ -135,12 +136,13 @@ export const copyExtensionDirectory = (
   options?: CopyExtensionDirectoryOptions,
 ): Effect.Effect<
   void,
-  PlatformError | DirectoryCopyLimitExceeded,
+  PlatformError | DirectoryCopyLimitExceeded | NativeLocationError,
   FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    yield* assertNoPhysicalOverlap(src, dest);
     const maxBytes = Math.min(
       options?.maxBytes ?? MAX_COPIED_EXTENSION_BYTES,
       MAX_COPIED_EXTENSION_BYTES,
@@ -164,6 +166,12 @@ export const copyExtensionDirectory = (
       maxBytes,
       maxEntries,
     );
+    // A distinct destination tree can still contain hardlinks or leaf aliases
+    // to source files. Validate the complete copy set before the first write.
+    yield* Effect.forEach(files, ({ source, target }) => assertNoPhysicalOverlap(source, target), {
+      concurrency: 1,
+      discard: true,
+    });
     yield* Effect.forEach(
       directories,
       (directory) => fs.makeDirectory(directory, { recursive: true }),

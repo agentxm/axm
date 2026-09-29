@@ -4,6 +4,7 @@ import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
+import type { ContainerIdentity } from "../locations/index.js";
 
 import type {
   TransitionContention,
@@ -18,6 +19,10 @@ export interface WorkspaceTransactionPaths {
   readonly workspaceDir: string;
   readonly settingsPath: string;
   readonly lockPath: string;
+  /** User scope's native root differs from its internal workspace state root. */
+  readonly nativeRoot?: string;
+  /** Explicit captured native roots; workspace state remains owned by workspaceDir. */
+  readonly nativeRoots?: ReadonlyArray<string>;
 }
 
 export interface WorkspaceTransactionArgs<A, E = never, R = never> {
@@ -59,6 +64,8 @@ export interface WorkspaceTransactionScopeService {
   >;
   /** Whether this invocation currently holds admission for its workspace. */
   readonly isHeld: Effect.Effect<boolean>;
+  /** Exclusive creations owned by the current admission, including prior durable receipt proof. */
+  readonly createdDirectories: Effect.Effect<ReadonlyArray<ContainerIdentity>>;
   readonly run: <A, E, R>(
     args: WorkspaceTransactionArgs<A, E, R>,
   ) => Effect.Effect<A, WorkspaceTransactionFailure | WorkspaceRestorationIncomplete | E, R>;
@@ -68,6 +75,11 @@ export class WorkspaceTransactionScope extends ServiceMap.Service<
   WorkspaceTransactionScope,
   WorkspaceTransactionScopeService
 >()("@agentxm/workspace-kernel/settlement/WorkspaceTransactionScope") {}
+
+export const createdWorkspaceDirectories: Effect.Effect<ReadonlyArray<ContainerIdentity>> =
+  Effect.flatMap(Effect.serviceOption(WorkspaceTransactionScope), (scope) =>
+    scope._tag === "Some" ? scope.value.createdDirectories : Effect.succeed([]),
+  );
 
 /** Creates an invocation-owned scope when an application selects a workspace at runtime. */
 export class WorkspaceTransactionScopes extends ServiceMap.Service<

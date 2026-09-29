@@ -1,3 +1,8 @@
+import {
+  prepareCanonicalParents,
+  retireCanonicalDirectory,
+  materializeExternalPackageWithTreeIntegrity,
+} from "@agentxm/workspace-kernel/acquisition";
 // @effect-diagnostics anyUnknownInErrorContext:off — schema and filesystem errors are swept into KnowledgeIoFailed inside this manager
 /** Lifecycle manager for isolated Open Knowledge Format bundles. */
 
@@ -58,6 +63,7 @@ import {
   verifyWorkspaceRefLocation,
   makeBaseManagerMembers,
   listMaterializableFromAccepted,
+  type NativeProjectionOptions,
 } from "@agentxm/workspace-kernel/materialization";
 import {
   applyInstructionSurfacePlans,
@@ -73,18 +79,22 @@ import {
   resolveInstructionsConfig,
   canonicalObservationFactText,
   resolveKnowledgeInstructionEntry,
+  captureAgentOutputAuthority,
+  observeProjectionPlans,
+  type NativeRegionSource,
 } from "@agentxm/workspace-kernel/projection";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
+import {
+  assertNoPhysicalOverlap,
+  assertNativeMutationWithinRoots,
+  nativeAuthorityRoots,
+} from "@agentxm/workspace-kernel/locations";
 import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/workspace-kernel/sources";
 import {
   makeWorkspaceRelativeSourcePath,
   makeWorkspaceRelativePath,
 } from "@agentxm/extension-model/unstable/path-types";
-import {
-  recordFootprint,
-  runWorkspaceTransaction,
-  protectWorkspacePath,
-} from "@agentxm/workspace-kernel/settlement";
+import { runWorkspaceTransaction } from "@agentxm/workspace-kernel/settlement";
 import {
   KNOWLEDGE_EXTENSION_DIR,
   KNOWLEDGE_MANIFEST_FILENAME,
@@ -105,8 +115,11 @@ interface PreparedKnowledgePackage {
   readonly root: string;
   readonly sourceHash: SourceHash;
   readonly treeIntegrity?: TreeIntegrity;
-  readonly commit: Effect.Effect<void, ExtensionManagerFailure>;
-  readonly rollback: Effect.Effect<void, ExtensionManagerFailure>;
+  readonly inspected: {
+    readonly manifest: KnowledgeManifest;
+    readonly inspection: KnowledgeInspection;
+  };
+  readonly commit: Effect.Effect<void, ExtensionManagerFailure, ManagerRequirements>;
 }
 
 const decodeManifest = Schema.decodeUnknownEffect(KnowledgeManifestSchema);
@@ -135,6 +148,7 @@ export const KnowledgeManagerLive = Layer.effect(
     const sources = yield* SourceHostProviders;
     const catalog = yield* WorkspaceCatalog;
     const baseDir = location.baseDir;
+    const lastProjection = yield* Ref.make(NO_MATERIALIZATION_OBSERVATION);
 
     // The workspace state ports and source integration are this layer's own
     // dependencies; the platform stays in `R` for every member.
@@ -236,6 +250,7 @@ export const KnowledgeManagerLive = Layer.effect(
     const preparePackage = (
       ref: KnowledgeExtensionRef,
       force = false,
+      nativeInsertionEligible = false,
     ): Effect.Effect<
       PreparedKnowledgePackage,
       ExtensionManagerFailure,
@@ -251,17 +266,16 @@ export const KnowledgeManagerLive = Layer.effect(
             invalid: (detail) => new KnowledgeDefinitionInvalid({ detail }),
           });
           const root = ref.location;
-          yield* inspectPackage(root);
+          const inspected = yield* inspectPackage(root);
           return {
             root,
+            inspected,
             sourceHash: ref.sourceHash,
             commit: Effect.void,
-            rollback: Effect.void,
           };
         }
         const tempDir = yield* fs.makeTempDirectoryScoped({ prefix: "axm-knowledge-package-" });
         const stagedPath = path.join(tempDir, "staged");
-        const backupPath = path.join(tempDir, "previous");
         // Reuse is judged against canonicalPath; acquired bytes go to stagedPath.
         const acquired = yield* acquireCanonicalForRef({
           ref,
@@ -279,100 +293,49 @@ export const KnowledgeManagerLive = Layer.effect(
         if (acquired.reused) {
           return {
             root: canonicalPath,
+            inspected: yield* inspectPackage(canonicalPath),
             sourceHash: yield* provide(computePackageContentHash(canonicalPath)),
             treeIntegrity: acquired.treeIntegrity,
             commit: Effect.void,
-            rollback: Effect.void,
           };
         }
-        const stageState = yield* Ref.make<
-          | { readonly phase: "preparing" }
-          | { readonly phase: "staged"; readonly hadCanonical: boolean }
-          | { readonly phase: "settled" }
-        >({ phase: "preparing" });
-        const restoreStagedPackage = Ref.get(stageState).pipe(
-          Effect.flatMap((state) => {
-            if (state.phase !== "staged") return Effect.void;
-            return fs.remove(canonicalPath, { recursive: true, force: true }).pipe(
-              Effect.mapError(
-                (cause) =>
-                  new KnowledgeIoFailed({
-                    detail: `Failed to remove staged Knowledge package during rollback: ${canonicalPath}`,
-                    cause,
-                  }),
-              ),
-              Effect.andThen(
-                state.hadCanonical
-                  ? fs.rename(backupPath, canonicalPath).pipe(
-                      Effect.mapError(
-                        (cause) =>
-                          new KnowledgeIoFailed({
-                            detail: `Failed to restore Knowledge package during rollback: ${canonicalPath}`,
-                            cause,
-                          }),
-                      ),
-                    )
-                  : Effect.void,
-              ),
-              Effect.andThen(Ref.set(stageState, { phase: "settled" })),
-            );
-          }),
-        );
-        yield* Effect.addFinalizer(() =>
-          restoreStagedPackage.pipe(
-            Effect.catchCause((cause) =>
-              Effect.logError(
-                "Failed to restore staged Knowledge package during finalization",
-                cause,
-              ),
-            ),
-          ),
-        );
         const stagedRoot = acquired.packageRoot;
-        yield* inspectPackage(stagedRoot);
+        const inspected = yield* inspectPackage(stagedRoot);
         const sourceHash = yield* provide(computePackageContentHash(stagedRoot));
         const treeIntegrity = acquired.treeIntegrity;
-        yield* protectWorkspacePath(canonicalPath);
-        const hadCanonical = yield* fs.exists(canonicalPath);
-        // The footprint reports byte changes: replacing a tree with an
-        // identical one is not one, however it was acquired.
-        const previousTreeIntegrity = hadCanonical
-          ? yield* provide(computeMaterializedTreeIntegrity(canonicalPath)).pipe(Effect.option)
-          : Option.none<TreeIntegrity>();
-        yield* Effect.uninterruptible(
-          Effect.gen(function* () {
-            if (hadCanonical) yield* fs.rename(canonicalPath, backupPath);
-            yield* fs.makeDirectory(path.dirname(canonicalPath), { recursive: true });
-            yield* fs.rename(stagedPath, canonicalPath).pipe(
-              Effect.tapError(() =>
-                hadCanonical
-                  ? fs.rename(backupPath, canonicalPath).pipe(
-                      Effect.mapError(
-                        (cause) =>
-                          new KnowledgeIoFailed({
-                            detail: `Failed to restore Knowledge package after staging failed: ${canonicalPath}`,
-                            cause,
-                          }),
-                      ),
-                    )
-                  : Effect.void,
-              ),
-            );
-            yield* Ref.set(stageState, { phase: "staged", hadCanonical });
-          }),
-        );
-        if (!Option.contains(previousTreeIntegrity, treeIntegrity)) {
-          yield* recordFootprint({
-            path: canonicalPath,
-            change: hadCanonical ? "modified" : "created",
-          });
-        }
+        // Scoped acquisition is read-only with respect to canonical state. The
+        // enclosing workspace transaction alone owns publication and rollback.
         return {
           root: canonicalPath,
+          inspected,
           sourceHash,
           treeIntegrity,
-          commit: Ref.set(stageState, { phase: "settled" }),
-          rollback: restoreStagedPackage,
+          commit: materializeExternalPackageWithTreeIntegrity<
+            ExtensionManagerFailure,
+            ManagerRequirements
+          >({
+            baseDir,
+            canonicalPath,
+            sourceLocation: stagedRoot,
+            ...(nativeInsertionEligible
+              ? { prepareParents: prepareCanonicalParents({ canonicalPath, eligible: true }) }
+              : {}),
+            copyFailureCode: "internal",
+            copyFailureDetail: (target) =>
+              `Failed to publish prepared Knowledge package: ${target}`,
+            validate: (staged) =>
+              computeMaterializedTreeIntegrity(staged).pipe(
+                Effect.flatMap((actual) =>
+                  actual === treeIntegrity
+                    ? Effect.void
+                    : Effect.fail(
+                        new KnowledgeDefinitionInvalid({
+                          detail: "Prepared Knowledge package changed before publication",
+                        }),
+                      ),
+                ),
+              ),
+          }).pipe(Effect.asVoid),
         };
       }).pipe(
         Effect.mapError((cause) =>
@@ -396,10 +359,29 @@ export const KnowledgeManagerLive = Layer.effect(
             detail: `Knowledge discovery instruction target escapes workspace: ${resolved.fileName}`,
           });
         }
+        const declaredPath = path.resolve(baseDir, relative.value);
+        const { address } = yield* assertNativeMutationWithinRoots(
+          nativeAuthorityRoots(
+            path,
+            { workspaceRoot: baseDir, scope: location.scope },
+            location.nativeDirectoryInputs,
+          ),
+          declaredPath,
+          "content",
+          path.dirname(location.runtimeDir),
+        ).pipe(
+          Effect.mapError(
+            (cause) =>
+              new KnowledgeDefinitionInvalid({
+                detail: `Knowledge instruction source is not writable: ${relative.value}`,
+                cause,
+              }),
+          ),
+        );
         return {
-          path: path.resolve(baseDir, relative.value),
+          path: address.referentPath ?? address.entryPath,
+          declaredPath,
           enabled,
-          preserveSource: enabled,
         };
       });
 
@@ -549,9 +531,9 @@ export const KnowledgeManagerLive = Layer.effect(
         })),
       );
 
-    const resolveKnowledgeProjection = () =>
+    const resolveKnowledgeProjection = (options?: NativeProjectionOptions) =>
       Effect.gen(function* () {
-        const graph = yield* desiredState.graph();
+        const graph = options?.desiredGraph ?? (yield* desiredState.graph());
         const locked = yield* lockfile.entries("knowledge");
         const configured = yield* settings.entries("knowledge");
         const config = yield* settings.knowledgeDiscoveryConfig;
@@ -564,49 +546,100 @@ export const KnowledgeManagerLive = Layer.effect(
       readonly config: ResolvedKnowledgeDiscoveryConfig;
       readonly instructionsTarget: {
         readonly path: string;
+        readonly declaredPath: string;
         readonly enabled: boolean;
-        readonly preserveSource: boolean;
       };
       readonly dryRun?: boolean;
+      readonly ownership: ReadonlyArray<NativeRegionSource>;
+      readonly configuredAgents: ReadonlyArray<string>;
+      readonly eligible: boolean;
     }) =>
       provide(
         reconcileKnowledgeDiscovery({
           scopeRoot: baseDir,
+          ownerRoot: path.dirname(location.runtimeDir),
+          scope: location.scope,
+          nativeDirectoryInputs: location.nativeDirectoryInputs,
+          configuredAgentIds: args.configuredAgents,
+          ownership: args.ownership,
+          eligible: args.eligible,
           config: args.config,
           bundles: args.bundles,
           instructionsPath: args.instructionsTarget.path,
+          instructionsDeclaredPath: args.instructionsTarget.declaredPath,
           instructionManagementEnabled: args.instructionsTarget.enabled,
-          preserveInstructionsSource: args.instructionsTarget.preserveSource,
           ...(args.dryRun === undefined ? {} : { dryRun: args.dryRun }),
         }),
+      ).pipe(
+        Effect.tap((result) =>
+          args.dryRun === true
+            ? Effect.void
+            : Ref.set(lastProjection, {
+                agents: args.configuredAgents,
+                targets: result.artifacts.map((artifact) => ({
+                  path: artifact.path,
+                  agentIds: args.configuredAgents,
+                })),
+                nativeLocations: result.nativeLocations,
+              }),
+        ),
       );
 
-    const makeKnowledgeProjectionPlan = (): Effect.Effect<
+    const makeKnowledgeProjectionPlan = (
+      prospective: ReadonlyArray<KnowledgeDiscoveryBundle> = [],
+      options?: NativeProjectionOptions,
+      replacedNames: ReadonlySet<string> = new Set(prospective.map(({ name }) => name)),
+    ): Effect.Effect<
       ProjectionPlan<void, ExtensionManagerFailure, ManagerRequirements>,
       ExtensionManagerFailure,
       ManagerRequirements
     > =>
       Effect.gen(function* () {
         const { graph, locked, configured, config, instructionsTarget } =
-          yield* resolveKnowledgeProjection();
-        return yield* planAggregateProjection({
+          yield* resolveKnowledgeProjection(options);
+        const configuredAgents = options?.configuredAgents ?? (yield* settings.configuredAgents);
+        const accepted = yield* captureAgentOutputAuthority();
+        const ownership = [
+          ...accepted.expectedRegions.knowledge,
+          ...(options?.priorAuthority?.expectedRegions.knowledge ?? []),
+          ...prospective.map(({ name, owner, sourceDir }) => ({
+            name,
+            ref: `${owner}/knowledge/${name}`,
+            root: path.relative(baseDir, path.dirname(sourceDir)),
+            scope: location.scope,
+          })),
+        ];
+        const selection = yield* selectKnowledgeBundles(
+          {
+            ...graph,
+            nodes: graph.nodes.filter(
+              (node) => node.type !== "knowledge" || !replacedNames.has(node.name),
+            ),
+          },
+          locked,
+          configured,
+          config,
+          instructionsTarget.enabled,
+        );
+        const bundles = [...selection.contributors, ...prospective];
+        const eligible =
+          bundles.some(({ name }) => options?.nativeInsertionEligibleNames?.has(name)) ||
+          (configuredAgents.length > 0 &&
+            configuredAgents.every((id) => options?.nativeInsertionEligibleAgentIds?.has(id)));
+        const plan = yield* planAggregateProjection({
           unitId: "knowledge:discovery-region",
           targetFile: instructionsTarget.path,
           graph,
-          select: (completeGraph) =>
-            selectKnowledgeBundles(
-              completeGraph,
-              locked,
-              configured,
-              config,
-              instructionsTarget.enabled,
-            ),
+          select: () => Effect.succeed({ contributors: bundles, exclusions: selection.exclusions }),
           adapter: {
             observe: (input) =>
               runKnowledgeProjectionAdapter({
                 bundles: input.contributors,
                 config,
                 instructionsTarget,
+                ownership,
+                configuredAgents,
+                eligible,
                 dryRun: true,
               }).pipe(
                 Effect.map((result) => ({
@@ -625,50 +658,131 @@ export const KnowledgeManagerLive = Layer.effect(
                 bundles: input.contributors,
                 config,
                 instructionsTarget,
+                ownership,
+                configuredAgents,
+                eligible,
               }).pipe(Effect.asVoid),
           },
         });
+        yield* observeProjectionPlans([plan]);
+        return plan;
       });
 
-    const projectionPlans = () => makeKnowledgeProjectionPlan().pipe(Effect.map((plan) => [plan]));
+    const projectionPlans: KnowledgeManagerService["projectionPlans"] = (options) =>
+      makeKnowledgeProjectionPlan([], options).pipe(Effect.map((plan) => [plan]));
+    const prepareProjection: KnowledgeManagerService["prepareProjection"] = (refs, options) =>
+      Effect.gen(function* () {
+        const { graph, configured, config, instructionsTarget } =
+          yield* resolveKnowledgeProjection(options);
+        const prospective = yield* Effect.forEach(
+          refs,
+          (ref) =>
+            Effect.scoped(
+              Effect.gen(function* () {
+                const source =
+                  ref.refType === "registry"
+                    ? (yield* sources.fetch(ref)).directory
+                    : fromFileLocation(ref.location);
+                yield* assertNoPhysicalOverlap(source, instructionsTarget.path).pipe(
+                  Effect.mapError(
+                    (cause) =>
+                      new KnowledgeDefinitionInvalid({
+                        detail: "Knowledge native target overlaps its input source",
+                        cause,
+                      }),
+                  ),
+                );
+                const inspected = yield* inspectPackage(source);
+                const workspaceInstructionEntry = configured[ref.knowledge.name]?.instructionEntry;
+                const manifestInstructionEntry = inspected.manifest.instructionEntry;
+                const inclusion = resolveKnowledgeInstructionEntry({
+                  bundleEnabled:
+                    graph.nodes.find(
+                      (node) => node.type === "knowledge" && node.name === ref.knowledge.name,
+                    )?.enabled ?? true,
+                  instructionFilesEnabled: instructionsTarget.enabled,
+                  knowledgeInstructionsEnabled: config.instructions,
+                  ...(workspaceInstructionEntry === undefined ? {} : { workspaceInstructionEntry }),
+                  ...(manifestInstructionEntry === undefined ? {} : { manifestInstructionEntry }),
+                });
+                const canonical = computeExtensionPathsForLayout(
+                  path.join,
+                  currentLayout(),
+                  ref,
+                  KNOWLEDGE_EXTENSION_DIR,
+                  ref.knowledge.name,
+                ).canonicalPath;
+                return inclusion.included ? [toProjectionBundle(canonical, inspected)] : [];
+              }),
+            ),
+          { concurrency: 1 },
+        );
+        return [
+          yield* makeKnowledgeProjectionPlan(
+            prospective.flat(),
+            options,
+            new Set(refs.map((ref) => ref.knowledge.name)),
+          ),
+        ];
+      });
 
     const applyKnowledgeProjection = projectionPlans().pipe(
       Effect.flatMap(applyInstructionSurfacePlans),
       Effect.asVoid,
     );
 
-    const reconcileDiscovery = (options?: { readonly dryRun?: boolean }) =>
-      resolveKnowledgeProjection().pipe(
-        Effect.flatMap(({ graph, locked, configured, config, instructionsTarget }) =>
-          requireCompleteContributors(graph, "knowledge").pipe(
-            Effect.flatMap((completeGraph) =>
-              selectKnowledgeBundles(
-                completeGraph,
-                locked,
-                configured,
-                config,
-                instructionsTarget.enabled,
-              ),
+    const reconcileDiscovery = (options?: {
+      readonly dryRun?: boolean;
+      readonly nativeProjection?: NativeProjectionOptions;
+      readonly prospective?: ReadonlyArray<KnowledgeDiscoveryBundle>;
+      readonly replacedNames?: ReadonlySet<string>;
+    }) =>
+      Effect.gen(function* () {
+        const { graph, locked, configured, config, instructionsTarget } =
+          yield* resolveKnowledgeProjection(options?.nativeProjection);
+        const completeGraph = yield* requireCompleteContributors(graph, "knowledge");
+        const selection = yield* selectKnowledgeBundles(
+          {
+            ...completeGraph,
+            nodes: completeGraph.nodes.filter(
+              (node) => node.type !== "knowledge" || !options?.replacedNames?.has(node.name),
             ),
-            Effect.flatMap(({ contributors, exclusions }) =>
-              runKnowledgeProjectionAdapter({
-                bundles: contributors,
-                config,
-                instructionsTarget,
-                ...(options?.dryRun === undefined ? {} : { dryRun: options.dryRun }),
-              }).pipe(
-                Effect.map((result) => ({
-                  ...result,
-                  warnings: formatProjectionExclusions({
-                    exclusions,
-                    targetFile: instructionsTarget.path,
-                  }),
-                })),
-              ),
-            ),
-          ),
-        ),
-      );
+          },
+          locked,
+          configured,
+          config,
+          instructionsTarget.enabled,
+        );
+        const contributors = [...selection.contributors, ...(options?.prospective ?? [])];
+        const exclusions = selection.exclusions;
+        const authority = yield* captureAgentOutputAuthority();
+        const configuredAgents =
+          options?.nativeProjection?.configuredAgents ?? (yield* settings.configuredAgents);
+        const eligible =
+          contributors.some(({ name }) =>
+            options?.nativeProjection?.nativeInsertionEligibleNames?.has(name),
+          ) ||
+          (configuredAgents.length > 0 &&
+            configuredAgents.every((id) =>
+              options?.nativeProjection?.nativeInsertionEligibleAgentIds?.has(id),
+            ));
+        const result = yield* runKnowledgeProjectionAdapter({
+          bundles: contributors,
+          config,
+          instructionsTarget,
+          ownership: [
+            ...authority.expectedRegions.knowledge,
+            ...(options?.nativeProjection?.priorAuthority?.expectedRegions.knowledge ?? []),
+          ],
+          configuredAgents,
+          eligible,
+          ...(options?.dryRun === undefined ? {} : { dryRun: options.dryRun }),
+        });
+        return {
+          ...result,
+          warnings: formatProjectionExclusions({ exclusions, targetFile: instructionsTarget.path }),
+        };
+      });
 
     const restoreLockedPackage = (name: string, entry: KnowledgeLockEntry) =>
       Effect.gen(function* () {
@@ -710,6 +824,7 @@ export const KnowledgeManagerLive = Layer.effect(
 
     const syncLocked = (
       dryRun: boolean,
+      nativeProjection?: NativeProjectionOptions,
     ): Effect.Effect<
       KnowledgeSyncResult,
       ExtensionManagerFailure,
@@ -734,9 +849,6 @@ export const KnowledgeManagerLive = Layer.effect(
           }
           const restored = yield* Effect.result(restoreLockedPackage(name, entry));
           if (Result.isFailure(restored)) {
-            yield* Effect.forEach([...prepared].reverse(), (item) => item.rollback, {
-              discard: true,
-            });
             const restoreFailure = restored.failure;
             return yield* new KnowledgeUnavailable({
               detail: `Active Knowledge bundle could not be restored: ${name}. ${describeKnowledgeFailure(restoreFailure)}`,
@@ -744,20 +856,34 @@ export const KnowledgeManagerLive = Layer.effect(
             });
           } else prepared.push(restored.success);
         }
-        const discovered = yield* Effect.result(reconcileDiscovery({ dryRun: true }));
-        if (Result.isFailure(discovered)) {
-          yield* Effect.forEach([...prepared].reverse(), (item) => item.rollback, {
-            discard: true,
-          });
-          return yield* Effect.fail(discovered.failure);
+        const { configured, config, instructionsTarget } =
+          yield* resolveKnowledgeProjection(nativeProjection);
+        const prospective = prepared.flatMap((item) => {
+          const workspaceInstructionEntry =
+            configured[item.inspected.manifest.name]?.instructionEntry;
+          const manifestInstructionEntry = item.inspected.manifest.instructionEntry;
+          return resolveKnowledgeInstructionEntry({
+            bundleEnabled: true,
+            instructionFilesEnabled: instructionsTarget.enabled,
+            knowledgeInstructionsEnabled: config.instructions,
+            ...(workspaceInstructionEntry === undefined ? {} : { workspaceInstructionEntry }),
+            ...(manifestInstructionEntry === undefined ? {} : { manifestInstructionEntry }),
+          }).included
+            ? [toProjectionBundle(item.root, item.inspected)]
+            : [];
+        });
+        const discovery = yield* reconcileDiscovery({
+          dryRun: true,
+          prospective,
+          replacedNames: new Set(prepared.map((item) => item.inspected.manifest.name)),
+          ...(nativeProjection === undefined ? {} : { nativeProjection }),
+        });
+        if (!dryRun) {
+          yield* Effect.forEach(prepared, (item) => item.commit, { discard: true });
+          yield* projectionPlans(nativeProjection).pipe(
+            Effect.flatMap(applyInstructionSurfacePlans),
+          );
         }
-        if (!dryRun) yield* applyKnowledgeProjection;
-        yield* Effect.forEach(
-          dryRun ? [...prepared].reverse() : prepared,
-          (item) => (dryRun ? item.rollback : item.commit),
-          { discard: true },
-        );
-        const discovery = discovered.success;
         return {
           changed: prepared.length > 0 || discovery.changed,
           warnings: discovery.warnings,
@@ -781,16 +907,7 @@ export const KnowledgeManagerLive = Layer.effect(
       // removed; a lock row alone owns nothing on disk.
       const ownedRoot = removableAcceptedCanonicalPath(canonical);
       if (Option.isSome(ownedRoot)) {
-        yield* protectWorkspacePath(ownedRoot.value);
-        yield* fs.remove(ownedRoot.value, { recursive: true, force: true }).pipe(
-          Effect.mapError(
-            (cause) =>
-              new KnowledgeIoFailed({
-                detail: `Failed to remove Knowledge package source: ${ownedRoot.value}`,
-                cause,
-              }),
-          ),
-        );
+        yield* retireCanonicalDirectory(ownedRoot.value);
       }
       return withdrawn;
     });
@@ -802,7 +919,7 @@ export const KnowledgeManagerLive = Layer.effect(
 
     const acquireCanonical: KnowledgeManagerService["materializeInstall"] = Effect.fn(
       "KnowledgeManager.materializeInstall",
-    )(function* ({ ref, force }) {
+    )(function* ({ ref, force, nativeInsertionEligible }) {
       const workspaceRelativeLocalSourcePath =
         ref.refType === "local"
           ? makeWorkspaceRelativeSourcePath(
@@ -816,24 +933,26 @@ export const KnowledgeManagerLive = Layer.effect(
           detail: `Local knowledge source must stay within the workspace: ${ref.source.path}`,
         });
       }
-      const prepared = yield* preparePackage(ref, force === true);
+      const prepared = yield* preparePackage(ref, force === true, nativeInsertionEligible);
       yield* prepared.commit;
       return acquiredFacts(prepared, workspaceRelativeLocalSourcePath);
     }, Effect.scoped);
 
     return {
       projectionPlans,
+      prepareProjection,
+      aggregateProjectionObservation: Ref.get(lastProjection),
       refreshCatalog: () =>
         runWorkspaceTransaction({
           transition: applyKnowledgeProjection,
           validate: () => Effect.void,
         }),
-      sync: ({ dryRun }) =>
+      sync: ({ dryRun, nativeProjection }) =>
         dryRun
-          ? Effect.scoped(syncLocked(true))
+          ? Effect.scoped(syncLocked(true, nativeProjection))
           : Effect.scoped(
               runWorkspaceTransaction({
-                transition: syncLocked(false),
+                transition: syncLocked(false, nativeProjection),
                 validate: () => Effect.void,
               }),
             ),

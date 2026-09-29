@@ -56,10 +56,14 @@ const fixture = (directory = "skills") =>
     );
     const args = {
       workspaceRoot: root,
+      nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
       scope: "project" as const,
       desiredAgentIds: new Set<string>(),
       expectedNames,
-      skillOwnershipRoots: [layout.acquiredRoot, layout.authoredRoot("skill")],
+      expectedHooks: [],
+      expectedMcpEntries: {},
+      expectedSkillSources: { other: [path.join(layout.authoredRoot("skill"), "other/src")] },
+      expectedSubagentFiles: {},
       authoredSkills: { layout, entries: settings.skills ?? {} },
     };
     return { fs, path, root, write, manifest, args };
@@ -77,14 +81,69 @@ const provide = <A, E>(
   );
 
 describe("authored skill exclusion", () => {
+  it.effect("observes scoped Hook aliases as one physical unit", () =>
+    provide(
+      Effect.gen(function* () {
+        const { args, fs, path, root, write } = yield* fixture();
+        const owner = {
+          name: "audit",
+          ref: "@acme/hooks/audit",
+          scope: "user" as const,
+          root: "agent_extensions/registry/@acme/hooks/audit",
+        };
+        yield* write(
+          ".claude/settings.json",
+          JSON.stringify({
+            hooks: {
+              PreToolUse: [
+                {
+                  hooks: [
+                    {
+                      type: "command",
+                      command: "echo audit",
+                      "x-axm": {
+                        v: 1,
+                        managed: true,
+                        source: "extension",
+                        unit: "hook:audit",
+                        ref: owner.ref,
+                        scope: owner.scope,
+                        root: owner.root,
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
+          }),
+        );
+        yield* fs.makeDirectory(path.join(root, ".gemini"));
+        yield* fs.symlink("../.claude/settings.json", path.join(root, ".gemini/settings.json"));
+        const inventory = yield* observeAgentOutputs({
+          ...args,
+          scope: "user",
+          expectedHooks: [owner],
+        });
+        const hooks = inventory.outputs.filter((output) => output.extensionType === "hook");
+        expect(hooks).toHaveLength(1);
+        expect(hooks[0]).toMatchObject({
+          path: `${root}/.claude/settings.json#audit`,
+          ownership: "owned",
+        });
+        expect(hooks[0]?.claimantAgentIds).toContain("claude-code");
+        expect(hooks[0]?.claimantAgentIds).toContain("gemini-cli");
+      }),
+    ),
+  );
+
   it.effect.each(["AXM_CLAUDE_SKILLS_DIR", "AXM_GEMINI_CLI_SKILLS_DIR"])(
-    "preserves %s failure instead of returning an incomplete inventory",
+    "uses captured native inputs independently of later %s provider failure",
     (key) =>
       provide(
         Effect.gen(function* () {
           const { args } = yield* fixture();
           const sourceError = new ConfigProvider.SourceError({ message: "source unavailable" });
-          const failure = yield* observeAgentOutputs(args).pipe(
+          const inventory = yield* observeAgentOutputs(args).pipe(
             Effect.provide(
               ConfigProvider.layer(
                 ConfigProvider.make((path) =>
@@ -92,10 +151,8 @@ describe("authored skill exclusion", () => {
                 ),
               ),
             ),
-            Effect.flip,
           );
-          expect(failure._tag).toBe("ConfigError");
-          expect(failure.cause).toBe(sourceError);
+          expect(inventory.outputs).toEqual([]);
         }),
       ),
   );

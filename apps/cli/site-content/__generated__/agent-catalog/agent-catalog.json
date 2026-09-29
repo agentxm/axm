@@ -244,7 +244,13 @@
     "vendor": "LangChain",
     "homepage": "https://docs.langchain.com/oss/python/deepagents/overview",
     "lifecycle": { "state": "active" },
-    "support": { "skill": true, "mcp-server": false, "subagent": true, "rule": true, "hook": false }
+    "support": {
+      "skill": true,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": true,
+      "hook": false
+    }
   },
   {
     "id": "devin",
@@ -381,7 +387,7 @@
     "vendor": "IBM",
     "homepage": "https://bob.ibm.com",
     "lifecycle": { "state": "active" },
-    "support": { "skill": true, "mcp-server": true, "subagent": true, "rule": true, "hook": false }
+    "support": { "skill": true, "mcp-server": true, "subagent": false, "rule": true, "hook": false }
   },
   {
     "id": "iflow-cli",
@@ -421,7 +427,7 @@
     "vendor": "AWS",
     "homepage": "https://kiro.dev",
     "lifecycle": { "state": "active" },
-    "support": { "skill": true, "mcp-server": true, "subagent": true, "rule": true, "hook": false }
+    "support": { "skill": true, "mcp-server": true, "subagent": false, "rule": true, "hook": false }
   },
   {
     "id": "kode",
@@ -629,7 +635,13 @@
       "note": "Roo Code shut down its VS Code extension, Cloud, and Router on 2026-05-15 (final release v3.54.0); the RooCodeInc/Roo-Code repo is archived and read-only. The former team pivoted to a separate cloud-agent product, Roomote.",
       "supersededBy": null
     },
-    "support": { "skill": true, "mcp-server": false, "subagent": true, "rule": true, "hook": false }
+    "support": {
+      "skill": true,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": true,
+      "hook": false
+    }
   },
   {
     "id": "rovodev",

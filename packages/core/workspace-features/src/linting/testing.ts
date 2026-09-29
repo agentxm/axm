@@ -47,6 +47,7 @@ import {
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
 } from "@agentxm/cli-maintenance/official-skill/domain";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
+import type { NativeWriteAuthority } from "@agentxm/workspace-kernel/agent-adapters";
 import type { ProjectionParticipants } from "@agentxm/workspace-kernel/projection";
 import {
   CodingAgentRepositoryLive,
@@ -55,6 +56,7 @@ import {
 } from "@agentxm/workspace-kernel/projection/live";
 import type { WorkspaceStateError } from "@agentxm/workspace-kernel/workspace-state";
 import { WorkspaceStateLive } from "@agentxm/workspace-kernel/workspace-state/live";
+import type { NativeObservationView } from "@agentxm/workspace-kernel/locations";
 
 import { allCatalogRuleIds } from "./catalog/index.js";
 import type { LintWorkspaceRequirements } from "./run/lint-workspace.js";
@@ -104,7 +106,8 @@ export interface LintWorkspaceFixtureOptions {
  * fact to invent.
  */
 export type LintWorkspaceServices = Layer.Layer<
-  Exclude<LintWorkspaceRequirements, FileSystem.FileSystem | Path.Path | RegistryClientFactory>,
+  | Exclude<LintWorkspaceRequirements, FileSystem.FileSystem | Path.Path | RegistryClientFactory>
+  | NativeWriteAuthority,
   WorkspaceStateError,
   FileSystem.FileSystem | Path.Path | RegistryClientFactory | ProjectionParticipants
 >;
@@ -142,10 +145,12 @@ export interface LintWorkspaceFixture {
  */
 export const lintWorkspaceServices = (args: {
   readonly workspaceRoot: string;
+  readonly observationView?: NativeObservationView;
   /** The CLI version the official-skill compatibility policy evaluates against. */
   readonly cliVersion?: string | null;
 }): LintWorkspaceServices => {
   const state = WorkspaceStateLive({
+    ...(args.observationView === undefined ? {} : { observationView: args.observationView }),
     scope: "project",
     projectRoot: decodeAbsolutePathSync(args.workspaceRoot),
     allowUninitialized: true,
@@ -156,10 +161,10 @@ export const lintWorkspaceServices = (args: {
   );
   return Layer.provideMerge(
     Layer.mergeAll(
-      WorkspaceInvariantFactsLive.pipe(Layer.provide(NativeWriteAuthorityLive)),
+      WorkspaceInvariantFactsLive,
       makeAxmSkillCompatibilityPolicyLayer(args.cliVersion ?? null),
     ),
-    agents,
+    Layer.provideMerge(NativeWriteAuthorityLive, agents),
   ).pipe(Layer.provide(WorkspaceFileWriteLocksLive));
 };
 

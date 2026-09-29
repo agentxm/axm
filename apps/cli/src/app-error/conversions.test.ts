@@ -54,6 +54,7 @@ describe("the application boundary projection", () => {
         restorationCause: new Error("injected restoration defect"),
         snapshotDir: undefined,
         retained: ["axm.json"],
+        recovery: [],
       }),
     );
 
@@ -73,6 +74,7 @@ describe("the application boundary projection", () => {
         restorationCause: new Error("injected restoration defect"),
         snapshotDir: undefined,
         retained: ["axm.json"],
+        recovery: [],
       }),
     );
 
@@ -94,6 +96,7 @@ describe("the application boundary projection", () => {
         restorationCause: new Error("injected restoration defect"),
         snapshotDir: undefined,
         retained: ["axm.json"],
+        recovery: [],
       });
       const expected = `Transition failed: ${toAppError(deciding).detail}. Workspace restoration did not complete;`;
       const conversion = yield* StepFailureConversion;
@@ -116,6 +119,7 @@ describe("the application boundary projection", () => {
         restorationCause: new Error("injected restoration defect"),
         snapshotDir: undefined,
         retained: ["axm.json"],
+        recovery: [],
       });
       const conversion = yield* StepFailureConversion;
 

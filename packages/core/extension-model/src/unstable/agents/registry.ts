@@ -10,22 +10,10 @@
 import * as Record from "effect/Record";
 import { CONFIGURABLE_AGENTS_BY_ID } from "../agent-capabilities/catalog.js";
 import { deriveAgentDescriptor } from "../agent-capabilities/derive.js";
-import { UNIVERSAL_SKILLS_DIR } from "../extensions/universal-skills-dir.js";
-import type { AgentDescriptor, AgentRegistry } from "./types.js";
-
-const UNIVERSAL_AGENT_DESCRIPTOR: AgentDescriptor = {
-  id: "universal",
-  name: "Universal",
-  rootDir: undefined,
-  skills: {
-    dir: UNIVERSAL_SKILLS_DIR,
-    additionalReadPaths: [],
-  },
-  detection: { project: { markers: [] }, user: { markers: [] } },
-};
+import type { AgentRegistry } from "./types.js";
 
 /**
- * Derived descriptors for all known AI coding agents, including the synthetic universal target.
+ * Derived descriptors for all known configurable coding agents.
  *
  * Keys are agent IDs, values are full descriptor objects.
  * Paths are pre-expanded at module initialization.
@@ -34,5 +22,4 @@ const UNIVERSAL_AGENT_DESCRIPTOR: AgentDescriptor = {
  */
 export const AGENT_DESCRIPTORS: AgentRegistry = {
   ...Record.map(CONFIGURABLE_AGENTS_BY_ID, deriveAgentDescriptor),
-  universal: UNIVERSAL_AGENT_DESCRIPTOR,
 };

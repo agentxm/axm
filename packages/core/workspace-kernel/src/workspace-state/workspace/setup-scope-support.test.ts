@@ -35,6 +35,23 @@ describe("setupScopeSupport", () => {
     ]);
   });
 
+  it("distinguishes native Skill scope support from a verified scoped destination", () => {
+    expect(
+      category(setupScopeSupport(["cursor", "claude-code"], "user"), "skill")?.outcomes,
+    ).toEqual([
+      expect.objectContaining({
+        agentId: "cursor",
+        status: "refused",
+        reasonCode: "scope-not-modeled",
+        reason: expect.stringContaining("no verified user-scope skill directory"),
+      }),
+      expect.objectContaining({ agentId: "claude-code", status: "supported" }),
+    ]);
+    expect(category(setupScopeSupport(["cursor"], "project"), "skill")?.outcomes).toEqual([
+      expect.objectContaining({ agentId: "cursor", status: "supported" }),
+    ]);
+  });
+
   it("uses typed user-scope subagent refusals", () => {
     const outcomes = category(
       setupScopeSupport(["claude-code", "adal"], "user"),

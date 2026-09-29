@@ -11,7 +11,8 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { codingAgentForId, type CodingAgent } from "../../agent-adapters/index.js";
-import { SettingsReader } from "../../workspace-state/index.js";
+import type { NativeDirectoryInputs } from "../../locations/index.js";
+import { WorkspaceLocation, SettingsReader } from "../../workspace-state/index.js";
 import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import {
   CodingAgentRepository,
@@ -27,18 +28,23 @@ import {
 const configuredAgentIds = () =>
   SettingsReader.pipe(Effect.flatMap((settings) => settings.configuredAgents));
 
-export const DefaultCodingAgentRepository: CodingAgentRepositoryService = {
+export const makeCodingAgentRepositoryService = (
+  inputs: NativeDirectoryInputs,
+): CodingAgentRepositoryService => ({
   get: (id: MaterializationTargetId): Effect.Effect<CodingAgent> =>
-    Effect.succeed(codingAgentForId(id)),
-  all: Effect.sync(allCodingAgents),
-  getConfiguredAgents: () => configuredAgentIds().pipe(Effect.map(configuredCodingAgents)),
+    Effect.succeed(codingAgentForId(id, inputs)),
+  all: Effect.sync(() => allCodingAgents(inputs)),
+  getConfiguredAgents: () =>
+    configuredAgentIds().pipe(Effect.map((ids) => configuredCodingAgents(ids, inputs))),
   getMaterializationAgents: () =>
-    configuredAgentIds().pipe(Effect.map(materializationCodingAgents)),
+    configuredAgentIds().pipe(Effect.map((ids) => materializationCodingAgents(ids, inputs))),
   getUnknownConfiguredAgentIds: () =>
     configuredAgentIds().pipe(Effect.map(unknownConfiguredAgentIds)),
-};
+});
 
-export const CodingAgentRepositoryLive = Layer.succeed(
+export const CodingAgentRepositoryLive = Layer.effect(
   CodingAgentRepository,
-  DefaultCodingAgentRepository,
+  Effect.map(WorkspaceLocation, (location) =>
+    makeCodingAgentRepositoryService(location.nativeDirectoryInputs),
+  ),
 );

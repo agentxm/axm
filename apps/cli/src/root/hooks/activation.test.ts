@@ -9,7 +9,6 @@ import { afterEach, beforeEach } from "vitest";
 
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { SourceHostProvidersLive } from "@agentxm/workspace-kernel/sources/live";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace-kernel/projection/live";
 import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
   AllExtensionManagersLive,
@@ -42,11 +41,7 @@ describe("hooks enable/disable no-op output", () => {
   const makeLayers = (opts?: Parameters<typeof makeWorkspaceHandlerTestContext>[0]) => {
     const ctx = makeWorkspaceHandlerTestContext(opts);
     const sourceLayer = Layer.provide(SourceHostProvidersLive, ctx.fullLayer);
-    const workspaceServiceLayer = Layer.mergeAll(
-      ctx.fullLayer,
-      sourceLayer,
-      CodingAgentRepositoryLive,
-    );
+    const workspaceServiceLayer = Layer.mergeAll(ctx.fullLayer, sourceLayer);
     // Creating a hook resolves its manager through the registry, exactly as
     // the runtime composes it.
     const fullLayer = Layer.provideMerge(AllExtensionManagersLive, workspaceServiceLayer);

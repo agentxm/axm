@@ -56,6 +56,10 @@ export const claudeAiAgent = {
         standardsCompliance: "full",
         convention: "hosted",
         transports: ["http"],
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",

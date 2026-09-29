@@ -175,6 +175,7 @@ const buildAndEvaluate = (
   Effect.gen(function* () {
     const deps = yield* buildFixture(spec);
     const lintWorkspace = yield* buildLintWorkspace({
+      nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
       platform: { fs: deps.fs, path: deps.path },
       workspaceRoot: deps.workspaceRoot,
       userHome: deps.userHome,
@@ -257,6 +258,7 @@ describe("buildLintWorkspace manifest JSON population", () => {
       let calls = 0;
       const deps = yield* buildFixture(fixtureWithKnowledge());
       const lintWorkspace = yield* buildLintWorkspace({
+        nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
         platform: { fs: deps.fs, path: deps.path },
         workspaceRoot: deps.workspaceRoot,
         userHome: deps.userHome,
@@ -322,6 +324,7 @@ describe("buildLintWorkspace manifest JSON population", () => {
         remove: (path: string) => unsupported("remove", path),
       };
       const lintWorkspace = yield* buildLintWorkspace({
+        nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
         platform: { fs, path: deps.path },
         workspaceRoot: deps.workspaceRoot,
         userHome: deps.userHome,

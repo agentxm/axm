@@ -105,7 +105,9 @@ export const agentRootSegment = (
 // ---------------------------------------------------------------------------
 
 const heuristicSegment = (path: Path.Path, descriptor: AgentDescriptor): string => {
-  const dir = descriptor.skills?.dir;
+  const dir = descriptor.skills?.locations.find(
+    (location) => location.scope === "project" && location.role === "primary",
+  )?.path;
   if (dir === undefined) return `.${descriptor.id}`;
   if (dir.length === 0) return `.${descriptor.id}`;
   const segments = splitPathSegments(path, dir);

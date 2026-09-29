@@ -1,3 +1,4 @@
+import type { NativeDirectoryInputs } from "../../locations/index.js";
 /** Per-scope read-only workspace model factory and configuration. */
 
 import * as Brand from "effect/Brand";
@@ -149,6 +150,7 @@ export const READ_MODEL_EXTENSION_FAMILY_BY_TYPE = {
 
 /** Configuration the factory requires beyond `FileSystem` and `Path`. */
 export interface WorkspaceReadModelConfigService {
+  readonly nativeDirectoryInputs: NativeDirectoryInputs;
   readonly projectRoot: AbsolutePath;
   readonly userHome: AbsolutePath;
   readonly allowedRoot: AbsolutePath;
@@ -189,6 +191,7 @@ const validateRoot = (
 // ---------------------------------------------------------------------------
 
 interface BuildScopeDeps {
+  readonly nativeDirectoryInputs: NativeDirectoryInputs;
   readonly scope: Scope;
   readonly fs: FileSystem.FileSystem;
   readonly path: Path.Path;
@@ -266,6 +269,7 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
   );
   const agentDirScanner = yield* Effect.cached(
     makeAgentDirScanner({
+      nativeDirectoryInputs: deps.nativeDirectoryInputs,
       fs: scannerFs,
       path,
       workspaceRoot,
@@ -276,6 +280,7 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
   );
   const mcpConfigScanner = yield* Effect.cached(
     makeMcpConfigScanner({
+      nativeDirectoryInputs: deps.nativeDirectoryInputs,
       fs: scannerFs,
       path,
       workspaceRoot,
@@ -499,6 +504,7 @@ export const makeWorkspaceReadModel = (
     );
 
     return yield* buildScope({
+      nativeDirectoryInputs: config.nativeDirectoryInputs,
       scope,
       fs,
       path: pathSvc,

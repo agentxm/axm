@@ -35,17 +35,23 @@ const isKnownAgentId = (id: string): id is MaterializationTargetId =>
 const scanKnownAgentSubagentFiles = (agent: AgentDescriptor, projectDir: string) =>
   Effect.gen(function* () {
     const subagents = agent.subagents;
-    if (subagents === undefined) return [];
+    const declaration = subagents?.locations.find(
+      (location) =>
+        location.scope === "project" &&
+        location.role === "primary" &&
+        location.applicability.kind === "always",
+    );
+    if (declaration === undefined) return [];
 
     const fs = yield* FileSystem.FileSystem;
     const p = yield* Path.Path;
-    const subagentPath = p.resolve(projectDir, subagents.dir);
+    const subagentPath = p.resolve(projectDir, declaration.path);
 
     const exists = yield* fs.exists(subagentPath);
     if (!exists) return [];
 
-    if (subagents.isFile === true) {
-      return [{ path: subagents.dir }] as const;
+    if (declaration.shape === "file") {
+      return [{ path: declaration.path }] as const;
     }
 
     const entries = yield* fs.readDirectory(subagentPath);
@@ -60,7 +66,7 @@ const scanKnownAgentSubagentFiles = (agent: AgentDescriptor, projectDir: string)
     );
 
     return files.map(
-      (file) => ({ path: p.join(subagents.dir, file) }) satisfies DetectedSubagentFile,
+      (file) => ({ path: p.join(declaration.path, file) }) satisfies DetectedSubagentFile,
     );
   }).pipe(
     Effect.mapError((error) => new SubagentScanFailed({ agentName: agent.name, cause: error })),
@@ -85,7 +91,10 @@ export const scanAllSubagentFiles = (projectDir: string) =>
           return {
             agentId: agent.id,
             agentName: agent.name,
-            subagentDir: agent.subagents?.dir ?? "",
+            subagentDir:
+              agent.subagents?.locations.find(
+                (location) => location.scope === "project" && location.role === "primary",
+              )?.path ?? "",
             files,
           } satisfies AgentSubagentSummary;
         }),

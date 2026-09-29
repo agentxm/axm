@@ -7,7 +7,6 @@ import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 
 import { SourceHostProvidersLive } from "@agentxm/workspace-kernel/sources/live";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace-kernel/projection/live";
 import {
   AllExtensionManagersLive,
   expectAppliedPlanResult,
@@ -44,7 +43,6 @@ describe("mcps enable/disable output", () => {
     const workspaceServiceLayer = Layer.mergeAll(
       ctx.fullLayer,
       Layer.provide(SourceHostProvidersLive, ctx.fullLayer),
-      CodingAgentRepositoryLive,
     );
     const fullLayer = Layer.provideMerge(AllExtensionManagersLive, workspaceServiceLayer);
     return {
@@ -140,7 +138,7 @@ describe("mcps enable/disable output", () => {
 
         expect(logs.success).toEqual(["Enabled 1 MCP server"]);
         expect(rendererState.summaries).toEqual([
-          "context   -   updated   2 files, axm.json, .mcp.json",
+          `context   -   updated   2 files, axm.json, ${path.join(tempDir, ".mcp.json")}`,
         ]);
         expect(rendererState.suggestions).toEqual([
           { description: "Inspect installed MCP servers", cmd: "axm mcps list" },

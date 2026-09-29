@@ -16,24 +16,43 @@ const stdioCapability = {
     scopes: ["project"],
     transports: ["stdio"],
     mcpEnvExpansion: { variables: "braced", defaults: false },
+
+    locations: [
+      {
+        id: "project-0",
+        scope: "project",
+        root: "project",
+        path: ".mcp.json",
+        shape: "file",
+        role: "primary",
+        status: "canonical",
+        applicability: { kind: "always" },
+        provenance: { kind: "capability-sources" },
+        format: "json",
+        attribution: "shared",
+        keyPath: ["mcpServers"],
+      },
+    ],
+
+    entryDialect: {
+      activationField: {
+        required: { name: "enabled", enabled: true, disabled: false },
+        accepted: [{ name: "enabled", enabled: true, disabled: false }],
+      },
+      stdio: {
+        typeField: { required: null, accepted: [null] },
+        command: "split",
+        envKey: "env",
+      },
+      remote: null,
+    },
   },
   axm: {
     status: "supported",
     lastVerified: "2026-05-16",
     writer: {
       config: {
-        serversKey: "mcpServers",
-        activationField: {
-          required: { name: "enabled", enabled: true, disabled: false },
-          accepted: [{ name: "enabled", enabled: true, disabled: false }],
-        },
-        targets: [{ scope: "project", path: ".mcp.json", format: "json", attribution: "shared" }],
-        stdio: {
-          typeField: { required: null, accepted: [null] },
-          command: "split",
-          envKey: "env",
-        },
-        remote: null,
+        locationIds: ["project-0"],
       },
     },
   },
@@ -49,39 +68,58 @@ const remoteCapability = {
     sources: ["https://example.com/mcp"],
     scopes: ["project"],
     transports: ["http", "stdio"],
+
+    locations: [
+      {
+        id: "project-0",
+        scope: "project",
+        root: "project",
+        path: ".mcp.json",
+        shape: "file",
+        role: "primary",
+        status: "canonical",
+        applicability: { kind: "always" },
+        provenance: { kind: "capability-sources" },
+        format: "json",
+        attribution: "shared",
+        keyPath: ["mcpServers"],
+      },
+    ],
+
+    entryDialect: {
+      activationField: {
+        required: { name: "enabled", enabled: true, disabled: false },
+        accepted: [{ name: "enabled", enabled: true, disabled: false }],
+      },
+      stdio: {
+        typeField: { required: null, accepted: [null] },
+        command: "array",
+        envKey: "env",
+      },
+      remote: {
+        typeField: {
+          required: {
+            name: "type",
+            value: { "streamable-http": "http", sse: "sse" },
+          },
+          accepted: [
+            {
+              name: "type",
+              value: { "streamable-http": "http", sse: "sse" },
+            },
+          ],
+        },
+        urlKey: { "streamable-http": "url", sse: "url" },
+        headersKey: "headers",
+      },
+    },
   },
   axm: {
     status: "supported",
     lastVerified: "2026-05-16",
     writer: {
       config: {
-        serversKey: "mcpServers",
-        activationField: {
-          required: { name: "enabled", enabled: true, disabled: false },
-          accepted: [{ name: "enabled", enabled: true, disabled: false }],
-        },
-        targets: [{ scope: "project", path: ".mcp.json", format: "json", attribution: "shared" }],
-        stdio: {
-          typeField: { required: null, accepted: [null] },
-          command: "array",
-          envKey: "env",
-        },
-        remote: {
-          typeField: {
-            required: {
-              name: "type",
-              value: { "streamable-http": "http", sse: "sse" },
-            },
-            accepted: [
-              {
-                name: "type",
-                value: { "streamable-http": "http", sse: "sse" },
-              },
-            ],
-          },
-          urlKey: { "streamable-http": "url", sse: "url" },
-          headersKey: "headers",
-        },
+        locationIds: ["project-0"],
       },
     },
   },
@@ -99,29 +137,16 @@ const httpOnlyRemoteCapability = {
   native: {
     ...remoteCapability.native,
     transports: ["http"],
-  },
-  axm: {
-    ...remoteCapability.axm,
-    writer: {
-      config: {
-        ...remoteCapability.axm.writer.config,
-        stdio: null,
-        remote: {
-          typeField: {
-            required: {
-              name: "type",
-              value: { "streamable-http": "http" },
-            },
-            accepted: [
-              {
-                name: "type",
-                value: { "streamable-http": "http" },
-              },
-            ],
-          },
-          urlKey: { "streamable-http": "url" },
-          headersKey: "headers",
+    entryDialect: {
+      ...remoteCapability.native.entryDialect,
+      stdio: null,
+      remote: {
+        typeField: {
+          required: { name: "type", value: { "streamable-http": "http" } },
+          accepted: [{ name: "type", value: { "streamable-http": "http" } }],
         },
+        urlKey: { "streamable-http": "url" },
+        headersKey: "headers",
       },
     },
   },

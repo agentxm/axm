@@ -18,6 +18,7 @@
 export {
   NO_MATERIALIZATION_OBSERVATION,
   type ManagerRequirements,
+  type CanonicalMaterializationRequirements,
   type MaterializationFacts,
   type MaterializationObservation,
 } from "./manager-contract.js";
@@ -28,6 +29,7 @@ export type {
   InstallMaterialization,
   MaterializationConfiguration,
   MaterializationProjection,
+  NativeProjectionOptions,
   SynchronizeMaterialization,
   UninstallMaterialization,
 } from "./ports/transition-materialization.js";

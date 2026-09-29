@@ -4,6 +4,7 @@ import type * as Path from "effect/Path";
 import type { RegistryClientFactory } from "@agentxm/registry-client";
 
 import type { NativeWriteAuthority } from "../agent-adapters/index.js";
+import type { NativeLocationOutcome } from "../locations/index.js";
 import type {
   DesiredStateReader,
   LockfileReader,
@@ -11,7 +12,7 @@ import type {
   WorkspaceLocation,
 } from "../workspace-state/index.js";
 
-/** Canonical acquisition leaves the filesystem and the Registry client port in R. */
+/** Canonical acquisition keeps filesystem, client, and cleanup authority in R. */
 export type CanonicalMaterializationRequirements =
   | FileSystem.FileSystem
   | Path.Path
@@ -19,9 +20,10 @@ export type CanonicalMaterializationRequirements =
   | WorkspaceLocation
   | SettingsReader
   | LockfileReader
-  | DesiredStateReader;
+  | DesiredStateReader
+  | NativeWriteAuthority;
 
-export type ManagerRequirements = CanonicalMaterializationRequirements | NativeWriteAuthority;
+export type ManagerRequirements = CanonicalMaterializationRequirements;
 
 /**
  * Machine-local effects observed during the most recent materialization.
@@ -30,6 +32,7 @@ export type ManagerRequirements = CanonicalMaterializationRequirements | NativeW
  * making agent-specific paths part of the shared lockfile contract.
  */
 export interface MaterializationObservation {
+  readonly nativeLocations?: ReadonlyArray<NativeLocationOutcome>;
   readonly agents: ReadonlyArray<string>;
   readonly targets: ReadonlyArray<{
     readonly path: string;

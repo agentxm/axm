@@ -19,6 +19,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import type { NativeWriteAuthority } from "@agentxm/workspace-kernel/agent-adapters";
 import type * as Config from "effect/Config";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -40,9 +41,11 @@ import {
 import { ArtifactChangeSchema } from "@agentxm/workspace-kernel/operations";
 import {
   BUNDLED_SKILL_OWNER,
+  captureNativeDirectoryInputs,
   LOCK_FILENAME,
   acquiredDisplayPath,
   resolveUserWorkspaceRoot,
+  resolveUserHome,
   scanAllSubagentFiles,
   setupScopeSupport,
   type AgentSubagentSummary,
@@ -51,6 +54,7 @@ import {
   type WorkspaceStateOptions,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { AXM_DIR_NAME } from "@agentxm/host-primitives";
+import { nativeAuthorityRoots } from "@agentxm/workspace-kernel/locations";
 import {
   runWorkspaceTransaction,
   WorkspaceTransactionScope,
@@ -230,6 +234,8 @@ export interface SetupWorkspaceRequest {
 
 export interface SetupWorkspaceCandidate {
   readonly _tag: "SetupWorkspace";
+  readonly nativeRoot: string;
+  readonly nativeRoots: ReadonlyArray<string>;
   readonly request: SetupWorkspaceRequest;
   /** Whether the authoritative settings file already exists. */
   readonly settingsExist: boolean;
@@ -329,8 +335,17 @@ export const prepareSetupWorkspace = (
       } satisfies SetupApprovalRequired;
     }
 
+    const userHome = yield* resolveUserHome();
+    const nativeRoot = request.scope === "user" ? userHome : request.projectRoot;
+    const nativeRoots = nativeAuthorityRoots(
+      path,
+      { workspaceRoot: nativeRoot, scope: request.scope },
+      yield* captureNativeDirectoryInputs(userHome),
+    );
     return {
       _tag: "SetupWorkspace",
+      nativeRoot,
+      nativeRoots,
       request,
       settingsExist,
       settingsPath,
@@ -380,6 +395,7 @@ export const previewOrApplySetupWorkspace = <
   SetupTransition,
   SetupWorkspaceFailure | BundledSkillError,
   | BundledSkillRequirements
+  | NativeWriteAuthority
   | WorkspaceTransactionScopes
   | WorkspaceFileWriteLocks
   | FileSystem.FileSystem
@@ -410,6 +426,8 @@ export const previewOrApplySetupWorkspace = <
     const scopes = yield* WorkspaceTransactionScopes;
     const scope = yield* scopes.forWorkspace({
       workspaceDir: candidate.workspaceDir,
+      nativeRoot: candidate.nativeRoot,
+      nativeRoots: candidate.nativeRoots,
       settingsPath: candidate.settingsPath,
       lockPath: path.join(path.dirname(candidate.settingsPath), LOCK_FILENAME),
     });
@@ -594,7 +612,10 @@ export const reportSetupWorkspace = (
       (agentId) =>
         agentRepository.get(agentId).pipe(
           Effect.flatMap((agent) =>
-            agent.resolveEffectiveSkillsDir({ workspaceRoot: location.baseDir }),
+            agent.resolveEffectiveSkillsDir({
+              workspaceRoot: location.baseDir,
+              scope: location.scope,
+            }),
           ),
           Effect.flatMap((resolved) =>
             resolved._tag !== "supported"

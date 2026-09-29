@@ -105,9 +105,9 @@ export const SourceHostProvidersLive: Layer.Layer<
         : path.resolve(catalog.workspaceRoot, source.path),
     });
 
-    const normalizeLocalRefSourcePath = (
-      ref: ExtensionRef,
-    ): Effect.Effect<ExtensionRef, SourceNotResolvable> => {
+    const normalizeLocalRefSourcePath = <TRef extends ExtensionRef>(
+      ref: TRef,
+    ): Effect.Effect<TRef, SourceNotResolvable> => {
       if (ref.refType !== "local") return Effect.succeed(ref);
       const selectedPath = fromFileLocation(ref.location);
       const relative = makeWorkspaceRelativeSourcePath(path, catalog.workspaceRoot, selectedPath);
@@ -119,7 +119,13 @@ export const SourceHostProvidersLive: Layer.Layer<
           }),
         );
       }
-      return Effect.succeed<ExtensionRef>({ ...ref, sourcePath: relative.value });
+      const normalized = { ...ref, sourcePath: relative.value };
+      return ref.type === "pack"
+        ? Effect.map(
+            Effect.forEach(ref.sourceMembers, normalizeLocalRefSourcePath),
+            (sourceMembers) => ({ ...normalized, sourceMembers }),
+          )
+        : Effect.succeed(normalized);
     };
 
     const findImpl = (source: Source, options: FindOptions) => {

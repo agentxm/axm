@@ -10,8 +10,10 @@
 
 import * as JsonPatch from "effect/JsonPatch";
 import * as JsonPointer from "effect/JsonPointer";
+import * as Option from "effect/Option";
 import type * as Schema from "effect/Schema";
 import { applyEdits, modify, type ModificationOptions } from "jsonc-parser";
+import { deriveStructuralInverse } from "../../../locations/index.js";
 
 /**
  * A single JSON modification: set or remove a value at a path.
@@ -34,6 +36,7 @@ export type JsonPointerPathResult =
     };
 
 export interface ApplyJsonPatchOptions {
+  readonly preserveInsertionBaseline?: boolean;
   readonly getInsertionIndex?: (
     path: ReadonlyArray<string | number>,
     properties: ReadonlyArray<string>,
@@ -96,12 +99,6 @@ export const jsonPointerToJsonPath = (
   return { _tag: "Success", path };
 };
 
-const formattingOptions = {
-  insertSpaces: true,
-  tabSize: 2,
-  eol: "\n",
-} satisfies ModificationOptions["formattingOptions"];
-
 export const applyJsonPatchToText = (
   text: string,
   document: Schema.Json,
@@ -116,20 +113,40 @@ export const applyJsonPatchToText = (
     if (translated._tag === "Failure") return translated;
 
     const value = operation.op === "remove" ? undefined : operation.value;
-    const modificationOptions: ModificationOptions =
-      options.getInsertionIndex === undefined
-        ? { formattingOptions }
+    const modificationOptions: ModificationOptions = {
+      formattingOptions: {
+        insertSpaces: true,
+        tabSize: 2,
+        eol: text.includes("\r\n") ? "\r\n" : "\n",
+      },
+      ...(options.getInsertionIndex === undefined
+        ? {}
         : {
-            formattingOptions,
-            getInsertionIndex: (properties) =>
+            getInsertionIndex: (properties: string[]) =>
               options.getInsertionIndex?.(translated.path, properties) ?? -1,
-          };
+          }),
+    };
 
     try {
-      currentText = applyEdits(
+      const formatted = applyEdits(
         currentText,
         modify(currentText, [...translated.path], value, modificationOptions),
       );
+      // Formatting an insertion can rewrite a neighboring authored value. Keep
+      // the formatted edit only when its inverse contains syntax alone.
+      currentText =
+        options.preserveInsertionBaseline === true &&
+        operation.op === "add" &&
+        Option.isNone(deriveStructuralInverse(currentText, formatted))
+          ? applyEdits(
+              currentText,
+              modify(currentText, [...translated.path], value, {
+                ...(modificationOptions.getInsertionIndex === undefined
+                  ? {}
+                  : { getInsertionIndex: modificationOptions.getInsertionIndex }),
+              }),
+            )
+          : formatted;
       currentDocument = JsonPatch.apply([operation], currentDocument);
     } catch {
       return { _tag: "Failure", reason: "edit_failed" };

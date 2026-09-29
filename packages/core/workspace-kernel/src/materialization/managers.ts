@@ -50,6 +50,7 @@ import type {
   InstallMaterialization,
   SynchronizeMaterialization,
   UninstallMaterialization,
+  NativeProjectionOptions,
 } from "./ports/transition-materialization.js";
 
 // -----------------------------------------------------------------------------
@@ -162,6 +163,9 @@ export class SkillManager extends ServiceMap.Service<SkillManager, SkillManagerS
  * @experimental This API is unstable and may change without notice.
  */
 export interface InstallMcpServerOperationArgs {
+  readonly nativeInsertionEligible?: boolean;
+  /** Physical routes newly authorized by a captured membership transition. */
+  readonly nativeInsertionEligiblePaths?: ReadonlySet<string>;
   readonly ref: McpServerExtensionRef;
   /**
    * The source identity the connection's credentials and lock rows are keyed
@@ -346,7 +350,17 @@ export interface RuleManagerService
     ExtensionManagerFailure,
     ManagerRequirements
   >;
-  readonly projectionPlans: () => Effect.Effect<
+  readonly prepareProjection: (
+    refs: ReadonlyArray<RuleExtensionRef>,
+    options?: NativeProjectionOptions,
+  ) => Effect.Effect<
+    ReadonlyArray<ProjectionPlan<void, ExtensionManagerFailure, ManagerRequirements>>,
+    ExtensionManagerFailure,
+    ManagerRequirements
+  >;
+  readonly projectionPlans: (
+    options?: NativeProjectionOptions,
+  ) => Effect.Effect<
     ReadonlyArray<ProjectionPlan<void, ExtensionManagerFailure, ManagerRequirements>>,
     ExtensionManagerFailure,
     ManagerRequirements
@@ -398,13 +412,16 @@ export interface HookManagerService
   }) => Effect.Effect<HookMaterializationFacts, ExtensionManagerFailure, ManagerRequirements>;
   readonly prepareProjection: (
     refs: ReadonlyArray<HookExtensionRef>,
+    options?: NativeProjectionOptions,
   ) => Effect.Effect<PreparedHookProjection, ExtensionManagerFailure, ManagerRequirements>;
   readonly aggregateProjectionObservation: Effect.Effect<
     MaterializationObservation,
     ExtensionManagerFailure,
     ManagerRequirements
   >;
-  readonly projectionPlans: () => Effect.Effect<
+  readonly projectionPlans: (
+    options?: NativeProjectionOptions,
+  ) => Effect.Effect<
     ReadonlyArray<ProjectionPlan<void, ExtensionManagerFailure, ManagerRequirements>>,
     ExtensionManagerFailure,
     ManagerRequirements
@@ -470,7 +487,22 @@ export interface KnowledgeManagerService
   readonly materializeDeactivate: (args: {
     readonly target: ExtensionTargetFor<KnowledgeExtensionRef>;
   }) => Effect.Effect<KnowledgeMaterializationFacts, ExtensionManagerFailure, ManagerRequirements>;
-  readonly projectionPlans: () => Effect.Effect<
+  readonly aggregateProjectionObservation: Effect.Effect<
+    MaterializationObservation,
+    ExtensionManagerFailure,
+    ManagerRequirements
+  >;
+  readonly prepareProjection: (
+    refs: ReadonlyArray<KnowledgeExtensionRef>,
+    options?: NativeProjectionOptions,
+  ) => Effect.Effect<
+    ReadonlyArray<ProjectionPlan<void, ExtensionManagerFailure, ManagerRequirements>>,
+    ExtensionManagerFailure,
+    ManagerRequirements
+  >;
+  readonly projectionPlans: (
+    options?: NativeProjectionOptions,
+  ) => Effect.Effect<
     ReadonlyArray<ProjectionPlan<void, ExtensionManagerFailure, ManagerRequirements>>,
     ExtensionManagerFailure,
     ManagerRequirements
@@ -486,6 +518,7 @@ export interface KnowledgeManagerService
   >;
   readonly sync: (options: {
     readonly dryRun: boolean;
+    readonly nativeProjection?: NativeProjectionOptions;
   }) => Effect.Effect<
     KnowledgeSyncResult,
     ExtensionManagerFailure,

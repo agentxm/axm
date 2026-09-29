@@ -29,10 +29,37 @@ export const clineAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".cline/skills",
-        additionalReadPaths: [
-          { path: ".clinerules/skills", status: "compat" },
-          { path: ".claude/skills", status: "compat" },
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".cline/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+          {
+            scope: "project",
+            root: "project",
+            path: ".clinerules/skills",
+            shape: "directory",
+            role: "additional",
+            status: "compat",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+          {
+            scope: "project",
+            root: "project",
+            path: ".claude/skills",
+            shape: "directory",
+            role: "additional",
+            status: "compat",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
         ],
       },
       axm: {
@@ -57,55 +84,71 @@ export const clineAgent = {
           variables: "none",
           defaults: false,
         },
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-08-05",
-        writer: {
-          config: {
-            serversKey: "mcpServers",
-            activationField: {
-              required: { name: "disabled", enabled: false, disabled: true },
-              accepted: [{ name: "disabled", enabled: false, disabled: true }, null],
+
+        locations: [
+          {
+            id: "user",
+            scope: "user",
+            root: "home",
+            path: ".cline/mcp.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
             },
-            targets: [
-              {
-                scope: "user",
-                path: "~/.cline/mcp.json",
-                format: "json",
-                attribution: "agent",
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "json",
+            keyPath: ["mcpServers"],
+            attribution: "agent",
+          },
+        ],
+
+        entryDialect: {
+          activationField: {
+            required: { name: "disabled", enabled: false, disabled: true },
+            accepted: [{ name: "disabled", enabled: false, disabled: true }, null],
+          },
+          stdio: {
+            typeField: { required: null, accepted: [null] },
+            command: "split",
+            envKey: "env",
+          },
+          remote: {
+            typeField: {
+              required: {
+                name: "type",
+                value: {
+                  "streamable-http": "streamableHttp",
+                  sse: "sse",
+                },
               },
-            ],
-            stdio: {
-              typeField: { required: null, accepted: [null] },
-              command: "split",
-              envKey: "env",
-            },
-            remote: {
-              typeField: {
-                required: {
+              accepted: [
+                {
                   name: "type",
                   value: {
                     "streamable-http": "streamableHttp",
                     sse: "sse",
                   },
                 },
-                accepted: [
-                  {
-                    name: "type",
-                    value: {
-                      "streamable-http": "streamableHttp",
-                      sse: "sse",
-                    },
-                  },
-                ],
-              },
-              urlKey: {
-                "streamable-http": "url",
-                sse: "url",
-              },
-              headersKey: "headers",
+              ],
             },
+            urlKey: {
+              "streamable-http": "url",
+              sse: "url",
+            },
+            headersKey: "headers",
+          },
+        },
+      },
+      axm: {
+        status: "supported",
+        lastVerified: "2026-08-05",
+        writer: {
+          config: {
+            locationIds: ["user"],
           },
         },
       },
@@ -134,6 +177,10 @@ export const clineAgent = {
         sources: ["https://docs.cline.bot/customization/hooks"],
         scopes: ["user", "project"],
         modeling: "native-unmodeled",
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -154,10 +201,20 @@ export const clineAgent = {
       standardsCompliance: "partial",
       convention: "vendor",
       kind: "rules-dir",
-      files: ["*.md", "*.txt"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: ".clinerules",
+          shape: "directory",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: false,
       importSyntax: null,
-      directory: ".clinerules",
     },
     axm: {
       status: "supported",
@@ -178,7 +235,7 @@ export const clineAgent = {
       ],
       scopes: ["user"],
       mechanism: ["ui-only"],
-      configFiles: [],
+      locations: [],
       grammar: null,
       prerequisites: [],
       cliFlags: [],

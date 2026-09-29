@@ -37,7 +37,6 @@ import { recordingFileSystemLayer, type FileSystemWriteEvent } from "./test-help
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { WorkspaceInitializationInteractionTest } from "@agentxm/workspace-features/configuration/testing";
 import { BundledAxmSkillAssetLive } from "../cli-runtime/index.js";
-import { CodingAgentRepositoryLive, NativeWriteAuthorityLive } from "./test-helpers.js";
 import { ExecutionDirectory } from "../execution-directory.js";
 
 export interface SetupSpecContextOptions {
@@ -105,8 +104,6 @@ export const makeSetupSpecContext = (options: SetupSpecContextOptions = {}) => {
       RegistryClientFactoryTest(FetchHttpClient.layer, "https://registry.invalid"),
       platformLayer,
     ),
-    CodingAgentRepositoryLive,
-    Layer.provide(NativeWriteAuthorityLive, foundation),
     // Setup applies the bundled official skill inside the initialization
     // closure, through the same asset layer the executable composes.
     BundledAxmSkillAssetLive,

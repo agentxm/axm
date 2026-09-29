@@ -49,6 +49,7 @@ import {
   WorkspaceTransactionScope,
   makeFootprintRecorder,
   protectWorkspacePath,
+  recordFootprint,
   type WorkspaceTransitionLock,
 } from "../../settlement/index.js";
 import { WorkspaceTransactionScopeTest } from "../../settlement/testing.js";
@@ -1448,14 +1449,12 @@ describe("previewOrApply", () => {
         protectWorkspacePath(target).pipe(
           Effect.mapError(workspaceTransactionFailureToStepFailure),
           Effect.andThen(
-            fs
-              .writeFileString(target, content)
-              .pipe(
-                Effect.mapError(
-                  (cause) =>
-                    new StepFailure({ category: "internal", detail: "write failed", cause }),
-                ),
+            fs.writeFileString(target, content).pipe(
+              Effect.mapError(
+                (cause) => new StepFailure({ category: "internal", detail: "write failed", cause }),
               ),
+              Effect.andThen(recordFootprint({ path: target, change: "modified" })),
+            ),
           ),
         );
       const plan: Plan = {
@@ -1562,6 +1561,7 @@ describe("previewOrApply", () => {
                             cause,
                           }),
                       ),
+                      Effect.andThen(recordFootprint({ path: fileA, change: "modified" })),
                     ),
                   ),
                   Effect.as({ result: "success" as const, message: "updated" }),
@@ -1583,6 +1583,7 @@ describe("previewOrApply", () => {
                             cause,
                           }),
                       ),
+                      Effect.andThen(recordFootprint({ path: fileB, change: "modified" })),
                     ),
                   ),
                   Effect.andThen(Deferred.succeed(inFlight, void 0)),
@@ -1879,7 +1880,11 @@ describe("previewOrApply", () => {
         held: () =>
           Effect.sync(() =>
             holding
-              ? Option.some({ compromised: Effect.never, isCompromised: () => false })
+              ? Option.some({
+                  compromised: Effect.never,
+                  isCompromised: () => false,
+                  createdDirectories: Effect.succeed([]),
+                })
               : Option.none(),
           ),
       };

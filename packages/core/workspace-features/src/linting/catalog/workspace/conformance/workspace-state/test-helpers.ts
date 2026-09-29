@@ -647,7 +647,7 @@ export const projectOutputsNotShadowedConformance: WorkspaceRuleConformanceCase 
     agentScopesContext({
       project: [skillOutput("/workspace", "axm")],
       user: [
-        skillOutput("/home/test", "axm", { ownership: "owned", proof: "storage-root-symlink" }),
+        skillOutput("/home/test", "axm", { ownership: "owned", proof: "canonical-source-link" }),
       ],
     }),
   expectedFindings: [
@@ -670,14 +670,14 @@ export const userOutputsHaveSettingsConformance: WorkspaceRuleConformanceCase = 
     agentScopesContext({
       project: [],
       user: [
-        skillOutput("/home/test", "axm", { ownership: "owned", proof: "storage-root-symlink" }),
+        skillOutput("/home/test", "axm", { ownership: "owned", proof: "canonical-source-link" }),
       ],
     }),
   violated: () =>
     agentScopesContext({
       project: [],
       user: [
-        skillOutput("/home/test", "axm", { ownership: "owned", proof: "storage-root-symlink" }),
+        skillOutput("/home/test", "axm", { ownership: "owned", proof: "canonical-source-link" }),
         skillOutput("/home/test", "notes"),
       ],
       userSettingsReadable: false,
@@ -685,7 +685,7 @@ export const userOutputsHaveSettingsConformance: WorkspaceRuleConformanceCase = 
   expectedFindings: [
     {
       message:
-        "User-scope agent skill ~/.claude/skills/axm links into AXM storage, but the user workspace has no readable settings at ~/.axm/workspace/axm.json.",
+        "User-scope agent skill ~/.claude/skills/axm links to its accepted canonical source, but the user workspace has no readable settings at ~/.axm/workspace/axm.json.",
       location: { file: "~/.claude/skills/axm" },
     },
   ],

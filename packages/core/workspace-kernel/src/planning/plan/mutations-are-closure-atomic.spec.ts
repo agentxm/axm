@@ -14,6 +14,7 @@ import {
   WorkspaceTransactionScope,
   makeFootprintRecorder,
   protectWorkspacePath,
+  recordFootprint,
 } from "../../settlement/index.js";
 import { injectWriteFaults } from "../../settlement/testing.js";
 import {
@@ -156,6 +157,7 @@ const write = (
           (cause) => new StepFailure({ category: "internal", detail: "write refused", cause }),
         ),
       );
+    yield* recordFootprint({ path: target, change: "modified" });
   });
 
 const plan = <Requirements = never>(

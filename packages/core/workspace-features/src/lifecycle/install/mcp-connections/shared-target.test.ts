@@ -19,13 +19,13 @@ describe("Registry MCP installation with shared native targets", () => {
   });
 
   for (const transport of ["stdio", "http", "http-symbolic"] as const) {
-    it.effect(`preserves symbolic ${transport} credentials for Claude, Copilot, and Codex`, () => {
+    it.effect(`preserves symbolic ${transport} credentials for Cursor and Codex`, () => {
       const world = makeInstallWorld({
-        settings: { agents: ["claude-code", "github-copilot-cli", "codex"] },
+        settings: { agents: ["cursor", "codex"] },
       });
       cleanups.push(world.cleanup);
       world.workspace.writeFile(
-        ".mcp.json",
+        ".cursor/mcp.json",
         JSON.stringify({ mcpServers: { personal: { command: "personal-server" } } }),
       );
       const server =
@@ -93,15 +93,52 @@ describe("Registry MCP installation with shared native targets", () => {
             const applied = yield* applyInstall(request);
             expect(deriveOperationOutcome(applied)).toBe("applied");
             expect(world.workspace.readFile("axm.json")).toContain("${API_TOKEN}");
-            expect(world.workspace.readFile(".mcp.json")).toContain("${API_TOKEN}");
-            expect(world.workspace.readFile(".mcp.json")).not.toContain("$${API_TOKEN}");
-            expect(world.workspace.readFile(".mcp.json")).toContain("personal-server");
+            expect(world.workspace.readFile(".cursor/mcp.json")).toContain("${API_TOKEN}");
+            expect(world.workspace.readFile(".cursor/mcp.json")).not.toContain("$${API_TOKEN}");
+            expect(world.workspace.readFile(".cursor/mcp.json")).toContain("personal-server");
             expect(world.workspace.readFile(".codex/config.toml")).toContain("API_TOKEN");
           }),
         )
         .pipe(Effect.provide(NodeServices.layer));
     });
   }
+
+  it.effect(
+    "refuses symbolic secrets before mutation when a potential reader of the shared path cannot expand them",
+    () => {
+      const world = makeInstallWorld({
+        settings: { agents: ["claude-code", "github-copilot-cli", "codex"] },
+      });
+      cleanups.push(world.cleanup);
+      world.registry.writeMcp("context", [{ version: "1.0.0", secretInput: "API_TOKEN" }]);
+      world.workspace.writeFile(
+        ".mcp.json",
+        JSON.stringify({ mcpServers: { personal: { command: "personal-server" } } }),
+      );
+      const request = installRequest({
+        type: "mcp-server",
+        subject: { kind: "source", source: "@acme/mcps/context" },
+        env: ["API_TOKEN=${API_TOKEN}"],
+      });
+      return world.workspace
+        .provide(
+          Effect.gen(function* () {
+            const before = world.workspace.snapshot();
+            for (const operation of [previewInstall(request), applyInstall(request)]) {
+              const result = yield* operation.pipe(Effect.result);
+              expect(result._tag).toBe("Failure");
+              if (result._tag === "Failure")
+                expect(result.failure).toMatchObject({
+                  category: "conflict",
+                  detail: expect.stringContaining("command-code cannot read shared MCP target"),
+                });
+              expect(world.workspace.snapshot()).toEqual(before);
+            }
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
 
   it.effect(
     "restores lock, settings, canonical content, and native entries after a projection write fails",

@@ -106,6 +106,34 @@ export const inspectManagedRegion = (
   };
 };
 
+const lineOffset = (content: string, line: number): number => {
+  let offset = 0;
+  for (let index = 0; index < line; index += 1) {
+    const newline = content.indexOf("\n", offset);
+    if (newline < 0) return content.length;
+    offset = newline + 1;
+  }
+  return offset;
+};
+
+const replaceRegionBytes = (
+  content: string,
+  state: Extract<ManagedRegionState, { readonly state: "complete" }>,
+  replacement: string,
+): string => {
+  const start = lineOffset(content, state.start);
+  const endLine = lineOffset(content, state.end);
+  const newline = content.indexOf("\n", endLine);
+  const end = newline < 0 ? content.length : newline + 1;
+  const terminator = newline < 0 ? "" : content[newline - 1] === "\r" ? "\r\n" : "\n";
+  return (
+    content.slice(0, start) +
+    replacement +
+    (replacement.length === 0 ? "" : terminator) +
+    content.slice(end)
+  );
+};
+
 export const renderManagedRegion = (args: {
   readonly content: string;
   readonly state: ManagedRegionState;
@@ -114,6 +142,7 @@ export const renderManagedRegion = (args: {
   readonly rendered: string;
   readonly style: FileCommentStyle;
   readonly generation?: string;
+  readonly source?: string;
 }): string => {
   if (args.state.state === "malformed" || args.state.state === "unsupported-version") {
     return args.content;
@@ -121,10 +150,7 @@ export const renderManagedRegion = (args: {
   const eol = detectEol(args.content);
   if (args.rendered.length === 0) {
     if (args.state.state === "absent") return args.content;
-    return [
-      ...args.state.lines.slice(0, args.state.start),
-      ...args.state.lines.slice(args.state.end + 1),
-    ].join(eol);
+    return replaceRegionBytes(args.content, args.state, "");
   }
   const start = serializeMarker(
     {
@@ -132,6 +158,7 @@ export const renderManagedRegion = (args: {
       v: MARKER_VERSION,
       region: args.region,
       ext: args.owner,
+      ...(args.source === undefined ? {} : { src: args.source }),
       ...(args.generation === undefined ? {} : { generation: args.generation }),
     },
     args.style,
@@ -151,15 +178,12 @@ export const renderManagedRegion = (args: {
     args.generation === undefined
       ? args.state.body === args.rendered
       : args.state.startMarker.ext === args.owner &&
+        (args.source === undefined || args.state.startMarker.src === args.source) &&
         args.state.startMarker.generation === args.generation;
   const markersAreCurrent =
     args.generation === undefined ? currentStart === start && currentEnd === end : true;
   if (markersAreCurrent && bodyIsCurrent) {
     return args.content;
   }
-  return [
-    ...args.state.lines.slice(0, args.state.start),
-    ...replacement,
-    ...args.state.lines.slice(args.state.end + 1),
-  ].join(eol);
+  return replaceRegionBytes(args.content, args.state, replacement.join(eol));
 };

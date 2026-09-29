@@ -6,18 +6,28 @@
 
 import type {
   McpActivationFieldRepresentation,
-  McpConfig,
+  McpEntryDialect,
+  McpServersKey,
   McpConfigTarget,
   McpTypeField,
   McpTypeFieldRepresentation,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 
+/** A native entry dialect bound to one reader's static server container. */
+export interface ResolvedMcpConfig extends McpEntryDialect {
+  readonly serversKey: McpServersKey;
+}
+
 export type SharedMcpTransport = "stdio" | "streamable-http" | "sse";
 
 export interface SharedMcpTargetMember {
   readonly agentId: string;
-  readonly config: McpConfig;
+  readonly locationId: string;
+  readonly configured: boolean;
+  readonly config: ResolvedMcpConfig;
   readonly target: McpConfigTarget;
+  /** Original route retained for pre-mutation alias freshness checks. */
+  readonly declaredTarget?: McpConfigTarget;
 }
 
 export interface SharedMcpTargetConflict {
@@ -32,7 +42,7 @@ export interface ResolvedSharedMcpTarget {
   readonly _tag: "resolved";
   readonly path: string;
   readonly agentIds: ReadonlyArray<string>;
-  readonly config: McpConfig;
+  readonly config: ResolvedMcpConfig;
   readonly target: McpConfigTarget;
 }
 
@@ -155,9 +165,9 @@ const compatibleTargetFormat = (members: ReadonlyArray<SharedMcpTargetMember>): 
   return formats.every((format) => format === "json" || format === "jsonc");
 };
 
-export const resolveSharedMcpTarget = (args: {
+export const resolveSharedMcpContainer = (args: {
   readonly members: ReadonlyArray<SharedMcpTargetMember>;
-  readonly transport: SharedMcpTransport;
+  readonly negotiateActivation: boolean;
 }): SharedMcpTargetResolution => {
   const members = [...args.members].sort((left, right) =>
     left.agentId.localeCompare(right.agentId),
@@ -176,6 +186,9 @@ export const resolveSharedMcpTarget = (args: {
       detail: members.map((member) => member.agentId + "=" + member.target.format).join(", "),
     });
   }
+  const target: McpConfigTarget = members.some((member) => member.target.format === "json")
+    ? { ...first.target, format: "json" }
+    : first.target;
   if (!allEqual(members.map((member) => member.config.serversKey))) {
     return conflict({
       members,
@@ -184,11 +197,13 @@ export const resolveSharedMcpTarget = (args: {
     });
   }
 
-  const activation = chooseCompatible({
-    policies: members.map((member) => member.config.activationField),
-    key: activationFieldKey,
-    preferPresent: false,
-  });
+  const activation = args.negotiateActivation
+    ? chooseCompatible({
+        policies: members.map((member) => member.config.activationField),
+        key: activationFieldKey,
+        preferPresent: false,
+      })
+    : { _tag: "compatible" as const, value: first.config.activationField.required };
   if (activation._tag === "incompatible") {
     return conflict({
       members,
@@ -197,6 +212,31 @@ export const resolveSharedMcpTarget = (args: {
     });
   }
 
+  return {
+    _tag: "resolved",
+    path: first.target.path,
+    agentIds: [...new Set(members.map((member) => member.agentId))],
+    target,
+    config: {
+      ...first.config,
+      activationField: { ...first.config.activationField, required: activation.value },
+    },
+  };
+};
+
+export const resolveSharedMcpTarget = (args: {
+  readonly members: ReadonlyArray<SharedMcpTargetMember>;
+  readonly transport: SharedMcpTransport;
+}): SharedMcpTargetResolution => {
+  const common = resolveSharedMcpContainer({ members: args.members, negotiateActivation: true });
+  if (common._tag === "conflict") return common;
+  const members = [...args.members].sort((left, right) =>
+    left.agentId.localeCompare(right.agentId),
+  );
+  const first = members[0];
+  if (first === undefined)
+    return conflict({ members, axis: "writer configuration", detail: "no writers were provided" });
+  const target = common.target;
   if (args.transport === "stdio") {
     const dialects = members.flatMap((member) =>
       member.config.stdio === null ? [] : [member.config.stdio],
@@ -241,11 +281,10 @@ export const resolveSharedMcpTarget = (args: {
       _tag: "resolved",
       path: first.target.path,
       agentIds: members.map((member) => member.agentId),
-      target: first.target,
+      target,
       config: {
         ...first.config,
-        targets: [first.target],
-        activationField: { ...first.config.activationField, required: activation.value },
+        activationField: common.config.activationField,
         stdio: {
           ...base,
           typeField: { ...base.typeField, required: typeField.value },
@@ -300,11 +339,10 @@ export const resolveSharedMcpTarget = (args: {
     _tag: "resolved",
     path: first.target.path,
     agentIds: members.map((member) => member.agentId),
-    target: first.target,
+    target,
     config: {
       ...first.config,
-      targets: [first.target],
-      activationField: { ...first.config.activationField, required: activation.value },
+      activationField: common.config.activationField,
       remote: {
         ...base,
         typeField: { ...base.typeField, required: typeField.value },

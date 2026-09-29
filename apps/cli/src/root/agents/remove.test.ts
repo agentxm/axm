@@ -146,7 +146,7 @@ describe("agents remove.handler", () => {
       baseLayer,
     );
     const opencode = codingAgentForId("opencode");
-    const agents = (opts?.agents ?? ["opencode"]).map(codingAgentForId);
+    const agents = (opts?.agents ?? ["opencode"]).map((id) => codingAgentForId(id));
     // The repository never reports the membership a removal leaves behind:
     // a cleanup that consulted it instead of the settled candidate would
     // treat every agent's outputs as residue.
@@ -268,17 +268,9 @@ describe("agents remove.handler", () => {
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["opencode"],
       lockfile: "lockfileVersion: 8\nskills: {}\n",
+      skills: { axm: "workspace" },
     });
-    const sourceDir = path.join(
-      tempDir,
-      "agent_extensions",
-      "agentxm",
-      "@agentxm",
-      "skills",
-      "axm",
-      "src",
-    );
-    fs.mkdirSync(sourceDir, { recursive: true });
+    const sourceDir = writeAuthoredSkill(tempDir, "axm");
     linkSkill(tempDir, path.join(".opencode", "skills"), "axm", sourceDir);
     const removedPath = path.join(tempDir, ".opencode", "skills", "axm");
 

@@ -4,6 +4,7 @@ import * as Option from "effect/Option";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
+import YAML from "yaml";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
@@ -117,9 +118,9 @@ describe("Bundled official-skill recovery", () => {
         .pipe(Effect.provide(NodeServices.layer));
 
       world.workspace.writeFile(STALE_COPY, STALE_MANIFEST);
-      const lockBefore = world.workspace.readFile("axm-lock.yaml");
-      expect(lockBefore).toContain("axm:");
-      expect(lockBefore).toContain("review-helper:");
+      const lockBefore: unknown = YAML.parse(world.workspace.readFile("axm-lock.yaml"));
+      expect(lockBefore).toHaveProperty("skills.axm");
+      expect(lockBefore).toHaveProperty("skills.review-helper");
       return world;
     });
 
@@ -134,9 +135,9 @@ describe("Bundled official-skill recovery", () => {
         expect(readSettings(world.workspace)).toMatchObject({
           skills: { axm: { source: "workspace", origin: "bundled" } },
         });
-        const lockAfter = world.workspace.readFile("axm-lock.yaml");
-        expect(lockAfter).not.toContain("axm:");
-        expect(lockAfter).toContain("review-helper:");
+        const lockAfter: unknown = YAML.parse(world.workspace.readFile("axm-lock.yaml"));
+        expect(lockAfter).not.toHaveProperty("skills.axm");
+        expect(lockAfter).toHaveProperty("skills.review-helper");
         expect(world.workspace.exists(CANONICAL_SKILL)).toBe(true);
         expect(world.workspace.exists(PROJECTED_SKILL)).toBe(true);
         expect(world.workspace.readFile(STALE_COPY)).toBe(STALE_MANIFEST);
@@ -207,7 +208,8 @@ describe("Bundled official-skill recovery", () => {
       expect(readSettings(world.workspace)).toMatchObject({
         skills: { axm: { source: "workspace", origin: "bundled" } },
       });
-      expect(world.workspace.readFile("axm-lock.yaml")).not.toContain("axm:");
+      const lockAfter: unknown = YAML.parse(world.workspace.readFile("axm-lock.yaml"));
+      expect(lockAfter).not.toHaveProperty("skills.axm");
       expect(world.workspace.exists(CANONICAL_SKILL)).toBe(true);
     }),
   );

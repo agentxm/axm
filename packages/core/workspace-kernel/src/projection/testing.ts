@@ -33,6 +33,9 @@ import {
 } from "./participants.js";
 import { WorkspaceInvariantFacts, type ProjectionInvariantFact } from "./invariant-facts.js";
 
+/** Apply an already observed snapshot to exercise the freshness boundary. */
+export { applyInstructionProjection } from "./instructions/instructions.js";
+
 /**
  * A repository over a fixed configured-agent list. It makes the same
  * selection decisions the live repository does, without reading settings.
@@ -53,8 +56,8 @@ export const codingAgentRepositoryLayer = (
 ): Layer.Layer<CodingAgentRepository> =>
   Layer.succeed(CodingAgentRepository, makeCodingAgentRepository(configuredAgentIds));
 
-/** A workspace that projects onto the universal agent only. */
-export const UniversalCodingAgentRepository: Layer.Layer<CodingAgentRepository> =
+/** A workspace with shared location policy and no configured agents. */
+export const EmptyCodingAgentRepository: Layer.Layer<CodingAgentRepository> =
   codingAgentRepositoryLayer([]);
 
 /** A participant registry with the owners a test declares, and no others. */

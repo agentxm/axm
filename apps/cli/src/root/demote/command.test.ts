@@ -8,7 +8,6 @@ import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 
 import { SettingsSchema } from "@agentxm/workspace-kernel/workspace-state";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace-kernel/projection/live";
 import { SourceHostProvidersLive } from "@agentxm/workspace-kernel/sources/live";
 
 import {
@@ -60,7 +59,7 @@ describe("demote command", () => {
       wsOptions: { projectRoot: tempDir },
     });
     const sourceLayer = Layer.provide(SourceHostProvidersLive, context.fullLayer);
-    const foundation = Layer.mergeAll(context.fullLayer, sourceLayer, CodingAgentRepositoryLive);
+    const foundation = Layer.merge(context.fullLayer, sourceLayer);
     const provide = Effect.provide(
       Layer.provideMerge(
         workspaceInvariantFactsLive,

@@ -11,7 +11,12 @@
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import { hasManagedFileBanner } from "./managed-file-banner.js";
+import {
+  hasManagedFileBanner,
+  managedFileFormatForPath,
+  managedFileMarker,
+} from "./managed-file-banner.js";
+import * as Option from "effect/Option";
 
 export interface WorkspaceOwnershipIssue {
   readonly kind: "hook-ownership-ambiguous" | "managed-file-unowned";
@@ -36,7 +41,11 @@ export const safeReadFileString = (fs: FileSystem.FileSystem, filePath: string) 
   fs.readFileString(filePath).pipe(Effect.catch(() => Effect.succeed("")));
 
 /** Discover one subagent's AXM-managed files without mutating the workspace. */
-export const findManagedSubagentFiles = (subagentsDir: string, subagentName: string) =>
+export const findManagedSubagentFiles = (
+  subagentsDir: string,
+  subagentName: string,
+  expected: { readonly ext: string; readonly src: string },
+) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -49,7 +58,14 @@ export const findManagedSubagentFiles = (subagentsDir: string, subagentName: str
       const stat = yield* fs.stat(filePath).pipe(Effect.option);
       if (stat._tag === "None" || stat.value.type !== "File") continue;
       const content = yield* safeReadFileString(fs, filePath);
-      if (hasAxmManagedMarker(content)) managedPaths.push(filePath);
+      const format = managedFileFormatForPath(filePath);
+      const marker = format === undefined ? Option.none() : managedFileMarker(content, format);
+      if (
+        Option.isSome(marker) &&
+        marker.value.ext === expected.ext &&
+        marker.value.src === expected.src
+      )
+        managedPaths.push(filePath);
     }
 
     return managedPaths;

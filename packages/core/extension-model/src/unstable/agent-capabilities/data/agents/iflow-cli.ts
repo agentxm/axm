@@ -29,7 +29,18 @@ export const iflowCliAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".iflow/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".iflow/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
     },
@@ -45,6 +56,10 @@ export const iflowCliAgent = {
         standardsCompliance: "full",
         convention: "vendor",
         transports: ["stdio", "http", "sse"],
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -62,8 +77,18 @@ export const iflowCliAgent = {
         docs: [],
         sources: ["https://platform.iflow.cn/en/cli/examples/subagent"],
         scopes: ["user", "project"],
-        directory: ".iflow/agents",
-        layout: "directory",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".iflow/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
     },
@@ -77,6 +102,10 @@ export const iflowCliAgent = {
         sources: ["https://platform.iflow.cn/en/cli/examples/hooks"],
         scopes: ["user", "project"],
         modeling: "native-unmodeled",
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -97,7 +126,18 @@ export const iflowCliAgent = {
       standardsCompliance: "partial",
       convention: "vendor",
       kind: "own-file",
-      files: ["IFLOW.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "IFLOW.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: true,
       importSyntax: null,
     },
@@ -113,7 +153,7 @@ export const iflowCliAgent = {
       sources: ["https://platform.iflow.cn/en/cli/quickstart"],
       scopes: ["user"],
       mechanism: ["cli-flag", "ui-only"],
-      configFiles: [],
+      locations: [],
       grammar: null,
       prerequisites: [],
       cliFlags: [

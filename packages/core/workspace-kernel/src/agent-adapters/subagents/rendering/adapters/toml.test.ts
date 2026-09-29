@@ -18,7 +18,7 @@ describe("renderToml", () => {
     const result = renderToml(baseInput);
     expect(result._tag).toBe("Rendered");
     if (result._tag !== "Rendered") return;
-    expect(result.outputs[0]?.path).toBe(".codex/agents/code-reviewer.toml");
+    expect(result.outputs[0]?.path).toBe("code-reviewer.toml");
   });
 
   it("emits frontmatter keys before body field", () => {

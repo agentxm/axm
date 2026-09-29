@@ -8,7 +8,7 @@ import {
   type ExtensionTypeMatrixRow,
   type MatrixExtensionType,
 } from "./__generated__/extension-type-matrix.js";
-import { createTempDir, runCli } from "./e2e/utils.js";
+import { createTempDir, normalizeWorkspacePaths, runCli } from "./e2e/utils.js";
 import { refreshAuthoredWorkspacePackState } from "./e2e/workspace-pack-state.js";
 
 const OWNER = "@test";
@@ -438,7 +438,7 @@ const runJsonCommand = async (
   expect(result.exitCode, `stdout:\n${result.stdout}\n\nstderr:\n${result.stderr}`).toBe(0);
   const stdout: JsonCommandResult["stdout"] = JSON.parse(result.stdout);
   expect(stdout.ok).toBe(true);
-  expect(stdout.result.contract).toBe("plan-result-v3");
+  expect(stdout.result.contract).toBe("plan-result-v4");
   expectReconciledUnits(stdout.result);
   return {
     exitCode: result.exitCode,
@@ -494,10 +494,8 @@ const publisherFor = (row: ExtensionTypeMatrixRow): Publisher => {
 
 // A release-age evaluation reports the wall-clock instant it was made; parity
 // between two invocations is over every other field and whether both report one.
-const comparableResult = ({ evaluatedAt, ...result }: PlanResult) => ({
-  ...result,
-  evaluated: evaluatedAt !== undefined,
-});
+const comparableResult = ({ evaluatedAt, ...result }: PlanResult, workspacePath: string) =>
+  normalizeWorkspacePaths({ ...result, evaluated: evaluatedAt !== undefined }, workspacePath);
 
 // Progress events carry a wall-clock `atMs` by design; parity between two
 // invocations is over the event sequence with that free field folded out.
@@ -757,8 +755,8 @@ describe("axm install", () => {
         // Candidate id and footprint compare too: identity is content-addressed
         // relative to the workspace base, and every mutating surface runs
         // under the operation lifecycle that records the footprint.
-        expect(comparableResult(rootResult.stdout.result)).toEqual(
-          comparableResult(surfaceResult.stdout.result),
+        expect(comparableResult(rootResult.stdout.result, rootWorkspace.path)).toEqual(
+          comparableResult(surfaceResult.stdout.result, surfaceWorkspace.path),
         );
         expect(comparableStderr(rootResult.stderr)).toBe(comparableStderr(surfaceResult.stderr));
 
@@ -907,10 +905,13 @@ describe("axm install", () => {
 
         const result = await runJsonCommand(workspace.path, [surface, "install"]);
 
-        const expectedCommitted = hasAggregateProjection(surface) ? 3 : 2;
+        const expectedTotal = hasAggregateProjection(surface) ? 3 : 2;
+        // These Packs have no members; their aggregate projection is already current.
+        const expectedCommitted = surface === "packs" ? 2 : expectedTotal;
         expect(result.stdout.result.outcome).toBe("applied");
         expect(result.stdout.result.counts.committed).toBe(expectedCommitted);
-        expect(result.stdout.result.counts.total).toBe(expectedCommitted);
+        expect(result.stdout.result.counts.total).toBe(expectedTotal);
+        expect(result.stdout.result.counts.unchanged).toBe(expectedTotal - expectedCommitted);
         for (const name of names) {
           expect(
             result.stdout.result.units.some(

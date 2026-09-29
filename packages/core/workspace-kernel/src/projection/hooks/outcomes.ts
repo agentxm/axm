@@ -18,9 +18,13 @@ export const evaluateHookAgentOutcome = (args: {
   readonly target: HookOutcomeTarget;
   readonly state: "projected" | "current";
 }): ConfiguredAgentOutcome => {
-  const unsupported = args.manifest.bindings
-    .map((binding) => installable(args.agent, binding))
-    .find((verdict) => !verdict.installable);
+  const unsupported =
+    (args.target.nativePath === undefined
+      ? { installable: false, reason: "No native Hook writer is declared for the selected scope." }
+      : undefined) ??
+    args.manifest.bindings
+      .map((binding) => installable(args.agent, binding))
+      .find((verdict) => !verdict.installable);
 
   if (unsupported === undefined) {
     return {

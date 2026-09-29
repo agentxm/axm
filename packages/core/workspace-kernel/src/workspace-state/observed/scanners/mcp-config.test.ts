@@ -37,6 +37,7 @@ describe("makeMcpConfigScanner", () => {
 
           const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);
           const occurrences = yield* makeMcpConfigScanner({
+            nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
             fs,
             path,
             workspaceRoot,
@@ -73,6 +74,7 @@ describe("makeMcpConfigScanner", () => {
 
           const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);
           const occurrences = yield* makeMcpConfigScanner({
+            nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
             fs,
             path,
             workspaceRoot,
@@ -117,6 +119,7 @@ describe("makeMcpConfigScanner", () => {
 
           const warnings = yield* Ref.make<ReadonlyArray<Warning>>([]);
           const occurrences = yield* makeMcpConfigScanner({
+            nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
             fs,
             path,
             workspaceRoot,

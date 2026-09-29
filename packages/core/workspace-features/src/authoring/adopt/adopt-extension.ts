@@ -89,6 +89,7 @@ import {
 import { protectCreatedAncestors } from "@agentxm/workspace-kernel/settlement";
 
 import { authoredDeclaration } from "../authored-declaration.js";
+import { authoredNativeArtifact, preflightAuthoredNativeProjection } from "../native-projection.js";
 import {
   CreateDestinationInspectionFailed,
   type AuthoredPackageError,
@@ -124,6 +125,9 @@ export interface AdoptExtensionRequest {
 
 /** What every step in an adoption may require when it runs. */
 export type AdoptExtensionRequirements =
+  | RuleManager
+  | HookManager
+  | KnowledgeManager
   | ManagerRequirements
   | RecipeRequirements
   | McpServerManager
@@ -159,6 +163,7 @@ export interface AdoptExtensionCandidate {
 
 /** Every failure settling an adoption can surface before anything is written. */
 export type AdoptExtensionFailure =
+  | ExtensionManagerFailure
   | AuthoringFailed
   | AuthoredPackageError
   | AuthoringOwnerRequired
@@ -173,6 +178,7 @@ export type AdoptExtensionFailure =
 
 /** Everything settling an adoption reads before it freezes a candidate. */
 export type PrepareAdoptExtensionRequirements =
+  | ManagerRequirements
   | FileSystem.FileSystem
   | Path.Path
   | RegistryClientFactory
@@ -252,6 +258,7 @@ export const prepareAdoptExtension: (
     { settings, settingsWriter, accepted, desiredStateWriter },
     parsed.type,
     name,
+    { roundTrip: false },
   );
   const current = yield* declaration.read;
 
@@ -352,12 +359,20 @@ export const prepareAdoptExtension: (
     targets: [{ path: settingsPath, change: "updated" }],
   };
 
+  const nativePreflight = preflightAuthoredNativeProjection({
+    identity: parsed,
+    packageRoot: sourceDir,
+    enabled,
+  });
+  yield* nativePreflight;
+
   const shared = {
     toStepFailure: authoringStepFailure,
     location: targetDir,
     versionRange: Option.none<string>(),
     label: `Adopt ${fqn}`,
     enabled,
+    nativeInsertionEligible: false,
     markAuthored: Effect.andThen(
       declaration.retireExternalResolution,
       declaration.declare({ enabled: true, env: current.env }),
@@ -371,8 +386,14 @@ export const prepareAdoptExtension: (
           ...shared,
           message: `Adopted ${fqn} in place`,
           plannedArtifact: inPlaceArtifact,
-          buildArtifact: () => Effect.succeed(inPlaceArtifact),
-          preflight: inPlaceRefusals,
+          buildArtifact: ({ change }: { readonly change: "created" | "updated" | "unchanged" }) =>
+            authoredNativeArtifact({
+              type: parsed.type,
+              artifact: inPlaceArtifact,
+              change,
+              projected: enabled,
+            }),
+          preflight: nativePreflight.pipe(Effect.andThen(inPlaceRefusals)),
           scaffold: Effect.void,
         }
       : {
@@ -381,8 +402,15 @@ export const prepareAdoptExtension: (
           transactionTargets: [sourceDir],
           allowConfiguredSourceTransition: true,
           plannedArtifact: moveArtifact,
-          buildArtifact: () => Effect.succeed(moveArtifact),
+          buildArtifact: ({ change }: { readonly change: "created" | "updated" | "unchanged" }) =>
+            authoredNativeArtifact({
+              type: parsed.type,
+              artifact: moveArtifact,
+              change,
+              projected: enabled,
+            }),
           preflight: Effect.gen(function* () {
+            yield* nativePreflight;
             yield* createOnly;
             // The acquired directory must already hold a resolvable package: a move
             // that lands unreadable content would leave the workspace authoring
@@ -436,8 +464,20 @@ export const prepareAdoptExtension: (
         return adoptStep(yield* McpServerManager, {
           ...common,
           target: { type: "mcp-server", name },
-          materializeInstall: (ref) =>
-            materializeAuthoredMcpServer({ ref, nonInteractive: request.nonInteractive }),
+          materializeInstall: (ref, options) =>
+            materializeAuthoredMcpServer({
+              ref,
+              nonInteractive: request.nonInteractive,
+              nativeInsertionEligible: options.nativeInsertionEligible,
+            }),
+          buildArtifact: ({ change, materialization }) =>
+            authoredNativeArtifact({
+              type: "mcp-server",
+              artifact: mode === "in-place" ? inPlaceArtifact : moveArtifact,
+              change,
+              projected: enabled,
+              materialization,
+            }),
         });
     }
   });

@@ -151,11 +151,11 @@ describe("axm lint handler", () => {
       projectRoot: decodeAbsolutePathSync(tempDir),
     };
     const wsLayer = Layer.provide(coreWorkspaceLayer({ ...wsOptions }), baseLayer);
-    const workspaceFoundation = Layer.mergeAll(baseLayer, wsLayer);
-    const workspaceCatalogLayer = Layer.provide(
-      WorkspaceCatalogLive,
-      Layer.merge(workspaceFoundation, CodingAgentRepositoryLive),
+    const workspaceFoundation = Layer.provideMerge(
+      Layer.merge(CodingAgentRepositoryLive, NativeWriteAuthorityLive),
+      Layer.mergeAll(baseLayer, wsLayer),
     );
+    const workspaceCatalogLayer = Layer.provide(WorkspaceCatalogLive, workspaceFoundation);
     const sourceProvidersLayer = Layer.provide(
       SourceHostProvidersLive,
       Layer.mergeAll(
@@ -169,8 +169,6 @@ describe("axm lint handler", () => {
       workspaceFoundation,
       workspaceCatalogLayer,
       sourceProvidersLayer,
-      CodingAgentRepositoryLive,
-      Layer.provide(NativeWriteAuthorityLive, baseLayer),
       WorkspaceFailureConversionLive,
     );
     const mcpServersLayer = McpServerManagerLive;
@@ -210,6 +208,7 @@ describe("axm lint handler", () => {
         userHome: tempDir,
         scope: args.scope ?? "project",
         input: { view: "workspace" },
+        nativeView: { kind: "workspace" },
         fix: args.fix ?? false,
       },
       strict: args.strict ?? false,
@@ -254,7 +253,7 @@ describe("axm lint handler", () => {
               kind: "advisory",
               ruleId: "workspace/settings-schema-valid",
               severity: "error",
-              message: "Invalid settings",
+              message: `Invalid settings in ${sourceRoot}/axm.json; source ${sourceRoot}/sibling/source.json`,
               location: { file: `${sourceRoot}/axm.json`, line: 4, column: 2 },
             },
           },
@@ -271,6 +270,10 @@ describe("axm lint handler", () => {
     expect(summary.findings[0]?.displayRoot).toBe(displayRoot);
     expect(summary.findings[0]?.path).toBe(`${displayRoot}/axm.json:4:2`);
     expect(summary.findings[0]?.finding.location?.file).toBe(`${displayRoot}/axm.json`);
+    expect(summary.findings[0]?.finding.message).toBe(
+      `Invalid settings in ${displayRoot}/axm.json; source ${displayRoot}/sibling/source.json`,
+    );
+    expect(JSON.stringify(summary)).not.toContain(sourceRoot);
   });
 
   it.effect("informational findings preserve a clean exit without manual-attention wording", () => {

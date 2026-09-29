@@ -84,6 +84,7 @@ export const WorkspaceReadModelTest = (
       const pathLayer = Layer.succeed(Path.Path, deps.path);
       const allowedRoot = options.allowedRoot ?? "/";
       const configLayer = Layer.succeed(WorkspaceReadModelConfig, {
+        nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
         projectRoot: makeAbsolutePath(deps.path, deps.workspaceRoot),
         userHome: makeAbsolutePath(deps.path, deps.userHome),
         allowedRoot: makeAbsolutePath(deps.path, allowedRoot),

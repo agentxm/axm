@@ -11,9 +11,18 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import type { LocalHookRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
+import type { RegistrySubagentRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
+import {
+  AcquiredContent,
+  retireCanonicalDirectory,
+  sourceRefContentKey,
+} from "../acquisition/index.js";
 import { computeMaterializedTreeIntegrity, type LockEntry } from "../workspace-state/index.js";
-import { extensionName, handle } from "../workspace-state/testing.js";
+import { NativeWriteAuthorityLive } from "../projection/live.js";
+import { WorkspaceFileWriteLocksLive } from "../settlement/live.js";
+import { WorkspaceReadTest } from "../workspace-state/testing.js";
+import { exactVersion, extensionName, handle } from "../workspace-state/testing.js";
 import { acquireCanonicalForRef } from "./acquire-canonical.js";
 
 describe("canonical acquisition dispatch", () => {
@@ -37,12 +46,17 @@ describe("canonical acquisition dispatch", () => {
     location: pathToFileURL(packageRoot).href,
   });
 
-  const run = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-    effect.pipe(
-      Effect.provide(
-        Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
+  const run = <A, E, R>(effect: Effect.Effect<A, E, R>) => {
+    const authority = NativeWriteAuthorityLive.pipe(
+      Layer.provideMerge(
+        Layer.merge(WorkspaceReadTest({ baseDir: root }), WorkspaceFileWriteLocksLive),
       ),
     );
+    const services = Layer.merge(authority, RegistryTransportTest(FetchHttpClient.layer)).pipe(
+      Layer.provideMerge(NodeServices.layer),
+    );
+    return effect.pipe(Effect.provide(services));
+  };
 
   it.effect("keeps an accepted local tree until acquisition is forced", () =>
     run(
@@ -109,6 +123,7 @@ describe("canonical acquisition dispatch", () => {
           canonicalPath,
           accepted: Option.none(),
           force: false,
+          nativeInsertionEligible: true,
           copyFailure: { code: "validation", detail: (target) => `copy failed: ${target}` },
           external: {
             sourcePath: (packageRoot) => path.join(packageRoot, "src"),
@@ -118,6 +133,71 @@ describe("canonical acquisition dispatch", () => {
         expect(acquired.packageRoot).toBe(targetPath);
         expect(fs.readFileSync(path.join(targetPath, "hook.sh"), "utf8")).toBe("contents");
         expect(fs.existsSync(path.join(targetPath, "manifest.json"))).toBe(false);
+        yield* retireCanonicalDirectory(targetPath);
+        expect(fs.existsSync(path.join(root, "canonical"))).toBe(false);
+        expect(fs.readFileSync(path.join(source, "src", "hook.sh"), "utf8")).toBe("contents");
+      }),
+    ),
+  );
+
+  it.effect("records registry publication parents independently of an external source target", () =>
+    run(
+      Effect.gen(function* () {
+        const source = path.join(root, "source");
+        const canonicalPath = path.join(root, "registry", "@acme", "subagents", "review");
+        fs.mkdirSync(path.join(source, "src"), { recursive: true });
+        fs.writeFileSync(path.join(source, "subagent.json"), "{}");
+        fs.writeFileSync(path.join(source, "src", "review.md"), "Review the change.");
+        const ref: RegistrySubagentRef = {
+          type: "subagent",
+          refType: "registry",
+          subagent: { name: extensionName("review"), description: Option.none() },
+          source: {
+            type: "registry",
+            name: "test",
+            location: new URL("https://registry.example"),
+            owner: Option.some(handle("@acme")),
+          },
+          owner: handle("@acme"),
+          publisherBindingId: "binding-1",
+          name: extensionName("review"),
+          version: exactVersion("1.0.0"),
+          integrity: Option.none(),
+          packages: [],
+        };
+        const key = sourceRefContentKey(ref);
+        const acquired = yield* acquireCanonicalForRef({
+          ref,
+          type: "subagent",
+          baseDir: root,
+          canonicalPath,
+          accepted: Option.none(),
+          force: false,
+          nativeInsertionEligible: true,
+          copyFailure: { code: "internal", detail: (target) => `copy failed: ${target}` },
+          // A manager can supply both acquisition recipes; Registry always
+          // publishes the whole package, unlike this external-source recipe.
+          external: {
+            sourcePath: (packageRoot) => path.join(packageRoot, "src"),
+            targetPath: path.join(canonicalPath, "src"),
+          },
+        }).pipe(
+          Effect.provideService(AcquiredContent, {
+            requestedKeys: new Set([key]),
+            filesByKey: new Map([[key, { directory: source }]]),
+            failuresByKey: new Map(),
+          }),
+        );
+        expect(acquired.packageRoot).toBe(canonicalPath);
+        expect(fs.readFileSync(path.join(canonicalPath, "subagent.json"), "utf8")).toBe("{}");
+        expect(fs.readFileSync(path.join(canonicalPath, "src", "review.md"), "utf8")).toBe(
+          "Review the change.",
+        );
+        yield* retireCanonicalDirectory(canonicalPath);
+        expect(fs.existsSync(path.join(root, "registry"))).toBe(false);
+        expect(fs.readFileSync(path.join(source, "src", "review.md"), "utf8")).toBe(
+          "Review the change.",
+        );
       }),
     ),
   );

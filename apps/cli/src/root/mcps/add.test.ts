@@ -108,8 +108,8 @@ describe("mcps add output", () => {
       Effect.gen(function* () {
         yield* handleMcpsAdd({
           name: "demo",
-          command: Option.none(),
-          url: Option.some("https://example.test/mcp"),
+          command: Option.some("node server.js"),
+          url: Option.none(),
           env: [],
           header: [],
           force: false,
@@ -118,44 +118,42 @@ describe("mcps add output", () => {
 
         const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
           planName: "Add MCP server",
-          totalSteps: 2,
+          totalSteps: 1,
           warningCount: 0,
         });
         const units = planResultUnits(result);
-        expect(units[1]).toMatchObject({
-          id: "Sync demo to configured agents",
-          label: "Sync demo to configured agents",
+        expect(units[0]).toMatchObject({
+          id: "Configure and project demo",
+          label: "Configure and project demo",
           state: "committed",
           message: "Synced demo to 5 agents",
           artifact: {
-            path: "agent MCP configs",
+            path: "axm.json",
             scope: "project",
-            agents: ["claude-code", "cursor", "codex", "gemini-cli", "antigravity"],
             change: "created",
-            fileCount: 5,
             targets: [
               {
-                path: ".mcp.json",
+                path: path.join(tempDir, ".mcp.json"),
                 change: "created",
                 agentIds: ["claude-code"],
               },
               {
-                path: ".cursor/mcp.json",
+                path: path.join(tempDir, ".cursor/mcp.json"),
                 change: "created",
                 agentIds: ["cursor"],
               },
               {
-                path: ".codex/config.toml",
+                path: path.join(tempDir, ".codex/config.toml"),
                 change: "created",
                 agentIds: ["codex"],
               },
               {
-                path: ".gemini/settings.json",
+                path: path.join(tempDir, ".gemini/settings.json"),
                 change: "created",
                 agentIds: ["gemini-cli"],
               },
               {
-                path: ".agents/mcp_config.json",
+                path: path.join(tempDir, ".agents/mcp_config.json"),
                 change: "created",
                 agentIds: ["antigravity"],
               },
@@ -258,6 +256,7 @@ describe("mcps add output", () => {
   it.effect("blocks agents that cannot represent environment defaults", () => {
     const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
     writeEnvExpansionSettings();
+    const settingsBefore = fs.readFileSync(path.join(tempDir, "axm.json"), "utf8");
 
     return provide(
       Effect.gen(function* () {
@@ -271,17 +270,20 @@ describe("mcps add output", () => {
           preview: false,
         });
 
-        // Closures settle independently: the workspace entry committed while
-        // the incapable agent's projection failed — a truthful partial.
+        // Every native co-reader is checked before accepting workspace intent.
         expect(rendererState.results[0]?.data).toMatchObject({
           result: {
             planName: "Add MCP server",
-            outcome: "partial",
+            outcome: "blocked",
           },
         });
         expect(JSON.stringify(rendererState.results[0]?.data)).toContain(
           "does not expand environment default",
         );
+        expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsBefore);
+        for (const config of [".mcp.json", ".cursor/mcp.json", ".codex/config.toml"]) {
+          expect(fs.existsSync(path.join(tempDir, config))).toBe(false);
+        }
       }),
     );
   });

@@ -30,7 +30,18 @@ export const augmentAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".augment/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".augment/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -54,55 +65,71 @@ export const augmentAgent = {
           variables: "none",
           defaults: false,
         },
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-08-05",
-        writer: {
-          config: {
-            serversKey: "mcpServers",
-            activationField: {
-              required: null,
-              accepted: [null],
+
+        locations: [
+          {
+            id: "user",
+            scope: "user",
+            root: "home",
+            path: ".augment/settings.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
             },
-            targets: [
-              {
-                scope: "user",
-                path: "~/.augment/settings.json",
-                format: "json",
-                attribution: "agent",
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "json",
+            keyPath: ["mcpServers"],
+            attribution: "agent",
+          },
+        ],
+
+        entryDialect: {
+          activationField: {
+            required: null,
+            accepted: [null],
+          },
+          stdio: {
+            typeField: { required: null, accepted: [null] },
+            command: "split",
+            envKey: "env",
+          },
+          remote: {
+            typeField: {
+              required: {
+                name: "type",
+                value: {
+                  "streamable-http": "http",
+                  sse: "sse",
+                },
               },
-            ],
-            stdio: {
-              typeField: { required: null, accepted: [null] },
-              command: "split",
-              envKey: "env",
-            },
-            remote: {
-              typeField: {
-                required: {
+              accepted: [
+                {
                   name: "type",
                   value: {
                     "streamable-http": "http",
                     sse: "sse",
                   },
                 },
-                accepted: [
-                  {
-                    name: "type",
-                    value: {
-                      "streamable-http": "http",
-                      sse: "sse",
-                    },
-                  },
-                ],
-              },
-              urlKey: {
-                "streamable-http": "url",
-                sse: "url",
-              },
-              headersKey: "headers",
+              ],
             },
+            urlKey: {
+              "streamable-http": "url",
+              sse: "url",
+            },
+            headersKey: "headers",
+          },
+        },
+      },
+      axm: {
+        status: "supported",
+        lastVerified: "2026-08-05",
+        writer: {
+          config: {
+            locationIds: ["user"],
           },
         },
       },
@@ -115,8 +142,18 @@ export const augmentAgent = {
         docs: [],
         sources: ["https://docs.augmentcode.com/cli/subagents"],
         scopes: ["user", "project"],
-        directory: ".augment/agents",
-        layout: "directory",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".augment/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -134,23 +171,59 @@ export const augmentAgent = {
         sources: ["https://docs.augmentcode.com/cli/hooks"],
         scopes: ["user", "project"],
         mechanism: ["command-stdin"],
-        configFiles: [
+        locations: [
           {
+            id: "user",
             scope: "user",
-            path: "~/.augment/settings.json",
-            format: "json",
-            gitignored: false,
-          },
-          {
-            scope: "project",
+            root: "home",
             path: ".augment/settings.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "json",
+            keyPath: ["hooks"],
             gitignored: false,
           },
           {
+            id: "project",
             scope: "project",
-            path: ".augment/settings.local.json",
+            root: "project",
+            path: ".augment/settings.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "json",
+            keyPath: ["hooks"],
+            gitignored: false,
+          },
+          {
+            id: "project-additional-1",
+            scope: "project",
+            root: "project",
+            path: ".augment/settings.local.json",
+            shape: "file",
+            role: "additional",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "json",
+            keyPath: ["hooks"],
             gitignored: true,
           },
         ],
@@ -220,25 +293,21 @@ export const augmentAgent = {
             lastVerified: "2026-08-05",
           },
         ],
-      },
-      axm: {
-        status: "supported",
-        writer: {
+
+        entryDialect: {
           serializer: "command-stdin",
-          configFiles: [
-            {
-              scope: "project",
-              path: ".augment/settings.json",
-              format: "json",
-              gitignored: false,
-            },
-          ],
-          settingsKey: "hooks",
-          eventMap: "native.events",
           matcherKind: "regex",
           matcherSerialization: "bare",
           timeoutSerialization: "milliseconds",
           commandNameSerialization: "omit",
+        },
+      },
+      axm: {
+        status: "supported",
+        writer: {
+          locationIds: ["project"],
+
+          eventMap: "native.events",
         },
         lastVerified: "2026-08-05",
       },
@@ -255,7 +324,18 @@ export const augmentAgent = {
       standardsCompliance: "full",
       convention: "universal",
       kind: "agents-md",
-      files: ["AGENTS.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "AGENTS.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: true,
       importSyntax: null,
     },
@@ -275,16 +355,38 @@ export const augmentAgent = {
       sources: ["https://docs.augmentcode.com/cli/permissions"],
       scopes: ["user", "project"],
       mechanism: ["config-file"],
-      configFiles: [
+      locations: [
         {
+          id: "user",
           scope: "user",
-          path: "~/.augment/settings.json",
+          root: "home",
+          path: ".augment/settings.json",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "json",
           gitignored: false,
         },
         {
+          id: "project",
           scope: "project",
+          root: "project",
           path: ".augment/settings.json",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "json",
           gitignored: false,
         },
@@ -304,7 +406,7 @@ export const augmentAgent = {
       writer: {
         grants: {
           shell: {
-            target: "~/.augment/settings.json",
+            destination: { kind: "location", locationId: "user" },
             patch: {
               toolPermissions: [
                 {
@@ -317,7 +419,7 @@ export const augmentAgent = {
             template: null,
           },
           filesystem: {
-            target: "~/.augment/settings.json",
+            destination: { kind: "location", locationId: "user" },
             patch: {
               toolPermissions: [
                 { toolName: "read", permission: { type: "allow" } },

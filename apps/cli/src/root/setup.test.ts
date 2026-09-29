@@ -4,7 +4,6 @@ import {
 } from "@agentxm/workspace-kernel/settlement/live";
 // Raw node:fs/node:os/node:path is the repo-wide convention for test fixtures.
 import * as fs from "node:fs";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace-kernel/projection/live";
 import * as os from "node:os";
 import * as path from "node:path";
 import { type Settings, LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
@@ -114,7 +113,6 @@ const makeSetupTestContext = (opts?: {
       RegistryClientFactoryTest(FetchHttpClient.layer, "https://registry.invalid"),
       NodeServices.layer,
     ),
-    CodingAgentRepositoryLive,
     Layer.provide(WorkspaceTransactionScopesLive, NodeServices.layer),
     // Setup applies the bundled official skill inside the initialization
     // closure, through the same asset layer the executable composes.

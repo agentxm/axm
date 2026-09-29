@@ -10,6 +10,7 @@ import {
   CodingAgentRepository,
   hasAxmManagedMarker,
   type CodingAgentRepositoryService,
+  type AgentOutputAuthority,
 } from "@agentxm/workspace-kernel/projection";
 import { codingAgentForId } from "@agentxm/workspace-kernel/agent-adapters";
 import { WorkspaceReadTest } from "@agentxm/workspace-kernel/workspace-state/testing";
@@ -18,6 +19,15 @@ import { applySync, previewSync, makeSyncFixture } from "../testing/sync-fixture
 
 const AXM_MANAGED_MARKER =
   "<!-- axm:file v=1 ext=@acme/subagents/test src=agent_extensions/@acme/subagents/test -->";
+
+const outputAuthority = (overrides: Partial<AgentOutputAuthority>): AgentOutputAuthority => ({
+  expectedRegions: { rule: [], knowledge: [] },
+  expectedHooks: [],
+  expectedMcpEntries: {},
+  expectedSkillSources: {},
+  expectedSubagentFiles: {},
+  ...overrides,
+});
 
 const expectedNames = (overrides?: {
   readonly skill?: ReadonlyArray<string>;
@@ -40,6 +50,7 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
         const canonicalSkill = path.join(
           tempDir,
           "agent_extensions",
+          "registry",
           "@acme",
           "skills",
           "code-review",
@@ -55,11 +66,11 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
 
         const managedSkillLink = path.join(cursorSkills, "code-review");
         const managedSharedLink = path.join(sharedSkills, "code-review");
-        const managedChainedLink = path.join(cursorSkills, "shared-code-review");
+        const foreignChainedLink = path.join(cursorSkills, "shared-code-review");
         const unmanagedSkill = path.join(cursorSkills, "user-skill");
         fs.symlinkSync(canonicalSkill, managedSkillLink);
         fs.symlinkSync(canonicalSkill, managedSharedLink);
-        fs.symlinkSync(managedSharedLink, managedChainedLink);
+        fs.symlinkSync(managedSharedLink, foreignChainedLink);
         fs.mkdirSync(unmanagedSkill, { recursive: true });
         fs.writeFileSync(path.join(unmanagedSkill, "SKILL.md"), "# User skill\n");
 
@@ -83,34 +94,44 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
           Layer.succeed(CodingAgentRepository, agentRepo),
         );
 
+        const authority = outputAuthority({
+          expectedSkillSources: { "code-review": [canonicalSkill] },
+          expectedSubagentFiles: {
+            reviewer: [
+              { ext: "@acme/subagents/test", src: "agent_extensions/@acme/subagents/test" },
+            ],
+          },
+        });
         const preview = yield* reconcileAgentOutputs({
           desiredAgentIds: new Set(),
-          expectedNames: expectedNames(),
+          expectedNames: expectedNames({ skill: ["code-review"] }),
+          authority,
           dryRun: true,
         }).pipe(Effect.provide(layer));
 
         expect(preview.removedPaths).toEqual(
-          expect.arrayContaining([managedSkillLink, managedChainedLink, managedSubagent]),
+          expect.arrayContaining([managedSkillLink, managedSubagent]),
         );
         expect(preview.preservedPaths).toEqual(
-          expect.arrayContaining([unmanagedSkill, unmanagedSubagent]),
+          expect.arrayContaining([unmanagedSkill, unmanagedSubagent, foreignChainedLink]),
         );
         expect(fs.existsSync(managedSkillLink)).toBe(true);
         expect(fs.existsSync(managedSubagent)).toBe(true);
 
         const result = yield* reconcileAgentOutputs({
           desiredAgentIds: new Set(),
-          expectedNames: expectedNames(),
+          expectedNames: expectedNames({ skill: ["code-review"] }),
+          authority,
         }).pipe(Effect.provide(layer));
 
         expect(result.removedPaths).toEqual(
-          expect.arrayContaining([managedSkillLink, managedChainedLink, managedSubagent]),
+          expect.arrayContaining([managedSkillLink, managedSubagent]),
         );
         expect(result.preservedPaths).toEqual(
-          expect.arrayContaining([unmanagedSkill, unmanagedSubagent]),
+          expect.arrayContaining([unmanagedSkill, unmanagedSubagent, foreignChainedLink]),
         );
         expect(fs.existsSync(managedSkillLink)).toBe(false);
-        expect(fs.existsSync(managedChainedLink)).toBe(false);
+        expect(fs.readlinkSync(foreignChainedLink)).toBe(managedSharedLink);
         expect(fs.existsSync(managedSharedLink)).toBe(true);
         expect(fs.existsSync(managedSubagent)).toBe(false);
         expect(fs.existsSync(unmanagedSkill)).toBe(true);
@@ -170,7 +191,7 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
 });
 
 describe("cleanupStaleManagedSkillDirectories", () => {
-  it.effect("reconciles the synthetic universal skill container", () =>
+  it.effect("reconciles the shared skill container without configured agents", () =>
     Effect.gen(function* () {
       const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "axm-universal-cleanup-"));
       try {
@@ -181,12 +202,12 @@ describe("cleanupStaleManagedSkillDirectories", () => {
         fs.mkdirSync(skillsDir, { recursive: true });
         fs.symlinkSync(source, projection);
 
-        const universal = codingAgentForId("universal");
+        const sharedReader = codingAgentForId("codex");
         const agentRepo: CodingAgentRepositoryService = {
-          get: () => Effect.succeed(universal),
-          all: Effect.succeed([universal]),
+          get: () => Effect.succeed(sharedReader),
+          all: Effect.succeed([sharedReader]),
           getConfiguredAgents: () => Effect.succeed([]),
-          getMaterializationAgents: () => Effect.succeed([universal]),
+          getMaterializationAgents: () => Effect.succeed([]),
           getUnknownConfiguredAgentIds: () => Effect.succeed([]),
         };
         const layer = Layer.mergeAll(
@@ -197,8 +218,9 @@ describe("cleanupStaleManagedSkillDirectories", () => {
         );
 
         yield* reconcileAgentOutputs({
-          desiredAgentIds: new Set(["universal"]),
+          desiredAgentIds: new Set(),
           expectedNames: expectedNames(),
+          authority: outputAuthority({ expectedSkillSources: { retired: [source] } }),
         }).pipe(Effect.provide(layer));
 
         expect(fs.existsSync(projection)).toBe(false);
@@ -251,6 +273,9 @@ describe("cleanupStaleManagedSkillDirectories", () => {
           const preview = yield* reconcileAgentOutputs({
             desiredAgentIds: new Set(["cursor"]),
             expectedNames: expectedNames({ skill: ["current"] }),
+            authority: outputAuthority({
+              expectedSkillSources: { current: [currentSource], retired: [retiredSource] },
+            }),
             dryRun: true,
           }).pipe(Effect.provide(layer));
           expect(preview.removedPaths).toEqual([retired]);
@@ -259,6 +284,9 @@ describe("cleanupStaleManagedSkillDirectories", () => {
           yield* reconcileAgentOutputs({
             desiredAgentIds: new Set(["cursor"]),
             expectedNames: expectedNames({ skill: ["current"] }),
+            authority: outputAuthority({
+              expectedSkillSources: { current: [currentSource], retired: [retiredSource] },
+            }),
           }).pipe(Effect.provide(layer));
           expect(fs.existsSync(current)).toBe(true);
           expect(fs.existsSync(retired)).toBe(false);
@@ -272,6 +300,20 @@ describe("cleanupStaleManagedSkillDirectories", () => {
 
 describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () => {
   const managedHookCommand = "agent_extensions/@acme/hooks/guard/src/guard.sh";
+  const hookAuthority = {
+    expectedRegions: { rule: [], knowledge: [] },
+    expectedHooks: [
+      {
+        name: "guard",
+        ref: "@acme/hooks/guard",
+        scope: "project" as const,
+        root: "agent_extensions/@acme/hooks/guard",
+      },
+    ],
+    expectedMcpEntries: {},
+    expectedSkillSources: {},
+    expectedSubagentFiles: {},
+  };
 
   const makeClaudeCodeLayer = (tempDir: string) => {
     const claudeCode = codingAgentForId("claude-code");
@@ -309,6 +351,16 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
           desiredAgentIds: new Set(),
           expectedNames: expectedNames(),
           subjects: [{ type: "mcp-server", name: "selected" }],
+          authority: outputAuthority({
+            expectedMcpEntries: {
+              selected: [
+                { v: 1, managed: true, ext: "@workspace/mcps/selected", source: "inline" },
+              ],
+              unrelated: [
+                { v: 1, managed: true, ext: "@workspace/mcps/unrelated", source: "inline" },
+              ],
+            },
+          }),
         }).pipe(Effect.provide(makeClaudeCodeLayer(tempDir)));
         const observed: unknown = JSON.parse(fs.readFileSync(mcpConfig, "utf8"));
         expect(observed).toEqual({ mcpServers: { unrelated: retained } });
@@ -349,6 +401,13 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
         const result = yield* reconcileAgentOutputs({
           desiredAgentIds: new Set(),
           expectedNames: expectedNames(),
+          authority: outputAuthority({
+            expectedMcpEntries: {
+              "acme-managed": [
+                { v: 1, managed: true, ext: "@workspace/mcps/acme-managed", source: "inline" },
+              ],
+            },
+          }),
         }).pipe(Effect.provide(makeClaudeCodeLayer(tempDir)));
 
         const parsed: unknown = JSON.parse(fs.readFileSync(mcpConfig, "utf8"));
@@ -395,6 +454,8 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
                           unit: "hook:guard",
                           source: "extension",
                           ref: "@acme/hooks/guard",
+                          scope: "project",
+                          root: "agent_extensions/@acme/hooks/guard",
                         },
                       },
                     ],
@@ -411,6 +472,7 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
 
         const before = fs.readFileSync(settingsPath, "utf8");
         const preview = yield* reconcileAgentOutputs({
+          authority: hookAuthority,
           desiredAgentIds: new Set(),
           expectedNames: expectedNames(),
           dryRun: true,
@@ -419,6 +481,7 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
         expect(fs.readFileSync(settingsPath, "utf8")).toBe(before);
 
         const result = yield* reconcileAgentOutputs({
+          authority: hookAuthority,
           desiredAgentIds: new Set(),
           expectedNames: expectedNames(),
         }).pipe(Effect.provide(makeClaudeCodeLayer(tempDir)));
@@ -459,6 +522,8 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
                           unit: "hook:guard",
                           source: "extension",
                           ref: "@acme/hooks/guard",
+                          scope: "project",
+                          root: "agent_extensions/@acme/hooks/guard",
                         },
                       },
                     ],
@@ -472,6 +537,7 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
         );
 
         yield* reconcileAgentOutputs({
+          authority: hookAuthority,
           desiredAgentIds: new Set(),
           expectedNames: expectedNames(),
         }).pipe(Effect.provide(makeClaudeCodeLayer(tempDir)));

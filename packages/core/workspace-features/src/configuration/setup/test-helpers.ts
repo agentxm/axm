@@ -6,8 +6,22 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import {
+  CodingAgentRepositoryLive,
+  NativeWriteAuthorityLive,
+} from "@agentxm/workspace-kernel/projection/live";
+import type { WorkspaceStateOptions } from "@agentxm/workspace-kernel/workspace-state";
+import { layer as WorkspaceLayerLive } from "@agentxm/workspace-kernel/workspace-state/live";
 
 import { SetupWorkspace, type SetupWorkspaceRequest } from "./setup-workspace.js";
+
+/** Bind setup's authority to its selected scope while the workspace is still absent. */
+export const setupWorkspaceTestLayer = (options: WorkspaceStateOptions) =>
+  Layer.provideMerge(
+    Layer.merge(CodingAgentRepositoryLive, NativeWriteAuthorityLive),
+    WorkspaceLayerLive({ ...options, allowUninitialized: true }),
+  );
 
 export const runSetup = (request: SetupWorkspaceRequest) =>
   Effect.gen(function* () {
@@ -20,4 +34,4 @@ export const runSetup = (request: SetupWorkspaceRequest) =>
       bundledSkill: { installed: false, version: "0.0.0-fixture" },
     });
     return { candidate: prepared, transition, outcome };
-  });
+  }).pipe(Effect.provide(setupWorkspaceTestLayer(request)));

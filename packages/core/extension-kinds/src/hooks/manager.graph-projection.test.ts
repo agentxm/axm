@@ -36,6 +36,8 @@ import {
 import { HookManager } from "@agentxm/workspace-kernel/materialization";
 import {
   applyPlannedProjections,
+  applyProjectionPlans,
+  captureAgentOutputAuthority,
   observeProjectionPlans,
 } from "@agentxm/workspace-kernel/projection";
 import {
@@ -143,6 +145,7 @@ describe("HookManager graph-derived unit projection", () => {
     return HookManagerLive.pipe(
       Layer.provideMerge(WorkspaceCatalogLive),
       Layer.provideMerge(CodingAgentRepositoryLive),
+      Layer.provideMerge(NativeWriteAuthorityLive),
       Layer.provideMerge(
         WorkspaceReadTest({
           baseDir,
@@ -154,7 +157,6 @@ describe("HookManager graph-derived unit projection", () => {
       ),
       Layer.provideMerge(MockWorkspaceTransactionScope(axmDir)),
       Layer.provide(Layer.succeed(SourceHostProviders, providersStub)),
-      Layer.provideMerge(NativeWriteAuthorityLive),
       Layer.provideMerge(WorkspaceFileWriteLocksLive),
       Layer.provideMerge(
         Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
@@ -190,6 +192,43 @@ describe("HookManager graph-derived unit projection", () => {
     }).pipe(Effect.provide(layer));
   });
 
+  it.effect("refuses an existing Hook route aliased into its accepted canonical source", () => {
+    writeHookPackage("pack-hook");
+    const manifest = nodePath.join(
+      baseDir,
+      "agent_extensions",
+      "registry",
+      OWNER,
+      "hooks",
+      "pack-hook",
+      "hook.json",
+    );
+    const before = nodeFs.readFileSync(manifest, "utf8");
+    const native = nodePath.join(baseDir, ".claude", "settings.json");
+    nodeFs.mkdirSync(nodePath.dirname(native));
+    const link = nodePath.relative(nodePath.dirname(native), manifest);
+    nodeFs.symlinkSync(link, native);
+    const layer = makeTestLayer({
+      graph: completeGraph([packHookNode("pack-hook", "pack")]),
+      locked: decodeLockMap({ "pack-hook": registryLock(baseDir, "pack-hook") }),
+      configuredAgents: ["claude-code"],
+    });
+    return Effect.gen(function* () {
+      const manager = yield* HookManager;
+      const result = yield* applyPlannedProjections(manager).pipe(Effect.result);
+      expect(result).toMatchObject({
+        _tag: "Failure",
+        failure: {
+          _tag: "HookDefinitionInvalid",
+          cause: { _tag: "NativeLocationError", reason: "source-overlap" },
+        },
+      });
+      expect(nodeFs.readFileSync(manifest, "utf8")).toBe(before);
+      expect(nodeFs.readlinkSync(native)).toBe(link);
+      expect(nodeFs.existsSync(nodePath.join(baseDir, "AGENTS.md"))).toBe(false);
+    }).pipe(Effect.provide(layer));
+  });
+
   it.effect("keeps the other pack's native entry when one pack leaves the graph", () => {
     writeHookPackage("pack-a-hook");
     writeHookPackage("pack-b-hook");
@@ -210,18 +249,21 @@ describe("HookManager graph-derived unit projection", () => {
       configuredAgents: ["claude-code"],
     });
     return Effect.gen(function* () {
-      yield* Effect.gen(function* () {
+      const priorAuthority = yield* Effect.gen(function* () {
         const manager = yield* HookManager;
         yield* applyPlannedProjections(manager);
+        return yield* captureAgentOutputAuthority();
       }).pipe(Effect.provide(before));
       yield* Effect.gen(function* () {
         const manager = yield* HookManager;
-        yield* applyPlannedProjections(manager);
+        yield* manager
+          .projectionPlans({ priorAuthority })
+          .pipe(Effect.flatMap(applyProjectionPlans));
       }).pipe(Effect.provide(after));
       const raw = nodeFs.readFileSync(nodePath.join(baseDir, ".claude", "settings.json"), "utf8");
       expect(raw).not.toContain("pack-a-hook");
       expect(raw.split("pack-b-hook/src/hook.sh").length - 1).toBe(1);
-    }).pipe(Effect.provide(after));
+    });
   });
 
   it.effect("reads an incomplete contributor set from a native hook unit", () => {
@@ -267,7 +309,7 @@ describe("HookManager graph-derived unit projection", () => {
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("preserves repository rewrites in the fallback region for writer-less agents", () => {
+  it.effect("preserves rewritten generated fallback bodies while generation is current", () => {
     writeHookPackage("pack-a-hook");
     writeHookPackage("pack-b-hook");
     const layer = makeTestLayer({

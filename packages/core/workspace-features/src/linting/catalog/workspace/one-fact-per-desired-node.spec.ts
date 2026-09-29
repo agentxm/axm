@@ -65,6 +65,7 @@ const lint = (workspace: SyncFixture) =>
       userHome: workspace.home,
       scope: "project",
       input: { view: "workspace" },
+      nativeView: { kind: "workspace" },
       fix: false,
     },
     { strict: false },

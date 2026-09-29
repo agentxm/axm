@@ -7,6 +7,8 @@ import {
   axmIntegrationStatus,
   getSupportedExtensionTypesForAgent,
   listCapabilities,
+  NativeReadLocationSchema,
+  type NativeReadLocation,
   type Agent,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { makeAppError } from "../../app-error/index.js";
@@ -32,7 +34,7 @@ interface AgentCapabilityItem {
   readonly native: string;
   /** AXM integration: supported, planned, unsupported, unknown, or writer. */
   readonly axm: string;
-  readonly directory: string;
+  readonly locations: ReadonlyArray<NativeReadLocation>;
   readonly scopes: string;
 }
 
@@ -41,7 +43,7 @@ const AgentCapabilityItemSchema = Schema.Struct({
   capabilityKey: Schema.String,
   native: Schema.String,
   axm: Schema.String,
-  directory: Schema.String,
+  locations: Schema.Array(NativeReadLocationSchema),
   scopes: Schema.String,
 });
 
@@ -64,7 +66,22 @@ const AgentCapabilityColumns = [
   },
   { header: "Native", value: (row: AgentCapabilityItem) => row.native },
   { header: "AXM", value: (row: AgentCapabilityItem) => row.axm },
-  { header: "Directory", priority: "optional", value: (row: AgentCapabilityItem) => row.directory },
+  {
+    header: "Locations",
+    priority: "optional",
+    value: (row: AgentCapabilityItem) =>
+      row.locations
+        .map((location) => {
+          const anchor =
+            location.root === "home"
+              ? "~/"
+              : location.root === "xdg-config"
+                ? "$XDG_CONFIG_HOME/"
+                : "";
+          return `${location.scope}: ${anchor}${location.path}${location.applicability.kind === "conditional" ? " (conditional)" : ""}`;
+        })
+        .join("; ") || NONE,
+  },
   { header: "Scopes", priority: "optional", value: (row: AgentCapabilityItem) => row.scopes },
 ] satisfies ReadonlyArray<ViewColumn<AgentCapabilityItem>>;
 
@@ -76,7 +93,7 @@ const capabilityRows = (agent: Agent): ReadonlyArray<AgentCapabilityItem> =>
       capabilityKey: type,
       native: agentCapabilityStatus(capability),
       axm: axmIntegrationStatus(capability),
-      directory: "directory" in native ? native.directory : NONE,
+      locations: "locations" in native ? native.locations : [],
       scopes: "scopes" in native ? [...native.scopes].sort().join(", ") : NONE,
     };
   });

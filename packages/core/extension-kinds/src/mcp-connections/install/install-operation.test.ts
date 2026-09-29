@@ -995,12 +995,12 @@ describe("installMcpServer", () => {
               }),
               { path: "axm.json", change: "created" },
               {
-                path: ".mcp.json",
+                path: path.join(base, ".mcp.json"),
                 change: "created",
                 agentIds: ["claude-code"],
               },
               {
-                path: ".codex/config.toml",
+                path: path.join(base, ".codex/config.toml"),
                 change: "created",
                 agentIds: ["codex"],
               },
@@ -1036,7 +1036,7 @@ describe("installMcpServer", () => {
       }),
     );
 
-    it.effect("reports a configured agent without MCP projection support", () =>
+    it.effect("reports a configured native MCP reader without a verified AXM writer", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@community");
@@ -1053,11 +1053,11 @@ describe("installMcpServer", () => {
           throw new Error(result.message);
         }
         expect(result.message).toContain("canonical=success");
-        expect(result.message).toContain("agent-sync=green");
-        expect(result.message).toContain("does not have MCP config support");
+        expect(result.message).toContain("agent-sync=degraded");
+        expect(result.message).toContain("amp supports native MCP, but AXM has no verified writer");
         expect(result.artifact).toEqual(
           expect.objectContaining({
-            agents: [],
+            agents: ["amp"],
             fileCount: 2,
             targets: [
               expect.objectContaining({

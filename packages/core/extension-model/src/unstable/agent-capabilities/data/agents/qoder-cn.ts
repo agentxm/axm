@@ -34,7 +34,18 @@ export const qoderCnAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".qoder/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".qoder/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
     },
@@ -50,6 +61,10 @@ export const qoderCnAgent = {
         standardsCompliance: "full",
         convention: "universal",
         transports: ["stdio", "http", "sse"],
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -66,8 +81,18 @@ export const qoderCnAgent = {
         docs: [],
         sources: ["https://help.aliyun.com/en/lingma/subagent"],
         scopes: ["user", "project"],
-        directory: ".qoder/agents",
-        layout: "directory",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".qoder/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
     },
@@ -81,6 +106,10 @@ export const qoderCnAgent = {
         sources: ["https://help.aliyun.com/zh/lingma/qoder-cn-cli"],
         scopes: ["user", "project"],
         modeling: "native-unmodeled",
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -102,7 +131,18 @@ export const qoderCnAgent = {
       standardsCompliance: "full",
       convention: "universal",
       kind: "agents-md",
-      files: ["AGENTS.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "AGENTS.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: true,
       importSyntax: null,
     },
@@ -117,9 +157,41 @@ export const qoderCnAgent = {
       sources: ["https://help.aliyun.com/zh/lingma/tools-3044418"],
       scopes: ["user", "project"],
       mechanism: ["config-file", "cli-flag"],
-      configFiles: [
-        { scope: "user", path: "~/.qoder-cn/settings.json", format: "json", gitignored: false },
-        { scope: "project", path: ".qoder/settings.json", format: "json", gitignored: false },
+      locations: [
+        {
+          id: "user",
+          scope: "user",
+          root: "home",
+          path: ".qoder-cn/settings.json",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
+          format: "json",
+          gitignored: false,
+        },
+        {
+          id: "project",
+          scope: "project",
+          root: "project",
+          path: ".qoder/settings.json",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
+          format: "json",
+          gitignored: false,
+        },
       ],
       grammar: { style: "glob", example: "Bash(git status)", notes: null },
       prerequisites: [],

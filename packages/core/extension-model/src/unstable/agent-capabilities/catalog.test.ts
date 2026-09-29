@@ -16,9 +16,23 @@ import {
   DetectionMarkerSchema,
   DetectionSchema,
   type Agent,
+  type NativeReadLocation,
 } from "./schema.js";
 import { LEAF_EXTENSION_TYPES } from "../extension-types/schema.js";
 import { capabilityVerificationAgeReport } from "./verification.js";
+const projectLocation = (
+  path: string,
+  shape: "file" | "directory" = "directory",
+): NativeReadLocation => ({
+  scope: "project",
+  root: "project",
+  path,
+  shape,
+  role: "primary",
+  status: "canonical",
+  applicability: { kind: "always" },
+  provenance: { kind: "capability-sources" },
+});
 const decodeAgent = (input: unknown): Agent =>
   Schema.decodeUnknownSync(AgentSchema)(input, { onExcessProperty: "error" });
 const unsupportedCapability = {
@@ -54,7 +68,7 @@ const makeCapabilitiesInput = (overrides: Record<string, unknown> = {}) => ({
       scopes: ["project"],
       standardsCompliance: "full",
       convention: "vendor",
-      directory: ".sample/skills",
+      locations: [projectLocation(".sample/skills")],
     },
     axm: {
       status: "supported",
@@ -150,25 +164,27 @@ describe("agent capability catalog", () => {
     });
     expect(sortedStrings(decoded.map((agent) => agent.id))).toEqual(sortedStrings(AGENT_IDS));
   });
-  it("keeps every original agent's primary Skill write directory byte-identical", () => {
+  it("keeps every original agent's primary Skill directory byte-identical", () => {
     const actual = Object.fromEntries(
       AGENTS.flatMap((agent) => {
         if (!Object.hasOwn(ORIGINAL_SKILL_DIRS, agent.id)) return [];
         const skills = deriveAgentDescriptor(agent).skills;
-        return skills === undefined ? [] : [[agent.id, skills.dir]];
+        const primary = skills?.locations.find(
+          (location) => location.role === "primary" && location.applicability.kind === "always",
+        );
+        return primary === undefined ? [] : [[agent.id, primary.path]];
       }),
     );
     expect(Object.keys(actual)).toHaveLength(53);
     expect(actual).toEqual(ORIGINAL_SKILL_DIRS);
   });
-  it("accepts omitted Skill read paths and rejects invalid statuses", () => {
+  it("requires explicit Skill locations and rejects invalid status claims", () => {
     const decoded = decodeAgent(makeAgentInput());
     expect(
-      "additionalReadPaths" in decoded.capabilities.skill.native
-        ? decoded.capabilities.skill.native.additionalReadPaths
+      "locations" in decoded.capabilities.skill.native
+        ? decoded.capabilities.skill.native.locations
         : undefined,
-    ).toEqual([]);
-
+    ).toEqual([projectLocation(".sample/skills")]);
     const input = makeAgentInput();
     const capabilities = makeCapabilitiesInput();
     expect(() =>
@@ -180,28 +196,49 @@ describe("agent capability catalog", () => {
             ...capabilities.skill,
             native: {
               ...capabilities.skill.native,
-              additionalReadPaths: [{ path: ".other/skills", status: "legacy" }],
+              locations: [{ ...projectLocation(".other/skills"), status: "legacy" }],
             },
           },
         },
       }),
-    ).toThrow("Expected SkillReadPathStatus");
+    ).toThrow("status");
+    expect(() =>
+      decodeAgent({
+        ...input,
+        capabilities: {
+          ...capabilities,
+          skill: {
+            ...capabilities.skill,
+            native: { ...capabilities.skill.native, directory: ".legacy/skills" },
+          },
+        },
+      }),
+    ).toThrow("directory");
   });
   it("keeps authored Skill conventions equal to the primary-directory convention", () => {
     const mismatches = AGENTS.flatMap((agent) => {
       const native = agent.capabilities.skill.native;
-      if (!("directory" in native)) return [];
-      return native.convention === deriveSkillConvention(native.directory)
+      if (!("locations" in native)) return [];
+      const primary = native.locations.find(
+        (location) => location.scope === "project" && location.role === "primary",
+      );
+      if (primary === undefined) return [];
+      return native.convention === deriveSkillConvention(primary.path)
         ? []
-        : [`${agent.id}: ${native.convention} != ${deriveSkillConvention(native.directory)}`];
+        : [`${agent.id}: ${native.convention} != ${deriveSkillConvention(primary.path)}`];
     });
     expect(mismatches).toEqual([]);
   });
   it("requires an explicit rootDir decision for universal Skill write paths", () => {
     const missing = AGENTS.flatMap((agent) => {
       const native = agent.capabilities.skill.native;
-      return "directory" in native &&
-        deriveSkillConvention(native.directory) === "universal" &&
+      return "locations" in native &&
+        native.locations.some(
+          (location) =>
+            location.scope === "project" &&
+            location.role === "primary" &&
+            deriveSkillConvention(location.path) === "universal",
+        ) &&
         !Object.hasOwn(agent, "rootDir")
         ? [agent.id]
         : [];
@@ -332,11 +369,11 @@ describe("agent capability catalog", () => {
     const hook = byId.get("codex")?.capabilities.hook;
     expect(hook?.native.availability).toEqual({ via: "native" });
     expect(hook?.native).toHaveProperty("events");
+    expect(hook?.native).toHaveProperty("entryDialect.serializer", "command-stdin");
     expect(hook?.axm).toMatchObject({
       status: "supported",
       writer: {
-        serializer: "command-stdin",
-        settingsKey: "hooks",
+        locationIds: ["project"],
       },
     });
   });
@@ -424,8 +461,7 @@ describe("agent capability catalog", () => {
                 scopes: ["project"],
                 standardsCompliance: "full",
                 convention: "vendor",
-                directory: ".sample/agents",
-                layout: "directory",
+                locations: [projectLocation(".sample/agents")],
               },
               axm: {
                 status: "supported",
@@ -451,7 +487,7 @@ describe("agent capability catalog", () => {
                 docs: [],
                 sources: ["https://example.com/docs"],
                 scopes: ["project"],
-                directory: ".sample/skills",
+                locations: [projectLocation(".sample/skills")],
               },
               axm: {
                 status: "supported",
@@ -479,7 +515,7 @@ describe("agent capability catalog", () => {
               standardsCompliance: "full",
               convention: "universal",
               kind: "agents-md",
-              files: ["SAMPLE.md"],
+              locations: [projectLocation("SAMPLE.md", "file")],
               nestedDiscovery: false,
               importSyntax: null,
             },
@@ -508,7 +544,7 @@ describe("agent capability catalog", () => {
                 scopes: ["project"],
                 standardsCompliance: "full",
                 convention: "vendor",
-                directory: ".sample/skills",
+                locations: [projectLocation(".sample/skills")],
               },
               axm: {
                 status: "supported",
@@ -521,7 +557,7 @@ describe("agent capability catalog", () => {
       ),
     ).toThrow("sources");
   });
-  it("requires rules.directory for rules-dir instructions", () => {
+  it("requires primary directory locations for rules-dir instructions", () => {
     expect(() =>
       decodeAgent(
         makeAgentInput({
@@ -536,7 +572,7 @@ describe("agent capability catalog", () => {
               standardsCompliance: "partial",
               convention: "vendor",
               kind: "rules-dir",
-              files: ["RULES.md"],
+              locations: [projectLocation("RULES.md", "file")],
               nestedDiscovery: false,
               importSyntax: null,
             },
@@ -565,6 +601,10 @@ describe("agent capability catalog", () => {
               standardsCompliance: "full",
               convention: "universal",
               transports: ["stdio"],
+
+              locations: [],
+
+              entryDialect: null,
             },
             axm: {
               status: "supported",
@@ -577,7 +617,7 @@ describe("agent capability catalog", () => {
     );
     expect(decoded.capabilities["mcp-server"].axm.status).toBe("supported");
   });
-  it("reports the real native files path for invalid agents-md rule files", () => {
+  it("reports the native locations path for invalid agents-md instruction files", () => {
     expect(() =>
       decodeAgent(
         makeAgentInput({
@@ -592,7 +632,7 @@ describe("agent capability catalog", () => {
               standardsCompliance: "full",
               convention: "universal",
               kind: "agents-md",
-              files: ["README.md"],
+              locations: [projectLocation("README.md", "file")],
               nestedDiscovery: true,
               importSyntax: null,
             },
@@ -604,7 +644,7 @@ describe("agent capability catalog", () => {
           },
         }),
       ),
-    ).toThrow('["instructions"]["native"]["files"]');
+    ).toThrow('["instructions"]["native"]["locations"]');
   });
   it("requires MCP config coverage for declared transports", () => {
     expect(() =>
@@ -622,27 +662,39 @@ describe("agent capability catalog", () => {
                 standardsCompliance: "full",
                 convention: "universal",
                 transports: ["stdio", "http"],
+
+                locations: [
+                  {
+                    id: "project-0",
+                    scope: "project",
+                    root: "project",
+                    path: ".mcp.json",
+                    shape: "file",
+                    role: "primary",
+                    status: "canonical",
+                    applicability: { kind: "always" },
+                    provenance: { kind: "capability-sources" },
+                    format: "json",
+                    attribution: "shared",
+                    keyPath: ["mcpServers"],
+                  },
+                ],
+
+                entryDialect: {
+                  activationField: {
+                    required: null,
+                    accepted: [null],
+                  },
+                  stdio: null,
+                  remote: null,
+                },
               },
               axm: {
                 status: "supported",
                 lastVerified: "2026-05-18",
                 writer: {
                   config: {
-                    serversKey: "mcpServers",
-                    activationField: {
-                      required: null,
-                      accepted: [null],
-                    },
-                    targets: [
-                      {
-                        scope: "project",
-                        path: ".mcp.json",
-                        format: "json",
-                        attribution: "shared",
-                      },
-                    ],
-                    stdio: null,
-                    remote: null,
+                    locationIds: ["project-0"],
                   },
                 },
               },
@@ -654,9 +706,9 @@ describe("agent capability catalog", () => {
   });
   it("marks every universal project .mcp.json reader as shared", () => {
     const readers = AGENTS.flatMap((agent) => {
-      const writer = agent.capabilities["mcp-server"].axm.writer;
-      if (writer === null) return [];
-      return writer.config.targets.flatMap((target) =>
+      const native = agent.capabilities["mcp-server"].native;
+      if (!("locations" in native)) return [];
+      return native.locations.flatMap((target) =>
         target.scope === "project" && target.path === ".mcp.json"
           ? [{ agentId: agent.id, attribution: target.attribution }]
           : [],
@@ -668,12 +720,13 @@ describe("agent capability catalog", () => {
   });
   it("keeps every required MCP writer representation in its accepted set", () => {
     for (const agent of AGENTS) {
-      const writer = agent.capabilities["mcp-server"].axm.writer;
-      if (writer === null) continue;
+      const native = agent.capabilities["mcp-server"].native;
+      if (!("entryDialect" in native) || native.entryDialect === null) continue;
+      const dialect = native.entryDialect;
       const policies = [
-        writer.config.activationField,
-        ...(writer.config.stdio === null ? [] : [writer.config.stdio.typeField]),
-        ...(writer.config.remote === null ? [] : [writer.config.remote.typeField]),
+        dialect.activationField,
+        ...(dialect.stdio === null ? [] : [dialect.stdio.typeField]),
+        ...(dialect.remote === null ? [] : [dialect.remote.typeField]),
       ];
       for (const policy of policies) {
         expect(policy.accepted, agent.id).toContainEqual(policy.required);

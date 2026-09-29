@@ -25,6 +25,7 @@ import {
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 
 import {
   NO_MATERIALIZATION_OBSERVATION,
@@ -78,6 +79,9 @@ const subagentArtifact = (args: {
     readonly agentIds?: ReadonlyArray<string>;
   }>;
   readonly agents: ReadonlyArray<string>;
+  readonly nativeLocations?: JobStepArtifact["nativeLocations"];
+  readonly workspaceRoot: string;
+  readonly path: Path.Path;
   readonly change: JobStepArtifact["change"];
   /** How the accepted resolution moved; a retained package keeps its row. */
   readonly lockfileChange: JobStepArtifactTarget["change"];
@@ -94,13 +98,23 @@ const subagentArtifact = (args: {
       change: targetChange,
       scope: args.scope,
     }),
-    ...args.materializedTargets.map((target) => ({ ...target, change: targetChange })),
+    ...args.materializedTargets.map((target) => ({
+      ...target,
+      change: args.nativeLocations?.some(
+        (native) =>
+          native.address.path === args.path.resolve(args.workspaceRoot, target.path) &&
+          native.state === "retained",
+      )
+        ? ("updated" as const)
+        : targetChange,
+    })),
   ];
   const firstTarget = targets[0];
   const version = args.lockEntry === undefined ? undefined : lockEntryVersion(args.lockEntry);
   return {
     path: firstTarget?.path ?? args.name,
     scope: args.scope,
+    ...(args.nativeLocations === undefined ? {} : { nativeLocations: args.nativeLocations }),
     ...(args.agents.length > 0 ? { agents: args.agents } : {}),
     ...(version !== undefined ? { version } : {}),
     change: args.change,
@@ -154,6 +168,7 @@ export const planSubagentUninstall: (
   InstallStepRequirements | SubagentManager
 > = Effect.fn("UninstallExtensions.planSubagents")(function* (intent: SubagentUninstallIntent) {
   const location = yield* WorkspaceLocation;
+  const path = yield* Path.Path;
   const desiredState = yield* DesiredStateReader;
   const lockfile = yield* LockfileReader;
   const subagentManager = yield* SubagentManager;
@@ -176,6 +191,8 @@ export const planSubagentUninstall: (
             return Effect.succeed(
               subagentArtifact({
                 name: target.name,
+                workspaceRoot: location.baseDir,
+                path,
                 lockEntry,
                 materializedTargets: [],
                 agents: [],
@@ -191,6 +208,8 @@ export const planSubagentUninstall: (
             return Effect.succeed(
               subagentArtifact({
                 name: target.name,
+                workspaceRoot: location.baseDir,
+                path,
                 lockEntry,
                 materializedTargets: [],
                 agents: [],
@@ -207,9 +226,12 @@ export const planSubagentUninstall: (
           return Effect.succeed(
             subagentArtifact({
               name: target.name,
+              workspaceRoot: location.baseDir,
+              path,
               lockEntry,
               materializedTargets: observation.targets,
               agents: observation.agents,
+              nativeLocations: observation.nativeLocations,
               change: "removed",
               lockfileChange: "updated",
               scope: location.scope,

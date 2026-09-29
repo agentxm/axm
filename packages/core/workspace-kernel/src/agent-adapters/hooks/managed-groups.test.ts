@@ -7,7 +7,7 @@ import { updateHooksJson } from "./managed-groups.js";
 describe("updateHooksJson", () => {
   it.effect("reports malformed JSONC as a validation failure", () =>
     Effect.gen(function* () {
-      const error = yield* updateHooksJson("settings.json", "hooks", "{ invalid", {}).pipe(
+      const error = yield* updateHooksJson("settings.json", "hooks", "{ invalid", {}, []).pipe(
         Effect.flip,
       );
 
@@ -30,8 +30,8 @@ describe("updateHooksJson", () => {
           hooks: [{ type: "command", command }],
         };
         const rendered = { PreToolUse: [group] };
-        const once = yield* updateHooksJson("settings.json", "hooks", "{}\n", rendered);
-        const twice = yield* updateHooksJson("settings.json", "hooks", once, rendered);
+        const once = yield* updateHooksJson("settings.json", "hooks", "{}\n", rendered, []);
+        const twice = yield* updateHooksJson("settings.json", "hooks", once, rendered, []);
         expect(twice).toBe(once);
       }),
     ),

@@ -118,7 +118,7 @@ describe("createSymlink", () => {
     ),
   );
 
-  it.effect("recovers from ELOOP (circular symlink)", () =>
+  it.effect("refuses an unreadable circular symlink without replacing either entry", () =>
     withNodeContext(
       Effect.gen(function* () {
         const target = path.join(tmpDir, "target");
@@ -131,11 +131,10 @@ describe("createSymlink", () => {
         fs.symlinkSync("link-a", linkB);
 
         // Now try to create a proper symlink at linkA
-        const result = yield* createSymlink({ target, link: linkA });
-        expect(result).toBe("replaced");
-
-        const resolved = fs.realpathSync(linkA);
-        expect(resolved).toBe(target);
+        const result = yield* createSymlink({ target, link: linkA }).pipe(Effect.flip);
+        expect(result._tag).toBe("SymlinkCreationError");
+        expect(fs.readlinkSync(linkA)).toBe("link-b");
+        expect(fs.readlinkSync(linkB)).toBe("link-a");
       }),
     ),
   );

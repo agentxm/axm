@@ -938,13 +938,24 @@ describe("skillsInDir", () => {
       const agents = Object.values(AGENT_DESCRIPTORS);
       const uniqueAgentDirs = [
         ...new Set(
-          agents.flatMap((agent) => (agent.skills === undefined ? [] : [agent.skills.dir])),
+          agents.flatMap((agent) =>
+            agent.skills === undefined
+              ? []
+              : agent.skills.locations
+                  .filter((location) => location.scope === "project" && location.role === "primary")
+                  .map((location) => location.path),
+          ),
         ),
       ];
       for (const agentDir of uniqueAgentDirs) {
         expect(dirs).toContain(agentDir);
       }
-      for (const readPath of agents.flatMap((agent) => agent.skills?.additionalReadPaths ?? [])) {
+      for (const readPath of agents.flatMap(
+        (agent) =>
+          agent.skills?.locations.filter(
+            (location) => location.scope === "project" && location.role === "additional",
+          ) ?? [],
+      )) {
         expect(dirs).toContain(readPath.path);
       }
     });

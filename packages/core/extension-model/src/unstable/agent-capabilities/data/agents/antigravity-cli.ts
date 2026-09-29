@@ -31,8 +31,28 @@ export const antigravityCliAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
-        directory: ".agents/skills",
-        additionalReadPaths: [{ path: ".agent/skills", status: "compat" }],
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".agents/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+          {
+            scope: "project",
+            root: "project",
+            path: ".agent/skills",
+            shape: "directory",
+            role: "additional",
+            status: "compat",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
     },
@@ -47,6 +67,10 @@ export const antigravityCliAgent = {
         standardsCompliance: "full",
         convention: "universal",
         transports: ["stdio", "http", "sse"],
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -81,6 +105,10 @@ export const antigravityCliAgent = {
         sources: ["https://antigravity.google/docs/hooks"],
         scopes: ["user", "project"],
         modeling: "native-unmodeled",
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -101,10 +129,30 @@ export const antigravityCliAgent = {
       standardsCompliance: "full",
       convention: "universal",
       kind: "agents-md",
-      files: ["AGENTS.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "AGENTS.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+        {
+          scope: "project",
+          root: "project",
+          path: ".agents/rules",
+          shape: "directory",
+          role: "additional",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: true,
       importSyntax: null,
-      directory: ".agents/rules",
     },
     axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
   },
@@ -117,10 +165,21 @@ export const antigravityCliAgent = {
       sources: ["https://antigravity.google/docs/cli-permissions"],
       scopes: ["user"],
       mechanism: ["config-file"],
-      configFiles: [
+      locations: [
         {
+          id: "user",
           scope: "user",
-          path: "~/.gemini/antigravity-cli/settings.json",
+          root: "home",
+          path: ".gemini/antigravity-cli/settings.json",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "json",
           gitignored: false,
         },

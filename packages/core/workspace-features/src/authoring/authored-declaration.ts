@@ -92,13 +92,19 @@ export const authoredDeclaration = (
   },
   type: ExtensionType,
   name: string,
+  options?: { readonly roundTrip?: boolean },
 ): AuthoredDeclaration => {
   switch (type) {
     case "skill":
       return {
         read: ports.settings.entries("skill").pipe(Effect.map((entries) => state(entries[name]))),
         declare: ({ enabled }) =>
-          ports.settingsWriter.setEntry("skill", name, { source: WORKSPACE_SOURCE, enabled }),
+          ports.settingsWriter.setEntry(
+            "skill",
+            name,
+            { source: WORKSPACE_SOURCE, enabled },
+            options,
+          ),
         retireExternalResolution: ports.accepted.removeAccepted("skill", name),
       };
     case "subagent":
@@ -107,21 +113,36 @@ export const authoredDeclaration = (
           .entries("subagent")
           .pipe(Effect.map((entries) => state(entries[name]))),
         declare: ({ enabled }) =>
-          ports.settingsWriter.setEntry("subagent", name, { source: WORKSPACE_SOURCE, enabled }),
+          ports.settingsWriter.setEntry(
+            "subagent",
+            name,
+            { source: WORKSPACE_SOURCE, enabled },
+            options,
+          ),
         retireExternalResolution: ports.accepted.removeAccepted("subagent", name),
       };
     case "rule":
       return {
         read: ports.settings.entries("rule").pipe(Effect.map((entries) => state(entries[name]))),
         declare: ({ enabled }) =>
-          ports.settingsWriter.setEntry("rule", name, { source: WORKSPACE_SOURCE, enabled }),
+          ports.settingsWriter.setEntry(
+            "rule",
+            name,
+            { source: WORKSPACE_SOURCE, enabled },
+            options,
+          ),
         retireExternalResolution: ports.accepted.removeAccepted("rule", name),
       };
     case "hook":
       return {
         read: ports.settings.entries("hook").pipe(Effect.map((entries) => state(entries[name]))),
         declare: ({ enabled }) =>
-          ports.settingsWriter.setEntry("hook", name, { source: WORKSPACE_SOURCE, enabled }),
+          ports.settingsWriter.setEntry(
+            "hook",
+            name,
+            { source: WORKSPACE_SOURCE, enabled },
+            options,
+          ),
         retireExternalResolution: ports.accepted.removeAccepted("hook", name),
       };
     case "knowledge":
@@ -130,14 +151,24 @@ export const authoredDeclaration = (
           .entries("knowledge")
           .pipe(Effect.map((entries) => state(entries[name]))),
         declare: ({ enabled }) =>
-          ports.settingsWriter.setEntry("knowledge", name, { source: WORKSPACE_SOURCE, enabled }),
+          ports.settingsWriter.setEntry(
+            "knowledge",
+            name,
+            { source: WORKSPACE_SOURCE, enabled },
+            options,
+          ),
         retireExternalResolution: ports.accepted.removeAccepted("knowledge", name),
       };
     case "pack":
       return {
         read: ports.settings.entries("pack").pipe(Effect.map((entries) => state(entries[name]))),
         declare: ({ enabled }) =>
-          ports.settingsWriter.setEntry("pack", name, { source: WORKSPACE_SOURCE, enabled }),
+          ports.settingsWriter.setEntry(
+            "pack",
+            name,
+            { source: WORKSPACE_SOURCE, enabled },
+            options,
+          ),
         retireExternalResolution: ports.accepted.removeAccepted("pack", name),
       };
     case "mcp-server":
@@ -146,11 +177,16 @@ export const authoredDeclaration = (
           .entries("mcp-server")
           .pipe(Effect.map((entries) => state(entries[name], entries[name]?.env ?? {}))),
         declare: ({ enabled, env }) =>
-          ports.settingsWriter.setEntry("mcp-server", name, {
-            source: WORKSPACE_SOURCE,
-            enabled,
-            env: env ?? {},
-          }),
+          ports.settingsWriter.setEntry(
+            "mcp-server",
+            name,
+            {
+              source: WORKSPACE_SOURCE,
+              enabled,
+              env: env ?? {},
+            },
+            options,
+          ),
         // Resolve the old connection before its workspace declaration replaces
         // it, preserving any resolution still shared by another connection.
         retireExternalResolution: ports.desiredStateWriter.undeclare("mcp-server", name),

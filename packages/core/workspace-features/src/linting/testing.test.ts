@@ -58,6 +58,7 @@ describe("./testing.js", () => {
           userHome: workspace.root,
           scope: "project",
           input: { view: "workspace" },
+          nativeView: { kind: "workspace" },
           fix: false,
         },
         { strict: false },

@@ -23,18 +23,16 @@ export interface ManagedSubagentRenderArgs {
 }
 
 /** Generation provenance for one agent-specific Subagent document projection. */
-export const subagentProjectionGeneration = (args: ManagedSubagentRenderArgs): string =>
-  projectionGeneration([
-    "subagent-document-v1",
+export const subagentProjectionGeneration = (args: ManagedSubagentRenderArgs): string => {
+  const rendered = renderSubagent({ ...args.input, ownershipBanner: undefined });
+  return projectionGeneration([
+    "subagent-document-v2",
     args.managedFile.ext,
     args.managedFile.source.kind,
     args.managedFile.source.path,
-    args.input.agentId,
-    args.input.name,
-    args.input.body,
-    JSON.stringify(args.input.frontmatter),
-    JSON.stringify(args.input.agentOverrides ?? null),
+    ...(rendered?._tag === "Rendered" ? rendered.outputs.map((output) => output.content) : []),
   ]);
+};
 
 /** The ownership banner an agent adapter stamps into this Subagent projection. */
 export const subagentOwnershipBanner = (args: ManagedSubagentRenderArgs): OwnershipBannerText =>

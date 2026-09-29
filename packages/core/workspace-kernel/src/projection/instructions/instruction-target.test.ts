@@ -61,7 +61,6 @@ const EXPECTED_SKIP: ReadonlyArray<MaterializationTargetId> = [
   "replit",
   "rovodev",
   "tabnine-cli",
-  "universal",
   "warp",
   "zenflow",
 ];
@@ -180,14 +179,44 @@ describe("resolveInstructionTarget", () => {
     }).pipe(Effect.provide(Path.layer)),
   );
 
-  it("points agents-md agents at the source file itself, honoring a custom name", () => {
+  it.effect("uses explicit user locations and captured native overrides", () =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      const plan = buildInstructionProjectionPlan({
+        roots: ["/home/test"],
+        scope: "user",
+        configuredAgents: ["claude-code", "codex", "gemini-cli", "opencode", "amp"],
+        sourceFileName: SOURCE,
+        path,
+        nativeDirectoryInputs: {
+          skillsDirectoryOverrides: {},
+          xdgConfigRoot: "/home/test/.config",
+          userConfigRootOverrides: { codex: ".custom-codex" },
+        },
+      });
+      expect(
+        plan.items.flatMap((item) => (item.action === "write" ? [item.targetPath] : [])),
+      ).toEqual([
+        "/home/test/.claude/CLAUDE.md",
+        "/home/test/.custom-codex/AGENTS.md",
+        "/home/test/.gemini/GEMINI.md",
+        "/home/test/.config/opencode/AGENTS.md",
+      ]);
+      expect(plan.items.find((item) => item.agentId === "amp")).toMatchObject({
+        action: "skip",
+        reason: "unverified-scope",
+      });
+    }).pipe(Effect.provide(Path.layer)),
+  );
+
+  it("projects a custom canonical filename to the native AGENTS.md convention", () => {
     expect(
       resolveInstructionTarget({
         instructions: AGENT_DESCRIPTORS.codex.instructions,
         sourceFileName: "CONTEXT.md",
         symlinkSupported: true,
       }),
-    ).toEqual({ action: "native", mechanism: "native", relativeTarget: "CONTEXT.md" });
+    ).toEqual({ action: "write", mechanism: "symlink", relativeTarget: "AGENTS.md" });
   });
 
   it("skips agents with no encoded instruction convention", () => {
@@ -217,6 +246,15 @@ describe("resolveInstructionTarget", () => {
         sourceFileName: SOURCE,
         symlinkSupported: true,
       });
+      if (
+        !descriptor.writerSupported ||
+        !descriptor.locations.some(
+          (location) => location.scope === "project" && location.role === "primary",
+        )
+      ) {
+        expect(resolution.action).toBe("skip");
+        continue;
+      }
       expect(resolution.action).not.toBe("skip");
       if (resolution.action !== "skip") {
         expect(resolution.mechanism).toBe(resolveInstructionMechanism(descriptor, true));

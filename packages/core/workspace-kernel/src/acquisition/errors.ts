@@ -15,6 +15,8 @@ export class PackageMaterializationFailed extends Data.TaggedError("PackageMater
   /** The canonical path for most steps; the staging path for `prepare-staging`. */
   readonly path: string;
   readonly step:
+    | "record-parent-creation"
+    | "retire"
     | "recover"
     | "prepare-parent"
     | "prepare-staging"

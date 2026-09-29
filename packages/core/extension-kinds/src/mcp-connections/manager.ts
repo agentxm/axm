@@ -44,14 +44,13 @@ import {
 } from "./errors.js";
 import { installMcpServer } from "./install/install-operation.js";
 import {
-  applyProjectionPlans,
   inspectDesiredMcpServer,
-  planSingletonProjection,
+  captureAgentOutputAuthority,
 } from "@agentxm/workspace-kernel/projection";
 import {
   McpConfigIoFailed,
   McpSharedTargetConflict,
-  removeMcpServerFromManifest,
+  removeMcpServerFromAgents,
 } from "@agentxm/workspace-kernel/agent-adapters";
 import {
   NO_MATERIALIZATION_OBSERVATION,
@@ -67,7 +66,8 @@ import type {
   RegistryMcpServerRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
-import { protectWorkspacePath } from "@agentxm/workspace-kernel/settlement";
+import type { NativeWriteAuthority } from "@agentxm/workspace-kernel/agent-adapters";
+import { combineNativeLocationOutcomes } from "@agentxm/workspace-kernel/locations";
 import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
 import { fromFileLocation } from "@agentxm/host-primitives";
 import {
@@ -76,6 +76,9 @@ import {
 } from "@agentxm/extension-model/unstable/path-types";
 import { buildExternalMcpServerLockEntry } from "./lock-entry-builder.js";
 import {
+  prepareCanonicalParents,
+  retireCanonicalDirectory,
+  type PackageMaterializationFailed,
   configuredMcpServersToDiskRefs,
   copyExtensionDirectory,
   replaceCanonicalDirectoryWithInspection,
@@ -124,7 +127,7 @@ export const McpServerManagerLive = Layer.effect(
 
     const materializeInstall: McpServerManagerService["materializeInstall"] = Effect.fn(
       "McpServerManager.materializeInstall",
-    )(function* ({ ref, force }) {
+    )(function* ({ ref, force, nativeInsertionEligible }) {
       if (ref.refType === "workspace") {
         const expected = computeExtensionPathsForLayout(
           path.join,
@@ -183,11 +186,14 @@ export const McpServerManagerLive = Layer.effect(
             );
             const materialized = yield* replaceCanonicalDirectoryWithInspection<
               TreeIntegrity,
-              McpWorkspacePackageInvalid | MaterializedTreeInvalid,
-              FileSystem.FileSystem | Path.Path
+              McpWorkspacePackageInvalid | MaterializedTreeInvalid | PackageMaterializationFailed,
+              FileSystem.FileSystem | Path.Path | NativeWriteAuthority
             >({
               baseDir,
               canonicalPath,
+              ...(nativeInsertionEligible === true
+                ? { prepareParents: prepareCanonicalParents({ canonicalPath, eligible: true }) }
+                : {}),
               populate: (stagingPath) =>
                 copyExtensionDirectory(fetched.directory, stagingPath).pipe(
                   Effect.mapError(
@@ -251,6 +257,7 @@ export const McpServerManagerLive = Layer.effect(
         canonicalPath,
         accepted: lockedEntry,
         force: force === true,
+        nativeInsertionEligible: nativeInsertionEligible === true,
         copyFailure: {
           code: "internal",
           detail: (target) => `Failed to copy MCP server package files to ${target}`,
@@ -263,6 +270,7 @@ export const McpServerManagerLive = Layer.effect(
       retainCanonical: boolean,
     ): McpServerManagerService["materializeUninstall"] =>
       Effect.fn("McpServerManager.materializeRemoval")(function* ({ target }) {
+        const ownership = yield* captureAgentOutputAuthority();
         const graph = yield* desiredState.graph();
         const desiredNode = graph.nodes.find(
           (node) => node.type === "mcp-server" && node.name === target.name,
@@ -275,8 +283,36 @@ export const McpServerManagerLive = Layer.effect(
               );
         const retainShared =
           closure !== undefined && closure.localNames.some((name) => name !== target.name);
+        const configuredAgents = yield* settings.configuredAgents;
+        const outcomes = yield* removeMcpServerFromAgents(configuredAgents, {
+          nativeDirectoryInputs: location.nativeDirectoryInputs,
+          workspaceRoot: baseDir,
+          scope: location.scope,
+          serverName: target.name,
+          expectedManagedEntries: ownership.expectedMcpEntries,
+        });
+        if (
+          !outcomes.every((outcome) => outcome._tag === "success" || outcome._tag === "unsupported")
+        ) {
+          return yield* new McpAgentSyncRefused({
+            serverName: target.name,
+            fault: "failed",
+            agentIds: configuredAgents,
+          });
+        }
         const withdrawn: McpServerMaterializationFacts = {
-          observation: NO_MATERIALIZATION_OBSERVATION,
+          observation: {
+            ...NO_MATERIALIZATION_OBSERVATION,
+            nativeLocations: combineNativeLocationOutcomes(
+              outcomes.flatMap((outcome) =>
+                "targets" in outcome
+                  ? (outcome.targets ?? []).flatMap((native) =>
+                      native.nativeLocation === undefined ? [] : [native.nativeLocation],
+                    )
+                  : [],
+              ),
+            ),
+          },
           treeIntegrity: Option.none(),
           removal: Option.some({
             resolutionKey:
@@ -284,47 +320,6 @@ export const McpServerManagerLive = Layer.effect(
             retainShared,
           }),
         };
-        const configuredAgents = yield* settings.configuredAgents;
-
-        yield* applyProjectionPlans(
-          configuredAgents.map((agentId) =>
-            planSingletonProjection({
-              unitId: "mcp-server:native-config-entry",
-              // Multiple configured agents may share one native config file.
-              targetFile: `mcp:${target.name}:configured-agents`,
-              contributor: target,
-              adapter: {
-                observe: () =>
-                  Effect.succeed({
-                    unitId: "mcp-server:native-config-entry",
-                    path: `${agentId}:${target.name}`,
-                    present: true,
-                    current: false,
-                    expectedContributors: [],
-                    observedContributors: [target.name],
-                  }),
-                // A configured agent that cannot withdraw the entry fails the
-                // change rather than leaving desired state ahead of its agents.
-                apply: () =>
-                  removeMcpServerFromManifest(agentId, {
-                    workspaceRoot: baseDir,
-                    scope: location.scope,
-                    serverName: target.name,
-                  }).pipe(
-                    Effect.flatMap((outcome) =>
-                      outcome._tag === "success" || outcome._tag === "unsupported"
-                        ? Effect.void
-                        : new McpAgentSyncRefused({
-                            serverName: target.name,
-                            fault: "failed",
-                            agentIds: [agentId],
-                          }),
-                    ),
-                  ),
-              },
-            }),
-          ),
-        );
 
         if (retainCanonical || retainShared) return withdrawn;
         const canonical = yield* acceptedCanonicalObservation({
@@ -333,8 +328,7 @@ export const McpServerManagerLive = Layer.effect(
         });
         const serverPath = removableAcceptedCanonicalPath(canonical);
         if (Option.isSome(serverPath)) {
-          yield* protectWorkspacePath(serverPath.value);
-          yield* fs.remove(serverPath.value, { recursive: true, force: true }).pipe(
+          yield* retireCanonicalDirectory(serverPath.value).pipe(
             Effect.mapError(
               (cause) =>
                 new McpConfigIoFailed({
@@ -385,6 +379,7 @@ export const McpServerManagerLive = Layer.effect(
                       Option.flatMap(({ observation }) => Option.fromUndefinedOr(observation.path)),
                     );
               const { outcomes, conflict } = yield* inspectDesiredMcpServer({
+                nativeDirectoryInputs: location.nativeDirectoryInputs,
                 workspaceRoot: baseDir,
                 scope: location.scope,
                 agentIds: configuredAgentIds,

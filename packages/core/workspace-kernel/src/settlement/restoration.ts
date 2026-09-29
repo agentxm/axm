@@ -8,14 +8,21 @@
 import { createHash, randomBytes } from "node:crypto";
 
 import * as Effect from "effect/Effect";
-import type * as FileSystem from "effect/FileSystem";
+import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
-import type * as Path from "effect/Path";
+import * as Path from "effect/Path";
 import type { PlatformError } from "effect/PlatformError";
 
 import { WorkspaceRestorationError } from "./errors.js";
 import { recordFootprint } from "./footprint-recorder.js";
 import type { Snapshot } from "./ledger.js";
+import {
+  equalPathStates,
+  observeAncestorRoute,
+  observePathState,
+  sameRootEntry,
+} from "./path-state.js";
+import { resolveNativeEntry, resolveNativeReferent } from "../locations/index.js";
 
 /** Distinct, resolved targets with any target nested under another dropped. */
 export const normalizedTargets = (
@@ -87,15 +94,71 @@ const pathPresent = (
     Effect.catch(() => fs.exists(target)),
   );
 
+/** Restore bytes around retained originals without replacing their identities. */
+const reconcilePreimage = (
+  fs: FileSystem.FileSystem,
+  path: Path.Path,
+  source: string,
+  target: string,
+): Effect.Effect<void, PlatformError> =>
+  Effect.gen(function* () {
+    const sourceLink = yield* fs.readLink(source).pipe(Effect.option);
+    const targetLink = yield* fs.readLink(target).pipe(Effect.option);
+    if (Option.isSome(sourceLink)) {
+      if (Option.isSome(targetLink) && sourceLink.value === targetLink.value) return;
+      yield* fs.remove(target, { recursive: true, force: true });
+      yield* fs.symlink(sourceLink.value, target);
+      return;
+    }
+    const sourceInfo = yield* fs.stat(source);
+    const targetInfo = Option.isSome(targetLink)
+      ? Option.none<FileSystem.File.Info>()
+      : yield* fs.stat(target).pipe(Effect.option);
+    if (sourceInfo.type === "Directory") {
+      if (!Option.exists(targetInfo, (info) => info.type === "Directory")) {
+        yield* fs.remove(target, { recursive: true, force: true });
+        yield* fs.makeDirectory(target, { recursive: true });
+      }
+      const entries = yield* fs.readDirectory(source);
+      for (const extra of yield* fs.readDirectory(target)) {
+        if (!entries.includes(extra))
+          yield* fs.remove(path.join(target, extra), { recursive: true, force: true });
+      }
+      for (const entry of entries)
+        yield* reconcilePreimage(fs, path, path.join(source, entry), path.join(target, entry));
+    } else {
+      if (Option.isSome(targetLink) || Option.exists(targetInfo, (info) => info.type !== "File"))
+        yield* fs.remove(target, { recursive: true, force: true });
+      const bytes = yield* fs.readFile(source);
+      const current = yield* fs.readFile(target).pipe(Effect.option);
+      if (Option.isNone(current) || sha256(current.value) !== sha256(bytes))
+        yield* fs.writeFile(target, bytes);
+    }
+    yield* fs.chmod(target, sourceInfo.mode);
+  });
+
+const originalRetirements = (fs: FileSystem.FileSystem, path: Path.Path, snapshot: Snapshot) =>
+  Effect.gen(function* () {
+    const unique = new Map<string, NonNullable<Snapshot["retirements"]>[number]>();
+    for (const entry of snapshot.retirements ?? []) {
+      if (unique.has(entry.target) || snapshot.state === "absent") continue;
+      const originallyPresent =
+        snapshot.state === "symlink"
+          ? entry.target === snapshot.target
+          : yield* pathPresent(
+              fs,
+              path.join(snapshot.backup, path.relative(snapshot.target, entry.target)),
+            );
+      if (originallyPresent) unique.set(entry.target, entry);
+    }
+    return [...unique.values()].sort((left, right) => left.target.length - right.target.length);
+  });
+
 /**
- * Restore one snapshot through validated staging and atomic publication.
- * The restored content is fully staged and validated in an owned
- * `<target>.tmp.<unique>` sibling before a rename publishes it, so abrupt
- * termination — including a forced process exit — can never expose a
- * partially restored target: the authoritative path holds the failure-time
- * content, the restored content, or (for a directory swap only, between two
- * renames) nothing, never a partial tree. The target path itself is never
- * removed; only owned `.tmp.` siblings are.
+ * Restore one matching postimage. Original entries are restored by rename
+ * from retirement or reconciled in place when their identity survives;
+ * other copied preimages are validated in an owned staging sibling before
+ * publication. A failed step retains recovery evidence and fails typed.
  */
 const restoreSnapshot = (
   fs: FileSystem.FileSystem,
@@ -103,6 +166,54 @@ const restoreSnapshot = (
   snapshot: Snapshot,
 ): Effect.Effect<void, PlatformError | WorkspaceRestorationError> =>
   Effect.gen(function* () {
+    // A matching leaf can have been moved with its parent and reached through
+    // a new alias. Its bytes/inode alone do not authorize the new route.
+    yield* Effect.gen(function* () {
+      // Forward admission already selected this authority. AXM's matching
+      // postimage may itself introduce a workspace marker, so restoration
+      // proves that original route instead of interpreting its new contents.
+      const address = yield* resolveNativeEntry(snapshot.target);
+      const physicalRoot = yield* resolveNativeReferent(snapshot.route.nativeRoot);
+      const rootLink = Option.getOrUndefined(
+        yield* fs.readLink(snapshot.route.nativeRoot).pipe(Effect.option),
+      );
+      const parents = new Map([
+        ...(yield* observeAncestorRoute(fs, path, snapshot.target)),
+        ...(yield* observeAncestorRoute(fs, path, snapshot.route.nativeRoot)),
+      ]);
+      if (
+        address.entryPath !== snapshot.target ||
+        physicalRoot !== snapshot.route.physicalRoot ||
+        rootLink !== snapshot.route.rootLink ||
+        [...snapshot.route.parents].some(
+          ([parent, identity]) => identity === "unreadable" || parents.get(parent) !== identity,
+        )
+      )
+        return yield* new WorkspaceRestorationError({
+          target: snapshot.target,
+          step: "foreign-change",
+          cause: "native-parent-route-changed",
+        });
+    }).pipe(
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
+      Effect.mapError(
+        (cause) =>
+          new WorkspaceRestorationError({
+            target: snapshot.target,
+            step: "foreign-change",
+            cause,
+          }),
+      ),
+    );
+    const current = yield* observePathState(fs, path, snapshot.target);
+    if (!equalPathStates(current, snapshot.expected)) {
+      return yield* new WorkspaceRestorationError({
+        target: snapshot.target,
+        step: "foreign-change",
+        cause: undefined,
+      });
+    }
     if (snapshot.state === "absent") {
       if (!(yield* pathPresent(fs, snapshot.target))) return;
       // Publishing absence is one rename: the mutated tree leaves the
@@ -110,6 +221,46 @@ const restoreSnapshot = (
       const trash = `${snapshot.target}.tmp.${randomBytes(6).toString("hex")}`;
       yield* fs.rename(snapshot.target, trash);
       yield* fs.remove(trash, { recursive: true, force: true }).pipe(Effect.ignore);
+      return;
+    }
+    if ((snapshot.retirements?.length ?? 0) > 0) {
+      const originals = yield* originalRetirements(fs, path, snapshot);
+      // Verify every retained original before moving any of them. A changed
+      // quarantine is recovery evidence, never an acceptable preimage.
+      for (const original of originals) {
+        if (
+          (yield* observePathState(fs, path, path.dirname(original.backup))).get("") !==
+          original.storeIdentity
+        ) {
+          return yield* new WorkspaceRestorationError({
+            target: original.backup,
+            step: "foreign-change",
+            cause: "retirement-store-replaced",
+          });
+        }
+        if (
+          !equalPathStates(yield* observePathState(fs, path, original.backup), original.original)
+        ) {
+          return yield* new WorkspaceRestorationError({
+            target: original.backup,
+            step: "foreign-change",
+            cause: undefined,
+          });
+        }
+      }
+      for (const original of originals) {
+        yield* fs.makeDirectory(path.dirname(original.target), { recursive: true });
+        yield* fs.remove(original.target, { recursive: true, force: true });
+        yield* fs.rename(original.backup, original.target);
+      }
+      if (snapshot.state === "copied")
+        yield* reconcilePreimage(fs, path, snapshot.backup, snapshot.target);
+      return;
+    }
+    // A writer that mutated in place still holds the original entry. Keep
+    // that identity so valid ownership receipts survive the failed closure.
+    if (snapshot.state === "copied" && sameRootEntry(snapshot.preimage, current)) {
+      yield* reconcilePreimage(fs, path, snapshot.backup, snapshot.target);
       return;
     }
     yield* fs.makeDirectory(path.dirname(snapshot.target), { recursive: true });
@@ -170,12 +321,15 @@ export const restoreAll = (
   snapshots: ReadonlyArray<Snapshot>,
   transitionCompromised: () => boolean,
 ): Effect.Effect<void, PlatformError | WorkspaceRestorationError> =>
-  Effect.forEach(
-    [...snapshots].reverse(),
-    (snapshot) =>
-      Effect.suspend((): Effect.Effect<void, PlatformError | WorkspaceRestorationError> =>
-        // Restoration is a durable write like any other: once lock ownership
-        // is lost it must stop, or it could overwrite a successor's work.
+  Effect.gen(function* () {
+    const failures: Array<{
+      readonly target: string;
+      readonly cause: PlatformError | WorkspaceRestorationError;
+    }> = [];
+    for (const snapshot of [...snapshots].reverse()) {
+      // Keep restoring independent boundaries after one divergence. A lost
+      // workspace hold stops every subsequent write instead.
+      const restored = yield* (
         transitionCompromised()
           ? Effect.fail(
               new WorkspaceRestorationError({
@@ -186,12 +340,20 @@ export const restoreAll = (
             )
           : restoreSnapshot(fs, path, snapshot).pipe(
               Effect.andThen(recordFootprint({ path: snapshot.target, change: "restored" })),
-            ),
-      ),
-    {
-      discard: true,
-    },
-  );
+            )
+      ).pipe(Effect.result);
+      if (restored._tag === "Failure")
+        failures.push({ target: snapshot.target, cause: restored.failure });
+    }
+    const first = failures[0];
+    if (first !== undefined)
+      return yield* new WorkspaceRestorationError({
+        target: first.target,
+        step: first.cause instanceof WorkspaceRestorationError ? first.cause.step : "stage",
+        cause: failures,
+        retained: failures.map((failure) => failure.target),
+      });
+  });
 
 /** Prove every snapshot's target is byte-for-byte its preimage again. */
 export const verifySnapshots = (
@@ -203,9 +365,23 @@ export const verifySnapshots = (
     snapshots,
     (snapshot) =>
       Effect.gen(function* () {
+        for (const original of yield* originalRetirements(fs, path, snapshot).pipe(
+          Effect.mapError(
+            (cause) =>
+              new WorkspaceRestorationError({ target: snapshot.target, step: "verify", cause }),
+          ),
+        )) {
+          const restored = yield* observePathState(fs, path, original.target);
+          if (restored.get("") !== original.original.get(""))
+            return yield* new WorkspaceRestorationError({
+              target: original.target,
+              step: "verify",
+              cause: "retained-entry-identity-changed",
+            });
+        }
         const verified = yield* Effect.gen(function* () {
           if (snapshot.state === "absent") {
-            return !(yield* fs.exists(snapshot.target));
+            return !(yield* pathPresent(fs, snapshot.target));
           }
           if (snapshot.state === "symlink") {
             const link = yield* fs.readLink(snapshot.target).pipe(Effect.option);

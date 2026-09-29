@@ -131,23 +131,22 @@ describe("agent environment configuration", () => {
     { id: "claude-code", key: "AXM_CLAUDE_SKILLS_DIR" },
     { id: "gemini-cli", key: "AXM_GEMINI_CLI_SKILLS_DIR" },
   ] as const)(
-    "uses the injected $id skill directory and preserves provider failure",
-    ({ id, key }) =>
+    "uses captured $id skill directory without rereading ambient configuration",
+    ({ id }) =>
       Effect.gen(function* () {
-        const agent = codingAgentForId(id);
+        const agent = codingAgentForId(id, { skillsDirectoryOverrides: { [id]: "custom" } });
         const outcome = yield* agent
-          .resolveEffectiveSkillsDir({ workspaceRoot: "/project" })
-          .pipe(
-            Effect.provide(
-              ConfigProvider.layer(ConfigProvider.fromEnv({ env: { [key]: "custom" } })),
-            ),
-          );
+          .resolveEffectiveSkillsDir({ workspaceRoot: "/project", scope: "project" })
+          .pipe(Effect.provide(unavailable));
         expect(outcome).toEqual({ _tag: "supported", dir: "/project/custom" });
-        const failure = yield* agent
-          .resolveEffectiveSkillsDir({ workspaceRoot: "/project" })
-          .pipe(Effect.provide(unavailable), Effect.flip);
-        expect(failure._tag).toBe("ConfigError");
-        expect(failure.cause).toBe(sourceError);
+        const readers = yield* agent.resolveNativeReadLocations({
+          workspaceRoot: "/project",
+          scope: "project",
+          kind: "skill",
+        });
+        expect(
+          readers.find((location) => location.declaration.role === "primary")?.availability,
+        ).toBe("unverified-override");
       }).pipe(Effect.provide(NodeServices.layer)),
   );
 

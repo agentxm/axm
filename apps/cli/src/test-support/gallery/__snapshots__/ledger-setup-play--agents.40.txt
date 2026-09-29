@@ -12,5 +12,5 @@ Setting up AXM in ~/code/storefront
    ◉ Claude Code
    ◯ Cline
    ◯ CodeArts Agent
-     ↓ 54 more
+     ↓ 53 more
 2 selected · space · ^a all · enter

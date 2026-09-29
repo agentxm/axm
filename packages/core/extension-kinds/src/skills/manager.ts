@@ -1,3 +1,4 @@
+import { nativeAuthorityRoots } from "@agentxm/workspace-kernel/locations";
 import {
   type SkillManagerService,
   type SkillMaterializationFacts,
@@ -7,6 +8,7 @@ import {
   makeBaseManagerMembers,
   listMaterializableFromAccepted,
   listMaterializableFromDisk,
+  groupInstallTargetsByDirectory,
 } from "@agentxm/workspace-kernel/materialization";
 
 /**
@@ -33,7 +35,6 @@ import {
   enabledConfiguredEntries,
   sanitizeName,
   computePackageContentHash,
-  removeIfExists,
   configuredRowsByName,
   acceptedCanonicalObservation,
   removableAcceptedCanonicalPath,
@@ -48,7 +49,12 @@ import { SkillDefinitionInvalid } from "./errors.js";
 import {
   CodingAgentRepository,
   applyProjectionPlans,
+  applyProjectionPlansWithResults,
+  nativeArtifactLocationOutcomes,
+  retiredNativeArtifactLocationOutcomes,
   planSingletonProjection,
+  observeAgentOutputs,
+  captureAgentOutputAuthority,
 } from "@agentxm/workspace-kernel/projection";
 import { type MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import { computeSkillSourceHash } from "./source-hash.js";
@@ -57,7 +63,10 @@ import {
   materializeSkillCanonical,
   removeSkillAgentArtifact,
 } from "./materialization.js";
-import { configuredSkillsToDiskRefs } from "@agentxm/workspace-kernel/acquisition";
+import {
+  configuredSkillsToDiskRefs,
+  retireCanonicalDirectory,
+} from "@agentxm/workspace-kernel/acquisition";
 
 // -----------------------------------------------------------------------------
 // Live Layer
@@ -75,20 +84,31 @@ export const SkillManagerLive = Layer.effect(
     const path = yield* Path.Path;
     const agentRepo = yield* CodingAgentRepository;
     const baseDir = location.baseDir;
+    const nativeRoots = nativeAuthorityRoots(
+      path,
+      { workspaceRoot: baseDir, scope: location.scope },
+      location.nativeDirectoryInputs,
+    );
 
     const materializeInstall: SkillManagerService["materializeInstall"] = Effect.fn(
       "SkillManager.materializeInstall",
-    )(function* ({ ref, force }) {
+    )(function* ({ ref, force, nativeInsertionEligible, nativeInsertionEligiblePaths }) {
       const sanitized = sanitizeName(ref.skill.name);
 
       const lockedEntry = yield* lockfile.entry("skill", ref.skill.name);
+      const previousCanonicalSkillSrcPaths =
+        (yield* captureAgentOutputAuthority()).expectedSkillSources[ref.skill.name] ?? [];
 
       const materialized = yield* materializeSkillCanonical({
         ref,
         sanitizedName: sanitized,
         baseDir,
         layout: currentLayout(),
-        reuse: { force: force === true, accepted: lockedEntry },
+        reuse: {
+          force: force === true,
+          accepted: lockedEntry,
+          nativeInsertionEligible: nativeInsertionEligible === true,
+        },
       });
       const skillSrcPath = materialized.skillSrcPath;
 
@@ -99,7 +119,7 @@ export const SkillManagerLive = Layer.effect(
         configuredAgents,
         (agent) =>
           agent
-            .resolveEffectiveSkillsDir({ workspaceRoot: baseDir })
+            .resolveEffectiveSkillsDir({ workspaceRoot: baseDir, scope: location.scope })
             .pipe(Effect.map((outcome) => ({ agent, outcome }))),
         // eslint-disable-next-line axm-policy/no-unbounded-io -- configured agents are a subset of the fixed agent catalog
         { concurrency: "unbounded" },
@@ -124,22 +144,22 @@ export const SkillManagerLive = Layer.effect(
           installTargets.push({ agentId: agent.id, dir: path.normalize(outcome.dir) });
         }
       }
-      const locations = new Map<
-        string,
-        { readonly dir: string; readonly agentIds: Array<MaterializationTargetId> }
-      >();
-      for (const target of installTargets) {
-        const existing = locations.get(target.dir);
-        if (existing === undefined) {
-          locations.set(target.dir, { dir: target.dir, agentIds: [target.agentId] });
-        } else if (!existing.agentIds.includes(target.agentId)) {
-          existing.agentIds.push(target.agentId);
-        }
-      }
+      const locations = yield* groupInstallTargetsByDirectory(
+        installTargets.map(({ agentId, dir }) => ({ agentId, targetDir: dir })),
+        baseDir,
+      ).pipe(
+        Effect.mapError(
+          (cause) =>
+            new SkillDefinitionInvalid({
+              detail: "Cannot resolve physical Skill locations",
+              cause,
+            }),
+        ),
+      );
 
-      yield* applyProjectionPlans(
-        [...locations.values()].map((location) => {
-          const targetFile = path.join(location.dir, sanitized);
+      const changes = yield* applyProjectionPlansWithResults(
+        locations.map((location) => {
+          const targetFile = path.join(location.targetDir, sanitized);
           return planSingletonProjection({
             unitId: "skill:agent-skill-directory",
             targetFile,
@@ -156,8 +176,13 @@ export const SkillManagerLive = Layer.effect(
                 }),
               apply: () =>
                 ensureSkillAgentArtifact({
+                  nativeRoots,
+                  nativeInsertionEligible:
+                    nativeInsertionEligible === true ||
+                    nativeInsertionEligiblePaths?.has(location.targetDir) === true,
                   canonicalSkillSrcPath: skillSrcPath,
-                  targetDir: location.dir,
+                  previousCanonicalSkillSrcPaths,
+                  targetDir: location.targetDir,
                   sanitizedName: sanitized,
                   baseDir,
                 }),
@@ -180,15 +205,32 @@ export const SkillManagerLive = Layer.effect(
           ref.refType === "workspace" ? undefined : materialized.treeIntegrity,
         ),
         observation: {
-          agents: Array.dedupe(
-            installTargets
-              .map((target) => target.agentId)
-              .filter((agentId) => agentId !== "universal"),
+          nativeLocations: yield* nativeArtifactLocationOutcomes({
+            workspaceRoot: baseDir,
+            scope: location.scope,
+            agents: yield* agentRepo.all,
+            configuredAgentIds: new Set(configuredAgents.map((agent) => agent.id)),
+            sharedSkillPolicy: true,
+            targets: locations.map((target, index) => ({
+              path: path.join(target.targetDir, sanitized),
+              kind: "skill",
+              sourcePath: skillSrcPath,
+              state: changes[index] ?? "unverified",
+            })),
+          }).pipe(
+            Effect.mapError(
+              (cause) =>
+                new SkillDefinitionInvalid({
+                  detail: "Cannot observe native Skill locations",
+                  cause,
+                }),
+            ),
           ),
-          targets: [...locations.values()].map((location) => {
-            const agentIds = location.agentIds.filter((agentId) => agentId !== "universal");
+          agents: Array.dedupe(installTargets.map((target) => target.agentId)),
+          targets: locations.map((location) => {
+            const agentIds = location.agentIds;
             return {
-              path: path.relative(baseDir, path.join(location.dir, sanitized)),
+              path: path.relative(baseDir, path.join(location.targetDir, sanitized)),
               ...(agentIds.length === 0 ? {} : { agentIds }),
             };
           }),
@@ -202,27 +244,73 @@ export const SkillManagerLive = Layer.effect(
       Effect.fn("SkillManager.materializeRemoval")(function* ({ target }) {
         const sanitized = sanitizeName(target.name);
 
-        const configuredAgents = yield* agentRepo
-          .getMaterializationAgents()
-          .pipe(Effect.provideService(SettingsReader, settings));
-        const resolved = yield* Effect.forEach(
-          configuredAgents,
-          (agent) =>
-            agent
-              .resolveEffectiveSkillsDir({ workspaceRoot: baseDir })
-              .pipe(Effect.map((outcome) => ({ agent, outcome }))),
-          // eslint-disable-next-line axm-policy/no-unbounded-io -- configured agents are a subset of the fixed agent catalog
-          { concurrency: "unbounded" },
+        const layout = currentLayout();
+        const canonical = yield* acceptedCanonicalObservation({ type: "skill", name: target.name });
+        const canonicalRoot = Option.isSome(canonical)
+          ? canonical.value.observation.path
+          : undefined;
+        const portable =
+          Option.isSome(canonical) &&
+          canonical.value.accepted !== undefined &&
+          canonical.value.accepted.identity.owner === undefined;
+        const canonicalSkillSrcPath =
+          canonicalRoot === undefined
+            ? undefined
+            : portable
+              ? canonicalRoot
+              : path.join(canonicalRoot, "src");
+        const configuredAgentIds = new Set(yield* settings.configuredAgents);
+        const inventory = yield* observeAgentOutputs({
+          nativeDirectoryInputs: location.nativeDirectoryInputs,
+          workspaceRoot: baseDir,
+          scope: location.scope,
+          desiredAgentIds: configuredAgentIds,
+          expectedNames: {
+            skill: new Set<string>(),
+            subagent: new Set<string>(),
+            hook: new Set<string>(),
+            "mcp-server": new Set<string>(),
+          },
+          expectedSkillSources:
+            canonicalSkillSrcPath === undefined ? {} : { [sanitized]: [canonicalSkillSrcPath] },
+          expectedSubagentFiles: {},
+          expectedMcpEntries: {},
+          expectedHooks: [],
+          authoredSkills: { layout, entries: yield* settings.entries("skill") },
+        }).pipe(Effect.provideService(CodingAgentRepository, agentRepo));
+        const distinctDirs = [
+          ...new Set(
+            inventory.outputs
+              .filter(
+                (output) =>
+                  output.extensionType === "skill" &&
+                  output.entryName === sanitized &&
+                  output.ownership === "owned",
+              )
+              .map((output) => path.dirname(output.path)),
+          ),
+        ];
+        const nativeBefore = yield* nativeArtifactLocationOutcomes({
+          workspaceRoot: baseDir,
+          scope: location.scope,
+          agents: yield* agentRepo.all,
+          configuredAgentIds,
+          sharedSkillPolicy: true,
+          targets: distinctDirs.map((dir) => ({
+            path: path.join(dir, sanitized),
+            kind: "skill",
+            state: "unchanged",
+            ...(canonicalSkillSrcPath === undefined ? {} : { sourcePath: canonicalSkillSrcPath }),
+          })),
+        }).pipe(
+          Effect.mapError(
+            (cause) =>
+              new SkillDefinitionInvalid({
+                detail: "Cannot observe native Skill removal targets",
+                cause,
+              }),
+          ),
         );
-
-        const uninstallTargets: Array<string> = [];
-        for (const { outcome } of resolved) {
-          if (outcome._tag === "supported") {
-            uninstallTargets.push(path.normalize(outcome.dir));
-          }
-        }
-        const distinctDirs = Array.dedupe(uninstallTargets);
-
         yield* applyProjectionPlans(
           distinctDirs.map((dir) => {
             const targetFile = path.join(dir, sanitized);
@@ -242,26 +330,35 @@ export const SkillManagerLive = Layer.effect(
                   }),
                 apply: () =>
                   removeSkillAgentArtifact({
+                    nativeRoots,
                     targetDir: dir,
                     sanitizedName: sanitized,
+                    ...(canonicalSkillSrcPath === undefined ? {} : { canonicalSkillSrcPath }),
+                    baseDir,
                   }),
               },
             });
           }),
         );
 
+        const nativeLocations = yield* retiredNativeArtifactLocationOutcomes(nativeBefore).pipe(
+          Effect.mapError(
+            (cause) =>
+              new SkillDefinitionInvalid({
+                detail: "Cannot observe retired native Skill locations",
+                cause,
+              }),
+          ),
+        );
         if (!retainCanonical) {
-          const canonical = yield* acceptedCanonicalObservation({
-            type: "skill",
-            name: target.name,
-          });
           const packageRoot = removableAcceptedCanonicalPath(canonical);
-          if (Option.isSome(packageRoot)) yield* removeIfExists(fs, packageRoot.value);
+          if (Option.isSome(packageRoot)) yield* retireCanonicalDirectory(packageRoot.value);
         }
         return {
           sourceHash: Option.none(),
           treeIntegrity: Option.none(),
           observation: {
+            nativeLocations,
             agents: [],
             targets: distinctDirs.map((dir) => ({
               path: path.relative(baseDir, path.join(dir, sanitized)),
@@ -282,7 +379,7 @@ export const SkillManagerLive = Layer.effect(
         materializeInstall,
       }),
       materializeInstall,
-      acquireCanonical: ({ ref, force }) =>
+      acquireCanonical: ({ ref, force, nativeInsertionEligible }) =>
         Effect.gen(function* () {
           const locked = yield* lockfile.entry("skill", ref.skill.name);
           const materialized = yield* materializeSkillCanonical({
@@ -290,7 +387,11 @@ export const SkillManagerLive = Layer.effect(
             sanitizedName: sanitizeName(ref.skill.name),
             baseDir,
             layout: currentLayout(),
-            reuse: { force: force === true, accepted: locked },
+            reuse: {
+              force: force === true,
+              accepted: locked,
+              nativeInsertionEligible: nativeInsertionEligible === true,
+            },
           });
           const sourceHash =
             ref.refType === "workspace"

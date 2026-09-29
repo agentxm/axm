@@ -40,7 +40,6 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import {
   DocLinkSchema,
@@ -111,33 +110,6 @@ export const ConventionSchema = Schema.Literals(["universal", "vendor", "hosted"
 export type Convention = Schema.Schema.Type<typeof ConventionSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const SkillReadPathStatusSchema = Schema.Literals([
-  "canonical",
-  "compat",
-  "deprecated",
-]).annotate({
-  identifier: "SkillReadPathStatus",
-  title: "Skill Read Path Status",
-  description: "How an additional native Skill directory relates to the agent's primary path.",
-});
-
-/** @experimental This API is unstable and may change without notice. */
-export type SkillReadPathStatus = Schema.Schema.Type<typeof SkillReadPathStatusSchema>;
-
-/** @experimental This API is unstable and may change without notice. */
-export const SkillReadPathSchema = Schema.Struct({
-  path: Schema.NonEmptyString,
-  status: SkillReadPathStatusSchema,
-}).annotate({
-  identifier: "SkillReadPath",
-  title: "Skill Read Path",
-  description: "An additional directory an agent reads for Skill discovery but AXM never writes.",
-});
-
-/** @experimental This API is unstable and may change without notice. */
-export type SkillReadPath = Schema.Schema.Type<typeof SkillReadPathSchema>;
-
-/** @experimental This API is unstable and may change without notice. */
 export const ScopeSchema = Schema.Literals(["user", "project"]).annotate({
   identifier: "Scope",
   title: "Scope",
@@ -147,6 +119,72 @@ export const ScopeSchema = Schema.Literals(["user", "project"]).annotate({
 
 /** @experimental This API is unstable and may change without notice. */
 export type Scope = Schema.Schema.Type<typeof ScopeSchema>;
+
+/** A declared reader path; physical resolution and ownership belong to the workspace. */
+const NativeReadLocationFields = {
+  scope: ScopeSchema,
+  root: Schema.Literals(["project", "home", "xdg-config"]),
+  path: Schema.NonEmptyString,
+  configRootRelativePath: Schema.optionalKey(Schema.NonEmptyString),
+  shape: Schema.Literals(["directory", "file"]),
+  role: Schema.Literals(["primary", "additional"]),
+  status: Schema.Literals(["canonical", "compat", "deprecated"]),
+  applicability: Schema.Union([
+    Schema.Struct({ kind: Schema.Literal("always") }),
+    Schema.Struct({ kind: Schema.Literal("conditional"), condition: Schema.NonEmptyString }),
+  ]),
+  provenance: Schema.Union([
+    Schema.Struct({ kind: Schema.Literal("capability-sources") }),
+    Schema.Struct({ kind: Schema.Literal("sources"), sources: Schema.NonEmptyArray(UrlSchema) }),
+  ]),
+};
+const nativeReadLocationCheck = Schema.makeFilter(
+  (location: {
+    readonly scope: "project" | "user";
+    readonly root: "project" | "home" | "xdg-config";
+    readonly path: string;
+    readonly configRootRelativePath?: string;
+  }) => {
+    if (
+      location.configRootRelativePath !== undefined &&
+      (location.scope !== "user" ||
+        /^(?:[\\/~]|[A-Za-z]:)/.test(location.configRootRelativePath) ||
+        location.configRootRelativePath.split(/[\\/]/).includes(".."))
+    ) {
+      return {
+        path: ["configRootRelativePath"],
+        issue: "Configuration-root overrides require a bounded relative path in user scope.",
+      };
+    }
+    if ((location.scope === "project") !== (location.root === "project")) {
+      return {
+        path: ["root"],
+        issue:
+          "Project locations require the project root; user locations require home or xdg-config.",
+      };
+    }
+    if (
+      /^(?:[\\/~]|[A-Za-z]:)/.test(location.path) ||
+      location.path.split(/[\\/]/).includes("..")
+    ) {
+      return {
+        path: ["path"],
+        issue: "Native locations must be relative to their declared root without parent traversal.",
+      };
+    }
+    return undefined;
+  },
+);
+export const NativeReadLocationSchema = Schema.Struct(NativeReadLocationFields)
+  .check(nativeReadLocationCheck)
+  .annotate({
+    identifier: "NativeReadLocation",
+    title: "Native Reader Location",
+    description:
+      "A documented native reader path with explicit scope, root, shape, conditions, and evidence; it grants no writer ownership.",
+  });
+
+export type NativeReadLocation = Schema.Schema.Type<typeof NativeReadLocationSchema>;
 
 const NonEmptyScopesSchema = Schema.NonEmptyArray(ScopeSchema).pipe(
   Schema.check(Schema.isUnique()),
@@ -602,11 +640,7 @@ export const SkillsExtensionCapabilitySchema = Schema.Struct({
     Schema.Struct({
       ...AvailableSpecTrackedNativeCapabilityFields,
       convention: Schema.Literals(["universal", "vendor"]),
-      directory: Schema.NonEmptyString,
-      additionalReadPaths: Schema.Array(SkillReadPathSchema).pipe(
-        Schema.withDecodingDefaultKey(Effect.succeed([])),
-        Schema.optionalKey,
-      ),
+      locations: Schema.Array(NativeReadLocationSchema),
     }),
     Schema.Struct({
       ...AvailableSpecTrackedNativeCapabilityFields,
@@ -626,18 +660,6 @@ export const SkillsExtensionCapabilitySchema = Schema.Struct({
 /** @experimental This API is unstable and may change without notice. */
 export type SkillsExtensionCapability = Schema.Schema.Type<typeof SkillsExtensionCapabilitySchema>;
 
-/** @experimental This API is unstable and may change without notice. */
-/** @experimental This API is unstable and may change without notice. */
-export const SubagentsLayoutSchema = Schema.Literals(["file", "directory"]).annotate({
-  identifier: "SubagentsLayout",
-  title: "Subagents Layout",
-  description: "Whether subagents live in a directory or a single opaque file path.",
-  examples: ["directory", "file"],
-});
-
-/** @experimental This API is unstable and may change without notice. */
-export type SubagentsLayout = Schema.Schema.Type<typeof SubagentsLayoutSchema>;
-
 const PluginSubagentsNativeCapabilitySchema = Schema.Struct({
   ...AvailableNativeCapabilityBaseFields,
   availability: PluginAvailabilitySchema,
@@ -649,8 +671,7 @@ export const SubagentsExtensionCapabilitySchema = Schema.Struct({
     Schema.Struct({
       ...AvailableNativeCapabilityBaseFields,
       availability: NativeAvailabilitySchema,
-      directory: Schema.NonEmptyString,
-      layout: SubagentsLayoutSchema,
+      locations: Schema.Array(NativeReadLocationSchema),
     }),
     PluginSubagentsNativeCapabilitySchema,
     Schema.Struct(UnavailableNativeCapabilityFields),
@@ -697,43 +718,27 @@ export type RuleInstructionsImportSyntax = Schema.Schema.Type<
   typeof RuleInstructionsImportSyntaxSchema
 >;
 
-const OptionalRuleDirectoryField = {
-  directory: Schema.optionalKey(Schema.NonEmptyString),
-};
-
-const AgentsMdRulesExtensionCapabilitySchema = Schema.Struct({
+const AvailableRulesExtensionCapabilitySchema = Schema.Struct({
   ...AvailableSpecTrackedNativeCapabilityFields,
-  ...OptionalRuleDirectoryField,
-  kind: Schema.Literal("agents-md"),
-  files: Schema.Tuple([Schema.Literal("AGENTS.md")]),
+  kind: RuleInstructionsKindSchema,
+  locations: Schema.Array(NativeReadLocationSchema),
   nestedDiscovery: Schema.Boolean,
   importSyntax: Schema.NullOr(RuleInstructionsImportSyntaxSchema),
-});
-
-const OwnFileRulesExtensionCapabilitySchema = Schema.Struct({
-  ...AvailableSpecTrackedNativeCapabilityFields,
-  ...OptionalRuleDirectoryField,
-  kind: Schema.Literal("own-file"),
-  files: Schema.Tuple([Schema.NonEmptyString]),
-  nestedDiscovery: Schema.Boolean,
-  importSyntax: Schema.NullOr(RuleInstructionsImportSyntaxSchema),
-});
-
-const RulesDirRulesExtensionCapabilitySchema = Schema.Struct({
-  ...AvailableSpecTrackedNativeCapabilityFields,
-  kind: Schema.Literal("rules-dir"),
-  files: Schema.Array(Schema.NonEmptyString).pipe(Schema.check(Schema.isUnique())),
-  nestedDiscovery: Schema.Boolean,
-  importSyntax: Schema.NullOr(RuleInstructionsImportSyntaxSchema),
-  directory: Schema.NonEmptyString,
-});
+}).check(
+  Schema.makeFilter((capability) => {
+    const shape = capability.kind === "rules-dir" ? "directory" : "file";
+    return capability.locations.some(
+      (location) => location.role === "primary" && location.shape !== shape,
+    )
+      ? { path: ["locations"], issue: `Primary instruction locations must have ${shape} shape` }
+      : undefined;
+  }),
+);
 
 /** @experimental This API is unstable and may change without notice. */
 export const RulesExtensionCapabilitySchema = Schema.Struct({
   native: Schema.Union([
-    AgentsMdRulesExtensionCapabilitySchema,
-    OwnFileRulesExtensionCapabilitySchema,
-    RulesDirRulesExtensionCapabilitySchema,
+    AvailableRulesExtensionCapabilitySchema,
     Schema.Struct(UnavailableNativeCapabilityFields),
   ]),
   axm: NoWriterAxmCapabilityStateSchema,
@@ -766,6 +771,45 @@ export const ConfigFileFormatSchema = Schema.Literals([
 /** @experimental This API is unstable and may change without notice. */
 export type ConfigFileFormat = Schema.Schema.Type<typeof ConfigFileFormatSchema>;
 
+/** One declared native configuration reader, independently of any AXM writer. */
+export const NativeConfigReadLocationSchema = Schema.Struct({
+  ...NativeReadLocationFields,
+  shape: Schema.Literal("file"),
+  id: Schema.NonEmptyString,
+  format: ConfigFileFormatSchema,
+  keyPath: Schema.optionalKey(Schema.NonEmptyArray(Schema.NonEmptyString)),
+  attribution: Schema.optionalKey(Schema.Literals(["shared", "agent"])),
+  gitignored: Schema.optionalKey(Schema.Boolean),
+})
+  .check(nativeReadLocationCheck)
+  .annotate({
+    identifier: "NativeConfigReadLocation",
+    title: "Native Configuration Reader Location",
+    description:
+      "A scoped native file with its syntax, static container path, and source evidence. Writers refer to its id; no writer support or ownership is implied.",
+  });
+export type NativeConfigReadLocation = Schema.Schema.Type<typeof NativeConfigReadLocationSchema>;
+
+const nativeConfigReferenceIssues = (
+  locations: ReadonlyArray<NativeConfigReadLocation>,
+  references: ReadonlyArray<string>,
+  writerPath: ReadonlyArray<string>,
+): Array<Schema.FilterIssue> => {
+  const issues: Array<Schema.FilterIssue> = [];
+  const ids = new Set(locations.map((location) => location.id));
+  if (ids.size !== locations.length)
+    issues.push({
+      path: ["native", "locations"],
+      issue: "Native config location ids must be unique within a capability.",
+    });
+  if (references.some((id) => !ids.has(id)))
+    issues.push({
+      path: [...writerPath],
+      issue: "AXM writers must reference declared native config location ids.",
+    });
+  return issues;
+};
+
 /** @experimental This API is unstable and may change without notice. */
 export const McpServersKeySchema = Schema.Literals([
   "mcpServers",
@@ -796,6 +840,8 @@ export type McpTargetAttribution = Schema.Schema.Type<typeof McpTargetAttributio
 
 /** @experimental This API is unstable and may change without notice. */
 export const McpConfigTargetSchema = Schema.Struct({
+  /** Explicit captured native root for a resolved runtime destination. */
+  nativeRoot: Schema.optionalKey(Schema.NonEmptyString),
   scope: ScopeSchema,
   path: Schema.NonEmptyString,
   format: ConfigFileFormatSchema,
@@ -913,6 +959,10 @@ export type McpUrlKeyMap = Schema.Schema.Type<typeof McpUrlKeyMapSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
 export const McpRemoteDialectSchema = Schema.Struct({
+  implicitTransport: Schema.optionalKey(Schema.Literal("http-or-sse")).annotate({
+    description:
+      "A documented URL-only remote entry selects HTTP or SSE through the endpoint, without an explicit transport discriminator.",
+  }),
   typeField: McpTypeFieldSchema,
   urlKey: McpUrlKeyMapSchema,
   headersKey: Schema.NullOr(Schema.NonEmptyString),
@@ -928,16 +978,26 @@ export const McpRemoteDialectSchema = Schema.Struct({
 export type McpRemoteDialect = Schema.Schema.Type<typeof McpRemoteDialectSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const McpConfigSchema = Schema.Struct({
-  serversKey: McpServersKeySchema,
+export const McpEntryDialectSchema = Schema.Struct({
   activationField: McpActivationFieldSchema,
-  targets: Schema.Array(McpConfigTargetSchema),
   stdio: Schema.NullOr(McpStdioDialectSchema),
   remote: Schema.NullOr(McpRemoteDialectSchema),
 }).annotate({
+  identifier: "McpEntryDialect",
+  title: "Native MCP Entry Dialect",
+  description: "Verified native entry grammar, independent of AXM writer support.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type McpEntryDialect = Schema.Schema.Type<typeof McpEntryDialectSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const McpConfigSchema = Schema.Struct({
+  locationIds: Schema.NonEmptyArray(Schema.NonEmptyString).check(Schema.isUnique()),
+}).annotate({
   identifier: "McpConfig",
-  title: "MCP Config",
-  description: "Prescriptive config writer metadata for an agent's MCP support.",
+  title: "MCP Writer Locations",
+  description: "Native configuration locations selected by the AXM writer.",
 });
 
 /** @experimental This API is unstable and may change without notice. */
@@ -964,6 +1024,8 @@ const McpUnavailableCapabilityStruct = Schema.Struct({
 const McpNativeWithTransportsSchema = Schema.Struct({
   ...AvailableSpecTrackedNativeCapabilityFields,
   transports: NonEmptyMcpTransportsSchema,
+  entryDialect: Schema.NullOr(McpEntryDialectSchema),
+  locations: Schema.Array(NativeConfigReadLocationSchema),
   mcpEnvExpansion: Schema.optionalKey(McpEnvExpansionSchema),
 });
 
@@ -984,11 +1046,51 @@ const McpExtensionCapabilitySchemaWithChecks = McpExtensionCapabilityStruct.pipe
       const activeSourcesIssue = requireSourcesForActiveAxmSupport(capability);
       if (activeSourcesIssue !== undefined) issues.push(activeSourcesIssue);
       const writer = capability.axm.writer;
+      if ("locations" in capability.native) {
+        issues.push(
+          ...nativeConfigReferenceIssues(
+            capability.native.locations,
+            writer?.config.locationIds ?? [],
+            ["axm", "writer", "config", "locationIds"],
+          ),
+        );
+        if (capability.native.locations.some((location) => location.keyPath === undefined))
+          issues.push({
+            path: ["native", "locations"],
+            issue: "MCP reader locations require an explicit servers-container keyPath.",
+          });
+        if (capability.native.locations.some((location) => location.attribution === undefined))
+          issues.push({
+            path: ["native", "locations"],
+            issue: "MCP reader locations require explicit attribution.",
+          });
+        const selected = new Set(writer?.config.locationIds ?? []);
+        if (
+          capability.native.locations.some(
+            (location) =>
+              selected.has(location.id) &&
+              (location.keyPath?.length !== 1 ||
+                !Schema.is(McpServersKeySchema)(location.keyPath[0])),
+          )
+        ) {
+          issues.push({
+            path: ["native", "locations"],
+            issue: "Writable MCP locations require one recognized MCP servers key.",
+          });
+        }
+      }
       if (writer === null || !("transports" in capability.native)) return issues;
-      const config = writer.config;
+      const config = capability.native.entryDialect;
+      if (config === null) {
+        issues.push({
+          path: ["native", "entryDialect"],
+          issue: "An MCP writer requires a verified native entry dialect.",
+        });
+        return issues;
+      }
       if (capability.native.transports.includes("stdio") && config.stdio === null) {
         issues.push({
-          path: ["axm", "writer", "config", "stdio"],
+          path: ["native", "entryDialect", "stdio"],
           issue: "MCP stdio config is required when stdio transport is supported.",
         });
       }
@@ -998,7 +1100,7 @@ const McpExtensionCapabilitySchemaWithChecks = McpExtensionCapabilityStruct.pipe
         config.remote === null
       ) {
         issues.push({
-          path: ["axm", "writer", "config", "remote"],
+          path: ["native", "entryDialect", "remote"],
           issue: "MCP remote config is required when http or sse transport is supported.",
         });
       }
@@ -1052,21 +1154,6 @@ export const PermissionGrammarStyleSchema = Schema.Literals([
 
 /** @experimental This API is unstable and may change without notice. */
 export type PermissionGrammarStyle = Schema.Schema.Type<typeof PermissionGrammarStyleSchema>;
-
-/** @experimental This API is unstable and may change without notice. */
-export const ConfigFileLocationSchema = Schema.Struct({
-  scope: ScopeSchema,
-  path: Schema.NonEmptyString,
-  format: ConfigFileFormatSchema,
-  gitignored: Schema.Boolean,
-}).annotate({
-  identifier: "ConfigFileLocation",
-  title: "Config File Location",
-  description: "A configuration file where an agent's permission rules can live.",
-});
-
-/** @experimental This API is unstable and may change without notice. */
-export type ConfigFileLocation = Schema.Schema.Type<typeof ConfigFileLocationSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
 export const CANONICAL_HOOK_EVENT_IDS = [
@@ -1323,19 +1410,29 @@ export type HookCommandNameSerialization = Schema.Schema.Type<
 >;
 
 /** @experimental This API is unstable and may change without notice. */
-export const HooksWriterSchema = Schema.Struct({
+export const HookEntryDialectSchema = Schema.Struct({
   serializer: HooksSerializerSchema,
-  configFiles: Schema.NonEmptyArray(ConfigFileLocationSchema),
-  settingsKey: Schema.NonEmptyString,
-  eventMap: Schema.Literal("native.events"),
   matcherKind: HookMatcherKindSchema,
   matcherSerialization: HookMatcherSerializationSchema,
   timeoutSerialization: HookTimeoutSerializationSchema,
   commandNameSerialization: HookCommandNameSerializationSchema,
 }).annotate({
+  identifier: "HookEntryDialect",
+  title: "Native Hook Entry Dialect",
+  description: "Verified native Hook entry grammar, independent of AXM writer support.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type HookEntryDialect = Schema.Schema.Type<typeof HookEntryDialectSchema>;
+
+/** @experimental This API is unstable and may change without notice. */
+export const HooksWriterSchema = Schema.Struct({
+  locationIds: Schema.NonEmptyArray(Schema.NonEmptyString).check(Schema.isUnique()),
+  eventMap: Schema.Literal("native.events"),
+}).annotate({
   identifier: "HooksWriter",
   title: "Hooks Writer",
-  description: "Parameterized AXM hook writer metadata derived from native hook catalog data.",
+  description: "Native Hook locations and event mappings selected by the AXM writer.",
 });
 
 /** @experimental This API is unstable and may change without notice. */
@@ -1344,7 +1441,8 @@ export type HooksWriter = Schema.Schema.Type<typeof HooksWriterSchema>;
 const HooksAvailableNativeCapabilitySchema = Schema.Struct({
   ...AvailableNativeCapabilityBaseFields,
   mechanism: NonEmptyHookMechanismFamiliesSchema,
-  configFiles: Schema.Array(ConfigFileLocationSchema),
+  entryDialect: Schema.NullOr(HookEntryDialectSchema),
+  locations: Schema.Array(NativeConfigReadLocationSchema),
   events: Schema.NonEmptyArray(HookEventMappingSchema),
   tools: Schema.Array(HookToolMappingSchema),
 });
@@ -1352,6 +1450,8 @@ const HooksAvailableNativeCapabilitySchema = Schema.Struct({
 const HooksUnmodeledNativeCapabilitySchema = Schema.Struct({
   ...AvailableNativeCapabilityBaseFields,
   modeling: Schema.Literal("native-unmodeled"),
+  entryDialect: Schema.NullOr(HookEntryDialectSchema),
+  locations: Schema.Array(NativeConfigReadLocationSchema),
 });
 
 const HooksExtensionCapabilityStruct = Schema.Struct({
@@ -1368,6 +1468,34 @@ export const HooksExtensionCapabilitySchema = HooksExtensionCapabilityStruct.pip
   Schema.check(
     Schema.makeFilter((capability: Schema.Schema.Type<typeof HooksExtensionCapabilityStruct>) => {
       const issues: Array<Schema.FilterIssue> = [];
+      if ("locations" in capability.native) {
+        issues.push(
+          ...nativeConfigReferenceIssues(
+            capability.native.locations,
+            capability.axm.writer?.locationIds ?? [],
+            ["axm", "writer", "locationIds"],
+          ),
+        );
+        const selected = new Set(capability.axm.writer?.locationIds ?? []);
+        if (
+          capability.native.locations.some(
+            (location) => selected.has(location.id) && location.keyPath === undefined,
+          )
+        )
+          issues.push({
+            path: ["native", "locations"],
+            issue: "Writable Hook reader locations require a static keyPath.",
+          });
+      }
+      if (
+        capability.axm.writer !== null &&
+        (!("entryDialect" in capability.native) || capability.native.entryDialect === null)
+      ) {
+        issues.push({
+          path: ["native", "entryDialect"],
+          issue: "A Hook writer requires a verified native entry dialect.",
+        });
+      }
       if (capability.axm.writer !== null && capability.native.sources.length === 0) {
         issues.push({
           path: ["native", "sources"],
@@ -1440,7 +1568,11 @@ export const PermissionCliFlagSchema = Schema.Struct({
 export type PermissionCliFlag = Schema.Schema.Type<typeof PermissionCliFlagSchema>;
 
 const PermissionGrantStruct = Schema.Struct({
-  target: Schema.NonEmptyString,
+  destination: Schema.Union([
+    Schema.Struct({ kind: Schema.Literal("location"), locationId: Schema.NonEmptyString }),
+    Schema.Struct({ kind: Schema.Literal("invocation") }),
+    Schema.Struct({ kind: Schema.Literal("settings-ui") }),
+  ]),
   patch: Schema.NullOr(Schema.Unknown),
   template: Schema.NullOr(Schema.NonEmptyString),
 });
@@ -1470,7 +1602,7 @@ export const PermissionsExtensionCapabilitySchema = Schema.Struct({
     Schema.Struct({
       ...AvailableNativeCapabilityBaseFields,
       mechanism: NonEmptyPermissionMechanismsSchema,
-      configFiles: Schema.Array(ConfigFileLocationSchema),
+      locations: Schema.Array(NativeConfigReadLocationSchema),
       grammar: Schema.NullOr(PermissionGrammarSchema),
       prerequisites: Schema.Array(PermissionPrerequisiteSchema),
       cliFlags: Schema.Array(PermissionCliFlagSchema),
@@ -1482,7 +1614,22 @@ export const PermissionsExtensionCapabilitySchema = Schema.Struct({
     "PermissionsAxmState",
   ),
 })
-  .pipe(Schema.check(Schema.makeFilter(requireSourcesForActiveAxmSupport)))
+  .pipe(
+    Schema.check(Schema.makeFilter(requireSourcesForActiveAxmSupport)),
+    Schema.check(
+      Schema.makeFilter((capability) =>
+        "locations" in capability.native
+          ? nativeConfigReferenceIssues(
+              capability.native.locations,
+              Object.values(capability.axm.writer?.grants ?? {}).flatMap((grant) =>
+                grant.destination.kind === "location" ? [grant.destination.locationId] : [],
+              ),
+              ["axm", "writer", "grants"],
+            )
+          : undefined,
+      ),
+    ),
+  )
   .annotate({
     identifier: "PermissionsExtensionCapability",
     title: "Permissions Capability",
@@ -1665,10 +1812,15 @@ export const AgentSchema = AgentStruct.pipe(
       if (
         "kind" in agent.instructions.native &&
         agent.instructions.native.kind === "agents-md" &&
-        agent.instructions.native.files[0] !== "AGENTS.md"
+        agent.instructions.native.locations.some(
+          (location) =>
+            location.scope === "project" &&
+            location.role === "primary" &&
+            (location.shape !== "file" || location.path !== "AGENTS.md"),
+        )
       ) {
         issues.push({
-          path: ["instructions", "native", "files"],
+          path: ["instructions", "native", "locations"],
           issue: 'instructions.kind "agents-md" requires AGENTS.md.',
         });
       }
@@ -1715,8 +1867,7 @@ export const AgentSchema = AgentStruct.pipe(
         hostedOnly &&
         capabilitySlots.some(
           (capability) =>
-            "directory" in capability.native ||
-            ("configFiles" in capability.native && capability.native.configFiles.length > 0),
+            "locations" in capability.native && capability.native.locations.length > 0,
         )
       ) {
         issues.push({

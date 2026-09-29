@@ -58,6 +58,8 @@ import {
   type SettledExtensionNode,
 } from "./desired-state-graph.js";
 import { desiredProblemSubject } from "./desired-state-queries.js";
+import { lockEntryMatchesSourceLocator } from "./lock-entry.js";
+import { mcpResolutionKey } from "./mcp-source-identity.js";
 
 interface CandidateCommon {
   readonly type: ExtensionType;
@@ -489,7 +491,35 @@ export const evaluateDesiredState = (inputs: DesiredEvaluationInputs): DesiredSt
   }
 
   const groups = new Map<string, Candidate[]>();
-  for (const candidate of candidates) {
+  for (const unresolved of candidates) {
+    let candidate = unresolved;
+    if (
+      unresolved.type === "mcp-server" &&
+      unresolved.authority === "sourced" &&
+      (unresolved.identity.authority === "path" || unresolved.identity.authority === "git")
+    ) {
+      const identity = unresolved.identity;
+      const matches = Object.entries(inputs.acceptedResolutions.mcpServers ?? {}).filter(
+        ([key, entry]) =>
+          entry.source.type === identity.authority &&
+          key === mcpResolutionKey(entry) &&
+          lockEntryMatchesSourceLocator(entry, unresolved.source) &&
+          (identity.fqn === undefined ||
+            identity.fqn === `${entry.identity.owner}/mcps/${entry.identity.name}`),
+      );
+      const [accepted] = matches;
+      if (matches.length === 1 && accepted !== undefined) {
+        const [resolutionKey, entry] = accepted;
+        candidate = {
+          ...unresolved,
+          identity: {
+            ...identity,
+            resolutionKey,
+            fqn: `${entry.identity.owner}/mcps/${entry.identity.name}`,
+          },
+        };
+      }
+    }
     const key = desiredNodeKey(candidate.type, candidate.name);
     const group = groups.get(key);
     if (group === undefined) groups.set(key, [candidate]);

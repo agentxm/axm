@@ -232,6 +232,7 @@ const invokeOperation = (
               userHome: workspace.root,
               scope,
               input: { view: "workspace" },
+              nativeView: { kind: "workspace" },
               fix: false,
             },
             strict: false,

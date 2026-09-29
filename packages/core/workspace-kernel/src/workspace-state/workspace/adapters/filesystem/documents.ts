@@ -23,9 +23,10 @@ export const FilesystemWorkspaceDocuments: Layer.Layer<
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const fs = yield* FileSystem.FileSystem;
+    const locks = yield* WorkspaceFileWriteLocks;
     const io = Context.make(FileSystem.FileSystem, fs).pipe(
       Context.add(Path.Path, yield* Path.Path),
-      Context.add(WorkspaceFileWriteLocks, yield* WorkspaceFileWriteLocks),
+      Context.add(WorkspaceFileWriteLocks, locks),
     );
     const acceptedResolutions = readLockfileCell(location, location.runtimeDir).pipe(
       Effect.provideContext(io),
@@ -65,12 +66,20 @@ export const FilesystemWorkspaceDocuments: Layer.Layer<
           ),
         );
       }),
-      writeSettings: (next) =>
-        writeSettingsAtPath(location.settingsPath, next).pipe(Effect.provideContext(io)),
-      commitAcceptedResolutions: (base, next) =>
-        commitLockfileSnapshotUpdateAtPath(location.lockPath, base, next).pipe(
-          Effect.provideContext(io),
-        ),
+      writeSettings: (next, options) =>
+        writeSettingsAtPath(location.settingsPath, next, {
+          nativeRoot: location.baseDir,
+          runtimeDir: location.runtimeDir,
+          eligible: options?.roundTrip !== false,
+          locks,
+        }).pipe(Effect.provideContext(io)),
+      commitAcceptedResolutions: (base, next, options) =>
+        commitLockfileSnapshotUpdateAtPath(location.lockPath, base, next, {
+          nativeRoot: location.baseDir,
+          runtimeDir: location.runtimeDir,
+          eligible: options?.roundTrip === true,
+          locks,
+        }).pipe(Effect.provideContext(io)),
     });
   }),
 );

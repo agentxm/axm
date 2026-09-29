@@ -2,14 +2,26 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
 import { extensionName, handle } from "../test-helpers.js";
 import { printSourceParams } from "./printer.js";
+import { parseInputPattern } from "./parser.js";
 
 describe("printSourceParams", () => {
   it.each([
     ["./my/skills", "./my/skills"],
+    [".axm/workspace/vendor/context", "./.axm/workspace/vendor/context"],
+    ["../my/skills", "../my/skills"],
+    [".", "./"],
+    ["..", "../"],
+    ["~/skills", "~/skills"],
+    ["C:/skills", "C:/skills"],
     ["my/skills", "./my/skills"],
     ["/home/user/skills", "/home/user/skills"],
   ] as const)("prints local path %s", (path, expected) => {
-    expect(printSourceParams({ type: "local", path })).toBe(expected);
+    const printed = printSourceParams({ type: "local", path });
+    expect(printed).toBe(expected);
+    expect(Option.getOrUndefined(parseInputPattern(printed))?.pattern).toEqual({
+      pattern: "file-path-pattern",
+      path: printed,
+    });
   });
 
   it("prints source parameters", () => {

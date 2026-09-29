@@ -42,6 +42,8 @@ import {
 import { RuleManager } from "@agentxm/workspace-kernel/materialization";
 import {
   applyPlannedProjections,
+  applyProjectionPlans,
+  captureAgentOutputAuthority,
   observeProjectionPlans,
 } from "@agentxm/workspace-kernel/projection";
 import {
@@ -200,6 +202,7 @@ describe("RuleManager graph-derived region projection", () => {
     return RuleManagerLive.pipe(
       Layer.provideMerge(WorkspaceCatalogLive),
       Layer.provideMerge(CodingAgentRepositoryLive),
+      Layer.provideMerge(NativeWriteAuthorityLive),
       Layer.provideMerge(
         WorkspaceReadTest({
           baseDir,
@@ -211,7 +214,6 @@ describe("RuleManager graph-derived region projection", () => {
       ),
       Layer.provideMerge(MockWorkspaceTransactionScope(axmDir)),
       Layer.provide(Layer.succeed(SourceHostProviders, providersStub)),
-      Layer.provideMerge(NativeWriteAuthorityLive),
       Layer.provideMerge(WorkspaceFileWriteLocksLive),
       Layer.provideMerge(
         Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
@@ -272,14 +274,17 @@ describe("RuleManager graph-derived region projection", () => {
       locked: decodeLockMap({ "pack-b-rule": registryLock(baseDir, "pack-b-rule") }),
     });
     return Effect.gen(function* () {
-      yield* Effect.gen(function* () {
+      const priorAuthority = yield* Effect.gen(function* () {
         const manager = yield* RuleManager;
         yield* applyPlannedProjections(manager);
+        return yield* captureAgentOutputAuthority();
       }).pipe(Effect.provide(before));
       expect(markerCount(readInstructions(), "pack-a-rule")).toBe(1);
       yield* Effect.gen(function* () {
         const manager = yield* RuleManager;
-        yield* applyPlannedProjections(manager);
+        yield* manager
+          .projectionPlans({ priorAuthority })
+          .pipe(Effect.flatMap(applyProjectionPlans));
       }).pipe(Effect.provide(after));
       const content = readInstructions();
       expect(markerCount(content, "pack-a-rule")).toBe(0);
@@ -303,13 +308,11 @@ describe("RuleManager graph-derived region projection", () => {
     return Effect.gen(function* () {
       const manager = yield* RuleManager;
       yield* applyPlannedProjections(manager);
-      nodeFs.writeFileSync(
-        instructionsPath(),
-        `${readInstructions().replace(
-          "<!-- axm:point v=1 ext=@acme/rules/pack-b-rule@1.0.0 kind=rule -->\n\nGuidance for pack-b-rule.",
-          "",
-        )}\n<!-- axm:point v=1 ext=@acme/rules/pack-b-rule@1.0.0 kind=rule -->\nUser-owned text outside the region.\n`,
-      );
+      const rewritten = `${readInstructions().replace(
+        "<!-- axm:point v=1 ext=@acme/rules/pack-b-rule@1.0.0 kind=rule -->\n\nGuidance for pack-b-rule.",
+        "",
+      )}\n<!-- axm:point v=1 ext=@acme/rules/pack-b-rule@1.0.0 kind=rule -->\nUser-owned text outside the region.\n`;
+      nodeFs.writeFileSync(instructionsPath(), rewritten);
 
       expect(yield* manager.projectionPlans().pipe(Effect.flatMap(observeProjectionPlans))).toEqual(
         [
@@ -320,6 +323,8 @@ describe("RuleManager graph-derived region projection", () => {
           }),
         ],
       );
+      yield* applyPlannedProjections(manager);
+      expect(readInstructions()).toBe(rewritten);
     }).pipe(Effect.provide(layer));
   });
 

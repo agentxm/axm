@@ -6,7 +6,7 @@
 
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
-import type { CodingAgent } from "@agentxm/workspace-kernel/agent-adapters";
+import { codingAgentForId, type CodingAgent } from "@agentxm/workspace-kernel/agent-adapters";
 import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import {
   decodeExtensionNameSync,
@@ -52,6 +52,7 @@ export const makeCodingAgentStub = (
   overrides?: Partial<CodingAgent>,
 ): CodingAgent => ({
   id,
+  resolveNativeReadLocations: codingAgentForId(id).resolveNativeReadLocations,
   resolveEffectiveSkillsDir: ({ workspaceRoot }) =>
     Effect.succeed({ _tag: "supported", dir: `${workspaceRoot}/.${id}/skills` }),
   resolveEffectiveSubagentsDir: ({ workspaceRoot }) =>

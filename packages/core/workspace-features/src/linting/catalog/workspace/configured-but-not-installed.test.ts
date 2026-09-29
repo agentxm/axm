@@ -198,6 +198,7 @@ describe("workspace/configured-but-not-installed in a real workspace", () => {
         userHome: workspace.home,
         scope: "project",
         input: { view: "workspace" },
+        nativeView: { kind: "workspace" },
         fix: false,
       },
       { strict: false },

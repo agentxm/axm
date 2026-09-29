@@ -1,3 +1,8 @@
+import {
+  resolveNativeEntry,
+  resolveNativeReferent,
+  copiedDirectoryIsCurrent,
+} from "@agentxm/workspace-kernel/locations";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
@@ -163,21 +168,20 @@ const releaseAge = (ref: Extract<SkillExtensionRef, { readonly refType: "registr
 
 const targetState = (args: { readonly linkPath: string; readonly canonicalSkillSrcPath: string }) =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const linkTarget = yield* fs.readLink(args.linkPath).pipe(Effect.option);
-    if (Option.isSome(linkTarget)) {
-      const currentAbsoluteTarget = path.resolve(path.dirname(args.linkPath), linkTarget.value);
-      const resolvedCurrentTarget = yield* fs
-        .realPath(currentAbsoluteTarget)
-        .pipe(Effect.catch(() => Effect.succeed(currentAbsoluteTarget)));
-      const resolvedExpectedTarget = yield* fs
-        .realPath(args.canonicalSkillSrcPath)
-        .pipe(Effect.catch(() => Effect.succeed(args.canonicalSkillSrcPath)));
-      return resolvedCurrentTarget === resolvedExpectedTarget ? "current" : "different";
+    const entry = yield* resolveNativeEntry(args.linkPath);
+    const source = yield* resolveNativeReferent(args.canonicalSkillSrcPath);
+    if (entry.entryPath === source) return "current";
+    if (yield* copiedDirectoryIsCurrent(entry.entryPath, source)) return "current";
+    if (entry.kind === "symlink" && entry.linkTarget !== undefined) {
+      const immediate = yield* resolveNativeEntry(
+        path.resolve(path.dirname(entry.entryPath), entry.linkTarget),
+      );
+      return immediate.entryPath === source && immediate.kind !== "symlink"
+        ? "current"
+        : "different";
     }
-    const exists = yield* fs.exists(args.linkPath).pipe(Effect.catch(() => Effect.succeed(false)));
-    return exists ? "different" : "absent";
+    return entry.kind === "absent" ? "absent" : "different";
   });
 
 const inspect = (ref: SkillExtensionRef) =>
@@ -202,14 +206,17 @@ const inspect = (ref: SkillExtensionRef) =>
       configuredAgents,
       (agent) =>
         agent
-          .resolveEffectiveSkillsDir({ workspaceRoot: workspaceLocation.baseDir })
+          .resolveEffectiveSkillsDir({
+            workspaceRoot: workspaceLocation.baseDir,
+            scope: workspaceLocation.scope,
+          })
           .pipe(Effect.map((outcome) => ({ agentId: agent.id, outcome }))),
       // eslint-disable-next-line axm-policy/no-unbounded-io -- configured agents are a subset of the fixed agent catalog
       { concurrency: "unbounded" },
     );
     const unknownAgents = yield* agentRepo.getUnknownConfiguredAgentIds();
     const skippedAgents = resolvedAgents.flatMap(({ agentId, outcome }) =>
-      outcome._tag === "unsupported" || outcome._tag === "disabled"
+      outcome._tag === "unsupported" || outcome._tag === "disabled" || outcome._tag === "unverified"
         ? [`${agentId}: ${outcome.reason}`]
         : [],
     );

@@ -863,6 +863,7 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
           transitionCause: Cause.fail(stepError),
           restorationCause: first?.restorationCause,
           snapshotDir: pending.snapshotDir,
+          recovery: pending.failures.flatMap((failure) => failure.recovery),
           retained: pending.failures.flatMap((failure) => failure.retained),
           closureIds: pending.failures.map((failure) => failure.closureId),
         }),
@@ -1098,6 +1099,7 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
         ? undefined
         : {
             retained: [...restoration.retained],
+            entries: restoration.recovery,
             ...(restoration.snapshotDir === undefined
               ? {}
               : { snapshotDir: restoration.snapshotDir }),

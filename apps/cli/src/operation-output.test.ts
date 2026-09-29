@@ -9,6 +9,7 @@ import {
   type OperationResolution,
   type ResolvedUnit,
 } from "@agentxm/workspace-kernel/operations";
+import type { NativeLocationOutcome } from "@agentxm/workspace-kernel/locations";
 
 import {
   PlanResolutionResultSchema,
@@ -43,7 +44,117 @@ const resolution = (
   });
 
 describe("toPlanResolutionResult", () => {
-  it("emits the plan-result-v3 contract with plan identity in a schema-backed document", () => {
+  const nativeLocation = {
+    scope: "project",
+    address: {
+      kind: "key-path",
+      path: "/workspace/native.json",
+      keys: ["mcpServers", "context#one"],
+    },
+    aliases: ["/workspace/.mcp.json"],
+    configuredConsumers: ["claude-code"],
+    potentialReaders: ["unconfigured-reader"],
+    policyReasons: [],
+    ownership: "owned",
+    proof: "managed-mcp-entry",
+    state: "created",
+    mechanism: "structured-entry",
+    availability: [
+      { agentId: "claude-code", state: "unverified", reason: "Native selection is not observable" },
+    ],
+  } satisfies NativeLocationOutcome;
+
+  it("counts shared physical files, owned units, and configured consumers independently", () => {
+    const artifact = (locations: ReadonlyArray<NativeLocationOutcome>): JobStepArtifact => ({
+      path: "native.json",
+      scope: "project",
+      change: "updated",
+      nativeLocations: locations,
+    });
+    const result = Schema.decodeUnknownSync(PlanResolutionResultSchema)(
+      toPlanResolutionResult(
+        resolution({
+          units: [
+            unit("first", "committed", { artifact: artifact([nativeLocation]) }),
+            unit("second", "committed", {
+              artifact: artifact([
+                {
+                  ...nativeLocation,
+                  aliases: ["/workspace/.cursor/mcp.json"],
+                  configuredConsumers: ["cursor"],
+                },
+              ]),
+            }),
+            unit("other-key", "committed", {
+              artifact: artifact([
+                {
+                  ...nativeLocation,
+                  address: { ...nativeLocation.address, keys: ["mcpServers", "other"] },
+                  state: "retained",
+                  reason: "A remaining route still requires this entry",
+                },
+              ]),
+            }),
+          ],
+        }),
+      ),
+    );
+    expect(result.nativeLocationCounts).toEqual({
+      units: 2,
+      physicalLocations: 1,
+      configuredConsumers: 2,
+      changed: 1,
+      retained: 1,
+      blocked: 0,
+      unverified: 0,
+    });
+    const shared = result.nativeLocations.find(
+      (location) =>
+        location.address.kind === "key-path" && location.address.keys[1] === "context#one",
+    );
+    expect(shared?.aliases).toEqual(["/workspace/.cursor/mcp.json", "/workspace/.mcp.json"]);
+    expect(shared?.configuredConsumers).toEqual(["claude-code", "cursor"]);
+    expect(shared?.potentialReaders).toEqual(["unconfigured-reader"]);
+  });
+
+  it.each(["rolled-back", "failed", "cancelled"] as const)(
+    "does not claim planned native changes after a %s unit",
+    (state) => {
+      const result = toPlanResolutionResult(
+        resolution({
+          units: [
+            unit("native", state, {
+              artifact: {
+                path: "native.json",
+                scope: "project",
+                change: "created",
+                nativeLocations: [nativeLocation],
+              },
+            }),
+          ],
+        }),
+      );
+      expect(result.nativeLocations[0]?.state).toBe("unverified");
+      expect(result.nativeLocationCounts.changed).toBe(0);
+      expect(result.units[0]?.artifact?.nativeLocations?.[0]?.state).toBe("unverified");
+    },
+  );
+
+  it("keeps precise preserved-original recovery addresses", () => {
+    const entries = [
+      {
+        originalPath: "/workspace/native.json",
+        recoveryPath: "/workspace/.axm-retired-id/native.json",
+        kind: "retired-entry",
+      },
+    ] as const;
+    const result = Schema.decodeUnknownSync(PlanResolutionResultSchema)(
+      toPlanResolutionResult(resolution({ recovery: { retained: [], entries, actions: [] } })),
+    );
+    expect(result.recovery?.entries).toEqual(entries);
+  });
+
+  it("emits the plan-result-v4 contract with plan identity in a schema-backed document", () => {
     const value = resolution({
       description: Option.some("Update installed skills"),
       units: [unit("a", "committed")],
@@ -53,7 +164,7 @@ describe("toPlanResolutionResult", () => {
       toPlanResolutionResult(value),
     );
 
-    expect(result.contract).toBe("plan-result-v3");
+    expect(result.contract).toBe("plan-result-v4");
     expect(result.planName).toBe("Update skills");
     expect(result.planDescription).toBe("Update installed skills");
     expect(result.mode).toBe("apply");
@@ -444,7 +555,7 @@ describe("toPlanResolutionResult", () => {
     const artifact: JobStepArtifact = {
       path: ".agents/skills/quality",
       scope: "user",
-      agents: ["codex", "universal"],
+      agents: ["codex"],
       change: "created",
     };
     const applied = resolution({

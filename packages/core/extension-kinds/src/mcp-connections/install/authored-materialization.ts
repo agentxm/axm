@@ -24,12 +24,13 @@ import { installMcpServer } from "./install-operation.js";
 /**
  * Realize the authored package's canonical content and native projections
  * without touching workspace state: the authored closure commits desired state
- * itself. Reports no acquisition facts — an authored package has no accepted
- * registry resolution for the entry writers to record.
+ * itself. Native observations are returned without acquired content integrity,
+ * because the package remains workspace authored.
  */
 export const materializeAuthoredMcpServer = (args: {
   readonly ref: McpServerExtensionRef;
   readonly nonInteractive: boolean;
+  readonly nativeInsertionEligible: boolean;
 }): Effect.Effect<
   Option.Option<McpServerMaterializationFacts>,
   ExtensionManagerFailure,
@@ -41,6 +42,23 @@ export const materializeAuthoredMcpServer = (args: {
       ref: args.ref,
       nonInteractive: args.nonInteractive,
       force: false,
+      nativeInsertionEligible: args.nativeInsertionEligible,
       env: Option.none(),
     },
-  }).pipe(Effect.as(Option.none<McpServerMaterializationFacts>()));
+  }).pipe(
+    Effect.map((result) => {
+      const nativeLocations = result.artifact?.nativeLocations ?? [];
+      return Option.some({
+        treeIntegrity: Option.none(),
+        removal: Option.none(),
+        observation: {
+          nativeLocations,
+          agents: result.artifact?.agents ?? [],
+          targets: nativeLocations.map((native) => ({
+            path: native.address.path,
+            agentIds: native.configuredConsumers,
+          })),
+        },
+      } satisfies McpServerMaterializationFacts);
+    }),
+  );

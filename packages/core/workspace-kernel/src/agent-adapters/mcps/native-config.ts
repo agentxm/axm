@@ -17,12 +17,12 @@ import { parse, type ParseError } from "jsonc-parser";
 import { parse as parseToml } from "smol-toml";
 import type { McpConfigTarget } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { isPathSafe } from "@agentxm/extension-model/unstable/path-types";
-import { osHomeDirectory } from "@agentxm/host-primitives";
 import { McpConfigInvalid, McpConfigIoFailed } from "../errors.js";
 import { managedKeyedBlockNames } from "../managed-regions-keyed-block.js";
 import { parseTomlValue, stringifyTomlKey } from "../toml.js";
 import { managedYamlNames, parseYaml, readYamlEntry } from "../yaml.js";
 import { isAxmManagedMcpEntry } from "./entry-semantics.js";
+import { assertNativeMutationWithin } from "../../locations/index.js";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -31,23 +31,34 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 export const resolveAgentMcpConfigTargetPath = (
   workspaceRoot: string,
   target: McpConfigTarget,
-): Effect.Effect<string, McpConfigInvalid, Path.Path> =>
+): Effect.Effect<string, McpConfigInvalid, Path.Path | FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const home = yield* osHomeDirectory;
-    const base =
-      target.scope === "user"
-        ? target.path.startsWith("~/")
-          ? path.join(home, target.path.slice(2))
-          : path.resolve(home, target.path)
-        : path.resolve(workspaceRoot, target.path);
+    const base = path.resolve(
+      workspaceRoot,
+      target.scope === "user" && target.path.startsWith("~/") ? target.path.slice(2) : target.path,
+    );
 
     if (target.scope === "project" && !isPathSafe(path, workspaceRoot, base)) {
       return yield* new McpConfigInvalid({
         detail: `MCP config target escapes workspace root: ${target.path}`,
       });
     }
-    return base;
+    const address = yield* assertNativeMutationWithin(
+      target.nativeRoot ?? workspaceRoot,
+      base,
+      "content",
+      workspaceRoot,
+    ).pipe(
+      Effect.mapError(
+        (cause) =>
+          new McpConfigInvalid({
+            detail: `Cannot use MCP location ${target.path}: ${cause.reason}`,
+            cause,
+          }),
+      ),
+    );
+    return address.referentPath ?? address.entryPath;
   });
 
 /** The native file's bytes, or none when it does not exist. */
@@ -89,12 +100,16 @@ export const decodeJsonMcpConfig = (
   configPath: string,
   raw: string,
   serversKey: string,
+  format: McpConfigTarget["format"] = "jsonc",
 ): Effect.Effect<DecodedJsonMcpConfig, McpConfigInvalid> =>
   Effect.gen(function* () {
     const root = yield* Effect.try({
       try: () => {
         const errors: Array<ParseError> = [];
-        const parsed: unknown = parse(raw, errors, { allowTrailingComma: true });
+        const parsed: unknown = parse(raw, errors, {
+          allowTrailingComma: format !== "json",
+          disallowComments: format === "json",
+        });
         if (errors.length > 0) throw errors;
         return parsed;
       },
@@ -125,51 +140,68 @@ export interface NativeMcpConfigRead {
   readonly serversKey: string;
 }
 
+/** Decode the complete native document before observing or changing one unit. */
+export const readNativeMcpDocument = (
+  args: NativeMcpConfigRead,
+): Effect.Effect<Readonly<Record<string, unknown>>, McpConfigInvalid> =>
+  Effect.gen(function* () {
+    if (args.raw.trim().length === 0) return {};
+    switch (args.format) {
+      case "json":
+      case "jsonc":
+      case "starlark":
+      case "vscode-settings":
+        return (yield* decodeJsonMcpConfig(args.configPath, args.raw, args.serversKey, args.format))
+          .root;
+      case "yaml":
+      case "toml": {
+        const root = yield* Effect.try({
+          try: (): unknown => (args.format === "yaml" ? parseYaml(args.raw) : parseToml(args.raw)),
+          catch: (cause) =>
+            new McpConfigInvalid({
+              detail: `Invalid MCP config ${args.format.toUpperCase()}: ${args.configPath}`,
+              cause,
+            }),
+        });
+        if (root === null || root === undefined) return {};
+        if (!isRecord(root))
+          return yield* new McpConfigInvalid({
+            detail: `Invalid MCP config format: ${args.configPath} (root must be an object)`,
+          });
+        const servers = root[args.serversKey];
+        if (servers !== undefined && !isRecord(servers))
+          return yield* new McpConfigInvalid({
+            detail: `Invalid MCP config format: ${args.configPath} (${args.serversKey} must be an object)`,
+          });
+        return root;
+      }
+    }
+  });
+
+/** Retain occupied keys even when their individual values are invalid. */
+export const readNativeMcpValues = (
+  args: NativeMcpConfigRead,
+): Effect.Effect<Readonly<Record<string, unknown>>, McpConfigInvalid> =>
+  readNativeMcpDocument(args).pipe(
+    Effect.map((root) => {
+      const servers = root[args.serversKey];
+      return isRecord(servers) ? servers : {};
+    }),
+  );
+
 /** Record-shaped server declarations from any supported native config. */
 export const readNativeMcpServers = (
   args: NativeMcpConfigRead,
 ): Effect.Effect<Readonly<Record<string, Readonly<Record<string, unknown>>>>, McpConfigInvalid> =>
-  Effect.gen(function* () {
-    const servers = yield* Effect.gen(function* () {
-      switch (args.format) {
-        case "json":
-        case "jsonc":
-        case "starlark":
-        case "vscode-settings":
-          return (yield* decodeJsonMcpConfig(args.configPath, args.raw, args.serversKey)).servers;
-        case "yaml":
-        case "toml": {
-          const root = yield* Effect.try({
-            try: (): unknown =>
-              args.format === "yaml" ? parseYaml(args.raw) : parseToml(args.raw),
-            catch: (cause) =>
-              new McpConfigInvalid({
-                detail: `Invalid MCP config ${args.format.toUpperCase()}: ${args.configPath}`,
-                cause,
-              }),
-          });
-          if (root === null || root === undefined) return undefined;
-          if (!isRecord(root)) {
-            return yield* new McpConfigInvalid({
-              detail: `Invalid MCP config format: ${args.configPath} (root must be an object)`,
-            });
-          }
-          const value = root[args.serversKey];
-          if (value !== undefined && !isRecord(value)) {
-            return yield* new McpConfigInvalid({
-              detail: `Invalid MCP config format: ${args.configPath} (${args.serversKey} must be an object)`,
-            });
-          }
-          return value;
-        }
-      }
-    });
-    return Object.fromEntries(
-      Object.entries(servers ?? {}).filter((entry): entry is [string, Record<string, unknown>] =>
-        isRecord(entry[1]),
+  readNativeMcpValues(args).pipe(
+    Effect.map((servers) =>
+      Object.fromEntries(
+        Object.entries(servers).filter((entry): entry is [string, Record<string, unknown>] =>
+          isRecord(entry[1]),
+        ),
       ),
-    );
-  });
+    ),
+  );
 
 /**
  * The entry one server holds in a keyed (JSON-like or YAML) native config.
@@ -190,7 +222,7 @@ export const readNativeMcpEntry = (
     case "jsonc":
     case "starlark":
     case "vscode-settings":
-      return decodeJsonMcpConfig(args.configPath, args.raw, args.serversKey).pipe(
+      return decodeJsonMcpConfig(args.configPath, args.raw, args.serversKey, args.format).pipe(
         Effect.map(({ servers }) => {
           const entry = servers?.[args.serverName];
           return isRecord(entry) ? Option.some(entry) : Option.none();
@@ -215,7 +247,7 @@ export const managedNativeMcpEntryNames = (
     case "jsonc":
     case "starlark":
     case "vscode-settings":
-      return decodeJsonMcpConfig(args.configPath, args.raw, args.serversKey).pipe(
+      return decodeJsonMcpConfig(args.configPath, args.raw, args.serversKey, args.format).pipe(
         Effect.map(({ servers }) =>
           Object.entries(servers ?? {}).flatMap(([name, entry]) =>
             isRecord(entry) && isAxmManagedMcpEntry(entry) ? [name] : [],

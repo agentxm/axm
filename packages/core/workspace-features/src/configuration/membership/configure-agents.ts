@@ -46,7 +46,6 @@ import {
   resolveExecutionCandidate,
 } from "@agentxm/workspace-kernel/planning";
 import {
-  UNIVERSAL_AGENT_ID,
   expectedProjectionNames,
   observeInstructionProjection,
   resolveInstructionsConfig,
@@ -511,7 +510,7 @@ export const prepareRemoveConfiguredAgents = (
       agentIds,
       configuredAgents: remaining,
       reconciliation: {
-        desiredAgentIds: new Set([UNIVERSAL_AGENT_ID, ...remaining]),
+        desiredAgentIds: new Set(remaining),
         expectedNames: expectedProjectionNames(graph),
       },
       baseDir: location.baseDir,
@@ -618,8 +617,8 @@ export interface ListConfiguredAgentsRequest {
  * Report configured, detected, and available coding agents.
  *
  * The default view answers "what is in play here": the agents this workspace
- * configures and the ones present on the machine. `universal` is materialized
- * for every workspace and is never reported as a membership choice.
+ * configures and the ones present on the machine. Shared location policy
+ * does not manufacture a coding-agent membership choice.
  */
 export const listConfiguredAgents = (
   request: ListConfiguredAgentsRequest = {},
@@ -643,6 +642,7 @@ export const listConfiguredAgents = (
         ? yield* observeInstructionProjection({
             workspaceRoot: location.baseDir,
             scope: location.scope,
+            nativeDirectoryInputs: location.nativeDirectoryInputs,
             configuredAgents: configured,
             config: resolveInstructionsConfig(instructionsConfig.value),
           }).pipe(
@@ -670,7 +670,7 @@ export const listConfiguredAgents = (
 
     return {
       items,
-      configured: configured.filter((id) => id !== UNIVERSAL_AGENT_ID),
+      configured,
       detected,
       available: [...CONFIGURABLE_AGENT_IDS],
       count: items.length,

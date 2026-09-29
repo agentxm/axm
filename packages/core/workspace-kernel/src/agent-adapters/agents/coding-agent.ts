@@ -17,9 +17,12 @@ import type * as Path from "effect/Path";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
+import type { AxmMcpMetadata } from "../mcps/entry-semantics.js";
 import type { CodingAgentFailure } from "../errors.js";
 import type { NativeWriteAuthority } from "../native-write-authority.js";
 import type { SubagentRenderInput } from "../subagents/rendering/types.js";
+import type { ResolvedNativeReadLocation } from "../../locations/index.js";
+import type { NativeDirectoryInputs, NativeLocationOutcome } from "../../locations/index.js";
 
 /**
  * How one native artifact fared during a write.
@@ -34,6 +37,7 @@ export type NativeArtifactChange = "created" | "updated" | "unchanged" | "remove
  */
 export interface ResolveSkillsDirArgs {
   readonly workspaceRoot: string;
+  readonly scope: WorkspaceScope;
 }
 
 /**
@@ -42,6 +46,7 @@ export interface ResolveSkillsDirArgs {
 export type ResolveSkillsDirOutcome =
   | { readonly _tag: "supported"; readonly dir: string }
   | { readonly _tag: "unsupported"; readonly reason: string }
+  | { readonly _tag: "unverified"; readonly reason: string }
   | { readonly _tag: "disabled"; readonly reason: string }
   | { readonly _tag: "misconfigured"; readonly reason: string };
 
@@ -49,6 +54,7 @@ export type ResolveSkillsDirOutcome =
  * Inputs for adding an MCP server to an agent's configuration.
  */
 export interface AddMcpServerArgs {
+  readonly nativeDirectoryInputs: NativeDirectoryInputs;
   readonly workspaceRoot: string;
   readonly scope?: WorkspaceScope;
   readonly serverName: string;
@@ -63,6 +69,8 @@ export interface AddMcpServerArgs {
  * Inputs for removing an MCP server from an agent's configuration.
  */
 export interface RemoveMcpServerArgs {
+  readonly nativeDirectoryInputs: NativeDirectoryInputs;
+  readonly expectedManagedEntries: Readonly<Record<string, ReadonlyArray<AxmMcpMetadata>>>;
   readonly workspaceRoot: string;
   readonly scope?: WorkspaceScope;
   readonly serverName: string;
@@ -87,6 +95,7 @@ export interface ResolveSubagentsDirArgs {
 export type ResolveSubagentsDirOutcome =
   | { readonly _tag: "supported"; readonly dir: string; readonly warnings: ReadonlyArray<string> }
   | { readonly _tag: "unsupported"; readonly reason: string }
+  | { readonly _tag: "unverified"; readonly reason: string }
   | { readonly _tag: "disabled"; readonly reason: string }
   | { readonly _tag: "misconfigured"; readonly reason: string };
 
@@ -97,9 +106,14 @@ export type ResolveSubagentsDirOutcome =
  * rendered; the adapter places it where its own format allows a comment.
  */
 export interface AddSubagentArgs {
+  readonly nativeRoots?: ReadonlyArray<string>;
+  readonly nativeInsertionEligible?: boolean;
+  readonly nativeInsertionEligiblePaths?: ReadonlySet<string>;
   readonly workspaceRoot: string;
   readonly scope: WorkspaceScope;
   readonly input: SubagentRenderInput;
+  /** Exact accepted tokens a declared source transition may replace. */
+  readonly previousManagedFiles: ReadonlyArray<{ readonly ext: string; readonly src: string }>;
   readonly force: boolean;
 }
 
@@ -107,9 +121,12 @@ export interface AddSubagentArgs {
  * Inputs for removing a subagent from an agent's subagents directory.
  */
 export interface RemoveSubagentArgs {
+  readonly nativeRoots?: ReadonlyArray<string>;
   readonly workspaceRoot: string;
   readonly scope: WorkspaceScope;
   readonly subagentName: string;
+  /** Exact accepted ownership token required before retiring native content. */
+  readonly expectedManagedFile: { readonly ext: string; readonly src: string };
   /** Workspace-relative rendered file paths recorded at publication. */
   readonly renderedFilePaths: ReadonlyArray<string>;
 }
@@ -121,6 +138,11 @@ export type SubagentSyncOutcome =
   | {
       readonly _tag: "success";
       readonly renderedFilePaths: ReadonlyArray<string>;
+      readonly nativeTargets?: ReadonlyArray<{
+        readonly path: string;
+        readonly kind: "skill" | "subagent";
+        readonly change: NativeArtifactChange;
+      }>;
       readonly warnings: ReadonlyArray<string>;
     }
   | {
@@ -137,24 +159,20 @@ export type SubagentSyncOutcome =
 export interface McpServerSyncTarget {
   readonly path: string;
   readonly change: NativeArtifactChange;
+  readonly nativeLocation?: NativeLocationOutcome;
 }
 
-export type McpServerSyncOutcome =
-  | {
-      readonly _tag: "success";
-      readonly targets?: ReadonlyArray<McpServerSyncTarget>;
-      readonly warnings?: ReadonlyArray<string>;
-    }
-  | {
-      readonly _tag: "fallback";
-      readonly reason: string;
-      readonly targets?: ReadonlyArray<McpServerSyncTarget>;
-      readonly warnings?: ReadonlyArray<string>;
-    }
+export type McpServerSyncOutcome = {
+  readonly targets?: ReadonlyArray<McpServerSyncTarget>;
+  readonly warnings?: ReadonlyArray<string>;
+} & (
+  | { readonly _tag: "success" }
+  | { readonly _tag: "fallback"; readonly reason: string }
   | { readonly _tag: "unsupported"; readonly reason: string }
   | { readonly _tag: "nothing-runnable"; readonly reason: string }
   | { readonly _tag: "needs-input"; readonly reason: string }
-  | { readonly _tag: "failed"; readonly reason: string };
+  | { readonly _tag: "failed"; readonly reason: string }
+);
 
 /**
  * Agent-specific extension installation behavior.
@@ -163,6 +181,9 @@ export type McpServerSyncOutcome =
  */
 export interface CodingAgent {
   readonly id: MaterializationTargetId;
+  readonly resolveNativeReadLocations: (
+    args: ResolveSkillsDirArgs & { readonly kind: "skill" | "subagent" },
+  ) => Effect.Effect<ReadonlyArray<ResolvedNativeReadLocation>, never, Path.Path>;
   readonly resolveEffectiveSkillsDir: (
     args: ResolveSkillsDirArgs,
   ) => Effect.Effect<ResolveSkillsDirOutcome, CodingAgentFailure, Path.Path>;

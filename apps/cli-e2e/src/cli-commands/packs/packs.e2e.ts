@@ -522,7 +522,7 @@ describe("axm packs install", () => {
       expect(JSON.parse(blocked.stdout)).toMatchObject({
         ok: false,
         result: {
-          contract: "plan-result-v3",
+          contract: "plan-result-v4",
           outcome: "blocked",
           mode: "apply",
           candidateId: expect.any(String),

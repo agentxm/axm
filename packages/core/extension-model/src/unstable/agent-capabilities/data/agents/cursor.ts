@@ -49,10 +49,37 @@ export const cursorAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".cursor/skills",
-        additionalReadPaths: [
-          { path: ".claude/skills", status: "compat" },
-          { path: ".codex/skills", status: "compat" },
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".cursor/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+          {
+            scope: "project",
+            root: "project",
+            path: ".claude/skills",
+            shape: "directory",
+            role: "additional",
+            status: "compat",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+          {
+            scope: "project",
+            root: "project",
+            path: ".codex/skills",
+            shape: "directory",
+            role: "additional",
+            status: "compat",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
         ],
       },
       axm: {
@@ -67,7 +94,10 @@ export const cursorAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://cursor.com/docs/mcp.md"],
+        sources: [
+          "https://cursor.com/docs/mcp.md",
+          "https://prod.cursor.com/docs/mcp#using-mcpjson",
+        ],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
@@ -76,47 +106,76 @@ export const cursorAgent = {
           variables: "braced",
           defaults: false,
         },
+
+        locations: [
+          {
+            id: "project",
+            scope: "project",
+            root: "project",
+            path: ".cursor/mcp.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "json",
+            keyPath: ["mcpServers"],
+            attribution: "agent",
+          },
+          {
+            id: "user",
+            scope: "user",
+            root: "home",
+            path: ".cursor/mcp.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "json",
+            keyPath: ["mcpServers"],
+            attribution: "agent",
+          },
+        ],
+
+        entryDialect: {
+          activationField: {
+            required: null,
+            accepted: [null],
+          },
+          stdio: {
+            typeField: {
+              required: { name: "type", value: "stdio" },
+              accepted: [{ name: "type", value: "stdio" }, null],
+            },
+            command: "split",
+            envKey: "env",
+          },
+          remote: {
+            implicitTransport: "http-or-sse",
+            typeField: { required: null, accepted: [null] },
+            urlKey: {
+              "streamable-http": "url",
+              sse: "url",
+            },
+            headersKey: "headers",
+          },
+        },
       },
       axm: {
         status: "supported",
         lastVerified: "2026-08-05",
         writer: {
           config: {
-            serversKey: "mcpServers",
-            activationField: {
-              required: null,
-              accepted: [null],
-            },
-            targets: [
-              {
-                scope: "project",
-                path: ".cursor/mcp.json",
-                format: "json",
-                attribution: "agent",
-              },
-              {
-                scope: "user",
-                path: "~/.cursor/mcp.json",
-                format: "json",
-                attribution: "agent",
-              },
-            ],
-            stdio: {
-              typeField: {
-                required: { name: "type", value: "stdio" },
-                accepted: [{ name: "type", value: "stdio" }, null],
-              },
-              command: "split",
-              envKey: "env",
-            },
-            remote: {
-              typeField: { required: null, accepted: [null] },
-              urlKey: {
-                "streamable-http": "url",
-                sse: "url",
-              },
-              headersKey: "headers",
-            },
+            locationIds: ["project", "user"],
           },
         },
       },
@@ -130,8 +189,28 @@ export const cursorAgent = {
         docs: [],
         sources: ["https://cursor.com/docs/subagents.md"],
         scopes: ["user", "project"],
-        directory: ".cursor/agents",
-        layout: "directory",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".cursor/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".cursor/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -149,6 +228,10 @@ export const cursorAgent = {
         sources: ["https://cursor.com/docs/hooks.md"],
         scopes: ["user", "project"],
         modeling: "native-unmodeled",
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -169,9 +252,29 @@ export const cursorAgent = {
       scopes: ["project"],
       standardsCompliance: "full",
       convention: "universal",
-      directory: ".cursor/rules",
       kind: "agents-md",
-      files: ["AGENTS.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "AGENTS.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+        {
+          scope: "project",
+          root: "project",
+          path: ".cursor/rules",
+          shape: "directory",
+          role: "additional",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: true,
       importSyntax: null,
     },
@@ -194,34 +297,89 @@ export const cursorAgent = {
       ],
       scopes: ["user", "project"],
       mechanism: ["config-file", "ui-only", "cli-flag"],
-      configFiles: [
+      locations: [
         {
+          id: "user",
           scope: "user",
-          path: "~/.cursor/permissions.json",
+          root: "home",
+          path: ".cursor/permissions.json",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "json",
           gitignored: false,
         },
         {
+          id: "user-additional-1",
           scope: "user",
-          path: "~/.cursor/sandbox.json",
-          format: "json",
-          gitignored: false,
-        },
-        {
-          scope: "project",
+          root: "home",
           path: ".cursor/sandbox.json",
+          shape: "file",
+          role: "additional",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "json",
           gitignored: false,
         },
         {
-          scope: "user",
-          path: "~/.cursor/cli-config.json",
-          format: "json",
-          gitignored: false,
-        },
-        {
+          id: "project",
           scope: "project",
+          root: "project",
+          path: ".cursor/sandbox.json",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
+          format: "json",
+          gitignored: false,
+        },
+        {
+          id: "user-additional-2",
+          scope: "user",
+          root: "home",
+          path: ".cursor/cli-config.json",
+          shape: "file",
+          role: "additional",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
+          format: "json",
+          gitignored: false,
+        },
+        {
+          id: "project-additional-1",
+          scope: "project",
+          root: "project",
           path: ".cursor/cli.json",
+          shape: "file",
+          role: "additional",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "json",
           gitignored: false,
         },
@@ -257,14 +415,14 @@ export const cursorAgent = {
       writer: {
         grants: {
           shell: {
-            target: "~/.cursor/permissions.json",
+            destination: { kind: "location", locationId: "user" },
             patch: {
               terminalAllowlist: ["${tool}"],
             },
             template: null,
           },
           cliShell: {
-            target: ".cursor/cli.json",
+            destination: { kind: "location", locationId: "project-additional-1" },
             patch: {
               permissions: {
                 allow: ["Shell(${tool})", "Shell(${tool}:*)"],
@@ -273,7 +431,7 @@ export const cursorAgent = {
             template: null,
           },
           filesystem: {
-            target: ".cursor/sandbox.json",
+            destination: { kind: "location", locationId: "project" },
             patch: {
               type: "workspace_readwrite",
               additionalReadwritePaths: [],

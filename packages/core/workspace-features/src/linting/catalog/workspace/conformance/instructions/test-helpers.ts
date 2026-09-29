@@ -65,12 +65,22 @@ export const instructionContext = (args: {
   const snapshot: Option.Option<InstructionProjectionSnapshot> =
     args.status === undefined
       ? Option.some({
+          workspaceRoot: instructionRoot,
+          scope: "project",
+          eligibleAgentIds: [],
+          nativeLocations: [],
+          witnesses: [],
           plan: { roots: [instructionRoot], items: [] },
           symlinkSupported: true,
           status: baseInstructionStatus,
           gitignore: args.gitignore ?? currentGitignore,
         })
       : Option.map(args.status, (status) => ({
+          workspaceRoot: instructionRoot,
+          scope: "project",
+          eligibleAgentIds: [],
+          nativeLocations: [],
+          witnesses: [],
           plan: { roots: status.roots, items: [] },
           symlinkSupported: true,
           status,

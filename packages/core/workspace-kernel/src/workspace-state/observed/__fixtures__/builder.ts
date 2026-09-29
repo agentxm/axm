@@ -215,7 +215,9 @@ const resolveAgentContentRoot = (agentId: string): string => {
     Object.hasOwn(AGENT_DESCRIPTORS, id);
   if (!isKnown(agentId)) return `.${agentId}`;
   const descriptor = AGENT_DESCRIPTORS[agentId];
-  const skillsDir = descriptor.skills?.dir;
+  const skillsDir = descriptor.skills?.locations.find(
+    (location) => location.scope === "project" && location.role === "primary",
+  )?.path;
   if (skillsDir === undefined) return descriptor.rootDir ?? `.${agentId}`;
   const firstSegment = skillsDir.split("/")[0];
   return firstSegment !== undefined && firstSegment.length > 0 ? firstSegment : `.${agentId}`;
@@ -257,7 +259,7 @@ const notFound = (method: string, path: string) =>
   });
 
 const makeInMemoryFs = (files: ReadonlyMap<string, string>): FileSystem.FileSystem => {
-  const directorySet = new Set<string>();
+  const directorySet = new Set<string>(["/"]);
   const encoder = new TextEncoder();
   for (const filePath of files.keys()) {
     const segments = filePath.split("/");
@@ -267,6 +269,10 @@ const makeInMemoryFs = (files: ReadonlyMap<string, string>): FileSystem.FileSyst
     }
   }
   return FileSystem.makeNoop({
+    realPath: (path) =>
+      files.has(path) || directorySet.has(path)
+        ? Effect.succeed(path)
+        : Effect.fail(notFound("realPath", path)),
     exists: (path) =>
       Effect.sync(() => {
         if (files.has(path)) return true;

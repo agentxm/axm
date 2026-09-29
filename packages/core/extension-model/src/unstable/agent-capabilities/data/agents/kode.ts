@@ -29,7 +29,18 @@ export const kodeAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".kode/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".kode/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -49,6 +60,10 @@ export const kodeAgent = {
         standardsCompliance: "full",
         convention: "universal",
         transports: ["stdio", "http", "sse"],
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -66,8 +81,18 @@ export const kodeAgent = {
         docs: [],
         sources: ["https://github.com/shareAI-lab/Kode-CLI"],
         scopes: ["user", "project"],
-        directory: ".kode/agents",
-        layout: "directory",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".kode/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -101,7 +126,18 @@ export const kodeAgent = {
       standardsCompliance: "full",
       convention: "universal",
       kind: "agents-md",
-      files: ["AGENTS.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "AGENTS.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: true,
       importSyntax: null,
     },
@@ -120,7 +156,7 @@ export const kodeAgent = {
       sources: ["https://github.com/shareAI-lab/Kode-CLI"],
       scopes: ["user", "project"],
       mechanism: ["cli-flag"],
-      configFiles: [],
+      locations: [],
       grammar: null,
       prerequisites: [],
       cliFlags: [

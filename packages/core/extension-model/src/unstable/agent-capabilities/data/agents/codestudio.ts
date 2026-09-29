@@ -29,7 +29,18 @@ export const codestudioAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".codestudio/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".codestudio/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -51,6 +62,10 @@ export const codestudioAgent = {
         standardsCompliance: "parity",
         convention: "vendor",
         transports: ["stdio", "http"],
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -69,8 +84,18 @@ export const codestudioAgent = {
           "https://github.com/syncfusion/code-studio-library",
         ],
         scopes: ["user", "project"],
-        directory: ".codestudio/agents",
-        layout: "directory",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".codestudio/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "unsupported",
@@ -88,6 +113,10 @@ export const codestudioAgent = {
         sources: ["https://www.syncfusion.com/code-studio/features/"],
         scopes: ["user", "project"],
         modeling: "native-unmodeled",
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -111,7 +140,18 @@ export const codestudioAgent = {
       standardsCompliance: "full",
       convention: "universal",
       kind: "agents-md",
-      files: ["AGENTS.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "AGENTS.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: false,
       importSyntax: null,
     },

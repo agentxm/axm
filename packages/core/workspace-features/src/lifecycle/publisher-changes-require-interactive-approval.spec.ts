@@ -12,6 +12,7 @@ import { afterEach } from "vitest";
 import YAML from "yaml";
 
 import { LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
+import { readContainerReceipts } from "@agentxm/workspace-kernel/locations";
 import {
   deriveOperationOutcome,
   countUnitStates,
@@ -362,7 +363,8 @@ const expectSubagentContent = (
 
 /**
  * Keep every entry except the explicitly updated canonical package, its
- * native file, and the lockfile. The lockfile is compared separately after
+ * native file, insertion receipts, and the lockfile. Updating content expires
+ * the insertion proof for that content. The lockfile is compared separately after
  * replacing only this Subagent's accepted row with its prior value.
  */
 const outsideSubagentUpdate = (
@@ -371,6 +373,7 @@ const outsideSubagentUpdate = (
   Object.entries(snapshot).filter(
     ([relative]) =>
       relative !== "axm-lock.yaml" &&
+      relative !== ".axm/projection-containers.json" &&
       relative !== SUBAGENT_CANONICAL &&
       !relative.startsWith(`${SUBAGENT_CANONICAL}/`) &&
       relative !== SUBAGENT_NATIVE,
@@ -487,6 +490,7 @@ describe("Publisher changes through typed Subagent update", () => {
     () =>
       Effect.gen(function* () {
         const { workspace, before, lockBefore } = yield* acquiredThenRepublished(true);
+        const receiptsBefore = yield* readContainerReceipts(nodePath.join(workspace.root, ".axm"));
 
         const resolution = yield* updateSubagent(workspace);
 
@@ -505,6 +509,17 @@ describe("Publisher changes through typed Subagent update", () => {
           subagents: { ...lockAfter.subagents, [SUBAGENT]: lockBefore.subagents?.[SUBAGENT] },
         }).toEqual(lockBefore);
         expect(outsideSubagentUpdate(workspace.snapshot())).toEqual(outsideSubagentUpdate(before));
+        const unrelatedTarget = nodePath.join(
+          workspace.root,
+          ".claude/agents",
+          `${UNRELATED_SUBAGENT}.md`,
+        );
+        const receiptsAfter = yield* readContainerReceipts(nodePath.join(workspace.root, ".axm"));
+        expect(
+          receiptsAfter.entries.filter((entry) => entry.identity.physicalPath === unrelatedTarget),
+        ).toEqual(
+          receiptsBefore.entries.filter((entry) => entry.identity.physicalPath === unrelatedTarget),
+        );
         expectSubagentContent(workspace, UNRELATED_SUBAGENT, UNRELATED);
       }).pipe(Effect.provide(NodeServices.layer)),
   );

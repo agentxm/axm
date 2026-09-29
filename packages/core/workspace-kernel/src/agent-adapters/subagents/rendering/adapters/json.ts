@@ -21,7 +21,7 @@ export const renderJson = (input: SubagentRenderInput): SubagentRenderOutcome =>
   const base: Record<string, unknown> = { ...input.frontmatter, prompt: input.body };
   const merged = applyOverrides(base, input.agentOverrides);
   const content = JSON.stringify(merged, null, 2);
-  const path = decodeRelativePathSync(`.kiro/agents/${input.name}.json`);
+  const path = decodeRelativePathSync(`${input.name}.json`);
 
   return rendered([{ content, path }], []);
 };

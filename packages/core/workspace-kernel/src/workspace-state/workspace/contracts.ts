@@ -3,6 +3,7 @@
 import type * as Effect from "effect/Effect";
 import type * as Config from "effect/Config";
 import type * as Option from "effect/Option";
+import type { NativeObservationView } from "../../locations/index.js";
 
 import type { WorkspaceSnapshotError } from "../../settlement/index.js";
 import type {
@@ -223,6 +224,8 @@ export interface SetKnowledgeArgs {
 
 /** Options for locating and initializing one workspace scope. */
 export interface WorkspaceStateOptions {
+  /** A captured project view excludes user-scope state from its settings inheritance. */
+  readonly observationView?: NativeObservationView;
   /** Whether to use the user workspace or a project workspace. */
   readonly scope: WorkspaceScope;
   /** Canonical project root supplied by the transport boundary. */

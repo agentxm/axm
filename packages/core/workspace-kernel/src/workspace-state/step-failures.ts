@@ -549,6 +549,8 @@ export const workspaceRestorationErrorToStepFailure = (
 ): StepFailure => {
   const detail = (): string => {
     switch (error.step) {
+      case "foreign-change":
+        return `Preserved an intervening change at ${error.target}; automatic restoration is incomplete`;
       case "stage":
         return `Staged restoration did not validate for ${error.target}`;
       case "stopped":
@@ -636,6 +638,13 @@ export const restorationIncompleteToStepFailure = (
       error.snapshotDir === undefined
         ? "."
         : `, and their pre-change snapshots are preserved at ${error.snapshotDir}.`
+    }${
+      error.recovery.some((entry) => entry.kind === "retired-entry")
+        ? ` Original entries remain at ${error.recovery
+            .filter((entry) => entry.kind === "retired-entry")
+            .map((entry) => entry.recoveryPath)
+            .join(", ")}.`
+        : ""
     }`,
     suggestions: [
       {

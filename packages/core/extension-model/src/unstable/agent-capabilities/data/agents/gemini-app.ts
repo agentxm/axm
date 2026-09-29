@@ -57,6 +57,10 @@ export const geminiAppAgent = {
         standardsCompliance: "full",
         convention: "hosted",
         transports: ["http"],
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",

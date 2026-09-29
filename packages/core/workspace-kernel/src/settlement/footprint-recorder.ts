@@ -16,6 +16,7 @@ import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as ServiceMap from "effect/Context";
+import { recordWorkspacePostimage } from "./context.js";
 
 export interface FootprintObservation {
   /** Absolute path of the durable change. */
@@ -31,6 +32,7 @@ export class FootprintRecorder extends ServiceMap.Service<
 /** Record one observed durable change. No-op without a recorder. */
 export const recordFootprint = (observation: FootprintObservation): Effect.Effect<void> =>
   Effect.gen(function* () {
+    if (observation.change !== "restored") yield* recordWorkspacePostimage(observation.path);
     const service = yield* Effect.serviceOption(FootprintRecorder);
     if (Option.isNone(service)) return;
     yield* Ref.update(service.value.ref, (entries) => [...entries, observation]);

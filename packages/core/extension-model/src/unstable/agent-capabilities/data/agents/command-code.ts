@@ -29,7 +29,18 @@ export const commandCodeAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".commandcode/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".commandcode/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -53,75 +64,103 @@ export const commandCodeAgent = {
           variables: "none",
           defaults: false,
         },
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-08-05",
-        writer: {
-          config: {
-            serversKey: "mcpServers",
-            activationField: {
+
+        locations: [
+          {
+            id: "project",
+            scope: "project",
+            root: "project",
+            path: ".mcp.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "json",
+            keyPath: ["mcpServers"],
+            attribution: "shared",
+          },
+          {
+            id: "user",
+            scope: "user",
+            root: "home",
+            path: ".commandcode/mcp.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "json",
+            keyPath: ["mcpServers"],
+            attribution: "agent",
+          },
+        ],
+
+        entryDialect: {
+          activationField: {
+            required: null,
+            accepted: [null, { name: "enabled", enabled: true, disabled: false }],
+          },
+          stdio: {
+            typeField: {
               required: null,
-              accepted: [null, { name: "enabled", enabled: true, disabled: false }],
+              accepted: [
+                null,
+                { name: "transport", value: "stdio" },
+                { name: "type", value: "stdio" },
+              ],
             },
-            targets: [
-              {
-                scope: "project",
-                path: ".mcp.json",
-                format: "json",
-                attribution: "shared",
+            command: "split",
+            envKey: "env",
+          },
+          remote: {
+            typeField: {
+              required: {
+                name: "transport",
+                value: {
+                  "streamable-http": "http",
+                  sse: "sse",
+                },
               },
-              {
-                scope: "user",
-                path: "~/.commandcode/mcp.json",
-                format: "json",
-                attribution: "agent",
-              },
-            ],
-            stdio: {
-              typeField: {
-                required: null,
-                accepted: [
-                  null,
-                  { name: "transport", value: "stdio" },
-                  { name: "type", value: "stdio" },
-                ],
-              },
-              command: "split",
-              envKey: "env",
-            },
-            remote: {
-              typeField: {
-                required: {
+              accepted: [
+                {
                   name: "transport",
                   value: {
                     "streamable-http": "http",
                     sse: "sse",
                   },
                 },
-                accepted: [
-                  {
-                    name: "transport",
-                    value: {
-                      "streamable-http": "http",
-                      sse: "sse",
-                    },
+                {
+                  name: "type",
+                  value: {
+                    "streamable-http": "http",
+                    sse: "sse",
                   },
-                  {
-                    name: "type",
-                    value: {
-                      "streamable-http": "http",
-                      sse: "sse",
-                    },
-                  },
-                ],
-              },
-              urlKey: {
-                "streamable-http": "url",
-                sse: "url",
-              },
-              headersKey: "headers",
+                },
+              ],
             },
+            urlKey: {
+              "streamable-http": "url",
+              sse: "url",
+            },
+            headersKey: "headers",
+          },
+        },
+      },
+      axm: {
+        status: "supported",
+        lastVerified: "2026-08-05",
+        writer: {
+          config: {
+            locationIds: ["project", "user"],
           },
         },
       },
@@ -135,8 +174,28 @@ export const commandCodeAgent = {
         docs: [],
         sources: ["https://commandcode.ai/docs/core-concepts/custom-agents"],
         scopes: ["user", "project"],
-        directory: ".commandcode/agents",
-        layout: "directory",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".commandcode/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".commandcode/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -154,6 +213,10 @@ export const commandCodeAgent = {
         sources: ["https://commandcode.ai/docs/hooks"],
         scopes: ["user", "project"],
         modeling: "native-unmodeled",
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -174,7 +237,18 @@ export const commandCodeAgent = {
       standardsCompliance: "full",
       convention: "universal",
       kind: "agents-md",
-      files: ["AGENTS.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "AGENTS.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: false,
       importSyntax: null,
     },
@@ -194,16 +268,38 @@ export const commandCodeAgent = {
       sources: ["https://commandcode.ai/docs/core-concepts/settings"],
       scopes: ["user", "project"],
       mechanism: ["config-file"],
-      configFiles: [
+      locations: [
         {
+          id: "user",
           scope: "user",
-          path: "~/.commandcode/settings.json",
+          root: "home",
+          path: ".commandcode/settings.json",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "json",
           gitignored: false,
         },
         {
+          id: "project",
           scope: "project",
+          root: "project",
           path: ".commandcode/settings.json",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "json",
           gitignored: false,
         },

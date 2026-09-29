@@ -113,6 +113,7 @@ export const isObservedMaterializationCurrent = <E>({
           // Every MCP connection, however it entered desired state, is judged
           // by the decoded native entries against the plan the writer renders.
           return inspectDesiredMcpServer({
+            nativeDirectoryInputs: location.nativeDirectoryInputs,
             workspaceRoot: location.baseDir,
             scope: location.scope,
             agentIds: configuredAgents,
@@ -141,19 +142,26 @@ export const isObservedMaterializationCurrent = <E>({
             return Effect.forEach(
               configured,
               (agent) =>
-                agent.resolveEffectiveSkillsDir({ workspaceRoot: location.baseDir }).pipe(
-                  Effect.provideService(FileSystem.FileSystem, fs),
-                  Effect.provideService(Path.Path, path),
-                  Effect.map((outcome) => {
-                    if (outcome._tag === "unsupported" || outcome._tag === "disabled") return true;
-                    if (outcome._tag === "misconfigured") return false;
-                    const expectedPath = path.relative(
-                      location.baseDir,
-                      path.join(outcome.dir, sanitizeName(node.name)),
-                    );
-                    return observed.paths.includes(expectedPath);
-                  }),
-                ),
+                agent
+                  .resolveEffectiveSkillsDir({
+                    workspaceRoot: location.baseDir,
+                    scope: location.scope,
+                  })
+                  .pipe(
+                    Effect.provideService(FileSystem.FileSystem, fs),
+                    Effect.provideService(Path.Path, path),
+                    Effect.map((outcome) => {
+                      if (outcome._tag === "unsupported" || outcome._tag === "disabled")
+                        return true;
+                      if (outcome._tag === "misconfigured" || outcome._tag === "unverified")
+                        return false;
+                      const expectedPath = path.relative(
+                        location.baseDir,
+                        path.join(outcome.dir, sanitizeName(node.name)),
+                      );
+                      return observed.paths.includes(expectedPath);
+                    }),
+                  ),
               // eslint-disable-next-line axm-policy/no-unbounded-io -- configured agents are a subset of the fixed agent catalog
               { concurrency: "unbounded" },
             ).pipe(Effect.map((results) => results.every(Boolean)));

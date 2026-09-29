@@ -3,6 +3,8 @@ import * as Effect from "effect/Effect";
 import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
+import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
+import { makeRegistrySkillLockEntry } from "@agentxm/workspace-kernel/workspace-state/testing";
 
 import { lintProjectWithHome, lintServices } from "../../test-helpers.js";
 import { isolatedLintRules, makeLintWorkspace } from "../../testing.js";
@@ -18,7 +20,7 @@ export const specification = defineSpecification({
   methods: ["example"],
   boundary: "memory",
   boundaryRationale:
-    "Ownership proof is a real symlink into the user AXM home and settings readability is a real file under a separate user home; production lint observes both without mutating either.",
+    "Ownership proof is a real symlink to the exact canonical source named by an accepted user-scope resolution and settings readability is a real file under a separate user home; production lint observes both without mutating either.",
   derivedFrom: [],
   supersedes: [],
   assumptions: [],
@@ -26,6 +28,7 @@ export const specification = defineSpecification({
 });
 
 const RULE_ID = "workspace/user-outputs-have-settings";
+const CANONICAL = ".axm/workspace/agent_extensions/registry/@acme/skills/review/src";
 const skill = (name: string) => `---\nname: ${name}\ndescription: Fixture\n---\n# Skill\n`;
 
 describe("User outputs without settings", () => {
@@ -40,11 +43,21 @@ describe("User outputs without settings", () => {
     });
     const home = makeLintWorkspace({
       files: {
-        ".axm/extensions/@acme/skills/review/src/SKILL.md": skill("review"),
+        [`${CANONICAL}/SKILL.md`]: skill("review"),
+        ".axm/workspace/axm-lock.yaml": JSON.stringify({
+          lockfileVersion: 8,
+          skills: {
+            review: makeRegistrySkillLockEntry({
+              owner: decodeHandleSync("@acme"),
+              name: "review",
+              sourceName: "agentxm",
+            }),
+          },
+        }),
         ".claude/skills/notes/SKILL.md": skill("notes"),
       },
     });
-    home.link(".claude/skills/review", ".axm/extensions/@acme/skills/review/src");
+    home.link(".claude/skills/review", CANONICAL);
     cleanups.push(project.cleanup, home.cleanup);
     return Effect.gen(function* () {
       const before = [project.snapshot(), home.snapshot()];
@@ -61,7 +74,7 @@ describe("User outputs without settings", () => {
           ruleId: RULE_ID,
           severity: "warning",
           message:
-            "User-scope agent skill ~/.claude/skills/review links into AXM storage, but the user workspace has no readable settings at ~/.axm/workspace/axm.json.",
+            "User-scope agent skill ~/.claude/skills/review links to its accepted canonical source, but the user workspace has no readable settings at ~/.axm/workspace/axm.json.",
           file: "~/.claude/skills/review",
         },
       ]);

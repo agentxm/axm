@@ -72,7 +72,7 @@ describe("Sync convergence check", () => {
       expect(current.exitCode, current.stdout + current.stderr).toBe(0);
       const currentPlan = readPlan(current.stdout);
       expect(currentPlan).toMatchObject({
-        contract: "plan-result-v3",
+        contract: "plan-result-v4",
         outcome: "no-op",
         mode: "preview",
         counts: { committed: 0 },
@@ -104,6 +104,15 @@ describe("Sync convergence check", () => {
           2,
         ),
       );
+      const unownedBefore = snapshotProtectedState(fixture.selected);
+      const unowned = await run(["sync", "--preview", "--fail-on-change"]);
+      expect(unowned.exitCode, unowned.stdout + unowned.stderr).toBe(0);
+      expect(readPlan(unowned.stdout)).toMatchObject({ outcome: "no-op", units: [] });
+      expect(snapshotProtectedState(fixture.selected)).toEqual(unownedBefore);
+
+      // A marker without accepted source authority cannot create a cleanup
+      // obligation. Remove an actual configured projection to introduce drift.
+      fs.unlinkSync(path.join(fixture.selected, ".claude", "skills", "axm"));
       const divergentBefore = snapshotProtectedState(fixture.selected);
       const ordinary = await run(["sync", "--preview"]);
       expect(ordinary.exitCode, ordinary.stdout + ordinary.stderr).toBe(0);
@@ -117,7 +126,7 @@ describe("Sync convergence check", () => {
       expect(divergent.exitCode, divergent.stdout + divergent.stderr).toBe(1);
       const divergentPlan = readPlan(divergent.stdout);
       expect(divergentPlan).toMatchObject({
-        contract: "plan-result-v3",
+        contract: "plan-result-v4",
         outcome: "previewed",
         mode: "preview",
         divergence: true,
@@ -125,9 +134,7 @@ describe("Sync convergence check", () => {
       });
       expect(divergentPlan.units).toEqual(ordinaryPlan.units);
       expect(divergentPlan.units).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ label: "stale managed agent projections", state: "ready" }),
-        ]),
+        expect.arrayContaining([expect.objectContaining({ id: "skill:axm", state: "ready" })]),
       );
       expect(snapshotProtectedState(fixture.selected)).toEqual(divergentBefore);
     } finally {

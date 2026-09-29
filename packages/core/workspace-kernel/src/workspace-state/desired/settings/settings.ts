@@ -20,6 +20,7 @@ import {
   SettingsSchema,
 } from "./schema.js";
 import { applyJsonPatchToText } from "./format-preserving-json.js";
+import { prepareSettingsRoundTrip, type SettingsRoundTripContext } from "./round-trip.js";
 
 // -----------------------------------------------------------------------------
 // Default Settings
@@ -87,9 +88,6 @@ const parseJson = (text: string): Schema.Json | undefined => {
 const serializeCanonicalSettings = (settings: Readonly<Record<string, unknown>>): string =>
   JSON.stringify(settings, null, 2) + "\n";
 
-const ensureSingleTrailingNewline = (content: string): string =>
-  content.replace(/[\r\n]+$/, "") + "\n";
-
 const hasCanonicalTopLevelOrder = (settings: Schema.Json): boolean => {
   if (!isJsonObject(settings)) return false;
 
@@ -145,6 +143,7 @@ export const renderExistingSettings = (
 
   const priorWasCanonical = hasCanonicalTopLevelOrder(prior);
   const edited = applyPatch(priorText, prior, patch, {
+    preserveInsertionBaseline: true,
     getInsertionIndex: (path, properties) => insertionIndexFor(priorWasCanonical, path, properties),
   });
   if (edited._tag === "Failure") {
@@ -156,11 +155,12 @@ export const renderExistingSettings = (
     return { content: canonicalContent, fallbackReason: "edited_content_invalid" };
   }
 
-  if (isJsonObject(target) && Object.keys(target).length === 0) {
-    return { content: canonicalContent };
-  }
-
-  return { content: ensureSingleTrailingNewline(edited.text) };
+  return {
+    content:
+      isJsonObject(target) && Object.keys(target).length === 0
+        ? `{}` + (priorText.match(/\s*$/)?.[0] ?? "")
+        : edited.text,
+  };
 };
 
 // -----------------------------------------------------------------------------
@@ -177,7 +177,11 @@ export const renderExistingSettings = (
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const writeSettingsAtPath = (settingsPath: string, settings: Settings) =>
+export const writeSettingsAtPath = (
+  settingsPath: string,
+  settings: Settings,
+  roundTrip?: SettingsRoundTripContext,
+) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -203,6 +207,7 @@ export const writeSettingsAtPath = (settingsPath: string, settings: Settings) =>
     const canonicalContent = serializeCanonicalSettings(ordered);
     const targetResult = yield* Effect.result(Schema.decodeUnknownEffect(Schema.Json)(ordered));
     let content = canonicalContent;
+    let priorRaw: string | undefined;
 
     if (targetResult._tag === "Failure") {
       yield* Effect.logDebug("Falling back to canonical settings serialization", {
@@ -224,6 +229,7 @@ export const writeSettingsAtPath = (settingsPath: string, settings: Settings) =>
             reason: "read_failed",
           });
         } else if (readResult.success.trim() !== "") {
+          priorRaw = readResult.success;
           const prior = parseJson(readResult.success);
           if (prior === undefined) {
             yield* Effect.logDebug("Falling back to canonical settings serialization", {
@@ -249,6 +255,17 @@ export const writeSettingsAtPath = (settingsPath: string, settings: Settings) =>
       }
     }
 
+    const restoration =
+      roundTrip === undefined || priorRaw === undefined || priorRaw === content
+        ? undefined
+        : yield* prepareSettingsRoundTrip({
+            context: roundTrip,
+            settingsPath,
+            before: priorRaw,
+            after: content,
+          });
+    content = restoration?.content ?? content;
+    if (restoration !== undefined) yield* restoration.revalidate;
     yield* protectWorkspacePath(settingsPath);
 
     const existed = yield* fs.exists(settingsPath).pipe(Effect.orElseSucceed(() => true));
@@ -272,5 +289,6 @@ export const writeSettingsAtPath = (settingsPath: string, settings: Settings) =>
     });
     if (written === "written") {
       yield* recordFootprint({ path: settingsPath, change: existed ? "modified" : "created" });
+      if (restoration !== undefined) yield* restoration.finish;
     }
-  });
+  }).pipe(Effect.uninterruptible);

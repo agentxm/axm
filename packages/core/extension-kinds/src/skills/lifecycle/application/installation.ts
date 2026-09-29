@@ -86,7 +86,13 @@ export const prepareSkillInstallation = <E, Preparation, Execution>(
     const version = ref.refType === "registry" ? ref.version : undefined;
     return {
       warnings,
-      buildArtifact: ({ change }: { readonly change: InstallChange }) =>
+      buildArtifact: <NativeLocation>({
+        change,
+        nativeLocations,
+      }: {
+        readonly change: InstallChange;
+        readonly nativeLocations?: ReadonlyArray<NativeLocation>;
+      }) =>
         Effect.gen(function* () {
           const content = yield* facts.readContent(ref);
           const source = gitHostedSkillArtifactSource(ref);
@@ -94,6 +100,7 @@ export const prepareSkillInstallation = <E, Preparation, Execution>(
             path: before.displayPath.length === 0 ? "." : before.displayPath,
             scope: before.scope,
             agents: before.agents,
+            ...(nativeLocations === undefined ? {} : { nativeLocations }),
             ...(version === undefined ? {} : { version }),
             ...(before.previousVersion !== undefined && before.previousVersion !== version
               ? { previousVersion: before.previousVersion }

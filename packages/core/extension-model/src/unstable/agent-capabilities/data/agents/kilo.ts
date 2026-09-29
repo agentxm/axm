@@ -29,10 +29,37 @@ export const kiloAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".kilo/skills",
-        additionalReadPaths: [
-          { path: ".agents/skills", status: "compat" },
-          { path: ".claude/skills", status: "compat" },
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".kilo/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+          {
+            scope: "project",
+            root: "project",
+            path: ".agents/skills",
+            shape: "directory",
+            role: "additional",
+            status: "compat",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+          {
+            scope: "project",
+            root: "project",
+            path: ".claude/skills",
+            shape: "directory",
+            role: "additional",
+            status: "compat",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
         ],
       },
       axm: {
@@ -59,69 +86,97 @@ export const kiloAgent = {
           variables: "none",
           defaults: false,
         },
+
+        locations: [
+          {
+            id: "project",
+            scope: "project",
+            root: "project",
+            path: "kilo.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "json",
+            keyPath: ["mcp"],
+            attribution: "agent",
+          },
+          {
+            id: "user",
+            scope: "user",
+            root: "home",
+            path: ".config/kilo/kilo.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "json",
+            keyPath: ["mcp"],
+            attribution: "agent",
+          },
+        ],
+
+        entryDialect: {
+          activationField: {
+            required: { name: "enabled", enabled: true, disabled: false },
+            accepted: [{ name: "enabled", enabled: true, disabled: false }, null],
+          },
+          stdio: {
+            typeField: {
+              required: {
+                name: "type",
+                value: "local",
+              },
+              accepted: [
+                {
+                  name: "type",
+                  value: "local",
+                },
+              ],
+            },
+            command: "array",
+            envKey: "environment",
+          },
+          remote: {
+            typeField: {
+              required: {
+                name: "type",
+                value: {
+                  "streamable-http": "remote",
+                },
+              },
+              accepted: [
+                {
+                  name: "type",
+                  value: {
+                    "streamable-http": "remote",
+                  },
+                },
+              ],
+            },
+            urlKey: {
+              "streamable-http": "url",
+            },
+            headersKey: "headers",
+          },
+        },
       },
       axm: {
         status: "supported",
         lastVerified: "2026-08-05",
         writer: {
           config: {
-            serversKey: "mcp",
-            activationField: {
-              required: { name: "enabled", enabled: true, disabled: false },
-              accepted: [{ name: "enabled", enabled: true, disabled: false }, null],
-            },
-            targets: [
-              {
-                scope: "project",
-                path: "kilo.json",
-                format: "json",
-                attribution: "agent",
-              },
-              {
-                scope: "user",
-                path: "~/.config/kilo/kilo.json",
-                format: "json",
-                attribution: "agent",
-              },
-            ],
-            stdio: {
-              typeField: {
-                required: {
-                  name: "type",
-                  value: "local",
-                },
-                accepted: [
-                  {
-                    name: "type",
-                    value: "local",
-                  },
-                ],
-              },
-              command: "array",
-              envKey: "environment",
-            },
-            remote: {
-              typeField: {
-                required: {
-                  name: "type",
-                  value: {
-                    "streamable-http": "remote",
-                  },
-                },
-                accepted: [
-                  {
-                    name: "type",
-                    value: {
-                      "streamable-http": "remote",
-                    },
-                  },
-                ],
-              },
-              urlKey: {
-                "streamable-http": "url",
-              },
-              headersKey: "headers",
-            },
+            locationIds: ["project", "user"],
           },
         },
       },
@@ -134,8 +189,18 @@ export const kiloAgent = {
         docs: [],
         sources: ["https://kilo.ai/docs/customize/custom-subagents"],
         scopes: ["user", "project"],
-        directory: ".kilo/agents",
-        layout: "directory",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".kilo/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -169,7 +234,18 @@ export const kiloAgent = {
       standardsCompliance: "full",
       convention: "universal",
       kind: "agents-md",
-      files: ["AGENTS.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "AGENTS.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: true,
       importSyntax: null,
     },
@@ -191,22 +267,55 @@ export const kiloAgent = {
       ],
       scopes: ["user", "project"],
       mechanism: ["config-file", "ui-only"],
-      configFiles: [
+      locations: [
         {
+          id: "user",
           scope: "user",
-          path: "~/.config/kilo/kilo.jsonc",
+          root: "home",
+          path: ".config/kilo/kilo.jsonc",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "jsonc",
           gitignored: false,
         },
         {
+          id: "project",
           scope: "project",
+          root: "project",
           path: "kilo.jsonc",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "jsonc",
           gitignored: false,
         },
         {
+          id: "project-additional-1",
           scope: "project",
+          root: "project",
           path: ".kilo/kilo.jsonc",
+          shape: "file",
+          role: "additional",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "jsonc",
           gitignored: false,
         },
@@ -226,7 +335,7 @@ export const kiloAgent = {
       writer: {
         grants: {
           shell: {
-            target: "kilo.jsonc",
+            destination: { kind: "location", locationId: "project" },
             patch: {
               permission: {
                 bash: {
@@ -238,7 +347,7 @@ export const kiloAgent = {
             template: null,
           },
           filesystem: {
-            target: "kilo.jsonc",
+            destination: { kind: "location", locationId: "project" },
             patch: {
               permission: {
                 external_directory: {

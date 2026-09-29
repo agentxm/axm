@@ -32,9 +32,11 @@ import type {
   AgentDescriptor,
   MaterializationTargetId,
 } from "@agentxm/extension-model/unstable/agents/types";
-import type { McpConfigTarget } from "@agentxm/extension-model/unstable/agent-capabilities";
 import {
-  configuredMcpCapability,
+  CONFIGURABLE_AGENTS_BY_ID,
+  type McpConfigTarget,
+} from "@agentxm/extension-model/unstable/agent-capabilities";
+import {
   readNativeMcpConfig,
   readNativeMcpServers,
   resolveAgentMcpConfigTargetPath,
@@ -43,10 +45,11 @@ import {
   ExtensionNameSchema,
   type ExtensionName,
 } from "@agentxm/extension-model/unstable/extensions/common";
+import { resolveNativeReadLocation, type NativeDirectoryInputs } from "../../../locations/index.js";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
-import type { Diagnostics } from "../diagnostics.js";
+import type { Diagnostics, Warning } from "../diagnostics.js";
 import type { Scope } from "../types.js";
-import type { McpConfigOccurrence, McpConfigSurface } from "./types.js";
+import { dedupeByIdentity, type McpConfigOccurrence, type McpConfigSurface } from "./types.js";
 
 const SCANNER_NAME = "mcp-config";
 
@@ -62,6 +65,7 @@ export interface McpConfigScannerDeps {
   readonly fs: FileSystem.FileSystem;
   readonly path: Path.Path;
   readonly workspaceRoot: string;
+  readonly nativeDirectoryInputs: NativeDirectoryInputs;
   readonly scope: Scope;
   readonly diagnostics: Diagnostics;
   readonly agentRegistry?: Readonly<Partial<Record<MaterializationTargetId, AgentDescriptor>>>;
@@ -145,12 +149,13 @@ const readMcpConfigCached = (
   format: McpConfigTarget["format"],
   serversKey: string,
 ): Effect.Effect<Option.Option<Readonly<Record<string, Readonly<Record<string, unknown>>>>>> => {
-  const existing = cache.get(filePath);
+  const key = JSON.stringify([filePath, format, serversKey]);
+  const existing = cache.get(key);
   if (existing !== undefined) return Effect.succeed(existing);
   return readMcpConfig(fs, diagnostics, filePath, format, serversKey).pipe(
     Effect.tap((decoded) =>
       Effect.sync(() => {
-        cache.set(filePath, decoded);
+        cache.set(key, decoded);
       }),
     ),
   );
@@ -168,19 +173,34 @@ interface McpSurfaceScanPlan {
 
 const surfacePlanKey = (plan: McpSurfaceScanPlan): string =>
   plan.surface._tag === "shared"
-    ? `shared:${plan.target.scope}:${plan.target.path}`
-    : `agent:${plan.surface.agentId}:${plan.target.scope}:${plan.target.path}`;
+    ? `shared:${plan.target.scope}:${plan.target.path}:${plan.target.format}:${plan.serversKey}`
+    : `agent:${plan.surface.agentId}:${plan.target.scope}:${plan.target.path}:${plan.target.format}:${plan.serversKey}`;
 
 const planMcpSurfaces = (
-  scope: Scope,
+  deps: McpConfigScannerDeps,
   registry: Readonly<Partial<Record<MaterializationTargetId, AgentDescriptor>>>,
 ): ReadonlyArray<McpSurfaceScanPlan> => {
   const plans = new Map<string, McpSurfaceScanPlan>();
   for (const descriptor of Object.values(registry)) {
-    const capability = configuredMcpCapability(descriptor.id);
-    if (capability === undefined) continue;
-    for (const target of capability.axm.writer.config.targets) {
-      if (target.scope !== scope) continue;
+    const native = CONFIGURABLE_AGENTS_BY_ID[descriptor.id].capabilities["mcp-server"].native;
+    if (!("locations" in native)) continue;
+    for (const location of native.locations) {
+      if (location.keyPath?.length !== 1 || location.attribution === undefined) continue;
+      const resolved = resolveNativeReadLocation(
+        deps.path,
+        descriptor.id,
+        location,
+        deps,
+        deps.nativeDirectoryInputs,
+      );
+      if (resolved === undefined) continue;
+      const target: McpConfigTarget = {
+        scope: location.scope,
+        nativeRoot: resolved.nativeRoot,
+        path: resolved.path,
+        format: location.format,
+        attribution: location.attribution,
+      };
       const surface: McpConfigSurface =
         target.attribution === "shared"
           ? { _tag: "shared" }
@@ -188,7 +208,7 @@ const planMcpSurfaces = (
       const plan = {
         surface,
         target,
-        serversKey: capability.axm.writer.config.serversKey,
+        serversKey: location.keyPath[0],
       } satisfies McpSurfaceScanPlan;
       const key = surfacePlanKey(plan);
       if (!plans.has(key)) plans.set(key, plan);
@@ -207,6 +227,7 @@ const scanMcpSurface = (
     const resolved = yield* Effect.result(
       resolveAgentMcpConfigTargetPath(deps.workspaceRoot, plan.target).pipe(
         Effect.provideService(Path.Path, path),
+        Effect.provideService(FileSystem.FileSystem, fs),
       ),
     );
     if (resolved._tag === "Failure") {
@@ -248,9 +269,39 @@ const scanMcpConfig = Effect.fn("workspace.read-model.scanner.mcp-config")(funct
 ) {
   const registry = deps.agentRegistry ?? AGENT_DESCRIPTORS;
   const cache: McpConfigReadCache = new Map();
-  const plans = planMcpSurfaces(deps.scope, registry);
-  const occurrences = yield* Effect.forEach(plans, (plan) => scanMcpSurface(deps, plan, cache), {
-    concurrency: 1,
-  });
-  return occurrences.flat();
+  const warnings = new Map<string, { readonly warning: Warning; readonly messages: Set<string> }>();
+  const collectedWarnings = (): ReadonlyArray<Warning> =>
+    [...warnings.values()].map(({ warning, messages }) => ({
+      ...warning,
+      message: [...messages].join("; "),
+    }));
+  const diagnostics: Diagnostics = {
+    append: (warning) =>
+      Effect.sync(() => {
+        const key = JSON.stringify([
+          warning.source,
+          warning.code,
+          warning.path,
+          warning.code === "scanner-parse" ? undefined : warning.message,
+        ]);
+        const existing = warnings.get(key);
+        if (existing === undefined) {
+          warnings.set(key, { warning, messages: new Set([warning.message]) });
+        } else {
+          existing.messages.add(warning.message);
+        }
+      }),
+    snapshot: Effect.sync(collectedWarnings),
+  };
+  const scopedDeps = { ...deps, diagnostics };
+  const plans = planMcpSurfaces(deps, registry);
+  const occurrences = yield* Effect.forEach(
+    plans,
+    (plan) => scanMcpSurface(scopedDeps, plan, cache),
+    {
+      concurrency: 1,
+    },
+  );
+  yield* Effect.forEach(collectedWarnings(), deps.diagnostics.append);
+  return dedupeByIdentity(occurrences.flat());
 });

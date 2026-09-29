@@ -9,159 +9,92 @@
  */
 
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import {
-  CONFIGURABLE_AGENT_IDS as CATALOG_AGENT_IDS,
-  agentById,
-  agentSupportsType,
-  type ConfigurableAgentId as CatalogAgentId,
-} from "@agentxm/extension-model/unstable/agent-capabilities";
+  resolveDeclaredNativeLocations,
+  type NativeDirectoryInputs,
+} from "../../locations/index.js";
 import { type CodingAgent } from "./coding-agent.js";
-import { envOption, osHomeDirectory } from "@agentxm/host-primitives";
-import {
-  addRooSubagent,
-  addSubagentViaResolve,
-  dirOutcomeToSubagentSyncOutcome,
-  removeRooSubagent,
-  removeSubagentViaResolve,
-} from "../subagents/sync.js";
-import { userScopeRefusal } from "../scope-refusal.js";
+import { addSubagentViaResolve, removeSubagentViaResolve } from "../subagents/sync.js";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import type {
   AgentDescriptor,
   MaterializationTargetId,
 } from "@agentxm/extension-model/unstable/agents/types";
 
-const catalogAgentIds = new Set<string>(CATALOG_AGENT_IDS);
-
-const isCatalogAgentId = (id: string): id is CatalogAgentId => catalogAgentIds.has(id);
-
-interface AgentRuntimeOverride {
-  readonly skillsDirectoryEnvironment?: string;
-  readonly subagentRenderAgentId?: string;
-  readonly subagentStorage?: "roo";
-}
-
-/** Runtime deviations from the catalog descriptor, keyed by agent id. */
-export const AGENT_RUNTIME_OVERRIDES: Readonly<
-  Partial<Record<MaterializationTargetId, AgentRuntimeOverride>>
-> = {
-  "claude-code": { skillsDirectoryEnvironment: "AXM_CLAUDE_SKILLS_DIR" },
-  "gemini-cli": { skillsDirectoryEnvironment: "AXM_GEMINI_CLI_SKILLS_DIR" },
-  "kiro-cli": { subagentRenderAgentId: "kiro" },
-  roo: { subagentStorage: "roo" },
-};
-
-const descriptorSupports = (
-  descriptor: AgentDescriptor,
-  type: "mcp-server" | "skill" | "subagent",
-): boolean =>
-  isCatalogAgentId(descriptor.id)
-    ? agentSupportsType(agentById(descriptor.id), type)
-    : type === "skill" && descriptor.skills !== undefined;
-
 /** @experimental This API is unstable and may change without notice. */
-export const codingAgentFromDescriptor = (descriptor: AgentDescriptor): CodingAgent => {
-  const runtimeOverride = AGENT_RUNTIME_OVERRIDES[descriptor.id];
+export const codingAgentFromDescriptor = (
+  descriptor: AgentDescriptor,
+  inputs: NativeDirectoryInputs = { skillsDirectoryOverrides: {} },
+): CodingAgent => {
   const agent: CodingAgent = {
     id: descriptor.id,
-    resolveEffectiveSkillsDir: ({ workspaceRoot }) =>
+    resolveNativeReadLocations: (args) =>
+      Effect.map(Path.Path, (path) =>
+        resolveDeclaredNativeLocations(path, descriptor, args.kind, args, inputs),
+      ),
+    resolveEffectiveSkillsDir: (args) =>
       Effect.gen(function* () {
-        if (descriptor.skills === undefined || !descriptorSupports(descriptor, "skill")) {
+        if (descriptor.skills === undefined || !descriptor.skills.scopes.includes(args.scope))
           return {
             _tag: "unsupported",
-            reason: `Skills are not supported for ${descriptor.id}`,
+            reason: `Skills are not supported in ${args.scope} scope for ${descriptor.id}`,
           } as const;
-        }
-        const path = yield* Path.Path;
-        const environmentName = runtimeOverride?.skillsDirectoryEnvironment;
-        if (environmentName !== undefined) {
-          const configuredDirectory = yield* envOption(environmentName);
-          if (Option.isSome(configuredDirectory)) {
-            if (configuredDirectory.value.trim().length === 0) {
-              return {
-                _tag: "misconfigured",
-                reason: `${environmentName} is set but empty`,
-              } as const;
-            }
-            return {
-              _tag: "supported",
-              dir: path.resolve(workspaceRoot, configuredDirectory.value),
-            } as const;
-          }
-        }
-        return {
-          _tag: "supported",
-          dir: path.resolve(workspaceRoot, descriptor.skills.dir),
-        } as const;
+        if (!descriptor.skills.writerSupported)
+          return {
+            _tag: "unsupported",
+            reason: `AXM has no verified Skill writer for ${descriptor.id}`,
+          } as const;
+        const override = inputs.skillsDirectoryOverrides[descriptor.id];
+        if (override !== undefined && override.trim().length === 0)
+          return {
+            _tag: "misconfigured",
+            reason: `Skill directory override for ${descriptor.id} is empty`,
+          } as const;
+        const locations = yield* agent.resolveNativeReadLocations({ ...args, kind: "skill" });
+        const primary = locations.find((location) => location.declaration.role === "primary");
+        if (primary === undefined)
+          return {
+            _tag: "unverified",
+            reason: `The ${args.scope} Skill location for ${descriptor.id} is unverified`,
+          } as const;
+        if (primary.declaration.shape !== "directory")
+          return {
+            _tag: "unsupported",
+            reason: `AXM has no Skill writer for the declared ${primary.declaration.shape} location of ${descriptor.id}`,
+          } as const;
+        return { _tag: "supported", dir: primary.path } as const;
       }),
-    resolveEffectiveSubagentsDir: ({ workspaceRoot, scope }) =>
+    resolveEffectiveSubagentsDir: (args) =>
       Effect.gen(function* () {
-        if (descriptor.subagents === undefined || !descriptorSupports(descriptor, "subagent")) {
+        if (descriptor.subagents === undefined || !descriptor.subagents.scopes.includes(args.scope))
           return {
             _tag: "unsupported",
-            reason: `Subagents are not supported for ${descriptor.id}`,
+            reason: `Subagents are not supported in ${args.scope} scope for ${descriptor.id}`,
           } as const;
-        }
-        if (!descriptor.subagents.scopes.includes(scope)) {
+        if (!descriptor.subagents.writerSupported)
           return {
             _tag: "unsupported",
-            reason: userScopeRefusal({
-              agentId: descriptor.id,
-              agentName: descriptor.name,
-              type: "subagents",
-            }),
+            reason: `AXM has no verified native Subagent writer for ${descriptor.id}`,
           } as const;
-        }
-        const path = yield* Path.Path;
-        if (scope === "user") {
-          const home = yield* osHomeDirectory;
-          return {
-            _tag: "supported",
-            dir: path.join(home, descriptor.subagents.dir),
-            warnings: [],
-          } as const;
-        }
-        return {
-          _tag: "supported",
-          dir: path.resolve(workspaceRoot, descriptor.subagents.dir),
-          warnings: [],
-        } as const;
+        const locations = yield* agent.resolveNativeReadLocations({ ...args, kind: "subagent" });
+        const primary = locations.find((location) => location.declaration.role === "primary");
+        return primary === undefined
+          ? ({
+              _tag: "unverified",
+              reason: `The ${args.scope} Subagent location for ${descriptor.id} is unverified`,
+            } as const)
+          : ({ _tag: "supported", dir: primary.path, warnings: [] } as const);
       }),
-    addSubagent: (args) => {
-      const resolution = agent.resolveEffectiveSubagentsDir(args);
-      if (runtimeOverride?.subagentStorage === "roo") {
-        return Effect.flatMap(resolution, (outcome) =>
-          outcome._tag === "supported"
-            ? addRooSubagent(outcome.dir, args)
-            : Effect.succeed(dirOutcomeToSubagentSyncOutcome(outcome)),
-        );
-      }
-      const effectiveArgs =
-        runtimeOverride?.subagentRenderAgentId === undefined
-          ? args
-          : {
-              ...args,
-              input: { ...args.input, agentId: runtimeOverride.subagentRenderAgentId },
-            };
-      return addSubagentViaResolve(resolution, effectiveArgs);
-    },
-    removeSubagent: (args) => {
-      const resolution = agent.resolveEffectiveSubagentsDir(args);
-      if (runtimeOverride?.subagentStorage === "roo") {
-        return Effect.flatMap(resolution, (outcome) =>
-          outcome._tag === "supported"
-            ? removeRooSubagent(outcome.dir, args.subagentName)
-            : Effect.succeed(dirOutcomeToSubagentSyncOutcome(outcome)),
-        );
-      }
-      return removeSubagentViaResolve(resolution, args);
-    },
+    addSubagent: (args) => addSubagentViaResolve(agent.resolveEffectiveSubagentsDir(args), args),
+    removeSubagent: (args) =>
+      removeSubagentViaResolve(agent.resolveEffectiveSubagentsDir(args), args),
   };
   return agent;
 };
 
 /** @experimental This API is unstable and may change without notice. */
-export const codingAgentForId = (id: MaterializationTargetId): CodingAgent =>
-  codingAgentFromDescriptor(AGENT_DESCRIPTORS[id]);
+export const codingAgentForId = (
+  id: MaterializationTargetId,
+  inputs: NativeDirectoryInputs = { skillsDirectoryOverrides: {} },
+): CodingAgent => codingAgentFromDescriptor(AGENT_DESCRIPTORS[id], inputs);

@@ -135,6 +135,7 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
     return KnowledgeManagerLive.pipe(
       Layer.provideMerge(WorkspaceCatalogLive),
       Layer.provideMerge(CodingAgentRepositoryLive),
+      Layer.provideMerge(NativeWriteAuthorityLive),
       Layer.provideMerge(
         Layer.mergeAll(
           WorkspaceReadTest({
@@ -167,7 +168,6 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
           origin: () => "test",
         }),
       ),
-      Layer.provideMerge(NativeWriteAuthorityLive),
       Layer.provideMerge(WorkspaceFileWriteLocksLive),
       Layer.provideMerge(
         Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),

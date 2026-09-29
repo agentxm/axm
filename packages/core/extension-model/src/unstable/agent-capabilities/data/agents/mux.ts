@@ -29,7 +29,18 @@ export const muxAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".mux/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".mux/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -49,6 +60,10 @@ export const muxAgent = {
         standardsCompliance: "partial",
         convention: "vendor",
         transports: ["stdio"],
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -64,8 +79,18 @@ export const muxAgent = {
         docs: [],
         sources: ["https://mux.coder.com/agents"],
         scopes: ["user", "project"],
-        directory: ".mux/agents",
-        layout: "directory",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".mux/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -83,6 +108,10 @@ export const muxAgent = {
         sources: ["https://mux.coder.com/hooks/tools.md", "https://mux.coder.com/hooks/init.md"],
         scopes: ["user", "project"],
         modeling: "native-unmodeled",
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -102,7 +131,18 @@ export const muxAgent = {
       standardsCompliance: "full",
       convention: "universal",
       kind: "agents-md",
-      files: ["AGENTS.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "AGENTS.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: true,
       importSyntax: null,
     },

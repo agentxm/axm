@@ -8,7 +8,7 @@ import {
   protectWorkspacePath,
   recordFootprint,
 } from "../../settlement/index.js";
-import { resolveParentSymlinks } from "../utils/resolve-parent-symlinks.js";
+import { resolveNativeEntry, resolveNativeReferent } from "../../locations/index.js";
 
 /**
  * Result of a createSymlink operation.
@@ -34,14 +34,16 @@ export const createSymlink = (opts: { readonly target: string; readonly link: st
     const p = yield* Path.Path;
 
     // Resolve both paths through parent symlinks for accurate comparison
-    const resolvedTarget = yield* resolveParentSymlinks(opts.target).pipe(
+    const resolvedTarget = yield* resolveNativeReferent(opts.target).pipe(
       Effect.mapError(
         (cause) => new SymlinkCreationError({ path: opts.target, step: "resolve-target", cause }),
       ),
     );
-    const resolvedLink = yield* resolveParentSymlinks(opts.link).pipe(
-      // Link parent may not exist yet — fall back to the raw path
-      Effect.catch(() => Effect.succeed(opts.link)),
+    const resolvedLink = yield* resolveNativeEntry(opts.link).pipe(
+      Effect.map((entry) => entry.entryPath),
+      Effect.mapError(
+        (cause) => new SymlinkCreationError({ path: opts.link, step: "resolve-target", cause }),
+      ),
     );
 
     // Self-reference detection: skip if both resolve to the same location
@@ -120,9 +122,13 @@ const inspectExisting = (
       const currentAbsTarget = p.resolve(linkParent, linkTarget.value);
 
       // Resolve through realpath for cases where parent dirs are symlinks
-      const resolvedCurrentTarget = yield* fs
-        .realPath(currentAbsTarget)
-        .pipe(Effect.catch(() => Effect.succeed(currentAbsTarget)));
+      const resolvedCurrentTarget = yield* resolveNativeEntry(currentAbsTarget).pipe(
+        Effect.map((entry) => entry.entryPath),
+        Effect.mapError(
+          (cause) =>
+            new SymlinkCreationError({ path: currentAbsTarget, step: "resolve-target", cause }),
+        ),
+      );
 
       if (resolvedCurrentTarget === resolvedAbsTarget) return "no-op" as const;
 

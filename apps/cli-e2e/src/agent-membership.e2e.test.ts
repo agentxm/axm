@@ -50,7 +50,7 @@ describe("atomic agent membership lifecycle", () => {
       expect(JSON.parse(addPreview.stdout)).toMatchObject({
         ok: true,
         result: {
-          contract: "plan-result-v3",
+          contract: "plan-result-v4",
           outcome: "previewed",
           mode: "preview",
           counts: { failed: 0, blocked: 0 },
@@ -59,8 +59,14 @@ describe("atomic agent membership lifecycle", () => {
             expect.objectContaining({
               state: "ready",
               artifact: expect.objectContaining({
-                path: ".opencode/skills/axm",
+                path: ".agents/skills/axm",
                 agents: ["opencode"],
+                targets: [
+                  expect.objectContaining({
+                    path: ".opencode/skills/axm",
+                    agentIds: ["opencode"],
+                  }),
+                ],
               }),
             }),
           ]),
@@ -84,7 +90,7 @@ describe("atomic agent membership lifecycle", () => {
       expect(removePreview.stdout).toContain(".opencode/skills/axm");
       expect(JSON.parse(removePreview.stdout)).toMatchObject({
         ok: true,
-        result: { contract: "plan-result-v3", outcome: "previewed", mode: "preview" },
+        result: { contract: "plan-result-v4", outcome: "previewed", mode: "preview" },
       });
       expect(readAgents(temp.path)).toEqual(["claude-code", "opencode"]);
       expect(fs.existsSync(opencodeSkill)).toBe(true);
@@ -95,6 +101,8 @@ describe("atomic agent membership lifecycle", () => {
       expect(remove.exitCode, `${remove.stderr}\n${remove.stdout}`).toBe(0);
       expect(readAgents(temp.path)).toEqual(["claude-code"]);
       expect(fs.existsSync(opencodeSkill)).toBe(false);
+      expect(fs.existsSync(path.join(temp.path, ".agents/skills/axm"))).toBe(true);
+      expect(fs.existsSync(path.join(temp.path, ".claude/skills/axm"))).toBe(true);
       await expectCleanWorkspace(temp.path);
     } finally {
       temp.cleanup();
@@ -125,7 +133,7 @@ describe("atomic agent membership lifecycle", () => {
       expect(JSON.parse(remove.stdout)).toMatchObject({
         ok: true,
         result: {
-          contract: "plan-result-v3",
+          contract: "plan-result-v4",
           outcome: "applied",
           mode: "apply",
           counts: { total: 2, committed: 2, failed: 0, blocked: 0 },

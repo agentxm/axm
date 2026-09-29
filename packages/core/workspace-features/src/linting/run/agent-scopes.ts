@@ -15,6 +15,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import type { NativeDirectoryInputs } from "@agentxm/workspace-kernel/locations";
 
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import {
@@ -24,6 +25,7 @@ import {
 import {
   CodingAgentRepository,
   observeAgentOutputs,
+  deriveAgentOutputAuthority,
   type AgentOutputObservation,
 } from "@agentxm/workspace-kernel/projection";
 import * as Layer from "effect/Layer";
@@ -33,6 +35,8 @@ import {
   WorkspaceReadModelConfig,
   makeWorkspaceReadModel,
   resolveUserWorkspaceLayout,
+  LOCKFILE_VERSION,
+  type WorkspaceRootEscape,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 /** The user scope as a project-scope run's agents also see it. */
@@ -62,15 +66,14 @@ const NO_EXPECTED_NAMES = {
 /**
  * Observe the user scope's agent outputs under `userHome`.
  *
- * Containers resolve relative to `userHome` rather than the process home, so
- * the observation follows the home the run selected. Anything under the user
- * AXM home counts as AXM storage, including storage left by an earlier layout.
+ * Containers and accepted ownership resolve in the captured user scope.
  */
 export const observeUserScope = (
   userHome: string,
+  nativeDirectoryInputs: NativeDirectoryInputs,
 ): Effect.Effect<
   UserScopeObservation,
-  Config.ConfigError,
+  Config.ConfigError | WorkspaceRootEscape,
   CodingAgentRepository | FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
@@ -82,34 +85,55 @@ export const observeUserScope = (
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
     );
-    const settings = yield* Effect.result(
-      makeWorkspaceReadModel("user").pipe(
-        Effect.flatMap((model) => model.state.settings),
-        Effect.provide(
-          Layer.mergeAll(
-            platformLayer,
-            Layer.succeed(WorkspaceReadModelConfig, {
-              projectRoot: makeAbsolutePath(path, userHome),
-              userHome: makeAbsolutePath(path, userHome),
-              allowedRoot: makeAbsolutePath(path, "/"),
-            }),
-            AgentRootResolverLive.pipe(Layer.provide(platformLayer)),
-          ),
+    const observed = yield* makeWorkspaceReadModel("user").pipe(
+      Effect.flatMap((model) =>
+        Effect.all({
+          settings: Effect.result(model.state.settings),
+          lockfile: Effect.result(model.state.lockfile),
+        }),
+      ),
+      Effect.provide(
+        Layer.mergeAll(
+          platformLayer,
+          Layer.succeed(WorkspaceReadModelConfig, {
+            nativeDirectoryInputs,
+            projectRoot: makeAbsolutePath(path, userHome),
+            userHome: makeAbsolutePath(path, userHome),
+            allowedRoot: makeAbsolutePath(path, "/"),
+          }),
+          AgentRootResolverLive.pipe(Layer.provide(platformLayer)),
         ),
       ),
     );
+    const outputAuthority = deriveAgentOutputAuthority({
+      path,
+      baseDir: userHome,
+      layout,
+      desired: { nodes: [] },
+      settings: Result.isSuccess(observed.settings)
+        ? Option.getOrElse(observed.settings.success, () => ({}))
+        : {},
+      acceptedResolutions: Result.isSuccess(observed.lockfile)
+        ? Option.getOrElse(observed.lockfile.success, () => ({
+            lockfileVersion: LOCKFILE_VERSION,
+            skills: {},
+          }))
+        : { lockfileVersion: LOCKFILE_VERSION, skills: {} },
+    });
     const inventory = yield* observeAgentOutputs({
+      nativeDirectoryInputs,
       workspaceRoot: userHome,
-      scope: "project",
+      scope: "user",
       desiredAgentIds: new Set<string>(),
       expectedNames: NO_EXPECTED_NAMES,
-      skillOwnershipRoots: [layout.axmHome],
+      ...outputAuthority,
       authoredSkills: { layout, entries: {} },
     });
     return {
       home: userHome,
       settingsPath: layout.settingsPath,
-      settingsReadable: Result.isSuccess(settings) && Option.isSome(settings.success),
+      settingsReadable:
+        Result.isSuccess(observed.settings) && Option.isSome(observed.settings.success),
       outputs: inventory.outputs,
     };
   });
@@ -119,14 +143,12 @@ const instructionPath = (
 ): string | undefined => {
   const instructions = descriptor.instructions;
   if (instructions === undefined) return undefined;
-  switch (instructions.kind) {
-    case "agents-md":
-      return "AGENTS.md";
-    case "own-file":
-      return instructions.file;
-    case "rules-dir":
-      return instructions.dir;
-  }
+  return instructions.locations.find(
+    (location) =>
+      location.scope === "project" &&
+      location.role === "primary" &&
+      location.applicability.kind === "always",
+  )?.path;
 };
 
 /**

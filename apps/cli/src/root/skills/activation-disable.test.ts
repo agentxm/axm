@@ -334,20 +334,30 @@ describe("disable.handler", () => {
   describe("plan execution", () => {
     it.effect("builds and resolves disable plan for enabled skill", () => {
       const { provide, logs } = makeLayers();
-      initWorkspace(
-        path.join(tempDir, ".axm"),
-        { "my-skill": "local" },
-        { "my-skill": makeLockEntry() },
-      );
+      initWorkspace(path.join(tempDir, ".axm"), { "my-skill": "workspace" });
       // Create canonical skill directory (preserved after disable)
-      const canonicalDir = path.join(tempDir, "agent_extensions", "external", "skills", "my-skill");
-      fs.mkdirSync(canonicalDir, { recursive: true });
-      fs.writeFileSync(path.join(canonicalDir, "SKILL.md"), "# my-skill");
+      const canonicalDir = path.join(tempDir, "skills", "my-skill");
+      const sourceDir = path.join(canonicalDir, "src");
+      fs.mkdirSync(sourceDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(canonicalDir, "skill.json"),
+        JSON.stringify({
+          owner: "@acme",
+          type: "skill",
+          name: "my-skill",
+          version: "1.0.0",
+          description: "A workspace skill.",
+        }),
+      );
+      fs.writeFileSync(
+        path.join(sourceDir, "SKILL.md"),
+        "---\nname: my-skill\ndescription: A workspace skill.\n---\n# my-skill\n",
+      );
 
       // Create agent symlink directory (removed on disable)
       const agentSkillDir = path.join(tempDir, ".claude", "skills", "my-skill");
-      fs.mkdirSync(agentSkillDir, { recursive: true });
-      fs.writeFileSync(path.join(agentSkillDir, "SKILL.md"), "# my-skill");
+      fs.mkdirSync(path.dirname(agentSkillDir), { recursive: true });
+      fs.symlinkSync(path.relative(path.dirname(agentSkillDir), sourceDir), agentSkillDir, "dir");
 
       return provide(
         Effect.gen(function* () {
@@ -359,7 +369,7 @@ describe("disable.handler", () => {
           // Settings should show disabled
           const settingsContent = fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8");
           const settings = JSON.parse(settingsContent);
-          expect(settings.skills?.["my-skill"]).toEqual({ source: "local", enabled: false });
+          expect(settings.skills?.["my-skill"]).toEqual({ source: "workspace", enabled: false });
 
           // Canonical directory should be preserved
           expect(fs.existsSync(canonicalDir)).toBe(true);

@@ -24,7 +24,11 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import type { LocalSubagentRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
-import type { AddSubagentArgs, CodingAgent } from "@agentxm/workspace-kernel/agent-adapters";
+import {
+  codingAgentForId,
+  type AddSubagentArgs,
+  type CodingAgent,
+} from "@agentxm/workspace-kernel/agent-adapters";
 import { SubagentManager } from "@agentxm/workspace-kernel/materialization";
 import { CodingAgentRepository } from "@agentxm/workspace-kernel/projection";
 import {
@@ -88,11 +92,12 @@ const makeMockCodingAgent = (
   overrides?: Partial<CodingAgent>,
 ): CodingAgent => ({
   id,
+  resolveNativeReadLocations: codingAgentForId(id).resolveNativeReadLocations,
   resolveEffectiveSkillsDir: () => Effect.succeed({ _tag: "unsupported", reason: "not used" }),
-  resolveEffectiveSubagentsDir: () =>
+  resolveEffectiveSubagentsDir: ({ workspaceRoot }) =>
     Effect.succeed({
       _tag: "supported",
-      dir: `/tmp/.claude/agents`,
+      dir: nodePath.join(workspaceRoot, ".claude/agents"),
       warnings: [],
     }),
   addSubagent: () =>
@@ -167,7 +172,7 @@ const makeTestLayer = (overrides?: {
         baseDir: nodePath.dirname(axmDir),
         runtimeDir: axmDir,
         settings: {
-          agents: testAgents.map(({ id }) => id).filter((id) => id !== "universal"),
+          agents: testAgents.map(({ id }) => id),
           subagents: configuredSubagents,
         },
         lockfile: {
@@ -257,6 +262,45 @@ describe("SubagentManager", () => {
       nodeFs.rmSync(tmpDir, { recursive: true, force: true });
     });
 
+    it.effect("rejects a foreign native file before publishing canonical content", () => {
+      const sourceDir = nodePath.join(tmpDir, "source/planner");
+      writeSubagentPackage(sourceDir, "planner", "Plans work");
+      const projectDir = nodePath.join(tmpDir, "project");
+      const native = nodePath.join(projectDir, ".claude/agents/planner.md");
+      nodeFs.mkdirSync(nodePath.dirname(native), { recursive: true });
+      const foreign =
+        "<!-- axm:file v=1 ext=@foreign/subagents/planner src=foreign/planner.md -->\nForeign\n";
+      nodeFs.writeFileSync(native, foreign);
+      return Effect.gen(function* () {
+        const manager = yield* SubagentManager;
+        const error = yield* manager
+          .materializeInstall({ ref: makeLocalSubagentRef("planner", sourceDir) })
+          .pipe(Effect.flip);
+        expect(describeTestFailure(error)).toContain("Preserved unowned Subagent file");
+        expect(nodeFs.existsSync(nodePath.join(projectDir, "agent_extensions"))).toBe(false);
+        expect(nodeFs.readFileSync(native, "utf8")).toBe(foreign);
+      }).pipe(Effect.provide(makeTestLayer({ axmDir: nodePath.join(projectDir, ".axm") })));
+    });
+
+    it.effect("rejects incompatible shared readers before canonical publication", () => {
+      const sourceDir = nodePath.join(tmpDir, "source/planner");
+      writeSubagentPackage(sourceDir, "planner", "Plans work");
+      nodeFs.writeFileSync(
+        nodePath.join(sourceDir, "src/planner.md"),
+        "---\nname: planner\ndescription: Plans work\nagentOverrides:\n  claude-code:\n    model: first\n  cursor:\n    model: second\n---\nPlan carefully\n",
+      );
+      const projectDir = nodePath.join(tmpDir, "project");
+      const agents = [makeMockCodingAgent("claude-code"), makeMockCodingAgent("cursor")];
+      return Effect.gen(function* () {
+        const manager = yield* SubagentManager;
+        const error = yield* manager
+          .materializeInstall({ ref: makeLocalSubagentRef("planner", sourceDir) })
+          .pipe(Effect.flip);
+        expect(describeTestFailure(error)).toContain("incompatible Subagent bytes");
+        expect(nodeFs.existsSync(nodePath.join(projectDir, "agent_extensions"))).toBe(false);
+      }).pipe(Effect.provide(makeTestLayer({ axmDir: nodePath.join(projectDir, ".axm"), agents })));
+    });
+
     it.effect("renders to configured agents without writing lockfile render metadata", () => {
       const addSubagentCalls: Array<AddSubagentArgs> = [];
       const addSubagentSpy = vi.fn((args: AddSubagentArgs) =>
@@ -285,7 +329,7 @@ describe("SubagentManager", () => {
         const facts = yield* manager.materializeInstall({
           ref: makeLocalSubagentRef("planner", sourceDir),
         });
-        expect(facts.observation).toEqual({
+        expect(facts.observation).toMatchObject({
           agents: ["claude-code"],
           targets: [
             {
@@ -374,7 +418,7 @@ describe("SubagentManager", () => {
         const manager = yield* SubagentManager;
         const ref = makeLocalSubagentRef("planner", sourceDir);
         const facts = yield* manager.materializeInstall({ ref });
-        expect(facts.observation).toEqual({
+        expect(facts.observation).toMatchObject({
           agents: ["cline"],
           targets: [
             {
@@ -382,6 +426,12 @@ describe("SubagentManager", () => {
               agentIds: ["cline"],
             },
           ],
+        });
+        expect(facts.observation.nativeLocations?.[0]).toMatchObject({
+          ownership: "owned",
+          state: "created",
+          mechanism: "copied-directory",
+          policyReasons: [],
         });
         const accepted = yield* manager.acceptedResolution({
           ref,
@@ -403,15 +453,32 @@ describe("SubagentManager", () => {
         expect(content).toContain("advisory role-skill fallback");
         expect(captured).toHaveProperty("resolved.tree");
         expect(captured).not.toHaveProperty("renderedFiles");
-        yield* manager.materializeDeactivate({
+        nodeFs.writeFileSync(nodePath.join(nodePath.dirname(skillPath), "personal.txt"), "Keep\n");
+        const removal = yield* manager.materializeDeactivate({
           target: { type: "subagent", name: "planner" },
         });
-        expect(nodeFs.existsSync(nodePath.dirname(skillPath))).toBe(false);
+        expect(nodeFs.existsSync(skillPath)).toBe(false);
+        expect(
+          nodeFs.readFileSync(nodePath.join(nodePath.dirname(skillPath), "personal.txt"), "utf8"),
+        ).toBe("Keep\n");
+        expect(removal.observation.nativeLocations?.[0]).toMatchObject({
+          state: "retained",
+          ownership: "unowned",
+        });
       }).pipe(
         Effect.provide(
           makeTestLayer({
             axmDir,
             agents: [fallbackAgent],
+            configuredSubagents: { planner: { source: "path:sources/planner", enabled: true } },
+            lockedSubagents: {
+              planner: {
+                source: { type: "path", path: decodeRelativePathSync("sources/planner") },
+                identity: { owner: handle("@acme"), name: extensionName("planner") },
+                resolved: { tree: TEST_CONTENT_IDENTITY },
+                treeIntegrity: TEST_TREE_INTEGRITY,
+              },
+            },
           }),
         ),
       );
@@ -454,14 +521,82 @@ describe("SubagentManager", () => {
           const facts = yield* manager.materializeInstall({
             ref: makeLocalSubagentRef("planner", sourceDir),
           });
-          expect(facts.observation).toEqual({ agents: [], targets: [] });
+          expect(facts.observation).toMatchObject({ agents: [], targets: [] });
         }).pipe(Effect.provide(makeTestLayer({ axmDir, agents: [unsupportedAgent] })));
       },
     );
   });
 
   describe("materializeUninstall", () => {
-    it.effect("removes rendered files via agent and cleans canonical", () => {
+    it.effect(
+      "withdraws proven native files from primary and additional reader locations once",
+      () => {
+        const tmpDir = nodeFs.mkdtempSync(
+          nodePath.join(nodeOs.tmpdir(), "axm-subagent-additional-"),
+        );
+        const sourceDir = nodePath.join(tmpDir, "additional-source/planner");
+        writeSubagentPackage(sourceDir, "planner", "Plans work");
+        const projectDir = nodePath.join(tmpDir, "additional-project");
+        const axmDir = nodePath.join(projectDir, ".axm");
+        nodeFs.mkdirSync(axmDir, { recursive: true });
+        const actual = codingAgentForId("claude-code");
+        const agent: CodingAgent = {
+          ...actual,
+          resolveNativeReadLocations: (args) =>
+            actual.resolveNativeReadLocations(args).pipe(
+              Effect.map((locations) => {
+                const primary = locations[0];
+                return args.kind !== "subagent" || primary === undefined
+                  ? locations
+                  : [
+                      ...locations,
+                      { ...primary, path: nodePath.join(args.workspaceRoot, ".additional-agents") },
+                    ];
+              }),
+            ),
+        };
+        return Effect.gen(function* () {
+          const manager = yield* SubagentManager;
+          yield* manager.materializeInstall({ ref: makeLocalSubagentRef("planner", sourceDir) });
+          const nativeFile = nodePath.join(projectDir, ".claude/agents/planner.md");
+          const additionalFile = nodePath.join(projectDir, ".additional-agents/planner.md");
+          nodeFs.mkdirSync(nodePath.dirname(additionalFile));
+          nodeFs.copyFileSync(nativeFile, additionalFile);
+          const result = yield* manager.materializeDeactivate({
+            target: { type: "subagent", name: "planner" },
+          });
+          expect(nodeFs.existsSync(nativeFile)).toBe(false);
+          expect(nodeFs.existsSync(additionalFile)).toBe(false);
+          expect(result.observation.nativeLocations).toHaveLength(2);
+          expect(
+            result.observation.nativeLocations?.every(
+              (location) => location.state === "removed" && location.ownership === "absent",
+            ),
+          ).toBe(true);
+        }).pipe(
+          Effect.provide(
+            makeTestLayer({
+              axmDir,
+              agents: [agent],
+              configuredSubagents: { planner: { source: "path:sources/planner", enabled: true } },
+              lockedSubagents: {
+                planner: {
+                  source: { type: "path", path: decodeRelativePathSync("sources/planner") },
+                  identity: { owner: handle("@acme"), name: extensionName("planner") },
+                  resolved: { tree: TEST_CONTENT_IDENTITY },
+                  treeIntegrity: TEST_TREE_INTEGRITY,
+                },
+              },
+            }),
+          ),
+          Effect.ensuring(
+            Effect.sync(() => nodeFs.rmSync(tmpDir, { recursive: true, force: true })),
+          ),
+        );
+      },
+    );
+
+    it.effect("does not invoke a writer when no native artifact has exact ownership", () => {
       const removeSubagentSpy = vi.fn(() =>
         Effect.succeed({
           _tag: "success" as const,
@@ -479,7 +614,7 @@ describe("SubagentManager", () => {
         yield* manager.materializeUninstall({
           target: { type: "subagent", name: "planner" },
         });
-        expect(removeSubagentSpy).toHaveBeenCalledOnce();
+        expect(removeSubagentSpy).not.toHaveBeenCalled();
       }).pipe(
         Effect.provide(
           makeTestLayer({

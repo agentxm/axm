@@ -3,7 +3,7 @@ import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Fiber from "effect/Fiber";
-import * as Path from "effect/Path";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Ref from "effect/Ref";
 import * as Scope from "effect/Scope";
 
@@ -57,7 +57,7 @@ describe("workspace file write locks", () => {
       yield* Fiber.join(third);
       expect(yield* Ref.get(events)).toEqual(["independent", "waiter", "third"]);
       expect(Array.from(yield* locks.retainedPaths)).toEqual([]);
-    }).pipe(Effect.scoped, Effect.provide(Path.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
   it.effect("cancels a waiting writer without executing its mutation or evicting its owner", () =>
@@ -82,7 +82,7 @@ describe("workspace file write locks", () => {
       expect(Array.from(yield* locks.retainedPaths)).toEqual([]);
       yield* locks.service.withLock("/workspace/config.json", Ref.set(changed, true));
       expect(yield* Ref.get(changed)).toBe(true);
-    }).pipe(Effect.scoped, Effect.provide(Path.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
   it.effect("keeps the permit until an interrupted writer's asynchronous cleanup finishes", () =>
@@ -121,7 +121,7 @@ describe("workspace file write locks", () => {
       yield* Fiber.join(waiter);
       expect(yield* Ref.get(events)).toEqual(["cleanup", "next-write"]);
       expect(Array.from(yield* locks.retainedPaths)).toEqual([]);
-    }).pipe(Effect.scoped, Effect.provide(Path.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
   it.effect(
@@ -151,6 +151,6 @@ describe("workspace file write locks", () => {
         const next = yield* makeWorkspaceFileWriteLocks;
         yield* next.service.withLock("/workspace/config.json", Effect.void);
         expect(Array.from(yield* next.retainedPaths)).toEqual([]);
-      }).pipe(Effect.scoped, Effect.provide(Path.layer)),
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 });

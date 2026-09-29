@@ -9,7 +9,6 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace-kernel/projection/live";
 import { SourceHostProvidersLive } from "@agentxm/workspace-kernel/sources/live";
 import { extensionName, writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
@@ -66,11 +65,7 @@ describe("hooks-new.handler", () => {
   const makeLayers = (opts?: { readonly machine?: boolean }) => {
     const ctx = makeWorkspaceHandlerTestContext({ machine: opts?.machine });
     const sourceLayer = Layer.provide(SourceHostProvidersLive, ctx.fullLayer);
-    const workspaceServiceLayer = Layer.mergeAll(
-      ctx.fullLayer,
-      sourceLayer,
-      CodingAgentRepositoryLive,
-    );
+    const workspaceServiceLayer = Layer.mergeAll(ctx.fullLayer, sourceLayer);
     const fullLayer = Layer.provideMerge(AllExtensionManagersLive, workspaceServiceLayer);
     return {
       ...ctx,
@@ -107,9 +102,13 @@ describe("hooks-new.handler", () => {
               change: "created",
               fileCount: 2,
               targets: [
+                { path: "hooks/machine-hook/hook.json", change: "created" },
+                { path: "hooks/machine-hook/src/hook.sh", change: "created" },
+                { path: "axm.json", change: "created" },
                 {
                   path: ".claude/settings.json",
                   change: "created",
+                  agentIds: ["claude-code"],
                 },
                 {
                   path: "AGENTS.md",

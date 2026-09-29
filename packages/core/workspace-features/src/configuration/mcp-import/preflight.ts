@@ -29,6 +29,7 @@ export interface McpImportAdoption {
   readonly serversKey: McpServersKey;
   readonly name: string;
   readonly target: McpConfigTarget;
+  readonly expectedEntry: Readonly<Record<string, unknown>>;
 }
 
 export interface McpImportCandidate {
@@ -328,6 +329,7 @@ export const preflightMcpImports = (args: {
           serversKey: source.serversKey,
           name,
           target: source.target,
+          expectedEntry: value,
         },
         now: args.now,
       });

@@ -21,7 +21,7 @@ describe("renderMarkdownYaml", () => {
 
     expect(result.outputs).toHaveLength(1);
     const output = result.outputs[0];
-    expect(output?.path).toBe(".claude/agents/code-reviewer.md");
+    expect(output?.path).toBe("code-reviewer.md");
     expect(output?.content).toContain("---");
     expect(output?.content).toContain("name: code-reviewer");
     expect(output?.content).toContain("description: Reviews code changes for quality");
@@ -100,27 +100,27 @@ describe("renderMarkdownYaml", () => {
     });
   });
 
-  describe("agent-specific paths", () => {
+  describe("native filenames independent of agent paths", () => {
     it.each([
-      ["claude-code", ".claude/agents/code-reviewer.md"],
-      ["github-copilot-cli", ".github/agents/code-reviewer.md"],
-      ["cursor", ".cursor/agents/code-reviewer.md"],
-      ["gemini-cli", ".gemini/agents/code-reviewer.md"],
-      ["opencode", ".opencode/agents/code-reviewer.md"],
-      ["augment", ".augment/agents/code-reviewer.md"],
-      ["junie", ".junie/agents/code-reviewer.md"],
-      ["kilo-code", ".kilo/agents/code-reviewer.md"],
-      ["kiro", ".kiro/agents/code-reviewer.md"],
-    ])("renders to correct path for %s", (agentId, expectedPath) => {
+      ["claude-code", "code-reviewer.md"],
+      ["github-copilot-cli", "code-reviewer.md"],
+      ["cursor", "code-reviewer.md"],
+      ["gemini-cli", "code-reviewer.md"],
+      ["opencode", "code-reviewer.md"],
+      ["augment", "code-reviewer.md"],
+      ["junie", "code-reviewer.md"],
+      ["kilo-code", "code-reviewer.md"],
+      ["kiro", "code-reviewer.md"],
+    ])("renders the native filename for %s", (agentId, expectedPath) => {
       const result = renderMarkdownYaml({ ...baseInput, agentId });
       if (result._tag !== "Rendered") return;
       expect(result.outputs[0]?.path).toBe(expectedPath);
     });
 
-    it("falls back to .<agent>/agents/ for unknown agents", () => {
+    it("does not invent an agent directory for unknown agents", () => {
       const result = renderMarkdownYaml({ ...baseInput, agentId: "novel-agent" });
       if (result._tag !== "Rendered") return;
-      expect(result.outputs[0]?.path).toBe(".novel-agent/agents/code-reviewer.md");
+      expect(result.outputs[0]?.path).toBe("code-reviewer.md");
     });
   });
 

@@ -76,9 +76,16 @@ const initWorkspace = (
   ) => {
     for (const [workspaceName, raw] of Object.entries(entries ?? {})) {
       if (!isRecord(raw)) continue;
-      const owner = typeof raw["owner"] === "string" ? raw["owner"] : "@acme";
-      const packageName = typeof raw["name"] === "string" ? raw["name"] : workspaceName;
-      const version = typeof raw["resolvedVersion"] === "string" ? raw["resolvedVersion"] : "1.0.0";
+      const identity = isRecord(raw["identity"]) ? raw["identity"] : raw;
+      const resolved = isRecord(raw["resolved"]) ? raw["resolved"] : raw;
+      const owner = typeof identity["owner"] === "string" ? identity["owner"] : "@acme";
+      const packageName = typeof identity["name"] === "string" ? identity["name"] : workspaceName;
+      const version =
+        typeof resolved["version"] === "string"
+          ? resolved["version"]
+          : typeof raw["resolvedVersion"] === "string"
+            ? raw["resolvedVersion"]
+            : "1.0.0";
       const plural = type === "knowledge" ? "knowledge" : `${type}s`;
       const projectRoot = path.basename(axmDir) === ".axm" ? path.dirname(axmDir) : axmDir;
       const packageDir = path.join(
@@ -119,8 +126,9 @@ const initWorkspace = (
     Object.fromEntries(
       Object.entries(entries ?? {}).map(([workspaceName, raw]) => {
         if (!isRecord(raw)) return [workspaceName, raw];
-        const owner = typeof raw["owner"] === "string" ? raw["owner"] : "@acme";
-        const packageName = typeof raw["name"] === "string" ? raw["name"] : workspaceName;
+        const identity = isRecord(raw["identity"]) ? raw["identity"] : raw;
+        const owner = typeof identity["owner"] === "string" ? identity["owner"] : "@acme";
+        const packageName = typeof identity["name"] === "string" ? identity["name"] : workspaceName;
         const plural = type === "knowledge" ? "knowledge" : `${type}s`;
         const projectRoot = path.basename(axmDir) === ".axm" ? path.dirname(axmDir) : axmDir;
         const packageDir = path.join(
@@ -250,7 +258,7 @@ describe("packs-add.handler", () => {
           owner: handle("@acme"),
           name: extensionName("review"),
           resolvedVersion: exactVersion("1.2.3"),
-          sourceName: "test",
+          endpoint: new URL("file:///tmp/test-registry"),
           publisherBindingId: "hbnd_test",
         }),
       },
@@ -283,7 +291,7 @@ describe("packs-add.handler", () => {
           owner: handle("@acme"),
           name: extensionName("review"),
           resolvedVersion: exactVersion(version),
-          sourceName: "test",
+          endpoint: new URL("file:///tmp/test-registry"),
           publisherBindingId: "hbnd_test",
         }),
       },
@@ -313,7 +321,7 @@ describe("packs-add.handler", () => {
             owner: handle("@acme"),
             name: extensionName("code-review"),
             resolvedVersion: exactVersion("1.2.0"),
-            sourceName: "test",
+            endpoint: new URL("file:///tmp/test-registry"),
             publisherBindingId: "hbnd_test",
           }),
         },
@@ -473,7 +481,7 @@ describe("packs-add.handler", () => {
             owner: handle("@acme"),
             name: extensionName("shared-review"),
             resolvedVersion: exactVersion("1.0.0"),
-            sourceName: "test",
+            endpoint: new URL("file:///tmp/test-registry"),
             publisherBindingId: "hbnd_test",
           }),
         },
@@ -506,7 +514,7 @@ describe("packs-add.handler", () => {
             owner: handle("@acme"),
             name: extensionName("review"),
             resolvedVersion: exactVersion("1.0.0"),
-            sourceName: "test",
+            endpoint: new URL("file:///tmp/test-registry"),
             publisherBindingId: "hbnd_test",
           }),
         },
@@ -538,7 +546,7 @@ describe("packs-add.handler", () => {
             owner: handle("@acme"),
             name: extensionName("review"),
             resolvedVersion: exactVersion("1.0.0"),
-            sourceName: "test",
+            endpoint: new URL("file:///tmp/test-registry"),
             publisherBindingId: "hbnd_test",
           }),
         },
@@ -570,7 +578,7 @@ describe("packs-add.handler", () => {
             owner: handle("@acme"),
             name: extensionName("code-review"),
             resolvedVersion: exactVersion("1.2.0"),
-            sourceName: "test",
+            endpoint: new URL("file:///tmp/test-registry"),
             publisherBindingId: "hbnd_test",
           }),
         },
@@ -611,21 +619,21 @@ describe("packs-add.handler", () => {
             owner: handle("@acme"),
             name: extensionName("effect-basics"),
             resolvedVersion: exactVersion("1.0.0"),
-            sourceName: "test",
+            endpoint: new URL("file:///tmp/test-registry"),
             publisherBindingId: "hbnd_test",
           }),
           "effect-streams": makeRegistrySkillLockEntry({
             owner: handle("@acme"),
             name: extensionName("effect-streams"),
             resolvedVersion: exactVersion("2.0.0"),
-            sourceName: "test",
+            endpoint: new URL("file:///tmp/test-registry"),
             publisherBindingId: "hbnd_test",
           }),
           "other-skill": makeRegistrySkillLockEntry({
             owner: handle("@acme"),
             name: extensionName("other-skill"),
             resolvedVersion: exactVersion("3.0.0"),
-            sourceName: "test",
+            endpoint: new URL("file:///tmp/test-registry"),
             publisherBindingId: "hbnd_test",
           }),
         },
@@ -656,7 +664,7 @@ describe("packs-add.handler", () => {
             owner: handle("@acme"),
             name: extensionName("some-skill"),
             resolvedVersion: exactVersion("1.0.0"),
-            sourceName: "test",
+            endpoint: new URL("file:///tmp/test-registry"),
             publisherBindingId: "hbnd_test",
           }),
         },
@@ -738,14 +746,14 @@ describe("packs-add.handler", () => {
             owner: handle("@acme"),
             name: extensionName("skill-a"),
             resolvedVersion: exactVersion("1.0.0"),
-            sourceName: "test",
+            endpoint: new URL("file:///tmp/test-registry"),
             publisherBindingId: "hbnd_test",
           }),
           "skill-b": makeRegistrySkillLockEntry({
             owner: handle("@acme"),
             name: extensionName("skill-b"),
             resolvedVersion: exactVersion("2.0.0"),
-            sourceName: "test",
+            endpoint: new URL("file:///tmp/test-registry"),
             publisherBindingId: "hbnd_test",
           }),
         },
@@ -781,7 +789,7 @@ describe("packs-add.handler", () => {
             owner: handle("@acme"),
             name: extensionName("code-review"),
             resolvedVersion: exactVersion("1.2.0"),
-            sourceName: "test",
+            endpoint: new URL("file:///tmp/test-registry"),
             publisherBindingId: "hbnd_test",
           }),
         },
@@ -820,7 +828,7 @@ describe("packs-add.handler", () => {
             owner: handle("@acme"),
             name: extensionName("code-review"),
             resolvedVersion: exactVersion("1.2.0"),
-            sourceName: "test",
+            endpoint: new URL("file:///tmp/test-registry"),
             publisherBindingId: "hbnd_test",
           }),
         },

@@ -39,7 +39,18 @@ export const lingmaAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".lingma/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".lingma/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
     },
@@ -60,6 +71,10 @@ export const lingmaAgent = {
         standardsCompliance: "full",
         convention: "vendor",
         transports: ["stdio", "sse"],
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -97,6 +112,10 @@ export const lingmaAgent = {
         sources: ["https://help.aliyun.com/zh/lingma/qoder-cn/user-guide/hooks"],
         scopes: ["user"],
         modeling: "native-unmodeled",
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -136,7 +155,7 @@ export const lingmaAgent = {
       sources: ["https://help.aliyun.com/zh/lingma/qoder-cn/user-guide/agent"],
       scopes: ["user"],
       mechanism: ["ui-only"],
-      configFiles: [],
+      locations: [],
       grammar: null,
       prerequisites: [],
       cliFlags: [],

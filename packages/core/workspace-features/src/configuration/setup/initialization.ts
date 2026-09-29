@@ -17,6 +17,7 @@ import * as Option from "effect/Option";
 import { CONFIGURABLE_AGENTS_BY_ID } from "@agentxm/extension-model/unstable/agent-capabilities/catalog";
 import {
   detectAgentScopeResults,
+  NativeWriteAuthority,
   type AgentScopeDetection,
 } from "@agentxm/workspace-kernel/agent-adapters";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
@@ -54,7 +55,7 @@ import {
   type SetupPlanAction,
   type SetupPlanRow,
 } from "./initialization-interaction.js";
-import { protectWorkspacePath } from "@agentxm/workspace-kernel/settlement";
+import { protectWorkspacePath, recordFootprint } from "@agentxm/workspace-kernel/settlement";
 import {
   resolveInstructionTarget,
   syncInstructions,
@@ -107,7 +108,7 @@ const isKnownConfigurableAgentId = (id: string): id is ConfigurableAgentId =>
   isKnownAgentId(id) && isConfigurableAgentId(id);
 
 const isAutoSelectableAgent = (agent: AgentDescriptor): boolean =>
-  agent.id === "universal" || CONFIGURABLE_AGENTS_BY_ID[agent.id].lifecycle.state !== "retired";
+  CONFIGURABLE_AGENTS_BY_ID[agent.id].lifecycle.state !== "retired";
 
 const allAgentDescriptors = (
   preferredIds: ReadonlyArray<string>,
@@ -266,16 +267,21 @@ const ensureWorkspaceTransientIgnores = (workspaceRoot: string) =>
     if (missing.length === 0) return;
     const hasTrailingNewline = current.endsWith("\n") || current.endsWith("\r");
     const prefix = current.length === 0 || hasTrailingNewline ? current : `${current}${newline}`;
-    yield* protectWorkspacePath(filePath);
-    yield* fs.writeFileString(filePath, `${prefix}${missing.join(newline)}${newline}`).pipe(
-      Effect.mapError(
-        (cause) =>
-          new WorkspaceConfigurationFailed({
-            category: "internal",
-            detail: `Failed to write AXM workspace ignore file: ${filePath}`,
-            cause,
-          }),
-      ),
+    yield* Effect.uninterruptible(
+      Effect.gen(function* () {
+        yield* protectWorkspacePath(filePath);
+        yield* fs.writeFileString(filePath, `${prefix}${missing.join(newline)}${newline}`).pipe(
+          Effect.mapError(
+            (cause) =>
+              new WorkspaceConfigurationFailed({
+                category: "internal",
+                detail: `Failed to write AXM workspace ignore file: ${filePath}`,
+                cause,
+              }),
+          ),
+        );
+        yield* recordFootprint({ path: filePath, change: exists ? "modified" : "created" });
+      }),
     );
   });
 
@@ -340,32 +346,39 @@ const writeSourceFileIfMissing = (args: {
 }) =>
   Effect.gen(function* () {
     if (Option.isNone(args.content)) return Option.none<string>();
+    const content = args.content.value;
     const path = yield* Path.Path;
     const fs = yield* FileSystem.FileSystem;
     const filePath = path.join(args.workspaceRoot, args.fileName);
     const exists = yield* fileExists(filePath);
     if (exists) return Option.none<string>();
     if (!args.dryRun) {
-      yield* protectWorkspacePath(filePath);
-      yield* fs.makeDirectory(path.dirname(filePath), { recursive: true }).pipe(
-        Effect.mapError(
-          (error) =>
-            new WorkspaceConfigurationFailed({
-              category: "internal",
-              detail: `Failed to create instruction source directory: ${path.dirname(filePath)}`,
-              cause: error,
-            }),
-        ),
-      );
-      yield* fs.writeFileString(filePath, args.content.value).pipe(
-        Effect.mapError(
-          (error) =>
-            new WorkspaceConfigurationFailed({
-              category: "internal",
-              detail: `Failed to write instruction source file: ${filePath}`,
-              cause: error,
-            }),
-        ),
+      const authority = yield* NativeWriteAuthority;
+      yield* Effect.uninterruptible(
+        Effect.gen(function* () {
+          yield* protectWorkspacePath(filePath);
+          yield* authority.createParentDirectories(filePath).pipe(
+            Effect.mapError(
+              (error) =>
+                new WorkspaceConfigurationFailed({
+                  category: "internal",
+                  detail: `Failed to create instruction source directory: ${path.dirname(filePath)}`,
+                  cause: error,
+                }),
+            ),
+          );
+          yield* fs.writeFileString(filePath, content).pipe(
+            Effect.mapError(
+              (error) =>
+                new WorkspaceConfigurationFailed({
+                  category: "internal",
+                  detail: `Failed to write instruction source file: ${filePath}`,
+                  cause: error,
+                }),
+            ),
+          );
+          yield* recordFootprint({ path: filePath, change: "created" });
+        }),
       );
     }
     return Option.some(filePath);
@@ -634,6 +647,8 @@ const readSettingsFromReadModel = (
     const env = Layer.mergeAll(
       platformLayer,
       Layer.succeed(WorkspaceReadModelConfig, {
+        // This boundary reads settings only; native scanners are not invoked.
+        nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
         projectRoot: makeAbsolutePath(path, projectRoot),
         userHome: makeAbsolutePath(path, userHome),
         allowedRoot: makeAbsolutePath(path, "/"),

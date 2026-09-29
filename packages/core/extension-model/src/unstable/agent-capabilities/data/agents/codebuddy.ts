@@ -29,7 +29,18 @@ export const codebuddyAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".codebuddy/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".codebuddy/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -53,73 +64,101 @@ export const codebuddyAgent = {
           variables: "braced",
           defaults: true,
         },
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-08-05",
-        writer: {
-          config: {
-            serversKey: "mcpServers",
-            activationField: {
-              required: null,
-              accepted: [null],
+
+        locations: [
+          {
+            id: "project",
+            scope: "project",
+            root: "project",
+            path: ".mcp.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
             },
-            targets: [
-              {
-                scope: "project",
-                path: ".mcp.json",
-                format: "jsonc",
-                attribution: "shared",
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "jsonc",
+            keyPath: ["mcpServers"],
+            attribution: "shared",
+          },
+          {
+            id: "user",
+            scope: "user",
+            root: "home",
+            path: ".codebuddy/.mcp.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "jsonc",
+            keyPath: ["mcpServers"],
+            attribution: "agent",
+          },
+        ],
+
+        entryDialect: {
+          activationField: {
+            required: null,
+            accepted: [null],
+          },
+          stdio: {
+            typeField: {
+              required: {
+                name: "type",
+                value: "stdio",
               },
-              {
-                scope: "user",
-                path: "~/.codebuddy/.mcp.json",
-                format: "jsonc",
-                attribution: "agent",
-              },
-            ],
-            stdio: {
-              typeField: {
-                required: {
+              accepted: [
+                {
                   name: "type",
                   value: "stdio",
                 },
-                accepted: [
-                  {
-                    name: "type",
-                    value: "stdio",
-                  },
-                  null,
-                ],
-              },
-              command: "split",
-              envKey: "env",
+                null,
+              ],
             },
-            remote: {
-              typeField: {
-                required: {
+            command: "split",
+            envKey: "env",
+          },
+          remote: {
+            typeField: {
+              required: {
+                name: "type",
+                value: {
+                  "streamable-http": "http",
+                  sse: "sse",
+                },
+              },
+              accepted: [
+                {
                   name: "type",
                   value: {
                     "streamable-http": "http",
                     sse: "sse",
                   },
                 },
-                accepted: [
-                  {
-                    name: "type",
-                    value: {
-                      "streamable-http": "http",
-                      sse: "sse",
-                    },
-                  },
-                ],
-              },
-              urlKey: {
-                "streamable-http": "url",
-                sse: "url",
-              },
-              headersKey: "headers",
+              ],
             },
+            urlKey: {
+              "streamable-http": "url",
+              sse: "url",
+            },
+            headersKey: "headers",
+          },
+        },
+      },
+      axm: {
+        status: "supported",
+        lastVerified: "2026-08-05",
+        writer: {
+          config: {
+            locationIds: ["project", "user"],
           },
         },
       },
@@ -132,8 +171,18 @@ export const codebuddyAgent = {
         docs: [],
         sources: ["https://www.codebuddy.ai/docs/cli/sub-agents"],
         scopes: ["user", "project"],
-        directory: ".codebuddy/agents",
-        layout: "directory",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".codebuddy/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -151,17 +200,41 @@ export const codebuddyAgent = {
         sources: ["https://www.codebuddy.ai/docs/cli/hooks-guide"],
         scopes: ["user", "project"],
         mechanism: ["command-stdin"],
-        configFiles: [
+        locations: [
           {
+            id: "project",
             scope: "project",
+            root: "project",
             path: ".codebuddy/settings.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "json",
+            keyPath: ["hooks"],
             gitignored: false,
           },
           {
+            id: "user",
             scope: "user",
-            path: "~/.codebuddy/settings.json",
+            root: "home",
+            path: ".codebuddy/settings.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "json",
+            keyPath: ["hooks"],
             gitignored: false,
           },
         ],
@@ -259,25 +332,21 @@ export const codebuddyAgent = {
             lastVerified: "2026-08-05",
           },
         ],
-      },
-      axm: {
-        status: "supported",
-        writer: {
+
+        entryDialect: {
           serializer: "command-stdin",
-          configFiles: [
-            {
-              scope: "project",
-              path: ".codebuddy/settings.json",
-              format: "json",
-              gitignored: false,
-            },
-          ],
-          settingsKey: "hooks",
-          eventMap: "native.events",
           matcherKind: "regex",
           matcherSerialization: "bare",
           timeoutSerialization: "seconds",
           commandNameSerialization: "omit",
+        },
+      },
+      axm: {
+        status: "supported",
+        writer: {
+          locationIds: ["project"],
+
+          eventMap: "native.events",
         },
         lastVerified: "2026-08-05",
       },
@@ -295,10 +364,30 @@ export const codebuddyAgent = {
       standardsCompliance: "none",
       convention: "vendor",
       kind: "own-file",
-      files: ["CODEBUDDY.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "CODEBUDDY.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+        {
+          scope: "project",
+          root: "project",
+          path: ".codebuddy/rules",
+          shape: "directory",
+          role: "additional",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: true,
       importSyntax: "at-path",
-      directory: ".codebuddy/rules",
     },
     axm: {
       status: "supported",
@@ -319,22 +408,55 @@ export const codebuddyAgent = {
       ],
       scopes: ["user", "project"],
       mechanism: ["config-file", "cli-flag"],
-      configFiles: [
+      locations: [
         {
+          id: "project",
           scope: "project",
+          root: "project",
           path: ".codebuddy/settings.json",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "json",
           gitignored: false,
         },
         {
+          id: "project-additional-1",
           scope: "project",
+          root: "project",
           path: ".codebuddy/settings.local.json",
+          shape: "file",
+          role: "additional",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "json",
           gitignored: true,
         },
         {
+          id: "user",
           scope: "user",
-          path: "~/.codebuddy/settings.json",
+          root: "home",
+          path: ".codebuddy/settings.json",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "json",
           gitignored: false,
         },
@@ -359,7 +481,7 @@ export const codebuddyAgent = {
       writer: {
         grants: {
           shell: {
-            target: ".codebuddy/settings.json",
+            destination: { kind: "location", locationId: "project" },
             patch: {
               permissions: {
                 allow: ["Bash(${tool}:*)"],
@@ -368,7 +490,7 @@ export const codebuddyAgent = {
             template: null,
           },
           filesystem: {
-            target: ".codebuddy/settings.json",
+            destination: { kind: "location", locationId: "project" },
             patch: {
               permissions: {
                 allow: ["Read(**)", "Write(**)", "Edit"],

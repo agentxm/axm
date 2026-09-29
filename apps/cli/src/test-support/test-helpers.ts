@@ -290,8 +290,8 @@ const expectPlanCounts = (result: unknown, expected: Readonly<Record<string, num
 };
 
 const expectPlanContract = (result: unknown): void => {
-  if (property(result, "contract") !== "plan-result-v3") {
-    throw new Error("Expected plan-result-v3 contract");
+  if (property(result, "contract") !== "plan-result-v4") {
+    throw new Error("Expected plan-result-v4 contract");
   }
 };
 
@@ -694,23 +694,13 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
     ensureWorkspaceFiles(path.join(workspaceRoot, ".axm"));
   }
 
-  const coreWsLayer = Layer.provide(
+  const projectionLayer = Layer.provideMerge(
+    Layer.merge(CodingAgentRepositoryLive, NativeWriteAuthorityLive),
     opts?.workspaceLayer ?? coreWorkspaceLayer(wsOptions),
-    cliTestContext.baseLayer,
-  );
-  const authorityLayer = Layer.provide(NativeWriteAuthorityLive, cliTestContext.baseLayer);
+  ).pipe(Layer.provide(cliTestContext.baseLayer));
   const wsLayer = Layer.mergeAll(
-    coreWsLayer,
-    authorityLayer,
-    Layer.provide(
-      WorkspaceCatalogLive,
-      Layer.mergeAll(
-        coreWsLayer,
-        CodingAgentRepositoryLive,
-        authorityLayer,
-        cliTestContext.baseLayer,
-      ),
-    ),
+    projectionLayer,
+    Layer.provide(WorkspaceCatalogLive, projectionLayer),
     AxmSkillCandidateGateLive,
     RegistryResolutionPolicyLive,
     // No per-type outcome refinement: every configured-agent outcome stays
@@ -768,8 +758,7 @@ export const makeWorkspaceLifecycleTestContext = (
   opts?: Parameters<typeof makeWorkspaceHandlerTestContext>[0],
 ) => {
   const context = makeWorkspaceHandlerTestContext(opts);
-  const foundation = Layer.merge(context.fullLayer, CodingAgentRepositoryLive);
-  const managers = Layer.provideMerge(AllExtensionManagersLive, foundation);
+  const managers = Layer.provideMerge(AllExtensionManagersLive, context.fullLayer);
   const fullLayer = Layer.provideMerge(workspaceInvariantFactsLive, managers);
   return { ...context, fullLayer, provide: Effect.provide(fullLayer) };
 };

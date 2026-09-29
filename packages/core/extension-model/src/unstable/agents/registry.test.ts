@@ -16,23 +16,20 @@ describe("derived agent descriptors", () => {
       agent.skills !== undefined,
   );
 
-  it("only exposes verified writable Skill surfaces", () => {
-    expect(skillAgents).toHaveLength(61);
+  it("exposes declared native Skill readers separately from writer support", () => {
+    expect(skillAgents).toHaveLength(60);
     expect(agents.length - skillAgents.length).toBe(2);
   });
 
-  it.each(skillAgents)("agent $id has required skills.dir", (config) => {
-    expect(config.skills.dir.length).toBeGreaterThan(0);
+  it.each(skillAgents)("agent $id declares its Skill reader locations", (config) => {
+    expect(config.skills.locations.length).toBeGreaterThan(0);
+    expect(typeof config.skills.writerSupported).toBe("boolean");
+    for (const location of config.skills.locations) {
+      expect(location.path.length).toBeGreaterThan(0);
+      expect(location.shape).toBe("directory");
+      expect(config.skills.scopes).toContain(location.scope);
+    }
   });
-
-  it.each(skillAgents)(
-    "agent $id dir ends with /skills or /rules (per reference spec)",
-    (config) => {
-      // Most agents use /skills, but augment uses /rules per vercel-labs/skills spec
-      // openclaw uses bare "skills" directory (no leading dot-folder)
-      expect(config.skills.dir).toMatch(/(\/skills$|\/rules$|^skills$)/);
-    },
-  );
 
   it.each(agents)("agent $id id exists in the descriptor record", (config) => {
     expect(AGENT_DESCRIPTORS[config.id]).toBe(config);
@@ -54,17 +51,20 @@ describe("derived agent descriptors", () => {
     expect(uniqueNames.size).toBe(names.length);
   });
 
-  it.each(skillAgents)("agent $id dir is relative (not absolute)", (config) => {
-    expect(config.skills.dir.startsWith("/")).toBe(false);
-    expect(config.skills.dir.startsWith("~")).toBe(false);
+  it.each(skillAgents)("agent $id locations are relative to an explicit root", (config) => {
+    for (const location of config.skills.locations) {
+      expect(location.path.startsWith("/")).toBe(false);
+      expect(location.path.startsWith("~")).toBe(false);
+      if (location.scope === "project") expect(location.root).toBe("project");
+      else expect(["home", "xdg-config"]).toContain(location.root);
+    }
   });
 
-  it.each(skillAgents)("agent $id additional Skill read paths are relative", (config) => {
-    for (const { path } of config.skills.additionalReadPaths) {
-      expect(path.startsWith("/")).toBe(false);
-      expect(path.startsWith("~")).toBe(false);
-      expect(path).not.toBe(config.skills.dir);
-    }
+  it.each(skillAgents)("agent $id has no duplicate reader declaration", (config) => {
+    const keys = config.skills.locations.map((location) =>
+      JSON.stringify([location.scope, location.root, location.path]),
+    );
+    expect(new Set(keys).size).toBe(keys.length);
   });
 });
 
@@ -73,7 +73,7 @@ describe("MATERIALIZATION_TARGET_IDS", () => {
     expect(MATERIALIZATION_TARGET_IDS).toContain("claude-code");
     expect(MATERIALIZATION_TARGET_IDS).toContain("cursor");
     expect(MATERIALIZATION_TARGET_IDS).toContain("codex");
-    expect(MATERIALIZATION_TARGET_IDS).toContain("universal");
+    expect(MATERIALIZATION_TARGET_IDS).not.toContain("universal");
   });
 
   it("has the same count as the descriptor record", () => {

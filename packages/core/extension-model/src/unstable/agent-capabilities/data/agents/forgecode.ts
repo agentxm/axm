@@ -35,7 +35,38 @@ export const forgecodeAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".forge/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".forge/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: "forge/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".agents/skills",
+            shape: "directory",
+            role: "additional",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -54,6 +85,10 @@ export const forgecodeAgent = {
         standardsCompliance: "full",
         convention: "universal",
         transports: ["stdio", "http", "sse"],
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -69,8 +104,18 @@ export const forgecodeAgent = {
         docs: [],
         sources: ["https://forgecode.dev/docs/creating-agents/"],
         scopes: ["user", "project"],
-        directory: ".forge/agents",
-        layout: "directory",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".forge/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "unsupported",
@@ -104,7 +149,18 @@ export const forgecodeAgent = {
       standardsCompliance: "full",
       convention: "universal",
       kind: "agents-md",
-      files: ["AGENTS.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "AGENTS.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: false,
       importSyntax: null,
     },
@@ -124,16 +180,38 @@ export const forgecodeAgent = {
       sources: ["https://forgecode.dev/docs/permissions/"],
       scopes: ["user", "project"],
       mechanism: ["config-file"],
-      configFiles: [
+      locations: [
         {
+          id: "user",
           scope: "user",
-          path: "~/.forge/permissions.yaml",
+          root: "home",
+          path: ".forge/permissions.yaml",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "yaml",
           gitignored: false,
         },
         {
+          id: "project",
           scope: "project",
+          root: "project",
           path: ".forge.toml",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "toml",
           gitignored: false,
         },

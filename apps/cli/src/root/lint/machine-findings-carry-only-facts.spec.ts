@@ -98,6 +98,7 @@ describe("Machine lint output", () => {
             userHome: workspace.root,
             scope: "project",
             input: { view: "workspace" },
+            nativeView: { kind: "workspace" },
             fix: false,
           },
           strict: false,

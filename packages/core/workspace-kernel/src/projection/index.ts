@@ -23,14 +23,13 @@ export {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
 } from "./agents/coding-agent-repository.js";
-export { DefaultCodingAgentRepository } from "./agents/repository.js";
+export { makeCodingAgentRepositoryService } from "./agents/repository.js";
 export {
   allCodingAgents,
   configuredCodingAgents,
   isKnownAgentId,
   materializationCodingAgents,
   unknownConfiguredAgentIds,
-  UNIVERSAL_AGENT_ID,
 } from "./agents/selection.js";
 
 // Ownership units and their region identities
@@ -179,6 +178,11 @@ export {
   type ObserveAgentOutputsArgs,
 } from "./agent-output-observation.js";
 export {
+  captureAgentOutputAuthority,
+  deriveAgentOutputAuthority,
+  type AgentOutputAuthority,
+} from "./output-authority.js";
+export {
   isObservedMaterializationCurrent,
   type MaterializationCurrencyFailure,
   type ObservedMaterializationCurrencyArgs,
@@ -200,6 +204,7 @@ export {
   instructionProjectionEffects,
   instructionProjectionIsCurrent,
   instructionProjectionRemovalEffects,
+  instructionProjectionNativeLocations,
   observeInstructionProjection,
   probeSymlinkSupport,
   removeInstructionsGitignore,
@@ -209,21 +214,16 @@ export {
   resolveInstructionTargetShape,
   resolveInstructionsConfig,
   syncInstructions,
-  type InstructionHealth,
-  type InstructionMechanism,
   type InstructionProjectionEffect,
   type InstructionProjectionPlan,
   type InstructionProjectionSnapshot,
   type InstructionSkipReason,
-  type InstructionStatusItem,
-  type InstructionTargetOwnership,
   type InstructionTargetResolution,
   type InstructionTargetShape,
   type InstructionsGitignoreStatus,
   type InstructionsStatus,
   type InstructionsSyncResult,
   type ObserveInstructionProjectionArgs,
-  type ObservedInstructionForm,
   type PlannedInstructionItem,
   type ResolvedInstructionsConfig,
   type SyncInstructionsArgs,
@@ -292,3 +292,17 @@ export {
   subagentProjectionGeneration,
   type ManagedSubagentRenderArgs,
 } from "./subagents/managed-render.js";
+
+export {
+  nativeArtifactLocationOutcomes,
+  retiredNativeArtifactLocationOutcomes,
+} from "./native-artifact-locations.js";
+export { reconcileNativeManagedRegion, type NativeRegionSource } from "./native-managed-region.js";
+
+export type {
+  InstructionMechanism,
+  InstructionHealth,
+  InstructionTargetOwnership,
+  ObservedInstructionForm,
+  InstructionStatusItem,
+} from "./instructions/instruction-status.js";

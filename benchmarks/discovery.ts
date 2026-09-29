@@ -173,6 +173,7 @@ const measureAll = Effect.gen(function* () {
                   rows.map((row) => JSON.stringify(row).replaceAll(root, "<fixture>")),
                 ),
                 Effect.provideService(WorkspaceReadModelConfig, {
+                  nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
                   projectRoot: decodeAbsolutePathSync(
                     path.join(root, scenario === "acquired-scanner" ? "acquired" : "workspace"),
                   ),

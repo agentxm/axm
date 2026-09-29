@@ -17,15 +17,57 @@ extension root.
 
 ## Encodings
 
-AXM uses one ownership vocabulary through four substrate encodings:
+AXM uses one ownership vocabulary through substrate-specific evidence:
 
 - A fence owns a byte range in comment-bearing text.
 - A banner owns a whole comment-bearing file.
 - An `x-axm` property owns one keyed JSON or YAML entry.
-- A symlink whose resolved target is inside a project authored root,
-  `agent_extensions/`, or the user-scope canonical root proves structural
-  ownership without a marker; an instruction alias proves it by resolving to
-  its canonical source.
+- A symlink proves ownership by addressing the exact accepted canonical source
+  for its identity and scope. Merely pointing somewhere inside an AXM root is
+  insufficient; an instruction alias addresses its selected canonical source.
+- A copied directory requires a receipt tying its managed contents and native
+  location to the accepted source. Foreign children remain outside that proof.
+
+## Native locations and sharing
+
+An entry address identifies the directory entry that can be replaced or
+removed. A content address identifies the resolved file a writer would edit.
+These differ for symbolic links. Authority checks use the address appropriate
+to the mutation, within the selected native scope and workspace authority.
+Escapes, source overlap, ambiguous workspace roots, and unexplained hard links
+block mutation before publication.
+
+Several agent aliases may address one physical file or directory. AXM groups
+them by physical location and ownership unit, preserving the configured
+consumers and potential readers as separate facts. A shared structured file
+must satisfy every applicable reader's complete grammar and the affected
+unit's semantics before and after a write. An incompatible reader blocks the
+shared write. Reader recognition does not itself grant ownership or prove
+runtime availability.
+
+## Insertion receipts
+
+A newly reachable extension or native route can create a container that AXM
+later needs to retire. A local receipt records that creation or a bounded
+syntax inverse, tied to the workspace, root, parent, entry, alias identities,
+and exact postimage. It carries no unrelated configuration values and grants
+no desired membership or accepted source authority.
+
+Withdrawing precisely that new intent without intervening changes restores
+the original bytes and preexisting empty containers. Adoption, activation,
+source replacement, reinstall, and repair of existing intent do not establish
+new insertion authority. Missing or invalid evidence preserves containers;
+entry recreation, moved or copied workspaces, replaced parents, and changed
+aliases expire the evidence. A foreign child prevents removal of its containing
+directory. The last retired receipt removes its local metadata file.
+
+A Pack introduction can publish several lockfile entries in one closure. Its
+receipt follows those publications under the same explicit graph identity,
+then permits the corresponding complete withdrawal to recover the original
+document. A later command changing the source or other document intent expires
+that baseline; it cannot extend or recreate the introduction's proof.
+
+## Marker grammar
 
 The canonical comment-bearing grammar is:
 
@@ -44,8 +86,9 @@ could corrupt user data.
 
 The closed region vocabulary is `rules`, `knowledge`, `hook-fallbacks`,
 `instruction-aliases`, and `mcp-server:<name>`. Region identity is the
-`region` value alone. `ext`, `src`, `gen`, and unknown version-1 attributes
-are provenance and do not change identity. For a generated document, `gen` is
+`region` value alone. That address does not establish the owner: source,
+reference, and scope evidence must match the accepted authority for the unit.
+`gen` and unknown version-1 attributes do not change its address. For a generated document, `gen` is
 a digest of canonical structured inputs: the ownership unit and projection
 contract, contributor and source identities, authoritative source content,
 target agent and capabilities, and applicable configuration. Rendered output
@@ -96,7 +139,7 @@ sources, `ref`. Inline servers use the workspace-local ownership identity
 claiming a published extension.
 
 Hook command entries use `x-axm` with `v: 1`, `managed: true`, a
-`unit: "hook:<name>"`, source, and reference. A path substring is never an
+`unit: "hook:<name>"`, source, reference, selected scope, and root. A path substring is never an
 ownership proof. Whole-file banners lead with `axm:file`; the human-facing
 guidance that follows reflects source authority. Workspace-authored packages
 name the source to change before sync, workspace configuration names its

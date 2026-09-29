@@ -1,6 +1,7 @@
 /** One reuse-or-acquire decision for canonical extension content. */
 
 import * as Effect from "effect/Effect";
+import type { NativeWriteAuthority } from "../agent-adapters/index.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -18,10 +19,12 @@ import type {
   PathTraversalDetected,
   TreeIntegrity,
 } from "../workspace-state/index.js";
+import { observeAcceptedCanonicalReuse } from "../workspace-state/index.js";
 import { extensionRefLifecycleWarnings } from "../resolution/index.js";
 import { materializeRegistryPackageWithTreeIntegrity } from "./registry-materialization.js";
 import {
   acquiredDirectoryForRef,
+  prepareCanonicalParents,
   materializeExternalPackageWithTreeIntegrity,
   reusableCanonicalTree,
   type CanonicalDirectoryReplacementError,
@@ -39,6 +42,8 @@ export interface AcquireCanonicalArgs<E = never> {
   readonly canonicalPath: string;
   readonly accepted: Option.Option<LockEntry>;
   readonly force: boolean;
+  /** Captured new reachability; missing canonical bytes alone grant no cleanup proof. */
+  readonly nativeInsertionEligible?: boolean;
   readonly copyFailure: {
     readonly code: "internal" | "validation";
     readonly detail: (target: string) => string;
@@ -77,12 +82,14 @@ export const acquireCanonicalForRef = <E = never>(
   | RegistryClientFailure
   | PathTraversalDetected
   | Config.ConfigError,
-  FileSystem.FileSystem | Path.Path | RegistryClientFactory
+  NativeWriteAuthority | FileSystem.FileSystem | Path.Path | RegistryClientFactory
 > =>
   Effect.gen(function* () {
     const { ref } = args;
     if (ref.refType === "registry" || args.external?.reuse === true) {
-      const reusable = yield* reusableCanonicalTree({
+      const reuse =
+        args.stage === undefined ? reusableCanonicalTree : observeAcceptedCanonicalReuse;
+      const reusable = yield* reuse({
         canonicalPath: args.canonicalPath,
         requested:
           ref.refType === "registry"
@@ -106,9 +113,26 @@ export const acquireCanonicalForRef = <E = never>(
       }
     }
 
+    const parentReceipt =
+      args.stage === undefined && args.nativeInsertionEligible === true
+        ? {
+            prepareParents: prepareCanonicalParents({
+              canonicalPath:
+                ref.refType === "registry"
+                  ? args.canonicalPath
+                  : (args.external?.targetPath ?? args.canonicalPath),
+              eligible: true,
+            }),
+          }
+        : {};
     if (ref.refType === "registry") {
-      const materialized = yield* materializeRegistryPackageWithTreeIntegrity({
+      const materialized = yield* materializeRegistryPackageWithTreeIntegrity<
+        E | PackageMaterializationFailed,
+        NativeWriteAuthority | FileSystem.FileSystem | Path.Path
+      >({
         baseDir: args.stage?.baseDir ?? args.baseDir,
+        transient: args.stage !== undefined,
+        ...parentReceipt,
         destinationPath: args.stage?.destinationPath ?? args.canonicalPath,
         sourceLocation: ref.source.location,
         owner: ref.owner,
@@ -133,6 +157,8 @@ export const acquireCanonicalForRef = <E = never>(
     const packageRoot = yield* acquiredDirectoryForRef(ref, fromFileLocation(ref.location));
     const materialized = yield* materializeExternalPackageWithTreeIntegrity({
       baseDir: args.stage?.baseDir ?? args.baseDir,
+      transient: args.stage !== undefined,
+      ...parentReceipt,
       canonicalPath: args.external?.targetPath ?? args.stage?.destinationPath ?? args.canonicalPath,
       sourceLocation: args.external?.sourcePath?.(packageRoot) ?? packageRoot,
       copyFailureCode: args.copyFailure.code,

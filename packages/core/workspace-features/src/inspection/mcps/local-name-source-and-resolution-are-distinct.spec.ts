@@ -101,13 +101,14 @@ const projectedNativeConfig = `${JSON.stringify(
 
 /**
  * Every configured agent is accounted for: the two that carry the connection
- * report `current`, and the one catalogued without MCP support reports
- * `unsupported` rather than dropping out of the inventory.
+ * report `current`, the one without project-scope MCP support reports
+ * `unsupported`, and known support without a verified writer remains blocked.
  */
 const agentOutcomeRows = [
   { agentId: "claude-code", outcome: "current" },
   { agentId: "cursor", outcome: "current" },
-  { agentId: "amp", outcome: "unsupported" },
+  { agentId: "hermes", outcome: "unsupported" },
+  { agentId: "amp", outcome: "blocked", reasonCode: "mcp-unverified" },
 ] as const;
 
 describe("Report every configured agent's outcome for a connection", () => {
@@ -135,9 +136,9 @@ describe("Report every configured agent's outcome for a connection", () => {
             expect(outcomes.map((outcome) => outcome.agentId).sort()).toEqual(
               agentOutcomeRows.map((entry) => entry.agentId).sort(),
             );
-            expect(outcomes.find((outcome) => outcome.agentId === row.agentId)?.outcome).toBe(
-              row.outcome,
-            );
+            const outcome = outcomes.find((candidate) => candidate.agentId === row.agentId);
+            expect(outcome?.outcome).toBe(row.outcome);
+            if ("reasonCode" in row) expect(outcome?.reasonCode).toBe(row.reasonCode);
             expect(outcomes.map((outcome) => outcome.outcome)).not.toContain("not-applicable");
           }),
         )

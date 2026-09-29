@@ -16,12 +16,16 @@ import {
   acquiredExtensionDisplayPathFromLockEntry,
   acquiredRootDisplayPath,
   lockEntryVersion,
+  DesiredStateReader,
+  desiredReachability,
+  type DesiredStateGraph,
   type HookLockEntry,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import * as Option from "effect/Option";
 
 import { HookManager } from "@agentxm/workspace-kernel/materialization";
+import type { NativeLocationOutcome } from "@agentxm/workspace-kernel/locations";
 import {
   buildInstallOperation,
   forecastInstallChange,
@@ -44,10 +48,17 @@ import {
   type ExtensionLifecycleFailed,
   installRefused,
 } from "@agentxm/workspace-kernel/operations";
-import { applyInstructionSurfacePlans } from "@agentxm/workspace-kernel/projection";
+import {
+  applyInstructionSurfacePlans,
+  captureAgentOutputAuthority,
+} from "@agentxm/workspace-kernel/projection";
 
 /** Hooks packages the request selected. */
 export interface HookInstallIntent {
+  /** All Hook sources selected by the enclosing configured install for native preflight. */
+  readonly projectionRefs?: ReadonlyArray<HookExtensionRef>;
+  /** The enclosing install has resolved this complete proposed contributor graph. */
+  readonly desiredGraph?: DesiredStateGraph;
   /** The enclosing semantic closure owns the trailing aggregate projection. */
   readonly deferProjections?: boolean;
   readonly refs: ReadonlyArray<ResolvedInstallRef<HookExtensionRef>>;
@@ -78,6 +89,7 @@ export const hookInstallArtifact = (args: {
   readonly agents: ReadonlyArray<string>;
   readonly targets: ReadonlyArray<JobStepArtifactTarget>;
   readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
+  readonly nativeLocations?: ReadonlyArray<NativeLocationOutcome>;
 }): InstallArtifactPresentation => {
   const version = lockEntryVersion(args.lockEntry);
   return {
@@ -86,6 +98,7 @@ export const hookInstallArtifact = (args: {
     agents: args.agents,
     ...(version === undefined ? {} : { version }),
     ...(args.agentOutcomes === undefined ? {} : { agentOutcomes: args.agentOutcomes }),
+    ...(args.nativeLocations === undefined ? {} : { nativeLocations: args.nativeLocations }),
     ...(args.targets.length === 0 ? {} : { fileCount: args.targets.length, targets: args.targets }),
   };
 };
@@ -101,6 +114,50 @@ export const planHookInstall: (
   const location = yield* WorkspaceLocation;
   const lockfile = yield* LockfileReader;
   const hookManager = yield* HookManager;
+  const priorGraph = yield* (yield* DesiredStateReader).graph().pipe(
+    Effect.mapError((cause) =>
+      installRefused({
+        category: "validation",
+        detail: "Cannot establish prior Hook desired state",
+        cause,
+      }),
+    ),
+  );
+  const priorAuthority = yield* captureAgentOutputAuthority().pipe(
+    Effect.mapError((cause) =>
+      installRefused({
+        category: "validation",
+        detail: "Cannot establish prior Hook output authority",
+        cause,
+      }),
+    ),
+  );
+  const nativeInsertionEligibleNames = new Set(
+    intent.refs
+      .filter(
+        ({ ref }) =>
+          desiredReachability(priorGraph, { type: "hook", name: ref.hook.name }).decision ===
+          "not-reached",
+      )
+      .map(({ ref }) => ref.hook.name),
+  );
+  // Physical routes, whole-file grammar, and shared renderings must refuse
+  // before the install recipe publishes settings or accepted resolution.
+  yield* hookManager
+    .prepareProjection(intent.projectionRefs ?? intent.refs.map(({ ref }) => ref), {
+      priorAuthority,
+      nativeInsertionEligibleNames,
+      ...(intent.desiredGraph === undefined ? {} : { desiredGraph: intent.desiredGraph }),
+    })
+    .pipe(
+      Effect.mapError((cause) =>
+        installRefused({
+          category: "validation",
+          detail: "Hook native locations cannot realize the proposed content",
+          cause,
+        }),
+      ),
+    );
   const deferProjections = intent.deferProjections === true || intent.refs.length > 1;
   const memberSteps = yield* Effect.forEach(
     intent.refs,
@@ -177,6 +234,9 @@ export const planHookInstall: (
                     : {}),
                   agents: materialization.agents,
                   agentOutcomes: appliedOutcomes,
+                  ...(materialization.nativeLocations === undefined
+                    ? {}
+                    : { nativeLocations: materialization.nativeLocations }),
                   targets:
                     materialization.targets.length === 0
                       ? [{ path, change }]
@@ -188,6 +248,9 @@ export const planHookInstall: (
                 scope: location.scope,
                 agents: materialization.agents,
                 agentOutcomes: appliedOutcomes,
+                ...(materialization.nativeLocations === undefined
+                  ? {}
+                  : { nativeLocations: materialization.nativeLocations }),
                 targets: materialization.targets.map((target) => ({ ...target, change })),
               });
             }),
@@ -227,7 +290,7 @@ export const planHookInstall: (
             label: "hook projections",
             readiness: "ready",
             run: hookManager
-              .projectionPlans()
+              .projectionPlans({ priorAuthority, nativeInsertionEligibleNames })
               .pipe(Effect.flatMap(applyInstructionSurfacePlans))
               .pipe(
                 Effect.mapError(kernelFailureToStepFailure),

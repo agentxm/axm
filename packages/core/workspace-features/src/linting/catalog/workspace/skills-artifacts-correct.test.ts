@@ -1,8 +1,14 @@
 import { describe, expect, it } from "@effect/vitest";
-import { desiredConstraintOf } from "@agentxm/workspace-kernel/workspace-state/testing";
+import {
+  desiredConstraintOf,
+  WorkspaceReadModelTest,
+} from "@agentxm/workspace-kernel/workspace-state/testing";
 import * as Effect from "effect/Effect";
 
-import type { DesiredExtensionNode } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  makeWorkspaceReadModel,
+  type DesiredExtensionNode,
+} from "@agentxm/workspace-kernel/workspace-state";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import { skillsArtifactsCorrectConformance } from "./conformance/extensions/test-helpers.js";
 import { skillsArtifactsCorrectRule } from "./skills-artifacts-correct.js";
@@ -57,6 +63,52 @@ const observedUnprojectedReviewer = (
   );
 
 describe("workspace/skills-artifacts-correct", () => {
+  for (const scope of ["project", "user"] as const) {
+    it.effect(`reports missing artifacts only for known ${scope}-scope destinations`, () =>
+      Effect.gen(function* () {
+        const context = yield* observedUnprojectedReviewer("usable");
+        const scoped = yield* makeWorkspaceReadModel(scope);
+        const installed = yield* context.workspace.skills.installed;
+        const findings = yield* skillsArtifactsCorrectRule.check({
+          ...context,
+          subject: { root: scope === "project" ? "/workspace" : "/home/test", scope },
+          workspace: {
+            ...scoped,
+            skills: {
+              ...scoped.skills,
+              installed: Effect.succeed(
+                installed.map((row) => ({ ...row, key: { ...row.key, scope } })),
+              ),
+            },
+          },
+        });
+        expect(findings).toMatchObject([
+          {
+            severity: "error",
+            message:
+              scope === "project"
+                ? "Skill 'reviewer' is enabled, but it is missing from declared agents: claude-code, cursor."
+                : "Skill 'reviewer' is enabled, but it is missing from declared agents: claude-code.",
+            location: { file: scope === "project" ? "axm.json" : ".axm/workspace/axm.json" },
+          },
+        ]);
+      }).pipe(
+        Effect.provide(
+          WorkspaceReadModelTest({
+            workspaceRoot: "/workspace",
+            userHome: "/home/test",
+            project: {
+              settings: { _tag: "valid", contents: { agents: ["cursor", "claude-code"] } },
+            },
+            user: {
+              settings: { _tag: "valid", contents: { agents: ["cursor", "claude-code"] } },
+            },
+          }),
+        ),
+      ),
+    );
+  }
+
   it.effect.each(["missing-resolution", "missing"] as const)(
     "defers to a %s observation, whose one finding covers the absent artifacts",
     (status) =>

@@ -44,7 +44,7 @@ const configureInstructions = (workspace: LifecycleFixture, type: "hook" | "know
     "axm.json",
     `${JSON.stringify({
       owner: "@acme",
-      agents: ["claude-code"],
+      agents: type === "hook" ? ["claude-code", "windsurf"] : ["claude-code"],
       instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
       [type === "hook" ? "hooks" : "knowledge"]: {
         review: { source: "workspace", enabled: false },
@@ -67,7 +67,7 @@ describe("Instruction aliases follow shared-surface writes", () => {
       configureInstructions(workspace, type);
       workspace.writeFile(
         "CLAUDE.md",
-        "<!-- axm:file v=1 ext=@agentxm/rules/managed-file src=AGENTS.md -->\n\n# Old copy\n",
+        "<!-- axm:file v=1 ext=@agentxm/instructions/alias src=AGENTS.md -->\n\n# Old copy\n",
       );
       return workspace
         .provide(
@@ -76,6 +76,9 @@ describe("Instruction aliases follow shared-surface writes", () => {
             expect(result._tag === "Resolved" ? result.outcome : result._tag).toBe("applied");
             const canonical = workspace.readFile("AGENTS.md");
             const alias = workspace.readFile("CLAUDE.md");
+            expect(canonical).toContain(
+              type === "hook" ? "region=hook-fallbacks" : "region=knowledge",
+            );
             expect(alias).toContain(canonical.trim());
             expect(alias).not.toContain("# Old copy");
           }),
@@ -84,16 +87,19 @@ describe("Instruction aliases follow shared-surface writes", () => {
     });
   }
 
-  it.effect("refreshes an owned alias after installing a Hook", () => {
+  it.effect("refreshes an owned alias after installing a Hook with an advisory fallback", () => {
     const world = makeInstallWorld({
-      settings: { instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false } },
+      settings: {
+        agents: ["claude-code", "windsurf"],
+        instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
+      },
     });
     cleanups.push(world.cleanup);
     world.registry.writeHook("review", [{ version: "1.0.0" }]);
     world.workspace.writeFile("AGENTS.md", "# Workspace\n");
     world.workspace.writeFile(
       "CLAUDE.md",
-      "<!-- axm:file v=1 ext=@agentxm/rules/managed-file src=AGENTS.md -->\n\n# Old copy\n",
+      "<!-- axm:file v=1 ext=@agentxm/instructions/alias src=AGENTS.md -->\n\n# Old copy\n",
     );
     return world.workspace
       .provide(
@@ -104,6 +110,7 @@ describe("Instruction aliases follow shared-surface writes", () => {
               subject: { kind: "source", source: "@acme/hooks/review" },
             }),
           );
+          expect(world.workspace.readFile("AGENTS.md")).toContain("region=hook-fallbacks");
           expect(world.workspace.readFile("CLAUDE.md")).toContain("# Workspace");
           expect(world.workspace.readFile("CLAUDE.md")).not.toContain("# Old copy");
         }),
@@ -111,9 +118,12 @@ describe("Instruction aliases follow shared-surface writes", () => {
       .pipe(Effect.provide(NodeServices.layer));
   });
 
-  it.effect("blocks a Hook install preview when an alias is unowned", () => {
+  it.effect("blocks an advisory Hook install preview when an alias is unowned", () => {
     const world = makeInstallWorld({
-      settings: { instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false } },
+      settings: {
+        agents: ["claude-code", "windsurf"],
+        instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
+      },
     });
     cleanups.push(world.cleanup);
     world.registry.writeHook("review", [{ version: "1.0.0" }]);

@@ -105,6 +105,7 @@ describe("per-extension rules over present but unusable canonical content", () =
         userHome: workspace.home,
         scope: "project",
         input: { view: "workspace" },
+        nativeView: { kind: "workspace" },
         fix: false,
       },
       { strict: false },

@@ -43,7 +43,38 @@ export const geminiCliAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
-        directory: ".agents/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".agents/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".agents/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".gemini/skills",
+            shape: "directory",
+            role: "additional",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -68,44 +99,72 @@ export const geminiCliAgent = {
           variables: "braced",
           defaults: true,
         },
+
+        locations: [
+          {
+            id: "project",
+            scope: "project",
+            root: "project",
+            path: ".gemini/settings.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "json",
+            keyPath: ["mcpServers"],
+            attribution: "agent",
+          },
+          {
+            id: "user",
+            scope: "user",
+            root: "home",
+            path: ".gemini/settings.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "json",
+            keyPath: ["mcpServers"],
+            attribution: "agent",
+          },
+        ],
+
+        entryDialect: {
+          activationField: {
+            required: null,
+            accepted: [null],
+          },
+          stdio: {
+            typeField: { required: null, accepted: [null] },
+            command: "split",
+            envKey: "env",
+          },
+          remote: {
+            typeField: { required: null, accepted: [null] },
+            urlKey: {
+              "streamable-http": "httpUrl",
+              sse: "url",
+            },
+            headersKey: "headers",
+          },
+        },
       },
       axm: {
         status: "supported",
         lastVerified: "2026-08-05",
         writer: {
           config: {
-            serversKey: "mcpServers",
-            activationField: {
-              required: null,
-              accepted: [null],
-            },
-            targets: [
-              {
-                scope: "project",
-                path: ".gemini/settings.json",
-                format: "json",
-                attribution: "agent",
-              },
-              {
-                scope: "user",
-                path: "~/.gemini/settings.json",
-                format: "json",
-                attribution: "agent",
-              },
-            ],
-            stdio: {
-              typeField: { required: null, accepted: [null] },
-              command: "split",
-              envKey: "env",
-            },
-            remote: {
-              typeField: { required: null, accepted: [null] },
-              urlKey: {
-                "streamable-http": "httpUrl",
-                sse: "url",
-              },
-              headersKey: "headers",
-            },
+            locationIds: ["project", "user"],
           },
         },
       },
@@ -119,8 +178,28 @@ export const geminiCliAgent = {
         docs: [],
         sources: ["https://github.com/google-gemini/gemini-cli/blob/main/docs/core/subagents.md"],
         scopes: ["user", "project"],
-        directory: ".gemini/agents",
-        layout: "directory",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".gemini/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".gemini/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -142,17 +221,41 @@ export const geminiCliAgent = {
         ],
         scopes: ["user", "project"],
         mechanism: ["command-stdin"],
-        configFiles: [
+        locations: [
           {
+            id: "user",
             scope: "user",
-            path: "~/.gemini/settings.json",
+            root: "home",
+            path: ".gemini/settings.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "json",
+            keyPath: ["hooks"],
             gitignored: false,
           },
           {
+            id: "project",
             scope: "project",
+            root: "project",
             path: ".gemini/settings.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "json",
+            keyPath: ["hooks"],
             gitignored: false,
           },
         ],
@@ -287,25 +390,21 @@ export const geminiCliAgent = {
             lastVerified: "2026-08-05",
           },
         ],
-      },
-      axm: {
-        status: "supported",
-        writer: {
+
+        entryDialect: {
           serializer: "command-stdin",
-          configFiles: [
-            {
-              scope: "project",
-              path: ".gemini/settings.json",
-              format: "json",
-              gitignored: false,
-            },
-          ],
-          settingsKey: "hooks",
-          eventMap: "native.events",
           matcherKind: "regex",
           matcherSerialization: "bare",
           timeoutSerialization: "milliseconds",
           commandNameSerialization: "manifest",
+        },
+      },
+      axm: {
+        status: "supported",
+        writer: {
+          locationIds: ["project"],
+
+          eventMap: "native.events",
         },
         lastVerified: "2026-08-05",
       },
@@ -326,7 +425,28 @@ export const geminiCliAgent = {
       standardsCompliance: "parity",
       convention: "vendor",
       kind: "own-file",
-      files: ["GEMINI.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "GEMINI.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+        {
+          scope: "user",
+          root: "home",
+          path: ".gemini/GEMINI.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "sources", sources: ["https://geminicli.com/docs/cli/gemini-md/"] },
+        },
+      ],
       nestedDiscovery: true,
       importSyntax: null,
     },
@@ -350,16 +470,38 @@ export const geminiCliAgent = {
       ],
       scopes: ["user", "project"],
       mechanism: ["config-file", "cli-flag"],
-      configFiles: [
+      locations: [
         {
+          id: "user",
           scope: "user",
-          path: "~/.gemini/settings.json",
+          root: "home",
+          path: ".gemini/settings.json",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "json",
           gitignored: false,
         },
         {
+          id: "project",
           scope: "project",
+          root: "project",
           path: ".gemini/settings.json",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "json",
           gitignored: false,
         },
@@ -395,7 +537,7 @@ export const geminiCliAgent = {
       writer: {
         grants: {
           shell: {
-            target: "~/.gemini/settings.json",
+            destination: { kind: "location", locationId: "user" },
             patch: {
               security: {
                 folderTrust: {

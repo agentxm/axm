@@ -64,6 +64,7 @@ export const projectSelection = (fixture: LintWorkspaceFixture, fix = false) => 
   userHome: fixture.root,
   scope: "project" as const,
   input: { view: "workspace" as const },
+  nativeView: { kind: "workspace" as const },
   fix,
 });
 

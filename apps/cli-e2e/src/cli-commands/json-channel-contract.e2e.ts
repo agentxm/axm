@@ -173,7 +173,7 @@ describe("JSON-mode channel contract (--json)", () => {
         expect(stdoutDocument["ok"]).toBe(false);
         expect(stdoutDocument["result"]).toEqual(
           expect.objectContaining({
-            contract: "plan-result-v3",
+            contract: "plan-result-v4",
             outcome: "blocked",
             mode: "apply",
             blocking: expect.objectContaining({

@@ -164,6 +164,7 @@ export const resolveInterruption = (
   const recovery: OperationRecovery | undefined =
     disposition === "retained" || disposition === "unknown"
       ? {
+          entries: [],
           retained: committed.flatMap((unit) =>
             unit.artifact === undefined ? [unit.id] : [unit.artifact.path],
           ),

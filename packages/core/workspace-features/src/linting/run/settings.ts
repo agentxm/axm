@@ -16,6 +16,7 @@ import {
   resolveInstructionsConfig,
 } from "@agentxm/workspace-kernel/projection";
 import { type LintConfig, composePath } from "@agentxm/extension-content/lint";
+import type { NativeDirectoryInputs } from "@agentxm/workspace-kernel/locations";
 import type { Settings } from "@agentxm/workspace-kernel/workspace-state";
 import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { LintSummary } from "../runner.js";
@@ -43,6 +44,7 @@ export const remapLintSummaryPaths = (
 ): LintSummary => ({
   ...summary,
   findings: summary.findings.map((entry) => {
+    const remapText = (value: string) => value.split(sourceRoot).join(displayRoot);
     const remappedDisplayRoot = remapAbsolutePath(entry.displayRoot, sourceRoot, displayRoot, path);
     const location = entry.finding.location;
     const remappedLocation =
@@ -55,11 +57,13 @@ export const remapLintSummaryPaths = (
     return {
       ...entry,
       displayRoot: remappedDisplayRoot,
+      ruleDescription: remapText(entry.ruleDescription),
       path: composePath(remappedDisplayRoot, remappedLocation),
-      finding:
-        remappedLocation === undefined
-          ? entry.finding
-          : { ...entry.finding, location: remappedLocation },
+      finding: {
+        ...entry.finding,
+        message: remapText(entry.finding.message),
+        ...(remappedLocation === undefined ? {} : { location: remappedLocation }),
+      },
     };
   }),
 });
@@ -116,6 +120,7 @@ export const applyDeterminedRepairs = (args: {
   readonly workspaceRoot: string;
   readonly scope: WorkspaceScope;
   readonly settings: Option.Option<Settings>;
+  readonly nativeDirectoryInputs: NativeDirectoryInputs;
 }) =>
   Effect.gen(function* () {
     const none: ReadonlyArray<string> = [];
@@ -124,6 +129,7 @@ export const applyDeterminedRepairs = (args: {
     if (instructionFiles === undefined || instructionFiles === false) return none;
     yield* reconcileInstructions({
       workspaceRoot: args.workspaceRoot,
+      nativeDirectoryInputs: args.nativeDirectoryInputs,
       scope: args.scope,
       configuredAgents: args.settings.value.agents ?? [],
       config: resolveInstructionsConfig(instructionFiles),

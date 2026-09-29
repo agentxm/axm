@@ -137,7 +137,7 @@ describe("hook configured-agent outcomes", () => {
       expect(snapshotTree(temp.path)).toEqual(beforePreview);
       expect(JSON.parse(preview.stdout)).toMatchObject({
         ok: true,
-        result: { contract: "plan-result-v3", outcome: "previewed", mode: "preview" },
+        result: { contract: "plan-result-v4", outcome: "previewed", mode: "preview" },
       });
       expect(agentOutcomes(preview.stdout)).toMatchObject([
         { name: "audit", agentId: "claude-code", outcome: "projected", mechanism: "native" },
@@ -157,7 +157,7 @@ describe("hook configured-agent outcomes", () => {
       expect(JSON.parse(applied.stdout)).toMatchObject({
         ok: true,
         result: {
-          contract: "plan-result-v3",
+          contract: "plan-result-v4",
           outcome: "applied",
           mode: "apply",
           counts: { total: 1, committed: 1, failed: 0, blocked: 0 },
@@ -235,24 +235,35 @@ describe("hook configured-agent outcomes", () => {
         { on: "tool.pre", requires: { decision: { kind: "block" } } },
       ]);
       const beforeBlocked = snapshotTree(temp.path);
-      const blockedApply = await runCli(
-        ["hooks", "install", blocked, "--hook", "enforce", "--json", "--non-interactive"],
-        { cwd: temp.path },
-      );
-      expect(blockedApply.exitCode, blockedApply.stdout + blockedApply.stderr).toBe(6);
-      expect(JSON.parse(blockedApply.stdout)).toMatchObject({
-        ok: false,
-        result: {
-          contract: "plan-result-v3",
-          outcome: "blocked",
-          blocking: { class: "precondition-unmet", subject: "hook:enforce" },
-          counts: { committed: 0 },
-        },
-      });
-      expect(agentOutcomes(blockedApply.stdout)).toContainEqual(
-        expect.objectContaining({ name: "enforce", agentId: "windsurf", outcome: "blocked" }),
-      );
-      expect(snapshotTree(temp.path)).toEqual(beforeBlocked);
+      for (const flags of [["--preview"], []]) {
+        const refused = await runCli(
+          [
+            "hooks",
+            "install",
+            blocked,
+            "--hook",
+            "enforce",
+            ...flags,
+            "--json",
+            "--non-interactive",
+          ],
+          { cwd: temp.path },
+        );
+        expect(refused.exitCode, refused.stdout + refused.stderr).toBe(9);
+        expect(JSON.parse(refused.stdout)).toMatchObject({
+          ok: false,
+          code: "validation",
+          detail: "Hook native locations cannot realize the proposed content",
+          cause: [
+            {
+              _tag: "HookDefinitionInvalid",
+              message:
+                "Hook enforce is blocked for windsurf: No native Hook writer is declared for the selected scope. Advisory fallback cannot preserve block decisions.",
+            },
+          ],
+        });
+        expect(snapshotTree(temp.path)).toEqual(beforeBlocked);
+      }
     } finally {
       temp.cleanup();
     }

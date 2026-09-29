@@ -179,7 +179,7 @@ export const planSkillUninstall: (
     configuredAgents,
     (agent) =>
       agent
-        .resolveEffectiveSkillsDir({ workspaceRoot: location.baseDir })
+        .resolveEffectiveSkillsDir({ workspaceRoot: location.baseDir, scope: location.scope })
         .pipe(Effect.map((outcome) => ({ agentId: agent.id, outcome }))),
     // eslint-disable-next-line axm-policy/no-unbounded-io -- configured agents are a subset of the fixed agent catalog
     { concurrency: "unbounded" },
@@ -252,7 +252,7 @@ export const planSkillUninstall: (
           // The settlement says what the removal withdrew, so a package
           // retained for a pack — or one that was never there — is reported
           // from the settlement rather than read out of a sentence.
-          buildArtifact: ({ settlement }) => {
+          buildArtifact: ({ settlement, unmaterialization }) => {
             if (settlement.declaration === "absent") {
               return Effect.succeed({ ...removedArtifact, change: "unchanged" as const });
             }
@@ -264,7 +264,33 @@ export const planSkillUninstall: (
               // even though nothing on disk was deleted.
               return Effect.succeed({ ...retainedArtifact, change: "updated" as const });
             }
-            return Effect.succeed(removedArtifact);
+            const observation = Option.getOrUndefined(
+              Option.map(unmaterialization, (facts) => facts.observation),
+            );
+            return Effect.succeed({
+              ...removedArtifact,
+              ...(observation === undefined
+                ? {}
+                : {
+                    agents: observation.agents,
+                    nativeLocations: observation.nativeLocations,
+                    targets: [
+                      { path: lockfileDisplayPath(location.scope), change: "updated" as const },
+                      { path: settingsDisplayPath(location.scope), change: "updated" as const },
+                      sourceTarget,
+                      ...observation.targets.map((target) => ({
+                        ...target,
+                        change: observation.nativeLocations?.some(
+                          (native) =>
+                            native.address.path === path.resolve(location.baseDir, target.path) &&
+                            native.state === "retained",
+                        )
+                          ? ("updated" as const)
+                          : ("removed" as const),
+                      })),
+                    ],
+                  }),
+            });
           },
         });
         return {

@@ -23,14 +23,21 @@ const expectedSkillAgentIdsFor = (
 ): ReadonlyArray<string> => {
   const observedDirs = agentIds.flatMap((agentId) => {
     const skills = AGENT_DESCRIPTORS[agentId].skills;
-    return skills === undefined ? [] : [skills.dir];
+    return skills === undefined
+      ? []
+      : skills.locations
+          .filter((location) => location.scope === "project" && location.role === "primary")
+          .map((location) => location.path);
   });
   return observedDirs
     .flatMap((observedDir) =>
       Object.values(AGENT_DESCRIPTORS).flatMap((agent) => {
         const skills = agent.skills;
         return skills !== undefined &&
-          [skills.dir, ...skills.additionalReadPaths.map(({ path }) => path)].includes(observedDir)
+          skills.locations
+            .filter((location) => location.scope === "project")
+            .map(({ path }) => path)
+            .includes(observedDir)
           ? [agent.id]
           : [];
       }),
@@ -49,6 +56,7 @@ const runScanner = (
     const occurrences = yield* makeAgentDirScanner(
       options?.agentRegistry === undefined
         ? {
+            nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
             fs: deps.fs,
             path: deps.path,
             workspaceRoot: spec.workspaceRoot,
@@ -56,6 +64,7 @@ const runScanner = (
             diagnostics: diag,
           }
         : {
+            nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
             fs: deps.fs,
             path: deps.path,
             workspaceRoot: spec.workspaceRoot,
@@ -100,7 +109,7 @@ layer(Path.layer, { excludeTestServices: true })("agent-dir scanner", (it) => {
             ...AGENT_DESCRIPTORS,
             codemaker: {
               ...codemakerDescriptor,
-              skills: { dir: "", additionalReadPaths: [] },
+              skills: { locations: [], scopes: ["project"], writerSupported: true },
             },
           },
         },
@@ -235,7 +244,22 @@ layer(Path.layer, { excludeTestServices: true })("agent-dir scanner", (it) => {
             ...AGENT_DESCRIPTORS,
             codex: {
               ...codexDescriptor,
-              subagents: { dir: ".agents/agents", scopes: ["user", "project"] },
+              subagents: {
+                locations: [
+                  {
+                    scope: "project",
+                    root: "project",
+                    path: ".agents/agents",
+                    shape: "directory",
+                    role: "primary",
+                    status: "canonical",
+                    applicability: { kind: "always" },
+                    provenance: { kind: "capability-sources" },
+                  },
+                ],
+                scopes: ["user", "project"],
+                writerSupported: true,
+              },
             },
           },
         },
@@ -260,11 +284,22 @@ layer(Path.layer, { excludeTestServices: true })("agent-dir scanner", (it) => {
       const fakeAgent = {
         ...rooDescriptor,
         subagents: {
-          dir: ".roo/agent-file.txt",
+          locations: [
+            {
+              scope: "project",
+              root: "project",
+              path: ".roo/agent-file.txt",
+              shape: "file",
+              role: "primary",
+              status: "canonical",
+              applicability: { kind: "always" },
+              provenance: { kind: "capability-sources" },
+            },
+          ],
+          writerSupported: false,
           scopes: rooDescriptor.subagents?.scopes ?? ["project"],
-          isFile: true,
         },
-      };
+      } satisfies typeof rooDescriptor;
       const { occurrences } = yield* runScanner(
         {
           workspaceRoot: WORKSPACE_ROOT,

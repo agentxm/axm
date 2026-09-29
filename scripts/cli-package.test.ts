@@ -58,6 +58,44 @@ describe("compiled CLI package composition", () => {
     }),
   );
 
+  it.effect("keeps the tested Effect platform pair inside the CLI package", () =>
+    Effect.gen(function* () {
+      const result = yield* composeCliManifest(
+        {
+          ...cli,
+          dependencies: {
+            ...cli.dependencies,
+            "@effect/platform-node": "4.0.0-rc.115",
+            "@effect/platform-node-shared": "4.0.0-rc.115",
+          },
+        },
+        [
+          {
+            name: "@effect/platform-node",
+            version: "4.0.0-rc.115",
+            dependencies: {
+              "@effect/platform-node-shared": "^4.0.0-rc.115",
+              undici: "^8.10.2",
+            },
+            peerDependencies: {},
+          },
+          {
+            name: "@effect/platform-node-shared",
+            version: "4.0.0-rc.115",
+            dependencies: { ws: "^8.21.3" },
+            peerDependencies: {},
+          },
+        ],
+      );
+      expect(result.dependencies).toEqual({
+        "@fixture/update": "^0.0.1",
+        effect: "4.0.0-rc.115",
+        undici: "^8.10.2",
+        ws: "^8.21.3",
+      });
+    }),
+  );
+
   it.effect(
     "preserves optional dependencies and promotes a dependency when another owner requires it",
     () =>

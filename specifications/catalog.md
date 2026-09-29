@@ -6124,6 +6124,19 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Bound evidence: `test: axm:test (scripts/release-publication.test.ts, scripts/update-homebrew-formula.test.ts)` — Exercises publication boundary outcomes, bounded readback after ambiguous owner responses, and no repeated conditional mutation.
 - Source: [`scripts/release-workflow-reports-publication-state.spec.ts`](../scripts/release-workflow-reports-publication-state.spec.ts)
 
+##### Stable CLI verifies clean package-manager installs
+
+- Requirement: `system/process/stable-cli-verifies-clean-package-installs`
+- Owner: `axm`
+- Statement: A stable CLI release shall verify that its published npm package executes from clean global npm, pnpm, and Yarn Classic installations and reports the exact release version; failure of any declared verification shall prevent the release from being reported complete.
+- Class: process
+- Role: supporting
+- Product goals: `trustworthy-distribution`, `dependable-change-process`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The canonical publication workflow owns clean-install verification and its completion gate.
+- Methods: contract
+- Source: [`scripts/stable-cli-verifies-clean-package-installs.spec.ts`](../scripts/stable-cli-verifies-clean-package-installs.spec.ts)
+
 ### Goal: workspace-intent-fidelity
 
 Workspace state always reflects explicitly expressed intent, authority, and ownership — never inference, accident, or unauthorized adoption.

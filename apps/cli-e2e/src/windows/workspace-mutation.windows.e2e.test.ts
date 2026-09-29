@@ -111,6 +111,8 @@ describe("Windows workspace mutation contract", () => {
           { cwd: workspace.path, env },
         ),
       );
+      const hermesConfig = path.join(userHome, ".hermes", "config.yaml");
+      expect(fs.existsSync(hermesConfig)).toBe(false);
       expectSuccess(
         await runCli(
           [
@@ -127,7 +129,6 @@ describe("Windows workspace mutation contract", () => {
           { cwd: workspace.path, env },
         ),
       );
-      const hermesConfig = path.join(userHome, ".hermes", "config.yaml");
       expect(YAML.parse(fs.readFileSync(hermesConfig, "utf8"))).toMatchObject({
         mcp_servers: {
           "windows-user-demo": { command: "node", args: ["user-server.js"] },
@@ -147,9 +148,7 @@ describe("Windows workspace mutation contract", () => {
           { cwd: workspace.path, env },
         ),
       );
-      expect(YAML.parse(fs.readFileSync(hermesConfig, "utf8"))).not.toMatchObject({
-        mcp_servers: { "windows-user-demo": expect.anything() },
-      });
+      expect(fs.existsSync(hermesConfig)).toBe(false);
 
       const install = expectSuccess(
         await runCli(

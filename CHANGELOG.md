@@ -1,3 +1,23 @@
+## 0.37.0 (2026-09-29)
+
+### 🚀 Features
+
+- Report CLI failures as a bounded, privacy-preserving telemetry report with an inspectable preview mode. An opted-in invocation sends at most one error report, carrying only an allowlisted failure kind, category, class, and handled flag, the time it occurred, the phase, command name, client facts, and random correlation IDs, never messages, stack traces, arguments, paths, or environment values. `AXM_TELEMETRY_PREVIEW=1` prints each would-be telemetry payload to stderr and sends nothing. ([2589d171f](https://github.com/agentxm/axm/commit/2589d171f))
+- Publish from GitHub Actions without a stored secret. In a job granted `permissions: id-token: write`, AXM exchanges the job's GitHub Actions ID token, requested for the default Registry's origin, for a short-lived workload token scoped to the matching trusted publisher, once per invocation, only when a command needs a credential, and after `AXM_TOKEN` and `AXM_TOKEN_FILE`; reads that need no credential stay anonymous, and `AXM_TRUSTED_PUBLISHING=0` turns the exchange off. `axm whoami` names the trusted publisher, `axm token --output token` writes the workload token, and a job the Registry cannot accept fails with `auth_required` naming the missing permission or trusted publisher. A refused scope or resource limit on a workload token now points at the trusted publisher's permissions, and error reports redact AgentXM session, refresh, personal access, and workload tokens wherever they appear. ([ad53d9273](https://github.com/agentxm/axm/commit/ad53d9273))
+
+### 🩹 Fixes
+
+- Git-backed commands and `axm publish` source-state checks no longer fail when the shell exports `EDITOR`, `VISUAL`, `GIT_EDITOR`, or `GIT_SEQUENCE_EDITOR`. When publish cannot assess an extension's source state, it now reports Git's reason, with URL passwords redacted. ([32c90f4ff](https://github.com/agentxm/axm/commit/32c90f4ff))
+- `axm lint` judges official AXM skill compatibility only from the package the workspace's settings and lock state select, so a stale extra copy on disk no longer fails or rescues it, and findings name that package's path. `axm skills install @agentxm/skills/axm --bundled` now verifies the installed skill bytes and restores the workspace if they are not the bundled, compatible release. ([a0407bcd4](https://github.com/agentxm/axm/commit/a0407bcd4))
+
+### ⚠️ Breaking Changes
+
+- Model native agent read locations independently of AXM writers and report physical ownership, writer capabilities, conflicts, and recovery in plan-result-v4. Guard shared native mutations against every known reader and captured filesystem boundary, preserve concurrent changes during rollback, and restore eligible new-intent insertions exactly when withdrawn. Capture native roots once per invocation and keep staged lint observations within their indexed view. ([ac57f5f46](https://github.com/agentxm/axm/commit/ac57f5f46))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.36.0 (2026-09-27)
 
 ### 🚀 Features

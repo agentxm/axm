@@ -4,6 +4,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import type * as PlatformError from "effect/PlatformError";
+import { nativeInode } from "./native-inode.js";
 
 export class NativeLocationError extends Data.TaggedError("NativeLocationError")<{
   readonly target: string;
@@ -26,7 +27,7 @@ export interface NativeEntryAddress {
   readonly kind: "absent" | "symlink" | "file" | "directory" | "other";
   readonly linkTarget: string | undefined;
   readonly device: number | undefined;
-  readonly inode: number | undefined;
+  readonly inode: string | undefined;
   readonly links: number | undefined;
 }
 
@@ -112,6 +113,9 @@ export const resolveNativeEntry = (
       : Option.isSome(link)
         ? undefined
         : entryPath;
+    const inode = Option.isSome(info)
+      ? yield* nativeInode(entryPath, info.value)
+      : Option.none<string>();
     return {
       lexicalPath,
       // realPath supplies actual spelling for existing non-links, including case aliases.
@@ -128,7 +132,7 @@ export const resolveNativeEntry = (
               : "other",
       linkTarget: Option.getOrUndefined(link),
       device: Option.isSome(info) ? info.value.dev : undefined,
-      inode: Option.isSome(info) ? Option.getOrUndefined(info.value.ino) : undefined,
+      inode: Option.getOrUndefined(inode),
       links: Option.isSome(info) ? Option.getOrUndefined(info.value.nlink) : undefined,
     };
   });
@@ -159,6 +163,16 @@ export const assertNoPhysicalOverlap = (
       sourceAddress.inode !== undefined &&
       sourceAddress.inode === targetAddress.inode &&
       sourceAddress.device === targetAddress.device;
+    if (
+      sourceAddress.kind === "file" &&
+      targetAddress.kind === "file" &&
+      (sourceAddress.inode === undefined || targetAddress.inode === undefined)
+    )
+      return yield* new NativeLocationError({
+        target,
+        reason: "unreadable",
+        cause: "source-or-target-identity-unavailable",
+      });
     if (
       sameInode ||
       pathsOverlap(path, sourcePath, targetPath) ||

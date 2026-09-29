@@ -12,10 +12,11 @@ import {
   resolveNativeEntry,
   resolveNativeReferent,
 } from "./native-address.js";
+import { nativeInode } from "./native-inode.js";
 
 const EntryIdentity = Schema.Struct({
   device: Schema.Number,
-  inode: Schema.Number,
+  inode: Schema.String,
   birthtime: Schema.Number,
   mode: Schema.Number,
 });
@@ -87,28 +88,29 @@ export interface ContainerIdentityContext {
   readonly aliases?: ReadonlyArray<string>;
 }
 
-const identityOf = (target: string, info: FileSystem.File.Info) => {
-  if (
-    Option.isNone(info.ino) ||
-    info.ino.value <= 0 ||
-    Option.isNone(info.birthtime) ||
-    info.birthtime.value.getTime() <= 0
-  ) {
-    return Effect.fail(
-      new NativeLocationError({
-        target,
-        reason: "unreadable",
-        cause: "entry-identity-unavailable",
-      }),
-    );
-  }
-  return Effect.succeed({
-    device: info.dev,
-    inode: info.ino.value,
-    birthtime: info.birthtime.value.getTime(),
-    mode: info.mode,
+const identityOf = (target: string, info: FileSystem.File.Info) =>
+  Effect.gen(function* () {
+    const inode = yield* nativeInode(target, info);
+    if (
+      Option.isNone(inode) ||
+      Option.isNone(info.birthtime) ||
+      info.birthtime.value.getTime() <= 0
+    ) {
+      return yield* Effect.fail(
+        new NativeLocationError({
+          target,
+          reason: "unreadable",
+          cause: "entry-identity-unavailable",
+        }),
+      );
+    }
+    return {
+      device: info.dev,
+      inode: inode.value,
+      birthtime: info.birthtime.value.getTime(),
+      mode: info.mode,
+    };
   });
-};
 
 /** Capture proof only after a successful managed creation/publication. */
 export const captureContainerIdentity = (

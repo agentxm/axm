@@ -11,6 +11,7 @@ import {
   resolveNativeReferent,
   type NativeEntryAddress,
 } from "./native-address.js";
+import { nativeInode } from "./native-inode.js";
 
 /** Only roots captured from the selected scope's explicit native inputs grant authority. */
 export const nativeAuthorityRoots = (
@@ -44,7 +45,8 @@ const directoryIdentity = (target: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const info = yield* fs.stat(target);
-    if (info.type !== "Directory" || Option.isNone(info.ino) || Option.isNone(info.birthtime)) {
+    const inode = yield* nativeInode(target, info);
+    if (info.type !== "Directory" || Option.isNone(inode) || Option.isNone(info.birthtime)) {
       return yield* new NativeLocationError({
         target,
         reason: "unreadable",
@@ -53,7 +55,7 @@ const directoryIdentity = (target: string) =>
     }
     return {
       device: info.dev,
-      inode: info.ino.value,
+      inode: inode.value,
       birthtime: info.birthtime.value.getTime(),
       mode: info.mode,
     };
@@ -68,14 +70,14 @@ export interface NativeAuthorityRootWitness {
     readonly anchorPath: string;
     readonly anchor: {
       readonly device: number;
-      readonly inode: number;
+      readonly inode: string;
       readonly birthtime: number;
       readonly mode: number;
     };
     readonly parentPath: string;
     readonly parent: {
       readonly device: number;
-      readonly inode: number;
+      readonly inode: string;
       readonly birthtime: number;
       readonly mode: number;
     };

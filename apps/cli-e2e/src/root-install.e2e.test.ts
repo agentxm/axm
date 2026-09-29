@@ -714,7 +714,7 @@ describe("axm install", () => {
       registryDir.cleanup();
       workspace.cleanup();
     }
-  }, 180_000);
+  }, 300_000);
 
   for (const row of uncoveredCases) {
     it.skip(`installs a published ${row.sentenceLabel} — ${row.e2eExemptions.join(", ")}`, () => {

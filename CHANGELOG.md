@@ -1,3 +1,13 @@
+## 0.37.1 (2026-09-29)
+
+### 🚀 Features
+
+- Fix Yarn Classic global installs by bundling the tested Effect Node runtime ([982c1c16b](https://github.com/agentxm/axm/commit/982c1c16b))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.37.0 (2026-09-29)
 
 ### 🚀 Features

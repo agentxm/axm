@@ -52,19 +52,21 @@ export const qoderAgent = {
       native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Qoder CLI 1.1.64 expands braced environment references and unset-variable defaults in MCP headers and stdio env values.",
         docs: [],
         sources: [
           "https://docs.qoder.com/user-guide/chat/model-context-protocol",
           "https://docs.qoder.com/cli/mcp-servers",
+          "https://unpkg.com/@qoder-ai/qodercli@1.1.64/bundle/qodercli.js",
         ],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
         transports: ["stdio", "http", "sse"],
         mcpEnvExpansion: {
-          variables: "none",
-          defaults: false,
+          variables: "braced",
+          defaults: true,
         },
 
         locations: [
@@ -148,7 +150,7 @@ export const qoderAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
+        lastVerified: "2026-09-29",
         writer: {
           config: {
             locationIds: ["user", "project"],

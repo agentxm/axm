@@ -182,33 +182,30 @@ describe("mcps import output", () => {
     );
   });
 
-  it.effect(
-    "refuses an import whose symbolic secret is incompatible with a shared native reader",
-    () => {
-      writeWorkspaceFiles(path.join(tempDir, ".axm"));
-      const settingsBefore = fs.readFileSync(path.join(tempDir, "axm.json"), "utf8");
-      const configBefore = JSON.stringify({
-        mcpServers: {
-          demo: { command: "node", args: ["server.js"], env: { TOKEN: "private-value" } },
-        },
-      });
-      fs.writeFileSync(path.join(tempDir, ".mcp.json"), configBefore);
-      const { provide, promptState } = makeLayers({ machine: true });
-      return provide(
-        Effect.gen(function* () {
-          const failure = yield* handleMcpsImport({ preview: false }).pipe(Effect.flip);
-          expect(failure).toMatchObject({
-            code: "conflict",
-            detail: expect.stringContaining("command-code"),
-          });
-          expect(JSON.stringify(failure)).not.toContain("private-value");
-          expect(promptState.confirmCalls).toEqual([]);
-          expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsBefore);
-          expect(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8")).toBe(configBefore);
-        }),
-      );
-    },
-  );
+  it.effect("imports a symbolic secret accepted by every shared native reader", () => {
+    writeWorkspaceFiles(path.join(tempDir, ".axm"));
+    const configBefore = JSON.stringify({
+      mcpServers: {
+        demo: { command: "node", args: ["server.js"], env: { TOKEN: "private-value" } },
+      },
+    });
+    fs.writeFileSync(path.join(tempDir, ".mcp.json"), configBefore);
+    const { provide, rendererState } = makeLayers({ machine: true });
+    return provide(
+      Effect.gen(function* () {
+        yield* handleMcpsImport({ preview: false });
+        expect(rendererState.results[0]?.data).toMatchObject({
+          result: { imports: { imported: 1, skipped: 0, conflicting: 0 } },
+        });
+        const settings = fs.readFileSync(path.join(tempDir, "axm.json"), "utf8");
+        const native = fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8");
+        expect(settings).toContain("${TOKEN}");
+        expect(native).toContain("${TOKEN}");
+        for (const output of [settings, native, JSON.stringify(rendererState.results)])
+          expect(output).not.toContain("private-value");
+      }),
+    );
+  });
 
   it.effect("adopts a home-relative YAML target in user scope", () => {
     const homeDir = path.join(tempDir, "home");

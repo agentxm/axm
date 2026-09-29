@@ -329,28 +329,72 @@ describe("authority at shared MCP files", () => {
       expect(yield* fs.readFileString(file)).toBe("{}\n");
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
-  it.effect("refuses secret references an unconfigured co-reader would interpret differently", () =>
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const root = yield* fs.makeTempDirectoryScoped();
-      const authority = yield* makeRecordingNativeWriteAuthority;
-      const result = yield* syncInlineMcpServerToAgents(["claude-code"], {
-        workspaceRoot: root,
-        nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
-        serverName: "context",
-        nativeInsertionEligible: true,
-        entry: { kind: "inline", command: "node", env: { TOKEN: "${TOKEN}" }, enabled: true },
-      }).pipe(Effect.result, Effect.provide(authority.layer));
-      expect(result._tag).toBe("Failure");
-      if (result._tag === "Failure")
-        expect(result.failure).toMatchObject({
-          _tag: "McpSharedTargetConflict",
-          reason: expect.stringContaining("command-code"),
-        });
-      expect((yield* authority.observed).records).toEqual([]);
-      expect(yield* fs.exists(path.join(root, ".mcp.json"))).toBe(false);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  for (const entry of [
+    { kind: "inline", command: "node", env: { TOKEN: "${TOKEN}" }, enabled: true },
+    {
+      kind: "inline",
+      url: "https://mcp.example.test/mcp",
+      headers: { Authorization: "Bearer ${TOKEN}" },
+      env: {},
+      enabled: true,
+    },
+  ] as const) {
+    it.effect(
+      `shares ordinary references with all native ${"command" in entry ? "stdio" : "HTTP"} readers`,
+      () =>
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const path = yield* Path.Path;
+          const root = yield* fs.makeTempDirectoryScoped();
+          const authority = yield* makeRecordingNativeWriteAuthority;
+          const outcomes = yield* syncInlineMcpServerToAgents(
+            ["claude-code", "github-copilot-cli"],
+            {
+              workspaceRoot: root,
+              nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+              serverName: "context",
+              nativeInsertionEligible: true,
+              entry,
+            },
+          ).pipe(Effect.provide(authority.layer));
+          expect(outcomes.map((outcome) => outcome._tag)).toEqual(["success", "success"]);
+          expect((yield* authority.observed).records).toHaveLength(1);
+          const native = yield* fs.readFileString(path.join(root, ".mcp.json"));
+          expect(native).toContain("${TOKEN}");
+          expect(native).toContain('"x-axm"');
+        }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    );
+  }
+
+  it.effect(
+    "refuses default references an unconfigured co-reader would interpret differently",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* fs.makeTempDirectoryScoped();
+        const authority = yield* makeRecordingNativeWriteAuthority;
+        const result = yield* syncInlineMcpServerToAgents(["claude-code"], {
+          workspaceRoot: root,
+          nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+          serverName: "context",
+          nativeInsertionEligible: true,
+          entry: {
+            kind: "inline",
+            command: "node",
+            env: { TOKEN: "${TOKEN:-fallback}" },
+            enabled: true,
+          },
+        }).pipe(Effect.result, Effect.provide(authority.layer));
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure")
+          expect(result.failure).toMatchObject({
+            _tag: "McpSharedTargetConflict",
+            reason: expect.stringContaining("github-copilot-cli"),
+          });
+        expect((yield* authority.observed).records).toEqual([]);
+        expect(yield* fs.exists(path.join(root, ".mcp.json"))).toBe(false);
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
   it.effect("new membership authorizes only newly reached physical files", () =>

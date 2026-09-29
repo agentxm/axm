@@ -150,6 +150,11 @@
       "types": "./dist/src/reconciliation/testing.d.ts",
       "axm-source": "./src/reconciliation/testing.ts",
       "default": "./dist/src/reconciliation/testing.js"
+    },
+    "./locations": {
+      "types": "./dist/src/locations/index.d.ts",
+      "axm-source": "./src/locations/index.ts",
+      "default": "./dist/src/locations/index.js"
     }
   },
   "files": [

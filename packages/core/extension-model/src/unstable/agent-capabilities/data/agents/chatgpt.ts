@@ -61,6 +61,10 @@ export const chatgptAgent = {
         standardsCompliance: "full",
         convention: "hosted",
         transports: ["http"],
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -111,7 +115,7 @@ export const chatgptAgent = {
       ],
       scopes: ["user"],
       mechanism: ["ui-only"],
-      configFiles: [],
+      locations: [],
       grammar: null,
       prerequisites: [],
       cliFlags: [],

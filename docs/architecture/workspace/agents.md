@@ -55,15 +55,21 @@ support decisions and paths from that catalog. A missing Skill descriptor means
 AXM has no verified writable Skill surface; AXM does not synthesize a directory
 from the agent ID.
 
-Agents use one catalog-driven runtime adapter for common Skill, MCP, and
-subagent behavior. A small override table carries only irreducible native
-differences such as an environment-selected directory, a renderer identifier,
-or a single-file storage format. Adding an agent or changing its ordinary
-capability does not require a bespoke service module.
+Native reader declarations identify scope, root anchor, path, storage shape,
+role, applicability, and evidence. Primary locations and additional readers
+remain distinct. User scope resolves against captured user and configuration
+roots; missing user-scope evidence never falls back to a project path.
+Environment-selected locations use inputs captured at the workspace boundary.
+
+Agents use catalog-driven adapters for common Skill, MCP, and Subagent
+behavior. Writer support also requires the declared shape and renderer to be
+implemented. A known native reader can therefore remain an unsupported AXM
+writer. Adding an agent's ordinary capability does not require a bespoke
+service module.
 
 The workspace read model follows the same boundary. Its common declared,
 actual, and detected projectors are generated from the catalog. Agent-specific
-native configuration belongs in catalog data or the bounded runtime override,
+native configuration belongs in catalog data and captured location inputs,
 not in placeholder per-agent projection modules or phantom configuration types.
 
 ## Invariants
@@ -76,7 +82,7 @@ not in placeholder per-agent projection modules or phantom configuration types.
   weakening it.
 - Removing an agent removes only outputs AXM can still prove it owns.
 - Every support claim and default native path is derivable from the capability
-  catalog; runtime overrides describe behavior the catalog cannot express.
+  catalog; conditional location inputs remain explicit and captured.
 
 ## Testing strategy
 

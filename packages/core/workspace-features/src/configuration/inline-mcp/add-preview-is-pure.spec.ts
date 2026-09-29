@@ -54,9 +54,8 @@ describe("Inline MCP server add preview purity", () => {
             resolution: {
               name: "Add MCP server",
               units: [
-                expect.objectContaining({ label: "Configure demo", state: "ready" }),
                 expect.objectContaining({
-                  label: "Sync demo to configured agents",
+                  label: "Configure and project demo",
                   state: "ready",
                 }),
               ],

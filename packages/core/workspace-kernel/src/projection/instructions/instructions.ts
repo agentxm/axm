@@ -1,3 +1,15 @@
+import type {
+  InstructionMechanism,
+  InstructionHealth,
+  InstructionTargetOwnership,
+  ObservedInstructionForm,
+  InstructionStatusItem,
+} from "./instruction-status.js";
+import { createHash } from "node:crypto";
+import {
+  instructionChangeLocations,
+  observeInstructionNativeLocations,
+} from "./native-outcomes.js";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -14,10 +26,28 @@ import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-f
 import { DISCOVERY_SKIPPED_DIRECTORIES } from "@agentxm/extension-model/unstable/discovery-walk";
 import { AXM_DIR_NAME } from "@agentxm/host-primitives";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import { protectWorkspacePath } from "../../settlement/index.js";
+import {
+  protectWorkspacePath,
+  protectCreatedAncestors,
+  retireWorkspacePath,
+  createWorkspaceDirectories,
+  removeEmptyRuntimeDirectories,
+} from "../../settlement/index.js";
+import {
+  assertNativeMutationWithin,
+  assertNativeMutationWithinRoots,
+  nativeAuthorityRoots,
+  captureContainerIdentity,
+  verifyContainerIdentity,
+  deriveStructuralInverse,
+  resolveNativeEntry,
+  resolveNativeReadLocation,
+  type NativeDirectoryInputs,
+  type NativeLocationOutcome,
+} from "../../locations/index.js";
 import { recordFootprint } from "../../settlement/index.js";
 import { projectionGeneration } from "../generation.js";
-import { reconcilePatternList } from "../../agent-adapters/index.js";
+import { NativeWriteAuthority, reconcilePatternList } from "../../agent-adapters/index.js";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import type {
   AgentDescriptor,
@@ -52,41 +82,6 @@ const isGitManaged = (
 export interface ResolvedInstructionsConfig {
   readonly fileName: string;
   readonly gitignoreAliases: boolean;
-}
-
-/**
- * How AXM realizes an instruction target. `none` marks a configured agent
- * with no projectable convention, so nothing is written or inspected for it.
- */
-export type InstructionMechanism = "native" | "symlink" | "copy" | "adapter" | "none";
-
-export type InstructionHealth =
-  "ok" | "missing-source" | "missing-target" | "drift" | "broken-link" | "unsupported" | "stale";
-
-/**
- * Ownership of whatever occupies an instruction target path, proven by
- * inspection alone: a symlink that resolves to the canonical source, or an
- * `axm:file` banner. Nothing is remembered between commands. `unowned` is a
- * collision with content AXM did not produce; it is reported and never
- * modified.
- */
-export type InstructionTargetOwnership = "absent" | "owned-current" | "owned-drift" | "unowned";
-
-/** The form present at a target path — what is on disk, not what sync would choose. */
-export type ObservedInstructionForm =
-  "none" | "symlink" | "broken-link" | "copy" | "file" | "directory";
-
-export interface InstructionStatusItem {
-  readonly root: string;
-  readonly agentId: MaterializationTargetId;
-  readonly agentName: string;
-  readonly sourceFile: string;
-  readonly targetFile: string;
-  readonly mechanism: InstructionMechanism;
-  readonly health: InstructionHealth;
-  readonly ownership: InstructionTargetOwnership;
-  readonly observedForm: ObservedInstructionForm;
-  readonly details: string;
 }
 
 export interface InstructionsStatus {
@@ -128,6 +123,17 @@ export interface InstructionProjectionEffect {
  * rediscovering roots separately. It is plain data, not a cache or a service.
  */
 export interface InstructionProjectionSnapshot {
+  readonly nativeRoots?: ReadonlyArray<string>;
+  readonly workspaceRoot: string;
+  readonly scope: WorkspaceScope;
+  readonly eligibleAgentIds: ReadonlyArray<string>;
+  readonly eligibleTargets?: ReadonlyArray<string>;
+  readonly nativeLocations: ReadonlyArray<NativeLocationOutcome>;
+  readonly witnesses: ReadonlyArray<{
+    readonly path: string;
+    readonly anchor: string;
+    readonly fingerprint: string;
+  }>;
   readonly plan: InstructionProjectionPlan;
   readonly symlinkSupported: boolean;
   readonly status: InstructionsStatus;
@@ -135,6 +141,7 @@ export interface InstructionProjectionSnapshot {
 }
 
 export interface InstructionsSyncResult {
+  readonly nativeLocations: ReadonlyArray<NativeLocationOutcome>;
   /**
    * Observed after the writes, never the pre-write snapshot — except for a dry
    * run, which mutates nothing and reports the observation it planned from.
@@ -176,7 +183,7 @@ export const resolveInstructionMechanism = (
 };
 
 /** Reason an agent is excluded from instruction-file sync. */
-export type InstructionSkipReason = "no-convention";
+export type InstructionSkipReason = "no-convention" | "unverified-scope";
 
 /**
  * A single, branch-exhaustive answer to the three questions both the sync
@@ -211,30 +218,42 @@ export type InstructionTargetShape =
 export const resolveInstructionTargetShape = (args: {
   readonly instructions: AgentInstructionsDescriptor | undefined;
   readonly sourceFileName: string;
+  readonly scope?: WorkspaceScope;
 }): InstructionTargetShape => {
   const { instructions, sourceFileName } = args;
-  if (instructions === undefined) {
+  if (instructions === undefined || !instructions.writerSupported)
     return { action: "skip", reason: "no-convention" };
-  }
-  switch (instructions.kind) {
-    case "agents-md":
-      return { action: "native", relativeTarget: sourceFileName };
-    case "own-file":
-      return instructions.file === sourceFileName
-        ? { action: "native", relativeTarget: sourceFileName }
-        : { action: "write", relativeTarget: instructions.file };
-    case "rules-dir":
-      return { action: "adapter", relativeTarget: instructions.dir };
-  }
+  const scope = args.scope ?? "project";
+  const primary = instructions.locations.find(
+    (location) =>
+      location.scope === scope &&
+      location.role === "primary" &&
+      location.applicability.kind === "always",
+  );
+  if (primary === undefined)
+    return {
+      action: "skip",
+      reason: instructions.scopes.includes(scope) ? "unverified-scope" : "no-convention",
+    };
+  if (primary.shape === "directory") return { action: "adapter", relativeTarget: primary.path };
+  return {
+    action: primary.path === sourceFileName ? "native" : "write",
+    relativeTarget: primary.path,
+  };
 };
 
 export const resolveInstructionTarget = (args: {
   readonly instructions: AgentInstructionsDescriptor | undefined;
   readonly sourceFileName: string;
   readonly symlinkSupported: boolean;
+  readonly scope?: WorkspaceScope;
 }): InstructionTargetResolution => {
   const { instructions, sourceFileName, symlinkSupported } = args;
-  const shape = resolveInstructionTargetShape({ instructions, sourceFileName });
+  const shape = resolveInstructionTargetShape({
+    instructions,
+    sourceFileName,
+    ...(args.scope === undefined ? {} : { scope: args.scope }),
+  });
   if (shape.action === "skip") return shape;
   if (shape.action === "native") return { ...shape, mechanism: "native" };
   if (shape.action === "adapter") return { ...shape, mechanism: "adapter" };
@@ -299,6 +318,8 @@ const isSymlink = (entry: string) =>
   });
 
 interface OwnFileConvention {
+  readonly declaration: AgentInstructionsDescriptor["locations"][number];
+  readonly scope: WorkspaceScope;
   readonly agentId: MaterializationTargetId;
   readonly agentName: string;
   readonly relativeTarget: string;
@@ -313,15 +334,15 @@ interface OwnFileConvention {
 const OWN_FILE_CONVENTIONS: ReadonlyArray<OwnFileConvention> = Object.values(
   AGENT_DESCRIPTORS,
 ).flatMap((descriptor) =>
-  descriptor.instructions?.kind === "own-file"
-    ? [
-        {
-          agentId: descriptor.id,
-          agentName: descriptor.name,
-          relativeTarget: descriptor.instructions.file,
-        },
-      ]
-    : [],
+  (descriptor.instructions?.locations ?? [])
+    .filter((location) => location.shape === "file" && location.applicability.kind === "always")
+    .map((location) => ({
+      agentId: descriptor.id,
+      agentName: descriptor.name,
+      relativeTarget: location.path,
+      scope: location.scope,
+      declaration: location,
+    })),
 );
 
 /**
@@ -332,10 +353,12 @@ const OWN_FILE_CONVENTIONS: ReadonlyArray<OwnFileConvention> = Object.values(
  * them remain removable.
  */
 const AGENT_CONVENTION_DIRS: ReadonlySet<string> = new Set(
-  OWN_FILE_CONVENTIONS.flatMap((convention) => {
-    const [head, ...rest] = convention.relativeTarget.split("/");
-    return head !== undefined && rest.length > 0 ? [head] : [];
-  }),
+  OWN_FILE_CONVENTIONS.filter((convention) => convention.scope === "project").flatMap(
+    (convention) => {
+      const [head, ...rest] = convention.relativeTarget.split("/");
+      return head !== undefined && rest.length > 0 ? [head] : [];
+    },
+  ),
 );
 
 const PROJECT_EXTENSION_ROOTS: ReadonlySet<string> = new Set([
@@ -386,6 +409,10 @@ const hasEntryAt = (args: {
       if (!entries.includes(segment)) return false;
       if (index === segments.length - 1) return true;
       current = path.join(current, segment);
+      const safe = yield* assertNativeMutationWithin(args.dir, current, "content").pipe(
+        Effect.option,
+      );
+      if (Option.isNone(safe)) return false;
       entries = yield* readDirSafe(current);
     }
     return true;
@@ -395,14 +422,40 @@ const discoverInstructionTree = (
   workspaceRoot: string,
   fileName: string,
   scope: WorkspaceScope,
+  nativeDirectoryInputs?: NativeDirectoryInputs,
 ): Effect.Effect<InstructionTree, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* makeScannerFileSystem(yield* FileSystem.FileSystem);
     const path = yield* Path.Path;
+    const declaredConventions = OWN_FILE_CONVENTIONS.flatMap((convention) => {
+      const resolved = resolveNativeReadLocation(
+        path,
+        convention.agentId,
+        convention.declaration,
+        { workspaceRoot, scope },
+        nativeDirectoryInputs ?? { skillsDirectoryOverrides: {} },
+      );
+      return resolved === undefined
+        ? []
+        : [
+            {
+              ...convention,
+              targetPath: resolved.path,
+              relativeTarget: path.relative(workspaceRoot, resolved.path),
+            },
+          ];
+    });
+    const conventions = declaredConventions.filter(
+      (convention) =>
+        convention.relativeTarget !== fileName &&
+        !path.isAbsolute(convention.relativeTarget) &&
+        convention.relativeTarget !== ".." &&
+        !convention.relativeTarget.startsWith(`..${path.sep}`),
+    );
     const candidatesIn = (dir: string, entries: ReadonlyArray<string>) =>
       Effect.forEach(
         // The canonical filename is a source wherever it appears, never an alias.
-        OWN_FILE_CONVENTIONS.filter((convention) => convention.relativeTarget !== fileName),
+        conventions,
         (convention) =>
           hasEntryAt({ dir, entries, relativeTarget: convention.relativeTarget }).pipe(
             Effect.map((present): ReadonlyArray<InstructionTargetCandidate> =>
@@ -459,67 +512,85 @@ const discoverInstructionTree = (
         };
       });
     const tree = yield* visit(workspaceRoot).pipe(Effect.provideService(FileSystem.FileSystem, fs));
+    const allowedRoots = nativeAuthorityRoots(
+      path,
+      { workspaceRoot, scope },
+      nativeDirectoryInputs ?? { skillsDirectoryOverrides: {} },
+    );
+    const externalCandidates =
+      scope === "project"
+        ? []
+        : (yield* Effect.forEach(
+            declaredConventions.filter((convention) =>
+              convention.relativeTarget.startsWith(`..${path.sep}`),
+            ),
+            (convention) =>
+              assertNativeMutationWithinRoots(
+                allowedRoots,
+                convention.targetPath,
+                "entry",
+                workspaceRoot,
+              ).pipe(
+                Effect.map(({ address }): ReadonlyArray<InstructionTargetCandidate> =>
+                  address.kind === "absent" ? [] : [{ ...convention, root: workspaceRoot }],
+                ),
+                Effect.catch(() => Effect.succeed<ReadonlyArray<InstructionTargetCandidate>>([])),
+              ),
+          )).flat();
     return {
       roots: tree.roots.length > 0 ? tree.roots : [workspaceRoot],
-      candidates: tree.candidates,
+      candidates: [...tree.candidates, ...externalCandidates],
     };
   });
 
-let symlinkProbeSequence = 0;
-
 export const probeSymlinkSupport = (workspaceRoot: string) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const tmpDir = path.join(workspaceRoot, AXM_DIR_NAME, "tmp");
-    const missingAncestors = (
-      directory: string,
-      missing: ReadonlyArray<string> = [],
-    ): Effect.Effect<ReadonlyArray<string>> =>
-      fs.exists(directory).pipe(
-        Effect.catch(() => Effect.succeed(false)),
-        Effect.flatMap((exists) => {
-          if (exists) return Effect.succeed(missing);
-          const parent = path.dirname(directory);
-          return parent === directory
-            ? Effect.succeed(missing)
-            : missingAncestors(parent, [...missing, directory]);
+  Effect.scoped(
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const tmpDir = path.join(workspaceRoot, AXM_DIR_NAME, "tmp");
+      yield* assertNativeMutationWithin(workspaceRoot, tmpDir, "content");
+      yield* Effect.acquireRelease(
+        createWorkspaceDirectories({
+          nativeRoot: workspaceRoot,
+          workspaceDir: path.join(workspaceRoot, AXM_DIR_NAME),
+          target: tmpDir,
+          record: () => Effect.void,
         }),
+        removeEmptyRuntimeDirectories,
       );
-    const createdDirectories = yield* missingAncestors(tmpDir);
-    yield* fs.makeDirectory(tmpDir, { recursive: true }).pipe(Effect.catch(() => Effect.void));
-    symlinkProbeSequence += 1;
-    const probeDir = path.join(
-      tmpDir,
-      `instructions-symlink-probe-${process.pid.toString(36)}-${symlinkProbeSequence.toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
-    );
-    const result = yield* Effect.gen(function* () {
-      yield* fs.makeDirectory(probeDir, { recursive: true });
+      const directoryIdentity = yield* Effect.acquireRelease(
+        Effect.flatMap(
+          fs.makeTempDirectory({ directory: tmpDir, prefix: "instructions-symlink-probe-" }),
+          (target) => captureContainerIdentity({ nativeRoot: workspaceRoot, target }),
+        ),
+        (identity) => removeEmptyRuntimeDirectories([identity]),
+      );
+      const probeDir = directoryIdentity.physicalPath;
       const target = path.join(probeDir, "target");
       const link = path.join(probeDir, "link");
-      yield* fs.writeFileString(target, "ok\n");
-      yield* fs.symlink("target", link);
-      const content = yield* fs.readFileString(link);
-      return content === "ok\n";
-    }).pipe(
-      Effect.ensuring(fs.remove(probeDir, { recursive: true, force: true }).pipe(Effect.ignore)),
-      Effect.catch(() => Effect.succeed(false)),
-    );
-    // Remove only empty directories the probe created, including newly created
-    // user-workspace ancestors. Concurrently added content is preserved.
-    yield* Effect.forEach(
-      createdDirectories,
-      (directory) =>
-        fs.readDirectory(directory).pipe(
-          Effect.flatMap((entries) =>
-            entries.length === 0 ? fs.remove(directory, { recursive: true }) : Effect.void,
-          ),
-          Effect.catch(() => Effect.void),
-        ),
-      { concurrency: 1, discard: true },
-    );
-    return result;
-  });
+      yield* Effect.acquireRelease(
+        Effect.gen(function* () {
+          yield* fs.writeFileString(target, "ok\n");
+          return yield* captureContainerIdentity({ nativeRoot: workspaceRoot, target });
+        }),
+        (identity) =>
+          Effect.gen(function* () {
+            if (
+              (yield* verifyContainerIdentity(identity, { nativeRoot: workspaceRoot, target })) &&
+              (yield* fs.readFileString(target)) === "ok\n"
+            )
+              yield* fs.remove(target);
+          }).pipe(Effect.ignore),
+      );
+      yield* Effect.acquireRelease(fs.symlink("target", link), () =>
+        Effect.gen(function* () {
+          if ((yield* fs.readLink(link)) === "target") yield* fs.remove(link);
+        }).pipe(Effect.ignore),
+      );
+      return (yield* fs.readFileString(link)) === "ok\n";
+    }),
+  ).pipe(Effect.catch(() => Effect.succeed(false)));
 
 /**
  * Human-readable status line. Agents whose native convention AXM cannot write —
@@ -534,7 +605,7 @@ const instructionDetails = (
   ownership: InstructionTargetOwnership,
 ): string => {
   if (descriptor.kind === "rules-dir") {
-    return `Native rules directory ${descriptor.dir} is not yet synced by AXM.`;
+    return "The declared native rules directory is not yet synced by AXM.";
   }
   const base =
     health === "ok"
@@ -542,18 +613,132 @@ const instructionDetails = (
       : ownership === "unowned"
         ? "An unowned file occupies the instruction target; AXM will not modify it."
         : "Instruction file needs attention.";
-  if (descriptor.rulesDir === undefined) return base;
-  return `${base} Native rules directory ${descriptor.rulesDir} is not synced by AXM.`;
+  const secondary = descriptor.locations
+    .filter((location) => location.role === "additional" && location.shape === "directory")
+    .map((location) => location.path);
+  return secondary.length === 0
+    ? base
+    : `${base} Native rules directories ${secondary.join(", ")} are not synced by AXM.`;
 };
 
 const STALE_TARGET_DETAILS =
   "AXM-owned instruction file is no longer desired by the current plan; sync removes it.";
 
-const readFileOption = (filePath: string) =>
+const readFileOption = (
+  filePath: string,
+  workspaceRoot: string,
+  nativeRoots: ReadonlyArray<string> = [workspaceRoot],
+) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    return yield* fs.readFileString(filePath).pipe(Effect.option);
+    const address = yield* assertNativeMutationWithinRoots(
+      nativeRoots,
+      filePath,
+      "content",
+      workspaceRoot,
+    ).pipe(
+      Effect.map((selected) => selected.address),
+      Effect.option,
+    );
+    if (
+      Option.isNone(address) ||
+      address.value.kind === "absent" ||
+      address.value.kind === "directory" ||
+      address.value.referentPath === undefined
+    )
+      return Option.none<string>();
+    return yield* fs.readFileString(address.value.referentPath).pipe(Effect.option);
   });
+
+/** Ephemeral observation proof; only digests and filesystem identity cross planning. */
+const instructionWitness = (
+  workspaceRoot: string,
+  target: string,
+  observedAnchor?: string,
+  nativeRoots: ReadonlyArray<string> = [workspaceRoot],
+) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const { address, nativeRoot } = yield* assertNativeMutationWithinRoots(
+      nativeRoots,
+      target,
+      "entry",
+      workspaceRoot,
+    );
+    let anchor = observedAnchor ?? path.dirname(address.entryPath);
+    while (observedAnchor === undefined && !(yield* fs.exists(anchor))) {
+      const parent = path.dirname(anchor);
+      if (parent === anchor) return { anchor, fingerprint: "unreadable" };
+      anchor = parent;
+    }
+    const parentIdentity = yield* captureContainerIdentity({
+      nativeRoot: anchor,
+      ownerRoot: workspaceRoot,
+      target: anchor,
+    });
+    const identity =
+      address.kind === "absent"
+        ? Option.none()
+        : yield* captureContainerIdentity({ nativeRoot, ownerRoot: workspaceRoot, target }).pipe(
+            Effect.option,
+          );
+    const content =
+      address.kind === "directory" || address.kind === "absent"
+        ? Option.none<string>()
+        : yield* readFileOption(target, workspaceRoot, nativeRoots);
+    const fingerprint = createHash("sha256")
+      .update(
+        JSON.stringify({
+          address,
+          parentIdentity,
+          identity,
+          content: Option.map(content, (raw) => createHash("sha256").update(raw).digest("hex")),
+        }),
+      )
+      .digest("hex");
+    return { anchor, fingerprint };
+  }).pipe(
+    Effect.catch(() =>
+      Effect.succeed({ anchor: observedAnchor ?? workspaceRoot, fingerprint: "unreadable" }),
+    ),
+  );
+
+const assertInstructionWitnesses = (
+  snapshot: InstructionProjectionSnapshot,
+  selected?: ReadonlySet<string>,
+) =>
+  Effect.gen(function* () {
+    for (const witness of snapshot.witnesses) {
+      if (selected !== undefined && !selected.has(witness.path)) continue;
+      if (
+        witness.fingerprint === "unreadable" ||
+        (yield* instructionWitness(
+          snapshot.workspaceRoot,
+          witness.path,
+          witness.anchor,
+          snapshot.nativeRoots,
+        )).fingerprint !== witness.fingerprint
+      ) {
+        return yield* new InstructionMaintenanceFailed({
+          category: "conflict",
+          detail: `Instruction input changed after observation: ${witness.path}`,
+        });
+      }
+    }
+  });
+
+const instructionContentAddress = (workspaceRoot: string, target: string) =>
+  assertNativeMutationWithin(workspaceRoot, target, "content").pipe(
+    Effect.mapError(
+      (cause) =>
+        new InstructionMaintenanceFailed({
+          category: "conflict",
+          detail: `Instruction content leaves the selected workspace authority: ${target}`,
+          cause,
+        }),
+    ),
+  );
 
 const isSamePath = (path: Path.Path, left: string, right: string): boolean =>
   path.resolve(left) === path.resolve(right);
@@ -596,6 +781,8 @@ export interface InstructionProjectionPlan {
 
 export const buildInstructionProjectionPlan = (args: {
   readonly roots: ReadonlyArray<string>;
+  readonly scope?: WorkspaceScope;
+  readonly nativeDirectoryInputs?: NativeDirectoryInputs;
   readonly configuredAgents: ReadonlyArray<string>;
   readonly sourceFileName: string;
   readonly path: Path.Path;
@@ -629,17 +816,43 @@ export const buildInstructionProjectionPlan = (args: {
       const shape = resolveInstructionTargetShape({
         instructions,
         sourceFileName: args.sourceFileName,
+        scope: args.scope ?? "project",
       });
       if (shape.action === "skip") {
         return { ...shape, root, agentId: descriptor.id, agentName: descriptor.name, sourcePath };
       }
+      const declaration = instructions.locations.find(
+        (location) =>
+          location.scope === (args.scope ?? "project") &&
+          location.role === "primary" &&
+          location.applicability.kind === "always",
+      );
+      const resolved =
+        declaration === undefined
+          ? undefined
+          : resolveNativeReadLocation(
+              args.path,
+              descriptor.id,
+              declaration,
+              { workspaceRoot: root, scope: args.scope ?? "project" },
+              args.nativeDirectoryInputs ?? { skillsDirectoryOverrides: {} },
+            );
+      if (resolved === undefined)
+        return {
+          action: "skip",
+          reason: "unverified-scope",
+          root,
+          agentId: descriptor.id,
+          agentName: descriptor.name,
+          sourcePath,
+        };
       return {
         ...shape,
         root,
         agentId: descriptor.id,
         agentName: descriptor.name,
         sourcePath,
-        targetPath: args.path.join(root, shape.relativeTarget),
+        targetPath: resolved.path,
         instructions,
       };
     });
@@ -675,7 +888,6 @@ const withManagedCopyBanner = (args: {
       "instruction-copy-v1",
       INSTRUCTION_ALIAS_EXT,
       args.sourceFileName,
-      args.targetPath,
       args.content,
     ]),
   });
@@ -700,10 +912,11 @@ const observed = (
  * Classify what occupies a planned target path. Proof order: the path is the
  * source itself, a symlink resolving to the source, or a file carrying an
  * `axm:file` banner whose body is the source. Anything else present is
- * unowned. Any banner proves ownership here because the plan already names
- * this path as AXM's target; a drifted banner is rewritten, not disowned.
+ * unowned. The banner must name this projection and its exact source.
  */
 const observeTargetPath = (args: {
+  readonly nativeRoots?: ReadonlyArray<string>;
+  readonly workspaceRoot: string;
   readonly sourcePath: string;
   readonly targetPath: string;
   readonly sourceContent: Option.Option<string>;
@@ -720,13 +933,24 @@ const observeTargetPath = (args: {
     if (Option.isSome(linkTarget)) {
       const resolved = resolveLinkTarget(path, args.targetPath, linkTarget.value);
       const resolves = yield* fileExists(resolved);
+      const direct = yield* resolveNativeEntry(resolved).pipe(Effect.option);
+      const source = yield* resolveNativeEntry(args.sourcePath).pipe(Effect.option);
       return observed(
-        isSamePath(path, resolved, args.sourcePath) ? "owned-current" : "unowned",
+        Option.isSome(direct) &&
+          Option.isSome(source) &&
+          direct.value.kind !== "symlink" &&
+          direct.value.entryPath === source.value.entryPath
+          ? "owned-current"
+          : "unowned",
         resolves ? "symlink" : "broken-link",
       );
     }
 
-    const targetContent = yield* readFileOption(args.targetPath);
+    const targetContent = yield* readFileOption(
+      args.targetPath,
+      args.workspaceRoot,
+      args.nativeRoots,
+    );
     if (Option.isNone(targetContent)) {
       const exists = yield* fs
         .exists(args.targetPath)
@@ -739,7 +963,12 @@ const observeTargetPath = (args: {
       );
     }
     const marker = managedCopyMarker({ targetPath: args.targetPath, content: targetContent.value });
-    if (Option.isNone(marker)) return observed("unowned", "file");
+    if (
+      Option.isNone(marker) ||
+      marker.value.ext !== INSTRUCTION_ALIAS_EXT ||
+      marker.value.src !== args.sourceFileName
+    )
+      return observed("unowned", "file");
     if (Option.isNone(args.sourceContent)) return observed("owned-drift", "copy");
     const expected = withManagedCopyBanner({
       targetPath: args.targetPath,
@@ -759,6 +988,8 @@ const observeTargetPath = (args: {
   });
 
 const observePlannedItems = (args: {
+  readonly nativeRoots: ReadonlyArray<string>;
+  readonly workspaceRoot: string;
   readonly plan: InstructionProjectionPlan;
   readonly config: ResolvedInstructionsConfig;
   readonly symlinkSupported: boolean;
@@ -770,7 +1001,7 @@ const observePlannedItems = (args: {
         if (item.action === "skip") {
           return {
             root: item.root,
-            agentId: item.reason === "unknown-agent" ? "universal" : item.agentId,
+            agentId: item.agentId,
             agentName: item.agentName,
             sourceFile: item.sourcePath,
             targetFile: item.sourcePath,
@@ -781,7 +1012,9 @@ const observePlannedItems = (args: {
             details:
               item.reason === "unknown-agent"
                 ? "Unknown agent ID."
-                : "Agent descriptor has no instruction-file convention.",
+                : item.reason === "unverified-scope"
+                  ? "The native instruction location for this scope is unverified."
+                  : "Agent descriptor has no instruction-file convention.",
           } satisfies InstructionStatusItem;
         }
         const mechanism =
@@ -789,14 +1022,22 @@ const observePlannedItems = (args: {
             ? "native"
             : item.action === "adapter"
               ? "adapter"
-              : resolveInstructionMechanism(item.instructions, args.symlinkSupported);
-        const sourceContent = yield* readFileOption(item.sourcePath);
+              : args.symlinkSupported
+                ? "symlink"
+                : "copy";
+        const sourceContent = yield* readFileOption(
+          item.sourcePath,
+          args.workspaceRoot,
+          args.nativeRoots,
+        );
         // An adapter target is never written, so nothing there is AXM's to
         // own or collide with; only the source decides its health.
         const target =
           item.action === "adapter"
             ? observed("absent", "none")
             : yield* observeTargetPath({
+                workspaceRoot: args.workspaceRoot,
+                nativeRoots: args.nativeRoots,
                 sourcePath: item.sourcePath,
                 targetPath: item.targetPath,
                 sourceContent,
@@ -837,6 +1078,8 @@ const observePlannedItems = (args: {
 const observeStaleCandidate = (
   candidate: InstructionTargetCandidate,
   sourceFileName: string,
+  workspaceRoot: string,
+  nativeRoots: ReadonlyArray<string>,
 ): Effect.Effect<Option.Option<InstructionStatusItem>, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -862,7 +1105,16 @@ const observeStaleCandidate = (
     const linkTarget = yield* fs.readLink(candidate.targetPath).pipe(Effect.option);
     if (Option.isSome(linkTarget)) {
       const resolved = resolveLinkTarget(path, candidate.targetPath, linkTarget.value);
-      if (!isSamePath(path, resolved, path.join(candidate.root, sourceFileName))) {
+      const direct = yield* resolveNativeEntry(resolved).pipe(Effect.option);
+      const source = yield* resolveNativeEntry(path.join(candidate.root, sourceFileName)).pipe(
+        Effect.option,
+      );
+      if (
+        Option.isNone(direct) ||
+        Option.isNone(source) ||
+        direct.value.kind === "symlink" ||
+        direct.value.entryPath !== source.value.entryPath
+      ) {
         return Option.none();
       }
       const resolves = yield* fileExists(resolved);
@@ -876,12 +1128,17 @@ const observeStaleCandidate = (
       );
     }
 
-    const content = yield* readFileOption(candidate.targetPath);
+    const content = yield* readFileOption(candidate.targetPath, workspaceRoot, nativeRoots);
     if (Option.isNone(content)) return Option.none();
     const marker = managedCopyMarker({ targetPath: candidate.targetPath, content: content.value });
-    if (Option.isNone(marker) || marker.value.ext !== INSTRUCTION_ALIAS_EXT) return Option.none();
+    if (
+      Option.isNone(marker) ||
+      marker.value.ext !== INSTRUCTION_ALIAS_EXT ||
+      marker.value.src !== sourceFileName
+    )
+      return Option.none();
     const sourceFile = path.join(candidate.root, marker.value.src);
-    const sourceContent = yield* readFileOption(sourceFile);
+    const sourceContent = yield* readFileOption(sourceFile, workspaceRoot, nativeRoots);
     const expected = Option.map(sourceContent, (source) =>
       withManagedCopyBanner({
         targetPath: candidate.targetPath,
@@ -916,7 +1173,10 @@ const managedGitignoreRegionState = (content: string): ManagedGitignoreRegionSta
     patterns: [],
   });
   if (Option.isNone(reconciliation)) return "malformed";
-  return reconciliation.value.state.state;
+  const state = reconciliation.value.state;
+  return state.state === "complete" && state.startMarker.ext !== INSTRUCTION_ALIASES_OWNER
+    ? "malformed"
+    : state.state;
 };
 
 const reconcileGitignorePatterns = (content: string, patterns: ReadonlyArray<string>) =>
@@ -957,8 +1217,11 @@ const unsafeGitignoreRegionFailure = (
 
 export const assertInstructionsGitignoreSafe = (workspaceRoot: string) =>
   Effect.gen(function* () {
-    const filePath = yield* instructionGitignorePath(workspaceRoot);
-    const current = yield* readFileOption(filePath);
+    if (!(yield* isGitManaged(workspaceRoot))) return;
+    const lexical = yield* instructionGitignorePath(workspaceRoot);
+    const address = yield* instructionContentAddress(workspaceRoot, lexical);
+    const filePath = address.referentPath ?? address.entryPath;
+    const current = yield* readFileOption(filePath, workspaceRoot);
     const state = Option.isSome(current) ? managedGitignoreRegionState(current.value) : "absent";
     if (state !== "malformed" && state !== "unsupported-version") {
       return;
@@ -1033,7 +1296,7 @@ const observeInstructionsGitignore = (args: {
       };
     }
 
-    const currentContent = yield* readFileOption(file);
+    const currentContent = yield* readFileOption(file, args.workspaceRoot);
     const writeTargets = args.plan.items
       .flatMap((item) =>
         item.action === "write"
@@ -1193,11 +1456,28 @@ export const instructionProjectionRemovalEffects = (
 ): ReadonlyArray<InstructionProjectionEffect> =>
   uniqueEffects(plannedInstructionChanges(snapshot, "remove").map(instructionChangeEffect));
 
+export const instructionProjectionNativeLocations = (
+  snapshot: InstructionProjectionSnapshot,
+  mode: "reconcile" | "remove",
+) => {
+  const changes = plannedInstructionChanges(snapshot, mode).map(instructionChangeEffect);
+  return instructionChangeLocations({
+    snapshot,
+    before: snapshot,
+    written: changes.filter((change) => change.change !== "removed").map((change) => change.path),
+    removed: changes.filter((change) => change.change === "removed").map((change) => change.path),
+  });
+};
+
 export interface ObserveInstructionProjectionArgs {
   readonly workspaceRoot: string;
   readonly scope: WorkspaceScope;
   readonly configuredAgents: ReadonlyArray<string>;
   readonly config: ResolvedInstructionsConfig;
+  readonly nativeDirectoryInputs?: NativeDirectoryInputs;
+  readonly eligibleAgentIds?: ReadonlyArray<string>;
+  /** Physical entry routes proven absent from the prior configured readership. */
+  readonly eligibleTargets?: ReadonlyArray<string>;
   readonly symlinkSupported?: boolean;
   /** True only when the supplied filesystem is a snapshot of the Git index. */
   readonly gitIndexView?: boolean;
@@ -1214,20 +1494,36 @@ export const observeInstructionProjection = (
 ): Effect.Effect<InstructionProjectionSnapshot, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
+    const nativeRoots = nativeAuthorityRoots(
+      path,
+      args,
+      args.nativeDirectoryInputs ?? { skillsDirectoryOverrides: {} },
+    );
     const tree = yield* discoverInstructionTree(
       args.workspaceRoot,
       args.config.fileName,
       args.scope,
+      args.nativeDirectoryInputs,
     );
     const plan = buildInstructionProjectionPlan({
       roots: tree.roots,
+      scope: args.scope,
+      ...(args.nativeDirectoryInputs === undefined
+        ? {}
+        : { nativeDirectoryInputs: args.nativeDirectoryInputs }),
       configuredAgents: args.configuredAgents,
       sourceFileName: args.config.fileName,
       path,
     });
     const symlinkSupported =
       args.symlinkSupported ?? (yield* probeSymlinkSupport(args.workspaceRoot));
-    const items = yield* observePlannedItems({ plan, config: args.config, symlinkSupported });
+    const items = yield* observePlannedItems({
+      workspaceRoot: args.workspaceRoot,
+      nativeRoots,
+      plan,
+      config: args.config,
+      symlinkSupported,
+    });
     const desiredTargets = new Set(
       plan.items.flatMap((item) => (item.action === "skip" ? [] : [path.resolve(item.targetPath)])),
     );
@@ -1238,14 +1534,17 @@ export const observeInstructionProjection = (
       tree.candidates.filter(
         (candidate) => !desiredTargets.has(path.resolve(candidate.targetPath)),
       ),
-      (candidate) => observeStaleCandidate(candidate, args.config.fileName),
+      (candidate) =>
+        observeStaleCandidate(candidate, args.config.fileName, args.workspaceRoot, nativeRoots),
       { concurrency: 1 },
     ))
       .filter(Option.isSome)
       .map((item) => item.value);
     const missingSources = (yield* Effect.forEach(plan.roots, (root) =>
-      fileExists(path.join(root, args.config.fileName)).pipe(
-        Effect.map((exists) => (exists ? [] : [path.join(root, args.config.fileName)])),
+      readFileOption(path.join(root, args.config.fileName), args.workspaceRoot).pipe(
+        Effect.map((content) =>
+          Option.isSome(content) ? [] : [path.join(root, args.config.fileName)],
+        ),
       ),
     )).flat();
     const gitignore = yield* observeInstructionsGitignore({
@@ -1254,7 +1553,71 @@ export const observeInstructionProjection = (
       config: args.config,
       gitIndexView: args.gitIndexView === true,
     });
+    const witnessPaths = [
+      ...new Set([
+        ...plan.items.flatMap((item) =>
+          item.action === "skip"
+            ? []
+            : item.action === "adapter"
+              ? [item.sourcePath]
+              : [item.sourcePath, item.targetPath],
+        ),
+        ...staleTargets.flatMap((item) => [item.sourceFile, item.targetFile]),
+        gitignore.file,
+      ]),
+    ].sort();
+    const witnesses = yield* Effect.forEach(witnessPaths, (target) =>
+      instructionWitness(args.workspaceRoot, target, undefined, nativeRoots).pipe(
+        Effect.map((witness) => ({ path: target, ...witness })),
+      ),
+    );
+    const ignoreAddress = yield* assertNativeMutationWithin(
+      args.workspaceRoot,
+      gitignore.file,
+      "content",
+    ).pipe(Effect.option);
+    const ignorePhysical = Option.isSome(ignoreAddress)
+      ? (ignoreAddress.value.referentPath ?? ignoreAddress.value.entryPath)
+      : gitignore.file;
     return {
+      workspaceRoot: args.workspaceRoot,
+      scope: args.scope,
+      nativeRoots,
+      witnesses,
+      eligibleAgentIds: args.eligibleAgentIds ?? [],
+      ...(args.eligibleTargets === undefined ? {} : { eligibleTargets: args.eligibleTargets }),
+      nativeLocations: [
+        ...(yield* observeInstructionNativeLocations({
+          workspaceRoot: args.workspaceRoot,
+          scope: args.scope,
+          roots: plan.roots,
+          items: [...items, ...staleTargets],
+          configuredAgentIds: args.configuredAgents,
+          ...(args.nativeDirectoryInputs === undefined
+            ? {}
+            : { nativeDirectoryInputs: args.nativeDirectoryInputs }),
+        })),
+        ...(gitignore.managed || gitignore.desired
+          ? [
+              {
+                scope: args.scope,
+                address: {
+                  kind: "region" as const,
+                  path: ignorePhysical,
+                  region: "instruction-aliases",
+                },
+                aliases: [gitignore.file],
+                configuredConsumers: [],
+                potentialReaders: [],
+                policyReasons: ["instruction-alias-ignore"],
+                ownership: gitignore.managed ? ("owned" as const) : ("absent" as const),
+                state: gitignore.managed ? ("unchanged" as const) : ("absent" as const),
+                mechanism: "managed-region" as const,
+                availability: [],
+              },
+            ]
+          : []),
+      ],
       plan,
       symlinkSupported,
       status: {
@@ -1333,48 +1696,60 @@ export const assertInstructionTargetsSafe = (
 // -----------------------------------------------------------------------------
 
 const writeFile = (filePath: string, content: string) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const existed = yield* fs.exists(filePath).pipe(
-      Effect.mapError(
-        (error) =>
-          new InstructionMaintenanceFailed({
-            category: "internal",
-            detail: `Failed to inspect instruction file: ${filePath}`,
-            cause: error,
-          }),
-      ),
-    );
-    yield* protectWorkspacePath(filePath);
-    yield* fs.makeDirectory(path.dirname(filePath), { recursive: true }).pipe(
-      Effect.mapError(
-        (error) =>
-          new InstructionMaintenanceFailed({
-            category: "internal",
-            detail: `Failed to create instruction-file directory: ${path.dirname(filePath)}`,
-            cause: error,
-          }),
-      ),
-    );
-    yield* fs.writeFileString(filePath, content).pipe(
-      Effect.mapError(
-        (error) =>
-          new InstructionMaintenanceFailed({
-            category: "internal",
-            detail: `Failed to write instruction file: ${filePath}`,
-            cause: error,
-          }),
-      ),
-    );
-    yield* recordFootprint({ path: filePath, change: existed ? "modified" : "created" });
+  Effect.uninterruptible(
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const existed = yield* fs.exists(filePath).pipe(
+        Effect.mapError(
+          (error) =>
+            new InstructionMaintenanceFailed({
+              category: "internal",
+              detail: `Failed to inspect instruction file: ${filePath}`,
+              cause: error,
+            }),
+        ),
+      );
+      yield* protectCreatedAncestors(fs, path, path.dirname(filePath));
+      yield* protectWorkspacePath(filePath);
+      yield* fs.makeDirectory(path.dirname(filePath), { recursive: true }).pipe(
+        Effect.mapError(
+          (error) =>
+            new InstructionMaintenanceFailed({
+              category: "internal",
+              detail: `Failed to create instruction-file directory: ${path.dirname(filePath)}`,
+              cause: error,
+            }),
+        ),
+      );
+      yield* fs.writeFileString(filePath, content).pipe(
+        Effect.mapError(
+          (error) =>
+            new InstructionMaintenanceFailed({
+              category: "internal",
+              detail: `Failed to write instruction file: ${filePath}`,
+              cause: error,
+            }),
+        ),
+      );
+      yield* recordFootprint({ path: filePath, change: existed ? "modified" : "created" });
+    }),
+  );
+
+const insertionFailure = (cause: unknown) =>
+  new InstructionMaintenanceFailed({
+    category: "conflict",
+    detail: "Instruction container ownership could not be preserved",
+    cause,
   });
 
-const removeTargetFile = (targetPath: string) =>
+const aliasDirectoryUnit = (target: string) =>
+  JSON.stringify(["instruction-alias-directories", target]);
+
+const removeTargetFile = (targetPath: string, cleanupDirectories = true) =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    yield* protectWorkspacePath(targetPath);
-    yield* fs.remove(targetPath, { force: true }).pipe(
+    const authority = yield* NativeWriteAuthority;
+    yield* retireWorkspacePath(targetPath).pipe(
       Effect.mapError(
         (cause) =>
           new InstructionMaintenanceFailed({
@@ -1384,8 +1759,77 @@ const removeTargetFile = (targetPath: string) =>
           }),
       ),
     );
-    yield* recordFootprint({ path: targetPath, change: "removed" });
+    if (cleanupDirectories)
+      yield* authority
+        .retireCreatedDirectories({ path: targetPath, unit: aliasDirectoryUnit(targetPath) })
+        .pipe(Effect.mapError(insertionFailure));
   });
+
+/** Resolve entries, recheck ownership, and negotiate every shared target before writing. */
+const preparePhysicalInstructionTargets = (
+  workspaceRoot: string,
+  items: ReadonlyArray<InstructionStatusItem>,
+  sourceFileName: string,
+  nativeRoots: ReadonlyArray<string> = [workspaceRoot],
+) =>
+  Effect.gen(function* () {
+    const targets = new Map<
+      string,
+      InstructionStatusItem & { readonly observedPaths: ReadonlyArray<string> }
+    >();
+    for (const item of items) {
+      const { address } = yield* assertNativeMutationWithinRoots(
+        nativeRoots,
+        item.targetFile,
+        "entry",
+        workspaceRoot,
+      );
+      const { address: source } = yield* assertNativeMutationWithinRoots(
+        nativeRoots,
+        item.sourceFile,
+        "content",
+        workspaceRoot,
+      );
+      const sourceFile = source.referentPath ?? source.entryPath;
+      const current = yield* observeTargetPath({
+        workspaceRoot,
+        nativeRoots,
+        sourcePath: sourceFile,
+        targetPath: address.entryPath,
+        sourceFileName,
+        sourceContent: yield* readFileOption(sourceFile, workspaceRoot, nativeRoots),
+      });
+      if (current.ownership === "unowned") return yield* unownedTargetsFailure([item], "overwrite");
+      const prior = targets.get(address.entryPath);
+      if (
+        prior !== undefined &&
+        (prior.sourceFile !== sourceFile || prior.mechanism !== item.mechanism)
+      ) {
+        return yield* new InstructionMaintenanceFailed({
+          category: "conflict",
+          detail: `Instruction consumers require incompatible content at ${address.entryPath}`,
+        });
+      }
+      targets.set(address.entryPath, {
+        ...item,
+        ...current,
+        targetFile: address.entryPath,
+        sourceFile,
+        observedPaths: [...(prior?.observedPaths ?? []), item.targetFile, item.sourceFile],
+      });
+    }
+    return [...targets.values()];
+  }).pipe(
+    Effect.mapError((cause) =>
+      cause instanceof InstructionMaintenanceFailed
+        ? cause
+        : new InstructionMaintenanceFailed({
+            category: "conflict",
+            detail: "Instruction target leaves the selected workspace authority",
+            cause,
+          }),
+    ),
+  );
 
 /**
  * Remove every target AXM owns — the current plan's owned aliases and all
@@ -1403,11 +1847,25 @@ export const removeManagedInstructionTargets = (args: {
     if (blockers.length > 0) {
       return yield* unownedTargetsFailure(blockers, "remove");
     }
-    const removable = plannedInstructionChanges(args.snapshot, "remove").flatMap((change) =>
-      change.kind === "owned-alias" || change.kind === "stale" ? [change.item.targetFile] : [],
+    const targets = yield* preparePhysicalInstructionTargets(
+      args.snapshot.workspaceRoot,
+      plannedInstructionChanges(args.snapshot, "remove").flatMap((change) =>
+        change.kind === "owned-alias" || change.kind === "stale" ? [change.item] : [],
+      ),
+      status.sourceFileName,
+      args.snapshot.nativeRoots,
     );
+    const removable = targets.map((item) => item.targetFile);
     if (!args.dryRun) {
-      yield* Effect.forEach(removable, removeTargetFile, { concurrency: 1, discard: true });
+      yield* assertInstructionWitnesses(args.snapshot);
+      yield* Effect.forEach(
+        targets,
+        (item) =>
+          assertInstructionWitnesses(args.snapshot, new Set(item.observedPaths)).pipe(
+            Effect.andThen(removeTargetFile(item.targetFile)),
+          ),
+        { concurrency: 1, discard: true },
+      );
     }
     return removable;
   });
@@ -1424,6 +1882,8 @@ const writeOneTarget = (args: {
       yield* createSymlink({ target: item.sourceFile, link: item.targetFile });
       return;
     }
+    if (item.observedForm === "symlink" || item.observedForm === "broken-link")
+      yield* removeTargetFile(item.targetFile, false);
     yield* writeFile(
       item.targetFile,
       withManagedCopyBanner({
@@ -1437,23 +1897,123 @@ const writeOneTarget = (args: {
 const writeGitignoreRegion = (args: {
   readonly workspaceRoot: string;
   readonly patterns: ReadonlyArray<string>;
+  readonly eligiblePatterns?: ReadonlySet<string>;
+  readonly dryRun?: boolean;
 }) =>
   Effect.gen(function* () {
-    const gitManaged = yield* isGitManaged(args.workspaceRoot);
-    if (!gitManaged) return Option.none<string>();
-
-    const filePath = yield* instructionGitignorePath(args.workspaceRoot);
-    const current = yield* readFileOption(filePath);
-    const state = Option.isSome(current) ? managedGitignoreRegionState(current.value) : "absent";
-    if (state === "malformed" || state === "unsupported-version") {
-      return yield* unsafeGitignoreRegionFailure(state, filePath);
-    }
-    const next = reconcileGitignorePatterns(
-      Option.getOrElse(current, () => ""),
-      args.patterns,
-    ).updated;
-    yield* writeFile(filePath, next);
-    return Option.some(filePath);
+    if (!(yield* isGitManaged(args.workspaceRoot))) return Option.none<string>();
+    const lexical = yield* instructionGitignorePath(args.workspaceRoot);
+    const address = yield* instructionContentAddress(args.workspaceRoot, lexical);
+    const filePath = address.referentPath ?? address.entryPath;
+    const authority = yield* NativeWriteAuthority;
+    const run = Effect.gen(function* () {
+      let current = yield* readFileOption(filePath, args.workspaceRoot);
+      let raw = Option.getOrElse(current, () => "");
+      const state = managedGitignoreRegionState(raw);
+      if (state === "malformed" || state === "unsupported-version")
+        return yield* unsafeGitignoreRegionFailure(state, filePath);
+      const region = reconcileGitignorePatterns(raw, []).state;
+      const previous =
+        region.state === "complete"
+          ? region.body.split(/\r?\n/).filter((line) => line.length > 0)
+          : [];
+      const removed = previous.filter((pattern) => !args.patterns.includes(pattern));
+      const added = args.patterns.filter((pattern) => !previous.includes(pattern));
+      const unit = (pattern: string) => JSON.stringify(["instruction-ignore-pattern", pattern]);
+      const target = (pattern: string) => ({
+        path: filePath,
+        aliases: [lexical],
+        unit: unit(pattern),
+      });
+      let patterns = previous.filter((pattern) => args.patterns.includes(pattern));
+      const publish = (next: string, pattern: string, eligible: boolean) =>
+        Effect.gen(function* () {
+          if (eligible && Option.isNone(deriveStructuralInverse(raw, next)))
+            return yield* new InstructionMaintenanceFailed({
+              category: "conflict",
+              detail: `Instruction ignore insertion cannot preserve the authored container: ${lexical}`,
+            });
+          if (!args.dryRun) {
+            const capture = yield* authority
+              .captureInsertion({ ...target(pattern), beforeRaw: current, eligible })
+              .pipe(Effect.mapError(insertionFailure));
+            const createdDirectories = yield* authority
+              .createParentDirectories(filePath)
+              .pipe(Effect.mapError(insertionFailure));
+            yield* Effect.uninterruptible(
+              writeFile(filePath, next).pipe(
+                Effect.andThen(
+                  authority
+                    .recordInsertion({ capture, afterRaw: next, createdDirectories })
+                    .pipe(Effect.mapError(insertionFailure)),
+                ),
+              ),
+            );
+          }
+          raw = next;
+          current = Option.some(next);
+        });
+      // Replacing routing intent updates the existing region in place. Removing
+      // it first would relocate the replacement past authored suffix bytes, and
+      // an intervening removal does not establish a new exact-insertion premise.
+      const replaced = removed[0];
+      if (replaced !== undefined && added.length > 0) {
+        const next = reconcileGitignorePatterns(raw, args.patterns).updated;
+        if (next !== raw) yield* publish(next, replaced, false);
+        if (!args.dryRun)
+          for (const pattern of removed)
+            yield* authority
+              .forgetInsertion(target(pattern))
+              .pipe(Effect.mapError(insertionFailure));
+        return Option.some(filePath);
+      }
+      if (removed.length > 0) {
+        const standard = reconcileGitignorePatterns(raw, patterns).updated;
+        const inverse = yield* authority
+          .resolveInsertions({ path: filePath, aliases: [lexical], units: removed.map(unit), raw })
+          .pipe(Effect.mapError(insertionFailure));
+        const first = removed[0];
+        if (
+          first !== undefined &&
+          (standard.length === 0 ||
+            Option.exists(inverse, (value) => value.kind === "remove-file")) &&
+          !args.dryRun &&
+          (yield* authority
+            .retireInsertion({ ...target(first), raw, empty: patterns.length === 0 })
+            .pipe(Effect.mapError(insertionFailure)))
+        ) {
+          raw = "";
+          current = Option.none();
+        } else {
+          const next =
+            Option.isSome(inverse) && inverse.value.kind === "restore-text"
+              ? inverse.value.text
+              : standard;
+          if (first !== undefined && next !== raw) yield* publish(next, first, false);
+        }
+        if (!args.dryRun)
+          for (const pattern of removed)
+            yield* authority
+              .forgetInsertion(target(pattern))
+              .pipe(Effect.mapError(insertionFailure));
+      }
+      for (const pattern of added) {
+        patterns = [...patterns, pattern].sort();
+        yield* publish(
+          reconcileGitignorePatterns(raw, patterns).updated,
+          pattern,
+          args.eligiblePatterns?.has(pattern) === true,
+        );
+      }
+      if (removed.length === 0 && added.length === 0) {
+        const next = reconcileGitignorePatterns(raw, args.patterns).updated;
+        if (next !== raw && !args.dryRun) yield* writeFile(filePath, next);
+      }
+      return Option.some(filePath);
+    });
+    return yield* args.dryRun
+      ? run
+      : authority.withExclusiveWrite(filePath, run).pipe(Effect.mapError(insertionFailure));
   });
 
 export const removeInstructionsGitignore = (args: {
@@ -1462,12 +2022,14 @@ export const removeInstructionsGitignore = (args: {
 }): Effect.Effect<
   Option.Option<string>,
   InstructionMaintenanceFailure,
-  FileSystem.FileSystem | Path.Path
+  FileSystem.FileSystem | Path.Path | NativeWriteAuthority
 > =>
   Effect.gen(function* () {
     if (!(yield* isGitManaged(args.workspaceRoot))) return Option.none<string>();
-    const filePath = yield* instructionGitignorePath(args.workspaceRoot);
-    const content = yield* readFileOption(filePath);
+    const lexical = yield* instructionGitignorePath(args.workspaceRoot);
+    const address = yield* instructionContentAddress(args.workspaceRoot, lexical);
+    const filePath = address.referentPath ?? address.entryPath;
+    const content = yield* readFileOption(filePath, args.workspaceRoot);
     if (Option.isNone(content)) return Option.none<string>();
     const state = managedGitignoreRegionState(content.value);
     if (state === "absent") return Option.none<string>();
@@ -1489,59 +2051,136 @@ export const applyInstructionProjection = (args: {
 }): Effect.Effect<
   { readonly written: ReadonlyArray<string>; readonly removed: ReadonlyArray<string> },
   InstructionMaintenanceFailure,
-  FileSystem.FileSystem | Path.Path
+  FileSystem.FileSystem | Path.Path | NativeWriteAuthority
 > =>
   Effect.gen(function* () {
     const { snapshot } = args;
     const changes = plannedInstructionChanges(snapshot, "reconcile");
-    const removed = changes.flatMap((change) =>
-      change.kind === "stale" ? [change.item.targetFile] : [],
+    const stale = yield* preparePhysicalInstructionTargets(
+      args.workspaceRoot,
+      changes.flatMap((change) => (change.kind === "stale" ? [change.item] : [])),
+      args.config.fileName,
+      snapshot.nativeRoots,
     );
-    const targets = changes.flatMap((change) => (change.kind === "target" ? [change.item] : []));
+    const removed = stale.map((item) => item.targetFile);
+    const targets = yield* preparePhysicalInstructionTargets(
+      args.workspaceRoot,
+      changes.flatMap((change) => (change.kind === "target" ? [change.item] : [])),
+      args.config.fileName,
+      snapshot.nativeRoots,
+    );
     const gitignore = changes.find((change) => change.kind === "gitignore");
+    const path = yield* Path.Path;
+    const patterns = desiredGitignorePatterns({
+      enabled: args.config.gitignoreAliases,
+      path,
+      workspaceRoot: args.workspaceRoot,
+      plan: snapshot.plan,
+    });
+    const eligibleItems = (yield* Effect.forEach(snapshot.plan.items, (item) =>
+      Effect.gen(function* () {
+        if (item.action === "skip" || !snapshot.eligibleAgentIds.includes(item.agentId)) return [];
+        const entry = yield* resolveNativeEntry(item.targetPath).pipe(
+          Effect.mapError(insertionFailure),
+        );
+        return snapshot.eligibleTargets === undefined ||
+          snapshot.eligibleTargets.includes(entry.entryPath)
+          ? [item]
+          : [];
+      }),
+    )).flat();
+    const eligiblePatterns = new Set(
+      desiredGitignorePatterns({
+        enabled: args.config.gitignoreAliases,
+        path,
+        workspaceRoot: args.workspaceRoot,
+        plan: { ...snapshot.plan, items: eligibleItems },
+      }),
+    );
+    if (gitignore !== undefined) {
+      yield* assertInstructionsGitignoreSafe(args.workspaceRoot);
+      yield* writeGitignoreRegion({
+        workspaceRoot: args.workspaceRoot,
+        patterns,
+        eligiblePatterns,
+        dryRun: true,
+      });
+    }
     const written = [
       ...targets.map((item) => item.targetFile),
       ...(gitignore?.kind === "gitignore" ? [gitignore.path] : []),
     ];
     if (args.dryRun) return { written, removed };
-    yield* Effect.forEach(removed, removeTargetFile, { concurrency: 1, discard: true });
+    if (changes.length > 0) yield* assertInstructionWitnesses(snapshot);
+    yield* Effect.forEach(
+      stale,
+      (item) =>
+        assertInstructionWitnesses(snapshot, new Set(item.observedPaths)).pipe(
+          Effect.andThen(removeTargetFile(item.targetFile)),
+        ),
+      { concurrency: 1, discard: true },
+    );
     yield* Effect.forEach(
       targets,
       (item) =>
         Effect.gen(function* () {
-          const sourceContent = yield* readFileOption(item.sourceFile);
+          yield* assertInstructionWitnesses(snapshot, new Set(item.observedPaths));
+          const sourceContent = yield* readFileOption(item.sourceFile, args.workspaceRoot);
           if (Option.isNone(sourceContent)) {
             return yield* new InstructionMaintenanceFailed({
               category: "internal",
               detail: `Instruction source disappeared before projection: ${item.sourceFile}`,
             });
           }
-          yield* writeOneTarget({
-            item,
-            sourceContent: sourceContent.value,
-            sourceFileName: args.config.fileName,
-          });
+          const authority = yield* NativeWriteAuthority;
+          const eligible =
+            snapshot.eligibleAgentIds.includes(item.agentId) &&
+            (snapshot.eligibleTargets === undefined ||
+              snapshot.eligibleTargets.includes(item.targetFile));
+          const directories = yield* authority
+            .captureCreatedDirectories({
+              path: item.targetFile,
+              unit: aliasDirectoryUnit(item.targetFile),
+              eligible,
+            })
+            .pipe(Effect.mapError(insertionFailure));
+          const createdDirectories = yield* authority
+            .createParentDirectories(item.targetFile)
+            .pipe(Effect.mapError(insertionFailure));
+          yield* Effect.uninterruptible(
+            writeOneTarget({
+              item,
+              sourceContent: sourceContent.value,
+              sourceFileName: args.config.fileName,
+            }).pipe(
+              Effect.andThen(
+                authority
+                  .recordCreatedDirectories({ capture: directories, createdDirectories })
+                  .pipe(Effect.mapError(insertionFailure)),
+              ),
+            ),
+          );
         }),
-      { concurrency: 16, discard: true },
+      { concurrency: 1, discard: true },
     );
     if (gitignore?.kind === "gitignore") {
-      const path = yield* Path.Path;
-      const patterns = desiredGitignorePatterns({
-        enabled: args.config.gitignoreAliases,
-        path,
+      yield* assertInstructionWitnesses(snapshot, new Set([gitignore.path]));
+      yield* writeGitignoreRegion({
         workspaceRoot: args.workspaceRoot,
-        plan: snapshot.plan,
+        patterns,
+        eligiblePatterns,
       });
-      yield* writeGitignoreRegion({ workspaceRoot: args.workspaceRoot, patterns });
     }
     return { written, removed };
   });
 
 export const syncResult = (args: {
   readonly snapshot: InstructionProjectionSnapshot;
+  readonly before?: InstructionProjectionSnapshot;
   readonly written: ReadonlyArray<string>;
   readonly removed: ReadonlyArray<string>;
 }): InstructionsSyncResult => ({
+  nativeLocations: instructionChangeLocations(args),
   snapshot: args.snapshot,
   written: args.written,
   removed: args.removed,
@@ -1565,7 +2204,7 @@ export const syncInstructions = (
 ): Effect.Effect<
   InstructionsSyncResult,
   InstructionMaintenanceFailure,
-  FileSystem.FileSystem | Path.Path
+  FileSystem.FileSystem | Path.Path | NativeWriteAuthority
 > =>
   Effect.gen(function* () {
     const snapshot = yield* observeInstructionProjection(args);
@@ -1581,5 +2220,5 @@ export const syncInstructions = (
           ...args,
           symlinkSupported: snapshot.symlinkSupported,
         });
-    return syncResult({ snapshot: observed, ...applied });
+    return syncResult({ snapshot: observed, before: snapshot, ...applied });
   });

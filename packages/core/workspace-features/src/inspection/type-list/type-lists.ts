@@ -247,6 +247,7 @@ export const listMcpServers: () => Effect.Effect<
         const inspection =
           row.enabled !== false && desiredNode !== undefined && desiredNode.enabled
             ? yield* inspectDesiredMcpServer({
+                nativeDirectoryInputs: location.nativeDirectoryInputs,
                 workspaceRoot: location.baseDir,
                 scope: location.scope,
                 agentIds: configuredAgents,

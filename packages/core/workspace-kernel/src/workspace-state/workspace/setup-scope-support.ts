@@ -175,6 +175,22 @@ const skillOutcome = (
     });
   }
   if (nativeSupportsScope(capability.native, scope)) {
+    const hasTarget =
+      "locations" in capability.native &&
+      capability.native.locations.some(
+        (location) =>
+          location.scope === scope &&
+          location.role === "primary" &&
+          location.shape === "directory" &&
+          location.applicability.kind === "always",
+      );
+    if (!hasTarget)
+      return scopeNotModeledOutcome({
+        agentId,
+        agentName: agent.name,
+        typeLabel: "Skills",
+        reason: `${agent.name} supports ${scope}-scope skills natively, but AXM has no verified ${scope}-scope skill directory.`,
+      });
     return supportedOutcome({
       target: "agent",
       agentId,
@@ -211,7 +227,13 @@ const mcpOutcome = (
       ),
     });
   }
-  const targets = capability.axm.writer.config.targets;
+  const locationIds = capability.axm.writer.config.locationIds;
+  const targets =
+    "locations" in capability.native
+      ? capability.native.locations.filter((location) =>
+          locationIds.some((id) => id === location.id),
+        )
+      : [];
   const hasTarget = targets.some((target) => target.scope === scope);
   if (nativeSupportsScope(capability.native, scope) && hasTarget) {
     return supportedOutcome({
@@ -313,9 +335,15 @@ const hookOutcome = (
           }),
     });
   }
-  const hasProjectTarget = capability.axm.writer.configFiles.some(
-    (target) => target.scope === "project",
-  );
+  const locationIds = capability.axm.writer.locationIds;
+  const hasProjectTarget =
+    "locations" in capability.native &&
+    capability.native.locations.some(
+      (target) =>
+        target.scope === "project" &&
+        target.applicability.kind === "always" &&
+        locationIds.some((id) => id === target.id),
+    );
   if (!hasProjectTarget) {
     return capabilityUnavailableOutcome({
       agentId,

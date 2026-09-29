@@ -34,12 +34,10 @@ import {
 
 import { WorkspaceFailureConversionLive } from "../app-error/failure-catalog.js";
 import {
-  CodingAgentRepositoryLive,
   HookManagerLive,
   KnowledgeIndexLive,
   KnowledgeManagerLive,
   McpServerManagerLive,
-  NativeWriteAuthorityLive,
   PackManagerLive,
   RuleManagerLive,
   SkillManagerLive,
@@ -243,8 +241,6 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
   const workspaceServiceLayer = Layer.provideMerge(
     Layer.mergeAll(
       SourceHostProvidersLive,
-      CodingAgentRepositoryLive,
-      NativeWriteAuthorityLive,
       WorkspaceFailureConversionLive,
       makeAxmSkillCompatibilityPolicyLayer("0.0.0-spec"),
     ),

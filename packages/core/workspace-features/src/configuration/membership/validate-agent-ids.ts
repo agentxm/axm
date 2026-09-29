@@ -1,8 +1,7 @@
 /**
  * Which coding-agent identifiers a membership or capability request may name.
  *
- * The configurable catalog is the whole answer: `universal` is materialized
- * for every workspace and is never a membership choice, a hosted agent is
+ * The configurable catalog is the whole answer: a hosted agent is
  * installed through its vendor rather than through workspace configuration,
  * and anything else is refused before a change is planned, naming the nearest
  * supported id when one is close enough to be a typo.
@@ -67,15 +66,6 @@ export const validateAgentIds = (
 ): Effect.Effect<ReadonlyArray<string>, WorkspaceConfigurationFailed> =>
   Effect.gen(function* () {
     for (const id of ids) {
-      if (id === "universal") {
-        return yield* new WorkspaceConfigurationFailed({
-          category: "validation",
-          detail:
-            "`universal` is always materialized automatically and cannot be added or removed.",
-          suggestions: [{ description: "Choose one of the configurable coding-agent IDs." }],
-        });
-      }
-
       if (isHostedAgentId(id)) {
         const agent = HOSTED_AGENTS_BY_ID[id];
         return yield* new WorkspaceConfigurationFailed({

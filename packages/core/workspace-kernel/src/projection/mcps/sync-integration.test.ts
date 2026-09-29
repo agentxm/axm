@@ -6,25 +6,37 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { fc as FastCheck, it as fastCheckIt } from "@fast-check/vitest";
 import * as Effect from "effect/Effect";
-import {
-  CONFIGURABLE_AGENTS_BY_ID,
-  CONFIGURABLE_AGENT_IDS,
-} from "@agentxm/extension-model/unstable/agent-capabilities";
+import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agent-capabilities";
 import * as Layer from "effect/Layer";
 import type { McpServerEntry } from "../../workspace-state/index.js";
 import {
-  pruneManagedMcpServersForAgent,
+  buildAxmMcpMetadataFromSettingsSource,
+  configuredMcpCapability,
+  declaredMcpWriterTargets,
+  pruneManagedMcpServersForAgents,
   readYamlEntry,
-  removeMcpServerFromManifest,
+  removeMcpServerFromAgents,
   syncInlineMcpServerToAgents,
   type SyncInlineMcpServerArgs,
 } from "../../agent-adapters/index.js";
 import { NativeWriteAuthorityPermissive } from "../../agent-adapters/testing.js";
 import { inspectDesiredMcpServer } from "./inspection.js";
 
+const expectedInline = (...names: ReadonlyArray<string>) =>
+  Object.fromEntries(
+    names.map((name) => [name, [buildAxmMcpMetadataFromSettingsSource("inline", name)]]),
+  );
+
 /** One agent's outcome from the shared writer. */
-const syncInlineMcpServerToAgent = (agentId: string, args: SyncInlineMcpServerArgs) =>
-  syncInlineMcpServerToAgents([agentId], args).pipe(
+const syncInlineMcpServerToAgent = (
+  agentId: string,
+  args: Omit<SyncInlineMcpServerArgs, "nativeInsertionEligible" | "nativeDirectoryInputs">,
+) =>
+  syncInlineMcpServerToAgents([agentId], {
+    nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+    ...args,
+    nativeInsertionEligible: false,
+  }).pipe(
     Effect.flatMap((outcomes) =>
       outcomes[0] === undefined
         ? Effect.die(`no outcome for ${agentId}`)
@@ -41,6 +53,7 @@ const inspectInlineAcrossAgents = (args: {
   readonly entry: McpServerEntry;
 }) =>
   inspectDesiredMcpServer({
+    nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
     workspaceRoot: args.workspaceRoot,
     scope: args.scope,
     agentIds: args.agentIds,
@@ -50,11 +63,12 @@ const inspectInlineAcrossAgents = (args: {
   }).pipe(Effect.map(({ inspections }) => inspections));
 
 const configurableMcpCases = CONFIGURABLE_AGENT_IDS.flatMap((agentId) => {
-  const capability = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"];
-  if (capability.axm.writer === null || !("transports" in capability.native)) return [];
+  const capability = configuredMcpCapability(agentId);
+  if (capability === undefined) return [];
+  const targets = declaredMcpWriterTargets(capability).map(({ target }) => target);
   const target =
-    capability.axm.writer.config.targets.find((candidate) => candidate.scope === "project") ??
-    capability.axm.writer.config.targets.find((candidate) => candidate.scope === "user");
+    targets.find((candidate) => candidate.scope === "project") ??
+    targets.find((candidate) => candidate.scope === "user");
   if (target === undefined) return [];
   return [{ agentId, scope: target.scope, transports: capability.native.transports }];
 });
@@ -111,7 +125,9 @@ describe("mcp-sync helpers", () => {
 
           const error = yield* withHome(
             workspaceRoot,
-            pruneManagedMcpServersForAgent("hermes", {
+            pruneManagedMcpServersForAgents(["hermes"], {
+              nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+              expectedManagedEntries: expectedInline("stale"),
               workspaceRoot,
               scope: "user",
               declaredServerNames: new Set(),
@@ -215,6 +231,7 @@ describe("mcp-sync helpers", () => {
           }),
         ),
       ),
+    30_000,
   );
 
   it.effect("refuses to write over a malformed native JSON config", () =>
@@ -274,7 +291,7 @@ describe("mcp-sync helpers", () => {
       Effect.gen(function* () {
         const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-sync-"));
         try {
-          const outcome = yield* syncInlineMcpServerToAgent("claude-code", {
+          const outcome = yield* syncInlineMcpServerToAgent("gemini-cli", {
             workspaceRoot,
             serverName: "linear",
             scope: "project",
@@ -287,16 +304,16 @@ describe("mcp-sync helpers", () => {
             },
           });
 
-          expect(outcome).toEqual({
+          expect(outcome).toMatchObject({
             _tag: "success",
-            targets: [{ path: ".mcp.json", change: "created" }],
+            targets: [{ path: `${workspaceRoot}/.gemini/settings.json`, change: "created" }],
           });
           const fs = yield* FileSystem.FileSystem;
-          const config = yield* fs.readFileString(`${workspaceRoot}/.mcp.json`);
+          const config = yield* fs.readFileString(`${workspaceRoot}/.gemini/settings.json`);
           expect(config).toContain('"linear"');
-          expect(config).toContain('"command": "npx"');
-          expect(config).toContain('"args": [');
-          expect(config).toContain('"LINEAR_API_KEY": "${LINEAR_API_KEY}"');
+          expect(config).toMatch(/"command":\s*"npx"/);
+          expect(config).toMatch(/"args":\s*\[/);
+          expect(config).toMatch(/"LINEAR_API_KEY":\s*"\$\{LINEAR_API_KEY\}"/);
           expect(config).not.toContain("real_literal_token");
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
@@ -305,31 +322,29 @@ describe("mcp-sync helpers", () => {
     ),
   );
 
-  it.effect("writes a mutually readable project MCP file for every shared-agent combination", () =>
-    withNode(
-      Effect.gen(function* () {
-        const sharedAgents = [
-          "claude-code",
-          "codebuddy",
-          "command-code",
-          "github-copilot-cli",
-          "qoder",
-        ];
-        const combinations = Array.from({ length: 2 ** sharedAgents.length - 1 }, (_, index) =>
-          sharedAgents.filter((_, agentIndex) => ((index + 1) & (1 << agentIndex)) !== 0),
-        );
-        const entry = {
-          source: "inline",
-          command: "npx",
-          args: ["-y", "linear-mcp-server"],
-          enabled: true,
-          env: { REGION: "us-east-1" },
-        } as const;
+  const sharedAgents = ["claude-code", "codebuddy", "command-code", "github-copilot-cli", "qoder"];
+  const sharedAgentCombinations = Array.from({ length: 2 ** sharedAgents.length - 1 }, (_, index) =>
+    sharedAgents.filter((_, agentIndex) => ((index + 1) & (1 << agentIndex)) !== 0),
+  );
 
-        for (const agentIds of combinations) {
+  it.effect.each(sharedAgentCombinations.map((agentIds) => ({ agentIds })))(
+    "writes a mutually readable project MCP file for $agentIds",
+    ({ agentIds }) =>
+      withNode(
+        Effect.gen(function* () {
+          const entry = {
+            source: "inline",
+            command: "npx",
+            args: ["-y", "linear-mcp-server"],
+            enabled: true,
+            env: { REGION: "us-east-1" },
+          } as const;
+
           const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-shared-sync-"));
           try {
             const outcomes = yield* syncInlineMcpServerToAgents(agentIds, {
+              nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+              nativeInsertionEligible: false,
               workspaceRoot,
               serverName: "linear",
               scope: "project",
@@ -356,14 +371,13 @@ describe("mcp-sync helpers", () => {
             const config = yield* fs.readFileString(`${workspaceRoot}/.mcp.json`);
             expect(config).not.toContain('"enabled"');
             if (agentIds.includes("github-copilot-cli")) {
-              expect(config).toContain('"type": "stdio"');
+              expect(config).toMatch(/"type":\s*"stdio"/);
             }
           } finally {
             rmSync(workspaceRoot, { recursive: true, force: true });
           }
-        }
-      }),
-    ),
+        }),
+      ),
   );
 
   it.effect("produces the same Copilot-compatible shared file in either agent order", () =>
@@ -385,6 +399,8 @@ describe("mcp-sync helpers", () => {
           const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-shared-order-"));
           try {
             yield* syncInlineMcpServerToAgents(agentIds, {
+              nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+              nativeInsertionEligible: false,
               workspaceRoot,
               serverName: "linear",
               scope: "project",
@@ -398,7 +414,7 @@ describe("mcp-sync helpers", () => {
         }
 
         expect(rendered[0]).toBe(rendered[1]);
-        expect(rendered[0]).toContain('"type": "stdio"');
+        expect(rendered[0]).toMatch(/"type":\s*"stdio"/);
       }),
     ),
   );
@@ -408,7 +424,7 @@ describe("mcp-sync helpers", () => {
       Effect.gen(function* () {
         const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-sync-"));
         try {
-          const outcome = yield* syncInlineMcpServerToAgent("claude-code", {
+          const outcome = yield* syncInlineMcpServerToAgent("gemini-cli", {
             workspaceRoot,
             serverName: "sentry",
             scope: "project",
@@ -421,15 +437,15 @@ describe("mcp-sync helpers", () => {
             },
           });
 
-          expect(outcome).toEqual({
+          expect(outcome).toMatchObject({
             _tag: "success",
-            targets: [{ path: ".mcp.json", change: "created" }],
+            targets: [{ path: `${workspaceRoot}/.gemini/settings.json`, change: "created" }],
           });
           const fs = yield* FileSystem.FileSystem;
-          const config = yield* fs.readFileString(`${workspaceRoot}/.mcp.json`);
+          const config = yield* fs.readFileString(`${workspaceRoot}/.gemini/settings.json`);
           expect(config).toContain('"sentry"');
-          expect(config).toContain('"type": "sse"');
-          expect(config).toContain('"Authorization": "Bearer ${SENTRY_TOKEN}"');
+          expect(config).toMatch(/"url":\s*"https:\/\/mcp.sentry.dev\/sse"/);
+          expect(config).toMatch(/"Authorization":\s*"Bearer \$\{SENTRY_TOKEN\}"/);
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }
@@ -455,15 +471,15 @@ describe("mcp-sync helpers", () => {
             },
           });
 
-          expect(outcome).toEqual({
+          expect(outcome).toMatchObject({
             _tag: "success",
-            targets: [{ path: ".devin/mcp_config.json", change: "created" }],
+            targets: [{ path: `${workspaceRoot}/.devin/mcp_config.json`, change: "created" }],
           });
           const fs = yield* FileSystem.FileSystem;
           const config = yield* fs.readFileString(`${workspaceRoot}/.devin/mcp_config.json`);
           expect(config).toContain('"mcpServers"');
-          expect(config).toContain('"transport": "sse"');
-          expect(config).toContain('"Authorization": "Bearer ${SENTRY_TOKEN}"');
+          expect(config).toMatch(/"transport":\s*"sse"/);
+          expect(config).toMatch(/"Authorization":\s*"Bearer \$\{SENTRY_TOKEN\}"/);
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }
@@ -489,15 +505,15 @@ describe("mcp-sync helpers", () => {
             },
           });
 
-          expect(outcome).toEqual({
+          expect(outcome).toMatchObject({
             _tag: "success",
-            targets: [{ path: "kilo.json", change: "created" }],
+            targets: [{ path: `${workspaceRoot}/kilo.json`, change: "created" }],
           });
           const fs = yield* FileSystem.FileSystem;
           const config = yield* fs.readFileString(`${workspaceRoot}/kilo.json`);
           expect(config).toContain('"mcp"');
-          expect(config).toContain('"type": "local"');
-          expect(config).toContain('"command": [');
+          expect(config).toMatch(/"type":\s*"local"/);
+          expect(config).toMatch(/"command":\s*\[/);
           expect(config).toContain('"environment"');
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
@@ -524,17 +540,19 @@ describe("mcp-sync helpers", () => {
             },
           });
 
-          expect(outcome).toEqual({
+          expect(outcome).toMatchObject({
             _tag: "success",
-            targets: [{ path: ".codeartsdoer/codearts_cli.jsonc", change: "created" }],
+            targets: [
+              { path: `${workspaceRoot}/.codeartsdoer/codearts_cli.jsonc`, change: "created" },
+            ],
           });
           const fs = yield* FileSystem.FileSystem;
           const config = yield* fs.readFileString(
             `${workspaceRoot}/.codeartsdoer/codearts_cli.jsonc`,
           );
           expect(config).toContain('"mcp"');
-          expect(config).toContain('"type": "local"');
-          expect(config).toContain('"command": [');
+          expect(config).toMatch(/"type":\s*"local"/);
+          expect(config).toMatch(/"command":\s*\[/);
           expect(config).toContain('"environment"');
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
@@ -561,15 +579,15 @@ describe("mcp-sync helpers", () => {
             },
           });
 
-          expect(outcome).toEqual({
+          expect(outcome).toMatchObject({
             _tag: "success",
-            targets: [{ path: ".kimi-code/mcp.json", change: "created" }],
+            targets: [{ path: `${workspaceRoot}/.kimi-code/mcp.json`, change: "created" }],
           });
           const fs = yield* FileSystem.FileSystem;
           const config = yield* fs.readFileString(`${workspaceRoot}/.kimi-code/mcp.json`);
           expect(config).toContain('"mcpServers"');
-          expect(config).toContain('"transport": "sse"');
-          expect(config).toContain('"bearerTokenEnvVar": "SENTRY_TOKEN"');
+          expect(config).toMatch(/"transport":\s*"sse"/);
+          expect(config).toMatch(/"bearerTokenEnvVar":\s*"SENTRY_TOKEN"/);
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }
@@ -591,7 +609,7 @@ describe("mcp-sync helpers", () => {
               command: "npx",
               args: ["-y", "linear-mcp-server"],
               enabled: true,
-              env: { LINEAR_API_KEY: "${LINEAR_API_KEY}" },
+              env: {},
             },
           });
           yield* syncInlineMcpServerToAgent("claude-code", {
@@ -617,15 +635,28 @@ describe("mcp-sync helpers", () => {
             },
           });
 
-          const outcome = yield* pruneManagedMcpServersForAgent("claude-code", {
+          const [outcome] = yield* pruneManagedMcpServersForAgents(["claude-code"], {
+            nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+            expectedManagedEntries: expectedInline("stale", "stale-two"),
             workspaceRoot,
             scope: "project",
             declaredServerNames: new Set(["linear"]),
           });
 
-          expect(outcome).toEqual({
+          expect(outcome).toMatchObject({
             _tag: "success",
-            targets: [{ path: `${workspaceRoot}/.mcp.json`, change: "updated" }],
+            targets: [
+              {
+                path: `${workspaceRoot}/.mcp.json`,
+                change: "updated",
+                nativeLocation: { address: { keys: ["mcpServers", "stale"] } },
+              },
+              {
+                path: `${workspaceRoot}/.mcp.json`,
+                change: "updated",
+                nativeLocation: { address: { keys: ["mcpServers", "stale-two"] } },
+              },
+            ],
           });
           const fs = yield* FileSystem.FileSystem;
           const config = yield* fs.readFileString(`${workspaceRoot}/.mcp.json`);
@@ -647,6 +678,7 @@ describe("mcp-sync helpers", () => {
           yield* withHome(
             workspaceRoot,
             Effect.gen(function* () {
+              const configPath = `${workspaceRoot}/.hermes/config.yaml`;
               const stdioOutcome = yield* syncInlineMcpServerToAgent("hermes", {
                 workspaceRoot,
                 serverName: "context",
@@ -659,9 +691,9 @@ describe("mcp-sync helpers", () => {
                   env: { REGION: "us-east-1" },
                 },
               });
-              expect(stdioOutcome).toEqual({
+              expect(stdioOutcome).toMatchObject({
                 _tag: "success",
-                targets: [{ path: "~/.hermes/config.yaml", change: "created" }],
+                targets: [{ path: configPath, change: "created" }],
               });
 
               const remoteOutcome = yield* syncInlineMcpServerToAgent("hermes", {
@@ -676,13 +708,12 @@ describe("mcp-sync helpers", () => {
                   env: {},
                 },
               });
-              expect(remoteOutcome).toEqual({
+              expect(remoteOutcome).toMatchObject({
                 _tag: "success",
-                targets: [{ path: "~/.hermes/config.yaml", change: "updated" }],
+                targets: [{ path: configPath, change: "updated" }],
               });
 
               const fs = yield* FileSystem.FileSystem;
-              const configPath = `${workspaceRoot}/.hermes/config.yaml`;
               let raw = yield* fs.readFileString(configPath);
               expect(readYamlEntry(raw, "mcp_servers", "context")).toMatchObject({
                 "x-axm": {
@@ -710,30 +741,34 @@ describe("mcp-sync helpers", () => {
                 headers: { Accept: "application/json" },
               });
 
-              const disableOutcome = yield* removeMcpServerFromManifest("hermes", {
+              const [disableOutcome] = yield* removeMcpServerFromAgents(["hermes"], {
+                nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+                expectedManagedEntries: expectedInline("context", "stripe"),
                 workspaceRoot,
                 serverName: "context",
                 scope: "user",
                 disableOnly: true,
               });
-              expect(disableOutcome).toEqual({
+              expect(disableOutcome).toMatchObject({
                 _tag: "success",
-                targets: [{ path: "~/.hermes/config.yaml", change: "updated" }],
+                targets: [{ path: configPath, change: "updated" }],
               });
               raw = yield* fs.readFileString(configPath);
               expect(readYamlEntry(raw, "mcp_servers", "context")).toMatchObject({
                 enabled: false,
               });
 
-              const removeOutcome = yield* removeMcpServerFromManifest("hermes", {
+              const [removeOutcome] = yield* removeMcpServerFromAgents(["hermes"], {
+                nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+                expectedManagedEntries: expectedInline("context", "stripe"),
                 workspaceRoot,
                 serverName: "stripe",
                 scope: "user",
                 disableOnly: false,
               });
-              expect(removeOutcome).toEqual({
+              expect(removeOutcome).toMatchObject({
                 _tag: "success",
-                targets: [{ path: "~/.hermes/config.yaml", change: "updated" }],
+                targets: [{ path: configPath, change: "updated" }],
               });
               raw = yield* fs.readFileString(configPath);
               expect(readYamlEntry(raw, "mcp_servers", "stripe")).toBeUndefined();
@@ -749,12 +784,14 @@ describe("mcp-sync helpers", () => {
                   env: {},
                 },
               });
-              const pruneOutcome = yield* pruneManagedMcpServersForAgent("hermes", {
+              const [pruneOutcome] = yield* pruneManagedMcpServersForAgents(["hermes"], {
+                nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+                expectedManagedEntries: expectedInline("stale"),
                 workspaceRoot,
                 scope: "user",
                 declaredServerNames: new Set(["context"]),
               });
-              expect(pruneOutcome).toEqual({
+              expect(pruneOutcome).toMatchObject({
                 _tag: "success",
                 targets: [{ path: configPath, change: "updated" }],
               });

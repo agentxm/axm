@@ -29,7 +29,18 @@ export const qwenCodeAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".qwen/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".qwen/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -52,44 +63,72 @@ export const qwenCodeAgent = {
           variables: "braced",
           defaults: false,
         },
+
+        locations: [
+          {
+            id: "user",
+            scope: "user",
+            root: "home",
+            path: ".qwen/settings.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "json",
+            keyPath: ["mcpServers"],
+            attribution: "agent",
+          },
+          {
+            id: "project",
+            scope: "project",
+            root: "project",
+            path: ".qwen/settings.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "json",
+            keyPath: ["mcpServers"],
+            attribution: "agent",
+          },
+        ],
+
+        entryDialect: {
+          activationField: {
+            required: null,
+            accepted: [null],
+          },
+          stdio: {
+            typeField: { required: null, accepted: [null] },
+            command: "split",
+            envKey: "env",
+          },
+          remote: {
+            typeField: { required: null, accepted: [null] },
+            urlKey: {
+              "streamable-http": "httpUrl",
+              sse: "url",
+            },
+            headersKey: "headers",
+          },
+        },
       },
       axm: {
         status: "supported",
         lastVerified: "2026-08-05",
         writer: {
           config: {
-            serversKey: "mcpServers",
-            activationField: {
-              required: null,
-              accepted: [null],
-            },
-            targets: [
-              {
-                scope: "user",
-                path: "~/.qwen/settings.json",
-                format: "json",
-                attribution: "agent",
-              },
-              {
-                scope: "project",
-                path: ".qwen/settings.json",
-                format: "json",
-                attribution: "agent",
-              },
-            ],
-            stdio: {
-              typeField: { required: null, accepted: [null] },
-              command: "split",
-              envKey: "env",
-            },
-            remote: {
-              typeField: { required: null, accepted: [null] },
-              urlKey: {
-                "streamable-http": "httpUrl",
-                sse: "url",
-              },
-              headersKey: "headers",
-            },
+            locationIds: ["user", "project"],
           },
         },
       },
@@ -102,8 +141,18 @@ export const qwenCodeAgent = {
         docs: [],
         sources: ["https://qwenlm.github.io/qwen-code-docs/en/users/features/sub-agents/"],
         scopes: ["user", "project"],
-        directory: ".qwen/agents",
-        layout: "directory",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".qwen/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -121,17 +170,41 @@ export const qwenCodeAgent = {
         sources: ["https://qwenlm.github.io/qwen-code-docs/en/users/features/hooks/"],
         scopes: ["user", "project"],
         mechanism: ["command-stdin"],
-        configFiles: [
+        locations: [
           {
+            id: "user",
             scope: "user",
-            path: "~/.qwen/settings.json",
+            root: "home",
+            path: ".qwen/settings.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "json",
+            keyPath: ["hooks"],
             gitignored: false,
           },
           {
+            id: "project",
             scope: "project",
+            root: "project",
             path: ".qwen/settings.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "json",
+            keyPath: ["hooks"],
             gitignored: false,
           },
         ],
@@ -235,25 +308,21 @@ export const qwenCodeAgent = {
             lastVerified: "2026-08-05",
           },
         ],
-      },
-      axm: {
-        status: "supported",
-        writer: {
+
+        entryDialect: {
           serializer: "command-stdin",
-          configFiles: [
-            {
-              scope: "project",
-              path: ".qwen/settings.json",
-              format: "json",
-              gitignored: false,
-            },
-          ],
-          settingsKey: "hooks",
-          eventMap: "native.events",
           matcherKind: "regex",
           matcherSerialization: "bare",
           timeoutSerialization: "milliseconds",
           commandNameSerialization: "manifest",
+        },
+      },
+      axm: {
+        status: "supported",
+        writer: {
+          locationIds: ["project"],
+
+          eventMap: "native.events",
         },
         lastVerified: "2026-08-05",
       },
@@ -271,7 +340,18 @@ export const qwenCodeAgent = {
       standardsCompliance: "full",
       convention: "universal",
       kind: "agents-md",
-      files: ["AGENTS.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "AGENTS.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: false,
       importSyntax: null,
     },
@@ -296,16 +376,38 @@ export const qwenCodeAgent = {
       ],
       scopes: ["user", "project"],
       mechanism: ["config-file"],
-      configFiles: [
+      locations: [
         {
+          id: "user",
           scope: "user",
-          path: "~/.qwen/settings.json",
+          root: "home",
+          path: ".qwen/settings.json",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "json",
           gitignored: false,
         },
         {
+          id: "project",
           scope: "project",
+          root: "project",
           path: ".qwen/settings.json",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "json",
           gitignored: false,
         },
@@ -325,7 +427,7 @@ export const qwenCodeAgent = {
       writer: {
         grants: {
           shell: {
-            target: "~/.qwen/settings.json",
+            destination: { kind: "location", locationId: "user" },
             patch: {
               permissions: {
                 allow: ["Bash(${tool} *)"],
@@ -334,7 +436,7 @@ export const qwenCodeAgent = {
             template: null,
           },
           filesystem: {
-            target: "~/.qwen/settings.json",
+            destination: { kind: "location", locationId: "user" },
             patch: {
               permissions: {
                 allow: ["Read(${workspaceRoot}/**)", "Edit(${workspaceRoot}/**)"],

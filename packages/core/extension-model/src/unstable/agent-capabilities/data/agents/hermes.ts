@@ -30,7 +30,18 @@ export const hermesAgent = {
         scopes: ["user"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".hermes/skills",
+        locations: [
+          {
+            scope: "user",
+            root: "home",
+            path: ".hermes/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -50,35 +61,51 @@ export const hermesAgent = {
         standardsCompliance: "partial",
         convention: "vendor",
         transports: ["stdio", "http"],
+
+        locations: [
+          {
+            id: "user",
+            scope: "user",
+            root: "home",
+            path: ".hermes/config.yaml",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "yaml",
+            keyPath: ["mcp_servers"],
+            attribution: "agent",
+          },
+        ],
+
+        entryDialect: {
+          activationField: {
+            required: { name: "enabled", enabled: true, disabled: false },
+            accepted: [{ name: "enabled", enabled: true, disabled: false }],
+          },
+          stdio: {
+            typeField: { required: null, accepted: [null] },
+            command: "split",
+            envKey: "env",
+          },
+          remote: {
+            typeField: { required: null, accepted: [null] },
+            urlKey: { "streamable-http": "url" },
+            headersKey: "headers",
+          },
+        },
       },
       axm: {
         status: "supported",
         lastVerified: "2026-08-05",
         writer: {
           config: {
-            serversKey: "mcp_servers",
-            activationField: {
-              required: { name: "enabled", enabled: true, disabled: false },
-              accepted: [{ name: "enabled", enabled: true, disabled: false }],
-            },
-            targets: [
-              {
-                scope: "user",
-                path: "~/.hermes/config.yaml",
-                format: "yaml",
-                attribution: "agent",
-              },
-            ],
-            stdio: {
-              typeField: { required: null, accepted: [null] },
-              command: "split",
-              envKey: "env",
-            },
-            remote: {
-              typeField: { required: null, accepted: [null] },
-              urlKey: { "streamable-http": "url" },
-              headersKey: "headers",
-            },
+            locationIds: ["user"],
           },
         },
       },
@@ -107,16 +134,38 @@ export const hermesAgent = {
         sources: ["https://hermes-agent.nousresearch.com/docs/user-guide/features/hooks"],
         scopes: ["user"],
         mechanism: ["command-stdin"],
-        configFiles: [
+        locations: [
           {
+            id: "user",
             scope: "user",
-            path: "~/.hermes/config.yaml",
+            root: "home",
+            path: ".hermes/config.yaml",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "yaml",
             gitignored: false,
           },
           {
+            id: "user-additional-1",
             scope: "user",
-            path: "~/.hermes/shell-hooks-allowlist.json",
+            root: "home",
+            path: ".hermes/shell-hooks-allowlist.json",
+            shape: "file",
+            role: "additional",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "json",
             gitignored: false,
           },
@@ -180,6 +229,8 @@ export const hermesAgent = {
           },
         ],
         tools: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -200,7 +251,18 @@ export const hermesAgent = {
       standardsCompliance: "full",
       convention: "universal",
       kind: "agents-md",
-      files: ["AGENTS.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "AGENTS.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: true,
       importSyntax: null,
     },

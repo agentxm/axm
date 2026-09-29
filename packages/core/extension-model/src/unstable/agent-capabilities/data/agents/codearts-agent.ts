@@ -31,7 +31,18 @@ export const codeartsAgentAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".codeartsdoer/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".codeartsdoer/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -58,58 +69,86 @@ export const codeartsAgentAgent = {
           variables: "none",
           defaults: false,
         },
+
+        locations: [
+          {
+            id: "project",
+            scope: "project",
+            root: "project",
+            path: ".codeartsdoer/codearts_cli.jsonc",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "jsonc",
+            keyPath: ["mcp"],
+            attribution: "agent",
+          },
+          {
+            id: "user",
+            scope: "user",
+            root: "home",
+            path: ".codeartsdoer/codearts_cli.jsonc",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "jsonc",
+            keyPath: ["mcp"],
+            attribution: "agent",
+          },
+        ],
+
+        entryDialect: {
+          activationField: {
+            required: null,
+            accepted: [{ name: "enabled", enabled: true, disabled: false }, null],
+          },
+          stdio: {
+            typeField: {
+              required: { name: "type", value: "local" },
+              accepted: [{ name: "type", value: "local" }],
+            },
+            command: "array",
+            envKey: "environment",
+          },
+          remote: {
+            typeField: {
+              required: {
+                name: "type",
+                value: { "streamable-http": "remote", sse: "remote" },
+              },
+              accepted: [
+                {
+                  name: "type",
+                  value: { "streamable-http": "remote", sse: "remote" },
+                },
+              ],
+            },
+            urlKey: {
+              "streamable-http": "url",
+              sse: "url",
+            },
+            headersKey: "headers",
+          },
+        },
       },
       axm: {
         status: "supported",
         lastVerified: "2026-08-05",
         writer: {
           config: {
-            serversKey: "mcp",
-            activationField: {
-              required: null,
-              accepted: [{ name: "enabled", enabled: true, disabled: false }, null],
-            },
-            targets: [
-              {
-                scope: "project",
-                path: ".codeartsdoer/codearts_cli.jsonc",
-                format: "jsonc",
-                attribution: "agent",
-              },
-              {
-                scope: "user",
-                path: "~/.codeartsdoer/codearts_cli.jsonc",
-                format: "jsonc",
-                attribution: "agent",
-              },
-            ],
-            stdio: {
-              typeField: {
-                required: { name: "type", value: "local" },
-                accepted: [{ name: "type", value: "local" }],
-              },
-              command: "array",
-              envKey: "environment",
-            },
-            remote: {
-              typeField: {
-                required: {
-                  name: "type",
-                  value: { "streamable-http": "remote", sse: "remote" },
-                },
-                accepted: [
-                  {
-                    name: "type",
-                    value: { "streamable-http": "remote", sse: "remote" },
-                  },
-                ],
-              },
-              urlKey: {
-                "streamable-http": "url",
-                sse: "url",
-              },
-              headersKey: "headers",
-            },
+            locationIds: ["project", "user"],
           },
         },
       },
@@ -125,8 +164,18 @@ export const codeartsAgentAgent = {
           "https://support.huaweicloud.com/usermanual-codeartssnap/codeartsagent_ug_0051.html",
         ],
         scopes: ["user", "project"],
-        directory: ".codeartsdoer/agents",
-        layout: "directory",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".codeartsdoer/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -144,6 +193,10 @@ export const codeartsAgentAgent = {
         sources: ["https://support.huaweicloud.com/usermanual-cli/codeartsagent_cli_0018.html"],
         scopes: ["user", "project"],
         modeling: "native-unmodeled",
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -165,7 +218,18 @@ export const codeartsAgentAgent = {
       standardsCompliance: "full",
       convention: "universal",
       kind: "agents-md",
-      files: ["AGENTS.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "AGENTS.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: false,
       importSyntax: null,
     },
@@ -185,10 +249,21 @@ export const codeartsAgentAgent = {
       sources: ["https://support.huaweicloud.com/usermanual-cli/codeartsagent_cli_0006.html"],
       scopes: ["user"],
       mechanism: ["config-file"],
-      configFiles: [
+      locations: [
         {
+          id: "user",
           scope: "user",
-          path: "~/.codeartsdoer/cli-data/storage/permission/global.json",
+          root: "home",
+          path: ".codeartsdoer/cli-data/storage/permission/global.json",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "json",
           gitignored: false,
         },

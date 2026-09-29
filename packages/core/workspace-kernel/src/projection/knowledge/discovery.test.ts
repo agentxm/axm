@@ -4,6 +4,10 @@ import * as nodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import { NativeWriteAuthorityLive } from "../live.js";
+import { WorkspaceReadTest } from "../../workspace-state/testing.js";
+import { WorkspaceFileWriteLocksLive } from "../../settlement/live.js";
 import { reconcileKnowledgeDiscovery, type KnowledgeDiscoveryBundle } from "./discovery.js";
 
 const makeBundle = (
@@ -25,16 +29,38 @@ const run = (
     readonly instructions?: false;
     readonly management?: boolean;
     readonly dryRun?: boolean;
+    readonly priorBundles?: ReadonlyArray<KnowledgeDiscoveryBundle>;
   },
 ) =>
   reconcileKnowledgeDiscovery({
     scopeRoot: root,
+    ownerRoot: root,
+    scope: "project",
+    nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+    configuredAgentIds: [],
+    eligible: true,
+    ownership: [...bundles, ...(options?.priorBundles ?? [])].map(({ owner, name, sourceDir }) => ({
+      name,
+      ref: `${owner}/knowledge/${name}`,
+      root: nodePath.relative(root, nodePath.dirname(sourceDir)),
+      scope: "project",
+    })),
     config: { instructions: options?.instructions !== false },
     bundles,
     instructionsPath: nodePath.join(root, "AGENTS.md"),
+    instructionsDeclaredPath: nodePath.join(root, "AGENTS.md"),
     instructionManagementEnabled: options?.management ?? true,
     ...(options?.dryRun === undefined ? {} : { dryRun: options.dryRun }),
-  }).pipe(Effect.provide(NodeServices.layer));
+  }).pipe(
+    Effect.provide(
+      NativeWriteAuthorityLive.pipe(
+        Layer.provide(
+          Layer.merge(WorkspaceReadTest({ baseDir: root }), WorkspaceFileWriteLocksLive),
+        ),
+        Layer.provideMerge(NodeServices.layer),
+      ),
+    ),
+  );
 
 describe("reconcileKnowledgeDiscovery", () => {
   it.effect("renders one deterministic, escaped Knowledge Bundles table with canonical links", () =>
@@ -82,8 +108,9 @@ describe("reconcileKnowledgeDiscovery", () => {
     Effect.gen(function* () {
       const root = mkdtempSync(nodePath.join(tmpdir(), "axm-knowledge-table-"));
       try {
-        yield* run(root, [makeBundle(root, "@acme", "platform")]);
-        yield* run(root, []);
+        const bundle = makeBundle(root, "@acme", "platform");
+        yield* run(root, [bundle]);
+        yield* run(root, [], { priorBundles: [bundle] });
         expect(existsSync(nodePath.join(root, "AGENTS.md"))).toBe(false);
       } finally {
         rmSync(root, { recursive: true, force: true });

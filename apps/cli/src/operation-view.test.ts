@@ -18,6 +18,58 @@ import { asciiGlyphs } from "./screen/glyphs.js";
 const paint = (doc: ReturnType<typeof planDoc>): string =>
   paintText(doc, { width: 160, colors: false, glyphs: asciiGlyphs }).join("\n");
 
+it("reports a shared native location independently of its consumers and preserves recovery addresses", () => {
+  const artifact: JobStepArtifact = {
+    path: ".agents/skills/review",
+    scope: "project",
+    change: "updated",
+    nativeLocations: [
+      {
+        scope: "project",
+        address: { kind: "entry", path: "/workspace/.agents/skills/review" },
+        aliases: ["/workspace/.agents/skills/review"],
+        configuredConsumers: ["codex", "cursor"],
+        potentialReaders: ["unconfigured-reader"],
+        policyReasons: ["Shared Skills policy keeps this entry available"],
+        ownership: "owned",
+        proof: "canonical-source-link",
+        state: "retained",
+        availability: [],
+        reason: "A remaining consumer still requires this entry",
+      },
+    ],
+  };
+  const text = paint(
+    operationDoc(
+      makeOperationResolution({
+        name: "Remove agent",
+        description: Option.none(),
+        mode: "apply",
+        atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
+        units: [{ id: "review", label: "review", state: "committed", artifact }],
+        recovery: {
+          retained: [],
+          entries: [
+            {
+              originalPath: "/workspace/native.json",
+              recoveryPath: "/workspace/.axm-retired-id/native.json",
+              kind: "retired-entry",
+            },
+          ],
+          actions: [],
+        },
+      }),
+      { verbosity: "normal" },
+    ),
+  );
+  expect(text).toContain("1 physical location, 1 unit, 2 configured consumers, 1 potential reader");
+  expect(text).toContain("Shared Skills policy keeps this entry available");
+  expect(text).toContain("A remaining consumer still requires this entry");
+  expect(text).toContain(
+    "Preserved original for /workspace/native.json: /workspace/.axm-retired-id/native.json",
+  );
+});
+
 describe("pack membership output", () => {
   const artifact: JobStepArtifact = {
     path: "packs/toolkit/pack.json",

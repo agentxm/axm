@@ -31,6 +31,7 @@ export interface AcceptedResolutionWriterService {
     type: T,
     key: string,
     entry: LockEntryByType[T],
+    options?: { readonly roundTrip?: boolean },
   ) => Write;
   /** Remove one accepted resolution. No-op when absent. */
   readonly removeAccepted: (type: InstallableExtensionType, key: string) => Write;
@@ -101,7 +102,7 @@ export const makeAcceptedResolutionWriter = (
       }),
     ).pipe(Effect.withSpan("AcceptedResolutionWriter.removeAcceptedEntries"));
   return {
-    setAccepted: (type, key, entry) =>
+    setAccepted: (type, key, entry, options) =>
       serialized(
         Effect.gen(function* () {
           const lockfile = yield* current;
@@ -111,6 +112,7 @@ export const makeAcceptedResolutionWriter = (
           yield* commit(
             lockfile,
             accessor.set(lockfile, key, preserveAcceptedResolutionOnNoop(previous, entry)),
+            options,
           );
         }),
       ).pipe(Effect.withSpan("AcceptedResolutionWriter.setAccepted")),

@@ -20,7 +20,20 @@ import {
   toNativeAgent,
 } from "./index.js";
 import type { AgentId } from "./index.js";
-import type { Agent } from "./schema.js";
+import type { Agent, NativeReadLocation } from "./schema.js";
+const projectLocation = (
+  path: string,
+  shape: "directory" | "file" = "directory",
+): NativeReadLocation => ({
+  scope: "project",
+  root: "project",
+  path,
+  shape,
+  role: "primary",
+  status: "canonical",
+  applicability: { kind: "always" },
+  provenance: { kind: "capability-sources" },
+});
 const unsupportedCapability = {
   native: {
     availability: { via: "none" },
@@ -65,7 +78,7 @@ const baseAgent = {
         docs: [],
         sources: ["https://example.com/skills"],
         scopes: ["project"],
-        directory: ".sample/skills",
+        locations: [projectLocation(".sample/skills")],
       },
       axm: {
         status: "supported",
@@ -234,17 +247,14 @@ describe("agent capability derivation", () => {
       "codex",
       "command-code",
       "cursor",
-      "deepagents",
       "devin",
       "gemini-cli",
       "github-copilot-cli",
       "grok-cli",
-      "ibm-bob",
       "iflow-cli",
       "junie",
       "kilo",
       "kimi-cli",
-      "kiro-cli",
       "kode",
       "mistral-vibe",
       "mux",
@@ -252,7 +262,6 @@ describe("agent capability derivation", () => {
       "qoder",
       "qoder-cn",
       "qwen-code",
-      "roo",
     ]);
   });
   it("derives pack compatibility from all member types", () => {
@@ -442,7 +451,14 @@ describe("agent capability derivation", () => {
     expect(serialized).not.toContain('"writer"');
     expect(native.capabilities.skill).toMatchObject({
       availability: { via: "native" },
-      directory: ".agents/skills",
+      locations: expect.arrayContaining([
+        expect.objectContaining({
+          scope: "project",
+          root: "project",
+          path: ".agents/skills",
+          role: "primary",
+        }),
+      ]),
     });
   });
   it("derives hook portability verdicts from canonical event and AXM support", () => {
@@ -501,8 +517,7 @@ describe("agent capability derivation", () => {
               docs: [],
               sources: ["https://example.com/subagents"],
               scopes: ["project"],
-              directory: ".sample/agents",
-              layout: "directory",
+              locations: [projectLocation(".sample/agents")],
             },
             axm: {
               status: "supported",
@@ -522,7 +537,7 @@ describe("agent capability derivation", () => {
             sources: ["https://example.com/instructions"],
             scopes: ["project"],
             kind: "own-file",
-            files: ["SAMPLE.md"],
+            locations: [projectLocation("SAMPLE.md", "file")],
             nestedDiscovery: true,
             importSyntax: "at-path",
           },
@@ -537,15 +552,29 @@ describe("agent capability derivation", () => {
       id: "codex",
       name: "Sample Agent",
       rootDir: ".sample-root",
-      skills: { dir: ".sample/skills", additionalReadPaths: [] },
+      skills: {
+        locations: [projectLocation(".sample/skills")],
+        scopes: ["project"],
+        writerSupported: true,
+      },
       detection: {
         project: {
           markers: [{ kind: "dir", path: ".sample-root", signal: "definitive", note: null }],
         },
         user: { markers: [] },
       },
-      subagents: { dir: ".sample/agents", scopes: ["project"] },
-      instructions: { kind: "own-file", file: "SAMPLE.md", importSyntax: "at-path" },
+      subagents: {
+        locations: [projectLocation(".sample/agents")],
+        scopes: ["project"],
+        writerSupported: true,
+      },
+      instructions: {
+        kind: "own-file",
+        locations: [projectLocation("SAMPLE.md", "file")],
+        scopes: ["project"],
+        writerSupported: true,
+        importSyntax: "at-path",
+      },
     });
   });
   it("derives explicit rootDir opt-out and file-style subagents", () => {
@@ -563,8 +592,7 @@ describe("agent capability derivation", () => {
               docs: [],
               sources: ["https://example.com/subagents"],
               scopes: ["project"],
-              directory: ".sample-modes.yaml",
-              layout: "file",
+              locations: [projectLocation(".sample-modes.yaml", "file")],
             },
             axm: {
               status: "supported",
@@ -578,16 +606,42 @@ describe("agent capability derivation", () => {
       id: "codex",
       name: "Sample Agent",
       rootDir: undefined,
-      skills: { dir: ".sample/skills", additionalReadPaths: [] },
+      skills: {
+        locations: [projectLocation(".sample/skills")],
+        scopes: ["project"],
+        writerSupported: true,
+      },
       detection: { project: { markers: [] }, user: { markers: [] } },
-      subagents: { dir: ".sample-modes.yaml", scopes: ["project"], isFile: true },
+      subagents: {
+        locations: [projectLocation(".sample-modes.yaml", "file")],
+        scopes: ["project"],
+        writerSupported: true,
+      },
     });
+  });
+  it("retains reader locations when AXM writer support is unavailable", () => {
+    const descriptor = deriveAgentDescriptor({
+      ...baseAgent,
+      capabilities: {
+        ...baseAgent.capabilities,
+        skill: {
+          ...baseAgent.capabilities.skill,
+          axm: { status: "unsupported", lastVerified: null, writer: null },
+        },
+      },
+    });
+    expect(descriptor.skills).toEqual({
+      locations: [projectLocation(".sample/skills")],
+      scopes: ["project"],
+      writerSupported: false,
+    });
+    expect(descriptor.skills?.locations.some((location) => location.scope === "user")).toBe(false);
   });
   it("derives explicit rootDir", () => {
     expect(deriveAgentDescriptor(baseAgent).rootDir).toBe(".sample");
     expect(deriveAgentDescriptor(baseAgent).detection).toEqual(sampleRootDetection);
   });
-  it("isolates legacy skill scanners for agents without a verified skills surface", () => {
+  it("omits Skill readers when the catalog declares no native surface", () => {
     const descriptor = deriveAgentDescriptor(agentById("codemaker"));
 
     expect(descriptor.rootDir).toBeUndefined();
@@ -603,11 +657,19 @@ describe("agent capability derivation", () => {
       "kimi-cli",
       "rovodev",
     ] as const) {
-      expect(deriveAgentDescriptor(agentById(agentId)).subagents?.isFile).toBeUndefined();
+      expect(
+        deriveAgentDescriptor(agentById(agentId))
+          .subagents?.locations.filter((location) => location.role === "primary")
+          .every((location) => location.shape === "directory"),
+      ).toBe(true);
     }
 
     for (const agentId of ["ibm-bob", "roo"] as const) {
-      expect(deriveAgentDescriptor(agentById(agentId)).subagents?.isFile).toBe(true);
+      expect(
+        deriveAgentDescriptor(agentById(agentId)).subagents?.locations.some(
+          (location) => location.role === "primary" && location.shape === "file",
+        ),
+      ).toBe(true);
     }
   });
   it("does not treat a shared MCP target as agent-specific detection evidence", () => {
@@ -628,25 +690,21 @@ describe("agent capability derivation", () => {
   });
   it("uses catalog attribution rather than reader count for MCP detection", () => {
     const cursor = agentById("cursor");
-    const writer = cursor.capabilities["mcp-server"].axm.writer;
-    if (writer === null) throw new Error("Cursor MCP writer fixture is required");
+    const capability = cursor.capabilities["mcp-server"];
+    if (!("locations" in capability.native))
+      throw new Error("Cursor MCP native locations are required");
     const synthetic = {
       ...cursor,
       capabilities: {
         ...cursor.capabilities,
         "mcp-server": {
-          ...cursor.capabilities["mcp-server"],
-          axm: {
-            ...cursor.capabilities["mcp-server"].axm,
-            writer: {
-              config: {
-                ...writer.config,
-                targets: writer.config.targets.map((target) => ({
-                  ...target,
-                  attribution: "shared" as const,
-                })),
-              },
-            },
+          ...capability,
+          native: {
+            ...capability.native,
+            locations: capability.native.locations.map((location) => ({
+              ...location,
+              attribution: "shared" as const,
+            })),
           },
         },
       },
@@ -689,37 +747,57 @@ describe("agent capability derivation", () => {
               standardsCompliance: "full",
               convention: "vendor",
               transports: ["stdio"],
+
+              locations: [
+                {
+                  id: "project-0",
+                  scope: "project",
+                  root: "project",
+                  path: ".sample/settings.json",
+                  shape: "file",
+                  role: "primary",
+                  status: "canonical",
+                  applicability: { kind: "always" },
+                  provenance: { kind: "capability-sources" },
+                  format: "json",
+                  attribution: "agent",
+                  keyPath: ["mcpServers"],
+                },
+                {
+                  id: "user-1",
+                  scope: "user",
+                  root: "home",
+                  path: ".sample/settings.json",
+                  shape: "file",
+                  role: "primary",
+                  status: "canonical",
+                  applicability: { kind: "always" },
+                  provenance: { kind: "capability-sources" },
+                  format: "json",
+                  attribution: "agent",
+                  keyPath: ["mcpServers"],
+                },
+              ],
+
+              entryDialect: {
+                activationField: {
+                  required: { name: "enabled", enabled: true, disabled: false },
+                  accepted: [{ name: "enabled", enabled: true, disabled: false }],
+                },
+                stdio: {
+                  typeField: { required: null, accepted: [null] },
+                  command: "split",
+                  envKey: null,
+                },
+                remote: null,
+              },
             },
             axm: {
               status: "supported",
               lastVerified: "2026-05-16",
               writer: {
                 config: {
-                  serversKey: "mcpServers",
-                  activationField: {
-                    required: { name: "enabled", enabled: true, disabled: false },
-                    accepted: [{ name: "enabled", enabled: true, disabled: false }],
-                  },
-                  targets: [
-                    {
-                      scope: "project",
-                      path: ".sample/settings.json",
-                      format: "json",
-                      attribution: "agent",
-                    },
-                    {
-                      scope: "user",
-                      path: "~/.sample/settings.json",
-                      format: "json",
-                      attribution: "agent",
-                    },
-                  ],
-                  stdio: {
-                    typeField: { required: null, accepted: [null] },
-                    command: "split",
-                    envKey: null,
-                  },
-                  remote: null,
+                  locationIds: ["project-0", "user-1"],
                 },
               },
             },
@@ -764,7 +842,7 @@ describe("agent capability derivation", () => {
             sources: ["https://example.com/instructions"],
             scopes: ["project"],
             kind: "agents-md",
-            files: ["AGENTS.md"],
+            locations: [projectLocation("AGENTS.md", "file")],
             nestedDiscovery: true,
             importSyntax: null,
           },
@@ -775,7 +853,12 @@ describe("agent capability derivation", () => {
           },
         },
       }).instructions,
-    ).toEqual({ kind: "agents-md" });
+    ).toEqual({
+      kind: "agents-md",
+      locations: [projectLocation("AGENTS.md", "file")],
+      scopes: ["project"],
+      writerSupported: true,
+    });
     expect(
       deriveAgentDescriptor({
         ...baseAgent,
@@ -793,10 +876,9 @@ describe("agent capability derivation", () => {
             sources: ["https://example.com/instructions"],
             scopes: ["project"],
             kind: "rules-dir",
-            files: ["RULES.md"],
+            locations: [projectLocation(".sample/rules", "directory")],
             nestedDiscovery: false,
             importSyntax: null,
-            directory: ".sample/rules",
           },
           axm: {
             status: "supported",
@@ -805,6 +887,11 @@ describe("agent capability derivation", () => {
           },
         },
       }).instructions,
-    ).toEqual({ kind: "rules-dir", dir: ".sample/rules", format: "frontmatter" });
+    ).toEqual({
+      kind: "rules-dir",
+      locations: [projectLocation(".sample/rules", "directory")],
+      scopes: ["project"],
+      writerSupported: true,
+    });
   });
 });

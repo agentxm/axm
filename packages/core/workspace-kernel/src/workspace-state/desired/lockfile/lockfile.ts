@@ -20,12 +20,16 @@ import YAML from "yaml";
 import {
   protectWorkspacePath,
   recordFootprint,
+  retireWorkspacePath,
   WorkspaceFileWriteLocks,
+  type WorkspaceSnapshotError,
 } from "../../../settlement/index.js";
 import { LockfileWriteError } from "./errors.js";
 import { LOCKFILE_VERSION, type Lockfile, LockfileSchema } from "./schema.js";
 import { decodeLockfileBytes, readLockfileBytes } from "../../observed/state.js";
 import type { LockfileReadError } from "../../observed/errors.js";
+import type { DocumentRoundTripContext } from "../document-round-trip.js";
+import { prepareLockfileRoundTrip, renderLockfileUpdate } from "./round-trip.js";
 
 /**
  * Pure lockfile transformation used to batch multiple lockfile updates before
@@ -61,10 +65,11 @@ const encodeLockfileYaml = (lockfilePath: string, lockfile: Lockfile) =>
       catch: (cause) => new LockfileWriteError({ path: lockfilePath, step: "encode", cause }),
     });
 
-    return yield* Effect.try({
+    const content = yield* Effect.try({
       try: () => YAML.stringify(encoded),
       catch: (cause) => new LockfileWriteError({ path: lockfilePath, step: "serialize", cause }),
     });
+    return { encoded, content };
   });
 
 const patchOptionalMap = <T>(
@@ -139,7 +144,7 @@ const readLockfileIfPresent = (
 const withLockfileLock = <A, E, R>(
   lockfilePath: string,
   effect: Effect.Effect<A, E, R>,
-): Effect.Effect<A, E, R | WorkspaceFileWriteLocks> =>
+): Effect.Effect<A, E | WorkspaceSnapshotError, R | WorkspaceFileWriteLocks> =>
   Effect.gen(function* () {
     const locks = yield* WorkspaceFileWriteLocks;
     // Cross-process exclusion belongs to the workspace transaction. This
@@ -148,12 +153,59 @@ const withLockfileLock = <A, E, R>(
     return yield* locks.withLock(lockfilePath, effect);
   });
 
-const writeLockfileUnlocked = (lockfilePath: string, lockfile: Lockfile) =>
+const writeLockfileUnlocked = (
+  lockfilePath: string,
+  lockfile: Lockfile,
+  roundTrip?: DocumentRoundTripContext,
+) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const yamlContent = yield* encodeLockfileYaml(lockfilePath, lockfile);
+    const encoded = yield* encodeLockfileYaml(lockfilePath, lockfile);
+    const existed = yield* fs
+      .exists(lockfilePath)
+      .pipe(
+        Effect.mapError(
+          (cause) => new LockfileWriteError({ path: lockfilePath, step: "check-target", cause }),
+        ),
+      );
+    const prior = existed
+      ? yield* fs
+          .readFileString(lockfilePath)
+          .pipe(
+            Effect.mapError(
+              (cause) => new LockfileWriteError({ path: lockfilePath, step: "read-target", cause }),
+            ),
+          )
+      : undefined;
+    let yamlContent =
+      prior === undefined
+        ? encoded.content
+        : yield* Effect.try({
+            try: () => renderLockfileUpdate(prior, encoded.encoded),
+            catch: (cause) =>
+              new LockfileWriteError({ path: lockfilePath, step: "serialize", cause }),
+          });
+    const restoration =
+      roundTrip === undefined || prior === yamlContent
+        ? undefined
+        : yield* prepareLockfileRoundTrip({
+            context: roundTrip,
+            target: lockfilePath,
+            before: prior,
+            after: yamlContent,
+          });
+    yamlContent = restoration?.content ?? yamlContent;
+    if (restoration !== undefined) yield* restoration.revalidate;
+    if (restoration?.remove === true) {
+      yield* retireWorkspacePath(lockfilePath).pipe(
+        Effect.mapError(
+          (cause) => new LockfileWriteError({ path: lockfilePath, step: "write-temp", cause }),
+        ),
+      );
+      yield* restoration.finish;
+      return;
+    }
     yield* protectWorkspacePath(lockfilePath);
-    const existed = yield* fs.exists(lockfilePath).pipe(Effect.orElseSucceed(() => true));
     yield* sweepStaleAtomicWriteTemps(fs, lockfilePath);
     const written = yield* writeFileAtomic(fs, {
       targetPath: lockfilePath,
@@ -168,8 +220,9 @@ const writeLockfileUnlocked = (lockfilePath: string, lockfile: Lockfile) =>
     });
     if (written === "written") {
       yield* recordFootprint({ path: lockfilePath, change: existed ? "modified" : "created" });
+      if (restoration !== undefined) yield* restoration.finish;
     }
-  });
+  }).pipe(Effect.uninterruptible);
 
 // -----------------------------------------------------------------------------
 // Public Functions
@@ -195,13 +248,17 @@ const writeLockfileUnlocked = (lockfilePath: string, lockfile: Lockfile) =>
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const writeLockfileAtPath = (lockfilePath: string, lockfile: Lockfile) =>
+export const writeLockfileAtPath = (
+  lockfilePath: string,
+  lockfile: Lockfile,
+  roundTrip?: DocumentRoundTripContext,
+) =>
   Effect.gen(function* () {
     yield* ensureLockfileParent(lockfilePath);
     yield* withLockfileLock(
       lockfilePath,
       Effect.gen(function* () {
-        yield* writeLockfileUnlocked(lockfilePath, lockfile);
+        yield* writeLockfileUnlocked(lockfilePath, lockfile, roundTrip);
       }),
     );
   });
@@ -266,6 +323,7 @@ export const commitLockfileSnapshotUpdateAtPath = (
   lockfilePath: string,
   base: Lockfile,
   next: Lockfile,
+  roundTrip?: DocumentRoundTripContext,
 ) =>
   Effect.gen(function* () {
     yield* ensureLockfileParent(lockfilePath);
@@ -274,7 +332,7 @@ export const commitLockfileSnapshotUpdateAtPath = (
       Effect.gen(function* () {
         const current = yield* readLockfileIfPresent(lockfilePath);
         const updated = applyLockfileSnapshotPatch(current ?? base, base, next);
-        yield* writeLockfileUnlocked(lockfilePath, updated);
+        yield* writeLockfileUnlocked(lockfilePath, updated, roundTrip);
         return updated;
       }),
     );

@@ -14,7 +14,7 @@ export const specification = defineSpecification({
   requirement: "cli/agents/capabilities/describes-native-support-and-axm-integration",
   title: "Agent capabilities distinguish native support from AXM integration",
   statement:
-    "When a person inspects a coding agent’s capabilities, AXM shall report, per extension type, whether the vendor supports it natively and separately whether AXM integrates with it, together with the applicable directory and scopes, and shall report the agent’s lifecycle rather than treating a retired agent as unknown.",
+    "When a person inspects a coding agent’s capabilities, AXM shall report, per extension type, whether the vendor supports it natively and separately whether AXM integrates with it, together with the declared scoped native locations, and shall report the agent’s lifecycle rather than treating a retired agent as unknown.",
   class: "functional",
   role: "experience",
   goals: ["agent-interoperability", "actionable-diagnostics"],
@@ -71,7 +71,12 @@ describe("Coding-agent capability reports", () => {
       // exists only because AXM writes it.
       const skill = report.items.find((item) => item.type === "skill");
       expect(skill).toMatchObject({ native: "native", axm: "supported" });
-      expect(skill?.directory.length, "the applicable directory").toBeGreaterThan(0);
+      expect(skill?.locations).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ scope: "project", root: "project", path: ".claude/skills" }),
+          expect.objectContaining({ scope: "user", root: "home", path: ".claude/skills" }),
+        ]),
+      );
       expect(skill?.scopes.length, "the applicable scopes").toBeGreaterThan(0);
       expect(report.items.find((item) => item.type === "hook")?.axm).toBe("writer");
     }),

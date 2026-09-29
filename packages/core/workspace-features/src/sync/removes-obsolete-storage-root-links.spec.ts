@@ -7,6 +7,8 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
+import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
+import { makeRegistrySkillLockEntry } from "@agentxm/workspace-kernel/workspace-state/testing";
 
 import {
   applySync,
@@ -17,9 +19,9 @@ import {
 
 export const specification = defineSpecification({
   requirement: "cli/sync/removes-obsolete-storage-root-links",
-  title: "Sync removes obsolete agent skill links into AXM storage",
+  title: "Sync removes obsolete skill links only with exact accepted source proof",
   statement:
-    "When an agent skill-folder symbolic link resolves inside a current AXM storage root and no desired route expects it, including when its target is missing, sync shall remove the link, and sync shall not remove or rewrite a symbolic link whose target lies outside every current AXM storage root.",
+    "When an agent skill-folder symbolic link points directly to the exact canonical source identified by its accepted resolution and no desired route expects it, including when its target is missing, sync shall remove the link, and sync shall preserve symbolic links without that proof even when they point inside a current AXM storage root.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
@@ -31,6 +33,22 @@ export const specification = defineSpecification({
 });
 
 const CONTAINER = ".claude/skills";
+const acceptedSource = (name: string) => `agent_extensions/registry/@acme/skills/${name}/src`;
+
+const recordAcceptedSource = (workspace: SyncFixture, name: string): void =>
+  workspace.writeFile(
+    "axm-lock.yaml",
+    JSON.stringify({
+      lockfileVersion: 8,
+      skills: {
+        [name]: makeRegistrySkillLockEntry({
+          owner: decodeHandleSync("@acme"),
+          name,
+          sourceName: "agentxm",
+        }),
+      },
+    }),
+  );
 
 const isLink = (workspace: SyncFixture, relative: string): boolean => {
   try {
@@ -78,25 +96,42 @@ describe("Sync removes obsolete storage-root links", () => {
       .pipe(Effect.provide(NodeServices.layer));
   });
 
-  it.effect("obsolete, target present: removes the link and keeps its target", () => {
-    const workspace = fixture();
-    workspace.writeFile("skills/retired/SKILL.md", "# Retired\n");
-    const obsolete = link(workspace, "retired", nodePath.join(workspace.root, "skills/retired"));
-    return workspace
-      .provide(
-        Effect.gen(function* () {
-          yield* applySync();
-          expect(isLink(workspace, obsolete)).toBe(false);
-          expect(workspace.readFile("skills/retired/SKILL.md")).toBe("# Retired\n");
-          expect((yield* applySync())._tag).toBe("AlreadyReconciled");
-        }),
-      )
-      .pipe(Effect.provide(NodeServices.layer));
-  });
+  it.effect(
+    "obsolete, target present: removes the proven link and preserves unverified source bytes",
+    () => {
+      const workspace = fixture();
+      recordAcceptedSource(workspace, "retired");
+      workspace.writeFile(`${acceptedSource("retired")}/SKILL.md`, "# Retired\n");
+      const obsolete = link(
+        workspace,
+        "retired",
+        nodePath.join(workspace.root, acceptedSource("retired")),
+      );
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* applySync();
+            expect(isLink(workspace, obsolete)).toBe(false);
+            expect(workspace.readFile(`${acceptedSource("retired")}/SKILL.md`)).toBe("# Retired\n");
+            const after = workspace.snapshot();
+            const repeated = yield* applySync();
+            // The resolution proves the link's destination, but this deliberately
+            // incomplete package cannot establish authority to retire source bytes.
+            expect(repeated).toMatchObject({
+              _tag: "Resolved",
+              resolution: { units: [{ id: "maintenance:retirement", state: "blocked" }] },
+            });
+            expect(workspace.snapshot()).toEqual(after);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
 
   it.effect("obsolete, target missing: removes the dangling link", () => {
     const workspace = fixture();
-    const obsolete = link(workspace, "gone", "../../agent_extensions/registry/@acme/skills/gone");
+    recordAcceptedSource(workspace, "gone");
+    const obsolete = link(workspace, "gone", `../../${acceptedSource("gone")}`);
     return workspace
       .provide(
         Effect.gen(function* () {
@@ -108,6 +143,26 @@ describe("Sync removes obsolete storage-root links", () => {
       )
       .pipe(Effect.provide(NodeServices.layer));
   });
+
+  it.effect.each([true, false])(
+    "preserves an unproven storage-root link with target present=%s",
+    (present) => {
+      const workspace = fixture();
+      const source = "skills/unproven/src";
+      if (present) workspace.writeFile(`${source}/SKILL.md`, "# Independently authored\n");
+      const unproven = link(workspace, "unproven", nodePath.join(workspace.root, source));
+      const before = workspace.snapshot();
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            expect((yield* applySync())._tag).toBe("AlreadyReconciled");
+            expect(isLink(workspace, unproven)).toBe(true);
+            expect(workspace.snapshot()).toEqual(before);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
 
   it.effect("target in an old or unknown location: leaves the link untouched", () => {
     const workspace = fixture();

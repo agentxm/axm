@@ -8,7 +8,16 @@ import {
   UNCONSTRAINED_DESIRED_NODE,
   type Settings,
 } from "@agentxm/workspace-kernel/workspace-state";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readlinkSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import { pathToFileURL } from "node:url";
@@ -31,7 +40,10 @@ import * as Option from "effect/Option";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { HookManager } from "@agentxm/workspace-kernel/materialization";
-import { applyPlannedProjections } from "@agentxm/workspace-kernel/projection";
+import {
+  applyPlannedProjections,
+  applyProjectionPlans,
+} from "@agentxm/workspace-kernel/projection";
 import { SourceHostProviders, SourceNotResolvable } from "@agentxm/workspace-kernel/sources";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import {
@@ -126,6 +138,7 @@ const makeHookManagerLayer = (
   return HookManagerLive.pipe(
     Layer.provideMerge(WorkspaceCatalogLive),
     Layer.provideMerge(CodingAgentRepositoryLive),
+    Layer.provideMerge(NativeWriteAuthorityLive),
     Layer.provideMerge(
       WorkspaceReadTest({
         baseDir: workspaceRoot,
@@ -155,7 +168,6 @@ const makeHookManagerLayer = (
     ),
     Layer.provideMerge(MockWorkspaceTransactionScope(axmDir)),
     Layer.provide(makeSourceHostProviders()),
-    Layer.provideMerge(NativeWriteAuthorityLive),
     Layer.provideMerge(WorkspaceFileWriteLocksLive),
     Layer.provideMerge(
       Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
@@ -164,6 +176,175 @@ const makeHookManagerLayer = (
 };
 
 describe("HookManager", () => {
+  it.effect(
+    "refuses an aliased TOML co-reader before settings, canonical content, or native publication",
+    () =>
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-hook-cross-kind-"));
+        try {
+          const packageRoot = nodePath.join(workspaceRoot, "source-hook");
+          writeHookPackage(packageRoot, "audit");
+          mkdirSync(nodePath.join(workspaceRoot, ".claude"));
+          mkdirSync(nodePath.join(workspaceRoot, ".codex"));
+          const native = nodePath.join(workspaceRoot, ".claude/settings.json");
+          writeFileSync(native, "");
+          symlinkSync(
+            "../.claude/settings.json",
+            nodePath.join(workspaceRoot, ".codex/config.toml"),
+          );
+          yield* Effect.gen(function* () {
+            const manager = yield* HookManager;
+            const prepared = yield* manager
+              .prepareProjection([makeLocalHookRef("audit", packageRoot)])
+              .pipe(Effect.result);
+            expect(prepared._tag).toBe("Failure");
+            expect(readFileSync(native, "utf8")).toBe("");
+            expect(existsSync(nodePath.join(workspaceRoot, "agent_extensions"))).toBe(false);
+            expect(existsSync(nodePath.join(workspaceRoot, "axm.json"))).toBe(false);
+          }).pipe(
+            Effect.provide(
+              makeHookManagerLayer(workspaceRoot, {
+                configuredAgents: ["claude-code", "codex"],
+                hooks: ["audit"],
+              }),
+            ),
+          );
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+  );
+
+  it.effect("grants insertion receipts only to a newly added physical reader route", () =>
+    Effect.gen(function* () {
+      const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-hook-new-route-"));
+      try {
+        const packageRoot = nodePath.join(workspaceRoot, "source-hook");
+        writeHookPackage(packageRoot, "audit");
+        yield* Effect.gen(function* () {
+          const manager = yield* HookManager;
+          yield* manager.materializeInstall({ ref: makeLocalHookRef("audit", packageRoot) });
+          yield* manager
+            .projectionPlans({ nativeInsertionEligibleAgentIds: new Set(["devin"]) })
+            .pipe(Effect.flatMap(applyProjectionPlans));
+          const receipts = readFileSync(
+            nodePath.join(workspaceRoot, ".axm/projection-containers.json"),
+            "utf8",
+          );
+          expect(receipts).toContain(".devin/config.json");
+          expect(receipts).not.toContain(".claude/settings.json");
+        }).pipe(
+          Effect.provide(
+            makeHookManagerLayer(workspaceRoot, {
+              configuredAgents: ["claude-code", "devin"],
+              hooks: ["audit"],
+            }),
+          ),
+        );
+      } finally {
+        rmSync(workspaceRoot, { recursive: true, force: true });
+      }
+    }),
+  );
+
+  it.effect(
+    "does not grant a repair receipt when a newly added alias shares an existing reader",
+    () =>
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-hook-existing-route-"));
+        try {
+          const packageRoot = nodePath.join(workspaceRoot, "source-hook");
+          writeHookPackage(packageRoot, "audit", { bindings: [{ on: "session.start" }] });
+          mkdirSync(nodePath.join(workspaceRoot, ".claude"));
+          mkdirSync(nodePath.join(workspaceRoot, ".devin"));
+          writeFileSync(nodePath.join(workspaceRoot, ".claude/settings.json"), "");
+          symlinkSync(
+            "../.claude/settings.json",
+            nodePath.join(workspaceRoot, ".devin/config.json"),
+          );
+          yield* Effect.gen(function* () {
+            const manager = yield* HookManager;
+            yield* manager.materializeInstall({ ref: makeLocalHookRef("audit", packageRoot) });
+            yield* manager
+              .projectionPlans({ nativeInsertionEligibleAgentIds: new Set(["devin"]) })
+              .pipe(Effect.flatMap(applyProjectionPlans));
+            expect(
+              existsSync(nodePath.join(workspaceRoot, ".axm/projection-containers.json")),
+            ).toBe(false);
+          }).pipe(
+            Effect.provide(
+              makeHookManagerLayer(workspaceRoot, {
+                configuredAgents: ["claude-code", "devin"],
+                hooks: ["audit"],
+              }),
+            ),
+          );
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+  );
+
+  for (const coReader of ["devin", "gemini-cli"] as const) {
+    it.effect(
+      `${coReader === "devin" ? "coalesces compatible" : "refuses incompatible"} readers of one aliased native Hook file`,
+      () =>
+        Effect.gen(function* () {
+          const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-hook-locations-"));
+          try {
+            const packageRoot = nodePath.join(workspaceRoot, "source-hook");
+            writeHookPackage(packageRoot, "audit", { bindings: [{ on: "session.start" }] });
+            mkdirSync(nodePath.join(workspaceRoot, ".claude"));
+            const native = nodePath.join(workspaceRoot, ".claude/settings.json");
+            const otherPath = coReader === "devin" ? ".devin/config.json" : ".gemini/settings.json";
+            const alias = nodePath.join(workspaceRoot, otherPath);
+            mkdirSync(nodePath.dirname(alias));
+            writeFileSync(native, "{}\n");
+            symlinkSync("../.claude/settings.json", alias);
+            yield* Effect.gen(function* () {
+              const manager = yield* HookManager;
+              const prepared = yield* manager
+                .prepareProjection([makeLocalHookRef("audit", packageRoot)])
+                .pipe(Effect.result);
+              if (coReader === "gemini-cli") {
+                expect(prepared._tag).toBe("Failure");
+                expect(readFileSync(native, "utf8")).toBe("{}\n");
+                return;
+              }
+              expect(prepared._tag).toBe("Success");
+              yield* manager.materializeInstall({ ref: makeLocalHookRef("audit", packageRoot) });
+              yield* applyPlannedProjections(manager);
+              const materialization = yield* manager.aggregateProjectionObservation;
+              expect(
+                materialization.nativeLocations?.filter(
+                  ({ mechanism }) => mechanism === "structured-entry",
+                ),
+              ).toMatchObject([
+                {
+                  address: { path: native },
+                  aliases: [native, alias].sort(),
+                  configuredConsumers: ["claude-code", "devin"],
+                },
+              ]);
+              const beforeRepeat = readFileSync(native, "utf8");
+              yield* applyPlannedProjections(manager);
+              expect(readFileSync(native, "utf8")).toBe(beforeRepeat);
+              expect(readlinkSync(alias)).toBe("../.claude/settings.json");
+            }).pipe(
+              Effect.provide(
+                makeHookManagerLayer(workspaceRoot, {
+                  configuredAgents: ["claude-code", coReader],
+                  hooks: ["audit"],
+                }),
+              ),
+            );
+          } finally {
+            rmSync(workspaceRoot, { recursive: true, force: true });
+          }
+        }),
+    );
+  }
+
   it.effect("updates Claude Code settings without a workspace backup", () =>
     Effect.gen(function* () {
       const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-hook-manager-"));
@@ -185,7 +366,7 @@ describe("HookManager", () => {
             ref: makeLocalHookRef("identity-check", packageRoot),
           });
           yield* applyPlannedProjections(manager);
-          expect(yield* manager.aggregateProjectionObservation).toEqual({
+          expect(yield* manager.aggregateProjectionObservation).toMatchObject({
             agents: ["claude-code"],
             targets: [
               { path: ".claude/settings.json", agentIds: ["claude-code"] },
@@ -281,7 +462,7 @@ describe("HookManager", () => {
             ref: makeLocalHookRef("unsupported-agent", packageRoot),
           });
           yield* applyPlannedProjections(manager);
-          expect(yield* manager.aggregateProjectionObservation).toEqual({
+          expect(yield* manager.aggregateProjectionObservation).toMatchObject({
             agents: ["windsurf"],
             targets: [{ path: "AGENTS.md", agentIds: ["windsurf"] }],
           });

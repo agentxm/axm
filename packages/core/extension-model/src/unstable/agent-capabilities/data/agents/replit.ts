@@ -29,7 +29,18 @@ export const replitAgent = {
         scopes: ["project", "user"],
         standardsCompliance: "full",
         convention: "universal",
-        directory: ".agents/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".agents/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -49,6 +60,10 @@ export const replitAgent = {
         standardsCompliance: "partial",
         convention: "vendor",
         transports: ["http"],
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",

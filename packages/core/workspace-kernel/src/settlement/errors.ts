@@ -27,9 +27,8 @@ export interface TransitionContention {
 /**
  * Restoration did not complete: the typed fact the terminal resolution
  * derives outcome, disposition, and exit status from. The pre-change
- * snapshots survive in the OS-temporary snapshot directory; nothing about
- * this failure persists in the workspace, and the next mutation converges
- * from the current workspace state.
+ * snapshots and retained original entries survive at the reported recovery
+ * paths. The next mutation converges from the current workspace state.
  */
 export class WorkspaceRestorationIncomplete extends Data.TaggedError(
   "WorkspaceRestorationIncomplete",
@@ -41,9 +40,17 @@ export class WorkspaceRestorationIncomplete extends Data.TaggedError(
   readonly snapshotDir: string | undefined;
   /** Protected paths, workspace-root-relative where possible, left as the failure left them. */
   readonly retained: ReadonlyArray<string>;
+  readonly recovery: ReadonlyArray<WorkspaceRecoveryEntry>;
   /** Closures whose rollback did not complete, when closure-scoped. */
   readonly closureIds?: ReadonlyArray<string>;
 }> {}
+
+/** A preserved preimage available for explicit inspection and recovery. */
+export interface WorkspaceRecoveryEntry {
+  readonly originalPath: string;
+  readonly recoveryPath: string;
+  readonly kind: "retired-entry" | "snapshot";
+}
 
 /**
  * Registering a path with the active transaction failed: the pre-mutation
@@ -112,8 +119,10 @@ export class WorkspaceTransitionCompromised extends Data.TaggedError(
  */
 export class WorkspaceRestorationError extends Data.TaggedError("WorkspaceRestorationError")<{
   readonly target: string;
-  readonly step: "stage" | "stopped" | "verify";
+  readonly step: "stage" | "stopped" | "verify" | "foreign-change";
   readonly cause: unknown;
+  /** Exact boundaries whose restoration did not complete, when aggregated. */
+  readonly retained?: ReadonlyArray<string>;
 }> {}
 
 /** Failures acquiring the workspace transition lock. */

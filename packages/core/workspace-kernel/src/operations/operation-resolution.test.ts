@@ -131,6 +131,7 @@ describe("deriveOperationOutcome", () => {
       units: [unit("a", "failed", { disposition: "retained" })],
       failure: new StepFailure({ category: "internal", detail: "restoration failed" }),
       recovery: {
+        entries: [],
         retained: ["agent_extensions/@test/skills/a"],
         snapshotDir: "/tmp/axm-rollback-abc123",
         actions: [{ description: "Re-run the update; planning restarts from current state." }],
@@ -143,6 +144,7 @@ describe("deriveOperationOutcome", () => {
     const value = resolution({
       units: [unit("a", "committed"), unit("b", "failed")],
       recovery: {
+        entries: [],
         retained: [],
         actions: [],
       },

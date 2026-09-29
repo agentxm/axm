@@ -29,7 +29,18 @@ export const traeAgent = {
         scopes: ["project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".trae/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".trae/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -52,38 +63,54 @@ export const traeAgent = {
           variables: "none",
           defaults: false,
         },
+
+        locations: [
+          {
+            id: "project",
+            scope: "project",
+            root: "project",
+            path: ".trae/mcp.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "json",
+            keyPath: ["mcpServers"],
+            attribution: "shared",
+          },
+        ],
+
+        entryDialect: {
+          activationField: {
+            required: null,
+            accepted: [null],
+          },
+          stdio: {
+            typeField: { required: null, accepted: [null] },
+            command: "split",
+            envKey: "env",
+          },
+          remote: {
+            typeField: { required: null, accepted: [null] },
+            urlKey: {
+              "streamable-http": "url",
+              sse: "url",
+            },
+            headersKey: "headers",
+          },
+        },
       },
       axm: {
         status: "supported",
         lastVerified: "2026-08-05",
         writer: {
           config: {
-            serversKey: "mcpServers",
-            activationField: {
-              required: null,
-              accepted: [null],
-            },
-            targets: [
-              {
-                scope: "project",
-                path: ".trae/mcp.json",
-                format: "json",
-                attribution: "shared",
-              },
-            ],
-            stdio: {
-              typeField: { required: null, accepted: [null] },
-              command: "split",
-              envKey: "env",
-            },
-            remote: {
-              typeField: { required: null, accepted: [null] },
-              urlKey: {
-                "streamable-http": "url",
-                sse: "url",
-              },
-              headersKey: "headers",
-            },
+            locationIds: ["project"],
           },
         },
       },
@@ -129,10 +156,20 @@ export const traeAgent = {
       standardsCompliance: "partial",
       convention: "vendor",
       kind: "rules-dir",
-      files: ["*.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: ".trae/rules",
+          shape: "directory",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: true,
       importSyntax: null,
-      directory: ".trae/rules",
     },
     axm: {
       status: "supported",

@@ -14,7 +14,7 @@ import type {
   DetectionMarker,
   Scope,
   ScopeDetection,
-  SkillReadPath,
+  NativeReadLocation,
 } from "../agent-capabilities/schema.js";
 
 // -----------------------------------------------------------------------------
@@ -27,10 +27,9 @@ import type {
  * @experimental This API is unstable and may change without notice.
  */
 export interface AgentSkillsDescriptor {
-  /** Skills directory, relative to cwd (e.g., ".claude/skills") */
-  readonly dir: string;
-  /** Additional native directories read for discovery. AXM never writes to these paths. */
-  readonly additionalReadPaths: ReadonlyArray<SkillReadPath>;
+  readonly locations: ReadonlyArray<NativeReadLocation>;
+  readonly scopes: ReadonlyArray<Scope>;
+  readonly writerSupported: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -43,18 +42,9 @@ export interface AgentSkillsDescriptor {
  * @experimental This API is unstable and may change without notice.
  */
 export interface AgentSubagentsDescriptor {
-  /** Subagents directory, relative to cwd (e.g., ".claude/agents") */
-  readonly dir: string;
-  /**
-   * Scopes the agent itself supports for subagents. See
-   * The scopes the agent itself supports for subagents.
-   */
+  readonly locations: ReadonlyArray<NativeReadLocation>;
   readonly scopes: ReadonlyArray<Scope>;
-  /**
-   * When true, the path is a single file (e.g., ".roomodes") rather than a
-   * directory containing subagent files.
-   */
-  readonly isFile?: boolean;
+  readonly writerSupported: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -72,15 +62,13 @@ export interface AgentSubagentsDescriptor {
  *
  * @experimental
  */
-export type AgentInstructionsDescriptor =
-  | { readonly kind: "agents-md"; readonly rulesDir?: string }
-  | {
-      readonly kind: "own-file";
-      readonly file: string;
-      readonly importSyntax?: "at-path";
-      readonly rulesDir?: string;
-    }
-  | { readonly kind: "rules-dir"; readonly dir: string; readonly format: "frontmatter" };
+export interface AgentInstructionsDescriptor {
+  readonly kind: "agents-md" | "own-file" | "rules-dir";
+  readonly locations: ReadonlyArray<NativeReadLocation>;
+  readonly scopes: ReadonlyArray<Scope>;
+  readonly writerSupported: boolean;
+  readonly importSyntax?: "at-path";
+}
 
 // -----------------------------------------------------------------------------
 // Agent Detection Configuration
@@ -107,8 +95,8 @@ export interface AgentDetectionDescriptor {
 /** @experimental This API is unstable and may change without notice. */
 export { CONFIGURABLE_AGENT_IDS, type ConfigurableAgentId };
 
-/** Configurable agents plus the synthetic universal materialization target. @experimental */
-export const MATERIALIZATION_TARGET_IDS = [...CONFIGURABLE_AGENT_IDS, "universal"] as const;
+/** Real agents that can participate in native materialization. @experimental */
+export const MATERIALIZATION_TARGET_IDS = [...CONFIGURABLE_AGENT_IDS] as const;
 
 /** @experimental This API is unstable and may change without notice. */
 export type MaterializationTargetId = (typeof MATERIALIZATION_TARGET_IDS)[number];
@@ -127,25 +115,9 @@ export interface AgentDescriptor {
   readonly id: MaterializationTargetId;
   /** Human-readable display name (e.g., "Claude Code") */
   readonly name: string;
-  /**
-   * Per-agent native configuration root, relative to the workspace root
-   * (e.g., `.claude` for Claude Code, `.cursor` for Cursor). The
-   * workspace read-model scanners look for this agent's `settings.json`,
-   * `mcp.json`, and other native config files inside this directory.
-   *
-   * Three states (with `exactOptionalPropertyTypes: true`):
-   *
-   * - `string` — use this directory as the explicit native config root.
-   * - omitted (key not present) — fall back to the first segment of
-   *   `skills.dir` when a verified Skill surface exists, otherwise `.<id>`.
-   * - `undefined` — explicit opt-out. Scanners SHALL NOT attempt to
-   *   discover native config for this agent. Use this when an agent's
-   *   first `skills.dir` segment collides with another agent's (e.g.,
-   *   several agents share a parent like `.agents`) and there is no
-   *   authoritative answer about the real native config root.
-   */
+  /** Explicit project native configuration root. Undefined suppresses root discovery. */
   readonly rootDir?: string | undefined;
-  /** Skills installation configuration, omitted when AXM has no verified writable surface. */
+  /** Native Skill reader declarations, independent of AXM writer support. */
   readonly skills?: AgentSkillsDescriptor;
   /** Subagents installation configuration (optional — not all agents support subagents) */
   readonly subagents?: AgentSubagentsDescriptor;

@@ -16,6 +16,10 @@
  */
 
 export {
+  createWorkspaceDirectories,
+  removeEmptyRuntimeDirectories,
+} from "./runtime-directories.js";
+export {
   TransitionLockError,
   TransitionLockUnavailable,
   WorkspaceDirectoryError,
@@ -25,11 +29,13 @@ export {
   WorkspaceTransitionCompromised,
   type TransitionContention,
   type TransitionLockHolder,
+  type WorkspaceRecoveryEntry,
   type WorkspaceTransactionFailure,
   type WorkspaceTransitionAcquireFailure,
 } from "./errors.js";
 
 export { protectCreatedAncestors, protectWorkspacePath } from "./context.js";
+export { retireWorkspacePath } from "./retirement.js";
 
 export {
   WorkspaceFileWriteLocks,
@@ -38,6 +44,7 @@ export {
 
 export {
   WorkspaceTransactionScope,
+  createdWorkspaceDirectories,
   WorkspaceTransactionScopes,
   acquireWorkspaceTransition,
   runWorkspaceTransaction,

@@ -31,7 +31,18 @@ export const dextoAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
-        directory: ".agents/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".agents/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -51,6 +62,10 @@ export const dextoAgent = {
         standardsCompliance: "parity",
         convention: "vendor",
         transports: ["stdio", "http", "sse"],
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -113,10 +128,21 @@ export const dextoAgent = {
       ],
       scopes: ["project"],
       mechanism: ["config-file", "cli-flag"],
-      configFiles: [
+      locations: [
         {
+          id: "project",
           scope: "project",
+          root: "project",
           path: "agent.yml",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "yaml",
           gitignored: false,
         },

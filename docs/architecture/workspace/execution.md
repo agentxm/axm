@@ -110,6 +110,11 @@ content, and owned outputs needed by one closure commit together. A handled
 failure rolls back that closure without undoing independent closures already
 committed.
 
+Restoration compares the current state with AXM's expected postimage before
+replacing it. Foreign edits and additions survive a failed closure. When they
+prevent complete restoration, the result reports the affected original paths
+and retained recovery paths instead of claiming an exact rollback.
+
 Authoritative files publish through atomic replacement. Canonical directories
 publish as complete directories rather than partially populated destinations.
 Read-modify-write adapters validate their independently owned entry or region
@@ -123,19 +128,21 @@ The next mutation acquires the workspace lock, resolves owned transient state,
 then evaluates its requested transition. AXM restores validity; it does not
 promise to finish, resume, or roll back the interrupted command.
 
-File placement communicates ownership and lifetime without a transaction
-journal, command-intent marker, receipt, or recovery flag:
+File placement communicates transient ownership and lifetime. Bounded local
+[insertion receipts](managed-file-ownership.md#insertion-receipts) separately
+prove container cleanup; they carry no command intent or workspace authority.
 
-| State                                     | Placement and lifecycle                                                                     |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Durable project workspace authority       | Root `axm.json`, `axm-lock.yaml`, authored roots, and `agent_extensions/`                   |
-| Durable user workspace authority          | `~/.axm/workspace/{axm.json,axm-lock.yaml,agent_extensions/}`                               |
-| Project-local scratch                     | Unique children of `.axm/tmp/`; the workspace mutex is `.axm/tmp/workspace-transition.lock` |
-| Invocation scratch and rollback snapshots | Uniquely prefixed directories in the operating-system temporary directory                   |
-| Atomic single-file publication            | Exact `<target>.tmp.<unique>` siblings, swept only by that target's writer                  |
-| Atomic canonical-directory publication    | Exact `<canonical>.axm-staging` and `<canonical>.axm-backup` siblings                       |
-| Performance-only cache                    | The platform cache directory, including Registry archives and update-check state            |
-| Restricted application state              | `~/.axm/`, including pending login, file credentials, install metadata, and `bin/axm`       |
+| State                                     | Placement and lifecycle                                                                                       |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Durable project workspace authority       | Root `axm.json`, `axm-lock.yaml`, authored roots, and `agent_extensions/`                                     |
+| Durable user workspace authority          | `~/.axm/workspace/{axm.json,axm-lock.yaml,agent_extensions/}`                                                 |
+| Project-local scratch                     | Unique children of `.axm/tmp/`; the workspace mutex is `.axm/tmp/workspace-transition.lock`                   |
+| Invocation scratch and rollback snapshots | Uniquely prefixed directories in the operating-system temporary directory                                     |
+| Atomic single-file publication            | Exact `<target>.tmp.<unique>` siblings, swept only by that target's writer                                    |
+| Atomic canonical-directory publication    | Exact `<canonical>.axm-staging` and `<canonical>.axm-backup` siblings                                         |
+| Native insertion cleanup evidence         | Selected workspace runtime directory's `projection-containers.json`; removed when its last receipt is retired |
+| Performance-only cache                    | The platform cache directory, including Registry archives and update-check state                              |
+| Restricted application state              | `~/.axm/`, including pending login, file credentials, install metadata, and `bin/axm`                         |
 
 Package creation, import, fork, install, and replacement all populate and
 validate the complete sibling staging tree before a same-parent rename makes it

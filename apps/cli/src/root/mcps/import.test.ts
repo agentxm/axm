@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import { readNativeMcpServers } from "@agentxm/workspace-kernel/agent-adapters";
 import { afterEach, beforeEach } from "vitest";
 
 import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
@@ -44,8 +45,10 @@ describe("mcps import output", () => {
   };
 
   const writeMcpConfig = () => {
+    writeWorkspaceFiles(path.join(tempDir, ".axm"), { agents: ["gemini-cli"] });
+    fs.mkdirSync(path.join(tempDir, ".gemini"), { recursive: true });
     fs.writeFileSync(
-      path.join(tempDir, ".mcp.json"),
+      path.join(tempDir, ".gemini", "settings.json"),
       JSON.stringify(
         {
           mcpServers: {
@@ -117,16 +120,18 @@ describe("mcps import output", () => {
                 scope: "project",
                 change: "updated",
                 fileCount: 2,
-                targets: [{ path: ".mcp.json", change: "updated" }],
+                targets: [{ path: ".gemini/settings.json", change: "updated" }],
               },
             },
           ],
         });
-        const config = JSON.parse(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8"));
+        const config = JSON.parse(
+          fs.readFileSync(path.join(tempDir, ".gemini/settings.json"), "utf8"),
+        );
         expect(config.mcpServers.demo).toEqual({
           command: "node",
           args: ["server.js"],
-          env: { DEMO_TOKEN: "secret-value" },
+          env: { DEMO_TOKEN: "${DEMO_TOKEN}" },
           "x-axm": {
             v: 1,
             managed: true,
@@ -166,10 +171,44 @@ describe("mcps import output", () => {
         const updated = fs.readFileSync(configPath, "utf8");
         expect(updated).toContain("// Keep this user comment");
         expect(updated).toContain('"x-axm"');
-        expect(updated).toContain('"source": "inline"');
+        const servers = yield* readNativeMcpServers({
+          format: "jsonc",
+          configPath,
+          raw: updated,
+          serversKey: "mcp",
+        });
+        expect(servers).toMatchObject({ demo: { "x-axm": { source: "inline" } } });
       }),
     );
   });
+
+  it.effect(
+    "refuses an import whose symbolic secret is incompatible with a shared native reader",
+    () => {
+      writeWorkspaceFiles(path.join(tempDir, ".axm"));
+      const settingsBefore = fs.readFileSync(path.join(tempDir, "axm.json"), "utf8");
+      const configBefore = JSON.stringify({
+        mcpServers: {
+          demo: { command: "node", args: ["server.js"], env: { TOKEN: "private-value" } },
+        },
+      });
+      fs.writeFileSync(path.join(tempDir, ".mcp.json"), configBefore);
+      const { provide, promptState } = makeLayers({ machine: true });
+      return provide(
+        Effect.gen(function* () {
+          const failure = yield* handleMcpsImport({ preview: false }).pipe(Effect.flip);
+          expect(failure).toMatchObject({
+            code: "conflict",
+            detail: expect.stringContaining("command-code"),
+          });
+          expect(JSON.stringify(failure)).not.toContain("private-value");
+          expect(promptState.confirmCalls).toEqual([]);
+          expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsBefore);
+          expect(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8")).toBe(configBefore);
+        }),
+      );
+    },
+  );
 
   it.effect("adopts a home-relative YAML target in user scope", () => {
     const homeDir = path.join(tempDir, "home");
@@ -203,14 +242,15 @@ describe("mcps import output", () => {
 
   it.effect("produces a deterministic redacted preview without changing source files", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
-    writeWorkspaceFiles(path.join(tempDir, ".axm"));
+    writeWorkspaceFiles(path.join(tempDir, ".axm"), { agents: ["gemini-cli"] });
+    fs.mkdirSync(path.join(tempDir, ".gemini"), { recursive: true });
     const originalConfig = JSON.stringify({
       mcpServers: {
         zebra: { command: "node", args: ["zebra.js"] },
         alpha: { command: "node", args: ["alpha.js"], env: { TOKEN: "private-value" } },
       },
     });
-    fs.writeFileSync(path.join(tempDir, ".mcp.json"), originalConfig);
+    fs.writeFileSync(path.join(tempDir, ".gemini/settings.json"), originalConfig);
 
     return provide(
       Effect.gen(function* () {
@@ -224,7 +264,9 @@ describe("mcps import output", () => {
           },
         });
         expect(JSON.stringify(rendererState.results[0]?.data)).not.toContain("private-value");
-        expect(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8")).toBe(originalConfig);
+        expect(fs.readFileSync(path.join(tempDir, ".gemini/settings.json"), "utf8")).toBe(
+          originalConfig,
+        );
       }),
     );
   });
@@ -289,7 +331,7 @@ describe("mcps import output", () => {
 
         expect(logs.success).toEqual(["Imported 1 MCP server"]);
         expect(rendererState.summaries).toEqual([
-          "Import 1 MCP server   -   updated   2 files, axm.json, .mcp.json",
+          "Import 1 MCP server   -   updated   2 files, axm.json, .gemini/settings.json",
         ]);
         expect(rendererState.suggestions).toEqual([
           { description: "Inspect installed MCP servers", cmd: "axm mcps list" },
@@ -399,11 +441,13 @@ describe("mcps import output", () => {
         expect(rendererState.results[0]?.data).toMatchObject({
           result: { outcome: "applied", imports: { imported: 1 } },
         });
-        const config = JSON.parse(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8"));
+        const config = JSON.parse(
+          fs.readFileSync(path.join(tempDir, ".gemini/settings.json"), "utf8"),
+        );
         expect(config.mcpServers.demo).toEqual({
           command: "node",
           args: ["server.js"],
-          env: { DEMO_TOKEN: "secret-value" },
+          env: { DEMO_TOKEN: "${DEMO_TOKEN}" },
           "x-axm": {
             v: 1,
             managed: true,
@@ -418,7 +462,7 @@ describe("mcps import output", () => {
     writeWorkspaceFiles(path.join(tempDir, ".axm"));
     writeMcpConfig();
     const { provide } = makeLayers({ machine: true });
-    const originalConfig = fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8");
+    const originalConfig = fs.readFileSync(path.join(tempDir, ".gemini/settings.json"), "utf8");
 
     return provide(
       Effect.gen(function* () {
@@ -430,7 +474,9 @@ describe("mcps import output", () => {
         expect(failure).toMatchObject({ code: "usage" });
         expect(failure).toMatchObject({ detail: expect.stringContaining("--enable") });
         expect(failure).toMatchObject({ detail: expect.stringContaining("--as") });
-        expect(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8")).toBe(originalConfig);
+        expect(fs.readFileSync(path.join(tempDir, ".gemini/settings.json"), "utf8")).toBe(
+          originalConfig,
+        );
       }),
     );
   });

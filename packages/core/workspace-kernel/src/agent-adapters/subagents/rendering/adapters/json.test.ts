@@ -18,7 +18,7 @@ describe("renderJson", () => {
     const result = renderJson(baseInput);
     expect(result._tag).toBe("Rendered");
     if (result._tag !== "Rendered") return;
-    expect(result.outputs[0]?.path).toBe(".kiro/agents/code-reviewer.json");
+    expect(result.outputs[0]?.path).toBe("code-reviewer.json");
   });
 
   it("does not include an AXM marker field", () => {

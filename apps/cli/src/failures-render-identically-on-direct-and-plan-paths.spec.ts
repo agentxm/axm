@@ -26,6 +26,7 @@ import {
   InstallSelectionUnavailable,
 } from "@agentxm/workspace-kernel/operations";
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
+import { NativeLocationError } from "@agentxm/workspace-kernel/locations";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { FqnInvalidError } from "@agentxm/extension-model/unstable/extensions/fqn";
@@ -373,6 +374,10 @@ const representatives: Representatives = {
     }),
   ],
   WorkspaceRootEscape: [new WorkspaceRootEscape({ workspaceRoot: "/outside", allowedRoot: "/w" })],
+  NativeLocationError: [
+    new NativeLocationError({ target: "/w/hooks/audit/hook.json", reason: "source-overlap" }),
+    new NativeLocationError({ target: "/outside/settings.json", reason: "escape" }),
+  ],
   SettingsWriteError: [
     new SettingsWriteError({ path: "/w/.axm", step: "mkdir", cause: ioCause }),
     new SettingsWriteError({ path: "/w/axm.json", step: "encode", cause: new Error("bad") }),
@@ -474,6 +479,7 @@ const representatives: Representatives = {
       ),
       restorationCause: new Error("restoration defect"),
       snapshotDir: "/w/.axm/tmp/snapshots",
+      recovery: [],
       retained: ["axm.json"],
     }),
   ],

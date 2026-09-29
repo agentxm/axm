@@ -15,20 +15,6 @@ import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-t
 import { applyOverrides } from "../overrides.js";
 import { rendered, type SubagentRenderInput, type SubagentRenderOutcome } from "../types.js";
 
-const AGENT_DIRS: Readonly<Record<string, string>> = {
-  "claude-code": ".claude/agents",
-  "github-copilot-cli": ".github/agents",
-  cursor: ".cursor/agents",
-  "gemini-cli": ".gemini/agents",
-  opencode: ".opencode/agents",
-  augment: ".augment/agents",
-  junie: ".junie/agents",
-  "kilo-code": ".kilo/agents",
-  kiro: ".kiro/agents",
-};
-
-const resolveAgentsDir = (agentId: string): string => AGENT_DIRS[agentId] ?? `.${agentId}/agents`;
-
 /**
  * Render a subagent as Markdown with YAML frontmatter.
  *
@@ -48,7 +34,7 @@ export const renderMarkdownYaml = (input: SubagentRenderInput): SubagentRenderOu
     parts.push(input.body);
   }
 
-  const path = decodeRelativePathSync(`${resolveAgentsDir(input.agentId)}/${input.name}.md`);
+  const path = decodeRelativePathSync(`${input.name}.md`);
 
   return rendered([{ content: parts.join("\n"), path }], []);
 };

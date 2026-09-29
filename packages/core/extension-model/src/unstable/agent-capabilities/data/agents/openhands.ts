@@ -29,8 +29,28 @@ export const openhandsAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
-        directory: ".agents/skills",
-        additionalReadPaths: [{ path: ".openhands/skills", status: "deprecated" }],
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".agents/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+          {
+            scope: "project",
+            root: "project",
+            path: ".openhands/skills",
+            shape: "directory",
+            role: "additional",
+            status: "deprecated",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -53,6 +73,10 @@ export const openhandsAgent = {
         standardsCompliance: "parity",
         convention: "vendor",
         transports: ["stdio", "http", "sse"],
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -85,10 +109,21 @@ export const openhandsAgent = {
         sources: ["https://docs.openhands.dev/openhands/usage/customization/hooks"],
         scopes: ["project"],
         mechanism: ["command-stdin"],
-        configFiles: [
+        locations: [
           {
+            id: "project",
             scope: "project",
+            root: "project",
             path: ".openhands/hooks.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "json",
             gitignored: false,
           },
@@ -140,6 +175,8 @@ export const openhandsAgent = {
           },
         ],
         tools: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -159,7 +196,18 @@ export const openhandsAgent = {
       standardsCompliance: "full",
       convention: "universal",
       kind: "agents-md",
-      files: ["AGENTS.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "AGENTS.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: false,
       importSyntax: null,
     },

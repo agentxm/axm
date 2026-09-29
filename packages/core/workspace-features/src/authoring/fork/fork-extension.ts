@@ -98,6 +98,7 @@ import {
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import { authoredDeclaration } from "../authored-declaration.js";
+import { authoredNativeArtifact, preflightAuthoredNativeProjection } from "../native-projection.js";
 import { preflightCreateOnly } from "../create-preflight.js";
 import { AuthoringFailed } from "../errors.js";
 import type { AuthoredPackageError } from "../authored-package-errors.js";
@@ -145,6 +146,9 @@ export interface ForkExtensionRequest {
 
 /** What every step in a fork may require when it runs. */
 export type ForkExtensionRequirements =
+  | RuleManager
+  | HookManager
+  | KnowledgeManager
   | ManagerRequirements
   | RecipeRequirements
   | McpServerManager
@@ -182,6 +186,7 @@ export interface ForkExtensionCandidate {
 
 /** Every failure settling a fork can surface before anything is written. */
 export type ForkExtensionFailure =
+  | ExtensionManagerFailure
   | AuthoringFailed
   | AuthoredPackageError
   | FrontmatterParseFailure
@@ -198,6 +203,7 @@ export type ForkExtensionFailure =
 
 /** Everything settling a fork reads before it freezes a candidate. */
 export type PrepareForkExtensionRequirements =
+  | ManagerRequirements
   | FileSystem.FileSystem
   | Path.Path
   | Scope.Scope
@@ -396,6 +402,13 @@ export const prepareForkExtension: (
     const current = yield* declaration.read;
     const enabled = request.enable || Option.getOrElse(current.enabled, () => false);
 
+    const nativePreflight = preflightAuthoredNativeProjection({
+      identity: target,
+      packageRoot: stagedPackage,
+      enabled,
+    });
+    yield* nativePreflight;
+
     const artifact: JobStepArtifact = {
       path: authoredPath,
       scope: location.scope,
@@ -414,12 +427,15 @@ export const prepareForkExtension: (
       label: `Fork ${sourceFqn} -> ${fqn}`,
       message: `Forked ${fqn}`,
       enabled,
+      nativeInsertionEligible: false,
       allowConfiguredSourceTransition: true,
       markAuthored: declaration.declare({ enabled: true, env: current.env }),
       finalizeAuthored: declaration.declare({ enabled, env: current.env }),
       plannedArtifact: artifact,
-      buildArtifact: () => Effect.succeed(artifact),
+      buildArtifact: ({ change }: { readonly change: "created" | "updated" | "unchanged" }) =>
+        authoredNativeArtifact({ type: target.type, artifact, change, projected: enabled }),
       preflight: Effect.gen(function* () {
+        yield* nativePreflight;
         yield* recoverCanonicalDirectory({ baseDir: location.baseDir, canonicalPath: targetDir });
         yield* createOnly;
       }),
@@ -479,8 +495,20 @@ export const prepareForkExtension: (
           return forkStep(yield* McpServerManager, {
             ...common,
             target: { type: "mcp-server", name },
-            materializeInstall: (ref) =>
-              materializeAuthoredMcpServer({ ref, nonInteractive: request.nonInteractive }),
+            materializeInstall: (ref, options) =>
+              materializeAuthoredMcpServer({
+                ref,
+                nonInteractive: request.nonInteractive,
+                nativeInsertionEligible: options.nativeInsertionEligible,
+              }),
+            buildArtifact: ({ change, materialization }) =>
+              authoredNativeArtifact({
+                type: "mcp-server",
+                artifact,
+                change,
+                projected: enabled,
+                materialization,
+              }),
           });
       }
     });

@@ -34,7 +34,28 @@ export const windsurfAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".windsurf/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".windsurf/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".codeium/windsurf/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -57,37 +78,53 @@ export const windsurfAgent = {
           variables: "braced",
           defaults: false,
         },
+
+        locations: [
+          {
+            id: "user",
+            scope: "user",
+            root: "home",
+            path: ".codeium/windsurf/mcp_config.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "json",
+            keyPath: ["mcpServers"],
+            attribution: "agent",
+          },
+        ],
+
+        entryDialect: {
+          activationField: {
+            required: null,
+            accepted: [null],
+          },
+          stdio: {
+            typeField: { required: null, accepted: [null] },
+            command: "split",
+            envKey: "env",
+          },
+          remote: {
+            typeField: { required: null, accepted: [null] },
+            urlKey: {
+              "streamable-http": "serverUrl",
+            },
+            headersKey: "headers",
+          },
+        },
       },
       axm: {
         status: "supported",
         lastVerified: "2026-08-05",
         writer: {
           config: {
-            serversKey: "mcpServers",
-            activationField: {
-              required: null,
-              accepted: [null],
-            },
-            targets: [
-              {
-                scope: "user",
-                path: "~/.codeium/windsurf/mcp_config.json",
-                format: "json",
-                attribution: "agent",
-              },
-            ],
-            stdio: {
-              typeField: { required: null, accepted: [null] },
-              command: "split",
-              envKey: "env",
-            },
-            remote: {
-              typeField: { required: null, accepted: [null] },
-              urlKey: {
-                "streamable-http": "serverUrl",
-              },
-              headersKey: "headers",
-            },
+            locationIds: ["user"],
           },
         },
       },
@@ -117,16 +154,38 @@ export const windsurfAgent = {
         sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
         scopes: ["user", "project"],
         mechanism: ["command-stdin"],
-        configFiles: [
+        locations: [
           {
+            id: "user",
             scope: "user",
-            path: "~/.codeium/windsurf/hooks.json",
+            root: "home",
+            path: ".codeium/windsurf/hooks.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "json",
             gitignored: false,
           },
           {
+            id: "project",
             scope: "project",
+            root: "project",
             path: ".windsurf/hooks.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "json",
             gitignored: false,
           },
@@ -247,6 +306,8 @@ export const windsurfAgent = {
             lastVerified: "2026-08-05",
           },
         ],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -266,9 +327,29 @@ export const windsurfAgent = {
       scopes: ["project"],
       standardsCompliance: "full",
       convention: "universal",
-      directory: ".devin/rules",
       kind: "agents-md",
-      files: ["AGENTS.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "AGENTS.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+        {
+          scope: "project",
+          root: "project",
+          path: ".devin/rules",
+          shape: "directory",
+          role: "additional",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: true,
       importSyntax: null,
     },
@@ -287,14 +368,7 @@ export const windsurfAgent = {
       sources: ["https://docs.devin.ai/desktop/terminal", "https://docs.devin.ai/desktop/cascade"],
       scopes: ["user"],
       mechanism: ["config-file", "ui-only"],
-      configFiles: [
-        {
-          scope: "user",
-          path: "VS Code settings (Settings UI)",
-          format: "vscode-settings",
-          gitignored: false,
-        },
-      ],
+      locations: [],
       grammar: {
         style: "prefix",
         example: "axm",
@@ -317,7 +391,7 @@ export const windsurfAgent = {
       writer: {
         grants: {
           shell: {
-            target: "VS Code settings",
+            destination: { kind: "settings-ui" },
             patch: {
               "windsurf.cascadeCommandsAllowList": ["${tool}"],
             },

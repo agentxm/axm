@@ -15,6 +15,8 @@
  */
 
 // Detection (effectful)
+export { parseNativeConfigRoot } from "./native-config-syntax.js";
+export { preflightNativeConfigReaders, type NativeConfigReader } from "./native-config-readers.js";
 export {
   AgentExecutableResolver,
   detectAgent,
@@ -57,6 +59,10 @@ export {
   NativeWriteRefused,
   type NativeWriteAuthorityService,
   type NativeWriteRecord,
+  type NativeInsertionCapture,
+  type NativeDirectoryCapture,
+  type NativeInsertionTarget,
+  type NativeInsertionResolution,
 } from "./native-write-authority.js";
 
 // Constants (path helpers)
@@ -88,11 +94,7 @@ export {
   type ResolveSubagentsDirOutcome,
   type SubagentSyncOutcome,
 } from "./agents/coding-agent.js";
-export {
-  AGENT_RUNTIME_OVERRIDES,
-  codingAgentForId,
-  codingAgentFromDescriptor,
-} from "./agents/adapters.js";
+export { codingAgentForId, codingAgentFromDescriptor } from "./agents/adapters.js";
 
 // Ownership marker grammar and pure managed-region edits
 export {
@@ -151,10 +153,8 @@ export {
   type SubagentSkipped,
 } from "./subagents/rendering/types.js";
 export {
-  addRooSubagent,
   addSubagentViaResolve,
   dirOutcomeToSubagentSyncOutcome,
-  removeRooSubagent,
   removeSubagentFiles,
   removeSubagentViaResolve,
   writeSubagentFiles,
@@ -175,6 +175,7 @@ export {
   AxmMcpMetadataSchema,
   isAxmManagedMcpEntry,
   readAxmMcpMetadata,
+  matchesAcceptedMcpOwnership,
   type AxmMcpMetadata,
 } from "./mcps/entry-semantics.js";
 export { buildAxmMcpMetadata, buildAxmMcpMetadataFromSettingsSource } from "./mcps/metadata.js";
@@ -196,6 +197,11 @@ export {
 export {
   removeAgentMcpConfig,
   retireAgentMcpConfig,
+  validateAgentMcpConfigWrite,
+  validateAgentMcpConfigRemoval,
+  validateAgentMcpConfigRemovals,
+  removeAgentMcpConfigs,
+  type RemoveAgentMcpConfigsArgs,
   writeAgentMcpConfig,
   type AgentMcpConfigEntryRef,
   type AgentMcpConfigWriteResult,
@@ -212,6 +218,7 @@ export {
   readNativeMcpConfig,
   readNativeMcpEntry,
   readNativeMcpServers,
+  readNativeMcpValues,
   resolveAgentMcpConfigTargetPath,
   type DecodedJsonMcpConfig,
   type NativeMcpConfigRead,
@@ -226,6 +233,7 @@ export {
 export { decodeMcpServerManifestAt, readMcpServerManifestAt } from "./mcps/manifest.js";
 export {
   planMcpServerTargets,
+  unresolvedMcpAgentTargets,
   type McpAgentTargetPlan,
   type McpTargetPlan,
   type McpTargetWrite,
@@ -238,21 +246,26 @@ export {
   type SharedMcpTargetMember,
   type SharedMcpTargetResolution,
   type SharedMcpTransport,
+  type ResolvedMcpConfig,
 } from "./mcps/shared-target.js";
 export {
   configuredMcpCapability,
+  declaredMcpWriterTargets,
   groupConfiguredMcpTargets,
+  resolveConfiguredMcpTargets,
+  newlyConfiguredMcpRoutePaths,
   isConfigurableAgentId,
   isConfiguredMcpCapability,
   type ConfiguredMcpCapability,
   type McpTargetGroup,
 } from "./mcps/targeting.js";
 export {
-  pruneManagedMcpServersForAgent,
-  removeMcpServerFromManifest,
+  pruneManagedMcpServersForAgents,
+  removeMcpServerFromAgents,
   syncInlineMcpServerToAgents,
   syncManifestMcpServerToAgents,
   validateManifestMcpServerTargets,
+  validateInlineMcpServerTargets,
   type PruneManagedMcpServersArgs,
   type SyncInlineMcpServerArgs,
   type SyncManifestMcpServerArgs,
@@ -260,19 +273,23 @@ export {
 } from "./mcps/sync.js";
 
 // Hook-group editing
+export { reconcileNativeHookConfig, type NativeHookConfigArgs } from "./hooks/native-config.js";
 export {
   ambiguousHookCommands,
   isManagedHookEntry,
+  isOwnedHookEntry,
   managedHookCommands,
   managedHookUnits,
   pruneManagedHooksFromJson,
   readAmbiguousHookCommands,
   readManagedHookCommands,
   readManagedHookUnits,
+  readManagedHookGroups,
   stripManagedHookGroups,
   stripManagedHooksFromJson,
   updateHooksJson,
   type ManagedHookUnit,
+  type HookOwnership,
 } from "./hooks/managed-groups.js";
 
 // Codec wrappers used by the native writers

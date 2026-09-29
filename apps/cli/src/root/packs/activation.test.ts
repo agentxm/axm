@@ -9,10 +9,7 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 
-import {
-  CodingAgentRepositoryLive,
-  WorkspaceInvariantFactsLive,
-} from "@agentxm/workspace-kernel/projection/live";
+import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-kernel/projection/live";
 import { ProjectionParticipantsLive } from "@agentxm/workspace-kernel/reconciliation/live";
 import {
   HookManagerLive,
@@ -108,8 +105,8 @@ const initializePackWithSkill = (root: string) => {
   );
 
   const renderedSkill = path.join(root, ".claude", "skills", "review", "SKILL.md");
-  fs.mkdirSync(path.dirname(renderedSkill), { recursive: true });
-  fs.copyFileSync(path.join(skillDir, "src", "SKILL.md"), renderedSkill);
+  fs.mkdirSync(path.join(root, ".claude", "skills"), { recursive: true });
+  fs.symlinkSync(path.join(skillDir, "src"), path.dirname(renderedSkill), "dir");
   return { axmDir, lockPath, renderedSkill, skillDir };
 };
 
@@ -144,7 +141,6 @@ describe("packs activation", () => {
     const managerDependencies = Layer.mergeAll(
       context.fullLayer,
       sourceProvidersLayer,
-      CodingAgentRepositoryLive,
       WorkspaceFailureConversionLive,
     );
     const managersLayer = Layer.provide(
@@ -176,7 +172,6 @@ describe("packs activation", () => {
         Layer.mergeAll(
           context.fullLayer,
           sourceProvidersLayer,
-          CodingAgentRepositoryLive,
           WorkspaceFailureConversionLive,
           managersLayer,
           packManagerLayer,

@@ -26,7 +26,8 @@ describe("buildPermissionSuggestions", () => {
         url: "https://www.codebuddy.ai/docs/cli/settings",
       },
       {
-        description: "Configure Codex to allow AXM without per-call prompts",
+        description:
+          'Allow AXM in Codex with `[permissions.agentxm.filesystem.":workspace_roots"] "." = "write"`',
         url: "https://learn.chatgpt.com/docs/config-file/config-reference",
       },
       {
@@ -43,8 +44,7 @@ describe("buildPermissionSuggestions", () => {
         url: "https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md",
       },
       {
-        description:
-          "Allow AXM in GitHub Copilot CLI by adding `--allow-tool='shell(axm:*)'` to `.github/copilot/settings.json`",
+        description: "Allow AXM in GitHub Copilot CLI with `--allow-tool='shell(axm:*)'`",
         url: "https://docs.github.com/en/copilot/how-tos/copilot-cli/use-copilot-cli/allowing-tools",
       },
       {
@@ -68,7 +68,7 @@ describe("buildPermissionSuggestions", () => {
         url: "https://qwenlm.github.io/qwen-code-docs/en/users/configuration/settings/",
       },
       {
-        description: "Configure Devin Desktop (Windsurf) to allow AXM without per-call prompts",
+        description: "Configure Devin Desktop (Windsurf) to allow AXM in its settings UI",
         url: "https://docs.devin.ai/desktop/terminal",
       },
     ]);
@@ -96,8 +96,7 @@ describe("buildPermissionSuggestions", () => {
 
   it("uses user-only permission guidance when user scope is selected", () => {
     expect(buildPermissionSuggestions(["windsurf"], "user")[0]).toEqual({
-      description:
-        "Allow AXM in Devin Desktop (Windsurf) by adding `axm` to `VS Code settings (Settings UI)`",
+      description: "Configure Devin Desktop (Windsurf) to allow AXM in its settings UI",
       url: "https://docs.devin.ai/desktop/terminal",
     });
   });

@@ -17,6 +17,7 @@ import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
+import { envOption } from "@agentxm/host-primitives";
 
 import type { AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -54,6 +55,11 @@ export interface WorkspaceLocationService extends StateCellPaths {
   readonly lockPath: string;
   /** The resolved layout; replaced only when an owner is recorded. */
   readonly layout: Ref.Ref<WorkspaceLayout>;
+  readonly nativeDirectoryInputs: {
+    readonly skillsDirectoryOverrides: Readonly<Partial<Record<string, string>>>;
+    readonly xdgConfigRoot?: string;
+    readonly userConfigRootOverrides?: Readonly<Partial<Record<string, string>>>;
+  };
   /** Built-in registries merged behind project and user settings. */
   readonly builtInSources: ReadonlyArray<SourceHostConfig>;
 }
@@ -92,6 +98,30 @@ const requireInitializedWorkspace = <R>(
     ),
   );
 
+/** Capture documented native selection inputs once for a workspace or setup candidate. */
+export const captureNativeDirectoryInputs = (userHome: string) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const claudeSkills = yield* envOption("AXM_CLAUDE_SKILLS_DIR");
+    const geminiSkills = yield* envOption("AXM_GEMINI_CLI_SKILLS_DIR");
+    const xdgConfig = yield* envOption("XDG_CONFIG_HOME");
+    const codexHome = yield* envOption("CODEX_HOME");
+    const claudeConfig = yield* envOption("CLAUDE_CONFIG_DIR");
+    return {
+      userConfigRootOverrides: {
+        ...(Option.isSome(codexHome) ? { codex: codexHome.value } : {}),
+        ...(Option.isSome(claudeConfig) ? { "claude-code": claudeConfig.value } : {}),
+      },
+      skillsDirectoryOverrides: {
+        ...(Option.isSome(claudeSkills) ? { "claude-code": claudeSkills.value } : {}),
+        ...(Option.isSome(geminiSkills) ? { "gemini-cli": geminiSkills.value } : {}),
+      },
+      xdgConfigRoot: Option.isSome(xdgConfig)
+        ? path.resolve(userHome, xdgConfig.value)
+        : path.join(userHome, ".config"),
+    };
+  });
+
 const defaultBuiltInSources: ReadonlyArray<SourceHostConfig> = [];
 
 /**
@@ -111,6 +141,7 @@ export const makeWorkspaceLocation = (
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const userHome = yield* resolveUserHome();
+    const nativeDirectoryInputs = yield* captureNativeDirectoryInputs(userHome);
     const initialUserLayout = yield* resolveUserWorkspaceLayout(userHome);
     const userRuntimeDir = initialUserLayout.runtimeDir;
     const projectRuntimeDir = yield* getProjectRuntimeDir(options.projectRoot);
@@ -122,7 +153,11 @@ export const makeWorkspaceLocation = (
       options.scope === "user" ? initialUserLayout.lockPath : initialProjectState.lockPath;
     const baseDir: AbsolutePath = options.scope === "user" ? userHome : options.projectRoot;
     const cells: StateCellPaths = {
+      ...(options.observationView === undefined
+        ? {}
+        : { observationView: options.observationView }),
       scope: options.scope,
+      nativeDirectoryInputs,
       projectRoot: options.projectRoot,
       userHome,
       projectRuntimeDir,
@@ -155,6 +190,7 @@ export const makeWorkspaceLocation = (
 
     return {
       ...cells,
+      nativeDirectoryInputs,
       baseDir,
       runtimeDir,
       settingsPath,

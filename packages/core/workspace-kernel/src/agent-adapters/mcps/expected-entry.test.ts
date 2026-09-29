@@ -316,9 +316,9 @@ describe("MCP projection", () => {
         enabled: true,
         env: {},
       },
-      stdio: writer.config.stdio,
-      remote: writer.config.remote,
-      activationField: writer.config.activationField,
+      stdio: capability.native.entryDialect.stdio,
+      remote: capability.native.entryDialect.remote,
+      activationField: capability.native.entryDialect.activationField,
       envExpansion: capability.native.mcpEnvExpansion,
     });
 

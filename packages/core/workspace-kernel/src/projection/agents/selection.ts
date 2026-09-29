@@ -8,6 +8,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import type { NativeDirectoryInputs } from "../../locations/index.js";
 import { codingAgentForId, type CodingAgent } from "../../agent-adapters/index.js";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import {
@@ -16,15 +17,14 @@ import {
 } from "@agentxm/extension-model/unstable/agents/types";
 import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 
-/** The agent every workspace projects onto, whatever it configures. */
-export const UNIVERSAL_AGENT_ID = "universal" as const;
-
 export const isKnownAgentId = (id: string): id is MaterializationTargetId =>
   Object.hasOwn(AGENT_DESCRIPTORS, id);
 
 /** Every adapter AXM ships, in catalog order. */
-export const allCodingAgents = (): ReadonlyArray<CodingAgent> =>
-  MATERIALIZATION_TARGET_IDS.map((id) => codingAgentForId(id));
+export const allCodingAgents = (
+  inputs: NativeDirectoryInputs = { skillsDirectoryOverrides: {} },
+): ReadonlyArray<CodingAgent> =>
+  MATERIALIZATION_TARGET_IDS.map((id) => codingAgentForId(id, inputs));
 
 /**
  * The configured agents AXM can project onto: known, configurable, in the
@@ -33,18 +33,17 @@ export const allCodingAgents = (): ReadonlyArray<CodingAgent> =>
  */
 export const configuredCodingAgents = (
   configuredAgentIds: ReadonlyArray<string>,
+  inputs: NativeDirectoryInputs = { skillsDirectoryOverrides: {} },
 ): ReadonlyArray<CodingAgent> =>
   configuredAgentIds
     .filter((id) => isKnownAgentId(id) && isConfigurableAgentId(id))
-    .map((id) => codingAgentForId(id));
+    .map((id) => codingAgentForId(id, inputs));
 
-/** The universal agent followed by every configured agent. */
+/** Materialization adapters are the configured real agents; shared locations are policy. */
 export const materializationCodingAgents = (
   configuredAgentIds: ReadonlyArray<string>,
-): ReadonlyArray<CodingAgent> => [
-  codingAgentForId(UNIVERSAL_AGENT_ID),
-  ...configuredCodingAgents(configuredAgentIds),
-];
+  inputs: NativeDirectoryInputs = { skillsDirectoryOverrides: {} },
+): ReadonlyArray<CodingAgent> => configuredCodingAgents(configuredAgentIds, inputs);
 
 /** Configured IDs this AXM build does not recognise. */
 export const unknownConfiguredAgentIds = (

@@ -23,7 +23,7 @@ export const isCatalogAgentId = (id: string): id is AgentId => catalogAgentIds.h
 
 const ACTIVE: AgentLifecycle = { state: "active" };
 
-/** Lifecycle for a catalog agent; non-catalog ids (e.g. `universal`) are active. */
+/** Lifecycle for a catalog agent; non-catalog IDs are active. */
 export const agentLifecycle = (id: string): AgentLifecycle =>
   isCatalogAgentId(id) ? AGENTS_BY_ID[id].lifecycle : ACTIVE;
 

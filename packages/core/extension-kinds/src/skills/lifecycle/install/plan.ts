@@ -154,7 +154,14 @@ export const planSkillInstallationStep = (
       ref: input.ref,
       declaration: { name: input.ref.skill.name, versionRange: input.versionRange },
       force: input.force,
-      buildArtifact: prepared.buildArtifact,
+      buildArtifact: ({ change, materialization }) =>
+        prepared.buildArtifact({
+          change,
+          ...(Option.isSome(materialization) &&
+          materialization.value.observation.nativeLocations !== undefined
+            ? { nativeLocations: materialization.value.observation.nativeLocations }
+            : {}),
+        }),
     });
     for (const warning of prepared.warnings) step = withPlanWarning(step, Option.some(warning));
     return step;

@@ -15,6 +15,7 @@ import {
  * @experimental This API is unstable and may change without notice.
  */
 
+import type { NativeWriteAuthority } from "@agentxm/workspace-kernel/agent-adapters";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
@@ -26,7 +27,6 @@ import {
   WorkspaceRecords,
   type SetPackArgs,
   computePackPathsForLayout,
-  removeIfExists,
   validateExactResolvedVersion,
   acceptedCanonicalObservation,
   removableAcceptedCanonicalPath,
@@ -59,6 +59,9 @@ import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstab
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import {
   reusableCanonicalTree,
+  prepareCanonicalParents,
+  retireCanonicalDirectory,
+  type PackageMaterializationFailed,
   replaceCanonicalDirectoryWithInspection,
   configuredPacksToDiskRefs,
   copyExtensionDirectory,
@@ -193,7 +196,15 @@ export const PackManagerLive = Layer.effect(
 
     const materializeInstall: PackManagerService["materializeInstall"] = Effect.fn(
       "PackManager.materializeInstall",
-    )(function* ({ ref, force }: { readonly ref: PackRef; readonly force?: boolean }) {
+    )(function* ({
+      ref,
+      force,
+      nativeInsertionEligible,
+    }: {
+      readonly ref: PackRef;
+      readonly force?: boolean;
+      readonly nativeInsertionEligible?: boolean;
+    }) {
       if (ref.refType === "registry") {
         yield* validateExactResolvedVersion(`packs.${ref.pack.name}.resolvedVersion`, ref.version);
       }
@@ -247,11 +258,19 @@ export const PackManagerLive = Layer.effect(
             );
           const materialized = yield* replaceCanonicalDirectoryWithInspection<
             TreeIntegrity,
-            PackStagingFailed | MaterializedTreeInvalid,
-            FileSystem.FileSystem | Path.Path
+            PackStagingFailed | MaterializedTreeInvalid | PackageMaterializationFailed,
+            FileSystem.FileSystem | Path.Path | NativeWriteAuthority
           >({
             baseDir,
             canonicalPath: packDir,
+            ...(nativeInsertionEligible === true
+              ? {
+                  prepareParents: prepareCanonicalParents({
+                    canonicalPath: packDir,
+                    eligible: true,
+                  }),
+                }
+              : {}),
             populate: (stagingPath) =>
               copyExtensionDirectory(fetched.directory, stagingPath).pipe(
                 Effect.mapError((cause) => new PackStagingFailed({ packDir, cause })),
@@ -270,7 +289,7 @@ export const PackManagerLive = Layer.effect(
         name: target.name,
       });
       const packDir = removableAcceptedCanonicalPath(canonical);
-      if (Option.isSome(packDir)) yield* removeIfExists(fs, packDir.value);
+      if (Option.isSome(packDir)) yield* retireCanonicalDirectory(packDir.value);
       return noContent;
     });
 

@@ -1,7 +1,7 @@
+import { retireCanonicalDirectory } from "@agentxm/workspace-kernel/acquisition";
 import {
   type HookManagerService,
   acceptedResolutionFor,
-  type ExtensionManagerFailure,
   NO_MATERIALIZATION_OBSERVATION,
   type HookMaterializationFacts,
   HookManager,
@@ -9,6 +9,7 @@ import {
   verifyWorkspaceRefLocation,
   makeBaseManagerMembers,
   listMaterializableFromAccepted,
+  type NativeProjectionOptions,
 } from "@agentxm/workspace-kernel/materialization";
 
 /**
@@ -50,21 +51,18 @@ import {
   applyProjectionPlans,
   planAggregateProjection,
   type ProjectionRenderInput,
-  reconcileManagedRegionFile,
   projectionGeneration,
   evaluateHookAgentOutcome,
   resolveInstructionsConfig,
   type ProjectionUnitObservation,
   HOOK_FALLBACKS_REGION_OWNER,
+  captureAgentOutputAuthority,
+  observeProjectionPlans,
+  reconcileNativeManagedRegion,
 } from "@agentxm/workspace-kernel/projection";
 import {
-  HookConfigInvalid,
-  HookIoFailed,
-  runWithTransientFileBackup,
-  managedHookCommands,
-  readManagedHookCommands,
-  updateHooksJson,
-  WriteBackupRetained,
+  reconcileNativeHookConfig,
+  type HookOwnership,
 } from "@agentxm/workspace-kernel/agent-adapters";
 import {
   AGENTS as CAPABILITY_AGENTS,
@@ -72,7 +70,7 @@ import {
   type CanonicalHookEventId,
   type CanonicalHookToolId,
   type HookEventMapping,
-  type HooksWriter,
+  type HookEntryDialect,
   installable,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
@@ -83,7 +81,6 @@ import {
   decodeRelativePathSync,
   makeWorkspaceRelativePath,
 } from "@agentxm/extension-model/unstable/path-types";
-import { protectWorkspacePath, recordFootprint } from "@agentxm/workspace-kernel/settlement";
 import {
   HOOK_EXTENSION_DIR,
   HOOK_MANIFEST_FILENAME,
@@ -92,6 +89,14 @@ import {
   type HookManifest,
 } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import type { HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
+import {
+  assertNativeMutationWithinRoots,
+  nativeAuthorityRoots,
+  assertNoPhysicalOverlap,
+  combineNativeLocationOutcomes,
+  resolveNativeReadLocation,
+  type NativeDirectoryInputs,
+} from "@agentxm/workspace-kernel/locations";
 
 const HOOK_FALLBACKS_REGION = "hook-fallbacks";
 
@@ -100,8 +105,11 @@ const decodeMaterializedTarget = Schema.decodeUnknownSync(MaterializedFileTarget
 
 interface HookWriterTarget {
   readonly agent: CapabilityAgent;
-  readonly writer: HooksWriter;
+  readonly writer: HookEntryDialect;
+  readonly settingsKey: string;
   readonly configPath: string;
+  readonly declaredPath: string;
+  readonly format: "json" | "jsonc";
 }
 
 const capabilityAgentById = (id: string): CapabilityAgent | undefined =>
@@ -109,30 +117,75 @@ const capabilityAgentById = (id: string): CapabilityAgent | undefined =>
 
 const configuredHookWriterTargets = (
   configuredAgents: ReadonlyArray<string>,
-  resolvePath: (path: string) => string,
-): Effect.Effect<ReadonlyArray<HookWriterTarget>, HookDefinitionInvalid> =>
+  scope: "project" | "user",
+  nativeRoot: string,
+  ownerRoot: string,
+  inputs: NativeDirectoryInputs,
+) =>
   Effect.gen(function* () {
+    const path = yield* Path.Path;
     const targets: HookWriterTarget[] = [];
     for (const id of configuredAgents) {
       const agent = capabilityAgentById(id);
       const hook = agent?.capabilities.hook;
       if (agent === undefined || hook === undefined) continue;
 
-      if (hook.native.availability.via === "none" || hook.axm.writer === null) continue;
+      if (
+        !("locations" in hook.native) ||
+        hook.axm.writer === null ||
+        hook.native.entryDialect === null
+      )
+        continue;
 
-      const configFile = hook.axm.writer.configFiles.find(
-        (file) => file.scope === "project" && file.format === "json" && !file.gitignored,
+      const locationIds = hook.axm.writer.locationIds;
+      const configFile = hook.native.locations.find(
+        (file) =>
+          locationIds.includes(file.id) &&
+          file.scope === scope &&
+          (file.format === "json" || file.format === "jsonc") &&
+          !file.gitignored,
       );
-      if (configFile === undefined) {
+      if (
+        configFile === undefined ||
+        (configFile.format !== "json" && configFile.format !== "jsonc")
+      )
+        continue;
+      const settingsKey = configFile.keyPath?.[0];
+      if (configFile.keyPath?.length !== 1 || settingsKey === undefined)
         return yield* new HookDefinitionInvalid({
-          detail: `AXM has no project JSON hook writer target for ${agent.name}.`,
+          detail: `Hook writer location ${configFile.id} has no supported key path`,
         });
-      }
+      const declared = resolveNativeReadLocation(
+        path,
+        id,
+        configFile,
+        { workspaceRoot: nativeRoot, scope },
+        inputs,
+      );
+      if (declared === undefined) continue;
+      const declaredPath = declared.path;
+      const { address } = yield* assertNativeMutationWithinRoots(
+        nativeAuthorityRoots(path, { workspaceRoot: nativeRoot, scope }, inputs),
+        declaredPath,
+        "content",
+        ownerRoot,
+      ).pipe(
+        Effect.mapError(
+          (cause) =>
+            new HookDefinitionInvalid({
+              detail: `Hook native location is not writable: ${declaredPath}`,
+              cause,
+            }),
+        ),
+      );
 
       targets.push({
         agent,
-        writer: hook.axm.writer,
-        configPath: resolvePath(configFile.path),
+        writer: hook.native.entryDialect,
+        settingsKey,
+        declaredPath,
+        configPath: address.referentPath ?? address.entryPath,
+        format: configFile.format,
       });
     }
     return targets;
@@ -158,71 +211,6 @@ const hookNativeToolNames = (
   return native.tools.filter((tool) => tool.canonical === canonical).map((tool) => tool.nativeName);
 };
 
-const readExisting = (
-  configPath: string,
-): Effect.Effect<string, HookIoFailed, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const exists = yield* fs.exists(configPath).pipe(
-      Effect.mapError(
-        (error) =>
-          new HookIoFailed({
-            detail: `Failed to inspect Claude Code hooks config: ${configPath}`,
-            cause: error,
-          }),
-      ),
-    );
-    if (!exists) return "";
-    return yield* fs.readFileString(configPath).pipe(
-      Effect.mapError(
-        (error) =>
-          new HookIoFailed({
-            detail: `Failed to read Claude Code hooks config: ${configPath}`,
-            cause: error,
-          }),
-      ),
-    );
-  });
-
-const writeIfChanged = (
-  configPath: string,
-  oldRaw: string,
-  newRaw: string,
-): Effect.Effect<void, ExtensionManagerFailure, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    if (oldRaw === newRaw) return;
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    yield* protectWorkspacePath(configPath);
-    yield* fs.makeDirectory(path.dirname(configPath), { recursive: true }).pipe(
-      Effect.mapError(
-        (error) =>
-          new HookIoFailed({
-            detail: `Failed to create hooks config directory: ${path.dirname(configPath)}`,
-            cause: error,
-          }),
-      ),
-    );
-    yield* runWithTransientFileBackup({
-      sourcePath: configPath,
-      oldRaw,
-      newRaw,
-      tempPrefix: "axm-hooks-config-backup-",
-      onBackupRetained: (error, backupPath) =>
-        new WriteBackupRetained({ backupPath, failure: error }),
-      operation: fs.writeFileString(configPath, newRaw).pipe(
-        Effect.mapError(
-          (error) =>
-            new HookIoFailed({
-              detail: `Failed to write Claude Code hooks config: ${configPath}`,
-              cause: error,
-            }),
-        ),
-      ),
-    });
-    yield* recordFootprint({ path: configPath, change: oldRaw === "" ? "created" : "modified" });
-  });
-
 const interpreterForRuntime = (runtime: HookManifest["runtime"]): string => {
   switch (runtime) {
     case "bash":
@@ -234,7 +222,10 @@ const interpreterForRuntime = (runtime: HookManifest["runtime"]): string => {
   }
 };
 
-const serializeMatcher = (writer: HooksWriter, matcher: string | undefined): string | undefined => {
+const serializeMatcher = (
+  writer: HookEntryDialect,
+  matcher: string | undefined,
+): string | undefined => {
   if (matcher === undefined) return undefined;
   switch (writer.matcherSerialization) {
     case "bare":
@@ -253,7 +244,7 @@ const targetMatcherRaw = (agent: CapabilityAgent, binding: HookBinding): string 
 
 const serializeBindingMatcher = (
   agent: CapabilityAgent,
-  writer: HooksWriter,
+  writer: HookEntryDialect,
   binding: HookBinding,
 ): Effect.Effect<string | undefined, HookDefinitionInvalid> => {
   const noMatcher: string | undefined = undefined;
@@ -276,7 +267,7 @@ const serializeBindingMatcher = (
 };
 
 const serializeTimeout = (
-  writer: HooksWriter,
+  writer: HookEntryDialect,
   timeoutMs: number | undefined,
 ): number | undefined => {
   if (timeoutMs === undefined) return undefined;
@@ -291,10 +282,12 @@ const serializeTimeout = (
 const appendCommandHookBinding = (
   hooks: Record<string, unknown>,
   agent: CapabilityAgent,
-  writer: HooksWriter,
+  writer: HookEntryDialect,
   binding: HookBinding,
   hookName: string,
   hookRef: string,
+  sourceRoot: string,
+  scope: "project" | "user",
   command: string,
   timeoutMs: number | undefined,
 ): Effect.Effect<void, HookDefinitionInvalid> =>
@@ -322,6 +315,8 @@ const appendCommandHookBinding = (
         unit: `hook:${hookName}`,
         source: "extension",
         ref: hookRef,
+        root: sourceRoot,
+        scope,
       },
     };
     if (writer.commandNameSerialization === "manifest") {
@@ -385,15 +380,24 @@ export const HookManagerLive = Layer.effect(
     // renders every agent target concurrently, and each render pass materializes
     // the same hook packages, so without this the remove+copy steps race on one
     // package dir.
-    const materializePackage = (ref: HookExtensionRef, force = false) =>
+    const materializePackage = (
+      ref: HookExtensionRef,
+      force = false,
+      nativeInsertionEligible = false,
+    ) =>
       Effect.scoped(
         Effect.flatMap(
           RcMap.get(packageMaterializeLocks, `${baseDir}\u0000${ref.hook.name}`),
-          (lock) => lock.withPermits(1)(materializePackageUnlocked(ref, force)),
+          (lock) =>
+            lock.withPermits(1)(materializePackageUnlocked(ref, force, nativeInsertionEligible)),
         ),
       );
 
-    const materializePackageUnlocked = (ref: HookExtensionRef, force: boolean) =>
+    const materializePackageUnlocked = (
+      ref: HookExtensionRef,
+      force: boolean,
+      nativeInsertionEligible: boolean,
+    ) =>
       Effect.gen(function* () {
         const canonicalPath = computeExtensionPathsForLayout(
           path.join,
@@ -421,6 +425,7 @@ export const HookManagerLive = Layer.effect(
           canonicalPath,
           accepted: yield* lockfile.entry("hook", ref.hook.name),
           force,
+          nativeInsertionEligible,
           copyFailure: {
             code: "validation",
             detail: (target) => `Failed to copy hook package files to ${target}`,
@@ -499,7 +504,13 @@ export const HookManagerLive = Layer.effect(
                   onNone: () =>
                     formatFqn({ owner: manifest.owner, type: "hook", name: manifest.name }),
                 });
-                return { name: contributor.node.name, marker, manifest, command };
+                return {
+                  name: contributor.node.name,
+                  marker,
+                  manifest,
+                  command,
+                  root: path.relative(baseDir, contributor.packageRoot),
+                };
               }),
             { concurrency: 16 },
           ),
@@ -512,6 +523,7 @@ export const HookManagerLive = Layer.effect(
       readonly marker: string;
       readonly manifest: HookManifest;
       readonly command: string;
+      readonly root: string;
     }
 
     interface HookFallbackContributor extends RenderedHookContributor {
@@ -581,6 +593,8 @@ export const HookManagerLive = Layer.effect(
               binding,
               rendered.manifest.name,
               rendered.marker,
+              rendered.root,
+              location.scope,
               rendered.command,
               rendered.manifest.timeoutMs,
             );
@@ -602,13 +616,39 @@ export const HookManagerLive = Layer.effect(
             detail: `Hook fallback instruction source escapes workspace: ${resolved.fileName}`,
           });
         }
-        return { targetPath, workspaceRelative: workspaceRelative.value };
+        const { address } = yield* assertNativeMutationWithinRoots(
+          nativeAuthorityRoots(
+            path,
+            { workspaceRoot: baseDir, scope: location.scope },
+            location.nativeDirectoryInputs,
+          ),
+          targetPath,
+          "content",
+          path.dirname(location.runtimeDir),
+        ).pipe(
+          Effect.mapError(
+            (cause) =>
+              new HookDefinitionInvalid({
+                detail: `Hook fallback location is not writable: ${targetPath}`,
+                cause,
+              }),
+          ),
+        );
+        return {
+          targetPath: address.referentPath ?? address.entryPath,
+          workspaceRelative: workspaceRelative.value,
+        };
       });
 
     const reconcileHookFallback = (
       target: { readonly targetPath: string; readonly workspaceRelative: string },
       input: ProjectionRenderInput<HookFallbackContributor>,
-      options?: { readonly dryRun?: boolean },
+      options: {
+        readonly dryRun?: boolean;
+        readonly ownership: ReadonlyArray<HookOwnership>;
+        readonly eligible: boolean;
+        readonly configuredAgentIds: ReadonlyArray<string>;
+      },
     ) =>
       Effect.gen(function* () {
         const rendered = input.contributors
@@ -629,21 +669,45 @@ export const HookManagerLive = Layer.effect(
             JSON.stringify(contributor.manifest),
           ]),
         ]);
-        const { changed, observedRegion } = yield* provide(
-          reconcileManagedRegionFile({
-            targetPath: target.targetPath,
-            displayPath: target.workspaceRelative,
-            region: HOOK_FALLBACKS_REGION,
-            owner: HOOK_FALLBACKS_REGION_OWNER,
-            rendered,
-            generation,
-            ...(options?.dryRun === undefined ? {} : { dryRun: options.dryRun }),
-            unsupportedTargetDetail: `AXM cannot add its hook section because ${target.workspaceRelative} does not support comments`,
-          }),
-        );
+        const { changed, observedRegion, nativeLocation } = yield* reconcileNativeManagedRegion({
+          workspaceRoot: baseDir,
+          nativeDirectoryInputs: location.nativeDirectoryInputs,
+          ownerRoot: path.dirname(location.runtimeDir),
+          scope: location.scope,
+          targetPath: target.targetPath,
+          displayPath: target.workspaceRelative,
+          owner: HOOK_FALLBACKS_REGION_OWNER,
+          region: HOOK_FALLBACKS_REGION,
+          rendered,
+          generation,
+          contributors: input.contributors.map(({ name, marker, root }) => ({
+            name,
+            ref: marker,
+            root,
+            scope: location.scope,
+          })),
+          ownership: options.ownership,
+          eligible: options.eligible,
+          configuredAgentIds: options.configuredAgentIds,
+          ...(options?.dryRun === undefined ? {} : { dryRun: options.dryRun }),
+        });
         const fallbackAgentIds = Array.from(
           new Set(input.contributors.flatMap(({ fallbackAgentIds }) => fallbackAgentIds)),
         );
+        if (options?.dryRun !== true)
+          yield* Ref.update(lastProjection, (prior) => ({
+            ...prior,
+            nativeLocations: combineNativeLocationOutcomes([
+              ...(prior.nativeLocations ?? []),
+              {
+                ...nativeLocation,
+                configuredConsumers: fallbackAgentIds,
+                availability: nativeLocation.availability.filter(({ agentId }) =>
+                  fallbackAgentIds.includes(agentId),
+                ),
+              },
+            ]),
+          }));
         if (options?.dryRun !== true && fallbackAgentIds.length > 0 && rendered.length > 0) {
           yield* Effect.logWarning(
             `Degraded hooks to advisory rules for ${fallbackAgentIds.join(", ")}`,
@@ -668,57 +732,93 @@ export const HookManagerLive = Layer.effect(
       });
 
     const reconcileNativeHookTarget = (args: {
-      readonly target: HookWriterTarget;
+      readonly targets: ReadonlyArray<HookWriterTarget>;
       readonly input: ProjectionRenderInput<RenderedHookContributor>;
+      readonly ownership: ReadonlyArray<HookOwnership>;
+      readonly nativeInsertionEligibleNames: ReadonlySet<string>;
+      readonly configuredAgentIds: ReadonlyArray<string>;
       readonly dryRun?: boolean;
     }) =>
       Effect.gen(function* () {
-        const rendered = yield* renderInstalledHookGroups(args.target, args.input.contributors);
-        const raw = yield* provide(readExisting(args.target.configPath));
-        const observedCommands = yield* readManagedHookCommands(
-          args.target.configPath,
-          args.target.writer.settingsKey,
-          raw,
-        );
-        const next = yield* updateHooksJson(
-          args.target.configPath,
-          args.target.writer.settingsKey,
-          raw,
-          rendered,
-        );
-        const changed = next !== raw && !(raw.trim().length === 0 && next.trim() === "{}");
-        if (changed && args.dryRun !== true) {
-          yield* provide(writeIfChanged(args.target.configPath, raw, next));
-        }
-        const workspaceRelative = makeWorkspaceRelativePath(path, baseDir, args.target.configPath);
-        if (Option.isNone(workspaceRelative)) {
-          return yield* new HookConfigInvalid({
-            detail: `Hook config path escapes workspace: ${args.target.configPath}`,
+        const target = args.targets[0];
+        if (target === undefined)
+          return yield* new HookDefinitionInvalid({
+            detail: "Hook location has no configured reader",
           });
+        const rendered = yield* renderInstalledHookGroups(target, args.input.contributors);
+        for (const consumer of args.targets.slice(1)) {
+          const other = yield* renderInstalledHookGroups(consumer, args.input.contributors);
+          if (
+            consumer.settingsKey !== target.settingsKey ||
+            JSON.stringify(rendered) !== JSON.stringify(other)
+          ) {
+            return yield* new HookDefinitionInvalid({
+              detail: `Hook consumers cannot share ${target.configPath}: ${args.targets.map(({ agent }) => agent.id).join(", ")}`,
+            });
+          }
         }
-        const expectedCommands = managedHookCommands(rendered);
+        const outcome = yield* reconcileNativeHookConfig({
+          workspaceRoot: baseDir,
+          nativeDirectoryInputs: location.nativeDirectoryInputs,
+          ownerRoot: path.dirname(location.runtimeDir),
+          scope: location.scope,
+          path: target.configPath,
+          aliases: args.targets.map(({ declaredPath }) => declaredPath),
+          consumers: args.targets.map(({ agent }) => agent.id),
+          settingsKey: target.settingsKey,
+          configuredAgentIds: args.configuredAgentIds,
+          format: args.targets.some(({ format }) => format === "json") ? "json" : "jsonc",
+          rendered,
+          ownership: args.ownership,
+          nativeInsertionEligibleNames: args.nativeInsertionEligibleNames,
+          ...(args.dryRun === undefined ? {} : { dryRun: args.dryRun }),
+        }).pipe(
+          Effect.catchTag("NativeLocationError", (cause) =>
+            Effect.fail(
+              new HookDefinitionInvalid({
+                detail: `Hook native location is not writable: ${target.configPath}`,
+                cause,
+              }),
+            ),
+          ),
+        );
+        if (args.dryRun !== true)
+          yield* Ref.update(lastProjection, (prior) => ({
+            ...prior,
+            nativeLocations: combineNativeLocationOutcomes([
+              ...(prior.nativeLocations ?? []),
+              outcome.nativeLocation,
+            ]),
+          }));
         return {
           unitId: "hook:agent-hook-entries",
-          path: workspaceRelative.value,
-          present: observedCommands.length > 0,
-          current: !changed,
+          path: path.relative(baseDir, target.configPath),
+          present: outcome.ownedNames.length > 0,
+          current: !outcome.changed,
           expectedContributors: args.input.contributors
-            .filter(({ command }) => expectedCommands.includes(command))
+            .filter(({ name }) => outcome.expectedNames.includes(name))
             .map(({ marker }) => marker),
           observedContributors: args.input.contributors
-            .filter(({ command }) => observedCommands.includes(command))
+            .filter(({ name }) => outcome.observedNames.includes(name))
             .map(({ marker }) => marker),
         } satisfies ProjectionUnitObservation;
       });
 
-    const makeHookProjectionPlans = (prospective: ReadonlyArray<RenderedHookContributor> = []) =>
+    const makeHookProjectionPlans = (
+      prospective: ReadonlyArray<RenderedHookContributor> = [],
+      options?: NativeProjectionOptions,
+    ) =>
       Effect.gen(function* () {
-        const configuredAgents = yield* settings.configuredAgents;
-        const targets = yield* configuredHookWriterTargets(configuredAgents, (configPath) =>
-          path.resolve(baseDir, configPath),
+        const configuredAgents = options?.configuredAgents ?? (yield* settings.configuredAgents);
+        const targets = yield* configuredHookWriterTargets(
+          configuredAgents,
+          location.scope,
+          baseDir,
+          path.dirname(location.runtimeDir),
+          location.nativeDirectoryInputs,
         );
         const fallbackTarget = yield* hookFallbackTarget();
-        const graph = yield* desiredState.graph();
+        const graph = options?.desiredGraph ?? (yield* desiredState.graph());
         const locked = yield* lockfile.entries("hook");
         const retained = yield* selectHookContributors({
           graph: {
@@ -785,34 +885,117 @@ export const HookManagerLive = Layer.effect(
         const materialization = {
           agents: configuredAgents,
           targets: [
-            ...targets.map((target) => ({
-              path: path.relative(baseDir, target.configPath),
-              agentIds: [target.agent.id],
-            })),
+            ...[...new Set(targets.map(({ configPath }) => configPath))]
+              .sort()
+              .map((configPath) => ({
+                path: path.relative(baseDir, configPath),
+                agentIds: targets
+                  .filter((target) => target.configPath === configPath)
+                  .map(({ agent }) => agent.id)
+                  .sort(),
+              })),
             {
               path: fallbackTarget.workspaceRelative,
               ...(fallbackAgentIds.length === 0 ? {} : { agentIds: fallbackAgentIds }),
             },
           ],
         };
-        const recordMaterialization = <A, R>(
-          effect: Effect.Effect<A, ExtensionManagerFailure, R>,
-        ) => effect.pipe(Effect.tap(() => Ref.set(lastProjection, materialization)));
-        const nativePlans = yield* Effect.forEach(targets, (target) =>
-          planAggregateProjection({
-            unitId: "hook:agent-hook-entries",
-            targetFile: target.configPath,
-            graph,
-            select: selectNative(target.agent.id),
-            adapter: {
-              observe: (input) => reconcileNativeHookTarget({ target, input, dryRun: true }),
-              apply: (input) =>
-                recordMaterialization(reconcileNativeHookTarget({ target, input })).pipe(
-                  Effect.asVoid,
-                ),
-            },
+        const recordMaterialization = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+          effect.pipe(
+            Effect.tap(() =>
+              Ref.update(lastProjection, (prior) => ({
+                ...materialization,
+                nativeLocations: prior.nativeLocations ?? [],
+              })),
+            ),
+          );
+        const acceptedOwnership = (yield* captureAgentOutputAuthority()).expectedHooks;
+        const ownership: ReadonlyArray<HookOwnership> = [
+          ...acceptedOwnership,
+          ...(options?.priorAuthority?.expectedHooks ?? []),
+          ...contributors.map(({ name, marker, root }) => ({
+            name,
+            ref: marker,
+            root,
+            scope: location.scope,
+          })),
+        ].filter(
+          (owner, index, owners) =>
+            owners.findIndex(
+              (candidate) =>
+                candidate.name === owner.name &&
+                candidate.ref === owner.ref &&
+                candidate.root === owner.root &&
+                candidate.scope === owner.scope,
+            ) === index,
+        );
+        const groups = new Map<string, HookWriterTarget[]>();
+        for (const target of targets) {
+          const group = groups.get(target.configPath) ?? [];
+          group.push(target);
+          groups.set(target.configPath, group);
+        }
+        const nativePlans = yield* Effect.forEach([...groups.values()], (group) =>
+          Effect.gen(function* () {
+            const target = group[0];
+            if (target === undefined)
+              return yield* new HookDefinitionInvalid({
+                detail: "Hook location has no configured reader",
+              });
+            const selected = yield* selectNative(target.agent.id)();
+            // A fallback reader still observes this shared native file. It cannot
+            // silently receive a native representation it cannot execute.
+            for (const consumer of group) {
+              const other = yield* selectNative(consumer.agent.id)();
+              if (
+                JSON.stringify(selected.contributors.map(({ marker }) => marker)) !==
+                JSON.stringify(other.contributors.map(({ marker }) => marker))
+              ) {
+                return yield* new HookDefinitionInvalid({
+                  detail: `Hook consumers require incompatible native/fallback projections at ${target.configPath}`,
+                });
+              }
+            }
+            const newPhysicalRoute =
+              options?.nativeInsertionEligibleAgentIds !== undefined &&
+              group.every(({ agent }) => options.nativeInsertionEligibleAgentIds?.has(agent.id));
+            const nativeArgs = {
+              targets: group,
+              ownership,
+              configuredAgentIds: configuredAgents,
+              nativeInsertionEligibleNames: new Set([
+                ...(options?.nativeInsertionEligibleNames ?? []),
+                ...(newPhysicalRoute ? selected.contributors.map(({ name }) => name) : []),
+              ]),
+            };
+            const plan = yield* planAggregateProjection({
+              unitId: "hook:agent-hook-entries",
+              targetFile: target.configPath,
+              graph,
+              select: () => Effect.succeed(selected),
+              adapter: {
+                observe: (input) =>
+                  reconcileNativeHookTarget({ ...nativeArgs, input, dryRun: true }),
+                apply: (input) =>
+                  recordMaterialization(reconcileNativeHookTarget({ ...nativeArgs, input })).pipe(
+                    Effect.asVoid,
+                  ),
+              },
+            });
+            return plan;
           }),
         );
+        yield* observeProjectionPlans(nativePlans);
+        const fallbackOptions = {
+          ownership,
+          configuredAgentIds: configuredAgents,
+          eligible:
+            fallbackContributors.some(({ name }) =>
+              options?.nativeInsertionEligibleNames?.has(name),
+            ) ||
+            (fallbackAgentIds.length > 0 &&
+              fallbackAgentIds.every((id) => options?.nativeInsertionEligibleAgentIds?.has(id))),
+        };
         const fallbackPlan = yield* planAggregateProjection({
           unitId: "hook:fallback-region",
           targetFile: fallbackTarget.targetPath,
@@ -821,14 +1004,16 @@ export const HookManagerLive = Layer.effect(
           adapter: {
             observe: (input) =>
               reconcileHookFallback(fallbackTarget, input, {
+                ...fallbackOptions,
                 dryRun: true,
               }).pipe(Effect.map(({ projectionUnitObservation }) => projectionUnitObservation)),
             apply: (input) =>
-              recordMaterialization(reconcileHookFallback(fallbackTarget, input)).pipe(
-                Effect.asVoid,
-              ),
+              recordMaterialization(
+                reconcileHookFallback(fallbackTarget, input, fallbackOptions),
+              ).pipe(Effect.asVoid),
           },
         });
+        yield* observeProjectionPlans([fallbackPlan]);
         return [...nativePlans, fallbackPlan];
       });
 
@@ -838,8 +1023,12 @@ export const HookManagerLive = Layer.effect(
     ) =>
       Effect.gen(function* () {
         const configuredAgents = yield* settings.configuredAgents;
-        const targets = yield* configuredHookWriterTargets(configuredAgents, (configPath) =>
-          path.resolve(baseDir, configPath),
+        const targets = yield* configuredHookWriterTargets(
+          configuredAgents,
+          location.scope,
+          baseDir,
+          path.dirname(location.runtimeDir),
+          location.nativeDirectoryInputs,
         );
         const fallbackTarget = yield* hookFallbackTarget();
         const graph = proposedGraph ?? (yield* desiredState.graph());
@@ -857,8 +1046,12 @@ export const HookManagerLive = Layer.effect(
     const configuredAgentOutcomesForRef = (ref: HookExtensionRef, state: "projected" | "current") =>
       Effect.gen(function* () {
         const configuredAgents = yield* settings.configuredAgents;
-        const targets = yield* configuredHookWriterTargets(configuredAgents, (configPath) =>
-          path.resolve(baseDir, configPath),
+        const targets = yield* configuredHookWriterTargets(
+          configuredAgents,
+          location.scope,
+          baseDir,
+          path.dirname(location.runtimeDir),
+          location.nativeDirectoryInputs,
         );
         const fallbackTarget = yield* hookFallbackTarget();
         const manifest = yield* readManifestForRef(ref);
@@ -872,13 +1065,17 @@ export const HookManagerLive = Layer.effect(
               marker: formatFqn({ owner: manifest.owner, type: "hook", name: manifest.name }),
               manifest,
               command: "",
+              root: "",
             },
           ],
           state,
         });
       });
 
-    const prepareProjection = (refs: ReadonlyArray<HookExtensionRef>) =>
+    const prepareProjection = (
+      refs: ReadonlyArray<HookExtensionRef>,
+      options?: NativeProjectionOptions,
+    ) =>
       Effect.gen(function* () {
         const prepared = yield* Effect.forEach(
           refs,
@@ -912,19 +1109,38 @@ export const HookManagerLive = Layer.effect(
                   marker: formatFqn({ owner: manifest.owner, type: "hook", name: manifest.name }),
                   manifest,
                   command: `${interpreterForRuntime(manifest.runtime)} ${commandPath}`,
+                  root: path.relative(baseDir, canonicalPath),
                   treeIntegrity: yield* computeMaterializedTreeIntegrity(root),
+                  inputRoot: root,
                 };
               }),
             ),
           { concurrency: 1 },
         );
-        const configuredAgents = yield* settings.configuredAgents;
-        const targets = yield* configuredHookWriterTargets(configuredAgents, (configPath) =>
-          path.resolve(baseDir, configPath),
+        const configuredAgents = options?.configuredAgents ?? (yield* settings.configuredAgents);
+        const targets = yield* configuredHookWriterTargets(
+          configuredAgents,
+          location.scope,
+          baseDir,
+          path.dirname(location.runtimeDir),
+          location.nativeDirectoryInputs,
         );
         const fallbackTarget = yield* hookFallbackTarget();
+        const plans = yield* makeHookProjectionPlans(prepared, options);
+        for (const contributor of prepared)
+          for (const plan of plans) {
+            yield* assertNoPhysicalOverlap(contributor.inputRoot, plan.targetFile).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new HookDefinitionInvalid({
+                    detail: "Hook native target overlaps its input source",
+                    cause,
+                  }),
+              ),
+            );
+          }
         return {
-          plans: yield* makeHookProjectionPlans(prepared),
+          plans,
           agentOutcomes: evaluateConfiguredOutcomes({
             configuredAgents,
             targets,
@@ -942,13 +1158,14 @@ export const HookManagerLive = Layer.effect(
         ),
       );
 
-    const projectionPlans = () => makeHookProjectionPlans();
+    const projectionPlans: HookManagerService["projectionPlans"] = (options) =>
+      makeHookProjectionPlans([], options);
     const applyHookProjections = projectionPlans().pipe(Effect.flatMap(applyProjectionPlans));
 
     const materializeInstall: HookManagerService["materializeInstall"] = Effect.fn(
       "HookManager.materializeInstall",
-    )(function* ({ ref, force }) {
-      const materialized = yield* materializePackage(ref, force === true);
+    )(function* ({ ref, force, nativeInsertionEligible }) {
+      const materialized = yield* materializePackage(ref, force === true, nativeInsertionEligible);
       const packageRoot = materialized.packageRoot;
       yield* readManifest(packageRoot);
 
@@ -997,16 +1214,7 @@ export const HookManagerLive = Layer.effect(
       );
       const packageRoot = removableAcceptedCanonicalPath(canonical);
       if (Option.isSome(packageRoot)) {
-        yield* protectWorkspacePath(packageRoot.value);
-        yield* fs.remove(packageRoot.value, { recursive: true, force: true }).pipe(
-          Effect.mapError(
-            (error) =>
-              new HookIoFailed({
-                detail: `Failed to remove hook package source: ${packageRoot.value}`,
-                cause: error,
-              }),
-          ),
-        );
+        yield* retireCanonicalDirectory(packageRoot.value);
       }
       return withdrawn;
     });

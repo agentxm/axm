@@ -155,6 +155,9 @@ export const makeWorkspaceWorld = <P>(
   options: WorkspaceDirectoriesOptions & {
     readonly installedExecutables?: ReadonlyArray<string> | undefined;
     readonly httpClient?: Layer.Layer<HttpClient.HttpClient> | undefined;
+    /** Wrap the isolated configuration provider before workspace capture. */
+    readonly configureConfigProvider?:
+      ((provider: ConfigProvider.ConfigProvider) => ConfigProvider.ConfigProvider) | undefined;
     readonly ports: Layer.Layer<P>;
   },
 ) => {
@@ -164,22 +167,25 @@ export const makeWorkspaceWorld = <P>(
   const executables = Layer.succeed(AgentExecutableResolver, {
     exists: (name: string) => Effect.succeed(installedExecutables.has(name)),
   });
+  const isolatedConfig = ConfigProvider.fromEnv({ env: { AXM_USER_HOME: directories.home } });
   const base = Layer.provideMerge(
-    Layer.mergeAll(
+    Layer.provideMerge(
+      Layer.mergeAll(
+        CodingAgentRepositoryLive,
+        NativeWriteAuthorityLive,
+        transport,
+        RegistryClientFactoryTest(transport),
+        executables,
+        PlanInvocationTest,
+        options.ports,
+      ),
       WorkspaceLayerLive({
         scope: options.scope ?? "project",
         projectRoot: decodeAbsolutePathSync(directories.root),
         allowUninitialized: options.settings === undefined,
       }),
-      CodingAgentRepositoryLive,
-      NativeWriteAuthorityLive,
-      transport,
-      RegistryClientFactoryTest(transport),
-      executables,
-      PlanInvocationTest,
-      options.ports,
     ),
-    ConfigProvider.layer(ConfigProvider.fromEnv({ env: { AXM_USER_HOME: directories.home } })),
+    ConfigProvider.layer(options.configureConfigProvider?.(isolatedConfig) ?? isolatedConfig),
   );
   const projection = Layer.provideMerge(WorkspaceCatalogLive, base);
   return { ...directories, transport, projection };

@@ -7,11 +7,9 @@ import {
 } from "@agentxm/extension-model/unstable/agents/types";
 
 /**
- * The population under test is every catalog agent AXM actually resolves a
- * directory for — the capability is `axm.status: "supported"` and carries a
- * directory, which is exactly when `deriveAgentDescriptor` emits the descriptor
- * slot. Agents whose capability AXM does not support have no slot and are never
- * asked for a scope.
+ * The population under test is every catalog agent with a modeled native
+ * Subagent capability. Native scope declarations remain visible independently
+ * of whether AXM has a verified writer for that surface.
  */
 const scopesFor = (id: ConfigurableAgentId): ReadonlyArray<string> | undefined => {
   const descriptor = AGENT_DESCRIPTORS[id];
@@ -28,12 +26,12 @@ const withoutUserScope = (): ReadonlyArray<ConfigurableAgentId> =>
   });
 
 describe("userScopeRefusal", () => {
-  it("covers the AXM-supported catalog population it claims to", () => {
+  it("covers the native Subagent catalog population it claims to", () => {
     expect({
       subagentsWithUser: declaringUserScope().length,
       subagentsWithoutUser: withoutUserScope().length,
     }).toEqual({
-      subagentsWithUser: 27,
+      subagentsWithUser: 32,
       subagentsWithoutUser: 0,
     });
   });
@@ -56,7 +54,7 @@ describe("userScopeRefusal", () => {
 
   it("keeps the plain refusal for an agent with no modeled directory", () => {
     expect(
-      userScopeRefusal({ agentId: "universal", agentName: "Universal", type: "subagents" }),
-    ).toBe("Universal does not support user-scope subagents");
+      userScopeRefusal({ agentId: "codemaker", agentName: "CodeMaker", type: "subagents" }),
+    ).toBe("CodeMaker does not support user-scope subagents");
   });
 });

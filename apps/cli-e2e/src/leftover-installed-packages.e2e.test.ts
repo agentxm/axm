@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import { describe, expect, it } from "vitest";
+import YAML from "yaml";
 
 import { makeDirectoryFixture, unattendedProjectSetup } from "./test-support/directory-harness.js";
 
@@ -104,6 +105,32 @@ describe("Leftover installed packages", () => {
         "../../agent_extensions/registry/@craigsmitham/skills/vanished/src",
         brokenLink,
       );
+      const lockPath = path.join(workspace, "axm-lock.yaml");
+      const lock: unknown = YAML.parse(fs.readFileSync(lockPath, "utf8"));
+      if (typeof lock !== "object" || lock === null || !("skills" in lock))
+        throw new Error("Setup must create the Skills lock section");
+      writeFile(
+        lockPath,
+        YAML.stringify({
+          ...lock,
+          skills: {
+            ...Object(lock.skills),
+            vanished: {
+              source: { type: "registry", url: "https://registry.agentxm.ai/" },
+              identity: { owner: "@craigsmitham", name: "vanished" },
+              resolved: {
+                version: "0.1.0",
+                integrity: "sha512-AAAA==",
+                publisherBindingId: "hbnd_test",
+              },
+              treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
+            },
+          },
+        }),
+      );
+      const unprovenLink = path.join(skillsDir, "unproven");
+      const unprovenTarget = "../../agent_extensions/registry/@craigsmitham/skills/unproven/src";
+      fs.symlinkSync(unprovenTarget, unprovenLink);
       const legacyLink = path.join(skillsDir, "legacy");
       fs.symlinkSync("../../.axm/extensions/@axm/skills/legacy", legacyLink);
       const authoredBefore = snapshot(path.join(workspace, "skills"));
@@ -143,6 +170,7 @@ describe("Leftover installed packages", () => {
       for (const name of LEFTOVERS)
         expect(exists(path.join(installRoot, "@craigsmitham", "skills", name))).toBe(false);
       expect(exists(brokenLink)).toBe(false);
+      expect(fs.readlinkSync(unprovenLink)).toBe(unprovenTarget);
       expect(exists(legacyLink)).toBe(true);
       expect(fs.readFileSync(path.join(installRoot, "notes.txt"), "utf8")).toBe("hand-written\n");
       expect(snapshot(path.join(workspace, "skills"))).toEqual(authoredBefore);

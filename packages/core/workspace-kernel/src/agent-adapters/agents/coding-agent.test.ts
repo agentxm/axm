@@ -16,6 +16,7 @@ describe("coding-agent services", () => {
       Effect.gen(function* () {
         const outcome = yield* claudeCodeCodingAgent.resolveEffectiveSkillsDir({
           workspaceRoot: "/workspace",
+          scope: "project",
         });
 
         expect(outcome._tag).toBe("supported");
@@ -31,6 +32,7 @@ describe("coding-agent services", () => {
       Effect.gen(function* () {
         const outcome = yield* geminiCliCodingAgent.resolveEffectiveSkillsDir({
           workspaceRoot: "/workspace",
+          scope: "project",
         });
 
         expect(outcome._tag).toBe("supported");
@@ -46,6 +48,7 @@ describe("coding-agent services", () => {
       Effect.gen(function* () {
         const outcome = yield* codexCodingAgent.resolveEffectiveSkillsDir({
           workspaceRoot: "/workspace",
+          scope: "project",
         });
 
         expect(outcome._tag).toBe("supported");

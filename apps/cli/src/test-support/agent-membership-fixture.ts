@@ -26,11 +26,9 @@ import { ReleaseAgePosture } from "@agentxm/workspace-kernel/resolution";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
 
 import {
-  CodingAgentRepositoryLive,
   HookManagerLive,
   KnowledgeManagerLive,
   McpServerManagerLive,
-  NativeWriteAuthorityLive,
   PackManagerLive,
   RuleManagerLive,
   SkillManagerLive,
@@ -91,12 +89,7 @@ export const makeAgentMembershipFixture = (options: AgentMembershipFixtureOption
   });
 
   const workspaceServiceLayer = Layer.provideMerge(
-    Layer.mergeAll(
-      SourceHostProvidersLive,
-      CodingAgentRepositoryLive,
-      NativeWriteAuthorityLive,
-      makeAxmSkillCompatibilityPolicyLayer("0.0.0-spec"),
-    ),
+    Layer.mergeAll(SourceHostProvidersLive, makeAxmSkillCompatibilityPolicyLayer("0.0.0-spec")),
     context.fullLayer,
   );
   const coreExtensions = Layer.mergeAll(

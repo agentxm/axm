@@ -24,6 +24,7 @@ import { bundledSkillCanonicalRoot, computeExtensionPathsForLayout } from "./ext
 import { mcpResolutionKey } from "./mcp-source-identity.js";
 import { desiredMcpSourceKey, desiredPackageKey } from "./desired-identity.js";
 import { acceptedRegistryVersionForRef } from "../desired/lockfile/accepted-registry-version.js";
+import { isPathSafe } from "@agentxm/extension-model/unstable/path-types";
 
 export type CanonicalObservationStatus =
   | "not-applicable"
@@ -228,7 +229,55 @@ export const observeAcceptedCanonicalReuse = (args: {
 const acceptedOriginMatches = (
   desired: DesiredExtensionNode & { readonly source: string },
   accepted: LockEntry,
+  path: Path.Path | undefined,
 ): boolean => {
+  const inheritedAuthorities = desired.origins.flatMap((origin) =>
+    origin.type === "pack" && origin.sourceAuthority !== undefined ? [origin.sourceAuthority] : [],
+  );
+  if (inheritedAuthorities.length > 0) {
+    const acceptedFqn = `${accepted.identity.owner}/${toExtensionTypePlural(desired.type)}/${accepted.identity.name}`;
+    if (
+      accepted.identity.owner === undefined ||
+      acceptedFqn !== desiredPackageKey(desired.identity)
+    )
+      return false;
+    return inheritedAuthorities.every((authority) => {
+      switch (authority.authority) {
+        case "workspace":
+          // An authored Pack supplies the member declaration, while its
+          // Registry binding supplies the acquisition authority.
+          return (
+            desired.identity.authority === "registry" &&
+            desired.identity.registry.endpoint !== undefined &&
+            accepted.source.type === "registry" &&
+            accepted.source.url.href === desired.identity.registry.endpoint.href
+          );
+        case "registry":
+          return (
+            accepted.source.type === "registry" &&
+            accepted.source.url.href === authority.endpoint.href
+          );
+        case "path":
+          return (
+            accepted.source.type === "path" &&
+            path !== undefined &&
+            isPathSafe(path, authority.root, accepted.source.path)
+          );
+        case "git":
+          return (
+            accepted.source.type === "git" &&
+            accepted.source.url.href === authority.url.href &&
+            (accepted.source.revision ?? "HEAD") === authority.revision &&
+            path !== undefined &&
+            isPathSafe(
+              path,
+              Option.getOrElse(authority.root, () => "."),
+              accepted.source.path ?? ".",
+            )
+          );
+      }
+    });
+  }
   const acceptedIdentity =
     desired.type === "mcp-server"
       ? mcpResolutionKey(accepted)
@@ -246,15 +295,18 @@ const acceptedOriginMatches = (
 /**
  * Judge the accepted resolution for a desired node before any content is
  * read: whether a node needs one, whether one is recorded, whether it names
- * the desired origin, and whether its version satisfies every desired
- * constraint. `none` means that authority stands and the canonical content
- * decides the rest of the observation. Workspace-authored content has no
- * accepted resolution; its manifest is judged with the content. Activation is
+ * the desired origin, and whether its Registry version satisfies every desired
+ * constraint. Inherited path/git member authority also requires `path` to
+ * establish containment beneath the declared source view. `none` means that
+ * authority stands and the canonical content decides the rest of the
+ * observation. Content without a Registry version is judged by its manifest
+ * after the accepted tree has been checked. Activation is
  * not an input: a disabled node is judged exactly like an enabled one.
  */
 export const observeAcceptedResolution = (
   desired: DesiredExtensionNode,
   accepted: LockEntry | undefined,
+  path?: Path.Path,
 ): Option.Option<CanonicalObservation> => {
   if (desired.source === undefined) {
     return Option.some({ type: desired.type, name: desired.name, status: "not-applicable" });
@@ -264,11 +316,13 @@ export const observeAcceptedResolution = (
   if (!bundled && accepted === undefined) {
     return Option.some({ type: desired.type, name: desired.name, status: "missing-resolution" });
   }
-  if (!bundled && accepted !== undefined && !acceptedOriginMatches(desired, accepted)) {
+  if (!bundled && accepted !== undefined && !acceptedOriginMatches(desired, accepted, path)) {
     return Option.some({ type: desired.type, name: desired.name, status: "wrong-origin" });
   }
   if (
     isConstrained(desired) &&
+    (Result.isFailure(desired.constraint) ||
+      (accepted !== undefined && isRegistryLockEntry(accepted))) &&
     !(
       accepted !== undefined &&
       isRegistryLockEntry(accepted) &&
@@ -302,7 +356,7 @@ export const observeCanonicalExtension = ({
     if (desired.source === undefined) {
       return { type: desired.type, name: desired.name, status: "not-applicable" };
     }
-    const judged = observeAcceptedResolution(desired, accepted);
+    const judged = observeAcceptedResolution(desired, accepted, path);
     const root = canonicalPathForAcceptedExtension(path, layout, desired, accepted);
     if (Option.isSome(judged)) {
       return judged.value.status === "constraint-mismatch" && root !== undefined
@@ -347,6 +401,10 @@ export const observeCanonicalExtension = ({
         };
       }
 
+      if (isConstrained(desired) && !satisfiesDesiredConstraint(desired, undefined)) {
+        return constraintMismatchObservation({ desired, canonicalPath: root });
+      }
+
       return {
         type: desired.type,
         name: desired.name,
@@ -386,20 +444,6 @@ export const observeCanonicalExtension = ({
     const manifestVersion =
       "version" in parsed && typeof parsed.version === "string" ? parsed.version : undefined;
 
-    // Authored content has no accepted version: its manifest is what the
-    // desired constraints judge.
-    if (
-      workspaceAuthored &&
-      isConstrained(desired) &&
-      !satisfiesDesiredConstraint(desired, manifestVersion)
-    ) {
-      return constraintMismatchObservation({
-        desired,
-        canonicalPath: root,
-        ...(manifestVersion === undefined ? {} : { observedVersion: manifestVersion }),
-      });
-    }
-
     const payloadComplete = yield* hasRequiredPayload(
       fs,
       path,
@@ -422,6 +466,20 @@ export const observeCanonicalExtension = ({
         status: "materialization-mismatch",
         path: root,
       };
+    }
+
+    // Authored and path/git content have no accepted Registry version:
+    // their inspected manifest is what the desired constraints judge.
+    if (
+      (accepted === undefined || !isRegistryLockEntry(accepted)) &&
+      isConstrained(desired) &&
+      !satisfiesDesiredConstraint(desired, manifestVersion)
+    ) {
+      return constraintMismatchObservation({
+        desired,
+        canonicalPath: root,
+        ...(manifestVersion === undefined ? {} : { observedVersion: manifestVersion }),
+      });
     }
 
     return {

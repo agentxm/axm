@@ -51,6 +51,7 @@ import type {
 import { WorkspaceStateShared } from "./shared.js";
 import { acceptedRowKey } from "./accepted-reachability.js";
 import { desiredMcpSourceKey } from "./desired-identity.js";
+import { desiredReachability } from "./desired-state-queries.js";
 
 /** The declaration each installable extension type accepts. */
 export interface DeclareArgsByType {
@@ -258,6 +259,9 @@ export const makeDesiredStateWriter = (
     enabled,
   }: SetMcpServerArgs): Write =>
     Effect.gen(function* () {
+      const roundTrip =
+        desiredReachability(yield* desiredState.graph(), { type: "mcp-server", name }).decision ===
+        "not-reached";
       const current = yield* settings;
       const existing = settingsEntries["mcp-server"].entries(current)[name];
       yield* writeSettings(
@@ -278,6 +282,7 @@ export const makeDesiredStateWriter = (
           resolutionKey,
           preserveAcceptedResolutionOnNoop(previous, lockEntry),
         ),
+        { roundTrip },
       );
     });
 

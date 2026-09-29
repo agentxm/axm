@@ -1,6 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
 import { McpServerManifestSchema } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
+import { mcpAgentSyncOutcome } from "./sync.js";
+import { configuredMcpCapability, declaredMcpWriterTargets } from "./targeting.js";
 import { planMcpServerTargets } from "./target-plan.js";
 
 const inline = {
@@ -46,7 +48,7 @@ describe("planMcpServerTargets", () => {
     if (plan._tag !== "planned") return;
     expect(plan.agents.map((agent) => [agent.agentId, agent._tag])).toEqual([
       ["cursor", "projected"],
-      ["amp", "unsupported"],
+      ["amp", "unverified"],
       ["claude-code", "projected"],
     ]);
     expect(plan.writes.map((write) => write.path).sort()).toEqual([
@@ -123,5 +125,53 @@ describe("planMcpServerTargets", () => {
     if (plan._tag !== "planned") return;
     expect(plan.agents[0]).toMatchObject({ _tag: "needs-input", missing: ["API_TOKEN"] });
     expect(plan.writes[0]?.entry).toMatchObject({ env: { API_TOKEN: "${API_TOKEN}" } });
+  });
+});
+
+describe("agent results with multiple native targets", () => {
+  it("keeps the worst terminal result and every completed write", () => {
+    const targets = [
+      { path: "first.json", change: "created" as const },
+      { path: "second.json", change: "updated" as const },
+    ];
+    expect(
+      mcpAgentSyncOutcome(
+        [
+          {
+            _tag: "unverified",
+            agentId: "cursor",
+            reason: "A further native location is unresolved",
+          },
+          { _tag: "unsupported", agentId: "cursor", reason: "An entry cannot be represented" },
+        ],
+        targets,
+      ),
+    ).toEqual({ _tag: "failed", reason: "A further native location is unresolved", targets });
+  });
+  it("merges warnings across compatible destinations", () => {
+    const capability = configuredMcpCapability("cursor");
+    if (capability === undefined) return expect.fail("Cursor writer required");
+    const member = declaredMcpWriterTargets(capability)[0];
+    if (member === undefined) return expect.fail("Cursor native target required");
+    const projected = {
+      _tag: "projected",
+      agentId: "cursor",
+      config: member.config,
+      target: member.target,
+      entry: {},
+      shimmed: false,
+    } as const;
+    const outcome = mcpAgentSyncOutcome(
+      [
+        { ...projected, warnings: ["first warning", "shared warning"] },
+        { ...projected, shimmed: true, warnings: ["shared warning", "second warning"] },
+      ],
+      [],
+    );
+    expect(outcome).toMatchObject({
+      _tag: "fallback",
+      warnings: ["first warning", "shared warning", "second warning"],
+      targets: [],
+    });
   });
 });

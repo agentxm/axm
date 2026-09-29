@@ -10,7 +10,7 @@ import * as nodeOs from "node:os";
 import * as nodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
-import { protectWorkspacePath } from "../../settlement/index.js";
+import { protectWorkspacePath, recordFootprint } from "../../settlement/index.js";
 import { WorkspaceTransactionScopeTest } from "../../settlement/testing.js";
 import { FootprintRecorderTest } from "../../planning/testing.js";
 import { NativeWriteAuthorityPermissive } from "../../agent-adapters/testing.js";
@@ -87,8 +87,8 @@ const grounded = <A, E>(
         Layer.mergeAll(
           WorkspaceFileWriteLocksLive,
           WorkspaceTransactionScopeTest({
-            workspaceDir: transactionDir,
-            settingsPath: nodePath.join(transactionDir, "settings.json"),
+            workspaceDir: nodePath.join(transactionDir, ".axm"),
+            settingsPath: nodePath.join(transactionDir, "axm.json"),
             lockPath: nodePath.join(transactionDir, "axm-lock.yaml"),
           }),
           NativeWriteAuthorityPermissive,
@@ -128,7 +128,7 @@ const authoredSkillRef = (): WorkspaceSkillRef => {
     name,
     version: exactVersion("1.0.0"),
     scope: "project",
-    location: "file:///workspace/agent_extensions/@acme/skills/review",
+    location: nodePath.join(transactionDir, "agent_extensions/@acme/skills/review"),
     sourceHash: computeSourceHash("review"),
     skill: { name, description: Option.none(), metadata: Option.none() },
   };
@@ -493,7 +493,7 @@ describe("buildNewExtensionStep", () => {
       name,
       version: exactVersion("1.0.0"),
       scope: "project",
-      location: "file:///workspace/agent_extensions/@acme/skills/review",
+      location: nodePath.join(transactionDir, "agent_extensions/@acme/skills/review"),
       sourceHash: computeSourceHash("review"),
       skill: { name, description: Option.none(), metadata: Option.none() },
     };
@@ -543,13 +543,19 @@ describe("buildNewExtensionStep", () => {
         const surfacePath = (surface: string) => nodePath.join(transactionDir, surface);
         const write = (surface: string) =>
           Effect.gen(function* () {
+            const existed = nodeFs.existsSync(surfacePath(surface));
             yield* protectWorkspacePath(surfacePath(surface));
             nodeFs.writeFileSync(surfacePath(surface), surface);
+            yield* recordFootprint({
+              path: surfacePath(surface),
+              change: existed ? "modified" : "created",
+            });
           });
         const remove = (surface: string) =>
           Effect.gen(function* () {
             yield* protectWorkspacePath(surfacePath(surface));
             nodeFs.rmSync(surfacePath(surface), { force: true });
+            yield* recordFootprint({ path: surfacePath(surface), change: "removed" });
           });
         let listCalls = 0;
         const fail = () =>
@@ -636,7 +642,7 @@ describe("buildAuthoredExtensionStep", () => {
       const step = buildAuthoredExtensionStep(manager, {
         target: { type: "skill", name: extensionName("review") },
         location: ref.location,
-        transactionTargets: ["/workspace/native.json", ref.location],
+        transactionTargets: [nodePath.join(transactionDir, "native.json"), ref.location],
         versionRange: Option.none(),
         toStepFailure,
         scaffold: Effect.void,
@@ -898,6 +904,7 @@ describe("buildUninstallOperation", () => {
           Effect.gen(function* () {
             yield* protectWorkspacePath(surfacePath(surface));
             nodeFs.rmSync(surfacePath(surface), { force: true });
+            yield* recordFootprint({ path: surfacePath(surface), change: "removed" });
           });
         const fail = () =>
           Effect.fail(new CanonicalPackageProbeFailed({ detail: failureAt, cause: undefined }));

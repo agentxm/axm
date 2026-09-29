@@ -6,8 +6,17 @@ import type {
   ExtensionTarget,
   ExtensionTargetFor,
   LockEntryByType,
+  DesiredStateGraph,
 } from "../../workspace-state/index.js";
-import type { ProjectionPlan } from "../../projection/index.js";
+import type { ProjectionPlan, AgentOutputAuthority } from "../../projection/index.js";
+
+export interface NativeProjectionOptions {
+  readonly priorAuthority?: AgentOutputAuthority;
+  readonly nativeInsertionEligibleNames?: ReadonlySet<string>;
+  readonly nativeInsertionEligibleAgentIds?: ReadonlySet<string>;
+  readonly configuredAgents?: ReadonlyArray<string>;
+  readonly desiredGraph?: DesiredStateGraph;
+}
 
 export interface MaterializationConfiguration<E, R> {
   readonly getConfiguredSource?: (args: {
@@ -20,7 +29,9 @@ export interface MaterializationConfiguration<E, R> {
 
 export interface MaterializationProjection<E, R> {
   /** Aggregate projection runs after desired state and canonical content commit. */
-  readonly projectionPlans?: () => Effect.Effect<ReadonlyArray<ProjectionPlan<void, E, R>>, E, R>;
+  readonly projectionPlans?: (
+    options?: NativeProjectionOptions,
+  ) => Effect.Effect<ReadonlyArray<ProjectionPlan<void, E, R>>, E, R>;
 }
 
 interface MaterializationAcquisition<TRef extends ExtensionRef, TFacts, E, R> {
@@ -30,6 +41,8 @@ interface MaterializationAcquisition<TRef extends ExtensionRef, TFacts, E, R> {
   readonly materializeInstall: (args: {
     readonly ref: TRef;
     readonly force?: boolean;
+    readonly nativeInsertionEligible?: boolean;
+    readonly nativeInsertionEligiblePaths?: ReadonlySet<string>;
   }) => Effect.Effect<TFacts, E, R>;
   /** The transition records accepted content identity with its desired-state changes. */
   readonly acceptedResolution: (args: {

@@ -25,6 +25,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import type { NativeDirectoryInputs } from "@agentxm/workspace-kernel/locations";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import {
   AgentRootResolverLive,
@@ -129,6 +130,7 @@ export interface LintWorkspaceView {
  * @experimental This API is unstable and may change without notice.
  */
 export interface BuildLintWorkspaceArgs {
+  readonly nativeDirectoryInputs: NativeDirectoryInputs;
   readonly platform: {
     readonly fs: FileSystem.FileSystem;
     readonly path: Path.Path;
@@ -209,6 +211,7 @@ export const buildLintWorkspace = (
   const env = Layer.mergeAll(
     platformLayer,
     Layer.succeed(WorkspaceReadModelConfig, {
+      nativeDirectoryInputs: args.nativeDirectoryInputs,
       projectRoot: makeAbsolutePath(args.platform.path, args.workspaceRoot),
       userHome: makeAbsolutePath(args.platform.path, args.userHome),
       allowedRoot: makeAbsolutePath(args.platform.path, "/"),
@@ -244,6 +247,7 @@ export const buildLintWorkspace = (
       workspace: readModel,
       axmDirExists: args.platform.fs.exists(axmDir).pipe(Effect.catch(() => Effect.succeed(false))),
       instructions: yield* makeInstructionAccessor({
+        nativeDirectoryInputs: args.nativeDirectoryInputs,
         platform: args.platform,
         workspaceRoot: args.workspaceRoot,
         scope: args.scope,
@@ -268,6 +272,7 @@ export const buildLintWorkspace = (
  * `.gitignore` facts from the same snapshot.
  */
 const makeInstructionAccessor = (args: {
+  readonly nativeDirectoryInputs: NativeDirectoryInputs;
   readonly platform: {
     readonly fs: FileSystem.FileSystem;
     readonly path: Path.Path;
@@ -292,6 +297,7 @@ const makeInstructionAccessor = (args: {
         if (Option.isNone(rawConfig) || rawConfig.value === false) return Option.none();
         return Option.some(
           yield* observeInstructionProjection({
+            nativeDirectoryInputs: args.nativeDirectoryInputs,
             workspaceRoot: args.workspaceRoot,
             scope: args.scope,
             configuredAgents: settings.value.agents ?? [],

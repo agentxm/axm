@@ -1,3 +1,4 @@
+import { resolveNativeReferent } from "../locations/index.js";
 /**
  * Desired-state materialization planning: select desired nodes, judge
  * observed-materialization currency, and assemble the per-extension
@@ -9,6 +10,7 @@
  * @experimental All exports from this module are unstable and may change without notice.
  */
 
+import { newlyConfiguredMcpRoutePaths } from "../agent-adapters/index.js";
 import { toFileLocation } from "@agentxm/host-primitives";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -33,6 +35,7 @@ import {
   type McpConnectionInstallRequirements,
   type McpServerManagerService,
   type PreparedHookProjection,
+  type NativeProjectionOptions,
 } from "../materialization/index.js";
 import {
   buildMaterializeOperation,
@@ -66,6 +69,7 @@ import {
   desiredStateProblemsText,
   DesiredStateReader,
   unresolvedPackRoutes,
+  desiredReachability,
   type LockfileReader,
   SettingsReader,
   type SettingsReaderService,
@@ -87,6 +91,7 @@ import {
   acceptedResolutionIncompatibleText,
   canonicalObservationFactText,
   CodingAgentRepository,
+  captureAgentOutputAuthority,
   expectedProjectionNames,
   inspectDesiredMcpServer,
   isObservedMaterializationCurrent,
@@ -279,11 +284,16 @@ const skillSyncArtifact = (args: {
     const resolved = yield* Effect.forEach(
       materializationAgents,
       (agent) =>
-        agent.resolveEffectiveSkillsDir({ workspaceRoot: args.location.baseDir }).pipe(
-          Effect.provideService(FileSystem.FileSystem, args.fs),
-          Effect.provideService(Path.Path, args.path),
-          Effect.map((outcome) => ({ agent, outcome })),
-        ),
+        agent
+          .resolveEffectiveSkillsDir({
+            workspaceRoot: args.location.baseDir,
+            scope: args.location.scope,
+          })
+          .pipe(
+            Effect.provideService(FileSystem.FileSystem, args.fs),
+            Effect.provideService(Path.Path, args.path),
+            Effect.map((outcome) => ({ agent, outcome })),
+          ),
       { concurrency: 16 },
     );
     const targets = resolved.flatMap(({ agent, outcome }) =>
@@ -331,10 +341,12 @@ const buildMcpServerSyncOperation = ({
   manager,
   ref,
   sourceIdentity,
+  nativeInsertionEligiblePaths,
   force,
   transitionLabel,
   adapter,
 }: {
+  readonly nativeInsertionEligiblePaths: ReadonlySet<string>;
   readonly manager: McpServerManagerService;
   readonly ref: McpServerExtensionRef;
   readonly sourceIdentity: string;
@@ -359,6 +371,7 @@ const buildMcpServerSyncOperation = ({
         args: {
           ref,
           sourceIdentity,
+          nativeInsertionEligiblePaths,
           nonInteractive: true,
           force,
         },
@@ -475,6 +488,8 @@ export interface CollectedMaterializeSteps {
   /** Whether the desired graph was complete enough for cleanup to run. */
   readonly cleanupSafe: boolean;
   readonly preparedHookProjection?: PreparedHookProjection;
+  readonly ruleProjection: NativeProjectionOptions;
+  readonly knowledgeProjection: NativeProjectionOptions;
   readonly knowledgeMayChange: boolean;
   readonly serialMaterialization: boolean;
   /** The names the cleanup sweep must treat as expected, from the whole graph. */
@@ -550,6 +565,50 @@ export const collectMaterializeSteps = (args: {
         : settingsEntries["mcp-server"].entries(args.settings);
     const configuredAgents = args.configuredAgents ?? (yield* settings.configuredAgents);
     const desiredState = args.desiredState ?? (yield* desiredStateReader.graph());
+    const previousAgentIds = new Set(yield* settings.configuredAgents);
+    const proposedAgentIds = new Set(configuredAgents);
+    const directoryRoutes = { skill: new Set<string>(), subagent: new Set<string>() };
+    if (configuredAgents.some((id) => !previousAgentIds.has(id))) {
+      const prior = { skill: new Set<string>(), subagent: new Set<string>() };
+      const proposed = { skill: new Set<string>(), subagent: new Set<string>() };
+      prior.skill.add(yield* resolveNativeReferent(path.join(location.baseDir, ".agents/skills")));
+      for (const agent of yield* agentRepo.all) {
+        if (!previousAgentIds.has(agent.id) && !proposedAgentIds.has(agent.id)) continue;
+        for (const kind of ["skill", "subagent"] as const) {
+          for (const reader of yield* agent.resolveNativeReadLocations({
+            workspaceRoot: location.baseDir,
+            scope: location.scope,
+            kind,
+          })) {
+            if (reader.declaration.shape !== "directory") continue;
+            const physical = yield* resolveNativeReferent(reader.path);
+            if (previousAgentIds.has(agent.id)) prior[kind].add(physical);
+            if (proposedAgentIds.has(agent.id)) proposed[kind].add(physical);
+          }
+        }
+      }
+      for (const physical of proposed.skill)
+        if (!prior.skill.has(physical)) directoryRoutes.skill.add(physical);
+      // A role Skill shares the Skill directory's physical consumer history.
+      for (const physical of [...proposed.subagent, ...proposed.skill])
+        if (!prior.subagent.has(physical) && !prior.skill.has(physical))
+          directoryRoutes.subagent.add(physical);
+    }
+    const priorMcpGraph = yield* desiredStateReader.graph();
+    if (unresolvedPackRoutes(priorMcpGraph).length > 0) {
+      directoryRoutes.skill.clear();
+      directoryRoutes.subagent.clear();
+    }
+    const nativeInsertionEligibleMcpPaths =
+      unresolvedPackRoutes(priorMcpGraph).length > 0
+        ? new Set<string>()
+        : yield* newlyConfiguredMcpRoutePaths({
+            previousAgentIds: yield* settings.configuredAgents,
+            agentIds: configuredAgents,
+            scope: location.scope,
+            workspaceRoot: location.baseDir,
+            nativeDirectoryInputs: location.nativeDirectoryInputs,
+          });
     const desiredActivation = (ref: ExtensionRef): boolean =>
       desiredState.nodes.some(
         (node) => node.type === ref.type && node.name === targetFromRef(ref).name && node.enabled,
@@ -895,6 +954,7 @@ export const collectMaterializeSteps = (args: {
         Effect.gen(function* () {
           const entry = configuredMcpServerEntries[node.name];
           const { inspections, current } = yield* inspectDesiredMcpServer({
+            nativeDirectoryInputs: location.nativeDirectoryInputs,
             workspaceRoot: location.baseDir,
             scope: location.scope,
             agentIds: configuredAgents,
@@ -917,7 +977,9 @@ export const collectMaterializeSteps = (args: {
                 .join(", ")}; move or remove the unowned entry before rerunning axm sync`,
             });
           }
-          const blocked = inspections.filter((inspection) => inspection.status === "blocked");
+          const blocked = inspections.filter(
+            (inspection) => inspection.status === "blocked" || inspection.status === "unverified",
+          );
           if (blocked.length > 0) {
             return Option.some<PlannedJobStep<MaterializeStepRequirements>>({
               key: `${SYNC_RECOVERY_IDS.inlineMcpCollision}:${node.name}`,
@@ -936,6 +998,7 @@ export const collectMaterializeSteps = (args: {
               name: node.name,
               entry,
               agentIds: configuredAgents,
+              nativeInsertionEligiblePaths: nativeInsertionEligibleMcpPaths,
               inspectionWarnings: inspections.flatMap((inspection) =>
                 inspection.status === "drift"
                   ? [
@@ -1011,6 +1074,7 @@ export const collectMaterializeSteps = (args: {
         const artifact = yield* buildArtifact();
         return {
           ...buildMaterializeOperation(skillManager, {
+            nativeInsertionEligiblePaths: directoryRoutes.skill,
             toStepFailure: args.adapter.toStepFailure,
             ref,
             desiredActivation: desiredActivation(ref),
@@ -1018,7 +1082,17 @@ export const collectMaterializeSteps = (args: {
             force,
             label: transitionLabel,
             message: `Synced skill ${ref.skill.name}`,
-            buildArtifact,
+            buildArtifact: ({ materialization }) =>
+              buildArtifact().pipe(
+                Effect.map((artifact) => ({
+                  ...artifact,
+                  ...(materialization.observation.nativeLocations === undefined
+                    ? {}
+                    : {
+                        nativeLocations: materialization.observation.nativeLocations,
+                      }),
+                })),
+              ),
           }),
           artifact,
         } satisfies PlannedJobStep<MaterializeStepRequirements>;
@@ -1029,6 +1103,7 @@ export const collectMaterializeSteps = (args: {
       transitionLabel,
     }: Reconciled<SubagentExtensionRef>) =>
       buildMaterializeOperation(subagentManager, {
+        nativeInsertionEligiblePaths: directoryRoutes.subagent,
         toStepFailure: args.adapter.toStepFailure,
         ref,
         desiredActivation: desiredActivation(ref),
@@ -1036,7 +1111,17 @@ export const collectMaterializeSteps = (args: {
         force,
         label: transitionLabel,
         message: `Synced subagent ${ref.subagent.name}`,
-        buildArtifact: () => subagentSyncArtifact({ ref, location }),
+        buildArtifact: ({ materialization }) =>
+          subagentSyncArtifact({ ref, location }).pipe(
+            Effect.map((artifact) => ({
+              ...artifact,
+              ...(materialization.observation.nativeLocations === undefined
+                ? {}
+                : {
+                    nativeLocations: materialization.observation.nativeLocations,
+                  }),
+            })),
+          ),
       });
     const knowledgeMaterializeStep = ({
       ref,
@@ -1062,8 +1147,80 @@ export const collectMaterializeSteps = (args: {
     const changedHooks = hookRefs
       .filter(({ materialize, ref }) => materialize && desiredActivation(ref))
       .map(({ ref }) => ref);
+    const priorHookGraph = yield* desiredStateReader.graph();
+    const priorHookAgents = yield* settings.configuredAgents;
+    const addedHookRoutes = new Set(
+      configuredAgents.filter((agent) => !priorHookAgents.includes(agent)),
+    );
+    const nativeInsertionEligibleHookNames = new Set(
+      unresolvedPackRoutes(priorHookGraph).length > 0
+        ? []
+        : changedHooks
+            .filter(
+              (ref) =>
+                desiredReachability(priorHookGraph, { type: "hook", name: ref.hook.name })
+                  .decision === "not-reached",
+            )
+            .map((ref) => ref.hook.name),
+    );
     const preparedHookProjection =
-      changedHooks.length === 0 ? undefined : yield* hookManager.prepareProjection(changedHooks);
+      changedHooks.length === 0
+        ? undefined
+        : yield* hookManager.prepareProjection(changedHooks, {
+            nativeInsertionEligibleNames: nativeInsertionEligibleHookNames,
+            nativeInsertionEligibleAgentIds:
+              unresolvedPackRoutes(priorHookGraph).length > 0 ? new Set() : addedHookRoutes,
+            configuredAgents,
+            desiredGraph: desiredState,
+          });
+    const priorAuthority = yield* captureAgentOutputAuthority();
+    const changedRules = ruleRefs
+      .filter(({ materialize, ref }) => materialize && desiredActivation(ref))
+      .map(({ ref }) => ref);
+    const changedKnowledge = knowledgeRefs
+      .filter(({ materialize, ref }) => materialize && desiredActivation(ref))
+      .map(({ ref }) => ref);
+    const ruleProjection: NativeProjectionOptions = {
+      priorAuthority,
+      configuredAgents,
+      desiredGraph: desiredState,
+      nativeInsertionEligibleNames: new Set(
+        unresolvedPackRoutes(priorHookGraph).length > 0
+          ? []
+          : changedRules
+              .filter(
+                (ref) =>
+                  desiredReachability(priorHookGraph, { type: "rule", name: ref.rule.name })
+                    .decision === "not-reached",
+              )
+              .map((ref) => ref.rule.name),
+      ),
+      nativeInsertionEligibleAgentIds:
+        unresolvedPackRoutes(priorHookGraph).length > 0 ? new Set() : addedHookRoutes,
+    };
+    const knowledgeProjection: NativeProjectionOptions = {
+      priorAuthority,
+      configuredAgents,
+      desiredGraph: desiredState,
+      nativeInsertionEligibleNames: new Set(
+        unresolvedPackRoutes(priorHookGraph).length > 0
+          ? []
+          : changedKnowledge
+              .filter(
+                (ref) =>
+                  desiredReachability(priorHookGraph, {
+                    type: "knowledge",
+                    name: ref.knowledge.name,
+                  }).decision === "not-reached",
+              )
+              .map((ref) => ref.knowledge.name),
+      ),
+      nativeInsertionEligibleAgentIds:
+        unresolvedPackRoutes(priorHookGraph).length > 0 ? new Set() : addedHookRoutes,
+    };
+    if (changedRules.length > 0) yield* ruleManager.prepareProjection(changedRules, ruleProjection);
+    if (changedKnowledge.length > 0)
+      yield* knowledgeManager.prepareProjection(changedKnowledge, knowledgeProjection);
     const inventoryObservations = (yield* Effect.forEach([...inventories], ([type, read]) =>
       Effect.map(Effect.result(read), (result) =>
         Result.isSuccess(result)
@@ -1073,6 +1230,8 @@ export const collectMaterializeSteps = (args: {
     )).flat();
     return {
       ...(preparedHookProjection === undefined ? {} : { preparedHookProjection }),
+      ruleProjection,
+      knowledgeProjection,
       // The whole-graph sweeps act on absence from the graph, so they wait
       // while any active Pack's routes are unresolved; a problem about one
       // identified extension does not stop them.
@@ -1116,6 +1275,7 @@ export const collectMaterializeSteps = (args: {
                   manager: mcpManager,
                   ref,
                   sourceIdentity,
+                  nativeInsertionEligiblePaths: nativeInsertionEligibleMcpPaths,
                   force,
                   transitionLabel,
                   adapter: args.adapter,

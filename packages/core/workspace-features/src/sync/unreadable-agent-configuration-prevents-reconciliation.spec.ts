@@ -28,34 +28,27 @@ describe("Agent configuration failure", () => {
     { agent: "claude-code", key: "AXM_CLAUDE_SKILLS_DIR" },
     { agent: "gemini-cli", key: "AXM_GEMINI_CLI_SKILLS_DIR" },
   ])("blocks $agent reconciliation and catalog lookup without changing files", ({ agent, key }) => {
+    const sourceError = new ConfigProvider.SourceError({ message: "source unavailable" });
     const workspace = makeSyncFixture({
       settings: { owner: "@acme", agents: [agent] },
       files: { ".claude/skills/keep/SKILL.md": "Keep this user-authored content." },
+      configureConfigProvider: (original) =>
+        ConfigProvider.make((path) =>
+          path[0] === key ? Effect.fail(sourceError) : original.load(path),
+        ),
     });
-    return workspace
-      .provide(
-        Effect.gen(function* () {
-          const before = workspace.snapshot();
-          const sourceError = new ConfigProvider.SourceError({ message: "source unavailable" });
-          const original = yield* ConfigProvider.ConfigProvider;
-          const provider = ConfigProvider.make((path) =>
-            path[0] === key ? Effect.fail(sourceError) : original.load(path),
-          );
-          const failure = yield* applySync().pipe(
-            Effect.provideService(ConfigProvider.ConfigProvider, provider),
-            Effect.flip,
-          );
-          expect(failure).toMatchObject({ _tag: "ConfigError", cause: sourceError });
-          const catalog = yield* WorkspaceCatalog;
-          const catalogFailure = yield* catalog.skillCandidates.pipe(
-            Effect.provideService(ConfigProvider.ConfigProvider, provider),
-            Effect.flip,
-          );
-          expect(catalogFailure).toMatchObject({ _tag: "ConfigError", cause: sourceError });
-          expect(workspace.snapshot()).toEqual(before);
-        }),
-      )
-      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(workspace.cleanup)));
+    return Effect.gen(function* () {
+      const before = workspace.snapshot();
+      const homeBefore = workspace.homeSnapshot();
+      const failure = yield* workspace.provide(applySync()).pipe(Effect.flip);
+      expect(failure).toMatchObject({ _tag: "ConfigError", cause: sourceError });
+      const catalogFailure = yield* workspace
+        .provide(Effect.flatMap(WorkspaceCatalog, (catalog) => catalog.skillCandidates))
+        .pipe(Effect.flip);
+      expect(catalogFailure).toMatchObject({ _tag: "ConfigError", cause: sourceError });
+      expect(workspace.snapshot()).toEqual(before);
+      expect(workspace.homeSnapshot()).toEqual(homeBefore);
+    }).pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(workspace.cleanup)));
   });
 
   it.effect(

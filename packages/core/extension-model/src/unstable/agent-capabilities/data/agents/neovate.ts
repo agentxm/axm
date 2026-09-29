@@ -30,7 +30,28 @@ export const neovateAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".neovate/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".neovate/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".neovate/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -57,64 +78,92 @@ export const neovateAgent = {
           variables: "none",
           defaults: false,
         },
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-08-05",
-        writer: {
-          config: {
-            serversKey: "mcpServers",
-            activationField: {
-              required: { name: "disable", enabled: false, disabled: true },
-              accepted: [{ name: "disable", enabled: false, disabled: true }, null],
+
+        locations: [
+          {
+            id: "user",
+            scope: "user",
+            root: "home",
+            path: ".neovate/config.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
             },
-            targets: [
-              {
-                scope: "user",
-                path: "~/.neovate/config.json",
-                format: "json",
-                attribution: "agent",
-              },
-              {
-                scope: "project",
-                path: ".neovate/config.json",
-                format: "json",
-                attribution: "agent",
-              },
-            ],
-            stdio: {
-              typeField: {
-                required: { name: "type", value: "stdio" },
-                accepted: [{ name: "type", value: "stdio" }, null],
-              },
-              command: "split",
-              envKey: "env",
+            provenance: {
+              kind: "capability-sources",
             },
-            remote: {
-              typeField: {
-                required: {
+            format: "json",
+            keyPath: ["mcpServers"],
+            attribution: "agent",
+          },
+          {
+            id: "project",
+            scope: "project",
+            root: "project",
+            path: ".neovate/config.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "json",
+            keyPath: ["mcpServers"],
+            attribution: "agent",
+          },
+        ],
+
+        entryDialect: {
+          activationField: {
+            required: { name: "disable", enabled: false, disabled: true },
+            accepted: [{ name: "disable", enabled: false, disabled: true }, null],
+          },
+          stdio: {
+            typeField: {
+              required: { name: "type", value: "stdio" },
+              accepted: [{ name: "type", value: "stdio" }, null],
+            },
+            command: "split",
+            envKey: "env",
+          },
+          remote: {
+            typeField: {
+              required: {
+                name: "type",
+                value: {
+                  "streamable-http": "http",
+                  sse: "sse",
+                },
+              },
+              accepted: [
+                {
                   name: "type",
                   value: {
                     "streamable-http": "http",
                     sse: "sse",
                   },
                 },
-                accepted: [
-                  {
-                    name: "type",
-                    value: {
-                      "streamable-http": "http",
-                      sse: "sse",
-                    },
-                  },
-                ],
-              },
-              urlKey: {
-                "streamable-http": "url",
-                sse: "url",
-              },
-              headersKey: "headers",
+              ],
             },
+            urlKey: {
+              "streamable-http": "url",
+              sse: "url",
+            },
+            headersKey: "headers",
+          },
+        },
+      },
+      axm: {
+        status: "supported",
+        lastVerified: "2026-08-05",
+        writer: {
+          config: {
+            locationIds: ["user", "project"],
           },
         },
       },

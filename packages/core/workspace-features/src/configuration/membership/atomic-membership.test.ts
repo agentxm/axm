@@ -11,11 +11,16 @@ import {
   StepFailure,
 } from "@agentxm/workspace-kernel/operations";
 import { SettingsWriter } from "@agentxm/workspace-kernel/workspace-state";
-import { protectWorkspacePath } from "@agentxm/workspace-kernel/settlement";
+import {
+  protectCreatedAncestors,
+  protectWorkspacePath,
+  recordFootprint,
+} from "@agentxm/workspace-kernel/settlement";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace-kernel/workspace-state/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlement/live";
 import * as Option from "effect/Option";
@@ -59,6 +64,7 @@ describe("makeAtomicMembershipSteps", () => {
     return Effect.gen(function* () {
       const settingsWriter = yield* SettingsWriter;
       const effectFs = yield* FileSystem.FileSystem;
+      const effectPath = yield* Path.Path;
       const target = path.join(root, ".cursor", "skills", "review");
       const steps: ReadonlyArray<PlannedJobStep> = [
         {
@@ -76,9 +82,11 @@ describe("makeAtomicMembershipSteps", () => {
           label: "Materialize review skill",
           readiness: "ready",
           run: Effect.gen(function* () {
+            yield* protectCreatedAncestors(effectFs, effectPath, path.dirname(target));
             yield* protectWorkspacePath(target);
             yield* effectFs.makeDirectory(target, { recursive: true });
             yield* effectFs.writeFileString(path.join(target, "SKILL.md"), "managed\n");
+            yield* recordFootprint({ path: target, change: "created" });
             return yield* new StepFailure({
               category: "internal",
               detail: "Injected materialization failure",
@@ -202,6 +210,7 @@ describe("makeAtomicMembershipSteps", () => {
           readiness: "ready",
           run: protectWorkspacePath(target).pipe(
             Effect.andThen(effectFs.remove(target)),
+            Effect.andThen(recordFootprint({ path: target, change: "removed" })),
             Effect.mapError((cause) =>
               cause instanceof StepFailure
                 ? cause

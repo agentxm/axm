@@ -8,7 +8,8 @@ import { outputTypeLabel, userDisplayPath } from "./helpers/agent-scope-display.
 const RULE_ID = "workspace/user-outputs-have-settings";
 
 const proofText: Record<AgentOutputOwnershipProof, string> = {
-  "storage-root-symlink": "links into AXM storage",
+  "canonical-source-link": "links to its accepted canonical source",
+  "copied-directory-receipt": "matches its recorded managed directory",
   "managed-banner": "carries an AXM ownership marker",
   "managed-mcp-entry": "is an AXM-managed MCP entry",
   "managed-hook-group": "is an AXM-managed hook group",

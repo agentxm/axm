@@ -39,6 +39,7 @@ import {
   acceptedLockedCanonicalPath,
   acceptedLockedResolutionRef,
   isRequiredByAnotherOrigin,
+  desiredReachability,
   usableAcceptedCanonical,
   type HookExtensionTarget,
   type KnowledgeExtensionTarget,
@@ -103,17 +104,23 @@ import {
   ACCEPTED_RESOLUTION_INCOMPATIBLE_BLOCKER_ID,
   acceptedResolutionIncompatibleRecovery,
   acceptedResolutionIncompatibleText,
+  captureAgentOutputAuthority,
 } from "@agentxm/workspace-kernel/projection";
 import { validatePackGraphPostcondition } from "../graph-transition.js";
 import {
   scanWorkspaceAuthority,
   selectPackGraph,
+  type PackGraphSelection,
   type PackGraphSelectionRequest,
 } from "../../install/graph-selection.js";
 import { sourceRefContentKey } from "@agentxm/workspace-kernel/acquisition";
 
 /** One pack graph transition and the policy that governs it. */
 export interface PackInstallIntent extends PackGraphSelectionRequest {
+  /** The enclosing sweep selected this graph before collecting all native contributors. */
+  readonly preparedSelection?: PackGraphSelection;
+  /** All aggregate sources selected by the enclosing install, for preflight only. */
+  readonly projectionRefs?: ReadonlyArray<ExtensionRef>;
   readonly nonInteractive: boolean;
   /** Render shared aggregate projections after a larger enclosing transition. */
   readonly deferProjections?: boolean;
@@ -636,6 +643,21 @@ export type PackInstallRequirements =
   | StepFailureConversion
   | SubagentManager;
 
+/** Select a Pack once, before the enclosing install prepares shared native units. */
+export const preparePackInstallGraph = (intent: PackInstallIntent) =>
+  selectPackGraph(intent).pipe(
+    Effect.mapError((cause) => {
+      if (cause._tag === "ExtensionLifecycleFailed") return cause;
+      const memberFailure = failureDetail(cause);
+      const identity = `${intent.packToInstall.owner}/packs/${intent.packToInstall.name}`;
+      return installRefused({
+        category: "conflict",
+        detail: `Pack ${identity} could not be expanded${memberFailure === undefined ? "" : `: ${memberFailure}`}`,
+        cause,
+      });
+    }),
+  );
+
 /** The single atomic closure a settled pack intent becomes. */
 export const planPackInstall: (
   intent: PackInstallIntent,
@@ -657,17 +679,7 @@ export const planPackInstall: (
   const mcpServerManager = yield* McpServerManager;
 
   const packIdentity = `${intent.packToInstall.owner}/packs/${intent.packToInstall.name}`;
-  const selection = yield* selectPackGraph(intent).pipe(
-    Effect.mapError((cause) => {
-      if (cause._tag === "ExtensionLifecycleFailed") return cause;
-      const memberFailure = failureDetail(cause);
-      return installRefused({
-        category: "conflict",
-        detail: `Pack ${packIdentity} could not be expanded${memberFailure === undefined ? "" : `: ${memberFailure}`}`,
-        cause,
-      });
-    }),
-  );
+  const selection = intent.preparedSelection ?? (yield* preparePackInstallGraph(intent));
   if (selection.kind === "authority-blocked") {
     const suggestions = selection.blockers
       .flatMap((fact) => fact.recovery)
@@ -825,6 +837,118 @@ export const planPackInstall: (
 
   const { authority, proposedGraph, refs } = selection;
   const graph = authority.graph;
+  const hookRefs = refs.filter((ref) => ref.type === "hook");
+  const priorNativeAuthority = yield* captureAgentOutputAuthority().pipe(
+    Effect.mapError((cause) =>
+      installRefused({
+        category: "conflict",
+        detail: "Cannot establish prior Pack native ownership",
+        cause,
+      }),
+    ),
+  );
+  const hookProjection = {
+    priorAuthority: priorNativeAuthority,
+    nativeInsertionEligibleNames: new Set(
+      hookRefs
+        .filter(
+          (ref) =>
+            desiredReachability(graph, { type: "hook", name: ref.hook.name }).decision ===
+            "not-reached",
+        )
+        .map((ref) => ref.hook.name),
+    ),
+  };
+  if (hookRefs.length > 0)
+    yield* hookManager
+      .prepareProjection(
+        (intent.projectionRefs ?? refs)
+          .filter((ref) => ref.type === "hook")
+          .filter((ref) =>
+            proposedGraph.nodes.some(
+              (node) => node.type === "hook" && node.name === ref.hook.name && node.enabled,
+            ),
+          ),
+        { ...hookProjection, desiredGraph: proposedGraph },
+      )
+      .pipe(
+        Effect.mapError((cause) =>
+          installRefused({
+            category: "conflict",
+            detail: "Pack Hook native locations cannot represent the proposed graph",
+            cause,
+          }),
+        ),
+      );
+  const ruleRefs = refs.filter((ref) => ref.type === "rule");
+  const knowledgeRefs = refs.filter((ref) => ref.type === "knowledge");
+  const ruleProjection = {
+    priorAuthority: priorNativeAuthority,
+    nativeInsertionEligibleNames: new Set(
+      ruleRefs
+        .filter(
+          (ref) =>
+            desiredReachability(graph, { type: "rule", name: ref.rule.name }).decision ===
+            "not-reached",
+        )
+        .map((ref) => ref.rule.name),
+    ),
+  };
+  const knowledgeProjection = {
+    priorAuthority: priorNativeAuthority,
+    nativeInsertionEligibleNames: new Set(
+      knowledgeRefs
+        .filter(
+          (ref) =>
+            desiredReachability(graph, { type: "knowledge", name: ref.knowledge.name }).decision ===
+            "not-reached",
+        )
+        .map((ref) => ref.knowledge.name),
+    ),
+  };
+  if (ruleRefs.length > 0)
+    yield* ruleManager
+      .prepareProjection(
+        (intent.projectionRefs ?? refs)
+          .filter((ref) => ref.type === "rule")
+          .filter((ref) =>
+            proposedGraph.nodes.some(
+              (node) => node.type === "rule" && node.name === ref.rule.name && node.enabled,
+            ),
+          ),
+        { ...ruleProjection, desiredGraph: proposedGraph },
+      )
+      .pipe(
+        Effect.mapError((cause) =>
+          installRefused({
+            category: "conflict",
+            detail: "Pack Rule native locations cannot represent the proposed graph",
+            cause,
+          }),
+        ),
+      );
+  if (knowledgeRefs.length > 0)
+    yield* knowledgeManager
+      .prepareProjection(
+        (intent.projectionRefs ?? refs)
+          .filter((ref) => ref.type === "knowledge")
+          .filter((ref) =>
+            proposedGraph.nodes.some(
+              (node) =>
+                node.type === "knowledge" && node.name === ref.knowledge.name && node.enabled,
+            ),
+          ),
+        { ...knowledgeProjection, desiredGraph: proposedGraph },
+      )
+      .pipe(
+        Effect.mapError((cause) =>
+          installRefused({
+            category: "conflict",
+            detail: "Pack Knowledge native locations cannot represent the proposed graph",
+            cause,
+          }),
+        ),
+      );
   const currentPackNode = graph.nodes.find(
     (node) => node.type === "pack" && node.name === intent.packToInstall.pack.name,
   );
@@ -854,6 +978,8 @@ export const planPackInstall: (
             buildInstallOperation(packManager, {
               toStepFailure: conversion.toStepFailure,
               ref,
+              nativeInsertionEligible:
+                desiredReachability(graph, targetFromRef(ref)).decision === "not-reached",
               declaration: { name: ref.pack.name, versionRange: intent.versionRange },
               ...(intent.forceCanonical === true ? { force: true } : {}),
               buildArtifact: ({ change }) =>
@@ -862,6 +988,8 @@ export const planPackInstall: (
           )
         : buildPackMemberStep({
             ref,
+            nativeInsertionEligible:
+              desiredReachability(graph, targetFromRef(ref)).decision === "not-reached",
             nonInteractive: intent.nonInteractive,
             strictAgentSync: true,
             toStepFailure: conversion.toStepFailure,
@@ -893,7 +1021,7 @@ export const planPackInstall: (
 
   const acceptedPackPath = yield* acceptedLockedCanonicalPath({
     type: "pack",
-    name: intent.packToInstall.pack.name,
+    name: intent.packToInstall.name,
   }).pipe(
     Effect.mapError((cause) =>
       installRefused({
@@ -1075,6 +1203,11 @@ export const planPackInstall: (
     intent.deferProjections === true
       ? Option.none<PlannedJobStep<InstallStepRequirements>>()
       : yield* buildAggregateProjectionStep({
+          nativeProjections: {
+            hook: hookProjection,
+            rule: ruleProjection,
+            knowledge: knowledgeProjection,
+          },
           types: new Set([
             ...refs.map((ref) => ref.type),
             ...droppedTargets.map(({ target }) => target.type),
@@ -1090,7 +1223,7 @@ export const planPackInstall: (
       : undefined;
   const acceptedPackRef = yield* acceptedLockedResolutionRef({
     type: "pack",
-    name: intent.packToInstall.pack.name,
+    name: intent.packToInstall.name,
   }).pipe(
     Effect.mapError((cause) =>
       installRefused({
@@ -1108,6 +1241,10 @@ export const planPackInstall: (
   const graphStep = yield* buildReconciliationClosure({
     toStepFailure: conversion.toStepFailure,
     label: packIdentity,
+    ...(desiredReachability(graph, { type: "pack", name: intent.packToInstall.name }).decision ===
+    "not-reached"
+      ? { documentRoundTrip: { identity: packIdentity, mode: "introduce" as const } }
+      : {}),
     message: `Installed ${packIdentity} and ${refs.length - 1} pack member${refs.length === 2 ? "" : "s"}`,
     artifact: {
       path: "pack graph",

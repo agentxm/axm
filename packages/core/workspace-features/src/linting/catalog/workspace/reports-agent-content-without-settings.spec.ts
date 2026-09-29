@@ -63,7 +63,7 @@ describe("Agent content without settings", () => {
           {
             severity: "warning",
             message:
-              "Agent skills directory .claude/skills with 1 entry for claude-code exists in a folder without project workspace settings (axm.json).",
+              "Agent skills directory .claude/skills with 1 entry for 11 agents exists in a folder without project workspace settings (axm.json).",
             file: ".claude/skills",
           },
         ]),

@@ -8,23 +8,35 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import {
+  CONFIGURABLE_AGENTS_BY_ID,
+  type NativeConfigReadLocation,
+} from "@agentxm/extension-model/unstable/agent-capabilities";
 import * as Effect from "effect/Effect";
+import * as Equal from "effect/Equal";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import {
   AXM_MCP_METADATA_KEY,
   buildAxmMcpMetadataFromSettingsSource,
-  configuredMcpCapability,
+  isConfigurableAgentId,
   isAxmManagedMcpEntry,
   readNativeMcpConfig,
   readNativeMcpEntry,
   readNativeMcpServers,
   resolveAgentMcpConfigTargetPath,
   writeAgentMcpConfig,
+  validateInlineMcpServerTargets,
+  syncInlineMcpServerToAgents,
   NativeWriteAuthority,
-  type NativeFormatFailure,
+  type CodingAgentFailure,
 } from "@agentxm/workspace-kernel/agent-adapters";
+import {
+  combineNativeLocationOutcomes,
+  resolveNativeReadLocation,
+  type NativeLocationOutcome,
+} from "@agentxm/workspace-kernel/locations";
 import {
   SettingsReader,
   SettingsWriter,
@@ -39,7 +51,7 @@ import { WorkspaceConfigurationFailed } from "../errors.js";
 import type { McpImportAdoption, McpImportCandidate, McpImportSource } from "./preflight.js";
 
 const nativeFailureToConfigurationFailed = (
-  failure: NativeFormatFailure,
+  failure: CodingAgentFailure,
 ): WorkspaceConfigurationFailed => {
   const rendered = kernelFailureToStepFailure(failure);
   return new WorkspaceConfigurationFailed({
@@ -82,9 +94,8 @@ export const collectMcpImportSources = (
       filePath: string,
       serversKey: McpImportSource["serversKey"],
       target: McpImportSource["target"],
-      agentId: string,
     ) => {
-      const sourceKey = `${agentId}\0${filePath}\0${serversKey}`;
+      const sourceKey = `${filePath}\0${serversKey}`;
       if (sourceKeys.has(sourceKey)) return Effect.void;
       sourceKeys.add(sourceKey);
       return Effect.gen(function* () {
@@ -106,12 +117,44 @@ export const collectMcpImportSources = (
       left.localeCompare(right),
     );
     for (const agentId of agentIds) {
-      const mcpConfig = configuredMcpCapability(agentId)?.axm.writer.config;
-      if (mcpConfig === undefined) continue;
-      const targets = mcpConfig.targets
-        .filter((target) => target.scope === location.scope)
-        .sort((left, right) => left.path.localeCompare(right.path));
-      for (const target of targets) {
+      if (!isConfigurableAgentId(agentId)) continue;
+      const native = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"].native;
+      if (!("locations" in native)) continue;
+      const declarations: ReadonlyArray<NativeConfigReadLocation> = native.locations;
+      for (const declaration of [...declarations].sort((left, right) =>
+        left.path.localeCompare(right.path),
+      )) {
+        const resolved = resolveNativeReadLocation(
+          path,
+          agentId,
+          declaration,
+          { workspaceRoot: location.baseDir, scope: location.scope },
+          location.nativeDirectoryInputs,
+        );
+        if (resolved === undefined) continue;
+        const serversKey = declaration.keyPath?.[0];
+        if (
+          declaration.keyPath?.length !== 1 ||
+          (serversKey !== "mcpServers" &&
+            serversKey !== "mcp_servers" &&
+            serversKey !== "mcp" &&
+            serversKey !== "servers" &&
+            serversKey !== "context_servers")
+        ) {
+          const finding = {
+            name: resolved.path,
+            reason: "This native MCP servers-container path is not supported for import",
+          };
+          skipped.set(`${finding.name}\0${finding.reason}`, finding);
+          continue;
+        }
+        const target = {
+          scope: declaration.scope,
+          nativeRoot: resolved.nativeRoot,
+          path: resolved.path,
+          format: declaration.format,
+          attribution: declaration.attribution ?? ("agent" as const),
+        };
         const configPath = yield* resolveAgentMcpConfigTargetPath(location.baseDir, target).pipe(
           Effect.mapError(readFailureToConfigurationFailed),
         );
@@ -135,7 +178,7 @@ export const collectMcpImportSources = (
           }
           continue;
         }
-        yield* addSource(configPath, mcpConfig.serversKey, target, agentId);
+        yield* addSource(configPath, serversKey, target);
       }
     }
     return { sources, skipped: Array.from(skipped.values()) };
@@ -145,7 +188,7 @@ const adoptNativeMcpEntry = (
   location: WorkspaceLocationService,
   adoption: McpImportAdoption,
 ): Effect.Effect<
-  void,
+  ReadonlyArray<NativeLocationOutcome>,
   WorkspaceConfigurationFailed,
   FileSystem.FileSystem | Path.Path | NativeWriteAuthority
 > =>
@@ -162,22 +205,27 @@ const adoptNativeMcpEntry = (
           serversKey: adoption.serversKey,
           serverName: adoption.name,
         }).pipe(Effect.mapError(readFailureToConfigurationFailed));
-    if (Option.isNone(entry)) {
+    if (Option.isNone(entry) || !Equal.equals(entry.value, adoption.expectedEntry)) {
       return yield* new WorkspaceConfigurationFailed({
         category: "conflict",
         detail: `MCP server ${adoption.name} changed before import`,
       });
     }
-    yield* writeAgentMcpConfig({
+    const result = yield* writeAgentMcpConfig({
       workspaceRoot: location.baseDir,
       serverName: adoption.name,
       serversKey: adoption.serversKey,
       target: adoption.target,
+      nativeInsertionEligible: false,
+      adoption: { filePath: adoption.filePath, expectedEntry: adoption.expectedEntry },
       entry: {
         ...entry.value,
         [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadataFromSettingsSource("inline", adoption.name),
       },
     }).pipe(Effect.mapError(nativeFailureToConfigurationFailed));
+    return result.targets.flatMap((target) =>
+      target.nativeLocation === undefined ? [] : [target.nativeLocation],
+    );
   });
 
 const recordsEqual = (
@@ -241,6 +289,72 @@ const validateAdoption = (
     }
   });
 
+const settingsEntry = (candidate: McpImportCandidate): McpServerEntry => ({
+  kind: "inline",
+  ...(candidate.definition.type === "stdio"
+    ? { command: candidate.definition.command, args: candidate.definition.args }
+    : { url: candidate.definition.url, headers: candidate.definition.headers }),
+  env: candidate.env,
+  enabled: true,
+});
+
+/** Every configured reader is checked before adoption publishes any desired state. */
+export const prepareMcpImportTargets = (candidates: ReadonlyArray<McpImportCandidate>) =>
+  Effect.gen(function* () {
+    const location = yield* WorkspaceLocation;
+    const path = yield* Path.Path;
+    const agentIds = yield* (yield* SettingsReader).configuredAgents;
+    const locations: Array<NativeLocationOutcome> = [];
+    for (const candidate of candidates) {
+      const plan = yield* validateInlineMcpServerTargets(agentIds, {
+        nativeDirectoryInputs: location.nativeDirectoryInputs,
+        workspaceRoot: location.baseDir,
+        scope: location.scope,
+        serverName: candidate.name,
+        nativeInsertionEligible: false,
+        entry: settingsEntry(candidate),
+        adoptions: candidate.adoptions,
+      }).pipe(Effect.mapError(nativeFailureToConfigurationFailed));
+      for (const write of plan.writes)
+        locations.push({
+          scope: location.scope,
+          address: {
+            kind: "key-path",
+            path: write.path,
+            keys: [write.config.serversKey, candidate.name],
+          },
+          aliases: [
+            ...new Set(
+              write.declaredTargets.map((target) =>
+                path.resolve(
+                  location.baseDir,
+                  target.scope === "user" && target.path.startsWith("~/")
+                    ? target.path.slice(2)
+                    : target.path,
+                ),
+              ),
+            ),
+          ].sort(),
+          configuredConsumers: write.agentIds,
+          potentialReaders: [],
+          policyReasons: [],
+          ownership: "owned",
+          proof: candidate.adoptions.some((adoption) => adoption.filePath === write.path)
+            ? "explicit-adoption"
+            : "proven-absence-or-managed-entry",
+          state: "updated",
+          mechanism: "structured-entry",
+          availability: write.agentIds.map((agentId) => ({
+            agentId,
+            state: "unverified",
+            reason:
+              "Native representation validated; agent configuration selection is not observable",
+          })),
+        });
+    }
+    return combineNativeLocationOutcomes(locations);
+  });
+
 /**
  * Adopt the losslessly importable candidates as inline settings entries and
  * mark their native entries as AXM-managed, in one validated workspace
@@ -248,27 +362,44 @@ const validateAdoption = (
  */
 export const applyMcpImport = (candidates: ReadonlyArray<McpImportCandidate>) => {
   const adoptions = candidates.flatMap((candidate) => candidate.adoptions);
-  const settingsEntry = (candidate: McpImportCandidate): McpServerEntry => ({
-    kind: "inline",
-    ...(candidate.definition.type === "stdio"
-      ? { command: candidate.definition.command, args: candidate.definition.args }
-      : { url: candidate.definition.url, headers: candidate.definition.headers }),
-    env: candidate.env,
-    enabled: true,
-  });
   return Effect.gen(function* () {
     const settings = yield* SettingsReader;
     const settingsWriter = yield* SettingsWriter;
     const location = yield* WorkspaceLocation;
+    const planned = yield* prepareMcpImportTargets(candidates);
+    const agentIds = yield* settings.configuredAgents;
     return yield* runWorkspaceTransaction({
-      targets: Array.from(new Set(adoptions.map((adoption) => adoption.filePath))).sort(),
+      targets: Array.from(new Set(planned.map((target) => target.address.path))).sort(),
       transition: Effect.gen(function* () {
+        const locations: Array<NativeLocationOutcome> = [];
         for (const candidate of candidates) {
-          yield* settingsWriter.setEntry("mcp-server", candidate.name, settingsEntry(candidate));
+          yield* settingsWriter.setEntry("mcp-server", candidate.name, settingsEntry(candidate), {
+            roundTrip: false,
+          });
         }
         for (const adoption of adoptions) {
-          yield* adoptNativeMcpEntry(location, adoption);
+          locations.push(...(yield* adoptNativeMcpEntry(location, adoption)));
         }
+        for (const candidate of candidates) {
+          const outcomes = yield* syncInlineMcpServerToAgents(agentIds, {
+            nativeDirectoryInputs: location.nativeDirectoryInputs,
+            workspaceRoot: location.baseDir,
+            scope: location.scope,
+            serverName: candidate.name,
+            nativeInsertionEligible: false,
+            entry: settingsEntry(candidate),
+          }).pipe(Effect.mapError(nativeFailureToConfigurationFailed));
+          for (const outcome of outcomes) {
+            if (outcome.targets !== undefined) {
+              locations.push(
+                ...(outcome.targets ?? []).flatMap((target) =>
+                  target.nativeLocation === undefined ? [] : [target.nativeLocation],
+                ),
+              );
+            }
+          }
+        }
+        return combineNativeLocationOutcomes([...planned, ...locations]);
       }),
       validate: () =>
         Effect.gen(function* () {

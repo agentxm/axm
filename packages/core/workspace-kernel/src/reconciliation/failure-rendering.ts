@@ -15,6 +15,7 @@
  */
 
 import { ConfigError } from "effect/Config";
+import { NativeLocationError } from "../locations/index.js";
 
 import { FqnInvalidError } from "@agentxm/extension-model/unstable/extensions/fqn";
 import { FrontmatterParseFailure, SubagentContentError } from "@agentxm/extension-content";
@@ -178,6 +179,7 @@ import {
 /** Every typed failure the workspace kernel constructs or carries. */
 export type KernelFailure =
   | StepFailure
+  | NativeLocationError
   | ConfigError
   | WorkspaceStateReadFailure
   | WorkspaceStateFailure
@@ -205,6 +207,7 @@ export type KernelFailure =
 const kernelFailureClasses = () =>
   [
     StepFailure,
+    NativeLocationError,
     ConfigError,
     SettingsIoError,
     SettingsParseError,
@@ -371,6 +374,12 @@ export const renderKernelFailure = (
   switch (failure._tag) {
     case "StepFailure":
       return failure;
+    case "NativeLocationError":
+      return makeStepFailure({
+        category: failure.reason === "unreadable" ? "unavailable" : "conflict",
+        detail: `Native location ${failure.target} could not be used: ${failure.reason}`,
+        cause: failure,
+      });
     case "ConfigError":
       return configErrorToStepFailure(failure);
     case "SettingsIoError":

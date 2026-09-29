@@ -64,7 +64,7 @@ export interface SubagentRenderInput {
 export interface SubagentRenderOutput {
   /** The rendered file content. */
   readonly content: string;
-  /** The relative path for the rendered file (e.g., ".claude/agents/my-agent.md"). */
+  /** The leaf filename relative to the catalog-resolved native directory (e.g., "my-agent.md"). */
   readonly path: RelativePath;
 }
 

@@ -6,10 +6,17 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import type { ManagedRegionFailure } from "../errors.js";
 import { projectionGeneration } from "../generation.js";
-import { reconcileManagedRegionFile } from "../managed-region-adapter.js";
+import { reconcileNativeManagedRegion, type NativeRegionSource } from "../native-managed-region.js";
 import { KNOWLEDGE_REGION_OWNER } from "../units.js";
 import type { WorkspaceSnapshotError } from "../../settlement/index.js";
-import { MARKER_KIND_POINT, MARKER_VERSION, serializeMarker } from "../../agent-adapters/index.js";
+import {
+  MARKER_KIND_POINT,
+  MARKER_VERSION,
+  serializeMarker,
+  NativeWriteAuthority,
+  type NativeWriteRefused,
+} from "../../agent-adapters/index.js";
+import type { NativeDirectoryInputs, NativeLocationOutcome } from "../../locations/index.js";
 import type { ResolvedKnowledgeDiscoveryConfig } from "../../workspace-state/index.js";
 
 const KNOWLEDGE_REGION = "knowledge";
@@ -31,6 +38,7 @@ export interface KnowledgeDiscoveryResult {
   readonly changed: boolean;
   readonly artifacts: ReadonlyArray<KnowledgeDiscoveryArtifact>;
   readonly observedRegion: Option.Option<string>;
+  readonly nativeLocations: ReadonlyArray<NativeLocationOutcome>;
 }
 
 const portable = (value: string): string => value.replaceAll("\\", "/");
@@ -97,26 +105,34 @@ export const renderKnowledgeBaseTable = (args: {
 
 export const reconcileKnowledgeDiscovery = (args: {
   readonly scopeRoot: string;
+  readonly ownerRoot: string;
+  readonly scope: "project" | "user";
+  readonly nativeDirectoryInputs: NativeDirectoryInputs;
+  readonly configuredAgentIds: ReadonlyArray<string>;
+  readonly ownership: ReadonlyArray<NativeRegionSource>;
+  readonly eligible: boolean;
   readonly config: ResolvedKnowledgeDiscoveryConfig;
   readonly bundles: ReadonlyArray<KnowledgeDiscoveryBundle>;
   readonly instructionsPath: string;
+  readonly instructionsDeclaredPath: string;
   readonly instructionManagementEnabled?: boolean;
-  readonly preserveInstructionsSource?: boolean;
   readonly dryRun?: boolean;
   readonly symlinkSupported?: boolean;
 }): Effect.Effect<
   KnowledgeDiscoveryResult,
-  ManagedRegionFailure | WorkspaceSnapshotError,
-  FileSystem.FileSystem | Path.Path
+  ManagedRegionFailure | WorkspaceSnapshotError | NativeWriteRefused,
+  FileSystem.FileSystem | Path.Path | NativeWriteAuthority
 > =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const manageInstructions = args.instructionManagementEnabled === true;
     if (!manageInstructions) {
-      return { changed: false, artifacts: [], observedRegion: Option.none() };
+      return { changed: false, artifacts: [], observedRegion: Option.none(), nativeLocations: [] };
     }
     const tableDesired = manageInstructions && args.config.instructions && args.bundles.length > 0;
-    const instructionRelative = portable(path.relative(args.scopeRoot, args.instructionsPath));
+    const instructionRelative = portable(
+      path.relative(args.scopeRoot, args.instructionsDeclaredPath),
+    );
     const renderedRegion = tableDesired
       ? renderKnowledgeBaseTable({
           bundles: args.bundles,
@@ -141,17 +157,27 @@ export const reconcileKnowledgeDiscovery = (args: {
           bundle.description ?? "",
         ]),
     ]);
-    const reconciliation = yield* reconcileManagedRegionFile({
+    const reconciliation = yield* reconcileNativeManagedRegion({
+      workspaceRoot: args.scopeRoot,
+      ownerRoot: args.ownerRoot,
+      scope: args.scope,
+      nativeDirectoryInputs: args.nativeDirectoryInputs,
       targetPath: args.instructionsPath,
       displayPath: instructionRelative,
       region: KNOWLEDGE_REGION,
       owner: KNOWLEDGE_REGION_OWNER,
       rendered: renderedRegion,
       generation,
+      ownership: args.ownership,
+      contributors: args.bundles.map(({ name, owner, sourceDir }) => ({
+        name,
+        ref: `${owner}/knowledge/${name}`,
+        root: path.relative(args.scopeRoot, path.dirname(sourceDir)),
+        scope: args.scope,
+      })),
+      configuredAgentIds: args.configuredAgentIds,
+      eligible: args.eligible,
       ...(args.dryRun === undefined ? {} : { dryRun: args.dryRun }),
-      removeEmptyFile: true,
-      preserveEmptyFile: args.preserveInstructionsSource === true,
-      unsupportedTargetDetail: `AXM cannot add its Knowledge section because ${instructionRelative} does not support comments`,
     });
     const instructionsChanged = reconciliation.changed;
     const artifacts: Array<KnowledgeDiscoveryArtifact> = [];
@@ -160,11 +186,16 @@ export const reconcileKnowledgeDiscovery = (args: {
         path: instructionRelative,
         change: !reconciliation.existed
           ? "created"
-          : reconciliation.updated.trim().length === 0
+          : renderedRegion.length === 0
             ? "removed"
             : "updated",
       });
     }
     const changed = artifacts.length > 0;
-    return { changed, artifacts, observedRegion: reconciliation.observedRegion };
+    return {
+      changed,
+      artifacts,
+      observedRegion: reconciliation.observedRegion,
+      nativeLocations: [reconciliation.nativeLocation],
+    };
   });

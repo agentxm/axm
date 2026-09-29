@@ -9,8 +9,11 @@ import {
   RuleManager,
   type ExtensionManagerFailure,
   type ManagerRequirements,
+  type NativeProjectionOptions,
 } from "../materialization/index.js";
 import { applyInstructionSurfacePlans, type ProjectionPlan } from "../projection/index.js";
+import { WorkspaceLocation } from "../workspace-state/index.js";
+import { combineNativeLocationOutcomes } from "../locations/index.js";
 import { kernelFailureToStepFailure } from "./failure-rendering.js";
 import type { InstallStepRequirements } from "./install-vocabulary.js";
 
@@ -22,6 +25,9 @@ import type { InstallStepRequirements } from "./install-vocabulary.js";
  */
 export const buildAggregateProjectionStep = (args: {
   readonly types: ReadonlySet<ExtensionType>;
+  readonly nativeProjections?: Readonly<
+    Partial<Record<"rule" | "hook" | "knowledge", NativeProjectionOptions>>
+  >;
 }): Effect.Effect<
   Option.Option<PlannedJobStep<InstallStepRequirements>>,
   never,
@@ -47,22 +53,48 @@ export const buildAggregateProjectionStep = (args: {
       run: Effect.gen(function* () {
         const plans: Array<ProjectionPlan<void, ExtensionManagerFailure, ManagerRequirements>> = [];
         if (Option.isSome(ruleManager)) {
-          plans.push(...(yield* ruleManager.value.projectionPlans()));
+          plans.push(...(yield* ruleManager.value.projectionPlans(args.nativeProjections?.rule)));
         }
         if (Option.isSome(hookManager)) {
-          plans.push(...(yield* hookManager.value.projectionPlans()));
+          plans.push(...(yield* hookManager.value.projectionPlans(args.nativeProjections?.hook)));
         }
         if (Option.isSome(knowledgeManager)) {
-          plans.push(...(yield* knowledgeManager.value.projectionPlans()));
+          plans.push(
+            ...(yield* knowledgeManager.value.projectionPlans(args.nativeProjections?.knowledge)),
+          );
         }
-        return yield* applyInstructionSurfacePlans(plans);
-      }).pipe(
-        Effect.mapError(kernelFailureToStepFailure),
-        Effect.map((warnings): JobStepResult => ({
+        const warnings = yield* applyInstructionSurfacePlans(plans);
+        const location = yield* WorkspaceLocation;
+        const observations = [
+          ...(Option.isSome(ruleManager)
+            ? [yield* ruleManager.value.aggregateProjectionObservation]
+            : []),
+          ...(Option.isSome(hookManager)
+            ? [yield* hookManager.value.aggregateProjectionObservation]
+            : []),
+          ...(Option.isSome(knowledgeManager)
+            ? [yield* knowledgeManager.value.aggregateProjectionObservation]
+            : []),
+        ];
+        const targets = observations.flatMap((observation) => observation.targets);
+        const nativeLocations = combineNativeLocationOutcomes(
+          observations.flatMap((observation) => observation.nativeLocations ?? []),
+        );
+        return {
           result: "success",
           message: "Rendered shared aggregate units from the complete contributor set",
           ...(warnings.length === 0 ? {} : { warnings }),
-        })),
-      ),
+          artifact: {
+            path: targets[0]?.path ?? "instruction files",
+            scope: location.scope,
+            change: nativeLocations.some((location) =>
+              ["created", "updated", "removed"].includes(location.state),
+            )
+              ? "updated"
+              : "unchanged",
+            nativeLocations,
+          },
+        } satisfies JobStepResult;
+      }).pipe(Effect.mapError(kernelFailureToStepFailure)),
     });
   });

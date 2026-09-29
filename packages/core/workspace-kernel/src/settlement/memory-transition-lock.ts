@@ -83,7 +83,11 @@ export const makeMemoryTransitionLockWorld = (): MemoryTransitionLockWorld => {
                 held,
                 Option.some({
                   directory: args.workspaceDir,
-                  lease: { compromised: Effect.never, isCompromised: () => false },
+                  lease: {
+                    compromised: Effect.never,
+                    isCompromised: () => false,
+                    createdDirectories: Effect.succeed([]),
+                  },
                 }),
               );
               yield* Effect.addFinalizer(() =>

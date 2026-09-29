@@ -518,6 +518,7 @@ const mcpConversion = Effect.fn("ImportNativeExtension.mcpConversion")(function*
           serverName: entry.name,
           serversKey: entry.serversKey,
           target: entry.target,
+          adoption: { filePath: entry.filePath, expectedEntry: entry.expectedEntry },
         }),
       { discard: true },
     ),
@@ -575,6 +576,7 @@ export const prepareImportNativeExtension: (
     { settings, settingsWriter, accepted, desiredStateWriter },
     target.type,
     name,
+    { roundTrip: false },
   );
   const current = yield* declaration.read;
 
@@ -620,11 +622,10 @@ export const prepareImportNativeExtension: (
     label: `Import ${settled.origin} -> ${fqn}`,
     message: `Imported ${fqn}`,
     enabled,
+    nativeInsertionEligible: false,
     allowConfiguredSourceTransition: true,
     markAuthored: declaration.declare({ enabled: true, env }),
-    finalizeAuthored: declaration
-      .declare({ enabled, env })
-      .pipe(Effect.andThen(settled.retireNative), Effect.asVoid),
+    finalizeAuthored: declaration.declare({ enabled, env }).pipe(Effect.asVoid),
     plannedArtifact: artifact,
     buildArtifact: () => Effect.succeed(artifact),
     preflight: Effect.gen(function* () {
@@ -638,7 +639,7 @@ export const prepareImportNativeExtension: (
       ...(settled.requiredFiles === undefined ? {} : { requiredFiles: settled.requiredFiles }),
       populate: settled.populate,
       ...(settled.validate === undefined ? {} : { validate: settled.validate }),
-    }).pipe(Effect.asVoid),
+    }).pipe(Effect.andThen(settled.retireNative), Effect.asVoid),
   } as const;
 
   const step = yield* Effect.gen(function* () {
@@ -655,8 +656,22 @@ export const prepareImportNativeExtension: (
           ...common,
           target: { type: "mcp-server", name },
           materializeWhenDisabled: true,
-          materializeInstall: (ref) =>
-            materializeAuthoredMcpServer({ ref, nonInteractive: request.nonInteractive }),
+          materializeInstall: (ref, options) =>
+            materializeAuthoredMcpServer({
+              ref,
+              nonInteractive: request.nonInteractive,
+              nativeInsertionEligible: options.nativeInsertionEligible,
+            }),
+          buildArtifact: ({ materialization }) =>
+            Effect.succeed({
+              ...artifact,
+              nativeLocations: Option.isSome(materialization)
+                ? (materialization.value.observation.nativeLocations ?? [])
+                : [],
+              agents: Option.isSome(materialization)
+                ? materialization.value.observation.agents
+                : [],
+            }),
         });
     }
   });

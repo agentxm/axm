@@ -29,7 +29,18 @@ export const mcpjamAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".mcpjam/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".mcpjam/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -49,6 +60,10 @@ export const mcpjamAgent = {
         standardsCompliance: "full",
         convention: "universal",
         transports: ["stdio", "http", "sse"],
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",

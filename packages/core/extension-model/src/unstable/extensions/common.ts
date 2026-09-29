@@ -1139,8 +1139,7 @@ export { AgentIdSchema };
 /**
  * Agent identifiers users may persist in `axm.json`.
  *
- * Synthetic materialization targets such as `universal` are known agents, but
- * they are injected by repository code rather than configured by users.
+ * Shared native locations are policy, not additional agent identities.
  *
  * @experimental This API is unstable and may change without notice.
  */

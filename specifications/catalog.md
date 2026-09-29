@@ -359,7 +359,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Role: experience
 - Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
-- Boundary rationale: Ownership proof is a real symlink into the user AXM home and settings readability is a real file under a separate user home; production lint observes both without mutating either.
+- Boundary rationale: Ownership proof is a real symlink to the exact canonical source named by an accepted user-scope resolution and settings readability is a real file under a separate user home; production lint observes both without mutating either.
 - Methods: example
 - Source: [`packages/core/workspace-features/src/linting/catalog/workspace/reports-user-outputs-without-settings.spec.ts`](../packages/core/workspace-features/src/linting/catalog/workspace/reports-user-outputs-without-settings.spec.ts)
 
@@ -670,6 +670,18 @@ Configured extensions realize correctly and completely for every configured codi
 
 #### Functional
 
+##### Native configuration readers remain distinct from AXM writer support
+
+- Requirement: `agents/catalog/native-config-readers-are-independent`
+- Owner: `extension-model`
+- Statement: AXM shall expose documented native configuration locations independently of writer support, declare scope, root, file shape, conditions, and evidence for each location, represent unknown locations without inventing paths, and require writer selections to reference canonical native declarations and native entry dialects without duplicating those contracts.
+- Class: functional
+- Role: experience
+- Product goals: `agent-interoperability`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`packages/core/extension-model/src/unstable/agent-capabilities/native-config-readers.spec.ts`](../packages/core/extension-model/src/unstable/agent-capabilities/native-config-readers.spec.ts)
+
 ##### Adding a coding agent records it durably and realizes installed extensions for it
 
 - Requirement: `cli/agents/add/records-membership-and-realizes-outputs`
@@ -690,7 +702,7 @@ Configured extensions realize correctly and completely for every configured codi
 
 - Requirement: `cli/agents/capabilities/describes-native-support-and-axm-integration`
 - Owner: `cli`
-- Statement: When a person inspects a coding agent’s capabilities, AXM shall report, per extension type, whether the vendor supports it natively and separately whether AXM integrates with it, together with the applicable directory and scopes, and shall report the agent’s lifecycle rather than treating a retired agent as unknown.
+- Statement: When a person inspects a coding agent’s capabilities, AXM shall report, per extension type, whether the vendor supports it natively and separately whether AXM integrates with it, together with the declared scoped native locations, and shall report the agent’s lifecycle rather than treating a retired agent as unknown.
 - Class: functional
 - Role: experience
 - Product goals: `agent-interoperability`, `actionable-diagnostics`
@@ -740,7 +752,7 @@ Configured extensions realize correctly and completely for every configured codi
 
 - Requirement: `cli/mcps/projects-to-every-configured-agent`
 - Owner: `workspace-features`
-- Statement: When an MCP server is desired and enabled, however it entered the workspace — added, authored inline, adopted from one agent's own native configuration, or supplied by an installed Pack — reconciliation shall write it to the native configuration of every configured agent that can represent it, shall account for every configured agent and report one that cannot represent it as unsupported rather than omitting it, shall judge whether each agent's entry is current from its decoded native value and report a hand-edited entry as stale under one reason code in every inspection surface, shall repair it without further change on the next run, shall write no server that is configured as disabled, and shall remove it from every agent it reached once desired state disables or withdraws it.
+- Statement: When an MCP server is desired and enabled, however it entered the workspace — added, authored inline, adopted from one agent's own native configuration, or supplied by an installed Pack — reconciliation shall write it to the native configuration of every configured agent that can represent it, shall account for every configured agent and report one that cannot represent it as unsupported rather than omitting it, shall judge whether each agent's entry is current from its decoded native value and report a hand-edited entry as stale under one reason code in every inspection surface, shall repair it without further change on the next run, shall write no server that is configured as disabled, and shall remove proven owned entries from every agent it reached when desired state disables it or a withdrawal captures ownership before removing the declaration. If an external edit removes the only ownership authority, reconciliation shall preserve the unproven native entry.
 - Class: functional
 - Role: experience
 - Product goals: `agent-interoperability`, `workspace-intent-fidelity`
@@ -2790,6 +2802,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Derived from: `cli/every-type-completes-the-shared-lifecycle`, `cli/mcps/uninstall/preserves-unowned-native-entries`
 - Supersedes: `cli/every-type-completes-the-shared-lifecycle`, `cli/mcps/uninstall/preserves-unowned-native-entries`
 - Additional evidence: process via [`apps/cli-e2e/src/command.e2e.test.ts`](../apps/cli-e2e/src/command.e2e.test.ts) — Runs the built CLI to observe inline MCP lifecycle argv, exit codes, JSON envelopes, and native files, and invokes the built error runtime with a synthetic secret to establish redaction in human verbose, debug, and quiet-precedence modes.
+- Additional evidence: process via [`apps/cli-e2e/src/native-round-trip.e2e.test.ts`](../apps/cli-e2e/src/native-round-trip.e2e.test.ts) — Independent built CLI invocations must preserve durable cleanup authority and restore actual bytes, symlink text, and preexisting empty directories across process exit.
 - Additional evidence: process via [`apps/cli-e2e/src/root-install.e2e.test.ts`](../apps/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
 - Source: [`packages/core/workspace-features/src/lifecycle/uninstall/preserves-unrelated-and-unowned-state.spec.ts`](../packages/core/workspace-features/src/lifecycle/uninstall/preserves-unrelated-and-unowned-state.spec.ts)
 
@@ -4145,11 +4158,11 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Additional evidence: process via [`apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts`](../apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts) — Runs the built CLI against a persisted workspace holding leftover installed packages, an undeclared authored package, an unrecognized install-root entry, and obsolete skill links, proving lint facts, the sync convergence exit status, uninstall refusal, and the files a real sync removes and keeps.
 - Source: [`packages/core/workspace-features/src/sync/removes-leftover-installed-packages.spec.ts`](../packages/core/workspace-features/src/sync/removes-leftover-installed-packages.spec.ts)
 
-##### Sync removes obsolete agent skill links into AXM storage
+##### Sync removes obsolete skill links only with exact accepted source proof
 
 - Requirement: `cli/sync/removes-obsolete-storage-root-links`
 - Owner: `workspace-features`
-- Statement: When an agent skill-folder symbolic link resolves inside a current AXM storage root and no desired route expects it, including when its target is missing, sync shall remove the link, and sync shall not remove or rewrite a symbolic link whose target lies outside every current AXM storage root.
+- Statement: When an agent skill-folder symbolic link points directly to the exact canonical source identified by its accepted resolution and no desired route expects it, including when its target is missing, sync shall remove the link, and sync shall preserve symbolic links without that proof even when they point inside a current AXM storage root.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
@@ -4332,6 +4345,102 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: decision-table, example
 - Assumptions: A held release is refused before anything is written: cli/mutations-are-closure-atomic owns that a refused closure leaves the workspace unchanged, and cli/withheld-releases-name-recovery-from-the-emitting-command owns the wording and recovery routes the refusal names.
 - Source: [`packages/core/workspace-kernel/src/resolution/release-age/minimum-release-age-withholds-unaged-releases.spec.ts`](../packages/core/workspace-kernel/src/resolution/release-age/minimum-release-age-withholds-unaged-releases.spec.ts)
+
+##### Physical overlap never copies extension bytes back into their source
+
+- Requirement: `workspace/acquisition/refuses-copy-source-overlap`
+- Owner: `workspace-kernel`
+- Statement: Before copying extension content, AXM shall refuse source and destination trees that physically coincide or contain one another, including directory aliases and a destination leaf link to the source, without modifying the source bytes or destination entries.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`packages/core/workspace-kernel/src/acquisition/refuses-copy-source-overlap.spec.ts`](../packages/core/workspace-kernel/src/acquisition/refuses-copy-source-overlap.spec.ts)
+
+##### Selected workspaces capture native directory inputs once
+
+- Requirement: `workspace/native-locations/captures-native-inputs-at-workspace-boundary`
+- Owner: `workspace-kernel`
+- Statement: AXM shall capture native directory overrides at the selected workspace boundary, share the captured values with readers and writers, and preserve configuration-source failures as typed failures before filesystem mutation.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`packages/core/workspace-kernel/src/workspace-state/workspace/location-captures-native-inputs.spec.ts`](../packages/core/workspace-kernel/src/workspace-state/workspace/location-captures-native-inputs.spec.ts)
+
+##### Copied projections retire only the entries AXM can still prove it created
+
+- Requirement: `workspace/native-locations/copied-directory-ownership`
+- Owner: `workspace-kernel`
+- Statement: When retiring a copied native projection, AXM shall require a valid creation receipt tied to the current directory identity, remove only unchanged receipt-listed files and empty unchanged receipt-listed directories, and preserve unowned additions, edits, replacements, and directories with absent or invalid receipts.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`packages/core/workspace-kernel/src/locations/copied-directory-ownership.spec.ts`](../packages/core/workspace-kernel/src/locations/copied-directory-ownership.spec.ts)
+
+##### Native location observations distinguish policy and reader evidence
+
+- Requirement: `workspace/native-locations/reports-independent-policy-and-readers`
+- Owner: `workspace-kernel`
+- Statement: AXM shall report one physical ownership unit with all declared aliases, distinguish configured consumers from potential native readers and shared Skill policy, preserve actual mutation state across duplicate consumers, distinguish completed removal from bounded retirement that retains user contents, and keep native availability unverified without runtime evidence.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`packages/core/workspace-kernel/src/projection/native-artifact-locations.spec.ts`](../packages/core/workspace-kernel/src/projection/native-artifact-locations.spec.ts)
+
+##### Native readers resolve only explicit scoped locations
+
+- Requirement: `workspace/native-locations/resolves-declared-scope-and-captured-inputs`
+- Owner: `workspace-kernel`
+- Statement: AXM shall resolve native reader declarations independently of writer support, use the selected captured root for each scope, leave missing user locations unverified, and share captured directory overrides between writers and readers without asserting native runtime availability.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`packages/core/workspace-kernel/src/agent-adapters/agents/scoped-native-readers.spec.ts`](../packages/core/workspace-kernel/src/agent-adapters/agents/scoped-native-readers.spec.ts)
+
+##### Skills publish once per physical location including the shared location
+
+- Requirement: `workspace/skills/physical-locations-include-shared-policy`
+- Owner: `workspace-kernel`
+- Statement: AXM shall include the shared .agents/skills location for enabled Skills independently of configured agents, group directory aliases that address the same physical location into one write with all configured consumers, and preserve separate entries whose distinct parents merely contain links to the same source.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`packages/core/workspace-kernel/src/materialization/skill-locations.spec.ts`](../packages/core/workspace-kernel/src/materialization/skill-locations.spec.ts)
+
+##### Skill retirement preserves remaining consumers and foreign leaf links
+
+- Requirement: `workspace/skills/retains-physical-consumers-with-exact-link-proof`
+- Owner: `workspace-kernel`
+- Statement: When reconciling native Skill entries, AXM shall group aliases by physical parent and leaf, retain enabled entries required by any remaining primary or additional-path consumer or shared-location policy, and recognize storage link ownership only from the immediate link to that Skill's canonical source without following a foreign leaf chain. Native directories without bounded copy receipts remain unowned even when SKILL.md contains an AXM marker.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`packages/core/workspace-kernel/src/projection/native-skill-consumers.spec.ts`](../packages/core/workspace-kernel/src/projection/native-skill-consumers.spec.ts)
+
+##### Subagent output follows resolved native shape and requires ownership proof
+
+- Requirement: `workspace/subagents/native-locations-respect-shape-and-proof`
+- Owner: `workspace-kernel`
+- Statement: AXM shall place Subagent files under their resolved catalog directory, render identical shared representations with identical generation metadata regardless of reader enumeration, preserve unowned native files, and report native writing unsupported when a file or keyed surface has no verified ownership representation rather than treating a filename as a directory or a slug as ownership.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`packages/core/workspace-kernel/src/projection/subagents/native-subagent-locations.spec.ts`](../packages/core/workspace-kernel/src/projection/subagents/native-subagent-locations.spec.ts)
 
 #### Constraints
 
@@ -5488,6 +5597,79 @@ Configured extensions realize correctly and completely for every configured codi
 - Methods: example
 - Source: [`packages/core/workspace-features/src/lifecycle/activation/aliases-follow-shared-surface-writes.spec.ts`](../packages/core/workspace-features/src/lifecycle/activation/aliases-follow-shared-surface-writes.spec.ts)
 
+##### Instruction projections remain within their observed native authority
+
+- Requirement: `workspace/instructions/respects-native-authority-and-observation`
+- Owner: `workspace-kernel`
+- Statement: AXM shall bound instruction reads and mutations to the selected native authority, prove immediate alias ownership, and preserve changes made after its observation.
+- Class: functional
+- Role: supporting
+- Product goals: `agent-interoperability`, `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Real filesystem aliases and foreign edits expose unsafe native instruction reads and writes.
+- Methods: example
+- Source: [`packages/core/workspace-kernel/src/projection/instructions/native-instruction-boundaries.spec.ts`](../packages/core/workspace-kernel/src/projection/instructions/native-instruction-boundaries.spec.ts)
+
+##### MCP availability preserves every destination and unresolved native support
+
+- Requirement: `workspace/mcps/native-availability-keeps-unverified-destinations`
+- Owner: `workspace-kernel`
+- Statement: AXM shall distinguish unavailable native MCP support from known support whose writer or destination is unverified, retain every selected native destination in its plan, and never report an unresolved destination as current or successfully removed.
+- Class: functional
+- Role: supporting
+- Product goals: `agent-interoperability`, `workspace-intent-fidelity`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Captured native configuration roots and temporary files distinguish unresolved paths from absent native output.
+- Methods: example, decision-table
+- Source: [`packages/core/workspace-kernel/src/projection/mcps/native-mcp-availability.spec.ts`](../packages/core/workspace-kernel/src/projection/mcps/native-mcp-availability.spec.ts)
+
+##### MCP withdrawal groups physical consumers before any native mutation
+
+- Requirement: `workspace/mcps/removes-shared-native-containers-once`
+- Owner: `workspace-kernel`
+- Statement: AXM shall preflight all co-reader native container contracts before withdrawing MCP entries, mutate each shared physical file once, and preserve alias routes and exact eligible insertion baselines.
+- Class: functional
+- Role: supporting
+- Product goals: `agent-interoperability`, `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Real native config files and links reveal duplicate publication and incomplete preflight.
+- Methods: example
+- Source: [`packages/core/workspace-kernel/src/projection/mcps/removes-shared-native-containers-once.spec.ts`](../packages/core/workspace-kernel/src/projection/mcps/removes-shared-native-containers-once.spec.ts)
+
+##### Shared MCP writes require compatible readers and proven authority
+
+- Requirement: `workspace/mcps/shared-native-writes-require-compatible-authority`
+- Owner: `workspace-kernel`
+- Statement: AXM shall write each physical MCP file once only when its complete format and rendered entry satisfy all declared native readers and the target entry is absent, proven owned, or explicitly adopted from an unchanged observed declaration; alias escapes and stale adoption shall leave native files unchanged.
+- Class: functional
+- Role: supporting
+- Product goals: `agent-interoperability`, `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Temporary native files and symbolic links expose physical sharing, unowned entries, and stale adoption.
+- Methods: example, decision-table
+- Derived from: `cli/mcps/projects-to-every-configured-agent`
+- Source: [`packages/core/workspace-kernel/src/agent-adapters/mcps/shared-native-writes-require-compatible-authority.spec.ts`](../packages/core/workspace-kernel/src/agent-adapters/mcps/shared-native-writes-require-compatible-authority.spec.ts)
+
+### Goal: authoring-and-creation
+
+Extension authors can create, evolve, and version workspace-authored extensions with explicit authority transitions.
+
+#### Functional
+
+##### Authored content is preflighted against native co-readers before publication
+
+- Requirement: `cli/authoring/refuses-incompatible-native-readers-before-source-publication`
+- Owner: `workspace-features`
+- Statement: Before creating, forking, or adopting enabled Hook, Rule, or Knowledge content, AXM shall validate the complete proposed native projection against each reader of its physical file and shall refuse incompatible projections without changing source content, canonical content, settings, or accepted resolutions.
+- Class: functional
+- Role: supporting
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`, `agent-interoperability`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Real staged packages and physical aliases expose whether validation precedes publication or source movement.
+- Methods: decision-table
+- Derived from: `cli/install/preserves-unrelated-and-unowned-state`
+- Source: [`packages/core/workspace-features/src/authoring/refuses-incompatible-native-readers-before-source-publication.spec.ts`](../packages/core/workspace-features/src/authoring/refuses-incompatible-native-readers-before-source-publication.spec.ts)
+
 ### Goal: dependable-change-process
 
 Changes and releases land through the governed repository process with required evidence and human approval.
@@ -5764,6 +5946,19 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Derived from: `docs/architecture/workspace/execution.md`
 - Source: [`packages/core/workspace-kernel/src/acquisition/extension-directory-copy-is-bounded.spec.ts`](../packages/core/workspace-kernel/src/acquisition/extension-directory-copy-is-bounded.spec.ts)
 
+##### Settlement protects each physical boundary and preserves foreign changes
+
+- Requirement: `workspace/locations/settlement-protects-physical-boundaries-once`
+- Owner: `workspace-kernel`
+- Statement: AXM shall restore a failed closure's physical preimages once, coalescing aliases and overlapping boundaries, only while each boundary still matches AXM's observed postimage, and shall preserve divergent foreign state with recovery evidence.
+- Class: functional
+- Role: supporting
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Real temporary files and aliases expose duplicate snapshots and foreign changes during failure restoration.
+- Methods: example
+- Source: [`packages/core/workspace-kernel/src/settlement/settlement-protects-physical-boundaries-once.spec.ts`](../packages/core/workspace-kernel/src/settlement/settlement-protects-physical-boundaries-once.spec.ts)
+
 ##### Shared pack members read metadata once while each constraint selects independently
 
 - Requirement: `workspace/pack-member-index-is-shared-without-sharing-selection`
@@ -5935,6 +6130,21 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 #### Functional
 
+##### Withdrawing newly introduced settings intent restores its exact baseline
+
+- Requirement: `settings-contract/withdraws-new-settings-entries-exactly`
+- Owner: `workspace-kernel`
+- Statement: When precisely a newly introduced settings declaration is withdrawn without intervening intent or file-identity changes, AXM shall restore the prior bytes and preserve preexisting empty maps. Explicit adoption and activation shall not establish this restoration authority; stale or missing proof shall never remove unrelated content.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Atomic file publication and independent receipt reads expose original bytes and container identities.
+- Methods: example, decision-table
+- Derived from: `settings-contract/saving-settings-preserves-authored-formatting`
+- Additional evidence: process via [`apps/cli-e2e/src/native-round-trip.e2e.test.ts`](../apps/cli-e2e/src/native-round-trip.e2e.test.ts) — Independent built CLI invocations must preserve durable cleanup authority and restore actual bytes, symlink text, and preexisting empty directories across process exit.
+- Source: [`packages/core/workspace-kernel/src/workspace-state/desired/settings/withdraws-new-settings-entries-exactly.spec.ts`](../packages/core/workspace-kernel/src/workspace-state/desired/settings/withdraws-new-settings-entries-exactly.spec.ts)
+
 ##### Every apply has a selected-content boundary
 
 - Requirement: `workspace/apply-provides-acquisition-boundary`
@@ -5987,6 +6197,178 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example, decision-table
 - Derived from: `workspace-inventory/leftover-follows-desired-state-reachability`, `workspace/desired-state/effective-constraint-has-one-owner`, `cli/pack-member-configuration-does-not-create-acquisition-intent`
 - Source: [`packages/core/workspace-kernel/src/workspace-state/workspace/uncertainty-never-proves-absence.spec.ts`](../packages/core/workspace-kernel/src/workspace-state/workspace/uncertainty-never-proves-absence.spec.ts)
+
+##### Native Hook writes preserve exact scoped authority and foreign content
+
+- Requirement: `workspace/hooks/native-writes-preserve-scoped-authority`
+- Owner: `workspace-kernel`
+- Statement: AXM shall mutate Hook entries only under exact accepted identity, scope, and canonical source-root ownership, shall preserve foreign entries and their untouched bytes, and shall refuse escaping aliases or a whole-file grammar conflict before writing native configuration.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`, `agent-interoperability`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Real temporary files and aliases distinguish physical native writes from lexical declarations.
+- Methods: example, decision-table
+- Derived from: `cli/install/preserves-unrelated-and-unowned-state`
+- Source: [`packages/core/workspace-kernel/src/projection/hooks/native-hook-writes-preserve-authority.spec.ts`](../packages/core/workspace-kernel/src/projection/hooks/native-hook-writes-preserve-authority.spec.ts)
+
+##### Native Hook changes preserve existing instruction routing state
+
+- Requirement: `workspace/instructions/native-only-hooks-preserve-routing`
+- Owner: `workspace-kernel`
+- Statement: A native Hook transition with an unchanged instruction fallback shall preserve absent and preexisting instruction aliases; shared instruction content changes shall still reconcile their dependent aliases.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Real authored files and links establish whether projection application changes unrelated routing state.
+- Methods: decision-table
+- Source: [`packages/core/workspace-kernel/src/projection/instructions/native-only-hooks-preserve-instruction-routing.spec.ts`](../packages/core/workspace-kernel/src/projection/instructions/native-only-hooks-preserve-instruction-routing.spec.ts)
+
+##### New instruction routing leaves bounded removable scaffolding
+
+- Requirement: `workspace/instructions/withdraws-new-containers-exactly`
+- Owner: `workspace-kernel`
+- Statement: Withdrawing a newly introduced instruction route shall restore the authored ignore-file baseline and remove only continuously proven empty native directories, preserving foreign additions and preexisting directories.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Real entry identities distinguish introduced containers from recreated or preexisting directories.
+- Methods: example
+- Source: [`packages/core/workspace-kernel/src/projection/instructions/withdraws-new-instruction-containers-exactly.spec.ts`](../packages/core/workspace-kernel/src/projection/instructions/withdraws-new-instruction-containers-exactly.spec.ts)
+
+##### Explicit captured user roots grant bounded physical native authority
+
+- Requirement: `workspace/locations/captured-external-native-roots`
+- Owner: `workspace-kernel`
+- Statement: A documented user native root captured outside the home directory shall permit its bounded native mutations and exact eligible withdrawal, while root retargeting, independent workspace claims, undeclared siblings, and missing ancestors beyond that root shall be refused; foreign entries and rollback identities shall be preserved.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Real directories, aliases, and admitted transactions distinguish root selection from arbitrary filesystem authority.
+- Methods: example, decision-table
+- Source: [`packages/core/workspace-kernel/src/projection/captured-external-native-roots.spec.ts`](../packages/core/workspace-kernel/src/projection/captured-external-native-roots.spec.ts)
+
+##### Container cleanup receipts require continuing identity and bounded syntax evidence
+
+- Requirement: `workspace/locations/container-receipts-require-continuous-identity`
+- Owner: `workspace-kernel`
+- Statement: AXM shall use a container receipt for cleanup only while its workspace, parents, entry, and aliases retain the captured identities, and shall store structural inverses without unrelated config content and apply them only to the matching postimage.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Temporary files expose real replacement identities and receipt store behavior; digest witnesses exercise exact byte inverses.
+- Methods: example
+- Source: [`packages/core/workspace-kernel/src/locations/container-receipts-require-continuous-identity.spec.ts`](../packages/core/workspace-kernel/src/locations/container-receipts-require-continuous-identity.spec.ts)
+
+##### Physical location identity distinguishes an entry from its referent
+
+- Requirement: `workspace/locations/identity-distinguishes-entry-and-referent`
+- Owner: `workspace-kernel`
+- Statement: AXM shall coalesce aliases of one native entry while preserving distinct leaf links, refuse physical escapes and conflicting workspace authorities before mutation, and prohibit overlapping source and output trees.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Real temporary directories and links establish entry identity, containment, and independent workspace boundaries.
+- Methods: example
+- Source: [`packages/core/workspace-kernel/src/locations/identity-distinguishes-entry-and-referent.spec.ts`](../packages/core/workspace-kernel/src/locations/identity-distinguishes-entry-and-referent.spec.ts)
+
+##### Native insertion receipts preserve exact baselines and expire on foreign changes
+
+- Requirement: `workspace/locations/native-insertions-retire-only-proven-containers`
+- Owner: `workspace-kernel`
+- Statement: AXM shall distinguish an absent native container from a preexisting empty one, restore eligible insertion baselines only under continuous identity and digest proof, and retire only proven created containers and empty unchanged ancestors.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Real native files and replacement identities exercise the live authority and persisted receipts.
+- Methods: example
+- Source: [`packages/core/workspace-kernel/src/projection/native-insertions-retire-only-proven-containers.spec.ts`](../packages/core/workspace-kernel/src/projection/native-insertions-retire-only-proven-containers.spec.ts)
+
+##### Native artifact cleanup retires only proven empty created parents
+
+- Requirement: `workspace/locations/withdraws-native-artifact-parents`
+- Owner: `workspace-kernel`
+- Statement: When desired-state or membership reconciliation withdraws an owned Skill or Subagent artifact, AXM shall retire its proven empty created ancestors while preserving preexisting directories and foreign children.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Real links, directories and persisted receipts distinguish exact created-container withdrawal from unowned ancestor deletion.
+- Methods: example, decision-table
+- Source: [`packages/core/workspace-kernel/src/reconciliation/withdraws-native-artifact-parents.spec.ts`](../packages/core/workspace-kernel/src/reconciliation/withdraws-native-artifact-parents.spec.ts)
+
+##### Withdrawing a newly reachable resolution restores its original lockfile bytes
+
+- Requirement: `workspace/lockfile/withdraws-new-resolutions-exactly`
+- Owner: `workspace-kernel`
+- Statement: When one newly reachable extension's accepted resolution is precisely withdrawn without intervening lockfile or identity changes, AXM shall restore the prior lockfile bytes. Repairing an already reachable identity shall not establish this cleanup authority; unavailable or stale evidence shall preserve unowned content.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Separate file publications and receipt reads expose exact lockfile bytes and physical identity.
+- Methods: example, decision-table
+- Additional evidence: process via [`apps/cli-e2e/src/native-round-trip.e2e.test.ts`](../apps/cli-e2e/src/native-round-trip.e2e.test.ts) — Independent built CLI invocations must preserve durable cleanup authority and restore actual bytes, symlink text, and preexisting empty directories across process exit.
+- Source: [`packages/core/workspace-kernel/src/workspace-state/desired/lockfile/withdraws-new-resolutions-exactly.spec.ts`](../packages/core/workspace-kernel/src/workspace-state/desired/lockfile/withdraws-new-resolutions-exactly.spec.ts)
+
+##### External MCP connections retain their exact accepted source resolution
+
+- Requirement: `workspace/mcps/external-resolutions-remain-reachable`
+- Owner: `workspace-kernel`
+- Statement: AXM shall bind a Git or local MCP connection to an accepted resolution only when its source authority and declared locator identify one exact accepted package, retain that row while the connection remains desired, and use its accepted package identity for native ownership proof.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Source: [`packages/core/workspace-kernel/src/workspace-state/workspace/external-mcp-resolutions-remain-reachable.spec.ts`](../packages/core/workspace-kernel/src/workspace-state/workspace/external-mcp-resolutions-remain-reachable.spec.ts)
+
+##### Withdrawing a newly inserted MCP entry restores its exact native baseline
+
+- Requirement: `workspace/mcps/withdraws-eligible-native-insertions-exactly`
+- Owner: `workspace-kernel`
+- Statement: When a new MCP entry is inserted into a native location and precisely that entry is withdrawn without intervening intent, source, or foreign changes, AXM shall restore the original file bytes or original absence and retire only its proven empty created parents; a formatting change for which AXM cannot preserve the foreign baseline shall be refused before mutation.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Native formats and filesystem identity are observed through real temporary files and the live receipt authority.
+- Methods: example, decision-table
+- Additional evidence: process via [`apps/cli-e2e/src/native-round-trip.e2e.test.ts`](../apps/cli-e2e/src/native-round-trip.e2e.test.ts) — Independent built CLI invocations must preserve durable cleanup authority and restore actual bytes, symlink text, and preexisting empty directories across process exit.
+- Source: [`packages/core/workspace-kernel/src/projection/mcps/withdraws-eligible-native-insertions-exactly.spec.ts`](../packages/core/workspace-kernel/src/projection/mcps/withdraws-eligible-native-insertions-exactly.spec.ts)
+
+##### Native Rule and Knowledge regions retain source and scoped authority
+
+- Requirement: `workspace/projections/native-regions-preserve-scoped-authority`
+- Owner: `workspace-kernel`
+- Statement: AXM shall resolve native Rule and Knowledge regions physically, require exact accepted source and scope ownership for mutation, preserve foreign content, and restore the precise insertion baseline only for an eligible new intent followed by its unchanged withdrawal.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`, `agent-interoperability`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Physical aliases and exact instruction bytes require real temporary filesystem observations.
+- Methods: example, decision-table
+- Derived from: `cli/install/preserves-unrelated-and-unowned-state`
+- Source: [`packages/core/workspace-kernel/src/projection/native-regions-preserve-authority.spec.ts`](../packages/core/workspace-kernel/src/projection/native-regions-preserve-authority.spec.ts)
+
+##### Runtime directory proof survives distinct admitted commands
+
+- Requirement: `workspace/settlement/runtime-directories-retire-after-withdrawal`
+- Owner: `workspace-kernel`
+- Statement: A transition shall persist exclusively created runtime directories in the existing container receipt store, and the final withdrawing command shall remove them only after admission releases and continuous identity plus empty-only removal proves safety.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Distinct live process-lock instances and real directory identities exercise proof transfer and finalizer cleanup.
+- Methods: example
+- Source: [`packages/core/workspace-kernel/src/settlement/runtime-directories-retire-after-withdrawal.spec.ts`](../packages/core/workspace-kernel/src/settlement/runtime-directories-retire-after-withdrawal.spec.ts)
 
 #### Quality
 

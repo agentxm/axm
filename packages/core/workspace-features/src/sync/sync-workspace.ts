@@ -226,14 +226,28 @@ export const planWorkspaceMaterialization = (args: {
   readonly selection?: SyncSelection;
   /** Desired agent set for membership preflight before settings are committed. */
   readonly configuredAgents?: ReadonlyArray<string>;
+  readonly newlyConfiguredAgentIds?: ReadonlyArray<string>;
 }): Effect.Effect<CollectedMaterializeSteps, SyncWorkspaceFailure, SyncWorkspaceRequirements> =>
   Effect.gen(function* () {
     const conversion = yield* StepFailureConversion;
-    return yield* collectMaterializeSteps({
+    const materialization = yield* collectMaterializeSteps({
       ...(args.selection === undefined ? {} : { selection: args.selection }),
       ...(args.configuredAgents === undefined ? {} : { configuredAgents: args.configuredAgents }),
       adapter: conversion,
     });
+    if (args.newlyConfiguredAgentIds === undefined || args.newlyConfiguredAgentIds.length === 0)
+      return materialization;
+    const instructions = yield* collectInstructionStep({
+      ...(args.configuredAgents === undefined ? {} : { configuredAgents: args.configuredAgents }),
+      newlyConfiguredAgentIds: args.newlyConfiguredAgentIds,
+      projectionFacts: [],
+      touchesRule: false,
+      adapter: conversion,
+    });
+    return {
+      ...materialization,
+      steps: [...Option.toArray(instructions), ...materialization.steps],
+    };
   });
 
 /**
@@ -273,147 +287,160 @@ export const prepareSyncWorkspace = (
       { id: "sync-preflight", label: `${scopeLabel} sync plan` },
       Effect.gen(function* () {
         const evaluation = yield* desiredState.evaluate();
-        const graph = evaluation.graph;
-        // The materials this plan rests on: every document the evaluation
-        // read or found absent, fingerprinted so a change refuses the
-        // candidate rather than letting a different plan run under its name.
-        const evaluatedPaths = evaluation.inputs.readSet.map(({ path }) => path);
-        const preflightMaterial = yield* makeExecutionCandidate(
-          {
-            _tag: "Plan",
-            name: planName,
-            description: Option.none(),
-            jobs: [],
-            materialPaths: evaluatedPaths,
-          },
-          {
-            settingsPath: location.settingsPath,
-            lockPath: location.lockPath,
-            baseDir: location.baseDir,
-          },
-        );
-        const packRecovery = yield* collectConfiguredPackRecovery({
-          selection,
-          adapter: conversion,
-          graph,
-        });
-        const collected = yield* collectMaterializeSteps({
-          selection,
-          desiredState: graph,
-          ...(packRecovery === undefined ? {} : { packRecovery }),
-          adapter: conversion,
-        });
-        const selected = scoped ? selectedDesiredNodes(graph, selection) : [];
-        const selectedType = Option.getOrUndefined(selection.type);
-        const selectedAccepted =
-          selectedType === undefined
-            ? []
-            : Object.values(yield* lockfile.entries(selectedType)).map((entry) => ({
-                type: selectedType,
-                name: entry.identity.name,
-              }));
-        const subjects = scoped ? [...selected, ...selectedAccepted] : undefined;
-        const projectionFacts = yield* invariantFacts.projectionFactsForGraph(graph);
-        const hookProjectionFacts = projectionFacts.filter(({ subject }) =>
-          subject.unitId.startsWith("hook:"),
-        );
-        const ruleProjectionFacts = projectionFacts.filter(
-          ({ subject }) => subject.unitId === "rule:instructions-region",
-        );
-        const knowledgeProjectionFacts = projectionFacts.filter(
-          ({ subject }) => subject.unitId === "knowledge:discovery-region",
-        );
-        // The workspace-wide sweeps read the whole graph, so a scoped run and
-        // an incomplete graph both leave them out rather than deciding from a
-        // partial view.
-        const knowledgeStep: Option.Option<SyncPlanStep> =
-          !selectionTouches(selection, "knowledge") || !collected.cleanupSafe
-            ? Option.none()
-            : yield* collectKnowledgeStep({
+        // Ownership and projection planning share this accepted input view.
+        // The freshness check below still uses the live reader.
+        const planningReader = {
+          ...desiredState,
+          evaluate: (options) =>
+            options === undefined ? Effect.succeed(evaluation) : desiredState.evaluate(options),
+          graph: (options) =>
+            options === undefined ? Effect.succeed(evaluation.graph) : desiredState.graph(options),
+        } satisfies typeof desiredState;
+        return yield* Effect.gen(function* () {
+          const graph = evaluation.graph;
+          // The materials this plan rests on: every document the evaluation
+          // read or found absent, fingerprinted so a change refuses the
+          // candidate rather than letting a different plan run under its name.
+          const evaluatedPaths = evaluation.inputs.readSet.map(({ path }) => path);
+          const preflightMaterial = yield* makeExecutionCandidate(
+            {
+              _tag: "Plan",
+              name: planName,
+              description: Option.none(),
+              jobs: [],
+              materialPaths: evaluatedPaths,
+            },
+            {
+              settingsPath: location.settingsPath,
+              lockPath: location.lockPath,
+              baseDir: location.baseDir,
+            },
+          );
+          const packRecovery = yield* collectConfiguredPackRecovery({
+            selection,
+            adapter: conversion,
+            graph,
+          });
+          const collected = yield* collectMaterializeSteps({
+            selection,
+            desiredState: graph,
+            ...(packRecovery === undefined ? {} : { packRecovery }),
+            adapter: conversion,
+          });
+          const selected = scoped ? selectedDesiredNodes(graph, selection) : [];
+          const selectedType = Option.getOrUndefined(selection.type);
+          const selectedAccepted =
+            selectedType === undefined
+              ? []
+              : Object.values(yield* lockfile.entries(selectedType)).map((entry) => ({
+                  type: selectedType,
+                  name: entry.identity.name,
+                }));
+          const subjects = scoped ? [...selected, ...selectedAccepted] : undefined;
+          const projectionFacts = yield* invariantFacts.projectionFactsForGraph(graph);
+          const hookProjectionFacts = projectionFacts.filter(({ subject }) =>
+            subject.unitId.startsWith("hook:"),
+          );
+          const ruleProjectionFacts = projectionFacts.filter(
+            ({ subject }) => subject.unitId === "rule:instructions-region",
+          );
+          const knowledgeProjectionFacts = projectionFacts.filter(
+            ({ subject }) => subject.unitId === "knowledge:discovery-region",
+          );
+          // The workspace-wide sweeps read the whole graph, so a scoped run and
+          // an incomplete graph both leave them out rather than deciding from a
+          // partial view.
+          const knowledgeStep: Option.Option<SyncPlanStep> =
+            !selectionTouches(selection, "knowledge") || !collected.cleanupSafe
+              ? Option.none()
+              : yield* collectKnowledgeStep({
+                  nativeProjection: collected.knowledgeProjection,
+                  adapter: conversion,
+                  deferPreview: collected.knowledgeMayChange,
+                  facts: knowledgeProjectionFacts,
+                });
+          const hooksStep: Option.Option<SyncPlanStep> = selectionTouches(selection, "hook")
+            ? yield* collectHooksStep({
+                facts: hookProjectionFacts,
                 adapter: conversion,
-                deferPreview: collected.knowledgeMayChange,
-                facts: knowledgeProjectionFacts,
-              });
-        const hooksStep: Option.Option<SyncPlanStep> = selectionTouches(selection, "hook")
-          ? yield* collectHooksStep({
-              facts: hookProjectionFacts,
-              adapter: conversion,
-              ...(collected.preparedHookProjection === undefined
-                ? {}
-                : { prepared: collected.preparedHookProjection }),
-            })
-          : Option.none();
-        // A subject-bounded cleanup acts on the selected subjects' own known
-        // state; the whole-workspace sweep waits for every route to resolve.
-        const cleanupStep: Option.Option<SyncPlanStep> =
-          !collected.cleanupSafe && subjects === undefined
-            ? Option.none()
-            : yield* collectCleanupStep({
-                ...(subjects === undefined ? {} : { subjects }),
-                expectedNames: collected.expectedNames,
-                adapter: conversion,
-              });
-        const instructionStep: Option.Option<SyncPlanStep> =
-          selectionTouches(selection, "rule") ||
-          selectionTouches(selection, "hook") ||
-          selectionTouches(selection, "knowledge")
-            ? yield* collectInstructionStep({
-                projectionFacts: ruleProjectionFacts,
-                touchesRule: selectionTouches(selection, "rule"),
-                adapter: conversion,
+                ...(collected.preparedHookProjection === undefined
+                  ? {}
+                  : { prepared: collected.preparedHookProjection }),
               })
             : Option.none();
-        const retirementStep = !collected.cleanupSafe
-          ? Option.none<SyncPlanStep>()
-          : yield* collectUnreachableRetirement(
-              conversion,
-              subjects === undefined ? undefined : { resultingGraph: graph, subjects },
-              graph,
-            ).pipe(
-              Effect.catch((failure) =>
-                Effect.succeed(
-                  Option.some({
-                    readiness: "error" as const,
-                    key: "maintenance:retirement",
-                    label: "Retire unreachable acquired state",
-                    errorMessage: conversion.toStepFailure(failure).detail,
-                  }),
+          // A subject-bounded cleanup acts on the selected subjects' own known
+          // state; the whole-workspace sweep waits for every route to resolve.
+          const cleanupStep: Option.Option<SyncPlanStep> =
+            !collected.cleanupSafe && subjects === undefined
+              ? Option.none()
+              : yield* collectCleanupStep({
+                  ...(subjects === undefined ? {} : { subjects }),
+                  expectedNames: collected.expectedNames,
+                  adapter: conversion,
+                });
+          const instructionStep: Option.Option<SyncPlanStep> =
+            selectionTouches(selection, "rule") ||
+            selectionTouches(selection, "hook") ||
+            selectionTouches(selection, "knowledge")
+              ? yield* collectInstructionStep({
+                  nativeProjection: collected.ruleProjection,
+                  projectionFacts: ruleProjectionFacts,
+                  touchesRule: selectionTouches(selection, "rule"),
+                  adapter: conversion,
+                })
+              : Option.none();
+          const retirementStep = !collected.cleanupSafe
+            ? Option.none<SyncPlanStep>()
+            : yield* collectUnreachableRetirement(
+                conversion,
+                subjects === undefined ? undefined : { resultingGraph: graph, subjects },
+                graph,
+              ).pipe(
+                Effect.catch((failure) =>
+                  Effect.succeed(
+                    Option.some({
+                      readiness: "error" as const,
+                      key: "maintenance:retirement",
+                      label: "Retire unreachable acquired state",
+                      errorMessage: conversion.toStepFailure(failure).detail,
+                    }),
+                  ),
                 ),
-              ),
-            );
-        // Installed packages nothing reaches and no accepted resolution records:
-        // one removal closure each, in the same retirement position.
-        const leftoverSteps: ReadonlyArray<SyncPlanStep> = !collected.cleanupSafe
-          ? []
-          : yield* collectLeftoverRetirement(
-              conversion,
-              subjects === undefined ? undefined : { subjects },
-              graph,
-            ).pipe(
-              Effect.catch((failure) =>
-                Effect.succeed([
-                  {
-                    readiness: "error" as const,
-                    key: "maintenance:leftover-retirement",
-                    label: "Remove installed packages that are not desired",
-                    errorMessage: conversion.toStepFailure(failure).detail,
-                  },
-                ]),
-              ),
-            );
-        return {
-          graph,
-          evaluatedPaths,
-          preflightMaterial,
-          projectionFacts,
-          collected,
-          knowledgeStep,
-          hooksStep,
-          cleanupStep,
-          instructionStep,
-          retirementStep,
-          leftoverSteps,
-        };
+              );
+          // Installed packages nothing reaches and no accepted resolution records:
+          // one removal closure each, in the same retirement position.
+          const leftoverSteps: ReadonlyArray<SyncPlanStep> = !collected.cleanupSafe
+            ? []
+            : yield* collectLeftoverRetirement(
+                conversion,
+                subjects === undefined ? undefined : { subjects },
+                graph,
+              ).pipe(
+                Effect.catch((failure) =>
+                  Effect.succeed([
+                    {
+                      readiness: "error" as const,
+                      key: "maintenance:leftover-retirement",
+                      label: "Remove installed packages that are not desired",
+                      errorMessage: conversion.toStepFailure(failure).detail,
+                    },
+                  ]),
+                ),
+              );
+          return {
+            graph,
+            evaluatedPaths,
+            preflightMaterial,
+            projectionFacts,
+            collected,
+            knowledgeStep,
+            hooksStep,
+            cleanupStep,
+            instructionStep,
+            retirementStep,
+            leftoverSteps,
+          };
+        }).pipe(Effect.provideService(DesiredStateReader, planningReader));
       }),
     );
 

@@ -13,6 +13,7 @@
  */
 
 // Plan types
+export { operationNativeLocations, settledUnitNativeLocations } from "./native-locations.js";
 export {
   BlockingClassSchema,
   defaultOperationPresentation,

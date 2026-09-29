@@ -9,6 +9,7 @@
  * @packageDocumentation
  */
 
+import * as Equal from "effect/Equal";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
@@ -69,3 +70,12 @@ export const readAxmMcpMetadata = (
 
 export const isAxmManagedMcpEntry = (entry: Readonly<Record<string, unknown>>): boolean =>
   Option.isSome(readAxmMcpMetadata(entry));
+
+/** A syntactically valid marker is owned only by an exact accepted identity. */
+export const matchesAcceptedMcpOwnership = (
+  value: unknown,
+  expected: ReadonlyArray<AxmMcpMetadata>,
+): boolean => {
+  const metadata = isRecord(value) ? readAxmMcpMetadata(value) : Option.none();
+  return Option.isSome(metadata) && expected.some((owner) => Equal.equals(owner, metadata.value));
+};

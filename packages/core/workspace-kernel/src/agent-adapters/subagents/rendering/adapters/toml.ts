@@ -26,7 +26,7 @@ export const renderToml = (input: SubagentRenderInput): SubagentRenderOutcome =>
   };
   const merged = applyOverrides(base, input.agentOverrides);
 
-  const path = decodeRelativePathSync(`.codex/agents/${input.name}.toml`);
+  const path = decodeRelativePathSync(`${input.name}.toml`);
   const body = stringifyToml(merged);
   const content =
     input.ownershipBanner === undefined ? body : `${input.ownershipBanner.toml}\n\n${body}`;

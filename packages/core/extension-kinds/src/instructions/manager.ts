@@ -1,3 +1,4 @@
+import { retireCanonicalDirectory } from "@agentxm/workspace-kernel/acquisition";
 import {
   type RuleManagerService,
   acceptedResolutionFor,
@@ -9,6 +10,7 @@ import {
   verifyWorkspaceRefLocation,
   makeBaseManagerMembers,
   listMaterializableFromAccepted,
+  type NativeProjectionOptions,
 } from "@agentxm/workspace-kernel/materialization";
 
 /**
@@ -30,7 +32,6 @@ import {
   computePackageContentHash,
   computeMaterializedTreeIntegrity,
   MaterializedFileTargetSchema,
-  removeIfExists,
   acceptedCanonicalObservation,
   removableAcceptedCanonicalPath,
 } from "@agentxm/workspace-kernel/workspace-state";
@@ -47,7 +48,10 @@ import {
   applyProjectionPlans,
   planAggregateProjection,
   type ProjectionRenderInput,
-  reconcileManagedRegionFile,
+  reconcileNativeManagedRegion,
+  captureAgentOutputAuthority,
+  observeProjectionPlans,
+  type NativeRegionSource,
   projectionGeneration,
   activeInstructionsConfig,
   observeInstructions,
@@ -75,6 +79,11 @@ import {
   type RuleManifest,
 } from "@agentxm/extension-model/unstable/rules/manifest-schema";
 import type { RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
+import {
+  assertNoPhysicalOverlap,
+  assertNativeMutationWithinRoots,
+  nativeAuthorityRoots,
+} from "@agentxm/workspace-kernel/locations";
 
 const RULES_REGION = "rules";
 
@@ -146,7 +155,11 @@ export const RuleManagerLive = Layer.effect(
     // state commits, so the closure reads back what the render projected.
     const lastProjection = yield* Ref.make(NO_MATERIALIZATION_OBSERVATION);
 
-    const materializePackage = (ref: RuleExtensionRef, force = false) =>
+    const materializePackage = (
+      ref: RuleExtensionRef,
+      force = false,
+      nativeInsertionEligible = false,
+    ) =>
       Effect.gen(function* () {
         const canonicalPath = computeExtensionPathsForLayout(
           path.join,
@@ -174,6 +187,7 @@ export const RuleManagerLive = Layer.effect(
           canonicalPath,
           accepted: yield* lockfile.entry("rule", ref.rule.name),
           force,
+          nativeInsertionEligible,
           copyFailure: {
             code: "validation",
             detail: (target) => `Failed to copy rule package files to ${target}`,
@@ -215,9 +229,27 @@ export const RuleManagerLive = Layer.effect(
             detail: `Rule instruction source escapes workspace: ${resolved.fileName}`,
           });
         }
+        const { address } = yield* assertNativeMutationWithinRoots(
+          nativeAuthorityRoots(
+            path,
+            { workspaceRoot: baseDir, scope: location.scope },
+            location.nativeDirectoryInputs,
+          ),
+          path.resolve(baseDir, relative.value),
+          "content",
+          path.dirname(location.runtimeDir),
+        ).pipe(
+          Effect.mapError(
+            (cause) =>
+              new RuleDefinitionInvalid({
+                detail: `Rule instruction source is not writable: ${relative.value}`,
+                cause,
+              }),
+          ),
+        );
         return {
           relative: relative.value,
-          absolute: path.resolve(baseDir, relative.value),
+          absolute: address.referentPath ?? address.entryPath,
         };
       });
 
@@ -260,6 +292,7 @@ export const RuleManagerLive = Layer.effect(
       readonly marker: string;
       readonly manifest: RuleManifest;
       readonly body: string;
+      readonly root: string;
     }
 
     const selectRuleContributors = (args: {
@@ -291,7 +324,13 @@ export const RuleManagerLive = Layer.effect(
                   onNone: () =>
                     formatFqn({ owner: manifest.owner, type: "rule", name: manifest.name }),
                 });
-                return { name: contributor.node.name, marker, manifest, body };
+                return {
+                  name: contributor.node.name,
+                  marker,
+                  manifest,
+                  body,
+                  root: path.relative(baseDir, contributor.packageRoot),
+                };
               }),
             { concurrency: 16 },
           ),
@@ -310,6 +349,9 @@ export const RuleManagerLive = Layer.effect(
       readonly input: ProjectionRenderInput<RenderedRuleContributor>;
       readonly target: { readonly relative: string; readonly absolute: string };
       readonly dryRun?: boolean;
+      readonly ownership: ReadonlyArray<NativeRegionSource>;
+      readonly configuredAgents: ReadonlyArray<string>;
+      readonly eligible: boolean;
     }) =>
       Effect.gen(function* () {
         const { target } = args;
@@ -326,19 +368,28 @@ export const RuleManagerLive = Layer.effect(
             JSON.stringify(contributor.manifest),
           ]),
         ]);
-        const reconciliation = yield* provide(
-          reconcileManagedRegionFile({
-            targetPath: target.absolute,
-            displayPath: target.relative,
-            region: RULES_REGION,
-            owner: RULES_REGION_OWNER,
-            rendered,
-            generation,
-            ...(args.dryRun === undefined ? {} : { dryRun: args.dryRun }),
-            writeWhenMissing: true,
-            unsupportedTargetDetail: `AXM cannot add its instruction section because ${target.relative} does not support comments`,
-          }),
-        );
+        const reconciliation = yield* reconcileNativeManagedRegion({
+          workspaceRoot: baseDir,
+          nativeDirectoryInputs: location.nativeDirectoryInputs,
+          ownerRoot: path.dirname(location.runtimeDir),
+          scope: location.scope,
+          targetPath: target.absolute,
+          displayPath: target.relative,
+          region: RULES_REGION,
+          owner: RULES_REGION_OWNER,
+          rendered,
+          generation,
+          contributors: contributors.map(({ name, marker, root }) => ({
+            name,
+            ref: marker,
+            root,
+            scope: location.scope,
+          })),
+          ownership: args.ownership,
+          configuredAgentIds: args.configuredAgents,
+          eligible: args.eligible,
+          ...(args.dryRun === undefined ? {} : { dryRun: args.dryRun }),
+        });
         const { changed, observedRegion } = reconciliation;
         const materializedTarget = decodeMaterializedTarget({
           target: target.relative,
@@ -371,44 +422,131 @@ export const RuleManagerLive = Layer.effect(
           }),
         );
 
-        const materialization = ruleMaterializationObservation(target.relative, instructionItems);
+        const materialization = {
+          ...ruleMaterializationObservation(target.relative, instructionItems),
+          nativeLocations: [reconciliation.nativeLocation],
+        };
         yield* Ref.set(lastProjection, materialization);
         return { materializedTarget, materialization, changed, projectionUnitObservation };
       });
 
-    const makeRulesProjectionPlan = () =>
+    const makeRulesProjectionPlan = (
+      prospective: ReadonlyArray<RenderedRuleContributor> = [],
+      options?: NativeProjectionOptions,
+    ) =>
       Effect.gen(function* () {
         const target = yield* sourceFileTarget();
-        const graph = yield* desiredState.graph();
+        const graph = options?.desiredGraph ?? (yield* desiredState.graph());
         const locked = yield* lockfile.entries("rule");
-        return yield* planAggregateProjection({
+        const configuredAgents = options?.configuredAgents ?? (yield* settings.configuredAgents);
+        const accepted = yield* captureAgentOutputAuthority();
+        const ownership = [
+          ...accepted.expectedRegions.rule,
+          ...(options?.priorAuthority?.expectedRegions.rule ?? []),
+          ...prospective.map(({ name, marker, root }) => ({
+            name,
+            ref: marker,
+            root,
+            scope: location.scope,
+          })),
+        ];
+        const retained = yield* selectRuleContributors({
+          graph: {
+            ...graph,
+            nodes: graph.nodes.filter(
+              (node) => node.type !== "rule" || !prospective.some(({ name }) => name === node.name),
+            ),
+          },
+          locked,
+        });
+        const contributors = [...retained, ...prospective].sort(
+          (left, right) =>
+            (left.manifest.priority ?? 100) - (right.manifest.priority ?? 100) ||
+            left.marker.localeCompare(right.marker),
+        );
+        const eligible =
+          contributors.some(({ name }) => options?.nativeInsertionEligibleNames?.has(name)) ||
+          (configuredAgents.length > 0 &&
+            configuredAgents.every((id) => options?.nativeInsertionEligibleAgentIds?.has(id)));
+        const plan = yield* planAggregateProjection({
           unitId: "rule:instructions-region",
           targetFile: target.absolute,
           graph,
           // Rule contributors are decided from desired state alone, so the
           // instructions region never excludes one.
-          select: (completeGraph) =>
-            selectRuleContributors({ graph: completeGraph, locked }).pipe(
-              Effect.map((contributors) => ({ contributors, exclusions: [] })),
-            ),
+          select: () => Effect.succeed({ contributors, exclusions: [] }),
           adapter: {
             observe: (input) =>
-              reconcileRulesRegion({ input, target, dryRun: true }).pipe(
-                Effect.map(({ projectionUnitObservation }) => projectionUnitObservation),
+              reconcileRulesRegion({
+                input,
+                target,
+                ownership,
+                configuredAgents,
+                eligible,
+                dryRun: true,
+              }).pipe(Effect.map(({ projectionUnitObservation }) => projectionUnitObservation)),
+            apply: (input) =>
+              reconcileRulesRegion({ input, target, ownership, configuredAgents, eligible }).pipe(
+                Effect.asVoid,
               ),
-            apply: (input) => reconcileRulesRegion({ input, target }).pipe(Effect.asVoid),
           },
         });
+        yield* observeProjectionPlans([plan]);
+        return plan;
       });
 
-    const projectionPlans = () => makeRulesProjectionPlan().pipe(Effect.map((plan) => [plan]));
+    const projectionPlans: RuleManagerService["projectionPlans"] = (options) =>
+      makeRulesProjectionPlan([], options).pipe(Effect.map((plan) => [plan]));
+    const prepareProjection: RuleManagerService["prepareProjection"] = (refs, options) =>
+      Effect.gen(function* () {
+        const prospective = yield* Effect.forEach(
+          refs,
+          (ref) =>
+            Effect.scoped(
+              Effect.gen(function* () {
+                const source =
+                  ref.refType === "registry"
+                    ? (yield* sources.fetch(ref)).directory
+                    : fromFileLocation(ref.location);
+                const nativeTarget = yield* sourceFileTarget();
+                yield* assertNoPhysicalOverlap(source, nativeTarget.absolute).pipe(
+                  Effect.mapError(
+                    (cause) =>
+                      new RuleDefinitionInvalid({
+                        detail: "Rule native target overlaps its input source",
+                        cause,
+                      }),
+                  ),
+                );
+                const manifest = yield* readManifest(source);
+                const body = yield* readRuleBody(source);
+                const canonical = computeExtensionPathsForLayout(
+                  path.join,
+                  currentLayout(),
+                  ref,
+                  RULE_EXTENSION_DIR,
+                  ref.rule.name,
+                ).canonicalPath;
+                return {
+                  name: ref.rule.name,
+                  marker: formatFqn({ owner: manifest.owner, type: "rule", name: manifest.name }),
+                  manifest,
+                  body,
+                  root: path.relative(baseDir, canonical),
+                };
+              }),
+            ),
+          { concurrency: 1 },
+        );
+        return [yield* makeRulesProjectionPlan(prospective, options)];
+      });
 
     const applyRulesProjection = projectionPlans().pipe(Effect.flatMap(applyProjectionPlans));
 
     const materializeInstall: RuleManagerService["materializeInstall"] = Effect.fn(
       "RuleManager.materializeInstall",
-    )(function* ({ ref, force }) {
-      const materialized = yield* materializePackage(ref, force === true);
+    )(function* ({ ref, force, nativeInsertionEligible }) {
+      const materialized = yield* materializePackage(ref, force === true, nativeInsertionEligible);
       const packageRoot = materialized.packageRoot;
       yield* readManifest(packageRoot);
 
@@ -457,7 +595,7 @@ export const RuleManagerLive = Layer.effect(
       );
       const packageRoot = removableAcceptedCanonicalPath(canonical);
       if (Option.isSome(packageRoot)) {
-        yield* removeIfExists(fs, packageRoot.value);
+        yield* retireCanonicalDirectory(packageRoot.value);
       }
       return withdrawn;
     });
@@ -469,6 +607,7 @@ export const RuleManagerLive = Layer.effect(
 
     return {
       projectionPlans,
+      prepareProjection,
       aggregateProjectionObservation: Ref.get(lastProjection),
       ...makeBaseManagerMembers({
         type: "rule",

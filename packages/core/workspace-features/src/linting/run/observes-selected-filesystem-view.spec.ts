@@ -7,11 +7,16 @@ import * as nodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as FileSystem from "effect/FileSystem";
+import * as ConfigProvider from "effect/ConfigProvider";
+import * as Option from "effect/Option";
+import * as PlatformError from "effect/PlatformError";
 import { describe, expect, it } from "@effect/vitest";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { afterEach } from "vitest";
 
 import { NoProjectionParticipants } from "@agentxm/workspace-kernel/projection/testing";
+import { SettingsReader, WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { OfflineHttpClient } from "../test-helpers.js";
@@ -22,7 +27,12 @@ import {
   makeOfficialAxmSkillWorkspace,
   officialAxmSkillPackage,
 } from "../testing.js";
-import { admitLintRequest, lintSelectionRoot, queryLintWorkspace } from "./lint-workspace.js";
+import {
+  admitLintRequest,
+  lintSelectionRoot,
+  lintSelectionFileSystem,
+  queryLintWorkspace,
+} from "./lint-workspace.js";
 import { isolatedGitEnvironment } from "./staged-workspace.js";
 
 export const specification = defineSpecification({
@@ -91,9 +101,11 @@ const lintView = (
       Effect.provide(
         lintWorkspaceServices({
           workspaceRoot: lintSelectionRoot(selection),
+          observationView: selection.nativeView,
           cliVersion: workspace.cliVersion,
         }),
       ),
+      Effect.provideService(FileSystem.FileSystem, yield* lintSelectionFileSystem(selection)),
     );
   }).pipe(Effect.scoped);
 
@@ -107,6 +119,162 @@ describe("Selected lint filesystem view", () => {
   afterEach(() => {
     for (const cleanup of cleanups.splice(0)) cleanup();
   });
+
+  it.effect("constructs staged services without reading or inheriting live user settings", () => {
+    const workspace = makeOfficialAxmSkillWorkspace("official-compatible");
+    cleanups.push(workspace.cleanup);
+    initializeGit(workspace.root);
+    git(workspace.root, ["add", "."]);
+    return Effect.gen(function* () {
+      const hostFs = yield* FileSystem.FileSystem;
+      const home = yield* hostFs.makeTempDirectoryScoped();
+      const userSettings = nodePath.join(home, ".axm", "workspace", "axm.json");
+      yield* hostFs.makeDirectory(nodePath.dirname(userSettings), { recursive: true });
+      yield* hostFs.writeFileString(userSettings, "malformed live user settings");
+      const selection = yield* admitLintRequest({
+        path: workspace.root,
+        cwd: workspace.root,
+        userHome: home,
+        scope: "project",
+        view: "git-index",
+        fix: false,
+      });
+      const captured = yield* lintSelectionFileSystem(selection);
+      const externalReads: string[] = [];
+      const observed = FileSystem.make({
+        ...captured,
+        access: (target, options) => {
+          if (target.startsWith(home)) externalReads.push(target);
+          return captured.access(target, options);
+        },
+      });
+      yield* Effect.gen(function* () {
+        const settings = yield* SettingsReader;
+        expect(yield* settings.owner).toEqual(Option.none());
+        expect(yield* settings.configuredSources).toEqual([]);
+        expect((yield* WorkspaceLocation).nativeDirectoryInputs.skillsDirectoryOverrides).toEqual({
+          "claude-code": nodePath.join(selection.workspaceRoot, "selected-skills"),
+        });
+        const result = yield* queryLintWorkspace(selection, { strict: false });
+        expect(result.document.input).toEqual(selection.input);
+      }).pipe(
+        Effect.provide(
+          lintWorkspaceServices({
+            workspaceRoot: lintSelectionRoot(selection),
+            observationView: selection.nativeView,
+            cliVersion: workspace.cliVersion,
+          }),
+        ),
+        Effect.provideService(FileSystem.FileSystem, observed),
+        Effect.provide(
+          ConfigProvider.layer(
+            ConfigProvider.fromEnv({
+              env: {
+                AXM_USER_HOME: home,
+                AXM_CLAUDE_SKILLS_DIR: nodePath.join(selection.workspaceRoot, "selected-skills"),
+              },
+            }),
+          ),
+        ),
+      );
+      expect(externalReads).toEqual([]);
+      expect(yield* hostFs.readFileString(userSettings)).toBe("malformed live user settings");
+    }).pipe(Effect.scoped, Effect.provide(viewServices));
+  });
+
+  it.effect("preserves permission failures for settings inside the captured view", () => {
+    const workspace = makeOfficialAxmSkillWorkspace("official-compatible");
+    cleanups.push(workspace.cleanup);
+    initializeGit(workspace.root);
+    git(workspace.root, ["add", "."]);
+    return Effect.gen(function* () {
+      const selection = yield* admitLintRequest({
+        path: workspace.root,
+        cwd: workspace.root,
+        userHome: workspace.root,
+        scope: "project",
+        view: "git-index",
+        fix: false,
+      });
+      const captured = yield* lintSelectionFileSystem(selection);
+      const selectedSettings = nodePath.join(selection.workspaceRoot, "axm.json");
+      const denied = FileSystem.make({
+        ...captured,
+        access: (target, options) =>
+          target === selectedSettings
+            ? Effect.fail(
+                PlatformError.systemError({
+                  _tag: "PermissionDenied",
+                  module: "FileSystem",
+                  method: "access",
+                  pathOrDescriptor: target,
+                }),
+              )
+            : captured.access(target, options),
+      });
+      const result = yield* queryLintWorkspace(selection, { strict: false }).pipe(
+        Effect.provide(
+          lintWorkspaceServices({
+            workspaceRoot: lintSelectionRoot(selection),
+            observationView: selection.nativeView,
+            cliVersion: workspace.cliVersion,
+          }),
+        ),
+        Effect.provideService(FileSystem.FileSystem, denied),
+        Effect.result,
+      );
+      expect(result._tag).toBe("Failure");
+      if (result._tag === "Failure") expect(result.failure._tag).toBe("SettingsIoError");
+    }).pipe(Effect.scoped, Effect.provide(viewServices));
+  });
+
+  it.effect(
+    "resolves absolute staged aliases inside the captured view without reading live content",
+    () => {
+      const workspace = makeOfficialAxmSkillWorkspace("official-compatible");
+      cleanups.push(workspace.cleanup);
+      initializeGit(workspace.root);
+      workspace.writeFile("captured.txt", "staged bytes");
+      fs.symlinkSync(
+        nodePath.join(workspace.root, "captured.txt"),
+        nodePath.join(workspace.root, "alias"),
+      );
+      fs.symlinkSync(
+        nodePath.join(workspace.root, "untracked.txt"),
+        nodePath.join(workspace.root, "missing-alias"),
+      );
+      git(workspace.root, ["add", "."]);
+      const indexBefore = git(workspace.root, ["ls-files", "--stage", "-z"]);
+      workspace.writeFile("captured.txt", "live bytes");
+      workspace.writeFile("untracked.txt", "live-only bytes");
+      return Effect.gen(function* () {
+        const selection = yield* admitLintRequest({
+          path: workspace.root,
+          cwd: workspace.root,
+          userHome: workspace.root,
+          scope: "project",
+          view: "git-index",
+          fix: false,
+        });
+        const captured = yield* lintSelectionFileSystem(selection);
+        expect(
+          yield* captured.readFileString(nodePath.join(selection.workspaceRoot, "alias")),
+        ).toBe("staged bytes");
+        expect(
+          (yield* captured
+            .readFileString(nodePath.join(selection.workspaceRoot, "missing-alias"))
+            .pipe(Effect.result))._tag,
+        ).toBe("Failure");
+        expect(selection.displayWorkspaceRoot).toBe(workspace.root);
+        expect(selection.nativeView).toMatchObject({
+          kind: "git-index",
+          fingerprint:
+            selection.input.view === "git-index" ? selection.input.fingerprint : "unexpected",
+        });
+        expect(git(workspace.root, ["ls-files", "--stage", "-z"])).toBe(indexBefore);
+      }).pipe(Effect.scoped, Effect.provide(viewServices));
+    },
+  );
 
   it.effect("judges the official skill each view selects, beside an extraneous copy", () => {
     const incompatible = officialAxmSkillPackage({

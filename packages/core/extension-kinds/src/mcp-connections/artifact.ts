@@ -9,6 +9,10 @@ import {
 } from "@agentxm/workspace-kernel/workspace-state";
 import type { JobStepArtifact, JobStepArtifactTarget } from "@agentxm/workspace-kernel/operations";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
+import {
+  combineNativeLocationOutcomes,
+  type NativeLocationOutcome,
+} from "@agentxm/workspace-kernel/locations";
 
 export const mcpConfigSurface = (scope: WorkspaceScope): string =>
   `${settingsDisplayPath(scope)} / ${lockfileDisplayPath(scope)}`;
@@ -107,6 +111,7 @@ export const mcpServerArtifact = (args: {
   readonly change: JobStepArtifact["change"];
   readonly targets: ReadonlyArray<JobStepArtifactTarget>;
   readonly agents?: ReadonlyArray<string>;
+  readonly nativeLocations?: ReadonlyArray<NativeLocationOutcome>;
 }): JobStepArtifact => {
   const version = args.lockEntry === undefined ? undefined : lockEntryVersion(args.lockEntry);
 
@@ -117,6 +122,7 @@ export const mcpServerArtifact = (args: {
         : mcpServerSourcePath(args.scope, args.lockEntry),
     scope: args.scope,
     change: args.change,
+    nativeLocations: combineNativeLocationOutcomes(args.nativeLocations ?? []),
     ...(args.agents === undefined ? {} : { agents: args.agents }),
     ...(version === undefined ? {} : { version }),
     ...(args.targets.length === 0

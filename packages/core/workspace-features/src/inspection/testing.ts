@@ -185,22 +185,26 @@ export const makeInspectionFixture = (options: InspectionFixtureOptions = {}) =>
     origin: () => "fixture",
   });
   const workspaceState = Layer.provideMerge(
-    Layer.mergeAll(
+    Layer.provideMerge(
+      Layer.mergeAll(
+        CodingAgentRepositoryLive,
+        ConfiguredAgentOutcomesProviderTest,
+        transport,
+        sourceProviders,
+        registry.layer,
+      ),
       WorkspaceStateLive({
         scope,
         projectRoot: decodeAbsolutePathSync(root),
         allowUninitialized: options.settings === undefined,
       }),
-      CodingAgentRepositoryLive,
-      ConfiguredAgentOutcomesProviderTest,
-      transport,
-      sourceProviders,
-      registry.layer,
     ),
     environment,
   );
   // The catalog identifier resolution consults sits over the same workspace.
-  const catalog = Layer.provide(WorkspaceCatalogLive, workspaceState);
+  const services = Layer.provideMerge(WorkspaceCatalogLive, workspaceState).pipe(
+    Layer.provideMerge(WorkspaceFileWriteLocksLive),
+  );
 
   return {
     root,
@@ -213,13 +217,7 @@ export const makeInspectionFixture = (options: InspectionFixtureOptions = {}) =>
     snapshot,
     requests: registry.requests,
     firstRequest: registry.firstRequest,
-    provide: <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-      effect.pipe(
-        Effect.provide(catalog),
-        Effect.provide(transport),
-        Effect.provide(workspaceState),
-        Effect.provide(WorkspaceFileWriteLocksLive),
-      ),
+    provide: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect.pipe(Effect.provide(services)),
     cleanup: () => {
       fs.rmSync(root, { recursive: true, force: true });
       fs.rmSync(home, { recursive: true, force: true });

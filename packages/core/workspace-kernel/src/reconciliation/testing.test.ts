@@ -56,6 +56,7 @@ describe("./testing.js", () => {
         restorationCause: "restore failed",
         snapshotDir: undefined,
         retained: [],
+        recovery: [],
       });
       const stepFailure = conversion.toStepFailure(failure);
       expect(stepFailure.category).toBe("internal");

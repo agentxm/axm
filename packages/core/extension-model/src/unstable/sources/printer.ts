@@ -10,8 +10,12 @@ import { formatFqn } from "../extensions/fqn.js";
 import { forgeCoordinateFromGitUrl, printForgeCoordinate } from "./forge-grammar.js";
 import type { LocalSourceParams, SourceParams } from "./types.js";
 
-const printLocalSource = (source: LocalSourceParams): string =>
-  source.path.startsWith("/") || source.path.startsWith(".") ? source.path : `./${source.path}`;
+const printLocalSource = (source: LocalSourceParams): string => {
+  if (source.path === "." || source.path === "..") return `${source.path}/`;
+  return /^(?:\.\.?\/|\/|~[\\/]|[A-Za-z]:[\\/])/.test(source.path)
+    ? source.path
+    : `./${source.path}`;
+};
 
 /**
  * Print source params as their canonical shorthand string.

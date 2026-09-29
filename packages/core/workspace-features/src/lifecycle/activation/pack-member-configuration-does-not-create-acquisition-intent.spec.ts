@@ -223,7 +223,7 @@ describe("Pack-member configuration does not create acquisition intent", () => {
 
           const removal = yield* applyUninstall(uninstallRequest({ type: "pack", selector: PACK }));
 
-          expect(deriveOperationOutcome(removal)).toBe("applied");
+          expect(deriveOperationOutcome(removal), JSON.stringify(removal)).toBe("applied");
           // The preference has nothing left to configure, so it goes in the
           // same transition rather than lingering as an unbound entry.
           expect(ruleEntry(workspace)).toBeUndefined();

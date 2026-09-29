@@ -29,7 +29,18 @@ export const pochiAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".pochi/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".pochi/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -55,43 +66,71 @@ export const pochiAgent = {
           variables: "none",
           defaults: false,
         },
+
+        locations: [
+          {
+            id: "project",
+            scope: "project",
+            root: "project",
+            path: ".pochi/config.jsonc",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "jsonc",
+            keyPath: ["mcp"],
+            attribution: "agent",
+          },
+          {
+            id: "user",
+            scope: "user",
+            root: "home",
+            path: ".pochi/config.jsonc",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "jsonc",
+            keyPath: ["mcp"],
+            attribution: "agent",
+          },
+        ],
+
+        entryDialect: {
+          activationField: {
+            required: { name: "disabled", enabled: false, disabled: true },
+            accepted: [{ name: "disabled", enabled: false, disabled: true }, null],
+          },
+          stdio: {
+            typeField: { required: null, accepted: [null] },
+            command: "split",
+            envKey: "env",
+          },
+          remote: {
+            typeField: { required: null, accepted: [null] },
+            urlKey: {
+              "streamable-http": "url",
+            },
+            headersKey: "headers",
+          },
+        },
       },
       axm: {
         status: "supported",
         lastVerified: "2026-08-05",
         writer: {
           config: {
-            serversKey: "mcp",
-            activationField: {
-              required: { name: "disabled", enabled: false, disabled: true },
-              accepted: [{ name: "disabled", enabled: false, disabled: true }, null],
-            },
-            targets: [
-              {
-                scope: "project",
-                path: ".pochi/config.jsonc",
-                format: "jsonc",
-                attribution: "agent",
-              },
-              {
-                scope: "user",
-                path: "~/.pochi/config.jsonc",
-                format: "jsonc",
-                attribution: "agent",
-              },
-            ],
-            stdio: {
-              typeField: { required: null, accepted: [null] },
-              command: "split",
-              envKey: "env",
-            },
-            remote: {
-              typeField: { required: null, accepted: [null] },
-              urlKey: {
-                "streamable-http": "url",
-              },
-              headersKey: "headers",
-            },
+            locationIds: ["project", "user"],
           },
         },
       },
@@ -137,7 +176,18 @@ export const pochiAgent = {
       standardsCompliance: "full",
       convention: "universal",
       kind: "agents-md",
-      files: ["AGENTS.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "AGENTS.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: false,
       importSyntax: null,
     },

@@ -46,6 +46,7 @@ export interface SettingsWriterService {
     type: T,
     name: string,
     entry: SettingsEntryByType[T],
+    options?: { readonly roundTrip?: boolean },
   ) => Write;
   /**
    * Update one configured entry. A missing skill or MCP server entry fails
@@ -132,10 +133,10 @@ export const makeSettingsWriter = (
           });
         }),
       ),
-    setEntry: (type, name, entry) =>
+    setEntry: (type, name, entry, options) =>
       serialized(
         Effect.flatMap(current, (settings) =>
-          write(settingsEntries[type].set(settings, name, entry)),
+          write(settingsEntries[type].set(settings, name, entry), options),
         ),
       ).pipe(Effect.withSpan("SettingsWriter.setEntry")),
     updateEntry: (type, name, update) =>

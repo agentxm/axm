@@ -29,10 +29,37 @@ export const gooseAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
-        directory: ".agents/skills",
-        additionalReadPaths: [
-          { path: ".goose/skills", status: "deprecated" },
-          { path: ".claude/skills", status: "compat" },
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".agents/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+          {
+            scope: "project",
+            root: "project",
+            path: ".goose/skills",
+            shape: "directory",
+            role: "additional",
+            status: "deprecated",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+          {
+            scope: "project",
+            root: "project",
+            path: ".claude/skills",
+            shape: "directory",
+            role: "additional",
+            status: "compat",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
         ],
       },
       axm: {
@@ -56,6 +83,10 @@ export const gooseAgent = {
           variables: "none",
           defaults: false,
         },
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -117,7 +148,7 @@ export const gooseAgent = {
       sources: ["https://goose-docs.ai/docs/guides/managing-tools/tool-permissions/"],
       scopes: ["user", "project"],
       mechanism: ["config-file", "ui-only"],
-      configFiles: [],
+      locations: [],
       grammar: null,
       prerequisites: [],
       cliFlags: [],

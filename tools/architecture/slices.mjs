@@ -18,6 +18,7 @@ const packageNames = ["workspace-kernel", "extension-kinds", "workspace-features
 // kernel folder missing from this list can import no kernel slice and be
 // imported by none, so a new slice has to be placed here before it can be used.
 const kernelOrder = [
+  "locations",
   "settlement",
   "operations",
   "agent-adapters",

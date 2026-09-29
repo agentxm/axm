@@ -1,4 +1,5 @@
 import type * as FileSystem from "effect/FileSystem";
+import type { NativeWriteAuthority } from "../../agent-adapters/index.js";
 import * as Path from "effect/Path";
 import {
   LifecyclePostconditionViolated,
@@ -28,6 +29,7 @@ import { fromFileLocation } from "@agentxm/host-primitives";
 import * as Effect from "effect/Effect";
 import {
   SettingsReader,
+  settingsEntries,
   SettingsWriter,
   AcceptedResolutionWriter,
   DesiredStateReader,
@@ -39,6 +41,7 @@ import {
   type ExtensionTargetFor,
   desiredIdentityOfRef,
   desiredPackageKey,
+  desiredReachability,
 } from "../../workspace-state/index.js";
 import { declareMaterialization, recordMaterialization } from "./declaration.js";
 import * as Option from "effect/Option";
@@ -47,6 +50,7 @@ import { SourceAuthorityBlocked } from "../../resolution/index.js";
 import {
   applyInstructionSurfacePlans,
   type InstructionMaintenanceFailure,
+  captureAgentOutputAuthority,
 } from "../../projection/index.js";
 import {
   extensionRefName,
@@ -80,6 +84,7 @@ import type {
   MaterializationProjection,
   SynchronizeMaterialization,
   UninstallMaterialization,
+  NativeProjectionOptions,
 } from "../../materialization/index.js";
 
 // -----------------------------------------------------------------------------
@@ -240,6 +245,7 @@ export interface StepFailureAdapter<F = never> {
  * platform dependencies still required by those state writers.
  */
 export type RecipeRequirements =
+  | NativeWriteAuthority
   | WorkspaceTransactionScope
   | FootprintRecorder
   | WorkspaceLocation
@@ -259,14 +265,15 @@ const NO_PROJECTION_WARNINGS: ReadonlyArray<string> = [];
  */
 const applyManagerProjectionPlans = <F, R>(
   manager: MaterializationProjection<F, R>,
+  options?: NativeProjectionOptions,
 ): Effect.Effect<
   ReadonlyArray<string>,
   F | WorkspaceSettingsReadFailure | InstructionMaintenanceFailure,
-  R | FileSystem.FileSystem | Path.Path | SettingsReader | WorkspaceLocation
+  R | NativeWriteAuthority | FileSystem.FileSystem | Path.Path | SettingsReader | WorkspaceLocation
 > =>
   manager.projectionPlans === undefined
     ? Effect.succeed(NO_PROJECTION_WARNINGS)
-    : manager.projectionPlans().pipe(Effect.flatMap(applyInstructionSurfacePlans));
+    : manager.projectionPlans(options).pipe(Effect.flatMap(applyInstructionSurfacePlans));
 
 // -----------------------------------------------------------------------------
 // Install change classification
@@ -333,6 +340,8 @@ export interface InstallOperationArgs<
   R = never,
 > extends StepFailureAdapter<F> {
   readonly ref: TRef;
+  /** A containing graph closure can carry its captured prior reachability. */
+  readonly nativeInsertionEligible?: boolean;
   /** The explicit desired root to declare; absent for derived materialization. */
   readonly declaration?: { readonly name: string; readonly versionRange: Option.Option<string> };
   /** When true, re-materialize unconditionally (repair path for forced reinstalls). */
@@ -372,6 +381,8 @@ export interface NewExtensionOperationArgs<
   readonly plannedArtifact?: JobStepArtifact;
   /** Collision checks repeated under the workspace transaction lock before the first write. */
   readonly preflight?: Effect.Effect<void, CallerStepFailure<F>, R>;
+  /** Only creation introduces intent; adoption/import/fork cannot acquire inverse authority. */
+  readonly nativeInsertionEligible?: boolean;
   readonly scaffold: Effect.Effect<unknown, CallerStepFailure<F>, R>;
   readonly markAuthored: Effect.Effect<void, CallerStepFailure<F>, R>;
   readonly message: string;
@@ -395,6 +406,7 @@ export interface AuthoredExtensionOperationArgs<
   /** Type-specific projection path for authored packages with specialized installers. */
   readonly materializeInstall?: (
     ref: TRef,
+    options: { readonly nativeInsertionEligible: boolean },
   ) => Effect.Effect<Option.Option<TMaterialization>, CallerStepFailure<F>, R>;
   /**
    * Project and then deactivate a disabled target when adopting a native
@@ -432,7 +444,12 @@ const runInstallOperation = <TRef extends ExtensionRef, TMaterialization, F, R>(
     const target = targetFromRef(args.ref);
     // The desired-state graph is the one authority for what the workspace
     // already holds for this target.
-    const configured = (yield* (yield* DesiredStateReader).graph()).nodes.find(
+    const priorGraph = yield* (yield* DesiredStateReader).graph();
+    const priorAuthority =
+      target.type === "hook" || target.type === "rule" || target.type === "knowledge"
+        ? yield* captureAgentOutputAuthority()
+        : undefined;
+    const configured = priorGraph.nodes.find(
       (node) => node.type === target.type && node.name === target.name,
     );
     const authority = evaluateSourceAuthority({
@@ -465,6 +482,9 @@ const runInstallOperation = <TRef extends ExtensionRef, TMaterialization, F, R>(
               : yield* manager.prepareSourceTransition({ ref: args.ref });
           const materialization = yield* manager.materializeInstall({
             ref: args.ref,
+            nativeInsertionEligible:
+              args.nativeInsertionEligible ??
+              desiredReachability(priorGraph, target).decision === "not-reached",
             ...(args.force === undefined ? {} : { force: args.force }),
           });
           const resolution = yield* manager.acceptedResolution({
@@ -479,7 +499,12 @@ const runInstallOperation = <TRef extends ExtensionRef, TMaterialization, F, R>(
               resolution,
             });
           }
-          yield* recordMaterialization({ ref: args.ref, name: target.name, resolution });
+          yield* recordMaterialization({
+            ref: args.ref,
+            name: target.name,
+            resolution,
+            roundTrip: desiredReachability(priorGraph, target).decision === "not-reached",
+          });
           const graph = yield* (yield* DesiredStateReader).graph();
           const resulting = graph.nodes.find(
             (node) => node.type === target.type && node.name === target.name,
@@ -492,7 +517,17 @@ const runInstallOperation = <TRef extends ExtensionRef, TMaterialization, F, R>(
           // shared aggregate unit once from the complete contributor set.
           const projectionWarnings =
             args.enclosingClosure?.projections.includes(target.type) !== true
-              ? yield* applyManagerProjectionPlans(manager)
+              ? yield* applyManagerProjectionPlans(manager, {
+                  ...(priorAuthority === undefined ? {} : { priorAuthority }),
+                  nativeInsertionEligibleNames: new Set(
+                    (target.type === "hook" ||
+                      target.type === "rule" ||
+                      target.type === "knowledge") &&
+                      desiredReachability(priorGraph, target).decision === "not-reached"
+                      ? [target.name]
+                      : [],
+                  ),
+                })
               : NO_PROJECTION_WARNINGS;
           return { materialization, projectionWarnings };
         }),
@@ -637,6 +672,11 @@ export const buildAuthoredExtensionStep = <
     run: Effect.gen(function* () {
       if (args.allowConfiguredSourceTransition !== true) yield* manager.listMaterializable();
       const installedBefore = yield* manager.isInstalled({ target });
+      const priorGraph = yield* (yield* DesiredStateReader).graph();
+      const priorAuthority =
+        target.type === "hook" || target.type === "rule" || target.type === "knowledge"
+          ? yield* captureAgentOutputAuthority()
+          : undefined;
       const { value: transaction, footprint } = yield* observeFootprint(
         runWorkspaceTransaction({
           targets: Array.from(new Set([args.location, ...(args.transactionTargets ?? [])])).sort(),
@@ -658,8 +698,19 @@ export const buildAuthoredExtensionStep = <
             if (args.enabled !== false || args.materializeWhenDisabled === true) {
               materialization =
                 args.materializeInstall === undefined
-                  ? Option.some(yield* manager.materializeInstall({ ref }))
-                  : yield* args.materializeInstall(ref);
+                  ? Option.some(
+                      yield* manager.materializeInstall({
+                        ref,
+                        nativeInsertionEligible:
+                          args.nativeInsertionEligible === true &&
+                          desiredReachability(priorGraph, target).decision === "not-reached",
+                      }),
+                    )
+                  : yield* args.materializeInstall(ref, {
+                      nativeInsertionEligible:
+                        args.nativeInsertionEligible === true &&
+                        desiredReachability(priorGraph, target).decision === "not-reached",
+                    });
             }
             const resolution = yield* manager.acceptedResolution({ ref, materialization });
             yield* declareMaterialization({
@@ -677,14 +728,26 @@ export const buildAuthoredExtensionStep = <
               args.materializeWhenDisabled === true &&
               manager.materializeDeactivate !== undefined
             ) {
-              yield* manager.materializeDeactivate({ target });
+              materialization = Option.some(yield* manager.materializeDeactivate({ target }));
             } else if (args.enabled !== false) {
               // Desired state is committed; render shared aggregate units once
               // from the complete contributor set.
               return {
                 ref,
                 materialization,
-                projectionWarnings: yield* applyManagerProjectionPlans(manager),
+                projectionWarnings: yield* applyManagerProjectionPlans(manager, {
+                  ...(priorAuthority === undefined ? {} : { priorAuthority }),
+                  nativeInsertionEligibleNames: new Set(
+                    (target.type === "hook" ||
+                      target.type === "rule" ||
+                      target.type === "knowledge") &&
+                      args.nativeInsertionEligible === true &&
+                      args.allowConfiguredSourceTransition !== true &&
+                      desiredReachability(priorGraph, target).decision === "not-reached"
+                      ? [target.name]
+                      : [],
+                  ),
+                }),
               };
             }
             return {
@@ -757,6 +820,7 @@ export const buildNewExtensionStep = <
   return buildAuthoredExtensionStep(manager, {
     ...args,
     location: args.ref.location,
+    nativeInsertionEligible: true,
     enabled: true,
   });
 };
@@ -773,6 +837,7 @@ export interface MaterializeOperationArgs<
 > extends StepFailureAdapter<F> {
   readonly ref: TRef;
   readonly desiredActivation?: boolean;
+  readonly nativeInsertionEligiblePaths?: ReadonlySet<string>;
   /** Optional transition-rich label used by reconciliation previews. */
   readonly label?: string;
   /** Explicitly permit a workspace-authored relocation during reconciliation. */
@@ -801,6 +866,9 @@ const runMaterializeOperation = <TRef extends ExtensionRef, TMaterialization, F,
           args.desiredActivation === false ? manager.acquireCanonical : manager.materializeInstall
         )({
           ref: args.ref,
+          ...(args.nativeInsertionEligiblePaths === undefined
+            ? {}
+            : { nativeInsertionEligiblePaths: args.nativeInsertionEligiblePaths }),
           ...(args.force === undefined ? {} : { force: args.force }),
         });
         if (args.validateMaterialized !== undefined) {
@@ -978,15 +1046,35 @@ const runUninstallOperation = <TTarget extends ExtensionTarget, TMaterialization
   args: UninstallOperationArgs<TTarget, TMaterialization, F, R>,
 ): Effect.Effect<JobStepResult, StepFailure, R | RecipeRequirements> =>
   Effect.gen(function* () {
+    const priorAuthority =
+      args.target.type === "hook" || args.target.type === "rule" || args.target.type === "knowledge"
+        ? yield* captureAgentOutputAuthority()
+        : undefined;
     const configuredSource =
       manager.getConfiguredSource === undefined
         ? Option.none<string>()
         : yield* manager.getConfiguredSource({ target: args.target });
     const configured = yield* isConfigured(manager, args.target);
     const transition = Effect.gen(function* () {
+      if (
+        priorAuthority !== undefined &&
+        manager.projectionPlans !== undefined &&
+        args.enclosingClosure?.projections.includes(args.target.type) !== true
+      ) {
+        const desired = yield* DesiredStateReader;
+        const base = yield* desired.evaluate();
+        const proposed = yield* desired.propose(
+          base,
+          settingsEntries[args.target.type].remove(base.inputs.settings, args.target.name),
+        );
+        yield* manager.projectionPlans({ priorAuthority, desiredGraph: proposed.graph });
+      }
       const applyProjections = () =>
         args.enclosingClosure?.projections.includes(args.target.type) !== true
-          ? applyManagerProjectionPlans(manager)
+          ? applyManagerProjectionPlans(
+              manager,
+              priorAuthority === undefined ? undefined : { priorAuthority },
+            )
           : Effect.succeed(NO_PROJECTION_WARNINGS);
 
       if (args.retirement !== undefined) {

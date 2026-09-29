@@ -110,6 +110,69 @@ const runWithService = <A, E>(
 };
 
 describe("local source workspace resolution", () => {
+  for (const sourceView of ["vendor", "../vendor"]) {
+    it.effect(
+      `keeps inherited Pack member sources relative to the workspace for ${sourceView}`,
+      () => {
+        const root = mkdtempSync(nodePath.join(tmpdir(), "axm-pack-source-workspace-"));
+        const workspaceRoot = nodePath.join(root, "workspace");
+        const sourceRoot = nodePath.resolve(workspaceRoot, sourceView);
+        mkdirSync(workspaceRoot, { recursive: true });
+        for (const [type, name, directory] of [
+          ["skill", "review", "nested/review"],
+          ["rule", "guide", "guide"],
+          ["pack", "workflow", "workflow"],
+        ] as const) {
+          const packageRoot = nodePath.join(sourceRoot, directory);
+          mkdirSync(nodePath.join(packageRoot, "src"), { recursive: true });
+          writeFileSync(
+            nodePath.join(packageRoot, `${type}.json`),
+            JSON.stringify({
+              owner: "@test",
+              type,
+              name,
+              version: "1.0.0",
+              ...(type === "pack"
+                ? { dependencies: { "@test/skills/review": "*", "@test/rules/guide": "*" } }
+                : {}),
+            }),
+          );
+          if (type !== "pack")
+            writeFileSync(
+              nodePath.join(packageRoot, "src", type === "skill" ? "SKILL.md" : "RULE.md"),
+              type === "skill"
+                ? "---\nname: review\ndescription: Review code\n---\n# Review\n"
+                : "# Guide\n",
+            );
+        }
+        return runWithService(
+          [],
+          Effect.gen(function* () {
+            const service = yield* SourceHostProviders;
+            const refs = yield* service.find(
+              { type: "local", path: sourceView },
+              { ...defaultFindOptions, type: "pack", names: ["workflow"] },
+            );
+            const pack = refs[0];
+            if (pack?.type !== "pack" || pack.refType !== "local")
+              return yield* Effect.die("Expected one local Pack");
+            expect(pack.sourcePath).toBe(`${sourceView}/workflow`);
+            expect(
+              pack.sourceMembers
+                .map((member) => (member.refType === "local" ? member.sourcePath : undefined))
+                .sort(),
+            ).toEqual([`${sourceView}/guide`, `${sourceView}/nested/review`]);
+          }).pipe(
+            Effect.ensuring(
+              Effect.sync(() => rmSync(root, { recursive: true })).pipe(Effect.ignore),
+            ),
+          ),
+          workspaceRoot,
+        );
+      },
+    );
+  }
+
   it.effect("resolves a relative configured source from the selected workspace", () => {
     const root = mkdtempSync(nodePath.join(tmpdir(), "axm-local-source-workspace-"));
     const workspaceRoot = nodePath.join(root, "workspace");

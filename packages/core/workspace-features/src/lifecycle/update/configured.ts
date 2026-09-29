@@ -1258,9 +1258,16 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
     });
 
     const readyAdvances = selected.filter((advance) => !blockedIdentities.has(advance.identity));
+    // Aggregate native projections must include the accepted state of refused
+    // groups, because those groups will never publish their proposed manifests.
+    // Keep the conflict graph for reporting which direct entries they prevent.
+    const readyGraph =
+      blockedGroups.length === 0 || readyAdvances.length === 0
+        ? graph
+        : yield* readProposedGraph(readyAdvances.map(({ intent }) => intent.packToInstall));
     const selectedPlans = yield* Effect.forEach(
       readyAdvances,
-      ({ intent }) => planPackInstall({ ...intent, desiredGraph: graph }),
+      ({ intent }) => planPackInstall({ ...intent, desiredGraph: readyGraph }),
       { concurrency: 16 },
     );
     const plannedCollections = resolved.flatMap((item) =>

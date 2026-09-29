@@ -36,7 +36,18 @@ export const aiderDeskAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".aider-desk/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".aider-desk/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -56,6 +67,10 @@ export const aiderDeskAgent = {
         standardsCompliance: "partial",
         convention: "vendor",
         transports: ["stdio", "http", "sse"],
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -89,6 +104,10 @@ export const aiderDeskAgent = {
         sources: ["https://github.com/hotovo/aider-desk"],
         scopes: ["user", "project"],
         modeling: "native-unmodeled",
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -123,7 +142,7 @@ export const aiderDeskAgent = {
       sources: ["https://github.com/hotovo/aider-desk"],
       scopes: ["user", "project"],
       mechanism: ["config-file"],
-      configFiles: [],
+      locations: [],
       grammar: null,
       prerequisites: [],
       cliFlags: [],

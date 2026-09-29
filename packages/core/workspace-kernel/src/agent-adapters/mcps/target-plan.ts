@@ -1,3 +1,4 @@
+import type { ResolvedMcpConfig } from "./shared-target.js";
 /**
  * The one decision of what each configured agent's native configuration
  * should hold for one MCP connection.
@@ -13,7 +14,7 @@
  */
 
 import {
-  type McpConfig,
+  CONFIGURABLE_AGENTS_BY_ID,
   type McpConfigTarget,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { McpServerManifest } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
@@ -30,11 +31,16 @@ import {
 } from "./shared-target.js";
 import {
   configuredMcpCapability,
+  readableMcpCapability,
   groupConfiguredMcpTargets,
+  declaredMcpWriterTargets,
   isConfigurableAgentId,
+  type McpTargetGroup,
 } from "./targeting.js";
+import * as Equal from "effect/Equal";
 
 export interface PlanMcpServerTargetsArgs {
+  readonly groups?: ReadonlyArray<McpTargetGroup>;
   readonly agentIds: ReadonlyArray<string>;
   readonly scope: "project" | "user";
   readonly serverName: string;
@@ -48,13 +54,13 @@ export interface PlanMcpServerTargetsArgs {
 
 interface PlannedTarget {
   readonly agentId: string;
-  readonly config: McpConfig;
+  readonly config: ResolvedMcpConfig;
   readonly target: McpConfigTarget;
 }
 
 export type McpAgentTargetPlan =
   | {
-      readonly _tag: "unsupported";
+      readonly _tag: "unsupported" | "unverified";
       readonly agentId: string;
       readonly reason: string;
       readonly target?: McpConfigTarget;
@@ -82,17 +88,18 @@ export type McpAgentTargetPlan =
 /** One native file to write: the entry its readers share. */
 export interface McpTargetWrite {
   readonly path: string;
-  readonly config: McpConfig;
+  readonly config: ResolvedMcpConfig;
   readonly target: McpConfigTarget;
   readonly entry: Readonly<Record<string, unknown>>;
   readonly agentIds: ReadonlyArray<string>;
+  readonly declaredTargets: ReadonlyArray<McpConfigTarget>;
 }
 
 export type McpTargetPlan =
   | { readonly _tag: "invalid"; readonly detail: string; readonly cause?: unknown }
   | {
       readonly _tag: "planned";
-      /** One plan per requested agent, in request order. */
+      /** Every native target, grouped in requested-agent order, including unresolved destinations. */
       readonly agents: ReadonlyArray<McpAgentTargetPlan>;
       readonly writes: ReadonlyArray<McpTargetWrite>;
     };
@@ -147,7 +154,7 @@ const planInlineGroup = (
       stdio: shared.config.stdio,
       remote: shared.config.remote,
       activationField: shared.config.activationField,
-      envExpansion: configuredMcpCapability(member.agentId)?.native.mcpEnvExpansion,
+      envExpansion: readableMcpCapability(member.agentId)?.native.mcpEnvExpansion,
     }),
   }));
   const unsupported = projected.find((item) => item.result._tag === "unsupported");
@@ -165,6 +172,18 @@ const planInlineGroup = (
       agents: blockedGroup(members, `MCP config target '${shared.path}' has no readers`),
     };
   }
+  if (
+    projected.some(
+      ({ result }) => result._tag === "projected" && !Equal.equals(result.entry, first.entry),
+    )
+  ) {
+    return {
+      agents: blockedGroup(
+        members,
+        `MCP target '${shared.path}' renders different content for its consumers`,
+      ),
+    };
+  }
   return {
     agents: projected.map(({ member, result }) => ({
       _tag: "projected",
@@ -180,7 +199,10 @@ const planInlineGroup = (
       config: shared.config,
       target: shared.target,
       entry: first.entry,
-      agentIds: members.map((member) => member.agentId),
+      agentIds: [
+        ...new Set(members.filter((member) => member.configured).map((member) => member.agentId)),
+      ],
+      declaredTargets: members.map((member) => member.declaredTarget ?? member.target),
     },
   };
 };
@@ -191,15 +213,15 @@ const planManifestGroup = (
   members: ReadonlyArray<SharedMcpTargetMember>,
 ): { readonly agents: ReadonlyArray<McpAgentTargetPlan>; readonly write?: McpTargetWrite } => {
   const path = members[0]?.target.path ?? "unknown";
-  const resolve = (member: SharedMcpTargetMember, config: McpConfig): McpResolution => {
-    const capability = configuredMcpCapability(member.agentId);
+  const resolve = (member: SharedMcpTargetMember, config: ResolvedMcpConfig): McpResolution => {
+    const capability = readableMcpCapability(member.agentId);
     if (capability === undefined) {
       return { _tag: "no-distribution", reason: "agent does not have MCP config support" };
     }
     return resolveMcpServer({
       manifest,
       localName: args.serverName,
-      capability: { ...capability, axm: { ...capability.axm, writer: { config } } },
+      capability: { ...capability, native: { ...capability.native, entryDialect: config } },
       values: args.values,
       enabled: args.enabled,
     });
@@ -257,6 +279,18 @@ const planManifestGroup = (
     isRunnable(resolution) ? [resolution.entry] : [],
   )[0];
   if (entry === undefined) return { agents: blockedGroup(members, "no entry resolved") };
+  if (
+    projected.some(
+      ({ resolution }) => isRunnable(resolution) && !Equal.equals(resolution.entry, entry),
+    )
+  ) {
+    return {
+      agents: blockedGroup(
+        members,
+        `MCP target '${shared.path}' renders different content for its consumers`,
+      ),
+    };
+  }
   return {
     agents: projected.map(({ member, resolution }) =>
       resolution._tag === "needs-input"
@@ -284,9 +318,65 @@ const planManifestGroup = (
       config: shared.config,
       target: shared.target,
       entry,
-      agentIds: members.map((member) => member.agentId),
+      agentIds: [
+        ...new Set(members.filter((member) => member.configured).map((member) => member.agentId)),
+      ],
+      declaredTargets: members.map((member) => member.declaredTarget ?? member.target),
     },
   };
+};
+
+/** Native support is independent of whether AXM can resolve and write its destinations. */
+export const unresolvedMcpAgentTargets = (
+  agentId: string,
+  scope: "project" | "user",
+  groups: ReadonlyArray<McpTargetGroup>,
+): ReadonlyArray<Extract<McpAgentTargetPlan, { readonly _tag: "unsupported" | "unverified" }>> => {
+  if (!isConfigurableAgentId(agentId))
+    return [
+      { _tag: "unsupported", agentId, reason: `${agentId} has no MCP capability catalog entry` },
+    ];
+  const native = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"].native;
+  if (!("scopes" in native))
+    return [{ _tag: "unsupported", agentId, reason: `${agentId} has no native MCP support` }];
+  if (!native.scopes.some((knownScope) => knownScope === scope))
+    return [
+      { _tag: "unsupported", agentId, reason: `${agentId} does not support MCP in ${scope} scope` },
+    ];
+  const capability = configuredMcpCapability(agentId);
+  if (capability === undefined)
+    return [
+      {
+        _tag: "unverified",
+        agentId,
+        reason: `${agentId} supports native MCP, but AXM has no verified writer`,
+      },
+    ];
+  const destinations = declaredMcpWriterTargets(capability).filter(
+    ({ location }) => location.scope === scope,
+  );
+  if (destinations.length === 0)
+    return [
+      {
+        _tag: "unverified",
+        agentId,
+        reason: `${agentId} supports native MCP in ${scope} scope, but no writable native location is verified`,
+      },
+    ];
+  const resolved = new Set(
+    groups.flatMap((group) =>
+      group.members
+        .filter((member) => member.agentId === agentId)
+        .map((member) => member.locationId),
+    ),
+  );
+  return destinations
+    .filter(({ location }) => !resolved.has(location.id))
+    .map(({ location }) => ({
+      _tag: "unverified",
+      agentId,
+      reason: `${agentId} native MCP location '${location.id}' is unresolved for ${scope} scope`,
+    }));
 };
 
 /** Plan the native entry every configured agent should hold for one connection. */
@@ -297,40 +387,26 @@ export const planMcpServerTargets = (args: PlanMcpServerTargetsArgs): McpTargetP
   if (!inline && args.manifest === undefined) {
     return { _tag: "invalid", detail: "MCP server has no inline command or URL" };
   }
-  const byAgent = new Map<string, McpAgentTargetPlan>();
+  const byAgent = new Map<string, Array<McpAgentTargetPlan>>();
+  const groups =
+    args.groups ?? groupConfiguredMcpTargets({ agentIds: args.agentIds, scope: args.scope });
   const writes: Array<McpTargetWrite> = [];
-  for (const group of groupConfiguredMcpTargets({ agentIds: args.agentIds, scope: args.scope })) {
+  for (const group of groups) {
     const planned =
-      transport?._tag === "transport"
-        ? planInlineGroup(args, group.members, transport.transport)
-        : args.manifest === undefined
-          ? { agents: blockedGroup(group.members, "no manifest") }
-          : planManifestGroup(args, args.manifest, group.members);
-    for (const agent of planned.agents) byAgent.set(agent.agentId, agent);
+      group.unverifiedReaders.length > 0
+        ? { agents: blockedGroup(group.members, group.unverifiedReaders.join("; ")) }
+        : transport?._tag === "transport"
+          ? planInlineGroup(args, group.members, transport.transport)
+          : args.manifest === undefined
+            ? { agents: blockedGroup(group.members, "no manifest") }
+            : planManifestGroup(args, args.manifest, group.members);
+    for (const agent of planned.agents.filter((agent) => args.agentIds.includes(agent.agentId)))
+      byAgent.set(agent.agentId, [...(byAgent.get(agent.agentId) ?? []), agent]);
     if (planned.write !== undefined) writes.push(planned.write);
   }
-  const agents = args.agentIds.map((agentId): McpAgentTargetPlan => {
-    const planned = byAgent.get(agentId);
-    if (planned !== undefined) return planned;
-    if (!isConfigurableAgentId(agentId)) {
-      return {
-        _tag: "unsupported",
-        agentId,
-        reason: `${agentId} has no MCP capability catalog entry`,
-      };
-    }
-    if (configuredMcpCapability(agentId) === undefined) {
-      return {
-        _tag: "unsupported",
-        agentId,
-        reason: `${agentId} does not have MCP config support`,
-      };
-    }
-    return {
-      _tag: "unsupported",
-      agentId,
-      reason: `${agentId} has no ${args.scope} MCP config target`,
-    };
-  });
+  const agents = args.agentIds.flatMap((agentId): ReadonlyArray<McpAgentTargetPlan> => [
+    ...(byAgent.get(agentId) ?? []),
+    ...unresolvedMcpAgentTargets(agentId, args.scope, groups),
+  ]);
   return { _tag: "planned", agents, writes };
 };

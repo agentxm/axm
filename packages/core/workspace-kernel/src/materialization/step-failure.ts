@@ -57,6 +57,10 @@ const packageMaterializationDetail = (error: PackageMaterializationFailed): stri
       return `Failed to recover an interrupted package installation at ${error.path}`;
     case "prepare-parent":
       return `Failed to prepare the package location for ${error.path}`;
+    case "record-parent-creation":
+      return `Failed to preserve parent creation evidence for ${error.path}`;
+    case "retire":
+      return `Failed to retire the installed package at ${error.path}`;
     case "prepare-staging":
       return `Failed to prepare temporary package files at ${error.path}`;
     case "inspect":

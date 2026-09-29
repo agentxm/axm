@@ -90,7 +90,7 @@ describe("Converting a native MCP server into an authored package", () => {
             return yield* ImportNativeExtension.previewOrApply(candidate, applyExecution);
           }).pipe(Effect.scoped, Effect.provide(authoringWorkspaceLayer(created)));
 
-          expect(deriveOperationOutcome(resolution)).toBe("applied");
+          expect(deriveOperationOutcome(resolution), JSON.stringify(resolution)).toBe("applied");
           const manifest = Schema.decodeUnknownSync(McpServerManifestSchema)(
             JSON.parse(created.read(`mcps/${targetName}/mcp.json`) ?? "null"),
           );

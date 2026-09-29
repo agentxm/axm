@@ -64,14 +64,21 @@ const expectedSkillAgentIdsFor = (
 ): ReadonlyArray<string> => {
   const observedDirs = agentIds.flatMap((agentId) => {
     const skills = AGENT_DESCRIPTORS[agentId].skills;
-    return skills === undefined ? [] : [skills.dir];
+    return skills === undefined
+      ? []
+      : skills.locations
+          .filter((location) => location.scope === "project" && location.role === "primary")
+          .map((location) => location.path);
   });
   return observedDirs
     .flatMap((observedDir) =>
       Object.values(AGENT_DESCRIPTORS).flatMap((agent) => {
         const skills = agent.skills;
         return skills !== undefined &&
-          [skills.dir, ...skills.additionalReadPaths.map(({ path }) => path)].includes(observedDir)
+          skills.locations
+            .filter((location) => location.scope === "project")
+            .map(({ path }) => path)
+            .includes(observedDir)
           ? [agent.id]
           : [];
       }),

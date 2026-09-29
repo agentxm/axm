@@ -389,7 +389,11 @@ export { packMemberBindings } from "./workspace/desired-pack-members.js";
 
 // Narrow workspace-state services
 export { WorkspaceDocuments, type WorkspaceDocumentsService } from "./workspace/documents.js";
-export { WorkspaceLocation, type WorkspaceLocationService } from "./workspace/location.js";
+export {
+  WorkspaceLocation,
+  captureNativeDirectoryInputs,
+  type WorkspaceLocationService,
+} from "./workspace/location.js";
 export {
   SettingsReader,
   bindRegistrySource,
@@ -508,3 +512,8 @@ export {
 } from "./workspace/configured-agent-outcomes.js";
 
 export { lockEntrySemanticallyEqual } from "./workspace/accepted-resolution-writer.js";
+
+export {
+  withDocumentRoundTripBatch,
+  type DocumentRoundTripBatch,
+} from "./desired/document-round-trip.js";

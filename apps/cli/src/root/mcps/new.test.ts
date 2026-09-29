@@ -5,7 +5,6 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace-kernel/projection/live";
 import { SourceHostProvidersLive } from "@agentxm/workspace-kernel/sources/live";
 import { extensionName, writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
@@ -44,7 +43,6 @@ describe("mcps-new.handler", () => {
     const workspaceServiceLayer = Layer.mergeAll(
       ctx.fullLayer,
       Layer.provide(SourceHostProvidersLive, ctx.fullLayer),
-      CodingAgentRepositoryLive,
     );
     // Creating an MCP server resolves its manager through the registry,
     // exactly as the runtime composes it.

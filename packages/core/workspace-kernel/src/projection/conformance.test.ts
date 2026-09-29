@@ -27,10 +27,15 @@ const productionTypeScriptFiles = (root: string): ReadonlyArray<string> =>
 describe("aggregate ownership unit conformance", () => {
   it("keeps managed-region reconciliation sealed and exposes the marker grammar", () => {
     // Reading and rendering a managed region is a single decision. Native
-    // format adapters own the primitives; workspace projection policy reaches
-    // them only through `reconcileManagedRegionFile`.
+    // format adapters own the primitives; the two projection adapters own
+    // workspace-region and native-region reconciliation respectively.
     const regionOffenders = productionTypeScriptFiles(projectionSrc)
-      .filter((file) => nodePath.basename(file) !== "managed-region-adapter.ts")
+      .filter(
+        (file) =>
+          !["managed-region-adapter.ts", "native-managed-region.ts"].includes(
+            nodePath.basename(file),
+          ),
+      )
       .filter((file) => {
         const source = nodeFs.readFileSync(file, "utf8");
         return source.includes("inspectManagedRegion") || source.includes("renderManagedRegion");

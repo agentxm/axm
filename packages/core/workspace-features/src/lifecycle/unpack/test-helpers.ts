@@ -124,6 +124,7 @@ export const seedAuthoredPackWorkspace = (
         {
           owner: "@acme",
           agents: ["claude-code"],
+          defaultRegistry: "test",
           sources: [world.registry.source],
           packs: { [PACK]: "workspace" },
           ...extraSettings,

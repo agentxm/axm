@@ -32,7 +32,18 @@ export const devinAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".devin/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".devin/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -56,61 +67,89 @@ export const devinAgent = {
           variables: "braced",
           defaults: false,
         },
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-08-05",
-        writer: {
-          config: {
-            serversKey: "mcpServers",
-            activationField: {
-              required: { name: "disabled", enabled: false, disabled: true },
-              accepted: [{ name: "disabled", enabled: false, disabled: true }, null],
+
+        locations: [
+          {
+            id: "project",
+            scope: "project",
+            root: "project",
+            path: ".devin/mcp_config.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
             },
-            targets: [
-              {
-                scope: "project",
-                path: ".devin/mcp_config.json",
-                format: "json",
-                attribution: "agent",
-              },
-              {
-                scope: "user",
-                path: "~/.config/devin/mcp_config.json",
-                format: "json",
-                attribution: "agent",
-              },
-            ],
-            stdio: {
-              typeField: { required: null, accepted: [null] },
-              command: "split",
-              envKey: "env",
+            provenance: {
+              kind: "capability-sources",
             },
-            remote: {
-              typeField: {
-                required: {
+            format: "json",
+            keyPath: ["mcpServers"],
+            attribution: "agent",
+          },
+          {
+            id: "user",
+            scope: "user",
+            root: "home",
+            path: ".config/devin/mcp_config.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "json",
+            keyPath: ["mcpServers"],
+            attribution: "agent",
+          },
+        ],
+
+        entryDialect: {
+          activationField: {
+            required: { name: "disabled", enabled: false, disabled: true },
+            accepted: [{ name: "disabled", enabled: false, disabled: true }, null],
+          },
+          stdio: {
+            typeField: { required: null, accepted: [null] },
+            command: "split",
+            envKey: "env",
+          },
+          remote: {
+            typeField: {
+              required: {
+                name: "transport",
+                value: {
+                  "streamable-http": "http",
+                  sse: "sse",
+                },
+              },
+              accepted: [
+                {
                   name: "transport",
                   value: {
                     "streamable-http": "http",
                     sse: "sse",
                   },
                 },
-                accepted: [
-                  {
-                    name: "transport",
-                    value: {
-                      "streamable-http": "http",
-                      sse: "sse",
-                    },
-                  },
-                ],
-              },
-              urlKey: {
-                "streamable-http": "url",
-                sse: "url",
-              },
-              headersKey: "headers",
+              ],
             },
+            urlKey: {
+              "streamable-http": "url",
+              sse: "url",
+            },
+            headersKey: "headers",
+          },
+        },
+      },
+      axm: {
+        status: "supported",
+        lastVerified: "2026-08-05",
+        writer: {
+          config: {
+            locationIds: ["project", "user"],
           },
         },
       },
@@ -124,8 +163,18 @@ export const devinAgent = {
         docs: [],
         sources: ["https://docs.devin.ai/cli/subagents"],
         scopes: ["user", "project"],
-        directory: ".devin/agents",
-        layout: "directory",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".devin/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -143,29 +192,77 @@ export const devinAgent = {
         sources: ["https://docs.devin.ai/cli/extensibility/hooks/overview"],
         scopes: ["user", "project"],
         mechanism: ["command-stdin"],
-        configFiles: [
+        locations: [
           {
+            id: "project",
             scope: "project",
+            root: "project",
             path: ".devin/hooks.v1.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "json",
+            keyPath: ["hooks"],
             gitignored: false,
           },
           {
+            id: "project-additional-1",
             scope: "project",
+            root: "project",
             path: ".devin/config.json",
+            shape: "file",
+            role: "additional",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "json",
+            keyPath: ["hooks"],
             gitignored: false,
           },
           {
+            id: "project-additional-2",
             scope: "project",
+            root: "project",
             path: ".devin/config.local.json",
+            shape: "file",
+            role: "additional",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "json",
+            keyPath: ["hooks"],
             gitignored: true,
           },
           {
+            id: "user",
             scope: "user",
-            path: "~/.config/devin/config.json",
+            root: "home",
+            path: ".config/devin/config.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "json",
+            keyPath: ["hooks"],
             gitignored: false,
           },
         ],
@@ -241,25 +338,21 @@ export const devinAgent = {
             lastVerified: "2026-08-05",
           },
         ],
-      },
-      axm: {
-        status: "supported",
-        writer: {
+
+        entryDialect: {
           serializer: "command-stdin",
-          configFiles: [
-            {
-              scope: "project",
-              path: ".devin/config.json",
-              format: "json",
-              gitignored: false,
-            },
-          ],
-          settingsKey: "hooks",
-          eventMap: "native.events",
           matcherKind: "regex",
           matcherSerialization: "bare",
           timeoutSerialization: "seconds",
           commandNameSerialization: "omit",
+        },
+      },
+      axm: {
+        status: "supported",
+        writer: {
+          locationIds: ["project-additional-1"],
+
+          eventMap: "native.events",
         },
         lastVerified: "2026-08-05",
       },
@@ -276,7 +369,18 @@ export const devinAgent = {
       standardsCompliance: "full",
       convention: "universal",
       kind: "agents-md",
-      files: ["AGENTS.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "AGENTS.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: true,
       importSyntax: null,
     },
@@ -296,22 +400,55 @@ export const devinAgent = {
       sources: ["https://docs.devin.ai/cli/reference/permissions"],
       scopes: ["user", "project"],
       mechanism: ["config-file", "cli-flag"],
-      configFiles: [
+      locations: [
         {
+          id: "project",
           scope: "project",
+          root: "project",
           path: ".devin/config.json",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "json",
           gitignored: false,
         },
         {
+          id: "project-additional-1",
           scope: "project",
+          root: "project",
           path: ".devin/config.local.json",
+          shape: "file",
+          role: "additional",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "json",
           gitignored: true,
         },
         {
+          id: "user",
           scope: "user",
-          path: "~/.config/devin/config.json",
+          root: "home",
+          path: ".config/devin/config.json",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "json",
           gitignored: false,
         },
@@ -340,7 +477,7 @@ export const devinAgent = {
       writer: {
         grants: {
           shell: {
-            target: ".devin/config.json",
+            destination: { kind: "location", locationId: "project" },
             patch: {
               permissions: {
                 allow: ["Exec(${tool})"],
@@ -349,7 +486,7 @@ export const devinAgent = {
             template: null,
           },
           filesystem: {
-            target: ".devin/config.json",
+            destination: { kind: "location", locationId: "project" },
             patch: {
               permissions: {
                 allow: ["Read(**)", "Write(**)", "edit"],

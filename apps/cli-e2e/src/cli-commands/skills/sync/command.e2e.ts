@@ -30,7 +30,7 @@ describe("axm sync configured skills", () => {
       expect(JSON.parse(assertion.stdout)).toMatchObject({
         ok: false,
         result: {
-          contract: "plan-result-v3",
+          contract: "plan-result-v4",
           outcome: "previewed",
           mode: "preview",
           divergence: true,
@@ -69,7 +69,7 @@ describe("axm sync configured skills", () => {
       expect(convergedDocument).toMatchObject({
         ok: true,
         result: {
-          contract: "plan-result-v3",
+          contract: "plan-result-v4",
           outcome: "no-op",
           counts: { total: 0, committed: 0 },
         },

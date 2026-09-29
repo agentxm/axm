@@ -5,7 +5,7 @@ import {
   SUPPORTED_AXM_SUPPORT,
   agentById,
   type AgentId,
-  type ConfigFileLocation,
+  type NativeConfigReadLocation,
   type PermissionsExtensionCapability,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
@@ -14,32 +14,27 @@ const decodeAgentIdOption = Schema.decodeUnknownOption(AgentIdSchema);
 
 const toCatalogAgentId = (id: string): Option.Option<AgentId> => decodeAgentIdOption(id);
 
-const withoutHomePrefix = (path: string): string => (path.startsWith("~/") ? path.slice(2) : path);
-
 const preferredTarget = (
   permissions: PermissionsExtensionCapability,
-  scope: ConfigFileLocation["scope"],
-): ConfigFileLocation | undefined => {
-  const configFiles = (
-    "configFiles" in permissions.native ? permissions.native.configFiles : []
-  ).filter((configFile) => configFile.scope === scope);
-  const shellTarget = permissions.axm.writer?.grants["shell"]?.target;
-
+  scope: NativeConfigReadLocation["scope"],
+): NativeConfigReadLocation | undefined => {
+  const locations = ("locations" in permissions.native ? permissions.native.locations : []).filter(
+    (location) => location.scope === scope,
+  );
+  const destination = permissions.axm.writer?.grants["shell"]?.destination;
   return (
-    configFiles.find((configFile) => configFile.path === shellTarget) ??
-    (shellTarget === undefined
-      ? undefined
-      : configFiles.find(
-          (configFile) => withoutHomePrefix(configFile.path) === withoutHomePrefix(shellTarget),
-        )) ??
-    configFiles[0]
+    (destination?.kind === "location"
+      ? locations.find((location) => location.id === destination.locationId)
+      : undefined) ?? locations[0]
   );
 };
 
-const prefersCliFlags = (permissions: PermissionsExtensionCapability): boolean =>
-  "mechanism" in permissions.native &&
-  permissions.native.mechanism.includes("cli-flag") &&
-  ("configFiles" in permissions.native ? permissions.native.configFiles.length === 0 : true);
+const displayTarget = (location: NativeConfigReadLocation): string =>
+  location.root === "project"
+    ? location.path
+    : location.root === "xdg-config"
+      ? `~/.config/${location.path}`
+      : `~/${location.path}`;
 
 // Mirrors SuggestedActionSchema's runnable-command check: a description that
 // embeds `axm ` anywhere is rejected unless it carries a `cmd`, so an example
@@ -54,7 +49,7 @@ const descriptionExample = (example: string | undefined): string | undefined =>
  */
 export const buildPermissionSuggestions = (
   agentIds: ReadonlyArray<string>,
-  scope: ConfigFileLocation["scope"],
+  scope: NativeConfigReadLocation["scope"],
 ): ReadonlyArray<SuggestedAction> =>
   agentIds.flatMap((id) =>
     Option.match(toCatalogAgentId(id), {
@@ -75,14 +70,21 @@ export const buildPermissionSuggestions = (
         const inlineExample = descriptionExample(example);
         const docUrl = permissions.native.sources[0];
 
+        const destination = permissions.axm.writer?.grants["shell"]?.destination;
         const description =
-          target === undefined
-            ? prefersCliFlags(permissions) && example !== undefined
-              ? `Allow AXM in ${agent.name} with \`${example}\``
-              : `Configure ${agent.name} to allow AXM without per-call prompts`
-            : `Allow AXM in ${agent.name} by adding ${
-                inlineExample === undefined ? "a permission rule " : `\`${inlineExample}\` `
-              }to \`${target.path}\``;
+          destination?.kind === "invocation" && example !== undefined
+            ? `Allow AXM in ${agent.name} with \`${example}\``
+            : destination?.kind === "settings-ui"
+              ? `Configure ${agent.name} to allow AXM in its settings UI`
+              : target === undefined
+                ? "mechanism" in permissions.native &&
+                  permissions.native.mechanism.includes("cli-flag") &&
+                  example !== undefined
+                  ? `Allow AXM in ${agent.name} with \`${example}\``
+                  : `Configure ${agent.name} to allow AXM without per-call prompts`
+                : `Allow AXM in ${agent.name} by adding ${
+                    inlineExample === undefined ? "a permission rule " : `\`${inlineExample}\` `
+                  }to \`${displayTarget(target)}\``;
 
         return docUrl === undefined ? [{ description }] : [{ description, url: docUrl }];
       },

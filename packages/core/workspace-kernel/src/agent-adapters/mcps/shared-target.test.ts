@@ -1,21 +1,26 @@
+import { configuredMcpCapability, declaredMcpWriterTargets } from "./targeting.js";
+import type { ResolvedMcpConfig } from "./shared-target.js";
 import { describe, expect, it } from "vitest";
 import {
-  AGENTS_BY_ID,
   type AgentId,
-  type McpConfig,
   type McpTypeField,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { resolveSharedMcpTarget, type SharedMcpTargetMember } from "./shared-target.js";
 
 const projectMember = (agentId: AgentId): SharedMcpTargetMember => {
-  const capability = AGENTS_BY_ID[agentId].capabilities["mcp-server"];
-  const writer = capability.axm.writer;
-  if (writer === null) throw new Error(agentId + " has no MCP writer");
-  const target = writer.config.targets.find(
-    (candidate) => candidate.scope === "project" && candidate.path === ".mcp.json",
+  const capability = configuredMcpCapability(agentId);
+  if (capability === undefined) throw new Error(agentId + " has no MCP writer");
+  const selected = declaredMcpWriterTargets(capability).find(
+    ({ target }) => target.scope === "project" && target.path === ".mcp.json",
   );
-  if (target === undefined) throw new Error(agentId + " has no shared .mcp.json target");
-  return { agentId, config: writer.config, target };
+  if (selected === undefined) throw new Error(agentId + " has no shared .mcp.json target");
+  return {
+    agentId,
+    locationId: selected.location.id,
+    configured: true,
+    config: selected.config,
+    target: selected.target,
+  };
 };
 
 const stdioField = (value: string): McpTypeField => ({
@@ -23,10 +28,9 @@ const stdioField = (value: string): McpTypeField => ({
   accepted: [{ name: "type", value }],
 });
 
-const configWithTypeField = (typeField: McpTypeField): McpConfig => ({
+const configWithTypeField = (typeField: McpTypeField): ResolvedMcpConfig => ({
   serversKey: "mcpServers",
   activationField: { required: null, accepted: [null] },
-  targets: [{ scope: "project", path: ".mcp.json", format: "json", attribution: "shared" }],
   stdio: {
     typeField,
     command: "split",
@@ -76,11 +80,15 @@ describe("shared MCP target compatibility", () => {
   it("reports the target and incompatible axis when accepted values do not intersect", () => {
     const alpha: SharedMcpTargetMember = {
       agentId: "alpha",
+      locationId: "project",
+      configured: true,
       config: configWithTypeField(stdioField("stdio")),
       target: { scope: "project", path: ".mcp.json", format: "json", attribution: "shared" },
     };
     const beta: SharedMcpTargetMember = {
       agentId: "beta",
+      locationId: "project",
+      configured: true,
       config: configWithTypeField(stdioField("local")),
       target: { scope: "project", path: ".mcp.json", format: "jsonc", attribution: "shared" },
     };

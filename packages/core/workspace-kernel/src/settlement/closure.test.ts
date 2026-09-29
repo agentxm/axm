@@ -16,6 +16,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
 import { protectWorkspacePath } from "./context.js";
+import { recordFootprint } from "./footprint-recorder.js";
 import {
   acquireWorkspaceTransition,
   WorkspaceTransactionScope,
@@ -71,6 +72,7 @@ describe("closure settlement", () => {
       Effect.andThen(
         Effect.flatMap(FileSystem.FileSystem, (fs) => fs.writeFileString(target, content)),
       ),
+      Effect.andThen(recordFootprint({ path: target, change: "modified" })),
     );
 
   const families = () => [settingsPath, lockPath, canonicalFile, projectionPath];
@@ -196,8 +198,7 @@ describe("closure settlement", () => {
           scope().pipe(
             Layer.provideMerge(
               injectWriteFaults(
-                (operation) =>
-                  operation.kind === "copy" && operation.source.includes("axm-rollback-"),
+                (operation) => operation.kind === "writeFile" && operation.path === settingsPath,
               ),
             ),
             Layer.provideMerge(NodeServices.layer),
@@ -217,7 +218,9 @@ describe("closure settlement", () => {
             runWorkspaceTransaction({
               claimDefaultTargets: false,
               targets: [nested],
-              transition: Effect.sync(() => nodeFs.writeFileSync(nested, "changed\n")),
+              transition: Effect.sync(() => nodeFs.writeFileSync(nested, "changed\n")).pipe(
+                Effect.andThen(recordFootprint({ path: nested, change: "modified" })),
+              ),
               validate: () => Effect.void,
             }),
           );

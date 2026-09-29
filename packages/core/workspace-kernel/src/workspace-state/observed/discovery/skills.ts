@@ -90,7 +90,12 @@ export const getPriorityDirectories = (): ReadonlyArray<string> => {
       const skills = AGENT_DESCRIPTORS[id].skills;
       return skills === undefined
         ? []
-        : [skills.dir, ...skills.additionalReadPaths.map(({ path }) => path)];
+        : skills.locations
+            .filter(
+              (location) =>
+                location.scope === "project" && location.applicability.kind === "always",
+            )
+            .map(({ path }) => path);
     }),
   );
   return Array.dedupe([".", ...STATIC_PRIORITY_DIRECTORIES, ...agentDirs]);

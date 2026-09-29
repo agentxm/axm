@@ -223,6 +223,7 @@ export const WorkspaceReadTest = (
       };
       const selectedLayout = facts.layout ?? defaultLayout;
       const location: WorkspaceLocationService = {
+        nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
         scope: selectedLayout.scope,
         projectRoot: decodeAbsolutePathSync(path.resolve(facts.baseDir)),
         userHome: decodeAbsolutePathSync(path.resolve(facts.baseDir)),
@@ -271,7 +272,21 @@ export const WorkspaceReadTest = (
         graph: evaluated,
       });
       const desired: DesiredStateReaderService = {
-        evaluate: () => Effect.map(graph(), evaluationOf),
+        evaluate: () =>
+          Effect.gen(function* () {
+            const evaluated = evaluationOf(yield* graph());
+            const settings = yield* documents.settings();
+            const acceptedResolutions = yield* documents.acceptedResolutions;
+            return {
+              ...evaluated,
+              inputs: {
+                ...evaluated.inputs,
+                settings,
+                defaultRegistry: settings.defaultRegistry ?? "agentxm",
+                acceptedResolutions,
+              },
+            };
+          }),
         graph,
         propose: (base, settings) =>
           Effect.succeed({ inputs: { ...base.inputs, settings }, graph: base.graph }),

@@ -14,7 +14,8 @@
 import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
-import type * as Path from "effect/Path";
+import * as Path from "effect/Path";
+import { nativeAuthorityRoots } from "../locations/index.js";
 
 import { WorkspaceTransactionScope, type WorkspaceFileWriteLocks } from "../settlement/index.js";
 import { WorkspaceTransactionScopeLive as TransactionScopeLive } from "../settlement/live.js";
@@ -103,13 +104,21 @@ export const WorkspaceTransactionScopeLive: Layer.Layer<
   never,
   WorkspaceLocation | FileSystem.FileSystem | Path.Path
 > = Layer.unwrap(
-  Effect.map(WorkspaceLocation, (location) =>
-    TransactionScopeLive({
+  Effect.gen(function* () {
+    const location = yield* WorkspaceLocation;
+    const path = yield* Path.Path;
+    return TransactionScopeLive({
       workspaceDir: location.runtimeDir,
+      nativeRoot: location.baseDir,
+      nativeRoots: nativeAuthorityRoots(
+        path,
+        { workspaceRoot: location.baseDir, scope: location.scope },
+        location.nativeDirectoryInputs,
+      ),
       settingsPath: location.settingsPath,
       lockPath: location.lockPath,
-    }),
-  ),
+    });
+  }),
 );
 
 /**

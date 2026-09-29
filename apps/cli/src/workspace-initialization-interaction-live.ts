@@ -64,7 +64,14 @@ export const selectAgentsAsk = (facts: AgentFacts): PickAsk<ReadonlyArray<string
         ...(facts.projectDetectedIds.includes(agent.id) ? ["detected in project"] : []),
         ...(facts.userDetectedIds.includes(agent.id) ? ["detected on workstation"] : []),
         ...(facts.suggestedIds.includes(agent.id) ? ["suggested"] : []),
-        agent.skills === undefined ? "skills: unsupported" : `skills: ${agent.skills.dir}`,
+        agent.skills === undefined
+          ? "skills: unsupported"
+          : `skills: ${
+              agent.skills.locations
+                .filter((location) => location.scope === "project")
+                .map((location) => location.path)
+                .join(", ") || "location unverified"
+            }`,
       ],
       ...(facts.configuredIds.includes(agent.id) ||
       facts.projectDetectedIds.includes(agent.id) ||

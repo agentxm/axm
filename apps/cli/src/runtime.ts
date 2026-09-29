@@ -94,7 +94,10 @@ import {
   type SourceHostConfig,
 } from "@agentxm/workspace-kernel/workspace-state";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import { layer as coreWorkspaceLayer } from "@agentxm/workspace-kernel/workspace-state/live";
+import {
+  layer as coreWorkspaceLayer,
+  WorkspaceLocationLive,
+} from "@agentxm/workspace-kernel/workspace-state/live";
 import {
   decodeAbsolutePathSync,
   type AbsolutePath,
@@ -367,9 +370,10 @@ const makeWorkspaceProgramLayer = (workspace: Omit<WorkspaceStateOptions, "built
     }),
     AgentPresenceProbeLive,
   );
+  const agentRepositoryLayer = Layer.provide(CodingAgentRepositoryLive, wsLayer);
   const workspaceCatalogLayer = Layer.provide(
     WorkspaceCatalogLive,
-    Layer.merge(wsLayer, CodingAgentRepositoryLive),
+    Layer.merge(wsLayer, agentRepositoryLayer),
   );
   const sourceProvidersLayer = Layer.provide(
     SourceHostProvidersLive,
@@ -377,12 +381,12 @@ const makeWorkspaceProgramLayer = (workspace: Omit<WorkspaceStateOptions, "built
   );
   const gitDirectoryComparisonLayer = Layer.provide(GitDirectoryComparisonLive, PlatformLayer);
   const workspaceServiceLayer = Layer.mergeAll(
-    NativeWriteAuthorityLive,
+    Layer.provide(NativeWriteAuthorityLive, wsLayer),
     wsLayer,
     workspaceCatalogLayer,
     sourceProvidersLayer,
     gitDirectoryComparisonLayer,
-    CodingAgentRepositoryLive,
+    agentRepositoryLayer,
     WorkspaceFailureConversionLive,
   );
 
@@ -399,6 +403,13 @@ const makeWorkspaceProgramLayer = (workspace: Omit<WorkspaceStateOptions, "built
   );
   return Layer.mergeAll(fullLayer, invariantFactsLayer, configuredAgentOutcomesLayer);
 };
+
+/** Setup binds projection ports to its explicit scope before settings exist. */
+export const setupProjectionLayer = (workspace: Omit<WorkspaceStateOptions, "builtInSources">) =>
+  Layer.provide(
+    Layer.mergeAll(CodingAgentRepositoryLive, NativeWriteAuthorityLive),
+    WorkspaceLocationLive({ ...workspace, allowUninitialized: true }),
+  );
 
 const envToBool = (opt: Option.Option<string>): boolean =>
   isEnabledEnvRequest(Option.getOrUndefined(opt));
@@ -522,15 +533,11 @@ export const withRuntime =
         ),
         foundationLayer,
       );
-      // The coding-agent repository is context-free and serves commands that
-      // run before a workspace exists (setup); workspace-bound commands get
-      // the same layer again through withWorkspace, harmlessly.
       const appLayer = Layer.provideMerge(
         makeRuntimeLoggerLayer,
         Layer.mergeAll(
           foundationLayer,
           interactionLayer,
-          CodingAgentRepositoryLive,
           Layer.provide(WorkspaceTransactionScopesLive, PlatformLayer),
         ),
       );

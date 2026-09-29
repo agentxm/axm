@@ -25,6 +25,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import { fromFileLocation } from "@agentxm/host-primitives";
+import { UNIVERSAL_SKILLS_DIR } from "@agentxm/extension-model/unstable/extensions/universal-skills-dir";
 import type * as PlatformError from "effect/PlatformError";
 import type { CodingAgentFailure } from "../agent-adapters/index.js";
 import { CodingAgentRepository } from "../projection/index.js";
@@ -131,7 +132,7 @@ export const WorkspaceCatalogLive = Layer.effect(
       const resolvedAgents = yield* Effect.forEach(
         configuredAgents,
         (agent) =>
-          agent.resolveEffectiveSkillsDir({ workspaceRoot: base }).pipe(
+          agent.resolveEffectiveSkillsDir({ workspaceRoot: base, scope: location.scope }).pipe(
             Effect.mapError(catalogUnavailable),
             Effect.map((outcome) => ({ agent, outcome })),
           ),
@@ -139,15 +140,16 @@ export const WorkspaceCatalogLive = Layer.effect(
       );
 
       const agentRoots = sortNames(
-        Array.dedupe(
-          Array.getSomes(
+        Array.dedupe([
+          path.join(base, UNIVERSAL_SKILLS_DIR),
+          ...Array.getSomes(
             Array.map(resolvedAgents, ({ outcome }) =>
               outcome._tag === "supported"
                 ? Option.some(path.normalize(outcome.dir))
                 : Option.none<string>(),
             ),
           ),
-        ),
+        ]),
       );
 
       const unreadable = yield* Ref.make<

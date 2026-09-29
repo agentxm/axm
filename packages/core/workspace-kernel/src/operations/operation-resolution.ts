@@ -15,6 +15,7 @@
 
 import type * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import type { WorkspaceRecoveryEntry } from "../settlement/index.js";
 
 import type { OperationErrorCategory, StepFailure } from "./errors.js";
 import type { ReleaseAgeOperationEvidence } from "./evidence.js";
@@ -201,6 +202,7 @@ export interface OperationFootprintEntry {
  */
 export interface OperationRecovery {
   readonly retained: ReadonlyArray<string>;
+  readonly entries: ReadonlyArray<WorkspaceRecoveryEntry>;
   /** OS-temporary directory preserving pre-change snapshots, when it survives. */
   readonly snapshotDir?: string;
   readonly actions: ReadonlyArray<SuggestedAction>;

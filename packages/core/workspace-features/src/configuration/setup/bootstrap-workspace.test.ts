@@ -17,6 +17,7 @@ import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-t
 import type { WorkspaceStateOptions } from "@agentxm/workspace-kernel/workspace-state";
 import { bootstrapWorkspace } from "../index.js";
 import { WorkspaceInitializationInteractionTest } from "../testing.js";
+import { setupWorkspaceTestLayer } from "./test-helpers.js";
 
 describe("bootstrapWorkspace", () => {
   let tempDir: string;
@@ -81,7 +82,7 @@ describe("bootstrapWorkspace", () => {
     return {
       run: bootstrapWorkspace(wsOptions).pipe(
         Effect.map((r) => r.settings),
-        Effect.provide(base),
+        Effect.provide(Layer.provideMerge(setupWorkspaceTestLayer(wsOptions), base)),
         Effect.scoped,
       ),
       promptState: workspaceInitInteraction.state,
@@ -205,8 +206,11 @@ describe("bootstrapWorkspace", () => {
       yield* bootstrapWorkspace({ ...defaultOptions, nonInteractive: false }).pipe(
         Effect.provide(
           Layer.provideMerge(
-            Layer.mergeAll(WorkspaceFileWriteLocksLive, interaction.layer),
-            NodeServices.layer,
+            setupWorkspaceTestLayer(defaultOptions),
+            Layer.provideMerge(
+              Layer.mergeAll(WorkspaceFileWriteLocksLive, interaction.layer),
+              NodeServices.layer,
+            ),
           ),
         ),
         Effect.scoped,

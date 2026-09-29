@@ -116,6 +116,7 @@ export const makeWorkspaceLocationMock = (
       lockPath: path.join(baseDir, "axm-lock.yaml"),
       layout: yield* Ref.make<WorkspaceLayout>(layout),
       builtInSources: [],
+      nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
       ...overrides,
     };
     return location;

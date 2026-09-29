@@ -172,6 +172,7 @@ describe("Machine mode never prompts", () => {
         const workspace = makeSpecWorkspace({
           machine: true,
           flags: { nonInteractive: false, json: true },
+          settings: { agents: ["gemini-cli"] },
         });
         cleanups.push(workspace.cleanup);
         const source = writeMcpSourceWithRequiredInput(workspace.root);

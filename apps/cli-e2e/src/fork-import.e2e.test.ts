@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
+import { snapshotProtectedState } from "@agentxm/test-support";
 
 import { createTempDir, runCli } from "./e2e/utils.js";
 
@@ -178,12 +179,11 @@ describe("fork and native import", () => {
           },
         },
       };
-      fs.writeFileSync(
-        path.join(temp.path, ".mcp.json"),
-        `${JSON.stringify(nativeConfig, null, 2)}\n`,
-      );
+      const nativeConfigPath = path.join(temp.path, ".cursor", "mcp.json");
+      fs.mkdirSync(path.dirname(nativeConfigPath), { recursive: true });
+      fs.writeFileSync(nativeConfigPath, `${JSON.stringify(nativeConfig, null, 2)}\n`);
       const setup = await runCli(
-        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        ["setup", "--yes", "--scope", "project", "--agent", "cursor", "--non-interactive"],
         { cwd: temp.path },
       );
       expect(setup.exitCode, setup.stderr).toBe(0);
@@ -194,7 +194,7 @@ describe("fork and native import", () => {
         { cwd: temp.path },
       );
       expect(imported.exitCode, `${imported.stderr}\n${imported.stdout}`).toBe(0);
-      expect(readJson(path.join(temp.path, ".mcp.json"))).toEqual({ mcpServers: {} });
+      expect(readJson(nativeConfigPath)).toEqual({ mcpServers: {} });
       expect(readJson(path.join(temp.path, "mcps", "context", "mcp.json"))).toMatchObject({
         owner: "@test",
         type: "mcp-server",
@@ -205,9 +205,13 @@ describe("fork and native import", () => {
             {
               type: "streamable-http",
               url: "https://mcp.example.test/context",
+              headers: [{ name: "Authorization", value: "Bearer ${CONTEXT_TOKEN}" }],
             },
           ],
         },
+      });
+      expect(readJson(path.join(temp.path, "axm.json"))).toMatchObject({
+        mcpServers: { context: { source: "workspace", enabled: false } },
       });
 
       const forked = await runCli(
@@ -221,6 +225,45 @@ describe("fork and native import", () => {
         name: "context-fork",
         version: "0.1.0",
       });
+    } finally {
+      temp.cleanup();
+    }
+  });
+
+  it("refuses symbolic MCP import when a potential shared reader cannot preserve it", async () => {
+    const temp = createTempDir();
+    try {
+      const setup = await runCli(
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+        { cwd: temp.path },
+      );
+      expect(setup.exitCode, setup.stderr).toBe(0);
+      configureOwner(temp.path);
+      fs.writeFileSync(
+        path.join(temp.path, ".mcp.json"),
+        JSON.stringify({
+          mcpServers: {
+            context: {
+              url: "https://mcp.example.test/context",
+              headers: { Authorization: "Bearer ${CONTEXT_TOKEN}" },
+            },
+          },
+        }),
+      );
+      const before = snapshotProtectedState(temp.path);
+      for (const flags of [["--preview"], []]) {
+        const refused = await runCli(
+          ["mcps", "import", "--as", "@test/mcps/context", ...flags, "--non-interactive", "--json"],
+          { cwd: temp.path },
+        );
+        expect(refused.exitCode, refused.stdout + refused.stderr).toBe(6);
+        expect(JSON.parse(refused.stdout)).toMatchObject({
+          ok: false,
+          code: "conflict",
+          detail: expect.stringContaining("command-code cannot read shared MCP target"),
+        });
+        expect(snapshotProtectedState(temp.path)).toEqual(before);
+      }
     } finally {
       temp.cleanup();
     }

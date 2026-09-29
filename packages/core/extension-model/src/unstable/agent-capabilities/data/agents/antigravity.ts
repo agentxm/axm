@@ -43,8 +43,38 @@ export const antigravityAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
-        directory: ".agents/skills",
-        additionalReadPaths: [{ path: ".agent/skills", status: "compat" }],
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".agents/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".gemini/config/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+          {
+            scope: "project",
+            root: "project",
+            path: ".agent/skills",
+            shape: "directory",
+            role: "additional",
+            status: "compat",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -71,44 +101,72 @@ export const antigravityAgent = {
           variables: "none",
           defaults: false,
         },
+
+        locations: [
+          {
+            id: "user",
+            scope: "user",
+            root: "home",
+            path: ".gemini/config/mcp_config.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "json",
+            keyPath: ["mcpServers"],
+            attribution: "agent",
+          },
+          {
+            id: "project",
+            scope: "project",
+            root: "project",
+            path: ".agents/mcp_config.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "json",
+            keyPath: ["mcpServers"],
+            attribution: "agent",
+          },
+        ],
+
+        entryDialect: {
+          activationField: {
+            required: { name: "disabled", enabled: false, disabled: true },
+            accepted: [{ name: "disabled", enabled: false, disabled: true }, null],
+          },
+          stdio: {
+            typeField: { required: null, accepted: [null] },
+            command: "split",
+            envKey: "env",
+          },
+          remote: {
+            typeField: { required: null, accepted: [null] },
+            urlKey: {
+              "streamable-http": "serverUrl",
+              sse: "serverUrl",
+            },
+            headersKey: "headers",
+          },
+        },
       },
       axm: {
         status: "supported",
         lastVerified: "2026-08-05",
         writer: {
           config: {
-            serversKey: "mcpServers",
-            activationField: {
-              required: { name: "disabled", enabled: false, disabled: true },
-              accepted: [{ name: "disabled", enabled: false, disabled: true }, null],
-            },
-            targets: [
-              {
-                scope: "user",
-                path: "~/.gemini/config/mcp_config.json",
-                format: "json",
-                attribution: "agent",
-              },
-              {
-                scope: "project",
-                path: ".agents/mcp_config.json",
-                format: "json",
-                attribution: "agent",
-              },
-            ],
-            stdio: {
-              typeField: { required: null, accepted: [null] },
-              command: "split",
-              envKey: "env",
-            },
-            remote: {
-              typeField: { required: null, accepted: [null] },
-              urlKey: {
-                "streamable-http": "serverUrl",
-                sse: "serverUrl",
-              },
-              headersKey: "headers",
-            },
+            locationIds: ["user", "project"],
           },
         },
       },
@@ -140,16 +198,38 @@ export const antigravityAgent = {
         ],
         scopes: ["user", "project"],
         mechanism: ["command-stdin"],
-        configFiles: [
+        locations: [
           {
+            id: "user",
             scope: "user",
-            path: "~/.gemini/config/hooks.json",
+            root: "home",
+            path: ".gemini/config/hooks.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "json",
             gitignored: false,
           },
           {
+            id: "project",
             scope: "project",
+            root: "project",
             path: ".agents/hooks.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "json",
             gitignored: false,
           },
@@ -208,6 +288,8 @@ export const antigravityAgent = {
             lastVerified: "2026-08-05",
           },
         ],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -228,9 +310,29 @@ export const antigravityAgent = {
       scopes: ["project"],
       standardsCompliance: "full",
       convention: "universal",
-      directory: ".agents/rules",
       kind: "agents-md",
-      files: ["AGENTS.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "AGENTS.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+        {
+          scope: "project",
+          root: "project",
+          path: ".agents/rules",
+          shape: "directory",
+          role: "additional",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: true,
       importSyntax: null,
     },
@@ -253,10 +355,21 @@ export const antigravityAgent = {
       ],
       scopes: ["user"],
       mechanism: ["config-file", "ui-only"],
-      configFiles: [
+      locations: [
         {
+          id: "user",
           scope: "user",
-          path: "~/.gemini/antigravity-cli/settings.json",
+          root: "home",
+          path: ".gemini/antigravity-cli/settings.json",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "json",
           gitignored: false,
         },
@@ -275,7 +388,7 @@ export const antigravityAgent = {
       writer: {
         grants: {
           shell: {
-            target: "~/.gemini/antigravity-cli/settings.json",
+            destination: { kind: "location", locationId: "user" },
             patch: {
               permissions: {
                 allow: ["command(${tool})"],
@@ -284,7 +397,7 @@ export const antigravityAgent = {
             template: null,
           },
           filesystem: {
-            target: "~/.gemini/antigravity-cli/settings.json",
+            destination: { kind: "location", locationId: "user" },
             patch: {
               permissions: {
                 allow: ["read_file(${workspaceRoot})", "write_file(${workspaceRoot})"],

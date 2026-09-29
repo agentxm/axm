@@ -15,6 +15,8 @@ import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import type * as ConfigProvider from "effect/ConfigProvider";
 import * as Layer from "effect/Layer";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
@@ -36,6 +38,7 @@ import {
   type SyncWorkspaceRequest,
 } from "../sync/index.js";
 import { syncRequest } from "../sync/testing.js";
+import { UninstallExtensions } from "../lifecycle/index.js";
 
 export { syncRequest };
 export { makeFileRegistry, type FileRegistry };
@@ -57,6 +60,10 @@ export interface SyncFixtureOptions {
    * client to the program afterwards. Absent, every request is refused.
    */
   readonly httpClient?: HttpClient.HttpClient;
+  /** Wrap the pinned-home configuration provider before workspace capture. */
+  readonly configureConfigProvider?: (
+    provider: ConfigProvider.ConfigProvider,
+  ) => ConfigProvider.ConfigProvider;
 }
 
 /**
@@ -73,6 +80,7 @@ export const makeSyncFixture = (options: SyncFixtureOptions = {}) => {
     lockfile: options.lockfile,
     files: options.files,
     installedExecutables: options.installedExecutables,
+    configureConfigProvider: options.configureConfigProvider,
     httpClient:
       options.httpClient === undefined
         ? undefined
@@ -155,6 +163,16 @@ export const previewSync = (request: SyncWorkspaceRequest = syncRequest()) =>
 /** Settle a reconciliation and apply it. */
 export const applySync = (request: SyncWorkspaceRequest = syncRequest()) =>
   resolveSync(request, preapprovedPlanExecution);
+
+/** Withdraw an MCP declaration with its pre-withdrawal ownership still available. */
+export const withdrawMcpServer = (name: string) =>
+  Effect.gen(function* () {
+    const candidate = yield* UninstallExtensions.prepare({
+      type: Option.some("mcp-server"),
+      selector: name,
+    });
+    return yield* UninstallExtensions.previewOrApply(candidate, preapprovedPlanExecution);
+  });
 
 /** The resolution an example expected a reconciliation to produce. */
 export const expectResolved = (

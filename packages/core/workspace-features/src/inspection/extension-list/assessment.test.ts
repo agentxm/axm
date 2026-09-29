@@ -41,14 +41,11 @@ const workspaceWithCatalogLayer = (
     ...(facts.records === undefined ? {} : { records: facts.records }),
     ...(facts.graph === undefined ? {} : { graph: facts.graph }),
   });
-  return Layer.mergeAll(
-    readLayer,
-    RegistryClientFactoryTestLive(),
-    WorkspaceCatalogLive.pipe(
-      Layer.provide(readLayer),
-      Layer.provide(CodingAgentRepositoryLive),
-      Layer.provide(NodeServices.layer),
-    ),
+  return WorkspaceCatalogLive.pipe(
+    Layer.provideMerge(CodingAgentRepositoryLive),
+    Layer.provideMerge(readLayer),
+    Layer.provideMerge(RegistryClientFactoryTestLive()),
+    Layer.provide(NodeServices.layer),
   );
 };
 

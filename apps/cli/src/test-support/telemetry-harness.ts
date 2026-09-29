@@ -27,6 +27,26 @@ import { TelemetryClientLive, type TelemetryClientOptions } from "../telemetry/i
 import { makeSpecWorkspace, writeLocalSkillPackage } from "./install-harness.js";
 import { writeWorkspaceFiles } from "./test-stubs.js";
 import { snapshotTree } from "@agentxm/test-support";
+import { readContainerReceipts, type ContainerIdentity } from "@agentxm/workspace-kernel/locations";
+
+// Each trial recreates the same paths as new filesystem objects. Compare the
+// complete receipt meaning while leaving incarnation checks to location specs.
+const comparableIdentity = (identity: ContainerIdentity) => {
+  const attributes = (entry: ContainerIdentity["entry"]) => ({
+    device: entry.device,
+    mode: entry.mode,
+  });
+  return {
+    ...identity,
+    entry: attributes(identity.entry),
+    owner: { ...identity.owner, identity: attributes(identity.owner.identity) },
+    root: { ...identity.root, identity: attributes(identity.root.identity) },
+    parents: identity.parents.map((parent) => ({
+      ...parent,
+      identity: attributes(parent.identity),
+    })),
+  };
+};
 
 export const sensitiveSentinels = [
   "SYNTHETIC_EXTENSION_CONTENT_71",
@@ -185,10 +205,31 @@ export const makeTelemetryOperation = () => {
         Effect.exit,
       );
       const exitCode = Exit.isSuccess(exit) ? exit.value.exitCode : undefined;
+      const receipts = yield* readContainerReceipts(nodePath.join(workspace.root, ".axm")).pipe(
+        Effect.provide(NodeServices.layer),
+      );
       return {
         exit,
         exitCode,
-        files: snapshotTree(workspace.root),
+        files: Object.fromEntries(
+          Object.entries(snapshotTree(workspace.root)).filter(
+            ([relative]) => relative !== ".axm/projection-containers.json",
+          ),
+        ),
+        receipts: {
+          ...receipts,
+          entries: receipts.entries
+            .map((entry) => ({ ...entry, identity: comparableIdentity(entry.identity) }))
+            .sort(
+              (left, right) =>
+                left.unit.localeCompare(right.unit) ||
+                left.kind.localeCompare(right.kind) ||
+                left.identity.physicalPath.localeCompare(right.identity.physicalPath),
+            ),
+          createdDirectories: receipts.createdDirectories
+            .map(comparableIdentity)
+            .sort((left, right) => left.physicalPath.localeCompare(right.physicalPath)),
+        },
         docs: JSON.stringify(workspace.rendererState.docs),
         settings: workspace.readFile("axm.json"),
         lock: workspace.exists("axm-lock.yaml") ? workspace.readFile("axm-lock.yaml") : null,

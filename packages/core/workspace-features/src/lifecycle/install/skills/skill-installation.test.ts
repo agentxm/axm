@@ -152,9 +152,11 @@ describe("skill installation application", () => {
           ...platform,
           symlink: () =>
             Effect.fail(
-              PlatformError.badArgument({
+              PlatformError.systemError({
+                _tag: "Unknown",
                 module: "FileSystem",
                 method: "symlink",
+                cause: { code: "ENOTSUP" },
                 description: "fixture disables symbolic links",
               }),
             ),

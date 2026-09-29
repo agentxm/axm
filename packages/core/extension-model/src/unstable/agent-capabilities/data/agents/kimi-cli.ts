@@ -30,7 +30,18 @@ export const kimiCliAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
-        directory: ".agents/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".agents/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -53,57 +64,85 @@ export const kimiCliAgent = {
           variables: "none",
           defaults: false,
         },
+
+        locations: [
+          {
+            id: "project",
+            scope: "project",
+            root: "project",
+            path: ".kimi-code/mcp.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "json",
+            keyPath: ["mcpServers"],
+            attribution: "agent",
+          },
+          {
+            id: "user",
+            scope: "user",
+            root: "home",
+            path: ".kimi-code/mcp.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "json",
+            keyPath: ["mcpServers"],
+            attribution: "agent",
+          },
+        ],
+
+        entryDialect: {
+          activationField: {
+            required: null,
+            accepted: [{ name: "enabled", enabled: true, disabled: false }, null],
+          },
+          stdio: {
+            typeField: { required: null, accepted: [null] },
+            command: "split",
+            envKey: "env",
+          },
+          remote: {
+            typeField: {
+              required: {
+                name: "transport",
+                value: { "streamable-http": "http", sse: "sse" },
+              },
+              accepted: [
+                null,
+                {
+                  name: "transport",
+                  value: { "streamable-http": "http", sse: "sse" },
+                },
+              ],
+            },
+            urlKey: {
+              "streamable-http": "url",
+              sse: "url",
+            },
+            headersKey: "headers",
+            bearerTokenEnvKey: "bearerTokenEnvVar",
+          },
+        },
       },
       axm: {
         status: "supported",
         lastVerified: "2026-08-05",
         writer: {
           config: {
-            serversKey: "mcpServers",
-            activationField: {
-              required: null,
-              accepted: [{ name: "enabled", enabled: true, disabled: false }, null],
-            },
-            targets: [
-              {
-                scope: "project",
-                path: ".kimi-code/mcp.json",
-                format: "json",
-                attribution: "agent",
-              },
-              {
-                scope: "user",
-                path: "~/.kimi-code/mcp.json",
-                format: "json",
-                attribution: "agent",
-              },
-            ],
-            stdio: {
-              typeField: { required: null, accepted: [null] },
-              command: "split",
-              envKey: "env",
-            },
-            remote: {
-              typeField: {
-                required: {
-                  name: "transport",
-                  value: { "streamable-http": "http", sse: "sse" },
-                },
-                accepted: [
-                  null,
-                  {
-                    name: "transport",
-                    value: { "streamable-http": "http", sse: "sse" },
-                  },
-                ],
-              },
-              urlKey: {
-                "streamable-http": "url",
-                sse: "url",
-              },
-              headersKey: "headers",
-              bearerTokenEnvKey: "bearerTokenEnvVar",
-            },
+            locationIds: ["project", "user"],
           },
         },
       },
@@ -117,8 +156,18 @@ export const kimiCliAgent = {
         docs: [],
         sources: ["https://www.kimi.com/code/docs/en/kimi-code-cli/customization/agents.html"],
         scopes: ["user", "project"],
-        directory: ".kimi-code/agents",
-        layout: "directory",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".kimi-code/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -136,10 +185,21 @@ export const kimiCliAgent = {
         sources: ["https://www.kimi.com/code/docs/en/kimi-code-cli/customization/hooks.html"],
         scopes: ["user"],
         mechanism: ["command-stdin"],
-        configFiles: [
+        locations: [
           {
+            id: "user",
             scope: "user",
-            path: "~/.kimi-code/config.toml",
+            root: "home",
+            path: ".kimi-code/config.toml",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "toml",
             gitignored: false,
           },
@@ -203,6 +263,8 @@ export const kimiCliAgent = {
           },
         ],
         tools: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -224,7 +286,18 @@ export const kimiCliAgent = {
       standardsCompliance: "full",
       convention: "universal",
       kind: "agents-md",
-      files: ["AGENTS.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "AGENTS.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: false,
       importSyntax: null,
     },
@@ -244,10 +317,21 @@ export const kimiCliAgent = {
       sources: ["https://www.kimi.com/code/docs/en/kimi-code-cli/configuration/config-files"],
       scopes: ["user"],
       mechanism: ["config-file", "cli-flag"],
-      configFiles: [
+      locations: [
         {
+          id: "user",
           scope: "user",
-          path: "~/.kimi-code/config.toml",
+          root: "home",
+          path: ".kimi-code/config.toml",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "toml",
           gitignored: false,
         },

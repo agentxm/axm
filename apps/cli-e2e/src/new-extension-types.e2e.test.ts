@@ -44,8 +44,8 @@ describe("axm skills new", () => {
       const after = fs.readFileSync(settingsPath, "utf-8");
       const intendedEntry = ',\n    "layout-check": "workspace"';
       expect(after).toContain(intendedEntry);
-      expect(after.endsWith("\n")).toBe(true);
-      expect(after.replace(intendedEntry, "").slice(0, -1)).toBe(before);
+      expect(after.endsWith("\n")).toBe(before.endsWith("\n"));
+      expect(after.replace(intendedEntry, "")).toBe(before);
       expect(readJson(settingsPath)["skills"]).toMatchObject({
         "layout-check": "workspace",
       });
@@ -95,7 +95,7 @@ describe("axm mcps new", () => {
     }
   });
 
-  it("recovers a relocated workspace-authored MCP server", async () => {
+  it("requires withdrawal before changing a workspace-authored MCP identity", async () => {
     const temp = createTempDir();
 
     try {
@@ -136,9 +136,45 @@ describe("axm mcps new", () => {
         mcpServers: { context: "workspace" },
       }));
 
+      const protectedPaths = ["axm.json", "axm-lock.yaml", "mcps/context/mcp.json", ".mcp.json"];
+      const beforeRefusal = protectedPaths.map((file) =>
+        fs.readFileSync(path.join(temp.path, file), "utf8"),
+      );
+      const refused = await runCli(["sync", "@other/mcps/context"], { cwd: temp.path });
+      expect(refused.exitCode, refused.stdout + refused.stderr).toBe(6);
+      expect(refused.stdout + refused.stderr).toContain("MCP server context is unmanaged");
+      expect(
+        protectedPaths.map((file) => fs.readFileSync(path.join(temp.path, file), "utf8")),
+      ).toEqual(beforeRefusal);
+
+      writeJson(path.join(packageDir, "mcp.json"), {
+        ...readJson(path.join(packageDir, "mcp.json")),
+        owner: "@original",
+      });
+      configureWorkspace(temp.path, (settings) => ({ ...settings, owner: "@original" }));
+      const withdrawn = await runCli(["mcps", "uninstall", "context"], {
+        cwd: temp.path,
+      });
+      expect(withdrawn.exitCode, withdrawn.stdout + withdrawn.stderr).toBe(0);
+      const nativePath = path.join(temp.path, ".mcp.json");
+      if (fs.existsSync(nativePath))
+        expect(readJson(nativePath)["mcpServers"]).not.toHaveProperty("context");
+
+      writeJson(path.join(packageDir, "mcp.json"), {
+        ...readJson(path.join(packageDir, "mcp.json")),
+        owner: "@other",
+      });
+      configureWorkspace(temp.path, (settings) => ({
+        ...settings,
+        owner: "@other",
+        mcpServers: { context: "workspace" },
+      }));
       const recovered = await runCli(["sync", "@other/mcps/context"], { cwd: temp.path });
-      expect(recovered.exitCode).toBe(0);
+      expect(recovered.exitCode, recovered.stdout + recovered.stderr).toBe(0);
       expect(recovered.stdout + recovered.stderr).not.toContain("workspace:workspace:");
+      const recoveredNative = fs.readFileSync(path.join(temp.path, ".mcp.json"), "utf8");
+      expect(recoveredNative).toContain("@other");
+      expect(recoveredNative).not.toContain("@original");
 
       const lint = await runCli(["lint"], { cwd: temp.path });
       expect(lint.exitCode).toBe(0);

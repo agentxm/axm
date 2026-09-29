@@ -130,6 +130,7 @@ layer(Path.layer, { excludeTestServices: true })(
         const path = yield* Path.Path;
         const { diag, ref } = yield* makeDiag;
         const occurrences = yield* makeAgentDirScanner({
+          nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
           fs: failingFs,
           path,
           workspaceRoot: "/ws",
@@ -150,6 +151,7 @@ layer(Path.layer, { excludeTestServices: true })(
           const path = yield* Path.Path;
           const { diag, ref } = yield* makeDiag;
           const occurrences = yield* makeMcpConfigScanner({
+            nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
             fs: failingFs,
             path,
             workspaceRoot: "/ws",
@@ -223,6 +225,7 @@ layer(Path.layer, { excludeTestServices: true })(
           diagnostics: diag,
         });
         yield* makeAgentDirScanner({
+          nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
           fs: emptyFs,
           path,
           workspaceRoot: "/ws",
@@ -230,6 +233,7 @@ layer(Path.layer, { excludeTestServices: true })(
           diagnostics: diag,
         });
         yield* makeMcpConfigScanner({
+          nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
           fs: emptyFs,
           path,
           workspaceRoot: "/ws",

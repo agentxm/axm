@@ -47,14 +47,14 @@ describe("renderSubagent", () => {
     expect(result?._tag).toBe("Rendered");
     if (result?._tag !== "Rendered") return;
     expect(result.outputs).toHaveLength(1);
-    expect(result.outputs[0]?.path).toBe(".claude/agents/code-reviewer.md");
+    expect(result.outputs[0]?.path).toBe("code-reviewer.md");
   });
 
   it("renders for Codex", () => {
     const result = renderSubagent({ ...baseInput, agentId: "codex" });
     expect(result?._tag).toBe("Rendered");
     if (result?._tag !== "Rendered") return;
-    expect(result.outputs[0]?.path).toBe(".codex/agents/code-reviewer.toml");
+    expect(result.outputs[0]?.path).toBe("code-reviewer.toml");
   });
 });
 
@@ -66,8 +66,8 @@ describe("Kiro dual-format rendering", () => {
     expect(result.outputs).toHaveLength(2);
 
     const paths = result.outputs.map((o) => o.path);
-    expect(paths).toContain(".kiro/agents/code-reviewer.md");
-    expect(paths).toContain(".kiro/agents/code-reviewer.json");
+    expect(paths).toContain("code-reviewer.md");
+    expect(paths).toContain("code-reviewer.json");
   });
 
   it("MD file starts with frontmatter", () => {

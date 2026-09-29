@@ -45,13 +45,21 @@ replace sources when necessary, and set that capability's `axm.lastVerified`
 to the UTC review date. Do not refresh the date based on another capability's
 review or without checking the source.
 
+Native readers are declared in `native.locations`, independently of AXM write
+support. Each location names its scope, root, relative path, artifact shape,
+applicability, and provenance. Config locations also declare their file format
+and, where relevant, the container `keyPath`. MCP and Hook entry semantics live
+in `native.entryDialect`; `null` records an unverified dialect.
+
 Writer mechanics live under `axm.writer`:
 
-- MCP config dialects use `axm.writer.config`
-- Hook writers use `axm.writer.serializer`, `configFiles`, `settingsKey`,
-  `eventMap`, and `matcherKind`
-- Permission grants use `axm.writer.grants`
+- MCP writers select native location IDs through `axm.writer.config.locationIds`
+- Hook writers select `locationIds` and the native `eventMap`
+- Permission grants use `axm.writer.grants`, each with an explicit `destination`
 - Capabilities without AXM writer mechanics use `axm.writer: null`
+
+A writer selects declared native locations. It does not establish which other
+agents read the same physical file or whether that file is safe to change.
 
 `axm.writer: null` means AXM has no parameterized filesystem writer. It does
 not make a real hosted capability unavailable. Hosted-only agents declare an
@@ -159,10 +167,11 @@ Permissions capability:
   per-call prompts. Used by `axm agents add` to suggest concrete config edits.
 - `native.mechanism` lists every surface that can be used (any of `config-file`,
   `cli-flag`, `ui-only`).
-- `native.configFiles` enumerates writable config files by `scope` and
-  `format`.
+- `native.locations` enumerates config readers by `scope`, `root`, path, and
+  `format`, including readers AXM does not write.
 - `axm.writer.grants` keys (`shell`, `filesystem`, …) hold either a JSON-ish
   `patch` or a raw `template`. Both may interpolate `${tool}` and
-  `${workspaceRoot}`.
+  `${workspaceRoot}`. The grant's `destination` selects a native location ID,
+  an invocation flag, or the settings UI.
 - `prerequisites` capture modes/gates (folder trust, Auto-Run, sandbox mode)
   that must be set before allow rules take effect.

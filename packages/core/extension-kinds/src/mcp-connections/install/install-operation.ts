@@ -1,3 +1,4 @@
+import type { NativeDirectoryInputs } from "@agentxm/workspace-kernel/locations";
 /**
  * The MCP server installation operation: use the MCP manager to acquire the
  * package, reconcile connection credentials, declare the accepted resolution
@@ -25,9 +26,14 @@ import {
   readMcpServerManifestAt,
   syncManifestMcpServerToAgents,
   type McpServerSyncOutcome,
+  type AxmMcpMetadata,
 } from "@agentxm/workspace-kernel/agent-adapters";
-import { CodingAgentRepository } from "@agentxm/workspace-kernel/projection";
 import {
+  CodingAgentRepository,
+  captureAgentOutputAuthority,
+} from "@agentxm/workspace-kernel/projection";
+import {
+  desiredReachability,
   mcpRegistryResolutionKey,
   acceptedRegistryVersionForRef,
   AcceptedResolutionWriter,
@@ -208,6 +214,7 @@ const summarizeAgentSync = (
 
 const syncConfiguredAgentsOnInstall = (args: {
   readonly wsBaseDir: string;
+  readonly nativeDirectoryInputs: NativeDirectoryInputs;
   readonly scope: "project" | "user";
   readonly strict: boolean;
   readonly serverName: string;
@@ -218,6 +225,9 @@ const syncConfiguredAgentsOnInstall = (args: {
   readonly enabled: boolean;
   readonly configValues: Readonly<Record<string, string>>;
   readonly entry: McpServerEntry;
+  readonly nativeInsertionEligible: boolean;
+  readonly nativeInsertionEligiblePaths?: ReadonlySet<string>;
+  readonly previousManagedEntries: ReadonlyArray<AxmMcpMetadata>;
 }) =>
   Effect.gen(function* () {
     const agentRepo = yield* CodingAgentRepository;
@@ -252,6 +262,7 @@ const syncConfiguredAgentsOnInstall = (args: {
       const synced = yield* syncManifestMcpServerToAgents({
         agentIds: configuredAgentIds,
         workspaceRoot: args.wsBaseDir,
+        nativeDirectoryInputs: args.nativeDirectoryInputs,
         scope: args.scope,
         serverName: args.serverName,
         canonicalPath: args.canonicalPath,
@@ -259,6 +270,11 @@ const syncConfiguredAgentsOnInstall = (args: {
         resolvedVersion: args.resolvedVersion,
         enabled: args.enabled,
         configValues: args.configValues,
+        nativeInsertionEligible: args.nativeInsertionEligible,
+        ...(args.nativeInsertionEligiblePaths === undefined
+          ? {}
+          : { nativeInsertionEligiblePaths: args.nativeInsertionEligiblePaths }),
+        previousManagedEntries: args.previousManagedEntries,
       });
       outcomes = configuredAgentIds.map((agentId, index) => ({
         agentId,
@@ -310,7 +326,7 @@ const syncConfiguredAgentsOnInstall = (args: {
 export const installMcpServer: (
   op: InstallMcpServerOperation,
 ) => Effect.Effect<
-  JobStepResult,
+  Extract<JobStepResult, { readonly result: "success" }>,
   ExtensionManagerFailure,
   McpServerManager | McpConnectionInstallRequirements
 > = (op) =>
@@ -342,6 +358,11 @@ export const installMcpServer: (
           })
         : undefined;
     const desiredGraph = yield* desiredStateReader.graph();
+    const nativeInsertionEligible =
+      op.args.nativeInsertionEligible ??
+      desiredReachability(desiredGraph, { type: "mcp-server", name: localName }).decision ===
+        "not-reached";
+    const nativeAuthority = yield* captureAgentOutputAuthority();
     const sourceIdentity = op.args.sourceIdentity ?? (yield* requestedMcpSourceIdentity(ref));
     const existingClosure = desiredGraph.mcpSourceClosures.find(
       (closure) => closure.key === sourceIdentity,
@@ -352,7 +373,11 @@ export const installMcpServer: (
         : Option.none<McpServerLockEntry>();
     const lockedVersion =
       ref.refType === "registry" ? acceptedRegistryVersionForRef(acceptedEntry, ref) : undefined;
-    const facts = yield* manager.materializeInstall({ ref, force: op.args.force });
+    const facts = yield* manager.materializeInstall({
+      ref,
+      force: op.args.force,
+      nativeInsertionEligible,
+    });
     const resolution = yield* manager.acceptedResolution({
       ref,
       materialization: Option.some(facts),
@@ -456,6 +481,7 @@ export const installMcpServer: (
               : { ...projectionStoredSecrets, ...projectionEntry.env };
           return yield* syncConfiguredAgentsOnInstall({
             wsBaseDir: location.baseDir,
+            nativeDirectoryInputs: location.nativeDirectoryInputs,
             scope: location.scope,
             strict: strictAgentSync,
             serverName: projectionName,
@@ -466,6 +492,11 @@ export const installMcpServer: (
             enabled: projectionEntry.enabled !== false,
             configValues: mcpProjectionInputValues(projectionEnv, secretNames),
             entry: projectionEntry,
+            nativeInsertionEligible: projectionName === localName && nativeInsertionEligible,
+            ...(op.args.nativeInsertionEligiblePaths === undefined
+              ? {}
+              : { nativeInsertionEligiblePaths: op.args.nativeInsertionEligiblePaths }),
+            previousManagedEntries: nativeAuthority.expectedMcpEntries[projectionName] ?? [],
           });
         }),
       { concurrency: 1 },
@@ -498,16 +529,10 @@ export const installMcpServer: (
         .slice(footprintBefore)
         .filter(isWorkspaceFootprint(path, location.baseDir)),
     });
-    const agentOutcomes = agentSync.outcomes.flatMap(({ agentId, outcome }) =>
-      outcome._tag === "success"
-        ? [
-            {
-              agentId,
-              ...(outcome.targets === undefined ? {} : { targets: outcome.targets }),
-            },
-          ]
-        : [],
-    );
+    const agentOutcomes = agentSync.outcomes.map(({ agentId, outcome }) => ({
+      agentId,
+      ...(outcome.targets === undefined ? {} : { targets: outcome.targets }),
+    }));
 
     return {
       result: "success",
@@ -521,6 +546,11 @@ export const installMcpServer: (
         scope: location.scope,
         change,
         agents: agentOutcomes.map(({ agentId }) => agentId),
+        nativeLocations: agentOutcomes.flatMap(({ targets }) =>
+          (targets ?? []).flatMap((target) =>
+            target.nativeLocation === undefined ? [] : [target.nativeLocation],
+          ),
+        ),
         targets: [
           ...(lockEntry === undefined ? [] : [mcpSourceTarget(location.scope, lockEntry, change)]),
           mcpSettingsTarget(location.scope, change),

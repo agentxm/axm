@@ -1,3 +1,5 @@
+import type { NativeDirectoryInputs } from "../../locations/index.js";
+import type { NativeObservationView } from "../../locations/index.js";
 /**
  * Settings and lockfile cells: the scoped read model's two authoritative
  * documents, read for either runtime directory the workspace knows about.
@@ -36,7 +38,9 @@ import type {
 
 /** The runtime directories a workspace's settings sources can live in. */
 export interface StateCellPaths {
+  readonly observationView?: NativeObservationView;
   readonly scope: WorkspaceScope;
+  readonly nativeDirectoryInputs: NativeDirectoryInputs;
   readonly projectRoot: AbsolutePath;
   readonly userHome: AbsolutePath;
   readonly projectRuntimeDir: string;
@@ -69,6 +73,7 @@ const readModelFor = (
       Effect.provide(
         Layer.mergeAll(
           Layer.succeed(WorkspaceReadModelConfig, {
+            nativeDirectoryInputs: cells.nativeDirectoryInputs,
             projectRoot: cells.projectRoot,
             userHome: cells.userHome,
             allowedRoot: makeAbsolutePath(path, "/"),
@@ -89,9 +94,11 @@ export const readSettingsCell = (
   WorkspaceSettingsReadFailure,
   FileSystem.FileSystem | Path.Path
 > =>
-  readModelFor(cells, scopeForDir(cells, dir, sharedScope)).pipe(
-    Effect.flatMap((readModel) => readModel.state.settings),
-  );
+  cells.observationView?.kind === "git-index" && scopeForDir(cells, dir, sharedScope) === "user"
+    ? Effect.succeedNone
+    : readModelFor(cells, scopeForDir(cells, dir, sharedScope)).pipe(
+        Effect.flatMap((readModel) => readModel.state.settings),
+      );
 
 /** The settings document of one runtime directory, defaulting when absent. */
 export const readSettingsOrDefault = (
@@ -109,10 +116,12 @@ export const readLockfileCell = (
   dir: string,
   sharedScope?: WorkspaceScope,
 ): Effect.Effect<Lockfile, WorkspaceLockfileReadFailure, FileSystem.FileSystem | Path.Path> =>
-  readModelFor(cells, scopeForDir(cells, dir, sharedScope)).pipe(
-    Effect.flatMap((readModel) => readModel.state.lockfile),
-    Effect.map(Option.getOrElse(createEmptyLockfile)),
-  );
+  cells.observationView?.kind === "git-index" && scopeForDir(cells, dir, sharedScope) === "user"
+    ? Effect.sync(createEmptyLockfile)
+    : readModelFor(cells, scopeForDir(cells, dir, sharedScope)).pipe(
+        Effect.flatMap((readModel) => readModel.state.lockfile),
+        Effect.map(Option.getOrElse(createEmptyLockfile)),
+      );
 
 /** Run one read against the selected scope's read model. */
 export const readScopedModel = <A>(

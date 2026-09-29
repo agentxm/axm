@@ -8,7 +8,6 @@ import * as Layer from "effect/Layer";
 import type * as ServiceMap from "effect/Context";
 import { afterEach, beforeEach } from "vitest";
 import { AgentExecutableResolver } from "@agentxm/workspace-kernel/agent-adapters";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace-kernel/projection/live";
 import { workspaceInvariantFactsLive } from "../../test-support/workspace-invariant-facts-live.js";
 import {
   getAppError,
@@ -69,6 +68,7 @@ const emptyHookManager = {
 
 const emptyRuleManager = {
   ...managerLifecycleStubs,
+  prepareProjection: () => Effect.succeed([]),
   projectionPlans: () => Effect.succeed([]),
   isInstalled: () => Effect.succeed(false),
   materializeInstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
@@ -87,6 +87,7 @@ const emptySubagentManager = {
 
 const emptyKnowledgeManager = {
   ...managerLifecycleStubs,
+  prepareProjection: () => Effect.succeed([]),
   refreshCatalog: () => Effect.void,
   sync: () => Effect.succeed({ changed: false, warnings: [], artifacts: [] }),
   projectionPlans: () => Effect.succeed([]),
@@ -156,7 +157,6 @@ describe("agents add.handler", () => {
     });
     const foundation = Layer.mergeAll(
       context.fullLayer,
-      CodingAgentRepositoryLive,
       Layer.succeed(AgentExecutableResolver, {
         exists: () => Effect.succeed(false),
       }),

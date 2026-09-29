@@ -32,6 +32,7 @@ export {
   packDiscoveryDiagnostics,
   parsePackInstallRequest,
   planPackInstall,
+  preparePackInstallGraph,
   resolvePackSourceRequest,
   type PackInstallIntent,
   type PackInstallRequirements,

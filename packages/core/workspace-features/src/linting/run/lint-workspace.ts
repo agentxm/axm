@@ -22,12 +22,17 @@
  */
 
 import type * as Config from "effect/Config";
+import type { NativeWriteAuthority } from "@agentxm/workspace-kernel/agent-adapters";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Result from "effect/Result";
+import {
+  observationViewFileSystem,
+  type NativeObservationView,
+} from "@agentxm/workspace-kernel/locations";
 
 import { buildPackRuleContexts, buildSkillRuleContexts } from "@agentxm/extension-content/lint";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
@@ -41,6 +46,7 @@ import {
   expectedProjectionNames,
   observeAgentOutputs,
   observeWorkspaceOwnershipIssues,
+  deriveAgentOutputAuthority,
 } from "@agentxm/workspace-kernel/projection";
 import {
   LockfileReader,
@@ -116,6 +122,7 @@ export interface LintSelection {
   readonly userHome: string;
   readonly scope: WorkspaceScope;
   readonly input: LintInput;
+  readonly nativeView: NativeObservationView;
   /** The root findings are reported against, when it differs from the one read. */
   readonly displayWorkspaceRoot?: string;
   readonly fix: boolean;
@@ -151,6 +158,12 @@ export const admitLintRequest = (request: LintWorkspaceRequest) =>
         userHome: request.userHome,
         scope: "project",
         input: { view: "git-index", fingerprint: snapshot.fingerprint },
+        nativeView: {
+          kind: "git-index",
+          readRoot: snapshot.snapshotRoot,
+          displayRoot: snapshot.gitRoot,
+          fingerprint: snapshot.fingerprint,
+        },
         displayWorkspaceRoot: snapshot.displayWorkspaceRoot,
         fix: false,
       } satisfies LintSelection;
@@ -166,6 +179,7 @@ export const admitLintRequest = (request: LintWorkspaceRequest) =>
       userHome: request.userHome,
       scope: request.scope,
       input: { view: "workspace" },
+      nativeView: { kind: "workspace" },
       fix: request.fix,
     } satisfies LintSelection;
   });
@@ -173,6 +187,10 @@ export const admitLintRequest = (request: LintWorkspaceRequest) =>
 /** The absolute root a selection names, for the workspace layer the run needs. */
 export const lintSelectionRoot = (selection: LintSelection) =>
   decodeAbsolutePathSync(selection.workspaceRoot);
+
+/** Provide this read view before constructing the selected workspace's services. */
+export const lintSelectionFileSystem = (selection: LintSelection) =>
+  observationViewFileSystem(selection.nativeView);
 
 // -----------------------------------------------------------------------------
 // Result
@@ -206,6 +224,7 @@ export type LintWorkspaceRequirements =
 /** Every failure a lint run can settle into. */
 export type LintWorkspaceFailure =
   | Config.ConfigError
+  | Effect.Error<ReturnType<typeof observeUserScope>>
   | LintStagingFailed
   | Effect.Error<ReturnType<typeof buildLintWorkspace>>
   | Effect.Error<ReturnType<typeof acceptedCanonicalObservation>>
@@ -286,6 +305,7 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
 
     const desiredGraph = yield* desiredState.graph();
     const { rule: workspaceContext, view } = yield* buildLintWorkspace({
+      nativeDirectoryInputs: location.nativeDirectoryInputs,
       platform: { fs: fileSystem, path },
       workspaceRoot: selection.workspaceRoot,
       userHome,
@@ -306,30 +326,36 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
     // this workspace configures. Both come from the shared projection
     // capability, never from the reconciliation feature.
     const configuredAgents = yield* settingsReader.configuredAgents;
-    const skillOwnershipRoots =
-      layout.scope === "project"
-        ? [layout.acquiredRoot, layout.authoredRoot("skill")]
-        : [layout.acquiredRoot];
+    const outputAuthority = deriveAgentOutputAuthority({
+      path,
+      baseDir: location.baseDir,
+      layout,
+      desired: desiredGraph,
+      acceptedResolutions: yield* lockfile.lockfile,
+      settings: Option.getOrElse(settings, () => ({})),
+    });
     const authoredSkills = {
       layout,
       entries: Option.isSome(settings) ? (settings.value.skills ?? {}) : {},
     };
     const ownership = yield* observeWorkspaceOwnershipIssues({
+      nativeDirectoryInputs: location.nativeDirectoryInputs,
       workspaceRoot: location.baseDir,
       scope: location.scope,
       configuredAgentIds: new Set(configuredAgents),
-      skillOwnershipRoots,
+      ...outputAuthority,
       authoredSkills,
     });
     const materializationAgentIds = new Set(
       (yield* agentRepository.getMaterializationAgents()).map(({ id }) => id),
     );
     const agentOutputs = yield* observeAgentOutputs({
+      nativeDirectoryInputs: location.nativeDirectoryInputs,
       workspaceRoot: location.baseDir,
       scope: location.scope,
       desiredAgentIds: materializationAgentIds,
       expectedNames: expectedProjectionNames(desiredGraph),
-      skillOwnershipRoots,
+      ...outputAuthority,
       authoredSkills,
     });
     // Cross-scope agent facts. The agents that read this workspace also read
@@ -343,7 +369,7 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
       (yield* realRoot(selection.workspaceRoot)) === (yield* realRoot(userHome));
     const userScope =
       liveView && !projectIsUserHome
-        ? Option.some(yield* observeUserScope(userHome))
+        ? Option.some(yield* observeUserScope(userHome, location.nativeDirectoryInputs))
         : Option.none<UserScopeObservation>();
     const agentContent =
       liveView && selection.scope === "project" && !projectIsUserHome && Option.isNone(settings)
@@ -435,12 +461,12 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
     });
     const rawSummary = summarizeEvaluations(evaluations, config);
     const summary =
-      selection.displayWorkspaceRoot === undefined
+      selection.nativeView.kind !== "git-index"
         ? rawSummary
         : remapLintSummaryPaths(
             rawSummary,
-            selection.workspaceRoot,
-            selection.displayWorkspaceRoot,
+            selection.nativeView.readRoot,
+            selection.nativeView.displayRoot,
             path,
           );
     const officialAssessment = yield* Effect.result(officialAxmSkill);
@@ -482,7 +508,11 @@ export const queryLintWorkspace = (
 export const fixLintWorkspace = (
   selection: LintSelection,
   options: { readonly strict: boolean },
-): Effect.Effect<LintWorkspaceResult, LintWorkspaceFailure, LintWorkspaceRequirements> =>
+): Effect.Effect<
+  LintWorkspaceResult,
+  LintWorkspaceFailure,
+  LintWorkspaceRequirements | NativeWriteAuthority
+> =>
   Effect.gen(function* () {
     // The reconciliation pass proves every determined instruction target
     // current after it writes. Reuse that proof instead of gathering every
@@ -491,6 +521,7 @@ export const fixLintWorkspace = (
     const repairedRuleIds = new Set(
       yield* applyDeterminedRepairs({
         workspaceRoot: selection.workspaceRoot,
+        nativeDirectoryInputs: (yield* WorkspaceLocation).nativeDirectoryInputs,
         scope: selection.scope,
         settings,
       }),

@@ -17,6 +17,7 @@ import {
   type StepFailure,
 } from "@agentxm/workspace-kernel/operations";
 import type { ExtensionManagerFailure } from "@agentxm/workspace-kernel/materialization";
+import type { NativeLocationError } from "@agentxm/workspace-kernel/locations";
 import {
   PackGraphInvalid,
   PackManifestUnavailable,
@@ -343,6 +344,7 @@ export const authoringFailureToStepFailure = (error: AuthoringFamilyFailure): St
 
 /** Every failure an authoring closure can settle a plan step with. */
 export type AuthoringStepFailure =
+  | NativeLocationError
   | ExtensionManagerFailure
   | ScaffoldedExtensionUnresolved
   | AuthoredPackageError

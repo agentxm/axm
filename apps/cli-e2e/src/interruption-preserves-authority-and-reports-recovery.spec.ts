@@ -103,7 +103,7 @@ describe("An interrupted workspace change", () => {
       expect(JSON.parse(result.stdout)).toMatchObject({
         ok: false,
         result: {
-          contract: "plan-result-v3",
+          contract: "plan-result-v4",
           outcome: "interrupted",
           interruption: { signal: "SIGINT", disposition: "none" },
         },
@@ -145,7 +145,7 @@ describe("An interrupted workspace change", () => {
       expect(JSON.parse(interrupted.stdout)).toMatchObject({
         ok: false,
         result: {
-          contract: "plan-result-v3",
+          contract: "plan-result-v4",
           outcome: "interrupted",
           interruption: { signal: "SIGTERM", disposition: "none" },
         },

@@ -1,5 +1,5 @@
 /**
- * Plan<StepRequirements>-family machine document (`plan-result-v3`) and the emit boundary.
+ * Plan<StepRequirements>-family machine document (`plan-result-v4`) and the emit boundary.
  *
  * `emitOperationResolution` is the one place a plan-family command terminates:
  * it derives the outcome and exit code from the resolution with the shared
@@ -58,6 +58,8 @@ import {
   stepFailureRetryCanHelp,
   ArtifactChangeSchema,
   ConfiguredAgentOutcomeSchema,
+  operationNativeLocations,
+  settledUnitNativeLocations,
 } from "@agentxm/workspace-kernel/operations";
 import { operationExitCode, operationOk } from "./operation-exit-code.js";
 import {
@@ -74,13 +76,17 @@ import {
 } from "@agentxm/workspace-kernel/resolution";
 import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import { ArchivalViewSchema } from "@agentxm/extension-model/unstable/extensions/archival";
+import {
+  NativeLocationOutcomeSchema,
+  type NativeLocationOutcome,
+} from "@agentxm/workspace-kernel/locations";
 import { CatalogExtensionTypeSchema } from "@agentxm/extension-model/unstable/extension-types";
 
 import { operationDoc, resolutionAgentCoverage, unsettledUnits } from "./operation-view.js";
 import { emitResult, count, type Doc } from "./screen/index.js";
 import { currentWorkspaceScoping, suggestionsForScope } from "./root/shared/scoped-command.js";
 
-export const PLAN_RESULT_CONTRACT = "plan-result-v3";
+export const PLAN_RESULT_CONTRACT = "plan-result-v4";
 
 // -----------------------------------------------------------------------------
 // Wire schemas
@@ -92,7 +98,8 @@ export const AgentCoverageSchema = Schema.Struct({
 }).annotate({
   identifier: "AgentCoverage",
   title: "Agent Coverage",
-  description: "Coding agents where at least one retained coverage-applicable extension is usable.",
+  description:
+    "Configured agents for which a settled unit observed a retained materialization; native runtime availability is reported separately.",
 });
 export type AgentCoverage = typeof AgentCoverageSchema.Type;
 
@@ -188,6 +195,7 @@ const SourceSwitchEvidenceSchema = Schema.Struct({
 });
 
 const StepArtifactSchema = Schema.Struct({
+  nativeLocations: Schema.optional(Schema.Array(NativeLocationOutcomeSchema)),
   path: Schema.optional(Schema.String),
   scope: Schema.Literals(["project", "user"] as const),
   agents: Schema.optional(Schema.Array(Schema.String)),
@@ -324,6 +332,13 @@ const FootprintEntrySchema = Schema.Struct({
 
 const OperationRecoverySchema = Schema.Struct({
   retained: Schema.Array(Schema.String),
+  entries: Schema.Array(
+    Schema.Struct({
+      originalPath: Schema.String,
+      recoveryPath: Schema.String,
+      kind: Schema.Literals(["retired-entry", "snapshot"]),
+    }),
+  ),
   snapshotDir: Schema.optional(Schema.String),
   actions: Schema.Array(SuggestedActionSchema),
 }).annotate({
@@ -431,6 +446,16 @@ export const PlanResolutionResultSchema = Schema.Struct({
   divergence: Schema.optional(Schema.Boolean),
   counts: UnitCountsSchema,
   units: Schema.Array(UnitSchema),
+  nativeLocations: Schema.Array(NativeLocationOutcomeSchema),
+  nativeLocationCounts: Schema.Struct({
+    units: Schema.Number,
+    physicalLocations: Schema.Number,
+    configuredConsumers: Schema.Number,
+    changed: Schema.Number,
+    retained: Schema.Number,
+    blocked: Schema.Number,
+    unverified: Schema.Number,
+  }),
   footprint: Schema.optional(Schema.Array(FootprintEntrySchema)),
   recovery: Schema.optional(OperationRecoverySchema),
   evaluatedAt: Schema.optional(Schema.String),
@@ -483,13 +508,30 @@ export interface PlanResolutionResultOptions {
   readonly targetedUpdate?: TargetedUpdatePublicContext;
 }
 
+const nativeLocationForJson = (location: NativeLocationOutcome): NativeLocationOutcome => ({
+  ...location,
+  address: { ...location.address, path: redactRegistryText(location.address.path) },
+  aliases: location.aliases.map((path) => redactRegistryText(path)),
+  ...(location.reason === undefined ? {} : { reason: redactRegistryText(location.reason) }),
+  availability: location.availability.map((availability) => ({
+    ...availability,
+    ...(availability.reason === undefined
+      ? {}
+      : { reason: redactRegistryText(availability.reason) }),
+  })),
+});
+
 const artifactForJson = (
   artifact: JobStepArtifact,
   options: PlanResolutionResultOptions,
 ): StepArtifact => {
-  const { targets, source, sourceSwitch, managedRegions, references, ...base } = artifact;
+  const { targets, source, sourceSwitch, managedRegions, references, nativeLocations, ...base } =
+    artifact;
   const sanitizedBase = {
     ...base,
+    ...(nativeLocations === undefined
+      ? {}
+      : { nativeLocations: nativeLocations.map(nativeLocationForJson) }),
     ...(sourceSwitch === undefined
       ? {}
       : {
@@ -600,7 +642,11 @@ const failureForJson = (failure: StepFailure, options: PlanResolutionResultOptio
   };
 };
 
-const unitForJson = (unit: ResolvedUnit<unknown>, options: PlanResolutionResultOptions): Unit => {
+const unitForJson = (
+  unit: ResolvedUnit<unknown>,
+  options: PlanResolutionResultOptions,
+  mode: OperationResolution<unknown>["mode"],
+): Unit => {
   const includeErrorDetails = options.verbose === true || options.debug === true;
   const secrets = collectSensitiveStrings(unit.error?.metadata);
   return {
@@ -626,7 +672,19 @@ const unitForJson = (unit: ResolvedUnit<unknown>, options: PlanResolutionResultO
     ...(unit.error !== undefined && includeErrorDetails
       ? { error: failureForJson(unit.error, options) }
       : {}),
-    ...(unit.artifact === undefined ? {} : { artifact: artifactForJson(unit.artifact, options) }),
+    ...(unit.artifact === undefined
+      ? {}
+      : {
+          artifact: artifactForJson(
+            {
+              ...unit.artifact,
+              ...(unit.artifact.nativeLocations === undefined
+                ? {}
+                : { nativeLocations: settledUnitNativeLocations(unit, mode) }),
+            },
+            options,
+          ),
+        }),
     ...(unit.agentOutcomes === undefined ? {} : { agentOutcomes: unit.agentOutcomes }),
     ...(unit.registryLifecycle === undefined ? {} : { registryLifecycle: unit.registryLifecycle }),
     ...(unit.links === undefined ? {} : { links: { html: redactRegistryText(unit.links.html) } }),
@@ -650,7 +708,10 @@ export const toPlanResolutionResult = (
 ): PlanResolutionResult => {
   const outcome = deriveOperationOutcome(resolution);
   const counts = countUnitStates(resolution.units);
-  const units = unitsByStableIdentity(resolution.units).map((unit) => unitForJson(unit, options));
+  const units = unitsByStableIdentity(resolution.units).map((unit) =>
+    unitForJson(unit, options, resolution.mode),
+  );
+  const nativeLocations = operationNativeLocations(resolution).map(nativeLocationForJson);
   const description = Option.getOrUndefined(resolution.description);
   const coverage =
     outcome === "applied" || outcome === "no-op" ? resolutionAgentCoverage(resolution) : undefined;
@@ -691,6 +752,25 @@ export const toPlanResolutionResult = (
       warnings: counts.warnings,
     },
     units,
+    nativeLocations,
+    nativeLocationCounts: {
+      units: nativeLocations.length,
+      physicalLocations: new Set(
+        nativeLocations.map((location) => JSON.stringify([location.scope, location.address.path])),
+      ).size,
+      configuredConsumers: new Set(
+        nativeLocations.flatMap((location) => location.configuredConsumers),
+      ).size,
+      changed: nativeLocations.filter(
+        (location) =>
+          location.state === "created" ||
+          location.state === "updated" ||
+          location.state === "removed",
+      ).length,
+      retained: nativeLocations.filter((location) => location.state === "retained").length,
+      blocked: nativeLocations.filter((location) => location.state === "blocked").length,
+      unverified: nativeLocations.filter((location) => location.state === "unverified").length,
+    },
     ...(resolution.footprint === undefined
       ? {}
       : {
@@ -705,6 +785,11 @@ export const toPlanResolutionResult = (
           recovery: {
             ...resolution.recovery,
             retained: resolution.recovery.retained.map((path) => redactRegistryText(path)),
+            entries: resolution.recovery.entries.map((entry) => ({
+              ...entry,
+              originalPath: redactRegistryText(entry.originalPath),
+              recoveryPath: redactRegistryText(entry.recoveryPath),
+            })),
           },
         }),
     ...releaseAgeResultFields(resolution),

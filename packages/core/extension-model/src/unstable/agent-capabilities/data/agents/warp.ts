@@ -29,7 +29,18 @@ export const warpAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
-        directory: ".agents/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".agents/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -50,6 +61,10 @@ export const warpAgent = {
         convention: "universal",
         transports: ["stdio", "sse", "http"],
         mcpEnvExpansion: { variables: "braced", defaults: false },
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -98,7 +113,18 @@ export const warpAgent = {
       standardsCompliance: "full",
       convention: "universal",
       kind: "agents-md",
-      files: ["AGENTS.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "AGENTS.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: true,
       importSyntax: null,
     },
@@ -118,7 +144,7 @@ export const warpAgent = {
       sources: ["https://docs.warp.dev/agent-platform/capabilities/agent-profiles-permissions/"],
       scopes: ["user"],
       mechanism: ["ui-only"],
-      configFiles: [],
+      locations: [],
       grammar: {
         style: "regex",
         example: "ls(\\s.*)?",

@@ -13,10 +13,12 @@
 
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
+import * as Equal from "effect/Equal";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { NativeWriteAuthority } from "@agentxm/workspace-kernel/agent-adapters";
+import { type NativeLocationOutcome } from "@agentxm/workspace-kernel/locations";
 
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
@@ -51,7 +53,7 @@ import {
   workspaceChangeFailedToStepFailure,
   type WorkspaceConfigurationExecutionFailure,
 } from "../errors.js";
-import { applyMcpImport, collectMcpImportSources } from "./apply.js";
+import { applyMcpImport, collectMcpImportSources, prepareMcpImportTargets } from "./apply.js";
 import { preflightMcpImports, type McpImportPreflight } from "./preflight.js";
 
 const plural = (count: number, singular: string): string =>
@@ -62,6 +64,7 @@ export interface ImportMcpServersCandidate {
   /** Every unmanaged server the workspace found, classified. */
   readonly preflight: McpImportPreflight;
   readonly scope: WorkspaceScope;
+  readonly nativeLocations: ReadonlyArray<NativeLocationOutcome>;
 }
 
 /**
@@ -95,6 +98,7 @@ export const prepareImportMcpServers = (): Effect.Effect<
         ),
       },
       scope: location.scope,
+      nativeLocations: yield* prepareMcpImportTargets(normalized.candidates),
     } satisfies ImportMcpServersCandidate;
   });
 
@@ -104,11 +108,17 @@ const importArtifact = (
   path: Path.Path,
 ): JobStepArtifact => {
   const adoptions = candidate.preflight.candidates.flatMap((entry) => entry.adoptions);
-  const files = [...new Set(adoptions.map((adoption) => adoption.filePath))].sort();
+  const files = [
+    ...new Set([
+      ...adoptions.map((adoption) => adoption.filePath),
+      ...candidate.nativeLocations.map((location) => location.address.path),
+    ]),
+  ].sort();
   return {
     path: settingsDisplayPath(candidate.scope),
     scope: candidate.scope,
     change: "updated",
+    nativeLocations: candidate.nativeLocations,
     fileCount: 1 + files.length,
     targets: [
       { path: settingsDisplayPath(candidate.scope), change: "updated" },
@@ -176,11 +186,14 @@ export const previewOrApplyImportMcpServers = (
                     ? configurationFailureToStepFailure(failure)
                     : workspaceChangeFailedToStepFailure(failure),
                 ),
-                Effect.as({
-                  result: "success",
-                  message: `Imported ${plural(candidate.preflight.candidates.length, "MCP server")}`,
-                  artifact,
-                } satisfies JobStepResult),
+                Effect.map(
+                  (nativeLocations) =>
+                    ({
+                      result: "success",
+                      message: `Imported ${plural(candidate.preflight.candidates.length, "MCP server")}`,
+                      artifact: { ...artifact, nativeLocations },
+                    }) satisfies JobStepResult,
+                ),
               ),
             },
           ];
@@ -197,7 +210,13 @@ export const previewOrApplyImportMcpServers = (
       jobs: [{ concurrency: 1, steps: [...conflictSteps, ...importSteps] }],
     };
     const prepared = yield* prepareExecutionCandidate(plan);
-    return yield* resolveExecutionCandidate(prepared, execution);
+    return yield* resolveExecutionCandidate(prepared, execution, {
+      additionalFreshness: () =>
+        prepareMcpImportTargets(candidate.preflight.candidates).pipe(
+          Effect.map((locations) => Equal.equals(locations, candidate.nativeLocations)),
+          Effect.orElseSucceed(() => false),
+        ),
+    });
   });
 
 /** The inline MCP import use case. */

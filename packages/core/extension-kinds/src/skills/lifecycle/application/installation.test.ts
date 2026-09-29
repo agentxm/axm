@@ -73,5 +73,23 @@ it.effect(
       expect(yield* prepared.buildArtifact({ change: "unchanged" })).toMatchObject({
         targets: [{ path: "skills/review", agentIds: ["recipient"], change: "unchanged" }],
       });
+      const nativeLocation = {
+        scope: "project" as const,
+        address: { kind: "entry" as const, path: "/project/.agents/skills/review" },
+        aliases: ["/project/.agents/skills/review"],
+        configuredConsumers: [],
+        potentialReaders: ["codex"],
+        policyReasons: ["workspace-shared-skills"],
+        ownership: "owned" as const,
+        mechanism: "symlink" as const,
+        state: "created" as const,
+        availability: [],
+      };
+      expect(
+        yield* prepared.buildArtifact({
+          change: "created",
+          nativeLocations: [nativeLocation],
+        }),
+      ).toMatchObject({ nativeLocations: [nativeLocation] });
     }),
 );

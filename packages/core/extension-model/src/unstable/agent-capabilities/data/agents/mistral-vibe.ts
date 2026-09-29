@@ -29,7 +29,18 @@ export const mistralVibeAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".vibe/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".vibe/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -52,6 +63,10 @@ export const mistralVibeAgent = {
           variables: "none",
           defaults: false,
         },
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -69,8 +84,18 @@ export const mistralVibeAgent = {
         docs: [],
         sources: ["https://docs.mistral.ai/vibe/code/cli/agents"],
         scopes: ["user", "project"],
-        directory: ".vibe/agents",
-        layout: "directory",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".vibe/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -88,16 +113,38 @@ export const mistralVibeAgent = {
         sources: ["https://docs.mistral.ai/vibe/code/cli/hooks"],
         scopes: ["user", "project"],
         mechanism: ["command-stdin"],
-        configFiles: [
+        locations: [
           {
+            id: "project",
             scope: "project",
+            root: "project",
             path: ".vibe/hooks.toml",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "toml",
             gitignored: false,
           },
           {
+            id: "user",
             scope: "user",
-            path: "~/.vibe/hooks.toml",
+            root: "home",
+            path: ".vibe/hooks.toml",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "toml",
             gitignored: false,
           },
@@ -133,6 +180,8 @@ export const mistralVibeAgent = {
           },
         ],
         tools: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -152,7 +201,18 @@ export const mistralVibeAgent = {
       standardsCompliance: "full",
       convention: "universal",
       kind: "agents-md",
-      files: ["AGENTS.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "AGENTS.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: false,
       importSyntax: null,
     },
@@ -172,16 +232,38 @@ export const mistralVibeAgent = {
       sources: ["https://docs.mistral.ai/vibe/code/safety-approvals-permissions"],
       scopes: ["user", "project"],
       mechanism: ["config-file", "cli-flag"],
-      configFiles: [
+      locations: [
         {
+          id: "project",
           scope: "project",
+          root: "project",
           path: ".vibe/config.toml",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "toml",
           gitignored: false,
         },
         {
+          id: "user",
           scope: "user",
-          path: "~/.vibe/config.toml",
+          root: "home",
+          path: ".vibe/config.toml",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "toml",
           gitignored: false,
         },

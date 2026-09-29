@@ -20,13 +20,19 @@ export const agentSkillsProjectDir = (agentId: MaterializationTargetId): string 
   if (skills === undefined) {
     return unsupportedCapability(agentId, "skills");
   }
-  return skills.dir;
+  return (
+    skills.locations.find((location) => location.scope === "project" && location.role === "primary")
+      ?.path ?? unsupportedCapability(agentId, "project skills")
+  );
 };
 
 /** @experimental */
 export const agentSubagentsProjectDirOptional = (
   agentId: MaterializationTargetId,
-): string | undefined => AGENT_DESCRIPTORS[agentId].subagents?.dir;
+): string | undefined =>
+  AGENT_DESCRIPTORS[agentId].subagents?.locations.find(
+    (location) => location.scope === "project" && location.role === "primary",
+  )?.path;
 
 /** @experimental */
 export const agentSubagentsProjectDir = (agentId: MaterializationTargetId): string => {
@@ -34,5 +40,9 @@ export const agentSubagentsProjectDir = (agentId: MaterializationTargetId): stri
   if (subagents === undefined) {
     return unsupportedCapability(agentId, "subagents");
   }
-  return subagents.dir;
+  return (
+    subagents.locations.find(
+      (location) => location.scope === "project" && location.role === "primary",
+    )?.path ?? unsupportedCapability(agentId, "project subagents")
+  );
 };

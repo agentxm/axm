@@ -143,6 +143,24 @@ const orphanContext = (managed?: boolean) =>
       (context) =>
         ({
           ...context,
+          agentOutputs: Effect.succeed({
+            outputs:
+              managed === undefined
+                ? []
+                : [
+                    {
+                      extensionType: "mcp-server",
+                      containerPath: ".mcp.json",
+                      path: ".mcp.json",
+                      entryName: "demo",
+                      claimantAgentIds: ["claude-code"],
+                      ownership: "unowned",
+                      desired: false,
+                    },
+                  ],
+            ownedResidue: [],
+            unownedFootprints: [],
+          }),
           workspace: {
             ...context.workspace,
             mcpServers: {
@@ -162,7 +180,7 @@ export const mcpAgentOrphanedConformance: WorkspaceRuleConformanceCase = {
   violated: () => orphanContext(true),
   expectedFindings: [
     {
-      message: "MCP server 'demo' has an orphaned AXM-owned shared config.",
+      message: "MCP server 'demo' has an orphaned AXM-marked shared config.",
       location: { file: ".mcp.json" },
     },
   ],

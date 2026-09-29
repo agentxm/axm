@@ -12,7 +12,7 @@ import { fromFileLocation } from "@agentxm/host-primitives";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import {
-  protectCreatedAncestors,
+  createWorkspaceDirectories,
   protectWorkspacePath,
   type WorkspaceSnapshotError,
 } from "../settlement/index.js";
@@ -94,8 +94,12 @@ export const recoverCanonicalDirectory = (args: RecoverCanonicalDirectoryArgs) =
 export interface ReplaceCanonicalDirectoryArgs<E, R> {
   readonly baseDir: string;
   readonly canonicalPath: string;
+  /** Internal scoped acquisition staging: its resource owner removes this transient tree. */
+  readonly transient?: boolean;
   readonly populate: (stagingPath: string) => Effect.Effect<void, E, R>;
   readonly validate?: (stagingPath: string) => Effect.Effect<void, E, R>;
+  /** Acquire eligible parent creation proof; record it only after publication. */
+  readonly prepareParents?: Effect.Effect<Effect.Effect<void, E, R>, E, R>;
 }
 
 export interface ReplaceCanonicalDirectoryWithInspectionArgs<
@@ -161,17 +165,29 @@ export const replaceCanonicalDirectoryWithInspection = <A, E, R>(
     const { stagingPath, backupPath } = canonicalMaterializationPaths(args.canonicalPath);
 
     yield* recoverCanonicalDirectory(args);
-    yield* protectCreatedAncestors(fs, path, path.dirname(args.canonicalPath));
-    yield* fs.makeDirectory(path.dirname(args.canonicalPath), { recursive: true }).pipe(
-      Effect.mapError(
-        (cause) =>
-          new PackageMaterializationFailed({
-            path: args.canonicalPath,
-            step: "prepare-parent",
-            cause,
-          }),
-      ),
-    );
+    const recordParents =
+      args.transient === true || args.prepareParents === undefined
+        ? yield* createWorkspaceDirectories({
+            nativeRoot: args.baseDir,
+            workspaceDir: path.join(args.baseDir, ".axm"),
+            target: path.dirname(args.canonicalPath),
+            ...(args.transient === true ? {} : { prepare: protectWorkspacePath }),
+            record: (identity) =>
+              args.transient === true
+                ? Effect.void
+                : recordFootprint({ path: identity.physicalPath, change: "created" }),
+          }).pipe(
+            Effect.as(Effect.void),
+            Effect.mapError(
+              (cause) =>
+                new PackageMaterializationFailed({
+                  path: args.canonicalPath,
+                  step: "prepare-parent",
+                  cause,
+                }),
+            ),
+          )
+        : yield* args.prepareParents;
 
     const inspection = yield* Effect.gen(function* () {
       yield* fs.makeDirectory(stagingPath, { recursive: true }).pipe(
@@ -192,7 +208,7 @@ export const replaceCanonicalDirectoryWithInspection = <A, E, R>(
         fs.remove(stagingPath, { recursive: true, force: true }).pipe(Effect.ignore),
       ),
     );
-    yield* protectWorkspacePath(args.canonicalPath);
+    if (args.transient !== true) yield* protectWorkspacePath(args.canonicalPath);
     const hadCanonical = yield* fs
       .exists(args.canonicalPath)
       .pipe(
@@ -230,9 +246,10 @@ export const replaceCanonicalDirectoryWithInspection = <A, E, R>(
       Effect.option,
     );
     if (
-      Option.isNone(previousTreeIntegrity) ||
-      Option.isNone(replacedTreeIntegrity) ||
-      previousTreeIntegrity.value !== replacedTreeIntegrity.value
+      args.transient !== true &&
+      (Option.isNone(previousTreeIntegrity) ||
+        Option.isNone(replacedTreeIntegrity) ||
+        previousTreeIntegrity.value !== replacedTreeIntegrity.value)
     ) {
       yield* recordFootprint({
         path: args.canonicalPath,
@@ -240,6 +257,7 @@ export const replaceCanonicalDirectoryWithInspection = <A, E, R>(
       });
     }
 
+    yield* recordParents;
     return { canonicalPath: args.canonicalPath, inspection };
   });
 
@@ -290,6 +308,8 @@ export const createCanonicalDirectory = <E, R>(
     return yield* replaceCanonicalDirectory({
       baseDir: args.baseDir,
       canonicalPath: args.canonicalPath,
+      ...(args.transient === undefined ? {} : { transient: args.transient }),
+      ...(args.prepareParents === undefined ? {} : { prepareParents: args.prepareParents }),
       populate: args.populate,
       validate: (stagingPath) =>
         validateRequiredPackageFiles(stagingPath, args.requiredFiles ?? []).pipe(
@@ -325,23 +345,25 @@ export interface MaterializedPackage {
   readonly treeIntegrity: TreeIntegrity;
 }
 
-export interface MaterializeExternalPackageArgs<E = never> {
+export interface MaterializeExternalPackageArgs<E = never, R = never> {
+  readonly transient?: boolean;
   readonly baseDir: string;
   readonly canonicalPath: string;
   readonly sourceLocation: string;
   readonly copyFailureCode: "internal" | "validation";
   readonly copyFailureDetail: (canonicalPath: string) => string;
+  readonly prepareParents?: Effect.Effect<Effect.Effect<void, E, R>, E, R>;
   readonly validate?: (
     stagingPath: string,
-  ) => Effect.Effect<void, E, FileSystem.FileSystem | Path.Path>;
+  ) => Effect.Effect<void, E, FileSystem.FileSystem | Path.Path | R>;
 }
 
-export const materializeExternalPackageWithTreeIntegrity = <E = never>(
-  args: MaterializeExternalPackageArgs<E>,
+export const materializeExternalPackageWithTreeIntegrity = <E = never, R = never>(
+  args: MaterializeExternalPackageArgs<E, R>,
 ): Effect.Effect<
   MaterializedPackage,
   E | PackageCopyFailed | CanonicalDirectoryReplacementError | MaterializedTreeInvalid,
-  FileSystem.FileSystem | Path.Path
+  FileSystem.FileSystem | Path.Path | R
 > =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
@@ -360,10 +382,12 @@ export const materializeExternalPackageWithTreeIntegrity = <E = never>(
     const result = yield* replaceCanonicalDirectoryWithInspection<
       TreeIntegrity,
       E | PackageCopyFailed | MaterializedTreeInvalid,
-      FileSystem.FileSystem | Path.Path
+      FileSystem.FileSystem | Path.Path | R
     >({
       baseDir: args.baseDir,
       canonicalPath: args.canonicalPath,
+      ...(args.transient === undefined ? {} : { transient: args.transient }),
+      ...(args.prepareParents === undefined ? {} : { prepareParents: args.prepareParents }),
       populate: (stagingPath) =>
         copyExtensionDirectory(sourcePath, stagingPath).pipe(
           Effect.mapError(
@@ -388,7 +412,9 @@ export const materializeExternalPackageWithTreeIntegrity = <E = never>(
     };
   });
 
-export const materializeExternalPackage = <E = never>(args: MaterializeExternalPackageArgs<E>) =>
+export const materializeExternalPackage = <E = never, R = never>(
+  args: MaterializeExternalPackageArgs<E, R>,
+) =>
   materializeExternalPackageWithTreeIntegrity(args).pipe(
     Effect.map(({ canonicalPath }) => canonicalPath),
   );

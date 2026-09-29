@@ -31,7 +31,18 @@ export const tabnineCliAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".tabnine/agent/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".tabnine/agent/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -53,6 +64,10 @@ export const tabnineCliAgent = {
         standardsCompliance: "parity",
         convention: "universal",
         transports: ["stdio", "http", "sse"],
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -84,16 +99,38 @@ export const tabnineCliAgent = {
         sources: ["https://docs.tabnine.com/main/getting-started/tabnine-cli/features/hooks"],
         scopes: ["user", "project"],
         mechanism: ["command-stdin"],
-        configFiles: [
+        locations: [
           {
+            id: "project",
             scope: "project",
+            root: "project",
             path: ".tabnine/agent/settings.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "json",
             gitignored: false,
           },
           {
+            id: "user",
             scope: "user",
-            path: "~/.tabnine/agent/settings.json",
+            root: "home",
+            path: ".tabnine/agent/settings.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "json",
             gitignored: false,
           },
@@ -153,6 +190,8 @@ export const tabnineCliAgent = {
           },
         ],
         tools: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -173,8 +212,28 @@ export const tabnineCliAgent = {
       standardsCompliance: "parity",
       convention: "vendor",
       kind: "own-file",
-      directory: ".tabnine/guidelines",
-      files: ["guidelines.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "guidelines.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+        {
+          scope: "project",
+          root: "project",
+          path: ".tabnine/guidelines",
+          shape: "directory",
+          role: "additional",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: false,
       importSyntax: null,
     },
@@ -196,16 +255,38 @@ export const tabnineCliAgent = {
       ],
       scopes: ["user", "project"],
       mechanism: ["config-file"],
-      configFiles: [
+      locations: [
         {
+          id: "project",
           scope: "project",
+          root: "project",
           path: ".tabnine/agent/settings.json",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "json",
           gitignored: false,
         },
         {
+          id: "user",
           scope: "user",
-          path: "~/.tabnine/agent/settings.json",
+          root: "home",
+          path: ".tabnine/agent/settings.json",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "json",
           gitignored: false,
         },

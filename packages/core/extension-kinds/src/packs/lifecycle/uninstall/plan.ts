@@ -53,7 +53,10 @@ import {
   SubagentManager,
   failureTag,
 } from "@agentxm/workspace-kernel/materialization";
-import { expectedProjectionNames } from "@agentxm/workspace-kernel/projection";
+import {
+  expectedProjectionNames,
+  captureAgentOutputAuthority,
+} from "@agentxm/workspace-kernel/projection";
 import {
   parseExtensionFqnParts,
   type ExtensionFqnParts,
@@ -296,6 +299,15 @@ export const planPackUninstall: (
   const mcpServerManager = yield* McpServerManager;
 
   const observedGraph = yield* readDesiredGraph;
+  const priorNativeAuthority = yield* captureAgentOutputAuthority().pipe(
+    Effect.mapError((cause) =>
+      installRefused({
+        category: "conflict",
+        detail: "Cannot establish prior Pack native ownership",
+        cause,
+      }),
+    ),
+  );
   const graphReadiness = planPackUninstallGraphReadiness(
     observedGraph,
     intent.packsToUninstall.map((pack) => desiredPackageKey(pack.desiredIdentity)),
@@ -393,9 +405,14 @@ export const planPackUninstall: (
   const packTargets = [...allTargets.values()].filter((target) => target.type === "pack");
   const depTargets = [...allTargets.values()].filter((target) => target.type !== "pack");
   const orderedTargets = [...depTargets, ...packTargets];
-  const proposal = yield* proposeDesiredState(
-    intent.packsToUninstall.map((pack) => ({ kind: "remove", type: "pack", name: pack.name })),
-  ).pipe(
+  // The closure withdraws exclusive member preferences along with their last
+  // owning Pack, so native preflight must see that complete final graph.
+  const withdrawals = orderedTargets.map((target) => ({
+    kind: "remove" as const,
+    type: target.type,
+    name: target.name,
+  }));
+  const proposal = yield* proposeDesiredState(withdrawals).pipe(
     Effect.mapError((cause) =>
       installRefused({
         category: "conflict",
@@ -506,6 +523,11 @@ export const planPackUninstall: (
         );
   const projectionStep = yield* buildAggregateProjectionStep({
     types: new Set(orderedTargets.map((target) => target.type)),
+    nativeProjections: {
+      hook: { priorAuthority: priorNativeAuthority },
+      rule: { priorAuthority: priorNativeAuthority },
+      knowledge: { priorAuthority: priorNativeAuthority },
+    },
   });
   const registrationOnly =
     plannedRetirements.length === 0
@@ -513,6 +535,14 @@ export const planPackUninstall: (
       : ` (${plannedRetirements.length} pack${plannedRetirements.length === 1 ? "" : "s"} unregistered without removing package content)`;
   const graphStep = yield* buildReconciliationClosure({
     toStepFailure: conversion.toStepFailure,
+    ...(intent.packsToUninstall.length === 1 && intent.packsToUninstall[0] !== undefined
+      ? {
+          documentRoundTrip: {
+            identity: `${intent.packsToUninstall[0].owner}/packs/${intent.packsToUninstall[0].name}`,
+            mode: "withdraw" as const,
+          },
+        }
+      : {}),
     label: `${intent.packsToUninstall.length} pack${intent.packsToUninstall.length === 1 ? "" : "s"}`,
     message: `Uninstalled ${intent.packsToUninstall.length} pack${intent.packsToUninstall.length === 1 ? "" : "s"} and ${depTargets.length} exclusive member${depTargets.length === 1 ? "" : "s"}${registrationOnly}`,
     artifact: {
@@ -533,6 +563,25 @@ export const planPackUninstall: (
       })),
     ],
     preTransition: Effect.gen(function* () {
+      const currentProposal = yield* proposeDesiredState(withdrawals).pipe(
+        Effect.mapError((cause) =>
+          installRefused({ category: "conflict", detail: "Cannot preview Pack withdrawal", cause }),
+        ),
+      );
+      const options = { priorAuthority: priorNativeAuthority, desiredGraph: currentProposal.after };
+      yield* Effect.all([
+        ruleManager.projectionPlans(options),
+        hookManager.projectionPlans(options),
+        knowledgeManager.projectionPlans(options),
+      ]).pipe(
+        Effect.mapError((cause) =>
+          installRefused({
+            category: "conflict",
+            detail: "Pack native withdrawal is blocked",
+            cause,
+          }),
+        ),
+      );
       const currentGraph = yield* readDesiredGraph;
       yield* validateResolvedPackUninstallTargets(currentGraph, intent.packsToUninstall);
       const currentReadiness = planPackUninstallGraphReadiness(

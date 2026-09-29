@@ -14,7 +14,6 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace-kernel/projection/live";
 import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions";
 import { SourceHostProvidersLive } from "@agentxm/workspace-kernel/sources/live";
 import { extensionName, writeWorkspaceFiles } from "../../test-support/test-stubs.js";
@@ -85,11 +84,7 @@ describe("skills-new.handler", () => {
   }) => {
     const ctx = makeWorkspaceHandlerTestContext({ flags: flagsOverrides });
     const sourceLayer = Layer.provide(SourceHostProvidersLive, ctx.fullLayer);
-    const workspaceServiceLayer = Layer.mergeAll(
-      ctx.fullLayer,
-      sourceLayer,
-      CodingAgentRepositoryLive,
-    );
+    const workspaceServiceLayer = Layer.mergeAll(ctx.fullLayer, sourceLayer);
     const fullLayer = Layer.provideMerge(AllExtensionManagersLive, workspaceServiceLayer);
     return {
       ...ctx,

@@ -47,8 +47,10 @@ export interface RegistryPackageMaterializationMessages {
   readonly integrityMismatchDetail: string;
 }
 
-export interface MaterializeRegistryPackageArgs<E = never> {
+export interface MaterializeRegistryPackageArgs<E = never, R = never> {
   readonly baseDir: string;
+  readonly transient?: boolean;
+  readonly prepareParents?: Effect.Effect<Effect.Effect<void, E, R>, E, R>;
   /**
    * Canonical installed path for this extension. Bytes always land in a sibling
    * staging directory first and are swapped in after validation.
@@ -78,8 +80,8 @@ export interface MaterializeRegistryPackageArgs<E = never> {
  * Registry client and archive-extraction failures stay typed in the channel;
  * the application boundary converts them once.
  */
-export const materializeRegistryPackageWithTreeIntegrity = <E = never>(
-  args: MaterializeRegistryPackageArgs<E>,
+export const materializeRegistryPackageWithTreeIntegrity = <E = never, R = never>(
+  args: MaterializeRegistryPackageArgs<E, R>,
 ): Effect.Effect<
   MaterializedPackage,
   | E
@@ -88,13 +90,14 @@ export const materializeRegistryPackageWithTreeIntegrity = <E = never>(
   | ArchiveIntegrityMismatch
   | CanonicalDirectoryReplacementError
   | MaterializedTreeInvalid,
-  FileSystem.FileSystem | Path.Path | RegistryClientFactory
+  R | FileSystem.FileSystem | Path.Path | RegistryClientFactory
 > =>
   Effect.gen(function* () {
-    yield* recoverCanonicalDirectory({
-      baseDir: args.baseDir,
-      canonicalPath: args.destinationPath,
-    });
+    if (args.transient !== true)
+      yield* recoverCanonicalDirectory({
+        baseDir: args.baseDir,
+        canonicalPath: args.destinationPath,
+      });
     const acquired = yield* acquiredRegistryPackageFiles({
       sourceLocation: args.sourceLocation,
       owner: args.owner,
@@ -167,10 +170,12 @@ export const materializeRegistryPackageWithTreeIntegrity = <E = never>(
     const result = yield* replaceCanonicalDirectoryWithInspection<
       TreeIntegrity,
       E | RegistryClientFailure | MaterializedTreeInvalid | PackageMaterializationFailed,
-      FileSystem.FileSystem | Path.Path
+      R | FileSystem.FileSystem | Path.Path
     >({
       baseDir: args.baseDir,
       canonicalPath: args.destinationPath,
+      ...(args.transient === undefined ? {} : { transient: args.transient }),
+      ...(args.prepareParents === undefined ? {} : { prepareParents: args.prepareParents }),
       populate: (stagingPath) =>
         source.kind === "prepared"
           ? copyExtensionDirectory(source.directory, stagingPath).pipe(
@@ -199,7 +204,9 @@ export const materializeRegistryPackageWithTreeIntegrity = <E = never>(
     };
   }).pipe(withBufferedArchiveBudget);
 
-export const materializeRegistryPackage = <E = never>(args: MaterializeRegistryPackageArgs<E>) =>
+export const materializeRegistryPackage = <E = never, R = never>(
+  args: MaterializeRegistryPackageArgs<E, R>,
+) =>
   materializeRegistryPackageWithTreeIntegrity(args).pipe(
     Effect.map(({ canonicalPath }) => canonicalPath),
   );

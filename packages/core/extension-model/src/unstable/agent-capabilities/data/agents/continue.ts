@@ -29,7 +29,18 @@ export const continueAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".continue/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".continue/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -56,6 +67,10 @@ export const continueAgent = {
           variables: "none",
           defaults: false,
         },
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -88,22 +103,55 @@ export const continueAgent = {
         sources: ["https://github.com/continuedev/continue/issues/11678"],
         scopes: ["user", "project"],
         mechanism: ["command-stdin"],
-        configFiles: [
+        locations: [
           {
+            id: "user",
             scope: "user",
-            path: "~/.continue/settings.json",
-            format: "json",
-            gitignored: false,
-          },
-          {
-            scope: "project",
+            root: "home",
             path: ".continue/settings.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "json",
             gitignored: false,
           },
           {
+            id: "project",
             scope: "project",
+            root: "project",
+            path: ".continue/settings.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "json",
+            gitignored: false,
+          },
+          {
+            id: "project-additional-1",
+            scope: "project",
+            root: "project",
             path: ".continue/settings.local.json",
+            shape: "file",
+            role: "additional",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "json",
             gitignored: true,
           },
@@ -197,6 +245,8 @@ export const continueAgent = {
             lastVerified: "2026-08-05",
           },
         ],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -218,10 +268,20 @@ export const continueAgent = {
       standardsCompliance: "partial",
       convention: "vendor",
       kind: "rules-dir",
-      files: ["*.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: ".continue/rules",
+          shape: "directory",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: false,
       importSyntax: null,
-      directory: ".continue/rules",
     },
     axm: {
       status: "supported",
@@ -239,10 +299,21 @@ export const continueAgent = {
       sources: ["https://docs.continue.dev/cli/tool-permissions"],
       scopes: ["user"],
       mechanism: ["config-file", "cli-flag"],
-      configFiles: [
+      locations: [
         {
+          id: "user",
           scope: "user",
-          path: "~/.continue/permissions.yaml",
+          root: "home",
+          path: ".continue/permissions.yaml",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "yaml",
           gitignored: false,
         },

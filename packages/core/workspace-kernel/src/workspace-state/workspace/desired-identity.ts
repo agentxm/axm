@@ -61,6 +61,8 @@ export type DesiredNodeIdentity =
       readonly locator: string;
       /** The name accepted state gives the package, once it has been resolved. */
       readonly fqn?: string;
+      /** Exact accepted MCP source row, when source and package identity match. */
+      readonly resolutionKey?: string;
     }
   | {
       /** An MCP connection the settings define in place. */
@@ -146,7 +148,10 @@ export const formatDesiredIdentity = (identity: DesiredNodeIdentity): string => 
  * to every consumer.
  */
 export const desiredMcpSourceKey = (identity: DesiredNodeIdentity): string =>
-  identity.authority === "registry" && identity.resolutionKey !== undefined
+  (identity.authority === "registry" ||
+    identity.authority === "git" ||
+    identity.authority === "path") &&
+  identity.resolutionKey !== undefined
     ? identity.resolutionKey
     : formatDesiredIdentity(identity);
 

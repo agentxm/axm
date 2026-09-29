@@ -53,6 +53,7 @@ const makeAddArgs = (
   scope: "project",
   input: { ...makeRenderInput(name), agentId },
   force: false,
+  previousManagedFiles: [],
 });
 
 const makeRemoveArgs = (
@@ -63,6 +64,7 @@ const makeRemoveArgs = (
   workspaceRoot,
   scope: "project",
   subagentName: name,
+  expectedManagedFile: { ext: `@acme/subagents/${name}`, src: `src/${name}.md` },
   renderedFilePaths: renderedFilePaths.map((p) =>
     nodePath.isAbsolute(p) ? nodePath.relative(workspaceRoot, p) : p,
   ),
@@ -119,64 +121,100 @@ describe("resolveEffectiveSubagentsDir", () => {
   });
 
   describe("kiro-cli", () => {
-    it.effect("resolves project-scope subagents dir", () =>
+    it.effect("exposes the native project directory without granting writer support", () =>
       withNode(
         Effect.gen(function* () {
+          const locations = yield* kiroCliCodingAgent.resolveNativeReadLocations({
+            workspaceRoot: "/workspace",
+            scope: "project",
+            kind: "subagent",
+          });
+          expect(locations).toEqual([
+            expect.objectContaining({
+              path: "/workspace/.kiro/agents",
+              declaration: expect.objectContaining({ shape: "directory" }),
+            }),
+          ]);
           const outcome = yield* kiroCliCodingAgent.resolveEffectiveSubagentsDir({
             workspaceRoot: "/workspace",
             scope: "project",
           });
-          expect(outcome._tag).toBe("supported");
-          if (outcome._tag === "supported") {
-            expect(outcome.dir).toContain(".kiro/agents");
-          }
+          expect(outcome).toEqual({
+            _tag: "unsupported",
+            reason: "AXM has no verified native Subagent writer for kiro-cli",
+          });
         }),
       ),
     );
 
-    it.effect("resolves the catalog-declared user-scope directory", () =>
+    it.effect("does not invent a user directory from native scope support", () =>
       withNode(
         Effect.gen(function* () {
+          expect(
+            yield* kiroCliCodingAgent.resolveNativeReadLocations({
+              workspaceRoot: "/workspace",
+              scope: "user",
+              kind: "subagent",
+            }),
+          ).toEqual([]);
           const outcome = yield* kiroCliCodingAgent.resolveEffectiveSubagentsDir({
             workspaceRoot: "/workspace",
             scope: "user",
           });
-          expect(outcome._tag).toBe("supported");
-          if (outcome._tag === "supported") {
-            expect(outcome.dir).toContain(".kiro/agents");
-          }
+          expect(outcome).toEqual({
+            _tag: "unsupported",
+            reason: "AXM has no verified native Subagent writer for kiro-cli",
+          });
         }),
       ),
     );
   });
 
   describe("roo", () => {
-    it.effect("resolves project-scope subagents dir to .roomodes", () =>
+    it.effect("exposes the native project file without treating it as a writable directory", () =>
       withNode(
         Effect.gen(function* () {
+          const locations = yield* rooCodingAgent.resolveNativeReadLocations({
+            workspaceRoot: "/workspace",
+            scope: "project",
+            kind: "subagent",
+          });
+          expect(locations).toEqual([
+            expect.objectContaining({
+              path: "/workspace/.roomodes",
+              declaration: expect.objectContaining({ shape: "file" }),
+            }),
+          ]);
           const outcome = yield* rooCodingAgent.resolveEffectiveSubagentsDir({
             workspaceRoot: "/workspace",
             scope: "project",
           });
-          expect(outcome._tag).toBe("supported");
-          if (outcome._tag === "supported") {
-            expect(outcome.dir).toContain(".roomodes");
-          }
+          expect(outcome).toEqual({
+            _tag: "unsupported",
+            reason: "AXM has no verified native Subagent writer for roo",
+          });
         }),
       ),
     );
 
-    it.effect("resolves the catalog-declared user-scope file", () =>
+    it.effect("does not invent a user file from native scope support", () =>
       withNode(
         Effect.gen(function* () {
+          expect(
+            yield* rooCodingAgent.resolveNativeReadLocations({
+              workspaceRoot: "/workspace",
+              scope: "user",
+              kind: "subagent",
+            }),
+          ).toEqual([]);
           const outcome = yield* rooCodingAgent.resolveEffectiveSubagentsDir({
             workspaceRoot: "/workspace",
             scope: "user",
           });
-          expect(outcome._tag).toBe("supported");
-          if (outcome._tag === "supported") {
-            expect(outcome.dir).toContain(".roomodes");
-          }
+          expect(outcome).toEqual({
+            _tag: "unsupported",
+            reason: "AXM has no verified native Subagent writer for roo",
+          });
         }),
       ),
     );
@@ -192,7 +230,7 @@ describe("resolveEffectiveSubagentsDir", () => {
           });
           expect(outcome).toEqual({
             _tag: "unsupported",
-            reason: "Subagents are not supported for windsurf",
+            reason: "Subagents are not supported in project scope for windsurf",
           });
         }),
       ),
@@ -234,70 +272,18 @@ describe("addSubagent", () => {
   testAddSubagent(claudeCodeCodingAgent, ".claude/agents/test-subagent.md");
   testAddSubagent(codexCodingAgent, ".codex/agents/test-subagent.toml");
 
-  it.effect("kiro-cli writes dual-format files (md + json)", () =>
-    withNode(
-      Effect.gen(function* () {
-        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-kiro-cli-subagent-"));
-        try {
-          const outcome = yield* kiroCliCodingAgent.addSubagent(
-            makeAddArgs(workspaceRoot, "kiro-cli"),
-          );
-          expect(outcome._tag).toBe("success");
-          if (outcome._tag === "success") {
-            // Kiro dual-format produces two files
-            expect(outcome.renderedFilePaths.length).toBe(2);
-            const fs = yield* FileSystem.FileSystem;
-            const hasMd = outcome.renderedFilePaths.some((p) => p.endsWith(".md"));
-            const hasJson = outcome.renderedFilePaths.some((p) => p.endsWith(".json"));
-            expect(hasMd).toBe(true);
-            expect(hasJson).toBe(true);
-            for (const filePath of outcome.renderedFilePaths) {
-              const content = yield* fs.readFileString(filePath);
-              expect(content.length).toBeGreaterThan(0);
-              if (filePath.endsWith(".md")) {
-                expect(content).toContain(ownershipBanner.markdown);
-              }
-              if (filePath.endsWith(".json")) {
-                expect(content).not.toContain(ownershipBanner.markdown);
-              }
-            }
-          }
-        } finally {
-          rmSync(workspaceRoot, { recursive: true, force: true });
-        }
-      }),
-    ),
-  );
-
-  it.effect("roo writes subagent as mode entry in .roomodes", () =>
-    withNode(
-      Effect.gen(function* () {
-        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-roo-subagent-"));
-        try {
-          const outcome = yield* rooCodingAgent.addSubagent(makeAddArgs(workspaceRoot, "roo"));
-          expect(outcome._tag).toBe("success");
-          if (outcome._tag === "success") {
-            expect(outcome.renderedFilePaths.length).toBe(1);
-            const fs = yield* FileSystem.FileSystem;
-            const firstPath = outcome.renderedFilePaths[0];
-            expect(firstPath).toBeDefined();
-            if (firstPath === undefined) return;
-            const content = yield* fs.readFileString(firstPath);
-            const parsed: unknown = JSON.parse(content);
-            expect(parsed).toHaveProperty("customModes");
-            const modes = (parsed as Record<string, unknown>)["customModes"]; // Assertion needed: test boundary parsing JSON
-            expect(Array.isArray(modes)).toBe(true);
-            if (!Array.isArray(modes)) return;
-            expect(modes.length).toBe(1);
-            const firstMode = modes[0] as Record<string, unknown>; // Assertion needed: test boundary array element
-            expect(firstMode["slug"]).toBe("test-subagent");
-            expect(firstMode["_axm_managed"]).toBeUndefined();
-          }
-        } finally {
-          rmSync(workspaceRoot, { recursive: true, force: true });
-        }
-      }),
-    ),
+  it.effect.each([kiroCliCodingAgent, rooCodingAgent])(
+    "preserves unsupported native ownership for $id",
+    (agent) =>
+      withNode(
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const root = yield* fs.makeTempDirectoryScoped();
+          const outcome = yield* agent.addSubagent(makeAddArgs(root, agent.id));
+          expect(outcome._tag).toBe("unsupported");
+          expect(yield* fs.readDirectory(root)).toEqual([]);
+        }).pipe(Effect.scoped),
+      ),
   );
 });
 
@@ -353,48 +339,26 @@ describe("removeSubagent", () => {
     ),
   );
 
-  it.effect("roo removes mode entry from .roomodes", () =>
+  it.effect("roo preserves mode entries without a native ownership proof", () =>
     withNode(
       Effect.gen(function* () {
-        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-rm-roo-subagent-"));
-        try {
-          // Add a subagent
-          const addOutcome = yield* rooCodingAgent.addSubagent(makeAddArgs(workspaceRoot, "roo"));
-          expect(addOutcome._tag).toBe("success");
-          if (addOutcome._tag !== "success") return;
-
-          // Remove it
-          const removeOutcome = yield* rooCodingAgent.removeSubagent({
-            workspaceRoot,
-            scope: "project",
-            subagentName: "test-subagent",
-            renderedFilePaths: addOutcome.renderedFilePaths.map((p) =>
-              nodePath.relative(workspaceRoot, p),
-            ),
-          });
-          expect(removeOutcome._tag).toBe("success");
-
-          // Verify mode entry is gone
-          const fs = yield* FileSystem.FileSystem;
-          const roomodesPath = nodePath.join(workspaceRoot, ".roomodes");
-          const content = yield* fs.readFileString(roomodesPath);
-          const parsed: unknown = JSON.parse(content);
-          expect(parsed).toHaveProperty("customModes");
-          const modes = (parsed as Record<string, unknown>)["customModes"]; // Assertion needed: test boundary parsing JSON
-          expect(Array.isArray(modes)).toBe(true);
-          if (Array.isArray(modes)) {
-            expect(modes.length).toBe(0);
-          }
-        } finally {
-          rmSync(workspaceRoot, { recursive: true, force: true });
-        }
-      }),
+        const fs = yield* FileSystem.FileSystem;
+        const root = yield* fs.makeTempDirectoryScoped();
+        const file = nodePath.join(root, ".roomodes");
+        const original = JSON.stringify({
+          customModes: [{ slug: "test-subagent", roleDefinition: "User" }],
+        });
+        yield* fs.writeFileString(file, original);
+        const outcome = yield* rooCodingAgent.removeSubagent(makeRemoveArgs(root, [file]));
+        expect(outcome._tag).toBe("unsupported");
+        expect(yield* fs.readFileString(file)).toBe(original);
+      }).pipe(Effect.scoped),
     ),
   );
 });
 
 describe("overwrite behavior", () => {
-  it.effect("overwrites existing file without marker checks", () =>
+  it.effect("preserves an existing unowned file", () =>
     withNode(
       Effect.gen(function* () {
         const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-conflict-subagent-"));
@@ -410,7 +374,12 @@ describe("overwrite behavior", () => {
           const outcome = yield* claudeCodeCodingAgent.addSubagent(
             makeAddArgs(workspaceRoot, "claude-code"),
           );
-          expect(outcome._tag).toBe("success");
+          expect(outcome._tag).toBe("conflict");
+          expect(
+            yield* fs.readFileString(
+              nodePath.join(workspaceRoot, ".claude/agents/test-subagent.md"),
+            ),
+          ).toBe("user-owned content without marker");
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }
@@ -456,37 +425,20 @@ describe("overwrite behavior", () => {
     ),
   );
 
-  it.effect("roo replaces existing mode with the same slug", () =>
+  it.effect("roo refuses to claim an existing mode by slug", () =>
     withNode(
       Effect.gen(function* () {
-        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-roo-conflict-"));
-        try {
-          const fs = yield* FileSystem.FileSystem;
-          // Write a .roomodes with a manually-defined mode with same slug
-          const existingContent = JSON.stringify({
-            customModes: [
-              {
-                slug: "test-subagent",
-                name: "Test Subagent",
-                roleDefinition: "Manual definition",
-                groups: ["read"],
-              },
-            ],
-          });
-          yield* fs.writeFileString(nodePath.join(workspaceRoot, ".roomodes"), existingContent);
-          const outcome = yield* rooCodingAgent.addSubagent(makeAddArgs(workspaceRoot, "roo"));
-          expect(outcome._tag).toBe("success");
-          if (outcome._tag !== "success") return;
-          const content = yield* fs.readFileString(nodePath.join(workspaceRoot, ".roomodes"));
-          const parsed = JSON.parse(content) as { customModes: Array<Record<string, unknown>> };
-          expect(parsed.customModes).toHaveLength(1);
-          expect(parsed.customModes[0]?.["roleDefinition"]).toBe(
-            "You are a helpful test subagent.",
-          );
-        } finally {
-          rmSync(workspaceRoot, { recursive: true, force: true });
-        }
-      }),
+        const fs = yield* FileSystem.FileSystem;
+        const root = yield* fs.makeTempDirectoryScoped();
+        const file = nodePath.join(root, ".roomodes");
+        const original = JSON.stringify({
+          customModes: [{ slug: "test-subagent", roleDefinition: "User" }],
+        });
+        yield* fs.writeFileString(file, original);
+        const outcome = yield* rooCodingAgent.addSubagent(makeAddArgs(root, "roo"));
+        expect(outcome._tag).toBe("unsupported");
+        expect(yield* fs.readFileString(file)).toBe(original);
+      }).pipe(Effect.scoped),
     ),
   );
 });

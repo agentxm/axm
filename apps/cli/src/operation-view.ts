@@ -4,6 +4,7 @@ import * as Effect from "effect/Effect";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
   countUnitStates,
+  operationNativeLocations,
   defaultOperationPresentation,
   deriveOperationOutcome,
   presentationOf,
@@ -17,6 +18,10 @@ import {
   type ResolvedUnit,
   type UnitState,
 } from "@agentxm/workspace-kernel/operations";
+import {
+  combineNativeLocationOutcomes,
+  type NativeLocationOutcome,
+} from "@agentxm/workspace-kernel/locations";
 
 import { Verbosity, type VerbosityLevel } from "./cli-flags/index.js";
 import {
@@ -91,6 +96,61 @@ const detailCell = (
     ...extra,
     artifact === undefined ? undefined : artifactPaths(artifact),
   ]);
+
+const nativeLocationsDoc = (
+  locations: ReadonlyArray<NativeLocationOutcome>,
+  detailed: boolean,
+  planned: boolean,
+): Doc => {
+  if (locations.length === 0) return [];
+  const physical = new Set(
+    locations.map((location) => JSON.stringify([location.scope, location.address.path])),
+  ).size;
+  const consumers = new Set(locations.flatMap((location) => location.configuredConsumers)).size;
+  const readers = new Set(locations.flatMap((location) => location.potentialReaders)).size;
+  const policies = [...new Set(locations.flatMap((location) => location.policyReasons))];
+  return [
+    {
+      _tag: "paragraph",
+      tone: "dim",
+      text: `${planned ? "Planned native locations" : "Native locations"}: ${count(physical, "physical location")}, ${count(locations.length, "unit")}, ${count(consumers, "configured consumer")}${readers === 0 ? "" : `, ${count(readers, "potential reader")}`}.`,
+    },
+    ...policies.map(
+      (reason) => ({ _tag: "paragraph", tone: "dim", text: redactRegistryText(reason) }) as const,
+    ),
+    ...locations
+      .filter(
+        (location) =>
+          detailed ||
+          location.state === "retained" ||
+          location.state === "blocked" ||
+          location.state === "unverified",
+      )
+      .map((location) => {
+        const address =
+          location.address.kind === "key-path"
+            ? `${location.address.path} ${JSON.stringify(location.address.keys)}`
+            : location.address.kind === "region"
+              ? `${location.address.path} (region ${JSON.stringify(location.address.region)})`
+              : location.address.path;
+        const aliases = location.aliases.filter((alias) => alias !== location.address.path);
+        const availability = [
+          ...new Set(
+            location.availability
+              .map((entry) => entry.reason)
+              .filter((reason) => reason !== undefined),
+          ),
+        ];
+        return {
+          _tag: "paragraph",
+          tone: location.state === "blocked" ? "warn" : "dim",
+          text: redactRegistryText(
+            `${address}: ${location.state}${location.reason === undefined ? "" : `; ${location.reason}`}${detailed && aliases.length > 0 ? `; aliases ${aliases.join(", ")}` : ""}${detailed && availability.length > 0 ? `; ${availability.join("; ")}` : ""}`,
+          ),
+        } as const;
+      }),
+  ];
+};
 
 /**
  * The version column: what the unit moved between where both ends are known,
@@ -574,9 +634,7 @@ const untouchedPaths = (
 const agentCoverage = (units: ReadonlyArray<ResolvedUnit<unknown>>): ReadonlyArray<string> => [
   ...new Set(
     units.flatMap((unit) =>
-      unit.state === "committed" || unit.state === "unchanged"
-        ? (unit.artifact?.agents ?? []).filter((agent) => agent !== "universal")
-        : [],
+      unit.state === "committed" || unit.state === "unchanged" ? (unit.artifact?.agents ?? []) : [],
     ),
   ),
 ];
@@ -800,9 +858,22 @@ export const operationDoc = (
       ...(coverage === undefined ? {} : { scope: coverage.scope, agents: coverage.agents }),
     }),
     ...ledger,
+    ...nativeLocationsDoc(
+      operationNativeLocations(resolution),
+      detailed,
+      resolution.mode === "preview",
+    ),
     ...groupedWarnings(resolution.units, resolution.mode),
     ...untouchedPaths(resolution.units, resolution.mode),
     ...(options.callouts ?? []),
+    ...(resolution.recovery?.entries ?? []).map(
+      (entry) =>
+        ({
+          _tag: "paragraph",
+          tone: "warn",
+          text: `Preserved original for ${redactRegistryText(entry.originalPath)}: ${redactRegistryText(entry.recoveryPath)}`,
+        }) as const,
+    ),
     ...(coverage === undefined || coverage.agents.length > 0
       ? []
       : [
@@ -904,13 +975,7 @@ export const planDoc = (
     options.mode === "preview" ? "no changes made" : undefined,
   ]);
   const scope = steps.find((step) => step.artifact !== undefined)?.artifact?.scope;
-  const agents = [
-    ...new Set(
-      steps.flatMap((step) =>
-        (step.artifact?.agents ?? []).filter((agent) => agent !== "universal"),
-      ),
-    ),
-  ];
+  const agents = [...new Set(steps.flatMap((step) => step.artifact?.agents ?? []))];
   const ledger = foldedLedger(
     ledgerColumns(presentation, "Plan"),
     (detailed ? steps : plannedChanges).map((step) => planRow(step, presentation, detailed)),
@@ -928,6 +993,11 @@ export const planDoc = (
       onSome: (description): Doc => [{ _tag: "paragraph", text: description }],
     }),
     ...ledger,
+    ...nativeLocationsDoc(
+      combineNativeLocationOutcomes(steps.flatMap((step) => step.artifact?.nativeLocations ?? [])),
+      detailed,
+      true,
+    ),
     ...risks.map((risk) => ({ _tag: "callout", tone: "warn", title: risk.detail }) as const),
     {
       _tag: "headline",

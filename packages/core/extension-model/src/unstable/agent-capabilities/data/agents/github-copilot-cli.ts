@@ -46,10 +46,37 @@ export const githubCopilotCliAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".github/skills",
-        additionalReadPaths: [
-          { path: ".agents/skills", status: "compat" },
-          { path: ".claude/skills", status: "compat" },
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".github/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+          {
+            scope: "project",
+            root: "project",
+            path: ".agents/skills",
+            shape: "directory",
+            role: "additional",
+            status: "compat",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+          {
+            scope: "project",
+            root: "project",
+            path: ".claude/skills",
+            shape: "directory",
+            role: "additional",
+            status: "compat",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
         ],
       },
       axm: {
@@ -78,76 +105,104 @@ export const githubCopilotCliAgent = {
           variables: "braced",
           defaults: false,
         },
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-09-12",
-        writer: {
-          config: {
-            serversKey: "mcpServers",
-            activationField: {
-              required: null,
-              accepted: [null],
+
+        locations: [
+          {
+            id: "user",
+            scope: "user",
+            root: "home",
+            path: ".copilot/mcp-config.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
             },
-            targets: [
-              {
-                scope: "user",
-                path: "~/.copilot/mcp-config.json",
-                format: "json",
-                attribution: "agent",
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "json",
+            keyPath: ["mcpServers"],
+            attribution: "agent",
+          },
+          {
+            id: "project",
+            scope: "project",
+            root: "project",
+            path: ".mcp.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "json",
+            keyPath: ["mcpServers"],
+            attribution: "shared",
+          },
+        ],
+
+        entryDialect: {
+          activationField: {
+            required: null,
+            accepted: [null],
+          },
+          stdio: {
+            typeField: {
+              required: {
+                name: "type",
+                value: "stdio",
               },
-              {
-                scope: "project",
-                path: ".mcp.json",
-                format: "json",
-                attribution: "shared",
-              },
-            ],
-            stdio: {
-              typeField: {
-                required: {
+              accepted: [
+                {
                   name: "type",
                   value: "stdio",
                 },
-                accepted: [
-                  {
-                    name: "type",
-                    value: "stdio",
-                  },
-                  {
-                    name: "type",
-                    value: "local",
-                  },
-                ],
-              },
-              command: "split",
-              envKey: "env",
+                {
+                  name: "type",
+                  value: "local",
+                },
+              ],
             },
-            remote: {
-              typeField: {
-                required: {
+            command: "split",
+            envKey: "env",
+          },
+          remote: {
+            typeField: {
+              required: {
+                name: "type",
+                value: {
+                  "streamable-http": "http",
+                  sse: "sse",
+                },
+              },
+              accepted: [
+                {
                   name: "type",
                   value: {
                     "streamable-http": "http",
                     sse: "sse",
                   },
                 },
-                accepted: [
-                  {
-                    name: "type",
-                    value: {
-                      "streamable-http": "http",
-                      sse: "sse",
-                    },
-                  },
-                ],
-              },
-              urlKey: {
-                "streamable-http": "url",
-                sse: "url",
-              },
-              headersKey: "headers",
+              ],
             },
+            urlKey: {
+              "streamable-http": "url",
+              sse: "url",
+            },
+            headersKey: "headers",
+          },
+        },
+      },
+      axm: {
+        status: "supported",
+        lastVerified: "2026-09-12",
+        writer: {
+          config: {
+            locationIds: ["user", "project"],
           },
         },
       },
@@ -164,8 +219,28 @@ export const githubCopilotCliAgent = {
           "https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference",
         ],
         scopes: ["user", "project"],
-        directory: ".github/agents",
-        layout: "directory",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".github/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".copilot/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -186,6 +261,10 @@ export const githubCopilotCliAgent = {
         ],
         scopes: ["user", "project"],
         modeling: "native-unmodeled",
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -209,7 +288,18 @@ export const githubCopilotCliAgent = {
       standardsCompliance: "full",
       convention: "universal",
       kind: "agents-md",
-      files: ["AGENTS.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "AGENTS.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: true,
       importSyntax: null,
     },
@@ -232,22 +322,55 @@ export const githubCopilotCliAgent = {
       ],
       scopes: ["user", "project"],
       mechanism: ["cli-flag", "config-file"],
-      configFiles: [
+      locations: [
         {
+          id: "user",
           scope: "user",
-          path: "~/.copilot/permissions-config.json",
+          root: "home",
+          path: ".copilot/permissions-config.json",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "json",
           gitignored: false,
         },
         {
+          id: "user-additional-1",
           scope: "user",
-          path: "~/.copilot/settings.json",
+          root: "home",
+          path: ".copilot/settings.json",
+          shape: "file",
+          role: "additional",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "json",
           gitignored: false,
         },
         {
+          id: "project",
           scope: "project",
+          root: "project",
           path: ".github/copilot/settings.json",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "json",
           gitignored: false,
         },
@@ -296,12 +419,12 @@ export const githubCopilotCliAgent = {
       writer: {
         grants: {
           shell: {
-            target: "CLI invocation",
+            destination: { kind: "invocation" },
             patch: null,
             template: "--allow-tool='shell(${tool}:*)'",
           },
           filesystem: {
-            target: "CLI invocation",
+            destination: { kind: "invocation" },
             patch: null,
             template: "--allow-tool='write(${workspaceRoot}/**)'",
           },

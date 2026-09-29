@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import YAML from "yaml";
-import { createTempDir, runCli } from "./e2e/utils.js";
+import { createTempDir, normalizeWorkspacePaths, runCli } from "./e2e/utils.js";
 import { refreshAuthoredWorkspacePackState } from "./e2e/workspace-pack-state.js";
 
 /**
@@ -324,7 +324,7 @@ const runJsonCommand = async (
 
   return {
     exitCode: result.exitCode,
-    stdout: normalizeJsonValue(document),
+    stdout: normalizeWorkspacePaths(normalizeJsonValue(document), workspacePath),
     result: documentResult(document),
     stderr: result.stderr,
   };
@@ -341,7 +341,7 @@ const installRegistryExtension = async (
 
 const expectAppliedUninstallDocument = (result: JsonCommandResult) => {
   expect(result.result).toMatchObject({
-    contract: "plan-result-v3",
+    contract: "plan-result-v4",
     outcome: "applied",
     mode: "apply",
     counts: {
@@ -505,7 +505,7 @@ describe("axm uninstall", () => {
         expect(rootSecondPass.exitCode).toBe(0);
         expect(typedSecondPass.exitCode).toBe(0);
         expect(rootSecondPass.result).toMatchObject({
-          contract: "plan-result-v3",
+          contract: "plan-result-v4",
           outcome: "no-op",
           counts: { total: 0, committed: 0 },
         });
@@ -633,7 +633,7 @@ describe("axm uninstall", () => {
       const typedDocument: unknown = JSON.parse(typedResult.stdout);
       for (const result of [rootDocument, typedDocument]) {
         expect(documentResult(result)).toMatchObject({
-          contract: "plan-result-v3",
+          contract: "plan-result-v4",
           outcome: "applied",
           mode: "apply",
           counts: { total: 1, committed: 1, failed: 0, blocked: 0 },
@@ -643,7 +643,9 @@ describe("axm uninstall", () => {
       // Candidate id and footprint compare too: identity is content-addressed
       // relative to the workspace base, and every mutating surface runs under
       // the operation lifecycle that records the footprint.
-      expect(normalizeJsonValue(rootDocument)).toEqual(normalizeJsonValue(typedDocument));
+      expect(normalizeWorkspacePaths(normalizeJsonValue(rootDocument), rootWorkspace.path)).toEqual(
+        normalizeWorkspacePaths(normalizeJsonValue(typedDocument), typedWorkspace.path),
+      );
       expectWorkspaceStateEquivalent(rootWorkspace.path, typedWorkspace.path, "user");
       expectSameCanonicalState(rootWorkspace.path, typedWorkspace.path, "skills", name, "user");
     } finally {

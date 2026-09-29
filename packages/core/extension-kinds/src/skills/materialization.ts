@@ -13,6 +13,19 @@ import { fromFileLocation } from "@agentxm/host-primitives";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { PlatformError } from "effect/PlatformError";
+import {
+  assertNativeMutationWithinRoots,
+  assertNoPhysicalOverlap,
+  resolveNativeEntry,
+  resolveNativeReferent,
+  captureCopiedDirectory,
+  copiedDirectoryIsCurrent,
+  copiedDirectoryCanReplace,
+  readCopiedDirectory,
+  retireCopiedDirectory,
+} from "@agentxm/workspace-kernel/locations";
+import { NativeWriteAuthority } from "@agentxm/workspace-kernel/agent-adapters";
 import { SkillMaterializationFailed } from "./errors.js";
 import { acquireCanonicalForRef } from "@agentxm/workspace-kernel/materialization";
 import {
@@ -28,8 +41,11 @@ import type {
   SkillExtensionRef,
   WorkspaceSkillRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import { isPathSafe } from "@agentxm/extension-model/unstable/path-types";
-import { protectWorkspacePath } from "@agentxm/workspace-kernel/settlement";
+import {
+  protectWorkspacePath,
+  recordFootprint,
+  retireWorkspacePath,
+} from "@agentxm/workspace-kernel/settlement";
 import { validateAxmSkillCandidate } from "@agentxm/workspace-kernel/resolution";
 import {
   copyExtensionDirectory,
@@ -70,6 +86,7 @@ const materializeFromDisk = (
       baseDir,
       canonicalPath,
       accepted: reuse.accepted,
+      nativeInsertionEligible: reuse.nativeInsertionEligible === true,
       force: reuse.force,
       copyFailure: {
         code: "internal",
@@ -105,6 +122,7 @@ const materializeRegistry = (
         baseDir,
         canonicalPath,
         accepted: reuse.accepted,
+        nativeInsertionEligible: reuse.nativeInsertionEligible === true,
         force: reuse.force,
         copyFailure: {
           code: "internal",
@@ -146,6 +164,7 @@ const materializeWorkspace = (ref: WorkspaceSkillRef, baseDir: string) =>
 /** Reuse inputs sourced from the caller's operation context and lockfile. */
 export type CanonicalReuseContext = {
   readonly force: boolean;
+  readonly nativeInsertionEligible?: boolean;
   /** The accepted resolution the canonical tree may be kept for. */
   readonly accepted: Option.Option<SkillLockEntry>;
 };
@@ -187,55 +206,200 @@ export const materializeSkillCanonical = (args: {
   }
 };
 
+const unsupportedSymlink = (cause: unknown): boolean => {
+  if (!(cause instanceof PlatformError)) return false;
+  const original = "cause" in cause.reason ? cause.reason.cause : undefined;
+  return (
+    typeof original === "object" &&
+    original !== null &&
+    "code" in original &&
+    (original.code === "ENOSYS" ||
+      original.code === "ENOTSUP" ||
+      original.code === "EOPNOTSUPP" ||
+      (original.code === "EPERM" && process.platform === "win32"))
+  );
+};
+
 export const ensureSkillAgentArtifact = (args: {
   readonly canonicalSkillSrcPath: string;
+  readonly previousCanonicalSkillSrcPaths?: ReadonlyArray<string>;
   readonly targetDir: string;
   readonly sanitizedName: string;
   readonly baseDir: string;
+  readonly nativeRoots: ReadonlyArray<string>;
+  readonly nativeInsertionEligible: boolean;
 }) =>
   Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    const agentSkillPath = pathService.join(args.targetDir, args.sanitizedName);
-    if (!isPathSafe(pathService, args.baseDir, agentSkillPath)) {
-      return;
+    const path = yield* Path.Path;
+    const authority = yield* NativeWriteAuthority;
+    const agentSkillPath = path.join(args.targetDir, args.sanitizedName);
+    const { address } = yield* assertNativeMutationWithinRoots(
+      args.nativeRoots,
+      agentSkillPath,
+      "entry",
+      args.baseDir,
+    );
+    const source = yield* resolveNativeReferent(args.canonicalSkillSrcPath);
+    // An authored source already occupies this physical entry. Never copy it onto itself.
+    if (address.entryPath === source) return "unchanged" as const;
+    let ownedPreviousLink = false;
+    const previousSources = yield* Effect.forEach(
+      args.previousCanonicalSkillSrcPaths ?? [],
+      resolveNativeReferent,
+    );
+    if (address.kind === "symlink" && address.linkTarget !== undefined) {
+      const immediate = yield* resolveNativeEntry(
+        path.resolve(path.dirname(address.entryPath), address.linkTarget),
+      );
+      if (immediate.entryPath === source && immediate.kind !== "symlink")
+        return "unchanged" as const;
+      ownedPreviousLink =
+        previousSources.includes(immediate.entryPath) && immediate.kind !== "symlink";
     }
-
-    yield* createSymlink({
-      target: args.canonicalSkillSrcPath,
-      link: agentSkillPath,
-    }).pipe(
-      Effect.catch(() =>
-        copyExtensionDirectory(args.canonicalSkillSrcPath, agentSkillPath).pipe(
-          // If the copy fallback also fails, surface it — otherwise sync
-          // reports success with no materialized skill artifact.
-          Effect.mapError(
-            (cause) =>
-              new SkillMaterializationFailed({
-                detail: `Failed to materialize skill artifact at ${agentSkillPath}`,
-                cause,
-              }),
-          ),
-        ),
+    if (yield* copiedDirectoryIsCurrent(address.entryPath, source)) return "unchanged" as const;
+    if (address.kind !== "absent" && !ownedPreviousLink) {
+      const receipt = yield* readCopiedDirectory(address.entryPath);
+      if (
+        Option.isNone(receipt) ||
+        (receipt.value.source !== source && !previousSources.includes(receipt.value.source))
+      ) {
+        return yield* new SkillMaterializationFailed({
+          detail: `Preserved unowned skill artifact at ${agentSkillPath}`,
+          cause: undefined,
+        });
+      }
+      if (!(yield* copiedDirectoryCanReplace(address.entryPath)))
+        return yield* new SkillMaterializationFailed({
+          detail: `Preserved modified copied skill at ${agentSkillPath}`,
+          cause: undefined,
+        });
+      // A copied projection is updated only through its bounded receipt, never recursive deletion.
+      yield* protectWorkspacePath(address.entryPath);
+      yield* retireCopiedDirectory(address.entryPath, retireWorkspacePath);
+      yield* recordFootprint({ path: address.entryPath, change: "modified" });
+      const remaining = yield* resolveNativeEntry(address.entryPath);
+      if (remaining.kind !== "absent") {
+        return yield* new SkillMaterializationFailed({
+          detail: `Preserved modified copied skill at ${agentSkillPath}`,
+          cause: undefined,
+        });
+      }
+    }
+    yield* assertNoPhysicalOverlap(source, address.entryPath);
+    const parentTarget = {
+      path: address.entryPath,
+      unit: JSON.stringify(["skill-parent-directories", address.entryPath]),
+    };
+    const capture = yield* authority.captureCreatedDirectories({
+      ...parentTarget,
+      eligible: args.nativeInsertionEligible,
+    });
+    const createdDirectories = yield* authority.createParentDirectories(address.entryPath);
+    yield* createSymlink({ target: source, link: address.entryPath }).pipe(
+      Effect.catchTag("SymlinkCreationError", (error) =>
+        Effect.gen(function* () {
+          if (error.step !== "symlink" || !unsupportedSymlink(error.cause)) return yield* error;
+          yield* Effect.scoped(
+            Effect.gen(function* () {
+              const fs = yield* FileSystem.FileSystem;
+              const temporary = yield* fs.makeTempDirectoryScoped({
+                directory: path.dirname(address.entryPath),
+                prefix: ".axm-skill-copy-",
+              });
+              const staged = path.join(temporary, "entry");
+              yield* fs.makeDirectory(staged);
+              yield* copyExtensionDirectory(source, staged, { forAgentArtifact: true });
+              const receipt = yield* captureCopiedDirectory(staged, source);
+              if (Option.isNone(receipt))
+                return yield* new SkillMaterializationFailed({
+                  detail: `Filesystem cannot establish ownership for a copied skill at ${agentSkillPath}`,
+                  cause: undefined,
+                });
+              const current = yield* resolveNativeEntry(address.entryPath);
+              if (current.kind !== "absent")
+                return yield* new SkillMaterializationFailed({
+                  detail: `Skill target changed before copied publication: ${agentSkillPath}`,
+                  cause: undefined,
+                });
+              yield* protectWorkspacePath(address.entryPath);
+              yield* fs.rename(staged, address.entryPath);
+              yield* recordFootprint({ path: address.entryPath, change: "created" });
+            }),
+          );
+        }),
       ),
     );
-  });
+    yield* authority.recordCreatedDirectories({ capture, createdDirectories });
+    return address.kind === "absent" ? ("created" as const) : ("updated" as const);
+  }).pipe(
+    Effect.mapError((cause) =>
+      cause instanceof SkillMaterializationFailed
+        ? cause
+        : new SkillMaterializationFailed({
+            detail: `Failed to materialize skill artifact at ${args.targetDir}`,
+            cause,
+          }),
+    ),
+  );
 
 export const removeSkillAgentArtifact = (args: {
   readonly targetDir: string;
   readonly sanitizedName: string;
+  readonly canonicalSkillSrcPath?: string;
+  readonly baseDir: string;
+  readonly nativeRoots: ReadonlyArray<string>;
 }) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const target = pathService.join(args.targetDir, args.sanitizedName);
-    return yield* protectWorkspacePath(target).pipe(
-      Effect.andThen(fs.remove(target, { recursive: true, force: true })),
-      Effect.mapError(
-        (cause) =>
-          new SkillMaterializationFailed({
-            detail: `Failed to remove skill artifact at ${target}`,
-            cause,
-          }),
-      ),
+    const path = yield* Path.Path;
+    const target = path.join(args.targetDir, args.sanitizedName);
+    const { address } = yield* assertNativeMutationWithinRoots(
+      args.nativeRoots,
+      target,
+      "entry",
+      args.baseDir,
     );
-  });
+    const authority = yield* NativeWriteAuthority;
+    const parentTarget = {
+      path: address.entryPath,
+      unit: JSON.stringify(["skill-parent-directories", address.entryPath]),
+    };
+    if (address.kind === "absent") return;
+    if (address.kind === "directory") {
+      const receipt = yield* readCopiedDirectory(address.entryPath);
+      if (
+        Option.isNone(receipt) ||
+        args.canonicalSkillSrcPath === undefined ||
+        receipt.value.source !== (yield* resolveNativeReferent(args.canonicalSkillSrcPath))
+      )
+        return;
+      yield* protectWorkspacePath(address.entryPath);
+      if (yield* retireCopiedDirectory(address.entryPath, retireWorkspacePath))
+        yield* recordFootprint({ path: address.entryPath, change: "modified" });
+      yield* authority.retireCreatedDirectories(parentTarget);
+      return;
+    }
+    if (
+      args.canonicalSkillSrcPath === undefined ||
+      address.kind !== "symlink" ||
+      address.linkTarget === undefined
+    )
+      return;
+    const source = yield* resolveNativeReferent(args.canonicalSkillSrcPath);
+    const immediate = yield* resolveNativeEntry(
+      path.resolve(path.dirname(address.entryPath), address.linkTarget),
+    );
+    if (immediate.entryPath !== source || immediate.kind === "symlink") return;
+    yield* protectWorkspacePath(address.entryPath);
+    yield* fs.remove(address.entryPath);
+    yield* recordFootprint({ path: address.entryPath, change: "removed" });
+    yield* authority.retireCreatedDirectories(parentTarget);
+  }).pipe(
+    Effect.mapError(
+      (cause) =>
+        new SkillMaterializationFailed({
+          detail: `Failed to remove skill artifact at ${args.targetDir}`,
+          cause,
+        }),
+    ),
+  );

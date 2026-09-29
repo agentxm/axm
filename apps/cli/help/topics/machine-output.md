@@ -22,7 +22,7 @@ fields inside `result`; mutations put their outcome and steps inside `result`.
 Only optional `summary` and `suggestions[]` may sit beside it.
 
 Workspace mutation results are discriminated by
-`result.contract: "plan-result-v3"`. Outcomes are `previewed`, `applied`,
+`result.contract: "plan-result-v4"`. Outcomes are `previewed`, `applied`,
 `no-op`, `partial`, `failed`, `blocked`, `cancelled`, or `interrupted`. For
 every ordinary result, `ok` is `true` exactly when the process exits 0 and
 `false` when it exits nonzero.
@@ -38,7 +38,25 @@ carries a `disposition` of `restored`, `retained`, `untouched`, or `unknown`.
 An `interrupted` unit was started but its settlement was not observed —
 started work is never reported as not attempted. Inspect `result.counts`,
 unit dispositions, and `result.recovery.retained` when recovering a partial
-or interrupted result.
+or interrupted result. `result.recovery.entries[]` relates each preserved
+`recoveryPath` to its `originalPath` and identifies a `retired-entry` or
+`snapshot`. A foreign edit can prevent restoration; preserved recovery data
+does not mean that AXM overwrote that edit.
+
+`result.nativeLocations[]` describes each physical ownership unit, with a
+structured `address` for an entry, whole file, key path, or managed region.
+It separates path aliases, configured consumers, potential readers, policy
+reasons, ownership evidence, change state, and availability evidence.
+`result.nativeLocationCounts` counts units, physical files or directories,
+and distinct configured consumers separately. Two agents sharing one file do
+not mean two physical writes. `changed`, `retained`, `blocked`, and
+`unverified` count unit states. Rolled-back or unsettled units do not retain
+planned claims of committed native changes.
+
+Native file readback establishes what was written. An agent's runtime may
+select a different configuration, so its availability remains `unverified`
+unless there is separate evidence of that selection. Preview describes the
+planned native locations without claiming that application occurred.
 
 `axm sync --preview --fail-on-change --json` retains the ordinary preview
 step details but returns `ok: false`, `result.divergence: true`, and exit 1

@@ -28,10 +28,8 @@ import {
   type HookMechanismFamily,
   type HookModifyOperation,
   type Scope,
-  type SkillReadPath,
   type StandardsCompliance,
-  type McpConfigTarget,
-  type ConfigFileLocation,
+  type NativeReadLocation,
 } from "./schema.js";
 import { type PerAgentType } from "../extensions/common.js";
 
@@ -117,14 +115,19 @@ const deriveAgentId = (agent: Agent): ConfigurableAgentId => {
   throw new Error(`Cannot derive filesystem descriptor for non-configurable agent: ${agent.id}`);
 };
 
-const firstPathSegment = (path: string): string | undefined => path.split("/")[0];
+const firstPathSegment = (path: string): string | undefined =>
+  path.split("/").find((segment) => segment.length > 0);
 
 const deriveRootDir = (agent: Agent): string | undefined =>
   agent.rootDir === null
     ? undefined
     : agent.rootDir ||
-      ("directory" in agent.capabilities.skill.native
-        ? firstPathSegment(agent.capabilities.skill.native.directory)
+      ("locations" in agent.capabilities.skill.native
+        ? firstPathSegment(
+            agent.capabilities.skill.native.locations.find(
+              (location) => location.scope === "project" && location.role === "primary",
+            )?.path ?? "",
+          )
         : undefined);
 
 /** @experimental This API is unstable and may change without notice. */
@@ -132,11 +135,6 @@ export const deriveSkillConvention = (directory: string): "universal" | "vendor"
   directory === ".agents/skills" || directory.startsWith(".agents/skills/")
     ? "universal"
     : "vendor";
-
-const deriveAdditionalSkillReadPaths = (agent: Agent): ReadonlyArray<SkillReadPath> =>
-  "additionalReadPaths" in agent.capabilities.skill.native
-    ? (agent.capabilities.skill.native.additionalReadPaths ?? [])
-    : [];
 
 const detectionMarkerKey = (marker: AgentDetectionMarker): string =>
   marker.kind === "executable" ? `executable:${marker.name}` : `${marker.kind}:${marker.path}`;
@@ -157,19 +155,21 @@ const appendMarker = (
 
 const appendFileMarkers = (
   markersByScope: Record<Scope, Map<string, AgentDetectionMarker>>,
-  locations: ReadonlyArray<ConfigFileLocation | McpConfigTarget>,
+  locations: ReadonlyArray<NativeReadLocation>,
 ): void => {
   for (const location of locations) {
-    appendMarker(markersByScope[location.scope], fileMarker(location.path));
+    if (
+      location.shape !== "file" ||
+      location.applicability.kind !== "always" ||
+      location.root === "xdg-config"
+    )
+      continue;
+    appendMarker(
+      markersByScope[location.scope],
+      fileMarker(location.root === "home" ? `~/${location.path}` : location.path),
+    );
   }
 };
-
-const hasConfigFiles = (
-  capability: AgentExtensionCapability["native"] | Agent["permissions"]["native"],
-): capability is Extract<
-  AgentExtensionCapability["native"] | Agent["permissions"]["native"],
-  { readonly configFiles: ReadonlyArray<ConfigFileLocation> }
-> => "configFiles" in capability;
 
 const deriveDetection = (agent: Agent, rootDir: string | undefined): Detection => {
   const projectMarkers = new Map<string, AgentDetectionMarker>();
@@ -188,23 +188,19 @@ const deriveDetection = (agent: Agent, rootDir: string | undefined): Detection =
     });
   }
 
-  const mcp = agent.capabilities["mcp-server"];
-  if (mcp.axm.writer !== null) {
-    appendFileMarkers(
-      markersByScope,
-      mcp.axm.writer.config.targets.filter((target) => target.attribution === "agent"),
-    );
+  for (const [kind, capability] of Object.entries(agent.capabilities)) {
+    if (kind !== "mcp-server" && kind !== "hook") continue;
+    if (!("locations" in capability.native)) continue;
+    const locations =
+      kind === "mcp-server"
+        ? capability.native.locations.filter(
+            (location) => !("attribution" in location) || location.attribution !== "shared",
+          )
+        : capability.native.locations;
+    appendFileMarkers(markersByScope, locations);
   }
-
-  for (const capability of Object.values(agent.capabilities)) {
-    if (hasConfigFiles(capability.native)) {
-      appendFileMarkers(markersByScope, capability.native.configFiles);
-    }
-  }
-
-  if (hasConfigFiles(agent.permissions.native)) {
-    appendFileMarkers(markersByScope, agent.permissions.native.configFiles);
-  }
+  if ("locations" in agent.permissions.native)
+    appendFileMarkers(markersByScope, agent.permissions.native.locations);
 
   for (const marker of agent.detection.project.markers) {
     appendMarker(projectMarkers, marker);
@@ -224,48 +220,26 @@ const deriveDetection = (agent: Agent, rootDir: string | undefined): Detection =
 
 const deriveSubagentsDescriptor = (agent: Agent): AgentSubagentsDescriptor | undefined => {
   const subagents = agent.capabilities.subagent;
-  if (!isCapabilitySupported(subagents)) return undefined;
-  if (!("directory" in subagents.native)) return undefined;
+  if (!("locations" in subagents.native)) return undefined;
   return {
-    dir: subagents.native.directory,
+    locations: subagents.native.locations,
     scopes: subagents.native.scopes,
-    ...(subagents.native.layout === "file" ? { isFile: true } : {}),
+    writerSupported: isCapabilitySupported(subagents),
   };
 };
 
 const deriveInstructionsDescriptor = (agent: Agent): AgentInstructionsDescriptor | undefined => {
   const instructions = agent.instructions;
-  if (!isCapabilitySupported(instructions) || !("kind" in instructions.native)) return undefined;
-
-  // A secondary native rules directory beside the instruction file. Carried
-  // through so status output can report it as unsynced; AXM writes only the
-  // instruction file itself.
-  const rulesDir =
-    "directory" in instructions.native ? { rulesDir: instructions.native.directory } : {};
-
-  switch (instructions.native.kind) {
-    case "agents-md":
-      return { kind: "agents-md", ...rulesDir };
-    case "own-file": {
-      const file = instructions.native.files[0];
-      if (file === undefined) return undefined;
-      return {
-        kind: "own-file",
-        file,
-        ...(instructions.native.importSyntax === null
-          ? {}
-          : { importSyntax: instructions.native.importSyntax }),
-        ...rulesDir,
-      };
-    }
-    case "rules-dir": {
-      return {
-        kind: "rules-dir",
-        dir: instructions.native.directory,
-        format: "frontmatter",
-      };
-    }
-  }
+  if (!("kind" in instructions.native)) return undefined;
+  return {
+    kind: instructions.native.kind,
+    locations: instructions.native.locations,
+    scopes: instructions.native.scopes,
+    writerSupported: isCapabilitySupported(instructions),
+    ...(instructions.native.importSyntax === null
+      ? {}
+      : { importSyntax: instructions.native.importSyntax }),
+  };
 };
 
 /** @experimental This API is unstable and may change without notice. */
@@ -275,11 +249,11 @@ export const deriveAgentDescriptor = (agent: Agent): AgentDescriptor => {
   const rootDir = deriveRootDir(agent);
   const detection = deriveDetection(agent, rootDir);
   const skills =
-    isCapabilitySupported(agent.capabilities.skill) &&
-    "directory" in agent.capabilities.skill.native
+    "locations" in agent.capabilities.skill.native
       ? {
-          dir: agent.capabilities.skill.native.directory,
-          additionalReadPaths: deriveAdditionalSkillReadPaths(agent),
+          locations: agent.capabilities.skill.native.locations,
+          scopes: agent.capabilities.skill.native.scopes,
+          writerSupported: isCapabilitySupported(agent.capabilities.skill),
         }
       : undefined;
 

@@ -40,7 +40,28 @@ export const rooAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".roo/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".agents/skills",
+            shape: "directory",
+            role: "additional",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+          {
+            scope: "project",
+            root: "project",
+            path: ".roo/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -68,6 +89,10 @@ export const rooAgent = {
           variables: "braced",
           defaults: false,
         },
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -89,11 +114,22 @@ export const rooAgent = {
         docs: [],
         sources: ["https://docs.roocode.com/features/custom-modes"],
         scopes: ["user", "project"],
-        directory: ".roomodes",
-        layout: "file",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".roomodes",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
-        status: "supported",
+        status: "unsupported",
+        reason: "Native ownership is unverified; AXM can offer a role Skill fallback.",
         lastVerified: "2026-08-05",
         writer: null,
       },
@@ -135,10 +171,20 @@ export const rooAgent = {
       standardsCompliance: "partial",
       convention: "vendor",
       kind: "rules-dir",
-      files: ["*.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: ".roo/rules",
+          shape: "directory",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: true,
       importSyntax: null,
-      directory: ".roo/rules",
     },
     axm: {
       status: "supported",
@@ -161,7 +207,7 @@ export const rooAgent = {
       sources: ["https://docs.roocode.com/features/auto-approving-actions"],
       scopes: ["user"],
       mechanism: ["ui-only"],
-      configFiles: [],
+      locations: [],
       grammar: null,
       prerequisites: [
         {

@@ -78,6 +78,7 @@ describe("Deprecated installed workspace findings", () => {
                 userHome: world.workspace.root,
                 scope: "project",
                 input: { view: "workspace" },
+                nativeView: { kind: "workspace" },
                 fix: false,
               },
               { strict: true },

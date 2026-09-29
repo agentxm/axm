@@ -29,8 +29,28 @@ export const zencoderAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
-        directory: ".agents/skills",
-        additionalReadPaths: [{ path: ".zencoder/skills", status: "deprecated" }],
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".agents/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+          {
+            scope: "project",
+            root: "project",
+            path: ".zencoder/skills",
+            shape: "directory",
+            role: "additional",
+            status: "deprecated",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -53,6 +73,10 @@ export const zencoderAgent = {
           variables: "none",
           defaults: false,
         },
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -104,10 +128,20 @@ export const zencoderAgent = {
       standardsCompliance: "partial",
       convention: "vendor",
       kind: "rules-dir",
-      files: ["*.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: ".zencoder/rules",
+          shape: "directory",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: false,
       importSyntax: null,
-      directory: ".zencoder/rules",
     },
     axm: {
       status: "supported",
@@ -125,7 +159,7 @@ export const zencoderAgent = {
       sources: ["https://docs.zencoder.ai/llms-full.txt"],
       scopes: ["user"],
       mechanism: ["ui-only"],
-      configFiles: [],
+      locations: [],
       grammar: null,
       prerequisites: [],
       cliFlags: [],

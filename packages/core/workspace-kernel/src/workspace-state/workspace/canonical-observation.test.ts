@@ -16,8 +16,15 @@ import { afterEach, beforeEach } from "vitest";
 import { computeMaterializedTreeIntegrity, TreeIntegritySchema } from "./materialized-tree.js";
 import { exactVersion, extensionName, handle } from "../testing.js";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
-import { observeCanonicalExtension } from "./canonical-observation.js";
-import type { DesiredNodeIdentity } from "./desired-identity.js";
+import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
+import {
+  canonicalPathForAcceptedExtension,
+  observeAcceptedResolution,
+  observeCanonicalExtension,
+} from "./canonical-observation.js";
+import type { DesiredNodeIdentity, DesiredSourceAuthority } from "./desired-identity.js";
+import type { LockEntry } from "./lock-entry.js";
+import * as Option from "effect/Option";
 import { resolveProjectWorkspaceLayout } from "./layout.js";
 
 const identityOf = (source: string): DesiredNodeIdentity =>
@@ -49,6 +56,43 @@ const acceptedGit = (treeIntegrity = placeholderTreeIntegrity) => ({
   treeIntegrity,
 });
 
+const desiredPackMember = (
+  sourceAuthority: DesiredSourceAuthority,
+  range = "*",
+): DesiredExtensionNode => {
+  const origins = [
+    {
+      type: "pack",
+      pack: { authority: "path", fqn: "@acme/packs/team" },
+      manifestPath: "agent_extensions/path/@acme/packs/team/pack.json",
+      source: "@acme/skills/review",
+      sourceAuthority,
+      constraint: range,
+      enabled: true,
+    },
+  ] as const;
+  return {
+    type: "skill",
+    name: "review",
+    enabled: true,
+    source: `@acme/skills/review@${range}`,
+    identity: {
+      authority: "registry",
+      fqn: "@acme/skills/review",
+      registry: { sourceName: undefined, endpoint: undefined },
+    },
+    origins,
+    constraint: settleDesiredNodeConstraint({ type: "skill", name: "review", origins }),
+  };
+};
+
+const acceptedPath = (path: string, treeIntegrity = placeholderTreeIntegrity): LockEntry => ({
+  source: { type: "path", path },
+  identity: { owner: handle("@acme"), name: extensionName("review") },
+  resolved: { tree: Schema.decodeUnknownSync(SourceHashSchema)("path-source-tree-1") },
+  treeIntegrity,
+});
+
 const projectLayout = (root: string) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
@@ -64,6 +108,179 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
     root = nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), "axm-canonical-observation-"));
   });
   afterEach(() => nodeFs.rmSync(root, { recursive: true, force: true }));
+
+  for (const sourceRoot of ["vendor", "../vendor"]) {
+    for (const range of ["*", "^1.0.0", "^2.0.0"]) {
+      it.effect(`judges an accepted local Pack member beneath ${sourceRoot} against ${range}`, () =>
+        Effect.gen(function* () {
+          const path = yield* Path.Path;
+          const layout = yield* projectLayout(root);
+          const desired = desiredPackMember({ authority: "path", root: sourceRoot }, range);
+          const accepted = acceptedPath(`${sourceRoot}/nested/review`);
+          const canonical = canonicalPathForAcceptedExtension(path, layout, desired, accepted);
+          if (canonical === undefined)
+            return yield* Effect.die("Expected an acquired path for the accepted member");
+          nodeFs.mkdirSync(nodePath.join(canonical, "src"), { recursive: true });
+          nodeFs.writeFileSync(
+            nodePath.join(canonical, "skill.json"),
+            JSON.stringify({ owner: "@acme", type: "skill", name: "review", version: "1.4.0" }),
+          );
+          nodeFs.writeFileSync(nodePath.join(canonical, "src/SKILL.md"), "# Review\n");
+          const treeIntegrity = yield* computeMaterializedTreeIntegrity(canonical);
+          const observed = yield* observeCanonicalExtension({
+            layout,
+            desired,
+            accepted: { ...accepted, treeIntegrity },
+          });
+          expect(observed.status).toBe(range === "^2.0.0" ? "constraint-mismatch" : "usable");
+          expect(observed.path).toBe(canonical);
+          if (observed.status === "constraint-mismatch")
+            expect(observed.observedVersion).toBe("1.4.0");
+          nodeFs.writeFileSync(
+            nodePath.join(canonical, "skill.json"),
+            JSON.stringify({ owner: "@acme", type: "skill", name: "review", version: "2.1.0" }),
+          );
+          expect(
+            (yield* observeCanonicalExtension({
+              layout,
+              desired,
+              accepted: { ...accepted, treeIntegrity },
+            })).status,
+          ).toBe("materialization-mismatch");
+        }),
+      );
+    }
+  }
+
+  it.effect("requires exact Pack member identity and source-view containment", () =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      const desired = desiredPackMember({ authority: "path", root: "vendor" });
+      for (const accepted of [
+        acceptedPath("other/review"),
+        acceptedPath("vendor-other/review"),
+        acceptedPath("vendor/../other/review"),
+        {
+          ...acceptedPath("vendor/review"),
+          identity: { owner: handle("@other"), name: extensionName("review") },
+        },
+        {
+          ...acceptedPath("vendor/review"),
+          identity: { owner: handle("@acme"), name: extensionName("another") },
+        },
+        acceptedGit(),
+      ])
+        expect(observeAcceptedResolution(desired, accepted, path)).toEqual(
+          Option.some({ type: "skill", name: "review", status: "wrong-origin" }),
+        );
+      expect(observeAcceptedResolution(desired, acceptedPath("vendor/review"), path)).toEqual(
+        Option.none(),
+      );
+      expect(observeAcceptedResolution(desired, acceptedPath("vendor/review"))).toEqual(
+        Option.some({ type: "skill", name: "review", status: "wrong-origin" }),
+      );
+    }),
+  );
+
+  it.effect("requires the exact inherited Git repository, revision, and view root", () =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      const desired = desiredPackMember({
+        authority: "git",
+        url: new URL("https://github.com/acme/tools.git"),
+        revision: "main",
+        root: Option.some("skills"),
+      });
+      const accepted = acceptedGit();
+      expect(observeAcceptedResolution(desired, accepted, path)).toEqual(Option.none());
+      for (const source of [
+        { ...accepted.source, revision: "other" },
+        { ...accepted.source, url: new URL("https://github.com/other/tools.git") },
+        { ...accepted.source, path: "skills-other/review" },
+        { ...accepted.source, path: "other/review" },
+      ])
+        expect(observeAcceptedResolution(desired, { ...accepted, source }, path)).toEqual(
+          Option.some({ type: "skill", name: "review", status: "wrong-origin" }),
+        );
+    }),
+  );
+
+  it.effect("binds an authored Pack's acquired member to its configured Registry", () =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      const endpoint = new URL("https://registry.example.com/");
+      const desired: DesiredExtensionNode = {
+        ...desiredPackMember({ authority: "workspace", fqn: "@acme/packs/team" }),
+        identity: {
+          authority: "registry",
+          fqn: "@acme/skills/review",
+          registry: { sourceName: "test", endpoint },
+        },
+      };
+      const accepted: LockEntry = {
+        source: { type: "registry", url: endpoint },
+        identity: { owner: handle("@acme"), name: extensionName("review") },
+        resolved: {
+          version: exactVersion("1.0.0"),
+          integrity: "sha512-registry-member",
+          publisherBindingId: "test-publisher",
+        },
+        treeIntegrity: placeholderTreeIntegrity,
+      };
+      expect(observeAcceptedResolution(desired, accepted, path)).toEqual(Option.none());
+      for (const foreign of [
+        {
+          ...accepted,
+          source: { type: "registry" as const, url: new URL("https://other.example.com/") },
+        },
+        { ...accepted, identity: { owner: handle("@other"), name: extensionName("review") } },
+        { ...accepted, identity: { owner: handle("@acme"), name: extensionName("other") } },
+        acceptedPath("vendor/review"),
+      ]) {
+        expect(observeAcceptedResolution(desired, foreign, path)).toEqual(
+          Option.some({ type: "skill", name: "review", status: "wrong-origin" }),
+        );
+      }
+      expect(
+        observeAcceptedResolution(
+          {
+            ...desired,
+            identity: {
+              authority: "registry",
+              fqn: "@acme/skills/review",
+              registry: { sourceName: "test", endpoint: undefined },
+            },
+          },
+          accepted,
+          path,
+        ),
+      ).toEqual(Option.some({ type: "skill", name: "review", status: "wrong-origin" }));
+    }),
+  );
+
+  it.effect("does not invent a version for constrained portable Skill content", () =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      const layout = yield* projectLayout(root);
+      const desired = { ...desiredSkill(), constraint: desiredConstraintOf("*") };
+      const accepted = { ...acceptedGit(), identity: { name: extensionName("review") } };
+      const canonical = canonicalPathForAcceptedExtension(path, layout, desired, accepted);
+      if (canonical === undefined) return yield* Effect.die("Expected a portable canonical path");
+      nodeFs.mkdirSync(canonical, { recursive: true });
+      nodeFs.writeFileSync(
+        nodePath.join(canonical, "SKILL.md"),
+        "---\nname: review\ndescription: Review carefully\n---\n# Review\n",
+      );
+      const treeIntegrity = yield* computeMaterializedTreeIntegrity(canonical);
+      expect(
+        (yield* observeCanonicalExtension({
+          layout,
+          desired,
+          accepted: { ...accepted, treeIntegrity },
+        })).status,
+      ).toBe("constraint-mismatch");
+    }),
+  );
 
   it.effect("requires accepted resolution for external desired content", () =>
     Effect.gen(function* () {

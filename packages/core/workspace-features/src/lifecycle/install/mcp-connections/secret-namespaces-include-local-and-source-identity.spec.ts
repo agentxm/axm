@@ -97,7 +97,9 @@ const makeRecordingSecretStore = () => {
 /** What the workspace holds and what the caller was told, as text. */
 const observable = (world: InstallWorld, outcome: unknown) => ({
   settings: world.workspace.readFile("axm.json"),
-  native: world.workspace.exists(".mcp.json") ? world.workspace.readFile(".mcp.json") : "",
+  native: world.workspace.exists(".cursor/mcp.json")
+    ? world.workspace.readFile(".cursor/mcp.json")
+    : "",
   reported: JSON.stringify(outcome),
 });
 
@@ -115,7 +117,7 @@ const resetWorkspaceAuthority = (world: InstallWorld): void => {
     JSON.stringify(
       {
         owner: "@acme",
-        agents: ["claude-code"],
+        agents: ["cursor"],
         defaultRegistry: "test",
         sources: [world.registry.source],
       },
@@ -146,7 +148,7 @@ describe("MCP secrets for locally named connections", () => {
   it.effect(
     "an unavailable credential store is reported without writing the secret to files or the outcome",
     () => {
-      const world = makeInstallWorld();
+      const world = makeInstallWorld({ settings: { agents: ["cursor"] } });
       cleanups.push(world.cleanup);
       world.registry.writeMcp("context", [{ version: "1.0.0", secretInput: "API_TOKEN" }]);
       const store = makeRecordingSecretStore();
@@ -172,8 +174,11 @@ describe("MCP secrets for locally named connections", () => {
   it.effect(
     "persists and retrieves isolated credentials across workspace, local name, source and input",
     () => {
-      const first = makeInstallWorld();
-      const second = makeInstallWorld({ registry: first.registry });
+      const first = makeInstallWorld({ settings: { agents: ["cursor"] } });
+      const second = makeInstallWorld({
+        registry: first.registry,
+        settings: { agents: ["cursor"] },
+      });
       cleanups.push(first.cleanup, second.cleanup);
       first.registry.writeMcp("context", [{ version: "1.0.0", secretInput: "API_TOKEN" }]);
       first.registry.writeMcp("other", [{ version: "1.0.0", secretInput: "API_TOKEN" }]);

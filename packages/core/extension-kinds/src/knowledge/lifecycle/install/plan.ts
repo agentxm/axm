@@ -1,3 +1,9 @@
+import {
+  WorkspaceLocation,
+  DesiredStateReader,
+  desiredReachability,
+  type DesiredStateGraph,
+} from "@agentxm/workspace-kernel/workspace-state";
 /**
  * Installing Open Knowledge Format bundles.
  *
@@ -20,17 +26,25 @@ import {
 } from "@agentxm/workspace-kernel/reconciliation";
 import {
   operationPresentation,
+  installRefused,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
   type ExtensionLifecycleFailed,
 } from "@agentxm/workspace-kernel/operations";
-import { applyInstructionSurfacePlans } from "@agentxm/workspace-kernel/projection";
+import {
+  applyInstructionSurfacePlans,
+  captureAgentOutputAuthority,
+} from "@agentxm/workspace-kernel/projection";
 
 import type { KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
 
 /** Knowledge bundles the request selected. */
 export interface KnowledgeInstallIntent {
+  /** All Knowledge sources selected by the enclosing configured install for native preflight. */
+  readonly projectionRefs?: ReadonlyArray<KnowledgeExtensionRef>;
+  /** The enclosing install has resolved this complete proposed contributor graph. */
+  readonly desiredGraph?: DesiredStateGraph;
   /** The enclosing semantic closure owns the trailing aggregate projection. */
   readonly deferProjections?: boolean;
   readonly refs: ReadonlyArray<ResolvedInstallRef<KnowledgeExtensionRef>>;
@@ -45,6 +59,49 @@ export const planKnowledgeInstall: (
   InstallStepRequirements | KnowledgeManager
 > = Effect.fn("InstallExtensions.planKnowledge")(function* (intent: KnowledgeInstallIntent) {
   const manager = yield* KnowledgeManager;
+  const location = yield* WorkspaceLocation;
+  const priorGraph = yield* (yield* DesiredStateReader).graph().pipe(
+    Effect.mapError((cause) =>
+      installRefused({
+        category: "validation",
+        detail: "Cannot establish prior knowledge desired state",
+        cause,
+      }),
+    ),
+  );
+  const priorAuthority = yield* captureAgentOutputAuthority().pipe(
+    Effect.mapError((cause) =>
+      installRefused({
+        category: "validation",
+        detail: "Cannot establish prior native ownership",
+        cause,
+      }),
+    ),
+  );
+  const nativeProjection = {
+    ...(intent.desiredGraph === undefined ? {} : { desiredGraph: intent.desiredGraph }),
+    priorAuthority,
+    nativeInsertionEligibleNames: new Set(
+      intent.refs
+        .filter(
+          ({ ref }) =>
+            desiredReachability(priorGraph, { type: "knowledge", name: ref.knowledge.name })
+              .decision === "not-reached",
+        )
+        .map(({ ref }) => ref.knowledge.name),
+    ),
+  };
+  yield* manager
+    .prepareProjection(intent.projectionRefs ?? intent.refs.map(({ ref }) => ref), nativeProjection)
+    .pipe(
+      Effect.mapError((cause) =>
+        installRefused({
+          category: "conflict",
+          detail: "Native locations cannot realize the proposed knowledge content",
+          cause,
+        }),
+      ),
+    );
   // One bundle renders the shared discovery region itself; several bundles in
   // one operation defer it so the region is rendered once, from the complete
   // contributor set.
@@ -58,6 +115,16 @@ export const planKnowledgeInstall: (
         ? { enclosingClosure: { projections: [ref.type], postconditions: [] } }
         : {}),
       message: `Installed ${ref.knowledge.name}`,
+      buildArtifact: ({ change }) =>
+        Effect.map(manager.aggregateProjectionObservation, (observation) => ({
+          path: observation.targets[0]?.path ?? ref.knowledge.name,
+          scope: location.scope,
+          agents: observation.agents,
+          ...(observation.nativeLocations === undefined
+            ? {}
+            : { nativeLocations: observation.nativeLocations }),
+          targets: observation.targets.map((target) => ({ ...target, change })),
+        })),
     }),
   );
   const projectionSteps: ReadonlyArray<PlannedJobStep<InstallStepRequirements>> =
@@ -68,14 +135,32 @@ export const planKnowledgeInstall: (
             label: "knowledge projection",
             readiness: "ready",
             run: manager
-              .projectionPlans()
+              .projectionPlans(nativeProjection)
               .pipe(Effect.flatMap(applyInstructionSurfacePlans))
               .pipe(
                 Effect.mapError(kernelFailureToStepFailure),
-                Effect.as({
+                Effect.flatMap(() =>
+                  manager.aggregateProjectionObservation.pipe(
+                    Effect.mapError(kernelFailureToStepFailure),
+                  ),
+                ),
+                Effect.map((observation): JobStepResult => ({
                   result: "success",
                   message: "Rendered installed Knowledge bundles from the complete contributor set",
-                } satisfies JobStepResult),
+                  artifact: {
+                    path: observation.targets[0]?.path ?? "instruction files",
+                    scope: location.scope,
+                    change:
+                      observation.nativeLocations?.some((location) =>
+                        ["created", "updated", "removed"].includes(location.state),
+                      ) === true
+                        ? "updated"
+                        : "unchanged",
+                    ...(observation.nativeLocations === undefined
+                      ? {}
+                      : { nativeLocations: observation.nativeLocations }),
+                  },
+                })),
               ),
           },
         ]

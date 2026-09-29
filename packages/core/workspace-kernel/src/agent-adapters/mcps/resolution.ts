@@ -12,7 +12,7 @@ import type {
   McpExtensionCapability,
   McpTransport,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
-import { isConfiguredMcpCapability, type ConfiguredMcpCapability } from "./targeting.js";
+import { isReadableMcpCapability, type ReadableMcpCapability } from "./targeting.js";
 import type {
   McpRegistryArgument,
   McpRegistryInput,
@@ -90,7 +90,7 @@ const isRemoteTransport = (transport: string): transport is UpstreamRemoteTransp
 
 const selectCandidate = (
   manifest: McpServerManifest,
-  capability: ConfiguredMcpCapability,
+  capability: ReadableMcpCapability,
 ): Candidate | undefined => {
   const candidates: Array<Candidate> = [];
   const remotes = manifest.server.remotes ?? [];
@@ -243,7 +243,7 @@ const packageCommand = (pkg: McpRegistryPackage): ReadonlyArray<string> | undefi
 };
 
 const projectRegistryEntry = (args: {
-  readonly capability: ConfiguredMcpCapability;
+  readonly capability: ReadableMcpCapability;
   readonly serverName: string;
   readonly entry: McpServerDeclaration;
   readonly ref: string;
@@ -251,7 +251,7 @@ const projectRegistryEntry = (args: {
 }):
   | { readonly _tag: "projected"; readonly entry: Readonly<Record<string, unknown>> }
   | { readonly _tag: "unsupported"; readonly reason: string } => {
-  const config = args.capability.axm.writer.config;
+  const config = args.capability.native.entryDialect;
   const projected = projectExpectedEntry({
     serverName: args.serverName,
     entry: args.entry,
@@ -292,12 +292,12 @@ const materializeRemote = (
 const resolvePackage = (
   manifest: McpServerManifest,
   pkg: McpRegistryPackage,
-  capability: ConfiguredMcpCapability,
+  capability: ReadableMcpCapability,
   values: Readonly<Record<string, string>>,
   enabled: boolean,
   localName: string,
 ): McpResolution => {
-  const config = capability.axm.writer.config;
+  const config = capability.native.entryDialect;
   if (config.stdio === null) {
     return { _tag: "no-distribution", reason: "agent has no stdio MCP config dialect" };
   }
@@ -363,13 +363,13 @@ const resolvePackage = (
 const resolveRemote = (
   manifest: McpServerManifest,
   remote: McpRegistryRemoteTransport,
-  capability: ConfiguredMcpCapability,
+  capability: ReadableMcpCapability,
   values: Readonly<Record<string, string>>,
   enabled: boolean,
   shimmed: boolean,
   localName: string,
 ): McpResolution => {
-  const config = capability.axm.writer.config;
+  const config = capability.native.entryDialect;
   const headers = materializeHeaders(remote.headers, values);
   const materializedRemote = materializeRemote(remote, values);
   const missing = [...headers.missing, ...materializedRemote.missing];
@@ -464,8 +464,8 @@ const resolveRemote = (
 };
 
 export const resolveMcpServer = (args: ResolveMcpServerArgs): McpResolution => {
-  if (!isConfiguredMcpCapability(args.capability)) {
-    return { _tag: "no-distribution", reason: "agent does not have MCP config support" };
+  if (!isReadableMcpCapability(args.capability)) {
+    return { _tag: "no-distribution", reason: "agent has no verified native MCP entry dialect" };
   }
   const capability = args.capability;
   const localName = args.localName ?? args.manifest.name;

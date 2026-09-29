@@ -12,11 +12,15 @@
  */
 
 import * as Effect from "effect/Effect";
+import { instructionChangeLocations } from "./native-outcomes.js";
+import type { NativeLocationOutcome } from "../../locations/index.js";
+import type { NativeWriteAuthority } from "../../agent-adapters/index.js";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import {
   applyProjectionPlans,
+  observeProjectionPlans,
   projectionPlanExclusionWarnings,
   type ProjectionPlan,
 } from "../planning.js";
@@ -61,6 +65,7 @@ export const observeInstructions = (args: {
     return yield* observeInstructionProjection({
       workspaceRoot: location.baseDir,
       scope: location.scope,
+      nativeDirectoryInputs: location.nativeDirectoryInputs,
       configuredAgents: agents,
       config: args.config,
     });
@@ -137,7 +142,7 @@ export const removeInstructionTargetsFor = (args: {
 }): Effect.Effect<
   ReadonlyArray<string>,
   WorkspaceSettingsReadFailure | InstructionMaintenanceFailure,
-  FileSystem.FileSystem | Path.Path | SettingsReader | WorkspaceLocation
+  FileSystem.FileSystem | Path.Path | NativeWriteAuthority | SettingsReader | WorkspaceLocation
 > =>
   Effect.gen(function* () {
     const snapshot = yield* observeInstructions(args);
@@ -158,14 +163,14 @@ export function reconcileInstructions<A, E, R>(
 ): Effect.Effect<
   InstructionsReconciliation<A>,
   E | InstructionMaintenanceFailure,
-  R | FileSystem.FileSystem | Path.Path
+  R | FileSystem.FileSystem | Path.Path | NativeWriteAuthority
 >;
 export function reconcileInstructions(
   args: ReconcileInstructionsArgs & { readonly transition?: undefined },
 ): Effect.Effect<
   InstructionsReconciliation<void>,
   InstructionMaintenanceFailure,
-  FileSystem.FileSystem | Path.Path
+  FileSystem.FileSystem | Path.Path | NativeWriteAuthority
 >;
 export function reconcileInstructions(
   args: ReconcileInstructionsArgs & {
@@ -203,15 +208,18 @@ export function reconcileInstructions(
         detail: "Instruction reconciliation did not reach the desired state",
       });
     }
-    return { ...syncResult({ snapshot: after, ...applied }), transition };
+    return { ...syncResult({ snapshot: after, before: snapshot, ...applied }), transition };
   }).pipe(Effect.withSpan("Instructions.reconcile"));
 }
 
 /** Bring owned aliases current after a shared-surface write, when management is enabled. */
-export const reconcileInstructionAliases = (): Effect.Effect<
+export const reconcileInstructionAliases = (options?: {
+  readonly eligibleAgentIds?: ReadonlyArray<string>;
+  readonly eligibleTargets?: ReadonlyArray<string>;
+}): Effect.Effect<
   Option.Option<InstructionsSyncResult>,
   WorkspaceSettingsReadFailure | InstructionMaintenanceFailure,
-  FileSystem.FileSystem | Path.Path | SettingsReader | WorkspaceLocation
+  FileSystem.FileSystem | Path.Path | NativeWriteAuthority | SettingsReader | WorkspaceLocation
 > =>
   Effect.gen(function* () {
     const config = yield* activeInstructionsConfig();
@@ -221,8 +229,15 @@ export const reconcileInstructionAliases = (): Effect.Effect<
     const result = yield* reconcileInstructions({
       workspaceRoot: location.baseDir,
       scope: location.scope,
+      nativeDirectoryInputs: location.nativeDirectoryInputs,
       configuredAgents: yield* settings.configuredAgents,
       config: config.value,
+      ...(options?.eligibleAgentIds === undefined
+        ? {}
+        : { eligibleAgentIds: options.eligibleAgentIds }),
+      ...(options?.eligibleTargets === undefined
+        ? {}
+        : { eligibleTargets: options.eligibleTargets }),
     });
     return Option.some<InstructionsSyncResult>(result);
   });
@@ -233,16 +248,27 @@ export const applyInstructionSurfacePlans = <E, R>(
 ): Effect.Effect<
   ReadonlyArray<string>,
   E | WorkspaceSettingsReadFailure | InstructionMaintenanceFailure,
-  R | FileSystem.FileSystem | Path.Path | SettingsReader | WorkspaceLocation
+  R | FileSystem.FileSystem | Path.Path | NativeWriteAuthority | SettingsReader | WorkspaceLocation
 > =>
   Effect.gen(function* () {
+    const instructionPlans = plans.filter(
+      ({ unitId }) =>
+        unitId === "hook:fallback-region" ||
+        unitId === "rule:instructions-region" ||
+        unitId === "knowledge:discovery-region",
+    );
+    const instructionChanges = yield* observeProjectionPlans(instructionPlans);
     yield* applyProjectionPlans(plans);
-    yield* reconcileInstructionAliases();
+    // A native-only projection does not introduce instruction routing intent.
+    // Repairing a previously missing alias belongs to explicit instruction sync.
+    if (instructionChanges.some((observation) => !observation.current))
+      yield* reconcileInstructionAliases();
     return projectionPlanExclusionWarnings(plans);
   });
 
 /** What disabling instruction management removed. */
 export interface DisabledInstructionManagement {
+  readonly nativeLocations: ReadonlyArray<NativeLocationOutcome>;
   readonly removed: ReadonlyArray<string>;
   readonly gitignore: string | undefined;
 }
@@ -258,13 +284,19 @@ export const disableInstructionManagement = (args: {
 }): Effect.Effect<
   DisabledInstructionManagement,
   WorkspaceSettingsReadFailure | WorkspaceSettingsMutationFailure | InstructionMaintenanceFailure,
-  FileSystem.FileSystem | Path.Path | SettingsReader | SettingsWriter | WorkspaceLocation
+  | FileSystem.FileSystem
+  | Path.Path
+  | NativeWriteAuthority
+  | SettingsReader
+  | SettingsWriter
+  | WorkspaceLocation
 > =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const settingsWriter = yield* SettingsWriter;
     yield* assertInstructionsGitignoreSafe(location.baseDir);
-    const removed = yield* removeInstructionTargetsFor(args);
+    const snapshot = yield* observeInstructions(args);
+    const removed = yield* removeManagedInstructionTargets({ snapshot, dryRun: false });
     const gitignore = yield* removeInstructionsGitignore({
       workspaceRoot: location.baseDir,
       dryRun: false,
@@ -272,6 +304,11 @@ export const disableInstructionManagement = (args: {
     yield* settingsWriter.setInstructionsConfig(false);
     return {
       removed,
+      nativeLocations: instructionChangeLocations({
+        snapshot,
+        removed: [...removed, ...Option.toArray(gitignore)],
+        written: [],
+      }),
       gitignore: Option.getOrUndefined(gitignore),
     };
   }).pipe(Effect.withSpan("Instructions.disableManagement"));

@@ -77,6 +77,18 @@ export const planMcpServerUninstall: (
     const step = buildUninstallOperation(mcpServerManager, retentionPolicy, {
       toStepFailure: kernelFailureToStepFailure,
       target,
+      buildArtifact: ({ settlement, unmaterialization }) =>
+        Effect.succeed(
+          mcpServerArtifact({
+            lockEntry: undefined,
+            scope: location.scope,
+            change: settlement.declaration === "absent" ? "unchanged" : "removed",
+            targets: [],
+            nativeLocations: Option.isSome(unmaterialization)
+              ? (unmaterialization.value.observation.nativeLocations ?? [])
+              : [],
+          }),
+        ),
     });
     if (step.readiness !== "ready") return step;
     return {
@@ -163,6 +175,7 @@ export const planMcpServerUninstall: (
           artifact: mcpServerArtifact({
             lockEntry,
             scope: location.scope,
+            nativeLocations: result.artifact?.nativeLocations ?? [],
             change: unchanged ? "unchanged" : "removed",
             targets: unchanged
               ? []

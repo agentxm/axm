@@ -29,7 +29,18 @@ export const qoderAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
-        directory: ".qoder/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".qoder/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -55,64 +66,92 @@ export const qoderAgent = {
           variables: "none",
           defaults: false,
         },
-      },
-      axm: {
-        status: "supported",
-        lastVerified: "2026-08-05",
-        writer: {
-          config: {
-            serversKey: "mcpServers",
-            activationField: {
+
+        locations: [
+          {
+            id: "user",
+            scope: "user",
+            root: "home",
+            path: ".qoder/settings.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "json",
+            keyPath: ["mcpServers"],
+            attribution: "agent",
+          },
+          {
+            id: "project",
+            scope: "project",
+            root: "project",
+            path: ".mcp.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "json",
+            keyPath: ["mcpServers"],
+            attribution: "shared",
+          },
+        ],
+
+        entryDialect: {
+          activationField: {
+            required: null,
+            accepted: [null],
+          },
+          stdio: {
+            typeField: {
               required: null,
-              accepted: [null],
+              accepted: [null, { name: "type", value: "stdio" }],
             },
-            targets: [
-              {
-                scope: "user",
-                path: "~/.qoder/settings.json",
-                format: "json",
-                attribution: "agent",
+            command: "split",
+            envKey: "env",
+          },
+          remote: {
+            typeField: {
+              required: {
+                name: "type",
+                value: {
+                  "streamable-http": "http",
+                  sse: "sse",
+                },
               },
-              {
-                scope: "project",
-                path: ".mcp.json",
-                format: "json",
-                attribution: "shared",
-              },
-            ],
-            stdio: {
-              typeField: {
-                required: null,
-                accepted: [null, { name: "type", value: "stdio" }],
-              },
-              command: "split",
-              envKey: "env",
-            },
-            remote: {
-              typeField: {
-                required: {
+              accepted: [
+                {
                   name: "type",
                   value: {
                     "streamable-http": "http",
                     sse: "sse",
                   },
                 },
-                accepted: [
-                  {
-                    name: "type",
-                    value: {
-                      "streamable-http": "http",
-                      sse: "sse",
-                    },
-                  },
-                ],
-              },
-              urlKey: {
-                "streamable-http": "url",
-                sse: "url",
-              },
-              headersKey: "headers",
+              ],
             },
+            urlKey: {
+              "streamable-http": "url",
+              sse: "url",
+            },
+            headersKey: "headers",
+          },
+        },
+      },
+      axm: {
+        status: "supported",
+        lastVerified: "2026-08-05",
+        writer: {
+          config: {
+            locationIds: ["user", "project"],
           },
         },
       },
@@ -125,8 +164,18 @@ export const qoderAgent = {
         docs: [],
         sources: ["https://docs.qoder.com/en/cli/subagent"],
         scopes: ["user", "project"],
-        directory: ".qoder/agents",
-        layout: "directory",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".qoder/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -144,23 +193,59 @@ export const qoderAgent = {
         sources: ["https://docs.qoder.com/en/cli/hooks"],
         scopes: ["user", "project"],
         mechanism: ["command-stdin"],
-        configFiles: [
+        locations: [
           {
+            id: "user",
             scope: "user",
-            path: "~/.qoder/settings.json",
-            format: "json",
-            gitignored: false,
-          },
-          {
-            scope: "project",
+            root: "home",
             path: ".qoder/settings.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "json",
+            keyPath: ["hooks"],
             gitignored: false,
           },
           {
+            id: "project",
             scope: "project",
-            path: ".qoder/settings.local.json",
+            root: "project",
+            path: ".qoder/settings.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "json",
+            keyPath: ["hooks"],
+            gitignored: false,
+          },
+          {
+            id: "project-additional-1",
+            scope: "project",
+            root: "project",
+            path: ".qoder/settings.local.json",
+            shape: "file",
+            role: "additional",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "json",
+            keyPath: ["hooks"],
             gitignored: true,
           },
         ],
@@ -256,25 +341,21 @@ export const qoderAgent = {
             lastVerified: "2026-08-05",
           },
         ],
-      },
-      axm: {
-        status: "supported",
-        writer: {
+
+        entryDialect: {
           serializer: "command-stdin",
-          configFiles: [
-            {
-              scope: "project",
-              path: ".qoder/settings.json",
-              format: "json",
-              gitignored: false,
-            },
-          ],
-          settingsKey: "hooks",
-          eventMap: "native.events",
           matcherKind: "regex",
           matcherSerialization: "bare",
           timeoutSerialization: "seconds",
           commandNameSerialization: "omit",
+        },
+      },
+      axm: {
+        status: "supported",
+        writer: {
+          locationIds: ["project"],
+
+          eventMap: "native.events",
         },
         lastVerified: "2026-08-05",
       },
@@ -291,7 +372,18 @@ export const qoderAgent = {
       standardsCompliance: "full",
       convention: "universal",
       kind: "agents-md",
-      files: ["AGENTS.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "AGENTS.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
       nestedDiscovery: false,
       importSyntax: null,
     },
@@ -311,16 +403,38 @@ export const qoderAgent = {
       sources: ["https://docs.qoder.com/en/cli/permissions"],
       scopes: ["user", "project"],
       mechanism: ["config-file", "cli-flag"],
-      configFiles: [
+      locations: [
         {
+          id: "user",
           scope: "user",
-          path: "~/.qoder/settings.json",
+          root: "home",
+          path: ".qoder/settings.json",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "json",
           gitignored: false,
         },
         {
+          id: "project",
           scope: "project",
+          root: "project",
           path: ".qoder/settings.json",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "json",
           gitignored: false,
         },
@@ -352,7 +466,7 @@ export const qoderAgent = {
       writer: {
         grants: {
           shell: {
-            target: ".qoder/settings.json",
+            destination: { kind: "location", locationId: "project" },
             patch: {
               permissions: {
                 allow: ["Bash(${tool}:*)"],
@@ -361,7 +475,7 @@ export const qoderAgent = {
             template: null,
           },
           filesystem: {
-            target: ".qoder/settings.json",
+            destination: { kind: "location", locationId: "project" },
             patch: {
               permissions: {
                 allow: [

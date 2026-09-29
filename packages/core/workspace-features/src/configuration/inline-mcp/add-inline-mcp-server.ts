@@ -11,13 +11,16 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Equal from "effect/Equal";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import { combineNativeLocationOutcomes } from "@agentxm/workspace-kernel/locations";
 
 import {
   NativeWriteAuthority,
   syncInlineMcpServerToAgents,
+  validateInlineMcpServerTargets,
   type McpServerSyncTarget,
 } from "@agentxm/workspace-kernel/agent-adapters";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -31,6 +34,7 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
+  type ReadyJobStep,
 } from "@agentxm/workspace-kernel/operations";
 import {
   prepareExecutionCandidate,
@@ -169,7 +173,7 @@ const configArtifact = (
   targets: [{ path: settingsDisplayPath(scope), change }],
 });
 
-const recordStep = (candidate: AddInlineMcpServerCandidate): PlannedJobStep<SettingsWriter> => ({
+const recordStep = (candidate: AddInlineMcpServerCandidate): ReadyJobStep<SettingsWriter> => ({
   label: `Configure ${candidate.name}`,
   readiness: "ready",
   run: Effect.gen(function* () {
@@ -197,13 +201,11 @@ const recordStep = (candidate: AddInlineMcpServerCandidate): PlannedJobStep<Sett
 
 /**
  * Project the recorded entry into every configured agent's native MCP
- * configuration. An agent that refuses the write is reported as a warning
- * rather than failing the change: the workspace's own record is authoritative
- * and the next reconciliation retries the projection.
+ * configuration. A refused native write fails the same closure as the settings change.
  */
 const projectStep = (
   candidate: AddInlineMcpServerCandidate,
-): PlannedJobStep<
+): ReadyJobStep<
   NativeWriteAuthority | SettingsReader | WorkspaceLocation | FileSystem.FileSystem | Path.Path
 > => ({
   label: `Sync ${candidate.name} to configured agents`,
@@ -225,8 +227,10 @@ const projectStep = (
       Effect.mapError(workspaceChangeFailedToStepFailure),
     );
     const outcomes = yield* syncInlineMcpServerToAgents(agentIds, {
+      nativeDirectoryInputs: location.nativeDirectoryInputs,
       workspaceRoot: location.baseDir,
       serverName: candidate.name,
+      nativeInsertionEligible: !candidate.replacesExistingEntry,
       entry,
       scope: location.scope,
     }).pipe(Effect.mapError(kernelFailureToStepFailure));
@@ -287,6 +291,15 @@ const projectStep = (
               : "updated",
             fileCount: syncTargets.length,
             targets: syncTargets,
+            nativeLocations: combineNativeLocationOutcomes(
+              outcomes.flatMap((outcome) =>
+                outcome._tag === "success"
+                  ? (outcome.targets ?? []).flatMap((target) =>
+                      target.nativeLocation === undefined ? [] : [target.nativeLocation],
+                    )
+                  : [],
+              ),
+            ),
           } satisfies JobStepArtifact);
     return {
       result: "success",
@@ -326,6 +339,64 @@ export const previewOrApplyAddInlineMcpServer = (
   AddInlineMcpServerRequirements
 > =>
   Effect.gen(function* () {
+    const location = yield* WorkspaceLocation;
+    const settings = yield* SettingsReader;
+    const agentIds = yield* settings.configuredAgents;
+    const nativeArgs = {
+      nativeDirectoryInputs: location.nativeDirectoryInputs,
+      nativeInsertionEligible: !candidate.replacesExistingEntry,
+      workspaceRoot: location.baseDir,
+      serverName: candidate.name,
+      scope: location.scope,
+      entry: {
+        kind: "inline" as const,
+        ...(candidate.definition.type === "stdio"
+          ? { command: candidate.definition.command, args: candidate.definition.args }
+          : { url: candidate.definition.url, headers: candidate.definition.headers }),
+        env: candidate.env,
+        enabled: true,
+      },
+    };
+    const inspect = validateInlineMcpServerTargets(agentIds, nativeArgs);
+    const preflight = yield* Effect.result(inspect);
+    const steps: ReadonlyArray<PlannedJobStep<AddInlineMcpServerRequirements>> =
+      preflight._tag === "Failure"
+        ? [
+            {
+              readiness: "error",
+              label: `Configure ${candidate.name}`,
+              errorMessage: kernelFailureToStepFailure(preflight.failure).detail,
+            },
+          ]
+        : [
+            {
+              readiness: "ready",
+              label: `Configure and project ${candidate.name}`,
+              materialPaths: preflight.success.writes.map((write) => write.path),
+              run: Effect.gen(function* () {
+                const record = recordStep(candidate);
+                const project = projectStep(candidate);
+                const recorded = yield* record.run;
+                if (recorded.result === "error") return recorded;
+                const projected = yield* project.run;
+                if (projected.result === "error") return projected;
+                return {
+                  ...projected,
+                  artifact: {
+                    ...configArtifact(
+                      candidate.scope,
+                      candidate.replacesExistingEntry ? "updated" : "created",
+                    ),
+                    targets: [
+                      ...(recorded.artifact?.targets ?? []),
+                      ...(projected.artifact?.targets ?? []),
+                    ],
+                    nativeLocations: projected.artifact?.nativeLocations ?? [],
+                  },
+                };
+              }),
+            },
+          ];
     const plan: Plan<AddInlineMcpServerRequirements> = {
       _tag: "Plan",
       name: "Add MCP server",
@@ -334,10 +405,18 @@ export const previewOrApplyAddInlineMcpServer = (
         { imperative: "configure", past: "Configured", gerund: "Configuring" },
         "mcp-server",
       ),
-      jobs: [{ concurrency: 1, steps: [recordStep(candidate), projectStep(candidate)] }],
+      jobs: [{ concurrency: 1, steps }],
     };
     const prepared = yield* prepareExecutionCandidate(plan);
-    return yield* resolveExecutionCandidate(prepared, execution);
+    return yield* resolveExecutionCandidate(prepared, execution, {
+      additionalFreshness: () =>
+        preflight._tag === "Failure"
+          ? Effect.succeed(true)
+          : inspect.pipe(
+              Effect.map((current) => Equal.equals(current, preflight.success)),
+              Effect.orElseSucceed(() => false),
+            ),
+    });
   });
 
 /** The inline MCP capability use case. */

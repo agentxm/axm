@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { NativeWriteAuthorityPermissive } from "../../agent-adapters/testing.js";
 import { SettingsReader } from "../../workspace-state/index.js";
-import { DefaultCodingAgentRepository } from "./repository.js";
+import { makeCodingAgentRepositoryService } from "./repository.js";
 
 const withWorkspace = (configuredAgents: ReadonlyArray<string>) =>
   Layer.mergeAll(
@@ -13,7 +13,11 @@ const withWorkspace = (configuredAgents: ReadonlyArray<string>) =>
     NativeWriteAuthorityPermissive,
   );
 
-describe("DefaultCodingAgentRepository", () => {
+const DefaultCodingAgentRepository = makeCodingAgentRepositoryService({
+  skillsDirectoryOverrides: {},
+});
+
+describe("coding agent repository", () => {
   it.effect("returns configured known agents", () =>
     Effect.gen(function* () {
       const agents = yield* DefaultCodingAgentRepository.getConfiguredAgents();
@@ -46,12 +50,13 @@ describe("DefaultCodingAgentRepository", () => {
       const agents = yield* DefaultCodingAgentRepository.all;
       const resolved = yield* Effect.forEach(agents, (agent) =>
         agent
-          .resolveEffectiveSkillsDir({ workspaceRoot: "/workspace" })
+          .resolveEffectiveSkillsDir({ workspaceRoot: "/workspace", scope: "project" })
           .pipe(Effect.map((outcome) => [agent.id, outcome._tag] as const)),
       );
 
       expect(resolved.filter(([, tag]) => tag !== "supported")).toEqual([
         ["codemaker", "unsupported"],
+        ["hermes", "unsupported"],
         ["minimax-code", "unsupported"],
       ]);
     }).pipe(Effect.provide(withWorkspace([]))),
@@ -65,7 +70,10 @@ describe("DefaultCodingAgentRepository", () => {
         throw new Error("Expected configured agent");
       }
 
-      const resolved = yield* agent.resolveEffectiveSkillsDir({ workspaceRoot: "/workspace" });
+      const resolved = yield* agent.resolveEffectiveSkillsDir({
+        workspaceRoot: "/workspace",
+        scope: "project",
+      });
       expect(resolved).toEqual({
         _tag: "supported",
         dir: "/workspace/.agents/skills",
@@ -73,23 +81,23 @@ describe("DefaultCodingAgentRepository", () => {
     }).pipe(Effect.provide(withWorkspace(["zencoder"]))),
   );
 
-  it.effect("prepends universal to materialization agents", () =>
+  it.effect("keeps shared placement separate from materialization agents", () =>
     Effect.gen(function* () {
       const agents = yield* DefaultCodingAgentRepository.getMaterializationAgents();
-      expect(agents.map((agent) => agent.id)).toEqual(["universal", "claude-code", "cursor"]);
+      expect(agents.map((agent) => agent.id)).toEqual(["claude-code", "cursor"]);
     }).pipe(Effect.provide(withWorkspace(["claude-code", "cursor"]))),
   );
 
-  it.effect("does not expose universal as a configured agent", () =>
+  it.effect("has no synthetic materialization agent with empty membership", () =>
     Effect.gen(function* () {
       const configured = yield* DefaultCodingAgentRepository.getConfiguredAgents();
       const materialization = yield* DefaultCodingAgentRepository.getMaterializationAgents();
       const unknown = yield* DefaultCodingAgentRepository.getUnknownConfiguredAgentIds();
 
       expect(configured.map((agent) => agent.id)).toEqual([]);
-      expect(materialization.map((agent) => agent.id)).toEqual(["universal"]);
+      expect(materialization.map((agent) => agent.id)).toEqual([]);
       expect(unknown).toEqual([]);
-    }).pipe(Effect.provide(withWorkspace(["universal"]))),
+    }).pipe(Effect.provide(withWorkspace([]))),
   );
 
   it.effect("surfaces unknown configured agent ids", () =>

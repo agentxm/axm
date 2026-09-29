@@ -23,7 +23,7 @@ import {
  */
 
 import * as Effect from "effect/Effect";
-import type * as FileSystem from "effect/FileSystem";
+import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
@@ -54,7 +54,7 @@ import {
   type RecipeRequirements,
 } from "@agentxm/workspace-kernel/reconciliation";
 import { materializeAuthoredMcpServer } from "@agentxm/extension-kinds/mcp-connections";
-import { configuredMcpCapability } from "@agentxm/workspace-kernel/agent-adapters";
+import { resolveConfiguredMcpTargets } from "@agentxm/workspace-kernel/agent-adapters";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {
   toExtensionTypePlural,
@@ -95,6 +95,8 @@ import {
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import { authoredDeclaration } from "../authored-declaration.js";
+import { authoredNativeArtifact, preflightAuthoredNativeProjection } from "../native-projection.js";
+import { AuthoringFailed } from "../errors.js";
 import { preflightCreateOnly } from "../create-preflight.js";
 import { authoringStepFailure, type AuthoringStepFailure } from "../step-failure.js";
 import { resolveAuthoringOwner, settingsRelativePath } from "./authoring-owner.js";
@@ -187,6 +189,9 @@ export type CreatableExtensionType = CreateExtensionRequest["type"];
 
 /** What every step in this creation may require when it runs. */
 export type CreateExtensionRequirements =
+  | RuleManager
+  | HookManager
+  | KnowledgeManager
   | ManagerRequirements
   | RecipeRequirements
   | McpServerManager
@@ -230,6 +235,7 @@ export type CreateExtensionFailure =
 
 /** Everything settling a creation reads before it freezes a candidate. */
 export type PrepareCreateExtensionRequirements =
+  | ManagerRequirements
   | FileSystem.FileSystem
   | Path.Path
   | CredentialStore
@@ -349,7 +355,7 @@ const canonicalLocation = (
       ).canonicalPath;
 
 /**
- * Where a skill becomes observable: the universal location and every
+ * Where a skill becomes observable: the shared policy location and every
  * configured agent that can represent one. Preview and apply read the same
  * function, so a preview lists exactly the locations an apply writes.
  */
@@ -361,7 +367,7 @@ const skillTargetLocations = Effect.fn("CreateExtension.skillTargetLocations")(f
     agents,
     (agent) =>
       agent
-        .resolveEffectiveSkillsDir({ workspaceRoot: location.baseDir })
+        .resolveEffectiveSkillsDir({ workspaceRoot: location.baseDir, scope: location.scope })
         .pipe(Effect.map((outcome) => ({ agentId: agent.id, outcome }))),
     // eslint-disable-next-line axm-policy/no-unbounded-io -- configured agents are a subset of the fixed agent catalog
     { concurrency: "unbounded" },
@@ -389,19 +395,18 @@ const mcpAgentConfigTargets = Effect.fn("CreateExtension.mcpAgentConfigTargets")
   const path = yield* Path.Path;
   const configuredAgentIds = yield* settings.configuredAgents;
   const agentsByConfigPath = new Map<string, Set<string>>();
-  for (const agentId of configuredAgentIds) {
-    const capability = configuredMcpCapability(agentId);
-    if (capability === undefined) continue;
-    for (const target of capability.axm.writer.config.targets) {
-      if (target.scope !== location.scope) continue;
-      const configPath = path.relative(
-        location.baseDir,
-        path.resolve(location.baseDir, target.path),
-      );
-      const agentIds = agentsByConfigPath.get(configPath) ?? new Set<string>();
-      agentIds.add(agentId);
-      agentsByConfigPath.set(configPath, agentIds);
-    }
+  const groups = yield* resolveConfiguredMcpTargets({
+    agentIds: configuredAgentIds,
+    workspaceRoot: location.baseDir,
+    scope: location.scope,
+    nativeDirectoryInputs: location.nativeDirectoryInputs,
+  });
+  for (const group of groups) {
+    const configPath = path.relative(location.baseDir, group.path);
+    agentsByConfigPath.set(
+      configPath,
+      new Set(group.members.filter((member) => member.configured).map((member) => member.agentId)),
+    );
   }
   return Array.from(agentsByConfigPath.entries())
     .sort(([left], [right]) => left.localeCompare(right))
@@ -550,13 +555,41 @@ export const prepareCreateExtension: (
     targets: [...contentTargets, settingsTarget, ...projectionTargets, ...agentConfigTargets],
   };
 
+  const nativePreflight = Effect.scoped(
+    Effect.gen(function* () {
+      if (!["rule", "hook", "knowledge"].includes(request.type)) return;
+      const fs = yield* FileSystem.FileSystem;
+      const stagedPackage = yield* fs
+        .makeTempDirectoryScoped({ prefix: "axm-create-preview-" })
+        .pipe(
+          Effect.mapError(
+            (cause) =>
+              new AuthoringFailed({
+                category: "internal",
+                detail: "Could not stage authored package preview",
+                cause,
+              }),
+          ),
+        );
+      yield* scaffold.populate(stagedPackage);
+      yield* preflightAuthoredNativeProjection({
+        identity: { type: request.type, owner, name: extensionName },
+        packageRoot: stagedPackage,
+        enabled: true,
+      });
+    }),
+  );
+  yield* nativePreflight;
+
   const common = {
     toStepFailure: authoringStepFailure,
     versionRange: Option.none<string>(),
     label: fqn,
     message: `Created ${subject} ${fqn}`,
     plannedArtifact,
+    nativeInsertionEligible: true,
     preflight: Effect.gen(function* () {
+      yield* nativePreflight;
       yield* recoverCanonicalDirectory({
         baseDir: locationService.baseDir,
         canonicalPath: location,
@@ -645,7 +678,13 @@ export const prepareCreateExtension: (
             rule: { name: extensionName },
           },
           target: { type: "rule", name },
-          buildArtifact: () => Effect.succeed(plannedArtifact),
+          buildArtifact: ({ change }) =>
+            authoredNativeArtifact({
+              type: "rule",
+              artifact: plannedArtifact,
+              change,
+              projected: true,
+            }),
         });
       case "hook": {
         const hook = yield* HookManager;
@@ -659,18 +698,11 @@ export const prepareCreateExtension: (
           },
           target: { type: "hook", name },
           buildArtifact: ({ change }) =>
-            Effect.gen(function* () {
-              // A hook becomes observable through the shared agent hook
-              // configurations, so its realized targets are the aggregate
-              // projection's, not the package's own files.
-              const observation = yield* hook.aggregateProjectionObservation;
-              const targets = observation.targets.map((target) => ({ ...target, change }));
-              return {
-                path: authoredPath,
-                scope: locationService.scope,
-                version: scaffold.version,
-                ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
-              } satisfies InstallArtifactPresentation;
+            authoredNativeArtifact({
+              type: "hook",
+              artifact: plannedArtifact,
+              change,
+              projected: true,
             }),
         });
       }
@@ -684,7 +716,13 @@ export const prepareCreateExtension: (
             knowledge: { name: extensionName },
           },
           target: { type: "knowledge", name },
-          buildArtifact: () => Effect.succeed(plannedArtifact),
+          buildArtifact: ({ change }) =>
+            authoredNativeArtifact({
+              type: "knowledge",
+              artifact: plannedArtifact,
+              change,
+              projected: true,
+            }),
         });
       case "pack":
         return authoredStep(yield* PackManager, {
@@ -708,8 +746,20 @@ export const prepareCreateExtension: (
           target: { type: "mcp-server", name },
           location,
           enabled: true,
-          materializeInstall: (ref) => materializeAuthoredMcpServer({ ref, nonInteractive }),
-          buildArtifact: () => Effect.succeed(plannedArtifact),
+          materializeInstall: (ref, options) =>
+            materializeAuthoredMcpServer({
+              ref,
+              nonInteractive,
+              nativeInsertionEligible: options.nativeInsertionEligible,
+            }),
+          buildArtifact: ({ change, materialization }) =>
+            authoredNativeArtifact({
+              type: "mcp-server",
+              artifact: plannedArtifact,
+              change,
+              projected: true,
+              materialization,
+            }),
         });
       }
     }

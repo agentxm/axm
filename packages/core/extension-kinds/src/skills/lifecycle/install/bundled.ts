@@ -1,3 +1,4 @@
+import { nativeAuthorityRoots } from "@agentxm/workspace-kernel/locations";
 /**
  * Installing the official AXM skill that ships inside the CLI.
  *
@@ -31,6 +32,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
+import { groupInstallTargetsByDirectory } from "@agentxm/workspace-kernel/materialization";
 import { ensureSkillAgentArtifact } from "../../materialization.js";
 import {
   assessOfficialAxmSkill,
@@ -57,7 +59,10 @@ import {
   StepFailureConversion,
   type InstallStepRequirements,
 } from "@agentxm/workspace-kernel/reconciliation";
-import { replaceCanonicalDirectory } from "@agentxm/workspace-kernel/acquisition";
+import {
+  prepareCanonicalParents,
+  replaceCanonicalDirectory,
+} from "@agentxm/workspace-kernel/acquisition";
 
 /** One file of the bundled skill's source tree. */
 export interface BundledAxmSkillSourceFile {
@@ -131,6 +136,8 @@ const writeFailed = (filePath: string) => (cause: unknown) =>
 const materializeBundledAxmSkill = Effect.gen(function* () {
   const location = yield* WorkspaceLocation;
   const layout = yield* Ref.get(location.layout);
+  const configuredBefore = yield* (yield* SettingsReader).entries("skill");
+  const nativeInsertionEligible = configuredBefore[BUNDLED_AXM_SKILL_NAME] === undefined;
   const settingsWriter = yield* SettingsWriter;
   const accepted = yield* AcceptedResolutionWriter;
   const fs = yield* FileSystem.FileSystem;
@@ -143,6 +150,13 @@ const materializeBundledAxmSkill = Effect.gen(function* () {
   yield* replaceCanonicalDirectory({
     baseDir: location.baseDir,
     canonicalPath,
+    prepareParents: prepareCanonicalParents({
+      canonicalPath,
+      eligible: nativeInsertionEligible,
+    }).pipe(
+      Effect.mapError(writeFailed(canonicalPath)),
+      Effect.map((record) => record.pipe(Effect.mapError(writeFailed(canonicalPath)))),
+    ),
     populate: (stagingPath) => {
       const stagingSrcPath = path.join(stagingPath, "src");
       const skillJsonPath = path.join(stagingPath, "skill.json");
@@ -175,7 +189,7 @@ const materializeBundledAxmSkill = Effect.gen(function* () {
     configuredAgents,
     (agent) =>
       agent
-        .resolveEffectiveSkillsDir({ workspaceRoot: location.baseDir })
+        .resolveEffectiveSkillsDir({ workspaceRoot: location.baseDir, scope: location.scope })
         .pipe(Effect.map((outcome) => ({ agentId: agent.id, outcome }))),
     // eslint-disable-next-line axm-policy/no-unbounded-io -- configured agents are a subset of the fixed agent catalog
     { concurrency: "unbounded" },
@@ -188,18 +202,23 @@ const materializeBundledAxmSkill = Effect.gen(function* () {
     });
   }
 
-  const distinctTargets = [
-    ...new Set(
-      resolvedAgents.flatMap(({ outcome }) =>
-        outcome._tag === "supported" ? [path.normalize(outcome.dir)] : [],
-      ),
+  const distinctTargets = yield* groupInstallTargetsByDirectory(
+    resolvedAgents.flatMap(({ agentId, outcome }) =>
+      outcome._tag === "supported" ? [{ agentId, targetDir: outcome.dir }] : [],
     ),
-  ];
+    location.baseDir,
+  );
 
   yield* Effect.forEach(
     distinctTargets,
-    (targetDir) =>
+    ({ targetDir }) =>
       ensureSkillAgentArtifact({
+        nativeRoots: nativeAuthorityRoots(
+          path,
+          { workspaceRoot: location.baseDir, scope: location.scope },
+          location.nativeDirectoryInputs,
+        ),
+        nativeInsertionEligible,
         canonicalSkillSrcPath: skillSrcPath,
         targetDir,
         sanitizedName: BUNDLED_AXM_SKILL_NAME,
@@ -260,7 +279,7 @@ export const installBundledAxmSkill = Effect.gen(function* () {
     configuredAgents,
     (agent) =>
       agent
-        .resolveEffectiveSkillsDir({ workspaceRoot: location.baseDir })
+        .resolveEffectiveSkillsDir({ workspaceRoot: location.baseDir, scope: location.scope })
         .pipe(
           Effect.map((outcome) =>
             outcome._tag === "supported"
@@ -282,7 +301,11 @@ export const installBundledAxmSkill = Effect.gen(function* () {
   );
 
   yield* runWorkspaceTransaction({
-    targets: [readiness.canonicalPath, ...targetDirectories],
+    targets: [
+      readiness.canonicalPath,
+      path.join(location.baseDir, ".agents/skills", BUNDLED_AXM_SKILL_NAME),
+      ...targetDirectories,
+    ],
     transition: materializeBundledAxmSkill,
     validate: () =>
       Effect.gen(function* () {

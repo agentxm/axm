@@ -23,6 +23,7 @@ export { selectAcquisitionQueue } from "./acquisition-queue.js";
 export { AcquiredTreeLimitExceeded, measureAcquiredTree } from "./measure-acquired-tree.js";
 
 // Canonical package staging, copy, reuse, and on-disk materializability
+export { prepareCanonicalParents, retireCanonicalDirectory } from "./canonical-parent-receipts.js";
 export {
   createCanonicalDirectory,
   materializeExternalPackageWithTreeIntegrity,

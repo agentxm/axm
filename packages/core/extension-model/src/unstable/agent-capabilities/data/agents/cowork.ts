@@ -73,6 +73,10 @@ export const coworkAgent = {
         standardsCompliance: "full",
         convention: "hosted",
         transports: ["http"],
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -106,6 +110,10 @@ export const coworkAgent = {
         sources: ["https://support.claude.com/en/articles/13837440-use-plugins-in-claude"],
         scopes: ["user"],
         modeling: "native-unmodeled",
+
+        locations: [],
+
+        entryDialect: null,
       },
       axm: {
         status: "unsupported",

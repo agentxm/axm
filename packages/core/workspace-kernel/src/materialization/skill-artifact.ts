@@ -1,6 +1,6 @@
 /**
  * Skill artifact and install-target semantics shared by the lifecycle and
- * sync features: agent-target grouping, universal-directory folding, and the
+ * sync features: physical directory grouping, shared Skill policy, and the
  * step-artifact shape describing where a skill materializes.
  *
  * @experimental This API is unstable and may change without notice.
@@ -8,14 +8,11 @@
 
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
+import type * as FileSystem from "effect/FileSystem";
+import { resolveNativeReferent, type NativeLocationError } from "../locations/index.js";
 import * as Path from "effect/Path";
 import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
-import {
-  UNIVERSAL_SKILLS_DIR,
-  isUniversalSkillsDir,
-  stripTrailingSeparators,
-} from "@agentxm/extension-model/unstable/extensions/universal-skills-dir";
+import { UNIVERSAL_SKILLS_DIR } from "@agentxm/extension-model/unstable/extensions/universal-skills-dir";
 import type { JobStepArtifact, JobStepArtifactTarget } from "../operations/index.js";
 
 export type InstallableSkillTarget = {
@@ -28,76 +25,41 @@ export type InstallableSkillTargetLocation = {
   readonly agentIds: ReadonlyArray<MaterializationTargetId>;
 };
 
-const UNIVERSAL_AGENT_ID = "universal";
-
 export const artifactAgentIdsFromTargets = (
   targets: ReadonlyArray<InstallableSkillTarget>,
-): ReadonlyArray<string> =>
-  Array.dedupe(
-    targets.map((target) => target.agentId).filter((agentId) => agentId !== UNIVERSAL_AGENT_ID),
-  );
+): ReadonlyArray<string> => Array.dedupe(targets.map((target) => target.agentId));
 
 export const artifactTargetAgentIds = (
   agentIds: ReadonlyArray<MaterializationTargetId>,
-): ReadonlyArray<string> => agentIds.filter((agentId) => agentId !== UNIVERSAL_AGENT_ID);
-
-const normalizedTargetDir = (path: Path.Path, targetDir: string): string =>
-  stripTrailingSeparators(path.normalize(targetDir));
-
-const targetLocationKey = (
-  targetDir: string,
-  workspaceRoot: string,
-): Effect.Effect<string, never, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const normalizedDir = normalizedTargetDir(path, targetDir);
-    const normalizedWorkspaceRoot = normalizedTargetDir(path, workspaceRoot);
-    const realWorkspaceRoot = yield* fs.realPath(workspaceRoot).pipe(
-      Effect.map((realPath) => normalizedTargetDir(path, realPath)),
-      Effect.catch(() => Effect.succeed(normalizedWorkspaceRoot)),
-    );
-
-    if (
-      isUniversalSkillsDir(normalizedDir, normalizedWorkspaceRoot) ||
-      isUniversalSkillsDir(normalizedDir, realWorkspaceRoot)
-    ) {
-      return normalizedTargetDir(path, path.join(realWorkspaceRoot, UNIVERSAL_SKILLS_DIR));
-    }
-
-    const parentDir = path.dirname(normalizedDir);
-    const realParentDir = yield* fs.realPath(parentDir).pipe(
-      Effect.map((realPath) => normalizedTargetDir(path, realPath)),
-      Effect.catch(() => Effect.succeed(parentDir)),
-    );
-    return normalizedTargetDir(path, path.join(realParentDir, path.basename(normalizedDir)));
-  });
+): ReadonlyArray<string> => agentIds;
 
 export const groupInstallTargetsByDirectory = (
   targets: ReadonlyArray<InstallableSkillTarget>,
   workspaceRoot: string,
 ): Effect.Effect<
   ReadonlyArray<InstallableSkillTargetLocation>,
-  never,
+  NativeLocationError,
   FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const sharedDir = yield* resolveNativeReferent(path.join(workspaceRoot, UNIVERSAL_SKILLS_DIR));
     const keyedTargets = yield* Effect.forEach(
       targets,
       (target) =>
-        targetLocationKey(target.targetDir, workspaceRoot).pipe(
-          Effect.map((key) => ({ key, target })),
-        ),
-      { concurrency: 16 },
+        resolveNativeReferent(target.targetDir).pipe(Effect.map((key) => ({ key, target }))),
+      { concurrency: 1 },
     );
     const locationsByKey = new Map<
       string,
       { targetDir: string; agentIds: Array<MaterializationTargetId> }
     >();
+    // Shared Skill publication is workspace policy, independently of membership.
+    locationsByKey.set(sharedDir, { targetDir: sharedDir, agentIds: [] });
     for (const { key, target } of keyedTargets) {
       const existing = locationsByKey.get(key);
       if (existing === undefined) {
-        locationsByKey.set(key, { targetDir: target.targetDir, agentIds: [target.agentId] });
+        locationsByKey.set(key, { targetDir: key, agentIds: [target.agentId] });
         continue;
       }
       if (!existing.agentIds.includes(target.agentId)) {

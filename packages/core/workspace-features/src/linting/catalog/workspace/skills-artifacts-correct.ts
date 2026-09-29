@@ -35,7 +35,10 @@ import {
 } from "@agentxm/extension-model/unstable/extensions/universal-skills-dir";
 import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import { deferringNodes } from "./canonical-observation-findings.js";
-import { settingsDisplayPath } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  settingsDisplayPath,
+  setupScopeSupportOutcomes,
+} from "@agentxm/workspace-kernel/workspace-state";
 import { desiredPackMemberBindings } from "./helpers/pack-members.js";
 
 const RULE_ID = "workspace/skills-artifacts-correct";
@@ -145,14 +148,29 @@ export const skillsArtifactsCorrectRule: AdvisoryRule<WorkspaceRuleContext> = {
         return EMPTY_LINT_FINDINGS;
       }
       const knownAgents = yield* scoped.agents.known;
+      // A missing artifact requires a known writer destination in this scope.
+      // Configured-agent outcomes own unsupported/unverified scope diagnostics;
+      // their absence is not evidence that an expected native artifact is missing.
+      const supportedAgentIds = new Set(
+        setupScopeSupportOutcomes("skill", [...declaredAgentIds], scoped.scope).flatMap(
+          (outcome) =>
+            outcome.status === "supported" && outcome.agentId !== undefined
+              ? [outcome.agentId]
+              : [],
+        ),
+      );
       const declaredAgents = knownAgents.filter(
-        (agent) => isConfigurableAgentId(agent.id) && declaredAgentIds.has(agent.id),
+        (agent) => isConfigurableAgentId(agent.id) && supportedAgentIds.has(agent.id),
       );
 
       const universalAgentIds = new Set(
         declaredAgents
           .filter(
-            (agent) => agent.skills !== undefined && isUniversalSkillsRelativeDir(agent.skills.dir),
+            (agent) =>
+              agent.skills?.locations.some(
+                (location) =>
+                  location.scope === scoped.scope && isUniversalSkillsRelativeDir(location.path),
+              ) === true,
           )
           .map((agent) => agent.id),
       );

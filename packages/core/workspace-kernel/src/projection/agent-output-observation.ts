@@ -14,13 +14,23 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import {
+  resolveNativeEntry,
+  resolveNativeReferent,
+  readCopiedDirectory,
+  resolveNativeReadLocation,
+  type NativeDirectoryInputs,
+} from "../locations/index.js";
 import { isWithinOrEqual } from "@agentxm/extension-model/unstable/path-types";
 import {
   resolveWorkspaceExtensionRef,
   type SkillEntry,
   type WorkspaceLayout,
 } from "../workspace-state/index.js";
-import { AGENTS as CAPABILITY_AGENTS } from "@agentxm/extension-model/unstable/agent-capabilities";
+import {
+  AGENTS as CAPABILITY_AGENTS,
+  type NativeConfigReadLocation,
+} from "@agentxm/extension-model/unstable/agent-capabilities";
 import {
   ExtensionNameSchema,
   type PerAgentType,
@@ -29,16 +39,25 @@ import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace
 import { CodingAgentRepository } from "./agents/coding-agent-repository.js";
 import {
   extensionNameFromFilename,
-  hasAxmManagedMarker,
   safeReadDirectory,
   safeReadFileString,
   type WorkspaceOwnershipIssue,
 } from "./managed-file-discovery.js";
+import { managedFileMarker, managedFileFormatForPath } from "./managed-file-banner.js";
 import { collectManagedAgentMcpServers } from "./mcps/inspection.js";
-import { readAmbiguousHookCommands, readManagedHookUnits } from "../agent-adapters/index.js";
+import {
+  readAmbiguousHookCommands,
+  readManagedHookUnits,
+  type AxmMcpMetadata,
+  type HookOwnership,
+} from "../agent-adapters/index.js";
 
 export type AgentOutputOwnershipProof =
-  "storage-root-symlink" | "managed-banner" | "managed-mcp-entry" | "managed-hook-group";
+  | "canonical-source-link"
+  | "copied-directory-receipt"
+  | "managed-banner"
+  | "managed-mcp-entry"
+  | "managed-hook-group";
 
 export interface AgentOutputObservation {
   readonly extensionType: PerAgentType;
@@ -59,10 +78,16 @@ export interface AgentOutputInventory {
 
 export interface ObserveAgentOutputsArgs {
   readonly workspaceRoot: string;
+  readonly nativeDirectoryInputs: NativeDirectoryInputs;
   readonly scope: WorkspaceScope;
   readonly desiredAgentIds: ReadonlySet<string>;
   readonly expectedNames: Readonly<Record<PerAgentType, ReadonlySet<string>>>;
-  readonly skillOwnershipRoots: ReadonlyArray<string>;
+  readonly expectedHooks: ReadonlyArray<HookOwnership>;
+  readonly expectedMcpEntries: Readonly<Record<string, ReadonlyArray<AxmMcpMetadata>>>;
+  readonly expectedSkillSources: Readonly<Record<string, ReadonlyArray<string>>>;
+  readonly expectedSubagentFiles: Readonly<
+    Record<string, ReadonlyArray<{ readonly ext: string; readonly src: string }>>
+  >;
   /**
    * The layout whose skill authoring folder holds authored packages, and local
    * declarations (including disabled skills) that mark bundled entries.
@@ -75,23 +100,30 @@ export interface ObserveAgentOutputsArgs {
 
 interface ResolvedContainer {
   readonly path: string;
-  readonly agentId: string;
+  readonly agentId?: string;
+  readonly sharedPolicy?: boolean;
 }
 
-const groupContainers = (
-  containers: ReadonlyArray<ResolvedContainer>,
-): ReadonlyArray<{ readonly path: string; readonly claimantAgentIds: ReadonlyArray<string> }> => {
-  const grouped = new Map<string, Set<string>>();
-  for (const container of containers) {
-    const claimants = grouped.get(container.path) ?? new Set<string>();
-    claimants.add(container.agentId);
-    grouped.set(container.path, claimants);
-  }
-  return [...grouped].map(([path, claimants]) => ({
-    path,
-    claimantAgentIds: [...claimants].sort(),
-  }));
-};
+const groupContainers = (containers: ReadonlyArray<ResolvedContainer>) =>
+  Effect.gen(function* () {
+    const grouped = new Map<string, { claimants: Set<string>; sharedPolicy: boolean }>();
+    for (const container of containers) {
+      const resolved = yield* resolveNativeReferent(container.path).pipe(Effect.option);
+      if (Option.isNone(resolved)) continue;
+      const group = grouped.get(resolved.value) ?? {
+        claimants: new Set<string>(),
+        sharedPolicy: false,
+      };
+      if (container.agentId !== undefined) group.claimants.add(container.agentId);
+      group.sharedPolicy ||= container.sharedPolicy === true;
+      grouped.set(resolved.value, group);
+    }
+    return [...grouped].map(([path, group]) => ({
+      path,
+      claimantAgentIds: [...group.claimants].sort(),
+      sharedPolicy: group.sharedPolicy,
+    }));
+  });
 
 const containerIsDesired = (
   claimantAgentIds: ReadonlyArray<string>,
@@ -143,90 +175,160 @@ export const observeAgentOutputs = (
     const agentRepo = yield* CodingAgentRepository;
     const agents = yield* agentRepo.all;
     const outputs: Array<AgentOutputObservation> = [];
-    const ownershipRoots = yield* Effect.forEach(args.skillOwnershipRoots, (root) =>
-      fs.realPath(root).pipe(Effect.orElseSucceed(() => path.resolve(root))),
-    );
+    const expectedSkillSources = new Map<string, ReadonlyArray<string>>();
+    for (const [name, sources] of Object.entries(args.expectedSkillSources)) {
+      const physical = yield* Effect.forEach(sources, (source) =>
+        resolveNativeReferent(source).pipe(Effect.option),
+      );
+      expectedSkillSources.set(
+        name,
+        physical.flatMap((source) => (Option.isSome(source) ? [source.value] : [])),
+      );
+    }
 
     const skillContainers = yield* Effect.forEach(agents, (agent) =>
-      agent.resolveEffectiveSkillsDir({ workspaceRoot: args.workspaceRoot }).pipe(
-        Effect.map((resolved) =>
-          resolved._tag === "supported"
-            ? [{ path: path.resolve(resolved.dir), agentId: agent.id }]
-            : [],
+      agent
+        .resolveNativeReadLocations({
+          workspaceRoot: args.workspaceRoot,
+          scope: args.scope,
+          kind: "skill",
+        })
+        .pipe(
+          Effect.map((locations) =>
+            locations.map((location): ResolvedContainer => ({
+              path: location.path,
+              agentId: agent.id,
+            })),
+          ),
         ),
-        Effect.catch((error) =>
-          error._tag === "ConfigError"
-            ? Effect.fail(error)
-            : Effect.succeed<ReadonlyArray<ResolvedContainer>>([]),
-        ),
-      ),
     ).pipe(Effect.map((containers) => containers.flat()));
 
-    for (const container of groupContainers(skillContainers)) {
-      const desiredContainer = containerIsDesired(container.claimantAgentIds, args.desiredAgentIds);
+    for (const container of yield* groupContainers([
+      { path: path.join(args.workspaceRoot, ".agents/skills"), sharedPolicy: true },
+      ...skillContainers,
+    ])) {
+      const desiredContainer =
+        container.sharedPolicy ||
+        containerIsDesired(container.claimantAgentIds, args.desiredAgentIds);
       for (const entry of yield* safeReadDirectory(fs, container.path)) {
         const artifactPath = path.join(container.path, entry);
-        const linkTarget = yield* fs.readLink(artifactPath).pipe(Effect.option);
+        const address = yield* resolveNativeEntry(artifactPath).pipe(Effect.option);
         let proof: AgentOutputOwnershipProof | undefined;
-        if (linkTarget._tag === "Some") {
-          const resolvedTarget = path.resolve(container.path, linkTarget.value);
-          const canonicalTarget = yield* fs
-            .realPath(resolvedTarget)
-            .pipe(Effect.orElseSucceed(() => resolvedTarget));
-          if (ownershipRoots.some((root) => isWithinOrEqual(path, root, canonicalTarget))) {
-            proof = "storage-root-symlink";
+        let extensionType: PerAgentType = "skill";
+        if (
+          Option.isSome(address) &&
+          address.value.kind === "symlink" &&
+          address.value.linkTarget !== undefined
+        ) {
+          const immediatePath = path.resolve(container.path, address.value.linkTarget);
+          const immediate = yield* resolveNativeEntry(immediatePath).pipe(Effect.option);
+          // Never follow a foreign leaf chain into the managed store for ownership.
+          if (
+            Option.isSome(immediate) &&
+            immediate.value.kind !== "symlink" &&
+            (expectedSkillSources.get(entry) ?? []).includes(immediate.value.entryPath)
+          ) {
+            proof = "canonical-source-link";
           }
-        } else {
-          const stat = yield* fs.stat(artifactPath).pipe(Effect.option);
-          if (stat._tag === "Some" && stat.value.type === "Directory") {
-            if (yield* isAuthoredSkillPackage(args.authoredSkills, artifactPath, entry)) continue;
-            const content = yield* safeReadFileString(fs, path.join(artifactPath, "SKILL.md"));
-            if (hasAxmManagedMarker(content)) proof = "managed-banner";
+        } else if (Option.isSome(address) && address.value.kind === "directory") {
+          if (yield* isAuthoredSkillPackage(args.authoredSkills, artifactPath, entry)) continue;
+          const receipt = yield* readCopiedDirectory(artifactPath);
+          if (Option.isSome(receipt)) {
+            const marker = managedFileMarker(
+              yield* safeReadFileString(fs, path.join(artifactPath, "SKILL.md")),
+              "markdown",
+            );
+            const expected = args.expectedSubagentFiles[entry] ?? [];
+            const fallbackRoot = yield* resolveNativeReferent(
+              path.join(args.workspaceRoot, ".axm/build/polyfills/subagents", entry),
+            ).pipe(Effect.option);
+            if (
+              Option.isSome(marker) &&
+              expected.some(
+                (proof) => marker.value.ext === proof.ext && marker.value.src === proof.src,
+              ) &&
+              Option.isSome(fallbackRoot) &&
+              isWithinOrEqual(path, fallbackRoot.value, receipt.value.source)
+            ) {
+              extensionType = "subagent";
+              proof = "copied-directory-receipt";
+            } else if ((expectedSkillSources.get(entry) ?? []).includes(receipt.value.source)) {
+              proof = "copied-directory-receipt";
+            }
           }
         }
         outputs.push({
-          extensionType: "skill",
+          extensionType,
           containerPath: container.path,
           path: artifactPath,
           entryName: entry,
           claimantAgentIds: container.claimantAgentIds,
           ownership: proof === undefined ? "unowned" : "owned",
           ...(proof === undefined ? {} : { proof }),
-          desired: desiredContainer && args.expectedNames.skill.has(entry),
+          desired:
+            (extensionType === "skill"
+              ? desiredContainer
+              : containerIsDesired(container.claimantAgentIds, args.desiredAgentIds)) &&
+            args.expectedNames[extensionType].has(entry),
         });
       }
     }
 
     const subagentContainers = yield* Effect.forEach(agents, (agent) =>
       agent
-        .resolveEffectiveSubagentsDir({ workspaceRoot: args.workspaceRoot, scope: args.scope })
+        .resolveNativeReadLocations({
+          workspaceRoot: args.workspaceRoot,
+          scope: args.scope,
+          kind: "subagent",
+        })
         .pipe(
-          Effect.map((resolved) =>
-            resolved._tag === "supported"
-              ? [{ path: path.resolve(resolved.dir), agentId: agent.id }]
-              : [],
-          ),
-          Effect.catch((error) =>
-            error._tag === "ConfigError"
-              ? Effect.fail(error)
-              : Effect.succeed<ReadonlyArray<ResolvedContainer>>([]),
+          Effect.map((locations) =>
+            locations
+              .filter((location) => location.declaration.shape === "directory")
+              .map((location): ResolvedContainer => ({ path: location.path, agentId: agent.id })),
           ),
         ),
     ).pipe(Effect.map((containers) => containers.flat()));
 
-    for (const container of groupContainers(subagentContainers)) {
+    for (const container of yield* groupContainers(subagentContainers)) {
       const desiredContainer = containerIsDesired(container.claimantAgentIds, args.desiredAgentIds);
       for (const entry of yield* safeReadDirectory(fs, container.path)) {
         const artifactPath = path.join(container.path, entry);
         const stat = yield* fs.stat(artifactPath).pipe(Effect.option);
         if (stat._tag === "None" || stat.value.type !== "File") continue;
         const content = yield* safeReadFileString(fs, artifactPath);
-        const managed = hasAxmManagedMarker(content);
         const entryName = extensionNameFromFilename(entry);
+        const format = managedFileFormatForPath(artifactPath);
+        const marker = format === undefined ? Option.none() : managedFileMarker(content, format);
+        const expected = args.expectedSubagentFiles[entryName] ?? [];
+        const managed =
+          Option.isSome(marker) &&
+          expected.some(
+            (proof) => marker.value.ext === proof.ext && marker.value.src === proof.src,
+          );
+        const referent = yield* resolveNativeReferent(artifactPath).pipe(Effect.option);
+        if (Option.isNone(referent)) continue;
+        const prior = outputs.findIndex(
+          (output) => output.extensionType === "subagent" && output.path === referent.value,
+        );
+        if (prior >= 0) {
+          const observed = outputs[prior];
+          if (observed !== undefined)
+            outputs[prior] = {
+              ...observed,
+              claimantAgentIds: [
+                ...new Set([...observed.claimantAgentIds, ...container.claimantAgentIds]),
+              ].sort(),
+              desired:
+                observed.desired ||
+                (desiredContainer && args.expectedNames.subagent.has(entryName)),
+            };
+          continue;
+        }
         outputs.push({
           extensionType: "subagent",
-          containerPath: container.path,
-          path: artifactPath,
+          containerPath: path.dirname(referent.value),
+          path: referent.value,
           entryName,
           claimantAgentIds: container.claimantAgentIds,
           ownership: managed ? "owned" : "unowned",
@@ -239,12 +341,19 @@ export const observeAgentOutputs = (
     const capabilityAgentIds = CAPABILITY_AGENTS.map(({ id }) => id);
     const managedMcpServers = yield* collectManagedAgentMcpServers({
       workspaceRoot: args.workspaceRoot,
+      nativeDirectoryInputs: args.nativeDirectoryInputs,
       scope: args.scope,
       agentIds: capabilityAgentIds,
+      expectedOwnershipByName: args.expectedMcpEntries,
     }).pipe(Effect.catch(() => Effect.succeed([])));
     const mcpGroups = new Map<
       string,
-      { readonly path: string; readonly name: string; readonly claimants: Set<string> }
+      {
+        readonly path: string;
+        readonly name: string;
+        readonly claimants: Set<string>;
+        readonly ownership: "owned" | "unowned";
+      }
     >();
     for (const server of managedMcpServers) {
       const key = `${server.absolutePath}\u0000${server.serverName}`;
@@ -252,6 +361,7 @@ export const observeAgentOutputs = (
         path: server.absolutePath,
         name: server.serverName,
         claimants: new Set<string>(),
+        ownership: server.ownership,
       };
       group.claimants.add(server.agentId);
       mcpGroups.set(key, group);
@@ -264,8 +374,8 @@ export const observeAgentOutputs = (
         path: `${group.path}#${group.name}`,
         entryName: group.name,
         claimantAgentIds: claimants,
-        ownership: "owned",
-        proof: "managed-mcp-entry",
+        ownership: group.ownership,
+        ...(group.ownership === "owned" ? { proof: "managed-mcp-entry" as const } : {}),
         desired:
           containerIsDesired(claimants, args.desiredAgentIds) &&
           args.expectedNames["mcp-server"].has(group.name),
@@ -277,16 +387,31 @@ export const observeAgentOutputs = (
       { readonly path: string; readonly settingsKey: string; readonly claimants: Set<string> }
     >();
     for (const agent of CAPABILITY_AGENTS) {
-      const writer = agent.capabilities.hook.axm.writer;
-      if (writer === null) continue;
-      for (const file of writer.configFiles.filter(
-        (candidate) => candidate.scope === args.scope && candidate.format === "json",
+      const native = agent.capabilities.hook.native;
+      if (!("locations" in native)) continue;
+      const declarations: ReadonlyArray<NativeConfigReadLocation> = native.locations;
+      for (const file of declarations.filter(
+        (candidate) =>
+          candidate.scope === args.scope &&
+          (candidate.format === "json" || candidate.format === "jsonc"),
       )) {
-        const configPath = path.resolve(args.workspaceRoot, file.path);
-        const key = `${configPath}\u0000${writer.settingsKey}`;
+        const settingsKey = file.keyPath?.[0];
+        if (file.keyPath?.length !== 1 || settingsKey === undefined) continue;
+        const location = resolveNativeReadLocation(
+          path,
+          agent.id,
+          file,
+          args,
+          args.nativeDirectoryInputs,
+        );
+        if (location === undefined) continue;
+        const resolved = yield* resolveNativeReferent(location.path).pipe(Effect.option);
+        if (Option.isNone(resolved)) continue;
+        const configPath = resolved.value;
+        const key = `${configPath}\u0000${settingsKey}`;
         const group = hookContainers.get(key) ?? {
           path: configPath,
-          settingsKey: writer.settingsKey,
+          settingsKey,
           claimants: new Set<string>(),
         };
         group.claimants.add(agent.id);
@@ -298,9 +423,12 @@ export const observeAgentOutputs = (
       if (!exists) continue;
       const raw = yield* safeReadFileString(fs, group.path);
       const claimants = [...group.claimants].sort();
-      const units = yield* readManagedHookUnits(group.path, group.settingsKey, raw).pipe(
-        Effect.catch(() => Effect.succeed([])),
-      );
+      const units = yield* readManagedHookUnits(
+        group.path,
+        group.settingsKey,
+        raw,
+        args.expectedHooks,
+      ).pipe(Effect.catch(() => Effect.succeed([])));
       for (const unit of units) {
         outputs.push({
           extensionType: "hook",
@@ -315,9 +443,12 @@ export const observeAgentOutputs = (
             args.expectedNames.hook.has(unit.name),
         });
       }
-      const ambiguous = yield* readAmbiguousHookCommands(group.path, group.settingsKey, raw).pipe(
-        Effect.catch(() => Effect.succeed([])),
-      );
+      const ambiguous = yield* readAmbiguousHookCommands(
+        group.path,
+        group.settingsKey,
+        raw,
+        args.expectedHooks,
+      ).pipe(Effect.catch(() => Effect.succeed([])));
       for (const command of ambiguous) {
         outputs.push({
           extensionType: "hook",
@@ -351,9 +482,13 @@ export const observeAgentOutputs = (
  */
 export const observeWorkspaceOwnershipIssues = (args: {
   readonly workspaceRoot: string;
+  readonly nativeDirectoryInputs: NativeDirectoryInputs;
   readonly scope: WorkspaceScope;
   readonly configuredAgentIds: ReadonlySet<string>;
-  readonly skillOwnershipRoots: ReadonlyArray<string>;
+  readonly expectedHooks: ReadonlyArray<HookOwnership>;
+  readonly expectedMcpEntries: Readonly<Record<string, ReadonlyArray<AxmMcpMetadata>>>;
+  readonly expectedSkillSources: ObserveAgentOutputsArgs["expectedSkillSources"];
+  readonly expectedSubagentFiles: ObserveAgentOutputsArgs["expectedSubagentFiles"];
   readonly authoredSkills: ObserveAgentOutputsArgs["authoredSkills"];
 }): Effect.Effect<
   ReadonlyArray<WorkspaceOwnershipIssue>,
@@ -362,6 +497,7 @@ export const observeWorkspaceOwnershipIssues = (args: {
 > =>
   observeAgentOutputs({
     workspaceRoot: args.workspaceRoot,
+    nativeDirectoryInputs: args.nativeDirectoryInputs,
     scope: args.scope,
     desiredAgentIds: args.configuredAgentIds,
     expectedNames: {
@@ -370,7 +506,10 @@ export const observeWorkspaceOwnershipIssues = (args: {
       "mcp-server": new Set<string>(),
       hook: new Set<string>(),
     },
-    skillOwnershipRoots: args.skillOwnershipRoots,
+    expectedHooks: args.expectedHooks,
+    expectedMcpEntries: args.expectedMcpEntries,
+    expectedSkillSources: args.expectedSkillSources,
+    expectedSubagentFiles: args.expectedSubagentFiles,
     authoredSkills: args.authoredSkills,
   }).pipe(
     Effect.map((observed) =>

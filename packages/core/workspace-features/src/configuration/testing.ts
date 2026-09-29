@@ -29,10 +29,7 @@ import {
   ProjectionParticipants,
   emptyProjectionParticipants,
 } from "@agentxm/workspace-kernel/projection";
-import {
-  CodingAgentRepositoryLive,
-  WorkspaceInvariantFactsLive,
-} from "@agentxm/workspace-kernel/projection/live";
+import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-kernel/projection/live";
 
 import {
   makeWorkspaceDirectories,
@@ -139,7 +136,7 @@ export interface SetupFixtureOptions {
  *
  * Setup builds its own workspace, so this fixture deliberately provides no
  * workspace state: only the platform-adjacent ports it reads — the pinned
- * user home, the coding-agent catalog and executable probe, and a recording
+ * user home, the executable probe, and a recording
  * initialization-interaction port whose calls are the evidence channel for
  * every claim about what setup asked.
  */
@@ -178,7 +175,6 @@ export const makeSetupFixture = (options: SetupFixtureOptions = {}) => {
     WorkspaceFileWriteLocksLive,
     WorkspaceTransactionScopesLive,
     ConfigProvider.layer(ConfigProvider.fromEnv({ env: { AXM_USER_HOME: home, HOME: home } })),
-    CodingAgentRepositoryLive,
     Layer.succeed(AgentExecutableResolver, {
       exists: (name: string) => Effect.succeed(installedExecutables.has(name)),
     }),

@@ -193,6 +193,7 @@ export const ShowExtension = {
       );
       if (desiredNode !== undefined && desiredNode.enabled && enabled !== false) {
         const { inspections, outcomes } = yield* inspectDesiredMcpServer({
+          nativeDirectoryInputs: location.nativeDirectoryInputs,
           workspaceRoot: location.baseDir,
           scope: location.scope,
           agentIds: yield* settings.configuredAgents,

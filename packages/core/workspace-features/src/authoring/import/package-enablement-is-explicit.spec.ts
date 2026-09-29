@@ -74,8 +74,19 @@ describe("Opt-in activation of an imported MCP package", () => {
             return yield* ImportNativeExtension.previewOrApply(candidate, applyExecution);
           }).pipe(Effect.scoped, Effect.provide(authoringWorkspaceLayer(created)));
 
-          expect(deriveOperationOutcome(resolution)).toBe("applied");
+          expect(deriveOperationOutcome(resolution), JSON.stringify(resolution)).toBe("applied");
           expect(created.exists("mcps/context/mcp.json")).toBe(true);
+          const nativeLocations = resolution.units.flatMap(
+            (unit) => unit.artifact?.nativeLocations ?? [],
+          );
+          expect(nativeLocations).toHaveLength(2);
+          expect(
+            nativeLocations.every((native) =>
+              enabled
+                ? native.state === "created" || native.state === "updated"
+                : native.state === "removed",
+            ),
+          ).toBe(true);
           expect(readImportedMcpDeclaration(created)).toEqual({ source: "workspace", enabled });
           for (const relative of NATIVE_MCP_FILES) {
             const servers = readNativeMcpServers(created, relative);

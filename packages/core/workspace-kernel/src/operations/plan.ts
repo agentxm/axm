@@ -17,6 +17,7 @@
  */
 
 import type * as Effect from "effect/Effect";
+import type { NativeLocationOutcome } from "../locations/index.js";
 import type * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { OperationErrorCategorySchema, type StepFailure } from "./errors.js";
@@ -137,6 +138,7 @@ export const PackMembershipDeltaSchema = Schema.Struct({
 export type PackMembershipDelta = typeof PackMembershipDeltaSchema.Type;
 
 export interface JobStepArtifact {
+  readonly nativeLocations?: ReadonlyArray<NativeLocationOutcome>;
   readonly path: string;
   readonly scope: "project" | "user";
   readonly agents?: ReadonlyArray<string>;

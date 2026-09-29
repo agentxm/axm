@@ -5,6 +5,8 @@ import * as Schema from "effect/Schema";
 import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
+import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
+import { readContainerReceipts } from "@agentxm/workspace-kernel/locations";
 import { McpServerManifestSchema } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 
 import { CreateExtension } from "../../index.js";
@@ -43,7 +45,7 @@ describe("Creating an MCP server", () => {
       const created = makeAuthoringWorkspace({ owner: "@acme", agents: ["claude-code"] });
       cleanups.push(created.cleanup);
 
-      yield* Effect.gen(function* () {
+      const resolution = yield* Effect.gen(function* () {
         const candidate = yield* CreateExtension.prepare({
           type: "mcp-server",
           name: "review",
@@ -54,6 +56,25 @@ describe("Creating an MCP server", () => {
         return yield* CreateExtension.previewOrApply(candidate, applyExecution);
       }).pipe(Effect.provide(authoringWorkspaceLayer(created)));
 
+      expect(deriveOperationOutcome(resolution), JSON.stringify(resolution)).toBe("applied");
+      expect(resolution.units.flatMap((unit) => unit.artifact?.nativeLocations ?? [])).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            state: "created",
+            address: expect.objectContaining({ path: `${created.root}/.mcp.json` }),
+          }),
+        ]),
+      );
+      const receipts = yield* readContainerReceipts(`${created.root}/.axm`).pipe(
+        Effect.provide(authoringWorkspaceLayer(created)),
+      );
+      expect(
+        receipts.entries.some(
+          (receipt) =>
+            receipt.kind === "created-file" &&
+            receipt.identity.physicalPath === `${created.root}/.mcp.json`,
+        ),
+      ).toBe(true);
       const manifest = Schema.decodeUnknownSync(McpServerManifestSchema)(
         JSON.parse(created.read("mcps/review/mcp.json") ?? "null"),
       );

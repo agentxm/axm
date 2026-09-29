@@ -12,10 +12,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import {
-  CodingAgentRepositoryLive,
-  WorkspaceInvariantFactsLive,
-} from "@agentxm/workspace-kernel/projection/live";
+import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-kernel/projection/live";
 import {
   HookManagerLive,
   KnowledgeManagerLive,
@@ -58,6 +55,7 @@ import {
   writeWorkspaceFiles,
 } from "../../test-support/test-stubs.js";
 import { handleList as handleListMcpServers } from "../mcps/list.js";
+import { runUninstallCommand } from "../shared/uninstall-command.js";
 import { injectWriteFaults } from "@agentxm/workspace-kernel/settlement/testing";
 import { handleSync } from "./handler.js";
 import { WorkspaceFailureConversionLive } from "../../app-error/failure-catalog.js";
@@ -212,7 +210,7 @@ const writeRenderedSubagent = (
   fs.writeFileSync(
     filePath,
     managed
-      ? `<!-- axm:file v=1 ext=@acme/subagents/${name} src=subagents/${name} -->\n# ${name}\n`
+      ? `<!-- axm:file v=1 ext=@acme/subagents/${name} src=subagents/${name}/src/${name}.md -->\n# ${name}\n`
       : `# ${name}\n`,
   );
 };
@@ -422,8 +420,12 @@ const makePackRollbackFixture = (
     writeSkillPackage(canonicalSkill, "review", "1.0.0");
   }
   const ownedOutput = path.join(baseDir, ".claude", "skills", "review", "SKILL.md");
-  fs.mkdirSync(path.dirname(ownedOutput), { recursive: true });
-  fs.writeFileSync(ownedOutput, "# accepted managed review\n");
+  const ownedDirectory = path.dirname(ownedOutput);
+  fs.mkdirSync(path.dirname(ownedDirectory), { recursive: true });
+  fs.symlinkSync(
+    path.relative(path.dirname(ownedDirectory), path.join(canonicalSkill, "src")),
+    ownedDirectory,
+  );
 
   return {
     sources,
@@ -456,7 +458,8 @@ const capturePackRollbackPreimages = (paths: PackRollbackPaths) => ({
   settings: fs.readFileSync(paths.settings, "utf8"),
   canonicalSkillManifest: readIfPresent(paths.canonicalSkillManifest),
   canonicalSkillContent: readIfPresent(paths.canonicalSkillContent),
-  ownedOutput: fs.readFileSync(paths.ownedOutput, "utf8"),
+  ownedOutput: readIfPresent(paths.ownedOutput),
+  ownedOutputLink: fs.readlinkSync(path.dirname(paths.ownedOutput)),
 });
 
 const expectPackRollbackPreimages = (
@@ -474,7 +477,8 @@ const expectPackRollbackPreimages = (
   expect(fs.existsSync(paths.canonicalPack)).toBe(false);
   expect(readIfPresent(paths.canonicalSkillManifest)).toBe(before.canonicalSkillManifest);
   expect(readIfPresent(paths.canonicalSkillContent)).toBe(before.canonicalSkillContent);
-  expect(fs.readFileSync(paths.ownedOutput, "utf8")).toBe(before.ownedOutput);
+  expect(readIfPresent(paths.ownedOutput)).toBe(before.ownedOutput);
+  expect(fs.readlinkSync(path.dirname(paths.ownedOutput))).toBe(before.ownedOutputLink);
 };
 
 const makeConstraintMismatchFixture = (
@@ -652,7 +656,6 @@ describe("root sync handler", { timeout: 15_000 }, () => {
       ctx.baseLayer,
       ctx.wsLayer,
       sourceProvidersLayer,
-      CodingAgentRepositoryLive,
       WorkspaceFailureConversionLive,
     );
     const managersLayer = Layer.provide(
@@ -680,7 +683,6 @@ describe("root sync handler", { timeout: 15_000 }, () => {
           ctx.baseLayer,
           ctx.wsLayer,
           sourceProvidersLayer,
-          CodingAgentRepositoryLive,
           WorkspaceFailureConversionLive,
           McpSecretStoreLive,
           managersLayer,
@@ -885,7 +887,7 @@ describe("root sync handler", { timeout: 15_000 }, () => {
     }),
   );
 
-  it.effect("prunes stale managed MCP entries when no servers remain declared", () =>
+  it.effect("preserves MCP markers whose only ownership authority is absent", () =>
     Effect.gen(function* () {
       const { provide, rendererState } = makeLayers({ machine: true });
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
@@ -905,22 +907,53 @@ describe("root sync handler", { timeout: 15_000 }, () => {
           },
         },
       });
+      const configBefore = fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8");
+      const settingsBefore = fs.readFileSync(path.join(tempDir, "axm.json"), "utf8");
 
       yield* provide(handleSync({ preview: false }));
 
-      const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+      expectNoOpPlanResult(rendererState.results[0]?.data, {
         planName: "Sync workspace",
+        message: "Workspace materialization is up to date",
       });
-      const units = planResultUnits(result);
-      expect(units).toMatchObject([
-        {
-          label: "stale managed agent projections",
-          state: "committed",
-          message: "Removed 1 stale managed agent projection",
-        },
-      ]);
-      const config = JSON.parse(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8"));
-      expect(config.mcpServers).toEqual({});
+      expect(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8")).toBe(configBefore);
+      expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsBefore);
+    }),
+  );
+
+  it.effect("withdraws an inline MCP while its declared ownership is still available", () =>
+    Effect.gen(function* () {
+      const { provide, rendererState } = makeLayers({ machine: true });
+      writeSettings(tempDir, {
+        agents: ["claude-code"],
+        mcpServers: { demo: { command: "node", args: ["server.js"] } },
+      });
+      yield* provide(handleSync({ preview: false }));
+      const configPath = path.join(tempDir, ".mcp.json");
+      expect(fs.readFileSync(configPath, "utf8")).toContain('"demo"');
+
+      rendererState.results.length = 0;
+      yield* provide(
+        runUninstallCommand({
+          command: "mcps.uninstall",
+          request: { type: Option.some("mcp-server"), selector: "demo" },
+          preview: false,
+          recoveryCommand: ["mcps", "uninstall"],
+          recoveryPositionals: ["demo"],
+        }),
+      );
+      expect(rendererState.results[0]?.data).toMatchObject({
+        result: { outcome: "applied", counts: { failed: 0, blocked: 0 } },
+      });
+      expect(fs.readFileSync(configPath, "utf8")).not.toContain('"demo"');
+      expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).not.toContain('"demo"');
+
+      rendererState.results.length = 0;
+      yield* provide(handleSync({ preview: false }));
+      expectNoOpPlanResult(rendererState.results[0]?.data, {
+        planName: "Sync workspace",
+        message: "Workspace materialization is up to date",
+      });
     }),
   );
 
@@ -1454,7 +1487,7 @@ describe("root sync handler", { timeout: 15_000 }, () => {
                 agentId: "codex",
                 outcome: "failed",
                 reasonCode: "mcp-unmanaged",
-                path: ".codex/config.toml",
+                path: configPath,
               },
             ],
           },
@@ -1503,7 +1536,7 @@ describe("root sync handler", { timeout: 15_000 }, () => {
 
       expect(rendererState.results[0]?.data).toMatchObject({
         result: {
-          contract: "plan-result-v3",
+          contract: "plan-result-v4",
           outcome: "blocked",
           blocking: {
             class: "precondition-unmet",
@@ -1571,7 +1604,7 @@ describe("root sync handler", { timeout: 15_000 }, () => {
       fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
       fs.writeFileSync(
         path.join(tempDir, "CLAUDE.md"),
-        "<!-- axm:file v=1 ext=@agentxm/rules/managed-file src=AGENTS.md -->\n\n# Old copy\n",
+        "<!-- axm:file v=1 ext=@agentxm/instructions/alias src=AGENTS.md -->\n\n# Old copy\n",
       );
 
       yield* provide(handleSync({ preview: true, type: Option.some("hook") }));
@@ -1657,9 +1690,11 @@ describe("root sync handler", { timeout: 15_000 }, () => {
       writeSettings(tempDir, {
         agents: ["claude-code"],
         skills: { release: "workspace" },
+        subagents: { stale: { source: "workspace", enabled: false } },
         instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: true },
       });
       fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Desired\n");
+      writeSubagentExtension(tempDir, "stale");
       writeRenderedSubagent(tempDir, ".claude", "stale", true);
 
       yield* provide(handleSync({ preview: false }));
@@ -1685,9 +1720,11 @@ describe("root sync handler", { timeout: 15_000 }, () => {
       writeWorkspaceFiles(path.join(tempDir, ".axm"), { agents: ["claude-code"] });
       writeSettings(tempDir, {
         agents: ["claude-code"],
+        subagents: { stale: { source: "workspace", enabled: false } },
         instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: true },
       });
       fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Desired\n");
+      writeSubagentExtension(tempDir, "stale");
       writeRenderedSubagent(tempDir, ".claude", "stale", true);
 
       yield* provide(handleSync({ preview: true }));
@@ -1705,7 +1742,13 @@ describe("root sync handler", { timeout: 15_000 }, () => {
         const record = expectRecord(step);
         return {
           label: property(record, "label"),
-          artifact: property(record, "artifact"),
+          // Planned targets stay stable; native outcomes describe the state
+          // observed before preview or after the committed mutation.
+          artifact: Object.fromEntries(
+            Object.entries(expectRecord(property(record, "artifact"))).filter(
+              ([key]) => key !== "nativeLocations",
+            ),
+          ),
         };
       };
       expect(planResultUnits(preview).map(projection)).toEqual(
@@ -1728,6 +1771,37 @@ describe("root sync handler", { timeout: 15_000 }, () => {
           owner: "@agentxm/rules/instructions",
         },
       ]);
+      expect(property(instructionArtifact, "nativeLocations")).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            address: { kind: "entry", path: path.join(tempDir, "CLAUDE.md") },
+            state: "created",
+            ownership: "absent",
+          }),
+        ]),
+      );
+      const committedLocations = planResultUnits(applied).flatMap((step) => {
+        const locations = property(property(step, "artifact"), "nativeLocations");
+        if (!Array.isArray(locations)) throw new Error("Expected committed native outcomes");
+        return locations;
+      });
+      expect(committedLocations).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            address: { kind: "entry", path: path.join(tempDir, "CLAUDE.md") },
+            state: "created",
+            ownership: "owned",
+            proof: "exact-canonical-source-link",
+          }),
+          expect.objectContaining({
+            address: { kind: "file", path: path.join(tempDir, ".claude", "agents", "stale.md") },
+            state: "removed",
+            ownership: "absent",
+          }),
+        ]),
+      );
+      expect(fs.existsSync(path.join(tempDir, ".claude", "agents", "stale.md"))).toBe(false);
+      expect(fs.readlinkSync(path.join(tempDir, "CLAUDE.md"))).toBe("AGENTS.md");
 
       yield* provide(handleSync({ preview: false }));
       expectNoOpPlanResult(rendererState.results[2]?.data, {
@@ -2253,7 +2327,7 @@ describe("root sync handler", { timeout: 15_000 }, () => {
       }),
   );
 
-  it.effect("previews and re-renders a drifted Roo mode entry", () =>
+  it.effect("preserves Roo modes and regenerates only its supported role Skill fallback", () =>
     Effect.gen(function* () {
       const first = makeLayers({ machine: true });
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
@@ -2261,15 +2335,28 @@ describe("root sync handler", { timeout: 15_000 }, () => {
         subagents: { researcher: "workspace" },
       });
       writeSubagentExtension(tempDir, "researcher");
+      const nativePath = path.join(tempDir, ".roomodes");
+      const nativeContent = JSON.stringify({
+        customModes: [{ slug: "researcher", name: "Researcher", roleDefinition: "My native role" }],
+      });
+      fs.writeFileSync(nativePath, nativeContent);
       yield* first.provide(handleSync({ preview: false }));
 
-      const projectionPath = path.join(tempDir, ".roomodes");
+      const projectionPath = path.join(tempDir, ".roo", "skills", "researcher", "SKILL.md");
       const accepted = fs.readFileSync(projectionPath, "utf8");
-      const drifted = accepted.replace(
-        /"roleDefinition": "[^"]*"/u,
-        '"roleDefinition": "Drifted role"',
+      expect(accepted).toContain("ext=@acme/subagents/researcher");
+      expect(fs.readFileSync(nativePath, "utf8")).toBe(nativeContent);
+
+      const current = makeLayers({ machine: true });
+      yield* current.provide(handleSync({ preview: true }));
+      expectNoOpPlanResult(current.rendererState.results[0]?.data, {
+        planName: "Sync workspace",
+        message: "Workspace materialization is up to date",
+      });
+      fs.writeFileSync(
+        path.join(tempDir, "subagents", "researcher", "src", "researcher.md"),
+        "---\nname: researcher\ndescription: Test subagent\n---\n\n# Updated Roo researcher\n",
       );
-      fs.writeFileSync(projectionPath, drifted);
 
       const preview = makeLayers({ machine: true });
       yield* preview.provide(handleSync({ preview: true }));
@@ -2277,11 +2364,13 @@ describe("root sync handler", { timeout: 15_000 }, () => {
         planName: "Sync workspace",
         totalSteps: 1,
       });
-      expect(fs.readFileSync(projectionPath, "utf8")).toContain("Drifted role");
+      expect(fs.readFileSync(projectionPath, "utf8")).toBe(accepted);
+      expect(fs.readFileSync(nativePath, "utf8")).toBe(nativeContent);
 
       const apply = makeLayers({ machine: true });
       yield* apply.provide(handleSync({ preview: false }));
-      expect(fs.readFileSync(projectionPath, "utf8")).not.toContain("Drifted role");
+      expect(fs.readFileSync(projectionPath, "utf8")).toContain("Updated Roo researcher");
+      expect(fs.readFileSync(nativePath, "utf8")).toBe(nativeContent);
     }),
   );
 
@@ -2306,7 +2395,7 @@ describe("root sync handler", { timeout: 15_000 }, () => {
     }),
   );
 
-  it.effect("removes managed subagent files for on-disk extensions absent from settings", () =>
+  it.effect("preserves a Subagent marker with no accepted source authority", () =>
     Effect.gen(function* () {
       const { provide } = makeLayers();
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
@@ -2314,10 +2403,12 @@ describe("root sync handler", { timeout: 15_000 }, () => {
       });
       writeSubagentExtension(tempDir, "orphan");
       writeRenderedSubagent(tempDir, ".claude", "orphan", true);
+      const projectionPath = path.join(tempDir, ".claude", "agents", "orphan.md");
+      const before = fs.readFileSync(projectionPath, "utf8");
 
       yield* provide(handleSync({ preview: false }));
 
-      expect(fs.existsSync(path.join(tempDir, ".claude", "agents", "orphan.md"))).toBe(false);
+      expect(fs.readFileSync(projectionPath, "utf8")).toBe(before);
     }),
   );
 

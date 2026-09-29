@@ -9,7 +9,12 @@
  */
 
 import * as Effect from "effect/Effect";
-import { WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  WorkspaceLocation,
+  DesiredStateReader,
+  desiredReachability,
+  type DesiredStateGraph,
+} from "@agentxm/workspace-kernel/workspace-state";
 
 import * as Option from "effect/Option";
 
@@ -23,17 +28,25 @@ import {
 } from "@agentxm/workspace-kernel/reconciliation";
 import {
   operationPresentation,
+  installRefused,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
   type ExtensionLifecycleFailed,
 } from "@agentxm/workspace-kernel/operations";
-import { applyInstructionSurfacePlans } from "@agentxm/workspace-kernel/projection";
+import {
+  applyInstructionSurfacePlans,
+  captureAgentOutputAuthority,
+} from "@agentxm/workspace-kernel/projection";
 
 import type { RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
 
 /** Rules the request selected. */
 export interface RuleInstallIntent {
+  /** All Rule sources selected by the enclosing configured install for native preflight. */
+  readonly projectionRefs?: ReadonlyArray<RuleExtensionRef>;
+  /** The enclosing install has resolved this complete proposed contributor graph. */
+  readonly desiredGraph?: DesiredStateGraph;
   /** The enclosing semantic closure owns the trailing aggregate projection. */
   readonly deferProjections?: boolean;
   readonly refs: ReadonlyArray<ResolvedInstallRef<RuleExtensionRef>>;
@@ -49,6 +62,48 @@ export const planRuleInstall: (
 > = Effect.fn("InstallExtensions.planRules")(function* (intent: RuleInstallIntent) {
   const location = yield* WorkspaceLocation;
   const ruleManager = yield* RuleManager;
+  const priorGraph = yield* (yield* DesiredStateReader).graph().pipe(
+    Effect.mapError((cause) =>
+      installRefused({
+        category: "validation",
+        detail: "Cannot establish prior rule desired state",
+        cause,
+      }),
+    ),
+  );
+  const priorAuthority = yield* captureAgentOutputAuthority().pipe(
+    Effect.mapError((cause) =>
+      installRefused({
+        category: "validation",
+        detail: "Cannot establish prior native ownership",
+        cause,
+      }),
+    ),
+  );
+  const nativeProjection = {
+    ...(intent.desiredGraph === undefined ? {} : { desiredGraph: intent.desiredGraph }),
+    priorAuthority,
+    nativeInsertionEligibleNames: new Set(
+      intent.refs
+        .filter(
+          ({ ref }) =>
+            desiredReachability(priorGraph, { type: "rule", name: ref.rule.name }).decision ===
+            "not-reached",
+        )
+        .map(({ ref }) => ref.rule.name),
+    ),
+  };
+  yield* ruleManager
+    .prepareProjection(intent.projectionRefs ?? intent.refs.map(({ ref }) => ref), nativeProjection)
+    .pipe(
+      Effect.mapError((cause) =>
+        installRefused({
+          category: "conflict",
+          detail: "Native locations cannot realize the proposed rule content",
+          cause,
+        }),
+      ),
+    );
   // One rule renders the shared instructions region itself; several rules in
   // one operation defer it so the region is rendered once, from the complete
   // contributor set.
@@ -73,6 +128,9 @@ export const planRuleInstall: (
             path: targets[0]?.path ?? ref.rule.name,
             scope: location.scope,
             agents: materialization.agents,
+            ...(materialization.nativeLocations === undefined
+              ? {}
+              : { nativeLocations: materialization.nativeLocations }),
             ...(ref.refType === "registry" ? { version: ref.version } : {}),
             ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
           } satisfies InstallArtifactPresentation;
@@ -87,14 +145,32 @@ export const planRuleInstall: (
             label: "rule projections",
             readiness: "ready",
             run: ruleManager
-              .projectionPlans()
+              .projectionPlans(nativeProjection)
               .pipe(Effect.flatMap(applyInstructionSurfacePlans))
               .pipe(
                 Effect.mapError(kernelFailureToStepFailure),
-                Effect.as({
+                Effect.flatMap(() =>
+                  ruleManager.aggregateProjectionObservation.pipe(
+                    Effect.mapError(kernelFailureToStepFailure),
+                  ),
+                ),
+                Effect.map((observation): JobStepResult => ({
                   result: "success",
                   message: "Rendered installed Rules from the complete contributor set",
-                } satisfies JobStepResult),
+                  artifact: {
+                    path: observation.targets[0]?.path ?? "instruction files",
+                    scope: location.scope,
+                    change:
+                      observation.nativeLocations?.some((location) =>
+                        ["created", "updated", "removed"].includes(location.state),
+                      ) === true
+                        ? "updated"
+                        : "unchanged",
+                    ...(observation.nativeLocations === undefined
+                      ? {}
+                      : { nativeLocations: observation.nativeLocations }),
+                  },
+                })),
               ),
           },
         ]

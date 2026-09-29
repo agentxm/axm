@@ -7,7 +7,8 @@ import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/ext
 /** The change the reconciliation recipe classified for one install. */
 export type InstallChange = "created" | "updated" | "unchanged";
 
-export interface SubagentProjectionObservation {
+export interface SubagentProjectionObservation<NativeLocation> {
+  readonly nativeLocations?: ReadonlyArray<NativeLocation>;
   readonly agents: ReadonlyArray<string>;
   readonly targets: ReadonlyArray<{
     readonly path: string;
@@ -23,7 +24,7 @@ export interface SubagentInstallationFacts<E, Preparation> {
         { readonly agentId: string } & (
           | { readonly state: "supported" }
           | {
-              readonly state: "unsupported" | "misconfigured" | "disabled";
+              readonly state: "unsupported" | "unverified" | "misconfigured" | "disabled";
               readonly reason: string;
             }
         )
@@ -72,9 +73,9 @@ export const prepareSubagentInstallations = <E, Preparation>(
         const version = ref.refType === "registry" ? ref.version : undefined;
         return {
           ...entry,
-          buildArtifact: (input: {
+          buildArtifact: <NativeLocation>(input: {
             readonly change: InstallChange;
-            readonly observation: SubagentProjectionObservation;
+            readonly observation: SubagentProjectionObservation<NativeLocation>;
           }) => {
             const targets = input.observation.targets.map(
               (target) => ({ ...target, change: input.change }) as const,
@@ -83,6 +84,9 @@ export const prepareSubagentInstallations = <E, Preparation>(
               path: targets[0]?.path ?? ref.subagent.name,
               scope: workspace.scope,
               agents: input.observation.agents,
+              ...(input.observation.nativeLocations === undefined
+                ? {}
+                : { nativeLocations: input.observation.nativeLocations }),
               ...(version === undefined ? {} : { version }),
               ...(previousVersion !== undefined && previousVersion !== version
                 ? { previousVersion }

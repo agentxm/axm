@@ -14,6 +14,7 @@ import * as Ref from "effect/Ref";
 import * as Data from "effect/Data";
 
 import { protectWorkspacePath } from "./context.js";
+import { recordFootprint } from "./footprint-recorder.js";
 import { WorkspaceRestorationIncomplete, type WorkspaceTransactionFailure } from "./errors.js";
 import { WorkspaceTransactionScope } from "./scope.js";
 import { makeWorkspaceTransactionScope } from "./live.js";
@@ -102,6 +103,8 @@ describe("runWorkspaceTransaction", () => {
             nodeFs.mkdirSync(canonicalPath, { recursive: true });
             nodeFs.writeFileSync(nodePath.join(canonicalPath, "content.txt"), "after\n");
           });
+          yield* recordFootprint({ path: settingsPath, change: "modified" });
+          yield* recordFootprint({ path: canonicalPath, change: "modified" });
           return yield* new StepFailure({
             category: "internal",
             detail: "injected transition failure",
@@ -149,6 +152,7 @@ describe("runWorkspaceTransaction", () => {
             workspaceDir,
             targets: [target],
             transition: Effect.sync(() => nodeFs.writeFileSync(target, `${family} changed\n`)).pipe(
+              Effect.andThen(recordFootprint({ path: target, change: "modified" })),
               Effect.andThen(
                 Effect.fail(new StepFailure({ category: "internal", detail: `${family} failure` })),
               ),
@@ -176,6 +180,7 @@ describe("runWorkspaceTransaction", () => {
         workspaceDir,
         targets: [createdPath],
         transition: Effect.sync(() => nodeFs.writeFileSync(createdPath, "created\n")).pipe(
+          Effect.andThen(recordFootprint({ path: createdPath, change: "created" })),
           Effect.andThen(
             Effect.fail(
               new StepFailure({ category: "internal", detail: "injected transition failure" }),
@@ -198,6 +203,7 @@ describe("runWorkspaceTransaction", () => {
         workspaceDir: absentWorkspaceDir,
         targets: [createdPath],
         transition: Effect.sync(() => nodeFs.writeFileSync(createdPath, "created\n")).pipe(
+          Effect.andThen(recordFootprint({ path: createdPath, change: "created" })),
           Effect.andThen(
             Effect.fail(
               new StepFailure({ category: "internal", detail: "injected transition failure" }),
@@ -207,8 +213,9 @@ describe("runWorkspaceTransaction", () => {
         validate: () => Effect.void,
       }).pipe(
         Effect.flip,
-        Effect.tap(() =>
+        Effect.tap((error) =>
           Effect.sync(() => {
+            expect(detailOf(error)).toBe("injected transition failure");
             expect(nodeFs.existsSync(absentWorkspaceDir)).toBe(false);
           }),
         ),
@@ -221,7 +228,9 @@ describe("runWorkspaceTransaction", () => {
       runWorkspaceTransaction({
         workspaceDir,
         targets: [settingsPath],
-        transition: Effect.sync(() => nodeFs.writeFileSync(settingsPath, '{"changed":true}\n')),
+        transition: Effect.sync(() =>
+          nodeFs.writeFileSync(settingsPath, '{"changed":true}\n'),
+        ).pipe(Effect.andThen(recordFootprint({ path: settingsPath, change: "modified" }))),
         validate: () =>
           Effect.fail(new StepFailure({ category: "validation", detail: "postcondition invalid" })),
       }).pipe(
@@ -243,19 +252,22 @@ describe("runWorkspaceTransaction", () => {
         workspaceDir,
         targets: [settingsPath],
         transition: Effect.gen(function* () {
-          yield* Effect.sync(() => nodeFs.writeFileSync(settingsPath, '{"changed":true}\n'));
+          yield* Effect.sync(() => nodeFs.writeFileSync(settingsPath, '{"changed":true}\n')).pipe(
+            Effect.andThen(recordFootprint({ path: settingsPath, change: "modified" })),
+          );
           yield* runWorkspaceTransaction({
             workspaceDir,
             targets: [canonicalPath],
             transition: Effect.sync(() =>
               nodeFs.writeFileSync(nodePath.join(canonicalPath, "content.txt"), "after\n"),
-            ),
+            ).pipe(Effect.andThen(recordFootprint({ path: canonicalPath, change: "modified" }))),
             validate: () => Effect.void,
           });
           return yield* runWorkspaceTransaction({
             workspaceDir,
             targets: [laterTarget],
             transition: Effect.sync(() => nodeFs.writeFileSync(laterTarget, "created\n")).pipe(
+              Effect.andThen(recordFootprint({ path: laterTarget, change: "created" })),
               Effect.andThen(
                 Effect.fail(
                   new StepFailure({
@@ -447,13 +459,21 @@ describe("runWorkspaceTransaction", () => {
     return runWorkspaceTransaction({
       workspaceDir,
       targets: [settingsPath],
-      transition: Effect.sync(() => nodeFs.writeFileSync(settingsPath, '{"changed":true}\n')).pipe(
-        Effect.andThen(
-          Effect.fail(
-            new StepFailure({ category: "internal", detail: "injected transition failure" }),
+      transition: Effect.sync(() => {
+        // An atomic native writer replaced the original entry, so rollback
+        // must stage its copied preimage instead of restoring in place.
+        const replacement = `${settingsPath}.replacement`;
+        nodeFs.writeFileSync(replacement, '{"changed":true}\n');
+        nodeFs.renameSync(replacement, settingsPath);
+      })
+        .pipe(Effect.andThen(recordFootprint({ path: settingsPath, change: "modified" })))
+        .pipe(
+          Effect.andThen(
+            Effect.fail(
+              new StepFailure({ category: "internal", detail: "injected transition failure" }),
+            ),
           ),
         ),
-      ),
       validate: () => Effect.void,
     }).pipe(
       Effect.flip,
@@ -503,13 +523,15 @@ describe("runWorkspaceTransaction", () => {
     return runWorkspaceTransaction({
       workspaceDir,
       targets: [settingsPath],
-      transition: Effect.sync(() => nodeFs.writeFileSync(settingsPath, '{"changed":true}\n')).pipe(
-        Effect.andThen(
-          Effect.fail(
-            new StepFailure({ category: "internal", detail: "injected transition failure" }),
+      transition: Effect.sync(() => nodeFs.writeFileSync(settingsPath, '{"changed":true}\n'))
+        .pipe(Effect.andThen(recordFootprint({ path: settingsPath, change: "modified" })))
+        .pipe(
+          Effect.andThen(
+            Effect.fail(
+              new StepFailure({ category: "internal", detail: "injected transition failure" }),
+            ),
           ),
         ),
-      ),
       validate: () => Effect.void,
     }).pipe(
       Effect.flip,
@@ -580,7 +602,9 @@ describe("runWorkspaceTransaction", () => {
         yield* runWorkspaceTransaction({
           workspaceDir,
           targets: [settingsPath],
-          transition: Effect.sync(() => nodeFs.writeFileSync(settingsPath, '{"changed":true}\n')),
+          transition: Effect.sync(() =>
+            nodeFs.writeFileSync(settingsPath, '{"changed":true}\n'),
+          ).pipe(Effect.andThen(recordFootprint({ path: settingsPath, change: "modified" }))),
           validate: () => Effect.void,
         });
 

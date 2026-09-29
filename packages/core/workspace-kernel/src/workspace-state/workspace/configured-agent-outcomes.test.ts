@@ -89,6 +89,29 @@ describe("configuredAgentLifecycleOutcomes", () => {
       ).toMatchObject([{ agentId: "claude-code", outcome: "not-applicable" }]);
     }
   });
+
+  it("reports an unknown user Skill destination without claiming its artifact is missing", () => {
+    expect(
+      configuredAgentLifecycleOutcomes({
+        type: "skill",
+        name: "review",
+        agentIds: ["cursor", "claude-code"],
+        scope: "user",
+        state: "current",
+        targetState: "enabled",
+        installed: true,
+        observedAgentIds: [],
+      }),
+    ).toMatchObject([
+      {
+        agentId: "cursor",
+        outcome: "unsupported",
+        reasonCode: "scope-not-modeled",
+        reason: expect.stringContaining("no verified user-scope skill directory"),
+      },
+      { agentId: "claude-code", outcome: "failed", reasonCode: "projection-missing" },
+    ]);
+  });
 });
 
 const request = {

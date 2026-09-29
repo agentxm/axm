@@ -1,3 +1,8 @@
+import { resolveNativeReferent } from "../../../locations/index.js";
+import {
+  resolveDeclaredNativeLocations,
+  type NativeDirectoryInputs,
+} from "../../../locations/index.js";
 /**
  * Agent-directory scanner: enumerates per-agent skill and subagent
  * directories declared by the existing `AgentRegistry`. Each occurrence
@@ -6,8 +11,8 @@
  *
  * Subject coverage in v1:
  *
- * - skill — every agent with a non-empty `agent.skills.dir`.
- * - subagent — every agent with `agent.subagents?.dir`. Single-file
+ * - skill — every explicitly declared scoped native Skill reader.
+ * - subagent — every explicitly declared scoped native Subagent reader. Single-file
  *   subagent surfaces (`isFile === true`, e.g., `roo`'s `.roomodes`) emit one
  *   occurrence per file path; the file itself is the materialization.
  *
@@ -29,9 +34,9 @@
 
 import * as Effect from "effect/Effect";
 import * as Array from "effect/Array";
-import type * as FileSystem from "effect/FileSystem";
+import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
-import type * as Path from "effect/Path";
+import * as Path from "effect/Path";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import type {
   AgentDescriptor,
@@ -67,6 +72,7 @@ const normalizeFileBackedName = (name: string): string => {
 // ---------------------------------------------------------------------------
 
 export interface AgentDirScannerDeps {
+  readonly nativeDirectoryInputs: NativeDirectoryInputs;
   readonly fs: FileSystem.FileSystem;
   readonly path: Path.Path;
   readonly workspaceRoot: string;
@@ -93,30 +99,25 @@ interface SubjectDir {
   readonly readPathStatus?: "primary" | "canonical" | "compat" | "deprecated";
 }
 
-const subjectsForAgent = (descriptor: AgentDescriptor): ReadonlyArray<SubjectDir> => {
-  const out: Array<SubjectDir> = [];
-  if (descriptor.skills !== undefined) {
-    if (descriptor.skills.dir.length > 0) {
-      out.push({
-        type: "skill",
-        relativeDir: descriptor.skills.dir,
-        isFile: false,
-        readPathStatus: "primary",
-      });
-    }
-    for (const { path, status } of descriptor.skills.additionalReadPaths) {
-      out.push({ type: "skill", relativeDir: path, isFile: false, readPathStatus: status });
-    }
-  }
-  if (descriptor.subagents !== undefined) {
-    out.push({
-      type: "subagent",
-      relativeDir: descriptor.subagents.dir,
-      isFile: descriptor.subagents.isFile === true,
-    });
-  }
-  return out;
-};
+const subjectsForAgent = (
+  descriptor: AgentDescriptor,
+  deps: AgentDirScannerDeps,
+): ReadonlyArray<SubjectDir> =>
+  (["skill", "subagent"] as const).flatMap((type) =>
+    resolveDeclaredNativeLocations(
+      deps.path,
+      descriptor,
+      type,
+      deps,
+      deps.nativeDirectoryInputs,
+    ).map((location) => ({
+      type,
+      relativeDir: location.path,
+      isFile: location.declaration.shape === "file",
+      readPathStatus:
+        location.declaration.role === "primary" ? "primary" : location.declaration.status,
+    })),
+  );
 
 /**
  * Map a directory-style subject + name to the canonical primary file inside
@@ -143,7 +144,7 @@ const scanSubjectDirectory = (
 ): Effect.Effect<ReadonlyArray<PhysicalOccurrence>> =>
   Effect.gen(function* () {
     const { fs, path, scope, workspaceRoot, diagnostics } = deps;
-    const subjectAbsolute = path.join(workspaceRoot, subject.relativeDir);
+    const subjectAbsolute = path.resolve(workspaceRoot, subject.relativeDir);
 
     if (subject.isFile) {
       const present = yield* fileExists(SCANNER_NAME, fs, diagnostics, subjectAbsolute);
@@ -246,9 +247,27 @@ const scanAgentDirs = Effect.fn("workspace.read-model.scanner.agent-dir")(functi
 ) {
   const registry = deps.agentRegistry ?? AGENT_DESCRIPTORS;
 
-  const requests = Object.values(registry).flatMap((descriptor) =>
-    subjectsForAgent(descriptor).map((subject) => ({ agentId: descriptor.id, subject })),
+  const declarations = Object.values(registry).flatMap((descriptor) =>
+    subjectsForAgent(descriptor, deps).map((subject) => ({ agentId: descriptor.id, subject })),
   );
+  const requests = yield* Effect.forEach(declarations, (request) =>
+    resolveNativeReferent(request.subject.relativeDir).pipe(
+      Effect.provideService(FileSystem.FileSystem, deps.fs),
+      Effect.provideService(Path.Path, deps.path),
+      Effect.map((physical) => [
+        { ...request, subject: { ...request.subject, relativeDir: physical } },
+      ]),
+      Effect.catch((error) =>
+        deps.diagnostics
+          .append({
+            source: "scanner",
+            code: "scanner-io",
+            message: `agent-dir: ${error.reason} resolving ${error.target}`,
+          })
+          .pipe(Effect.as([])),
+      ),
+    ),
+  ).pipe(Effect.map((requests) => requests.flat()));
   const samePhysicalSubject = (left: SubjectDir, right: SubjectDir) =>
     left.type === right.type &&
     left.relativeDir === right.relativeDir &&

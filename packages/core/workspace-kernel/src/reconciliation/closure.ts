@@ -3,6 +3,11 @@ import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import {
+  withDocumentRoundTripBatch,
+  type DocumentRoundTripBatch,
+} from "../workspace-state/index.js";
+import { combineNativeLocationOutcomes } from "../locations/index.js";
+import {
   runWorkspaceTransaction,
   type WorkspaceTransactionFailure,
   type WorkspaceRestorationIncomplete,
@@ -76,7 +81,7 @@ const aggregateClosureCoverage = (
         }
       }
       for (const agent of artifact.agents ?? []) {
-        if (agent !== "universal" && !agents.includes(agent)) agents.push(agent);
+        if (!agents.includes(agent)) agents.push(agent);
       }
     }
     return { applicable: applicableArtifacts.length > 0, agents };
@@ -95,6 +100,7 @@ export interface ReconciliationClosureArgs<E, R> {
   readonly message: string;
   readonly artifact: JobStepArtifact;
   readonly children: ReadonlyArray<ReconciliationChild<R>>;
+  readonly documentRoundTrip?: DocumentRoundTripBatch;
   /** A stale-candidate check that runs under the transition, before any write. */
   readonly preTransition?: Effect.Effect<void, E, R>;
   /** The desired-graph predicate the committed transition must satisfy. */
@@ -142,22 +148,25 @@ export const buildReconciliationClosure = <E, R>(
         : [step.sourceBinding.ref, ...(step.sourceBinding.members ?? [])]),
     ]);
     const run = runWorkspaceTransaction({
-      transition: Effect.gen(function* () {
-        if (args.preTransition !== undefined) {
-          yield* args.preTransition.pipe(Effect.mapError(args.toStepFailure));
-        }
-        const results = yield* Effect.forEach(
-          runnableChildren,
-          ({ step, coverage }) =>
-            step.run.pipe(
-              Effect.flatMap((result) => failedStep(step.label, result)),
-              Effect.map((result) => ({ result, coverage })),
-            ),
-          { concurrency: 1 },
-        );
-        const coverage = yield* aggregateClosureCoverage(results, args.artifact.scope);
-        return { results, coverage };
-      }),
+      transition: withDocumentRoundTripBatch(
+        Effect.gen(function* () {
+          if (args.preTransition !== undefined) {
+            yield* args.preTransition.pipe(Effect.mapError(args.toStepFailure));
+          }
+          const results = yield* Effect.forEach(
+            runnableChildren,
+            ({ step, coverage }) =>
+              step.run.pipe(
+                Effect.flatMap((result) => failedStep(step.label, result)),
+                Effect.map((result) => ({ result, coverage })),
+              ),
+            { concurrency: 1 },
+          );
+          const coverage = yield* aggregateClosureCoverage(results, args.artifact.scope);
+          return { results, coverage };
+        }),
+        args.documentRoundTrip,
+      ),
       validate: () =>
         Effect.gen(function* () {
           yield* args.validate;
@@ -177,9 +186,18 @@ export const buildReconciliationClosure = <E, R>(
               result.result === "success" &&
               (result.disposition === "unchanged" || result.artifact?.change === "unchanged"),
           );
-        const artifact = allChildrenUnchanged
-          ? { ...args.artifact, change: "unchanged" as const }
-          : args.artifact;
+        const nativeLocations = combineNativeLocationOutcomes(
+          results.flatMap(({ result }) =>
+            result.result === "success" && result.artifact?.nativeLocations !== undefined
+              ? result.artifact.nativeLocations
+              : [],
+          ),
+        );
+        const artifact = {
+          ...args.artifact,
+          ...(allChildrenUnchanged ? { change: "unchanged" as const } : {}),
+          ...(nativeLocations.length === 0 ? {} : { nativeLocations }),
+        };
         return {
           result: "success",
           message: args.message,

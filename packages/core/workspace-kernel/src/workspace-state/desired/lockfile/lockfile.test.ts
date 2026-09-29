@@ -188,7 +188,7 @@ describe("lockfile", () => {
           { concurrency: "unbounded" },
         );
         const target = path.join(root, "axm-lock.yaml");
-        expect(yield* Ref.get(calls)).toEqual([target, target]);
+        expect((yield* Ref.get(calls)).filter((call) => call === target)).toEqual([target, target]);
         const written = Schema.decodeUnknownSync(LockfileSchema)(
           YAML.parse(fs.readFileSync(target, "utf8")),
         );

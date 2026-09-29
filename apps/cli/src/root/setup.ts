@@ -21,7 +21,7 @@ import { toAppError } from "../app-error/conversions.js";
 import { coerceConfigurationFailure } from "../feature-errors.js";
 import { LearnMore, formatLearnMore } from "../formatter.js";
 import { ExecutionDirectory } from "../execution-directory.js";
-import { withRuntime, withWorkspace } from "../runtime.js";
+import { setupProjectionLayer, withRuntime, withWorkspace } from "../runtime.js";
 import { formatDisplayPath } from "./shared/display-path.js";
 import { ScopedRoutes, suggestionsForScope } from "./shared/scoped-command.js";
 import {
@@ -196,17 +196,25 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: HandleSetu
   // decision, so the application supplies it; setup applies it inside the
   // initialization closure so a skill that cannot be installed leaves no
   // half-initialized workspace behind.
-  const transition = yield* SetupWorkspace.previewOrApply(prepared, {
-    bundledSkill: installBundledAxmSkill.pipe(
-      Effect.mapError(toAppError),
-      withWorkspace(args.scope),
+  const { result, transition } = yield* Effect.gen(function* () {
+    const transition = yield* SetupWorkspace.previewOrApply(prepared, {
+      bundledSkill: installBundledAxmSkill.pipe(
+        Effect.mapError(toAppError),
+        withWorkspace(args.scope),
+      ),
+    });
+    const result = yield* SetupWorkspace.report({
+      candidate: prepared,
+      transition,
+      bundledSkill: { installed: transition.initialized, version: AXM_SKILL_VERSION },
+    });
+    return { result, transition };
+  }).pipe(
+    Effect.provide(
+      setupProjectionLayer({ scope: args.scope, projectRoot: executionDirectory.path }),
     ),
-  }).pipe(Effect.mapError(coerceConfigurationFailure));
-  const result = yield* SetupWorkspace.report({
-    candidate: prepared,
-    transition,
-    bundledSkill: { installed: transition.initialized, version: AXM_SKILL_VERSION },
-  }).pipe(Effect.mapError(coerceConfigurationFailure));
+    Effect.mapError(coerceConfigurationFailure),
+  );
 
   // Follow-up commands address the scope that was set up, where their route
   // takes one; the running command tree says which routes do.

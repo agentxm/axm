@@ -10,6 +10,7 @@
  */
 
 import * as fs from "node:fs";
+export { makeWorkspaceLocation } from "./workspace/location.js";
 import * as nodePath from "node:path";
 
 import * as ByteSize from "effect/ByteSize";

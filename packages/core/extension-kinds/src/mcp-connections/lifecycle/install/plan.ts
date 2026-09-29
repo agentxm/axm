@@ -36,11 +36,13 @@ import {
   type ResolveInstallRequirements,
 } from "@agentxm/workspace-kernel/reconciliation";
 import { installMcpServer } from "../../install/install-operation.js";
+import { captureAgentOutputAuthority } from "@agentxm/workspace-kernel/projection";
 import { materializeRegistryPackage } from "@agentxm/workspace-kernel/materialization";
 import { fromFileLocation } from "@agentxm/host-primitives";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 import {
   configuredMcpCapability,
+  declaredMcpWriterTargets,
   decodeMcpServerManifestAt,
   validateManifestMcpServerTargets,
 } from "@agentxm/workspace-kernel/agent-adapters";
@@ -508,7 +510,9 @@ export const planMcpServerInstall: (
       if (capability === undefined) {
         return [`${agentId}: no MCP config support`];
       }
-      return capability.axm.writer.config.targets.some((target) => target.scope === location.scope)
+      return declaredMcpWriterTargets(capability).some(
+        ({ target }) => target.scope === location.scope,
+      )
         ? []
         : [`${agentId}: no ${location.scope} MCP config target`];
     });
@@ -560,18 +564,23 @@ export const planMcpServerInstall: (
         ),
       );
       const entries = yield* settings.entries("mcp-server");
+      const authority = yield* captureAgentOutputAuthority();
       yield* validateManifestMcpServerTargets({
+        nativeDirectoryInputs: location.nativeDirectoryInputs,
+        nativeInsertionEligible: false,
+        workspaceRoot: location.baseDir,
         manifest,
         agentIds: yield* settings.configuredAgents,
         scope: location.scope,
         serverName: intent.localName,
         values: { ...entries[intent.localName]?.env, ...intent.env },
         enabled: entries[intent.localName]?.enabled ?? true,
+        previousManagedEntries: authority.expectedMcpEntries[intent.localName] ?? [],
       }).pipe(
         Effect.mapError((cause) =>
           installRefused({
             category: "conflict",
-            detail: cause._tag === "McpSharedTargetConflict" ? cause.reason : cause.detail,
+            detail: kernelFailureToStepFailure(cause).detail,
             recover:
               "Use an MCP package whose transport and symbolic inputs are supported by every configured reader of the shared target.",
             cause,

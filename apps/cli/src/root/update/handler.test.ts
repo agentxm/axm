@@ -33,7 +33,6 @@ import {
   ReleaseAgePosture,
   type ReleaseAgePostureValue,
 } from "@agentxm/workspace-kernel/resolution";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace-kernel/projection/live";
 
 import {
   AllExtensionManagersLive,
@@ -174,7 +173,6 @@ describe("root update handler", () => {
     });
     const coreLayer = Layer.mergeAll(
       ctx.fullLayer,
-      CodingAgentRepositoryLive,
       Layer.succeed(SourceHostProviders, opts?.sources ?? selectedSourceHostProviders),
     );
     const fullLayer = Layer.provideMerge(

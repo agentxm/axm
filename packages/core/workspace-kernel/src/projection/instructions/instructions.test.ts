@@ -1,10 +1,14 @@
+import type { InstructionStatusItem } from "./instruction-status.js";
 import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativeWriteAuthorityPermissive } from "../../agent-adapters/testing.js";
+import type { NativeWriteAuthority } from "../../agent-adapters/index.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import {
@@ -18,7 +22,6 @@ import {
   removeInstructionsGitignore,
   resolveInstructionMechanism,
   syncInstructions,
-  type InstructionStatusItem,
   type ResolvedInstructionsConfig,
 } from "./instructions.js";
 import { reconcileInstructions } from "./reconciliation.js";
@@ -80,8 +83,9 @@ describe("agent instructions", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const run = <A, E>(effect: Effect.Effect<A, E, NodeServices.NodeServices>) =>
-    effect.pipe(Effect.provide(NodeServices.layer));
+  const run = <A, E>(
+    effect: Effect.Effect<A, E, NodeServices.NodeServices | NativeWriteAuthority>,
+  ) => effect.pipe(Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NodeServices.layer)));
 
   const observe = (args: {
     readonly configuredAgents: ReadonlyArray<string>;
@@ -117,13 +121,22 @@ describe("agent instructions", () => {
   it("resolves own-file fallback mechanisms", () => {
     expect(
       resolveInstructionMechanism(
-        { kind: "own-file", file: "CLAUDE.md", importSyntax: "at-path" },
+        {
+          kind: "own-file",
+          locations: [],
+          scopes: ["project"],
+          writerSupported: true,
+          importSyntax: "at-path",
+        },
         false,
       ),
     ).toBe("copy");
-    expect(resolveInstructionMechanism({ kind: "own-file", file: "GEMINI.md" }, false)).toBe(
-      "copy",
-    );
+    expect(
+      resolveInstructionMechanism(
+        { kind: "own-file", locations: [], scopes: ["project"], writerSupported: true },
+        false,
+      ),
+    ).toBe("copy");
   });
 
   it.effect("does not leave a .axm/tmp directory behind after probing symlinks", () =>
@@ -1162,38 +1175,36 @@ describe("agent instructions", () => {
     ),
   );
 
-  it.effect(
-    "sweeps residue an earlier discovery wrote inside an agent configuration directory",
-    () =>
-      run(
-        Effect.gen(function* () {
-          fs.mkdirSync(path.join(tempDir, ".git"));
-          fs.mkdirSync(path.join(tempDir, ".junie"));
-          fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
-          fs.symlinkSync(path.join("..", "AGENTS.md"), path.join(tempDir, ".junie", "AGENTS.md"));
-          // An earlier discovery treated `.junie` as a root and aliased into it.
-          fs.symlinkSync("AGENTS.md", path.join(tempDir, ".junie", "CLAUDE.md"));
-          fs.writeFileSync(
-            path.join(tempDir, ".gitignore"),
-            "# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases\n/.junie/AGENTS.md\n/.junie/CLAUDE.md\n/CLAUDE.md\n# axm:end v=1 region=instruction-aliases\n",
-          );
+  it.effect("preserves indirect aliases inside an agent configuration directory", () =>
+    run(
+      Effect.gen(function* () {
+        fs.mkdirSync(path.join(tempDir, ".git"));
+        fs.mkdirSync(path.join(tempDir, ".junie"));
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+        fs.symlinkSync(path.join("..", "AGENTS.md"), path.join(tempDir, ".junie", "AGENTS.md"));
+        // An earlier discovery treated `.junie` as a root and aliased into it.
+        fs.symlinkSync("AGENTS.md", path.join(tempDir, ".junie", "CLAUDE.md"));
+        fs.writeFileSync(
+          path.join(tempDir, ".gitignore"),
+          "# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases\n/.junie/AGENTS.md\n/.junie/CLAUDE.md\n/CLAUDE.md\n# axm:end v=1 region=instruction-aliases\n",
+        );
 
-          const result = yield* sync({
-            configuredAgents: ["claude-code", "junie"],
-            config: IGNORED,
-            symlinkSupported: true,
-          });
+        const result = yield* sync({
+          configuredAgents: ["claude-code", "junie"],
+          config: IGNORED,
+          symlinkSupported: true,
+        });
 
-          expect(result.removed).toEqual([path.join(tempDir, ".junie", "CLAUDE.md")]);
-          expect(fs.existsSync(path.join(tempDir, ".junie", "CLAUDE.md"))).toBe(false);
-          expect(fs.readlinkSync(path.join(tempDir, ".junie", "AGENTS.md"))).toBe(
-            path.join("..", "AGENTS.md"),
-          );
-          expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf8")).toBe(
-            "# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases\n/.junie/AGENTS.md\n/CLAUDE.md\n# axm:end v=1 region=instruction-aliases\n",
-          );
-        }),
-      ),
+        expect(result.removed).toEqual([]);
+        expect(fs.readlinkSync(path.join(tempDir, ".junie", "CLAUDE.md"))).toBe("AGENTS.md");
+        expect(fs.readlinkSync(path.join(tempDir, ".junie", "AGENTS.md"))).toBe(
+          path.join("..", "AGENTS.md"),
+        );
+        expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf8")).toBe(
+          "# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases\n/.junie/AGENTS.md\n/CLAUDE.md\n# axm:end v=1 region=instruction-aliases\n",
+        );
+      }),
+    ),
   );
 
   it.effect(
@@ -1254,12 +1265,11 @@ describe("agent instructions", () => {
       ),
   );
 
-  it.effect("treats any banner at a planned target as AXM-owned and regenerates it", () =>
+  it.effect("preserves a banner belonging to a different managed extension", () =>
     run(
       Effect.gen(function* () {
         fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
-        // A copy written before the alias identity existed still proves AXM
-        // produced it, so it is refreshed rather than disowned.
+        // A managed marker from another owner does not authorize replacement.
         fs.writeFileSync(
           path.join(tempDir, "CLAUDE.md"),
           "<!-- axm:file v=1 ext=@agentxm/rules/managed-file src=AGENTS.md -->\n\n# Old copy\n",
@@ -1269,15 +1279,15 @@ describe("agent instructions", () => {
           configuredAgents: ["claude-code"],
           symlinkSupported: false,
         });
-        expect(status.items[0]).toMatchObject({ health: "drift", ownership: "owned-drift" });
+        expect(status.items[0]).toMatchObject({ health: "drift", ownership: "unowned" });
 
         const result = yield* sync({ configuredAgents: ["claude-code"], symlinkSupported: false });
 
-        expect(result.written).toEqual([path.join(tempDir, "CLAUDE.md")]);
+        expect(result.written).toEqual([]);
         expect(fs.readFileSync(path.join(tempDir, "CLAUDE.md"), "utf-8")).toContain(
-          "ext=@agentxm/instructions/alias",
+          "ext=@agentxm/rules/managed-file",
         );
-        expect(result.snapshot.status.items[0]?.ownership).toBe("owned-current");
+        expect(result.snapshot.status.items[0]?.ownership).toBe("unowned");
       }),
     ),
   );
@@ -1414,10 +1424,10 @@ describe("agent instructions", () => {
         const detailsById = new Map(status.items.map((item) => [item.agentId, item.details]));
 
         expect(detailsById.get("cursor")).toBe(
-          "Instruction file is current. Native rules directory .cursor/rules is not synced by AXM.",
+          "Instruction file is current. Native rules directories .cursor/rules are not synced by AXM.",
         );
         expect(detailsById.get("roo")).toBe(
-          "Native rules directory .roo/rules is not yet synced by AXM.",
+          "The declared native rules directory is not yet synced by AXM.",
         );
         expect(detailsById.get("codex")).toBe("Instruction file is current.");
 
@@ -1438,7 +1448,14 @@ describe("agent instructions", () => {
     const secondary = Object.values(AGENT_DESCRIPTORS).flatMap((descriptor) => {
       const instructions = descriptor.instructions;
       if (instructions === undefined || instructions.kind === "rules-dir") return [];
-      return instructions.rulesDir === undefined ? [] : [[descriptor.id, instructions.rulesDir]];
+      return instructions.locations
+        .filter(
+          (location) =>
+            location.scope === "project" &&
+            location.role === "additional" &&
+            location.shape === "directory",
+        )
+        .map((location) => [descriptor.id, location.path]);
     });
 
     // windsurf's ".devin/rules" is very likely a catalog copy-paste error (Devin
@@ -1452,6 +1469,7 @@ describe("agent instructions", () => {
       cursor: ".cursor/rules",
       "ibm-bob": ".bob/rules",
       windsurf: ".devin/rules",
+      "tabnine-cli": ".tabnine/guidelines",
     });
   });
 

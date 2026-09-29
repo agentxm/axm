@@ -23,7 +23,7 @@ import {
   resolveExecutionCandidate,
 } from "@agentxm/workspace-kernel/planning";
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
-import { protectWorkspacePath } from "@agentxm/workspace-kernel/settlement";
+import { protectWorkspacePath, recordFootprint } from "@agentxm/workspace-kernel/settlement";
 
 import { makeLifecycleFixture, type LifecycleFixture } from "../../testing.js";
 import { makeWorkspaceUpdatePlan } from "../configured.js";
@@ -48,6 +48,7 @@ const protectedWrite = (target: string, contents: string): Effect.Effect<void, S
         fs.writeFileSync(target, contents);
       }),
     ),
+    Effect.andThen(recordFootprint({ path: target, change: "modified" })),
   );
 
 describe("atomic pack graph transition", () => {
@@ -302,7 +303,7 @@ describe("atomic pack graph transition", () => {
                     path: ".agents/skills/a",
                     scope: "project",
                     change: "created",
-                    agents: ["codex", "universal", "claude-code"],
+                    agents: ["codex", "claude-code"],
                   },
                 }),
               },

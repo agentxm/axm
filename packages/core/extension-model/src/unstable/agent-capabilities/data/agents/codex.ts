@@ -57,7 +57,28 @@ export const codexAgent = {
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
-        directory: ".agents/skills",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".agents/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".agents/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -80,46 +101,75 @@ export const codexAgent = {
           variables: "none",
           defaults: false,
         },
+
+        locations: [
+          {
+            id: "project",
+            scope: "project",
+            root: "project",
+            path: ".codex/config.toml",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "toml",
+            keyPath: ["mcp_servers"],
+            attribution: "agent",
+          },
+          {
+            id: "user",
+            scope: "user",
+            root: "home",
+            path: ".codex/config.toml",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "toml",
+            keyPath: ["mcp_servers"],
+            attribution: "agent",
+            configRootRelativePath: "config.toml",
+          },
+        ],
+
+        entryDialect: {
+          activationField: {
+            required: { name: "enabled", enabled: true, disabled: false },
+            accepted: [{ name: "enabled", enabled: true, disabled: false }, null],
+          },
+          stdio: {
+            typeField: { required: null, accepted: [null] },
+            command: "split",
+            envKey: "env",
+            envVarsKey: "env_vars",
+          },
+          remote: {
+            typeField: { required: null, accepted: [null] },
+            urlKey: {
+              "streamable-http": "url",
+            },
+            headersKey: "http_headers",
+            bearerTokenEnvKey: "bearer_token_env_var",
+            envHeadersKey: "env_http_headers",
+          },
+        },
       },
       axm: {
         status: "supported",
         lastVerified: "2026-09-12",
         writer: {
           config: {
-            serversKey: "mcp_servers",
-            activationField: {
-              required: { name: "enabled", enabled: true, disabled: false },
-              accepted: [{ name: "enabled", enabled: true, disabled: false }, null],
-            },
-            targets: [
-              {
-                scope: "project",
-                path: ".codex/config.toml",
-                format: "toml",
-                attribution: "agent",
-              },
-              {
-                scope: "user",
-                path: "~/.codex/config.toml",
-                format: "toml",
-                attribution: "agent",
-              },
-            ],
-            stdio: {
-              typeField: { required: null, accepted: [null] },
-              command: "split",
-              envKey: "env",
-              envVarsKey: "env_vars",
-            },
-            remote: {
-              typeField: { required: null, accepted: [null] },
-              urlKey: {
-                "streamable-http": "url",
-              },
-              headersKey: "http_headers",
-              bearerTokenEnvKey: "bearer_token_env_var",
-              envHeadersKey: "env_http_headers",
-            },
+            locationIds: ["project", "user"],
           },
         },
       },
@@ -133,8 +183,29 @@ export const codexAgent = {
         docs: [],
         sources: ["https://learn.chatgpt.com/docs/agent-configuration/subagents"],
         scopes: ["user", "project"],
-        directory: ".codex/agents",
-        layout: "directory",
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".codex/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".codex/agents",
+            configRootRelativePath: "agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
         status: "supported",
@@ -152,17 +223,42 @@ export const codexAgent = {
         sources: ["https://learn.chatgpt.com/docs/hooks"],
         scopes: ["user", "project"],
         mechanism: ["command-stdin"],
-        configFiles: [
+        locations: [
           {
+            id: "user",
             scope: "user",
-            path: "~/.codex/hooks.json",
+            root: "home",
+            path: ".codex/hooks.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "json",
+            keyPath: ["hooks"],
             gitignored: false,
+            configRootRelativePath: "hooks.json",
           },
           {
+            id: "project",
             scope: "project",
+            root: "project",
             path: ".codex/hooks.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
             format: "json",
+            keyPath: ["hooks"],
             gitignored: false,
           },
         ],
@@ -262,25 +358,21 @@ export const codexAgent = {
             lastVerified: "2026-08-05",
           },
         ],
-      },
-      axm: {
-        status: "supported",
-        writer: {
+
+        entryDialect: {
           serializer: "command-stdin",
-          configFiles: [
-            {
-              scope: "project",
-              path: ".codex/hooks.json",
-              format: "json",
-              gitignored: false,
-            },
-          ],
-          settingsKey: "hooks",
-          eventMap: "native.events",
           matcherKind: "regex",
           matcherSerialization: "bare",
           timeoutSerialization: "seconds",
           commandNameSerialization: "omit",
+        },
+      },
+      axm: {
+        status: "supported",
+        writer: {
+          locationIds: ["project"],
+
+          eventMap: "native.events",
         },
         lastVerified: "2026-08-05",
       },
@@ -297,7 +389,49 @@ export const codexAgent = {
       standardsCompliance: "full",
       convention: "universal",
       kind: "agents-md",
-      files: ["AGENTS.md"],
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "AGENTS.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+        {
+          scope: "user",
+          root: "home",
+          path: ".codex/AGENTS.md",
+          configRootRelativePath: "AGENTS.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: {
+            kind: "sources",
+            sources: ["https://learn.chatgpt.com/docs/agent-configuration/agents-md"],
+          },
+        },
+        {
+          scope: "user",
+          root: "home",
+          path: ".codex/AGENTS.override.md",
+          configRootRelativePath: "AGENTS.override.md",
+          shape: "file",
+          role: "additional",
+          status: "canonical",
+          applicability: {
+            kind: "conditional",
+            condition: "Overrides AGENTS.md when non-empty under the selected CODEX_HOME.",
+          },
+          provenance: {
+            kind: "sources",
+            sources: ["https://learn.chatgpt.com/docs/agent-configuration/agents-md"],
+          },
+        },
+      ],
       nestedDiscovery: true,
       importSyntax: null,
     },
@@ -319,18 +453,42 @@ export const codexAgent = {
       ],
       scopes: ["user", "project"],
       mechanism: ["config-file", "cli-flag"],
-      configFiles: [
+      locations: [
         {
+          id: "user",
           scope: "user",
-          path: "~/.codex/config.toml",
+          root: "home",
+          path: ".codex/config.toml",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "toml",
           gitignored: false,
+          configRootRelativePath: "config.toml",
         },
         {
+          id: "user-additional-1",
           scope: "user",
-          path: "~/.codex/axm.config.toml",
+          root: "home",
+          path: ".codex/axm.config.toml",
+          shape: "file",
+          role: "additional",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
           format: "toml",
           gitignored: false,
+          configRootRelativePath: "axm.config.toml",
         },
       ],
       grammar: {
@@ -364,7 +522,7 @@ export const codexAgent = {
       writer: {
         grants: {
           shell: {
-            target: "~/.codex/axm.config.toml",
+            destination: { kind: "location", locationId: "user-additional-1" },
             patch: {
               default_permissions: "agentxm",
               permissions: {
@@ -376,7 +534,7 @@ export const codexAgent = {
             template: null,
           },
           filesystem: {
-            target: "~/.codex/axm.config.toml",
+            destination: { kind: "location", locationId: "user-additional-1" },
             patch: {
               default_permissions: "agentxm",
               permissions: {

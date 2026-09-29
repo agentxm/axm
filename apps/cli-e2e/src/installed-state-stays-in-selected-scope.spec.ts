@@ -306,7 +306,11 @@ describe("Agent membership and instruction files stay in the selected scope", ()
           fixture.otherScope,
         );
         expect(otherEnable.exitCode, otherEnable.stdout + otherEnable.stderr).toBe(0);
-        const otherAlias = path.join(fixture.otherNative, "CLAUDE.md");
+        const otherAlias = path.join(
+          fixture.otherNative,
+          ...(fixture.otherScope === "user" ? [".claude"] : []),
+          "CLAUDE.md",
+        );
         expect(fs.readFileSync(otherAlias, "utf8")).toContain(fixture.bodies[fixture.otherScope]);
         const otherBefore = snapshotTree(fixture.otherNative);
         const beforeRead = snapshotTree(fixture.selectedNative);
@@ -351,7 +355,13 @@ describe("Agent membership and instruction files stay in the selected scope", ()
         expect(alias.sourceFile).toBe(
           path.join(fixture.selectedNative, fixture.sources[fixture.scope]),
         );
-        expect(alias.targetFile).toBe(path.join(fixture.selectedNative, "CLAUDE.md"));
+        expect(alias.targetFile).toBe(
+          path.join(
+            fixture.selectedNative,
+            ...(fixture.scope === "user" ? [".claude"] : []),
+            "CLAUDE.md",
+          ),
+        );
         expect(fs.readFileSync(alias.targetFile, "utf8")).toContain(fixture.bodies[fixture.scope]);
         expect(snapshotTree(fixture.selectedNative)).toEqual(enabledBeforeRead);
         expect(snapshotTree(fixture.otherNative)).toEqual(otherBefore);

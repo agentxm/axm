@@ -7,6 +7,7 @@
  */
 
 import type * as Config from "effect/Config";
+import type { NativeLocationError } from "../locations/index.js";
 import * as Schema from "effect/Schema";
 import type { ExtensionManagerFailure } from "../materialization/index.js";
 import { FailureSuggestedActionSchema, OperationErrorCategorySchema } from "../operations/index.js";
@@ -44,6 +45,7 @@ export type WorkspaceSyncCleanupFailure =
 
 /** Every typed failure the sync policy surfaces. */
 export type SyncPolicyFailure =
+  | NativeLocationError
   | WorkspaceTransactionFailure
   | WorkspaceRestorationIncomplete
   | AcceptedCanonicalRefError

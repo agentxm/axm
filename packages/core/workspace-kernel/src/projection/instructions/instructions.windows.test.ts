@@ -2,13 +2,16 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativeWriteAuthorityPermissive } from "../../agent-adapters/testing.js";
+import type { NativeWriteAuthority } from "../../agent-adapters/index.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import { observeInstructionProjection, removeManagedInstructionTargets } from "./instructions.js";
 import { reconcileInstructions } from "./reconciliation.js";
 
-const run = <A, E>(effect: Effect.Effect<A, E, NodeServices.NodeServices>) =>
-  effect.pipe(Effect.provide(NodeServices.layer));
+const run = <A, E>(effect: Effect.Effect<A, E, NodeServices.NodeServices | NativeWriteAuthority>) =>
+  effect.pipe(Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NodeServices.layer)));
 
 describe("Windows instruction-file materialization", () => {
   it.effect("creates, refreshes, and removes the managed-copy fallback idempotently", () =>

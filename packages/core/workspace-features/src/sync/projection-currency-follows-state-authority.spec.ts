@@ -7,6 +7,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
+import { copiedDirectoryCanReplace } from "@agentxm/workspace-kernel/locations";
 
 import {
   applySync,
@@ -128,7 +129,9 @@ describe("Generated document projection currency", () => {
             yield* applySync();
 
             const generated = workspace.readFile("AGENTS.md");
-            expect(generated).toMatch(/axm:start v=1 region=rules ext=[^ ]+ gen=[0-9a-f]{64}/u);
+            expect(generated).toMatch(
+              /axm:start v=1 region=rules ext=[^ ]+ src=[^ ]+ gen=[0-9a-f]{64}/u,
+            );
             const rewritten = replaceRegionBody(
               generated,
               "Repository formatter output.\n\n- Wrapped, reordered, or otherwise rewritten.",
@@ -271,12 +274,14 @@ describe("Generated document projection currency", () => {
       cleanups.push(workspace.cleanup);
       writeAuthoredSubagent(workspace.root, "First reviewer guidance.");
       const projection = `.cline/skills/${AUTHORED_SUBAGENT}/SKILL.md`;
+      const receipt = `.cline/skills/${AUTHORED_SUBAGENT}/.axm-copy.json`;
       return workspace
         .provide(
           Effect.gen(function* () {
             yield* applySync();
 
             const generated = workspace.readFile(projection);
+            const originalReceipt = workspace.readFile(receipt);
             expect(generated).toMatch(/axm:file v=1 ext=[^ ]+ src=[^ ]+ gen=[0-9a-f]{64}/u);
             const rewritten = generated.replace(
               "First reviewer guidance.",
@@ -290,6 +295,32 @@ describe("Generated document projection currency", () => {
 
             expectNothingToReconcile(yield* applySync());
             expect(workspace.readFile(projection)).toBe(rewritten);
+            expect(workspace.readFile(receipt)).toBe(originalReceipt);
+            expect(
+              yield* copiedDirectoryCanReplace(
+                nodePath.join(workspace.root, ".cline/skills", AUTHORED_SUBAGENT),
+              ),
+            ).toBe(false);
+
+            workspace.writeFile(
+              `.cline/skills/${AUTHORED_SUBAGENT}/notes.txt`,
+              "Foreign notes stay intact.",
+            );
+            writeAuthoredSubagent(workspace.root, "Second reviewer guidance.");
+            yield* applySync();
+            const updated = workspace.readFile(projection);
+            expect(updated).toContain("Second reviewer guidance.");
+            expect(updated).not.toContain("Repository-formatted role body.");
+            expect(workspace.readFile(`.cline/skills/${AUTHORED_SUBAGENT}/notes.txt`)).toBe(
+              "Foreign notes stay intact.",
+            );
+            expect(workspace.readFile(receipt)).toBe(originalReceipt);
+            expect(
+              yield* copiedDirectoryCanReplace(
+                nodePath.join(workspace.root, ".cline/skills", AUTHORED_SUBAGENT),
+              ),
+            ).toBe(false);
+            expectNothingToReconcile(yield* applySync());
           }),
         )
         .pipe(Effect.provide(NodeServices.layer));

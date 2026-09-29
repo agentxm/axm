@@ -20,6 +20,8 @@
  */
 
 import * as Effect from "effect/Effect";
+import type { NativeLocationOutcome } from "@agentxm/workspace-kernel/locations";
+import type { NativeWriteAuthority } from "@agentxm/workspace-kernel/agent-adapters";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -53,6 +55,7 @@ import {
   disableInstructionManagement,
   instructionProjectionEffects,
   instructionProjectionRemovalEffects,
+  instructionProjectionNativeLocations,
   instructionReadinessDetail,
   instructionReconciliationReadiness,
   instructionStateIsCurrent,
@@ -176,6 +179,8 @@ export interface InstructionsUnchanged {
 }
 
 export interface ManageInstructionsCandidate {
+  readonly eligibleAgentIds: ReadonlyArray<string>;
+  readonly nativeLocations: ReadonlyArray<NativeLocationOutcome>;
   readonly _tag: "ManageInstructions";
   readonly action: "enable" | "disable";
   /** The configuration recorded once the change settles. */
@@ -198,6 +203,7 @@ const instructionArtifact = (args: {
   readonly baseDir: string;
   readonly path: Path.Path;
   readonly effects: ReadonlyArray<InstructionProjectionEffect>;
+  readonly nativeLocations: ReadonlyArray<NativeLocationOutcome>;
 }): JobStepArtifact => {
   const settings = settingsDisplayPath(args.scope);
   const byPath = new Map<
@@ -211,6 +217,7 @@ const instructionArtifact = (args: {
   }
   return {
     path: settings,
+    nativeLocations: args.nativeLocations,
     scope: args.scope,
     change: "updated",
     targets: [...byPath.values()].sort((left, right) => left.path.localeCompare(right.path)),
@@ -291,6 +298,8 @@ export const prepareManageInstructions = (
       const disableCandidate: ManageInstructionsCandidate = {
         _tag: "ManageInstructions",
         action: "disable",
+        eligibleAgentIds: [],
+        nativeLocations: instructionProjectionNativeLocations(snapshot, "remove"),
         config: false,
         supersededConfig: Option.some(config),
         effects: instructionProjectionRemovalEffects(snapshot),
@@ -354,6 +363,8 @@ export const prepareManageInstructions = (
     const enableCandidate: ManageInstructionsCandidate = {
       _tag: "ManageInstructions",
       action: "enable",
+      eligibleAgentIds: Option.isNone(recorded) ? yield* settings.configuredAgents : [],
+      nativeLocations: instructionProjectionNativeLocations(observed, "reconcile"),
       config: desired,
       supersededConfig: superseded,
       effects: [
@@ -389,6 +400,7 @@ const PRESENTATION = {
 
 /** Every service the instruction transition and its plan resolution need. */
 export type ManageInstructionsRequirements =
+  | NativeWriteAuthority
   | ConfiguredAgentOutcomesProvider
   | FileSystem.FileSystem
   | FootprintRecorder
@@ -462,39 +474,45 @@ const transitionStep = (
       errorMessage: candidate.blocked.value.detail,
     };
   }
-  const transition: Effect.Effect<void, StepFailure, ManageInstructionsRequirements> =
-    candidate.action === "disable"
-      ? Effect.gen(function* () {
-          const config = Option.getOrUndefined(candidate.supersededConfig);
-          if (config === undefined) {
-            return yield* new WorkspaceConfigurationFailed({
-              category: "internal",
-              detail: "Instruction management has no recorded configuration to disable",
-            });
-          }
-          yield* disableInstructionManagement({ config });
-        }).pipe(Effect.asVoid, Effect.mapError(transitionFailureToStepFailure))
-      : Effect.gen(function* () {
-          const config = candidate.config;
-          if (config === false) {
-            return yield* new WorkspaceConfigurationFailed({
-              category: "internal",
-              detail: "Enabling instruction management has no configuration to record",
-            });
-          }
-          const location = yield* WorkspaceLocation;
-          const settings = yield* SettingsReader;
-          yield* reconcileInstructions({
-            workspaceRoot: location.baseDir,
-            scope: location.scope,
-            configuredAgents: yield* settings.configuredAgents,
-            config,
-            ...(Option.isSome(candidate.supersededConfig)
-              ? { preflightConfig: candidate.supersededConfig.value }
-              : {}),
-            transition: transitionEffect({ ...candidate, action: "enable" }, config),
+  const transition: Effect.Effect<
+    ReadonlyArray<NativeLocationOutcome>,
+    StepFailure,
+    ManageInstructionsRequirements
+  > = candidate.action === "disable"
+    ? Effect.gen(function* () {
+        const config = Option.getOrUndefined(candidate.supersededConfig);
+        if (config === undefined) {
+          return yield* new WorkspaceConfigurationFailed({
+            category: "internal",
+            detail: "Instruction management has no recorded configuration to disable",
           });
-        }).pipe(Effect.asVoid, Effect.mapError(transitionFailureToStepFailure));
+        }
+        return (yield* disableInstructionManagement({ config })).nativeLocations;
+      }).pipe(Effect.mapError(transitionFailureToStepFailure))
+    : Effect.gen(function* () {
+        const config = candidate.config;
+        if (config === false) {
+          return yield* new WorkspaceConfigurationFailed({
+            category: "internal",
+            detail: "Enabling instruction management has no configuration to record",
+          });
+        }
+        const location = yield* WorkspaceLocation;
+        const settings = yield* SettingsReader;
+        const result = yield* reconcileInstructions({
+          workspaceRoot: location.baseDir,
+          scope: location.scope,
+          nativeDirectoryInputs: location.nativeDirectoryInputs,
+          eligibleAgentIds: candidate.eligibleAgentIds,
+          configuredAgents: yield* settings.configuredAgents,
+          config,
+          ...(Option.isSome(candidate.supersededConfig)
+            ? { preflightConfig: candidate.supersededConfig.value }
+            : {}),
+          transition: transitionEffect({ ...candidate, action: "enable" }, config),
+        });
+        return result.nativeLocations;
+      }).pipe(Effect.mapError(transitionFailureToStepFailure));
   return {
     label: presentation.name,
     readiness: "ready",
@@ -504,11 +522,14 @@ const transitionStep = (
       validate: () => Effect.void,
     }).pipe(
       Effect.mapError(workspaceChangeFailedToStepFailure),
-      Effect.as({
-        result: "success",
-        message: presentation.applied,
-        artifact,
-      } satisfies JobStepResult),
+      Effect.map(
+        (nativeLocations) =>
+          ({
+            result: "success",
+            message: presentation.applied,
+            artifact: { ...artifact, nativeLocations },
+          }) satisfies JobStepResult,
+      ),
     ),
   };
 };
@@ -535,6 +556,7 @@ export const previewOrApplyManageInstructions = (
       baseDir: location.baseDir,
       path,
       effects: candidate.effects,
+      nativeLocations: candidate.nativeLocations,
     });
     const plan: Plan<ManageInstructionsRequirements> = {
       _tag: "Plan",

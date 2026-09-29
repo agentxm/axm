@@ -61,8 +61,8 @@ const planFrom = (stdout: string): Readonly<Record<string, unknown>> => {
     throw new Error("Expected a JSON command result with a plan");
   }
   const result = document["result"];
-  if (result["contract"] !== "plan-result-v3") {
-    throw new Error("Expected a plan-result-v3 command result");
+  if (result["contract"] !== "plan-result-v4") {
+    throw new Error("Expected a plan-result-v4 command result");
   }
   const units = result["units"];
   if (!Array.isArray(units)) {
@@ -468,25 +468,29 @@ describe("extension activation lifecycle", () => {
       expect(sharedApply.exitCode).not.toBe(0);
       for (const result of [sharedPreview, sharedApply]) {
         expect(result.stdout + result.stderr).toContain("github-copilot-cli");
-        expect(result.stdout + result.stderr).toContain("shared MCP target '.mcp.json'");
+        expect(result.stdout + result.stderr).toContain(
+          `shared MCP target '${path.join(shared.path, ".mcp.json")}'`,
+        );
       }
       expect(snapshotTree(shared.path)).toEqual(before);
 
       writeSymbolicMcpPackage(shared.path);
+      const symbolicBefore = snapshotTree(shared.path);
       for (const flags of [["--preview"], []]) {
-        const supported = await runCli(
+        const refused = await runCli(
           ["mcps", "enable", "mailer", ...flags, "--json", "--non-interactive"],
           { cwd: shared.path },
         );
-        expect(supported.exitCode, supported.stdout + supported.stderr).toBe(0);
+        expect(refused.exitCode, refused.stdout + refused.stderr).toBe(6);
+        expect(refused.stdout + refused.stderr).toContain(
+          "command-code cannot read shared MCP target",
+        );
+        expect(snapshotTree(shared.path)).toEqual(symbolicBefore);
       }
-      expect(fs.readFileSync(path.join(shared.path, ".mcp.json"), "utf8")).toContain(
-        "${MAILER_TOKEN}",
-      );
 
       writeJson(path.join(independent.path, "axm.json"), {
         owner: "@test",
-        agents: ["codex"],
+        agents: ["cursor", "codex"],
         mcpServers: { mailer: mcpEntry },
       });
       const independentPreview = await runCli(
@@ -498,6 +502,7 @@ describe("extension activation lifecycle", () => {
         independentPreview.stdout + independentPreview.stderr,
       ).toBe(0);
       expect(planAgentOutcomes(independentPreview.stdout)).toMatchObject([
+        { agentId: "cursor", outcome: "projected" },
         { agentId: "codex", outcome: "projected" },
       ]);
       const independentApply = await runCli(
@@ -506,15 +511,19 @@ describe("extension activation lifecycle", () => {
       );
       expect(independentApply.exitCode, independentApply.stdout + independentApply.stderr).toBe(0);
       expect(planAgentOutcomes(independentApply.stdout)).toMatchObject([
+        { agentId: "cursor", outcome: "current" },
         { agentId: "codex", outcome: "current" },
       ]);
+      expect(fs.readFileSync(path.join(independent.path, ".cursor/mcp.json"), "utf8")).toContain(
+        "${MAILER_TOKEN}",
+      );
       expect(fs.readFileSync(path.join(independent.path, ".codex/config.toml"), "utf8")).toContain(
         'env_vars = ["MAILER_TOKEN"]',
       );
       const shown = await runCli(["mcps", "show", "mailer", "--json"], {
         cwd: independent.path,
       });
-      expect(showStatuses(shown.stdout)).toEqual({ codex: "current" });
+      expect(showStatuses(shown.stdout)).toEqual({ cursor: "current", codex: "current" });
     } finally {
       shared.cleanup();
       independent.cleanup();

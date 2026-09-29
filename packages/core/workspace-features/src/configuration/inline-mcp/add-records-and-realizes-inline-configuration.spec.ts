@@ -82,7 +82,7 @@ describe("Add an inline MCP server", () => {
   it.effect.each(inlineAddRows)(
     "adding $label records it, realizes it, and records no resolution",
     (row) => {
-      const fixture = makeConfigurationFixture({ settings: { agents: ["claude-code"] } });
+      const fixture = makeConfigurationFixture({ settings: { agents: ["cursor"] } });
       cleanups.push(fixture.cleanup);
       return fixture
         .provide(
@@ -101,7 +101,7 @@ describe("Add an inline MCP server", () => {
             expect(JSON.parse(fixture.readFile("axm.json"))).toMatchObject({
               mcpServers: { demo: row.authored },
             });
-            const nativeConfig: unknown = JSON.parse(fixture.readFile(".mcp.json"));
+            const nativeConfig: unknown = JSON.parse(fixture.readFile(".cursor/mcp.json"));
             expect(nativeConfig).toMatchObject({
               mcpServers: { demo: expect.objectContaining(row.authored) },
             });
@@ -113,7 +113,7 @@ describe("Add an inline MCP server", () => {
               "resolution" in outcome
                 ? outcome.resolution.units.filter((unit) => unit.state === "committed").length
                 : 0,
-            ).toBe(2);
+            ).toBe(1);
             // Inline configuration is authoritative — `cli/mcps/inline-entries-are-
             // authoritative-as-authored` owns that rule; this is its consequence here.
             expect(fixture.readFile("axm-lock.yaml")).not.toContain("demo");

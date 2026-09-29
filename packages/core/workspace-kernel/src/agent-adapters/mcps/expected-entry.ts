@@ -82,24 +82,6 @@ export interface ProjectExpectedEntryArgs {
   readonly remoteTransport?: InlineRemoteTransport | undefined;
 }
 
-const ENV_REF_START_RE = /\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-|\})/;
-/** Find the closing brace once; repeated unterminated defaults must not rescan their tails. */
-const findEnvReference = (value: string) => {
-  const start = ENV_REF_START_RE.exec(value);
-  const variableName = start?.[1];
-  if (start === null || variableName === undefined) return undefined;
-  if (start[0].endsWith("}")) {
-    return { reference: start[0], variableName, defaultValue: undefined };
-  }
-  const contentStart = start.index + start[0].length;
-  const end = value.indexOf("}", contentStart);
-  if (end === -1) return undefined;
-  return {
-    reference: value.slice(start.index, end + 1),
-    variableName,
-    defaultValue: value.slice(contentStart, end),
-  };
-};
 const FULL_ENV_REF_RE = /^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$/;
 const BEARER_ENV_REF_RE = /^Bearer\s+\$\{([A-Za-z_][A-Za-z0-9_]*)\}$/i;
 const DEFAULT_ENV_EXPANSION: McpEnvExpansion = {
@@ -160,23 +142,46 @@ export const renderEnvValue = (
   raw: string,
   capability: McpEnvExpansion,
 ): { readonly value: string; readonly warning?: string } => {
-  const match = findEnvReference(raw);
-  if (match === undefined) return { value: raw };
-  const { variableName, defaultValue } = match;
-  if (defaultValue !== undefined && (capability.variables === "none" || !capability.defaults)) {
+  if (capability.variables === "env-tag" && /\{env:[A-Za-z_][A-Za-z0-9_]*\}/u.test(raw))
     return {
       value: raw,
-      warning: `does not expand environment default \${${variableName}:-${defaultValue}}`,
+      warning: "cannot preserve a literal native environment tag",
     };
+  const references = /\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-|\})/g;
+  let rendered = "";
+  let copiedUntil = 0;
+  let match: RegExpExecArray | null;
+  while ((match = references.exec(raw)) !== null) {
+    const variableName = match[1];
+    if (variableName === undefined) continue;
+    const end = match[0].endsWith("}")
+      ? references.lastIndex - 1
+      : raw.indexOf("}", references.lastIndex);
+    // Do not repeatedly rescan a tail containing unterminated defaults.
+    if (end === -1) break;
+    const reference = raw.slice(match.index, end + 1);
+    const hasDefault = !match[0].endsWith("}");
+    if (hasDefault && (capability.variables === "none" || !capability.defaults))
+      return { value: raw, warning: `does not expand environment default ${reference}` };
+    if (capability.variables === "none")
+      return { value: raw, warning: `does not expand environment reference ${reference}` };
+    rendered +=
+      raw.slice(copiedUntil, match.index) +
+      (capability.variables === "env-tag" ? `{env:${variableName}}` : reference);
+    copiedUntil = end + 1;
+    references.lastIndex = copiedUntil;
   }
-  if (capability.variables === "none") {
-    return {
-      value: raw,
-      warning: `does not expand environment reference \${${variableName}}`,
-    };
-  }
-  return { value: raw };
+  return { value: rendered + raw.slice(copiedUntil) };
 };
+
+/** Convert a verified native expansion spelling back to symbolic workspace syntax. */
+export const normalizeNativeMcpEnvValue = (
+  value: string,
+  expansion: McpEnvExpansion | undefined,
+): string =>
+  expansion?.variables === "env-tag"
+    ? value.replace(/\{env:([A-Za-z_][A-Za-z0-9_]*)\}/g, (_, name: string) => `\${${name}}`)
+    : value;
 
 const projectEnvRecord = (args: {
   readonly values: Readonly<Record<string, string>>;
@@ -261,7 +266,10 @@ const projectRemoteHeaders = (args: {
     if (rendered.warning === undefined) {
       literal[name] = rendered.value;
     } else {
-      const reference = findEnvReference(value)?.reference ?? value;
+      const reference = rendered.warning.replace(
+        /^does not expand environment (?:reference|default) /u,
+        "",
+      );
       return {
         _tag: "unsupported",
         reason: `headers.${name}: cannot project environment reference ${reference} for this agent`,
@@ -285,8 +293,8 @@ const projectInlineStdio = (args: {
 }):
   | { readonly _tag: "projected"; readonly entry: Readonly<Record<string, unknown>> }
   | { readonly _tag: "unsupported"; readonly reason: string } => {
-  const invocation = [args.command, ...args.commandArgs];
-  for (const [index, value] of invocation.entries()) {
+  const invocation: Array<string> = [];
+  for (const [index, value] of [args.command, ...args.commandArgs].entries()) {
     const rendered = renderEnvValue(value, args.envExpansion);
     if (rendered.warning !== undefined) {
       return {
@@ -294,6 +302,7 @@ const projectInlineStdio = (args: {
         reason: `invocation.${index}: ${rendered.warning}; secret references are never resolved into native config literals`,
       };
     }
+    invocation.push(rendered.value);
   }
   const entry: Record<string, unknown> = {
     [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadataFromSettingsSource(args.source, args.serverName),
@@ -324,8 +333,8 @@ const projectInlineStdio = (args: {
   if (args.dialect.command === "array") {
     entry["command"] = invocation;
   } else {
-    entry["command"] = args.command;
-    if (args.commandArgs.length > 0) entry["args"] = args.commandArgs;
+    entry["command"] = invocation[0];
+    if (invocation.length > 1) entry["args"] = invocation.slice(1);
   }
   if (Object.keys(env.values).length > 0 && args.dialect.envKey !== null) {
     entry[args.dialect.envKey] = env.values;
@@ -379,7 +388,13 @@ const projectInlineRemote = (args: {
   }
   addInlineTypeField(entry, args.dialect.typeField, transport);
   addActivationField(entry, args.activationField, args.enabled);
-  entry[urlKey] = args.url;
+  const renderedUrl = renderEnvValue(args.url, args.envExpansion);
+  if (renderedUrl.warning !== undefined)
+    return {
+      _tag: "unsupported",
+      reason: `url: ${renderedUrl.warning}; secret references are never resolved into native config literals`,
+    };
+  entry[urlKey] = renderedUrl.value;
   if (Object.keys(headers.literal).length > 0 && args.dialect.headersKey !== null) {
     entry[args.dialect.headersKey] = headers.literal;
   }

@@ -88,7 +88,7 @@ const writeHermesEntry = (workspaceRoot: string, entry: Readonly<Record<string, 
     nativeInsertionEligible: false,
     workspaceRoot,
     serverName: "context",
-    serversKey: "mcp_servers",
+    serversPath: ["mcp_servers"] as const,
     target: { scope: "user", path: "~/.hermes/config.yaml", format: "yaml", attribution: "agent" },
     entry,
   });
@@ -542,7 +542,7 @@ describe("agent MCP config inspection", () => {
                 },
               ]);
               expect(
-                readYamlEntry(readFileSync(configPath, "utf8"), "mcp_servers", "filesystem"),
+                readYamlEntry(readFileSync(configPath, "utf8"), ["mcp_servers"], "filesystem"),
               ).toMatchObject({ command: "npx" });
             }),
           );

@@ -29,7 +29,7 @@ const stdioField = (value: string): McpTypeField => ({
 });
 
 const configWithTypeField = (typeField: McpTypeField): ResolvedMcpConfig => ({
-  serversKey: "mcpServers",
+  serversPath: ["mcpServers"] as const,
   activationField: { required: null, accepted: [null] },
   stdio: {
     typeField,

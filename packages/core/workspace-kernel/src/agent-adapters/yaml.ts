@@ -31,25 +31,28 @@ const parseYamlObjectOrNull = (raw: string): Readonly<Record<string, unknown>> |
 
 const validateServersShape = (
   raw: string,
-  serversKey: string,
+  serversPath: ReadonlyArray<string>,
 ): Readonly<Record<string, unknown>> | null => {
-  const parsed = parseYamlObjectOrNull(raw);
-  const servers = parsed?.[serversKey];
-  if (servers !== undefined && !isRecord(servers)) {
-    throw new Error(`${formatPath([serversKey])} must be a mapping`);
+  let current = parseYamlObjectOrNull(raw);
+  for (const [index, key] of serversPath.entries()) {
+    const value: unknown =
+      current !== null && Object.hasOwn(current, key) ? current[key] : undefined;
+    if (value === undefined) return null;
+    if (!isRecord(value))
+      throw new Error(`${formatPath(serversPath.slice(0, index + 1))} must be a mapping`);
+    current = value;
   }
-  return parsed;
+  return current;
 };
 
 export const parseYaml = (raw: string): unknown => parseYamlDocument(raw).toJS();
 
 export const readYamlEntry = (
   raw: string,
-  serversKey: string,
+  serversPath: ReadonlyArray<string>,
   serverName: string,
 ): Readonly<Record<string, unknown>> | undefined => {
-  const parsed = validateServersShape(raw, serversKey);
-  const servers = parsed?.[serversKey];
+  const servers = validateServersShape(raw, serversPath);
   if (!isRecord(servers)) return undefined;
   const entry = servers[serverName];
   return isRecord(entry) ? entry : undefined;
@@ -57,11 +60,10 @@ export const readYamlEntry = (
 
 export const managedYamlNames = (
   raw: string,
-  serversKey: string,
+  serversPath: ReadonlyArray<string>,
   isManaged: (entry: Readonly<Record<string, unknown>>) => boolean,
 ): ReadonlyArray<string> => {
-  const parsed = validateServersShape(raw, serversKey);
-  const servers = parsed?.[serversKey];
+  const servers = validateServersShape(raw, serversPath);
   if (!isRecord(servers)) return [];
   return Object.entries(servers).flatMap(([name, entry]) =>
     isRecord(entry) && isManaged(entry) ? [name] : [],
@@ -70,20 +72,24 @@ export const managedYamlNames = (
 
 export const setYamlEntry = (
   raw: string,
-  serversKey: string,
+  serversPath: ReadonlyArray<string>,
   serverName: string,
   entry: Readonly<Record<string, unknown>>,
 ): string => {
-  validateServersShape(raw, serversKey);
+  validateServersShape(raw, serversPath);
   const document = parseYamlDocument(raw);
-  document.setIn([serversKey, serverName], entry);
+  document.setIn([...serversPath, serverName], entry);
   return document.toString({ lineWidth: 0 });
 };
 
-export const deleteYamlEntry = (raw: string, serversKey: string, serverName: string): string => {
-  validateServersShape(raw, serversKey);
+export const deleteYamlEntry = (
+  raw: string,
+  serversPath: ReadonlyArray<string>,
+  serverName: string,
+): string => {
+  validateServersShape(raw, serversPath);
   const document = parseYamlDocument(raw);
-  const removed = document.deleteIn([serversKey, serverName]);
+  const removed = document.deleteIn([...serversPath, serverName]);
   return removed ? document.toString({ lineWidth: 0 }) : raw;
 };
 
@@ -95,8 +101,7 @@ export const setYamlScalar = (
   if (path.length === 0) {
     throw new Error("YAML scalar path must not be empty");
   }
-  const rootKey = path[0];
-  if (rootKey !== undefined) validateServersShape(raw, rootKey);
+  validateServersShape(raw, path.slice(0, -1));
   const document = parseYamlDocument(raw);
   document.setIn(path, value);
   return document.toString({ lineWidth: 0 });

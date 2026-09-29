@@ -92,10 +92,11 @@ export const collectMcpImportSources = (
     const sourceKeys = new Set<string>();
     const addSource = (
       filePath: string,
-      serversKey: McpImportSource["serversKey"],
+      serversPath: McpImportSource["serversPath"],
       target: McpImportSource["target"],
+      envExpansion: McpImportSource["envExpansion"],
     ) => {
-      const sourceKey = `${filePath}\0${serversKey}`;
+      const sourceKey = JSON.stringify([filePath, serversPath]);
       if (sourceKeys.has(sourceKey)) return Effect.void;
       sourceKeys.add(sourceKey);
       return Effect.gen(function* () {
@@ -107,9 +108,15 @@ export const collectMcpImportSources = (
           format: target.format,
           configPath: filePath,
           raw: raw.value,
-          serversKey,
+          serversPath,
         }).pipe(Effect.mapError(readFailureToConfigurationFailed));
-        sources.push({ filePath, serversKey, target, servers });
+        sources.push({
+          filePath,
+          serversPath,
+          target,
+          servers,
+          ...(envExpansion === undefined ? {} : { envExpansion }),
+        });
       });
     };
 
@@ -132,15 +139,8 @@ export const collectMcpImportSources = (
           location.nativeDirectoryInputs,
         );
         if (resolved === undefined) continue;
-        const serversKey = declaration.keyPath?.[0];
-        if (
-          declaration.keyPath?.length !== 1 ||
-          (serversKey !== "mcpServers" &&
-            serversKey !== "mcp_servers" &&
-            serversKey !== "mcp" &&
-            serversKey !== "servers" &&
-            serversKey !== "context_servers")
-        ) {
+        const serversPath = declaration.keyPath;
+        if (serversPath === undefined) {
           const finding = {
             name: resolved.path,
             reason: "This native MCP servers-container path is not supported for import",
@@ -178,7 +178,12 @@ export const collectMcpImportSources = (
           }
           continue;
         }
-        yield* addSource(configPath, serversKey, target);
+        yield* addSource(
+          configPath,
+          serversPath,
+          target,
+          "mcpEnvExpansion" in native ? native.mcpEnvExpansion : undefined,
+        );
       }
     }
     return { sources, skipped: Array.from(skipped.values()) };
@@ -202,7 +207,7 @@ const adoptNativeMcpEntry = (
           format: adoption.target.format,
           configPath: adoption.filePath,
           raw: raw.value,
-          serversKey: adoption.serversKey,
+          serversPath: adoption.serversPath,
           serverName: adoption.name,
         }).pipe(Effect.mapError(readFailureToConfigurationFailed));
     if (Option.isNone(entry) || !Equal.equals(entry.value, adoption.expectedEntry)) {
@@ -214,7 +219,7 @@ const adoptNativeMcpEntry = (
     const result = yield* writeAgentMcpConfig({
       workspaceRoot: location.baseDir,
       serverName: adoption.name,
-      serversKey: adoption.serversKey,
+      serversPath: adoption.serversPath,
       target: adoption.target,
       nativeInsertionEligible: false,
       adoption: { filePath: adoption.filePath, expectedEntry: adoption.expectedEntry },
@@ -278,7 +283,7 @@ const validateAdoption = (
           format: adoption.target.format,
           configPath: adoption.filePath,
           raw: raw.value,
-          serversKey: adoption.serversKey,
+          serversPath: adoption.serversPath,
           serverName: adoption.name,
         }).pipe(Effect.mapError(readFailureToConfigurationFailed));
     if (Option.isNone(entry) || !isAxmManagedMcpEntry(entry.value)) {
@@ -321,7 +326,7 @@ export const prepareMcpImportTargets = (candidates: ReadonlyArray<McpImportCandi
           address: {
             kind: "key-path",
             path: write.path,
-            keys: [write.config.serversKey, candidate.name],
+            keys: [...write.config.serversPath, candidate.name],
           },
           aliases: [
             ...new Set(

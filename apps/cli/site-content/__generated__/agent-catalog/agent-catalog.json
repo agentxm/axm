@@ -548,7 +548,7 @@
     "vendor": "Anomaly",
     "homepage": "https://opencode.ai",
     "lifecycle": { "state": "active" },
-    "support": { "skill": true, "mcp-server": false, "subagent": true, "rule": true, "hook": false }
+    "support": { "skill": true, "mcp-server": true, "subagent": true, "rule": true, "hook": false }
   },
   {
     "id": "openhands",

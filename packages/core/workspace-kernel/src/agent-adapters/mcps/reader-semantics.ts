@@ -1,6 +1,7 @@
 /** Interpret proposed entries with each declared reader's validated recipe. */
 import type {
   McpEntryDialect,
+  McpEnvExpansion,
   McpTransport,
   McpTypeField,
   McpTypeFieldRepresentation,
@@ -34,10 +35,44 @@ const acceptsType = (
   );
 };
 
+/** Keep literal placeholders distinct from substitutions when readers use different spellings. */
+const environmentMeaning = (value: string, expansion: McpEnvExpansion | undefined) => {
+  if (expansion === undefined || expansion.variables === "none") return value;
+  const references =
+    expansion.variables === "env-tag"
+      ? /\{env:([A-Za-z_][A-Za-z0-9_]*)\}/g
+      : /\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-|\})/g;
+  const parts: Array<string | { readonly variable: string; readonly defaultValue?: string }> = [];
+  let copiedUntil = 0;
+  let match: RegExpExecArray | null;
+  while ((match = references.exec(value)) !== null) {
+    const variable = match[1];
+    if (variable === undefined) continue;
+    const hasDefault = match[0].endsWith(":-");
+    const end = hasDefault ? value.indexOf("}", references.lastIndex) : references.lastIndex - 1;
+    if (end === -1) break;
+    if (hasDefault && !expansion.defaults) {
+      references.lastIndex = end + 1;
+      continue;
+    }
+    if (match.index > copiedUntil) parts.push(value.slice(copiedUntil, match.index));
+    parts.push({
+      variable,
+      ...(hasDefault ? { defaultValue: value.slice(references.lastIndex, end) } : {}),
+    });
+    copiedUntil = end + 1;
+    references.lastIndex = copiedUntil;
+  }
+  if (parts.length === 0) return value;
+  if (copiedUntil < value.length) parts.push(value.slice(copiedUntil));
+  return { environmentTemplate: parts };
+};
+
 export const interpretNativeMcpEntry = (args: {
   readonly entry: unknown;
   readonly config: McpEntryDialect;
   readonly transports: ReadonlyArray<McpTransport>;
+  readonly envExpansion?: McpEnvExpansion;
 }): Option.Option<Readonly<Record<string, unknown>>> => {
   const { entry, config } = args;
   if (!record(entry)) return Option.none();
@@ -55,6 +90,9 @@ export const interpretNativeMcpEntry = (args: {
   });
   const enabled = activations[0];
   if (enabled === undefined || activations.some((value) => value !== enabled)) return Option.none();
+  const normalize = (value: string) => environmentMeaning(value, args.envExpansion);
+  const normalizeMap = (value: Readonly<Record<string, string>>) =>
+    Object.fromEntries(Object.entries(value).map(([key, item]) => [key, normalize(item)]));
   const candidates: Array<Readonly<Record<string, unknown>>> = [];
   if (
     config.stdio !== null &&
@@ -83,8 +121,8 @@ export const interpretNativeMcpEntry = (args: {
     ) {
       candidates.push({
         transport: "stdio",
-        invocation,
-        env: env ?? {},
+        invocation: invocation.map(normalize),
+        env: normalizeMap(env ?? {}),
         forwarded: forwarded ?? [],
         enabled,
       });
@@ -116,8 +154,8 @@ export const interpretNativeMcpEntry = (args: {
       ) {
         candidates.push({
           transport,
-          url,
-          headers: headers ?? {},
+          url: normalize(url),
+          headers: normalizeMap(headers ?? {}),
           bearer: bearer ?? null,
           envHeaders: envHeaders ?? {},
           enabled,

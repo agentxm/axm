@@ -15,7 +15,7 @@ const managedInline = {
 
 describe("yaml utilities", () => {
   it("creates a config document from an empty file", () => {
-    const raw = setYamlEntry("", "mcp_servers", "context", {
+    const raw = setYamlEntry("", ["mcp_servers"], "context", {
       "x-axm": managedInline,
       command: "npx",
       args: ["-y", "@acme/context-mcp"],
@@ -47,7 +47,7 @@ describe("yaml utilities", () => {
       "",
     ].join("\n");
 
-    const raw = setYamlEntry(existing, "mcp_servers", "context", {
+    const raw = setYamlEntry(existing, ["mcp_servers"], "context", {
       "x-axm": managedInline,
       command: "npx",
     });
@@ -56,11 +56,11 @@ describe("yaml utilities", () => {
     expect(raw).toContain("# keep servers");
     expect(raw).toContain("# user-owned");
     expect(raw).toContain("timeout: 30");
-    expect(readYamlEntry(raw, "mcp_servers", "filesystem")).toMatchObject({
+    expect(readYamlEntry(raw, ["mcp_servers"], "filesystem")).toMatchObject({
       command: "npx",
       timeout: 30,
     });
-    expect(readYamlEntry(raw, "mcp_servers", "context")).toMatchObject({
+    expect(readYamlEntry(raw, ["mcp_servers"], "context")).toMatchObject({
       command: "npx",
       "x-axm": managedInline,
     });
@@ -79,10 +79,10 @@ describe("yaml utilities", () => {
       "",
     ].join("\n");
 
-    const next = deleteYamlEntry(raw, "mcp_servers", "context");
+    const next = deleteYamlEntry(raw, ["mcp_servers"], "context");
 
-    expect(readYamlEntry(next, "mcp_servers", "context")).toBeUndefined();
-    expect(readYamlEntry(next, "mcp_servers", "filesystem")).toMatchObject({
+    expect(readYamlEntry(next, ["mcp_servers"], "context")).toBeUndefined();
+    expect(readYamlEntry(next, ["mcp_servers"], "filesystem")).toMatchObject({
       command: "npx",
     });
   });
@@ -101,7 +101,7 @@ describe("yaml utilities", () => {
 
     const next = setYamlScalar(raw, ["mcp_servers", "context", "enabled"], false);
 
-    expect(readYamlEntry(next, "mcp_servers", "context")).toMatchObject({
+    expect(readYamlEntry(next, ["mcp_servers"], "context")).toMatchObject({
       enabled: false,
     });
   });
@@ -119,13 +119,13 @@ describe("yaml utilities", () => {
       "",
     ].join("\n");
 
-    expect(managedYamlNames(raw, "mcp_servers", (entry) => entry["x-axm"] !== undefined)).toEqual([
-      "context",
-    ]);
+    expect(managedYamlNames(raw, ["mcp_servers"], (entry) => entry["x-axm"] !== undefined)).toEqual(
+      ["context"],
+    );
   });
 
   it("rejects configs whose servers key is not a mapping", () => {
-    expect(() => setYamlEntry("mcp_servers: []\n", "mcp_servers", "context", {})).toThrow(
+    expect(() => setYamlEntry("mcp_servers: []\n", ["mcp_servers"], "context", {})).toThrow(
       "mcp_servers must be a mapping",
     );
   });

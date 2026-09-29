@@ -103,12 +103,12 @@ const describePhysicalConsumers = (args: {
           potentialReaders.push(agentId);
           break;
         }
-        if (location.keyPath?.length === 1)
+        if (location.keyPath !== undefined)
           yield* readNativeMcpValues({
             configPath: args.physicalPath,
             raw,
             format: location.format,
-            serversKey: location.keyPath[0],
+            serversPath: location.keyPath,
           });
       }
     }
@@ -236,7 +236,7 @@ const validatePlannedWrites = (
       const proposedRaw = yield* validateAgentMcpConfigWrite({
         workspaceRoot,
         serverName,
-        serversKey: write.config.serversKey,
+        serversPath: write.config.serversPath,
         target: write.target,
         entry: write.entry,
         nativeInsertionEligible:
@@ -324,7 +324,7 @@ const applyPlannedWrites = (
       const result = yield* writeAgentMcpConfig({
         workspaceRoot,
         serverName,
-        serversKey: write.config.serversKey,
+        serversPath: write.config.serversPath,
         target: write.target,
         entry: write.entry,
         nativeInsertionEligible:
@@ -520,7 +520,7 @@ const planMcpRemovals = (
                 configPath: group.path,
                 raw: raw.value,
                 format: shared.target.format,
-                serversKey: shared.config.serversKey,
+                serversPath: shared.config.serversPath,
               })).filter(
                 (name) =>
                   !(
@@ -537,7 +537,7 @@ const planMcpRemovals = (
             configPath: group.path,
             raw: raw.value,
             format: shared.target.format,
-            serversKey: shared.config.serversKey,
+            serversPath: shared.config.serversPath,
           });
       const names = candidates.filter(
         (name) =>
@@ -556,7 +556,11 @@ const planMcpRemovals = (
           change: "unchanged",
           nativeLocation: {
             scope: args.scope,
-            address: { kind: "key-path", path: group.path, keys: [shared.config.serversKey, name] },
+            address: {
+              kind: "key-path",
+              path: group.path,
+              keys: [...shared.config.serversPath, name],
+            },
             aliases,
             configuredConsumers,
             potentialReaders: [],
@@ -575,7 +579,7 @@ const planMcpRemovals = (
       const removal: RemoveAgentMcpConfigsArgs = {
         workspaceRoot: args.workspaceRoot,
         serverNames: names,
-        serversKey: shared.config.serversKey,
+        serversPath: shared.config.serversPath,
         expectedManagedEntries: args.expectedManagedEntries,
         target: shared.target,
         activationField: shared.config.activationField,

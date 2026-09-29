@@ -74,7 +74,7 @@ export const ampAgent = {
         lastVerified: null,
         writer: null,
         reason:
-          "Amp nests its servers under the flat amp.mcpServers settings key, which McpServersKey cannot express; a writer needs a schema change rather than catalog data.",
+          "Amp's native configuration locations and server entry dialect have not been verified in the catalog; an AXM writer requires those declarations.",
       },
     },
     subagent: {

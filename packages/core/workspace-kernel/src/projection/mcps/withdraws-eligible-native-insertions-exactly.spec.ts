@@ -78,7 +78,7 @@ describe("eligible MCP native round trips", () => {
           nativeInsertionEligible: true,
           workspaceRoot: home,
           serverName: "context",
-          serversKey: "mcpServers",
+          serversPath: ["mcpServers"] as const,
           target,
           entry,
         });
@@ -87,7 +87,7 @@ describe("eligible MCP native round trips", () => {
           expectedManagedEntries: { context: [entry["x-axm"]] },
           workspaceRoot: home,
           serverName: "context",
-          serversKey: "mcpServers",
+          serversPath: ["mcpServers"] as const,
           target,
           disableOnly: false,
           activationField: { required: null, accepted: [null] },
@@ -100,7 +100,7 @@ describe("eligible MCP native round trips", () => {
           nativeInsertionEligible: true,
           workspaceRoot: home,
           serverName: "context",
-          serversKey: "mcpServers",
+          serversPath: ["mcpServers"] as const,
           target: { ...target, path: path.join(foreign, "config.json") },
           entry,
         }).pipe(Effect.result);
@@ -110,61 +110,65 @@ describe("eligible MCP native round trips", () => {
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
-  for (const row of [
-    { label: "absent", format: "json", before: undefined },
-    { label: "empty", format: "json", before: "" },
-    { label: "compact", format: "json", before: '{"foreign":true}' },
-    {
-      label: "comments and CRLF",
-      format: "jsonc",
-      before: '{\r\n  // retain me\r\n  "foreign": true,\r\n  "mcpServers": {}\r\n}',
-    },
-    { label: "TOML no newline", format: "toml", before: 'foreign = "keep"' },
-    { label: "YAML", format: "yaml", before: "# keep\nforeign: true\n" },
-  ] as const) {
-    it.effect(`restores ${row.label} exactly`, () =>
-      Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
-        const path = yield* Path.Path;
-        const root = yield* fs.makeTempDirectoryScoped();
-        yield* fs.makeDirectory(path.join(root, ".axm"));
-        const target = {
-          scope: "project",
-          path: "native/nested/config",
-          format: row.format,
-          attribution: "agent",
-        } as const;
-        const file = path.join(root, target.path);
-        if (row.before !== undefined) {
-          yield* fs.makeDirectory(path.dirname(file), { recursive: true });
-          yield* fs.writeFileString(file, row.before);
-        }
-        yield* Effect.gen(function* () {
-          yield* writeAgentMcpConfig({
-            nativeInsertionEligible: true,
-            workspaceRoot: root,
-            serverName: "context",
-            serversKey: "mcpServers",
-            target,
-            entry,
-          });
-          const result = yield* removeAgentMcpConfig({
-            expectedManagedEntries: { context: [entry["x-axm"]] },
-            workspaceRoot: root,
-            serverName: "context",
-            serversKey: "mcpServers",
-            target,
-            disableOnly: false,
-            activationField: { required: null, accepted: [null] },
-          });
-          expect(result.targets).toHaveLength(1);
-          if (row.before === undefined) {
-            expect(yield* fs.exists(path.join(root, "native"))).toBe(false);
-            expect(result.targets[0]?.change).toBe("removed");
-          } else expect(yield* fs.readFileString(file)).toBe(row.before);
-          expect(yield* fs.exists(path.join(root, ".axm/projection-containers.json"))).toBe(false);
-        }).pipe(Effect.provide(authorityLayer(root)));
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
-    );
+  for (const serversPath of [["mcpServers"], ["mcp", "servers"]] as const) {
+    for (const row of [
+      { label: "absent", format: "json", before: undefined },
+      { label: "empty", format: "json", before: "" },
+      { label: "compact", format: "json", before: '{"foreign":true}' },
+      {
+        label: "comments and CRLF",
+        format: "jsonc",
+        before: '{\r\n  // retain me\r\n  "foreign": true,\r\n  "mcpServers": {}\r\n}',
+      },
+      { label: "TOML no newline", format: "toml", before: 'foreign = "keep"' },
+      { label: "YAML", format: "yaml", before: "# keep\nforeign: true\n" },
+    ] as const) {
+      it.effect(`restores ${row.label} exactly at ${serversPath.join(".")}`, () =>
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const path = yield* Path.Path;
+          const root = yield* fs.makeTempDirectoryScoped();
+          yield* fs.makeDirectory(path.join(root, ".axm"));
+          const target = {
+            scope: "project",
+            path: "native/nested/config",
+            format: row.format,
+            attribution: "agent",
+          } as const;
+          const file = path.join(root, target.path);
+          if (row.before !== undefined) {
+            yield* fs.makeDirectory(path.dirname(file), { recursive: true });
+            yield* fs.writeFileString(file, row.before);
+          }
+          yield* Effect.gen(function* () {
+            yield* writeAgentMcpConfig({
+              nativeInsertionEligible: true,
+              workspaceRoot: root,
+              serverName: "context",
+              serversPath,
+              target,
+              entry,
+            });
+            const result = yield* removeAgentMcpConfig({
+              expectedManagedEntries: { context: [entry["x-axm"]] },
+              workspaceRoot: root,
+              serverName: "context",
+              serversPath,
+              target,
+              disableOnly: false,
+              activationField: { required: null, accepted: [null] },
+            });
+            expect(result.targets).toHaveLength(1);
+            if (row.before === undefined) {
+              expect(yield* fs.exists(path.join(root, "native"))).toBe(false);
+              expect(result.targets[0]?.change).toBe("removed");
+            } else expect(yield* fs.readFileString(file)).toBe(row.before);
+            expect(yield* fs.exists(path.join(root, ".axm/projection-containers.json"))).toBe(
+              false,
+            );
+          }).pipe(Effect.provide(authorityLayer(root)));
+        }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+      );
+    }
   }
 });

@@ -155,7 +155,7 @@ describe("MCP capability schema", () => {
       }).native,
     ).toMatchObject({ locations: activeMcpCapability.native.locations });
   });
-  it("rejects contradictory writer references and ambiguous native container keys", () => {
+  it("rejects contradictory writer references and absent native container paths", () => {
     const writer = activeMcpCapability.axm.writer;
     expect(() =>
       decodeMcpCapability({
@@ -185,12 +185,37 @@ describe("MCP capability schema", () => {
           ...activeMcpCapability.native,
           locations: activeMcpCapability.native.locations.map((location) => ({
             ...location,
-            keyPath: ["nested", "mcpServers"],
+            keyPath: undefined,
           })),
         },
       }),
-    ).toThrow("recognized MCP servers key");
+    ).toThrow("keyPath");
   });
+  it("accepts full nested MCP paths and rejects empty containers", () => {
+    const nested = {
+      ...activeMcpCapability,
+      native: {
+        ...activeMcpCapability.native,
+        locations: activeMcpCapability.native.locations.map((location) => ({
+          ...location,
+          keyPath: ["mcp", "servers"],
+        })),
+      },
+    };
+    expect(decodeMcpCapability(nested).native).toMatchObject({
+      locations: [expect.objectContaining({ keyPath: ["mcp", "servers"] })],
+    });
+    expect(() =>
+      decodeMcpCapability({
+        ...nested,
+        native: {
+          ...nested.native,
+          locations: nested.native.locations.map((location) => ({ ...location, keyPath: [] })),
+        },
+      }),
+    ).toThrow();
+  });
+
   it("requires explicit attribution on every config target", () => {
     expect(() =>
       decodeMcpCapability({

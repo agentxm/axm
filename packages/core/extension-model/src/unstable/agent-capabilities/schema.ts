@@ -811,21 +811,15 @@ const nativeConfigReferenceIssues = (
 };
 
 /** @experimental This API is unstable and may change without notice. */
-export const McpServersKeySchema = Schema.Literals([
-  "mcpServers",
-  "servers",
-  "mcp",
-  "mcp_servers",
-  "context_servers",
-]).annotate({
-  identifier: "McpServersKey",
-  title: "MCP Servers Key",
-  description: "Top-level key containing MCP server entries in an agent config file.",
-  examples: ["mcpServers", "servers", "mcp"],
+export const McpServersPathSchema = Schema.NonEmptyArray(Schema.NonEmptyString).annotate({
+  identifier: "McpServersPath",
+  title: "MCP Servers Path",
+  description: "Object key path containing MCP server entries in a native config file.",
+  examples: [["mcpServers"], ["mcp", "servers"]],
 });
 
 /** @experimental This API is unstable and may change without notice. */
-export type McpServersKey = Schema.Schema.Type<typeof McpServersKeySchema>;
+export type McpServersPath = Schema.Schema.Type<typeof McpServersPathSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
 export const McpTargetAttributionSchema = Schema.Literals(["shared", "agent"]).annotate({
@@ -1005,7 +999,7 @@ export type McpConfig = Schema.Schema.Type<typeof McpConfigSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
 export const McpEnvExpansionSchema = Schema.Struct({
-  variables: Schema.Literals(["none", "braced"]),
+  variables: Schema.Literals(["none", "braced", "env-tag"]),
   defaults: Schema.Boolean,
 }).annotate({
   identifier: "McpEnvExpansion",
@@ -1068,14 +1062,12 @@ const McpExtensionCapabilitySchemaWithChecks = McpExtensionCapabilityStruct.pipe
         if (
           capability.native.locations.some(
             (location) =>
-              selected.has(location.id) &&
-              (location.keyPath?.length !== 1 ||
-                !Schema.is(McpServersKeySchema)(location.keyPath[0])),
+              selected.has(location.id) && !Schema.is(McpServersPathSchema)(location.keyPath),
           )
         ) {
           issues.push({
             path: ["native", "locations"],
-            issue: "Writable MCP locations require one recognized MCP servers key.",
+            issue: "Writable MCP locations require a nonempty servers-container key path.",
           });
         }
       }

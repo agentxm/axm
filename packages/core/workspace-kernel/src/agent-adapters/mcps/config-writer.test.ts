@@ -57,7 +57,7 @@ describe("agent MCP config writer", () => {
     retireAgentMcpConfig({
       workspaceRoot,
       serverName: "context",
-      serversKey: "mcpServers",
+      serversPath: ["mcpServers"] as const,
       target,
       adoption: {
         filePath: nodePath.resolve(workspaceRoot, target.path),
@@ -213,7 +213,7 @@ describe("agent MCP config writer", () => {
               nativeInsertionEligible: false,
               workspaceRoot,
               serverName: "context",
-              serversKey: "mcpServers",
+              serversPath: ["mcpServers"] as const,
               target: {
                 scope: "project",
                 path: "agent.jsonc",
@@ -261,7 +261,7 @@ describe("agent MCP config writer", () => {
                 nativeInsertionEligible: false,
                 workspaceRoot,
                 serverName,
-                serversKey: "mcpServers",
+                serversPath: ["mcpServers"] as const,
                 target: {
                   scope: "project",
                   path: "agent.json",
@@ -304,7 +304,7 @@ describe("agent MCP config writer", () => {
             expectedManagedEntries: { context: [ownedBy("context")["x-axm"]] },
             workspaceRoot,
             serverName: "context",
-            serversKey: "mcpServers",
+            serversPath: ["mcpServers"] as const,
             target: { scope: "project", path: "agent.json", format: "json", attribution: "agent" },
             activationField: {
               required: null,
@@ -337,7 +337,7 @@ describe("agent MCP config writer", () => {
             nativeInsertionEligible: false,
             workspaceRoot,
             serverName: "context",
-            serversKey: "mcp_servers",
+            serversPath: ["mcp_servers"] as const,
             target: { scope: "project", path: "agent.toml", format: "toml", attribution: "agent" },
             entry: {
               ...ownedBy("context"),
@@ -358,7 +358,7 @@ describe("agent MCP config writer", () => {
             expectedManagedEntries: { context: [ownedBy("context")["x-axm"]] },
             workspaceRoot,
             serverName: "context",
-            serversKey: "mcp_servers",
+            serversPath: ["mcp_servers"] as const,
             target: { scope: "project", path: "agent.toml", format: "toml", attribution: "agent" },
             activationField: {
               required: null,
@@ -399,7 +399,7 @@ describe("agent MCP config writer", () => {
             nativeInsertionEligible: false,
             workspaceRoot,
             serverName: "My_Server",
-            serversKey: "mcp_servers",
+            serversPath: ["mcp_servers"] as const,
             target,
             entry: { ...ownedBy("My_Server"), command: "npx" },
           });
@@ -407,7 +407,7 @@ describe("agent MCP config writer", () => {
             expectedManagedEntries: { My_Server: [ownedBy("My_Server")["x-axm"]] },
             workspaceRoot,
             serverName: "My_Server",
-            serversKey: "mcp_servers",
+            serversPath: ["mcp_servers"] as const,
             target,
             activationField: { required: null, accepted: [null] },
             disableOnly: false,
@@ -438,7 +438,7 @@ describe("agent MCP config writer", () => {
               nativeInsertionEligible: false,
               workspaceRoot,
               serverName,
-              serversKey: "mcp_servers",
+              serversPath: ["mcp_servers"] as const,
               target,
               entry: {
                 ...ownedBy(serverName),
@@ -481,7 +481,7 @@ describe("agent MCP config writer", () => {
               nativeInsertionEligible: false,
               workspaceRoot,
               serverName,
-              serversKey: "mcp_servers",
+              serversPath: ["mcp_servers"] as const,
               target,
               entry: { ...ownedBy(serverName), enabled: true, command: "npx" },
             });
@@ -491,7 +491,7 @@ describe("agent MCP config writer", () => {
             expectedManagedEntries: { beta: [ownedBy("beta")["x-axm"]] },
             workspaceRoot,
             serverName: "beta",
-            serversKey: "mcp_servers",
+            serversPath: ["mcp_servers"] as const,
             target,
             activationField: {
               required: { name: "enabled", enabled: true, disabled: false },
@@ -539,7 +539,7 @@ describe("agent MCP config writer", () => {
             nativeInsertionEligible: false,
             workspaceRoot,
             serverName: "context",
-            serversKey: "mcp_servers",
+            serversPath: ["mcp_servers"] as const,
             target: { scope: "project", path: "config.yaml", format: "yaml", attribution: "agent" },
             entry: {
               "x-axm": {
@@ -559,11 +559,11 @@ describe("agent MCP config writer", () => {
           expect(raw).toContain("# keep top");
           expect(raw).toContain("# user-owned");
           expect(raw).toContain("timeout: 30");
-          expect(readYamlEntry(raw, "mcp_servers", "filesystem")).toMatchObject({
+          expect(readYamlEntry(raw, ["mcp_servers"], "filesystem")).toMatchObject({
             command: "npx",
             timeout: 30,
           });
-          expect(readYamlEntry(raw, "mcp_servers", "context")).toMatchObject({
+          expect(readYamlEntry(raw, ["mcp_servers"], "context")).toMatchObject({
             "x-axm": {
               v: 1,
               managed: true,
@@ -596,7 +596,7 @@ describe("agent MCP config writer", () => {
             nativeInsertionEligible: false,
             workspaceRoot,
             serverName: "stripe",
-            serversKey: "mcp_servers",
+            serversPath: ["mcp_servers"] as const,
             target: { scope: "project", path: "config.yaml", format: "yaml", attribution: "agent" },
             entry: {
               "x-axm": {
@@ -661,7 +661,7 @@ describe("agent MCP config writer", () => {
             expectedManagedEntries: { context: [ownedBy("context")["x-axm"]] },
             workspaceRoot,
             serverName: "context",
-            serversKey: "mcp_servers",
+            serversPath: ["mcp_servers"] as const,
             target: { scope: "project", path: "config.yaml", format: "yaml", attribution: "agent" },
             activationField: {
               required: { name: "enabled", enabled: true, disabled: false },
@@ -671,7 +671,7 @@ describe("agent MCP config writer", () => {
           });
 
           expect(
-            readYamlEntry(readFileSync(configPath, "utf8"), "mcp_servers", "context"),
+            readYamlEntry(readFileSync(configPath, "utf8"), ["mcp_servers"], "context"),
           ).toMatchObject({
             enabled: false,
             command: "npx",
@@ -684,7 +684,7 @@ describe("agent MCP config writer", () => {
             expectedManagedEntries: { context: [ownedBy("context")["x-axm"]] },
             workspaceRoot,
             serverName: "context",
-            serversKey: "mcp_servers",
+            serversPath: ["mcp_servers"] as const,
             target: { scope: "project", path: "config.yaml", format: "yaml", attribution: "agent" },
             activationField: {
               required: { name: "enabled", enabled: true, disabled: false },
@@ -694,8 +694,8 @@ describe("agent MCP config writer", () => {
           });
 
           const raw = readFileSync(configPath, "utf8");
-          expect(readYamlEntry(raw, "mcp_servers", "context")).toBeUndefined();
-          expect(readYamlEntry(raw, "mcp_servers", "filesystem")).toMatchObject({
+          expect(readYamlEntry(raw, ["mcp_servers"], "context")).toBeUndefined();
+          expect(readYamlEntry(raw, ["mcp_servers"], "filesystem")).toMatchObject({
             command: "npx",
           });
           expect(removeResult.targets.map(({ path, change }) => ({ path, change }))).toEqual([
@@ -721,7 +721,7 @@ describe("agent MCP config writer", () => {
             nativeInsertionEligible: false,
             workspaceRoot,
             serverName: "context",
-            serversKey: "mcpServers",
+            serversPath: ["mcpServers"] as const,
             target: {
               scope: "project",
               path: "agent.jsonc",
@@ -751,7 +751,7 @@ describe("agent MCP config writer", () => {
             nativeInsertionEligible: false,
             workspaceRoot,
             serverName: "context",
-            serversKey: "mcpServers",
+            serversPath: ["mcpServers"] as const,
             target: { scope: "project", path: "agent.json", format: "json", attribution: "agent" },
             entry: { command: "npx" },
           });
@@ -781,7 +781,7 @@ describe("agent MCP config writer", () => {
             nativeInsertionEligible: false,
             workspaceRoot,
             serverName: "context",
-            serversKey: "mcpServers",
+            serversPath: ["mcpServers"] as const,
             target: { scope: "project", path: "agent.json", format: "json", attribution: "agent" },
             entry: { command: "npx" },
           }).pipe(Effect.result),

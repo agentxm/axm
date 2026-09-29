@@ -106,11 +106,13 @@ export const opencodeAgent = {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "OpenCode V2 stores server definitions beneath mcp.servers; the native configuration is valid but requires a nested-map writer.",
+          "OpenCode V2 stores server definitions beneath mcp.servers and expands {env:NAME} references without shell defaults.",
         docs: [],
         sources: [
           "https://opencode.ai/v2/docs/mcp-servers",
           "https://opencode.ai/v2/docs/config",
+          "https://github.com/anomalyco/opencode/blob/dev/packages/core/src/config.ts",
+          "https://github.com/anomalyco/opencode/blob/dev/packages/core/src/config/mcp.ts",
           "https://github.com/anomalyco/opencode/blob/dev/packages/core/src/global.ts",
         ],
         scopes: ["user", "project"],
@@ -118,7 +120,7 @@ export const opencodeAgent = {
         convention: "vendor",
         transports: ["stdio", "http"],
         mcpEnvExpansion: {
-          variables: "none",
+          variables: "env-tag",
           defaults: false,
         },
 
@@ -209,14 +211,33 @@ export const opencodeAgent = {
           },
         ],
 
-        entryDialect: null,
+        entryDialect: {
+          activationField: {
+            required: { name: "disabled", enabled: false, disabled: true },
+            accepted: [null, { name: "disabled", enabled: false, disabled: true }],
+          },
+          stdio: {
+            command: "array",
+            envKey: "environment",
+            typeField: {
+              required: { name: "type", value: "local" },
+              accepted: [{ name: "type", value: "local" }],
+            },
+          },
+          remote: {
+            urlKey: { "streamable-http": "url" },
+            headersKey: "headers",
+            typeField: {
+              required: { name: "type", value: "remote" },
+              accepted: [{ name: "type", value: "remote" }],
+            },
+          },
+        },
       },
       axm: {
-        status: "unsupported",
-        lastVerified: null,
-        writer: null,
-        reason:
-          "OpenCode V2 nests MCP server definitions under mcp.servers. AXM's generic MCP writer currently supports only a single keyed server-map level and would write the obsolete shape.",
+        status: "supported",
+        lastVerified: "2026-09-29",
+        writer: { config: { locationIds: ["project", "user"] } },
       },
     },
     subagent: {

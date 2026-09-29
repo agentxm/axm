@@ -13,6 +13,43 @@ const dialect = (id: string): McpEntryDialect => {
 describe("native MCP transport interpretation", () => {
   const remote = { url: "https://example.test/mcp", headers: { Authorization: "Bearer example" } };
 
+  it("normalizes OpenCode's native reference spelling without resolving its value", () => {
+    const interpreted = interpretNativeMcpEntry({
+      entry: {
+        type: "local",
+        command: ["node", "{env:SCRIPT}"],
+        environment: { TOKEN: "{env:OTHER}" },
+        disabled: true,
+      },
+      config: dialect("opencode"),
+      transports: ["stdio", "http"],
+      envExpansion: { variables: "env-tag", defaults: false },
+    });
+    expect(interpreted).toEqual(
+      Option.some({
+        transport: "stdio",
+        invocation: ["node", { environmentTemplate: [{ variable: "SCRIPT" }] }],
+        env: { TOKEN: { environmentTemplate: [{ variable: "OTHER" }] } },
+        forwarded: [],
+        enabled: false,
+      }),
+    );
+  });
+
+  it("distinguishes a literal braced placeholder from an expanded one", () => {
+    const entry = { type: "local", command: ["node"], environment: { TOKEN: "${TOKEN}" } };
+    const common = { entry, config: dialect("opencode"), transports: ["stdio"] as const };
+    const literal = interpretNativeMcpEntry({
+      ...common,
+      envExpansion: { variables: "env-tag", defaults: false },
+    });
+    const reference = interpretNativeMcpEntry({
+      ...common,
+      envExpansion: { variables: "braced", defaults: false },
+    });
+    expect(literal).not.toEqual(reference);
+  });
+
   it("represents documented remote autodetection without claiming one selected transport", () => {
     expect(
       interpretNativeMcpEntry({

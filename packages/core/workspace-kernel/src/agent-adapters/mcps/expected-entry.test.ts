@@ -62,6 +62,72 @@ describe("MCP projection", () => {
     });
   });
 
+  it("renders every environment tag and refuses a later unsupported default", () => {
+    const expansion = { variables: "env-tag", defaults: false } as const;
+    expect(renderEnvValue("Bearer ${TOKEN} / ${SECOND}", expansion)).toEqual({
+      value: "Bearer {env:TOKEN} / {env:SECOND}",
+    });
+    expect(renderEnvValue("${TOKEN} / ${SECOND:-fallback}", expansion)).toEqual({
+      value: "${TOKEN} / ${SECOND:-fallback}",
+      warning: "does not expand environment default ${SECOND:-fallback}",
+    });
+  });
+
+  it("refuses native tags that would change a workspace literal into a substitution", () => {
+    expect(
+      renderEnvValue("literal {env:TOKEN} / ${OTHER}", { variables: "env-tag", defaults: false }),
+    ).toEqual({
+      value: "literal {env:TOKEN} / ${OTHER}",
+      warning: "cannot preserve a literal native environment tag",
+    });
+  });
+
+  it("projects OpenCode's local and remote entries without evaluating secrets", () => {
+    const native = AGENTS_BY_ID.opencode.capabilities["mcp-server"].native;
+    const local = projectExpectedEntry({
+      serverName: "context",
+      entry: {
+        kind: "inline",
+        command: "node",
+        args: ["${SCRIPT}"],
+        env: { TOKEN: "${OTHER}" },
+        enabled: false,
+      },
+      ...native.entryDialect,
+      envExpansion: native.mcpEnvExpansion,
+    });
+    expect(local).toMatchObject({
+      _tag: "projected",
+      entry: {
+        type: "local",
+        command: ["node", "{env:SCRIPT}"],
+        environment: { TOKEN: "{env:OTHER}" },
+        disabled: true,
+      },
+    });
+    const remote = projectExpectedEntry({
+      serverName: "remote",
+      entry: {
+        kind: "inline",
+        url: "https://example.test/mcp",
+        headers: { Authorization: "Bearer ${TOKEN}" },
+        env: {},
+        enabled: true,
+      },
+      ...native.entryDialect,
+      envExpansion: native.mcpEnvExpansion,
+    });
+    expect(remote).toMatchObject({
+      _tag: "projected",
+      entry: {
+        type: "remote",
+        url: "https://example.test/mcp",
+        headers: { Authorization: "Bearer {env:TOKEN}" },
+        disabled: false,
+      },
+    });
+  });
+
   it("preserves long unterminated defaults as literal input", () => {
     const value = "${A:-|".repeat(20_000);
     expect(renderEnvValue(value, { variables: "none", defaults: false })).toEqual({ value });

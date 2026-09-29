@@ -715,7 +715,7 @@ describe("mcp-sync helpers", () => {
 
               const fs = yield* FileSystem.FileSystem;
               let raw = yield* fs.readFileString(configPath);
-              expect(readYamlEntry(raw, "mcp_servers", "context")).toMatchObject({
+              expect(readYamlEntry(raw, ["mcp_servers"], "context")).toMatchObject({
                 "x-axm": {
                   v: 1,
                   managed: true,
@@ -727,7 +727,7 @@ describe("mcp-sync helpers", () => {
                 args: ["-y", "@acme/context-mcp"],
                 env: { REGION: "us-east-1" },
               });
-              expect(readYamlEntry(raw, "mcp_servers", "stripe")).toMatchObject({
+              expect(readYamlEntry(raw, ["mcp_servers"], "stripe")).toMatchObject({
                 "x-axm": {
                   v: 1,
                   managed: true,
@@ -737,7 +737,7 @@ describe("mcp-sync helpers", () => {
                 enabled: true,
                 url: "https://mcp.stripe.com",
               });
-              expect(readYamlEntry(raw, "mcp_servers", "stripe")).toMatchObject({
+              expect(readYamlEntry(raw, ["mcp_servers"], "stripe")).toMatchObject({
                 headers: { Accept: "application/json" },
               });
 
@@ -754,7 +754,7 @@ describe("mcp-sync helpers", () => {
                 targets: [{ path: configPath, change: "updated" }],
               });
               raw = yield* fs.readFileString(configPath);
-              expect(readYamlEntry(raw, "mcp_servers", "context")).toMatchObject({
+              expect(readYamlEntry(raw, ["mcp_servers"], "context")).toMatchObject({
                 enabled: false,
               });
 
@@ -771,7 +771,7 @@ describe("mcp-sync helpers", () => {
                 targets: [{ path: configPath, change: "updated" }],
               });
               raw = yield* fs.readFileString(configPath);
-              expect(readYamlEntry(raw, "mcp_servers", "stripe")).toBeUndefined();
+              expect(readYamlEntry(raw, ["mcp_servers"], "stripe")).toBeUndefined();
 
               yield* syncInlineMcpServerToAgent("hermes", {
                 workspaceRoot,
@@ -796,10 +796,10 @@ describe("mcp-sync helpers", () => {
                 targets: [{ path: configPath, change: "updated" }],
               });
               raw = yield* fs.readFileString(configPath);
-              expect(readYamlEntry(raw, "mcp_servers", "context")).toMatchObject({
+              expect(readYamlEntry(raw, ["mcp_servers"], "context")).toMatchObject({
                 enabled: false,
               });
-              expect(readYamlEntry(raw, "mcp_servers", "stale")).toBeUndefined();
+              expect(readYamlEntry(raw, ["mcp_servers"], "stale")).toBeUndefined();
             }),
           );
         } finally {

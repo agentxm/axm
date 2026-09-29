@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import { afterEach } from "vitest";
 
@@ -31,6 +32,7 @@ export const specification = defineSpecification({
 
 const RULE_ID = "workspace/project-outputs-not-shadowed";
 const skill = (name: string) => `---\nname: ${name}\ndescription: Fixture\n---\n# Skill\n`;
+const isolatedEnvironment = ConfigProvider.layer(ConfigProvider.fromEnv({ env: {} }));
 
 describe("Project outputs shadowed by user scope", () => {
   const cleanups: Array<() => void> = [];
@@ -71,7 +73,7 @@ describe("Project outputs shadowed by user scope", () => {
         expect(finding.message).not.toMatch(/\baxm (?:setup|sync|install|uninstall|adopt)\b/);
       }
       expect([project.snapshot(), home.snapshot()]).toEqual(before);
-    }).pipe(Effect.provide(lintServices(project)));
+    }).pipe(Effect.provide(lintServices(project)), Effect.provide(isolatedEnvironment));
   });
 
   it.effect("reports nothing when the project folder is the user home, however it is named", () => {
@@ -87,6 +89,6 @@ describe("Project outputs shadowed by user scope", () => {
       expect(same.document.findings).toEqual([]);
       const linked = yield* lintProjectWithHome(project, `${alias.root}/home`, { strict: true });
       expect(linked.document.findings).toEqual([]);
-    }).pipe(Effect.provide(lintServices(project)));
+    }).pipe(Effect.provide(lintServices(project)), Effect.provide(isolatedEnvironment));
   });
 });

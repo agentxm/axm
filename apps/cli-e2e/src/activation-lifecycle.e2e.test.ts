@@ -476,17 +476,20 @@ describe("extension activation lifecycle", () => {
 
       writeSymbolicMcpPackage(shared.path);
       const symbolicBefore = snapshotTree(shared.path);
-      for (const flags of [["--preview"], []]) {
-        const refused = await runCli(
-          ["mcps", "enable", "mailer", ...flags, "--json", "--non-interactive"],
-          { cwd: shared.path },
-        );
-        expect(refused.exitCode, refused.stdout + refused.stderr).toBe(6);
-        expect(refused.stdout + refused.stderr).toContain(
-          "command-code cannot read shared MCP target",
-        );
-        expect(snapshotTree(shared.path)).toEqual(symbolicBefore);
-      }
+      const symbolicPreview = await runCli(
+        ["mcps", "enable", "mailer", "--preview", "--json", "--non-interactive"],
+        { cwd: shared.path },
+      );
+      expect(symbolicPreview.exitCode, symbolicPreview.stdout + symbolicPreview.stderr).toBe(0);
+      expect(snapshotTree(shared.path)).toEqual(symbolicBefore);
+      const symbolicApplied = await runCli(
+        ["mcps", "enable", "mailer", "--json", "--non-interactive"],
+        { cwd: shared.path },
+      );
+      expect(symbolicApplied.exitCode, symbolicApplied.stdout + symbolicApplied.stderr).toBe(0);
+      expect(readJson(path.join(shared.path, ".mcp.json"))).toMatchObject({
+        mcpServers: { mailer: { env: { MAILER_TOKEN: "${MAILER_TOKEN}" } } },
+      });
 
       writeJson(path.join(independent.path, "axm.json"), {
         owner: "@test",

@@ -1,9 +1,17 @@
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
+import * as Ref from "effect/Ref";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
+import {
+  deriveOperationOutcome,
+  operationNativeLocations,
+} from "@agentxm/workspace-kernel/operations";
+import { SkillManager } from "@agentxm/workspace-kernel/materialization";
+import { SkillMaterializationFailed } from "@agentxm/extension-kinds/skills";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { DesiredStateReader, SettingsWriter } from "@agentxm/workspace-kernel/workspace-state";
 import { applyActivation } from "../activation/test-helpers.js";
@@ -16,7 +24,7 @@ import {
   type InstallWorld,
 } from "../../testing/install-world.js";
 import { writeLocalSkillPackage } from "../../testing/local-packages.js";
-import { applyUninstall, uninstallRequest } from "./test-helpers.js";
+import { applyUninstall, previewUninstall, uninstallRequest } from "./test-helpers.js";
 
 export const specification = defineSpecification({
   requirement: "cli/uninstall/removes-direct-route-and-recomputes-reachability",
@@ -89,6 +97,175 @@ describe("Uninstall a directly desired extension", () => {
         },
       }),
     );
+
+  const nativeLayouts = [
+    "claude-to-shared",
+    "shared-to-claude",
+    "deep-parent-aliases",
+    "independent",
+  ] as const;
+  const prepareNativeSkill = (created: InstallWorld, layout: (typeof nativeLayouts)[number]) =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = created.workspace.root;
+      const claude = path.join(root, ".claude", "skills");
+      const shared = path.join(root, ".agents", "skills");
+      const links: Array<{ readonly path: string; readonly text: string }> = [];
+      yield* fs.makeDirectory(path.dirname(claude), { recursive: true });
+      yield* fs.makeDirectory(path.dirname(shared), { recursive: true });
+      if (layout === "independent") {
+        yield* fs.makeDirectory(claude);
+        yield* fs.makeDirectory(shared);
+      } else if (layout === "deep-parent-aliases") {
+        const target = path.join(root, "native", "nested", "skills");
+        yield* fs.makeDirectory(target, { recursive: true });
+        for (const alias of [claude, shared]) {
+          const text = path.relative(path.dirname(alias), target);
+          yield* fs.symlink(text, alias);
+          links.push({ path: alias, text });
+        }
+      } else {
+        const target = layout === "claude-to-shared" ? shared : claude;
+        const alias = layout === "claude-to-shared" ? claude : shared;
+        yield* fs.makeDirectory(target);
+        const text = path.relative(path.dirname(alias), target);
+        yield* fs.symlink(text, alias);
+        links.push({ path: alias, text });
+      }
+      yield* fs.writeFileString(
+        path.join(claude, "foreign.txt"),
+        "Preserve unrelated native bytes\n",
+      );
+      yield* installLocalSkill(created, "alias-review");
+      const authored = path.join(root, "vendor", "alias-review", "src", "SKILL.md");
+      const body = yield* fs.readFileString(authored);
+      const entries = [path.join(claude, "alias-review"), path.join(shared, "alias-review")];
+      for (const entry of entries)
+        expect(yield* fs.readFileString(path.join(entry, "SKILL.md"))).toBe(body);
+      return {
+        fs,
+        path,
+        links,
+        authored,
+        body,
+        entries,
+        expectedUnits: layout === "independent" ? 2 : 1,
+      };
+    });
+
+  it.effect.each(nativeLayouts)(
+    "previews and removes native Skill entries once with %s",
+    (layout) => {
+      const created = world();
+      const { workspace } = created;
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            const fixture = yield* prepareNativeSkill(created, layout);
+            const request = uninstallRequest({ selector: "@acme/skills/alias-review" });
+            const before = workspace.snapshot();
+            const preview = yield* previewUninstall(request);
+            expect(deriveOperationOutcome(preview)).toBe("previewed");
+            expect(workspace.snapshot()).toEqual(before);
+            const proposed = operationNativeLocations(preview).filter(
+              (unit) => fixture.path.basename(unit.address.path) === "alias-review",
+            );
+            expect(proposed).toHaveLength(fixture.expectedUnits);
+            const result = yield* applyUninstall(request);
+            expect(deriveOperationOutcome(result)).toBe("applied");
+            const removed = operationNativeLocations(result).filter(
+              (unit) => fixture.path.basename(unit.address.path) === "alias-review",
+            );
+            expect(removed).toHaveLength(fixture.expectedUnits);
+            expect(removed.every((unit) => unit.state === "removed")).toBe(true);
+            for (const entry of fixture.entries)
+              expect(yield* fixture.fs.exists(entry)).toBe(false);
+            for (const link of fixture.links)
+              expect(yield* fixture.fs.readLink(link.path)).toBe(link.text);
+            expect(yield* fixture.fs.readFileString(fixture.authored)).toBe(fixture.body);
+            expect(workspace.readFile(".claude/skills/foreign.txt")).toBe(
+              "Preserve unrelated native bytes\n",
+            );
+            expect(workspace.exists("agent_extensions/path/@acme/skills/alias-review")).toBe(false);
+            expect(JSON.stringify(readSettings(workspace))).not.toContain("alias-review");
+            expect(workspace.readFile("axm-lock.yaml")).not.toContain("alias-review");
+            const after = workspace.snapshot();
+            expect(deriveOperationOutcome(yield* applyUninstall(request))).toBe("no-op");
+            expect(workspace.snapshot()).toEqual(after);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
+
+  it.effect.each(nativeLayouts)(
+    "restores a failed Skill uninstall after native retirement with %s",
+    (layout) => {
+      const created = world();
+      const { workspace } = created;
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            const fixture = yield* prepareNativeSkill(created, layout);
+            const before = workspace.snapshot();
+            const manager = yield* SkillManager;
+            const retired = yield* Ref.make(0);
+            const result = yield* applyUninstall(
+              uninstallRequest({ selector: "@acme/skills/alias-review" }),
+            ).pipe(
+              Effect.provideService(SkillManager, {
+                ...manager,
+                materializeUninstall: (request) =>
+                  manager.materializeUninstall(request).pipe(
+                    Effect.andThen(
+                      Effect.gen(function* () {
+                        for (const entry of fixture.entries) {
+                          const exists = yield* fixture.fs.exists(entry).pipe(
+                            Effect.mapError(
+                              (cause) =>
+                                new SkillMaterializationFailed({
+                                  detail: "Cannot inspect the injected retirement boundary",
+                                  cause,
+                                }),
+                            ),
+                          );
+                          expect(exists).toBe(false);
+                        }
+                        expect(
+                          workspace.exists("agent_extensions/path/@acme/skills/alias-review"),
+                        ).toBe(false);
+                        yield* Ref.update(retired, (count) => count + 1);
+                        return yield* new SkillMaterializationFailed({
+                          detail: "Injected failure after native retirement",
+                          cause: "uninstall restoration control",
+                        });
+                      }),
+                    ),
+                  ),
+              }),
+            );
+            expect(yield* Ref.get(retired)).toBe(1);
+            expect(deriveOperationOutcome(result)).toBe("failed");
+            expect(result.units.some((unit) => unit.disposition === "restored")).toBe(true);
+            expect(
+              result.units.some(
+                (unit) => unit.disposition === "retained" || unit.disposition === "unknown",
+              ),
+            ).toBe(false);
+            expect(workspace.snapshot()).toEqual(before);
+            for (const entry of fixture.entries)
+              expect(yield* fixture.fs.readFileString(fixture.path.join(entry, "SKILL.md"))).toBe(
+                fixture.body,
+              );
+            for (const link of fixture.links)
+              expect(yield* fixture.fs.readLink(link.path)).toBe(link.text);
+            expect(yield* fixture.fs.readFileString(fixture.authored)).toBe(fixture.body);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
 
   it.effect("removes the direct workspace configuration route and its resolution", () => {
     const created = world();

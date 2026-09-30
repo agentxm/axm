@@ -28,6 +28,9 @@ interface ListTableRow {
   readonly source: string;
   readonly state: ExtensionListItem["assessment"]["state"];
   readonly guidance: string;
+  readonly nativeLocations: string;
+  readonly configuredConsumers: string;
+  readonly discovery: string;
 }
 
 /** What `axm lint` reports on: an installation desired state no longer reaches, or one that is missing. */
@@ -55,6 +58,9 @@ const ExtensionListColumns = [
     header: "Installed",
     value: (row: ListTableRow) => attention(row.installed ? "yes" : "missing", !row.installed),
   },
+  { header: "Native locations", value: (row: ListTableRow) => row.nativeLocations },
+  { header: "Configured consumers", value: (row: ListTableRow) => row.configuredConsumers },
+  { header: "Discovery", value: (row: ListTableRow) => row.discovery },
   { header: "Version", value: (row: ListTableRow) => row.version },
   { header: "Source", priority: "optional", value: (row: ListTableRow) => row.source },
   {
@@ -95,6 +101,24 @@ const toRow = (item: ExtensionListItem, filter: ExtensionListFilter): ListTableR
   source: item.source ?? ABSENT,
   state: item.assessment.state,
   guidance: guidanceFor(item, filter),
+  nativeLocations:
+    item.nativeLocations
+      ?.map(
+        (unit) =>
+          `${unit.address.path}: ${unit.state}${unit.policyReasons.length === 0 ? "" : ` (${unit.policyReasons.join(", ")})`}`,
+      )
+      .join("; ") || ABSENT,
+  configuredConsumers:
+    [...new Set(item.nativeLocations?.flatMap((unit) => unit.configuredConsumers) ?? [])].join(
+      ", ",
+    ) || ABSENT,
+  discovery:
+    item.duplicateDiscoveries
+      ?.map(
+        (duplicate) =>
+          `${duplicate.agentId}: ${String(duplicate.nativeUnitKeys.length)} locations; runtime selection unverified`,
+      )
+      .join("; ") || ABSENT,
 });
 
 /**

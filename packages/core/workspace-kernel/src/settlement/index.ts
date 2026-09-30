@@ -26,6 +26,7 @@ export {
   WorkspaceRestorationError,
   WorkspaceRestorationIncomplete,
   WorkspaceSnapshotError,
+  WorkspaceBoundaryConflict,
   WorkspaceTransitionCompromised,
   type TransitionContention,
   type TransitionLockHolder,

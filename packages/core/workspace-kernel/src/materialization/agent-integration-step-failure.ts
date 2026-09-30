@@ -26,6 +26,8 @@ import type {
   TransientBackupFailed,
 } from "../agent-adapters/index.js";
 import { makeStepFailure, type StepFailure } from "../operations/index.js";
+import { WorkspaceBoundaryConflict, WorkspaceSnapshotError } from "../settlement/index.js";
+import { workspaceTransactionFailureToStepFailure } from "../workspace-state/index.js";
 
 /** Every agent-integration failure, beside a retained write backup that wraps one. */
 export type AgentIntegrationFailure =
@@ -101,6 +103,12 @@ export const agentIntegrationFailureToStepFailure = (
         cause: error,
       });
     case "NativeWriteRefused":
+      if (
+        error.cause instanceof WorkspaceSnapshotError &&
+        error.cause.cause instanceof WorkspaceBoundaryConflict
+      ) {
+        return workspaceTransactionFailureToStepFailure(error.cause);
+      }
       return makeStepFailure({
         category: "internal",
         detail: `Failed to snapshot native write target ${error.path}`,

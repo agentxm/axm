@@ -64,6 +64,14 @@ export class WorkspaceSnapshotError extends Data.TaggedError("WorkspaceSnapshotE
   readonly cause: unknown;
 }> {}
 
+/** A live independent authority already claims this physical mutation boundary. */
+export class WorkspaceBoundaryConflict extends Data.TaggedError("WorkspaceBoundaryConflict")<{
+  readonly reason: "overlap" | "ambiguous-case";
+  readonly owner: string;
+  readonly target: string;
+  readonly conflictingTarget: string;
+}> {}
+
 /** Preparing the workspace state directory for a transition failed. */
 export class WorkspaceDirectoryError extends Data.TaggedError("WorkspaceDirectoryError")<{
   readonly path: string;

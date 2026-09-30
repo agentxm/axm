@@ -314,6 +314,58 @@ describe("physical restoration boundaries", () => {
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
+  it.effect(
+    "restores an independent boundary while preserving foreign divergence in the same failed closure",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* fs.makeTempDirectoryScoped();
+        const foreign = path.join(root, "foreign.json");
+        const independent = path.join(root, "independent.json");
+        yield* fs.writeFileString(foreign, "foreign before");
+        yield* fs.writeFileString(independent, "independent before");
+        const result = yield* runWorkspaceTransaction({
+          claimDefaultTargets: false,
+          targets: [foreign, independent],
+          transition: Effect.gen(function* () {
+            for (const file of [foreign, independent]) {
+              yield* fs.writeFileString(file, "AXM postimage");
+              yield* recordFootprint({ path: file, change: "modified" });
+            }
+            yield* fs.writeFileString(foreign, "foreign edit after AXM");
+            return yield* Effect.fail("later-step");
+          }),
+          validate: () => Effect.void,
+        }).pipe(
+          Effect.provide(
+            WorkspaceTransactionScopeTest({
+              workspaceDir: path.join(root, ".axm"),
+              settingsPath: path.join(root, "axm.json"),
+              lockPath: path.join(root, "axm-lock.yaml"),
+            }),
+          ),
+          Effect.result,
+        );
+        expect(yield* fs.readFileString(foreign)).toBe("foreign edit after AXM");
+        expect(yield* fs.readFileString(independent)).toBe("independent before");
+        if (
+          result._tag !== "Failure" ||
+          typeof result.failure === "string" ||
+          result.failure._tag !== "WorkspaceRestorationIncomplete"
+        )
+          return expect.fail("Expected selective incomplete restoration");
+        expect(result.failure.retained).toEqual(["foreign.json"]);
+        const recovery = result.failure.recovery.find((entry) => entry.originalPath === foreign);
+        expect(recovery?.kind).toBe("snapshot");
+        if (recovery === undefined)
+          return expect.fail("Expected original foreign boundary recovery");
+        expect(yield* fs.readFileString(recovery.recoveryPath)).toBe("foreign before");
+        if (result.failure.snapshotDir !== undefined)
+          yield* fs.remove(result.failure.snapshotDir, { recursive: true });
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("does not absorb a foreign sibling into a later AXM child write", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;

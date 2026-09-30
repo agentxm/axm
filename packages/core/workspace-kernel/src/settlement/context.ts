@@ -24,6 +24,7 @@ import {
   resolveNativeReferent,
   type NativeAuthorityRootWitness,
 } from "../locations/index.js";
+import type { BoundaryClaims } from "./boundary-claims.js";
 import { WorkspaceSnapshotError } from "./errors.js";
 import { isProtected, withSnapshot, type Snapshot, type TransactionLedger } from "./ledger.js";
 import {
@@ -34,6 +35,7 @@ import {
 } from "./path-state.js";
 
 export interface WorkspaceTransactionContext {
+  readonly claims: BoundaryClaims;
   readonly isTransitionCompromised: () => boolean;
   readonly fs: FileSystem.FileSystem;
   readonly path: Path.Path;
@@ -64,6 +66,41 @@ export const CurrentWorkspaceClosure = ServiceMap.Reference<string | undefined>(
   { defaultValue: () => undefined },
 );
 
+/** Claim the content referent before any shared-file decision read. */
+export const claimWorkspaceContent = (
+  target: string,
+): Effect.Effect<void, WorkspaceSnapshotError> =>
+  Effect.gen(function* () {
+    const current = yield* CurrentWorkspaceTransaction;
+    if (Option.isNone(current)) return;
+    const context = current.value;
+    const resolve = assertNativeMutationWithinRoots(
+      context.nativeRoots,
+      target,
+      "content",
+      context.path.dirname(context.workspaceDir),
+      context.nativeRootWitnesses,
+    ).pipe(
+      Effect.provideService(FileSystem.FileSystem, context.fs),
+      Effect.provideService(Path.Path, context.path),
+      Effect.mapError(
+        (cause) => new WorkspaceSnapshotError({ target, step: "inspect-target", cause }),
+      ),
+    );
+    const before = yield* resolve;
+    yield* context.claims.claim([before.address.referentPath ?? before.address.entryPath]);
+    const after = yield* resolve;
+    if (
+      (before.address.referentPath ?? before.address.entryPath) !==
+      (after.address.referentPath ?? after.address.entryPath)
+    )
+      return yield* new WorkspaceSnapshotError({
+        target,
+        step: "inspect-target",
+        cause: "native-alias-changed",
+      });
+  });
+
 /**
  * Take one target's preimage into the ledger, deduplicating on first touch
  * per closure. One serialized ledger transition: the snapshot store is
@@ -80,7 +117,7 @@ export const protectInContext = (
     Effect.gen(function* () {
       const { fs, path } = context;
       const workspaceRoot = path.dirname(context.workspaceDir);
-      const { address, nativeRoot } = yield* assertNativeMutationWithinRoots(
+      const { address: beforeAddress, nativeRoot } = yield* assertNativeMutationWithinRoots(
         context.nativeRoots,
         target,
         "entry",
@@ -93,7 +130,28 @@ export const protectInContext = (
           (cause) => new WorkspaceSnapshotError({ target, step: "inspect-target", cause }),
         ),
       );
-      const normalized = address.entryPath;
+      const normalized = beforeAddress.entryPath;
+      yield* context.claims.claim([normalized]);
+      const afterAdmission = yield* assertNativeMutationWithinRoots(
+        context.nativeRoots,
+        target,
+        "entry",
+        workspaceRoot,
+        context.nativeRootWitnesses,
+      ).pipe(
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+        Effect.mapError(
+          (cause) => new WorkspaceSnapshotError({ target, step: "inspect-target", cause }),
+        ),
+      );
+      if (afterAdmission.address.entryPath !== normalized)
+        return yield* new WorkspaceSnapshotError({
+          target,
+          step: "inspect-target",
+          cause: "native-alias-changed",
+        });
+      const address = afterAdmission.address;
       const captured = ledger.resolvedEntries.get(address.lexicalPath);
       if (captured !== undefined && captured !== normalized) {
         return yield* new WorkspaceSnapshotError({

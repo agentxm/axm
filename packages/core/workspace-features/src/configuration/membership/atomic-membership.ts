@@ -24,12 +24,18 @@ import {
 } from "@agentxm/workspace-kernel/operations";
 import {
   SettingsReader,
+  ConfiguredAgentOutcomesProvider,
+  DesiredStateReader,
+  WorkspaceLocation,
+  WorkspaceRecords,
   type SettingsReaderService,
 } from "@agentxm/workspace-kernel/workspace-state";
 import {
   WorkspaceTransactionScope,
   runWorkspaceTransaction,
 } from "@agentxm/workspace-kernel/settlement";
+
+import { validateNativeOutputPostconditions } from "@agentxm/workspace-kernel/reconciliation";
 
 import {
   WorkspaceConfigurationFailed,
@@ -50,7 +56,15 @@ interface AtomicMembershipStepsArgs<Requirements, Output> {
 
 /** The transaction scope and platform every atomic membership step joins. */
 export type AtomicMembershipRequirements<Requirements> =
-  Requirements | FileSystem.FileSystem | Path.Path | WorkspaceTransactionScope;
+  | Requirements
+  | FileSystem.FileSystem
+  | Path.Path
+  | WorkspaceTransactionScope
+  | ConfiguredAgentOutcomesProvider
+  | DesiredStateReader
+  | WorkspaceLocation
+  | WorkspaceRecords
+  | SettingsReader;
 
 interface AtomicAttempt<Output> {
   readonly results: ReadonlyArray<JobStepResult<Output>>;
@@ -155,7 +169,11 @@ export const makeAtomicMembershipSteps = <Requirements, Output>(
         step.readiness !== "error",
     );
     const attemptRef = yield* Ref.make<AtomicAttempt<Output>>({ results: [] });
-    const transition = runWorkspaceTransaction({
+    const transition = runWorkspaceTransaction<
+      ReadonlyArray<JobStepResult<Output>>,
+      StepFailure,
+      AtomicMembershipRequirements<Requirements>
+    >({
       transition: Effect.gen(function* () {
         const results: Array<JobStepResult<Output>> = [];
         for (const [index, step] of executable.entries()) {
@@ -173,7 +191,22 @@ export const makeAtomicMembershipSteps = <Requirements, Output>(
         }
         return results;
       }),
-      validate: () => verifyTransition(settings, args.transition),
+      validate: (results) =>
+        verifyTransition(settings, args.transition).pipe(
+          Effect.andThen(
+            validateNativeOutputPostconditions(
+              results.flatMap((result) =>
+                result.result === "success" ? (result.artifact?.nativeLocations ?? []) : [],
+              ),
+              executable.flatMap((step) => step.artifact?.nativeLocations ?? []),
+            ).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new StepFailure({ category: cause.category, detail: cause.detail, cause }),
+              ),
+            ),
+          ),
+        ),
     }).pipe(
       Effect.catch((transactionError) =>
         Ref.get(attemptRef).pipe(

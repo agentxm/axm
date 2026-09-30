@@ -29,7 +29,10 @@ import {
   SkillManagerLive,
   SubagentManagerLive,
 } from "@agentxm/extension-kinds/live";
-import { ProjectionParticipantsLive } from "@agentxm/workspace-kernel/reconciliation/live";
+import {
+  ProjectionParticipantsLive,
+  ConfiguredAgentOutcomesProviderLive,
+} from "@agentxm/workspace-kernel/reconciliation/live";
 import { AgentExecutableResolver } from "@agentxm/workspace-kernel/agent-adapters";
 import {
   CodingAgentRepositoryLive,
@@ -230,7 +233,8 @@ export const withKindManagers = <A, E, R>(services: Layer.Layer<A, E, R>) => {
 
 export const withAllManagers = <P>(layer: ReturnType<typeof withLiveSources<P>>) => {
   const managers = withKindManagers(Layer.provideMerge(McpSecretStoreLive, layer));
-  const withParticipants = Layer.provideMerge(ProjectionParticipantsLive, managers);
+  const observed = Layer.provideMerge(ConfiguredAgentOutcomesProviderLive, managers);
+  const withParticipants = Layer.provideMerge(ProjectionParticipantsLive, observed);
   return Layer.provideMerge(WorkspaceInvariantFactsLive, withParticipants).pipe(
     Layer.provideMerge(WorkspaceFileWriteLocksLive),
   );

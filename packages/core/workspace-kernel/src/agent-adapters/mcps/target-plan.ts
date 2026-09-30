@@ -392,17 +392,22 @@ export const planMcpServerTargets = (args: PlanMcpServerTargetsArgs): McpTargetP
     args.groups ?? groupConfiguredMcpTargets({ agentIds: args.agentIds, scope: args.scope });
   const writes: Array<McpTargetWrite> = [];
   for (const group of groups) {
+    const consumers = group.members.filter((member) => member.configured);
     const planned =
       group.unverifiedReaders.length > 0
-        ? { agents: blockedGroup(group.members, group.unverifiedReaders.join("; ")) }
+        ? { agents: blockedGroup(consumers, group.unverifiedReaders.join("; ")) }
         : transport?._tag === "transport"
-          ? planInlineGroup(args, group.members, transport.transport)
+          ? planInlineGroup(args, consumers, transport.transport)
           : args.manifest === undefined
-            ? { agents: blockedGroup(group.members, "no manifest") }
-            : planManifestGroup(args, args.manifest, group.members);
+            ? { agents: blockedGroup(consumers, "no manifest") }
+            : planManifestGroup(args, args.manifest, consumers);
     for (const agent of planned.agents.filter((agent) => args.agentIds.includes(agent.agentId)))
       byAgent.set(agent.agentId, [...(byAgent.get(agent.agentId) ?? []), agent]);
-    if (planned.write !== undefined) writes.push(planned.write);
+    if (planned.write !== undefined)
+      writes.push({
+        ...planned.write,
+        declaredTargets: group.members.map((member) => member.declaredTarget ?? member.target),
+      });
   }
   const agents = args.agentIds.flatMap((agentId): ReadonlyArray<McpAgentTargetPlan> => [
     ...(byAgent.get(agentId) ?? []),

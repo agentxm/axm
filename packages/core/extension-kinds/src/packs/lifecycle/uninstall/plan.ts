@@ -3,6 +3,8 @@ import {
   buildUninstallOperation,
   prepareUninstallArtifact,
   collectCleanupStep,
+  validateNativeOutputPostconditions,
+  captureRequiredNativeOutputs,
   type KernelFailure,
   proposeDesiredState,
   StepFailureConversion,
@@ -27,6 +29,7 @@ import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 import {
   DesiredStateReader,
+  ConfiguredAgentOutcomesProvider,
   WorkspaceLocation,
   desiredPackageKey,
   formatDesiredIdentity,
@@ -265,6 +268,7 @@ export const finalizePackUninstallIntent: (
 
 /** Everything the pack removal reads and writes through. */
 export type PackUninstallRequirements =
+  | ConfiguredAgentOutcomesProvider
   | InstallStepRequirements
   | Path.Path
   | FileSystem.FileSystem
@@ -281,7 +285,7 @@ export type PackUninstallRequirements =
 export const planPackUninstall: (
   intent: PackUninstallIntent,
 ) => Effect.Effect<
-  Plan<InstallStepRequirements>,
+  Plan<PackUninstallRequirements>,
   ExtensionLifecycleFailed,
   PackUninstallRequirements
 > = Effect.fn("UninstallExtensions.planPacks")(function* (intent: PackUninstallIntent) {
@@ -496,12 +500,34 @@ export const planPackUninstall: (
     }
   });
 
+  const affectedMembers = graph.nodes.flatMap((node) =>
+    node.type !== "pack" &&
+    node.origins.some(
+      (origin) => origin.type === "pack" && removingPackIdentities.has(origin.pack.fqn),
+    )
+      ? [{ type: node.type, name: node.name }]
+      : [],
+  );
+  const retainedMembers = affectedMembers.filter((member) =>
+    proposal.after.nodes.some(
+      (node) => node.enabled && node.type === member.type && node.name === member.name,
+    ),
+  );
+  const retainedNativeOutputs = yield* captureRequiredNativeOutputs(retainedMembers).pipe(
+    Effect.mapError((cause) =>
+      installRefused({
+        category: "conflict",
+        detail: "Cannot observe retained Pack native outputs",
+        cause,
+      }),
+    ),
+  );
   const cleanup =
     plannedRetirements.length > 0
       ? Option.none()
       : yield* collectCleanupStep({
           expectedNames: expectedProjectionNames(proposal.after),
-          subjects: orderedTargets,
+          subjects: [...orderedTargets, ...affectedMembers],
           adapter: {
             toStepFailure: (cause: KernelFailure) =>
               conversion.toStepFailure(
@@ -533,7 +559,10 @@ export const planPackUninstall: (
     plannedRetirements.length === 0
       ? ""
       : ` (${plannedRetirements.length} pack${plannedRetirements.length === 1 ? "" : "s"} unregistered without removing package content)`;
-  const graphStep = yield* buildReconciliationClosure({
+  const graphStep = yield* buildReconciliationClosure<
+    ExtensionLifecycleFailed,
+    PackUninstallRequirements
+  >({
     toStepFailure: conversion.toStepFailure,
     ...(intent.packsToUninstall.length === 1 && intent.packsToUninstall[0] !== undefined
       ? {
@@ -595,6 +624,12 @@ export const planPackUninstall: (
       });
     }),
     validate: validatePackGraphPostcondition({ absent: orderedTargets }),
+    validateNativeOutputs: (locations, expected) =>
+      validateNativeOutputPostconditions(locations, [...retainedNativeOutputs, ...expected]).pipe(
+        Effect.mapError((cause) =>
+          installRefused({ category: "conflict", detail: cause.detail, cause }),
+        ),
+      ),
   });
 
   return {
@@ -606,5 +641,5 @@ export const planPackUninstall: (
     description: Option.none(),
     presentation: uninstallPresentation,
     jobs: [{ concurrency: 1, steps: [graphStep] }],
-  } satisfies Plan<InstallStepRequirements>;
+  } satisfies Plan<PackUninstallRequirements>;
 });

@@ -16,7 +16,7 @@ import { createDefaultSettings } from "../desired/settings/index.js";
 import {
   ConfiguredAgentOutcomesProvider,
   genericConfiguredAgentOutcomes,
-  resolveConfiguredAgentOutcomes,
+  resolveConfiguredExtensionObservations,
   type ConfiguredAgentOutcomesProviderService,
 } from "./configured-agent-outcomes-provider.js";
 import type { WorkspaceStateReadFailure } from "./contracts.js";
@@ -125,20 +125,47 @@ export const makeWorkspaceRecords = (
         state: "current" as const,
         scope: location.scope,
         agentIds: configuredAgents,
-        rows: desired.map((row) => ({
+        rows: (type === "skill" ? rows : desired).map((row) => ({
           name: row.name,
-          targetState: row.enabled === false ? ("disabled" as const) : ("enabled" as const),
+          targetState: !isDesiredInventoryLifecycle(row.classification.lifecycle)
+            ? ("absent" as const)
+            : row.enabled === false
+              ? ("disabled" as const)
+              : ("enabled" as const),
           installed: row.installed,
+          paths: row.paths,
           observedAgentIds: row.agents,
         })),
       };
-      const outcomes = yield* resolveConfiguredAgentOutcomes(provider, request).pipe(
+      const observations = yield* resolveConfiguredExtensionObservations(provider, request).pipe(
         Effect.catchTag("ConfiguredAgentOutcomesUnavailable", () =>
-          Effect.succeed(genericConfiguredAgentOutcomes(request)),
+          Effect.succeed(
+            new Map(
+              [...genericConfiguredAgentOutcomes(request)].map(([name, outcomes]) => [
+                name,
+                {
+                  agentOutcomes: outcomes.map((outcome) => ({
+                    ...outcome,
+                    outcome: "blocked" as const,
+                    reasonCode: "native-observation-unavailable",
+                    reason: "Native locations could not be verified.",
+                  })),
+                  nativeLocations: [],
+                },
+              ]),
+            ),
+          ),
         ),
       );
       return projectExtensionInventory(rows, {
-        outcomes: (row) => outcomes.get(row.name) ?? [],
+        outcomes: (row) =>
+          isDesiredInventoryLifecycle(row.classification.lifecycle)
+            ? (observations.get(row.name)?.agentOutcomes ?? [])
+            : [],
+        nativeLocations: (row) =>
+          provider.byExtensionType[type] === undefined
+            ? undefined
+            : observations.get(row.name)?.nativeLocations,
         ...(agents === undefined ? {} : { agents }),
       });
     });

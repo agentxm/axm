@@ -20,7 +20,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {
-  sanitizeName,
+  WorkspaceLocation,
   type WorkspaceLocationService,
   type WorkspaceRecordsService,
   type DesiredExtensionNode,
@@ -28,10 +28,18 @@ import {
   type WorkspaceStateReadFailure,
   type ExtensionInventory,
 } from "../workspace-state/index.js";
-import { McpSharedTargetConflict, type CodingAgentFailure } from "../agent-adapters/index.js";
+import {
+  NativeWriteRefused,
+  McpSharedTargetConflict,
+  type CodingAgentFailure,
+} from "../agent-adapters/index.js";
 import type { McpInspectionError } from "./mcps/errors.js";
-import type { CodingAgentRepositoryService } from "./agents/coding-agent-repository.js";
+import {
+  CodingAgentRepository,
+  type CodingAgentRepositoryService,
+} from "./agents/coding-agent-repository.js";
 import type { NativeLocationOutcome } from "../locations/index.js";
+import { observeConfiguredSkillLocations } from "./skill-location-observation.js";
 import { inspectDesiredMcpServer } from "./mcps/inspection.js";
 import type {
   ProjectionParticipantRequirements,
@@ -55,6 +63,8 @@ export interface ObservedMaterializationCurrencyArgs<E> {
   /** The owner's readback for one rendered subagent profile. */
   readonly subagents: SubagentProjectionObserver<E>;
   readonly resolvedRef: ExtensionRef;
+  /** Known source bytes for a first-acquisition preview; never an ownership claim. */
+  readonly subagentSourceRoot?: string;
   readonly fs: FileSystem.FileSystem;
   readonly path: Path.Path;
 }
@@ -69,6 +79,7 @@ export const observeMaterializationCurrency = <E>({
   agents: agentRepo,
   subagents: observeSubagent,
   resolvedRef,
+  subagentSourceRoot,
   fs,
   path,
 }: ObservedMaterializationCurrencyArgs<E>): Effect.Effect<
@@ -97,7 +108,33 @@ export const observeMaterializationCurrency = <E>({
         ProjectionParticipantRequirements
       > => {
         const observed = inventory.items.find((item) => item.name === node.name && item.installed);
-        if (observed === undefined) return Effect.succeed({ current: false, nativeLocations: [] });
+        if (observed === undefined) {
+          if (resolvedRef.type !== "subagent" || subagentSourceRoot === undefined)
+            return Effect.succeed({ current: false, nativeLocations: [] });
+          return observeSubagent
+            .projectionObservation(resolvedRef, { sourceRoot: subagentSourceRoot })
+            .pipe(
+              Effect.map((observation) => ({
+                current: false,
+                nativeLocations: (observation.nativeLocations ?? []).map(
+                  (unit): NativeLocationOutcome => {
+                    const { proof: _proof, ...facts } = unit;
+                    return {
+                      ...facts,
+                      ownership: unit.ownership === "absent" ? "absent" : "unverified",
+                      state: unit.ownership === "absent" ? "created" : "blocked",
+                      ...(unit.ownership === "absent"
+                        ? {}
+                        : {
+                            reason:
+                              "An existing native entry requires accepted ownership verification before first acquisition.",
+                          }),
+                    };
+                  },
+                ),
+              })),
+            );
+        }
         if (node.type !== "skill" && node.type !== "mcp-server" && node.type !== "subagent") {
           // Rule, hook, and knowledge outputs are aggregate units whose
           // currency is judged by reading the unit back (collectInstructionStep,
@@ -141,42 +178,38 @@ export const observeMaterializationCurrency = <E>({
             ),
           );
         }
-        if (!observed.origins.includes("agent-skill-dir"))
-          return Effect.succeed({ current: false, nativeLocations: [] });
-
-        return agentRepo.all.pipe(
-          Effect.flatMap((agents) => {
-            const configured = agents.filter((agent) => configuredAgents.includes(agent.id));
-            if (configured.length !== configuredAgents.length)
-              return Effect.succeed({ current: false, nativeLocations: [] });
-            return Effect.forEach(
-              configured,
-              (agent) =>
-                agent
-                  .resolveEffectiveSkillsDir({
-                    workspaceRoot: location.baseDir,
-                    scope: location.scope,
-                  })
-                  .pipe(
-                    Effect.provideService(FileSystem.FileSystem, fs),
-                    Effect.provideService(Path.Path, path),
-                    Effect.map((outcome) => {
-                      if (outcome._tag === "unsupported" || outcome._tag === "disabled")
-                        return true;
-                      if (outcome._tag === "misconfigured" || outcome._tag === "unverified")
-                        return false;
-                      const expectedPath = path.relative(
-                        location.baseDir,
-                        path.join(outcome.dir, sanitizeName(node.name)),
-                      );
-                      return observed.paths.includes(expectedPath);
-                    }),
-                  ),
-              // eslint-disable-next-line axm-policy/no-unbounded-io -- configured agents are a subset of the fixed agent catalog
-              { concurrency: "unbounded" },
-            ).pipe(
-              Effect.map((results) => ({ current: results.every(Boolean), nativeLocations: [] })),
-            );
+        return observeConfiguredSkillLocations({
+          type: "skill",
+          scope: location.scope,
+          agentIds: configuredAgents,
+          state: "current",
+          rows: [
+            {
+              name: node.name,
+              installed: observed.installed,
+              targetState: node.enabled ? "enabled" : "disabled",
+              paths: observed.paths,
+            },
+          ],
+        }).pipe(
+          Effect.mapError((cause) => new NativeWriteRefused({ path: location.baseDir, cause })),
+          Effect.provideService(WorkspaceLocation, location),
+          Effect.provideService(CodingAgentRepository, agentRepo),
+          Effect.provideService(FileSystem.FileSystem, fs),
+          Effect.provideService(Path.Path, path),
+          Effect.map((observations) => {
+            const observation = observations.get(node.name);
+            const nativeLocations = observation?.nativeLocations ?? [];
+            return {
+              current:
+                nativeLocations.length > 0 &&
+                nativeLocations
+                  .filter(
+                    (unit) => unit.policyReasons.length > 0 || unit.configuredConsumers.length > 0,
+                  )
+                  .every((unit) => unit.ownership === "owned" && unit.state === "unchanged"),
+              nativeLocations,
+            };
           }),
         );
       },

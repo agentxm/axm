@@ -297,7 +297,12 @@ export {
   nativeArtifactLocationOutcomes,
   retiredNativeArtifactLocationOutcomes,
 } from "./native-artifact-locations.js";
-export { reconcileNativeManagedRegion, type NativeRegionSource } from "./native-managed-region.js";
+export {
+  reconcileNativeManagedRegion,
+  refreshNativeRegionReaders,
+  type NativeRegionReaderContext,
+  type NativeRegionSource,
+} from "./native-managed-region.js";
 
 export type {
   InstructionMechanism,
@@ -306,3 +311,5 @@ export type {
   ObservedInstructionForm,
   InstructionStatusItem,
 } from "./instructions/instruction-status.js";
+
+export { observeConfiguredSkillLocations } from "./skill-location-observation.js";

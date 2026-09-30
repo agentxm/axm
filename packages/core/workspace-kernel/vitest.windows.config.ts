@@ -11,7 +11,10 @@ export default defineConfig({
       project: "workspace-kernel",
       suite: "workspace-windows",
     }),
-    include: ["src/**/*.windows.test.ts"],
+    include: [
+      "src/**/*.windows.test.ts",
+      "src/settlement/authorities-refuse-overlapping-physical-boundaries.spec.ts",
+    ],
     setupFiles: [purposeSetupFile],
     testTimeout: 120_000,
     maxWorkers: 1,

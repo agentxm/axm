@@ -5,6 +5,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as Fiber from "effect/Fiber";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -113,6 +114,100 @@ describe("workspace transition lock", () => {
         );
       }).pipe(Effect.provide(services)),
   );
+
+  for (const placeholder of ["", '{"command":'] as const) {
+    it.effect(
+      `an unstamped holder with ${placeholder === "" ? "empty" : "partial"} metadata remains contended and unknown`,
+      () =>
+        Effect.gen(function* () {
+          const real = yield* FileSystem.FileSystem;
+          const workspaceDir = path.join(tempDir, ".axm");
+          const lockPath = path.join(workspaceDir, "tmp", "workspace-transition.lock");
+          const holderPath = path.join(lockPath, "holder.json");
+          const stamping = yield* Deferred.make<void>();
+          const stamp = yield* Deferred.make<void>();
+          const acquired = yield* Deferred.make<void>();
+          const release = yield* Deferred.make<void>();
+          const ownerLock = yield* makeWorkspaceTransitionLock;
+          const contenderLock = yield* makeWorkspaceTransitionLock;
+          const owner = yield* Effect.scoped(
+            ownerLock
+              .acquire({
+                workspaceDir,
+                holder: { command: "owner", pid: process.pid },
+              })
+              .pipe(
+                Effect.andThen(Deferred.succeed(acquired, undefined)),
+                Effect.andThen(Deferred.await(release)),
+                Effect.provideService(FileSystem.FileSystem, {
+                  ...real,
+                  writeFileString: (target, data, options) =>
+                    Effect.gen(function* () {
+                      if (target === holderPath) {
+                        // Pause between the library's grant/empty placeholder and AXM's stamp.
+                        if (placeholder !== "") yield* real.writeFileString(target, placeholder);
+                        yield* Deferred.succeed(stamping, undefined);
+                        yield* Deferred.await(stamp);
+                      }
+                      return yield* real.writeFileString(target, data, options);
+                    }),
+                }),
+              ),
+          ).pipe(Effect.forkChild);
+          yield* Effect.gen(function* () {
+            yield* Deferred.await(stamping);
+            expect(yield* real.readFileString(holderPath)).toBe(placeholder);
+            const result = yield* Effect.scoped(
+              contenderLock.acquire({
+                workspaceDir,
+                holder: { command: "contender", pid: process.pid },
+                waitBoundMillis: 0,
+              }),
+            ).pipe(Effect.exit);
+            const retained = yield* real.readFileString(holderPath);
+            yield* Deferred.succeed(stamp, undefined);
+            yield* Deferred.await(acquired);
+            const stamped = yield* Effect.scoped(
+              contenderLock.acquire({
+                workspaceDir,
+                holder: { command: "contender", pid: process.pid },
+                waitBoundMillis: 0,
+              }),
+            );
+            yield* Deferred.succeed(release, undefined);
+            yield* Fiber.join(owner);
+            expect(Exit.isSuccess(result)).toBe(true);
+            if (Exit.isSuccess(result)) {
+              expect(Option.isSome(result.value)).toBe(true);
+              if (Option.isSome(result.value))
+                expect(Option.isNone(result.value.value.holder)).toBe(true);
+            }
+            expect(retained).toBe(placeholder);
+            expect(Option.isSome(stamped)).toBe(true);
+            if (Option.isSome(stamped))
+              expect(Option.getOrUndefined(stamped.value.holder)?.command).toBe("owner");
+            expect(fs.existsSync(lockPath)).toBe(false);
+            yield* Effect.scoped(
+              contenderLock
+                .acquire({
+                  workspaceDir,
+                  holder: { command: "retry", pid: process.pid },
+                  waitBoundMillis: 0,
+                })
+                .pipe(
+                  Effect.tap((value) => Effect.sync(() => expect(Option.isNone(value)).toBe(true))),
+                ),
+            );
+          }).pipe(
+            Effect.ensuring(
+              Deferred.succeed(stamp, undefined).pipe(
+                Effect.andThen(Deferred.succeed(release, undefined)),
+              ),
+            ),
+          );
+        }).pipe(Effect.scoped, Effect.provide(services)),
+    );
+  }
 
   // Residual cleanup requires an exact owner-token match: absent metadata is
   // indistinguishable from a successor that reclaimed the stale hold but has

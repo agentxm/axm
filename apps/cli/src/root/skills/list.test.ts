@@ -15,10 +15,15 @@ import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
-import type { WorkspaceStateOptions } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  WorkspaceRecords,
+  countExtensionInventory,
+  type WorkspaceStateOptions,
+} from "@agentxm/workspace-kernel/workspace-state";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace-kernel/workspace-state/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { expectNoPlanEnvelope } from "../../test-support/test-helpers.js";
+import { paintText } from "../../screen/index.js";
 import { handleList } from "./list.js";
 import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 
@@ -137,6 +142,76 @@ describe("list.handler", () => {
             expect.objectContaining({ name: "skill-two" }),
           ]),
         });
+      }),
+    );
+  });
+
+  it.effect("keeps native outcomes and discovery uncertainty visible at 80 columns", () => {
+    const { provide, rendererState } = makeLayers();
+    initWorkspace(path.join(tempDir, ".axm"));
+    const inventory = countExtensionInventory([
+      {
+        scope: "project",
+        type: "skill",
+        name: "review",
+        classification: { kind: "lifecycle", lifecycle: "configured" },
+        enabled: true,
+        installed: true,
+        agents: [...CLAUDE_SKILL_READERS, "amp", "codex", "kimi-cli", "gemini-cli", "windsurf"],
+        origins: ["agent-skill-dir"],
+        paths: [".claude/skills/review", ".cursor/skills/review"],
+        agentOutcomes: [
+          {
+            extensionType: "skill",
+            name: "review",
+            agentId: "cursor",
+            outcome: "current",
+            reasonCode: "verified-native-unit",
+            reason: "Owned native units are current.",
+          },
+        ],
+        nativeLocations: [".claude/skills/review", ".cursor/skills/review"].map((entry) => ({
+          scope: "project",
+          address: { kind: "entry", path: entry },
+          aliases: [entry],
+          configuredConsumers: ["cursor"],
+          potentialReaders: CLAUDE_SKILL_READERS,
+          policyReasons: [],
+          ownership: "owned",
+          state: "retained",
+          availability: [{ agentId: "cursor", state: "unverified" }],
+        })),
+        duplicateDiscoveries: [
+          { agentId: "cursor", nativeUnitKeys: ["claude-entry", "cursor-entry"] },
+        ],
+      },
+    ]);
+    return provide(
+      Effect.gen(function* () {
+        yield* handleList({ agents: [] }).pipe(
+          Effect.provideService(WorkspaceRecords, {
+            getInventory: () => Effect.succeed(inventory),
+            getExtensionInventory: () => Effect.succeed(inventory),
+            rows: () => Effect.succeed(inventory.items),
+          }),
+        );
+        const output = rendererState.docs
+          .filter((entry) => entry.channel === "stdout")
+          .flatMap((entry) => paintText(entry.doc, { width: 80, colors: false }))
+          .join("\n");
+        for (const header of [
+          "Configured agents",
+          "Native locations",
+          "Discovery",
+          "Agent outcomes",
+        ])
+          expect(output).toContain(header);
+        expect(output).toContain("cursor");
+        expect(output).toContain("retained");
+        expect(output).toContain("already");
+        expect(output).toContain("available");
+        expect(output).toContain("unverified");
+        expect(output).not.toContain("github-copilot-cli");
       }),
     );
   });

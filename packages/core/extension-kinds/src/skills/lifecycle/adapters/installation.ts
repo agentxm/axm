@@ -1,4 +1,5 @@
 import {
+  type NativeLocationOutcome,
   resolveNativeEntry,
   resolveNativeReferent,
   copiedDirectoryIsCurrent,
@@ -34,7 +35,10 @@ import {
   releaseAgeExemptionForIdentity,
 } from "@agentxm/workspace-kernel/resolution";
 import { RegistryClientFactory } from "@agentxm/registry-client";
-import { CodingAgentRepository } from "@agentxm/workspace-kernel/projection";
+import {
+  nativeArtifactLocationOutcomes,
+  CodingAgentRepository,
+} from "@agentxm/workspace-kernel/projection";
 import {
   type ExtensionLifecycleFailed,
   installRefused,
@@ -251,6 +255,38 @@ const inspect = (ref: SkillExtensionRef) =>
       // eslint-disable-next-line axm-policy/no-unbounded-io -- target directories come from the fixed agent catalog
       { concurrency: "unbounded" },
     );
+    const proposed = yield* nativeArtifactLocationOutcomes({
+      workspaceRoot: workspaceLocation.baseDir,
+      scope: workspaceLocation.scope,
+      agents: yield* agentRepo.all,
+      configuredAgentIds: new Set(configuredAgents.map((agent) => agent.id)),
+      sharedSkillPolicy: true,
+      targets: targets.map((target) => ({
+        path: target.path,
+        kind: "skill" as const,
+        sourcePath: skillSrcPath,
+        state:
+          target.state === "absent"
+            ? ("created" as const)
+            : target.state === "current"
+              ? ("unchanged" as const)
+              : ("updated" as const),
+      })),
+    });
+    const nativeLocations = proposed.map((unit) => {
+      const current = targets.some(
+        (target) =>
+          unit.aliases.includes(path.resolve(workspaceLocation.baseDir, target.path)) &&
+          target.state === "current",
+      );
+      if (current || unit.ownership === "absent") return unit;
+      const { proof: _proof, ...facts } = unit;
+      return {
+        ...facts,
+        ownership: "unverified" as const,
+        reason: "Existing native content has not been verified as owned by this installation.",
+      };
+    });
     const firstTarget = targets[0];
     const rawDisplayPath =
       firstTarget === undefined
@@ -268,8 +304,9 @@ const inspect = (ref: SkillExtensionRef) =>
       agents: artifactAgents,
       unknownAgents,
       unavailableAgents: skippedAgents,
+      nativeLocations,
       targets,
-    } satisfies SkillInstallationInspection;
+    } satisfies SkillInstallationInspection<NativeLocationOutcome>;
   });
 
 const readContent = (ref: SkillExtensionRef) =>
@@ -295,5 +332,6 @@ export const skillInstallationFacts = {
 } satisfies SkillInstallationFacts<
   ExtensionLifecycleFailed | Config.ConfigError,
   InstallStepRequirements | SkillManager,
-  InstallStepRequirements
+  InstallStepRequirements,
+  NativeLocationOutcome
 >;

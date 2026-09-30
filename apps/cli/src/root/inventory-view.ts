@@ -93,10 +93,22 @@ type InventoryCounts = Pick<
   | "leftoverCount"
   | "undeclaredCount"
   | "unmanagedCount"
+  | "nativeLocationCounts"
 > & { readonly items: ReadonlyArray<unknown> };
 
 export const inventorySummary = (inventory: InventoryCounts, label: string): string => {
+  const native = inventory.nativeLocationCounts;
   const parts = [
+    ...(native === undefined
+      ? []
+      : [
+          `${native.units} native units`,
+          `${native.physicalLocations} physical locations`,
+          `${native.configuredConsumers} configured consumers`,
+          ...(native.unverifiedExtensions === 0
+            ? []
+            : [`${native.unverifiedExtensions} extensions have unverified native locations`]),
+        ]),
     inventory.configuredCount === 0
       ? undefined
       : `${String(inventory.configuredCount)} managed by this workspace`,

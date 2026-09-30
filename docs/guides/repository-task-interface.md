@@ -118,12 +118,20 @@ There is no central specification project and no application harness. A
 specification is a `*.spec.ts` beside the source it specifies, so its owner's
 `test` target is the lane that runs it, under the same inputs, cache behavior,
 and `^build` dependency as that project's ordinary tests. Boundary is a property
-of the specification, not of a separate target: a memory-boundary rule runs in a
-library's `test`, and a process, binary, or install-boundary rule lives in
-`apps/cli-e2e` and runs in its `e2e` targets against built artifacts. `axm` owns
+of the specification, not of a separate target: library contracts, including
+contracts exercised by cooperating processes, stay with their owning library.
+CLI process, binary, and install-boundary rules live in `apps/cli-e2e` and run
+in its `e2e` targets against built artifacts. `axm` owns
 only the cross-project views over that corpus — `generate:specification-catalog`,
 `specification-verdict`, and `verify-source-hygiene` — plus the `test:spec`
 selection wrapper, which resolves identities to owners and delegates.
+
+Physical-boundary coordination is exercised across processes through the owning
+workspace-kernel test target. Its Windows target builds the published kernel
+runtime consumed by child processes before running that evidence; the macOS
+workflow selects the same specification through the kernel's existing test
+target. Platform selection changes the host, without creating a second owner
+or bypassing the runtime prerequisite.
 
 Execution receipts record the actual Nx project, target, configuration, and
 runtime mode. Built-runtime evidence observes that target's prerequisite

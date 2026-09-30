@@ -48,6 +48,7 @@ import {
   TransitionLockUnavailable,
   WorkspaceDirectoryError,
   WorkspaceSnapshotError,
+  WorkspaceBoundaryConflict,
   WorkspaceTransitionCompromised,
   type WorkspaceRestorationError,
   type WorkspaceRestorationIncomplete,
@@ -481,6 +482,17 @@ export const workspaceTransactionFailureToStepFailure = (
   if (failure instanceof StepFailure) return failure;
   switch (failure._tag) {
     case "WorkspaceSnapshotError": {
+      if (failure.cause instanceof WorkspaceBoundaryConflict) {
+        const conflict = failure.cause;
+        return makeStepFailure({
+          category: "conflict",
+          detail:
+            conflict.reason === "ambiguous-case"
+              ? `Cannot establish that native target ${conflict.target} is distinct from ${conflict.conflictingTarget}, held by workspace ${conflict.owner}; filesystem case behavior is unresolved`
+              : `Native target ${conflict.target} overlaps ${conflict.conflictingTarget}, held by workspace ${conflict.owner}`,
+          cause: conflict,
+        });
+      }
       const detail = (): string => {
         switch (failure.step) {
           case "inspect-target":

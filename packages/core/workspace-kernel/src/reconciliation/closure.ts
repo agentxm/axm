@@ -6,7 +6,8 @@ import {
   withDocumentRoundTripBatch,
   type DocumentRoundTripBatch,
 } from "../workspace-state/index.js";
-import { combineNativeLocationOutcomes } from "../locations/index.js";
+import { combineNativeLocationOutcomes, type NativeLocationOutcome } from "../locations/index.js";
+import { refreshNativeRegionReaders, type NativeRegionReaderContext } from "../projection/index.js";
 import {
   runWorkspaceTransaction,
   type WorkspaceTransactionFailure,
@@ -101,10 +102,16 @@ export interface ReconciliationClosureArgs<E, R> {
   readonly artifact: JobStepArtifact;
   readonly children: ReadonlyArray<ReconciliationChild<R>>;
   readonly documentRoundTrip?: DocumentRoundTripBatch;
+  readonly nativeReaderContext?: NativeRegionReaderContext;
   /** A stale-candidate check that runs under the transition, before any write. */
   readonly preTransition?: Effect.Effect<void, E, R>;
   /** The desired-graph predicate the committed transition must satisfy. */
   readonly validate: Effect.Effect<void, E, R>;
+  /** Owner readback against planned obligations and actual evidence, before settlement. */
+  readonly validateNativeOutputs?: (
+    locations: ReadonlyArray<NativeLocationOutcome>,
+    expected: ReadonlyArray<NativeLocationOutcome>,
+  ) => Effect.Effect<void, E, R>;
 }
 
 /** Wrap a reconciliation closure's children in one workspace transaction. */
@@ -171,17 +178,39 @@ export const buildReconciliationClosure = <E, R>(
             { concurrency: 1 },
           );
           const coverage = yield* aggregateClosureCoverage(results, args.artifact.scope);
-          return { results, coverage };
+          const observedNativeLocations = combineNativeLocationOutcomes(
+            results.flatMap(({ result }) =>
+              result.result === "success" ? (result.artifact?.nativeLocations ?? []) : [],
+            ),
+          );
+          const nativeLocations =
+            args.nativeReaderContext === undefined
+              ? observedNativeLocations
+              : yield* refreshNativeRegionReaders(
+                  observedNativeLocations,
+                  args.nativeReaderContext,
+                ).pipe(
+                  Effect.mapError(
+                    (cause) =>
+                      new StepFailure({
+                        category: "conflict",
+                        detail: `Final native reader observation failed at ${cause.target}: ${cause.reason}`,
+                      }),
+                  ),
+                );
+          return { results, coverage, nativeLocations };
         }),
         args.documentRoundTrip,
       ),
-      validate: () =>
+      validate: (result) =>
         Effect.gen(function* () {
           yield* args.validate;
+          if (args.validateNativeOutputs !== undefined)
+            yield* args.validateNativeOutputs(result.nativeLocations, plannedNativeLocations);
         }).pipe(Effect.mapError(args.toStepFailure)),
     }).pipe(
       Effect.mapError(args.toStepFailure),
-      Effect.map(({ results, coverage }) => {
+      Effect.map(({ results, coverage, nativeLocations }) => {
         const warnings = results.flatMap(({ result }) =>
           result.result === "success" ? (result.warnings ?? []) : [],
         );
@@ -194,13 +223,6 @@ export const buildReconciliationClosure = <E, R>(
               result.result === "success" &&
               (result.disposition === "unchanged" || result.artifact?.change === "unchanged"),
           );
-        const nativeLocations = combineNativeLocationOutcomes(
-          results.flatMap(({ result }) =>
-            result.result === "success" && result.artifact?.nativeLocations !== undefined
-              ? result.artifact.nativeLocations
-              : [],
-          ),
-        );
         const artifact = {
           ...args.artifact,
           ...(allChildrenUnchanged ? { change: "unchanged" as const } : {}),

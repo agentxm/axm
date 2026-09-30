@@ -222,12 +222,13 @@ describe("Uninstall effect reporting", () => {
         return world.workspace
           .provide(
             Effect.gen(function* () {
-              yield* applyInstall(
+              const installed = yield* applyInstall(
                 installRequest({
                   type: "pack",
                   subject: { kind: "source", source: "mirror:@acme/packs/reviews" },
                 }),
               );
+              expect(deriveOperationOutcome(installed), JSON.stringify(installed)).toBe("applied");
               const candidate = yield* UninstallExtensions.prepare(
                 uninstallRequest({ type: "pack", selector: "reviews" }),
               );

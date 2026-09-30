@@ -52,9 +52,11 @@ import type {
 } from "./scope.js";
 import type { HeldWorkspaceTransition } from "./transition-lock.js";
 import { assertNativeMutationWithin, type NativeAuthorityRootWitness } from "../locations/index.js";
+import { makeBoundaryClaims } from "./boundary-claims.js";
 import { cleanupRetirements, recoveryEntries } from "./retirement.js";
 
 export interface FilesystemTransactionRuntime extends WorkspaceTransactionPaths {
+  readonly boundaryClaimsDirectory: string | null | undefined;
   readonly nativeRootWitnesses: ReadonlyArray<NativeAuthorityRootWitness>;
   readonly fs: FileSystem.FileSystem;
   readonly path: Path.Path;
@@ -247,9 +249,18 @@ export const runFilesystemTransaction = <A, E, R>(
               }
             }
             const held = Option.getOrUndefined(yield* scope.held);
+            const claims = yield* makeBoundaryClaims(
+              workspaceDir,
+              scope.boundaryClaimsDirectory,
+            ).pipe(
+              Effect.provideService(FileSystem.FileSystem, fs),
+              Effect.provideService(Path.Path, path),
+            );
+            const isCompromised = () => claims.isCompromised() || (held?.isCompromised() ?? false);
             const ledger = yield* SynchronizedRef.make(emptyLedger);
             const context: WorkspaceTransactionContext = {
-              isTransitionCompromised: held?.isCompromised ?? (() => false),
+              isTransitionCompromised: isCompromised,
+              claims,
               fs,
               path,
               workspaceDir,
@@ -279,10 +290,11 @@ export const runFilesystemTransaction = <A, E, R>(
             // Interruptible like the business side: the race runs inside the
             // uninterruptible rollback guard, and its loser must be
             // interruptible for the race to settle.
-            const compromiseSignal = (held === undefined ? Effect.never : held.compromised).pipe(
-              Effect.interruptible,
-            );
-            const transitionCompromised = held === undefined ? () => false : held.isCompromised;
+            const compromiseSignal = Effect.raceFirst(
+              held === undefined ? Effect.never : held.compromised,
+              claims.compromised,
+            ).pipe(Effect.interruptible);
+            const transitionCompromised = isCompromised;
             const business = Effect.gen(function* () {
               // The transaction's own declared targets belong to the
               // operation closure: no semantic closure is active yet.

@@ -7,7 +7,9 @@ import * as Path from "effect/Path";
 
 import {
   assertNativeMutationWithin,
+  assertNativeMutationWithinRoots,
   assertNoPhysicalOverlap,
+  nativeAuthorityRoots,
   resolveNativeEntry,
 } from "./index.js";
 
@@ -30,6 +32,87 @@ export const specification = defineSpecification({
 });
 
 describe("native physical addresses", () => {
+  it.effect("keeps Skill routing overrides within declared user authority", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const sandbox = yield* fs.makeTempDirectoryScoped();
+      const home = path.join(sandbox, "home");
+      const xdg = path.join(sandbox, "xdg");
+      const vendor = path.join(sandbox, "vendor");
+      const external = path.join(sandbox, "external");
+      const owner = path.join(home, ".axm", "workspace");
+      yield* fs.makeDirectory(owner, { recursive: true });
+      for (const root of [xdg, vendor, external]) yield* fs.makeDirectory(root);
+      const roots = nativeAuthorityRoots(
+        path,
+        { workspaceRoot: home, scope: "user" },
+        {
+          skillsDirectoryOverrides: { "claude-code": external },
+          xdgConfigRoot: xdg,
+          userConfigRootOverrides: { "claude-code": vendor },
+        },
+      );
+      for (const root of [home, xdg, vendor]) {
+        const target = path.join(root, "skills", "review");
+        expect(
+          (yield* assertNativeMutationWithinRoots(roots, target, "entry", owner)).address.kind,
+        ).toBe("absent");
+      }
+      const refused = yield* assertNativeMutationWithinRoots(
+        roots,
+        path.join(external, "review"),
+        "entry",
+        owner,
+      ).pipe(Effect.flip);
+      expect(refused.reason).toBe("escape");
+      expect(yield* fs.readDirectory(external)).toEqual([]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect.each(["xdg", "vendor"] as const)(
+    "refuses a declared %s root nested inside another workspace",
+    (kind) =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const sandbox = yield* fs.makeTempDirectoryScoped();
+        const home = path.join(sandbox, "home");
+        const owner = path.join(home, ".axm", "workspace");
+        const project = path.join(sandbox, "project");
+        const nativeRoot = path.join(project, "nested", "native");
+        yield* fs.makeDirectory(owner, { recursive: true });
+        yield* fs.makeDirectory(nativeRoot, { recursive: true });
+        yield* fs.writeFileString(path.join(project, "axm.json"), "{}");
+        const roots = nativeAuthorityRoots(
+          path,
+          { workspaceRoot: home, scope: "user" },
+          {
+            skillsDirectoryOverrides: {},
+            ...(kind === "xdg"
+              ? { xdgConfigRoot: nativeRoot }
+              : { userConfigRootOverrides: { "claude-code": nativeRoot } }),
+          },
+        );
+        const refused = yield* assertNativeMutationWithinRoots(
+          roots,
+          path.join(nativeRoot, "config.json"),
+          "content",
+          owner,
+        ).pipe(Effect.flip);
+        expect(refused.reason).toBe("workspace-conflict");
+        expect(yield* fs.readDirectory(nativeRoot)).toEqual([]);
+        // An initialized nested project remains authorized for its own output.
+        yield* fs.writeFileString(path.join(nativeRoot, "axm.json"), "{}");
+        yield* assertNativeMutationWithinRoots(
+          [nativeRoot],
+          path.join(nativeRoot, "config.json"),
+          "content",
+          nativeRoot,
+        );
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("coalesces different-depth parent aliases but keeps leaf links separate", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;

@@ -322,37 +322,70 @@ export const reconcileAgentOutputs = (
             },
           };
     const preservedPaths = [...new Set(before.unownedFootprints.map(({ path }) => path))].sort();
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const location = yield* WorkspaceLocation;
+    const agents = yield* (yield* CodingAgentRepository).all;
+    const observedArtifacts = yield* Effect.forEach(
+      ["skill", "subagent"] as const,
+      (extensionType) =>
+        Effect.gen(function* () {
+          const outputs = before.outputs.filter(
+            (output) => output.extensionType === extensionType && selected(output),
+          );
+          const facts = yield* nativeArtifactLocationOutcomes({
+            workspaceRoot: location.baseDir,
+            scope: location.scope,
+            agents,
+            configuredAgentIds: args.desiredAgentIds,
+            sharedSkillPolicy: extensionType === "skill",
+            targets: outputs.map((output) => ({
+              path: output.path,
+              kind: output.proof === "copied-directory-receipt" ? "skill" : extensionType,
+              state: candidates.includes(output) ? "removed" : "retained",
+            })),
+          });
+          return facts.map((fact): NativeLocationOutcome => {
+            const output = outputs.find(
+              (output) => output.path === fact.address.path || fact.aliases.includes(output.path),
+            );
+            if (output?.ownership === "unowned") {
+              const { proof: _proof, ...rest } = fact;
+              return {
+                ...rest,
+                ownership: "unowned",
+                state: "retained",
+                reason: "Ownership is not established; the native entry is preserved.",
+              };
+            }
+            if (fact.state !== "retained") return fact;
+            return {
+              ...fact,
+              reason:
+                fact.configuredConsumers.length > 0
+                  ? `Still required by configured consumers: ${fact.configuredConsumers.join(", ")}.`
+                  : fact.policyReasons.length > 0
+                    ? "Still required by AXM's shared skills policy; no configured agents read this location."
+                    : "The native entry remains desired.",
+            };
+          });
+        }),
+    ).pipe(
+      Effect.mapError((cause) =>
+        cleanupFailure("Cannot observe native artifact reconciliation", cause),
+      ),
+    );
+    const retainedLocations = observedArtifacts.flat().filter((unit) => unit.state === "retained");
     if (args.dryRun === true) {
       return {
         removedPaths: [...new Set(candidates.map(({ path }) => path))].sort(),
         preservedPaths,
+        nativeLocations: combineNativeLocationOutcomes(observedArtifacts.flat()),
       };
     }
-
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const location = yield* WorkspaceLocation;
-    const nativeLocations: NativeLocationOutcome[] = [];
-    const agents = yield* (yield* CodingAgentRepository).all;
-    const artifactBefore = yield* Effect.forEach(["skill", "subagent"] as const, (extensionType) =>
-      nativeArtifactLocationOutcomes({
-        workspaceRoot: location.baseDir,
-        scope: location.scope,
-        agents,
-        configuredAgentIds: args.desiredAgentIds,
-        sharedSkillPolicy: extensionType === "skill",
-        targets: candidates
-          .filter((output) => output.extensionType === extensionType)
-          .map((output) => ({
-            path: output.path,
-            kind: output.proof === "copied-directory-receipt" ? "skill" : extensionType,
-            state: "unchanged",
-          })),
-      }),
-    ).pipe(
-      Effect.mapError((cause) =>
-        cleanupFailure("Cannot observe native artifact withdrawal", cause),
-      ),
+    const nativeLocations: NativeLocationOutcome[] = [...retainedLocations];
+    const artifactBefore = observedArtifacts.map((locations) =>
+      locations.filter((unit) => unit.state === "removed"),
     );
     const roleSources = yield* Effect.forEach(
       candidates.filter(
@@ -498,6 +531,23 @@ export const reconcileAgentOutputs = (
       ) {
         return yield* cleanupFailure(
           `Required native output disappeared during reconciliation: ${retained.path}`,
+          undefined,
+        );
+      }
+    }
+    for (const retired of candidates) {
+      if (
+        after.outputs.some(
+          (output) =>
+            output.extensionType === retired.extensionType &&
+            output.path === retired.path &&
+            output.entryName === retired.entryName &&
+            output.ownership === "owned" &&
+            !output.desired,
+        )
+      ) {
+        return yield* cleanupFailure(
+          `Owned native output remains after retirement: ${retired.path}`,
           undefined,
         );
       }

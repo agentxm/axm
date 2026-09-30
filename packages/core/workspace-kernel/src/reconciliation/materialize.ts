@@ -11,7 +11,8 @@ import { resolveNativeReferent, type NativeLocationOutcome } from "../locations/
  */
 
 import { newlyConfiguredMcpRoutePaths } from "../agent-adapters/index.js";
-import { toFileLocation } from "@agentxm/host-primitives";
+import { acquiredFilesForRef } from "../acquisition/index.js";
+import { fromFileLocation, toFileLocation } from "@agentxm/host-primitives";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -805,6 +806,26 @@ export const collectMaterializeSteps = (args: {
             } satisfies ExtensionRef;
           }
           const inventoryRead = inventories.get(node.type);
+          const subagentSourceRoot =
+            ref.type !== "subagent"
+              ? undefined
+              : yield* acquiredFilesForRef(ref, "on-disk").pipe(
+                  Effect.map((files) =>
+                    Option.isSome(files)
+                      ? files.value.directory
+                      : ref.refType === "registry"
+                        ? undefined
+                        : fromFileLocation(ref.location),
+                  ),
+                  Effect.mapError(
+                    (cause) =>
+                      new WorkspaceSyncFailed({
+                        category: "conflict",
+                        detail: `Cannot inspect known Subagent source for ${node.name}`,
+                        cause,
+                      }),
+                  ),
+                );
           // One judge for every node, MCP included: the projection decides
           // currency from decoded native values, whatever route declared it.
           const materializationObservation = yield* observeMaterializationCurrency({
@@ -819,6 +840,7 @@ export const collectMaterializeSteps = (args: {
             agents: agentRepo,
             subagents: subagentManager,
             resolvedRef: ref,
+            ...(subagentSourceRoot === undefined ? {} : { subagentSourceRoot }),
             fs,
             path,
           });
@@ -1108,16 +1130,25 @@ export const collectMaterializeSteps = (args: {
     const skillMaterializeStep = ({ ref, force, transitionLabel }: Reconciled<SkillExtensionRef>) =>
       Effect.gen(function* () {
         const buildArtifact = () =>
-          skillSyncArtifact({
-            ref,
-            agentRepo,
-            fs,
-            ...(args.configuredAgents === undefined
-              ? {}
-              : { materializationAgentIds: configuredAgents }),
-            path,
-            location,
-            settings,
+          Effect.gen(function* () {
+            if (!desiredActivation(ref))
+              return {
+                path: ref.skill.name,
+                scope: location.scope,
+                change: "updated" as const,
+                nativeLocations: [],
+              };
+            return yield* skillSyncArtifact({
+              ref,
+              agentRepo,
+              fs,
+              ...(args.configuredAgents === undefined
+                ? {}
+                : { materializationAgentIds: configuredAgents }),
+              path,
+              location,
+              settings,
+            });
           });
         const artifact = yield* buildArtifact();
         return {
@@ -1174,10 +1205,24 @@ export const collectMaterializeSteps = (args: {
             ),
         }),
         artifact: {
-          path: nativeLocations[0]?.address.path ?? ref.subagent.name,
+          path:
+            (desiredActivation(ref) ? nativeLocations[0]?.address.path : undefined) ??
+            ref.subagent.name,
           scope: location.scope,
           change: "updated",
-          nativeLocations,
+          nativeLocations: desiredActivation(ref) ? nativeLocations : [],
+          ...(desiredActivation(ref) && nativeLocations.length === 0 && ref.refType === "registry"
+            ? {
+                references: [
+                  {
+                    path: ref.subagent.name,
+                    state: "unknown" as const,
+                    reason:
+                      "Native output locations depend on source content that has not been observed in this planning phase.",
+                  },
+                ],
+              }
+            : {}),
         },
       }) satisfies PlannedJobStep<MaterializeStepRequirements>;
     const knowledgeMaterializeStep = ({

@@ -27,6 +27,7 @@ export const ConfiguredAgentOutcomeSchema = Schema.Struct({
   reason: Schema.String,
   mechanism: Schema.optional(Schema.String),
   path: Schema.optional(Schema.String),
+  nativeUnitKeys: Schema.optional(Schema.Array(Schema.String)),
 }).annotate({
   identifier: "ConfiguredAgentOutcome",
   title: "Configured Agent Outcome",

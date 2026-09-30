@@ -1,3 +1,6 @@
+import * as fs from "node:fs";
+import * as nodePath from "node:path";
+import { observeConfiguredSkillLocations } from "@agentxm/workspace-kernel/projection";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -8,6 +11,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import { SkillManifestSchema } from "@agentxm/extension-model/unstable/skills/manifest-schema";
 import {
   deriveOperationOutcome,
+  operationNativeLocations,
   type JobStepArtifactTarget,
   type ResolvedUnit,
 } from "@agentxm/workspace-kernel/operations";
@@ -23,9 +27,10 @@ import {
 
 export const specification = defineSpecification({
   requirement: "cli/skills/new/scaffolds-for-every-configured-agent",
-  title: "A new skill is scaffolded for the universal location and every configured agent",
+  title:
+    "A new skill is scaffolded for the shared Skill policy location and every configured agent",
   statement:
-    "When a skill is created, AXM shall create its manifest, content, and enabled settings entry together, shall materialize it for the universal location and every configured agent that can represent it, and shall list the same locations in preview and apply.",
+    "When a skill is created, AXM shall create its manifest, content, and enabled settings entry together, shall materialize it for the shared Skill policy location and every configured agent that can represent it, and shall report the same physical native units, aliases, configured consumers, and shared policy in preview and apply.",
   class: "functional",
   role: "experience",
   goals: ["authoring-and-creation", "agent-interoperability", "safe-repetition"],
@@ -39,7 +44,7 @@ export const specification = defineSpecification({
   ],
   supersedes: [],
   assumptions: [
-    "Claude Code and Cursor declare distinct native project skill directories, so two agent locations observe two configured agents beside the universal location.",
+    "Claude Code and Cursor declare distinct native project skill directories, so two agent locations observe two configured agents beside the shared Skill policy location.",
   ],
   openQuestions: [],
 });
@@ -110,17 +115,52 @@ describe("Creating a skill", () => {
     }),
   );
 
-  it.effect("materializes the skill for the universal location and every configured agent", () =>
+  it.effect(
+    "materializes the skill for the shared Skill policy location and every configured agent",
+    () =>
+      Effect.gen(function* () {
+        const created = workspace();
+
+        yield* createSkill(created, "apply");
+
+        const instructions = created.read(`${AUTHORED_ROOT}/src/SKILL.md`);
+        expect(created.read(`${UNIVERSAL_LOCATION}/SKILL.md`)).toBe(instructions);
+        for (const location of Object.values(AGENT_LOCATIONS)) {
+          expect(created.read(`${location}/SKILL.md`), location).toBe(instructions);
+        }
+      }),
+  );
+
+  it.effect("reports duplicate discovery and refuses currency for foreign native content", () =>
     Effect.gen(function* () {
       const created = workspace();
-
       yield* createSkill(created, "apply");
-
-      const instructions = created.read(`${AUTHORED_ROOT}/src/SKILL.md`);
-      expect(created.read(`${UNIVERSAL_LOCATION}/SKILL.md`)).toBe(instructions);
-      for (const location of Object.values(AGENT_LOCATIONS)) {
-        expect(created.read(`${location}/SKILL.md`), location).toBe(instructions);
-      }
+      const observe = () =>
+        observeConfiguredSkillLocations({
+          type: "skill",
+          scope: "project",
+          state: "current",
+          agentIds: ["claude-code", "cursor"],
+          rows: [{ name: SKILL, installed: true, targetState: "enabled" }],
+        }).pipe(Effect.provide(authoringWorkspaceLayer(created)));
+      const before = (yield* observe()).get(SKILL);
+      expect(before?.agentOutcomes.every((outcome) => outcome.outcome === "current")).toBe(true);
+      expect(
+        before?.nativeLocations.filter((unit) => unit.configuredConsumers.includes("cursor"))
+          .length,
+      ).toBeGreaterThan(1);
+      fs.rmSync(nodePath.join(created.root, AGENT_LOCATIONS.cursor));
+      created.write(
+        `${AGENT_LOCATIONS.cursor}/SKILL.md`,
+        `---\nname: ${SKILL}\ndescription: Foreign content\n---\nDifferent content\n`,
+      );
+      const after = (yield* observe()).get(SKILL);
+      expect(after?.agentOutcomes.find((outcome) => outcome.agentId === "cursor")?.outcome).toBe(
+        "blocked",
+      );
+      expect(
+        after?.nativeLocations.find((unit) => unit.address.path.endsWith(AGENT_LOCATIONS.cursor)),
+      ).toMatchObject({ ownership: "unowned", state: "blocked" });
     }),
   );
 
@@ -133,6 +173,26 @@ describe("Creating a skill", () => {
       expect(created.exists(AUTHORED_ROOT)).toBe(false);
 
       const applied = yield* createSkill(created, "apply");
+      for (const resolution of [previewed, applied]) {
+        const locations = operationNativeLocations(resolution);
+        expect(locations).toHaveLength(3);
+        expect(new Set(locations.flatMap((unit) => unit.configuredConsumers))).toEqual(
+          new Set(["claude-code", "cursor"]),
+        );
+        expect(
+          locations.find((unit) => unit.address.path.endsWith(UNIVERSAL_LOCATION))?.policyReasons,
+        ).toContain("workspace-shared-skills");
+      }
+      expect(
+        operationNativeLocations(previewed).every(
+          (unit) => unit.state === "created" && unit.ownership === "absent",
+        ),
+      ).toBe(true);
+      expect(
+        operationNativeLocations(applied).every(
+          (unit) => unit.state === "created" && unit.ownership === "owned",
+        ),
+      ).toBe(true);
 
       const previewedTargets = projectedLocations(previewed.units.flatMap(unitTargets));
       const appliedTargets = projectedLocations(applied.units.flatMap(unitTargets));

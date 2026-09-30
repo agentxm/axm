@@ -13,12 +13,41 @@ const SkillListColumns = [
   { header: "Activation", value: (row: SkillListRow) => inventoryActivation(row) },
   { header: "Type", priority: "optional", value: (row: SkillListRow) => row.sourceType },
   {
-    header: "Agents",
+    header: "Potential readers",
+    priority: "optional",
     value: (row: SkillListRow) => (row.agents.length === 0 ? "none" : row.agents.join(", ")),
   },
   {
+    header: "Configured agents",
+    priority: "required",
+    value: (row: SkillListRow) =>
+      row.agentOutcomes.map((outcome) => outcome.agentId).join(", ") || "none",
+  },
+  {
+    header: "Native locations",
+    priority: "required",
+    value: (row: SkillListRow) =>
+      row.nativeLocations
+        ?.map(
+          (unit) =>
+            `${unit.address.path}: ${unit.state}${unit.policyReasons.length === 0 ? "" : ` (${unit.policyReasons.join(", ")})`}`,
+        )
+        .join("; ") || "unverified",
+  },
+  {
+    header: "Discovery",
+    priority: "required",
+    value: (row: SkillListRow) =>
+      row.duplicateDiscoveries
+        ?.map(
+          (duplicate) =>
+            `${duplicate.agentId} can discover this Skill in ${duplicate.nativeUnitKeys.length} populated locations; native selection is unverified`,
+        )
+        .join("; ") || "native selection unverified",
+  },
+  {
     header: "Agent outcomes",
-    priority: "optional",
+    priority: "required",
     value: (row: SkillListRow) => inventoryAgentOutcomes(row.agentOutcomes),
   },
 ] satisfies ReadonlyArray<ViewColumn<SkillListRow>>;

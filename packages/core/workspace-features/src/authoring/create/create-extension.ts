@@ -76,7 +76,14 @@ import {
   type PlannedJobStep,
   type CandidateFingerprintFailed,
 } from "@agentxm/workspace-kernel/operations";
-import { CodingAgentRepository } from "@agentxm/workspace-kernel/projection";
+import {
+  CodingAgentRepository,
+  nativeArtifactLocationOutcomes,
+} from "@agentxm/workspace-kernel/projection";
+import {
+  assertNativeMutationWithinRoots,
+  nativeAuthorityRoots,
+} from "@agentxm/workspace-kernel/locations";
 import type { CredentialStore } from "@agentxm/registry-access/credentials";
 import type { RegistryUrl } from "@agentxm/registry-client";
 import {
@@ -546,6 +553,53 @@ export const prepareCreateExtension: (
   );
   const agentConfigTargets: ReadonlyArray<JobStepArtifactTarget> =
     request.type === "mcp-server" ? yield* mcpAgentConfigTargets() : [];
+  const inspectSkillDestinations = Effect.gen(function* () {
+    if (request.type !== "skill") return [];
+    const current = yield* skillTargetLocations();
+    for (const target of current.locations) {
+      const targetPath = path.join(target.targetDir, name);
+      const { address } = yield* assertNativeMutationWithinRoots(
+        nativeAuthorityRoots(
+          path,
+          { workspaceRoot: locationService.baseDir, scope: locationService.scope },
+          locationService.nativeDirectoryInputs,
+        ),
+        targetPath,
+        "entry",
+        locationService.baseDir,
+      );
+      if (address.kind !== "absent")
+        return yield* new AuthoringFailed({
+          category: "validation",
+          detail: `Cannot create Skill ${name}: native entry already exists at ${targetPath}`,
+        });
+    }
+    return yield* nativeArtifactLocationOutcomes({
+      workspaceRoot: locationService.baseDir,
+      scope: locationService.scope,
+      agents: yield* (yield* CodingAgentRepository).all,
+      configuredAgentIds: new Set(yield* settings.configuredAgents),
+      sharedSkillPolicy: true,
+      targets: current.locations.map((target) => ({
+        path: path.join(target.targetDir, name),
+        kind: "skill" as const,
+        state: "created" as const,
+      })),
+    });
+  }).pipe(
+    Effect.mapError(
+      (cause) =>
+        new AuthoringFailed({
+          category: "validation",
+          detail:
+            cause instanceof AuthoringFailed
+              ? cause.detail
+              : "Cannot establish native Skill creation destinations",
+          cause,
+        }),
+    ),
+  );
+  const plannedNativeLocations = yield* inspectSkillDestinations;
   const plannedArtifact: JobStepArtifact = {
     path: authoredPath,
     scope: locationService.scope,
@@ -553,6 +607,7 @@ export const prepareCreateExtension: (
     change: "created",
     fileCount: scaffold.contentFiles.length,
     targets: [...contentTargets, settingsTarget, ...projectionTargets, ...agentConfigTargets],
+    ...(request.type === "skill" ? { nativeLocations: plannedNativeLocations } : {}),
   };
 
   const nativePreflight = Effect.scoped(
@@ -590,6 +645,7 @@ export const prepareCreateExtension: (
     nativeInsertionEligible: true,
     preflight: Effect.gen(function* () {
       yield* nativePreflight;
+      yield* inspectSkillDestinations;
       yield* recoverCanonicalDirectory({
         baseDir: locationService.baseDir,
         canonicalPath: location,
@@ -629,7 +685,7 @@ export const prepareCreateExtension: (
             skill: { name: extensionName, description: Option.none(), metadata: Option.none() },
           },
           target: { type: "skill", name },
-          buildArtifact: ({ change }) =>
+          buildArtifact: ({ change, materialization }) =>
             Effect.gen(function* () {
               const { installable, locations } = yield* skillTargetLocations();
               const agents = artifactAgentIdsFromTargets(installable);
@@ -638,6 +694,9 @@ export const prepareCreateExtension: (
                 scope: locationService.scope,
                 ...(agents.length > 0 ? { agents } : {}),
                 version: scaffold.version,
+                nativeLocations: Option.isSome(materialization)
+                  ? (materialization.value.observation.nativeLocations ?? [])
+                  : [],
                 targets: [
                   { path: authoredPath, change },
                   { path: settingsPath, change },

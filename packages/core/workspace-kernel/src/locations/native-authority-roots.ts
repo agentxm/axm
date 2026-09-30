@@ -23,11 +23,7 @@ export const nativeAuthorityRoots = (
     path.resolve(args.workspaceRoot),
     ...(args.scope === "project"
       ? []
-      : [
-          inputs.xdgConfigRoot,
-          ...Object.values(inputs.userConfigRootOverrides ?? {}),
-          ...Object.values(inputs.skillsDirectoryOverrides),
-        ]
+      : [inputs.xdgConfigRoot, ...Object.values(inputs.userConfigRootOverrides ?? {})]
           .filter((root): root is string => root !== undefined && root.trim().length > 0)
           .map((root) => path.resolve(args.workspaceRoot, root))),
   ]),
@@ -175,12 +171,20 @@ export const assertNativeMutationWithinRoots = (
         });
     }
     const physicalOwner = yield* resolveNativeReferent(ownerRoot);
-    if (selected.physicalRoot !== physicalOwner) {
-      const runtimeMarker = path.join(selected.physicalRoot, ".axm");
+    // Routing into a declared XDG/vendor root must not hide an enclosing
+    // independent workspace. Walk only the bounded ancestor chain up to the
+    // selected owner's common ancestor; never discover arbitrary descendants.
+    let ancestor = selected.physicalRoot;
+    while (ancestor !== physicalOwner) {
+      const runtimeMarker = path.join(ancestor, ".axm");
       const conflict =
-        (yield* fs.exists(path.join(selected.physicalRoot, "axm.json"))) ||
+        (yield* fs.exists(path.join(ancestor, "axm.json"))) ||
         ((yield* fs.exists(runtimeMarker)) && !contains(path, runtimeMarker, physicalOwner));
       if (conflict) return yield* new NativeLocationError({ target, reason: "workspace-conflict" });
+      if (contains(path, ancestor, physicalOwner)) break;
+      const parent = path.dirname(ancestor);
+      if (parent === ancestor) break;
+      ancestor = parent;
     }
     return {
       nativeRoot: selected.nativeRoot,

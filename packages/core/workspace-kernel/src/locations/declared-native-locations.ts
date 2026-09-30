@@ -16,7 +16,7 @@ export interface ResolvedNativeReadLocation<
   readonly declaration: Location;
   readonly nativeRoot: string;
   readonly path: string;
-  readonly availability: "declared" | "unverified-override";
+  readonly availability: "declared" | "unverified-override" | "unverified-condition";
 }
 
 /** Resolve only explicit scope, root, and override semantics from the declaration. */
@@ -26,8 +26,13 @@ export const resolveNativeReadLocation = <Location extends NativeReadLocation>(
   declaration: Location,
   args: { readonly workspaceRoot: string; readonly scope: WorkspaceScope },
   inputs: NativeDirectoryInputs,
+  options?: { readonly includeConditional: boolean },
 ): ResolvedNativeReadLocation<Location> | undefined => {
-  if (declaration.scope !== args.scope || declaration.applicability.kind !== "always")
+  if (
+    declaration.scope !== args.scope ||
+    (declaration.applicability.kind !== "always" && options?.includeConditional !== true) ||
+    declaration.path.includes("<")
+  )
     return undefined;
   const override =
     declaration.configRootRelativePath === undefined
@@ -46,7 +51,12 @@ export const resolveNativeReadLocation = <Location extends NativeReadLocation>(
       override === undefined || declaration.configRootRelativePath === undefined
         ? path.resolve(root, declaration.path)
         : path.resolve(args.workspaceRoot, override, declaration.configRootRelativePath),
-    availability: override === undefined ? "declared" : "unverified-override",
+    availability:
+      declaration.applicability.kind === "conditional"
+        ? "unverified-condition"
+        : override === undefined
+          ? "declared"
+          : "unverified-override",
   };
 };
 

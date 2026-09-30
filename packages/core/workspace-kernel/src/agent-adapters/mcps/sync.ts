@@ -481,8 +481,19 @@ const planMcpRemovals = (
         continue;
       if (group.unverifiedReaders.length > 0)
         return yield* new McpSharedTargetConflict({ reason: group.unverifiedReaders.join("; ") });
+      const consumers = group.members.filter((member) =>
+        args.configuredConsumerIds === undefined
+          ? member.configured
+          : args.configuredConsumerIds.has(member.agentId),
+      );
+      // With no remaining consumers, withdrawal still needs one declared parser
+      // for the owned container; potential readers do not add new constraints.
+      const withdrawalWriter = [...group.members]
+        .filter((member) => member.configured)
+        .sort((left, right) => left.agentId.localeCompare(right.agentId))
+        .slice(0, 1);
       const shared = resolveSharedMcpContainer({
-        members: group.members,
+        members: consumers.length > 0 ? consumers : withdrawalWriter,
         negotiateActivation: args.disableOnly,
       });
       if (shared._tag === "conflict")

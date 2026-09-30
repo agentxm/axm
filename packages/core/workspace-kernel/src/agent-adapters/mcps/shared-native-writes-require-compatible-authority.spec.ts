@@ -22,7 +22,7 @@ export const specification = defineSpecification({
   requirement: "workspace/mcps/shared-native-writes-require-compatible-authority",
   title: "Shared MCP writes require compatible readers and proven authority",
   statement:
-    "AXM shall write each physical MCP file once only when its complete format, declared servers-container path, and rendered entry satisfy all declared native readers and the target entry is absent, proven owned, or explicitly adopted from an unchanged observed declaration; alias escapes and stale adoption shall leave native files unchanged.",
+    "AXM shall write each physical MCP file once only when its complete format, declared servers-container path, and rendered entry satisfy the configured applicable native readers, with other catalog readers reported only as potential readers, and the target entry is absent, proven owned, or explicitly adopted from an unchanged observed declaration; alias escapes and stale adoption shall leave native files unchanged.",
   class: "functional",
   role: "supporting",
   goals: ["agent-interoperability", "workspace-intent-fidelity", "safe-repetition"],
@@ -325,6 +325,55 @@ describe("authority at shared MCP files", () => {
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
+  it.effect.each(["entry removed", "file removed", "alias retargeted"] as const)(
+    "refuses explicit adoption after the observed %s",
+    (change) =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* fs.makeTempDirectoryScoped();
+        const original = path.join(root, "original.json");
+        const replacement = path.join(root, "replacement.json");
+        const alias = path.join(root, "native.json");
+        const raw = '{"mcpServers":{"context":{"command":"node"}},"foreign":true}';
+        yield* fs.writeFileString(original, raw);
+        yield* fs.writeFileString(replacement, raw);
+        yield* fs.symlink("original.json", alias);
+        const authority = yield* makeRecordingNativeWriteAuthority;
+        const adoption = {
+          filePath: yield* fs.realPath(alias),
+          expectedEntry: { command: "node" },
+        };
+        if (change === "entry removed")
+          yield* fs.writeFileString(original, '{"mcpServers":{},"foreign":true}');
+        else if (change === "file removed") yield* fs.remove(original);
+        else {
+          yield* fs.remove(alias);
+          yield* fs.symlink("replacement.json", alias);
+        }
+        const result = yield* writeAgentMcpConfig({
+          nativeInsertionEligible: false,
+          workspaceRoot: root,
+          serverName: "context",
+          serversPath: ["mcpServers"] as const,
+          target: { scope: "project", path: "native.json", format: "json", attribution: "agent" },
+          entry: managedEntry,
+          adoption,
+        }).pipe(Effect.provide(authority.layer), Effect.result);
+        expect(result._tag).toBe("Failure");
+        expect((yield* authority.observed).records).toEqual([]);
+        expect(yield* fs.readFileString(replacement)).toBe(raw);
+        expect(yield* fs.readLink(alias)).toBe(
+          change === "alias retargeted" ? "replacement.json" : "original.json",
+        );
+        if (change === "file removed") expect(yield* fs.exists(original)).toBe(false);
+        else
+          expect(yield* fs.readFileString(original)).toBe(
+            change === "entry removed" ? '{"mcpServers":{},"foreign":true}' : raw,
+          );
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("writes aliased Claude and Cursor configuration once", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
@@ -347,7 +396,10 @@ describe("authority at shared MCP files", () => {
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
-  it.effect("refuses JSONC comments when one co-reader requires strict JSON", () =>
+  it.effect.each([
+    '{\n// user comment\n"mcpServers":{},"foreign":true\n}',
+    '{"mcpServers":{},"foreign":true,}',
+  ])("refuses incompatible JSONC syntax when one co-reader requires strict JSON: %s", (raw) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -382,7 +434,6 @@ describe("authority at shared MCP files", () => {
       });
       if (resolution._tag !== "resolved") return expect.fail("Expected common strict JSON grammar");
       expect(resolution.target.format).toBe("json");
-      const raw = '{\n// user comment\n"mcpServers":{},"foreign":true\n}';
       const file = path.join(root, "native.json");
       yield* fs.writeFileString(file, raw);
       const result = yield* validateAgentMcpConfigWrite({
@@ -456,34 +507,37 @@ describe("authority at shared MCP files", () => {
     );
   }
 
-  it.effect(
-    "refuses default references an unconfigured co-reader would interpret differently",
-    () =>
+  it.effect.each([false, true])(
+    "only configured co-readers constrain default references: %s",
+    (configured) =>
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         const root = yield* fs.makeTempDirectoryScoped();
         const authority = yield* makeRecordingNativeWriteAuthority;
-        const result = yield* syncInlineMcpServerToAgents(["claude-code"], {
-          workspaceRoot: root,
-          nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
-          serverName: "context",
-          nativeInsertionEligible: true,
-          entry: {
-            kind: "inline",
-            command: "node",
-            env: { TOKEN: "${TOKEN:-fallback}" },
-            enabled: true,
+        const result = yield* syncInlineMcpServerToAgents(
+          configured ? ["claude-code", "github-copilot-cli"] : ["claude-code"],
+          {
+            workspaceRoot: root,
+            nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+            serverName: "context",
+            nativeInsertionEligible: true,
+            entry: {
+              kind: "inline",
+              command: "node",
+              env: { TOKEN: "${TOKEN:-fallback}" },
+              enabled: true,
+            },
           },
-        }).pipe(Effect.result, Effect.provide(authority.layer));
-        expect(result._tag).toBe("Failure");
+        ).pipe(Effect.result, Effect.provide(authority.layer));
+        expect(result._tag).toBe(configured ? "Failure" : "Success");
         if (result._tag === "Failure")
           expect(result.failure).toMatchObject({
             _tag: "McpSharedTargetConflict",
             reason: expect.stringContaining("github-copilot-cli"),
           });
-        expect((yield* authority.observed).records).toEqual([]);
-        expect(yield* fs.exists(path.join(root, ".mcp.json"))).toBe(false);
+        expect((yield* authority.observed).records).toHaveLength(configured ? 0 : 1);
+        expect(yield* fs.exists(path.join(root, ".mcp.json"))).toBe(!configured);
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 

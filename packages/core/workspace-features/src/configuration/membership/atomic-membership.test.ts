@@ -10,6 +10,7 @@ import {
   type PlannedJobStep,
   StepFailure,
 } from "@agentxm/workspace-kernel/operations";
+import { ConfiguredAgentOutcomesProviderTest } from "@agentxm/workspace-kernel/workspace-state/testing";
 import { SettingsWriter } from "@agentxm/workspace-kernel/workspace-state";
 import {
   protectCreatedAncestors,
@@ -128,7 +129,7 @@ describe("makeAtomicMembershipSteps", () => {
       expect(readAgents(root)).toEqual([]);
       expect(fs.existsSync(target)).toBe(false);
     }).pipe(
-      Effect.provide(Layer.mergeAll(platform, workspace)),
+      Effect.provide(Layer.mergeAll(platform, workspace, ConfiguredAgentOutcomesProviderTest)),
       Effect.ensuring(Effect.sync(() => fs.rmSync(root, { recursive: true, force: true }))),
     );
   });
@@ -184,7 +185,7 @@ describe("makeAtomicMembershipSteps", () => {
       });
       expect(readAgents(root)).toEqual([]);
     }).pipe(
-      Effect.provide(Layer.mergeAll(platform, workspace)),
+      Effect.provide(Layer.mergeAll(platform, workspace, ConfiguredAgentOutcomesProviderTest)),
       Effect.ensuring(Effect.sync(() => fs.rmSync(root, { recursive: true, force: true }))),
     );
   });
@@ -247,7 +248,7 @@ describe("makeAtomicMembershipSteps", () => {
       expect(readAgents(root)).toEqual(["cursor"]);
       expect(fs.readFileSync(target, "utf8")).toBe("managed\n");
     }).pipe(
-      Effect.provide(Layer.mergeAll(platform, workspace)),
+      Effect.provide(Layer.mergeAll(platform, workspace, ConfiguredAgentOutcomesProviderTest)),
       Effect.ensuring(Effect.sync(() => fs.rmSync(root, { recursive: true, force: true }))),
     );
   });

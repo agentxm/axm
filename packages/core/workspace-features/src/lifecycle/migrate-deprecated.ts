@@ -4,7 +4,6 @@ import * as Option from "effect/Option";
 
 import { RegistryClientFactory } from "@agentxm/registry-client";
 import type { BundledAxmSkillAsset } from "@agentxm/extension-kinds/skills";
-import type { PackUninstallRequirements } from "@agentxm/extension-kinds/packs";
 import {
   buildReconciliationClosure,
   StepFailureConversion,
@@ -25,7 +24,10 @@ import {
   resolveExecutionCandidate,
 } from "@agentxm/workspace-kernel/planning";
 import { InstallExtensions } from "./install/install-extensions.js";
-import { UninstallExtensions } from "./uninstall/uninstall-extensions.js";
+import {
+  UninstallExtensions,
+  type PrepareUninstallRequirements,
+} from "./uninstall/uninstall-extensions.js";
 import { resolveRootUninstallIntent } from "./uninstall/root-intent.js";
 
 export const prepareDeprecatedMigration = Effect.fn("MigrateDeprecated.prepare")(function* (
@@ -118,7 +120,7 @@ export const prepareDeprecatedMigration = Effect.fn("MigrateDeprecated.prepare")
   ];
   const closure = yield* buildReconciliationClosure<
     never,
-    InstallStepRequirements | BundledAxmSkillAsset | PackUninstallRequirements
+    InstallStepRequirements | BundledAxmSkillAsset | PrepareUninstallRequirements
   >({
     toStepFailure: conversion.toStepFailure,
     label: fqn,

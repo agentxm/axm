@@ -18,6 +18,7 @@ import * as PlatformError from "effect/PlatformError";
 
 import { makeMemoryTransitionLockWorld } from "./memory-transition-lock.js";
 import { WorkspaceTransactionScope, type WorkspaceTransactionPaths } from "./scope.js";
+import { BoundaryClaimsDirectory } from "./boundary-claims.js";
 import { makeWorkspaceTransactionScope } from "./live.js";
 import type * as Path from "effect/Path";
 import type { WorkspaceTransitionLock } from "./transition-lock.js";
@@ -42,8 +43,12 @@ export const WorkspaceTransactionScopeTest = (
     makeWorkspaceTransactionScope(
       paths,
       options?.lock ?? makeMemoryTransitionLockWorld().invocation(),
-    ),
+    ).pipe(Effect.provideService(BoundaryClaimsDirectory, null)),
   );
+
+/** Isolate real cross-process claims without changing captured workspace routing. */
+export const WorkspaceBoundaryClaimsTest = (directory: string) =>
+  Layer.succeed(BoundaryClaimsDirectory, directory);
 
 /** One durable write the fault-injecting file system is about to perform. */
 export type FileSystemWriteOperation =

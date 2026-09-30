@@ -5,7 +5,7 @@ import { afterEach } from "vitest";
 
 import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { DesiredStateReader } from "@agentxm/workspace-kernel/workspace-state";
+import { DesiredStateReader, SettingsWriter } from "@agentxm/workspace-kernel/workspace-state";
 import { applyActivation } from "../activation/test-helpers.js";
 
 import { contentUnder, localLifecycleRows, readSettings } from "../install/test-helpers.js";
@@ -22,7 +22,7 @@ export const specification = defineSpecification({
   requirement: "cli/uninstall/removes-direct-route-and-recomputes-reachability",
   title: "Uninstall removes direct intent and keeps state another desired route still reaches",
   statement:
-    "When a directly desired extension is uninstalled, AXM shall remove its direct configuration, remove its resolution and verified acquired content when no other desired route reaches it, realize activation and owned outputs from the remaining desired routes, report retained state, preserve authored inventory, and leave state outside the necessary dependency and shared-output closure untouched.",
+    "When a directly desired extension is uninstalled, AXM shall remove its direct configuration, remove its resolution and verified acquired content when no other desired route reaches it, realize activation and owned outputs from the remaining desired routes, report retained state, preserve authored inventory, refuse and roll back when final owner readback finds a required retained native unit changed, and leave state outside the necessary dependency and shared-output closure untouched.",
   class: "functional",
   role: "experience",
   goals: ["extension-adoption", "workspace-intent-fidelity"],
@@ -215,6 +215,67 @@ describe("Uninstall a directly desired extension", () => {
               ]),
             );
             expect(unit?.message).toContain("retained its package");
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
+
+  it.effect.each(["body", "ownership marker"] as const)(
+    "rolls back Pack withdrawal when a retained member's %s changes",
+    (change) => {
+      const { workspace, registry } = world();
+      registry.writeSubagent("planner", [{ version: "1.0.0", body: "Plan carefully." }]);
+      registry.writePack("planning", [
+        { version: "1.0.0", dependencies: { "@acme/subagents/planner": "^1.0.0" } },
+      ]);
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            for (const [type, source] of [
+              ["subagent", "@acme/subagents/planner"],
+              ["pack", "@acme/packs/planning"],
+            ] as const) {
+              const installed = yield* applyInstall(
+                installRequest({ type, subject: { kind: "source", source } }),
+              );
+              expect(deriveOperationOutcome(installed), JSON.stringify(installed)).toBe("applied");
+            }
+            const settingsBefore = workspace.readFile("axm.json");
+            const nativePath = ".claude/agents/planner.md";
+            const nativeBefore = workspace.readFile(nativePath);
+            const changed =
+              change === "body"
+                ? nativeBefore.replace("Plan carefully.", "Foreign instructions.")
+                : nativeBefore.replace(/<!-- axm:file[\s\S]*?-->/g, "");
+            expect(changed).not.toBe(nativeBefore);
+            const writer = yield* SettingsWriter;
+            let corrupted = false;
+            const result = yield* applyUninstall(
+              uninstallRequest({ type: "pack", selector: "planning" }),
+            ).pipe(
+              Effect.provideService(SettingsWriter, {
+                ...writer,
+                removeEntry: (type, name) =>
+                  writer.removeEntry(type, name).pipe(
+                    Effect.tap(() =>
+                      Effect.sync(() => {
+                        if (type === "pack") {
+                          workspace.writeFile(nativePath, changed);
+                          corrupted = true;
+                        }
+                      }),
+                    ),
+                  ),
+              }),
+            );
+            expect(corrupted).toBe(true);
+            expect(deriveOperationOutcome(result)).not.toBe("applied");
+            expect(workspace.readFile("axm.json")).toBe(settingsBefore);
+            expect(
+              workspace.exists("agent_extensions/registry/@acme/packs/planning/pack.json"),
+            ).toBe(true);
+            expect(workspace.readFile(nativePath)).toBe(changed);
           }),
         )
         .pipe(Effect.provide(NodeServices.layer));

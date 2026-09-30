@@ -94,8 +94,39 @@ subset.
 
 Application takes one atomic process lock for the selected AXM workspace
 scope. AXM refreshes the lock while its owner runs and a later mutation
-reclaims it after abrupt process death. AXM does not add
-leases, heartbeats, PID inference, lock stealing, or distributed coordination.
+reclaims it after abrupt process death.
+
+Workspace authority and physical write boundaries answer different questions.
+Two workspaces can have independent settings and lock state while reaching the
+same native file through aliases or external roots. Their workspace locks
+therefore cannot alone prevent one transaction from overwriting another's
+output or restoring an obsolete preimage over it.
+
+Active transactions also claim their physical boundaries in a stable namespace
+under the operating-system account's home. Environment-selected user scopes,
+native roots, and temporary directories cannot move that coordination boundary.
+A short admission lock serializes claim publication and retirement, rejecting
+equal boundaries and ancestor/descendant overlaps with another active
+transaction. Disjoint transactions continue their business writes concurrently.
+An invocation holds its claims through postcondition validation and rollback.
+A conflict discovered as later targets are protected fails the closure and
+restores eligible earlier writes; admission does not promise advance knowledge
+of every target the closure will touch.
+
+Claims describe a transient write window and confer no ownership of native
+content. They record no desired membership, accepted resolution, or projection
+currency. The existing lock implementation supplies lease liveness and
+stale-owner recovery. Missing or uncertain coordination evidence cannot justify
+displacing a live owner. Normal settlement removes active metadata; an empty
+stable runtime directory may remain.
+
+Coordination requires a writable operating-system account home shared by the
+participating processes. It excludes separate accounts, hosts, or containers
+without that shared namespace, and does not detect historical claims by
+sequential, otherwise undiscoverable owners. Existing bounded workspace-root
+authority checks still apply. Editors, agents, and other filesystem writers do
+not participate, so preimage validation and foreign-change-preserving
+restoration remain necessary.
 
 Under the lock, AXM revalidates every material authoritative input and target
 preimage used by the plan. A stale plan performs no writes, and `--force` cannot
@@ -132,17 +163,18 @@ File placement communicates transient ownership and lifetime. Bounded local
 [insertion receipts](managed-file-ownership.md#insertion-receipts) separately
 prove container cleanup; they carry no command intent or workspace authority.
 
-| State                                     | Placement and lifecycle                                                                                       |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Durable project workspace authority       | Root `axm.json`, `axm-lock.yaml`, authored roots, and `agent_extensions/`                                     |
-| Durable user workspace authority          | `~/.axm/workspace/{axm.json,axm-lock.yaml,agent_extensions/}`                                                 |
-| Project-local scratch                     | Unique children of `.axm/tmp/`; the workspace mutex is `.axm/tmp/workspace-transition.lock`                   |
-| Invocation scratch and rollback snapshots | Uniquely prefixed directories in the operating-system temporary directory                                     |
-| Atomic single-file publication            | Exact `<target>.tmp.<unique>` siblings, swept only by that target's writer                                    |
-| Atomic canonical-directory publication    | Exact `<canonical>.axm-staging` and `<canonical>.axm-backup` siblings                                         |
-| Native insertion cleanup evidence         | Selected workspace runtime directory's `projection-containers.json`; removed when its last receipt is retired |
-| Performance-only cache                    | The platform cache directory, including Registry archives and update-check state                              |
-| Restricted application state              | `~/.axm/`, including pending login, file credentials, install metadata, and `bin/axm`                         |
+| State                                     | Placement and lifecycle                                                                                                                      |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Durable project workspace authority       | Root `axm.json`, `axm-lock.yaml`, authored roots, and `agent_extensions/`                                                                    |
+| Durable user workspace authority          | `~/.axm/workspace/{axm.json,axm-lock.yaml,agent_extensions/}`                                                                                |
+| Project-local scratch                     | Unique children of `.axm/tmp/`; the workspace mutex is `.axm/tmp/workspace-transition.lock`                                                  |
+| Active physical-boundary claims           | OS account home’s `.axm-runtime/physical-boundaries/`; invocation leases and active metadata retire after settlement or stale-owner recovery |
+| Invocation scratch and rollback snapshots | Uniquely prefixed directories in the operating-system temporary directory                                                                    |
+| Atomic single-file publication            | Exact `<target>.tmp.<unique>` siblings, swept only by that target's writer                                                                   |
+| Atomic canonical-directory publication    | Exact `<canonical>.axm-staging` and `<canonical>.axm-backup` siblings                                                                        |
+| Native insertion cleanup evidence         | Selected workspace runtime directory's `projection-containers.json`; removed when its last receipt is retired                                |
+| Performance-only cache                    | The platform cache directory, including Registry archives and update-check state                                                             |
+| Restricted application state              | `~/.axm/`, including pending login, file credentials, install metadata, and `bin/axm`                                                        |
 
 Package creation, import, fork, install, and replacement all populate and
 validate the complete sibling staging tree before a same-parent rename makes it

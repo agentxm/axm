@@ -139,8 +139,10 @@ export {
   ConfiguredAgentOutcomesProvider,
   ConfiguredAgentOutcomesUnavailable,
   resolveConfiguredAgentOutcomes,
+  resolveConfiguredExtensionObservations,
+  type ConfiguredExtensionObservation,
   type ConfiguredAgentOutcomesRequest,
-  type ConfiguredAgentOutcomesForState,
+  type ConfiguredExtensionObservationsForRequest,
   type ConfiguredAgentOutcomesProviderService,
 } from "./workspace/configured-agent-outcomes-provider.js";
 

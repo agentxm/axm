@@ -42,6 +42,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
+import * as Schema from "effect/Schema";
 import type * as Scope from "effect/Scope";
 import * as lockfile from "proper-lockfile";
 
@@ -212,8 +213,8 @@ const readHolder = (
   lockPath: string,
 ): Effect.Effect<Option.Option<TransitionLockHolder & { readonly token?: string }>> =>
   fs.readFileString(path.join(lockPath, "holder.json")).pipe(
-    Effect.map((content) => {
-      const parsed: unknown = JSON.parse(content);
+    Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))),
+    Effect.map((parsed) => {
       if (
         typeof parsed === "object" &&
         parsed !== null &&

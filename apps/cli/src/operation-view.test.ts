@@ -14,61 +14,78 @@ import {
 import { operationDoc, planDoc } from "./operation-view.js";
 import { paintText } from "./screen/paint-text.js";
 import { asciiGlyphs } from "./screen/glyphs.js";
+import { displayWidth } from "./screen/width.js";
 
-const paint = (doc: ReturnType<typeof planDoc>): string =>
-  paintText(doc, { width: 160, colors: false, glyphs: asciiGlyphs }).join("\n");
+const paint = (doc: ReturnType<typeof planDoc>, width = 160): string =>
+  paintText(doc, { width, colors: false, glyphs: asciiGlyphs }).join("\n");
 
-it("reports a shared native location independently of its consumers and preserves recovery addresses", () => {
-  const artifact: JobStepArtifact = {
-    path: ".agents/skills/review",
-    scope: "project",
-    change: "updated",
-    nativeLocations: [
-      {
-        scope: "project",
-        address: { kind: "entry", path: "/workspace/.agents/skills/review" },
-        aliases: ["/workspace/.agents/skills/review"],
-        configuredConsumers: ["codex", "cursor"],
-        potentialReaders: ["unconfigured-reader"],
-        policyReasons: ["Shared Skills policy keeps this entry available"],
-        ownership: "owned",
-        proof: "canonical-source-link",
-        state: "retained",
-        availability: [],
-        reason: "A remaining consumer still requires this entry",
-      },
-    ],
-  };
-  const text = paint(
-    operationDoc(
-      makeOperationResolution({
-        name: "Remove agent",
-        description: Option.none(),
-        mode: "apply",
-        atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
-        units: [{ id: "review", label: "review", state: "committed", artifact }],
-        recovery: {
-          retained: [],
-          entries: [
-            {
-              originalPath: "/workspace/native.json",
-              recoveryPath: "/workspace/.axm-retired-id/native.json",
-              kind: "retired-entry",
-            },
-          ],
-          actions: [],
+const compactText = (text: string): string => text.replace(/\s+/gu, "");
+
+it.each([40, 80, 120, 200])(
+  "reports native retention and recovery addresses at %i columns",
+  (columns) => {
+    const artifact: JobStepArtifact = {
+      path: ".agents/skills/review",
+      scope: "project",
+      change: "updated",
+      nativeLocations: [
+        {
+          scope: "project",
+          address: { kind: "entry", path: "/workspace/.agents/skills/review" },
+          aliases: ["/workspace/.agents/skills/review"],
+          configuredConsumers: ["codex", "cursor"],
+          potentialReaders: ["unconfigured-reader"],
+          policyReasons: ["Shared Skills policy keeps this entry available"],
+          ownership: "owned",
+          proof: "canonical-source-link",
+          state: "retained",
+          availability: [],
+          reason: "A remaining consumer still requires this entry",
         },
-      }),
-      { verbosity: "normal" },
-    ),
-  );
-  expect(text).toContain("1 physical location, 1 unit, 2 configured consumers, 1 potential reader");
-  expect(text).toContain("Shared Skills policy keeps this entry available");
-  expect(text).toContain("A remaining consumer still requires this entry");
-  expect(text).toContain(
-    "Preserved original for /workspace/native.json: /workspace/.axm-retired-id/native.json",
-  );
-});
+      ],
+    };
+    const text = paint(
+      operationDoc(
+        makeOperationResolution({
+          name: "Remove agent",
+          description: Option.none(),
+          mode: "apply",
+          atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
+          units: [{ id: "review", label: "review", state: "committed", artifact }],
+          recovery: {
+            retained: [],
+            entries: [
+              {
+                originalPath: "/workspace/native.json",
+                recoveryPath: "/workspace/.axm-retired-id/native.json",
+                kind: "retired-entry",
+              },
+            ],
+            actions: [],
+          },
+        }),
+        { verbosity: "normal" },
+      ),
+      columns,
+    );
+    expect(compactText(text)).toContain(
+      compactText("1 physical location, 1 unit, 2 configured consumers, 1 potential reader"),
+    );
+    expect(compactText(text)).toContain(
+      compactText("Shared Skills policy keeps this entry available"),
+    );
+    expect(compactText(text)).toContain(
+      compactText("A remaining consumer still requires this entry"),
+    );
+    expect(compactText(text)).toContain(
+      compactText(
+        "Preserved original for /workspace/native.json: /workspace/.axm-retired-id/native.json",
+      ),
+    );
+    for (const line of text.split("\n"))
+      expect(displayWidth(line), line).toBeLessThanOrEqual(columns);
+  },
+);
 
 describe("pack membership output", () => {
   const artifact: JobStepArtifact = {
@@ -456,6 +473,18 @@ describe("problem outcomes", () => {
       " !!  Sync is blocked - approval is required   1 not tried, exit 2\n     This plan removes extensions another agent still uses.",
     );
     expect(text).toContain("axm sync --yes   Approve it up front");
+    for (const columns of [40, 80, 120, 200]) {
+      const wrapped = paint(doc, columns);
+      const visible = compactText(wrapped);
+      expect(visible).toContain(compactText("Sync is blocked - approval is required"));
+      expect(visible).toContain(
+        compactText("This plan removes extensions another agent still uses."),
+      );
+      expect(visible).toContain(compactText("axm sync --yes"));
+      expect(visible).toContain(compactText("Approve it up front"));
+      for (const line of wrapped.split("\n"))
+        expect(displayWidth(line), line).toBeLessThanOrEqual(columns);
+    }
   });
 
   it("follows a failed verdict with its reason and the exit code its cause class sets", () => {

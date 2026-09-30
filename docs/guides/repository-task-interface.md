@@ -377,7 +377,10 @@ Package-store caches supply dependencies, not task verdicts. Exact-SHA verified
 CI artifacts remain the release authority; task-cache presence is insufficient.
 
 Verify remote adoption in a second disposable checkout with an empty local
-cache: require `remote-cache-hit` in `.nx/cache/run.json`, matching task hashes,
+cache. Set `NX_CACHE_DIRECTORY` and `NX_WORKSPACE_DATA_DIRECTORY` to separate
+empty directories for each checkout; the default task cache and metadata
+database are shared across checkouts. Require `remote-cache-hit` in `run.json`
+inside the configured task-cache directory, matching task hashes,
 correct restored bytes/modes/reports, and no task-body execution. Relevant
 source, dependency/type, generator, toolchain, platform, and environment changes
 must miss; credentials and checkout locations must not change semantic task

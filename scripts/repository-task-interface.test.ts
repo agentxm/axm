@@ -510,5 +510,9 @@ describe("repository task interface", () => {
     ]);
     expect(cli?.data.targets?.["compile-host-dev"]?.cache).toBe(false);
     expect(cli?.data.targets?.["compile-host"]?.outputs).toEqual(["{projectRoot}/dist/host-bin"]);
+    const e2e = projects.find((project) => project.name === "cli-e2e");
+    for (const target of ["e2e-main", "binary-smoke", "install-suite"]) {
+      expect(e2e?.data.targets?.[target]?.dependsOn, target).toEqual(["cli:compile-host"]);
+    }
   });
 });

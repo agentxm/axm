@@ -58,7 +58,7 @@
     "binary-smoke": {
       "cache": false,
       "parallelism": false,
-      "dependsOn": ["cli:compile"],
+      "dependsOn": ["cli:compile-host"],
       "inputs": ["default", "^production", "hostPlatform"],
       "outputs": ["{workspaceRoot}/test-results/cli-e2e-binary"],
       "executor": "nx:run-commands",

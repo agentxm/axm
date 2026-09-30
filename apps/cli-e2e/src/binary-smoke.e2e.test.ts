@@ -3,9 +3,9 @@ import * as os from "node:os";
 import * as path from "node:path";
 
 import { createBinaryRunner, createTempDir } from "@agentxm/client-e2e-utils";
-import { describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
-import { resolveBinaryPath } from "./distribution-targets.js";
+import { resolveBinaryPath, resolveHostBinaryPath } from "./distribution-targets.js";
 
 /**
  * Binds this file's evidence to the requirement identities it executes. The
@@ -48,6 +48,35 @@ const parseInstallMethod = (stdout: string): unknown => {
   }
   return ownership.method;
 };
+
+describe("binary subject identity", () => {
+  it("uses the staged host output despite an ambient artifact path", () => {
+    onTestFinished(() => {
+      vi.unstubAllEnvs();
+    });
+    vi.stubEnv("AXM_BINARY_SOURCE", "compiled");
+    vi.stubEnv("AXM_BINARY_PATH", "/unrelated/artifact");
+    expect(resolveBinaryPath()).toBe(resolveHostBinaryPath());
+  });
+
+  it("uses the explicitly identified artifact", () => {
+    onTestFinished(() => {
+      vi.unstubAllEnvs();
+    });
+    vi.stubEnv("AXM_BINARY_SOURCE", "artifact");
+    vi.stubEnv("AXM_BINARY_PATH", "/qualified/artifact");
+    expect(resolveBinaryPath()).toBe("/qualified/artifact");
+  });
+
+  it("rejects an absent artifact identity", () => {
+    onTestFinished(() => {
+      vi.unstubAllEnvs();
+    });
+    vi.stubEnv("AXM_BINARY_SOURCE", "artifact");
+    vi.stubEnv("AXM_BINARY_PATH", undefined);
+    expect(resolveBinaryPath).toThrow("requires an identified artifact");
+  });
+});
 
 describe("compiled binary smoke", () => {
   it("preserves native case aliases and remaining Skill consumers", async () => {

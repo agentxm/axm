@@ -264,7 +264,10 @@ export const assertNativeMutationWithin = (
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const physicalRoot = yield* resolveNativeReferent(root);
-    const physicalOwnerRoot = yield* resolveNativeReferent(ownerRoot);
+    const physicalOwnerRoot =
+      path.resolve(root) === path.resolve(ownerRoot)
+        ? physicalRoot
+        : yield* resolveNativeReferent(ownerRoot);
     const address = yield* resolveNativeEntry(target);
     const boundary = mutation === "content" ? address.referentPath : address.entryPath;
     if (boundary === undefined)

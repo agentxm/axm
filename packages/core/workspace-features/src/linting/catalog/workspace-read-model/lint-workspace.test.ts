@@ -318,6 +318,7 @@ describe("buildLintWorkspace manifest JSON population", () => {
           return deps.fs.readDirectory(...params);
         },
         readLink: (path: string) => unsupported("readLink", path),
+        makeTempDirectory: () => unsupported("makeTempDirectory", deps.workspaceRoot),
         makeDirectory: (path: string) => unsupported("makeDirectory", path),
         writeFileString: (path: string) => unsupported("writeFileString", path),
         symlink: (_target: string, path: string) => unsupported("symlink", path),

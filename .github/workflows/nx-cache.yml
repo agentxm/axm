@@ -1,9 +1,12 @@
 name: Warm Nx task cache
 
 on:
-  workflow_run:
+  # Only successful same-repository main CI may seed, from its exact SHA;
+  # the main-only protected writer environment also enforces this trust boundary.
+  workflow_run: # zizmor: ignore[dangerous-triggers]
     workflows: [CI]
     types: [completed]
+    branches: [main]
 
 permissions:
   contents: read

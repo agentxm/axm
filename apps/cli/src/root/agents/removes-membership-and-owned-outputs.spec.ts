@@ -469,6 +469,91 @@ describe("Removing a coding agent", () => {
     },
   );
 
+  it.effect("retains Copilot's shared MCP key and foreign siblings when Claude Code leaves", () => {
+    const fixture = makeAgentMembershipFixture({
+      machine: true,
+      settings: {
+        owner: "@acme",
+        agents: ["claude-code", "github-copilot-cli"],
+        mcpServers: { api: { command: "node", args: ["api.js"], env: { TOKEN: "${TOKEN}" } } },
+      },
+      files: {
+        ".mcp.json":
+          '{"mcpServers":{"foreign":{"command":"keep-me","args":["foreign.js"]}},"foreignSetting":{"preserve":true}}\n',
+      },
+    });
+    cleanups.push(fixture.cleanup);
+    const decodeResult = () =>
+      Schema.decodeUnknownEffect(PlanResolutionDocumentSchema)(
+        fixture.rendererState.results.at(-1)?.data,
+      );
+    return Effect.gen(function* () {
+      yield* fixture.provide(handleSync({ preview: false }));
+      const first = yield* decodeResult();
+      expect(first.result.outcome).toBe("applied");
+      const shared = first.result.nativeLocations.filter(
+        (unit) => unit.address.path === `${fixture.root}/.mcp.json`,
+      );
+      expect(shared).toHaveLength(1);
+      expect(shared[0]).toMatchObject({
+        address: { kind: "key-path", keys: ["mcpServers", "api"] },
+        ownership: "owned",
+        configuredConsumers: ["claude-code", "github-copilot-cli"],
+      });
+      const nativeBefore = fixture.readFile(".mcp.json");
+      const decodedBefore: unknown = JSON.parse(nativeBefore);
+      expect(decodedBefore).toMatchObject({
+        mcpServers: {
+          api: {
+            command: "node",
+            args: ["api.js"],
+            env: { TOKEN: "${TOKEN}" },
+            "x-axm": { v: 1, managed: true, ext: "@workspace/mcps/api", source: "inline" },
+          },
+          foreign: { command: "keep-me", args: ["foreign.js"] },
+        },
+        foreignSetting: { preserve: true },
+      });
+      const lockBefore = fixture.readLockfileText();
+      const declarationBefore = fixture.readSettings()["mcpServers"];
+
+      yield* removeAgent(fixture, "claude-code");
+      const removed = yield* decodeResult();
+      expect(removed.result.outcome).toBe("applied");
+      expect(fixture.readSettings()["agents"]).toEqual(["github-copilot-cli"]);
+      expect(fixture.readSettings()["mcpServers"]).toEqual(declarationBefore);
+      expect(fixture.readFile(".mcp.json")).toBe(nativeBefore);
+      expect(fixture.readLockfileText()).toBe(lockBefore);
+      const retained = removed.result.nativeLocations.filter(
+        (unit) => unit.address.path === `${fixture.root}/.mcp.json`,
+      );
+      expect(retained).toHaveLength(1);
+      expect(retained[0]).toMatchObject({
+        address: { kind: "key-path", keys: ["mcpServers", "api"] },
+        ownership: "owned",
+        state: "retained",
+        configuredConsumers: ["github-copilot-cli"],
+        reason: expect.stringContaining("Still required by configured consumers"),
+      });
+      expect(removed.result.nativeLocationCounts.changed).toBe(0);
+      const inventory = yield* fixture.provide(
+        Effect.flatMap(WorkspaceRecords, (records) =>
+          records.getExtensionInventory("mcp-server", {}),
+        ),
+      );
+      const current = inventory.items.find((item) => item.name === "api");
+      expect(current?.agentOutcomes).toMatchObject([
+        { agentId: "github-copilot-cli", outcome: "current" },
+      ]);
+      expect(current?.agentOutcomes).toHaveLength(1);
+
+      const settled = fixture.snapshot();
+      yield* fixture.provide(handleSync({ preview: false }));
+      expect((yield* decodeResult()).result.outcome).toBe("no-op");
+      expect(fixture.snapshot()).toEqual(settled);
+    });
+  });
+
   it.effect.each(["trae", "trae-cn"] as const)(
     "retains the literal shared vendor Skill and MCP locations after removing %s",
     (departing) => {

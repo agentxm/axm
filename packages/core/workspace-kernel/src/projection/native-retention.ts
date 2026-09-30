@@ -5,12 +5,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import {
-  commentStyleForTarget,
-  inspectManagedRegion,
-  parseNativeConfigRoot,
-  type RegionName,
-} from "../agent-adapters/index.js";
+import { parseNativeConfigRoot } from "../agent-adapters/index.js";
 import {
   COPIED_DIRECTORY_RECEIPT,
   nativeUnitKey,
@@ -22,6 +17,7 @@ import {
 } from "../locations/index.js";
 import { computeSourceHash } from "../workspace-state/index.js";
 import { ProjectionIoFailed } from "./errors.js";
+import { nativeManagedRegionContent } from "./native-managed-region.js";
 
 /** Memory-only fingerprints; these are neither currency nor deletion authority. */
 export interface NativeRetentionWitness {
@@ -44,13 +40,6 @@ const stableValue = (value: unknown): unknown => {
       .map(([key, entry]) => [key, stableValue(entry)]),
   );
 };
-
-const isRegionName = (region: string): region is RegionName =>
-  region === "rules" ||
-  region === "knowledge" ||
-  region === "hook-fallbacks" ||
-  region === "instruction-aliases" ||
-  region.startsWith("mcp-server:");
 
 /** The same owner-declared aliases select the grammar used by native writers. */
 const keyContent = (
@@ -143,27 +132,11 @@ const observeRetention = (unit: NativeLocationOutcome, context: NativeRetentionC
         context,
       );
     } else if (unit.address.kind === "region") {
-      const style = commentStyleForTarget(unit.address.path);
-      if (Option.isNone(style) || !isRegionName(unit.address.region))
-        return yield* new ProjectionIoFailed({
-          path: unit.address.path,
-          step: "inspect",
-          cause: "retained-region-grammar-unavailable",
-        });
-      const raw = yield* fs.readFileString(address.referentPath);
-      const region = inspectManagedRegion(raw, unit.address.region, style.value);
-      if (region.state !== "complete")
-        return yield* new ProjectionIoFailed({
-          path: unit.address.path,
-          step: "inspect",
-          cause: "retained-region-unavailable",
-        });
-      // Keep exact line endings inside this unit, excluding unrelated sibling regions.
-      content = raw
-        .split(/(?<=\n)/u)
-        .slice(region.start, region.end + 1)
-        .join("")
-        .replace(/\r?\n$/u, "");
+      content = yield* nativeManagedRegionContent({
+        targetPath: unit.address.path,
+        region: unit.address.region,
+        raw: yield* fs.readFileString(address.referentPath),
+      });
     } else if (
       unit.policyReasons.includes("instruction-propagation") &&
       (address.kind === "symlink" || unit.proof === "canonical-source-coincidence")

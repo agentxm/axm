@@ -77,6 +77,7 @@ export interface ProjectionParticipant {
 
 /** What a subagent's owner reports about one rendered native profile. */
 export interface SubagentProjectionObservation {
+  readonly nativeLocations?: ReadonlyArray<import("../locations/index.js").NativeLocationOutcome>;
   readonly present: boolean;
   readonly current: boolean;
 }

@@ -38,6 +38,7 @@ import type { FootprintRecorder, WorkspaceTransactionScope } from "../settlement
 import type { McpSecretStore } from "./ports/mcp-secret-store.js";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import type { TreeIntegrity } from "../workspace-state/index.js";
+import type { NativeLocationOutcome } from "../locations/index.js";
 import type { HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import type { KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
 import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
@@ -303,10 +304,12 @@ export interface SubagentManagerService
   readonly materializeDeactivate: (args: {
     readonly target: ExtensionTargetFor<SubagentExtensionRef>;
   }) => Effect.Effect<SubagentMaterializationFacts, ExtensionManagerFailure, ManagerRequirements>;
-  readonly projectionObservation: (
-    ref: SubagentExtensionRef,
-  ) => Effect.Effect<
-    { readonly present: boolean; readonly current: boolean },
+  readonly projectionObservation: (ref: SubagentExtensionRef) => Effect.Effect<
+    {
+      readonly present: boolean;
+      readonly current: boolean;
+      readonly nativeLocations?: ReadonlyArray<NativeLocationOutcome>;
+    },
     ExtensionManagerFailure,
     ManagerRequirements
   >;
@@ -449,6 +452,7 @@ export class HookManager extends ServiceMap.Service<HookManager, HookManagerServ
 ) {}
 
 export interface KnowledgeSyncResult {
+  readonly nativeLocations?: ReadonlyArray<NativeLocationOutcome>;
   readonly changed: boolean;
   readonly warnings: ReadonlyArray<string>;
   readonly artifacts: ReadonlyArray<{

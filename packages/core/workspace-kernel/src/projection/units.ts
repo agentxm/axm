@@ -11,6 +11,7 @@
  */
 
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
+import type { NativeLocationOutcome } from "../locations/index.js";
 import type { ProjectionContributorExclusion } from "./exclusions.js";
 
 // -----------------------------------------------------------------------------
@@ -104,6 +105,7 @@ export const aggregateOwnershipUnits: ReadonlyArray<AggregateOwnershipUnitDeclar
 
 /** Observation of one AXM-owned projection unit in agent-facing output. */
 export interface ProjectionUnitObservation {
+  readonly nativeLocations?: ReadonlyArray<NativeLocationOutcome>;
   readonly unitId: OwnershipUnitId;
   readonly path: string;
   /** Marker provenance owner for comment-bearing managed-region units. */

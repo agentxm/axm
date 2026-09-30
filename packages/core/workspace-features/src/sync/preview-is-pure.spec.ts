@@ -1,3 +1,5 @@
+import * as fs from "node:fs";
+import * as nodePath from "node:path";
 import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
@@ -10,6 +12,7 @@ import {
   countUnitStates,
   deriveOperationOutcome,
   previewPlanExecution,
+  operationNativeLocations,
 } from "@agentxm/workspace-kernel/operations";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
@@ -19,6 +22,8 @@ import {
   makeSyncFixture,
   previewSync,
   writeLocalSkillPackage,
+  writeAuthoredKnowledge,
+  writeAuthoredRule,
   type SyncFixture,
 } from "../testing/sync-fixture.js";
 
@@ -26,7 +31,7 @@ export const specification = defineSpecification({
   requirement: "cli/sync/preview-is-pure",
   title: "Sync preview describes required changes without applying them",
   statement:
-    "When sync runs in preview mode against a workspace whose managed state has drifted from desired state, it shall report the reconciliation it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections.",
+    "When sync runs in preview mode against a workspace whose managed state has drifted from desired state, it shall report the reconciliation it would apply with a previewed outcome, including the physical native ownership units, their configured consumers, aliases and proposed changes, and shall not change settings, the lockfile, canonical content, or agent projections. Combining dependent work into one closure shall preserve those native unit details without multiplying shared physical units.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
@@ -63,6 +68,160 @@ describe("Sync preview purity", () => {
     cleanups.push(workspace.cleanup);
     return workspace;
   };
+
+  it.effect("describes inline MCP native units and consumers without applying them", () => {
+    const workspace = fixture({
+      agents: ["claude-code", "cursor"],
+      mcpServers: { demo: { url: "https://example.test/mcp" } },
+    });
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          const before = workspace.snapshot();
+          const resolution = expectResolved(yield* previewSync());
+          const native = operationNativeLocations(resolution);
+          expect(native).toHaveLength(2);
+          expect(native.map((unit) => unit.address)).toEqual(
+            expect.arrayContaining([
+              {
+                kind: "key-path",
+                path: `${workspace.root}/.mcp.json`,
+                keys: ["mcpServers", "demo"],
+              },
+              {
+                kind: "key-path",
+                path: `${workspace.root}/.cursor/mcp.json`,
+                keys: ["mcpServers", "demo"],
+              },
+            ]),
+          );
+          expect(native.flatMap((unit) => unit.configuredConsumers)).toEqual(
+            expect.arrayContaining(["claude-code", "cursor"]),
+          );
+          expect(
+            native.every((unit) => unit.state === "created" && unit.ownership === "absent"),
+          ).toBe(true);
+          expect(workspace.snapshot()).toEqual(before);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
+  it.effect("describes the Knowledge region required by a stale discovery preview", () => {
+    const workspace = fixture({
+      agents: ["codex"],
+      knowledge: { alpha: "workspace" },
+      instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
+    });
+    writeAuthoredKnowledge(workspace.root, "alpha", "Original description.");
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          yield* applySync();
+          writeAuthoredKnowledge(workspace.root, "alpha", "Changed description.");
+          const before = workspace.snapshot();
+          const resolution = expectResolved(yield* previewSync());
+          expect(operationNativeLocations(resolution)).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({
+                address: {
+                  kind: "region",
+                  path: `${workspace.root}/AGENTS.md`,
+                  region: "knowledge",
+                },
+                configuredConsumers: ["codex"],
+                state: "updated",
+              }),
+            ]),
+          );
+          expect(workspace.snapshot()).toEqual(before);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
+  it.effect("reports one MCP key with both consumers and aliases for a shared file", () => {
+    const workspace = fixture({
+      agents: ["claude-code", "cursor"],
+      mcpServers: { demo: { command: "node", args: ["server.js"] } },
+    });
+    workspace.writeFile(".mcp.json", "{}\n");
+    workspace.writeFile(".cursor/preserve.txt", "foreign file\n");
+    fs.symlinkSync("../.mcp.json", nodePath.join(workspace.root, ".cursor/mcp.json"), "file");
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          const before = workspace.snapshot();
+          const resolution = expectResolved(yield* previewSync());
+          expect(resolution.units.filter((unit) => unit.state === "blocked")).toEqual([]);
+          const native = operationNativeLocations(resolution);
+          expect(native).toHaveLength(1);
+          expect(native[0]).toMatchObject({
+            address: {
+              kind: "key-path",
+              path: nodePath.join(workspace.root, ".mcp.json"),
+              keys: ["mcpServers", "demo"],
+            },
+            configuredConsumers: ["claude-code", "cursor"],
+            aliases: [
+              nodePath.join(workspace.root, ".cursor/mcp.json"),
+              nodePath.join(workspace.root, ".mcp.json"),
+            ].sort(),
+            state: "created",
+            ownership: "absent",
+          });
+          expect(workspace.snapshot()).toEqual(before);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
+  it.effect(
+    "retains prospective Rules and Knowledge units when dependent contributors form one closure",
+    () => {
+      const workspace = fixture({
+        agents: ["codex"],
+        rules: { guide: "workspace" },
+        knowledge: { alpha: "workspace", beta: "workspace" },
+        instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
+      });
+      writeAuthoredRule(workspace.root, "guide", "Keep all changes reviewable.");
+      writeAuthoredKnowledge(workspace.root, "alpha", "Alpha description.");
+      writeAuthoredKnowledge(workspace.root, "beta", "Beta description.");
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            const before = workspace.snapshot();
+            const preview = expectResolved(yield* previewSync());
+            const native = operationNativeLocations(preview);
+            const regions = native.filter((unit) => unit.address.kind === "region");
+            expect(regions).toHaveLength(2);
+            expect(regions.map((unit) => unit.address)).toEqual(
+              expect.arrayContaining([
+                {
+                  kind: "region",
+                  path: nodePath.join(workspace.root, "AGENTS.md"),
+                  region: "knowledge",
+                },
+                {
+                  kind: "region",
+                  path: nodePath.join(workspace.root, "AGENTS.md"),
+                  region: "rules",
+                },
+              ]),
+            );
+            expect(new Set(regions.map((unit) => unit.address.path)).size).toBe(1);
+            expect(regions.every((unit) => unit.configuredConsumers.includes("codex"))).toBe(true);
+            expect(workspace.snapshot()).toEqual(before);
+            const applied = operationNativeLocations(expectResolved(yield* applySync()));
+            expect(applied.map((unit) => unit.address)).toEqual(
+              expect.arrayContaining(regions.map((unit) => unit.address)),
+            );
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
 
   /** An installed skill whose agent projection was deleted, so sync has work to do. */
   const driftedWorkspace = (workspace: SyncFixture) =>
@@ -142,6 +301,17 @@ describe("Sync preview purity", () => {
           expect(workspace.snapshot()).toEqual(before);
           expect(workspace.homeSnapshot()).toEqual(homeBefore);
           expect(workspace.exists(PROJECTION)).toBe(false);
+          expect(operationNativeLocations(resolution)).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({
+                address: { kind: "entry", path: `${workspace.root}/${PROJECTION}` },
+                state: "created",
+                ownership: "absent",
+                configuredConsumers: ["claude-code"],
+              }),
+              expect.objectContaining({ policyReasons: ["workspace-shared-skills"] }),
+            ]),
+          );
           expect(workspace.interactionState().confirmApplyChangesCalls).toEqual([]);
         }),
       )

@@ -397,6 +397,7 @@ export const RuleManagerLive = Layer.effect(
           region: RULES_REGION,
         });
         const projectionUnitObservation = {
+          nativeLocations: [reconciliation.nativeLocation],
           unitId: "rule:instructions-region",
           path: `${target.relative}#${RULES_REGION}`,
           owner: RULES_REGION_OWNER,

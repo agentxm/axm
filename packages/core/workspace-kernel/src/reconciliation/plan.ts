@@ -72,7 +72,11 @@ import { buildReconciliationClosure } from "./closure.js";
 import { reconcileAgentOutputs } from "./rendered-file-cleanup.js";
 import { WorkspaceSyncFailed, type WorkspaceSyncCleanupFailure } from "./errors.js";
 import type { StepFailureConversionService } from "./step-failure-conversion.js";
-import { combineNativeLocationOutcomes, resolveNativeEntry } from "../locations/index.js";
+import {
+  combineNativeLocationOutcomes,
+  resolveNativeEntry,
+  type NativeLocationOutcome,
+} from "../locations/index.js";
 import { desiredPackageKey } from "../workspace-state/index.js";
 
 export const SYNC_RECOVERY_IDS = {
@@ -187,10 +191,12 @@ export const buildInlineMcpServerSyncOperation = ({
   agentIds,
   inspectionWarnings,
   nativeInsertionEligiblePaths,
+  nativeLocations,
   location,
   adapter,
 }: {
   readonly nativeInsertionEligiblePaths: ReadonlySet<string>;
+  readonly nativeLocations: ReadonlyArray<NativeLocationOutcome>;
   readonly name: string;
   readonly entry: McpServerEntry;
   readonly agentIds: ReadonlyArray<string>;
@@ -202,6 +208,12 @@ export const buildInlineMcpServerSyncOperation = ({
   key: `mcp-server:inline:${name}`,
   label: `mcp-server ${name}`,
   readiness: "ready",
+  artifact: {
+    path: nativeLocations[0]?.address.path ?? name,
+    scope: location.scope,
+    change: "updated",
+    nativeLocations,
+  },
   run: Effect.gen(function* () {
     const batchOutcomes = yield* syncInlineMcpServerToAgents(agentIds, {
       nativeDirectoryInputs: location.nativeDirectoryInputs,
@@ -387,6 +399,10 @@ export const collectKnowledgeStep: (args: {
     scope: location.scope,
     change: preview?.changed === false ? "unchanged" : "updated",
     managedRegions: managedRegionsForFacts(args.facts ?? []),
+    nativeLocations: combineNativeLocationOutcomes([
+      ...(preview?.nativeLocations ?? []),
+      ...(args.facts ?? []).flatMap((fact) => fact.observation.nativeLocations ?? []),
+    ]),
   } satisfies JobStepArtifact;
   return Option.some({
     key: "knowledge:discovery",
@@ -494,6 +510,9 @@ export const collectCleanupStep: (args: {
       scope: location.scope,
       change: "removed",
       fileCount: previewPaths.length,
+      ...(preview.nativeLocations === undefined
+        ? {}
+        : { nativeLocations: preview.nativeLocations }),
       targets: previewPaths.map((filePath) => ({ path: filePath, change: "removed" })),
     },
     run: reconcileAgentOutputs({
@@ -564,6 +583,9 @@ export const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (ar
     change: "updated",
     agentOutcomes,
     managedRegions: managedRegionsForFacts(facts),
+    nativeLocations: combineNativeLocationOutcomes(
+      facts.flatMap((fact) => fact.observation.nativeLocations ?? []),
+    ),
   } satisfies JobStepArtifact;
   const blocked = agentOutcomes.filter(({ outcome }) => outcome === "blocked");
   if (blocked.length > 0) {
@@ -647,6 +669,9 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
       change: targets[0]?.change ?? "updated",
       targets,
       managedRegions: managedRegionsForFacts(projectionFacts),
+      nativeLocations: combineNativeLocationOutcomes(
+        projectionFacts.flatMap((fact) => fact.observation.nativeLocations ?? []),
+      ),
     } satisfies JobStepArtifact;
     return Option.some<PlannedJobStep<SyncStepRequirements>>({
       key: SYNC_RECOVERY_IDS.instructionReconcile,
@@ -750,7 +775,10 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
     scope: location.scope,
     change: targets[0]?.change ?? "updated",
     managedRegions: args.touchesRule ? managedRegionsForFacts(projectionFacts) : [],
-    nativeLocations: instructionProjectionNativeLocations(snapshot, "reconcile"),
+    nativeLocations: combineNativeLocationOutcomes([
+      ...instructionProjectionNativeLocations(snapshot, "reconcile"),
+      ...projectionFacts.flatMap((fact) => fact.observation.nativeLocations ?? []),
+    ]),
     targets,
   } satisfies JobStepArtifact;
 

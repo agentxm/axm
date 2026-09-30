@@ -44,6 +44,7 @@ import {
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { OwnershipUnitId, ProjectionUnitObservation } from "./units.js";
 import type { ProjectionContributorExclusion } from "./exclusions.js";
+import type { NativeLocationOutcome } from "../locations/index.js";
 import { formatDesiredIdentity } from "../workspace-state/index.js";
 
 export const PROJECTION_INVARIANT_PREDICATE = "workspace/projection-current" as const;
@@ -69,6 +70,7 @@ export interface ProjectionInvariantFact {
     readonly contributors: ReadonlyArray<string>;
   };
   readonly observation: {
+    readonly nativeLocations?: ReadonlyArray<NativeLocationOutcome>;
     readonly status: ProjectionObservationStatus;
     /** Exact structure-level evidence when the adapter can establish it. */
     readonly contributors?: ReadonlyArray<string>;
@@ -184,6 +186,7 @@ export const makeProjectionInvariantFact = (
     authority: { source: "desired-state-graph", contributors: expectedContributors },
     observation: {
       status,
+      ...(unit.nativeLocations === undefined ? {} : { nativeLocations: unit.nativeLocations }),
       ...(observedContributors === undefined ? {} : { contributors: observedContributors }),
       ...(unit.exclusions === undefined || unit.exclusions.length === 0
         ? {}

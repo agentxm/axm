@@ -304,6 +304,7 @@ describe("native cache setup trust and configuration", () => {
     { name: "unconfigured", url: "", token: "", code: 0, enabled: false },
     {
       name: "reader",
+      repositoryBypass: "false",
       url: "https://cache.example.test/",
       token: "fixture-reader",
       code: 0,
@@ -311,6 +312,7 @@ describe("native cache setup trust and configuration", () => {
     },
     {
       name: "URL without credential",
+      repositoryBypass: "false",
       url: "https://cache.example.test",
       token: "",
       code: 1,
@@ -345,6 +347,30 @@ describe("native cache setup trust and configuration", () => {
       token: "",
       actor: "dependabot[bot]",
       code: 0,
+      enabled: false,
+    },
+    {
+      name: "repository bypass without credential",
+      url: "https://cache.example.test",
+      token: "",
+      repositoryBypass: "true",
+      code: 0,
+      enabled: false,
+    },
+    {
+      name: "repository bypass with credential",
+      url: "https://cache.example.test",
+      token: "fixture-reader",
+      repositoryBypass: "true",
+      code: 0,
+      enabled: false,
+    },
+    {
+      name: "invalid repository bypass",
+      url: "https://cache.example.test",
+      token: "fixture-reader",
+      repositoryBypass: "tru",
+      code: 1,
       enabled: false,
     },
     {
@@ -385,6 +411,7 @@ describe("native cache setup trust and configuration", () => {
         typeof step.run !== "string"
       )
         throw new Error("Missing native cache setup");
+      expect(step).toHaveProperty("env.CACHE_BYPASS", "${{ vars.NX_SKIP_REMOTE_CACHE }}");
       const directory = fs.mkdtempSync(path.join(tmpdir(), "nx-setup-"));
       const environmentFile = path.join(directory, "environment");
       fs.writeFileSync(environmentFile, "");
@@ -396,6 +423,7 @@ describe("native cache setup trust and configuration", () => {
             GITHUB_ENV: environmentFile,
             REMOTE_CACHE_URL: scenario.url,
             REMOTE_CACHE_TOKEN: scenario.token,
+            CACHE_BYPASS: "repositoryBypass" in scenario ? scenario.repositoryBypass : "",
             CACHE_ACTOR: "actor" in scenario ? scenario.actor : "fixture-user",
             CACHE_FORK: "fork" in scenario ? scenario.fork : "false",
             NX_SKIP_REMOTE_CACHE: "bypass" in scenario ? scenario.bypass : "false",
@@ -438,6 +466,7 @@ describe("main cache warming coverage", () => {
         "github.event.workflow_run.conclusion == 'success'",
         "github.event.workflow_run.head_branch == 'main'",
         "github.event.workflow_run.head_repository.full_name == github.repository",
+        "vars.NX_SKIP_REMOTE_CACHE != 'true'",
       ])
         expect(warm).toHaveProperty("if", expect.stringContaining(guard));
       const checkout: unknown = warm.steps.find(

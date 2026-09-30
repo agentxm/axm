@@ -29,7 +29,7 @@ jobs:
       github.event.workflow_run.event == 'workflow_dispatch') &&
       github.event.workflow_run.head_branch == 'main' &&
       github.event.workflow_run.head_repository.full_name == github.repository &&
-      vars.NX_REMOTE_CACHE_URL != ''
+      vars.NX_REMOTE_CACHE_URL != '' && vars.NX_SKIP_REMOTE_CACHE != 'true'
     environment: nx-cache-writer
     timeout-minutes: 90
     strategy:

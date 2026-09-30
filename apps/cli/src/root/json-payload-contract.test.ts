@@ -42,7 +42,7 @@ const COLLECTION_PAYLOADS = [
   [
     "axm list",
     ExtensionListDocumentSchema.fields,
-    ["filter", "items", "count", "totalCount", "coverage"],
+    ["filter", "items", "count", "totalCount", "coverage", "nativeLocationCounts"],
   ],
   [
     "axm instructions",
@@ -70,6 +70,7 @@ const COLLECTION_PAYLOADS = [
       "leftoverCount",
       "undeclaredCount",
       "unmanagedCount",
+      "nativeLocationCounts",
     ],
   ],
 ] as const satisfies ReadonlyArray<

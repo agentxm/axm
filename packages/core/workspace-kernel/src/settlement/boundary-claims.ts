@@ -1,11 +1,10 @@
-// @effect-diagnostics nodeBuiltinImport:off — OS account identity is independent of workspace environment routing
 /** Active physical mutation claims; the transition lock supplies all lease mechanics. */
 import { randomUUID } from "node:crypto";
-import { userInfo } from "node:os";
 
 import * as Clock from "effect/Clock";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -17,9 +16,17 @@ import {
   WorkspaceSnapshotError,
   type WorkspaceTransitionCompromised,
 } from "./errors.js";
-import { captureContainerIdentity } from "../locations/index.js";
-import { removeEmptyRuntimeDirectories } from "./runtime-directories.js";
+import {
+  captureContainerIdentity,
+  pathsOverlap,
+  resolveNativeReferent,
+} from "../locations/index.js";
+import {
+  createWorkspaceDirectories,
+  removeEmptyRuntimeDirectories,
+} from "./runtime-directories.js";
 import { makeWorkspaceTransitionLock } from "./transition-lock.js";
+import { accountHome } from "./account-home.js";
 
 /** Test composition only: null disables filesystem coordination for memory fixtures. */
 export const BoundaryClaimsDirectory = Context.Reference<string | null | undefined>(
@@ -42,17 +49,11 @@ const Records = Schema.Array(
 );
 type ClaimRecord = (typeof Records.Type)[number];
 
-/** Physical, resolver-normalized paths only; never lexical prefixes or case folding. */
-const overlaps = (path: Path.Path, left: string, right: string): boolean => {
-  const contains = (parent: string, child: string) => {
-    const relative = path.relative(parent, child);
-    return (
-      relative === "" ||
-      (!path.isAbsolute(relative) && relative !== ".." && !relative.startsWith(`..${path.sep}`))
-    );
-  };
-  return contains(left, right) || contains(right, left);
-};
+// A conservative uncertainty key, never a filesystem identity. Case closure
+// includes lower-case variants such as final sigma and canonical decomposition
+// includes normalization-insensitive volumes while preserving the live spelling.
+const uncertainSpelling = (target: string): string =>
+  target.normalize("NFD").toLowerCase().toUpperCase().normalize("NFD");
 
 export const makeBoundaryClaims = (
   owner: string,
@@ -73,10 +74,8 @@ export const makeBoundaryClaims = (
         ? cause
         : new WorkspaceSnapshotError({ target: owner, step: "inspect-target", cause });
     const home =
-      directory === undefined
-        ? yield* Effect.try({ try: () => userInfo().homedir, catch: failure })
-        : directory;
-    const namespace =
+      directory === undefined ? yield* accountHome.pipe(Effect.mapError(failure)) : directory;
+    const requestedNamespace =
       directory === undefined
         ? path.join(
             yield* fs.realPath(home).pipe(Effect.mapError(failure)),
@@ -84,17 +83,49 @@ export const makeBoundaryClaims = (
             "physical-boundaries",
           )
         : path.resolve(directory);
-    yield* fs
-      .makeDirectory(namespace, { recursive: true, mode: 0o700 })
-      .pipe(Effect.mapError(failure));
-    const physicalNamespace = yield* fs.realPath(namespace).pipe(Effect.mapError(failure));
-    // A retargetable coordinator would split the same principal into independent tables.
-    if (physicalNamespace !== path.resolve(namespace))
+    let existingAncestor = requestedNamespace;
+    while (!(yield* fs.exists(existingAncestor).pipe(Effect.mapError(failure)))) {
+      const parent = path.dirname(existingAncestor);
+      if (parent === existingAncestor) return yield* failure("boundary-namespace-root-absent");
+      existingAncestor = parent;
+    }
+    // Reject a redirected ancestor before mkdir can create anything through it.
+    const physicalAncestor = yield* fs.realPath(existingAncestor).pipe(Effect.mapError(failure));
+    if (physicalAncestor !== path.resolve(existingAncestor))
       return yield* failure("aliased-boundary-coordination-directory");
+    const namespaceRoot =
+      directory === undefined
+        ? yield* fs.realPath(home).pipe(Effect.mapError(failure))
+        : existingAncestor;
+    yield* createWorkspaceDirectories({
+      nativeRoot: namespaceRoot,
+      workspaceDir: path.join(namespaceRoot, ".axm-runtime"),
+      identityOwnerRoot: namespaceRoot,
+      target: requestedNamespace,
+      mode: 0o700,
+      record: () => Effect.void,
+    }).pipe(Effect.mapError(failure));
+    const physicalNamespace = yield* fs.realPath(requestedNamespace).pipe(Effect.mapError(failure));
+    // A retargetable coordinator would split the same principal into independent tables.
+    if (physicalNamespace !== path.resolve(requestedNamespace))
+      return yield* failure("aliased-boundary-coordination-directory");
+    // Use the same observed spelling as mutation targets, including short-name aliases.
+    const namespace = yield* resolveNativeReferent(physicalNamespace).pipe(
+      Effect.mapError(failure),
+    );
     const table = path.join(namespace, "active.json");
     const token = yield* Effect.sync(randomUUID);
     const leaseDirectory = path.join(namespace, "leases", token);
     const admissionDirectory = path.join(namespace, "admission");
+    // This shared mutex's ancestors outlive individual holders. Removing them
+    // after unlock races the next waiter while it validates its acquisition path.
+    yield* createWorkspaceDirectories({
+      nativeRoot: namespace,
+      workspaceDir: admissionDirectory,
+      identityOwnerRoot: namespace,
+      target: path.join(admissionDirectory, "tmp"),
+      record: () => Effect.void,
+    }).pipe(Effect.mapError(failure));
     const lock = yield* makeWorkspaceTransitionLock;
     const holder = { command: "physical-boundary-claims", candidateId: token, pid: process.pid };
     const leaseIsLive = (recordToken: string) =>
@@ -152,7 +183,7 @@ export const makeBoundaryClaims = (
               (target) =>
                 !path.isAbsolute(target) ||
                 path.normalize(target) !== target ||
-                overlaps(path, target, namespace),
+                pathsOverlap(path, target, namespace),
             )
           )
             return Effect.fail(failure("invalid-boundary-claim-record"));
@@ -213,7 +244,22 @@ export const makeBoundaryClaims = (
         }),
       ).pipe(Effect.mapError(failure));
 
-    // Register the lease in the transaction's scope, never the short admission scope.
+    // The outer transaction owns the lease. Retire its record, lock, and runtime
+    // directories under one admission hold so no observer sees half-retirement.
+    const leaseScope = yield* Scope.fork(lifetime, "sequential");
+    yield* Effect.addFinalizer(() =>
+      Effect.gen(function* () {
+        const held = yield* lock.held(leaseDirectory);
+        if (Option.isNone(held)) return yield* Scope.close(leaseScope, Exit.void);
+        yield* admitted(
+          Effect.gen(function* () {
+            if (held.value.isCompromised()) return;
+            const records = yield* read;
+            yield* write(records.filter((record) => record.token !== token));
+          }).pipe(Effect.ensuring(Scope.close(leaseScope, Exit.void))),
+        );
+      }).pipe(Effect.ignore),
+    );
     yield* admitted(
       Effect.gen(function* () {
         const contention = yield* lock
@@ -223,7 +269,7 @@ export const makeBoundaryClaims = (
             holder,
             waitBoundMillis: 0,
           })
-          .pipe(Effect.provideService(Scope.Scope, lifetime));
+          .pipe(Effect.provideService(Scope.Scope, leaseScope));
         if (Option.isSome(contention)) return yield* failure("boundary-lease-token-contended");
         const records = yield* read;
         yield* write([...records, { token, owner, targets: [] }]);
@@ -231,23 +277,12 @@ export const makeBoundaryClaims = (
     );
     const lease = yield* lock.held(leaseDirectory);
     if (Option.isNone(lease)) return yield* failure("boundary-lease-unowned");
-    // Runs before lease release, after transaction settlement, including rollback.
-    yield* Effect.addFinalizer(() =>
-      admitted(
-        Effect.gen(function* () {
-          if (lease.value.isCompromised()) return;
-          const records = yield* read;
-          yield* write(records.filter((record) => record.token !== token));
-        }),
-      ).pipe(Effect.ignore),
-    );
-
     const claim: BoundaryClaims["claim"] = (targets) =>
       admitted(
         Effect.gen(function* () {
           if (lease.value.isCompromised()) return yield* failure("boundary-lease-compromised");
           for (const target of targets) {
-            if (!path.isAbsolute(target) || overlaps(path, target, namespace))
+            if (!path.isAbsolute(target) || pathsOverlap(path, target, namespace))
               return yield* failure("boundary-overlaps-coordination-directory");
           }
           const records = yield* read;
@@ -261,7 +296,7 @@ export const makeBoundaryClaims = (
             const live = yield* leaseIsLive(record.token);
             if (!live) continue;
             for (const existing of record.targets) {
-              const target = targets.find((candidate) => overlaps(path, existing, candidate));
+              const target = targets.find((candidate) => pathsOverlap(path, existing, candidate));
               if (target !== undefined)
                 return yield* failure(
                   new WorkspaceBoundaryConflict({
@@ -274,15 +309,15 @@ export const makeBoundaryClaims = (
             }
             for (const existing of record.targets) {
               for (const target of targets) {
-                // Case-folding is only an uncertainty detector for uncreated
+                // Normalization is only an uncertainty detector for uncreated
                 // spellings, never a physical identity or volume assumption.
                 if (
-                  overlaps(path, existing.toLowerCase(), target.toLowerCase()) &&
+                  pathsOverlap(path, uncertainSpelling(existing), uncertainSpelling(target)) &&
                   (!(yield* fs.exists(existing)) || !(yield* fs.exists(target)))
                 ) {
                   return yield* failure(
                     new WorkspaceBoundaryConflict({
-                      reason: "ambiguous-case",
+                      reason: "ambiguous-spelling",
                       owner: record.owner,
                       target,
                       conflictingTarget: existing,

@@ -17,6 +17,7 @@ import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Option from "effect/Option";
 import { RegistryClientFactory } from "@agentxm/registry-client";
+import { formatFqn } from "@agentxm/extension-model/unstable/extensions/fqn";
 import {
   CodingAgentRepository,
   observeConfiguredSkillLocations,
@@ -118,15 +119,24 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
             .projectionPlans()
             .pipe(Effect.flatMap(observeProjectionPlans));
           const graph = yield* (yield* DesiredStateReader).graph();
+          const accepted = yield* (yield* LockfileReader).entries(request.type);
           return new Map(
             request.rows.map((row) => {
               const identity = graph.nodes.find(
                 (node) => node.type === request.type && node.name === row.name,
               )?.identity;
+              const acceptedIdentity = accepted[row.name]?.identity;
               const fqn =
                 identity === undefined || identity.authority === "inline"
                   ? undefined
-                  : identity.fqn;
+                  : (identity.fqn ??
+                    (acceptedIdentity?.owner === undefined
+                      ? undefined
+                      : formatFqn({
+                          owner: acceptedIdentity.owner,
+                          type: request.type,
+                          name: acceptedIdentity.name,
+                        })));
               const related = observed.filter(
                 (observation) =>
                   fqn !== undefined &&

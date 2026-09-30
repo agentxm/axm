@@ -68,11 +68,12 @@ export interface BoundaryProcessOptions {
   readonly holdBeforeWrite?: boolean;
   readonly fail?: boolean;
   readonly holdRollback?: boolean;
+  readonly runtime?: "node" | "bun";
 }
 
 export const startBoundaryClaimProcess = (options: BoundaryProcessOptions) => {
   const child = spawn(
-    process.execPath,
+    options.runtime === "bun" ? "bun" : process.execPath,
     ["--input-type=module", "--eval", program, JSON.stringify(options)],
     {
       cwd: packageDirectory,

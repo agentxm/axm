@@ -23,7 +23,10 @@ import {
   SkillManagerLive,
   SubagentManagerLive,
 } from "@agentxm/extension-kinds/live";
-import { ProjectionParticipantsLive } from "@agentxm/workspace-kernel/reconciliation/live";
+import {
+  ConfiguredAgentOutcomesProviderLive,
+  ProjectionParticipantsLive,
+} from "@agentxm/workspace-kernel/reconciliation/live";
 import { computePackManifestContentIdentity } from "@agentxm/workspace-kernel/workspace-state";
 import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
@@ -675,6 +678,10 @@ describe("root sync handler", () => {
       Layer.provide(WorkspaceInvariantFactsLive, ProjectionParticipantsLive),
       Layer.mergeAll(managerDependencies, managersLayer),
     );
+    const observationsLayer = Layer.provide(
+      ConfiguredAgentOutcomesProviderLive,
+      Layer.mergeAll(managerDependencies, managersLayer),
+    );
     return {
       provide: Effect.provide(
         Layer.mergeAll(
@@ -686,6 +693,7 @@ describe("root sync handler", () => {
           managersLayer,
           packManagerLayer,
           invariantFactsLayer,
+          observationsLayer,
         ),
       ),
       logs: ctx.logs,
@@ -1938,7 +1946,7 @@ describe("root sync handler", () => {
   );
 
   it.effect(
-    "keeps authored skills canonical without projections when no agents are configured",
+    "keeps the shared Skill location without configured-agent aliases when no agents are configured",
     () =>
       Effect.gen(function* () {
         const { provide } = makeLayers();
@@ -1962,9 +1970,10 @@ describe("root sync handler", () => {
 
         yield* provide(handleSync({ preview: false }));
 
-        expect(fs.existsSync(path.join(tempDir, ".agents", "skills", "solo", "SKILL.md"))).toBe(
-          false,
-        );
+        expect(
+          fs.readFileSync(path.join(tempDir, ".agents", "skills", "solo", "SKILL.md"), "utf8"),
+        ).toBe("# Solo\n");
+        expect(fs.readFileSync(path.join(skillDir, "src", "SKILL.md"), "utf8")).toBe("# Solo\n");
         expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "solo"))).toBe(false);
       }),
   );

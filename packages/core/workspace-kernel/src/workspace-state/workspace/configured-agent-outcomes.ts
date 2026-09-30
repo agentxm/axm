@@ -20,11 +20,7 @@ export const EXTENSION_CONFIGURED_AGENT_POLICY = {
   subagent: { kind: "per-agent" },
   rule: { kind: "workspace-capability" },
   hook: { kind: "per-agent" },
-  knowledge: {
-    kind: "not-applicable",
-    reasonCode: "workspace-owned",
-    reason: "Knowledge bundles are workspace-owned and have no per-agent projection.",
-  },
+  knowledge: { kind: "workspace-capability" },
   pack: {
     kind: "not-applicable",
     reasonCode: "container-owned",
@@ -73,7 +69,12 @@ export const configuredAgentLifecycleOutcomes = (args: {
   }
 
   const supportByAgent = new Map(
-    setupScopeSupportOutcomes(args.type, args.agentIds, args.scope).flatMap((outcome) =>
+    // Knowledge discovery uses the same instruction surface as workspace Rules.
+    setupScopeSupportOutcomes(
+      args.type === "knowledge" ? "rule" : args.type,
+      args.agentIds,
+      args.scope,
+    ).flatMap((outcome) =>
       outcome.agentId === undefined ? [] : [[outcome.agentId, outcome] as const],
     ),
   );

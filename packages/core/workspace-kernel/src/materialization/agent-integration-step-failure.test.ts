@@ -4,7 +4,7 @@ import { WorkspaceBoundaryConflict, WorkspaceSnapshotError } from "../settlement
 import { agentIntegrationFailureToStepFailure } from "./agent-integration-step-failure.js";
 
 describe("native write boundary failure rendering", () => {
-  it.each(["overlap", "ambiguous-case"] as const)(
+  it.each(["overlap", "ambiguous-spelling"] as const)(
     "keeps a wrapped %s authority refusal actionable",
     (reason) => {
       const conflict = new WorkspaceBoundaryConflict({
@@ -28,8 +28,8 @@ describe("native write boundary failure rendering", () => {
       expect(result.detail).toContain(conflict.owner);
       expect(result.detail).toContain(conflict.target);
       expect(result.detail).toContain(conflict.conflictingTarget);
-      if (reason === "ambiguous-case") {
-        expect(result.detail).toContain("filesystem case behavior is unresolved");
+      if (reason === "ambiguous-spelling") {
+        expect(result.detail).toContain("filesystem spelling equivalence is unresolved");
         expect(result.detail).not.toContain(" overlaps ");
       } else {
         expect(result.detail).toContain(" overlaps ");

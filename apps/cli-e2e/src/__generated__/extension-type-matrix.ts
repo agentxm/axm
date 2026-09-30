@@ -130,7 +130,7 @@ export const EXTENSION_TYPE_MATRIX = [
     mutations: ["install", "update", "enable", "disable", "uninstall"],
     scopeSupport: "native",
     updateSelection: "name-filter",
-    configuredAgentPolicy: "not-applicable",
+    configuredAgentPolicy: "workspace-capability",
     e2eObligations: [
       "6.1-e2e-install-row",
       "6.2-lifecycle-postconditions",

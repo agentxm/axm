@@ -309,105 +309,118 @@ it("stops a compromised claim owner without restoring over a possible successor"
   expect(fs.readFileSync(f.file, "utf8")).toBe("second");
 }, 15000);
 
-it("refuses uncertain case overlap while future entries remain absent", async () => {
-  const f = fixture();
-  const upper = path.join(f.directory, "Future.json");
-  const lower = path.join(f.directory, "future.json");
-  const first = f.start({
-    owner: f.firstOwner,
-    namespace: f.namespace,
-    nativeRoot: f.shared,
-    target: upper,
-    file: upper,
-    label: "first",
-    holdBeforeWrite: true,
-  });
-  await first.waitFor("claimed");
-  expect(fs.existsSync(upper)).toBe(false);
-  const second = f.start({
-    owner: f.secondOwner,
-    namespace: f.namespace,
-    nativeRoot: f.directory,
-    target: lower,
-    file: lower,
-    label: "second",
-  });
-  await second.waitFor("refused");
-  expect(await second.completion).toBe(0);
-  expect(second.events).not.toContain("read-entered");
-  expect(fs.existsSync(lower)).toBe(false);
-  expect(second.events).toContain("conflict:ambiguous-case");
-  first.release();
-  await first.waitFor("committed");
-  expect(await first.completion).toBe(0);
-});
+const uncertainSpellings = [
+  { label: "case", first: "Future.json", second: "future.json" },
+  { label: "Unicode normalization", first: "caf\u00e9.json", second: "cafe\u0301.json" },
+  { label: "Unicode sigma case closure", first: "\u03c3.json", second: "\u03c2.json" },
+  { label: "Unicode sharp-S case closure", first: "\u00df.json", second: "ss.json" },
+] as const;
 
-it("preserves distinct existing case-sensitive entries as independent boundaries", async ({
-  skip,
-}) => {
-  const f = fixture();
-  const upper = path.join(f.directory, "Existing.json");
-  const lower = path.join(f.directory, "existing.json");
-  fs.writeFileSync(upper, "upper");
-  fs.writeFileSync(lower, "lower");
-  if (fs.statSync(upper, { bigint: true }).ino === fs.statSync(lower, { bigint: true }).ino)
-    return skip("The temporary volume folds these spellings");
-  expect(fs.statSync(upper, { bigint: true }).ino).not.toBe(
-    fs.statSync(lower, { bigint: true }).ino,
-  );
-  const first = f.start({
-    owner: f.firstOwner,
-    namespace: f.namespace,
-    nativeRoot: f.shared,
-    target: upper,
-    file: upper,
-    label: "first",
-    hold: true,
+for (const spelling of uncertainSpellings) {
+  it(`refuses uncertain ${spelling.label} overlap while future entries remain absent`, async () => {
+    const f = fixture();
+    const upper = path.join(f.directory, spelling.first);
+    const lower = path.join(f.directory, spelling.second);
+    const first = f.start({
+      owner: f.firstOwner,
+      namespace: f.namespace,
+      nativeRoot: f.shared,
+      target: upper,
+      file: upper,
+      label: "first",
+      holdBeforeWrite: true,
+    });
+    await first.waitFor("claimed");
+    expect(fs.existsSync(upper)).toBe(false);
+    const second = f.start({
+      owner: f.secondOwner,
+      namespace: f.namespace,
+      nativeRoot: f.directory,
+      target: lower,
+      file: lower,
+      label: "second",
+    });
+    await second.waitFor("refused");
+    expect(await second.completion).toBe(0);
+    expect(second.events).not.toContain("read-entered");
+    expect(fs.existsSync(lower)).toBe(false);
+    expect(second.events).toContain("conflict:ambiguous-spelling");
+    first.release();
+    await first.waitFor("committed");
+    expect(await first.completion).toBe(0);
   });
-  await first.waitFor("written");
-  const second = f.start({
-    owner: f.secondOwner,
-    namespace: f.namespace,
-    nativeRoot: f.directory,
-    target: lower,
-    file: lower,
-    label: "second",
-  });
-  await second.waitFor("committed");
-  expect(await second.completion).toBe(0);
-  expect(fs.readFileSync(lower, "utf8")).toBe("second");
-  expect(first.events).not.toContain("closed");
-  first.release();
-  await first.waitFor("committed");
-  expect(await first.completion).toBe(0);
-});
 
-it("shares the production namespace despite distinct HOME, AXM_USER_HOME, and TMPDIR", async () => {
-  const f = fixture();
-  const first = f.start({
-    owner: f.firstOwner,
-    nativeRoot: f.shared,
-    target: f.file,
-    file: f.file,
-    label: "first",
-    hold: true,
+  it(`preserves distinct existing ${spelling.label} entries as independent boundaries`, async ({
+    skip,
+  }) => {
+    const f = fixture();
+    const upper = path.join(f.directory, spelling.first);
+    const lower = path.join(f.directory, spelling.second);
+    fs.writeFileSync(upper, "upper");
+    fs.writeFileSync(lower, "lower");
+    if (fs.statSync(upper, { bigint: true }).ino === fs.statSync(lower, { bigint: true }).ino)
+      return skip("The temporary volume folds these spellings");
+    expect(fs.statSync(upper, { bigint: true }).ino).not.toBe(
+      fs.statSync(lower, { bigint: true }).ino,
+    );
+    const first = f.start({
+      owner: f.firstOwner,
+      namespace: f.namespace,
+      nativeRoot: f.shared,
+      target: upper,
+      file: upper,
+      label: "first",
+      hold: true,
+    });
+    await first.waitFor("written");
+    const second = f.start({
+      owner: f.secondOwner,
+      namespace: f.namespace,
+      nativeRoot: f.directory,
+      target: lower,
+      file: lower,
+      label: "second",
+    });
+    await second.waitFor("committed");
+    expect(await second.completion).toBe(0);
+    expect(fs.readFileSync(lower, "utf8")).toBe("second");
+    expect(first.events).not.toContain("closed");
+    first.release();
+    await first.waitFor("committed");
+    expect(await first.completion).toBe(0);
   });
-  await first.waitFor("written");
-  const second = f.start({
-    owner: f.secondOwner,
-    nativeRoot: f.directory,
-    target: f.file,
-    file: f.file,
-    label: "second",
+}
+
+for (const runtime of ["node", "bun"] as const) {
+  it(`shares the production namespace in ${runtime} despite distinct HOME, AXM_USER_HOME, and TMPDIR`, async () => {
+    const f = fixture();
+    const first = f.start({
+      owner: f.firstOwner,
+      runtime,
+      nativeRoot: f.shared,
+      target: f.file,
+      file: f.file,
+      label: "first",
+      hold: true,
+    });
+    await first.waitFor("written");
+    const second = f.start({
+      owner: f.secondOwner,
+      runtime,
+      nativeRoot: f.directory,
+      target: f.file,
+      file: f.file,
+      label: "second",
+    });
+    await second.waitFor("refused");
+    expect(await second.completion).toBe(0);
+    expect(second.events).not.toContain("read-entered");
+    expect(fs.readFileSync(f.file, "utf8")).toBe("first");
+    first.release();
+    await first.waitFor("committed");
+    expect(await first.completion).toBe(0);
   });
-  await second.waitFor("refused");
-  expect(await second.completion).toBe(0);
-  expect(second.events).not.toContain("read-entered");
-  expect(fs.readFileSync(f.file, "utf8")).toBe("first");
-  first.release();
-  await first.waitFor("committed");
-  expect(await first.completion).toBe(0);
-});
+}
 
 it("refuses a mutation containing the coordination namespace", async () => {
   const f = fixture();
@@ -466,3 +479,49 @@ it("refuses existing case aliases on a case-folding volume", async ({ skip }) =>
   await first.waitFor("committed");
   expect(await first.completion).toBe(0);
 });
+
+for (const parentFirst of [true, false]) {
+  it(`refuses existing parent-case aliases with ${parentFirst ? "parent" : "child"} admitted first`, async ({
+    skip,
+  }) => {
+    const f = fixture();
+    const upper = path.join(f.directory, "Existing");
+    const lower = path.join(f.directory, "existing");
+    fs.mkdirSync(upper);
+    const file = path.join(upper, "config.json");
+    fs.writeFileSync(file, "original");
+    if (
+      !fs.existsSync(lower) ||
+      fs.statSync(upper, { bigint: true }).ino !== fs.statSync(lower, { bigint: true }).ino
+    )
+      return skip("The temporary volume distinguishes these spellings");
+    const first = f.start({
+      owner: f.firstOwner,
+      namespace: f.namespace,
+      nativeRoot: f.shared,
+      target: parentFirst ? upper : file,
+      file,
+      label: "first",
+      hold: true,
+    });
+    await first.waitFor("written");
+    const secondFile = path.join(lower, "config.json");
+    const second = f.start({
+      owner: f.secondOwner,
+      namespace: f.namespace,
+      nativeRoot: f.directory,
+      target: parentFirst ? secondFile : lower,
+      file: secondFile,
+      label: "second",
+    });
+    await second.waitFor("refused");
+    expect(await second.completion).toBe(0);
+    expect(second.events).toContain("conflict:overlap");
+    expect(second.events).not.toContain("read-entered");
+    expect(fs.readFileSync(file, "utf8")).toBe("first");
+    expect(fs.readFileSync(path.join(f.secondOwner, "axm.json"), "utf8")).toBe("original settings");
+    first.release();
+    await first.waitFor("committed");
+    expect(await first.completion).toBe(0);
+  });
+}

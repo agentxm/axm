@@ -75,6 +75,11 @@ describe("Non-terminal human output", () => {
           localName: Option.none(),
           bundled: false,
         }).pipe(Effect.provide(workspace.layer));
+        expect(
+          workspace.readLockfileText(),
+          workspace.streams?.lines("stderr").join("\n"),
+        ).toContain(name);
+        expect(workspace.exists(`.claude/skills/${name}/SKILL.md`)).toBe(true);
       }
       workspace.streams?.log.splice(0);
 

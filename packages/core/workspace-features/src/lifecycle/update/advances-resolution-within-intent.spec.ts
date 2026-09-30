@@ -94,12 +94,13 @@ it.effect(
       .provide(
         Effect.gen(function* () {
           registry.writeSubagent(name, [{ version: "1.0.0", body: "Initial reviewer." }]);
-          yield* applyInstall(
+          const initial = yield* applyInstall(
             installRequest({
               type: "subagent",
               subject: { kind: "source", source: `@acme/subagents/${name}@^1.0.0` },
             }),
           );
+          expect(deriveOperationOutcome(initial), JSON.stringify(initial)).toBe("applied");
           const before = workspace.readFile("axm.json");
           registry.writeSubagent(name, [
             { version: "1.0.0", body: "Initial reviewer." },
@@ -107,7 +108,7 @@ it.effect(
             { version: "2.0.0", body: "Different reviewer." },
           ]);
           const resolution = expectResolved(yield* typeGroupSubagentUpdate(name));
-          expect(deriveOperationOutcome(resolution)).toBe("applied");
+          expect(deriveOperationOutcome(resolution), JSON.stringify(resolution)).toBe("applied");
           expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.1.0");
           expect(workspace.readFile(`.claude/agents/${name}.md`)).toContain("Compatible reviewer.");
           expect(workspace.readFile("axm.json")).toBe(before);

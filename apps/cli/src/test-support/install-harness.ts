@@ -63,7 +63,10 @@ import {
 } from "@agentxm/workspace-kernel/workspace-state/testing";
 import { WorkspaceStateLive } from "@agentxm/workspace-kernel/workspace-state/live";
 import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-kernel/projection/live";
-import { ProjectionParticipantsLive } from "@agentxm/workspace-kernel/reconciliation/live";
+import {
+  ConfiguredAgentOutcomesProviderLive,
+  ProjectionParticipantsLive,
+} from "@agentxm/workspace-kernel/reconciliation/live";
 
 /**
  * The workspace-facts layer over the registered projection participants, for
@@ -261,6 +264,7 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
   const composed = Layer.mergeAll(
     fullLayer,
     invariantFactsLayer,
+    Layer.provide(ConfiguredAgentOutcomesProviderLive, fullLayer),
     Layer.succeed(ReleaseAgePosture, options.releaseAgePosture ?? "enforce"),
     // Recovery commands address the workspace scope the way the executable's
     // own command tree decides.

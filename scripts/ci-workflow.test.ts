@@ -420,6 +420,23 @@ describe("main cache warming coverage", () => {
         !Array.isArray(warm.steps)
       )
         throw new Error("Missing warmer steps");
+      expect(workflow).toMatchObject({ on: { workflow_run: { branches: ["main"] } } });
+      expect(warm).toHaveProperty("environment", "nx-cache-writer");
+      for (const guard of [
+        "github.event.workflow_run.conclusion == 'success'",
+        "github.event.workflow_run.head_branch == 'main'",
+        "github.event.workflow_run.head_repository.full_name == github.repository",
+      ])
+        expect(warm).toHaveProperty("if", expect.stringContaining(guard));
+      const checkout: unknown = warm.steps.find(
+        (candidate: unknown) =>
+          typeof candidate === "object" &&
+          candidate !== null &&
+          "name" in candidate &&
+          candidate.name === "Checkout verified main revision",
+      );
+      expect(checkout).toHaveProperty("with.ref", "${{ github.event.workflow_run.head_sha }}");
+      expect(checkout).toHaveProperty("with.persist-credentials", false);
       const step: unknown = warm.steps.find(
         (candidate: unknown) =>
           typeof candidate === "object" &&

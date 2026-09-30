@@ -11,6 +11,7 @@ rules:
     # Local actions and reusable workflows remain pinned by the checked-out
     # candidate revision, so keep the portable `./...` form until it does.
     ignore:
+      - nx-cache.yml
       - ci.yml
       - prepare-release.yml
       - publish.yml

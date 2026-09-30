@@ -14,6 +14,24 @@ import { WorkspaceTransactionScopeLive, WorkspaceFileWriteLocksLive } from "@age
 import { WorkspaceBoundaryClaimsTest } from "@agentxm/workspace-kernel/settlement/testing";
 const options = JSON.parse(process.argv[1]);
 const send = event => process.send?.({ event });
+// No messages, paths, command arguments, environment, or command output cross IPC.
+const failureDetails = (failure, depth = 0) => {
+  if (typeof failure !== "object" || failure === null) return undefined;
+  if (depth === 4) return { truncated: true };
+  const details = {};
+  for (const key of ["_tag", "name", "step", "reason", "code", "signal"]) {
+    const value = failure[key];
+    if (typeof value === "string" && /^[A-Za-z][A-Za-z0-9_-]{0,63}$/u.test(value)) details[key] = value;
+    else if (key === "code" && typeof value === "number" && Number.isSafeInteger(value)) details[key] = value;
+    else if (key === "signal" && value === null) details[key] = value;
+  }
+  if (typeof failure.killed === "boolean") details.killed = failure.killed;
+  for (const key of ["cause", "reason"]) {
+    const nested = failureDetails(failure[key], depth + 1);
+    if (nested !== undefined) details[key] = nested;
+  }
+  return details;
+};
 let release, restore;
 const released = new Promise(resolve => { release = resolve; });
 const restored = new Promise(resolve => { restore = resolve; });
@@ -49,6 +67,7 @@ const result = await Effect.runPromise(runWorkspaceTransaction({
   Effect.provide(NodeServices.layer), Effect.result,
 ));
 if (result._tag === "Failure") {
+  send("failure:" + JSON.stringify(failureDetails(result.failure)));
   if (result.failure._tag === "WorkspaceSnapshotError" && result.failure.cause?._tag === "WorkspaceBoundaryConflict") send("conflict:" + result.failure.cause.reason);
   send(result.failure._tag === "WorkspaceRestorationIncomplete" ? "retained" : "refused");
   if (result.failure._tag === "WorkspaceRestorationIncomplete" && result.failure.snapshotDir) fs.rmSync(result.failure.snapshotDir, { recursive: true, force: true });

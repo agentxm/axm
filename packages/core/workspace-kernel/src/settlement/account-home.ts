@@ -18,7 +18,10 @@ export const accountHome = Effect.gen(function* () {
   if (process.versions["bun"] === undefined) {
     return yield* Effect.try({
       try: () => userInfo().homedir,
-      catch: () => new Error("Operating-system account home is unavailable"),
+      catch: () =>
+        new Error("Operating-system account home is unavailable", {
+          cause: { reason: "account-home-unavailable" },
+        }),
     });
   }
 
@@ -41,7 +44,11 @@ export const accountHome = Effect.gen(function* () {
             }
           : undefined;
   if (query === undefined)
-    return yield* Effect.fail(new Error("Operating-system account lookup is unsupported"));
+    return yield* Effect.fail(
+      new Error("Operating-system account lookup is unsupported", {
+        cause: { reason: "account-lookup-unsupported" },
+      }),
+    );
 
   const { stdout } = yield* Effect.tryPromise({
     try: (signal) =>
@@ -52,7 +59,26 @@ export const accountHome = Effect.gen(function* () {
         maxBuffer: 16_384,
         signal,
       }),
-    catch: () => new Error("Operating-system account home lookup failed"),
+    catch: (cause) => {
+      const failure = typeof cause === "object" && cause !== null ? cause : {};
+      const code = "code" in failure ? failure.code : undefined;
+      const killed = "killed" in failure ? failure.killed : undefined;
+      const signal = "signal" in failure ? failure.signal : undefined;
+      // execFile errors also contain command/output; retain only bounded process facts.
+      return new Error("Operating-system account home lookup failed", {
+        cause: {
+          reason: "account-query-failed",
+          ...((typeof code === "number" && Number.isSafeInteger(code)) ||
+          (typeof code === "string" && /^[A-Z][A-Z0-9_]{0,63}$/u.test(code))
+            ? { code }
+            : {}),
+          ...(typeof killed === "boolean" ? { killed } : {}),
+          ...(signal === null || (typeof signal === "string" && /^SIG[A-Z0-9]{1,29}$/u.test(signal))
+            ? { signal }
+            : {}),
+        },
+      });
+    },
   });
   const lines = stdout.replace(/(?:\r?\n)+$/u, "").split(/\r?\n/u);
   const home =
@@ -69,6 +95,10 @@ export const accountHome = Effect.gen(function* () {
           ? lines[0]
           : undefined;
   if (home === undefined || !path.isAbsolute(home) || home.includes("\u0000"))
-    return yield* Effect.fail(new Error("Operating-system account home response is invalid"));
+    return yield* Effect.fail(
+      new Error("Operating-system account home response is invalid", {
+        cause: { reason: "account-home-response-invalid" },
+      }),
+    );
   return home;
 });

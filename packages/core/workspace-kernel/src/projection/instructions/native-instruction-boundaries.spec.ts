@@ -7,6 +7,8 @@ import * as Layer from "effect/Layer";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
+import * as Deferred from "effect/Deferred";
+import * as Fiber from "effect/Fiber";
 import { observeInstructionProjection, probeSymlinkSupport, syncInstructions } from "../index.js";
 import { applyInstructionProjection } from "../testing.js";
 
@@ -30,7 +32,45 @@ export const specification = defineSpecification({
 const config = { fileName: "AGENTS.md", gitignoreAliases: true };
 
 describe("native instruction boundaries", () => {
-  it.effect("preserves a probe parent created by another writer after absence was observed", () =>
+  it.effect("retires all probe scratch after overlapping observations finish", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped();
+      const firstEntered = yield* Deferred.make<void>();
+      const secondEntered = yield* Deferred.make<void>();
+      const releaseFirst = yield* Deferred.make<void>();
+      const releaseSecond = yield* Deferred.make<void>();
+      const reads = yield* Ref.make(0);
+      const probe = probeSymlinkSupport(root).pipe(
+        Effect.provideService(FileSystem.FileSystem, {
+          ...fs,
+          readFileString: (target, encoding) =>
+            Effect.gen(function* () {
+              if (path.basename(target) === "link") {
+                const ordinal = yield* Ref.updateAndGet(reads, (count) => count + 1);
+                yield* Deferred.succeed(ordinal === 1 ? firstEntered : secondEntered, undefined);
+                yield* Deferred.await(ordinal === 1 ? releaseFirst : releaseSecond);
+              }
+              return yield* fs.readFileString(target, encoding);
+            }),
+        }),
+      );
+      const first = yield* probe.pipe(Effect.forkChild);
+      yield* Deferred.await(firstEntered);
+      const second = yield* probe.pipe(Effect.forkChild);
+      yield* Deferred.await(secondEntered);
+      yield* Deferred.succeed(releaseFirst, undefined);
+      const firstSupported = yield* Fiber.join(first);
+      yield* Deferred.succeed(releaseSecond, undefined);
+      const secondSupported = yield* Fiber.join(second);
+      expect(firstSupported).toBe(true);
+      expect(secondSupported).toBe(true);
+      expect(yield* fs.readDirectory(root)).toEqual([]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("preserves a runtime directory another writer creates during probing", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -40,13 +80,13 @@ describe("native instruction boundaries", () => {
       const result = yield* probeSymlinkSupport(root).pipe(
         Effect.provideService(FileSystem.FileSystem, {
           ...fs,
-          makeDirectory: (target, options) =>
+          makeTempDirectory: (options) =>
             Effect.gen(function* () {
-              if (target === runtime && !(yield* Ref.get(injected))) {
+              if (!(yield* Ref.get(injected))) {
                 yield* Ref.set(injected, true);
                 yield* fs.makeDirectory(runtime);
               }
-              yield* fs.makeDirectory(target, options);
+              return yield* fs.makeTempDirectory(options);
             }),
         }),
       );

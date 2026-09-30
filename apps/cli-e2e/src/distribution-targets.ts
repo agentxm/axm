@@ -7,9 +7,6 @@ export const repoRoot = path.resolve(fileURLToPath(new URL("../..", import.meta.
 
 const cliDistDir = path.join(repoRoot, "apps", "cli", "dist");
 
-/** Output of `cli:compile` — one binary per supported platform. */
-export const releaseBinaryDir = path.join(cliDistDir, "bin");
-
 /** Output of `cli:compile-host` — the host platform binary only. */
 export const hostBinaryDir = path.join(cliDistDir, "host-bin");
 
@@ -52,7 +49,7 @@ const resolveHostBinaryName = (): string => {
 
 /**
  * Which binary the smoke suite is executing. Each target that runs the suite
- * declares its own subject: `cli-e2e:binary-smoke` tests what `cli:compile`
+ * declares its own subject: `cli-e2e:binary-smoke` tests what `cli:compile-host`
  * just produced, and `cli-e2e:binary-smoke-artifact` tests an externally
  * identified artifact named by `AXM_BINARY_PATH`.
  */
@@ -78,13 +75,13 @@ const resolveBinarySubject = (): "artifact" | "compiled" => {
  * In `artifact` mode the artifact identity is a hard requirement: an absent
  * `AXM_BINARY_PATH` is a named failure, never a silent fallback to whatever
  * binary happens to sit in the compile output directory. In `compiled` mode the
- * path is derived from the `cli:compile` output directory and `AXM_BINARY_PATH`
+ * path is derived from the `cli:compile-host` output directory and `AXM_BINARY_PATH`
  * is ignored, because that target is cached and an ambient environment variable
  * is not part of its cache key.
  */
 export const resolveBinaryPath = (): string => {
   if (resolveBinarySubject() === "compiled") {
-    return path.join(releaseBinaryDir, resolveHostBinaryName());
+    return resolveHostBinaryPath();
   }
 
   const identifiedArtifact = process.env["AXM_BINARY_PATH"];
@@ -98,7 +95,7 @@ export const resolveBinaryPath = (): string => {
   return identifiedArtifact;
 };
 
-/** Host binary produced by `cli:compile-host`, which `cli-e2e:install-suite` depends on. */
+/** Host binary staged by `cli:compile-host` for host lifecycle and smoke checks. */
 export const resolveHostBinaryPath = (): string =>
   path.join(hostBinaryDir, resolveHostBinaryName());
 

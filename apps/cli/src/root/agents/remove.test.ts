@@ -1,27 +1,37 @@
 import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlement/live";
+import { makeMemoryTransitionLockWorld } from "@agentxm/workspace-kernel/settlement/testing";
 import * as fs from "node:fs";
 import { WorkspaceFailureConversionLive } from "../../app-error/failure-catalog.js";
-import {
-  MockWorkspaceTransactionScope,
-  ConfiguredAgentOutcomesProviderTest,
-} from "@agentxm/workspace-kernel/workspace-state/testing";
+import { MemoryWorkspaceTransactionScope } from "@agentxm/workspace-kernel/workspace-state/testing";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
-import { NativeWriteAuthorityPermissive } from "@agentxm/workspace-kernel/agent-adapters/testing";
+import { NativeWriteAuthorityLive } from "@agentxm/workspace-kernel/projection/live";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import { afterEach, beforeEach } from "vitest";
 import {
   CodingAgentRepository,
+  observeConfiguredSkillLocations,
   type CodingAgentRepositoryService,
 } from "@agentxm/workspace-kernel/projection";
 import { codingAgentForId } from "@agentxm/workspace-kernel/agent-adapters";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
-import type { WorkspaceStateOptions } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  ConfiguredAgentOutcomesProvider,
+  ConfiguredAgentOutcomesUnavailable,
+  DesiredStateReader,
+  WorkspaceLocation,
+} from "@agentxm/workspace-kernel/workspace-state";
+import type {
+  ConfiguredAgentOutcomesRequest,
+  WorkspaceStateOptions,
+} from "@agentxm/workspace-kernel/workspace-state";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace-kernel/workspace-state/live";
 import { ResolvePlanInteractionTest } from "@agentxm/workspace-kernel/planning/testing";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
@@ -130,7 +140,6 @@ describe("agents remove.handler", () => {
     const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
     const interaction = ResolvePlanInteractionTest();
     const baseLayer = Layer.mergeAll(
-      NativeWriteAuthorityPermissive,
       FetchHttpClient.layer,
       Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),
       renderer.layer,
@@ -159,14 +168,48 @@ describe("agents remove.handler", () => {
     };
     const fullLayer = Layer.mergeAll(
       wsLayer,
+      Layer.provide(NativeWriteAuthorityLive, Layer.mergeAll(wsLayer, baseLayer)),
       Layer.succeed(CodingAgentRepository, agentRepo),
-      ConfiguredAgentOutcomesProviderTest,
-      MockWorkspaceTransactionScope(path.join(tempDir, ".axm")),
+      Layer.provide(
+        MemoryWorkspaceTransactionScope(makeMemoryTransitionLockWorld().invocation()),
+        wsLayer,
+      ),
       WorkspaceFailureConversionLive,
     ).pipe(Layer.provideMerge(baseLayer));
 
+    const observed = Layer.provideMerge(
+      Layer.effect(
+        ConfiguredAgentOutcomesProvider,
+        Effect.gen(function* () {
+          const observationServices = Layer.mergeAll(
+            Layer.succeed(FileSystem.FileSystem, yield* FileSystem.FileSystem),
+            Layer.succeed(Path.Path, yield* Path.Path),
+            Layer.succeed(WorkspaceLocation, yield* WorkspaceLocation),
+            Layer.succeed(DesiredStateReader, yield* DesiredStateReader),
+            Layer.succeed(CodingAgentRepository, yield* CodingAgentRepository),
+          );
+          return {
+            byExtensionType: {
+              skill: (request: ConfiguredAgentOutcomesRequest) =>
+                observeConfiguredSkillLocations(request).pipe(
+                  Effect.provide(observationServices),
+                  Effect.mapError(
+                    (cause) =>
+                      new ConfiguredAgentOutcomesUnavailable({
+                        category: "validation",
+                        detail: "Could not observe native Skill entries",
+                        cause,
+                      }),
+                  ),
+                ),
+            },
+          };
+        }),
+      ),
+      fullLayer,
+    );
     return {
-      provide: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect.pipe(Effect.provide(fullLayer)),
+      provide: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect.pipe(Effect.provide(observed)),
       rendererState: renderer.state,
     };
   };

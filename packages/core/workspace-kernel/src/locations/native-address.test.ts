@@ -5,6 +5,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as PlatformError from "effect/PlatformError";
+import * as Ref from "effect/Ref";
 
 import {
   assertNativeMutationWithin,
@@ -167,3 +168,44 @@ describe("physical spelling", () => {
     );
   }
 });
+
+it.effect("resolves an identical root once per admission and observes its next alias target", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const temporary = yield* fs.makeTempDirectoryScoped();
+    const sandbox = yield* fs.realPath(temporary);
+    const first = path.join(sandbox, "first");
+    const second = path.join(sandbox, "second");
+    const alias = path.join(sandbox, "root");
+    const target = path.join(first, "native", "config.json");
+    yield* fs.makeDirectory(path.dirname(target), { recursive: true });
+    yield* fs.makeDirectory(second);
+    yield* fs.symlink(first, alias);
+    const rootReads = yield* Ref.make(0);
+    const observedFs = {
+      ...fs,
+      realPath: (entry: string) =>
+        (path.resolve(entry) === alias
+          ? Ref.update(rootReads, (count) => count + 1)
+          : Effect.void
+        ).pipe(Effect.andThen(fs.realPath(entry))),
+    } satisfies FileSystem.FileSystem;
+    const admission = assertNativeMutationWithin(
+      alias,
+      target,
+      "entry",
+      `${alias}${path.sep}.`,
+    ).pipe(Effect.provideService(FileSystem.FileSystem, observedFs));
+    expect((yield* admission).entryPath).toBe(target);
+    expect(yield* Ref.get(rootReads)).toBe(1);
+
+    yield* fs.remove(alias);
+    yield* fs.symlink(second, alias);
+    // Re-executing the same Effect must observe the new root and refuse the old target.
+    const after = yield* admission.pipe(Effect.result);
+    expect(after._tag).toBe("Failure");
+    if (after._tag === "Failure") expect(after.failure.reason).toBe("escape");
+    expect(yield* Ref.get(rootReads)).toBe(2);
+  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+);

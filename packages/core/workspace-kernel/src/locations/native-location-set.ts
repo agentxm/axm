@@ -2,7 +2,6 @@
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import * as Ref from "effect/Ref";
 import * as Result from "effect/Result";
 import type * as PlatformError from "effect/PlatformError";
 import {
@@ -18,8 +17,8 @@ export interface NativeLocationSet {
 }
 
 /**
- * Resolve a finite requested set and its direct link targets. Ancestor listings
- * are shared only while capturing this set, including failed observations.
+ * Resolve a finite requested set and its direct link targets. Identical filesystem
+ * reads are shared only while capturing this set, including failed observations.
  * Neither the filesystem adapter nor its cache escapes. A new read phase must
  * capture a new set; settlement and write admission keep using live resolution.
  */
@@ -30,19 +29,29 @@ export const captureNativeLocationSet = (targets: {
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const directories = yield* Ref.make<
-      ReadonlyMap<string, Result.Result<Array<string>, PlatformError.PlatformError>>
-    >(new Map());
-    const readDirectory = (target: string) =>
-      Effect.gen(function* () {
-        const key = path.resolve(target);
-        const observed = (yield* Ref.get(directories)).get(key);
-        if (observed !== undefined) return yield* Effect.fromResult(observed);
-        const result = yield* fs.readDirectory(key).pipe(Effect.result);
-        yield* Ref.update(directories, (previous) => new Map(previous).set(key, result));
-        return yield* Effect.fromResult(result);
-      });
-    const capturedFileSystem = { ...fs, readDirectory } satisfies FileSystem.FileSystem;
+    const shareRead = <A>(
+      read: (target: string) => Effect.Effect<A, PlatformError.PlatformError>,
+    ) => {
+      const reads = new Map<string, Effect.Effect<A, PlatformError.PlatformError>>();
+      return (target: string) =>
+        Effect.gen(function* () {
+          const key = path.resolve(target);
+          const previous = reads.get(key);
+          if (previous !== undefined) return yield* previous;
+          const observed = yield* Effect.cached(read(key));
+          reads.set(key, observed);
+          return yield* observed;
+        });
+    };
+    const readDirectory = shareRead((target) => fs.readDirectory(target));
+    const capturedFileSystem = {
+      ...fs,
+      readDirectory: (target, options) =>
+        options === undefined ? readDirectory(target) : fs.readDirectory(target, options),
+      readLink: shareRead((target) => fs.readLink(target)),
+      stat: shareRead((target) => fs.stat(target)),
+      realPath: shareRead((target) => fs.realPath(target)),
+    } satisfies FileSystem.FileSystem;
     const entries = new Map<string, Result.Result<NativeEntryAddress, NativeLocationError>>();
     const requestedEntries = [
       ...new Set((targets.entries ?? []).map((target) => path.resolve(target))),

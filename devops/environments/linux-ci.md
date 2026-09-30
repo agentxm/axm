@@ -20,9 +20,12 @@ PR code receives no publication or production authority. Release jobs retain
 their exact-source, artifact and permission gates; native Windows and macOS
 verification remain separate evidence.
 
-The PR lane restores pnpm and Nx caches into job-local directories. Nx cache
-keys include the toolchain, lockfile and source revision; restored results remain
-subject to Nx provenance checks. Dependency caches are not test evidence.
+The PR lane restores dependency caches into job-local directories and uses Nx's
+native HTTP client with read-only credentials for deterministic task outputs.
+The [task-interface binding](../../docs/guides/repository-task-interface.md) owns
+client configuration, trusted-main production, hash inputs, and bypass. Missing
+configuration and fork runs disable remote access. Scheduled source assurance
+re-executes with both Nx caches bypassed. Dependency caches are not test evidence;
 E2E leaves remain fresh even when their build prerequisites are cached.
 The shared mise action also restores the main toolchain cache in proposed-change
 jobs; only runs on `main` save a new copy.

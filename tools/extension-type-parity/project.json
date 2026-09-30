@@ -29,7 +29,18 @@
         "{projectRoot}/src/**/*.ts",
         "{workspaceRoot}/packages/core/extension-model/src/unstable/extensions/common.ts",
         "{workspaceRoot}/packages/core/workspace-kernel/src/workspace-state/workspace/configured-agent-outcomes.ts",
-        "{workspaceRoot}/.prettierrc.json"
+        "{workspaceRoot}/.prettierrc.json",
+        "toolchain",
+        {
+          "externalDependencies": [
+            "@types/bun",
+            "@typescript/native",
+            "effect",
+            "prettier",
+            "typescript",
+            "vitest"
+          ]
+        }
       ],
       "outputs": ["{workspaceRoot}/apps/cli-e2e/src/__generated__/extension-type-matrix.ts"],
       "options": {

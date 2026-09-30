@@ -9,7 +9,7 @@ runs-in:
   - ../environments/native-platform-ci.md
 generated:
   by: codex/gpt-6
-  at: 2026-09-11T16:07:00Z
+  at: 2026-09-30T03:17:00Z
 ---
 
 # Nx in AXM
@@ -32,7 +32,8 @@ are governed by the binding. Use Nx's native opt-in profile for diagnosed task
 timing questions; routine workflows do not maintain a repository-specific cache
 report. A restored dependency archive is not a task verdict. Upgrade
 configuration and its conformance evidence together. For diagnosed freshness
-needs, use the binding's cache-bypass semantics; do not disable unknown-cache
+needs, use the binding's local/remote cache-bypass semantics; native HTTP
+configuration and remote-restoration proof also live there. Do not disable unknown-cache
 safeguards. Recovery from a failed task follows its owning target and source
 diagnostics, not an automatic dependency installation.
 

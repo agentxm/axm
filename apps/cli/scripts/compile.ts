@@ -1,35 +1,15 @@
-// @effect-diagnostics nodeBuiltinImport:off globalConsole:off — plain Bun build script, not Effect code
-import * as fs from "node:fs";
-import * as path from "node:path";
+import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as Data from "effect/Data";
+import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Option from "effect/Option";
+import * as Path from "effect/Path";
+import * as Schema from "effect/Schema";
+import * as ChildProcess from "effect/unstable/process/ChildProcess";
+import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
 
-const packageDir = path.join(import.meta.dirname, "..");
-const distDir = path.join(packageDir, "dist");
-const entrypoint = path.join(distDir, "src", "main.js");
-// One output directory per producing target, so a cache entry never carries an
-// artifact set the target did not produce: cli:compile -> dist/bin,
-// cli:compile-host -> dist/host-bin, cli:compile-host-dev -> dist/dev-bin.
-const releaseOutputDir = path.join(distDir, "bin");
-const hostOutputDir = path.join(distDir, "host-bin");
-const devOutputDir = path.join(distDir, "dev-bin");
-const packageJsonPath = path.join(packageDir, "package.json");
-const args = process.argv.slice(2);
-const hostOnly = args.includes("--host-only");
-const devBuild = args.includes("--dev-build");
-const knownFlags = new Set(["--host-only", "--dev-build"]);
-const unknownFlags = args.filter((arg) => arg.startsWith("--") && !knownFlags.has(arg));
-const positionalArgs = args.filter((arg) => !arg.startsWith("--"));
-
-if (unknownFlags.length > 0 || positionalArgs.length > 0) {
-  throw new Error("Usage: bun scripts/compile.ts [--host-only] [--dev-build]");
-}
-
-if (devBuild && !hostOnly) {
-  throw new Error("Usage: --dev-build requires --host-only");
-}
-
-const outputDir = devBuild ? devOutputDir : hostOnly ? hostOutputDir : releaseOutputDir;
-
-const targets = [
+export const compileTargets = [
   { target: "bun-darwin-arm64", output: "axm-darwin-arm64" },
   { target: "bun-darwin-x64", output: "axm-darwin-x64" },
   { target: "bun-linux-arm64", output: "axm-linux-arm64" },
@@ -37,125 +17,119 @@ const targets = [
   { target: "bun-windows-x64", output: "axm-windows-x64.exe" },
 ] as const;
 
-const requireCompileTarget = (targetName: (typeof targets)[number]["target"]) => {
-  const compileTarget = targets.find(({ target }) => target === targetName);
+class CompileError extends Data.TaggedError("CompileError")<{ readonly message: string }> {}
 
-  if (compileTarget === undefined) {
-    throw new Error(`Unknown compile target ${targetName}`);
-  }
-
-  return compileTarget;
-};
-
-const resolveHostTarget = () => {
-  switch (process.platform) {
-    case "darwin":
-      if (process.arch === "arm64") {
-        return requireCompileTarget("bun-darwin-arm64");
-      }
-
-      if (process.arch === "x64") {
-        return requireCompileTarget("bun-darwin-x64");
-      }
-
-      break;
-
-    case "linux":
-      if (process.arch === "arm64") {
-        return requireCompileTarget("bun-linux-arm64");
-      }
-
-      if (process.arch === "x64") {
-        return requireCompileTarget("bun-linux-x64");
-      }
-
-      break;
-
-    case "win32":
-      if (process.arch === "x64") {
-        return requireCompileTarget("bun-windows-x64");
-      }
-
-      break;
-  }
-
-  throw new Error(`No compile target for host platform ${process.platform}/${process.arch}`);
-};
-
-const requestedTargets = hostOnly ? [resolveHostTarget()] : targets;
-
-const packageJson: unknown = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
-const baseVersion =
-  typeof packageJson === "object" &&
-  packageJson !== null &&
-  "version" in packageJson &&
-  typeof packageJson.version === "string" &&
-  packageJson.version.length > 0
-    ? packageJson.version
-    : undefined;
-
-if (baseVersion === undefined) {
-  throw new Error(`Expected string version in ${packageJsonPath}`);
-}
-
-const tryGit = (gitArgs: ReadonlyArray<string>): string | undefined => {
-  const result = Bun.spawnSync(["git", ...gitArgs], {
-    cwd: packageDir,
-    stdout: "pipe",
-    stderr: "pipe",
+/** Each release target owns one binary; host and development builds own separate directories. */
+export const selectCompileTargets = (
+  args: ReadonlyArray<string>,
+  platform: string,
+  architecture: string,
+) =>
+  Effect.gen(function* () {
+    const hostOnly = args.includes("--host-only");
+    const devBuild = args.includes("--dev-build");
+    const explicit = args.filter((arg) => arg.startsWith("--target="));
+    const unknown = args.filter(
+      (arg) => !["--host-only", "--dev-build"].includes(arg) && !arg.startsWith("--target="),
+    );
+    if (
+      unknown.length > 0 ||
+      explicit.length > 1 ||
+      (hostOnly && explicit.length > 0) ||
+      (devBuild && !hostOnly)
+    ) {
+      return yield* new CompileError({
+        message:
+          "Use --target=bun-<platform>-<architecture>, --host-only, or --host-only --dev-build",
+      });
+    }
+    const targetName = hostOnly
+      ? `bun-${platform === "win32" ? "windows" : platform}-${architecture}`
+      : explicit[0]?.slice("--target=".length);
+    const selected =
+      targetName === undefined
+        ? compileTargets
+        : compileTargets.filter(({ target }) => target === targetName);
+    if (selected.length === 0)
+      return yield* new CompileError({ message: `Unsupported compile target ${targetName}` });
+    return {
+      targets: selected,
+      output: devBuild ? "dev-bin" : hostOnly ? "host-bin" : "bin",
+      devBuild,
+      cleanDirectory: hostOnly,
+    };
   });
-  if (result.exitCode !== 0) return undefined;
-  const out = result.stdout?.toString().trim();
-  return out !== undefined && out.length > 0 ? out : "";
-};
 
-const resolveDevSuffix = (): string => {
-  const sha = tryGit(["rev-parse", "--short", "HEAD"]);
-  if (sha === undefined) return "-dev";
-  const dirty = tryGit(["status", "--porcelain"]);
-  const dirtySuffix = dirty !== undefined && dirty.length > 0 ? ".dirty" : "";
-  return sha.length > 0 ? `-dev+${sha}${dirtySuffix}` : "-dev";
-};
-
-const version = devBuild ? `${baseVersion}${resolveDevSuffix()}` : baseVersion;
-
-if (!fs.existsSync(entrypoint)) {
-  throw new Error(`Build output missing: ${entrypoint}. Run cli:build first.`);
-}
-
-// Clear the directory this invocation owns so its declared output describes
-// exactly the artifacts this invocation produced.
-fs.rmSync(outputDir, { recursive: true, force: true });
-fs.mkdirSync(outputDir, { recursive: true });
-
-for (const { target, output } of requestedTargets) {
-  const outfile = path.join(outputDir, output);
-  console.log(`Compiling ${output} (${target})`);
-
-  const result = Bun.spawnSync(
-    [
-      process.execPath,
-      "build",
-      "--compile",
-      `--target=${target}`,
-      "--define",
-      `__AXM_VERSION__=${JSON.stringify(version)}`,
-      entrypoint,
-      "--outfile",
-      outfile,
-    ],
-    {
-      cwd: packageDir,
-      stdout: "inherit",
-      stderr: "inherit",
-    },
+export const compile = Effect.gen(function* () {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const processes = yield* ChildProcessSpawner;
+  const packageDir = path.resolve(import.meta.dirname, "..");
+  const distDir = path.join(packageDir, "dist");
+  const entrypoint = path.join(distDir, "src", "main.js");
+  const request = yield* selectCompileTargets(
+    process.argv.slice(2),
+    process.platform,
+    process.arch,
   );
-
-  if (result.exitCode !== 0) {
-    throw new Error(`bun build failed for ${target}`);
+  const manifest = yield* fs
+    .readFileString(path.join(packageDir, "package.json"))
+    .pipe(
+      Effect.flatMap(
+        Schema.decodeUnknownEffect(
+          Schema.fromJsonString(Schema.Struct({ version: Schema.NonEmptyString })),
+        ),
+      ),
+    );
+  let version = manifest.version;
+  if (request.devBuild) {
+    const git = (args: ReadonlyArray<string>) =>
+      processes.string(ChildProcess.make("git", args, { cwd: packageDir, stderr: "ignore" })).pipe(
+        Effect.map((value) => value.trim()),
+        Effect.option,
+      );
+    const sha = yield* git(["rev-parse", "--short", "HEAD"]);
+    const dirty = yield* git(["status", "--porcelain"]);
+    version +=
+      Option.isSome(sha) && sha.value.length > 0
+        ? `-dev+${sha.value}${Option.isSome(dirty) && dirty.value.length > 0 ? ".dirty" : ""}`
+        : "-dev";
   }
-}
+  if (!(yield* fs.exists(entrypoint)))
+    return yield* new CompileError({
+      message: `Build output missing: ${entrypoint}. Run cli:build first.`,
+    });
+  const outputDir = path.join(distDir, request.output);
+  if (request.cleanDirectory) yield* fs.remove(outputDir, { recursive: true, force: true });
+  yield* fs.makeDirectory(outputDir, { recursive: true });
+  // Sequential compilation keeps Bun's peak memory bounded. Nx controls target concurrency.
+  for (const { target, output } of request.targets) {
+    const outfile = path.join(outputDir, output);
+    // Never delete sibling release outputs owned by another target.
+    yield* fs.remove(outfile, { force: true });
+    yield* Effect.logInfo(`Compiling ${output} (${target})`);
+    const code = yield* processes.exitCode(
+      ChildProcess.make(
+        process.execPath,
+        [
+          "build",
+          "--compile",
+          `--target=${target}`,
+          "--define",
+          `__AXM_VERSION__=${Schema.encodeSync(Schema.fromJsonString(Schema.String))(version)}`,
+          entrypoint,
+          "--outfile",
+          outfile,
+        ],
+        { cwd: packageDir, stdout: "inherit", stderr: "inherit" },
+      ),
+    );
+    if (code !== 0)
+      return yield* new CompileError({ message: `bun build failed for ${target} (exit ${code})` });
+  }
+  yield* Effect.logInfo(
+    `Compiled ${request.targets.length} binaries (version ${version}) to ${path.relative(packageDir, outputDir)}`,
+  );
+});
 
-console.log(
-  `Compiled ${requestedTargets.length} ${requestedTargets.length === 1 ? "binary" : "binaries"} (version ${version}) to ${path.relative(packageDir, outputDir)}`,
-);
+if (import.meta.main) NodeRuntime.runMain(compile.pipe(Effect.provide(NodeServices.layer)));

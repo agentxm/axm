@@ -35,6 +35,8 @@ env:
   NX_TUI: "false"
   NX_DEFAULT_OUTPUT_STYLE: static
   NX_TASKS_RUNNER_DYNAMIC_OUTPUT: "false"
+  NX_SKIP_NX_CACHE: ${{ github.event_name == 'schedule' && 'true' || 'false' }}
+  NX_SKIP_REMOTE_CACHE: ${{ github.event_name == 'schedule' && 'true' || 'false' }}
   NX_PARALLEL: "2"
   VITEST_MAX_WORKERS: "2"
 
@@ -67,6 +69,8 @@ jobs:
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
         with:
+          remote-cache-url: ${{ vars.NX_REMOTE_CACHE_URL }}
+          remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_READ_TOKEN }}
           install: "false"
 
       - name: Find broad affected fallback
@@ -111,6 +115,8 @@ jobs:
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
         with:
+          remote-cache-url: ${{ vars.NX_REMOTE_CACHE_URL }}
+          remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_READ_TOKEN }}
           install: "false"
 
       # The queue rebases each commit onto main unchanged, so every commit is
@@ -171,6 +177,9 @@ jobs:
 
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
+        with:
+          remote-cache-url: ${{ vars.NX_REMOTE_CACHE_URL }}
+          remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_READ_TOKEN }}
 
       - name: Render the per-change specification verdict
         env:
@@ -191,6 +200,9 @@ jobs:
 
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
+        with:
+          remote-cache-url: ${{ vars.NX_REMOTE_CACHE_URL }}
+          remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_READ_TOKEN }}
 
       - name: Lint bundled AXM skill
         run: pnpm exec nx run axm:lint-bundled-skill --outputStyle=static
@@ -235,6 +247,8 @@ jobs:
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
         with:
+          remote-cache-url: ${{ vars.NX_REMOTE_CACHE_URL }}
+          remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_READ_TOKEN }}
           install: "false"
 
       - name: Create local main ref for release detection
@@ -351,6 +365,8 @@ jobs:
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
         with:
+          remote-cache-url: ${{ vars.NX_REMOTE_CACHE_URL }}
+          remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_READ_TOKEN }}
           install: "false"
 
       - name: Restore pnpm store
@@ -391,6 +407,9 @@ jobs:
 
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
+        with:
+          remote-cache-url: ${{ vars.NX_REMOTE_CACHE_URL }}
+          remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_READ_TOKEN }}
 
       - name: Clear prior workspace evidence
         run: rm -rf "$GITHUB_WORKSPACE/test-results"
@@ -482,6 +501,9 @@ jobs:
 
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
+        with:
+          remote-cache-url: ${{ vars.NX_REMOTE_CACHE_URL }}
+          remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_READ_TOKEN }}
 
       - name: Clear prior workspace evidence
         run: rm -rf "$GITHUB_WORKSPACE/test-results"
@@ -562,6 +584,9 @@ jobs:
 
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
+        with:
+          remote-cache-url: ${{ vars.NX_REMOTE_CACHE_URL }}
+          remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_READ_TOKEN }}
 
       - name: Verify Windows workspace lifecycle
         env:
@@ -625,14 +650,19 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
+            compile_target: compile-linux-x64
             binary_name: axm-linux-x64
           - os: ubuntu-24.04-arm
+            compile_target: compile-linux-arm64
             binary_name: axm-linux-arm64
           - os: macos-latest
+            compile_target: compile-darwin-arm64
             binary_name: axm-darwin-arm64
           - os: macos-15-intel
+            compile_target: compile-darwin-x64
             binary_name: axm-darwin-x64
           - os: windows-latest
+            compile_target: compile-windows-x64
             binary_name: axm-windows-x64.exe
     runs-on: ${{ matrix.os }}
     steps:
@@ -641,17 +671,20 @@ jobs:
 
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
+        with:
+          remote-cache-url: ${{ vars.NX_REMOTE_CACHE_URL }}
+          remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_READ_TOKEN }}
 
-      - name: Compile host binary
-        run: pnpm exec nx run cli:compile-host --outputStyle=static
+      - name: Compile platform binary
+        run: pnpm exec nx run cli:${{ matrix.compile_target }} --outputStyle=static
 
       - name: Mark binary executable
         if: runner.os != 'Windows'
-        run: chmod +x apps/cli/dist/host-bin/${{ matrix.binary_name }}
+        run: chmod +x apps/cli/dist/bin/${{ matrix.binary_name }}
 
       - name: Run binary smoke test
         env:
-          AXM_BINARY_PATH: ${{ github.workspace }}/apps/cli/dist/host-bin/${{ matrix.binary_name }}
+          AXM_BINARY_PATH: ${{ github.workspace }}/apps/cli/dist/bin/${{ matrix.binary_name }}
           AXM_EXPECT_FILESYSTEM_CASE: ${{ runner.os == 'macOS' && 'insensitive' || '' }}
         run: pnpm exec nx run cli-e2e:binary-smoke-artifact --outputStyle=static
 
@@ -659,7 +692,7 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         env:
-          AXM_BINARY_PATH: ${{ github.workspace }}/apps/cli/dist/host-bin/${{ matrix.binary_name }}
+          AXM_BINARY_PATH: ${{ github.workspace }}/apps/cli/dist/bin/${{ matrix.binary_name }}
           AXM_EXPECT_FILESYSTEM_CASE: sensitive
         run: |
           image="$RUNNER_TEMP/axm-case-sensitive.sparseimage"
@@ -689,7 +722,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: axm-binary-${{ matrix.binary_name }}-${{ github.sha }}
-          path: apps/cli/dist/host-bin/${{ matrix.binary_name }}
+          path: apps/cli/dist/bin/${{ matrix.binary_name }}
           if-no-files-found: error
           compression-level: 0
           retention-days: 90
@@ -707,6 +740,9 @@ jobs:
 
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
+        with:
+          remote-cache-url: ${{ vars.NX_REMOTE_CACHE_URL }}
+          remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_READ_TOKEN }}
 
       - name: Produce exact installers and published schemas
         run: pnpm exec nx run axm:produce-release-content --outputStyle=static
@@ -733,6 +769,9 @@ jobs:
 
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
+        with:
+          remote-cache-url: ${{ vars.NX_REMOTE_CACHE_URL }}
+          remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_READ_TOKEN }}
 
       - name: Pack and verify the fixed npm cohort once
         run: >-
@@ -760,6 +799,9 @@ jobs:
           persist-credentials: false
       - name: Set up workspace and the pinned scanner
         uses: ./.github/actions/setup-workspace
+        with:
+          remote-cache-url: ${{ vars.NX_REMOTE_CACHE_URL }}
+          remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_READ_TOKEN }}
       - name: Scan source and prove the scanner contract
         run: pnpm exec nx run-many -t scan-secrets test:secret-scanning --projects=axm --nxBail
 

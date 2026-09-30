@@ -1,0 +1,82 @@
+name: Warm Nx task cache
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nx-cache-main
+  cancel-in-progress: false
+
+env:
+  NX_TUI: "false"
+  NX_DEFAULT_OUTPUT_STYLE: static
+  NX_TASKS_RUNNER_DYNAMIC_OUTPUT: "false"
+
+jobs:
+  warm:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      vars.NX_REMOTE_CACHE_URL != ''
+    environment: nx-cache-writer
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-x64
+          - os: ubuntu-24.04-arm
+            platform: linux-arm64
+          - os: macos-latest
+            platform: darwin-arm64
+          - os: macos-15-intel
+            platform: darwin-x64
+          - os: windows-latest
+            platform: windows-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout verified main revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - name: Set up cache producer
+        uses: ./.github/actions/setup-workspace
+        with:
+          remote-cache-url: ${{ vars.NX_REMOTE_CACHE_URL }}
+          remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_WRITE_TOKEN }}
+
+      - name: Populate deterministic task outputs
+        shell: bash
+        run: |
+          pnpm exec nx run-many -t lint typecheck build test --exclude=axm,cli-e2e --nxBail
+          mkdir -p .nx/cache/profiles
+          cp .nx/cache/run.json .nx/cache/profiles/source.json
+
+      - name: Populate platform binary
+        shell: bash
+        env:
+          COMPILE_PLATFORM: ${{ matrix.platform }}
+        run: |
+          pnpm exec nx run "cli:compile-$COMPILE_PLATFORM"
+          cp .nx/cache/run.json .nx/cache/profiles/native.json
+
+      - name: Upload task execution profile
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: nx-cache-warming-${{ github.run_id }}-${{ runner.os }}-${{ runner.arch }}
+          path: |
+            .nx/cache/profiles/*.json
+            .nx/cache/run.json
+          if-no-files-found: ignore
+          retention-days: 14

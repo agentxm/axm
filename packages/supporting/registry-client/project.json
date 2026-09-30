@@ -15,7 +15,21 @@
       "inputs": [
         "{projectRoot}/scripts/generate-registry-client.ts",
         "{projectRoot}/specs/registry-openapi.json",
-        "{workspaceRoot}/.prettierrc.json"
+        "{workspaceRoot}/.prettierrc.json",
+        "toolchain",
+        {
+          "externalDependencies": [
+            "@effect/openapi-generator",
+            "@effect/platform-node",
+            "@effect/vitest",
+            "@types/bun",
+            "@typescript/native",
+            "effect",
+            "fflate",
+            "typescript",
+            "vitest"
+          ]
+        }
       ],
       "outputs": ["{projectRoot}/src/__generated__/registry-client.ts"],
       "executor": "nx:run-commands",

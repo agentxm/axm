@@ -59,7 +59,26 @@
       "inputs": [
         "{projectRoot}/scripts/generate-telemetry-client.ts",
         "{projectRoot}/specs/telemetry-openapi.json",
-        "{workspaceRoot}/.prettierrc.json"
+        "{workspaceRoot}/.prettierrc.json",
+        "toolchain",
+        {
+          "externalDependencies": [
+            "@effect/openapi-generator",
+            "@effect/platform-node",
+            "@effect/platform-node-shared",
+            "@effect/vitest",
+            "@types/bun",
+            "@types/semver",
+            "@typescript/native",
+            "@xterm/headless",
+            "effect",
+            "fflate",
+            "semver",
+            "typescript",
+            "vitest",
+            "yaml"
+          ]
+        }
       ],
       "outputs": ["{projectRoot}/src/telemetry/__generated__/telemetry-client.ts"],
       "executor": "nx:run-commands",
@@ -91,7 +110,26 @@
         "{workspaceRoot}/README.md",
         "{projectRoot}/README.md",
         "{projectRoot}/help/topics/getting-started.md",
-        "{projectRoot}/help/topics/basic-usage.md"
+        "{projectRoot}/help/topics/basic-usage.md",
+        "toolchain",
+        {
+          "externalDependencies": [
+            "@effect/openapi-generator",
+            "@effect/platform-node",
+            "@effect/platform-node-shared",
+            "@effect/vitest",
+            "@types/bun",
+            "@types/semver",
+            "@typescript/native",
+            "@xterm/headless",
+            "effect",
+            "fflate",
+            "semver",
+            "typescript",
+            "vitest",
+            "yaml"
+          ]
+        }
       ],
       "outputs": [
         "{workspaceRoot}/README.md",
@@ -114,7 +152,26 @@
         "{projectRoot}/scripts/generate-help-topics.ts",
         "{projectRoot}/scripts/type-enumerations.ts",
         "{projectRoot}/site-content/__generated__/schemas/*.schema.json",
-        "{workspaceRoot}/.prettierrc.json"
+        "{workspaceRoot}/.prettierrc.json",
+        "toolchain",
+        {
+          "externalDependencies": [
+            "@effect/openapi-generator",
+            "@effect/platform-node",
+            "@effect/platform-node-shared",
+            "@effect/vitest",
+            "@types/bun",
+            "@types/semver",
+            "@typescript/native",
+            "@xterm/headless",
+            "effect",
+            "fflate",
+            "semver",
+            "typescript",
+            "vitest",
+            "yaml"
+          ]
+        }
       ],
       "outputs": ["{projectRoot}/src/__generated__/help-topics.ts"],
       "executor": "nx:run-commands",
@@ -132,7 +189,26 @@
         "{workspaceRoot}/packages/supporting/cli-maintenance/src/official-skill/domain/policy.ts",
         "{workspaceRoot}/packages/core/extension-content/src/content/skill-content.ts",
         "{workspaceRoot}/skills/axm/skill.json",
-        "{workspaceRoot}/skills/axm/src/**/*"
+        "{workspaceRoot}/skills/axm/src/**/*",
+        "toolchain",
+        {
+          "externalDependencies": [
+            "@effect/openapi-generator",
+            "@effect/platform-node",
+            "@effect/platform-node-shared",
+            "@effect/vitest",
+            "@types/bun",
+            "@types/semver",
+            "@typescript/native",
+            "@xterm/headless",
+            "effect",
+            "fflate",
+            "semver",
+            "typescript",
+            "vitest",
+            "yaml"
+          ]
+        }
       ],
       "outputs": ["{projectRoot}/src/__generated__/bundled-axm-skill.ts"],
       "executor": "nx:run-commands",
@@ -148,7 +224,26 @@
         "production",
         "^production",
         "{projectRoot}/scripts/generate-schemas.ts",
-        "{workspaceRoot}/.prettierrc.json"
+        "{workspaceRoot}/.prettierrc.json",
+        "toolchain",
+        {
+          "externalDependencies": [
+            "@effect/openapi-generator",
+            "@effect/platform-node",
+            "@effect/platform-node-shared",
+            "@effect/vitest",
+            "@types/bun",
+            "@types/semver",
+            "@typescript/native",
+            "@xterm/headless",
+            "effect",
+            "fflate",
+            "semver",
+            "typescript",
+            "vitest",
+            "yaml"
+          ]
+        }
       ],
       "outputs": ["{projectRoot}/site-content/__generated__/schemas"],
       "executor": "nx:run-commands",
@@ -165,7 +260,26 @@
         "^production",
         "{projectRoot}/scripts/generate-cli-reference.ts",
         "{projectRoot}/package.json",
-        "{workspaceRoot}/.prettierrc.json"
+        "{workspaceRoot}/.prettierrc.json",
+        "toolchain",
+        {
+          "externalDependencies": [
+            "@effect/openapi-generator",
+            "@effect/platform-node",
+            "@effect/platform-node-shared",
+            "@effect/vitest",
+            "@types/bun",
+            "@types/semver",
+            "@typescript/native",
+            "@xterm/headless",
+            "effect",
+            "fflate",
+            "semver",
+            "typescript",
+            "vitest",
+            "yaml"
+          ]
+        }
       ],
       "outputs": ["{projectRoot}/site-content/__generated__/cli-reference"],
       "executor": "nx:run-commands",
@@ -182,7 +296,26 @@
         "^production",
         "{projectRoot}/scripts/agent-catalog-reference.ts",
         "{projectRoot}/scripts/generate-agent-catalog.ts",
-        "{workspaceRoot}/.prettierrc.json"
+        "{workspaceRoot}/.prettierrc.json",
+        "toolchain",
+        {
+          "externalDependencies": [
+            "@effect/openapi-generator",
+            "@effect/platform-node",
+            "@effect/platform-node-shared",
+            "@effect/vitest",
+            "@types/bun",
+            "@types/semver",
+            "@typescript/native",
+            "@xterm/headless",
+            "effect",
+            "fflate",
+            "semver",
+            "typescript",
+            "vitest",
+            "yaml"
+          ]
+        }
       ],
       "outputs": ["{projectRoot}/site-content/__generated__/agent-catalog"],
       "executor": "nx:run-commands",
@@ -192,21 +325,34 @@
       }
     },
     "compile": {
-      "cache": true,
-      "dependsOn": ["build"],
-      "executor": "nx:run-commands",
-      "inputs": ["production", "^production", "{projectRoot}/scripts/compile.ts"],
-      "outputs": ["{projectRoot}/dist/bin"],
-      "options": {
-        "command": "bun scripts/compile.ts",
-        "cwd": "apps/cli"
-      }
+      "cache": false,
+      "executor": "nx:noop",
+      "dependsOn": [
+        "compile-darwin-arm64",
+        "compile-darwin-x64",
+        "compile-linux-arm64",
+        "compile-linux-x64",
+        "compile-windows-x64"
+      ]
     },
     "compile-host": {
       "cache": true,
       "dependsOn": ["build"],
       "executor": "nx:run-commands",
-      "inputs": ["production", "^production", "{projectRoot}/scripts/compile.ts", "hostPlatform"],
+      "inputs": [
+        "production",
+        "^production",
+        "{projectRoot}/scripts/compile.ts",
+        "hostPlatform",
+        "toolchain",
+        {
+          "externalDependencies": ["effect", "@effect/platform-node"]
+        },
+        {
+          "dependentTasksOutputFiles": "**/*",
+          "transitive": true
+        }
+      ],
       "outputs": ["{projectRoot}/dist/host-bin"],
       "options": {
         "command": "bun scripts/compile.ts --host-only",
@@ -236,6 +382,126 @@
         "command": "bun --conditions=axm-source scripts/paint-gallery.ts",
         "cwd": "apps/cli",
         "forwardAllArgs": true
+      }
+    },
+    "compile-darwin-arm64": {
+      "cache": true,
+      "dependsOn": ["build"],
+      "executor": "nx:run-commands",
+      "inputs": [
+        "production",
+        "^production",
+        "{projectRoot}/scripts/compile.ts",
+        "hostPlatform",
+        "toolchain",
+        {
+          "externalDependencies": ["effect", "@effect/platform-node"]
+        },
+        {
+          "dependentTasksOutputFiles": "**/*",
+          "transitive": true
+        }
+      ],
+      "outputs": ["{projectRoot}/dist/bin/axm-darwin-arm64"],
+      "options": {
+        "command": "bun scripts/compile.ts --target=bun-darwin-arm64",
+        "cwd": "apps/cli"
+      }
+    },
+    "compile-darwin-x64": {
+      "cache": true,
+      "dependsOn": ["build"],
+      "executor": "nx:run-commands",
+      "inputs": [
+        "production",
+        "^production",
+        "{projectRoot}/scripts/compile.ts",
+        "hostPlatform",
+        "toolchain",
+        {
+          "externalDependencies": ["effect", "@effect/platform-node"]
+        },
+        {
+          "dependentTasksOutputFiles": "**/*",
+          "transitive": true
+        }
+      ],
+      "outputs": ["{projectRoot}/dist/bin/axm-darwin-x64"],
+      "options": {
+        "command": "bun scripts/compile.ts --target=bun-darwin-x64",
+        "cwd": "apps/cli"
+      }
+    },
+    "compile-linux-arm64": {
+      "cache": true,
+      "dependsOn": ["build"],
+      "executor": "nx:run-commands",
+      "inputs": [
+        "production",
+        "^production",
+        "{projectRoot}/scripts/compile.ts",
+        "hostPlatform",
+        "toolchain",
+        {
+          "externalDependencies": ["effect", "@effect/platform-node"]
+        },
+        {
+          "dependentTasksOutputFiles": "**/*",
+          "transitive": true
+        }
+      ],
+      "outputs": ["{projectRoot}/dist/bin/axm-linux-arm64"],
+      "options": {
+        "command": "bun scripts/compile.ts --target=bun-linux-arm64",
+        "cwd": "apps/cli"
+      }
+    },
+    "compile-linux-x64": {
+      "cache": true,
+      "dependsOn": ["build"],
+      "executor": "nx:run-commands",
+      "inputs": [
+        "production",
+        "^production",
+        "{projectRoot}/scripts/compile.ts",
+        "hostPlatform",
+        "toolchain",
+        {
+          "externalDependencies": ["effect", "@effect/platform-node"]
+        },
+        {
+          "dependentTasksOutputFiles": "**/*",
+          "transitive": true
+        }
+      ],
+      "outputs": ["{projectRoot}/dist/bin/axm-linux-x64"],
+      "options": {
+        "command": "bun scripts/compile.ts --target=bun-linux-x64",
+        "cwd": "apps/cli"
+      }
+    },
+    "compile-windows-x64": {
+      "cache": true,
+      "dependsOn": ["build"],
+      "executor": "nx:run-commands",
+      "inputs": [
+        "production",
+        "^production",
+        "{projectRoot}/scripts/compile.ts",
+        "hostPlatform",
+        "toolchain",
+        {
+          "externalDependencies": ["effect", "@effect/platform-node"]
+        },
+        {
+          "dependentTasksOutputFiles": "**/*",
+          "transitive": true
+        }
+      ],
+      "outputs": ["{projectRoot}/dist/bin/axm-windows-x64.exe"],
+      "options": {
+        "command": "bun scripts/compile.ts --target=bun-windows-x64",
+        "cwd": "apps/cli"
       }
     }
   }

@@ -11,6 +11,10 @@ inputs:
     required: false
     default: "true"
 
+  remote-cache-bypass:
+    description: Repository NX_SKIP_REMOTE_CACHE setting forwarded by the caller.
+    required: false
+    default: ""
   remote-cache-url:
     description: Native Nx remote-cache server URL; empty disables remote caching.
     required: false
@@ -46,7 +50,7 @@ runs:
       env:
         REMOTE_CACHE_URL: ${{ inputs.remote-cache-url }}
         REMOTE_CACHE_TOKEN: ${{ inputs.remote-cache-token }}
-        CACHE_BYPASS: ${{ vars.NX_SKIP_REMOTE_CACHE }}
+        CACHE_BYPASS: ${{ inputs.remote-cache-bypass }}
         CACHE_ACTOR: ${{ github.actor }}
         CACHE_FORK: ${{ github.event.pull_request.head.repo.fork || false }}
       run: |

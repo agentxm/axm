@@ -300,6 +300,48 @@ describe("aggregate required verification", () => {
 });
 
 describe("native cache setup trust and configuration", () => {
+  it("forwards repository bypass for every configured cache consumer and producer", () => {
+    const directory = path.join(repoRoot, ".github/workflows");
+    for (const filename of fs.readdirSync(directory).filter((name) => name.endsWith(".yml"))) {
+      const workflow: unknown = YAML.parse(fs.readFileSync(path.join(directory, filename), "utf8"));
+      if (typeof workflow !== "object" || workflow === null || !("jobs" in workflow))
+        throw new Error(`Missing workflow jobs: ${filename}`);
+      const jobs = workflow.jobs;
+      if (typeof jobs !== "object" || jobs === null)
+        throw new Error(`Invalid workflow jobs: ${filename}`);
+      for (const candidateJob of Object.values(jobs)) {
+        const job: unknown = candidateJob;
+        if (
+          typeof job !== "object" ||
+          job === null ||
+          !("steps" in job) ||
+          !Array.isArray(job.steps)
+        )
+          continue;
+        for (const candidateStep of job.steps) {
+          const step: unknown = candidateStep;
+          if (
+            typeof step !== "object" ||
+            step === null ||
+            !("uses" in step) ||
+            step.uses !== "./.github/actions/setup-workspace"
+          )
+            continue;
+          if (
+            !("with" in step) ||
+            typeof step.with !== "object" ||
+            step.with === null ||
+            !("remote-cache-url" in step.with)
+          )
+            continue;
+          expect(step.with, filename).toHaveProperty(
+            "remote-cache-bypass",
+            "${{ vars.NX_SKIP_REMOTE_CACHE }}",
+          );
+        }
+      }
+    }
+  });
   const scenarios = [
     { name: "unconfigured", url: "", token: "", code: 0, enabled: false },
     {
@@ -411,7 +453,7 @@ describe("native cache setup trust and configuration", () => {
         typeof step.run !== "string"
       )
         throw new Error("Missing native cache setup");
-      expect(step).toHaveProperty("env.CACHE_BYPASS", "${{ vars.NX_SKIP_REMOTE_CACHE }}");
+      expect(step).toHaveProperty("env.CACHE_BYPASS", "${{ inputs.remote-cache-bypass }}");
       const directory = fs.mkdtempSync(path.join(tmpdir(), "nx-setup-"));
       const environmentFile = path.join(directory, "environment");
       fs.writeFileSync(environmentFile, "");

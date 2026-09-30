@@ -22,6 +22,90 @@ export const specification = defineSpecification({
 });
 
 describe("Source overlap refusal", () => {
+  it.effect("refuses aliases to source members reached outside the source root", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped();
+      const source = path.join(root, "source");
+      const destination = path.join(root, "destination");
+      const external = path.join(root, "external.txt");
+      yield* fs.makeDirectory(source);
+      yield* fs.makeDirectory(destination);
+      yield* fs.writeFileString(external, "external source");
+      yield* fs.symlink(external, path.join(source, "a.txt"));
+      yield* fs.writeFileString(path.join(source, "b.txt"), "B");
+      yield* fs.symlink(external, path.join(destination, "b.txt"));
+      const failure = yield* copyExtensionDirectory(source, destination).pipe(Effect.flip);
+      expect(failure._tag).toBe("NativeLocationError");
+      expect(yield* fs.readFileString(external)).toBe("external source");
+      expect(yield* fs.readDirectory(destination)).toEqual(["b.txt"]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("preserves excluded source content reached by a destination hardlink", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped();
+      const source = path.join(root, "source");
+      const destination = path.join(root, "destination");
+      yield* fs.makeDirectory(source);
+      yield* fs.makeDirectory(destination);
+      yield* fs.writeFileString(path.join(source, "README.md"), "private source");
+      yield* fs.writeFileString(path.join(source, "SKILL.md"), "skill source");
+      yield* fs.link(path.join(source, "README.md"), path.join(destination, "SKILL.md"));
+      const failure = yield* copyExtensionDirectory(source, destination, {
+        forAgentArtifact: true,
+      }).pipe(Effect.flip);
+      expect(failure._tag).toBe("NativeLocationError");
+      expect(yield* fs.readFileString(path.join(source, "README.md"))).toBe("private source");
+      expect(yield* fs.readFileString(path.join(source, "SKILL.md"))).toBe("skill source");
+      expect(yield* fs.readFileString(path.join(destination, "SKILL.md"))).toBe("private source");
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("copies into an existing destination whose ordinary files are independent", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped();
+      const source = path.join(root, "source");
+      const destination = path.join(root, "destination");
+      yield* fs.makeDirectory(source);
+      yield* fs.makeDirectory(destination);
+      yield* fs.writeFileString(path.join(source, "SKILL.md"), "source");
+      yield* fs.writeFileString(path.join(destination, "SKILL.md"), "old destination");
+      yield* copyExtensionDirectory(source, destination);
+      expect(yield* fs.readFileString(path.join(source, "SKILL.md"))).toBe("source");
+      expect(yield* fs.readFileString(path.join(destination, "SKILL.md"))).toBe("source");
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect.each(["symlink", "hardlink"] as const)(
+    "refuses a destination %s to a different source member before copying",
+    (kind) =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* fs.makeTempDirectoryScoped();
+        const source = path.join(root, "source");
+        const destination = path.join(root, "destination");
+        yield* fs.makeDirectory(source);
+        yield* fs.makeDirectory(destination);
+        yield* fs.writeFileString(path.join(source, "a.txt"), "A");
+        yield* fs.writeFileString(path.join(source, "b.txt"), "B");
+        if (kind === "symlink")
+          yield* fs.symlink(path.join(source, "a.txt"), path.join(destination, "b.txt"));
+        else yield* fs.link(path.join(source, "a.txt"), path.join(destination, "b.txt"));
+        const result = yield* copyExtensionDirectory(source, destination).pipe(Effect.result);
+        expect(yield* fs.readFileString(path.join(source, "a.txt"))).toBe("A");
+        expect(yield* fs.readFileString(path.join(source, "b.txt"))).toBe("B");
+        expect(result._tag).toBe("Failure");
+        expect(yield* fs.exists(path.join(destination, "a.txt"))).toBe(false);
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("refuses a hardlinked destination child before any bytes are copied", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;

@@ -4,7 +4,11 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import type { ManagedRegionFailure } from "../errors.js";
+import {
+  ProjectionTargetUnsupported,
+  ProjectionIoFailed,
+  type ManagedRegionFailure,
+} from "../errors.js";
 import { projectionGeneration } from "../generation.js";
 import { reconcileNativeManagedRegion, type NativeRegionSource } from "../native-managed-region.js";
 import { KNOWLEDGE_REGION_OWNER } from "../units.js";
@@ -16,7 +20,13 @@ import {
   NativeWriteAuthority,
   type NativeWriteRefused,
 } from "../../agent-adapters/index.js";
-import type { NativeDirectoryInputs, NativeLocationOutcome } from "../../locations/index.js";
+import {
+  resolveNativeReadLocation,
+  resolveNativeReferent,
+  type NativeDirectoryInputs,
+  type NativeLocationOutcome,
+} from "../../locations/index.js";
+import { AGENTS } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { ResolvedKnowledgeDiscoveryConfig } from "../../workspace-state/index.js";
 
 const KNOWLEDGE_REGION = "knowledge";
@@ -103,6 +113,61 @@ export const renderKnowledgeBaseTable = (args: {
   ].join("\n\n");
 };
 
+/** A relative link can be shared only when each native route has the same base. */
+const validateKnowledgeLinkBases = (args: {
+  readonly scopeRoot: string;
+  readonly scope: "project" | "user";
+  readonly nativeDirectoryInputs: NativeDirectoryInputs;
+  readonly configuredAgentIds: ReadonlyArray<string>;
+  readonly instructionsPath: string;
+  readonly instructionsDeclaredPath: string;
+}) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const source = yield* resolveNativeReferent(args.instructionsPath);
+    const sourceParent = path.dirname(source);
+    const declaredParent = yield* resolveNativeReferent(
+      path.dirname(args.instructionsDeclaredPath),
+    );
+    if (declaredParent !== sourceParent)
+      return yield* new ProjectionTargetUnsupported({
+        detail:
+          "Knowledge relative links cannot be shared through an instruction source alias with a different parent; native link-resolution semantics are unverified.",
+      });
+    for (const agent of AGENTS) {
+      if (!args.configuredAgentIds.includes(agent.id)) continue;
+      const native = agent.instructions.native;
+      if (!("locations" in native)) continue;
+      for (const declaration of native.locations) {
+        if (declaration.shape !== "file" || declaration.scope !== args.scope) continue;
+        const resolved = resolveNativeReadLocation(
+          path,
+          agent.id,
+          declaration,
+          { workspaceRoot: args.scopeRoot, scope: args.scope },
+          args.nativeDirectoryInputs,
+          { includeConditional: true },
+        );
+        if (resolved === undefined) continue;
+        if (declaration.role !== "primary" || declaration.applicability.kind !== "always") {
+          const referent = yield* resolveNativeReferent(resolved.path);
+          if (referent !== source) continue;
+        }
+        const readerParent = yield* resolveNativeReferent(path.dirname(resolved.path));
+        if (readerParent !== sourceParent)
+          return yield* new ProjectionTargetUnsupported({
+            detail: `Knowledge relative links cannot be shared with ${agent.id} at ${resolved.path}: its native instruction parent differs from the source and link-resolution semantics are unverified.`,
+          });
+      }
+    }
+  }).pipe(
+    Effect.mapError((cause) =>
+      cause instanceof ProjectionTargetUnsupported
+        ? cause
+        : new ProjectionIoFailed({ path: args.instructionsDeclaredPath, step: "inspect", cause }),
+    ),
+  );
+
 export const reconcileKnowledgeDiscovery = (args: {
   readonly scopeRoot: string;
   readonly ownerRoot: string;
@@ -130,6 +195,7 @@ export const reconcileKnowledgeDiscovery = (args: {
       return { changed: false, artifacts: [], observedRegion: Option.none(), nativeLocations: [] };
     }
     const tableDesired = manageInstructions && args.config.instructions && args.bundles.length > 0;
+    if (tableDesired) yield* validateKnowledgeLinkBases(args);
     const instructionRelative = portable(
       path.relative(args.scopeRoot, args.instructionsDeclaredPath),
     );

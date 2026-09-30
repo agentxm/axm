@@ -6,13 +6,18 @@ import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { codingAgentForId } from "../agent-adapters/index.js";
 import { captureCopiedDirectory, retireCopiedDirectory } from "../locations/index.js";
-import { nativeArtifactLocationOutcomes, retiredNativeArtifactLocationOutcomes } from "./index.js";
+import {
+  nativeArtifactLocationOutcomes,
+  retiredNativeArtifactLocationOutcomes,
+  refreshNativeRegionReaders,
+  observeInstructionProjection,
+} from "./index.js";
 
 export const specification = defineSpecification({
   requirement: "workspace/native-locations/reports-independent-policy-and-readers",
   title: "Native location observations distinguish policy and reader evidence",
   statement:
-    "AXM shall report one physical ownership unit with all declared aliases, distinguish configured consumers from potential native readers and shared Skill policy, preserve actual mutation state across duplicate consumers, distinguish completed removal from bounded retirement that retains user contents, and keep native availability unverified without runtime evidence.",
+    "AXM shall report one physical ownership unit with all declared aliases, distinguish configured consumers from potential native readers and shared Skill policy, refresh region consumers after dependent instruction aliases are reconciled, retain conditional reader applicability as explicit uncertainty, preserve actual mutation state across duplicate consumers, distinguish completed removal from bounded retirement that retains user contents, and keep native availability unverified without runtime evidence.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
@@ -24,6 +29,221 @@ export const specification = defineSpecification({
 });
 
 describe("Native artifact location outcomes", () => {
+  it.effect("refreshes a region's final alias readership without losing its creation outcome", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped();
+      const source = path.join(root, "AGENTS.md");
+      const alias = path.join(root, "CLAUDE.md");
+      yield* fs.writeFileString(source, "# Discovery\n");
+      yield* fs.symlink("AGENTS.md", alias);
+      const result = yield* refreshNativeRegionReaders(
+        [
+          {
+            scope: "project",
+            address: { kind: "region", path: source, region: "knowledge" },
+            aliases: [source],
+            configuredConsumers: [],
+            potentialReaders: ["codex"],
+            policyReasons: [],
+            ownership: "owned",
+            proof: "exact-scoped-managed-region-sources",
+            state: "created",
+            mechanism: "managed-region",
+            availability: [],
+          },
+          {
+            scope: "project",
+            address: { kind: "entry", path: alias },
+            aliases: [alias],
+            configuredConsumers: ["claude-code"],
+            potentialReaders: ["claude-code"],
+            policyReasons: ["instruction-propagation"],
+            ownership: "owned",
+            state: "created",
+            mechanism: "symlink",
+            availability: [],
+          },
+        ],
+        {
+          workspaceRoot: root,
+          nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+          configuredAgentIds: ["claude-code"],
+        },
+      );
+      expect(result[0]).toMatchObject({
+        state: "created",
+        ownership: "owned",
+        proof: "exact-scoped-managed-region-sources",
+        aliases: [source, alias].sort(),
+        configuredConsumers: ["claude-code"],
+        potentialReaders: expect.arrayContaining(["codex"]),
+        availability: [{ agentId: "claude-code", state: "unverified" }],
+      });
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("drops a retired alias consumer while preserving the region outcome", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped();
+      const source = path.join(root, "AGENTS.md");
+      const alias = path.join(root, "CLAUDE.md");
+      yield* fs.writeFileString(source, "# Discovery\n");
+      const result = yield* refreshNativeRegionReaders(
+        [
+          {
+            scope: "project",
+            address: { kind: "region", path: source, region: "knowledge" },
+            aliases: [source, alias],
+            configuredConsumers: ["claude-code"],
+            potentialReaders: [],
+            policyReasons: [],
+            ownership: "owned",
+            proof: "exact-scoped-managed-region-sources",
+            state: "updated",
+            mechanism: "managed-region",
+            availability: [],
+          },
+        ],
+        {
+          workspaceRoot: root,
+          nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+          configuredAgentIds: ["claude-code"],
+        },
+      );
+      expect(result[0]).toMatchObject({
+        state: "updated",
+        ownership: "owned",
+        configuredConsumers: [],
+        aliases: [source],
+      });
+      expect(result[0]?.potentialReaders).not.toContain("claude-code");
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("fails explicitly when a final reader route cannot be observed", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped();
+      const source = path.join(root, "AGENTS.md");
+      const alias = path.join(root, "CLAUDE.md");
+      yield* fs.writeFileString(source, "# Discovery\n");
+      yield* fs.symlink("CLAUDE.md", alias);
+      const result = yield* refreshNativeRegionReaders(
+        [
+          {
+            scope: "project",
+            address: { kind: "region", path: source, region: "knowledge" },
+            aliases: [source, alias],
+            configuredConsumers: ["claude-code"],
+            potentialReaders: [],
+            policyReasons: [],
+            ownership: "owned",
+            state: "created",
+            availability: [],
+          },
+        ],
+        {
+          workspaceRoot: root,
+          nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+          configuredAgentIds: ["claude-code"],
+        },
+      ).pipe(Effect.result);
+      expect(result._tag).toBe("Failure");
+      if (result._tag === "Failure")
+        expect(result.failure).toMatchObject({
+          _tag: "NativeLocationError",
+          target: alias,
+          reason: "unreadable",
+        });
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("reports a populated conditional alias as an unverified potential reader", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped();
+      const source = path.join(root, "source.md");
+      const alias = path.join(root, ".codex/AGENTS.override.md");
+      yield* fs.writeFileString(source, "# Discovery\n");
+      yield* fs.makeDirectory(path.dirname(alias));
+      yield* fs.symlink("../source.md", alias);
+      const result = yield* refreshNativeRegionReaders(
+        [
+          {
+            scope: "user",
+            address: { kind: "region", path: source, region: "rules" },
+            aliases: [source],
+            configuredConsumers: [],
+            potentialReaders: [],
+            policyReasons: [],
+            ownership: "owned",
+            state: "unchanged",
+            availability: [],
+          },
+        ],
+        {
+          workspaceRoot: root,
+          nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+          configuredAgentIds: ["codex"],
+        },
+      );
+      expect(result[0]).toMatchObject({
+        configuredConsumers: [],
+        potentialReaders: ["codex"],
+        aliases: [alias, source].sort(),
+        availability: [
+          {
+            agentId: "codex",
+            state: "unverified",
+            reason: expect.stringContaining("applicability is unverified"),
+          },
+        ],
+      });
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect.each(["", "# Override\n"])(
+    "reports conditional instruction selection without inferring applicability from content: %s",
+    (contents) =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* fs.makeTempDirectoryScoped();
+        const alias = path.join(root, ".codex/AGENTS.override.md");
+        yield* fs.makeDirectory(path.dirname(alias));
+        yield* fs.writeFileString(alias, contents);
+        const observed = yield* observeInstructionProjection({
+          workspaceRoot: root,
+          scope: "user",
+          configuredAgents: ["codex"],
+          config: { fileName: "AGENTS.md", gitignoreAliases: false },
+          symlinkSupported: true,
+        });
+        expect(
+          observed.nativeLocations.find((location) => location.address.path === alias),
+        ).toMatchObject({
+          configuredConsumers: [],
+          potentialReaders: ["codex"],
+          ownership: "unowned",
+          state: "unverified",
+          availability: [
+            {
+              agentId: "codex",
+              state: "unverified",
+              reason: expect.stringContaining("applicability is unverified"),
+            },
+          ],
+        });
+        expect(yield* fs.readFileString(alias)).toBe(contents);
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
   it.effect.each([false, true])("reports bounded retirement with foreign children: %s", (foreign) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;

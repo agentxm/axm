@@ -20,7 +20,10 @@ import * as nodePath from "node:path";
 
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
+import type * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+
+import { ConfiguredAgentOutcomesProviderLive } from "@agentxm/workspace-kernel/reconciliation/live";
 
 import { ReleaseAgePosture } from "@agentxm/workspace-kernel/resolution";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
@@ -47,6 +50,8 @@ export interface AgentMembershipFixtureOptions {
   readonly files?: Readonly<Record<string, string>>;
   /** Render through the machine (JSON) renderer instead of the human one. */
   readonly machine?: boolean;
+  /** Inject platform faults before the production services capture the filesystem. */
+  readonly fileSystemLayer?: Layer.Layer<FileSystem.FileSystem, never, FileSystem.FileSystem>;
 }
 
 /** A throwaway initialized workspace with the full application layer over it. */
@@ -83,6 +88,7 @@ export const makeAgentMembershipFixture = (options: AgentMembershipFixtureOption
   }
 
   const context = makeWorkspaceHandlerTestContext({
+    ...(options.fileSystemLayer === undefined ? {} : { fileSystemLayer: options.fileSystemLayer }),
     ...(options.machine === undefined ? {} : { machine: options.machine }),
     flags: { nonInteractive: true },
     wsOptions: { projectRoot: root, scope: "project" },
@@ -104,6 +110,7 @@ export const makeAgentMembershipFixture = (options: AgentMembershipFixtureOption
   const fullLayer = Layer.provideMerge(extensionsLayer, workspaceServiceLayer);
   const composed = Layer.mergeAll(
     fullLayer,
+    Layer.provide(ConfiguredAgentOutcomesProviderLive, fullLayer),
     Layer.provide(workspaceInvariantFactsLive, fullLayer),
     Layer.succeed(ReleaseAgePosture, "enforce"),
   );

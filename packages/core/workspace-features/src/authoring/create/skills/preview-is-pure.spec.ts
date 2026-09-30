@@ -18,7 +18,7 @@ export const specification = defineSpecification({
   requirement: "cli/skills/new/preview-is-pure",
   title: "Skill creation preview describes the scaffold without creating any state",
   statement:
-    "When skill creation is previewed for an owner the workspace authors, it shall report the manifest, content, settings entry, and agent locations it would create with a previewed outcome and shall not change settings, the lockfile, authored source, canonical content, or agent projections; a previewed creation the workspace refuses shall likewise change nothing.",
+    "When skill creation is previewed for an owner the workspace authors, it shall report the manifest, content, settings entry, and agent locations it would create with a previewed outcome and shall not change settings, the lockfile, authored source, canonical content, or agent projections; a previewed creation the workspace refuses shall likewise change nothing. An existing native entry without creation authority shall be refused before reporting readiness.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "authoring-and-creation"],
@@ -84,6 +84,17 @@ describe("Skill creation preview purity", () => {
         configured: "@acme",
       });
       expect(created.tree()).toEqual(before);
+    }),
+  );
+  it.effect("refuses an unowned native obstruction before reporting a ready preview", () =>
+    Effect.gen(function* () {
+      const created = workspace();
+      created.write(`.claude/skills/${SKILL}/SKILL.md`, "Foreign instructions\n");
+      const before = created.tree();
+      const failure = yield* previewCreation(created, Option.none()).pipe(Effect.flip);
+      expect(failure).toMatchObject({ _tag: "AuthoringFailed", category: "validation" });
+      expect(created.tree()).toEqual(before);
+      expect(created.read(`.claude/skills/${SKILL}/SKILL.md`)).toBe("Foreign instructions\n");
     }),
   );
 });

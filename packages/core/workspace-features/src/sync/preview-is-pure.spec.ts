@@ -5,6 +5,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
+import { writeLocalSubagentPackage } from "../testing/local-packages.js";
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
 import { SyncWorkspace } from "./sync-workspace.js";
 import { syncRequest } from "./testing.js";
@@ -31,7 +32,7 @@ export const specification = defineSpecification({
   requirement: "cli/sync/preview-is-pure",
   title: "Sync preview describes required changes without applying them",
   statement:
-    "When sync runs in preview mode against a workspace whose managed state has drifted from desired state, it shall report the reconciliation it would apply with a previewed outcome, including the physical native ownership units, their configured consumers, aliases and proposed changes, and shall not change settings, the lockfile, canonical content, or agent projections. Combining dependent work into one closure shall preserve those native unit details without multiplying shared physical units.",
+    "When sync runs in preview mode against a workspace whose managed state has drifted from desired state, it shall report the reconciliation it would apply with a previewed outcome, including the physical native ownership units, their configured consumers, aliases and proposed changes before first acquisition when source content is known, and shall not change settings, the lockfile, canonical content, or agent projections. Combining dependent work into one closure shall preserve those native unit details without multiplying shared physical units.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
@@ -68,6 +69,51 @@ describe("Sync preview purity", () => {
     cleanups.push(workspace.cleanup);
     return workspace;
   };
+
+  it.effect(
+    "reports native Subagent units before first acquisition from known source content",
+    () => {
+      const workspace = fixture({
+        agents: ["claude-code", "codex"],
+        subagents: { reviewer: "./vendor/reviewer" },
+      });
+      writeLocalSubagentPackage(workspace.root, { name: "reviewer" });
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            const before = workspace.snapshot();
+            const resolution = expectResolved(yield* previewSync());
+            const proposed = operationNativeLocations(resolution);
+            expect(proposed.map((unit) => unit.address.path).sort()).toEqual(
+              [
+                nodePath.join(workspace.root, ".claude/agents/reviewer.md"),
+                nodePath.join(workspace.root, ".codex/agents/reviewer.toml"),
+              ].sort(),
+            );
+            expect(
+              proposed.every(
+                (unit) =>
+                  unit.ownership === "absent" &&
+                  unit.state === "created" &&
+                  unit.proof === undefined,
+              ),
+            ).toBe(true);
+            expect(proposed.flatMap((unit) => unit.configuredConsumers).sort()).toEqual([
+              "claude-code",
+              "codex",
+            ]);
+            expect(workspace.snapshot()).toEqual(before);
+            const applied = expectResolved(yield* applySync());
+            expect(
+              operationNativeLocations(applied)
+                .map((unit) => unit.address.path)
+                .sort(),
+            ).toEqual(proposed.map((unit) => unit.address.path).sort());
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
 
   it.effect("describes inline MCP native units and consumers without applying them", () => {
     const workspace = fixture({

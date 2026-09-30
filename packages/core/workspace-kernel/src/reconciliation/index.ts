@@ -129,3 +129,8 @@ export {
   type KernelFailure,
   type KernelFailureRendering,
 } from "./failure-rendering.js";
+
+export {
+  captureRequiredNativeOutputs,
+  validateNativeOutputPostconditions,
+} from "./native-output-postconditions.js";

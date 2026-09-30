@@ -6,7 +6,7 @@ import { gitHostedSkillArtifactSource } from "./artifact.js";
 /** The change the reconciliation recipe classified for one install. */
 export type InstallChange = "created" | "updated" | "unchanged";
 
-export interface SkillInstallationInspection {
+export interface SkillInstallationInspection<NativeLocation = never> {
   readonly installed: boolean;
   /** The version the accepted resolution recorded before this install, if any. */
   readonly previousVersion: string | undefined;
@@ -15,6 +15,7 @@ export interface SkillInstallationInspection {
   readonly agents: ReadonlyArray<string>;
   readonly unknownAgents: ReadonlyArray<string>;
   readonly unavailableAgents: ReadonlyArray<string>;
+  readonly nativeLocations?: ReadonlyArray<NativeLocation>;
   readonly targets: ReadonlyArray<{
     readonly path: string;
     readonly agentIds?: ReadonlyArray<string>;
@@ -23,10 +24,10 @@ export interface SkillInstallationInspection {
 }
 
 /** Facts needed by skill installation; storage and native-agent formats stay outside policy. */
-export interface SkillInstallationFacts<E, Preparation, Execution> {
+export interface SkillInstallationFacts<E, Preparation, Execution, NativeLocation = never> {
   readonly inspect: (
     ref: SkillExtensionRef,
-  ) => Effect.Effect<SkillInstallationInspection, E, Preparation>;
+  ) => Effect.Effect<SkillInstallationInspection<NativeLocation>, E, Preparation>;
   /** Applicable shared release-age evidence, if the source can supply it. */
   readonly releaseAge: (
     ref: Extract<SkillExtensionRef, { readonly refType: "registry" }>,
@@ -47,8 +48,8 @@ export interface SkillInstallationFacts<E, Preparation, Execution> {
  * classification; the presenter names the paths, agents, and versions around
  * it, and reports each projection target as it stood before the install.
  */
-export const prepareSkillInstallation = <E, Preparation, Execution>(
-  facts: SkillInstallationFacts<E, Preparation, Execution>,
+export const prepareSkillInstallation = <E, Preparation, Execution, NativeLocation = never>(
+  facts: SkillInstallationFacts<E, Preparation, Execution, NativeLocation>,
   input: { readonly ref: SkillExtensionRef },
 ) =>
   Effect.gen(function* () {
@@ -86,12 +87,22 @@ export const prepareSkillInstallation = <E, Preparation, Execution>(
     const version = ref.refType === "registry" ? ref.version : undefined;
     return {
       warnings,
-      buildArtifact: <NativeLocation>({
+      plannedArtifact: {
+        path: before.displayPath.length === 0 ? "." : before.displayPath,
+        scope: before.scope,
+        agents: before.agents,
+        targets,
+        change: before.installed ? ("updated" as const) : ("created" as const),
+        ...(before.nativeLocations === undefined
+          ? {}
+          : { nativeLocations: before.nativeLocations }),
+      },
+      buildArtifact: <ObservedNativeLocation>({
         change,
         nativeLocations,
       }: {
         readonly change: InstallChange;
-        readonly nativeLocations?: ReadonlyArray<NativeLocation>;
+        readonly nativeLocations?: ReadonlyArray<ObservedNativeLocation>;
       }) =>
         Effect.gen(function* () {
           const content = yield* facts.readContent(ref);

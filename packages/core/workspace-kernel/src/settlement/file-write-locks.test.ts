@@ -3,6 +3,8 @@ import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Fiber from "effect/Fiber";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Ref from "effect/Ref";
 import * as Scope from "effect/Scope";
@@ -56,6 +58,61 @@ describe("workspace file write locks", () => {
       yield* Fiber.join(waiter);
       yield* Fiber.join(third);
       expect(yield* Ref.get(events)).toEqual(["independent", "waiter", "third"]);
+      expect(Array.from(yield* locks.retainedPaths)).toEqual([]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("refuses a queued alias retarget before its read or mutation", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped();
+      const first = path.join(root, "first.json");
+      const second = path.join(root, "second.json");
+      const alias = path.join(root, "alias.json");
+      yield* fs.writeFileString(first, "first");
+      yield* fs.writeFileString(second, "second");
+      yield* fs.symlink(first, alias);
+      const entered = yield* Deferred.make<void>();
+      const release = yield* Deferred.make<void>();
+      const aliasResolved = yield* Deferred.make<void>();
+      const read = yield* Ref.make(false);
+      const locks = yield* makeWorkspaceFileWriteLocks.pipe(
+        Effect.provideService(FileSystem.FileSystem, {
+          ...fs,
+          realPath: (target) =>
+            fs
+              .realPath(target)
+              .pipe(
+                Effect.tap(() =>
+                  target === alias ? Deferred.succeed(aliasResolved, undefined) : Effect.void,
+                ),
+              ),
+        }),
+      );
+      const owner = yield* locks.service
+        .withLock(
+          first,
+          Deferred.succeed(entered, undefined).pipe(Effect.andThen(Deferred.await(release))),
+        )
+        .pipe(Effect.forkChild);
+      yield* Deferred.await(entered);
+      const waiter = yield* locks.service
+        .withLock(alias, Ref.set(read, true))
+        .pipe(Effect.result, Effect.forkChild);
+      yield* Deferred.await(aliasResolved);
+      yield* fs.remove(alias);
+      yield* fs.symlink(second, alias);
+      yield* Deferred.succeed(release, undefined);
+      yield* Fiber.join(owner);
+      const result = yield* Fiber.join(waiter);
+      expect(result._tag).toBe("Failure");
+      if (result._tag === "Failure") expect(result.failure.cause).toBe("native-alias-changed");
+      expect(yield* Ref.get(read)).toBe(false);
+      expect(yield* fs.readFileString(first)).toBe("first");
+      expect(yield* fs.readFileString(second)).toBe("second");
+      yield* locks.service.withLock(alias, Ref.set(read, true));
+      expect(yield* Ref.get(read)).toBe(true);
       expect(Array.from(yield* locks.retainedPaths)).toEqual([]);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );

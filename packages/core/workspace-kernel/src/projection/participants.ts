@@ -89,6 +89,7 @@ export interface SubagentProjectionObservation {
 export interface SubagentProjectionObserver<E = ProjectionParticipantFailure> {
   readonly projectionObservation: (
     ref: SubagentExtensionRef,
+    options?: { readonly sourceRoot: string },
   ) => Effect.Effect<SubagentProjectionObservation, E, ProjectionParticipantRequirements>;
 }
 

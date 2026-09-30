@@ -7,6 +7,7 @@ import * as Path from "effect/Path";
 import * as RcMap from "effect/RcMap";
 import * as Semaphore from "effect/Semaphore";
 import { resolveNativeReferent } from "../locations/index.js";
+import { claimWorkspaceContent } from "./context.js";
 import { WorkspaceSnapshotError } from "./errors.js";
 
 export interface WorkspaceFileWriteLocksService {
@@ -34,15 +35,27 @@ export const makeWorkspaceFileWriteLocks = Effect.gen(function* () {
       Effect.gen(function* () {
         // Borrow before waiting so the last active writer cannot evict a key
         // while another writer is still waiting for its permit.
-        const physical = yield* resolveNativeReferent(target).pipe(
+        const resolve = resolveNativeReferent(target).pipe(
           Effect.provideService(FileSystem.FileSystem, fs),
           Effect.provideService(Path.Path, path),
           Effect.mapError(
             (cause) => new WorkspaceSnapshotError({ target, step: "inspect-target", cause }),
           ),
         );
+        const physical = yield* resolve;
         const semaphore = yield* RcMap.get(locks, physical);
-        return yield* semaphore.withPermits(1)(effect);
+        return yield* semaphore.withPermits(1)(
+          Effect.gen(function* () {
+            yield* claimWorkspaceContent(target);
+            if ((yield* resolve) !== physical)
+              return yield* new WorkspaceSnapshotError({
+                target,
+                step: "inspect-target",
+                cause: "native-alias-changed",
+              });
+            return yield* effect;
+          }),
+        );
       }),
     );
   return { service: WorkspaceFileWriteLocks.of({ withLock }), retainedPaths: RcMap.keys(locks) };

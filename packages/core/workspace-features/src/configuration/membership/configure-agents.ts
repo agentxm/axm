@@ -260,6 +260,7 @@ export interface MembershipReconciliation<Requirements, Output> {
 export type MembershipExecutionRequirements<Requirements> =
   | Requirements
   | ConfiguredAgentOutcomesProvider
+  | DesiredStateReader
   | FileSystem.FileSystem
   | FootprintRecorder
   | OperationJournal

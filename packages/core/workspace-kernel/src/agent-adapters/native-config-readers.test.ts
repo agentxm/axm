@@ -6,42 +6,46 @@ import * as Path from "effect/Path";
 import { preflightNativeConfigReaders } from "./native-config-readers.js";
 
 describe("physical native config reader compatibility", () => {
-  it.effect("rejects a proposed entry an unconfigured aliased MCP reader cannot interpret", () =>
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const root = yield* fs.makeTempDirectoryScoped();
-      const file = path.join(root, ".mcp.json");
-      yield* fs.writeFileString(file, "{}\n");
-      yield* fs.makeDirectory(path.join(root, ".gemini"));
-      yield* fs.symlink("../.mcp.json", path.join(root, ".gemini/settings.json"));
-      const args = {
-        workspaceRoot: root,
-        nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
-        scope: "project" as const,
-        physicalPath: file,
-        configuredAgentIds: ["claude-code"],
-        writerFormat: "json" as const,
-        raw: "{}\n",
-      };
-      const compatible = yield* preflightNativeConfigReaders({
-        ...args,
-        proposedRaw: JSON.stringify({
-          mcpServers: { local: { type: "stdio", command: "node", args: ["server.js"] } },
-        }),
-      });
-      expect(
-        compatible.some(({ agentId, configured }) => agentId === "gemini-cli" && !configured),
-      ).toBe(true);
-      const incompatible = yield* preflightNativeConfigReaders({
-        ...args,
-        proposedRaw: JSON.stringify({
-          mcpServers: { remote: { type: "http", url: "https://example.test/mcp" } },
-        }),
-      }).pipe(Effect.result);
-      expect(incompatible._tag).toBe("Failure");
-      expect(yield* fs.readFileString(file)).toBe("{}\n");
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  it.effect.each([false, true])(
+    "only a configured aliased MCP reader constrains an entry: %s",
+    (configured) =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* fs.makeTempDirectoryScoped();
+        const file = path.join(root, ".mcp.json");
+        yield* fs.writeFileString(file, "{}\n");
+        yield* fs.makeDirectory(path.join(root, ".gemini"));
+        yield* fs.symlink("../.mcp.json", path.join(root, ".gemini/settings.json"));
+        const args = {
+          workspaceRoot: root,
+          nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+          scope: "project" as const,
+          physicalPath: file,
+          configuredAgentIds: configured ? ["claude-code", "gemini-cli"] : ["claude-code"],
+          writerFormat: "json" as const,
+          raw: "{}\n",
+        };
+        const compatible = yield* preflightNativeConfigReaders({
+          ...args,
+          proposedRaw: JSON.stringify({
+            mcpServers: { local: { type: "stdio", command: "node", args: ["server.js"] } },
+          }),
+        });
+        expect(
+          compatible.some(
+            (reader) => reader.agentId === "gemini-cli" && reader.configured === configured,
+          ),
+        ).toBe(true);
+        const incompatible = yield* preflightNativeConfigReaders({
+          ...args,
+          proposedRaw: JSON.stringify({
+            mcpServers: { remote: { type: "http", url: "https://example.test/mcp" } },
+          }),
+        }).pipe(Effect.result);
+        expect(incompatible._tag).toBe(configured ? "Failure" : "Success");
+        expect(yield* fs.readFileString(file)).toBe("{}\n");
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
   it.effect("preserves opaque unchanged MCP values when another config unit changes", () =>
@@ -71,32 +75,36 @@ describe("physical native config reader compatibility", () => {
       expect(readers.some(({ agentId }) => agentId === "claude-code")).toBe(true);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
-  it.effect("rejects a newly introduced Hook event unknown to a potential aliased reader", () =>
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const root = yield* fs.makeTempDirectoryScoped();
-      const file = path.join(root, ".claude/settings.json");
-      yield* fs.makeDirectory(path.dirname(file));
-      yield* fs.makeDirectory(path.join(root, ".gemini"));
-      yield* fs.writeFileString(file, "{}\n");
-      yield* fs.symlink("../.claude/settings.json", path.join(root, ".gemini/settings.json"));
-      const result = yield* preflightNativeConfigReaders({
-        workspaceRoot: root,
-        nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
-        scope: "project",
-        physicalPath: file,
-        configuredAgentIds: ["claude-code"],
-        writerFormat: "json",
-        raw: "{}\n",
-        proposedRaw: JSON.stringify({
-          hooks: {
-            PreToolUse: [{ matcher: "Write", hooks: [{ type: "command", command: "echo audit" }] }],
-          },
-        }),
-      }).pipe(Effect.result);
-      expect(result._tag).toBe("Failure");
-      expect(yield* fs.readFileString(file)).toBe("{}\n");
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  it.effect.each([false, true])(
+    "only a configured aliased Hook reader constrains an event: %s",
+    (configured) =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* fs.makeTempDirectoryScoped();
+        const file = path.join(root, ".claude/settings.json");
+        yield* fs.makeDirectory(path.dirname(file));
+        yield* fs.makeDirectory(path.join(root, ".gemini"));
+        yield* fs.writeFileString(file, "{}\n");
+        yield* fs.symlink("../.claude/settings.json", path.join(root, ".gemini/settings.json"));
+        const result = yield* preflightNativeConfigReaders({
+          workspaceRoot: root,
+          nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+          scope: "project",
+          physicalPath: file,
+          configuredAgentIds: configured ? ["claude-code", "gemini-cli"] : ["claude-code"],
+          writerFormat: "json",
+          raw: "{}\n",
+          proposedRaw: JSON.stringify({
+            hooks: {
+              PreToolUse: [
+                { matcher: "Write", hooks: [{ type: "command", command: "echo audit" }] },
+              ],
+            },
+          }),
+        }).pipe(Effect.result);
+        expect(result._tag).toBe(configured ? "Failure" : "Success");
+        expect(yield* fs.readFileString(file)).toBe("{}\n");
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 });

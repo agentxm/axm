@@ -92,6 +92,9 @@ const baseRow = (row: ExtensionInventoryRow): TypeListRow => ({
   enabled: row.enabled,
   agents: row.agents,
   agentOutcomes: row.agentOutcomes,
+  ...(row.nativeLocations === undefined
+    ? {}
+    : { nativeLocations: row.nativeLocations, duplicateDiscoveries: row.duplicateDiscoveries }),
 });
 
 const inventoryFor = (type: InstallableExtensionType, agents: ReadonlyArray<string>) =>

@@ -17,6 +17,7 @@ import { runFilesystemTransaction, type FilesystemTransactionRuntime } from "./t
 import { makeWorkspaceTransitionLock, type WorkspaceTransitionLock } from "./transition-lock.js";
 import { makeWorkspaceFileWriteLocks, WorkspaceFileWriteLocks } from "./file-write-locks.js";
 import { assertNativeMutationWithin, captureNativeAuthorityRoots } from "../locations/index.js";
+import { BoundaryClaimsDirectory } from "./boundary-claims.js";
 import { WorkspaceDirectoryError } from "./errors.js";
 
 /** One owner shared across every workspace graph in an invocation. */
@@ -30,6 +31,7 @@ const makeFilesystemScope = (
   path: Path.Path,
   paths: WorkspaceTransactionPaths,
   providedLock?: WorkspaceTransitionLock,
+  boundaryClaimsDirectory?: string | null,
 ): Effect.Effect<WorkspaceTransactionScopeService> =>
   Effect.gen(function* () {
     const admission = yield* Semaphore.make(1);
@@ -75,6 +77,7 @@ const makeFilesystemScope = (
       workspaceDir,
       nativeRoots,
       nativeRootWitnesses,
+      boundaryClaimsDirectory,
       fs,
       path,
       admission,
@@ -102,7 +105,8 @@ export const makeWorkspaceTransactionScope = (
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    return yield* makeFilesystemScope(fs, path, paths, lock);
+    const directory = yield* BoundaryClaimsDirectory;
+    return yield* makeFilesystemScope(fs, path, paths, lock, directory);
   });
 
 export const WorkspaceTransactionScopesLive: Layer.Layer<
@@ -114,7 +118,8 @@ export const WorkspaceTransactionScopesLive: Layer.Layer<
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    return { forWorkspace: (paths) => makeFilesystemScope(fs, path, paths) };
+    const directory = yield* BoundaryClaimsDirectory;
+    return { forWorkspace: (paths) => makeFilesystemScope(fs, path, paths, undefined, directory) };
   }),
 );
 

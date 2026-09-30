@@ -15,7 +15,12 @@ import * as Schema from "effect/Schema";
 
 import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import { ExtensionTypeSchema } from "@agentxm/extension-model/unstable/extensions";
-import { ExtensionInventoryLifecycleSchema } from "@agentxm/workspace-kernel/workspace-state";
+import { combineNativeLocationOutcomes } from "@agentxm/workspace-kernel/locations";
+import {
+  ExtensionInventorySchema,
+  ExtensionInventoryRowSchema,
+  ExtensionInventoryLifecycleSchema,
+} from "@agentxm/workspace-kernel/workspace-state";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 
 import {
@@ -60,6 +65,9 @@ const ExtensionListItemSchema = Schema.Struct({
   version: Schema.optional(Schema.String),
   source: Schema.optional(Schema.String),
   assessment: ExtensionAssessmentSchema,
+  nativeLocations: ExtensionInventoryRowSchema.fields.nativeLocations,
+  agentOutcomes: Schema.optionalKey(ExtensionInventoryRowSchema.fields.agentOutcomes),
+  duplicateDiscoveries: ExtensionInventoryRowSchema.fields.duplicateDiscoveries,
 });
 
 /** How much of the installed inventory the assessment could actually reach. */
@@ -76,6 +84,7 @@ export const ExtensionListDocumentSchema = Schema.Struct({
   count: Schema.Number,
   totalCount: Schema.Number,
   coverage: Schema.optional(CoverageSchema),
+  nativeLocationCounts: ExtensionInventorySchema.fields.nativeLocationCounts,
 });
 export type ExtensionListDocument = typeof ExtensionListDocumentSchema.Type;
 
@@ -134,12 +143,30 @@ export const ListExtensions = {
     const items = assessed
       .filter((item) => matchesFilter(item, request.filter))
       .map((item) => (request.filter === "all" ? withoutDeprecationDetail(item) : item));
+    const native = combineNativeLocationOutcomes(
+      items.flatMap((item) => item.nativeLocations ?? []),
+    );
     return {
       document: {
         filter: request.filter,
         items,
         count: items.length,
         totalCount: collected.length,
+        ...(items.some((item) => item.nativeLocations !== undefined)
+          ? {
+              nativeLocationCounts: {
+                units: native.length,
+                unverifiedExtensions: items.filter(
+                  (item) => item.type !== "pack" && item.nativeLocations === undefined,
+                ).length,
+                physicalLocations: new Set(
+                  native.map((unit) => JSON.stringify([unit.scope, unit.address.path])),
+                ).size,
+                configuredConsumers: new Set(native.flatMap((unit) => unit.configuredConsumers))
+                  .size,
+              },
+            }
+          : {}),
         ...(request.filter === "all" ? {} : { coverage: coverageFor(assessed) }),
       },
       items,

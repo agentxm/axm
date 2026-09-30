@@ -1,3 +1,4 @@
+import type { NativeLocationOutcome } from "@agentxm/workspace-kernel/locations";
 /**
  * Installing skills.
  *
@@ -147,13 +148,15 @@ export const planSkillInstallationStep = (
     const prepared = yield* prepareSkillInstallation<
       ExtensionLifecycleFailed | Config.ConfigError,
       InstallStepRequirements | SkillManager,
-      InstallStepRequirements
+      InstallStepRequirements,
+      NativeLocationOutcome
     >(skillInstallationFacts, input);
     let step = buildInstallOperation(skillManager, {
       toStepFailure: kernelFailureToStepFailure,
       ref: input.ref,
       declaration: { name: input.ref.skill.name, versionRange: input.versionRange },
       force: input.force,
+      plannedArtifact: prepared.plannedArtifact,
       buildArtifact: ({ change, materialization }) =>
         prepared.buildArtifact({
           change,

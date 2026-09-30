@@ -851,6 +851,10 @@ jobs:
           echo "Owned APFS fixture: device=$device container=$container physical-store=$physical_store"
           AXM_NATIVE_FIXTURE_PARENT="$mount" NX_DAEMON=false NX_ISOLATE_PLUGINS=false pnpm exec nx run cli-e2e:binary-smoke-artifact --outputStyle=static --args='-t "preserves native case aliases and remaining Skill consumers"'
 
+      - name: Verify physical boundary exclusion on macOS
+        if: runner.os == 'macOS'
+        run: pnpm exec nx run workspace-kernel:test --outputStyle=static --args='src/settlement/authorities-refuse-overlapping-physical-boundaries.spec.ts --testTimeout=30000'
+
       - name: Generate Allure report
         if: always()
         run: pnpm exec nx run axm:allure-report --outputStyle=static

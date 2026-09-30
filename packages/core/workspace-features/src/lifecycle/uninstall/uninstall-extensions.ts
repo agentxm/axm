@@ -15,9 +15,12 @@ import * as Option from "effect/Option";
 import {
   proposeDesiredState,
   prepareUninstallArtifact,
+  validateNativeOutputPostconditions,
+  captureRequiredNativeOutputs,
   collectCleanupStep,
   buildReconciliationClosure,
   StepFailureConversion,
+  type WorkspaceSyncFailed,
   nameFromLabel,
 } from "@agentxm/workspace-kernel/reconciliation";
 import { expectedProjectionNames } from "@agentxm/workspace-kernel/projection";
@@ -101,7 +104,7 @@ export interface UninstallExtensionsCandidate {
   /** The selector matched nothing installed; the application renders a no-op. */
   readonly empty: boolean;
   readonly planName: string;
-  readonly execution: ExecutionCandidate<PackUninstallRequirements>;
+  readonly execution: ExecutionCandidate<PrepareUninstallRequirements>;
 }
 
 /** Every failure settling a removal can surface before anything is written. */
@@ -277,6 +280,22 @@ export const prepareUninstallExtensions: (
               ),
             };
           }
+          const retainedNativeOutputs = yield* captureRequiredNativeOutputs(
+            proposal.after.nodes.flatMap((node) =>
+              node.enabled && node.type === leafType && node.name === nameFromLabel(step.label)
+                ? [{ type: leafType, name: node.name }]
+                : [],
+            ),
+          ).pipe(
+            Effect.mapError(
+              (cause) =>
+                new ExtensionLifecycleFailed({
+                  category: "conflict",
+                  detail: "Cannot observe retained native outputs",
+                  cause,
+                }),
+            ),
+          );
           const cleanup = yield* collectCleanupStep({
             expectedNames: expectedProjectionNames(proposal.after),
             subjects: [{ type: leafType, name: nameFromLabel(step.label) }],
@@ -296,21 +315,44 @@ export const prepareUninstallExtensions: (
             artifact,
             run: step.run.pipe(
               Effect.map((result) =>
-                result.result === "success" ? { ...result, artifact } : result,
+                result.result === "success"
+                  ? {
+                      ...result,
+                      artifact: {
+                        ...artifact,
+                        ...(result.artifact?.nativeLocations === undefined
+                          ? {}
+                          : { nativeLocations: result.artifact.nativeLocations }),
+                      },
+                    }
+                  : result,
               ),
             ),
           };
-          if (Option.isNone(cleanup)) return removal;
-          return yield* buildReconciliationClosure({
+          return yield* buildReconciliationClosure<
+            WorkspaceSyncFailed,
+            PrepareUninstallRequirements
+          >({
             label: step.label,
-            message: `Uninstalled ${step.label}`,
+            message: artifact.references?.some(
+              (reference) =>
+                reference.state === "retained" &&
+                reference.reason === "required by resulting desired state",
+            )
+              ? `Uninstalled ${step.label}; retained its package for remaining desired routes`
+              : `Uninstalled ${step.label}`,
             artifact,
             children: [
-              { step: cleanup.value, coverage: "ineligible" },
+              ...Option.toArray(cleanup).map((step) => ({ step, coverage: "ineligible" as const })),
               { step: removal, coverage: "eligible" },
             ],
             toStepFailure: conversion.toStepFailure,
             validate: Effect.void,
+            validateNativeOutputs: (locations, expected) =>
+              validateNativeOutputPostconditions(locations, [
+                ...retainedNativeOutputs,
+                ...expected,
+              ]),
           });
         }),
       );

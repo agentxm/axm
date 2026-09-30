@@ -304,7 +304,10 @@ export interface SubagentManagerService
   readonly materializeDeactivate: (args: {
     readonly target: ExtensionTargetFor<SubagentExtensionRef>;
   }) => Effect.Effect<SubagentMaterializationFacts, ExtensionManagerFailure, ManagerRequirements>;
-  readonly projectionObservation: (ref: SubagentExtensionRef) => Effect.Effect<
+  readonly projectionObservation: (
+    ref: SubagentExtensionRef,
+    options?: { readonly sourceRoot: string },
+  ) => Effect.Effect<
     {
       readonly present: boolean;
       readonly current: boolean;

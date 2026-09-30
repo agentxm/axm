@@ -15,7 +15,7 @@ export const specification = defineSpecification({
   requirement: "cli/authoring/refuses-incompatible-native-readers-before-source-publication",
   title: "Authored content is preflighted against native co-readers before publication",
   statement:
-    "Before creating, forking, or adopting enabled Hook, Rule, or Knowledge content, AXM shall validate the complete proposed native projection against each reader of its physical file and shall refuse incompatible projections without changing source content, canonical content, settings, or accepted resolutions.",
+    "Before creating, forking, or adopting enabled Hook, Rule, or Knowledge content, AXM shall validate the complete proposed native projection against each configured applicable reader of its physical file and shall refuse incompatible projections without changing source content, canonical content, settings, or accepted resolutions.",
   class: "functional",
   role: "supporting",
   goals: ["authoring-and-creation", "workspace-intent-fidelity", "agent-interoperability"],
@@ -39,9 +39,10 @@ describe("authored native projection preflight", () => {
     for (const operation of ["create", "fork", "adopt"] as const) {
       it.effect(`refuses ${operation} of ${type} before publishing or moving content`, () =>
         Effect.gen(function* () {
-          const created = makeAuthoringWorkspace({ owner: "@acme", agents: ["claude-code"] });
+          const agents = type === "hook" ? ["claude-code", "codex"] : ["claude-code"];
+          const created = makeAuthoringWorkspace({ owner: "@acme", agents });
           cleanups.push(created.cleanup);
-          created.writeSettings({ owner: "@acme", agents: ["claude-code"], instructionFiles: {} });
+          created.writeSettings({ owner: "@acme", agents, instructionFiles: {} });
           const row = authoringTypeFor(type);
           const source =
             operation === "create"

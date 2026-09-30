@@ -720,7 +720,7 @@ Configured extensions realize correctly and completely for every configured codi
 
 - Requirement: `cli/agents/remove/removes-membership-and-owned-outputs`
 - Owner: `cli`
-- Statement: When a coding agent is removed from the workspace, AXM shall remove it from the durable agent set and remove the owned outputs no remaining configured agent reaches in one operation, and shall leave every remaining agent's realization untouched.
+- Statement: When a coding agent is removed from the workspace, AXM shall remove it from the durable agent set and remove the owned outputs no remaining configured agent reaches in one operation, shall leave every remaining agent's realization untouched, and shall report retained physical units with the remaining readers or shared policy that requires them. AXM shall refuse and restore the membership change when readback finds an owned output that should have been retired still present or a retained required unit that no longer matches desired content.
 - Class: functional
 - Role: experience
 - Product goals: `agent-interoperability`, `workspace-intent-fidelity`
@@ -738,7 +738,7 @@ Configured extensions realize correctly and completely for every configured codi
 
 - Requirement: `cli/install/realizes-for-every-configured-agent`
 - Owner: `workspace-features`
-- Statement: When an acquirable extension is installed, AXM shall realize it on every native surface supported for that extension type by the configured agents and on its declared shared surfaces, as permitted by the workspace's activation and instruction settings.
+- Statement: When an acquirable extension is installed, AXM shall realize it on every native surface supported for that extension type by the configured agents and on its declared shared surfaces, shall report those physical units before first acquisition without claiming current ownership, and shall report the realized units after apply, as permitted by the workspace's activation and instruction settings.
 - Class: functional
 - Role: experience
 - Product goals: `agent-interoperability`, `extension-adoption`
@@ -746,7 +746,7 @@ Configured extensions realize correctly and completely for every configured codi
 - Methods: example, decision-table
 - Derived from: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
 - Supersedes: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
-- Assumptions: Claude Code and Cursor declare distinct native project skill directories, so two agent locations observe two configured agents beside the universal location.
+- Assumptions: Claude Code and Cursor declare distinct native project skill directories, so two agent locations observe two configured agents beside the shared Skill policy location.
 - Additional evidence: process via [`apps/cli-e2e/src/root-install.e2e.test.ts`](../apps/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
 - Source: [`packages/core/workspace-features/src/lifecycle/install/realizes-for-every-configured-agent.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/realizes-for-every-configured-agent.spec.ts)
 
@@ -764,6 +764,19 @@ Configured extensions realize correctly and completely for every configured codi
 - Assumptions: Claude Code and Cursor keep distinct project-scope MCP configuration files, so two native files observe two agents.; An unmanaged server declared in one agent's own configuration file is the only shape adoption records, so one such declaration stands for every adopted entry.; Amp is catalogued without MCP configuration support, so it stands for any configured agent that cannot represent a server.; A Pack that declares one MCP member is the only way a connection reaches desired state without its own settings entry, so one such Pack stands for every Pack-supplied connection.
 - Additional evidence: process via [`apps/cli-e2e/src/activation-lifecycle.e2e.test.ts`](../apps/cli-e2e/src/activation-lifecycle.e2e.test.ts) — Drives every catalog extension type — including the mcp-server and pack types that cannot be sourced from a local package in memory — through authored creation, update, disable, enable, and uninstall in the real CLI process, proving preview purity, apply idempotency, native agent files, and lint-clean workspace state between every transition.
 - Source: [`packages/core/workspace-features/src/sync/mcps/projects-to-every-configured-agent.spec.ts`](../packages/core/workspace-features/src/sync/mcps/projects-to-every-configured-agent.spec.ts)
+
+##### Knowledge relative links require compatible native instruction bases
+
+- Requirement: `workspace/knowledge/relative-links-require-compatible-native-bases`
+- Owner: `workspace-kernel`
+- Statement: When publishing Knowledge discovery through native instruction aliases, AXM shall verify that relative links have the same resolved base for every configured applicable reader, or refuse before mutation when a differing native base lacks evidenced link-resolution semantics; a populated conditional alias with unknown applicability shall not be treated as safely absent.
+- Class: functional
+- Role: experience
+- Product goals: `agent-interoperability`, `workspace-intent-fidelity`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Real temporary directories and aliases expose relative-link base differences.
+- Methods: example
+- Source: [`packages/core/workspace-kernel/src/projection/knowledge/relative-links-require-compatible-native-bases.spec.ts`](../packages/core/workspace-kernel/src/projection/knowledge/relative-links-require-compatible-native-bases.spec.ts)
 
 ### Goal: authoring-and-creation
 
@@ -1068,11 +1081,11 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Derived from: `packages/core/workspace-features/src/authoring/create/scaffolds/rule.ts`
 - Source: [`packages/core/workspace-features/src/authoring/create/instructions/creates-enabled-workspace-content.spec.ts`](../packages/core/workspace-features/src/authoring/create/instructions/creates-enabled-workspace-content.spec.ts)
 
-##### A new skill is scaffolded for the universal location and every configured agent
+##### A new skill is scaffolded for the shared Skill policy location and every configured agent
 
 - Requirement: `cli/skills/new/scaffolds-for-every-configured-agent`
 - Owner: `workspace-features`
-- Statement: When a skill is created, AXM shall create its manifest, content, and enabled settings entry together, shall materialize it for the universal location and every configured agent that can represent it, and shall list the same locations in preview and apply.
+- Statement: When a skill is created, AXM shall create its manifest, content, and enabled settings entry together, shall materialize it for the shared Skill policy location and every configured agent that can represent it, and shall report the same physical native units, aliases, configured consumers, and shared policy in preview and apply.
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `agent-interoperability`, `safe-repetition`
@@ -1080,7 +1093,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Boundary rationale: Creation is decided and executed inside extension-authoring over the workspace-state services; a real project directory observes the files an author would see without running the built CLI.
 - Methods: example
 - Derived from: `packages/core/workspace-features/src/authoring/create/create-extension.ts`, `apps/cli-e2e/src/cli-commands/skills/new/command.e2e.ts`
-- Assumptions: Claude Code and Cursor declare distinct native project skill directories, so two agent locations observe two configured agents beside the universal location.
+- Assumptions: Claude Code and Cursor declare distinct native project skill directories, so two agent locations observe two configured agents beside the shared Skill policy location.
 - Source: [`packages/core/workspace-features/src/authoring/create/skills/scaffolds-for-every-configured-agent.spec.ts`](../packages/core/workspace-features/src/authoring/create/skills/scaffolds-for-every-configured-agent.spec.ts)
 
 ##### A new subagent is scaffolded and rendered for every configured agent
@@ -1260,7 +1273,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 
 - Requirement: `cli/uninstall/removes-direct-route-and-recomputes-reachability`
 - Owner: `workspace-features`
-- Statement: When a directly desired extension is uninstalled, AXM shall remove its direct configuration, remove its resolution and verified acquired content when no other desired route reaches it, realize activation and owned outputs from the remaining desired routes, report retained state, preserve authored inventory, and leave state outside the necessary dependency and shared-output closure untouched.
+- Statement: When a directly desired extension is uninstalled, AXM shall remove its direct configuration, remove its resolution and verified acquired content when no other desired route reaches it, realize activation and owned outputs from the remaining desired routes, report retained state, preserve authored inventory, refuse and roll back when final owner readback finds a required retained native unit changed, and leave state outside the necessary dependency and shared-output closure untouched.
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `workspace-intent-fidelity`
@@ -2688,7 +2701,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 
 - Requirement: `cli/skills/new/preview-is-pure`
 - Owner: `workspace-features`
-- Statement: When skill creation is previewed for an owner the workspace authors, it shall report the manifest, content, settings entry, and agent locations it would create with a previewed outcome and shall not change settings, the lockfile, authored source, canonical content, or agent projections; a previewed creation the workspace refuses shall likewise change nothing.
+- Statement: When skill creation is previewed for an owner the workspace authors, it shall report the manifest, content, settings entry, and agent locations it would create with a previewed outcome and shall not change settings, the lockfile, authored source, canonical content, or agent projections; a previewed creation the workspace refuses shall likewise change nothing. An existing native entry without creation authority shall be refused before reporting readiness.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `authoring-and-creation`
@@ -2743,7 +2756,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 
 - Requirement: `cli/sync/preview-is-pure`
 - Owner: `workspace-features`
-- Statement: When sync runs in preview mode against a workspace whose managed state has drifted from desired state, it shall report the reconciliation it would apply with a previewed outcome, including the physical native ownership units, their configured consumers, aliases and proposed changes, and shall not change settings, the lockfile, canonical content, or agent projections. Combining dependent work into one closure shall preserve those native unit details without multiplying shared physical units.
+- Statement: When sync runs in preview mode against a workspace whose managed state has drifted from desired state, it shall report the reconciliation it would apply with a previewed outcome, including the physical native ownership units, their configured consumers, aliases and proposed changes before first acquisition when source content is known, and shall not change settings, the lockfile, canonical content, or agent projections. Combining dependent work into one closure shall preserve those native unit details without multiplying shared physical units.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
@@ -4416,7 +4429,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `workspace/native-locations/reports-independent-policy-and-readers`
 - Owner: `workspace-kernel`
-- Statement: AXM shall report one physical ownership unit with all declared aliases, distinguish configured consumers from potential native readers and shared Skill policy, preserve actual mutation state across duplicate consumers, distinguish completed removal from bounded retirement that retains user contents, and keep native availability unverified without runtime evidence.
+- Statement: AXM shall report one physical ownership unit with all declared aliases, distinguish configured consumers from potential native readers and shared Skill policy, refresh region consumers after dependent instruction aliases are reconciled, retain conditional reader applicability as explicit uncertainty, preserve actual mutation state across duplicate consumers, distinguish completed removal from bounded retirement that retains user contents, and keep native availability unverified without runtime evidence.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
@@ -5482,7 +5495,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/type-lists-report-local-state`
 - Owner: `workspace-features`
-- Statement: When listing skills, subagents, rules, hooks, or packs, AXM shall report the selected type’s current local entries with their management classification, installation state, and source observation, including configured entries that are disabled or absent.
+- Statement: When listing skills, subagents, rules, hooks, or packs, AXM shall report the selected type’s current local entries with their management classification, installation state, and source observation, including configured entries that are disabled or absent. Native observations shall distinguish configured consumers from potential readers and report currency only when the native unit has verified ownership and matches the desired content; identical bytes at an unrelated symlink target shall not establish currency.
 - Class: functional
 - Role: interface
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
@@ -5670,7 +5683,7 @@ Configured extensions realize correctly and completely for every configured codi
 
 - Requirement: `workspace/mcps/shared-native-writes-require-compatible-authority`
 - Owner: `workspace-kernel`
-- Statement: AXM shall write each physical MCP file once only when its complete format, declared servers-container path, and rendered entry satisfy all declared native readers and the target entry is absent, proven owned, or explicitly adopted from an unchanged observed declaration; alias escapes and stale adoption shall leave native files unchanged.
+- Statement: AXM shall write each physical MCP file once only when its complete format, declared servers-container path, and rendered entry satisfy the configured applicable native readers, with other catalog readers reported only as potential readers, and the target entry is absent, proven owned, or explicitly adopted from an unchanged observed declaration; alias escapes and stale adoption shall leave native files unchanged.
 - Class: functional
 - Role: supporting
 - Product goals: `agent-interoperability`, `workspace-intent-fidelity`, `safe-repetition`
@@ -5690,7 +5703,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 
 - Requirement: `cli/authoring/refuses-incompatible-native-readers-before-source-publication`
 - Owner: `workspace-features`
-- Statement: Before creating, forking, or adopting enabled Hook, Rule, or Knowledge content, AXM shall validate the complete proposed native projection against each reader of its physical file and shall refuse incompatible projections without changing source content, canonical content, settings, or accepted resolutions.
+- Statement: Before creating, forking, or adopting enabled Hook, Rule, or Knowledge content, AXM shall validate the complete proposed native projection against each configured applicable reader of its physical file and shall refuse incompatible projections without changing source content, canonical content, settings, or accepted resolutions.
 - Class: functional
 - Role: supporting
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`, `agent-interoperability`
@@ -5975,6 +5988,19 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Methods: boundary-value, example
 - Derived from: `docs/architecture/workspace/execution.md`
 - Source: [`packages/core/workspace-kernel/src/acquisition/extension-directory-copy-is-bounded.spec.ts`](../packages/core/workspace-kernel/src/acquisition/extension-directory-copy-is-bounded.spec.ts)
+
+##### Active workspace authorities refuse overlapping physical mutation boundaries
+
+- Requirement: `workspace/locations/authorities-refuse-overlapping-physical-boundaries`
+- Owner: `workspace-kernel`
+- Statement: Within a shared OS-principal coordination domain, AXM shall refuse a distinct active workspace authority before reading or mutating an overlapping physical boundary, including aliases and either parent/child admission order; retain exclusion through rollback; and allow unrelated boundaries to proceed independently.
+- Class: functional
+- Role: supporting
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: process; selection: per-change
+- Boundary rationale: Independent Node processes hold the published transaction and shared-file write boundary while another authority attempts a physically overlapping or independent write.
+- Methods: example
+- Source: [`packages/core/workspace-kernel/src/settlement/authorities-refuse-overlapping-physical-boundaries.spec.ts`](../packages/core/workspace-kernel/src/settlement/authorities-refuse-overlapping-physical-boundaries.spec.ts)
 
 ##### Settlement protects each physical boundary and preserves foreign changes
 
@@ -6305,6 +6331,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: platform; selection: per-change
 - Boundary rationale: Temporary files expose real replacement identities and receipt store behavior; digest witnesses exercise exact byte inverses.
 - Methods: example
+- Additional evidence: process via [`apps/cli-e2e/src/native-round-trip.e2e.test.ts`](../apps/cli-e2e/src/native-round-trip.e2e.test.ts) — Independent built CLI invocations must preserve durable cleanup authority and restore actual bytes, symlink text, and preexisting empty directories across process exit.
 - Source: [`packages/core/workspace-kernel/src/locations/container-receipts-require-continuous-identity.spec.ts`](../packages/core/workspace-kernel/src/locations/container-receipts-require-continuous-identity.spec.ts)
 
 ##### Physical location identity distinguishes an entry from its referent

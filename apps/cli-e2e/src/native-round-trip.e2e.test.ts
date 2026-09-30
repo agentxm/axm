@@ -10,6 +10,7 @@ export const executionBinding = {
     "settings-contract/withdraws-new-settings-entries-exactly",
     "workspace/lockfile/withdraws-new-resolutions-exactly",
     "workspace/mcps/withdraws-eligible-native-insertions-exactly",
+    "workspace/locations/container-receipts-require-continuous-identity",
     "cli/uninstall/preserves-unrelated-and-unowned-state",
   ],
   boundary: "process",
@@ -71,6 +72,47 @@ describe("new intent and precise withdrawal across CLI processes", () => {
     });
   }
 
+  it("imported MCP intent does not acquire inverse cleanup authority over native containers", async () => {
+    const fixture = makeDirectoryFixture();
+    try {
+      write(
+        path.join(fixture.selected, "axm.json"),
+        JSON.stringify({ owner: "@acme", agents: ["claude-code", "cursor"] }),
+      );
+      const original = path.join(fixture.selected, ".mcp.json");
+      const propagated = path.join(fixture.selected, ".cursor", "mcp.json");
+      write(
+        original,
+        '{"keep":"foreign","mcpServers":{"adopted":{"command":"node","args":["server.js"]}}}',
+      );
+      expect(fs.existsSync(propagated)).toBe(false);
+      await execute(fixture, ["mcps", "import"]);
+      for (const native of [original, propagated])
+        expect(JSON.parse(fs.readFileSync(native, "utf8"))).toHaveProperty(
+          "mcpServers.adopted.command",
+          "node",
+        );
+      await execute(fixture, ["mcps", "uninstall", "adopted"]);
+      for (const native of [original, propagated]) {
+        expect(fs.statSync(native).isFile()).toBe(true);
+        expect(JSON.parse(fs.readFileSync(native, "utf8"))).toMatchObject({ mcpServers: {} });
+        expect(JSON.parse(fs.readFileSync(native, "utf8"))).not.toHaveProperty(
+          "mcpServers.adopted",
+        );
+      }
+      expect(JSON.parse(fs.readFileSync(original, "utf8"))).toHaveProperty("keep", "foreign");
+      expect(fs.statSync(path.dirname(propagated)).isDirectory()).toBe(true);
+      expect(
+        JSON.parse(fs.readFileSync(path.join(fixture.selected, "axm.json"), "utf8")),
+      ).not.toHaveProperty("mcpServers.adopted");
+      expect(fs.existsSync(path.join(fixture.selected, ".axm", "projection-containers.json"))).toBe(
+        false,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it("does not acquire empty-directory cleanup authority by repairing existing Skill intent", async () => {
     const fixture = makeDirectoryFixture();
     try {
@@ -90,6 +132,9 @@ describe("new intent and precise withdrawal across CLI processes", () => {
           "utf8",
         ),
       ).toContain("review");
+      const repaired = snapshotTree(fixture.selected);
+      await execute(fixture, ["install", source, "--skill", "review"]);
+      expect(snapshotTree(fixture.selected)).toEqual(repaired);
       await execute(fixture, ["skills", "uninstall", "review"]);
       for (const relative of [".agents/skills", ".claude/skills"]) {
         expect(fs.readdirSync(path.join(fixture.selected, relative))).toEqual([]);
@@ -97,6 +142,148 @@ describe("new intent and precise withdrawal across CLI processes", () => {
       expect(fs.existsSync(path.join(fixture.selected, ".axm", "projection-containers.json"))).toBe(
         false,
       );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("does not gain native container cleanup authority by enabling existing disabled intent", async () => {
+    const fixture = makeDirectoryFixture();
+    try {
+      const source = writeLocalSkillPackage(fixture.selected, { name: "review" });
+      write(
+        path.join(fixture.selected, "axm.json"),
+        JSON.stringify({
+          owner: "@acme",
+          agents: ["claude-code"],
+          skills: { review: { source: "./vendor/review", enabled: false } },
+        }),
+      );
+      await execute(fixture, ["install", source, "--skill", "review"]);
+      expect(fs.existsSync(path.join(fixture.selected, ".claude", "skills", "review"))).toBe(false);
+      await execute(fixture, ["skills", "enable", "review"]);
+      expect(
+        fs.readFileSync(
+          path.join(fixture.selected, ".claude", "skills", "review", "SKILL.md"),
+          "utf8",
+        ),
+      ).toContain("review");
+      const enabled = snapshotTree(fixture.selected);
+      await execute(fixture, ["skills", "enable", "review"]);
+      expect(snapshotTree(fixture.selected)).toEqual(enabled);
+      await execute(fixture, ["skills", "uninstall", "review"]);
+      for (const relative of [".agents/skills", ".claude/skills"])
+        expect(fs.readdirSync(path.join(fixture.selected, relative))).toEqual([]);
+      expect(fs.existsSync(path.join(fixture.selected, ".axm", "projection-containers.json"))).toBe(
+        false,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  for (const change of ["container replaced", "parent replaced", "alias retargeted"] as const) {
+    it(`preserves a new native container incarnation across CLI processes after its ${change}`, async () => {
+      const fixture = makeDirectoryFixture();
+      try {
+        write(path.join(fixture.selected, "axm.json"), settings("claude-code"));
+        const source = writeLocalSkillPackage(fixture.selected, { name: "review" });
+        const sourceBefore = snapshotTree(source);
+        await execute(fixture, ["install", source, "--skill", "review"]);
+        const parent = path.join(fixture.selected, ".claude");
+        const container = path.join(parent, "skills");
+        const original = path.join(fixture.root, "original-native");
+        let replacement = container;
+        if (change === "parent replaced") {
+          fs.renameSync(parent, original);
+          fs.mkdirSync(parent);
+          fs.renameSync(path.join(original, "skills"), container);
+        } else {
+          fs.renameSync(container, original);
+          if (change === "alias retargeted") {
+            replacement = path.join(fixture.selected, ".replacement", "skills");
+            fs.mkdirSync(replacement, { recursive: true });
+            fs.symlinkSync("../.replacement/skills", container);
+          } else fs.mkdirSync(container);
+          fs.renameSync(path.join(original, "review"), path.join(replacement, "review"));
+        }
+        const replacementIdentity = fs.statSync(replacement, { bigint: true });
+        await execute(fixture, ["skills", "uninstall", "review"]);
+        expect(fs.readdirSync(replacement)).toEqual([]);
+        const remainingIdentity = fs.statSync(replacement, { bigint: true });
+        expect(remainingIdentity.ino).toBe(replacementIdentity.ino);
+        expect(remainingIdentity.dev).toBe(replacementIdentity.dev);
+        if (change === "alias retargeted")
+          expect(fs.readlinkSync(container)).toBe("../.replacement/skills");
+        expect(snapshotTree(source)).toEqual(sourceBefore);
+      } finally {
+        fixture.cleanup();
+      }
+    });
+  }
+
+  it("expires cleanup evidence when the whole workspace moves between CLI processes", async () => {
+    const fixture = makeDirectoryFixture();
+    try {
+      write(path.join(fixture.selected, "axm.json"), settings("claude-code"));
+      const authored = "# Workspace notes\r\nKeep these exact bytes.\r\n";
+      write(path.join(fixture.selected, "README.md"), authored);
+      fs.mkdirSync(path.join(fixture.selected, "authored-empty"));
+      await execute(fixture, ["mcps", "add", "context", "--command", "node context.js"]);
+      const native = path.join(fixture.selected, ".mcp.json");
+      expect(fs.readFileSync(native, "utf8")).toContain("context");
+      expect(fs.existsSync(path.join(fixture.selected, ".axm", "projection-containers.json"))).toBe(
+        true,
+      );
+      const nativeIdentity = fs.statSync(native, { bigint: true });
+      const runtimeIdentity = fs.statSync(path.join(fixture.selected, ".axm"), { bigint: true });
+      const installed = snapshotTree(fixture.selected);
+      const moved = path.join(fixture.root, "moved-workspace");
+      fs.renameSync(fixture.selected, moved);
+      expect(snapshotTree(moved)).toEqual(installed);
+      expect(fs.statSync(path.join(moved, ".mcp.json"), { bigint: true }).ino).toBe(
+        nativeIdentity.ino,
+      );
+
+      // A new process may withdraw the owned entry, but the old workspace's
+      // receipt no longer authorizes removing its now-empty native container.
+      await execute({ ...fixture, selected: moved }, ["mcps", "uninstall", "context"]);
+      const remainingNative = path.join(moved, ".mcp.json");
+      expect(JSON.parse(fs.readFileSync(remainingNative, "utf8"))).not.toHaveProperty(
+        "mcpServers.context",
+      );
+      expect(fs.statSync(remainingNative).isFile()).toBe(true);
+      const remainingRuntime = fs.statSync(path.join(moved, ".axm"), { bigint: true });
+      expect(remainingRuntime.ino).toBe(runtimeIdentity.ino);
+      expect(remainingRuntime.dev).toBe(runtimeIdentity.dev);
+      expect(fs.readFileSync(path.join(moved, "README.md"), "utf8")).toBe(authored);
+      expect(fs.readdirSync(path.join(moved, "authored-empty"))).toEqual([]);
+      expect(fs.existsSync(fixture.selected)).toBe(false);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("does not remove a recreated receipt directory in a later CLI process", async () => {
+    const fixture = makeDirectoryFixture();
+    try {
+      write(path.join(fixture.selected, "axm.json"), settings("claude-code"));
+      const source = writeLocalSkillPackage(fixture.selected, { name: "review" });
+      await execute(fixture, ["install", source, "--skill", "review"]);
+      const runtime = path.join(fixture.selected, ".axm");
+      const original = path.join(fixture.root, "original-runtime");
+      fs.renameSync(runtime, original);
+      fs.mkdirSync(runtime);
+      fs.copyFileSync(
+        path.join(original, "projection-containers.json"),
+        path.join(runtime, "projection-containers.json"),
+      );
+      const replacementIdentity = fs.statSync(runtime, { bigint: true });
+      await execute(fixture, ["skills", "uninstall", "review"]);
+      expect(fs.existsSync(path.join(runtime, "projection-containers.json"))).toBe(false);
+      const remainingIdentity = fs.statSync(runtime, { bigint: true });
+      expect(remainingIdentity.ino).toBe(replacementIdentity.ino);
+      expect(remainingIdentity.dev).toBe(replacementIdentity.dev);
     } finally {
       fixture.cleanup();
     }

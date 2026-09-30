@@ -218,9 +218,10 @@ export const resolveConfiguredMcpTargets = (args: {
           if (physicalPath !== group.path) continue;
           const serversPath = location.keyPath;
           if (native.entryDialect === null || serversPath === undefined) {
-            unverifiedReaders.push(
-              `${agent.id} has no verified entry dialect for native location '${location.id}'`,
-            );
+            if (args.agentIds.includes(agent.id))
+              unverifiedReaders.push(
+                `${agent.id} has no verified entry dialect for native location '${location.id}'`,
+              );
             continue;
           }
           readers.push({

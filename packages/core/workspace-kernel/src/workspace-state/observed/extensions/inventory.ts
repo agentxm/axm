@@ -1,3 +1,9 @@
+import {
+  NativeLocationOutcomeSchema,
+  combineNativeLocationOutcomes,
+  nativeUnitKey,
+  type NativeLocationOutcome,
+} from "../../../locations/index.js";
 import * as Schema from "effect/Schema";
 import {
   ConfiguredAgentOutcomeSchema,
@@ -15,6 +21,12 @@ export {
 export const ExtensionInventoryRowSchema = Schema.Struct({
   ...WorkspaceRecordRowSchema.fields,
   agentOutcomes: Schema.Array(ConfiguredAgentOutcomeSchema),
+  nativeLocations: Schema.optionalKey(Schema.Array(NativeLocationOutcomeSchema)),
+  duplicateDiscoveries: Schema.optionalKey(
+    Schema.Array(
+      Schema.Struct({ agentId: Schema.String, nativeUnitKeys: Schema.Array(Schema.String) }),
+    ),
+  ),
   version: Schema.optionalKey(Schema.String),
   owner: Schema.optionalKey(Schema.String),
   transport: Schema.optionalKey(Schema.String),
@@ -34,6 +46,14 @@ export const ExtensionInventorySchema = Schema.Struct({
   leftoverCount: Schema.Number,
   undeclaredCount: Schema.Number,
   unmanagedCount: Schema.Number,
+  nativeLocationCounts: Schema.optionalKey(
+    Schema.Struct({
+      units: Schema.Number,
+      physicalLocations: Schema.Number,
+      configuredConsumers: Schema.Number,
+      unverifiedExtensions: Schema.Number,
+    }),
+  ),
 });
 
 export type ExtensionInventory = typeof ExtensionInventorySchema.Type;
@@ -48,8 +68,27 @@ export const countExtensionInventory = (
 ): ExtensionInventory => {
   const withLifecycle = (lifecycle: ExtensionInventoryLifecycle): number =>
     items.filter((item) => item.classification.lifecycle === lifecycle).length;
+  const nativeLocations = combineNativeLocationOutcomes(
+    items.flatMap((item) => item.nativeLocations ?? []),
+  );
   return {
     items,
+    ...(items.some((item) => item.nativeLocations !== undefined)
+      ? {
+          nativeLocationCounts: {
+            units: nativeLocations.length,
+            unverifiedExtensions: items.filter(
+              (item) => item.type !== "pack" && item.nativeLocations === undefined,
+            ).length,
+            physicalLocations: new Set(
+              nativeLocations.map((unit) => JSON.stringify([unit.scope, unit.address.path])),
+            ).size,
+            configuredConsumers: new Set(
+              nativeLocations.flatMap((unit) => unit.configuredConsumers),
+            ).size,
+          },
+        }
+      : {}),
     count: items.length,
     configuredCount: withLifecycle("configured"),
     implicitCount: withLifecycle("implicit"),
@@ -64,16 +103,39 @@ export const projectExtensionInventory = (
   rows: ReadonlyArray<WorkspaceRecordRow>,
   overlay: {
     readonly outcomes: (row: WorkspaceRecordRow) => ReadonlyArray<ConfiguredAgentOutcome>;
+    readonly nativeLocations?: (
+      row: WorkspaceRecordRow,
+    ) => ReadonlyArray<NativeLocationOutcome> | undefined;
     readonly agents?: ReadonlyArray<string>;
   },
 ): ExtensionInventory => {
   const filter = overlay.agents ?? [];
   return countExtensionInventory(
     rows
-      .map((row) => ({
-        ...row,
-        agentOutcomes: overlay.outcomes(row),
-      }))
+      .map((row) => {
+        const nativeLocations = overlay.nativeLocations?.(row);
+        const consumers = [
+          ...new Set(nativeLocations?.flatMap((unit) => unit.configuredConsumers) ?? []),
+        ];
+        return {
+          ...row,
+          agentOutcomes: overlay.outcomes(row),
+          ...(nativeLocations === undefined
+            ? {}
+            : {
+                nativeLocations,
+                duplicateDiscoveries: consumers.flatMap((agentId) => {
+                  const units = nativeLocations.filter(
+                    (unit) =>
+                      unit.ownership !== "absent" && unit.configuredConsumers.includes(agentId),
+                  );
+                  return units.length < 2
+                    ? []
+                    : [{ agentId, nativeUnitKeys: units.map(nativeUnitKey) }];
+                }),
+              }),
+        };
+      })
       .filter(
         (row) =>
           filter.length === 0 ||

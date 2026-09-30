@@ -360,6 +360,8 @@ export interface InstallOperationArgs<
     readonly change: InstallChange;
     readonly materialization: Option.Option<TMaterialization>;
   }) => Effect.Effect<InstallArtifactPresentation, CallerStepFailure<F>, R>;
+  /** Read-only preview facts captured before acquisition. */
+  readonly plannedArtifact?: JobStepArtifact;
   /** Optional outcome message for type-specific install presenters. */
   readonly message?: string;
   /** Explicit destructive source-authority transition used only by demotion. */
@@ -632,6 +634,7 @@ export const buildInstallOperation = <
     key: toStepKey(target),
     label: toLabelWithCompanions(target, companionPkgs),
     materialPaths: sourceMaterialPaths(args.ref),
+    ...(args.plannedArtifact === undefined ? {} : { artifact: args.plannedArtifact }),
     run: runInstallOperation(manager, args),
     ...(registryLifecycle === undefined ? {} : { registryLifecycle }),
     ...(registryBinding === undefined ? {} : { registryBinding }),

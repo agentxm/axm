@@ -15,6 +15,7 @@ import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import type { ConfiguredAgentOutcome, OperationErrorCategory } from "../../operations/index.js";
+import type { NativeLocationOutcome } from "../../locations/index.js";
 import { configuredAgentLifecycleOutcomes } from "./configured-agent-outcomes.js";
 
 /**
@@ -31,13 +32,22 @@ export class ConfiguredAgentOutcomesUnavailable extends Data.TaggedError(
   readonly cause?: unknown;
 }> {}
 
-/** Effective outcomes for one extension type in the projected or current state. */
-export type ConfiguredAgentOutcomesForState = (
-  state: "projected" | "current",
-) => Effect.Effect<ReadonlyArray<ConfiguredAgentOutcome>, ConfiguredAgentOutcomesUnavailable>;
+export interface ConfiguredExtensionObservation {
+  readonly agentOutcomes: ReadonlyArray<ConfiguredAgentOutcome>;
+  readonly nativeLocations: ReadonlyArray<NativeLocationOutcome>;
+}
+
+export type ConfiguredExtensionObservationsForRequest = (
+  request: ConfiguredAgentOutcomesRequest,
+) => Effect.Effect<
+  ReadonlyMap<string, ConfiguredExtensionObservation>,
+  ConfiguredAgentOutcomesUnavailable
+>;
 
 export interface ConfiguredAgentOutcomesProviderService {
-  readonly byExtensionType: Partial<Record<ExtensionType, ConfiguredAgentOutcomesForState>>;
+  readonly byExtensionType: Partial<
+    Record<ExtensionType, ConfiguredExtensionObservationsForRequest>
+  >;
 }
 
 export class ConfiguredAgentOutcomesProvider extends ServiceMap.Service<
@@ -56,6 +66,7 @@ export interface ConfiguredAgentOutcomesRequest {
     readonly name: string;
     readonly targetState: "enabled" | "disabled" | "absent";
     readonly installed: boolean;
+    readonly paths?: ReadonlyArray<string>;
     readonly observedAgentIds?: ReadonlyArray<string>;
   }>;
 }
@@ -86,29 +97,79 @@ export const genericConfiguredAgentOutcomes = (
   );
 
 /** Resolve a type's rows with at most one manager read. Provider failures stay typed. */
-export const resolveConfiguredAgentOutcomes = (
+export const resolveConfiguredExtensionObservations = (
   provider: ConfiguredAgentOutcomesProviderService,
   request: ConfiguredAgentOutcomesRequest,
 ): Effect.Effect<
-  ReadonlyMap<string, ReadonlyArray<ConfiguredAgentOutcome>>,
+  ReadonlyMap<string, ConfiguredExtensionObservation>,
   ConfiguredAgentOutcomesUnavailable
 > =>
   Effect.gen(function* () {
-    const generic = new Map(genericConfiguredAgentOutcomes(request));
-    const override = provider.byExtensionType[request.type];
-    if (override === undefined || !request.rows.some((row) => row.targetState === "enabled")) {
+    const generic = new Map<string, ConfiguredExtensionObservation>(
+      [...genericConfiguredAgentOutcomes(request)].map(
+        ([name, agentOutcomes]) =>
+          [
+            name,
+            { agentOutcomes, nativeLocations: [] } satisfies ConfiguredExtensionObservation,
+          ] as const,
+      ),
+    );
+    const native = provider.byExtensionType[request.type];
+    if (native !== undefined) {
+      const observed = yield* native(request);
+      for (const row of request.rows) {
+        const facts = observed.get(row.name);
+        if (facts === undefined && row.targetState === "enabled") {
+          const baseline = generic.get(row.name);
+          if (baseline !== undefined)
+            generic.set(row.name, {
+              nativeLocations: [],
+              agentOutcomes: baseline.agentOutcomes.map((outcome) => ({
+                ...outcome,
+                outcome: "blocked",
+                reasonCode: "native-observation-unavailable",
+                reason: "The native observer returned no evidence for this extension.",
+              })),
+            });
+        }
+        if (facts !== undefined)
+          generic.set(row.name, {
+            ...facts,
+            agentOutcomes:
+              row.targetState === "enabled"
+                ? facts.agentOutcomes
+                : (generic.get(row.name)?.agentOutcomes ?? []),
+          });
+      }
       return generic;
     }
-    const byName = new Map<string, Array<ConfiguredAgentOutcome>>();
-    for (const outcome of yield* override(request.state)) {
-      const values = byName.get(outcome.name) ?? [];
-      values.push(outcome);
-      byName.set(outcome.name, values);
-    }
-    for (const row of request.rows) {
-      if (row.targetState !== "enabled") continue;
-      const outcomes = byName.get(row.name);
-      if (outcomes !== undefined && outcomes.length > 0) generic.set(row.name, outcomes);
+    if (request.type !== "pack") {
+      for (const [name, baseline] of generic)
+        generic.set(name, {
+          ...baseline,
+          agentOutcomes: baseline.agentOutcomes.map((outcome) =>
+            outcome.outcome === "current" || outcome.outcome === "projected"
+              ? {
+                  ...outcome,
+                  outcome: "blocked",
+                  reasonCode: "native-observation-unavailable",
+                  reason: "No native observer is available to verify this extension.",
+                }
+              : outcome,
+          ),
+        });
     }
     return generic;
   });
+
+/** Per-agent views are derived from the same native observations as inventories. */
+export const resolveConfiguredAgentOutcomes = (
+  provider: ConfiguredAgentOutcomesProviderService,
+  request: ConfiguredAgentOutcomesRequest,
+) =>
+  resolveConfiguredExtensionObservations(provider, request).pipe(
+    Effect.map(
+      (observations) =>
+        new Map([...observations].map(([name, facts]) => [name, facts.agentOutcomes])),
+    ),
+  );

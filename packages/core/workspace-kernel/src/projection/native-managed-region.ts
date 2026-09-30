@@ -339,63 +339,113 @@ export const reconcileNativeManagedRegion = (args: {
       return result;
     });
     const result = yield* args.dryRun === true ? run : authority.withExclusiveWrite(physical, run);
-    const configuredConsumers = new Set<string>();
-    const potentialReaders = new Set<string>();
-    const aliases = new Set([alias]);
-    const referents = new Map<string, Option.Option<string>>();
-    for (const agent of AGENTS) {
-      const native = agent.instructions.native;
-      if (!("locations" in native)) continue;
-      for (const declaration of native.locations) {
-        const resolved = resolveNativeReadLocation(
-          path,
-          agent.id,
-          declaration,
-          args,
-          args.nativeDirectoryInputs,
-        );
-        if (resolved === undefined) continue;
-        const referent =
-          referents.get(resolved.path) ??
-          (yield* resolveNativeReferent(resolved.path).pipe(Effect.option));
-        referents.set(resolved.path, referent);
-        if (Option.isNone(referent) || referent.value !== physical) continue;
-        aliases.add(resolved.path);
-        (args.configuredAgentIds.includes(agent.id) ? configuredConsumers : potentialReaders).add(
-          agent.id,
-        );
-      }
-    }
-    return {
-      ...result,
-      nativeLocation: {
-        scope: args.scope,
-        address: { kind: "region", path: physical, region: args.region },
-        aliases: [...aliases].sort(),
-        configuredConsumers: [...configuredConsumers].sort(),
-        potentialReaders: [...potentialReaders].sort(),
-        policyReasons: [],
-        ownership: result.ownership,
-        ...(result.ownership === "owned" ? { proof: "exact-scoped-managed-region-sources" } : {}),
-        state:
-          result.ownership === "unowned"
-            ? "retained"
-            : !result.changed
-              ? args.rendered.length > 0
-                ? "unchanged"
-                : "absent"
-              : args.rendered.length === 0
-                ? "removed"
-                : Option.isSome(result.observedRegion)
-                  ? "updated"
-                  : "created",
-        mechanism: "managed-region",
-        availability: [...configuredConsumers].sort().map((agentId) => ({
-          agentId,
-          state: args.rendered.length > 0 ? "unverified" : "unavailable",
-          reason:
-            "Native region readback verifies content; running-agent configuration selection is not observed.",
-        })),
-      } satisfies NativeLocationOutcome,
-    };
+    const nativeLocation = {
+      scope: args.scope,
+      address: { kind: "region", path: physical, region: args.region },
+      aliases: [alias],
+      configuredConsumers: [],
+      potentialReaders: [],
+      policyReasons: [],
+      ownership: result.ownership,
+      ...(result.ownership === "owned" ? { proof: "exact-scoped-managed-region-sources" } : {}),
+      state:
+        result.ownership === "unowned"
+          ? "retained"
+          : !result.changed
+            ? args.rendered.length > 0
+              ? "unchanged"
+              : "absent"
+            : args.rendered.length === 0
+              ? "removed"
+              : Option.isSome(result.observedRegion)
+                ? "updated"
+                : "created",
+      mechanism: "managed-region",
+      availability: [],
+    } satisfies NativeLocationOutcome;
+    const refreshed = yield* refreshNativeRegionReaders([nativeLocation], args).pipe(
+      Effect.mapError(
+        (cause) => new ProjectionIoFailed({ path: cause.target, step: "inspect", cause }),
+      ),
+    );
+    return { ...result, nativeLocation: refreshed[0] ?? nativeLocation };
+  });
+
+export interface NativeRegionReaderContext {
+  readonly workspaceRoot: string;
+  readonly nativeDirectoryInputs: NativeDirectoryInputs;
+  readonly configuredAgentIds: ReadonlyArray<string>;
+}
+
+/** Reobserve catalog routes after all dependent aliases have settled. */
+export const refreshNativeRegionReaders = (
+  locations: ReadonlyArray<NativeLocationOutcome>,
+  context: NativeRegionReaderContext,
+) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const referents = new Map<string, string>();
+    return yield* Effect.forEach(locations, (location) =>
+      Effect.gen(function* () {
+        if (location.address.kind !== "region") return location;
+        const configuredConsumers = new Set<string>();
+        const potentialReaders = new Set<string>();
+        const aliases = new Set([location.address.path]);
+        for (const alias of location.aliases) {
+          const physical = referents.get(alias) ?? (yield* resolveNativeReferent(alias));
+          referents.set(alias, physical);
+          if (physical === location.address.path) aliases.add(alias);
+        }
+        const uncertainConditions = new Map<string, string>();
+        for (const agent of AGENTS) {
+          const native = agent.instructions.native;
+          if (!("locations" in native)) continue;
+          for (const declaration of native.locations) {
+            const resolved = resolveNativeReadLocation(
+              path,
+              agent.id,
+              declaration,
+              { workspaceRoot: context.workspaceRoot, scope: location.scope },
+              context.nativeDirectoryInputs,
+              { includeConditional: true },
+            );
+            if (resolved === undefined) continue;
+            const physical =
+              referents.get(resolved.path) ?? (yield* resolveNativeReferent(resolved.path));
+            referents.set(resolved.path, physical);
+            if (physical !== location.address.path) continue;
+            aliases.add(resolved.path);
+            if (declaration.applicability.kind === "conditional") {
+              potentialReaders.add(agent.id);
+              uncertainConditions.set(agent.id, declaration.applicability.condition);
+            } else {
+              (context.configuredAgentIds.includes(agent.id)
+                ? configuredConsumers
+                : potentialReaders
+              ).add(agent.id);
+            }
+          }
+        }
+        const consumers = [...configuredConsumers].sort();
+        const potential = [...potentialReaders].filter((id) => !configuredConsumers.has(id)).sort();
+        return {
+          ...location,
+          aliases: [...aliases].sort(),
+          configuredConsumers: consumers,
+          potentialReaders: potential,
+          availability: [...new Set([...consumers, ...uncertainConditions.keys()])]
+            .sort()
+            .map((agentId) => ({
+              agentId,
+              state:
+                location.state === "absent" || location.state === "removed"
+                  ? ("unavailable" as const)
+                  : ("unverified" as const),
+              reason: uncertainConditions.has(agentId)
+                ? `Native reader applicability is unverified: ${uncertainConditions.get(agentId)}`
+                : "Final native routes were observed after reconciliation; running-agent selection remains unverified.",
+            })),
+        } satisfies NativeLocationOutcome;
+      }),
+    );
   });

@@ -104,8 +104,8 @@ export const ProjectionParticipantsLive = Layer.effect(
         }),
       ],
       subagents: Option.some({
-        projectionObservation: (ref) =>
-          subagents.projectionObservation(ref).pipe(Effect.mapError(onSubagentFailure)),
+        projectionObservation: (ref, options) =>
+          subagents.projectionObservation(ref, options).pipe(Effect.mapError(onSubagentFailure)),
       }),
     };
   }),

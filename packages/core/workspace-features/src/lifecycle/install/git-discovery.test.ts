@@ -158,12 +158,12 @@ describe("Git locator source view", () => {
       fs.writeFileSync(
         nodePath.join(binDir, "git"),
         `#!/bin/sh
-printf '%s\\n' "$$" > "$AXM_GIT_PROBE_PID"
 for argument do last="$argument"; done
 case "$last" in
   .) pwd > "$AXM_GIT_PROBE_CHECKOUT" ;;
   *) printf '%s\\n' "$last" > "$AXM_GIT_PROBE_CHECKOUT" ;;
 esac
+printf '%s\\n' "$$" > "$AXM_GIT_PROBE_PID"
 exec sleep 30
 `,
         { mode: 0o700 },

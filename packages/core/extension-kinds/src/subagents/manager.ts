@@ -769,10 +769,13 @@ export const SubagentManagerLive = Layer.effect(
                               if (skillsOutcome._tag !== "supported") {
                                 return Effect.succeed<SubagentSyncOutcome>(outcome);
                               }
-                              const description = Option.getOrElse(
-                                ref.subagent.description,
-                                () => `Adopt the ${ref.subagent.name} role`,
-                              );
+                              const description =
+                                typeof frontmatter["description"] === "string"
+                                  ? frontmatter["description"]
+                                  : Option.getOrElse(
+                                      ref.subagent.description,
+                                      () => `Adopt the ${ref.subagent.name} role`,
+                                    );
                               return materializeRoleSkillFallback({
                                 agentId: agent.id,
                                 name: ref.subagent.name,
@@ -1067,10 +1070,10 @@ export const SubagentManagerLive = Layer.effect(
     const materializeDeactivate = makeMaterializeRemoval(true);
 
     const projectionObservation = Effect.fn("SubagentManager.projectionObservation")(
-      function* (ref: SubagentExtensionRef) {
+      function* (ref: SubagentExtensionRef, options?: { readonly sourceRoot: string }) {
         const { sanitized, paths } = getCanonicalPaths(ref);
         const manifestRaw = yield* fs
-          .readFileString(path.join(paths.canonicalPath, MANIFEST_FILENAME))
+          .readFileString(path.join(options?.sourceRoot ?? paths.canonicalPath, MANIFEST_FILENAME))
           .pipe(Effect.option);
         const manifestFallback = Option.isNone(manifestRaw)
           ? undefined
@@ -1091,7 +1094,10 @@ export const SubagentManagerLive = Layer.effect(
         if (Option.isNone(sourcePath))
           return { present: false, current: false, nativeLocations: [] };
         const managedFile = managedSubagentFile(ref, sourcePath.value);
-        const { parsed } = yield* readSubagentContent(paths.subagentSrcPath, ref.subagent.name);
+        const { parsed } = yield* readSubagentContent(
+          options === undefined ? paths.subagentSrcPath : path.join(options.sourceRoot, "src"),
+          ref.subagent.name,
+        );
         const frontmatter: Readonly<Record<string, unknown>> = Option.getOrElse(
           parsed.frontmatter,
           () => ({}),
@@ -1102,6 +1108,7 @@ export const SubagentManagerLive = Layer.effect(
           .getConfiguredAgents()
           .pipe(Effect.provideService(SettingsReader, settings));
 
+        const allAgents = yield* agentRepo.all;
         const current = yield* Effect.forEach(configuredAgents, (agent) =>
           agent
             .resolveEffectiveSubagentsDir({ workspaceRoot: baseDir, scope: location.scope })
@@ -1138,6 +1145,7 @@ export const SubagentManagerLive = Layer.effect(
                         return (
                           Option.isSome(content) &&
                           output !== undefined &&
+                          content.value === output.content &&
                           generatedFileCurrent({
                             content: content.value,
                             expected: output.content,
@@ -1148,7 +1156,7 @@ export const SubagentManagerLive = Layer.effect(
                       return nativeArtifactLocationOutcomes({
                         workspaceRoot: baseDir,
                         scope: location.scope,
-                        agents: configuredAgents,
+                        agents: allAgents,
                         configuredAgentIds: new Set(configuredAgents.map(({ id }) => id)),
                         sharedSkillPolicy: false,
                         targets: rendered.outputs.map((output, index) => ({
@@ -1165,7 +1173,43 @@ export const SubagentManagerLive = Layer.effect(
                         Effect.map((nativeLocations) => ({
                           present: contents.every(Option.isSome),
                           current: matches.every(Boolean),
-                          nativeLocations,
+                          nativeLocations: nativeLocations.map((unit) => {
+                            const index = rendered.outputs.findIndex((output) =>
+                              unit.aliases.includes(path.resolve(resolved.dir, output.path)),
+                            );
+                            const content = contents[index];
+                            const output = rendered.outputs[index];
+                            const format =
+                              output === undefined
+                                ? undefined
+                                : managedFileFormatForPath(output.path);
+                            const actual =
+                              content === undefined ||
+                              Option.isNone(content) ||
+                              format === undefined
+                                ? Option.none()
+                                : managedFileMarker(content.value, format);
+                            const expected =
+                              output === undefined || format === undefined
+                                ? Option.none()
+                                : managedFileMarker(output.content, format);
+                            const owned =
+                              Option.isSome(actual) &&
+                              Option.isSome(expected) &&
+                              actual.value.ext === expected.value.ext &&
+                              actual.value.src === expected.value.src;
+                            const { proof: _proof, ...facts } = unit;
+                            return {
+                              ...facts,
+                              ownership:
+                                content === undefined || Option.isNone(content)
+                                  ? ("absent" as const)
+                                  : owned
+                                    ? ("owned" as const)
+                                    : ("unowned" as const),
+                              ...(owned ? { proof: "exact-accepted-managed-file" } : {}),
+                            };
+                          }),
                         })),
                       );
                     }),
@@ -1192,10 +1236,13 @@ export const SubagentManagerLive = Layer.effect(
                           nativeLocations: [],
                         });
                       }
-                      const description = Option.getOrElse(
-                        ref.subagent.description,
-                        () => `Adopt the ${ref.subagent.name} role`,
-                      );
+                      const description =
+                        typeof frontmatter["description"] === "string"
+                          ? frontmatter["description"]
+                          : Option.getOrElse(
+                              ref.subagent.description,
+                              () => `Adopt the ${ref.subagent.name} role`,
+                            );
                       const expected = roleSkillContent({
                         agentId: agent.id,
                         name: ref.subagent.name,
@@ -1214,17 +1261,29 @@ export const SubagentManagerLive = Layer.effect(
                           description,
                           managedFile,
                         });
+                        const address = yield* resolveNativeEntry(fallbackPath);
+                        const receipt = yield* readCopiedDirectory(fallbackPath);
+                        const family = yield* resolveNativeReferent(path.dirname(source));
+                        const marker = Option.flatMap(content, (value) =>
+                          managedFileMarker(value, "markdown"),
+                        );
+                        const owned =
+                          address.kind === "directory" &&
+                          Option.isSome(receipt) &&
+                          path.dirname(receipt.value.source) === family &&
+                          Option.isSome(marker) &&
+                          marker.value.ext === managedFile.ext &&
+                          marker.value.src === managedFile.source.path;
+                        const current =
+                          owned &&
+                          (yield* roleSkillProjectionCurrent(fallbackPath, source, expected));
                         return {
                           present: Option.isSome(content),
-                          current: yield* roleSkillProjectionCurrent(
-                            fallbackPath,
-                            source,
-                            expected,
-                          ),
+                          current,
                           nativeLocations: yield* nativeArtifactLocationOutcomes({
                             workspaceRoot: baseDir,
                             scope: location.scope,
-                            agents: configuredAgents,
+                            agents: allAgents,
                             configuredAgentIds: new Set(configuredAgents.map(({ id }) => id)),
                             sharedSkillPolicy: false,
                             targets: [
@@ -1238,7 +1297,30 @@ export const SubagentManagerLive = Layer.effect(
                                     : "updated",
                               },
                             ],
-                          }),
+                          }).pipe(
+                            Effect.map((units) =>
+                              units.map((unit) => {
+                                const { proof: _proof, ...facts } = unit;
+                                return {
+                                  ...facts,
+                                  ownership:
+                                    address.kind === "absent"
+                                      ? ("absent" as const)
+                                      : owned
+                                        ? ("owned" as const)
+                                        : ("unowned" as const),
+                                  state: current
+                                    ? ("unchanged" as const)
+                                    : address.kind === "absent"
+                                      ? ("created" as const)
+                                      : ("blocked" as const),
+                                  ...(owned
+                                    ? { proof: "bounded-copy-receipt-and-managed-file" }
+                                    : {}),
+                                };
+                              }),
+                            ),
+                          ),
                         };
                       });
                     }),

@@ -409,6 +409,41 @@ describe("aggregate required verification", () => {
     );
   });
 
+  it("verifies physical boundary exclusion on macOS and Windows against built kernel artifacts", () => {
+    const binary = readWorkflow().jobs["binary-smoke"];
+    if (
+      typeof binary !== "object" ||
+      binary === null ||
+      !("steps" in binary) ||
+      !Array.isArray(binary.steps)
+    ) {
+      throw new Error("binary smoke must declare steps");
+    }
+    expect(binary.steps).toContainEqual(
+      expect.objectContaining({
+        if: "runner.os == 'macOS'",
+        run: expect.stringContaining("pnpm exec nx run workspace-kernel:test"),
+      }),
+    );
+    expect(JSON.stringify(binary.steps)).toContain(
+      "authorities-refuse-overlapping-physical-boundaries.spec.ts",
+    );
+    const kernelRoot = path.join(repoRoot, "packages", "core", "workspace-kernel");
+    const project: unknown = JSON.parse(
+      fs.readFileSync(path.join(kernelRoot, "project.json"), "utf8"),
+    );
+    expect(project).toMatchObject({
+      targets: {
+        "test-windows": {
+          dependsOn: expect.arrayContaining(["build", "specification-metadata:build"]),
+        },
+      },
+    });
+    expect(fs.readFileSync(path.join(kernelRoot, "vitest.windows.config.ts"), "utf8")).toContain(
+      "src/settlement/authorities-refuse-overlapping-physical-boundaries.spec.ts",
+    );
+  });
+
   it("preserves workspace and E2E report evidence on hosted runners", () => {
     const jobs = readWorkflow().jobs;
     const workspace = JSON.stringify(jobs["verify-main"]);

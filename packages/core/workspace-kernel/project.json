@@ -22,7 +22,7 @@
     "test-windows": {
       "executor": "nx:run-commands",
       "cache": true,
-      "dependsOn": ["^build"],
+      "dependsOn": ["build", "specification-metadata:build"],
       "inputs": ["default", "^production", "toolchain"],
       "outputs": ["{workspaceRoot}/test-results/workspace-windows"],
       "options": {

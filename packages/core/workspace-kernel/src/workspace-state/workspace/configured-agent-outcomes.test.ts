@@ -145,7 +145,12 @@ describe("resolveConfiguredAgentOutcomes", () => {
             "mcp-server": () =>
               Effect.sync(() => {
                 calls += 1;
-                return [providerOutcome("active"), providerOutcome("disabled")];
+                return new Map(
+                  ["active", "disabled"].map((name) => [
+                    name,
+                    { agentOutcomes: [providerOutcome(name)], nativeLocations: [] },
+                  ]),
+                );
               }),
           },
         },
@@ -153,22 +158,26 @@ describe("resolveConfiguredAgentOutcomes", () => {
       );
       expect(calls).toBe(1);
       expect(outcomes.get("active")).toMatchObject([{ reasonCode: "provider-observed" }]);
-      expect(outcomes.get("second")).toMatchObject([{ outcome: "current" }]);
+      expect(outcomes.get("second")).toMatchObject([
+        { outcome: "blocked", reasonCode: "native-observation-unavailable" },
+      ]);
       expect(outcomes.get("disabled")).toMatchObject([
         { outcome: "not-applicable", reasonCode: "extension-disabled" },
       ]);
     }),
   );
 
-  it.effect("falls back when the provider has no result for an enabled row", () =>
+  it.effect("reports unknown observation when the provider has no result for an enabled row", () =>
     Effect.gen(function* () {
       const outcomes = yield* resolveConfiguredAgentOutcomes(
         {
-          byExtensionType: { "mcp-server": () => Effect.succeed([]) },
+          byExtensionType: { "mcp-server": () => Effect.succeed(new Map()) },
         },
         request,
       );
-      expect(outcomes.get("active")).toMatchObject([{ outcome: "current" }]);
+      expect(outcomes.get("active")).toMatchObject([
+        { outcome: "blocked", reasonCode: "native-observation-unavailable" },
+      ]);
     }),
   );
 

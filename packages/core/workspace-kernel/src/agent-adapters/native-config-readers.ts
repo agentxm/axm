@@ -1,4 +1,4 @@
-/** Every catalog reader of one physical file participates in grammar preflight. */
+/** Configured consumers constrain writes; other catalog readers remain potential readers. */
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Equal from "effect/Equal";
@@ -101,6 +101,10 @@ export const preflightNativeConfigReaders = (args: {
             ? {}
             : { settingsKey: declaration.file.keyPath[0] }),
         };
+        if (!configured) {
+          readers.push(reader);
+          continue;
+        }
         if (
           args.proposedRaw === undefined &&
           grammarFamily(reader.format) !== grammarFamily(args.writerFormat)

@@ -9,6 +9,7 @@ import { afterEach } from "vitest";
 import { countUnitStates, deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import * as Option from "effect/Option";
 
+import { SubagentManager } from "@agentxm/workspace-kernel/materialization";
 import { LockfileReader } from "@agentxm/workspace-kernel/workspace-state";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
@@ -48,6 +49,60 @@ describe("Sync realizes desired workspace state", () => {
       cleanup();
     }
   });
+
+  it.effect.each([false, true])(
+    "refuses false native success for first Subagent sync (Pack closure: %s)",
+    (pack) => {
+      const registry = makeFileRegistry();
+      cleanups.push(registry.cleanup);
+      registry.writeSubagent("planner", [{ version: "1.0.0", body: "Plan carefully." }]);
+      registry.writePack("planning", [
+        { version: "1.0.0", dependencies: { "@acme/subagents/planner": "^1.0.0" } },
+      ]);
+      const workspace = makeSyncFixture({
+        settings: {
+          owner: "@acme",
+          agents: ["claude-code"],
+          defaultRegistry: "test",
+          sources: [registry.source],
+          ...(pack
+            ? { packs: { planning: "test:@acme/packs/planning" } }
+            : { subagents: { planner: "test:@acme/subagents/planner" } }),
+        },
+      });
+      cleanups.push(workspace.cleanup);
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            const manager = yield* SubagentManager;
+            let removed = false;
+            const result = yield* applySync().pipe(
+              Effect.provideService(SubagentManager, {
+                ...manager,
+                materializeInstall: (args) =>
+                  manager.materializeInstall(args).pipe(
+                    Effect.tap(() =>
+                      Effect.sync(() => {
+                        expect(workspace.exists(".claude/agents/planner.md")).toBe(true);
+                        workspace.remove(".claude/agents/planner.md");
+                        removed = true;
+                      }),
+                    ),
+                  ),
+              }),
+            );
+            expect(removed).toBe(true);
+            expect(deriveOperationOutcome(expectResolved(result))).not.toBe("applied");
+            expect(workspace.exists(".claude/agents/planner.md")).toBe(false);
+            expect(workspace.exists("agent_extensions/registry/@acme/subagents/planner")).toBe(
+              false,
+            );
+            expect(workspace.readFile("axm-lock.yaml")).not.toContain("subagents/planner");
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
 
   for (const type of [
     "skill",
@@ -106,7 +161,7 @@ describe("Sync realizes desired workspace state", () => {
             .provide(
               Effect.gen(function* () {
                 const first = expectResolved(yield* applySync());
-                expect(deriveOperationOutcome(first)).toBe("applied");
+                expect(deriveOperationOutcome(first), JSON.stringify(first)).toBe("applied");
                 const canonical = `agent_extensions/registry/@acme/${segment}/${name}`;
                 expect(workspace.exists(canonical)).toBe(true);
                 if (!enabled) expect(workspace.exists(`.claude/skills/${name}`)).toBe(false);
@@ -336,7 +391,8 @@ describe("Sync realizes desired workspace state", () => {
     return workspace
       .provide(
         Effect.gen(function* () {
-          yield* applySync();
+          const initial = expectResolved(yield* applySync());
+          expect(deriveOperationOutcome(initial), JSON.stringify(initial)).toBe("applied");
           const canonical = `agent_extensions/registry/@acme/skills/${SKILL}`;
           const former = `agent_extensions/agentxm/@acme/skills/${SKILL}`;
           fs.mkdirSync(path.dirname(path.join(workspace.root, former)), { recursive: true });

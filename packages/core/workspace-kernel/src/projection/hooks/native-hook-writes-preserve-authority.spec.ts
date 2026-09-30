@@ -135,35 +135,45 @@ describe("native Hook ownership", () => {
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
-  it.effect("refuses an unconfigured potential TOML reader sharing the Hook referent", () =>
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const root = yield* fs.makeTempDirectoryScoped();
-      const file = path.join(root, ".claude/settings.json");
-      yield* fs.makeDirectory(path.dirname(file));
-      yield* fs.makeDirectory(path.join(root, ".codex"));
-      yield* fs.writeFileString(file, "");
-      yield* fs.symlink("../.claude/settings.json", path.join(root, ".codex/config.toml"));
-      const authority = yield* makeRecordingNativeWriteAuthority;
-      const result = yield* reconcileNativeHookConfig({
-        workspaceRoot: root,
-        nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
-        ownerRoot: root,
-        scope: "project",
-        path: file,
-        aliases: [file],
-        consumers: ["claude-code"],
-        settingsKey: "hooks",
-        format: "json",
-        rendered: groups(),
-        ownership: [owner],
-        nativeInsertionEligibleNames: new Set(),
-      }).pipe(Effect.provide(authority.layer), Effect.result);
-      expect(result._tag).toBe("Failure");
-      expect(yield* fs.readFileString(file)).toBe("");
-      expect((yield* authority.observed).protectedPaths).toEqual([]);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  it.effect.each([false, true])(
+    "only a configured TOML co-reader constrains Hook writes: %s",
+    (configured) =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* fs.makeTempDirectoryScoped();
+        const file = path.join(root, ".claude/settings.json");
+        yield* fs.makeDirectory(path.dirname(file));
+        yield* fs.makeDirectory(path.join(root, ".codex"));
+        yield* fs.writeFileString(file, "");
+        yield* fs.symlink("../.claude/settings.json", path.join(root, ".codex/config.toml"));
+        const authority = yield* makeRecordingNativeWriteAuthority;
+        const result = yield* reconcileNativeHookConfig({
+          workspaceRoot: root,
+          nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+          ownerRoot: root,
+          scope: "project",
+          path: file,
+          aliases: [file],
+          consumers: ["claude-code"],
+          configuredAgentIds: configured ? ["claude-code", "codex"] : ["claude-code"],
+          settingsKey: "hooks",
+          format: "json",
+          rendered: groups(),
+          ownership: [owner],
+          nativeInsertionEligibleNames: new Set(),
+        }).pipe(Effect.provide(authority.layer), Effect.result);
+        expect(result._tag).toBe(configured ? "Failure" : "Success");
+        if (configured) {
+          expect(yield* fs.readFileString(file)).toBe("");
+          expect((yield* authority.observed).protectedPaths).toEqual([]);
+        } else {
+          expect(yield* fs.readFileString(file)).toContain("PreToolUse");
+          expect(yield* fs.readLink(path.join(root, ".codex/config.toml"))).toBe(
+            "../.claude/settings.json",
+          );
+        }
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
   for (const foreign of [

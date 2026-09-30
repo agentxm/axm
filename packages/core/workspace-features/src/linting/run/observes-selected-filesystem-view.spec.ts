@@ -294,6 +294,65 @@ describe("Selected lint filesystem view", () => {
     },
   );
 
+  it.effect(
+    "keeps an admitted view stable when an alias and the live index change before observation",
+    () => {
+      const workspace = makeOfficialAxmSkillWorkspace("official-compatible");
+      cleanups.push(workspace.cleanup);
+      initializeGit(workspace.root);
+      workspace.writeFile("first.txt", "first staged bytes");
+      workspace.writeFile("second.txt", "second staged bytes");
+      const alias = nodePath.join(workspace.root, "alias");
+      fs.symlinkSync(nodePath.join(workspace.root, "first.txt"), alias);
+      git(workspace.root, ["add", "."]);
+      return Effect.gen(function* () {
+        const request = {
+          path: workspace.root,
+          cwd: workspace.root,
+          userHome: workspace.root,
+          scope: "project" as const,
+          view: "git-index" as const,
+          fix: false,
+        };
+        const first = yield* admitLintRequest(request);
+        const firstView = yield* FileSystem.FileSystem.pipe(
+          Effect.provide(lintSelectionLayer(first)),
+        );
+        fs.unlinkSync(alias);
+        fs.symlinkSync(nodePath.join(workspace.root, "second.txt"), alias);
+        workspace.writeFile("first.txt", "later live bytes");
+        git(workspace.root, ["add", "alias", "first.txt"]);
+        const changedIndex = git(workspace.root, ["ls-files", "--stage", "-z"]);
+        expect(yield* firstView.readFileString(nodePath.join(first.workspaceRoot, "alias"))).toBe(
+          "first staged bytes",
+        );
+        const firstResult = yield* queryLintWorkspace(first, { strict: false }).pipe(
+          Effect.provide(
+            lintWorkspaceServices({
+              workspaceRoot: lintSelectionRoot(first),
+              observationView: first.nativeView,
+              cliVersion: workspace.cliVersion,
+            }).pipe(Layer.provideMerge(lintSelectionLayer(first))),
+          ),
+        );
+        expect(firstResult.document.input).toEqual(first.input);
+        const second = yield* admitLintRequest(request);
+        const secondView = yield* FileSystem.FileSystem.pipe(
+          Effect.provide(lintSelectionLayer(second)),
+        );
+        expect(second.input).not.toEqual(first.input);
+        expect(yield* secondView.readFileString(nodePath.join(second.workspaceRoot, "alias"))).toBe(
+          "second staged bytes",
+        );
+        expect(
+          yield* secondView.readFileString(nodePath.join(second.workspaceRoot, "first.txt")),
+        ).toBe("later live bytes");
+        expect(git(workspace.root, ["ls-files", "--stage", "-z"])).toBe(changedIndex);
+        expect(fs.readlinkSync(alias)).toBe(nodePath.join(workspace.root, "second.txt"));
+      }).pipe(Effect.scoped, Effect.provide(viewServices));
+    },
+  );
+
   it.effect("judges the official skill each view selects, beside an extraneous copy", () => {
     const incompatible = officialAxmSkillPackage({
       packageRoot: OFFICIAL_AXM_SKILL_PACKAGE_ROOT,

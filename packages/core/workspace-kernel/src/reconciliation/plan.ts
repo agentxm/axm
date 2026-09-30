@@ -50,6 +50,7 @@ import type { ManagerRequirements } from "../materialization/index.js";
 import type { RecipeRequirements } from "./extensions/operations.js";
 import {
   type Job,
+  type StepFailure,
   type JobStepArtifact,
   type JobStepResult,
   type OperationPresentation,
@@ -57,7 +58,7 @@ import {
   type PlannedJobStep,
   type ReleaseAgeOperationEvidence,
 } from "../operations/index.js";
-import type { WorkspaceTransactionScope } from "../settlement/index.js";
+import { runWorkspaceTransaction, type WorkspaceTransactionScope } from "../settlement/index.js";
 import {
   SettingsReader,
   DesiredStateReader,
@@ -69,6 +70,7 @@ import {
   type WorkspaceSettingsReadFailure,
 } from "../workspace-state/index.js";
 import { buildReconciliationClosure } from "./closure.js";
+import { validateNativeOutputPostconditions } from "./native-output-postconditions.js";
 import { reconcileAgentOutputs } from "./rendered-file-cleanup.js";
 import { WorkspaceSyncFailed, type WorkspaceSyncCleanupFailure } from "./errors.js";
 import type { StepFailureConversionService } from "./step-failure-conversion.js";
@@ -500,7 +502,14 @@ export const collectCleanupStep: (args: {
     ...(args.subjects === undefined ? {} : { subjects: args.subjects }),
   });
   const previewPaths = preview.removedPaths;
-  if (previewPaths.length === 0) return Option.none<PlannedJobStep<SyncStepRequirements>>();
+  if (
+    previewPaths.length === 0 &&
+    args.desiredAgentIds === undefined &&
+    args.subjects === undefined
+  )
+    return Option.none<PlannedJobStep<SyncStepRequirements>>();
+  if (previewPaths.length === 0 && (preview.nativeLocations?.length ?? 0) === 0)
+    return Option.none<PlannedJobStep<SyncStepRequirements>>();
   return Option.some<PlannedJobStep<SyncStepRequirements>>({
     key: "projection:cleanup",
     label: "stale managed agent projections",
@@ -508,7 +517,7 @@ export const collectCleanupStep: (args: {
     artifact: {
       path: previewPaths[0] ?? "stale managed agent projections",
       scope: location.scope,
-      change: "removed",
+      change: previewPaths.length === 0 ? "unchanged" : "removed",
       fileCount: previewPaths.length,
       ...(preview.nativeLocations === undefined
         ? {}
@@ -526,11 +535,14 @@ export const collectCleanupStep: (args: {
         const removedPaths = result.removedPaths;
         return {
           result: "success",
-          message: `Removed ${count(removedPaths.length, "stale managed agent projection")}`,
+          message:
+            removedPaths.length === 0
+              ? "Retained native entries required by remaining consumers or policy"
+              : `Removed ${count(removedPaths.length, "stale managed agent projection")}`,
           artifact: {
             path: removedPaths[0] ?? previewPaths[0] ?? "stale managed agent projections",
             scope: location.scope,
-            change: "removed",
+            change: removedPaths.length === 0 ? "unchanged" : "removed",
             fileCount: removedPaths.length,
             ...(result.nativeLocations === undefined
               ? {}
@@ -847,6 +859,9 @@ export const makeSyncPlan = <R>({
   readonly description?: string;
 }) =>
   Effect.gen(function* () {
+    const location = yield* WorkspaceLocation;
+    const settings = yield* SettingsReader;
+    const configuredAgentIds = yield* settings.configuredAgents;
     const ruleSteps = materializeSteps.filter((step) => step.key?.startsWith("rule:") === true);
     const nonRuleSteps = materializeSteps.filter((step) => step.key?.startsWith("rule:") !== true);
     const jobs: Array<Job<R>> = [];
@@ -922,13 +937,44 @@ export const makeSyncPlan = <R>({
       components.push(component);
     }
     const closures = yield* Effect.forEach(components, ({ steps }) => {
-      if (steps.length === 1) return Effect.succeed(steps[0]);
+      const single = steps.length === 1 ? steps[0] : undefined;
+      if (single !== undefined && single.readiness !== "error")
+        return Effect.succeed({
+          ...single,
+          run: runWorkspaceTransaction<
+            JobStepResult,
+            WorkspaceSyncFailed | StepFailure,
+            R | Effect.Services<ReturnType<typeof validateNativeOutputPostconditions>>
+          >({
+            transition: single.run.pipe(
+              Effect.flatMap((result) =>
+                result.result === "error" ? Effect.fail(result.error) : Effect.succeed(result),
+              ),
+            ),
+            validate: (result) =>
+              result.result === "success"
+                ? validateNativeOutputPostconditions(
+                    result.artifact?.nativeLocations ?? [],
+                    single.artifact?.nativeLocations ?? [],
+                  )
+                : Effect.void,
+          }).pipe(Effect.mapError(adapter.toStepFailure)),
+        });
+      if (single !== undefined) return Effect.succeed(single);
       // Preserve the topological order even when this step joins earlier components.
       steps.sort((left, right) => ordered.indexOf(left) - ordered.indexOf(right));
       const artifacts = steps.flatMap((step) =>
         step.artifact === undefined ? [] : [step.artifact],
       );
-      return buildReconciliationClosure({
+      return buildReconciliationClosure<
+        WorkspaceSyncFailed,
+        R | Effect.Services<ReturnType<typeof validateNativeOutputPostconditions>>
+      >({
+        nativeReaderContext: {
+          workspaceRoot: location.baseDir,
+          nativeDirectoryInputs: location.nativeDirectoryInputs,
+          configuredAgentIds,
+        },
         toStepFailure: (failure) =>
           failure._tag === "StepFailure" ? failure : adapter.toStepFailure(failure),
         label: steps.map((step) => step.label).join("; "),
@@ -943,6 +989,7 @@ export const makeSyncPlan = <R>({
         },
         children: steps.map((step) => ({ step, coverage: "ineligible" })),
         validate: Effect.void,
+        validateNativeOutputs: validateNativeOutputPostconditions,
       });
     });
     return {
@@ -958,5 +1005,11 @@ export const makeSyncPlan = <R>({
       ],
       releaseAge,
       presentation: SYNC_PRESENTATION,
-    } satisfies Plan<R | WorkspaceTransactionScope | FileSystem.FileSystem | Path.Path>;
+    } satisfies Plan<
+      | R
+      | WorkspaceTransactionScope
+      | FileSystem.FileSystem
+      | Path.Path
+      | Effect.Services<ReturnType<typeof validateNativeOutputPostconditions>>
+    >;
   });

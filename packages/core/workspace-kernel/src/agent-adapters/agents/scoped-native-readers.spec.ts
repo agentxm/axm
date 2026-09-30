@@ -67,6 +67,19 @@ describe("Scoped native locations", () => {
           ),
         ).toBeUndefined();
         expect(
+          resolveNativeReadLocation(
+            path,
+            "codex",
+            { ...location, applicability: { kind: "conditional", condition: "profile selected" } },
+            args,
+            inputs,
+            { includeConditional: true },
+          ),
+        ).toMatchObject({
+          path: "/selected-config/config.toml",
+          availability: "unverified-condition",
+        });
+        expect(
           resolveNativeReadLocation(path, "codex", location, { ...args, scope: "project" }, inputs),
         ).toBeUndefined();
       }).pipe(Effect.provide(NodeServices.layer)),

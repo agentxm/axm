@@ -9,7 +9,11 @@
  */
 
 import type { PlatformError } from "effect/PlatformError";
-import { assertNoPhysicalOverlap, type NativeLocationError } from "../locations/index.js";
+import {
+  assertNoPhysicalOverlap,
+  NativeLocationError,
+  resolveNativeEntry,
+} from "../locations/index.js";
 import * as Data from "effect/Data";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -166,12 +170,37 @@ export const copyExtensionDirectory = (
       maxBytes,
       maxEntries,
     );
-    // A distinct destination tree can still contain hardlinks or leaf aliases
-    // to source files. Validate the complete copy set before the first write.
-    yield* Effect.forEach(files, ({ source, target }) => assertNoPhysicalOverlap(source, target), {
-      concurrency: 1,
-      discard: true,
-    });
+    // A destination may alias any source member, not only its corresponding
+    // filename. Capture the complete read set before authorizing any write.
+    const sources = yield* Effect.forEach(files, ({ source }) => resolveNativeEntry(source));
+    const sourceIdentityUnavailable = sources.some((entry) => entry.inode === undefined);
+    const sourcePaths = new Set(sources.map((entry) => entry.referentPath ?? entry.entryPath));
+    const sourceIdentities = new Set(
+      sources.flatMap((entry) =>
+        entry.inode === undefined ? [] : [JSON.stringify([entry.device, entry.inode])],
+      ),
+    );
+    for (const { source, target } of files) {
+      yield* assertNoPhysicalOverlap(src, target);
+      yield* assertNoPhysicalOverlap(source, target);
+      const destination = yield* resolveNativeEntry(target);
+      if (destination.kind === "absent") continue;
+      if (destination.inode === undefined || sourceIdentityUnavailable)
+        return yield* new NativeLocationError({
+          target,
+          reason: "unreadable",
+          cause: "source-or-target-identity-unavailable",
+        });
+      if (
+        sourcePaths.has(destination.referentPath ?? destination.entryPath) ||
+        sourceIdentities.has(JSON.stringify([destination.device, destination.inode]))
+      )
+        return yield* new NativeLocationError({ target, reason: "source-overlap" });
+      // Excluded package members are still source-owned bytes. An existing
+      // hardlink could reach one of them without appearing in the read set.
+      if ((destination.links ?? 1) > 1)
+        return yield* new NativeLocationError({ target, reason: "hardlink" });
+    }
     yield* Effect.forEach(
       directories,
       (directory) => fs.makeDirectory(directory, { recursive: true }),

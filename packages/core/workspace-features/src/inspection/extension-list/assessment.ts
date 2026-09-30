@@ -22,6 +22,7 @@ import {
   type LockEntry,
   type ExtensionInventoryLifecycle,
   type WorkspaceRecordRow,
+  type ExtensionInventoryRow,
   DesiredStateReader,
   desiredStateProblemText,
   effectiveDesiredConstraint,
@@ -69,6 +70,9 @@ export interface ExtensionListItem {
   readonly version?: string;
   readonly source?: string;
   readonly assessment: ExtensionAssessment;
+  readonly nativeLocations?: NonNullable<ExtensionInventoryRow["nativeLocations"]>;
+  readonly agentOutcomes?: ExtensionInventoryRow["agentOutcomes"];
+  readonly duplicateDiscoveries?: NonNullable<ExtensionInventoryRow["duplicateDiscoveries"]>;
 }
 
 type AcceptedEntry = LockEntry;
@@ -137,6 +141,15 @@ export const collectExtensionListItems = Effect.fn("Workspace.collectExtensionLi
           : {}),
         ...(source === undefined ? {} : { source }),
         assessment: { state: "not-checked" },
+        agentOutcomes: row.agentOutcomes,
+        ...(row.nativeLocations === undefined
+          ? {}
+          : {
+              nativeLocations: row.nativeLocations,
+              ...(row.duplicateDiscoveries === undefined
+                ? {}
+                : { duplicateDiscoveries: row.duplicateDiscoveries }),
+            }),
       };
     });
   },

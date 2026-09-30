@@ -31,8 +31,13 @@ export const observeInstructionNativeLocations = (args: {
         resolvedPaths.set(lexical, physical);
         return physical;
       });
-    const readers: Array<{ agentId: string; lexical: string; physical: string }> = [];
-    for (const root of args.roots)
+    const readers: Array<{
+      agentId: string;
+      lexical: string;
+      physical: string;
+      condition?: string;
+    }> = [];
+    for (const root of args.scope === "user" ? [args.workspaceRoot] : args.roots)
       for (const descriptor of Object.values(AGENT_DESCRIPTORS)) {
         for (const declaration of descriptor.instructions?.locations ?? []) {
           if (declaration.shape !== "file") continue;
@@ -42,11 +47,21 @@ export const observeInstructionNativeLocations = (args: {
             declaration,
             { workspaceRoot: root, scope: args.scope },
             args.nativeDirectoryInputs ?? { skillsDirectoryOverrides: {} },
+            { includeConditional: true },
           );
           if (resolved === undefined) continue;
-          const physical = yield* physicalPath(resolved.path);
+          const physical =
+            (yield* physicalPath(resolved.path)) ??
+            (declaration.applicability.kind === "conditional" ? resolved.path : undefined);
           if (physical !== undefined)
-            readers.push({ agentId: descriptor.id, lexical: resolved.path, physical });
+            readers.push({
+              agentId: descriptor.id,
+              lexical: resolved.path,
+              physical,
+              ...(declaration.applicability.kind === "conditional"
+                ? { condition: declaration.applicability.condition }
+                : {}),
+            });
         }
       }
     const locations = yield* Effect.forEach(
@@ -60,7 +75,13 @@ export const observeInstructionNativeLocations = (args: {
           const configuredConsumers = [
             ...new Set([
               ...(args.configuredAgentIds.includes(item.agentId) ? [item.agentId] : []),
-              ...potentialReaders.filter((id) => args.configuredAgentIds.includes(id)),
+              ...claimants
+                .filter(
+                  (reader) =>
+                    reader.condition === undefined &&
+                    args.configuredAgentIds.includes(reader.agentId),
+                )
+                .map((reader) => reader.agentId),
             ]),
           ].sort();
           const ownership = Option.isNone(address)
@@ -107,15 +128,53 @@ export const observeInstructionNativeLocations = (args: {
               (agentId) => ({
                 agentId,
                 state: "unverified" as const,
-                reason:
-                  "Native instruction content was observed; running-agent path selection and precedence are not observable.",
+                reason: claimants.some(
+                  (reader) => reader.agentId === agentId && reader.condition !== undefined,
+                )
+                  ? `Native reader applicability is unverified: ${claimants
+                      .filter(
+                        (reader) => reader.agentId === agentId && reader.condition !== undefined,
+                      )
+                      .map((reader) => reader.condition)
+                      .join("; ")}`
+                  : "Native instruction content was observed; running-agent path selection and precedence are not observable.",
               }),
             ),
             ...(item.health === "ok" ? {} : { reason: item.details }),
           } satisfies NativeLocationOutcome;
         }),
     );
-    return combineNativeLocationOutcomes(locations);
+    const conditionalLocations = yield* Effect.forEach(
+      readers.filter((reader) => reader.condition !== undefined),
+      (reader) =>
+        Effect.gen(function* () {
+          const observed = yield* resolveNativeEntry(reader.lexical).pipe(Effect.result);
+          const ownership =
+            observed._tag === "Failure"
+              ? ("unverified" as const)
+              : observed.success.kind === "absent"
+                ? ("absent" as const)
+                : ("unowned" as const);
+          return {
+            scope: args.scope,
+            address: { kind: "entry", path: reader.physical },
+            aliases: [reader.lexical],
+            configuredConsumers: [],
+            potentialReaders: [reader.agentId],
+            policyReasons: ["instruction-propagation"],
+            ownership,
+            state: ownership === "absent" ? "absent" : "unverified",
+            availability: [
+              {
+                agentId: reader.agentId,
+                state: "unverified",
+                reason: `Native reader applicability is unverified: ${reader.condition}`,
+              },
+            ],
+          } satisfies NativeLocationOutcome;
+        }),
+    );
+    return combineNativeLocationOutcomes([...locations, ...conditionalLocations]);
   });
 
 export const instructionChangeLocations = (args: {

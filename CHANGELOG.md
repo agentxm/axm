@@ -1,3 +1,16 @@
+## 0.37.2 (2026-09-30)
+
+### 🚀 Features
+
+- Allow release E2E checks to complete under full CI load ([f81ebb15c](https://github.com/agentxm/axm/commit/f81ebb15c))
+- Recognize Command Code and Qoder MCP environment references ([93a1e57fd](https://github.com/agentxm/axm/commit/93a1e57fd))
+- Keep native region source proof portable and add explicit instruction region adoption ([04badcbf1](https://github.com/agentxm/axm/commit/04badcbf1))
+- Support nested native MCP containers and OpenCode V2 symbolic environment references ([967f8b32e](https://github.com/agentxm/axm/commit/967f8b32e))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.37.1 (2026-09-29)
 
 ### 🚀 Features

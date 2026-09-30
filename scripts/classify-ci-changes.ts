@@ -257,7 +257,10 @@ export const requiredCiJobs = (
       "npm-cohort",
     ];
   }
-  if (event === "schedule" || event === "workflow_dispatch") {
+  if (event === "workflow_dispatch") {
+    return [...required, "verify-main", "verify-e2e", "windows-workspace", "binary-smoke"];
+  }
+  if (event === "schedule") {
     return [...required, "verify-main", "verify-e2e", "windows-workspace"];
   }
   if (event !== "pull_request" && event !== "merge_group") return required;

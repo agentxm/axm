@@ -65,6 +65,9 @@ jobs:
           remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_WRITE_TOKEN }}
 
       - name: Populate deterministic task outputs
+        # Source verification runs on Linux x64. Other push lanes need only
+        # the native binary's build prerequisites; assurance backfills local use.
+        if: matrix.platform == 'linux-x64' || github.event.workflow_run.event != 'push'
         shell: bash
         run: |
           # Visit every eligible task; native hits avoid recomputation and a

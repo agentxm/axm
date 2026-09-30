@@ -32,19 +32,9 @@ import {
   type RecordingStreams,
 } from "./screen-harness.js";
 
-import { WorkspaceFailureConversionLive } from "../app-error/failure-catalog.js";
 import {
-  HookManagerLive,
-  KnowledgeIndexLive,
-  KnowledgeManagerLive,
-  McpServerManagerLive,
-  PackManagerLive,
-  RuleManagerLive,
-  SkillManagerLive,
-  SourceHostProvidersLive,
-  SubagentManagerLive,
   cliTestBuiltInSources,
-  makeWorkspaceHandlerTestContext,
+  makeWorkspaceLifecycleTestContext,
   type FileSystemWriteEvent,
   type TestPromptConfig,
 } from "./test-helpers.js";
@@ -62,21 +52,6 @@ import {
   withTestRegistryDefault,
 } from "@agentxm/workspace-kernel/workspace-state/testing";
 import { WorkspaceStateLive } from "@agentxm/workspace-kernel/workspace-state/live";
-import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-kernel/projection/live";
-import {
-  ConfiguredAgentOutcomesProviderLive,
-  ProjectionParticipantsLive,
-} from "@agentxm/workspace-kernel/reconciliation/live";
-
-/**
- * The workspace-facts layer over the registered projection participants, for
- * specification workspaces that compose manager layers directly.
- */
-const workspaceInvariantFactsLive = Layer.provide(
-  WorkspaceInvariantFactsLive,
-  ProjectionParticipantsLive,
-);
-
 export interface SpecWorkspaceOptions {
   /** Persistent-state implementation. Memory worlds never touch the host filesystem. */
   readonly storage?: "disk" | "memory";
@@ -223,7 +198,7 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
             builtInSources: cliTestBuiltInSources(options.registryUrl),
           }),
         );
-  const context = makeWorkspaceHandlerTestContext({
+  const context = makeWorkspaceLifecycleTestContext({
     ...(options.machine !== undefined ? { machine: options.machine } : {}),
     ...(options.httpClient === undefined ? {} : { httpClient: options.httpClient }),
     ...(screenLayer === undefined ? {} : { screenLayer }),
@@ -241,30 +216,12 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
     },
   });
 
-  const workspaceServiceLayer = Layer.provideMerge(
-    Layer.mergeAll(
-      SourceHostProvidersLive,
-      WorkspaceFailureConversionLive,
-      makeAxmSkillCompatibilityPolicyLayer("0.0.0-spec"),
-    ),
+  const workspaceServiceLayer = Layer.merge(
     context.fullLayer,
+    makeAxmSkillCompatibilityPolicyLayer("0.0.0-spec"),
   );
-  const coreExtensions = Layer.mergeAll(
-    RuleManagerLive,
-    HookManagerLive,
-    McpServerManagerLive,
-    SkillManagerLive,
-    SubagentManagerLive,
-    KnowledgeManagerLive,
-    KnowledgeIndexLive,
-  );
-  const extensionsLayer = Layer.provideMerge(PackManagerLive, coreExtensions);
-  const fullLayer = Layer.provideMerge(extensionsLayer, workspaceServiceLayer);
-  const invariantFactsLayer = Layer.provide(workspaceInvariantFactsLive, fullLayer);
   const composed = Layer.mergeAll(
-    fullLayer,
-    invariantFactsLayer,
-    Layer.provide(ConfiguredAgentOutcomesProviderLive, fullLayer),
+    workspaceServiceLayer,
     Layer.succeed(ReleaseAgePosture, options.releaseAgePosture ?? "enforce"),
     // Recovery commands address the workspace scope the way the executable's
     // own command tree decides.

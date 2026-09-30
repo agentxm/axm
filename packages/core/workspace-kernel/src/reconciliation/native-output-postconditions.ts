@@ -1,7 +1,11 @@
 /** Final owner readback for native units a closure claims to realize or retain. */
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { nativeUnitKey, type NativeLocationOutcome } from "../locations/index.js";
+import {
+  combineNativeLocationOutcomes,
+  nativeUnitKey,
+  type NativeLocationOutcome,
+} from "../locations/index.js";
 import {
   ConfiguredAgentOutcomesProvider,
   DesiredStateReader,
@@ -11,17 +15,26 @@ import {
   resolveConfiguredExtensionObservations,
   type ExtensionTarget,
 } from "../workspace-state/index.js";
-import { observeInstructionProjection, resolveInstructionsConfig } from "../projection/index.js";
+import {
+  captureNativeRetentionWitnesses,
+  validateNativeRetentionWitnesses,
+  type NativeRetentionWitness,
+  observeInstructionProjection,
+  resolveInstructionsConfig,
+} from "../projection/index.js";
 import { WorkspaceSyncFailed } from "./errors.js";
 
-const observeNativeOutputs = (subjects?: ReadonlyArray<ExtensionTarget>) =>
+const observeNativeOutputs = (
+  subjects?: ReadonlyArray<Pick<ExtensionTarget, "type" | "name">>,
+  configuredAgents?: ReadonlyArray<string>,
+) =>
   Effect.gen(function* () {
     const provider = yield* ConfiguredAgentOutcomesProvider;
     const settings = yield* SettingsReader;
     const location = yield* WorkspaceLocation;
     const records = yield* WorkspaceRecords;
     const graph = yield* (yield* DesiredStateReader).graph();
-    const agentIds = yield* settings.configuredAgents;
+    const agentIds = configuredAgents ?? (yield* settings.configuredAgents);
     const nodes = graph.nodes.filter(
       (node) =>
         node.enabled &&
@@ -66,22 +79,97 @@ const observeNativeOutputs = (subjects?: ReadonlyArray<ExtensionTarget>) =>
   });
 
 /** Capture required existing units before mutation; foreign optional entries are excluded. */
-export const captureRequiredNativeOutputs = (subjects: ReadonlyArray<ExtensionTarget>) =>
-  observeNativeOutputs(subjects).pipe(
-    Effect.map((units) =>
-      units.filter(
-        (unit) =>
-          unit.ownership === "owned" &&
-          (unit.configuredConsumers.length > 0 || unit.policyReasons.length > 0),
-      ),
+export const captureRequiredNativeOutputs = (
+  subjects: ReadonlyArray<Pick<ExtensionTarget, "type" | "name">>,
+  options?: {
+    readonly configuredAgents?: ReadonlyArray<string>;
+    readonly planned?: ReadonlyArray<NativeLocationOutcome>;
+  },
+) =>
+  Effect.gen(function* () {
+    const units = yield* observeNativeOutputs(subjects, options?.configuredAgents);
+    if (options?.configuredAgents !== undefined) {
+      const settings = yield* SettingsReader;
+      const location = yield* WorkspaceLocation;
+      const config = yield* settings.instructionsConfig;
+      if (Option.isSome(config) && config.value !== false) {
+        const instructions = yield* observeInstructionProjection({
+          workspaceRoot: location.baseDir,
+          scope: location.scope,
+          nativeDirectoryInputs: location.nativeDirectoryInputs,
+          configuredAgents: options.configuredAgents,
+          config: resolveInstructionsConfig(config.value),
+        });
+        units.push(...instructions.nativeLocations);
+      }
+    }
+    const mutations = (options?.planned ?? []).filter(
+      (unit) => unit.state === "created" || unit.state === "updated" || unit.state === "removed",
+    );
+    const changedKeys = new Set(mutations.map(nativeUnitKey));
+    // An intentional alias retirement changes a route to a retained region,
+    // not the region's bytes. Exclude only explicitly planned entry routes.
+    const changedRoutes = new Set(
+      mutations
+        .filter((unit) => unit.address.kind === "entry")
+        .flatMap((unit) => [unit.address.path, ...unit.aliases]),
+    );
+    return units.flatMap((unit): NativeLocationOutcome[] => {
+      const configuredConsumers =
+        options?.configuredAgents === undefined
+          ? unit.configuredConsumers
+          : unit.configuredConsumers.filter((agent) => options.configuredAgents?.includes(agent));
+      const requiredPolicy = unit.policyReasons.some(
+        (reason) => reason !== "instruction-propagation",
+      );
+      if (
+        unit.ownership !== "owned" ||
+        changedKeys.has(nativeUnitKey(unit)) ||
+        (configuredConsumers.length === 0 && !requiredPolicy)
+      )
+        return [];
+      return [
+        {
+          ...unit,
+          configuredConsumers,
+          aliases: unit.aliases.filter((alias) => !changedRoutes.has(alias)),
+        },
+      ];
+    });
+  });
+
+/** Run inside the transition before its first write, then carry this evidence to validation. */
+export const captureNativeOutputRetention = (expected: ReadonlyArray<NativeLocationOutcome>) =>
+  Effect.gen(function* () {
+    const location = yield* WorkspaceLocation;
+    return yield* captureNativeRetentionWitnesses(combineNativeLocationOutcomes(expected), {
+      workspaceRoot: location.baseDir,
+      nativeDirectoryInputs: location.nativeDirectoryInputs,
+    });
+  }).pipe(
+    Effect.mapError(
+      (cause) =>
+        new WorkspaceSyncFailed({
+          category: "conflict",
+          detail: "Cannot capture retained native content before reconciliation",
+          cause,
+        }),
     ),
   );
 
 export const validateNativeOutputPostconditions = (
   evidence: ReadonlyArray<NativeLocationOutcome>,
   expected: ReadonlyArray<NativeLocationOutcome> = [],
+  retained: ReadonlyArray<NativeRetentionWitness> = [],
 ) =>
   Effect.gen(function* () {
+    if (retained.length > 0) {
+      const location = yield* WorkspaceLocation;
+      yield* validateNativeRetentionWitnesses(retained, {
+        workspaceRoot: location.baseDir,
+        nativeDirectoryInputs: location.nativeDirectoryInputs,
+      });
+    }
     const retired = new Set(expected.filter((unit) => unit.state === "removed").map(nativeUnitKey));
     const required = [...expected, ...evidence].filter(
       (unit) =>

@@ -26,6 +26,7 @@ import type {
   InstallRootInventory,
   DesiredExtensionNode,
   DesiredStateGraph,
+  ConfiguredExtensionObservation,
   WorkspaceReadModel,
 } from "@agentxm/workspace-kernel/workspace-state";
 import type { AuthoredPackageObservation } from "./run/authored-packages.js";
@@ -62,6 +63,16 @@ export interface WorkspaceRuleContext {
   readonly ownership?: Effect.Effect<ReadonlyArray<WorkspaceOwnershipIssue>>;
   /** Owned and unowned agent-native outputs observed from resolved containers. */
   readonly agentOutputs?: Effect.Effect<AgentOutputInventory>;
+  /** Required Skill locations and ownership from the shared native observation owner. */
+  readonly nativeSkills?: Effect.Effect<
+    ReadonlyArray<{
+      readonly name: string;
+      readonly enabled: boolean;
+      readonly implicit: boolean;
+      readonly observation: ConfiguredExtensionObservation;
+    }>,
+    WorkspaceHealthFailure
+  >;
   /** The scope's install root: installed packages, leftovers, and unrecognized entries. */
   readonly installRoot?: Effect.Effect<InstallRootInventory>;
   /** Valid authored packages in each type's standard authoring folder (project scope). */

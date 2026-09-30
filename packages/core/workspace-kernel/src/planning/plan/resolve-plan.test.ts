@@ -29,6 +29,7 @@ import {
   OperationJournal,
   makeOperationJournal,
   type Plan,
+  type PlannedJobStep,
   type ConfiguredAgentOperation,
   type PlanExecution,
   StepFailure,
@@ -59,9 +60,11 @@ import {
   WorkspaceReadTest,
 } from "../../workspace-state/testing.js";
 import {
+  ConfiguredAgentOutcomesProvider,
   WorkspaceRecords,
   workspaceTransactionFailureToStepFailure,
 } from "../../workspace-state/index.js";
+import { nativeUnitKey, type NativeLocationOutcome } from "../../locations/index.js";
 import {
   type ExecutionCandidate,
   isExecutionCandidateFresh,
@@ -835,18 +838,31 @@ describe("previewOrApply", () => {
             inventoryReads += 1;
           }).pipe(Effect.andThen(records.getExtensionInventory(type, options))),
       } satisfies typeof records;
-      yield* previewOrApply(plan, {
+      const operations = [
+        { extensionType: "skill", name: "review", plannedState: "enabled" },
+        { extensionType: "skill", name: "triage", plannedState: "enabled" },
+      ] as const;
+      const preview = yield* previewOrApply(plan, {
+        execution: previewPlanExecution,
+        configuredAgentOperations: operations,
+      });
+      expect(preview.units.map((unit) => unit.agentOutcomes?.map(({ name }) => name))).toEqual([
+        ["review"],
+        ["triage"],
+      ]);
+      const result = yield* previewOrApply(plan, {
         execution: applyPlanExecution({ approval: "preapproved", recovery: testRecovery }),
-        configuredAgentOperations: [
-          { extensionType: "skill", name: "review", plannedState: "enabled" },
-          { extensionType: "skill", name: "triage", plannedState: "enabled" },
-        ],
+        configuredAgentOperations: operations,
       }).pipe(
         Effect.provideService(WorkspaceRecords, observed),
         Effect.provideService(OperationLifecycle, lifecycle),
       );
       yield* lifecycle.settle("applied");
       yield* lifecycle.drained.await;
+      expect(result.units.map((unit) => unit.agentOutcomes?.map(({ name }) => name))).toEqual([
+        ["review"],
+        ["triage"],
+      ]);
       expect(inventoryReads).toBe(1);
       expect(
         events.filter(
@@ -855,6 +871,189 @@ describe("previewOrApply", () => {
       ).toHaveLength(1);
     }).pipe(Effect.provide(context.layer));
   });
+
+  it.effect(
+    "keeps a foreign target's obstruction on its own step while an absent sibling remains projectable",
+    () => {
+      const context = makeTestContext();
+      const location = (
+        name: string,
+        ownership: NativeLocationOutcome["ownership"],
+      ): NativeLocationOutcome => ({
+        scope: "project",
+        address: { kind: "entry", path: `/tmp/axm-preview/.claude/skills/${name}` },
+        aliases: [`/tmp/axm-preview/.claude/skills/${name}`],
+        configuredConsumers: ["claude-code"],
+        potentialReaders: ["claude-code"],
+        policyReasons: [],
+        ownership,
+        state: ownership === "absent" ? "absent" : "blocked",
+        availability: [],
+      });
+      const plan: Plan = {
+        _tag: "Plan",
+        name: "Install skills",
+        description: Option.none(),
+        jobs: [
+          {
+            concurrency: 1,
+            executionPolicy: "best-effort",
+            steps: ["review", "triage"].map((name): PlannedJobStep => ({
+              readiness: "ready",
+              key: `skill:${name}`,
+              label: `Install ${name}`,
+              artifact: {
+                path: `skills/${name}`,
+                scope: "project",
+                change: "created",
+                nativeLocations: [{ ...location(name, "absent"), state: "created" }],
+              },
+              run: Effect.succeed({ result: "success", message: "installed" }),
+            })),
+          },
+        ],
+      };
+      return Effect.gen(function* () {
+        const candidate = yield* prepareExecutionCandidate(plan, {
+          configuredAgentOperations: [
+            { extensionType: "skill", name: "review", plannedState: "enabled" },
+            { extensionType: "skill", name: "triage", plannedState: "enabled" },
+          ],
+        }).pipe(
+          Effect.provideService(ConfiguredAgentOutcomesProvider, {
+            byExtensionType: {
+              skill: (request) =>
+                Effect.succeed(
+                  new Map(
+                    request.rows.map((row) => [
+                      row.name,
+                      {
+                        agentOutcomes: [
+                          {
+                            extensionType: "skill",
+                            name: row.name,
+                            agentId: "claude-code",
+                            outcome: row.name === "review" ? "blocked" : "failed",
+                            reasonCode:
+                              row.name === "review"
+                                ? "native-content-conflict"
+                                : "projection-missing",
+                            reason:
+                              row.name === "review"
+                                ? "Foreign primary entry"
+                                : "Required entry is absent",
+                          },
+                        ],
+                        nativeLocations: [
+                          location(row.name, row.name === "review" ? "unowned" : "absent"),
+                        ],
+                      },
+                    ]),
+                  ),
+                ),
+            },
+          }),
+        );
+        const steps = candidate.plan.jobs.flatMap((job) => job.steps);
+        expect(
+          steps.map((step) => ({ readiness: step.readiness, outcomes: step.agentOutcomes })),
+        ).toMatchObject([
+          { readiness: "error", outcomes: [{ name: "review", outcome: "blocked" }] },
+          { readiness: "ready", outcomes: [{ name: "triage", outcome: "projected" }] },
+        ]);
+        expect(steps.map((step) => step.agentOutcomes?.length)).toEqual([1, 1]);
+        expect(steps[1]?.agentOutcomes?.[0]?.nativeUnitKeys).toEqual([
+          nativeUnitKey(location("triage", "absent")),
+        ]);
+      }).pipe(Effect.provide(context.layer));
+    },
+  );
+
+  it.effect.each(["rules", "knowledge"] as const)(
+    "checks ownership of the planned region without blocking on foreign %s content beside it",
+    (foreignRegion) => {
+      const context = makeTestContext();
+      const plannedRegion = foreignRegion === "rules" ? "knowledge" : "rules";
+      const unit = (
+        region: string,
+        ownership: NativeLocationOutcome["ownership"],
+      ): NativeLocationOutcome => ({
+        scope: "project",
+        address: { kind: "region", path: "/tmp/axm-preview/CLAUDE.md", region },
+        aliases: ["/tmp/axm-preview/CLAUDE.md"],
+        configuredConsumers: ["claude-code"],
+        potentialReaders: ["claude-code"],
+        policyReasons: [],
+        ownership,
+        state: ownership === "owned" ? "unchanged" : "blocked",
+        availability: [],
+      });
+      const intended = unit(plannedRegion, "owned");
+      const plan: Plan = {
+        _tag: "Plan",
+        name: "Enable extension",
+        description: Option.none(),
+        jobs: [
+          {
+            concurrency: 1,
+            steps: [
+              {
+                readiness: "ready",
+                key: "rule:review",
+                label: "review",
+                artifact: {
+                  path: "CLAUDE.md",
+                  scope: "project",
+                  change: "updated",
+                  targets: [{ path: "CLAUDE.md", change: "updated" }],
+                  nativeLocations: [{ ...intended, state: "updated" }],
+                },
+                run: Effect.succeed({ result: "success", message: "enabled" }),
+              },
+            ],
+          },
+        ],
+      };
+      return Effect.gen(function* () {
+        const candidate = yield* prepareExecutionCandidate(plan, {
+          configuredAgentOperations: [
+            { extensionType: "rule", name: "review", plannedState: "enabled" },
+          ],
+        }).pipe(
+          Effect.provideService(ConfiguredAgentOutcomesProvider, {
+            byExtensionType: {
+              rule: () =>
+                Effect.succeed(
+                  new Map([
+                    [
+                      "review",
+                      {
+                        agentOutcomes: [
+                          {
+                            extensionType: "rule",
+                            name: "review",
+                            agentId: "claude-code",
+                            outcome: "blocked",
+                            reasonCode: "native-projection-not-current",
+                            reason: "Foreign sibling region",
+                          },
+                        ],
+                        nativeLocations: [intended, unit(foreignRegion, "unowned")],
+                      },
+                    ],
+                  ]),
+                ),
+            },
+          }),
+        );
+        const step = candidate.plan.jobs[0]?.steps[0];
+        expect(step?.readiness).toBe("ready");
+        expect(step?.agentOutcomes).toMatchObject([
+          { name: "review", outcome: "projected", nativeUnitKeys: [nativeUnitKey(intended)] },
+        ]);
+      }).pipe(Effect.provide(context.layer));
+    },
+  );
 
   it.effect(
     "C-16: displays confirmable risk before confirmation and cancels without execution",

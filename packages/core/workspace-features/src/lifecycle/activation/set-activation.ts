@@ -121,6 +121,7 @@ import {
 } from "@agentxm/workspace-kernel/settlement";
 
 import type { SetActivationExecutionFailure } from "./errors.js";
+import { combineNativeLocationOutcomes } from "@agentxm/workspace-kernel/locations";
 
 // -----------------------------------------------------------------------------
 // Request and settled candidate
@@ -350,7 +351,15 @@ const withObservedTargets = (
     ...(artifact.targets ?? []),
     ...observed.flatMap((entry) => entry.targets ?? []),
   ]);
-  return { ...artifact, fileCount: targets.length, targets };
+  return {
+    ...artifact,
+    fileCount: targets.length,
+    targets,
+    nativeLocations: combineNativeLocationOutcomes([
+      ...(artifact.nativeLocations ?? []),
+      ...observed.flatMap((entry) => entry.nativeLocations ?? []),
+    ]),
+  };
 };
 
 /** What the plan says the change touches: the preference, and every projection it moves. */
@@ -385,6 +394,17 @@ const activationArtifact = (
     change: "updated",
     fileCount: targets.length,
     targets,
+    nativeLocations: combineNativeLocationOutcomes([
+      ...Option.match(realization.materialization, {
+        onNone: () => [],
+        onSome: (collected) =>
+          collected.steps.flatMap((step) => step.artifact?.nativeLocations ?? []),
+      }),
+      ...Option.match(realization.retirement, {
+        onNone: () => [],
+        onSome: (step) => step.artifact?.nativeLocations ?? [],
+      }),
+    ]),
     references: [
       ...references,
       ...Option.match(realization.retirement, {
@@ -758,6 +778,7 @@ const activationStep = (
 ): PlannedJobStep<SetActivationRequirements> => {
   if (Option.isSome(candidate.blocked)) {
     return {
+      key: `${candidate.type}:${candidate.name}`,
       label: candidate.name,
       readiness: "error",
       errorMessage: candidate.blocked.value.detail ?? "Activation cannot proceed",
@@ -776,6 +797,7 @@ const activationStep = (
     ),
   );
   return {
+    key: `${candidate.type}:${candidate.name}`,
     label: candidate.name,
     readiness: "ready",
     artifact,

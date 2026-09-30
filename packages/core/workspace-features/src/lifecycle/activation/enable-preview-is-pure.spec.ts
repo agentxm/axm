@@ -9,6 +9,8 @@ import {
   ExtensionLifecycleFailed,
 } from "@agentxm/workspace-kernel/operations";
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
+import { captureCopiedDirectory } from "@agentxm/workspace-kernel/locations";
+import { observeConfiguredSkillLocations } from "@agentxm/workspace-kernel/projection";
 import { SetActivation } from "./set-activation.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
@@ -16,6 +18,7 @@ import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions
 import type { LifecycleFixture } from "../testing.js";
 import {
   previewActivation,
+  applyActivation,
   workspaceWithAuthoredExtension,
   workspaceWithoutExtensions,
 } from "./test-helpers.js";
@@ -118,6 +121,187 @@ describe("Enable preview purity", () => {
     return fixture;
   };
 
+  it.effect("projects absent Skill output, then verifies the same native units after apply", () => {
+    const fixture = disabledWorkspace("skill", "review");
+    return fixture
+      .provide(
+        Effect.gen(function* () {
+          const before = fixture.snapshot();
+          const previewed = yield* previewActivation({
+            type: "skill",
+            name: "review",
+            enabled: true,
+          });
+          expect(previewed._tag).toBe("Resolved");
+          if (previewed._tag !== "Resolved") return;
+          expect(previewed.outcome).toBe("previewed");
+          const planned = previewed.resolution.units.flatMap((unit) => unit.agentOutcomes ?? []);
+          expect(planned).toMatchObject([{ outcome: "projected", reasonCode: "supported" }]);
+          expect(planned[0]?.nativeUnitKeys?.length).toBeGreaterThan(0);
+          expect(fixture.snapshot()).toEqual(before);
+          const applied = yield* applyActivation({ type: "skill", name: "review", enabled: true });
+          expect(applied._tag).toBe("Resolved");
+          if (applied._tag !== "Resolved") return;
+          expect(applied.outcome).toBe("applied");
+          const observed = applied.resolution.units.flatMap((unit) => unit.agentOutcomes ?? []);
+          expect(observed).toMatchObject([
+            { outcome: "current", reasonCode: "verified-native-unit" },
+          ]);
+          expect(observed[0]?.nativeUnitKeys).toEqual(planned[0]?.nativeUnitKeys);
+          expect(previewed.resolution.units[0]?.artifact?.nativeLocations?.length).toBeGreaterThan(
+            0,
+          );
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
+  it.effect("blocks a Skill enable preview when a foreign native entry occupies its target", () => {
+    const fixture = disabledWorkspace("skill", "review");
+    fixture.writeFile(".claude/skills/review/SKILL.md", "Foreign Skill content\n");
+    const before = fixture.snapshot();
+    return fixture
+      .provide(
+        Effect.gen(function* () {
+          const previewed = yield* previewActivation({
+            type: "skill",
+            name: "review",
+            enabled: true,
+          });
+          expect(previewed._tag).toBe("Resolved");
+          if (previewed._tag !== "Resolved") return;
+          expect(previewed.outcome).toBe("blocked");
+          const outcomes = previewed.resolution.units.flatMap((unit) => unit.agentOutcomes ?? []);
+          expect(outcomes).toMatchObject([
+            { outcome: "blocked", reasonCode: "native-content-conflict" },
+          ]);
+          expect(outcomes[0]?.nativeUnitKeys?.length).toBeGreaterThan(0);
+          expect(fixture.snapshot()).toEqual(before);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
+  it.effect(
+    "retains unexplained additional Skill content while projecting and verifying required entries",
+    () => {
+      const fixture = disabledWorkspace("skill", "review");
+      fixture.writeFile(
+        "axm.json",
+        JSON.stringify({
+          owner: "@acme",
+          agents: ["cursor"],
+          skills: { review: { source: "workspace", enabled: false } },
+        }),
+      );
+      const foreign = "Foreign additional Skill content\n";
+      fixture.writeFile(".claude/skills/review/SKILL.md", foreign);
+      return fixture
+        .provide(
+          Effect.gen(function* () {
+            const before = fixture.snapshot();
+            const previewed = yield* previewActivation({
+              type: "skill",
+              name: "review",
+              enabled: true,
+            });
+            expect(previewed._tag).toBe("Resolved");
+            if (previewed._tag !== "Resolved") return;
+            expect(previewed.outcome).toBe("previewed");
+            const planned = previewed.resolution.units.flatMap((unit) => unit.agentOutcomes ?? []);
+            expect(planned).toMatchObject([{ agentId: "cursor", outcome: "projected" }]);
+            expect(planned[0]?.nativeUnitKeys?.length).toBeGreaterThan(0);
+            expect(fixture.snapshot()).toEqual(before);
+
+            const applied = yield* applyActivation({
+              type: "skill",
+              name: "review",
+              enabled: true,
+            });
+            expect(applied._tag).toBe("Resolved");
+            if (applied._tag !== "Resolved") return;
+            expect(applied.outcome).toBe("applied");
+            const observed = applied.resolution.units.flatMap((unit) => unit.agentOutcomes ?? []);
+            expect(observed).toMatchObject([{ agentId: "cursor", outcome: "current" }]);
+            expect(observed[0]?.nativeUnitKeys).toEqual(
+              expect.arrayContaining([...(planned[0]?.nativeUnitKeys ?? [])]),
+            );
+            expect(fixture.readFile(".claude/skills/review/SKILL.md")).toBe(foreign);
+            const facts = yield* observeConfiguredSkillLocations({
+              type: "skill",
+              scope: "project",
+              state: "current",
+              agentIds: ["cursor"],
+              rows: [{ name: "review", targetState: "enabled", installed: true }],
+            });
+            expect(facts.get("review")?.nativeLocations).toEqual(
+              expect.arrayContaining([
+                expect.objectContaining({
+                  address: expect.objectContaining({
+                    path: `${fixture.root}/.claude/skills/review`,
+                  }),
+                  ownership: "unowned",
+                  state: "blocked",
+                  configuredConsumers: ["cursor"],
+                }),
+              ]),
+            );
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
+
+  it.effect("does not call a Skill current when an owned additional copy is stale", () => {
+    const fixture = disabledWorkspace("skill", "review");
+    fixture.writeFile(
+      "axm.json",
+      JSON.stringify({
+        owner: "@acme",
+        agents: ["cursor"],
+        skills: { review: { source: "workspace", enabled: false } },
+      }),
+    );
+    return fixture
+      .provide(
+        Effect.gen(function* () {
+          const applied = yield* applyActivation({ type: "skill", name: "review", enabled: true });
+          expect(applied._tag === "Resolved" ? applied.outcome : applied._tag).toBe("applied");
+          fixture.writeFile(
+            ".claude/skills/review/SKILL.md",
+            fixture.readFile("skills/review/src/SKILL.md"),
+          );
+          const receipt = yield* captureCopiedDirectory(
+            `${fixture.root}/.claude/skills/review`,
+            `${fixture.root}/skills/review/src`,
+          );
+          expect(receipt._tag).toBe("Some");
+          fixture.writeFile(".claude/skills/review/SKILL.md", "Changed owned copy\n");
+          const facts = yield* observeConfiguredSkillLocations({
+            type: "skill",
+            scope: "project",
+            state: "current",
+            agentIds: ["cursor"],
+            rows: [{ name: "review", targetState: "enabled", installed: true }],
+          });
+          expect(facts.get("review")?.agentOutcomes).toMatchObject([
+            { agentId: "cursor", outcome: "blocked", reasonCode: "native-content-conflict" },
+          ]);
+          expect(facts.get("review")?.nativeLocations).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({
+                address: expect.objectContaining({ path: `${fixture.root}/.claude/skills/review` }),
+                ownership: "owned",
+                state: "blocked",
+                configuredConsumers: ["cursor"],
+              }),
+            ]),
+          );
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
   it.effect("rejects an activation candidate whose desired state changed after preview", () => {
     const fixture = disabledWorkspace("skill", "review");
     return fixture
@@ -158,6 +342,10 @@ describe("Enable preview purity", () => {
             if (settled._tag === "Resolved") {
               expect(settled.outcome).toBe("previewed");
               expect(settled.resolution.units).toMatchObject([{ label: name, state: "ready" }]);
+              const outcomes = settled.resolution.units.flatMap((unit) => unit.agentOutcomes ?? []);
+              expect(outcomes).toMatchObject([
+                { outcome: type === "pack" ? "not-applicable" : "projected" },
+              ]);
             }
             // Nothing under the project root or the user home moved, and the
             // preview never asked anyone to approve anything.

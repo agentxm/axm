@@ -7,7 +7,11 @@ import {
   type DocumentRoundTripBatch,
 } from "../workspace-state/index.js";
 import { combineNativeLocationOutcomes, type NativeLocationOutcome } from "../locations/index.js";
-import { refreshNativeRegionReaders, type NativeRegionReaderContext } from "../projection/index.js";
+import {
+  refreshNativeRegionReaders,
+  type NativeRegionReaderContext,
+  type NativeRetentionWitness,
+} from "../projection/index.js";
 import {
   runWorkspaceTransaction,
   type WorkspaceTransactionFailure,
@@ -105,12 +109,17 @@ export interface ReconciliationClosureArgs<E, R> {
   readonly nativeReaderContext?: NativeRegionReaderContext;
   /** A stale-candidate check that runs under the transition, before any write. */
   readonly preTransition?: Effect.Effect<void, E, R>;
+  /** Capture no-write retention evidence inside the transition, before child mutations. */
+  readonly captureNativeRetention?: (
+    expected: ReadonlyArray<NativeLocationOutcome>,
+  ) => Effect.Effect<ReadonlyArray<NativeRetentionWitness>, E, R>;
   /** The desired-graph predicate the committed transition must satisfy. */
   readonly validate: Effect.Effect<void, E, R>;
   /** Owner readback against planned obligations and actual evidence, before settlement. */
   readonly validateNativeOutputs?: (
     locations: ReadonlyArray<NativeLocationOutcome>,
     expected: ReadonlyArray<NativeLocationOutcome>,
+    retained: ReadonlyArray<NativeRetentionWitness>,
   ) => Effect.Effect<void, E, R>;
 }
 
@@ -168,6 +177,12 @@ export const buildReconciliationClosure = <E, R>(
           if (args.preTransition !== undefined) {
             yield* args.preTransition.pipe(Effect.mapError(args.toStepFailure));
           }
+          const retained =
+            args.captureNativeRetention === undefined
+              ? []
+              : yield* args
+                  .captureNativeRetention(plannedNativeLocations)
+                  .pipe(Effect.mapError(args.toStepFailure));
           const results = yield* Effect.forEach(
             runnableChildren,
             ({ step, coverage }) =>
@@ -198,7 +213,7 @@ export const buildReconciliationClosure = <E, R>(
                       }),
                   ),
                 );
-          return { results, coverage, nativeLocations };
+          return { results, coverage, nativeLocations, retained };
         }),
         args.documentRoundTrip,
       ),
@@ -206,7 +221,11 @@ export const buildReconciliationClosure = <E, R>(
         Effect.gen(function* () {
           yield* args.validate;
           if (args.validateNativeOutputs !== undefined)
-            yield* args.validateNativeOutputs(result.nativeLocations, plannedNativeLocations);
+            yield* args.validateNativeOutputs(
+              result.nativeLocations,
+              plannedNativeLocations,
+              result.retained,
+            );
         }).pipe(Effect.mapError(args.toStepFailure)),
     }).pipe(
       Effect.mapError(args.toStepFailure),

@@ -1,13 +1,15 @@
 import * as fs from "node:fs";
 import * as nodePath from "node:path";
 import * as Effect from "effect/Effect";
+import * as ConfigProvider from "effect/ConfigProvider";
+import * as Ref from "effect/Ref";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import { writeLocalSubagentPackage } from "../testing/local-packages.js";
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
-import { SyncWorkspace } from "./sync-workspace.js";
+import { SyncWorkspace } from "./index.js";
 import { syncRequest } from "./testing.js";
 import {
   countUnitStates,
@@ -32,7 +34,7 @@ export const specification = defineSpecification({
   requirement: "cli/sync/preview-is-pure",
   title: "Sync preview describes required changes without applying them",
   statement:
-    "When sync runs in preview mode against a workspace whose managed state has drifted from desired state, it shall report the reconciliation it would apply with a previewed outcome, including the physical native ownership units, their configured consumers, aliases and proposed changes before first acquisition when source content is known, and shall not change settings, the lockfile, canonical content, or agent projections. Combining dependent work into one closure shall preserve those native unit details without multiplying shared physical units.",
+    "When sync runs in preview mode against a workspace whose managed state has drifted from desired state, it shall report the reconciliation it would apply with a previewed outcome, including the physical native ownership units, their configured consumers, aliases and proposed changes before first acquisition when source content is known, and shall not change settings, the lockfile, canonical content, or agent projections. Combining dependent work into one closure shall preserve those native unit details without multiplying shared physical units. Applying a prepared reconciliation under changed captured native routing inputs shall refuse the stale candidate without writes and require a fresh proposal for the new locations.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
@@ -163,7 +165,8 @@ describe("Sync preview purity", () => {
     return workspace
       .provide(
         Effect.gen(function* () {
-          yield* applySync();
+          const initial = expectResolved(yield* applySync());
+          expect(deriveOperationOutcome(initial), JSON.stringify(initial)).toBe("applied");
           writeAuthoredKnowledge(workspace.root, "alpha", "Changed description.");
           const before = workspace.snapshot();
           const resolution = expectResolved(yield* previewSync());
@@ -259,7 +262,12 @@ describe("Sync preview purity", () => {
             expect(new Set(regions.map((unit) => unit.address.path)).size).toBe(1);
             expect(regions.every((unit) => unit.configuredConsumers.includes("codex"))).toBe(true);
             expect(workspace.snapshot()).toEqual(before);
-            const applied = operationNativeLocations(expectResolved(yield* applySync()));
+            const appliedResolution = expectResolved(yield* applySync());
+            expect(
+              deriveOperationOutcome(appliedResolution),
+              JSON.stringify(appliedResolution),
+            ).toBe("applied");
+            const applied = operationNativeLocations(appliedResolution);
             expect(applied.map((unit) => unit.address)).toEqual(
               expect.arrayContaining(regions.map((unit) => unit.address)),
             );
@@ -306,6 +314,79 @@ describe("Sync preview purity", () => {
       )
       .pipe(Effect.provide(NodeServices.layer));
   });
+
+  it.effect.each([
+    { agent: "claude-code", key: "AXM_CLAUDE_SKILLS_DIR" },
+    { agent: "gemini-cli", key: "AXM_GEMINI_CLI_SKILLS_DIR" },
+  ])(
+    "refuses a stale proposal after $key changes and replans its native location",
+    ({ agent, key }) =>
+      Effect.gen(function* () {
+        const directory = yield* Ref.make("native/first");
+        const workspace = makeSyncFixture({
+          settings: {
+            owner: "@acme",
+            agents: [agent],
+            skills: { [SKILL]: `./vendor/${SKILL}` },
+          },
+          configureConfigProvider: (original) =>
+            ConfigProvider.make((path) =>
+              path[0] === key
+                ? Ref.get(directory).pipe(Effect.map(ConfigProvider.makeValue))
+                : original.load(path),
+            ),
+        });
+        cleanups.push(workspace.cleanup);
+        writeLocalSkillPackage(workspace.root, { name: SKILL });
+        yield* workspace.provide(applySync());
+        const originalPath = `native/first/${SKILL}`;
+        const replacementPath = `native/second/${SKILL}`;
+        expect(workspace.exists(originalPath)).toBe(true);
+        workspace.remove(originalPath);
+
+        const candidate = yield* workspace.provide(SyncWorkspace.prepare(syncRequest()));
+        if (candidate._tag === "AlreadyReconciled") throw new Error("Expected missing Skill work");
+        const preview = yield* workspace.provide(
+          SyncWorkspace.previewOrApply(candidate, previewPlanExecution),
+        );
+        expect(operationNativeLocations(preview).map((unit) => unit.address.path)).toContain(
+          nodePath.join(workspace.root, originalPath),
+        );
+        const before = workspace.snapshot();
+        const homeBefore = workspace.homeSnapshot();
+
+        // A second invocation captures the changed environment through the same
+        // provider port; services are rebuilt before observing or applying it.
+        yield* Ref.set(directory, "native/second");
+        const stale = yield* workspace.provide(
+          SyncWorkspace.previewOrApply(candidate, preapprovedPlanExecution),
+        );
+        expect(deriveOperationOutcome(stale)).toBe("blocked");
+        expect(workspace.snapshot()).toEqual(before);
+        expect(workspace.homeSnapshot()).toEqual(homeBefore);
+
+        const fresh = yield* workspace.provide(SyncWorkspace.prepare(syncRequest()));
+        if (fresh._tag === "AlreadyReconciled") throw new Error("Expected the new Skill location");
+        const replanned = yield* workspace.provide(
+          SyncWorkspace.previewOrApply(fresh, previewPlanExecution),
+        );
+        expect(operationNativeLocations(replanned).map((unit) => unit.address.path)).toContain(
+          nodePath.join(workspace.root, replacementPath),
+        );
+        expect(fresh.execution.id).not.toBe(candidate.execution.id);
+        expect(workspace.snapshot()).toEqual(before);
+        const applied = yield* workspace.provide(
+          SyncWorkspace.previewOrApply(fresh, preapprovedPlanExecution),
+        );
+        expect(deriveOperationOutcome(applied)).toBe("applied");
+        expect(workspace.exists(replacementPath)).toBe(true);
+        expect(workspace.exists(originalPath)).toBe(false);
+        expect(workspace.readFile(`${replacementPath}/SKILL.md`)).toBe(
+          workspace.readFile(`vendor/${SKILL}/src/SKILL.md`),
+        );
+        expect(workspace.homeSnapshot()).toEqual(homeBefore);
+      }).pipe(Effect.provide(NodeServices.layer)),
+  );
 
   it.effect("rejects changed local source bytes before first accepted acquisition", () => {
     const workspace = fixture({ skills: { [SKILL]: `./vendor/${SKILL}` } });

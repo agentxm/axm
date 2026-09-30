@@ -21,10 +21,11 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import {
   resolveNativeReadLocation,
-  resolveNativeReferent,
+  captureNativeLocationSet,
   type NativeDirectoryInputs,
 } from "../../locations/index.js";
 import { resolveAgentMcpConfigTargetPath } from "./native-config.js";
+import { McpConfigInvalid } from "../errors.js";
 
 export { isConfigurableAgentId };
 
@@ -148,7 +149,35 @@ export const resolveConfiguredMcpTargets = (args: {
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const members: Array<SharedMcpTargetMember> = [];
-    const physicalPaths = new Map<string, string>();
+    const declaredReaders = AGENTS.flatMap((agent) => {
+      const native = agent.capabilities["mcp-server"].native;
+      if (!("locations" in native)) return [];
+      return native.locations.flatMap((location) => {
+        const resolved = resolveNativeReadLocation(
+          path,
+          agent.id,
+          location,
+          args,
+          args.nativeDirectoryInputs,
+        );
+        return resolved === undefined ? [] : [{ agentId: agent.id, path: resolved.path }];
+      });
+    });
+    const observations = yield* captureNativeLocationSet({
+      referents: declaredReaders.map((reader) => reader.path),
+    });
+    for (const reader of declaredReaders) {
+      if (!args.agentIds.includes(reader.agentId)) continue;
+      yield* observations.referent(reader.path).pipe(
+        Effect.mapError(
+          (cause) =>
+            new McpConfigInvalid({
+              detail: `Cannot verify configured ${reader.agentId} MCP reader at ${reader.path}`,
+              cause,
+            }),
+        ),
+      );
+    }
     for (const agentId of args.agentIds) {
       const capability = configuredMcpCapability(agentId);
       if (capability === undefined) continue;
@@ -162,10 +191,24 @@ export const resolveConfiguredMcpTargets = (args: {
         );
         if (resolved === undefined) continue;
         const declaredTarget = { ...target, nativeRoot: resolved.nativeRoot, path: resolved.path };
-        const physicalPath =
-          physicalPaths.get(resolved.path) ??
-          (yield* resolveAgentMcpConfigTargetPath(args.workspaceRoot, declaredTarget));
-        physicalPaths.set(resolved.path, physicalPath);
+        // The captured read view never substitutes for live containment checks.
+        const physicalPath = yield* resolveAgentMcpConfigTargetPath(
+          args.workspaceRoot,
+          declaredTarget,
+        );
+        const captured = yield* observations.referent(resolved.path).pipe(
+          Effect.mapError(
+            (cause) =>
+              new McpConfigInvalid({
+                detail: `Cannot observe MCP location ${resolved.path}`,
+                cause,
+              }),
+          ),
+        );
+        if (captured !== physicalPath)
+          return yield* new McpConfigInvalid({
+            detail: `MCP location changed during observation: ${resolved.path}`,
+          });
         members.push({
           agentId,
           locationId: location.id,
@@ -207,14 +250,9 @@ export const resolveConfiguredMcpTargets = (args: {
             format: location.format,
             attribution: location.attribution ?? "agent",
           };
-          const cached = physicalPaths.get(resolved.path);
-          const observed =
-            cached === undefined
-              ? yield* resolveNativeReferent(resolved.path).pipe(Effect.option)
-              : Option.some(cached);
+          const observed = yield* observations.referent(resolved.path).pipe(Effect.option);
           if (Option.isNone(observed)) continue;
           const physicalPath = observed.value;
-          physicalPaths.set(resolved.path, physicalPath);
           if (physicalPath !== group.path) continue;
           const serversPath = location.keyPath;
           if (native.entryDialect === null || serversPath === undefined) {

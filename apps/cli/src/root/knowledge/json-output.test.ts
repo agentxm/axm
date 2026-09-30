@@ -3,21 +3,15 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
-import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
-import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 
-import {
-  managerLifecycleStubs,
-  NO_MATERIALIZATION_FACTS,
-  writeKnowledgeExtension,
-  writeWorkspaceFiles,
-} from "../../test-support/test-stubs.js";
+import { writeKnowledgeExtension, writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
   expectAppliedPlanResult,
   makeWorkspaceHandlerTestContext,
+  makeWorkspaceLifecycleTestContext,
 } from "../../test-support/test-helpers.js";
 import { handleActivation } from "../activation-handler.js";
 import { handleKnowledgeLint } from "./lint.js";
@@ -29,47 +23,6 @@ import { handleKnowledgeConceptRelated } from "./concepts/related.js";
 import { handleKnowledgeConceptQuery } from "./concepts/query.js";
 import { handleList as handleKnowledgeList } from "./list.js";
 import { paintText } from "../../screen/index.js";
-import { KnowledgeManager } from "@agentxm/workspace-kernel/materialization";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace-kernel/projection/live";
-import { SourceHostProvidersLive } from "@agentxm/workspace-kernel/sources/live";
-import {
-  HookManagerLive,
-  McpServerManagerLive,
-  PackManagerLive,
-  RuleManagerLive,
-  SkillManagerLive,
-  SubagentManagerLive,
-} from "@agentxm/extension-kinds/live";
-const stubKnowledgeManager = {
-  ...managerLifecycleStubs,
-  prepareProjection: () => Effect.succeed([]),
-  refreshCatalog: () => Effect.void,
-  sync: () => Effect.succeed({ changed: false, warnings: [], artifacts: [] }),
-  projectionPlans: () => Effect.succeed([]),
-  isInstalled: () => Effect.succeed(true),
-  materializeInstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
-  listMaterializable: () => Effect.succeed([]),
-  materializeUninstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
-} satisfies ServiceMap.Service.Shape<typeof KnowledgeManager>;
-
-const knowledgeManagerLayer = Layer.succeed(KnowledgeManager, stubKnowledgeManager);
-
-/**
- * Substitute Knowledge behavior in the ordinary per-kind service composition.
- */
-const knowledgeActivationLayer = Layer.provideMerge(
-  Layer.mergeAll(
-    knowledgeManagerLayer,
-    SkillManagerLive,
-    SubagentManagerLive,
-    RuleManagerLive,
-    HookManagerLive,
-    McpServerManagerLive,
-    PackManagerLive,
-  ),
-  Layer.mergeAll(CodingAgentRepositoryLive, SourceHostProvidersLive),
-);
-
 /**
  * Author a Knowledge package that `axm knowledge lint --path` can inspect.
  * A scalar `tags` value produces an `invalid-tags` diagnostic at error severity.
@@ -411,7 +364,8 @@ describe("knowledge JSON output", () => {
   });
 
   it.effect("disable emits exactly one JSON document", () => {
-    const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
+    const { provide, rendererState } = makeWorkspaceLifecycleTestContext({ machine: true });
+    writeKnowledgeExtension(path.join(tempDir, ".axm"), "platform");
     writeWorkspaceFiles(path.join(tempDir, ".axm"), {
       knowledge: { platform: "workspace" },
     });
@@ -422,7 +376,7 @@ describe("knowledge JSON output", () => {
           name: "platform",
           enabled: false,
           preview: false,
-        }).pipe(Effect.provide(knowledgeActivationLayer));
+        });
 
         expect(rendererState.results).toHaveLength(1);
         expectAppliedPlanResult(rendererState.results[0]?.data, {
@@ -433,7 +387,7 @@ describe("knowledge JSON output", () => {
   });
 
   it.effect("enable keeps the human success line in text mode", () => {
-    const { provide, logs } = makeWorkspaceHandlerTestContext();
+    const { provide, logs } = makeWorkspaceLifecycleTestContext();
     const axmDir = path.join(tempDir, ".axm");
     writeKnowledgeExtension(axmDir, "platform");
     writeWorkspaceFiles(axmDir, {
@@ -448,7 +402,7 @@ describe("knowledge JSON output", () => {
           name: "platform",
           enabled: true,
           preview: false,
-        }).pipe(Effect.provide(knowledgeActivationLayer));
+        });
 
         expect(logs.success).toEqual(["Enabled 1 knowledge bundle"]);
       }),

@@ -221,6 +221,51 @@ describe("Uninstall a directly desired extension", () => {
     },
   );
 
+  it.effect.each(["pack", "subagent"] as const)(
+    "preserves a preexisting opaque body rewrite when withdrawing its %s route",
+    (type) => {
+      const { workspace, registry } = world();
+      registry.writeSubagent("planner", [{ version: "1.0.0", body: "Plan carefully." }]);
+      registry.writePack("planning", [
+        { version: "1.0.0", dependencies: { "@acme/subagents/planner": "^1.0.0" } },
+      ]);
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            for (const [kind, source] of [
+              ["subagent", "@acme/subagents/planner"],
+              ["pack", "@acme/packs/planning"],
+            ] as const) {
+              const installed = yield* applyInstall(
+                installRequest({ type: kind, subject: { kind: "source", source } }),
+              );
+              expect(deriveOperationOutcome(installed), JSON.stringify(installed)).toBe("applied");
+            }
+            const nativePath = ".claude/agents/planner.md";
+            const generated = workspace.readFile(nativePath);
+            const rewritten = generated.replace(
+              "Plan carefully.",
+              "Repository-formatted planning body.",
+            );
+            expect(rewritten).not.toBe(generated);
+            workspace.writeFile(nativePath, rewritten);
+            const removed = yield* applyUninstall(
+              uninstallRequest({ type, selector: type === "pack" ? "planning" : "planner" }),
+            );
+            expect(deriveOperationOutcome(removed), JSON.stringify(removed)).toBe("applied");
+            expect(workspace.readFile(nativePath)).toBe(rewritten);
+            const graph = yield* (yield* DesiredStateReader).graph();
+            expect(
+              graph.nodes.some(
+                (node) => node.type === "subagent" && node.name === "planner" && node.enabled,
+              ),
+            ).toBe(true);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
+
   it.effect.each(["body", "ownership marker"] as const)(
     "rolls back Pack withdrawal when a retained member's %s changes",
     (change) => {

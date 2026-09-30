@@ -32,7 +32,7 @@ export const specification = defineSpecification({
   requirement: "cli/mcps/projects-to-every-configured-agent",
   title: "MCP servers reach every configured agent that can represent them",
   statement:
-    "When an MCP server is desired and enabled, however it entered the workspace — added, authored inline, adopted from one agent's own native configuration, or supplied by an installed Pack — reconciliation shall write it to the native configuration of every configured agent that can represent it, shall account for every configured agent and report one that cannot represent it as unsupported rather than omitting it, shall judge whether each agent's entry is current from its decoded native value and report a hand-edited entry as stale under one reason code in every inspection surface, shall repair it without further change on the next run, shall write no server that is configured as disabled, and shall remove proven owned entries from every agent it reached when desired state disables it or a withdrawal captures ownership before removing the declaration. If an external edit removes the only ownership authority, reconciliation shall preserve the unproven native entry.",
+    "When an MCP server is desired and enabled, however it entered the workspace — added, authored inline, adopted from one agent's own native configuration, or supplied by an installed Pack — reconciliation shall write it to the native configuration of every configured agent that can represent it, shall account for every configured agent and distinguish unsupported native scope from known native support whose AXM writer or destination is unverified rather than omitting either, shall judge whether each agent's entry is current from its decoded native value and report a hand-edited entry as stale under one reason code in every inspection surface, shall repair it without further change on the next run, shall write no server that is configured as disabled, and shall remove proven owned entries from every agent it reached when desired state disables it or a withdrawal captures ownership before removing the declaration. If an external edit removes the only ownership authority, reconciliation shall preserve the unproven native entry.",
   class: "functional",
   role: "experience",
   goals: ["agent-interoperability", "workspace-intent-fidelity"],
@@ -47,7 +47,7 @@ export const specification = defineSpecification({
   assumptions: [
     "Claude Code and Cursor keep distinct project-scope MCP configuration files, so two native files observe two agents.",
     "An unmanaged server declared in one agent's own configuration file is the only shape adoption records, so one such declaration stands for every adopted entry.",
-    "Amp is catalogued without MCP configuration support, so it stands for any configured agent that cannot represent a server.",
+    "Amp has catalogued native MCP support without a verified AXM writer, while Hermes has no project-scope MCP support; these exercise different availability outcomes.",
     "A Pack that declares one MCP member is the only way a connection reaches desired state without its own settings entry, so one such Pack stands for every Pack-supplied connection.",
   ],
   openQuestions: [],
@@ -400,10 +400,10 @@ describe("MCP servers project to every configured agent", () => {
     30_000,
   );
 
-  const CONFIGURED_AGENTS = ["claude-code", "cursor", "amp"] as const;
+  const CONFIGURED_AGENTS = ["claude-code", "cursor", "amp", "hermes"] as const;
 
   it.effect(
-    "the workspace record names every configured agent, and the one that cannot represent the server as unsupported",
+    "the workspace record names every configured agent and distinguishes unsupported from unverified support",
     () => {
       const workspace = workspaceWithAgents(CONFIGURED_AGENTS, addedEntry);
       return workspace
@@ -421,9 +421,16 @@ describe("MCP servers project to every configured agent", () => {
             expect([...outcomes.map((outcome) => outcome.agentId)].sort()).toEqual(
               [...CONFIGURED_AGENTS].sort(),
             );
-            // The agent that cannot represent the server says so, and says why.
+            // A missing AXM writer does not mean the native tool cannot read MCP.
             expect(outcomes.find((outcome) => outcome.agentId === "amp")).toMatchObject({
+              outcome: "blocked",
+              reasonCode: "mcp-unverified",
+              reason: expect.stringContaining("no verified writer"),
+            });
+            // A genuinely unsupported native scope remains a separate result.
+            expect(outcomes.find((outcome) => outcome.agentId === "hermes")).toMatchObject({
               outcome: "unsupported",
+              reasonCode: "mcp-unsupported",
             });
             // Never the silent answer: "not applicable" would hide the agent.
             expect(outcomes.map((outcome) => outcome.outcome)).not.toContain("not-applicable");

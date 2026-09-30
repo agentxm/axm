@@ -14,6 +14,7 @@ import {
   decodeJsonMcpConfig,
   type AxmMcpMetadata,
   validateAgentMcpConfigWrite,
+  validateInlineMcpServerTargets,
   writeAgentMcpConfig,
 } from "../index.js";
 import { makeRecordingNativeWriteAuthority } from "../testing.js";
@@ -394,6 +395,51 @@ describe("authority at shared MCP files", () => {
       expect((yield* authority.observed).records).toHaveLength(1);
       expect(yield* fs.readLink(path.join(root, ".cursor/mcp.json"))).toBe("../.mcp.json");
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect.each([false, true])(
+    "refuses an uncertain additional MCP reader only when configured: %s",
+    (configured) =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* fs.makeTempDirectoryScoped();
+        const alias = path.join(root, "opencode.jsonc");
+        yield* fs.symlink(".mcp.json", alias);
+        const sentinel = path.join(root, "keep.txt");
+        yield* fs.writeFileString(sentinel, "Foreign bytes\n");
+        const agentIds = configured ? ["claude-code", "opencode"] : ["claude-code"];
+        const args = {
+          nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+          nativeInsertionEligible: false,
+          workspaceRoot: root,
+          serverName: "context",
+          entry: { kind: "inline" as const, command: "node", env: {}, enabled: true },
+        };
+        const authority = yield* makeRecordingNativeWriteAuthority;
+        const preview = yield* validateInlineMcpServerTargets(agentIds, args).pipe(Effect.result);
+        expect(preview._tag).toBe(configured ? "Failure" : "Success");
+        expect(yield* fs.exists(path.join(root, ".mcp.json"))).toBe(false);
+        expect(yield* fs.exists(path.join(root, "opencode.json"))).toBe(false);
+        const applied = yield* syncInlineMcpServerToAgents(agentIds, args).pipe(
+          Effect.provide(authority.layer),
+          Effect.result,
+        );
+        expect(applied._tag).toBe(configured ? "Failure" : "Success");
+        if (configured) {
+          expect(preview).toMatchObject({
+            failure: { _tag: "McpConfigInvalid", detail: expect.stringContaining("opencode") },
+          });
+          expect((yield* authority.observed).records).toHaveLength(0);
+          expect(yield* fs.exists(path.join(root, ".mcp.json"))).toBe(false);
+          expect(yield* fs.exists(path.join(root, "opencode.json"))).toBe(false);
+        } else {
+          expect((yield* authority.observed).records).toHaveLength(1);
+          expect(yield* fs.readFileString(path.join(root, ".mcp.json"))).toContain("context");
+        }
+        expect(yield* fs.readLink(alias)).toBe(".mcp.json");
+        expect(yield* fs.readFileString(sentinel)).toBe("Foreign bytes\n");
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
   it.effect.each([

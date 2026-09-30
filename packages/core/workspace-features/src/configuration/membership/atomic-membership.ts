@@ -35,7 +35,16 @@ import {
   runWorkspaceTransaction,
 } from "@agentxm/workspace-kernel/settlement";
 
-import { validateNativeOutputPostconditions } from "@agentxm/workspace-kernel/reconciliation";
+import {
+  captureRequiredNativeOutputs,
+  captureNativeOutputRetention,
+  validateNativeOutputPostconditions,
+} from "@agentxm/workspace-kernel/reconciliation";
+import {
+  refreshNativeRegionReaders,
+  type NativeRetentionWitness,
+} from "@agentxm/workspace-kernel/projection";
+import { nativeUnitKey, type NativeLocationOutcome } from "@agentxm/workspace-kernel/locations";
 
 import {
   WorkspaceConfigurationFailed,
@@ -169,12 +178,50 @@ export const makeAtomicMembershipSteps = <Requirements, Output>(
         step.readiness !== "error",
     );
     const attemptRef = yield* Ref.make<AtomicAttempt<Output>>({ results: [] });
+    const expected = executable.flatMap((step) => step.artifact?.nativeLocations ?? []);
     const transition = runWorkspaceTransaction<
-      ReadonlyArray<JobStepResult<Output>>,
+      {
+        readonly results: ReadonlyArray<JobStepResult<Output>>;
+        readonly retained: ReadonlyArray<NativeRetentionWitness>;
+        readonly required: ReadonlyArray<NativeLocationOutcome>;
+      },
       StepFailure,
       AtomicMembershipRequirements<Requirements>
     >({
       transition: Effect.gen(function* () {
+        const required = yield* Effect.gen(function* () {
+          const configured = yield* settings.configuredAgents;
+          const configuredAgents =
+            args.transition.kind === "remove"
+              ? configured.filter((agent) => !args.transition.agentIds.includes(agent))
+              : [...new Set([...configured, ...args.transition.agentIds])];
+          const graph = yield* (yield* DesiredStateReader).graph();
+          const existing = yield* captureRequiredNativeOutputs(
+            graph.nodes.filter((node) => node.enabled && node.type !== "pack"),
+            { configuredAgents, planned: expected },
+          );
+          const observedKeys = new Set(existing.map(nativeUnitKey));
+          // Current observations own retained routes; planned mutations keep
+          // their preflight states and are never fingerprinted as unchanged.
+          return [
+            ...existing,
+            ...expected.filter((unit) => !observedKeys.has(nativeUnitKey(unit))),
+          ];
+        }).pipe(
+          Effect.mapError(
+            (cause) =>
+              new StepFailure({
+                category: "conflict",
+                detail: "Cannot capture required native outputs before membership reconciliation",
+                cause,
+              }),
+          ),
+        );
+        const retained = yield* captureNativeOutputRetention(required).pipe(
+          Effect.mapError(
+            (cause) => new StepFailure({ category: cause.category, detail: cause.detail, cause }),
+          ),
+        );
         const results: Array<JobStepResult<Output>> = [];
         for (const [index, step] of executable.entries()) {
           const result = yield* step.run.pipe(
@@ -189,16 +236,67 @@ export const makeAtomicMembershipSteps = <Requirements, Output>(
             return yield* result.error;
           }
         }
-        return results;
+        // A later instruction step can retire aliases recorded by cleanup.
+        // Publish every shared region with readers from the settled closure.
+        const regions = results.flatMap((result) =>
+          result.result === "success"
+            ? (result.artifact?.nativeLocations ?? []).filter(
+                (unit) => unit.address.kind === "region",
+              )
+            : [],
+        );
+        if (regions.length === 0) return { results, retained, required };
+        const location = yield* WorkspaceLocation;
+        const refreshed = yield* refreshNativeRegionReaders(regions, {
+          workspaceRoot: location.baseDir,
+          nativeDirectoryInputs: location.nativeDirectoryInputs,
+          configuredAgentIds: yield* settings.configuredAgents.pipe(
+            Effect.mapError(workspaceChangeFailedToStepFailure),
+          ),
+        }).pipe(
+          Effect.mapError(
+            (cause) =>
+              new StepFailure({
+                category: "conflict",
+                detail: "Cannot verify final native readers after membership reconciliation",
+                cause,
+              }),
+          ),
+        );
+        const current = new Map(refreshed.map((unit) => [nativeUnitKey(unit), unit]));
+        const settledResults = results.map((result): JobStepResult<Output> => {
+          if (result.result !== "success" || result.artifact?.nativeLocations === undefined)
+            return result;
+          return {
+            ...result,
+            artifact: {
+              ...result.artifact,
+              nativeLocations: result.artifact.nativeLocations.map((unit) => {
+                const observed = current.get(nativeUnitKey(unit));
+                return observed === undefined
+                  ? unit
+                  : {
+                      ...unit,
+                      aliases: observed.aliases,
+                      configuredConsumers: observed.configuredConsumers,
+                      potentialReaders: observed.potentialReaders,
+                      availability: observed.availability,
+                    };
+              }),
+            },
+          };
+        });
+        return { results: settledResults, retained, required };
       }),
-      validate: (results) =>
+      validate: ({ results, retained, required }) =>
         verifyTransition(settings, args.transition).pipe(
           Effect.andThen(
             validateNativeOutputPostconditions(
               results.flatMap((result) =>
                 result.result === "success" ? (result.artifact?.nativeLocations ?? []) : [],
               ),
-              executable.flatMap((step) => step.artifact?.nativeLocations ?? []),
+              required,
+              retained,
             ).pipe(
               Effect.mapError(
                 (cause) =>
@@ -208,6 +306,7 @@ export const makeAtomicMembershipSteps = <Requirements, Output>(
           ),
         ),
     }).pipe(
+      Effect.map(({ results }) => results),
       Effect.catch((transactionError) =>
         Ref.get(attemptRef).pipe(
           Effect.map((attempt) =>

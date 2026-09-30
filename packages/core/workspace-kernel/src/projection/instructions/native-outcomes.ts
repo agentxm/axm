@@ -86,7 +86,7 @@ export const observeInstructionNativeLocations = (args: {
           ].sort();
           const ownership = Option.isNone(address)
             ? "unverified"
-            : item.ownership === "absent"
+            : address.value.kind === "absent" || item.ownership === "absent"
               ? "absent"
               : item.ownership === "unowned"
                 ? "unowned"

@@ -527,6 +527,8 @@ export const makeOfficialAxmSkillWorkspace = (
   for (const [linkPath, targetPath] of arrangement.realized) {
     fixture.link(linkPath, targetPath);
   }
+  const sharedSkillSource = arrangement.realized[0]?.[1];
+  if (sharedSkillSource !== undefined) fixture.link(".agents/skills/axm", sharedSkillSource);
   if (arrangement.acceptedVersion !== undefined) {
     const entry = makeRegistrySkillLockEntry({
       owner: decodeHandleSync("@agentxm"),

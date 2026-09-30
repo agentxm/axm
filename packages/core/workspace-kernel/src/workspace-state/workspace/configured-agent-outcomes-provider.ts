@@ -1,9 +1,9 @@
 /**
  * Configured-agent-outcomes provider port.
  *
- * One resolution rule overlays effective outcomes from a per-type manager on
- * the generic lifecycle derivation. An absent provider entry, an empty result
- * for a row, or a disabled/absent target retains the generic result.
+ * Current native observations refine the generic lifecycle derivation. Missing
+ * evidence for an enabled target fails closed; disabled/absent targets retain
+ * their generic lifecycle result. Proposed changes belong to the prepared plan.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -59,7 +59,7 @@ export class ConfiguredAgentOutcomesProvider extends ServiceMap.Service<
 
 export interface ConfiguredAgentOutcomesRequest {
   readonly type: ExtensionType;
-  readonly state: "projected" | "current";
+  readonly state: "current";
   readonly scope: WorkspaceScope;
   readonly agentIds: ReadonlyArray<string>;
   readonly rows: ReadonlyArray<{

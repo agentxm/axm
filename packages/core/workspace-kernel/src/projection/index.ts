@@ -313,3 +313,8 @@ export type {
 } from "./instructions/instruction-status.js";
 
 export { observeConfiguredSkillLocations } from "./skill-location-observation.js";
+export {
+  captureNativeRetentionWitnesses,
+  validateNativeRetentionWitnesses,
+  type NativeRetentionWitness,
+} from "./native-retention.js";

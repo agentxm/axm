@@ -3,6 +3,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import {
   collectCleanupStep,
+  collectInstructionStep,
   StepFailureConversion,
 } from "@agentxm/workspace-kernel/reconciliation";
 import { ConfigureAgents } from "@agentxm/workspace-features/configuration";
@@ -59,6 +60,13 @@ const handleAgentsRemoveBody = Effect.fn("Agents.remove")(function* (args: Agent
     adapter: yield* StepFailureConversion,
   }).pipe(Effect.mapError(toAppError));
 
+  const instructions = yield* collectInstructionStep({
+    configuredAgents: candidate.configuredAgents,
+    projectionFacts: [],
+    touchesRule: false,
+    adapter: yield* StepFailureConversion,
+  }).pipe(Effect.mapError(toAppError));
+
   const { execution, recovery } = yield* makePublicPositionalPlanInvocation(
     args,
     ["agents", "remove"],
@@ -66,7 +74,9 @@ const handleAgentsRemoveBody = Effect.fn("Agents.remove")(function* (args: Agent
     args.force ? ["accept-warnings"] : [],
   );
   const resolution = yield* ConfigureAgents.remove
-    .previewOrApply(candidate, execution, { steps: Option.toArray(cleanup) })
+    .previewOrApply(candidate, execution, {
+      steps: [...Option.toArray(cleanup), ...Option.toArray(instructions)],
+    })
     .pipe(Effect.mapError(failureToAppError));
 
   yield* emitOperationResolution(resolution, {

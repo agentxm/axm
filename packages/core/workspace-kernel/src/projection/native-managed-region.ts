@@ -7,7 +7,7 @@ import * as Schema from "effect/Schema";
 import { AGENTS } from "@agentxm/extension-model/unstable/agent-capabilities";
 import {
   resolveNativeReadLocation,
-  resolveNativeReferent,
+  captureNativeLocationSet,
   assertNoPhysicalOverlap,
   assertNativeMutationWithinRoots,
   nativeAuthorityRoots,
@@ -384,7 +384,39 @@ export const refreshNativeRegionReaders = (
 ) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const referents = new Map<string, string>();
+    const readers = [
+      ...new Set(
+        locations
+          .filter((location) => location.address.kind === "region")
+          .map((location) => location.scope),
+      ),
+    ].flatMap((scope) =>
+      AGENTS.flatMap((agent) => {
+        const native = agent.instructions.native;
+        if (!("locations" in native)) return [];
+        return native.locations.flatMap((declaration) => {
+          const resolved = resolveNativeReadLocation(
+            path,
+            agent.id,
+            declaration,
+            { workspaceRoot: context.workspaceRoot, scope },
+            context.nativeDirectoryInputs,
+            { includeConditional: true },
+          );
+          return resolved === undefined
+            ? []
+            : [{ agentId: agent.id, scope, declaration, path: resolved.path }];
+        });
+      }),
+    );
+    const observed = yield* captureNativeLocationSet({
+      referents: [
+        ...locations
+          .filter((location) => location.address.kind === "region")
+          .flatMap((location) => location.aliases),
+        ...readers.map((reader) => reader.path),
+      ],
+    });
     return yield* Effect.forEach(locations, (location) =>
       Effect.gen(function* () {
         if (location.address.kind !== "region") return location;
@@ -392,38 +424,23 @@ export const refreshNativeRegionReaders = (
         const potentialReaders = new Set<string>();
         const aliases = new Set([location.address.path]);
         for (const alias of location.aliases) {
-          const physical = referents.get(alias) ?? (yield* resolveNativeReferent(alias));
-          referents.set(alias, physical);
+          const physical = yield* observed.referent(alias);
           if (physical === location.address.path) aliases.add(alias);
         }
         const uncertainConditions = new Map<string, string>();
-        for (const agent of AGENTS) {
-          const native = agent.instructions.native;
-          if (!("locations" in native)) continue;
-          for (const declaration of native.locations) {
-            const resolved = resolveNativeReadLocation(
-              path,
-              agent.id,
-              declaration,
-              { workspaceRoot: context.workspaceRoot, scope: location.scope },
-              context.nativeDirectoryInputs,
-              { includeConditional: true },
-            );
-            if (resolved === undefined) continue;
-            const physical =
-              referents.get(resolved.path) ?? (yield* resolveNativeReferent(resolved.path));
-            referents.set(resolved.path, physical);
-            if (physical !== location.address.path) continue;
-            aliases.add(resolved.path);
-            if (declaration.applicability.kind === "conditional") {
-              potentialReaders.add(agent.id);
-              uncertainConditions.set(agent.id, declaration.applicability.condition);
-            } else {
-              (context.configuredAgentIds.includes(agent.id)
-                ? configuredConsumers
-                : potentialReaders
-              ).add(agent.id);
-            }
+        for (const reader of readers) {
+          if (reader.scope !== location.scope) continue;
+          const physical = yield* observed.referent(reader.path);
+          if (physical !== location.address.path) continue;
+          aliases.add(reader.path);
+          if (reader.declaration.applicability.kind === "conditional") {
+            potentialReaders.add(reader.agentId);
+            uncertainConditions.set(reader.agentId, reader.declaration.applicability.condition);
+          } else {
+            (context.configuredAgentIds.includes(reader.agentId)
+              ? configuredConsumers
+              : potentialReaders
+            ).add(reader.agentId);
           }
         }
         const consumers = [...configuredConsumers].sort();

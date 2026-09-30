@@ -1145,7 +1145,6 @@ export const SubagentManagerLive = Layer.effect(
                         return (
                           Option.isSome(content) &&
                           output !== undefined &&
-                          content.value === output.content &&
                           generatedFileCurrent({
                             content: content.value,
                             expected: output.content,

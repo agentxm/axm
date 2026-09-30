@@ -18,6 +18,27 @@ A local deviation is a gap with a retirement condition, not alternative policy.
 Resolved Nx configuration and executable checks own current behavior. Root
 instructions and contributor guides route here instead of copying this binding.
 
+## Workflow outcomes
+
+| Outcome                      | Evidence and boundary                                                                                 |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Accept an integrated change  | Required CI for the candidate revision, with affected source and applicable fresh CLI/platform checks |
+| Produce reusable outputs     | Deterministic artifacts and input-bound verdicts, complete inputs and exclusive output ownership      |
+| Publish a qualified release  | Exact-source CI artifact families, installation evidence and authorized publication                   |
+| Detect change outside source | Scheduled fresh assurance of dependencies and supported environments                                  |
+| Diagnose and recover         | Identified revision/artifact, selected scope, phase outcomes and retained failure evidence            |
+
+Nx owns project and task graphs. Root workflows compose ordered observations
+and host lifecycles. GitHub owns events, machines, credentials and required-check
+aggregation. Observe generated drift before a later task can rewrite its
+outputs. Whole-workspace checks stay global when project verification is
+selected by an affected range. A cache hit grants no publication authority.
+
+Measure time to an actionable failure, critical-path latency and total runner
+work per landed change, including retries and warmers. Reduce repeated
+graph/setup passes before adding machines or increasing concurrency; a shorter
+job or higher hit rate alone does not establish an improvement.
+
 ## Local binding
 
 | Portable role      | AXM binding                                                                                              |
@@ -126,8 +147,10 @@ and the capability roots in
 [the native boundary configuration](../../tools/architecture/config.mjs), with
 no prerequisite builds. Dependency-cruiser rejects file cycles, cycles between
 workspace slice folders, and unresolved imports, counting type-only edges. Both
-`verify:affected` and `verify:workspace` run this global check before their
-other checks. Slice isolation inside the workspace packages runs with ordinary
+`verify:affected` and `verify:workspace` submit this global check and
+`axm:unused-code` to one native Nx invocation before per-project verification.
+Knip stays fresh because configuration discovery can read ignored workspace
+files beyond the source hash; architecture keeps its declared cache contract. Slice isolation inside the workspace packages runs with ordinary
 `lint` through
 [the slice configuration](../../tools/architecture/slices.mjs).
 `architecture:test` uses Node's native test runner to exercise allowed and
@@ -348,33 +371,11 @@ track package `dist` outputs. A source receipt is therefore not invalidated by
 irrelevant build artifacts, while neither mode can satisfy evidence recorded
 for the other runtime boundary.
 
-For a single Nx invocation, append `--skip-nx-cache`. For a multi-stage root
-workflow, set `NX_SKIP_NX_CACHE=true`; pnpm would otherwise forward an appended
-flag only to the final stage.
-
-The stock Nx HTTP client uses `NX_SELF_HOSTED_REMOTE_CACHE_SERVER` and
-`NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN`. Local users supply an approved HTTPS
-origin and a **read-only** repository credential in their environment or ignored
-root `.env.local`. Keep tokens out of source, logs, and release assets. Set
-`NX_SKIP_REMOTE_CACHE=true` to bypass remote reuse while retaining local caching;
-set `NX_SKIP_NX_CACHE=true` as well for complete re-execution.
-
-GitHub's setup action accepts `NX_REMOTE_CACHE_URL` and the read-only
-`NX_REMOTE_CACHE_READ_TOKEN`. A repository variable `NX_SKIP_REMOTE_CACHE=true`
-disables remote consumers and warming, including during initial rollout before
-reader installation. Its value must be `true`, `false`, or absent. An invocation's
-native bypass also remains effective. Fully absent configuration disables remote access;
-partial or malformed configuration fails explicitly. Failed results are never
-cached. Fork and Dependabot runs bypass remote access;
-forks receive no cache credential. Only the separate successful-main warmer
-uses `NX_REMOTE_CACHE_WRITE_TOKEN` from the protected `nx-cache-writer`
-environment. Its live deployment branch policy must allow main only. Warming
-runs after CI completion and does not gate publication. The GitHub caller uses
-`cache:warm` to visit the complete eligible graph; native hits avoid recomputation
-while missing hashes are populated. This covers multi-commit merges, cancelled
-predecessors, and expired objects without separate warming state.
-`cache:warm:affected` remains available for an explicit bounded revision range.
-Scheduled source assurance bypasses both local and remote task caches.
+Consumers receive read-only credentials; only the protected successful-main
+producer can write remote results. Missing configuration and untrusted fork
+runs do not enable remote access. Scheduled source assurance bypasses both Nx
+caches. Cache service availability is not a correctness requirement: explicit
+bypass must preserve ordinary execution and all required gates.
 
 Toolchain inputs include patches, runtime versions, package-manager policy, and
 host platform. Nx hashes imported external packages and their transitive
@@ -388,23 +389,10 @@ A restored entry is trusted only as a deterministic result for its Nx hash.
 Package-store caches supply dependencies, not task verdicts. Exact-SHA verified
 CI artifacts remain the release authority; task-cache presence is insufficient.
 
-Verify remote adoption in a second disposable checkout with an empty local
-cache. Set `NX_CACHE_DIRECTORY` and `NX_WORKSPACE_DATA_DIRECTORY` to separate
-empty directories for each checkout; the default task cache and metadata
-database are shared across checkouts. Require `remote-cache-hit` in `run.json`
-inside the configured task-cache directory, matching task hashes,
-correct restored bytes/modes/reports, and no task-body execution. Relevant
-source, dependency/type, generator, toolchain, platform, and environment changes
-must miss; credentials and checkout locations must not change semantic task
-hashes. Measure archived binary sizes against the configured server limit and
-include all warmer jobs when comparing total runner work.
-
-When task-level timing is needed for a diagnosed question, set Nx's native
-`NX_PROFILE=<file>` trace for that invocation. Routine workflows do not collect
-or post-process a profile. Nx 23 does not expose cache lookup time through the
-trace, so do not infer it from task duration. A GitHub Actions cache archive hit
-remains a separate setup/transport signal and is never counted as a task-cache
-hit.
+[Nx in AXM](../../devops/tools/nx.md) owns client setup, bypass and native
+profiling. [Reproduce AXM Linux CI](../../devops/runbooks/reproduce-linux-ci.md)
+owns diagnosis and restoration proof. Workflow configuration owns producer
+selection and platform warming; it does not redefine cache eligibility.
 
 ## Entrypoints and host adapters
 

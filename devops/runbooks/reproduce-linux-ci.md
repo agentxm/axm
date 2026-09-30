@@ -35,6 +35,35 @@ For an on-demand full main verification, dispatch `ci.yml` on the intended
 trusted revision. The workflow runs the workspace and E2E partitions on hosted
 runners. This dispatch verifies code; it does not authorize publication.
 
+## Diagnose task reuse
+
+When the failure concerns cache restoration, use two disposable checkouts at
+the same source revision and toolchain. Keep the developer's checkout intact.
+An authorized trusted producer must have populated the selected task; the
+consumer receives only an approved read-only credential. Client configuration
+and bypass are documented in [Nx in AXM](../tools/nx.md).
+
+1. Give each checkout separate empty `NX_CACHE_DIRECTORY` and
+   `NX_WORKSPACE_DATA_DIRECTORY` directories. The defaults may share task-cache
+   and metadata state across checkouts, so another checkout alone is not a cold
+   consumer.
+2. Remove generated consumer outputs and invoke the existing target. Require
+   `remote-cache-hit` in its task-cache `run.json`, matching hashes, restored
+   bytes/modes/reports and no task-body execution. A local hit or HTTP roundtrip
+   alone does not qualify.
+3. Verify a relevant declared source/configuration change misses. For changes
+   to the cache contract, exercise affected dependency, generator, toolchain,
+   platform and environment inputs; unrelated inputs should preserve intended
+   reuse. Credentials and checkout paths must not become semantic task inputs.
+4. Compare with explicit bypass using the same task and identified revision.
+   Preserve failures and stop on unexpected reuse; do not weaken inputs to
+   improve the hit rate. Measure archive size against the configured service
+   limit before extending reuse to new binary outputs.
+
+This diagnoses task reuse; it does not establish native-platform behavior on an
+unexecuted host or authorize release publication. Include producer work,
+transfers and retries when evaluating the total cost of cache reuse.
+
 ## Completion and recovery
 
 Record the revision, platform, command, exit status and report artifacts. A

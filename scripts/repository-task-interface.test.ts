@@ -125,15 +125,16 @@ describe("repository task interface", () => {
       const script = scripts[name];
       if (typeof script !== "string") throw new Error(`Missing ${name} script.`);
       const phases = script.split("&&");
-      expect(phases[0]?.trim(), name).toBe("pnpm exec nx run architecture:check");
-      expect(phases[1]?.trim(), name).toBe("pnpm exec nx run axm:unused-code");
-      expect(phases[2], name).toContain("-t lint typecheck build test");
-      expect(phases[2], name).toContain("pnpm exec nx");
-      expect(phases[2], name).not.toContain("scripts/profile-nx.ts");
+      expect(phases[0]?.trim(), name).toBe(
+        "pnpm exec nx run-many -t check unused-code --projects=architecture,axm --nxBail",
+      );
+      expect(phases[1], name).toContain("-t lint typecheck build test");
+      expect(phases[1], name).toContain("pnpm exec nx");
+      expect(phases[1], name).not.toContain("scripts/profile-nx.ts");
       expect(script, name).not.toContain("--skip-nx-cache");
       expect(script, name).not.toContain("--excludeTaskDependencies");
       expect(script, name).not.toContain("--batch");
-      expect(phases).toHaveLength(3);
+      expect(phases).toHaveLength(2);
     }
 
     const verifyPr = scripts["verify:pr"];

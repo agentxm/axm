@@ -23,14 +23,17 @@ verification remain separate evidence.
 The PR lane restores dependency caches into job-local directories and uses Nx's
 native HTTP client with read-only credentials for deterministic task outputs.
 The [task-interface binding](../../docs/guides/repository-task-interface.md) owns
-client configuration, trusted-main production, hash inputs, and bypass. Missing
+input and evidence semantics; [Nx in AXM](../tools/nx.md) owns client setup and
+bypass. Missing
 configuration and fork runs disable remote access. Scheduled source assurance
 re-executes with both Nx caches bypassed. Dependency caches are not test evidence;
 E2E leaves remain fresh even when their build prerequisites are cached.
 The shared mise action also restores the main toolchain cache in proposed-change
 jobs; only runs on `main` save a new copy.
 
-Main workspace verification runs alongside the existing E2E partitions.
+Release-candidate, scheduled and manual full verification runs workspace and
+E2E partitions alongside one another. Ordinary main pushes do not repeat the
+complete accepted source gate.
 Parallelism inside each machine remains bounded by its resources; more jobs
 must not weaken required checks or share mutable test state. Actions job timing
 and runner minutes establish observed performance, not configured concurrency.
@@ -42,6 +45,6 @@ provisioning; account limits and billing belong to the provider record.
 ## Maintenance and verification
 
 Review this record when setup, runner selection, caches, or verification changes.
-The source describes the intended migration; live hosted execution and retirement
-of the previous self-hosted registration require separate delivery evidence.
+Workflow runs own revision-specific hosted evidence; this record does not
+claim live cache adoption or measured efficiency gains.
 Documentation maintenance follows the [adoption declaration](../README.md).

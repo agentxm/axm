@@ -16,6 +16,7 @@ import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
+import { createVitest } from "vitest/node";
 import YAML from "yaml";
 import { withoutLocalGitEnvironment } from "@agentxm/client-e2e-utils";
 
@@ -426,8 +427,60 @@ describe("aggregate required verification", () => {
     expect(jobs).not.toHaveProperty("verify-main-hosted");
   });
 
+  it("reports native fixture setup and strict cleanup failures together", async () => {
+    const directory = fs.mkdtempSync(path.join(repoRoot, "node_modules", ".native-cleanup-"));
+    const setupFile = path.join(directory, "setup.ts");
+    fs.writeFileSync(
+      setupFile,
+      `import { vi } from "vitest";
+      vi.mock("node:fs", async (importOriginal) => {
+        const fs = await importOriginal();
+        return {
+          ...fs,
+          mkdirSync() { throw new Error("native fixture setup failed"); },
+          rmSync() { throw new Error("native fixture removal failed"); },
+        };
+      });`,
+    );
+    const vitest = await createVitest("test", {
+      root: repoRoot,
+      config: false,
+      watch: false,
+      reporters: [],
+      include: ["apps/cli-e2e/src/binary-smoke.e2e.test.ts"],
+      testNamePattern: "preserves native case aliases and remaining Skill consumers",
+      setupFiles: [setupFile],
+      env: { AXM_NATIVE_FIXTURE_PARENT: directory, AXM_BINARY_SOURCE: "compiled" },
+      maxWorkers: 1,
+    });
+    try {
+      const result = await vitest.start();
+      expect(result.unhandledErrors).toEqual([]);
+      const failures = result.testModules.flatMap((module) =>
+        [...module.children.allTests("failed")].map((test) => test.result()),
+      );
+      expect(failures).toHaveLength(1);
+      expect(failures.flatMap((result) => result.errors?.map((error) => error.message))).toEqual([
+        "native fixture setup failed",
+        "native fixture removal failed",
+      ]);
+    } finally {
+      await vitest.close();
+      fs.rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
   it.each([
     { name: "normal detach", testStatus: 0, detachStatus: 0, forceStatus: 0, expected: 0 },
+    {
+      name: "diagnostic failure does not prevent detach",
+      testStatus: 0,
+      detachStatus: 0,
+      forceStatus: 0,
+      deviceStatus: 9,
+      lsofStatus: 2,
+      expected: 0,
+    },
     {
       name: "partial unmount then force success",
       testStatus: 0,
@@ -497,6 +550,7 @@ describe("aggregate required verification", () => {
               fi
               ;;
             detach)
+              [[ -f "$RUNNER_TEMP/diagnostics-complete" ]] || return 28
               printf '%s\\n' "$*" >> "$RUNNER_TEMP/detach-calls"
               if [[ "$2" == "-force" ]]; then
                 [[ "$3" == "/dev/disk42" ]] || return 21
@@ -514,7 +568,21 @@ describe("aggregate required verification", () => {
           [[ "$(cat "$4")" == "$ATTACH_PLIST" ]] || return 24
           printf '/dev/disk42\\n'
         }
-        pnpm() { return "$TEST_STATUS"; }
+        diskutil() {
+          [[ "$*" == "info /dev/disk42" ]] || return 27
+          printf '%s\\n' "$*" >> "$RUNNER_TEMP/device-diagnostics"
+          return "$DEVICE_STATUS"
+        }
+        lsof() {
+          [[ "$*" == "-nP +f -- $RUNNER_TEMP/axm-case-sensitive" ]] || return 29
+          touch "$RUNNER_TEMP/diagnostics-complete"
+          return "$LSOF_STATUS"
+        }
+        pnpm() {
+          [[ "$TMPDIR" == "$RUNNER_TEMP/runtime-temp" ]] || return 25
+          [[ "$AXM_NATIVE_FIXTURE_PARENT" == "$RUNNER_TEMP/axm-case-sensitive" ]] || return 26
+          return "$TEST_STATUS"
+        }
         ${step.run}
       `,
         ],
@@ -524,14 +592,27 @@ describe("aggregate required verification", () => {
           env: {
             ...process.env,
             RUNNER_TEMP: directory,
+            TMPDIR: path.join(directory, "runtime-temp"),
             ATTACH_PLIST: attachPlist,
             TEST_STATUS: String(scenario.testStatus),
             DETACH_STATUS: String(scenario.detachStatus),
             FORCE_STATUS: String(scenario.forceStatus),
+            DEVICE_STATUS: String(scenario.deviceStatus ?? 0),
+            LSOF_STATUS: String(scenario.lsofStatus ?? 1),
           },
         },
       );
       expect(execution.status, execution.stderr).toBe(scenario.expected);
+      expect(fs.readFileSync(path.join(directory, "device-diagnostics"), "utf8")).toBe(
+        "info /dev/disk42\n",
+      );
+      expect(execution.stdout).toContain(
+        `Mount open-file inspection status: ${scenario.lsofStatus ?? 1}`,
+      );
+      if (scenario.deviceStatus !== undefined)
+        expect(execution.stdout).toContain(
+          "::warning::Could not inspect the attached APFS device.",
+        );
       expect(fs.readFileSync(path.join(directory, "detach-calls"), "utf8")).toBe(
         scenario.detachStatus === 0
           ? "detach /dev/disk42\n"

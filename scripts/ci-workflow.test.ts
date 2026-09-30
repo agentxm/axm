@@ -72,6 +72,18 @@ describe("aggregate required verification", () => {
     }
   });
 
+  it("manual verification exercises native binaries without selecting publication artifacts", () => {
+    const workflow = readWorkflow();
+    expect(JSON.stringify(workflow.jobs["binary-smoke"])).toContain(
+      "github.event_name == 'workflow_dispatch'",
+    );
+    for (const job of ["release-content", "npm-cohort"]) {
+      expect(JSON.stringify(workflow.jobs[job])).not.toContain(
+        "github.event_name == 'workflow_dispatch'",
+      );
+    }
+  });
+
   it("one always-run aggregate job gates on every applicable check", () => {
     const workflow = readWorkflow();
     const required = workflow.jobs["required"];

@@ -103,7 +103,7 @@ describe("classifyCiChanges", () => {
       "workflow_dispatch",
       [],
       false,
-      ["classify", "secrets", "verify-main", "verify-e2e", "windows-workspace"],
+      ["classify", "secrets", "verify-main", "verify-e2e", "windows-workspace", "binary-smoke"],
     ],
     [
       "push",

@@ -21,7 +21,7 @@
       "outputs": ["{workspaceRoot}/test-results/cli-e2e"]
     },
     "e2e-windows": {
-      "cache": true,
+      "cache": false,
       "dependsOn": ["cli:build"],
       "inputs": [
         "default",
@@ -56,7 +56,7 @@
       "executor": "nx:noop"
     },
     "binary-smoke": {
-      "cache": true,
+      "cache": false,
       "parallelism": false,
       "dependsOn": ["cli:compile"],
       "inputs": ["default", "^production", "hostPlatform"],

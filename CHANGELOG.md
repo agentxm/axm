@@ -1,3 +1,14 @@
+## 0.37.4 (2026-09-30)
+
+### 🩹 Fixes
+
+- Protect native locations across aliases and workspace authorities, verify physical postconditions, and report ownership units, consumers, readiness, and retention accurately. ([5afeaabaa](https://github.com/agentxm/axm/commit/5afeaabaa))
+- Reuse independently cached platform binaries and stage host executables from their verified producer. ([a92a2fdd7](https://github.com/agentxm/axm/commit/a92a2fdd7))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.37.3 (2026-09-30)
 
 ### 🩹 Fixes

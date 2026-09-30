@@ -644,6 +644,7 @@ export const KnowledgeManagerLive = Layer.effect(
               }).pipe(
                 Effect.map((result) => ({
                   unitId: "knowledge:discovery-region",
+                  nativeLocations: result.nativeLocations,
                   path: `${instructionsTarget.path}#knowledge`,
                   owner: KNOWLEDGE_REGION_OWNER,
                   present: Option.isSome(result.observedRegion),
@@ -886,6 +887,7 @@ export const KnowledgeManagerLive = Layer.effect(
         }
         return {
           changed: prepared.length > 0 || discovery.changed,
+          nativeLocations: discovery.nativeLocations,
           warnings: discovery.warnings,
           artifacts: discovery.artifacts,
         };

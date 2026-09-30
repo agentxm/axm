@@ -9,6 +9,7 @@
  */
 
 import {
+  combineNativeLocationOutcomes,
   nativeAuthorityRoots,
   assertNativeMutationWithinRoots,
   assertNativeMutationWithin,
@@ -1065,130 +1066,203 @@ export const SubagentManagerLive = Layer.effect(
     const materializeUninstall = makeMaterializeRemoval(false);
     const materializeDeactivate = makeMaterializeRemoval(true);
 
-    const projectionObservation = Effect.fn("SubagentManager.projectionObservation")(function* (
-      ref: SubagentExtensionRef,
-    ) {
-      const { sanitized, paths } = getCanonicalPaths(ref);
-      const manifestRaw = yield* fs
-        .readFileString(path.join(paths.canonicalPath, MANIFEST_FILENAME))
-        .pipe(Effect.option);
-      const manifestFallback = Option.isNone(manifestRaw)
-        ? undefined
-        : yield* Effect.try({
-            try: () => decodeSubagentManifest(JSON.parse(manifestRaw.value)).fallback,
-            catch: (cause) =>
-              new SubagentDefinitionInvalid({
-                detail: `Failed to parse ${MANIFEST_FILENAME}`,
-                cause,
-              }),
-          });
-      const contentPath = subagentContentPath(path.join, paths.subagentSrcPath, ref.subagent.name);
-      const sourcePath = makeWorkspaceRelativeSourcePath(path, baseDir, contentPath);
-      if (Option.isNone(sourcePath)) return { present: false, current: false };
-      const managedFile = managedSubagentFile(ref, sourcePath.value);
-      const { parsed } = yield* readSubagentContent(paths.subagentSrcPath, ref.subagent.name);
-      const frontmatter: Readonly<Record<string, unknown>> = Option.getOrElse(
-        parsed.frontmatter,
-        () => ({}),
-      );
-      const agentOverrides = Option.getOrUndefined(parsed.agentOverrides);
-      const renderFrontmatter = stripAgentOverrides(frontmatter);
-      const configuredAgents = yield* agentRepo
-        .getConfiguredAgents()
-        .pipe(Effect.provideService(SettingsReader, settings));
+    const projectionObservation = Effect.fn("SubagentManager.projectionObservation")(
+      function* (ref: SubagentExtensionRef) {
+        const { sanitized, paths } = getCanonicalPaths(ref);
+        const manifestRaw = yield* fs
+          .readFileString(path.join(paths.canonicalPath, MANIFEST_FILENAME))
+          .pipe(Effect.option);
+        const manifestFallback = Option.isNone(manifestRaw)
+          ? undefined
+          : yield* Effect.try({
+              try: () => decodeSubagentManifest(JSON.parse(manifestRaw.value)).fallback,
+              catch: (cause) =>
+                new SubagentDefinitionInvalid({
+                  detail: `Failed to parse ${MANIFEST_FILENAME}`,
+                  cause,
+                }),
+            });
+        const contentPath = subagentContentPath(
+          path.join,
+          paths.subagentSrcPath,
+          ref.subagent.name,
+        );
+        const sourcePath = makeWorkspaceRelativeSourcePath(path, baseDir, contentPath);
+        if (Option.isNone(sourcePath))
+          return { present: false, current: false, nativeLocations: [] };
+        const managedFile = managedSubagentFile(ref, sourcePath.value);
+        const { parsed } = yield* readSubagentContent(paths.subagentSrcPath, ref.subagent.name);
+        const frontmatter: Readonly<Record<string, unknown>> = Option.getOrElse(
+          parsed.frontmatter,
+          () => ({}),
+        );
+        const agentOverrides = Option.getOrUndefined(parsed.agentOverrides);
+        const renderFrontmatter = stripAgentOverrides(frontmatter);
+        const configuredAgents = yield* agentRepo
+          .getConfiguredAgents()
+          .pipe(Effect.provideService(SettingsReader, settings));
 
-      const current = yield* Effect.forEach(configuredAgents, (agent) =>
-        agent.resolveEffectiveSubagentsDir({ workspaceRoot: baseDir, scope: location.scope }).pipe(
-          Effect.flatMap((resolved) => {
-            if (resolved._tag === "disabled") {
-              return Effect.succeed({ present: true, current: true });
-            }
-            if (resolved._tag === "misconfigured") {
-              return Effect.succeed({ present: false, current: false });
-            }
-            if (resolved._tag === "supported" && managedNativeShape(agent.id)) {
-              const rendered = renderManagedSubagentOutputs({
-                managedFile,
-                input: {
-                  agentId: agent.id,
-                  name: ref.subagent.name,
-                  body: parsed.body,
-                  frontmatter: renderFrontmatter,
-                  agentOverrides: agentOverrides?.[agent.id],
-                },
-              });
-              if (rendered === undefined) return Effect.succeed({ present: false, current: false });
-              if (rendered._tag === "Skipped") {
-                return Effect.succeed({ present: true, current: true });
-              }
-              return Effect.forEach(rendered.outputs, (output) =>
-                fs.readFileString(path.resolve(resolved.dir, output.path)).pipe(Effect.option),
-              ).pipe(
-                Effect.map((contents) => ({
-                  present: contents.every(Option.isSome),
-                  current: contents.every(
-                    (content, index) =>
-                      Option.isSome(content) &&
-                      rendered.outputs[index] !== undefined &&
-                      generatedFileCurrent({
-                        content: content.value,
-                        expected: rendered.outputs[index].content,
-                        outputPath: rendered.outputs[index].path,
-                      }),
-                  ),
-                })),
-              );
-            }
-            if ((ref.fallback ?? manifestFallback) === "none") {
-              return Effect.succeed({ present: false, current: false });
-            }
-            return agent
-              .resolveEffectiveSkillsDir({ workspaceRoot: baseDir, scope: location.scope })
-              .pipe(
-                Effect.flatMap((skills) => {
-                  if (skills._tag === "disabled" || skills._tag === "unsupported") {
-                    return Effect.succeed({ present: true, current: true });
-                  }
-                  if (skills._tag === "misconfigured" || skills._tag === "unverified") {
-                    return Effect.succeed({ present: false, current: false });
-                  }
-                  const description = Option.getOrElse(
-                    ref.subagent.description,
-                    () => `Adopt the ${ref.subagent.name} role`,
-                  );
-                  const expected = roleSkillContent({
-                    agentId: agent.id,
-                    name: ref.subagent.name,
-                    body: parsed.body,
-                    description,
+        const current = yield* Effect.forEach(configuredAgents, (agent) =>
+          agent
+            .resolveEffectiveSubagentsDir({ workspaceRoot: baseDir, scope: location.scope })
+            .pipe(
+              Effect.flatMap((resolved) => {
+                if (resolved._tag === "disabled") {
+                  return Effect.succeed({ present: true, current: true, nativeLocations: [] });
+                }
+                if (resolved._tag === "misconfigured") {
+                  return Effect.succeed({ present: false, current: false, nativeLocations: [] });
+                }
+                if (resolved._tag === "supported" && managedNativeShape(agent.id)) {
+                  const rendered = renderManagedSubagentOutputs({
                     managedFile,
-                  });
-                  return Effect.gen(function* () {
-                    const fallbackPath = path.join(path.normalize(skills.dir), sanitized);
-                    const content = yield* fs
-                      .readFileString(path.join(fallbackPath, "SKILL.md"))
-                      .pipe(Effect.option);
-                    const source = roleSkillDirectory({
+                    input: {
+                      agentId: agent.id,
                       name: ref.subagent.name,
                       body: parsed.body,
-                      description,
-                      managedFile,
-                    });
-                    return {
-                      present: Option.isSome(content),
-                      current: yield* roleSkillProjectionCurrent(fallbackPath, source, expected),
-                    };
+                      frontmatter: renderFrontmatter,
+                      agentOverrides: agentOverrides?.[agent.id],
+                    },
                   });
-                }),
-              );
-          }),
-        ),
-      );
-      return {
-        present: current.every(({ present }) => present),
-        current: current.every((observation) => observation.current),
-      };
-    });
+                  if (rendered === undefined)
+                    return Effect.succeed({ present: false, current: false, nativeLocations: [] });
+                  if (rendered._tag === "Skipped") {
+                    return Effect.succeed({ present: true, current: true, nativeLocations: [] });
+                  }
+                  return Effect.forEach(rendered.outputs, (output) =>
+                    fs.readFileString(path.resolve(resolved.dir, output.path)).pipe(Effect.option),
+                  ).pipe(
+                    Effect.flatMap((contents) => {
+                      const matches = contents.map((content, index) => {
+                        const output = rendered.outputs[index];
+                        return (
+                          Option.isSome(content) &&
+                          output !== undefined &&
+                          generatedFileCurrent({
+                            content: content.value,
+                            expected: output.content,
+                            outputPath: output.path,
+                          })
+                        );
+                      });
+                      return nativeArtifactLocationOutcomes({
+                        workspaceRoot: baseDir,
+                        scope: location.scope,
+                        agents: configuredAgents,
+                        configuredAgentIds: new Set(configuredAgents.map(({ id }) => id)),
+                        sharedSkillPolicy: false,
+                        targets: rendered.outputs.map((output, index) => ({
+                          path: path.resolve(resolved.dir, output.path),
+                          kind: "subagent",
+                          state:
+                            contents[index] === undefined || Option.isNone(contents[index])
+                              ? "created"
+                              : matches[index] === true
+                                ? "unchanged"
+                                : "updated",
+                        })),
+                      }).pipe(
+                        Effect.map((nativeLocations) => ({
+                          present: contents.every(Option.isSome),
+                          current: matches.every(Boolean),
+                          nativeLocations,
+                        })),
+                      );
+                    }),
+                  );
+                }
+                if ((ref.fallback ?? manifestFallback) === "none") {
+                  return Effect.succeed({ present: false, current: false, nativeLocations: [] });
+                }
+                return agent
+                  .resolveEffectiveSkillsDir({ workspaceRoot: baseDir, scope: location.scope })
+                  .pipe(
+                    Effect.flatMap((skills) => {
+                      if (skills._tag === "disabled" || skills._tag === "unsupported") {
+                        return Effect.succeed({
+                          present: true,
+                          current: true,
+                          nativeLocations: [],
+                        });
+                      }
+                      if (skills._tag === "misconfigured" || skills._tag === "unverified") {
+                        return Effect.succeed({
+                          present: false,
+                          current: false,
+                          nativeLocations: [],
+                        });
+                      }
+                      const description = Option.getOrElse(
+                        ref.subagent.description,
+                        () => `Adopt the ${ref.subagent.name} role`,
+                      );
+                      const expected = roleSkillContent({
+                        agentId: agent.id,
+                        name: ref.subagent.name,
+                        body: parsed.body,
+                        description,
+                        managedFile,
+                      });
+                      return Effect.gen(function* () {
+                        const fallbackPath = path.join(path.normalize(skills.dir), sanitized);
+                        const content = yield* fs
+                          .readFileString(path.join(fallbackPath, "SKILL.md"))
+                          .pipe(Effect.option);
+                        const source = roleSkillDirectory({
+                          name: ref.subagent.name,
+                          body: parsed.body,
+                          description,
+                          managedFile,
+                        });
+                        return {
+                          present: Option.isSome(content),
+                          current: yield* roleSkillProjectionCurrent(
+                            fallbackPath,
+                            source,
+                            expected,
+                          ),
+                          nativeLocations: yield* nativeArtifactLocationOutcomes({
+                            workspaceRoot: baseDir,
+                            scope: location.scope,
+                            agents: configuredAgents,
+                            configuredAgentIds: new Set(configuredAgents.map(({ id }) => id)),
+                            sharedSkillPolicy: false,
+                            targets: [
+                              {
+                                path: fallbackPath,
+                                kind: "skill",
+                                state: Option.isNone(content)
+                                  ? "created"
+                                  : content.value === expected
+                                    ? "unchanged"
+                                    : "updated",
+                              },
+                            ],
+                          }),
+                        };
+                      });
+                    }),
+                  );
+              }),
+            ),
+        );
+        return {
+          nativeLocations: combineNativeLocationOutcomes(
+            current.flatMap((observation) => observation.nativeLocations),
+          ),
+          present: current.every(({ present }) => present),
+          current: current.every((observation) => observation.current),
+        };
+      },
+      Effect.mapError((cause) =>
+        cause._tag === "NativeLocationError"
+          ? new SubagentDefinitionInvalid({
+              detail: "Cannot observe planned native Subagent locations",
+              cause,
+            })
+          : cause,
+      ),
+    );
 
     return {
       projectionObservation,

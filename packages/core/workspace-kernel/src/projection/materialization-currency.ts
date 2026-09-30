@@ -31,6 +31,7 @@ import {
 import { McpSharedTargetConflict, type CodingAgentFailure } from "../agent-adapters/index.js";
 import type { McpInspectionError } from "./mcps/errors.js";
 import type { CodingAgentRepositoryService } from "./agents/coding-agent-repository.js";
+import type { NativeLocationOutcome } from "../locations/index.js";
 import { inspectDesiredMcpServer } from "./mcps/inspection.js";
 import type {
   ProjectionParticipantRequirements,
@@ -58,7 +59,7 @@ export interface ObservedMaterializationCurrencyArgs<E> {
   readonly path: Path.Path;
 }
 
-export const isObservedMaterializationCurrent = <E>({
+export const observeMaterializationCurrency = <E>({
   location,
   records,
   inventory,
@@ -71,7 +72,7 @@ export const isObservedMaterializationCurrent = <E>({
   fs,
   path,
 }: ObservedMaterializationCurrencyArgs<E>): Effect.Effect<
-  boolean,
+  { readonly current: boolean; readonly nativeLocations: ReadonlyArray<NativeLocationOutcome> },
   MaterializationCurrencyFailure<E>,
   ProjectionParticipantRequirements
 > =>
@@ -88,26 +89,33 @@ export const isObservedMaterializationCurrent = <E>({
       (
         inventory,
       ): Effect.Effect<
-        boolean,
+        {
+          readonly current: boolean;
+          readonly nativeLocations: ReadonlyArray<NativeLocationOutcome>;
+        },
         MaterializationCurrencyFailure<E>,
         ProjectionParticipantRequirements
       > => {
         const observed = inventory.items.find((item) => item.name === node.name && item.installed);
-        if (observed === undefined) return Effect.succeed(false);
+        if (observed === undefined) return Effect.succeed({ current: false, nativeLocations: [] });
         if (node.type !== "skill" && node.type !== "mcp-server" && node.type !== "subagent") {
           // Rule, hook, and knowledge outputs are aggregate units whose
           // currency is judged by reading the unit back (collectInstructionStep,
           // collectHooksStep, collectKnowledgeStep). Canonical presence decides
           // only whether this node needs canonical rematerialization.
-          return Effect.succeed(true);
+          return Effect.succeed({ current: true, nativeLocations: [] });
         }
-        if (configuredAgents.length === 0 && node.type !== "skill") return Effect.succeed(true);
+        if (configuredAgents.length === 0 && node.type !== "skill")
+          return Effect.succeed({ current: true, nativeLocations: [] });
         if (node.type === "subagent") {
           return resolvedRef.type === "subagent"
-            ? observeSubagent
-                .projectionObservation(resolvedRef)
-                .pipe(Effect.map(({ current }) => current))
-            : Effect.succeed(false);
+            ? observeSubagent.projectionObservation(resolvedRef).pipe(
+                Effect.map(({ current, nativeLocations }) => ({
+                  current,
+                  nativeLocations: nativeLocations ?? [],
+                })),
+              )
+            : Effect.succeed({ current: false, nativeLocations: [] });
         }
         if (node.type === "mcp-server") {
           // Every MCP connection, however it entered desired state, is judged
@@ -125,20 +133,22 @@ export const isObservedMaterializationCurrent = <E>({
             Effect.provideService(Path.Path, path),
             // A shared-target conflict has no write that could resolve it, so
             // it is a planning fact, not a stale projection to rematerialize.
-            Effect.flatMap(({ current, conflict }) =>
+            Effect.flatMap(({ current, conflict, nativeLocations }) =>
               Option.match(conflict, {
-                onNone: () => Effect.succeed(current),
+                onNone: () => Effect.succeed({ current, nativeLocations }),
                 onSome: (reason) => Effect.fail(new McpSharedTargetConflict({ reason })),
               }),
             ),
           );
         }
-        if (!observed.origins.includes("agent-skill-dir")) return Effect.succeed(false);
+        if (!observed.origins.includes("agent-skill-dir"))
+          return Effect.succeed({ current: false, nativeLocations: [] });
 
         return agentRepo.all.pipe(
           Effect.flatMap((agents) => {
             const configured = agents.filter((agent) => configuredAgents.includes(agent.id));
-            if (configured.length !== configuredAgents.length) return Effect.succeed(false);
+            if (configured.length !== configuredAgents.length)
+              return Effect.succeed({ current: false, nativeLocations: [] });
             return Effect.forEach(
               configured,
               (agent) =>
@@ -164,7 +174,9 @@ export const isObservedMaterializationCurrent = <E>({
                   ),
               // eslint-disable-next-line axm-policy/no-unbounded-io -- configured agents are a subset of the fixed agent catalog
               { concurrency: "unbounded" },
-            ).pipe(Effect.map((results) => results.every(Boolean)));
+            ).pipe(
+              Effect.map((results) => ({ current: results.every(Boolean), nativeLocations: [] })),
+            );
           }),
         );
       },

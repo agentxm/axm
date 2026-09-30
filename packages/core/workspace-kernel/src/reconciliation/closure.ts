@@ -114,6 +114,14 @@ export const buildReconciliationClosure = <E, R>(
   PlannedJobStep<R | WorkspaceTransactionScope | FileSystem.FileSystem | Path.Path>
 > =>
   Effect.sync(() => {
+    const plannedNativeLocations = combineNativeLocationOutcomes([
+      ...(args.artifact.nativeLocations ?? []),
+      ...args.children.flatMap(({ step }) => step.artifact?.nativeLocations ?? []),
+    ]);
+    const plannedArtifact = {
+      ...args.artifact,
+      ...(plannedNativeLocations.length === 0 ? {} : { nativeLocations: plannedNativeLocations }),
+    };
     const materialPaths = args.children.flatMap(({ step }) => step.materialPaths ?? []);
     const readinessErrors = args.children.flatMap(({ step }) =>
       step.readiness === "error" ? [step.errorMessage] : [],
@@ -127,7 +135,7 @@ export const buildReconciliationClosure = <E, R>(
         label: args.label,
         materialPaths,
         errorMessage: readinessErrors.join("; "),
-        artifact: args.artifact,
+        artifact: plannedArtifact,
         ...(blockingConditionIds.length === 0 ? {} : { blockingConditionIds }),
       } satisfies PlannedJobStep<R | WorkspaceTransactionScope | FileSystem.FileSystem | Path.Path>;
     }
@@ -196,7 +204,7 @@ export const buildReconciliationClosure = <E, R>(
         const artifact = {
           ...args.artifact,
           ...(allChildrenUnchanged ? { change: "unchanged" as const } : {}),
-          ...(nativeLocations.length === 0 ? {} : { nativeLocations }),
+          nativeLocations,
         };
         return {
           result: "success",
@@ -213,7 +221,7 @@ export const buildReconciliationClosure = <E, R>(
           readiness: "ready",
           label: args.label,
           materialPaths,
-          artifact: args.artifact,
+          artifact: plannedArtifact,
           ...(acquisitionRefs.length === 0 ? {} : { acquisitionRefs }),
           run,
         } satisfies PlannedJobStep<
@@ -224,7 +232,7 @@ export const buildReconciliationClosure = <E, R>(
           label: args.label,
           materialPaths,
           warnMessage: readinessWarnings.join("; "),
-          artifact: args.artifact,
+          artifact: plannedArtifact,
           ...(acquisitionRefs.length === 0 ? {} : { acquisitionRefs }),
           run,
         } satisfies PlannedJobStep<

@@ -183,7 +183,7 @@ export {
   type AgentOutputAuthority,
 } from "./output-authority.js";
 export {
-  isObservedMaterializationCurrent,
+  observeMaterializationCurrency,
   type MaterializationCurrencyFailure,
   type ObservedMaterializationCurrencyArgs,
 } from "./materialization-currency.js";

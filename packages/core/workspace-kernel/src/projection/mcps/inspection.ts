@@ -43,7 +43,11 @@ import {
   type McpAgentTargetPlan,
   type McpServerDeclaration,
 } from "../../agent-adapters/index.js";
-import type { NativeDirectoryInputs } from "../../locations/index.js";
+import {
+  combineNativeLocationOutcomes,
+  type NativeDirectoryInputs,
+  type NativeLocationOutcome,
+} from "../../locations/index.js";
 import { diffAgentEntry } from "./drift.js";
 
 export type AgentMcpInspectionStatus =
@@ -88,6 +92,7 @@ export interface InspectDesiredMcpServerArgs {
 
 export interface DesiredMcpServerInspection {
   readonly inspections: ReadonlyArray<AgentMcpServerInspection>;
+  readonly nativeLocations: ReadonlyArray<NativeLocationOutcome>;
   /** The inspections restated in the workspace's per-agent outcome vocabulary. */
   readonly outcomes: ReadonlyArray<ConfiguredAgentOutcome>;
   /** Every configured agent either holds the expected entry or cannot represent it. */
@@ -459,17 +464,22 @@ export const inspectDesiredMcpServer = (
     const manifestRoot = inline
       ? Option.none<string>()
       : yield* findManifestRoot(args.workspaceRoot, args.canonicalPaths);
-    let conflict = Option.none<string>();
-    const inspections = yield* Effect.gen(function* () {
-      if (!inline && Option.isNone(manifestRoot)) return yield* inspectManagedPresence(args);
+    const observed = yield* Effect.gen(function* () {
+      if (!inline && Option.isNone(manifestRoot))
+        return {
+          inspections: yield* inspectManagedPresence(args),
+          nativeLocations: [],
+          conflict: Option.none<string>(),
+        };
       const path = yield* Path.Path;
       const manifest = Option.isNone(manifestRoot)
         ? undefined
         : yield* decodeMcpServerManifestAt(
             path.join(manifestRoot.value, MCP_SERVER_MANIFEST_FILENAME),
           );
+      const groups = yield* resolveConfiguredMcpTargets(args);
       const plan = planMcpServerTargets({
-        groups: yield* resolveConfiguredMcpTargets(args),
+        groups,
         agentIds: args.agentIds,
         scope: args.scope,
         serverName: args.node.name,
@@ -484,20 +494,90 @@ export const inspectDesiredMcpServer = (
       if (plan._tag === "invalid") {
         return yield* new McpDefinitionInvalid({ detail: plan.detail, cause: plan.cause });
       }
-      conflict = Option.fromUndefinedOr(
+      const conflict = Option.fromUndefinedOr(
         plan.agents.flatMap((agent) => (agent._tag === "blocked" ? [agent.reason] : []))[0],
       );
-      return yield* Effect.forEach(plan.agents, (agent) => inspectPlannedAgent(args, agent), {
-        concurrency: 16,
-      });
+      const inspections = yield* Effect.forEach(
+        plan.agents,
+        (agent) => inspectPlannedAgent(args, agent),
+        {
+          concurrency: 16,
+        },
+      );
+      const nativeLocations = combineNativeLocationOutcomes(
+        plan.writes.map((write): NativeLocationOutcome => {
+          const members = inspections.filter(
+            (inspection) => inspection.absolutePath === write.path,
+          );
+          const absent =
+            members.length > 0 && members.every((inspection) => inspection.status === "absent");
+          const current =
+            members.length > 0 && members.every((inspection) => inspection.status === "match");
+          const blocked = members.some(
+            (inspection) => inspection.status === "unmanaged" || inspection.status === "blocked",
+          );
+          const owned =
+            members.length > 0 &&
+            members.every(
+              (inspection) =>
+                inspection.status === "match" ||
+                (inspection.status === "drift" &&
+                  inspection.actual !== undefined &&
+                  isAxmManagedMcpEntry(inspection.actual)),
+            );
+          return {
+            scope: args.scope,
+            address: {
+              kind: "key-path",
+              path: write.path,
+              keys: [...write.config.serversPath, args.node.name],
+            },
+            aliases: [
+              ...new Set(
+                write.declaredTargets.map((target) =>
+                  path.resolve(
+                    args.workspaceRoot,
+                    target.scope === "user" && target.path.startsWith("~/")
+                      ? target.path.slice(2)
+                      : target.path,
+                  ),
+                ),
+              ),
+            ].sort(),
+            configuredConsumers: [...new Set(write.agentIds)].sort(),
+            potentialReaders: [
+              ...new Set(
+                groups
+                  .filter((group) => group.path === write.path)
+                  .flatMap((group) =>
+                    group.members
+                      .filter((member) => !member.configured)
+                      .map((member) => member.agentId),
+                  ),
+              ),
+            ].sort(),
+            policyReasons: [],
+            ownership: absent ? "absent" : owned ? "owned" : blocked ? "unowned" : "unverified",
+            ...(owned ? { proof: "managed-mcp-entry" } : {}),
+            state: blocked ? "blocked" : absent ? "created" : current ? "unchanged" : "updated",
+            mechanism: "structured-entry",
+            availability: write.agentIds.map((agentId) => ({
+              agentId,
+              state: "unverified",
+              reason:
+                "Planned native reconciliation has not been applied; agent configuration selection is not observed",
+            })),
+          };
+        }),
+      );
+      return { inspections, nativeLocations, conflict };
     });
     return {
-      inspections,
-      outcomes: inspections.map((inspection) =>
+      ...observed,
+      outcomes: observed.inspections.map((inspection) =>
         mcpInspectionOutcome({ name: args.node.name, inspection, state }),
       ),
-      current: mcpInspectionsCurrent(inspections),
-      conflict,
+      current: mcpInspectionsCurrent(observed.inspections),
     };
   });
 

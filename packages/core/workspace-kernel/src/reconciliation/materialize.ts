@@ -1,4 +1,4 @@
-import { resolveNativeReferent } from "../locations/index.js";
+import { resolveNativeReferent, type NativeLocationOutcome } from "../locations/index.js";
 /**
  * Desired-state materialization planning: select desired nodes, judge
  * observed-materialization currency, and assemble the per-extension
@@ -94,11 +94,12 @@ import {
   captureAgentOutputAuthority,
   expectedProjectionNames,
   inspectDesiredMcpServer,
-  isObservedMaterializationCurrent,
+  observeMaterializationCurrency,
   makeExtensionConstraintInvariantFact,
   type ExpectedProjectionNames,
   type ProjectionParticipantRequirements,
   type CodingAgentRepositoryService,
+  nativeArtifactLocationOutcomes,
 } from "../projection/index.js";
 import {
   type ReleaseAgeOperationEvidence,
@@ -310,8 +311,34 @@ const skillSyncArtifact = (args: {
       Effect.provideService(Path.Path, args.path),
     );
     const version = registryVersion(args.ref);
+    const nativeLocations = yield* nativeArtifactLocationOutcomes({
+      workspaceRoot: args.location.baseDir,
+      scope: args.location.scope,
+      agents: yield* args.agentRepo.all,
+      configuredAgentIds: new Set(materializationAgents.map(({ id }) => id)),
+      sharedSkillPolicy: true,
+      targets: (artifact.targets ?? []).map((target) => ({
+        path: target.path,
+        kind: "skill",
+        state: "updated",
+      })),
+    }).pipe(
+      Effect.provideService(FileSystem.FileSystem, args.fs),
+      Effect.provideService(Path.Path, args.path),
+      Effect.mapError(
+        (cause) =>
+          new WorkspaceSyncFailed({
+            category: "conflict",
+            detail: "Cannot observe planned native Skill locations",
+            cause,
+          }),
+      ),
+    );
     return {
       ...artifact,
+      nativeLocations: nativeLocations.map((unit) =>
+        unit.ownership === "absent" ? { ...unit, state: "created" as const } : unit,
+      ),
       ...(version === undefined ? {} : { version }),
     };
   });
@@ -344,6 +371,8 @@ const buildMcpServerSyncOperation = ({
   nativeInsertionEligiblePaths,
   force,
   transitionLabel,
+  nativeLocations,
+  scope,
   adapter,
 }: {
   readonly nativeInsertionEligiblePaths: ReadonlySet<string>;
@@ -352,6 +381,8 @@ const buildMcpServerSyncOperation = ({
   readonly sourceIdentity: string;
   readonly force: boolean;
   readonly transitionLabel: string;
+  readonly nativeLocations: ReadonlyArray<NativeLocationOutcome>;
+  readonly scope: WorkspaceLocationService["scope"];
   readonly adapter: StepFailureConversionService;
 }): PlannedJobStep<SyncStepRequirements | McpConnectionInstallRequirements> => {
   const target = targetFromRef(ref);
@@ -360,6 +391,12 @@ const buildMcpServerSyncOperation = ({
   return {
     key: toStepKey(target),
     label: transitionLabel,
+    artifact: {
+      path: nativeLocations[0]?.address.path ?? target.name,
+      scope,
+      change: "updated",
+      nativeLocations,
+    },
     ...(lifecycleWarnings.length === 0
       ? { readiness: "ready" as const }
       : { readiness: "warn" as const, warnMessage: lifecycleWarnings.join("; ") }),
@@ -770,7 +807,7 @@ export const collectMaterializeSteps = (args: {
           const inventoryRead = inventories.get(node.type);
           // One judge for every node, MCP included: the projection decides
           // currency from decoded native values, whatever route declared it.
-          const materializationCurrent = yield* isObservedMaterializationCurrent({
+          const materializationObservation = yield* observeMaterializationCurrency({
             location,
             records,
             ...(inventoryRead === undefined ? {} : { inventory: yield* inventoryRead }),
@@ -786,11 +823,13 @@ export const collectMaterializeSteps = (args: {
             path,
           });
           const materialize =
-            observation.status !== "usable" || (node.enabled && !materializationCurrent);
+            observation.status !== "usable" ||
+            (node.enabled && !materializationObservation.current);
           const releaseAge = configuredReleaseAge(resolved);
           return {
             ref,
             restoresAccepted: resolved.restoresAccepted,
+            nativeLocations: materializationObservation.nativeLocations,
             force: forceCanonical,
             materialize,
             transitionLabel: [
@@ -857,6 +896,7 @@ export const collectMaterializeSteps = (args: {
     );
 
     type Reconciled<TRef extends ExtensionRef> = {
+      readonly nativeLocations: ReadonlyArray<NativeLocationOutcome>;
       readonly ref: TRef;
       readonly force: boolean;
       readonly materialize: boolean;
@@ -883,6 +923,7 @@ export const collectMaterializeSteps = (args: {
             force: item.force,
             materialize: item.materialize,
             transitionLabel: item.transitionLabel,
+            nativeLocations: item.nativeLocations,
             ...(item.releaseAge === undefined ? {} : { releaseAge: item.releaseAge }),
           });
           break;
@@ -893,6 +934,7 @@ export const collectMaterializeSteps = (args: {
             force: item.force,
             materialize: item.materialize,
             transitionLabel: item.transitionLabel,
+            nativeLocations: item.nativeLocations,
             ...(item.releaseAge === undefined ? {} : { releaseAge: item.releaseAge }),
           });
           break;
@@ -902,6 +944,7 @@ export const collectMaterializeSteps = (args: {
             force: item.force,
             materialize: item.materialize,
             transitionLabel: item.transitionLabel,
+            nativeLocations: item.nativeLocations,
             ...(item.releaseAge === undefined ? {} : { releaseAge: item.releaseAge }),
           });
           break;
@@ -911,6 +954,7 @@ export const collectMaterializeSteps = (args: {
             force: item.force,
             materialize: item.materialize,
             transitionLabel: item.transitionLabel,
+            nativeLocations: item.nativeLocations,
             ...(item.releaseAge === undefined ? {} : { releaseAge: item.releaseAge }),
           });
           break;
@@ -920,6 +964,7 @@ export const collectMaterializeSteps = (args: {
             force: item.force,
             materialize: item.materialize,
             transitionLabel: item.transitionLabel,
+            nativeLocations: item.nativeLocations,
             ...(item.releaseAge === undefined ? {} : { releaseAge: item.releaseAge }),
           });
           break;
@@ -929,6 +974,7 @@ export const collectMaterializeSteps = (args: {
             force: item.force,
             materialize: item.materialize,
             transitionLabel: item.transitionLabel,
+            nativeLocations: item.nativeLocations,
             ...(item.releaseAge === undefined ? {} : { releaseAge: item.releaseAge }),
           });
           break;
@@ -938,6 +984,7 @@ export const collectMaterializeSteps = (args: {
             force: item.force,
             materialize: item.materialize,
             transitionLabel: item.transitionLabel,
+            nativeLocations: item.nativeLocations,
             ...(item.releaseAge === undefined ? {} : { releaseAge: item.releaseAge }),
           });
           break;
@@ -953,7 +1000,7 @@ export const collectMaterializeSteps = (args: {
       (node) =>
         Effect.gen(function* () {
           const entry = configuredMcpServerEntries[node.name];
-          const { inspections, current } = yield* inspectDesiredMcpServer({
+          const { inspections, current, nativeLocations } = yield* inspectDesiredMcpServer({
             nativeDirectoryInputs: location.nativeDirectoryInputs,
             workspaceRoot: location.baseDir,
             scope: location.scope,
@@ -1010,6 +1057,7 @@ export const collectMaterializeSteps = (args: {
               ),
               location,
               adapter: args.adapter,
+              nativeLocations,
             }),
           );
         }),
@@ -1101,28 +1149,37 @@ export const collectMaterializeSteps = (args: {
       ref,
       force,
       transitionLabel,
+      nativeLocations,
     }: Reconciled<SubagentExtensionRef>) =>
-      buildMaterializeOperation(subagentManager, {
-        nativeInsertionEligiblePaths: directoryRoutes.subagent,
-        toStepFailure: args.adapter.toStepFailure,
-        ref,
-        desiredActivation: desiredActivation(ref),
-        validateMaterialized: () => validateAcceptedLocalMaterialization(ref),
-        force,
-        label: transitionLabel,
-        message: `Synced subagent ${ref.subagent.name}`,
-        buildArtifact: ({ materialization }) =>
-          subagentSyncArtifact({ ref, location }).pipe(
-            Effect.map((artifact) => ({
-              ...artifact,
-              ...(materialization.observation.nativeLocations === undefined
-                ? {}
-                : {
-                    nativeLocations: materialization.observation.nativeLocations,
-                  }),
-            })),
-          ),
-      });
+      ({
+        ...buildMaterializeOperation(subagentManager, {
+          nativeInsertionEligiblePaths: directoryRoutes.subagent,
+          toStepFailure: args.adapter.toStepFailure,
+          ref,
+          desiredActivation: desiredActivation(ref),
+          validateMaterialized: () => validateAcceptedLocalMaterialization(ref),
+          force,
+          label: transitionLabel,
+          message: `Synced subagent ${ref.subagent.name}`,
+          buildArtifact: ({ materialization }) =>
+            subagentSyncArtifact({ ref, location }).pipe(
+              Effect.map((artifact) => ({
+                ...artifact,
+                ...(materialization.observation.nativeLocations === undefined
+                  ? {}
+                  : {
+                      nativeLocations: materialization.observation.nativeLocations,
+                    }),
+              })),
+            ),
+        }),
+        artifact: {
+          path: nativeLocations[0]?.address.path ?? ref.subagent.name,
+          scope: location.scope,
+          change: "updated",
+          nativeLocations,
+        },
+      }) satisfies PlannedJobStep<MaterializeStepRequirements>;
     const knowledgeMaterializeStep = ({
       ref,
       force,
@@ -1269,12 +1326,14 @@ export const collectMaterializeSteps = (args: {
         ...skillSteps,
         ...mcpServerRefs
           .filter(({ materialize }) => materialize)
-          .map(({ ref, sourceIdentity, force, transitionLabel }) =>
+          .map(({ ref, sourceIdentity, force, transitionLabel, nativeLocations }) =>
             desiredActivation(ref)
               ? buildMcpServerSyncOperation({
                   manager: mcpManager,
                   ref,
                   sourceIdentity,
+                  nativeLocations,
+                  scope: location.scope,
                   nativeInsertionEligiblePaths: nativeInsertionEligibleMcpPaths,
                   force,
                   transitionLabel,

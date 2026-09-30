@@ -722,6 +722,15 @@ export const HookManagerLive = Layer.effect(
           }),
           projectionUnitObservation: {
             unitId: "hook:fallback-region",
+            nativeLocations: [
+              {
+                ...nativeLocation,
+                configuredConsumers: fallbackAgentIds,
+                availability: nativeLocation.availability.filter(({ agentId }) =>
+                  fallbackAgentIds.includes(agentId),
+                ),
+              },
+            ],
             path: `${target.workspaceRelative}#${HOOK_FALLBACKS_REGION}`,
             owner: HOOK_FALLBACKS_REGION_OWNER,
             present: Option.isSome(observedRegion),
@@ -792,6 +801,7 @@ export const HookManagerLive = Layer.effect(
           }));
         return {
           unitId: "hook:agent-hook-entries",
+          nativeLocations: [outcome.nativeLocation],
           path: path.relative(baseDir, target.configPath),
           present: outcome.ownedNames.length > 0,
           current: !outcome.changed,

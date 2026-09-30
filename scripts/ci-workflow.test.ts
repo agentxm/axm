@@ -473,6 +473,46 @@ describe("aggregate required verification", () => {
   it.each([
     { name: "normal detach", testStatus: 0, detachStatus: 0, forceStatus: 0, expected: 0 },
     {
+      name: "container teardown failure after passing tests",
+      testStatus: 0,
+      detachStatus: 0,
+      forceStatus: 0,
+      containerStatus: 18,
+      expected: 18,
+    },
+    {
+      name: "test failure with container teardown failure",
+      testStatus: 17,
+      detachStatus: 0,
+      forceStatus: 0,
+      containerStatus: 18,
+      expected: 17,
+    },
+    {
+      name: "foreign physical store refuses container deletion and test execution",
+      testStatus: 0,
+      detachStatus: 0,
+      forceStatus: 0,
+      physicalStore: "disk420s1",
+      expected: 1,
+    },
+    {
+      name: "multiple physical stores refuse container deletion and test execution",
+      testStatus: 0,
+      detachStatus: 0,
+      forceStatus: 0,
+      storeCount: 2,
+      expected: 1,
+    },
+    {
+      name: "container identity mismatch refuses deletion and test execution",
+      testStatus: 0,
+      detachStatus: 0,
+      forceStatus: 0,
+      listedContainer: "disk0",
+      expected: 1,
+    },
+    {
       name: "diagnostic failure does not prevent detach",
       testStatus: 0,
       detachStatus: 0,
@@ -551,6 +591,9 @@ describe("aggregate required verification", () => {
               ;;
             detach)
               [[ -f "$RUNNER_TEMP/diagnostics-complete" ]] || return 28
+              if [[ "$IDENTITY_MATCH" == "true" ]]; then
+                [[ -f "$RUNNER_TEMP/container-deletion" ]] || return 30
+              fi
               printf '%s\\n' "$*" >> "$RUNNER_TEMP/detach-calls"
               if [[ "$2" == "-force" ]]; then
                 [[ "$3" == "/dev/disk42" ]] || return 21
@@ -564,14 +607,31 @@ describe("aggregate required verification", () => {
           esac
         }
         plutil() {
-          [[ "$1 $2 $3" == "-extract system-entities.0.dev-entry raw" ]] || return 23
-          [[ "$(cat "$4")" == "$ATTACH_PLIST" ]] || return 24
-          printf '/dev/disk42\\n'
+          [[ "$1" == "-extract" && "$3" == "raw" ]] || return 23
+          case "$2" in
+            system-entities.0.dev-entry)
+              printf '/dev/disk42\\n' ;;
+            APFSContainerReference) printf 'disk43\\n' ;;
+            Containers) printf '1\\n' ;;
+            Containers.0.ContainerReference) printf '%s\\n' "$LISTED_CONTAINER" ;;
+            Containers.0.PhysicalStores) printf '%s\\n' "$STORE_COUNT" ;;
+            Containers.0.PhysicalStores.0.DeviceIdentifier) printf '%s\\n' "$PHYSICAL_STORE" ;;
+            *) return 24 ;;
+          esac
         }
         diskutil() {
-          [[ "$*" == "info /dev/disk42" ]] || return 27
-          printf '%s\\n' "$*" >> "$RUNNER_TEMP/device-diagnostics"
-          return "$DEVICE_STATUS"
+          case "$*" in
+            "info -plist $RUNNER_TEMP/axm-case-sensitive") printf '<plist/>\\n' ;;
+            "apfs list -plist disk43") printf '<plist/>\\n' ;;
+            "info /dev/disk42")
+              printf '%s\\n' "$*" >> "$RUNNER_TEMP/device-diagnostics"
+              return "$DEVICE_STATUS" ;;
+            "apfs deleteContainer disk43")
+              [[ "$IDENTITY_MATCH" == "true" ]] || return 31
+              printf '%s\\n' "$*" >> "$RUNNER_TEMP/container-deletion"
+              return "$CONTAINER_STATUS" ;;
+            *) return 27 ;;
+          esac
         }
         lsof() {
           [[ "$*" == "-nP +f -- $RUNNER_TEMP/axm-case-sensitive" ]] || return 29
@@ -579,6 +639,8 @@ describe("aggregate required verification", () => {
           return "$LSOF_STATUS"
         }
         pnpm() {
+          [[ "$IDENTITY_MATCH" == "true" ]] || return 32
+          touch "$RUNNER_TEMP/test-executed"
           [[ "$TMPDIR" == "$RUNNER_TEMP/runtime-temp" ]] || return 25
           [[ "$AXM_NATIVE_FIXTURE_PARENT" == "$RUNNER_TEMP/axm-case-sensitive" ]] || return 26
           return "$TEST_STATUS"
@@ -599,10 +661,34 @@ describe("aggregate required verification", () => {
             FORCE_STATUS: String(scenario.forceStatus),
             DEVICE_STATUS: String(scenario.deviceStatus ?? 0),
             LSOF_STATUS: String(scenario.lsofStatus ?? 1),
+            CONTAINER_STATUS: String(scenario.containerStatus ?? 0),
+            PHYSICAL_STORE: scenario.physicalStore ?? "disk42s1",
+            STORE_COUNT: String(scenario.storeCount ?? 1),
+            LISTED_CONTAINER: scenario.listedContainer ?? "disk43",
+            IDENTITY_MATCH: String(
+              scenario.physicalStore === undefined &&
+                scenario.storeCount === undefined &&
+                scenario.listedContainer === undefined,
+            ),
           },
         },
       );
-      expect(execution.status, execution.stderr).toBe(scenario.expected);
+      expect(execution.status, execution.stdout + execution.stderr).toBe(scenario.expected);
+      const identityMatches =
+        scenario.physicalStore === undefined &&
+        scenario.storeCount === undefined &&
+        scenario.listedContainer === undefined;
+      expect(fs.existsSync(path.join(directory, "test-executed"))).toBe(identityMatches);
+      expect(fs.existsSync(path.join(directory, "container-deletion"))).toBe(identityMatches);
+      if (identityMatches) {
+        expect(fs.readFileSync(path.join(directory, "container-deletion"), "utf8")).toBe(
+          "apfs deleteContainer disk43\n",
+        );
+      } else {
+        expect(execution.stdout).toContain(
+          "Refusing APFS container deletion without verified image ownership.",
+        );
+      }
       expect(fs.readFileSync(path.join(directory, "device-diagnostics"), "utf8")).toBe(
         "info /dev/disk42\n",
       );

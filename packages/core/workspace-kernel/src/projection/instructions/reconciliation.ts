@@ -13,11 +13,17 @@
 
 import * as Effect from "effect/Effect";
 import { instructionChangeLocations } from "./native-outcomes.js";
-import type { NativeLocationOutcome } from "../../locations/index.js";
+import {
+  combineNativeLocationOutcomes,
+  nativeUnitKey,
+  type NativeLocationOutcome,
+} from "../../locations/index.js";
+import type { ConfiguredAgentOutcome } from "../../operations/index.js";
+import type { ProjectionUnitObservation } from "../units.js";
 import type { NativeWriteAuthority } from "../../agent-adapters/index.js";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
-import type * as Path from "effect/Path";
+import * as Path from "effect/Path";
 import {
   applyProjectionPlans,
   observeProjectionPlans,
@@ -26,6 +32,7 @@ import {
 } from "../planning.js";
 
 import {
+  configuredAgentLifecycleOutcomes,
   SettingsReader,
   SettingsWriter,
   WorkspaceLocation,
@@ -242,6 +249,268 @@ export const reconcileInstructionAliases = (options?: {
     });
     return Option.some<InstructionsSyncResult>(result);
   });
+
+/**
+ * Observe shared instruction content with the routes owned by instruction
+ * management. The current view reports actual alias entries; only the proposed
+ * view includes future alias readers after a declared shared-surface write.
+ */
+export const observeInstructionSurfacePlans = <E, R>(
+  plans: ReadonlyArray<ProjectionPlan<void, E, R>>,
+  options?: {
+    readonly view?: "current" | "proposed";
+    readonly configuredAgents?: ReadonlyArray<string>;
+  },
+): Effect.Effect<
+  ReadonlyArray<ProjectionUnitObservation>,
+  E | WorkspaceSettingsReadFailure | InstructionMaintenanceFailure,
+  R | FileSystem.FileSystem | Path.Path | SettingsReader | WorkspaceLocation
+> =>
+  Effect.gen(function* () {
+    const observations = yield* observeProjectionPlans(plans);
+    const proposedLocations = observations
+      .filter(
+        (observation) =>
+          !observation.current &&
+          (observation.unitId === "rule:instructions-region" ||
+            observation.unitId === "knowledge:discovery-region" ||
+            observation.unitId === "hook:fallback-region"),
+      )
+      .flatMap((observation) => observation.nativeLocations ?? [])
+      .filter(
+        (unit) =>
+          unit.address.kind === "region" && (unit.state === "created" || unit.state === "updated"),
+      );
+    const requiredLocations = observations
+      .filter(
+        (observation) =>
+          (observation.unitId === "rule:instructions-region" ||
+            observation.unitId === "knowledge:discovery-region") &&
+          observation.expectedContributors.length > 0 &&
+          (options?.view === "current" || observation.current),
+      )
+      .flatMap((observation) => observation.nativeLocations ?? [])
+      .filter((unit) => unit.address.kind === "region");
+    const routeLocations =
+      options?.view === "current"
+        ? requiredLocations
+        : [...proposedLocations, ...requiredLocations];
+    if (routeLocations.length === 0) return observations;
+    const config = yield* activeInstructionsConfig();
+    if (Option.isNone(config)) return observations;
+    const path = yield* Path.Path;
+    const prospectiveRoots = [
+      ...new Set(
+        routeLocations.flatMap((unit) =>
+          unit.aliases
+            .filter((alias) => path.basename(alias) === config.value.fileName)
+            .map((alias) => path.dirname(alias)),
+        ),
+      ),
+    ];
+    if (prospectiveRoots.length === 0) return observations;
+    const location = yield* WorkspaceLocation;
+    const configuredAgents =
+      options?.configuredAgents ?? (yield* (yield* SettingsReader).configuredAgents);
+    const snapshot = yield* observeInstructionProjection({
+      workspaceRoot: location.baseDir,
+      scope: location.scope,
+      nativeDirectoryInputs: location.nativeDirectoryInputs,
+      configuredAgents,
+      config: config.value,
+      prospectiveRoots,
+    });
+    const requiredRoutes = snapshot.status.items.filter(
+      (item) =>
+        routeLocations.some(
+          (unit) => item.sourceFile === unit.address.path || unit.aliases.includes(item.sourceFile),
+        ) &&
+        (item.mechanism === "native" || item.mechanism === "symlink" || item.mechanism === "copy"),
+    );
+    const withCurrentRoutes = (
+      observation: ProjectionUnitObservation,
+    ): ProjectionUnitObservation => {
+      const targets = new Set(
+        requiredRoutes
+          .filter((route) =>
+            (observation.nativeLocations ?? []).some(
+              (unit) =>
+                unit.address.kind === "region" &&
+                (route.sourceFile === unit.address.path || unit.aliases.includes(route.sourceFile)),
+            ),
+          )
+          .map((route) => route.targetFile),
+      );
+      // A healthy link is already represented by the region it makes readable.
+      // Missing routes and separate copies retain their own instruction entry facts.
+      const routes = snapshot.nativeLocations.filter(
+        (unit) =>
+          unit.address.kind === "entry" &&
+          unit.aliases.some((alias) => targets.has(alias)) &&
+          (unit.ownership !== "owned" ||
+            unit.state !== "unchanged" ||
+            unit.proof !== "exact-canonical-source-link"),
+      );
+      return {
+        ...observation,
+        nativeLocations: combineNativeLocationOutcomes([
+          ...(observation.nativeLocations ?? []),
+          ...routes,
+        ]),
+      };
+    };
+    if (options?.view === "current") return observations.map(withCurrentRoutes);
+    const refusal = yield* instructionReconciliationReadiness({
+      snapshot,
+      workspaceRoot: location.baseDir,
+    });
+    if (Option.isSome(refusal)) return yield* refusal.value;
+    const willReconcile = proposedLocations.length > 0;
+    for (const route of requiredRoutes) {
+      const target = snapshot.nativeLocations.find((unit) =>
+        unit.aliases.includes(route.targetFile),
+      );
+      if (
+        target === undefined ||
+        target.ownership === "unverified" ||
+        target.ownership === "unowned"
+      )
+        return yield* new InstructionMaintenanceFailed({
+          category: "conflict",
+          detail: `Cannot establish the proposed instruction route at ${route.targetFile}`,
+        });
+      if (
+        !willReconcile &&
+        (route.health !== "ok" || target.ownership !== "owned" || target.state !== "unchanged")
+      )
+        return yield* new InstructionMaintenanceFailed({
+          category: "conflict",
+          detail: `Required instruction route is not current at ${route.targetFile}; run axm sync to restore the configured instruction files.`,
+        });
+    }
+    const proposedRoutes = requiredRoutes.filter((route) =>
+      proposedLocations.some(
+        (unit) => route.sourceFile === unit.address.path || unit.aliases.includes(route.sourceFile),
+      ),
+    );
+    return observations.map((observation): ProjectionUnitObservation => {
+      if (observation.current) return withCurrentRoutes(observation);
+      const nativeLocations = (observation.nativeLocations ?? []).flatMap(
+        (unit): ReadonlyArray<NativeLocationOutcome> => {
+          if (
+            unit.address.kind !== "region" ||
+            (unit.state !== "created" && unit.state !== "updated")
+          )
+            return [unit];
+          const routes = proposedRoutes.filter(
+            (item) =>
+              item.sourceFile === unit.address.path || unit.aliases.includes(item.sourceFile),
+          );
+          // Existing direct links remain links even when a new link probe fails.
+          // A planned copy has its own physical entry and never aliases this region.
+          const linked = routes.filter(
+            (item) =>
+              item.mechanism !== "copy" ||
+              item.observedForm === "symlink" ||
+              item.observedForm === "broken-link",
+          );
+          const consumers = [
+            ...new Set([...unit.configuredConsumers, ...linked.map((item) => item.agentId)]),
+          ].sort();
+          const copies = routes
+            .filter((item) => !linked.includes(item))
+            .flatMap((item) =>
+              snapshot.nativeLocations
+                .filter(
+                  (target) =>
+                    target.address.kind === "entry" && target.aliases.includes(item.targetFile),
+                )
+                .map((target): NativeLocationOutcome => ({
+                  ...target,
+                  state: target.ownership === "absent" ? "created" : "updated",
+                  reason:
+                    "The instruction owner will copy the proposed canonical content to this separate native entry.",
+                })),
+            );
+          return [
+            {
+              ...unit,
+              aliases: [
+                ...new Set([...unit.aliases, ...linked.map((item) => item.targetFile)]),
+              ].sort(),
+              configuredConsumers: consumers,
+              potentialReaders: unit.potentialReaders.filter(
+                (agentId) => !consumers.includes(agentId),
+              ),
+              availability: [
+                ...unit.availability,
+                ...consumers
+                  .filter(
+                    (agentId) => !unit.availability.some((entry) => entry.agentId === agentId),
+                  )
+                  .map((agentId) => ({
+                    agentId,
+                    state: "unverified" as const,
+                    reason:
+                      "The instruction owner has planned this native route; it is not current before apply.",
+                  })),
+              ],
+            },
+            ...copies,
+          ];
+        },
+      );
+      return { ...observation, nativeLocations: combineNativeLocationOutcomes(nativeLocations) };
+    });
+  });
+
+/** Link one selected contributor to the instruction owner's proposed physical units. */
+export const plannedInstructionContributorObservation = (args: {
+  readonly type: "rule" | "knowledge";
+  readonly name: string;
+  readonly contributor: string;
+  readonly observations: ReadonlyArray<ProjectionUnitObservation>;
+  readonly agentIds: ReadonlyArray<string>;
+  readonly scope: "project" | "user";
+}) => {
+  const nativeLocations = combineNativeLocationOutcomes(
+    args.observations
+      .filter((observation) => observation.expectedContributors.includes(args.contributor))
+      .flatMap((observation) => observation.nativeLocations ?? []),
+  );
+  const agentOutcomes = configuredAgentLifecycleOutcomes({
+    type: args.type,
+    name: args.name,
+    agentIds: args.agentIds,
+    scope: args.scope,
+    state: "projected",
+    targetState: "enabled",
+    installed: true,
+  }).map((outcome): ConfiguredAgentOutcome => {
+    const units = nativeLocations.filter((unit) =>
+      unit.configuredConsumers.includes(outcome.agentId),
+    );
+    if (units.length === 0)
+      return outcome.outcome === "unsupported"
+        ? outcome
+        : {
+            ...outcome,
+            outcome: "not-applicable",
+            reasonCode: "no-applicable-native-unit",
+            reason: "The prepared projection has no applicable native unit for this agent.",
+            nativeUnitKeys: [],
+          };
+    return {
+      ...outcome,
+      outcome: "projected",
+      reasonCode: "planned-native-unit",
+      reason:
+        "The owner has validated the proposed native realization; runtime selection remains unverified.",
+      nativeUnitKeys: units.map(nativeUnitKey),
+    };
+  });
+  return { nativeLocations, agentOutcomes };
+};
 
 /** Apply shared instruction-surface regions, then the aliases depending on their content. */
 export const applyInstructionSurfacePlans = <E, R>(

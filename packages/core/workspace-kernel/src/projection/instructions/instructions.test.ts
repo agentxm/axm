@@ -24,7 +24,9 @@ import {
   syncInstructions,
   type ResolvedInstructionsConfig,
 } from "./instructions.js";
-import { reconcileInstructions } from "./reconciliation.js";
+import { observeInstructionSurfacePlans, reconcileInstructions } from "./reconciliation.js";
+import { planAggregateProjection } from "../planning.js";
+import { WorkspaceReadTest } from "../../workspace-state/testing.js";
 import type { InstructionMaintenanceFailed, InstructionMaintenanceFailure } from "./errors.js";
 
 /** Narrow a typed failure to the maintenance family before asserting fields. */
@@ -117,6 +119,91 @@ describe("agent instructions", () => {
       dryRun: args.dryRun ?? false,
       ...(args.symlinkSupported === undefined ? {} : { symlinkSupported: args.symlinkSupported }),
     });
+
+  for (const form of ["copy", "symlink"] as const) {
+    it.effect(
+      `distinguishes an owned ${form} by physical route proof despite overlapping consumers`,
+      () =>
+        run(
+          Effect.gen(function* () {
+            const source = path.join(tempDir, "AGENTS.md");
+            const target = path.join(tempDir, "CLAUDE.md");
+            fs.writeFileSync(source, "# Authoritative guidance\n");
+            yield* sync({
+              configuredAgents: ["claude-code"],
+              symlinkSupported: form === "symlink",
+            });
+            expect(fs.lstatSync(target).isSymbolicLink()).toBe(form === "symlink");
+            // The new probe supports links even when the existing owned form is a copy.
+            expect(yield* probeSymlinkSupport(tempDir)).toBe(true);
+            const routing = yield* observe({
+              configuredAgents: ["claude-code"],
+              symlinkSupported: true,
+            });
+            expect(instructionProjectionEffects(routing, [source])).toEqual(
+              form === "copy" ? [{ path: target, change: "updated" }] : [],
+            );
+            const beforeSource = fs.readFileSync(source, "utf8");
+            const beforeTarget = fs.readFileSync(target, "utf8");
+            const workspace = WorkspaceReadTest({
+              baseDir: tempDir,
+              settings: { agents: ["claude-code"], instructionFiles: { gitignoreAliases: false } },
+            });
+            const observed = yield* Effect.gen(function* () {
+              const plan = yield* planAggregateProjection({
+                unitId: "rule:instructions-region",
+                targetFile: source,
+                graph: { nodes: [], mcpSourceClosures: [], problems: [], packMembership: [] },
+                select: () => Effect.succeed({ contributors: ["rule"], exclusions: [] }),
+                adapter: {
+                  observe: () =>
+                    Effect.succeed({
+                      unitId: "rule:instructions-region",
+                      path: source,
+                      present: true,
+                      current: true,
+                      expectedContributors: ["rule"],
+                      nativeLocations: [
+                        {
+                          scope: "project",
+                          address: { kind: "region", path: source, region: "rules" },
+                          aliases: [source],
+                          configuredConsumers: ["claude-code"],
+                          potentialReaders: [],
+                          policyReasons: ["shared-instructions"],
+                          ownership: "owned",
+                          state: "unchanged",
+                          availability: [],
+                        },
+                      ],
+                    }),
+                  apply: () => Effect.void,
+                },
+              });
+              return yield* observeInstructionSurfacePlans([plan], { view: "current" });
+            }).pipe(Effect.provide(workspace));
+            const locations = observed.flatMap((observation) => observation.nativeLocations ?? []);
+            expect(locations.filter((unit) => unit.address.kind === "region")).toHaveLength(1);
+            const entries = locations.filter((unit) => unit.address.kind === "entry");
+            if (form === "copy") {
+              expect(entries).toEqual([
+                expect.objectContaining({
+                  address: { kind: "entry", path: target },
+                  ownership: "owned",
+                  state: "unchanged",
+                  proof: "exact-instruction-copy-banner",
+                  configuredConsumers: ["claude-code"],
+                }),
+              ]);
+            } else {
+              expect(entries).toEqual([]);
+            }
+            expect(fs.readFileSync(source, "utf8")).toBe(beforeSource);
+            expect(fs.readFileSync(target, "utf8")).toBe(beforeTarget);
+          }),
+        ),
+    );
+  }
 
   it("resolves own-file fallback mechanisms", () => {
     expect(

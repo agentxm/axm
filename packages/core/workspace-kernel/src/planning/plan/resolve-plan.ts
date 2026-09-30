@@ -251,7 +251,11 @@ const outcomesFor = (
     targetState: operation.plannedState,
     installed: true,
   });
-  if (operation.plannedState !== "enabled" || operation.extensionType === "pack")
+  if (
+    configuredAgents.length === 0 ||
+    operation.plannedState !== "enabled" ||
+    operation.extensionType === "pack"
+  )
     return Effect.succeed(generic);
   return resolveConfiguredExtensionObservations(provider, {
     type: operation.extensionType,
@@ -441,6 +445,13 @@ export const prepareExecutionCandidate = Effect.fn("prepareExecutionCandidate")(
       augmented.plan.jobs.flatMap((job) => job.steps),
       (step) =>
         Effect.gen(function* () {
+          // Owner plans have already preflighted their proposed sources and
+          // contributor graph. Current-state fallback must not re-resolve those
+          // sources before this plan has acquired and accepted them.
+          const owned = step.agentOutcomes?.length
+            ? step.agentOutcomes
+            : step.artifact?.agentOutcomes;
+          if (owned !== undefined && owned.length > 0) return [step, owned] as const;
           const locations = step.artifact?.nativeLocations ?? [];
           const targets = new Set(
             (step.artifact?.targets ?? [])

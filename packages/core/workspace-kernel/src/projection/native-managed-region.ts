@@ -316,7 +316,10 @@ export const reconcileNativeManagedRegion = (args: {
           owned && state.state === "complete" ? Option.some(state.body) : Option.none<string>(),
         existed: Option.isSome(before),
         removedFile: false,
-        ownership: owned || args.rendered.length > 0 ? ("owned" as const) : ("absent" as const),
+        ownership:
+          owned || (args.dryRun !== true && args.rendered.length > 0)
+            ? ("owned" as const)
+            : ("absent" as const),
       };
       if (args.dryRun === true || !result.changed) return result;
       const receipt = {

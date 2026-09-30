@@ -4,6 +4,8 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
+import { nativeUnitKey } from "../../locations/index.js";
+
 import {
   CandidateFingerprintFailed,
   type Plan,
@@ -104,8 +106,31 @@ const fingerprintMaterials = (
 
 // Absolute paths inside plan metadata relativize before hashing: candidate
 // identity is a property of workspace content, not of where it sits on disk.
-const planIdentity = (plan: Plan<unknown, unknown>, baseDir: string, path: Path.Path): string =>
-  JSON.stringify(
+const planIdentity = (plan: Plan<unknown, unknown>, baseDir: string, path: Path.Path): string => {
+  // Unit references encode their address inside a string. Normalize them from
+  // the owner's typed units, retaining the scope, selector, and exact linkage.
+  const relativeNativeKeys = new Map(
+    plan.jobs.flatMap((job) =>
+      job.steps.flatMap((step) =>
+        (step.artifact?.nativeLocations ?? []).map(
+          (unit) =>
+            [
+              nativeUnitKey(unit),
+              nativeUnitKey({
+                scope: unit.scope,
+                address: {
+                  ...unit.address,
+                  path: path.isAbsolute(unit.address.path)
+                    ? path.relative(baseDir, unit.address.path)
+                    : unit.address.path,
+                },
+              }),
+            ] as const,
+        ),
+      ),
+    ),
+  );
+  return JSON.stringify(
     {
       name: plan.name,
       jobs: plan.jobs.map((job) => ({
@@ -127,11 +152,16 @@ const planIdentity = (plan: Plan<unknown, unknown>, baseDir: string, path: Path.
     },
     (key, value: unknown) => {
       if (key === "evaluatedAt") return undefined;
+      if (key === "nativeUnitKeys" && Array.isArray(value))
+        return value.map((item: unknown) =>
+          typeof item === "string" ? (relativeNativeKeys.get(item) ?? item) : item,
+        );
       return typeof value === "string" && path.isAbsolute(value)
         ? path.relative(baseDir, value)
         : value;
     },
   );
+};
 
 export const makeExecutionCandidate = <Requirements, Output>(
   plan: Plan<Requirements, Output>,

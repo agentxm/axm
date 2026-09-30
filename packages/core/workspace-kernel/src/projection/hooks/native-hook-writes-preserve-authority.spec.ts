@@ -67,6 +67,57 @@ const groups = (proof: HookOwnership = owner) => ({
 });
 
 describe("native Hook ownership", () => {
+  it.effect(
+    "reports observed Hook ownership during preview and owned proof only after creation",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* fs.makeTempDirectoryScoped();
+        const file = path.join(root, ".claude/settings.json");
+        const authority = yield* makeRecordingNativeWriteAuthority;
+        const args = {
+          workspaceRoot: root,
+          ownerRoot: root,
+          nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+          scope: "project" as const,
+          path: file,
+          aliases: [file],
+          consumers: ["claude-code"],
+          settingsKey: "hooks",
+          format: "json" as const,
+          ownership: [owner],
+          rendered: groups(),
+          nativeInsertionEligibleNames: new Set<string>(),
+        };
+        const proposed = yield* reconcileNativeHookConfig({ ...args, dryRun: true }).pipe(
+          Effect.provide(authority.layer),
+        );
+        expect(proposed.nativeLocation).toMatchObject({ ownership: "absent", state: "created" });
+        expect(proposed.nativeLocation.proof).toBeUndefined();
+        expect(yield* fs.exists(file)).toBe(false);
+        expect((yield* authority.observed).protectedPaths).toEqual([]);
+        const applied = yield* reconcileNativeHookConfig(args).pipe(
+          Effect.provide(authority.layer),
+        );
+        expect(applied.nativeLocation).toMatchObject({
+          ownership: "owned",
+          state: "created",
+          proof: "exact-hook-identity-scope-and-source-root",
+        });
+        const bytes = yield* fs.readFileString(file);
+        const current = yield* reconcileNativeHookConfig({ ...args, dryRun: true }).pipe(
+          Effect.provide(authority.layer),
+        );
+        expect(current.nativeLocation).toMatchObject({
+          ownership: "owned",
+          state: "unchanged",
+          proof: "exact-hook-identity-scope-and-source-root",
+        });
+        expect(yield* fs.readFileString(file)).toBe(bytes);
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("uses a captured external vendor root only in user scope", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;

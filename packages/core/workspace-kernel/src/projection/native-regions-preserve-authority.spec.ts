@@ -38,6 +38,59 @@ for (const kind of ["rules", "knowledge"] as const) {
     scope: "project",
   };
   describe(`${kind} native region`, () => {
+    it.effect(
+      "reports absent ownership before creating a native region and owned proof after apply",
+      () =>
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const path = yield* Path.Path;
+          const root = yield* fs.makeTempDirectoryScoped();
+          const file = path.join(root, "AGENTS.md");
+          const authority = yield* makeRecordingNativeWriteAuthority;
+          const args = {
+            workspaceRoot: root,
+            ownerRoot: root,
+            nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+            scope: "project" as const,
+            targetPath: file,
+            displayPath: "AGENTS.md",
+            owner: `@agentxm/${kind}/instructions`,
+            region: kind,
+            generation: "a".repeat(64),
+            rendered: "Managed body",
+            contributors: [owner],
+            ownership: [owner],
+            configuredAgentIds: [],
+            eligible: false,
+          };
+          const proposed = yield* reconcileNativeManagedRegion({ ...args, dryRun: true }).pipe(
+            Effect.provide(authority.layer),
+          );
+          expect(proposed.nativeLocation).toMatchObject({ ownership: "absent", state: "created" });
+          expect(proposed.nativeLocation.proof).toBeUndefined();
+          expect(yield* fs.exists(file)).toBe(false);
+          expect((yield* authority.observed).protectedPaths).toEqual([]);
+          const applied = yield* reconcileNativeManagedRegion(args).pipe(
+            Effect.provide(authority.layer),
+          );
+          expect(applied.nativeLocation).toMatchObject({
+            ownership: "owned",
+            state: "created",
+            proof: "exact-scoped-managed-region-sources",
+          });
+          const bytes = yield* fs.readFileString(file);
+          const current = yield* reconcileNativeManagedRegion({ ...args, dryRun: true }).pipe(
+            Effect.provide(authority.layer),
+          );
+          expect(current.nativeLocation).toMatchObject({
+            ownership: "owned",
+            state: "unchanged",
+            proof: "exact-scoped-managed-region-sources",
+          });
+          expect(yield* fs.readFileString(file)).toBe(bytes);
+        }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    );
+
     it.effect("keeps accepted region ownership portable between project checkouts", () =>
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;

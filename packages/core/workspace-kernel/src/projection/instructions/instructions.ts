@@ -1384,6 +1384,8 @@ export type PlannedInstructionChange =
 export const plannedInstructionChanges = (
   snapshot: InstructionProjectionSnapshot,
   mode: "reconcile" | "remove",
+  /** Canonical physical paths and aliases a preceding region write will change. */
+  sourceWrites: ReadonlyArray<string> = [],
 ): ReadonlyArray<PlannedInstructionChange> => {
   const stale: ReadonlyArray<PlannedInstructionChange> = snapshot.status.staleTargets.map(
     (item) => ({
@@ -1416,9 +1418,18 @@ export const plannedInstructionChanges = (
   return [
     ...stale,
     ...snapshot.status.items.flatMap((item): ReadonlyArray<PlannedInstructionChange> => {
-      if (!isProjectedTarget(item) || item.health === "missing-source") return [];
+      if (
+        !isProjectedTarget(item) ||
+        (item.health === "missing-source" && !sourceWrites.includes(item.sourceFile))
+      )
+        return [];
       if (item.ownership === "unowned") return [];
-      if (item.ownership === "owned-current" && item.observedForm !== "broken-link") return [];
+      if (
+        item.ownership === "owned-current" &&
+        item.observedForm !== "broken-link" &&
+        !(item.observedForm === "copy" && sourceWrites.includes(item.sourceFile))
+      )
+        return [];
       return [
         {
           kind: "target",
@@ -1447,8 +1458,11 @@ const instructionChangeEffect = (change: PlannedInstructionChange): InstructionP
 /** Exact durable paths a reconciliation from this observation will touch. */
 export const instructionProjectionEffects = (
   snapshot: InstructionProjectionSnapshot,
+  sourceWrites: ReadonlyArray<string> = [],
 ): ReadonlyArray<InstructionProjectionEffect> =>
-  uniqueEffects(plannedInstructionChanges(snapshot, "reconcile").map(instructionChangeEffect));
+  uniqueEffects(
+    plannedInstructionChanges(snapshot, "reconcile", sourceWrites).map(instructionChangeEffect),
+  );
 
 /** Exact durable paths disabling this observed projection will touch. */
 export const instructionProjectionRemovalEffects = (
@@ -1459,8 +1473,11 @@ export const instructionProjectionRemovalEffects = (
 export const instructionProjectionNativeLocations = (
   snapshot: InstructionProjectionSnapshot,
   mode: "reconcile" | "remove",
+  sourceWrites: ReadonlyArray<string> = [],
 ) => {
-  const changes = plannedInstructionChanges(snapshot, mode).map(instructionChangeEffect);
+  const changes = plannedInstructionChanges(snapshot, mode, sourceWrites).map(
+    instructionChangeEffect,
+  );
   return instructionChangeLocations({
     snapshot,
     before: snapshot,
@@ -1479,6 +1496,8 @@ export interface ObserveInstructionProjectionArgs {
   /** Physical entry routes proven absent from the prior configured readership. */
   readonly eligibleTargets?: ReadonlyArray<string>;
   readonly symlinkSupported?: boolean;
+  /** Canonical roots this proposed closure will create; their sources still observe as missing. */
+  readonly prospectiveRoots?: ReadonlyArray<string>;
   /** True only when the supplied filesystem is a snapshot of the Git index. */
   readonly gitIndexView?: boolean;
 }
@@ -1506,7 +1525,7 @@ export const observeInstructionProjection = (
       args.nativeDirectoryInputs,
     );
     const plan = buildInstructionProjectionPlan({
-      roots: tree.roots,
+      roots: [...new Set([...tree.roots, ...(args.prospectiveRoots ?? [])])],
       scope: args.scope,
       ...(args.nativeDirectoryInputs === undefined
         ? {}

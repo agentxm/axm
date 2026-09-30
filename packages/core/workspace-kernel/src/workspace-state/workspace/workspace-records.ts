@@ -60,7 +60,7 @@ export class WorkspaceRecords extends ServiceMap.Service<
 export const makeWorkspaceRecords = (
   location: WorkspaceLocationService,
   desiredState: DesiredStateReaderService,
-  locks: Pick<LockfileReaderService, "entries">,
+  locks: Pick<LockfileReaderService, "lockfile">,
 ): WorkspaceRecordsService => {
   const withScoped = <A>(
     use: (context: {

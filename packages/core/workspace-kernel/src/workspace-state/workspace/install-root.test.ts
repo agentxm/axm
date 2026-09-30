@@ -9,6 +9,10 @@ import * as nodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Context from "effect/Context";
+import * as FileSystem from "effect/FileSystem";
+import * as Ref from "effect/Ref";
+import * as Schema from "effect/Schema";
 import * as Path from "effect/Path";
 import { afterEach, beforeEach } from "vitest";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
@@ -16,6 +20,9 @@ import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { handle } from "../testing.js";
 import { observeInstallRoot } from "./install-root.js";
 import { resolveProjectWorkspaceLayout } from "./layout.js";
+import { LOCKFILE_VERSION, LockfileSchema, type Lockfile } from "../desired/lockfile/schema.js";
+import { readLockfileCell } from "./state-cells.js";
+import { makeRegistrySkillLockEntry } from "./test-stubs.js";
 
 const node = (
   name: string,
@@ -53,7 +60,7 @@ const graph = (nodes: ReadonlyArray<DesiredExtensionNode>, settled = true): Desi
 });
 
 const noLocks = {
-  entries: () => Effect.succeed({}),
+  lockfile: Effect.succeed({ lockfileVersion: LOCKFILE_VERSION, skills: {} } satisfies Lockfile),
 };
 
 layer(NodeServices.layer, { excludeTestServices: true })("install-root inventory", (it) => {
@@ -85,6 +92,74 @@ layer(NodeServices.layer, { excludeTestServices: true })("install-root inventory
         ]),
       };
     });
+
+  it.effect(
+    "reads one lock document per inventory and observes a changed lock on the next read",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const projectRoot = makeAbsolutePath(path, root);
+        const runtimeDir = path.join(root, ".axm");
+        const lockPath = path.join(root, "axm-lock.yaml");
+        const authoredRoot = path.join(root, "skills");
+        write("axm.json", "{}");
+        write("skills/authored/SKILL.md", "# Authored");
+        write("agent_extensions/registry/@acme/skills/review/skill.json", "{}");
+        write("axm-lock.yaml", JSON.stringify({ lockfileVersion: LOCKFILE_VERSION, skills: {} }));
+        const layout = yield* resolveProjectWorkspaceLayout(projectRoot, {});
+        const counts = yield* Ref.make({ documents: 0, authoredDirectories: 0 });
+        const countedFs: FileSystem.FileSystem = {
+          ...fs,
+          readFileString: (target, encoding) =>
+            Ref.update(counts, (value) => ({
+              ...value,
+              documents: value.documents + (target === lockPath ? 1 : 0),
+            })).pipe(Effect.andThen(fs.readFileString(target, encoding))),
+          readDirectory: (target) =>
+            Ref.update(counts, (value) => ({
+              ...value,
+              authoredDirectories: value.authoredDirectories + (target === authoredRoot ? 1 : 0),
+            })).pipe(Effect.andThen(fs.readDirectory(target))),
+        };
+        const locks = {
+          lockfile: readLockfileCell(
+            {
+              scope: "project",
+              nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+              projectRoot,
+              userHome: makeAbsolutePath(path, path.join(root, "user-home")),
+              projectRuntimeDir: runtimeDir,
+              userRuntimeDir: path.join(root, "user-home", ".axm", "workspace", ".axm"),
+            },
+            runtimeDir,
+          ).pipe(
+            Effect.provideContext(
+              Context.make(FileSystem.FileSystem, countedFs).pipe(Context.add(Path.Path, path)),
+            ),
+          ),
+        };
+        const first = yield* observeInstallRoot({ layout, graph: graph([]), locks });
+        expect(first.packages.find((entry) => entry.name === "review")?.lockKey).toBeUndefined();
+        expect(yield* Ref.get(counts)).toEqual({ documents: 1, authoredDirectories: 1 });
+
+        write(
+          "axm-lock.yaml",
+          JSON.stringify(
+            Schema.encodeSync(LockfileSchema)({
+              lockfileVersion: LOCKFILE_VERSION,
+              skills: {
+                review: makeRegistrySkillLockEntry({ owner: handle("@acme"), name: "review" }),
+              },
+            }),
+          ),
+        );
+        yield* Ref.set(counts, { documents: 0, authoredDirectories: 0 });
+        const second = yield* observeInstallRoot({ layout, graph: graph([]), locks });
+        expect(second.packages.find((entry) => entry.name === "review")?.lockKey).toBe("review");
+        expect(yield* Ref.get(counts)).toEqual({ documents: 1, authoredDirectories: 1 });
+      }),
+  );
 
   it.effect("classifies packages, leftovers, staging, and unrecognized entries", () =>
     Effect.gen(function* () {

@@ -105,6 +105,7 @@ export const resolveConfiguredExtensionObservations = (
   ConfiguredAgentOutcomesUnavailable
 > =>
   Effect.gen(function* () {
+    if (request.rows.length === 0) return new Map<string, ConfiguredExtensionObservation>();
     const generic = new Map<string, ConfiguredExtensionObservation>(
       [...genericConfiguredAgentOutcomes(request)].map(
         ([name, agentOutcomes]) =>

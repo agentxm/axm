@@ -30,6 +30,7 @@ import {
   type AgentOutputAuthority,
   applyPlannedProjections,
   applyProjectionPlans,
+  observeProjectionPlans,
   observeInstructionProjection,
   reconcileInstructionAliases,
   projectionFactRequiresReconciliation,
@@ -646,6 +647,19 @@ export const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (ar
       },
     });
   }
+  const proposedResult =
+    args.prepared === undefined
+      ? undefined
+      : yield* Effect.result(observeProjectionPlans(args.prepared.plans));
+  if (proposedResult !== undefined && Result.isFailure(proposedResult)) {
+    return Option.some<PlannedJobStep<SyncStepRequirements>>({
+      key: SYNC_RECOVERY_IDS.hookProjections,
+      label: "managed hook projections",
+      readiness: "error",
+      errorMessage: args.adapter.toStepFailure(proposedResult.failure).detail,
+    });
+  }
+  const proposed = proposedResult?.success;
   const agentOutcomes =
     args.prepared?.agentOutcomes ??
     (manager.configuredAgentOutcomes === undefined
@@ -658,7 +672,9 @@ export const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (ar
     agentOutcomes,
     managedRegions: managedRegionsForFacts(facts),
     nativeLocations: combineNativeLocationOutcomes(
-      facts.flatMap((fact) => fact.observation.nativeLocations ?? []),
+      proposed === undefined
+        ? facts.flatMap((fact) => fact.observation.nativeLocations ?? [])
+        : proposed.flatMap((observation) => observation.nativeLocations ?? []),
     ),
   } satisfies JobStepArtifact;
   const blocked = agentOutcomes.filter(({ outcome }) => outcome === "blocked");
@@ -706,6 +722,8 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
   readonly newlyConfiguredAgentIds?: ReadonlyArray<string>;
   readonly nativeProjection?: NativeProjectionOptions;
   readonly projectionFacts: ReadonlyArray<ProjectionInvariantFact>;
+  /** Native region writes already declared by preceding steps in this closure. */
+  readonly precedingNativeLocations?: ReadonlyArray<NativeLocationOutcome>;
   readonly touchesRule: boolean;
   readonly adapter: StepFailureConversionService;
 }) {
@@ -777,6 +795,26 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
     (agent) => !priorConfiguredAgents.includes(agent) && configuredAgents.includes(agent),
   );
   const resolvedConfig = resolveInstructionsConfig(config.value);
+  const path = yield* Path.Path;
+  const sourceWrites = [
+    ...(args.touchesRule
+      ? projectionFacts.flatMap((fact) => fact.observation.nativeLocations ?? [])
+      : []),
+    ...(args.precedingNativeLocations ?? []),
+  ]
+    .filter(
+      (unit) =>
+        unit.address.kind === "region" &&
+        (unit.state === "created" || unit.state === "updated" || unit.state === "removed"),
+    )
+    .flatMap((unit) => [unit.address.path, ...unit.aliases]);
+  const prospectiveRoots = [
+    ...new Set(
+      sourceWrites
+        .filter((source) => path.basename(source) === resolvedConfig.fileName)
+        .map((source) => path.dirname(source)),
+    ),
+  ];
   const observed = yield* observeInstructionProjection({
     workspaceRoot: location.baseDir,
     nativeDirectoryInputs: location.nativeDirectoryInputs,
@@ -784,6 +822,7 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
     configuredAgents,
     eligibleAgentIds,
     config: resolvedConfig,
+    prospectiveRoots,
   });
   const prior =
     eligibleAgentIds.length === 0
@@ -817,12 +856,13 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
     }),
   )).flat();
   const snapshot = { ...observed, eligibleTargets };
-  const path = yield* Path.Path;
+  const instructionEffects = instructionProjectionEffects(snapshot, sourceWrites);
   const regionCurrent = !args.touchesRule || !projectionFactsNeedReconciliation(projectionFacts);
   const current =
     snapshot.status.missingSources.length === 0 &&
     regionCurrent &&
-    instructionProjectionIsCurrent(snapshot);
+    instructionProjectionIsCurrent(snapshot) &&
+    instructionEffects.length === 0;
   if (current) return Option.none<PlannedJobStep<SyncStepRequirements>>();
 
   const readiness = yield* instructionReconciliationReadiness({
@@ -839,7 +879,7 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
   }
 
   const ruleTargets = args.touchesRule ? projectionFileTargets(projectionFacts) : [];
-  const instructionTargets = instructionProjectionEffects(snapshot).map((effect) => ({
+  const instructionTargets = instructionEffects.map((effect) => ({
     ...effect,
     path: path.relative(location.baseDir, effect.path),
   }));
@@ -850,7 +890,7 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
     change: targets[0]?.change ?? "updated",
     managedRegions: args.touchesRule ? managedRegionsForFacts(projectionFacts) : [],
     nativeLocations: combineNativeLocationOutcomes([
-      ...instructionProjectionNativeLocations(snapshot, "reconcile"),
+      ...instructionProjectionNativeLocations(snapshot, "reconcile", sourceWrites),
       ...projectionFacts.flatMap((fact) => fact.observation.nativeLocations ?? []),
     ]),
     targets,

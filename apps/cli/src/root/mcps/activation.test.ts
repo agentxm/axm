@@ -109,7 +109,7 @@ describe("mcps enable/disable output", () => {
         expect(result).toMatchObject({
           units: [
             {
-              id: "context",
+              id: "mcp-server:context",
               label: "context",
               state: "committed",
               artifact: {
@@ -187,7 +187,7 @@ describe("mcps enable/disable output", () => {
         expect(result).toMatchObject({
           units: [
             {
-              id: "context",
+              id: "mcp-server:context",
               label: "context",
               state: "committed",
               artifact: {

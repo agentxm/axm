@@ -1,5 +1,6 @@
 import {
   WorkspaceLocation,
+  SettingsReader,
   DesiredStateReader,
   desiredReachability,
   type DesiredStateGraph,
@@ -16,10 +17,12 @@ import {
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 
 import { KnowledgeManager } from "@agentxm/workspace-kernel/materialization";
 import {
   buildInstallOperation,
+  forecastInstallChange,
   kernelFailureToStepFailure,
   type InstallStepRequirements,
   type ResolvedInstallRef,
@@ -35,7 +38,11 @@ import {
 import {
   applyInstructionSurfacePlans,
   captureAgentOutputAuthority,
+  observeInstructionSurfacePlans,
+  plannedInstructionContributorObservation,
 } from "@agentxm/workspace-kernel/projection";
+
+import { formatFqn } from "@agentxm/extension-model/unstable/extensions/fqn";
 
 import type { KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
 
@@ -60,6 +67,7 @@ export const planKnowledgeInstall: (
 > = Effect.fn("InstallExtensions.planKnowledge")(function* (intent: KnowledgeInstallIntent) {
   const manager = yield* KnowledgeManager;
   const location = yield* WorkspaceLocation;
+  const path = yield* Path.Path;
   const priorGraph = yield* (yield* DesiredStateReader).graph().pipe(
     Effect.mapError((cause) =>
       installRefused({
@@ -91,9 +99,10 @@ export const planKnowledgeInstall: (
         .map(({ ref }) => ref.knowledge.name),
     ),
   };
-  yield* manager
+  const prepared = yield* manager
     .prepareProjection(intent.projectionRefs ?? intent.refs.map(({ ref }) => ref), nativeProjection)
     .pipe(
+      Effect.flatMap(observeInstructionSurfacePlans),
       Effect.mapError((cause) =>
         installRefused({
           category: "conflict",
@@ -106,25 +115,68 @@ export const planKnowledgeInstall: (
   // one operation defer it so the region is rendered once, from the complete
   // contributor set.
   const deferProjections = intent.deferProjections === true || intent.refs.length > 1;
-  const memberSteps = intent.refs.map(({ ref, versionRange }) =>
-    buildInstallOperation(manager, {
-      toStepFailure: kernelFailureToStepFailure,
-      ref,
-      declaration: { name: ref.knowledge.name, versionRange },
-      ...(deferProjections
-        ? { enclosingClosure: { projections: [ref.type], postconditions: [] } }
-        : {}),
-      message: `Installed ${ref.knowledge.name}`,
-      buildArtifact: ({ change }) =>
-        Effect.map(manager.aggregateProjectionObservation, (observation) => ({
-          path: observation.targets[0]?.path ?? ref.knowledge.name,
+  const configuredAgents = yield* (yield* SettingsReader).configuredAgents.pipe(
+    Effect.mapError((cause) =>
+      installRefused({
+        category: "validation",
+        detail: "Cannot establish configured agents for Knowledge install planning",
+        cause,
+      }),
+    ),
+  );
+  const memberSteps = yield* Effect.forEach(intent.refs, ({ ref, versionRange }) =>
+    Effect.gen(function* () {
+      const installedBefore = yield* manager
+        .isInstalled({
+          target: { type: "knowledge", name: ref.knowledge.name },
+        })
+        .pipe(
+          Effect.mapError((cause) =>
+            installRefused({
+              category: "internal",
+              detail: `Knowledge install planning failed for ${ref.knowledge.name}`,
+              cause,
+            }),
+          ),
+        );
+      const { nativeLocations, agentOutcomes } = plannedInstructionContributorObservation({
+        type: ref.type,
+        name: ref.knowledge.name,
+        contributor: formatFqn({ owner: ref.owner, type: ref.type, name: ref.name }),
+        observations: prepared,
+        agentIds: configuredAgents,
+        scope: location.scope,
+      });
+      const firstLocation = nativeLocations[0];
+      return buildInstallOperation(manager, {
+        plannedArtifact: {
+          path:
+            firstLocation === undefined
+              ? ref.knowledge.name
+              : path.relative(location.baseDir, firstLocation.address.path),
           scope: location.scope,
-          agents: observation.agents,
-          ...(observation.nativeLocations === undefined
-            ? {}
-            : { nativeLocations: observation.nativeLocations }),
-          targets: observation.targets.map((target) => ({ ...target, change })),
-        })),
+          change: forecastInstallChange({ installedBefore }),
+          nativeLocations,
+          agentOutcomes,
+        },
+        toStepFailure: kernelFailureToStepFailure,
+        ref,
+        declaration: { name: ref.knowledge.name, versionRange },
+        ...(deferProjections
+          ? { enclosingClosure: { projections: [ref.type], postconditions: [] } }
+          : {}),
+        message: `Installed ${ref.knowledge.name}`,
+        buildArtifact: ({ change }) =>
+          Effect.map(manager.aggregateProjectionObservation, (observation) => ({
+            path: observation.targets[0]?.path ?? ref.knowledge.name,
+            scope: location.scope,
+            agents: observation.agents,
+            ...(observation.nativeLocations === undefined
+              ? {}
+              : { nativeLocations: observation.nativeLocations }),
+            targets: observation.targets.map((target) => ({ ...target, change })),
+          })),
+      });
     }),
   );
   const projectionSteps: ReadonlyArray<PlannedJobStep<InstallStepRequirements>> =

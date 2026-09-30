@@ -251,8 +251,10 @@ describe("module boundary constraints", () => {
   });
 
   const CORE_CAPABILITY = "packages/core/workspace-kernel/src/planning/index.ts";
-  const CORE_CAPABILITY_TEST =
-    "packages/core/workspace-kernel/src/sources/registry-login-suggestion.test.ts";
+  // Use an owner that declares test-support so resolution exercises the
+  // intended tooling boundary rather than an undeclared-package fallback.
+  const ENGINEERING_CONSUMER_TEST =
+    "packages/core/workspace-features/src/authoring/native-projection.test.ts";
   const SUPPORTING_CAPABILITY = "packages/supporting/registry-access/src/authentication/index.ts";
   const SUPPORTING_INTEGRATION = "packages/supporting/registry-client/src/index.ts";
   const APPLICATION = "apps/cli/src/main.ts";
@@ -324,7 +326,7 @@ describe("module boundary constraints", () => {
       ),
     ).toEqual(["@nx/enforce-module-boundaries"]);
     expect(
-      await boundaryViolations('import "@agentxm/test-support";', CORE_CAPABILITY_TEST),
+      await boundaryViolations('import "@agentxm/test-support";', ENGINEERING_CONSUMER_TEST),
     ).toEqual([]);
   });
 

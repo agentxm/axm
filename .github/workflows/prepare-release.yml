@@ -37,9 +37,6 @@ jobs:
 
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
-        with:
-          remote-cache-url: ${{ vars.NX_REMOTE_CACHE_URL }}
-          remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_READ_TOKEN }}
 
       - name: Resolve and validate preparation source
         id: source

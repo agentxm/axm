@@ -6088,7 +6088,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 - Requirement: `system/process/release-path-uses-only-public-hosts-and-credentials`
 - Owner: `axm`
-- Statement: AXM release preparation, production and publication shall reference only the declared public GitHub, npm and Homebrew distribution hosts and only the credentials required to publish through those hosts.
+- Statement: AXM release preparation, production and publication shall distribute only through the declared public GitHub, npm and Homebrew hosts with their publication credentials. Optional independently configured task caches may supply deterministic prerequisites using read-only credentials confined to cache setup; disabling remote caching shall preserve the release task graph.
 - Class: process
 - Role: supporting
 - Product goals: `trustworthy-distribution`, `dependable-change-process`

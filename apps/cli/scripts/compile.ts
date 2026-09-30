@@ -107,6 +107,11 @@ export const compile = Effect.gen(function* () {
     const outfile = path.join(outputDir, output);
     // Never delete sibling release outputs owned by another target.
     yield* fs.remove(outfile, { force: true });
+    if (request.output === "host-bin") {
+      yield* fs.copyFile(path.join(distDir, "bin", output), outfile);
+      yield* Effect.logInfo(`Staged ${output} from its platform producer`);
+      continue;
+    }
     yield* Effect.logInfo(`Compiling ${output} (${target})`);
     const code = yield* processes.exitCode(
       ChildProcess.make(

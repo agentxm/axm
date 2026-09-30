@@ -57,7 +57,9 @@
     "verify:deployment": "bun scripts/verify-deployment.ts",
     "bench": "pnpm exec nx run axm:bench",
     "test:all": "pnpm test && pnpm test:e2e",
-    "ci:workspace:report": "scripts/with-allure-report.sh pnpm run ci:workspace"
+    "ci:workspace:report": "scripts/with-allure-report.sh pnpm run ci:workspace",
+    "cache:warm": "pnpm exec nx run-many -t lint typecheck build test --exclude=axm,cli-e2e --nxBail",
+    "cache:warm:affected": "pnpm exec nx affected -t lint typecheck build test --exclude=axm,cli-e2e --nxBail"
   },
   "nx": {
     "includedScripts": []

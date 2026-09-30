@@ -348,17 +348,26 @@ root `.env.local`. Keep tokens out of source, logs, and release assets. Set
 set `NX_SKIP_NX_CACHE=true` as well for complete re-execution.
 
 GitHub's setup action accepts `NX_REMOTE_CACHE_URL` and the read-only
-`NX_REMOTE_CACHE_READ_TOKEN`. Missing configuration disables remote access;
+`NX_REMOTE_CACHE_READ_TOKEN`. Fully absent configuration disables remote access;
+partial or malformed configuration fails explicitly. Failed results are never
+cached. Fork and Dependabot runs bypass remote access;
 forks receive no cache credential. Only the separate successful-main warmer
 uses `NX_REMOTE_CACHE_WRITE_TOKEN` from the protected `nx-cache-writer`
 environment. Its live deployment branch policy must allow main only. Warming
-runs after CI completion and does not gate publication. Scheduled source
-assurance bypasses both local and remote task caches.
+runs after CI completion and does not gate publication. The GitHub caller uses
+`cache:warm` to visit the complete eligible graph; native hits avoid recomputation
+while missing hashes are populated. This covers multi-commit merges, cancelled
+predecessors, and expired objects without separate warming state.
+`cache:warm:affected` remains available for an explicit bounded revision range.
+Scheduled source assurance bypasses both local and remote task caches.
 
-Toolchain inputs include the complete lockfile, patches, runtime versions, and
-host platform. Lockfile changes deliberately invalidate deterministic tasks;
-source inputs stay project-scoped. Each `cli:compile-<platform>-<architecture>`
-target owns one release binary. `cli:compile` coordinates those targets;
+Toolchain inputs include patches, runtime versions, package-manager policy, and
+host platform. Nx hashes imported external packages and their transitive
+versions alongside each target's tool dependencies. The root lockfile is not an
+additional global task input; unrelated lockfile changes can retain hits. Each `cli:compile-<platform>-<architecture>`
+target owns one release binary. `cli:compile-host` depends on its host's platform
+producer and copies that binary into its separately owned staging directory.
+`cli:compile` coordinates all platform producers;
 `compile-host-dev`, E2E, binary smoke, and installation leaves still run fresh.
 A restored entry is trusted only as a deterministic result for its Nx hash.
 Package-store caches supply dependencies, not task verdicts. Exact-SHA verified

@@ -337,20 +337,16 @@
     },
     "compile-host": {
       "cache": true,
-      "dependsOn": ["build"],
       "executor": "nx:run-commands",
       "inputs": [
-        "production",
-        "^production",
-        "{projectRoot}/scripts/compile.ts",
         "hostPlatform",
         "toolchain",
+        "{projectRoot}/scripts/compile.ts",
         {
           "externalDependencies": ["effect", "@effect/platform-node"]
         },
         {
-          "dependentTasksOutputFiles": "**/*",
-          "transitive": true
+          "dependentTasksOutputFiles": "**/*"
         }
       ],
       "outputs": ["{projectRoot}/dist/host-bin"],

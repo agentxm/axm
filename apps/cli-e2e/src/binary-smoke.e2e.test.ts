@@ -11,10 +11,13 @@ import { resolveBinaryPath } from "./distribution-targets.js";
  * literal shape is read by the specification catalog.
  */
 export const executionBinding = {
-  requirements: ["system/compatibility/supported-platform-matrix"],
+  requirements: [
+    "system/compatibility/supported-platform-matrix",
+    "cli/agents/remove/removes-membership-and-owned-outputs",
+  ],
   boundary: "binary",
   rationale:
-    "Executes the compiled platform binary, proving the shipped artifact starts and answers on the target operating system and architecture.",
+    "Executes the compiled platform binary, proving startup and native Skill lifecycle on the selected filesystem, including case aliases, canonical-byte preservation, user-owned directory routing, remaining consumers, and the zero-agent shared policy.",
 } as const;
 
 const binaryPath = resolveBinaryPath();
@@ -46,6 +49,86 @@ const parseInstallMethod = (stdout: string): unknown => {
 };
 
 describe("compiled binary smoke", () => {
+  it("preserves native case aliases and remaining Skill consumers", async () => {
+    const temp = createTempDir("axm-native-case-");
+    const root = fs.realpathSync(temp.path);
+    const home = path.join(root, "home");
+    const native = path.join(root, ".Agents", "skills");
+    const alias = path.join(root, ".claude", "skills");
+    const source = path.join(root, "vendor", "review");
+    const sourceFile = path.join(source, "src", "SKILL.md");
+    const body =
+      "---\nname: review\ndescription: Native case fixture\n---\n\n# Preserve these canonical bytes\n";
+    try {
+      fs.mkdirSync(home);
+      fs.mkdirSync(native, { recursive: true });
+      fs.mkdirSync(path.dirname(alias));
+      fs.symlinkSync(native, alias, process.platform === "win32" ? "junction" : "dir");
+      const routing = fs.readlinkSync(alias);
+      const foldsCase = fs.existsSync(path.join(root, ".agents", "skills"));
+      // The macOS release lane names its expected filesystem mode explicitly.
+      // Probe the selected volume rather than inferring its behavior from the OS.
+      const expectedCase = process.env["AXM_EXPECT_FILESYSTEM_CASE"];
+      if (expectedCase !== undefined && expectedCase !== "") {
+        expect(["sensitive", "insensitive"]).toContain(expectedCase);
+        expect(foldsCase).toBe(expectedCase === "insensitive");
+      }
+      writeJson(path.join(root, "axm.json"), {
+        owner: "@acme",
+        agents: ["claude-code", "codex"],
+      });
+      writeJson(path.join(source, "skill.json"), {
+        owner: "@acme",
+        type: "skill",
+        name: "review",
+        version: "1.0.0",
+        description: "Native case fixture",
+      });
+      fs.mkdirSync(path.dirname(sourceFile));
+      fs.writeFileSync(sourceFile, body);
+      const environment = {
+        AXM_USER_HOME: home,
+        HOME: home,
+        USERPROFILE: home,
+        XDG_CONFIG_HOME: path.join(home, ".config"),
+        AXM_NO_UPDATE_CHECK: "1",
+      };
+      for (const args of [
+        ["install", source, "--skill", "review"],
+        ["agents", "remove", "claude-code"],
+        ["sync"],
+        ["agents", "remove", "codex"],
+      ]) {
+        const result = await runBinary([...args, "--non-interactive", "--json"], {
+          cwd: root,
+          env: environment,
+        });
+        expect(result.exitCode, `${args.join(" ")}\n${getOutput(result)}`).toBe(0);
+        expect(fs.readFileSync(sourceFile, "utf8")).toBe(body);
+        expect(fs.readlinkSync(alias)).toBe(routing);
+        expect(
+          fs.readFileSync(path.join(root, ".agents", "skills", "review", "SKILL.md"), "utf8"),
+        ).toBe(body);
+        if (args[0] !== "install")
+          expect(fs.existsSync(path.join(native, "review"))).toBe(foldsCase);
+      }
+      const removal = await runBinary(
+        ["skills", "uninstall", "review", "--non-interactive", "--json"],
+        {
+          cwd: root,
+          env: environment,
+        },
+      );
+      expect(removal.exitCode, getOutput(removal)).toBe(0);
+      expect(fs.readFileSync(sourceFile, "utf8")).toBe(body);
+      expect(fs.readlinkSync(alias)).toBe(routing);
+      expect(fs.existsSync(path.join(root, ".agents", "skills", "review"))).toBe(false);
+      expect(fs.readdirSync(native)).toEqual([]);
+    } finally {
+      temp.cleanup();
+    }
+  });
+
   it("exits 0 with --version and prints a semver", async () => {
     const result = await runBinary(["--version"]);
 

@@ -6,6 +6,54 @@ import * as Path from "effect/Path";
 import { preflightNativeConfigReaders } from "./native-config-readers.js";
 
 describe("physical native config reader compatibility", () => {
+  it.effect("shares one preflight observation and refreshes it after an alias retarget", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped();
+      const file = path.join(root, ".mcp.json");
+      const alias = path.join(root, ".gemini/settings.json");
+      yield* fs.makeDirectory(path.dirname(alias));
+      yield* fs.writeFileString(file, "{}\n");
+      yield* fs.writeFileString(path.join(root, "separate.json"), "{}\n");
+      yield* fs.symlink("../separate.json", alias);
+      const reads = new Map<string, number>();
+      const preflight = preflightNativeConfigReaders({
+        workspaceRoot: root,
+        nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+        scope: "project",
+        physicalPath: file,
+        configuredAgentIds: ["claude-code", "gemini-cli"],
+        writerFormat: "json",
+        raw: "{}\n",
+        proposedRaw: JSON.stringify({
+          mcpServers: { remote: { type: "http", url: "https://example.test/mcp" } },
+        }),
+      }).pipe(
+        Effect.provideService(FileSystem.FileSystem, {
+          ...fs,
+          readDirectory: (target, options) =>
+            Effect.suspend(() => {
+              reads.set(target, (reads.get(target) ?? 0) + 1);
+              return fs.readDirectory(target, options);
+            }),
+        }),
+      );
+      const first = yield* preflight;
+      expect(first.some(({ agentId }) => agentId === "gemini-cli")).toBe(false);
+      expect(reads.get(root)).toBe(1);
+      expect([...reads.values()].every((count) => count === 1)).toBe(true);
+      yield* fs.remove(alias);
+      yield* fs.symlink("../.mcp.json", alias);
+      reads.clear();
+      const changed = yield* preflight.pipe(Effect.result);
+      expect(changed).toMatchObject({ _tag: "Failure", failure: { _tag: "McpConfigInvalid" } });
+      expect(reads.get(root)).toBe(1);
+      expect([...reads.values()].every((count) => count === 1)).toBe(true);
+      expect(yield* fs.readFileString(file)).toBe("{}\n");
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
   it.effect.each([false, true])(
     "only a configured aliased MCP reader constrains an entry: %s",
     (configured) =>

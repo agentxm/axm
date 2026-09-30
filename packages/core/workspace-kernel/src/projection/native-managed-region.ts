@@ -36,6 +36,41 @@ export interface NativeRegionSource {
   readonly scope: "project" | "user";
 }
 
+const isRegionName = (region: string): region is RegionName =>
+  region === "rules" ||
+  region === "knowledge" ||
+  region === "hook-fallbacks" ||
+  region === "instruction-aliases" ||
+  region.startsWith("mcp-server:");
+
+/** Exact owner-region content for transient retention; sibling regions are independent. */
+export const nativeManagedRegionContent = (args: {
+  readonly targetPath: string;
+  readonly region: string;
+  readonly raw: string;
+}) =>
+  Effect.gen(function* () {
+    const style = commentStyleForTarget(args.targetPath);
+    if (Option.isNone(style) || !isRegionName(args.region))
+      return yield* new ProjectionIoFailed({
+        path: args.targetPath,
+        step: "inspect",
+        cause: "retained-region-grammar-unavailable",
+      });
+    const region = inspectManagedRegion(args.raw, args.region, style.value);
+    if (region.state !== "complete")
+      return yield* new ProjectionIoFailed({
+        path: args.targetPath,
+        step: "inspect",
+        cause: "retained-region-unavailable",
+      });
+    return args.raw
+      .split(/(?<=\n)/u)
+      .slice(region.start, region.end + 1)
+      .join("")
+      .replace(/\r?\n$/u, "");
+  });
+
 const sourceProof = Schema.Struct({
   scope: Schema.Literals(["project", "user"]),
   root: Schema.String,

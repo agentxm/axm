@@ -364,6 +364,19 @@ People and agents can understand invalid workspace state and recover it through 
 - Methods: example
 - Source: [`packages/core/workspace-features/src/linting/catalog/workspace/reports-user-outputs-without-settings.spec.ts`](../packages/core/workspace-features/src/linting/catalog/workspace/reports-user-outputs-without-settings.spec.ts)
 
+##### Skill lint reports required native locations independently of membership
+
+- Requirement: `cli/lint/skills-follow-native-location-observations`
+- Owner: `workspace-features`
+- Statement: When lint evaluates Skill realization, it shall report missing shared-policy locations even without configured agents and missing required primary locations even when an additional read location is populated, shall accept owned physical aliases, and shall distinguish preserved foreign content from owned output that contradicts disabled intent.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Derived from: `workspace/skills/physical-locations-include-shared-policy`
+- Source: [`packages/core/workspace-features/src/linting/run/skills-follow-native-location-observations.spec.ts`](../packages/core/workspace-features/src/linting/run/skills-follow-native-location-observations.spec.ts)
+
 ##### The recovery route for a rejected lockfile re-accepts the desired state
 
 - Requirement: `cli/lockfile-rejections-name-recovery-routes`
@@ -754,14 +767,14 @@ Configured extensions realize correctly and completely for every configured codi
 
 - Requirement: `cli/mcps/projects-to-every-configured-agent`
 - Owner: `workspace-features`
-- Statement: When an MCP server is desired and enabled, however it entered the workspace — added, authored inline, adopted from one agent's own native configuration, or supplied by an installed Pack — reconciliation shall write it to the native configuration of every configured agent that can represent it, shall account for every configured agent and report one that cannot represent it as unsupported rather than omitting it, shall judge whether each agent's entry is current from its decoded native value and report a hand-edited entry as stale under one reason code in every inspection surface, shall repair it without further change on the next run, shall write no server that is configured as disabled, and shall remove proven owned entries from every agent it reached when desired state disables it or a withdrawal captures ownership before removing the declaration. If an external edit removes the only ownership authority, reconciliation shall preserve the unproven native entry.
+- Statement: When an MCP server is desired and enabled, however it entered the workspace — added, authored inline, adopted from one agent's own native configuration, or supplied by an installed Pack — reconciliation shall write it to the native configuration of every configured agent that can represent it, shall account for every configured agent and distinguish unsupported native scope from known native support whose AXM writer or destination is unverified rather than omitting either, shall judge whether each agent's entry is current from its decoded native value and report a hand-edited entry as stale under one reason code in every inspection surface, shall repair it without further change on the next run, shall write no server that is configured as disabled, and shall remove proven owned entries from every agent it reached when desired state disables it or a withdrawal captures ownership before removing the declaration. If an external edit removes the only ownership authority, reconciliation shall preserve the unproven native entry.
 - Class: functional
 - Role: experience
 - Product goals: `agent-interoperability`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
 - Derived from: `cli/mcps/import/adoption-reaches-every-configured-agent`, `cli/mcps/inline-lifecycle-is-idempotent`, `cli/mcps/inline-authority-is-operation-coherent`, `cli/activation-follows-desired-state`
-- Assumptions: Claude Code and Cursor keep distinct project-scope MCP configuration files, so two native files observe two agents.; An unmanaged server declared in one agent's own configuration file is the only shape adoption records, so one such declaration stands for every adopted entry.; Amp is catalogued without MCP configuration support, so it stands for any configured agent that cannot represent a server.; A Pack that declares one MCP member is the only way a connection reaches desired state without its own settings entry, so one such Pack stands for every Pack-supplied connection.
+- Assumptions: Claude Code and Cursor keep distinct project-scope MCP configuration files, so two native files observe two agents.; An unmanaged server declared in one agent's own configuration file is the only shape adoption records, so one such declaration stands for every adopted entry.; Amp has catalogued native MCP support without a verified AXM writer, while Hermes has no project-scope MCP support; these exercise different availability outcomes.; A Pack that declares one MCP member is the only way a connection reaches desired state without its own settings entry, so one such Pack stands for every Pack-supplied connection.
 - Additional evidence: process via [`apps/cli-e2e/src/activation-lifecycle.e2e.test.ts`](../apps/cli-e2e/src/activation-lifecycle.e2e.test.ts) — Drives every catalog extension type — including the mcp-server and pack types that cannot be sourced from a local package in memory — through authored creation, update, disable, enable, and uninstall in the real CLI process, proving preview purity, apply idempotency, native agent files, and lint-clean workspace state between every transition.
 - Source: [`packages/core/workspace-features/src/sync/mcps/projects-to-every-configured-agent.spec.ts`](../packages/core/workspace-features/src/sync/mcps/projects-to-every-configured-agent.spec.ts)
 
@@ -2756,7 +2769,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 
 - Requirement: `cli/sync/preview-is-pure`
 - Owner: `workspace-features`
-- Statement: When sync runs in preview mode against a workspace whose managed state has drifted from desired state, it shall report the reconciliation it would apply with a previewed outcome, including the physical native ownership units, their configured consumers, aliases and proposed changes before first acquisition when source content is known, and shall not change settings, the lockfile, canonical content, or agent projections. Combining dependent work into one closure shall preserve those native unit details without multiplying shared physical units.
+- Statement: When sync runs in preview mode against a workspace whose managed state has drifted from desired state, it shall report the reconciliation it would apply with a previewed outcome, including the physical native ownership units, their configured consumers, aliases and proposed changes before first acquisition when source content is known, and shall not change settings, the lockfile, canonical content, or agent projections. Combining dependent work into one closure shall preserve those native unit details without multiplying shared physical units. Applying a prepared reconciliation under changed captured native routing inputs shall refuse the stale candidate without writes and require a fresh proposal for the new locations.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`

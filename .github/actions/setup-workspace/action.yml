@@ -46,11 +46,16 @@ runs:
       env:
         REMOTE_CACHE_URL: ${{ inputs.remote-cache-url }}
         REMOTE_CACHE_TOKEN: ${{ inputs.remote-cache-token }}
+        CACHE_BYPASS: ${{ vars.NX_SKIP_REMOTE_CACHE }}
         CACHE_ACTOR: ${{ github.actor }}
         CACHE_FORK: ${{ github.event.pull_request.head.repo.fork || false }}
       run: |
         echo "NX_CACHE_FAILURES=false" >> "$GITHUB_ENV"
-        if [[ "${NX_SKIP_REMOTE_CACHE:-false}" == "true" || "$CACHE_ACTOR" == 'dependabot[bot]' || "$CACHE_FORK" == true ]]; then
+        if [[ -n "$CACHE_BYPASS" && "$CACHE_BYPASS" != "true" && "$CACHE_BYPASS" != "false" ]]; then
+          echo "::error::NX_SKIP_REMOTE_CACHE repository variable must be true or false"
+          exit 1
+        fi
+        if [[ "$CACHE_BYPASS" == "true" || "${NX_SKIP_REMOTE_CACHE:-false}" == "true" || "$CACHE_ACTOR" == 'dependabot[bot]' || "$CACHE_FORK" == true ]]; then
           echo "NX_SKIP_REMOTE_CACHE=true" >> "$GITHUB_ENV"
           exit 0
         fi

@@ -1,3 +1,4 @@
+import { hostCompileTarget } from "./compile-host-plugin.js";
 import { readFileSync } from "node:fs";
 import { createProjectGraphAsync } from "nx/src/devkit-exports";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -497,5 +498,14 @@ describe("repository task interface", () => {
         if (tags.includes("role:tooling")) expect(root, project.name).toMatch(/^tools\//u);
       }
     }
+  });
+
+  it("stages host binaries from exactly one declared platform producer", () => {
+    const cli = projects.find((project) => project.name === "cli");
+    expect(cli?.data.targets?.["compile-host"]?.dependsOn).toEqual([
+      hostCompileTarget(process.platform, process.arch),
+    ]);
+    expect(cli?.data.targets?.["compile-host-dev"]?.cache).toBe(false);
+    expect(cli?.data.targets?.["compile-host"]?.outputs).toEqual(["{projectRoot}/dist/host-bin"]);
   });
 });

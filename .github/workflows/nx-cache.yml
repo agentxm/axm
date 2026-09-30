@@ -10,7 +10,7 @@ permissions:
 
 concurrency:
   group: nx-cache-main
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   NX_TUI: "false"
@@ -21,7 +21,9 @@ jobs:
   warm:
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push' &&
+      (github.event.workflow_run.event == 'push' ||
+      github.event.workflow_run.event == 'schedule' ||
+      github.event.workflow_run.event == 'workflow_dispatch') &&
       github.event.workflow_run.head_branch == 'main' &&
       github.event.workflow_run.head_repository.full_name == github.repository &&
       vars.NX_REMOTE_CACHE_URL != ''
@@ -47,6 +49,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Set up cache producer
@@ -58,7 +61,9 @@ jobs:
       - name: Populate deterministic task outputs
         shell: bash
         run: |
-          pnpm exec nx run-many -t lint typecheck build test --exclude=axm,cli-e2e --nxBail
+          # Visit every eligible task; native hits avoid recomputation and a
+          # cancelled or multi-commit predecessor cannot leave a seeding gap.
+          pnpm run cache:warm
           mkdir -p .nx/cache/profiles
           cp .nx/cache/run.json .nx/cache/profiles/source.json
 

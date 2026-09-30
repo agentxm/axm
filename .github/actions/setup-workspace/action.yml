@@ -46,10 +46,21 @@ runs:
       env:
         REMOTE_CACHE_URL: ${{ inputs.remote-cache-url }}
         REMOTE_CACHE_TOKEN: ${{ inputs.remote-cache-token }}
+        CACHE_ACTOR: ${{ github.actor }}
+        CACHE_FORK: ${{ github.event.pull_request.head.repo.fork || false }}
       run: |
-        if [[ "${NX_SKIP_REMOTE_CACHE:-false}" == "true" || -z "$REMOTE_CACHE_URL" || -z "$REMOTE_CACHE_TOKEN" ]]; then
+        echo "NX_CACHE_FAILURES=false" >> "$GITHUB_ENV"
+        if [[ "${NX_SKIP_REMOTE_CACHE:-false}" == "true" || "$CACHE_ACTOR" == 'dependabot[bot]' || "$CACHE_FORK" == true ]]; then
           echo "NX_SKIP_REMOTE_CACHE=true" >> "$GITHUB_ENV"
           exit 0
+        fi
+        if [[ -z "$REMOTE_CACHE_URL" && -z "$REMOTE_CACHE_TOKEN" ]]; then
+          echo "NX_SKIP_REMOTE_CACHE=true" >> "$GITHUB_ENV"
+          exit 0
+        fi
+        if [[ -z "$REMOTE_CACHE_URL" || -z "$REMOTE_CACHE_TOKEN" ]]; then
+          echo "::error::Remote cache requires both URL and credential"
+          exit 1
         fi
         if [[ ! "$REMOTE_CACHE_URL" =~ ^https://[a-zA-Z0-9.-]+(:[0-9]+)?/?$ || "$REMOTE_CACHE_TOKEN" == *$'\n'* || "$REMOTE_CACHE_TOKEN" == *$'\r'* ]]; then
           echo "::error::Invalid remote cache configuration"

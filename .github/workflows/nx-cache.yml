@@ -16,6 +16,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  # Keep native run profiles at the declared artifact path on ephemeral runners.
+  NX_CACHE_DIRECTORY: .nx/cache
   NX_TUI: "false"
   NX_DEFAULT_OUTPUT_STYLE: static
   NX_TASKS_RUNNER_DYNAMIC_OUTPUT: "false"

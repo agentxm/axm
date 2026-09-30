@@ -165,10 +165,20 @@ if (
 }
 for (const [name, source] of [
   ["ci:workspace", workspaceCi],
-  ["verify:pr:source", packageManifest.scripts?.["verify:pr:source"] ?? ""],
+  ["verify:pr:preflight", packageManifest.scripts?.["verify:pr:preflight"] ?? ""],
 ]) {
   requireText(source, "pnpm exec nx run axm:audit:dependencies", `${name} must run the audit gate`);
 }
+requireText(
+  packageManifest.scripts?.["verify:pr:source"] ?? "",
+  "pnpm run verify:pr:preflight",
+  "proposed-change source verification must compose the audited prerequisites",
+);
+requireText(
+  proposedVerification,
+  "pnpm run verify:pr:preflight",
+  "CI must run the audited prerequisites before source verification",
+);
 requireText(ciWorkflow, "pnpm exec nx run axm:audit:report", "CI must report all advisories");
 requireText(ciWorkflow, "continue-on-error: true", "the all-advisory report must be nonblocking");
 requireText(

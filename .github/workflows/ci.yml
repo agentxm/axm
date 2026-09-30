@@ -242,6 +242,10 @@ jobs:
     permissions:
       checks: write
       contents: read
+    env:
+      NX_PARALLEL: "3"
+      NX_BASE: ${{ needs.classify.outputs.base }}
+      NX_HEAD: ${{ needs.classify.outputs.head }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -268,29 +272,61 @@ jobs:
           restore-keys: |
             axm-ci-pnpm-v1-${{ runner.os }}-${{ runner.arch }}-
 
-      - name: Verify affected changes
-        id: verify
+      - name: Install frozen dependencies
+        id: install
         env:
           pnpm_config_store_dir: ${{ runner.temp }}/axm-ci-cache/pnpm-store
-          NX_PARALLEL: "3"
-          VITEST_MAX_WORKERS: "2"
-          AXM_RELEASE_PREPARATION: ${{ needs.classify.outputs.release-preparation }}
-          NX_BASE: ${{ needs.classify.outputs.base }}
-          NX_HEAD: ${{ needs.classify.outputs.head }}
         run: |
           pnpm install --frozen-lockfile
-          if [[ "$AXM_RELEASE_PREPARATION" != "true" ]]; then
-            pnpm exec nx release plan:check
-          fi
-          scripts/with-allure-report.sh bash -c \
-            'pnpm run verify:pr:source && pnpm exec nx affected -t e2e --exclude=cli-e2e --nxBail --parallel=1'
+          echo "pnpm_config_store_dir=$pnpm_config_store_dir" >> "$GITHUB_ENV"
+
+      - name: Check release plan
+        id: release-plan
+        if: needs.classify.outputs.release-preparation != 'true'
+        run: pnpm run release:plan:check
+
+      - name: Check repository prerequisites
+        id: preflight
+        run: |
+          # Start one report set for this job; later phases preserve it.
+          rm -rf test-results
+          pnpm run verify:pr:preflight
+
+      - name: Verify affected source
+        id: verify
+        env:
+          NX_PROFILE: test-results/nx-source-profile.json
+        run: pnpm run verify:affected
+
+      - name: Verify installable artifacts
+        id: artifacts
+        env:
+          NX_PROFILE: test-results/nx-artifacts-profile.json
+        run: pnpm exec nx run axm:verify-artifacts
+
+      - name: Verify remaining affected E2E
+        id: e2e
+        env:
+          NX_PROFILE: test-results/nx-e2e-profile.json
+        run: pnpm exec nx affected -t e2e --exclude=cli-e2e --nxBail --parallel=1
+
+      - name: Generate verification report
+        id: report
+        if: always() && steps.verify.outcome != 'skipped'
+        run: pnpm exec nx run axm:allure-report
 
       - name: Publish verification summary
         if: always()
         env:
           PNPM_CACHE_HIT: ${{ steps.pnpm-cache.outputs.cache-hit }}
           PNPM_CACHE_PATH: ${{ runner.temp }}/axm-ci-cache/pnpm-store
+          INSTALL_OUTCOME: ${{ steps.install.outcome }}
+          RELEASE_PLAN_OUTCOME: ${{ steps.release-plan.outcome }}
+          PREFLIGHT_OUTCOME: ${{ steps.preflight.outcome }}
           VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+          ARTIFACT_OUTCOME: ${{ steps.artifacts.outcome }}
+          E2E_OUTCOME: ${{ steps.e2e.outcome }}
+          REPORT_OUTCOME: ${{ steps.report.outcome }}
         run: |
           cache_status() {
             case "$1" in
@@ -306,19 +342,30 @@ jobs:
               printf '0 B'
             fi
           }
-          verify_outcome=${VERIFY_OUTCOME:-not run}
           {
             echo "## Hosted proposed-change verification"
             echo
             echo "| Signal | Result |"
             echo "| --- | --- |"
-            echo "| Outcome | $verify_outcome |"
+            echo "| Frozen dependencies | ${INSTALL_OUTCOME:-not-run} |"
+            echo "| Release plan | ${RELEASE_PLAN_OUTCOME:-not-run} |"
+            echo "| Repository prerequisites | ${PREFLIGHT_OUTCOME:-not-run} |"
+            echo "| Affected source | ${VERIFY_OUTCOME:-not-run} |"
+            echo "| Installable artifacts | ${ARTIFACT_OUTCOME:-not-run} |"
+            echo "| Remaining E2E | ${E2E_OUTCOME:-not-run} |"
+            echo "| Report generation | ${REPORT_OUTCOME:-not-run} |"
             echo "| pnpm cache | $(cache_status "$PNPM_CACHE_HIT") ($(cache_size "$PNPM_CACHE_PATH")) |"
             echo "| Concurrency | Nx 3; Vitest 2 |"
+            echo "| Affected base | $NX_BASE |"
+            echo "| Verified head | $NX_HEAD |"
+            echo
+            echo 'Step durations separate setup, prerequisite checks, source, artifacts, E2E, and reporting.'
+            echo 'Completed Nx invocations retain timing/cache profiles in test-results-pr: nx-source-profile.json, nx-artifacts-profile.json, and nx-e2e-profile.json.'
+            echo 'Each profile covers its final Nx command; prerequisite checks and whole-job duration remain visible in the steps above.'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Report all dependency advisories
-        if: always() && steps.verify.outcome != 'skipped'
+        if: always() && steps.install.outcome == 'success'
         continue-on-error: true
         run: pnpm exec nx run axm:audit:report --outputStyle=static
 
@@ -332,7 +379,7 @@ jobs:
           retention-days: 14
 
       - name: Upload Allure report
-        if: always() && steps.verify.outcome != 'skipped'
+        if: always() && steps.report.outcome != 'skipped'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: allure-report-pr

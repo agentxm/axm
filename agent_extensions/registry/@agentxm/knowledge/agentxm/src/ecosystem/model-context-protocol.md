@@ -1,6 +1,8 @@
 ---
 type: Explainer
-description: How the Model Context Protocol connects AI applications to external tools, data, prompts, and workflows.
+description:
+  How the Model Context Protocol connects AI applications to external tools,
+  data, prompts, and workflows.
 tags: [mcp, model-context-protocol, interoperability]
 status: stable
 generated:
@@ -21,9 +23,9 @@ The Model Context Protocol (MCP) is an open standard for connecting AI
 applications to external systems.[^introduction] It gives clients and servers a
 common way to discover capabilities, exchange context, and request actions.
 
-MCP uses a client-server model. An **MCP host** is the AI application. It creates
-an **MCP client** for each **MCP server** it connects to. A server may run locally
-over standard input and output or remotely over HTTP.[^architecture]
+MCP uses a client-server model. An **MCP host** is the AI application. It
+creates an **MCP client** for each **MCP server** it connects to. A server may
+run locally over standard input and output or remotely over HTTP.[^architecture]
 
 ## What the protocol provides
 

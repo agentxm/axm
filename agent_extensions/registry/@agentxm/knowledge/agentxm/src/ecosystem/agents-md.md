@@ -1,6 +1,8 @@
 ---
 type: Explainer
-description: How AGENTS.md supplies repository-scoped instructions to coding agents without defining reusable capabilities.
+description:
+  How AGENTS.md supplies repository-scoped instructions to coding agents without
+  defining reusable capabilities.
 tags: [agents-md, instructions, coding-agents]
 status: stable
 generated:
@@ -31,8 +33,8 @@ schema.
 
 The convention does not package reusable capabilities, install tools, enforce
 policy, or guarantee that an instruction is correct. It also does not define a
-registry, distribution mechanism, or ownership protocol. The repository owns
-the file and the meaning of its instructions.
+registry, distribution mechanism, or ownership protocol. The repository owns the
+file and the meaning of its instructions.
 
 ## Relationship to neighboring standards
 

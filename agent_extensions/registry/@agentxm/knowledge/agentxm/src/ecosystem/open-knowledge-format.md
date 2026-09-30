@@ -1,6 +1,8 @@
 ---
 type: Explainer
-description: How Open Knowledge Format represents portable, human- and agent-readable knowledge as Markdown concepts with provenance.
+description:
+  How Open Knowledge Format represents portable, human- and agent-readable
+  knowledge as Markdown concepts with provenance.
 tags: [okf, open-knowledge-format, knowledge]
 status: stable
 generated:
@@ -27,11 +29,11 @@ between concepts.
 
 ## What the format provides
 
-OKF standardizes a small structural foundation rather than a universal
-knowledge taxonomy. Version 0.2 makes provenance, generation, verification,
-lifecycle, and optional attested computations representable in frontmatter.
-Producers can add their own concept types and fields, and consumers must
-tolerate extensions they do not understand.
+OKF standardizes a small structural foundation rather than a universal knowledge
+taxonomy. Version 0.2 makes provenance, generation, verification, lifecycle, and
+optional attested computations representable in frontmatter. Producers can add
+their own concept types and fields, and consumers must tolerate extensions they
+do not understand.
 
 OKF does not prescribe storage, search, retrieval, instruction injection, or a
 runtime. It does not replace domain schemas such as OpenAPI or Protobuf, and it
@@ -47,10 +49,9 @@ silently becoming agent instruction.
 
 ## Relationship to AgentXM
 
-OKF is the governing content format for an AgentXM Knowledge extension.
-AgentXM applies a focused profile for validation and discovery, then adds
-registry identity, versioned distribution, and workspace management. Knowledge
-content remains available on demand and is not injected into agent
-instructions.
+OKF is the governing content format for an AgentXM Knowledge extension. AgentXM
+applies a focused profile for validation and discovery, then adds registry
+identity, versioned distribution, and workspace management. Knowledge content
+remains available on demand and is not injected into agent instructions.
 
 [^specification]: Open Knowledge Format 0.2 specification.

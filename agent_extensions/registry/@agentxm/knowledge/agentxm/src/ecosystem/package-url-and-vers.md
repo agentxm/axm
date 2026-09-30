@@ -1,6 +1,8 @@
 ---
 type: Explainer
-description: How Package URL identifies software packages across ecosystems and VERS expresses their compatible version ranges.
+description:
+  How Package URL identifies software packages across ecosystems and VERS
+  expresses their compatible version ranges.
 tags: [purl, vers, software-packages, companion-packages]
 status: stable
 generated:
@@ -17,10 +19,10 @@ sources:
 
 # Package URL and VERS
 
-Package URL (PURL) is a standard syntax for identifying software packages
-across package managers, platforms, and ecosystems.[^purl] VERS is a related
-syntax for expressing package version ranges together with the ecosystem
-semantics needed to interpret them.[^vers]
+Package URL (PURL) is a standard syntax for identifying software packages across
+package managers, platforms, and ecosystems.[^purl] VERS is a related syntax for
+expressing package version ranges together with the ecosystem semantics needed
+to interpret them.[^vers]
 
 A PURL begins with `pkg:` and describes a package through parts such as its
 type, optional namespace, name, version, qualifiers, and subpath. Which parts
@@ -37,9 +39,9 @@ Together, PURL and VERS make software-package identity and compatibility more
 portable across ecosystems. They help discovery, software composition analysis,
 vulnerability matching, and other tools exchange precise package references.
 
-They do not prove that a package exists, establish its authenticity, install
-it, or create a dependency. A package identity, a selected package version, and
-a permitted version range are separate concepts.
+They do not prove that a package exists, establish its authenticity, install it,
+or create a dependency. A package identity, a selected package version, and a
+permitted version range are separate concepts.
 
 ## Relationship to AgentXM
 

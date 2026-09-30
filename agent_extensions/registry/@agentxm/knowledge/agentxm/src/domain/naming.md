@@ -1,6 +1,9 @@
 ---
 type: Domain Concept
-description: The AXM vs. AgentXM naming convention — when to write the all-caps product name, when to use the lowercase code identifier, and how the CLI relates to the platform.
+description:
+  The AXM vs. AgentXM naming convention — when to write the all-caps product
+  name, when to use the lowercase code identifier, and how the CLI relates to
+  the platform.
 tags: [naming, axm, agentxm, branding, conventions]
 status: stable
 generated:
@@ -18,9 +21,9 @@ sources:
 e**X**tension **M**anager.[^axm-agents-md]
 
 - Use **AXM** in prose and headings.
-- Use lowercase `axm` only where an identifier must match reality: CLI
-  command references (`axm install`), package names (`@agentxm/*`, `axm.sh`
-  on npm), filesystem paths, repository names, and hostnames (`axm.sh`).
+- Use lowercase `axm` only where an identifier must match reality: CLI command
+  references (`axm install`), package names (`@agentxm/*`, `axm.sh` on npm),
+  filesystem paths, repository names, and hostnames (`axm.sh`).
 - **AgentXM** names the platform and registry (AgentXM.ai). AXM is the CLI
   component of that platform; the two are related but not interchangeable —
   "AXM" is never a synonym for the whole platform.

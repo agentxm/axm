@@ -373,7 +373,7 @@ requirements.
 | axm-agents | survey | any session running `axm agents` or projecting extensions into configured agents                                                       | —                | a target condition can be stated |
 | axm-output | survey | any session reading AXM human output: a value a terminal lost, a reason a result did not give, a recovery that did not fit the outcome | —                | a target condition can be stated |
 
-<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery gen=5450184c5889a684d98ba61a844b75e67f6f02b066f59b686093b7c17d8ddc7f -->
+<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery src={"scope":"project","root":".","owners":[{"name":"agent-engineering","ref":"@agentxm/knowledge/agent-engineering","root":"agent_extensions/registry/@agentxm/knowledge/agent-engineering"},{"name":"agentxm","ref":"@agentxm/knowledge/agentxm","root":"agent_extensions/registry/@agentxm/knowledge/agentxm"},{"name":"docs","ref":"@craigsmitham/knowledge/docs","root":"agent_extensions/registry/@craigsmitham/knowledge/docs"},{"name":"effect-v4","ref":"@craigsmitham/knowledge/effect-v4","root":"agent_extensions/registry/@craigsmitham/knowledge/effect-v4"},{"name":"field-notes","ref":"@craigsmitham/knowledge/field-notes","root":"agent_extensions/registry/@craigsmitham/knowledge/field-notes"},{"name":"product-engineering","ref":"@craigsmitham/knowledge/product-engineering","root":"agent_extensions/registry/@craigsmitham/knowledge/product-engineering"}]} gen=1999aa8ec33c6cced1ce283630d2138accfd454568d270cddfcf628f86a0bf4e -->
 
 ## Knowledge Bundles
 
@@ -404,7 +404,7 @@ Use `axm knowledge concepts --help` to search, read, and explore these bundles.
 | [product-engineering](agent_extensions/registry/@craigsmitham/knowledge/product-engineering/src/index.md) | Opinionated product-development lifecycle from strategy through operations and maintenance, with shared conceptual foundations                                     |
 
 <!-- axm:end v=1 region=knowledge -->
-<!-- axm:start v=1 region=rules ext=@agentxm/rules/instructions gen=56ddd20161966479601832c24ccde446e99359391fe8304f460bd5c6f52ff36e -->
+<!-- axm:start v=1 region=rules ext=@agentxm/rules/instructions src={"scope":"project","root":".","owners":[{"name":"field-notes","ref":"@craigsmitham/rules/field-notes","root":"agent_extensions/registry/@craigsmitham/rules/field-notes"},{"name":"use-effect-v4","ref":"@craigsmitham/rules/use-effect-v4","root":"agent_extensions/registry/@craigsmitham/rules/use-effect-v4"}]} gen=56ddd20161966479601832c24ccde446e99359391fe8304f460bd5c6f52ff36e -->
 <!-- axm:point v=1 ext=@craigsmitham/rules/use-effect-v4@0.2.0 kind=rule -->
 
 ## Use Effect v4

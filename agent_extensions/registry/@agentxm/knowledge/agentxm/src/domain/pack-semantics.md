@@ -1,6 +1,8 @@
 ---
 type: Domain Concept
-description: "The shared semantics of extension packs: versioned extensions that compose references to leaf extensions without copying or nesting them."
+description:
+  "The shared semantics of extension packs: versioned extensions that compose
+  references to leaf extensions without copying or nesting them."
 tags: [packs, extensions, dependencies, composition]
 status: stable
 generated:

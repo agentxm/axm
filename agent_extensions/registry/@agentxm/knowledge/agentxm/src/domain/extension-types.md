@@ -1,6 +1,8 @@
 ---
 type: Domain Concept
-description: The seven AgentXM extension types — skills, MCP servers, subagents, rules, hooks, knowledge, and packs — and the governing standard behind each.
+description:
+  The seven AgentXM extension types — skills, MCP servers, subagents, rules,
+  hooks, knowledge, and packs — and the governing standard behind each.
 tags: [extension-types, skills, mcp, subagents, rules, hooks, knowledge, packs]
 status: stable
 generated:
@@ -20,8 +22,8 @@ sources:
 The AgentXM product model defines seven canonical extension types: six leaf
 types plus one container type.[^axm-readme] Each type has a singular canonical
 ID (used in manifests, APIs, and persistence), a plural route segment (used in
-FQNs and CLI subcommands), and a product-facing label — the exact spellings
-are normative in [Identifier grammar](identifier-grammar.md).
+FQNs and CLI subcommands), and a product-facing label — the exact spellings are
+normative in [Identifier grammar](identifier-grammar.md).
 
 | Type ID      | Product label | What it does                                                                                                                                                                          |
 | ------------ | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -40,10 +42,10 @@ Skills follow [Agent Skills](../ecosystem/agent-skills.md), MCP Servers follow
 the [Model Context Protocol](../ecosystem/model-context-protocol.md), Rules
 target the [AGENTS.md](../ecosystem/agents-md.md) instruction-file convention,
 and Knowledge bundles use
-[Open Knowledge Format](../ecosystem/open-knowledge-format.md).
-Every type has a published manifest JSON Schema under
-[axm.sh/schemas](https://axm.sh/schemas/); the schemas are the executable
-contract and remain the system of record for manifest shape.[^schemas]
+[Open Knowledge Format](../ecosystem/open-knowledge-format.md). Every type has a
+published manifest JSON Schema under [axm.sh/schemas](https://axm.sh/schemas/);
+the schemas are the executable contract and remain the system of record for
+manifest shape.[^schemas]
 
 ## Distinctions worth knowing
 
@@ -53,8 +55,8 @@ contract and remain the system of record for manifest shape.[^schemas]
 - **Library is not a type.** Registry Libraries collect extension identities
   live; they have no version, archive, manifest, or publish step and are never
   install targets.
-- **Enabled/disabled is a behavior toggle**, not identity state, and applies
-  to configured entries of the types that support it — disabling keeps the
+- **Enabled/disabled is a behavior toggle**, not identity state, and applies to
+  configured entries of the types that support it — disabling keeps the
   extension installed while removing it from the agent's active surface.
 
 [^axm-readme]: AXM repository README (extension types table).

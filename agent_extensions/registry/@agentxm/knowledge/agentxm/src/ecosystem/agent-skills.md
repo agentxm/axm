@@ -1,6 +1,8 @@
 ---
 type: Explainer
-description: How Agent Skills give coding agents portable, task-specific instructions and supporting resources.
+description:
+  How Agent Skills give coding agents portable, task-specific instructions and
+  supporting resources.
 tags: [agent-skills, skills, interoperability]
 status: stable
 generated:

@@ -26,6 +26,10 @@ installed-product and package-manager verification matrix. Native macOS,
 Windows, and architecture coverage remain at those authorities rather than a
 second matrix here.
 
+A manual CI dispatch exercises the compiled binaries on every supported native
+runner without selecting release publication artifacts. Use that boundary when
+verifying compiler or cache changes before a release.
+
 ## Native Windows verification
 
 Required CI runs the bounded `Windows workspace lifecycle` job on

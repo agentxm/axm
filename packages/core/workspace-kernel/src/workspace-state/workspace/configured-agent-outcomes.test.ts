@@ -136,6 +136,30 @@ const providerOutcome = (name: string): ConfiguredAgentOutcome => ({
 });
 
 describe("resolveConfiguredAgentOutcomes", () => {
+  it.effect("skips empty observation requests and preserves nonempty provider failures", () =>
+    Effect.gen(function* () {
+      let calls = 0;
+      const failure = new ConfiguredAgentOutcomesUnavailable({
+        category: "network",
+        detail: "Manager read failed",
+      });
+      const provider = {
+        byExtensionType: {
+          "mcp-server": () =>
+            Effect.sync(() => {
+              calls += 1;
+            }).pipe(Effect.andThen(Effect.fail(failure))),
+        },
+      };
+      const empty = yield* resolveConfiguredAgentOutcomes(provider, { ...request, rows: [] });
+      expect(empty.size).toBe(0);
+      expect(calls).toBe(0);
+      const observedFailure = yield* Effect.flip(resolveConfiguredAgentOutcomes(provider, request));
+      expect(observedFailure).toBe(failure);
+      expect(calls).toBe(1);
+    }),
+  );
+
   it.effect("requires native observation before claiming a Knowledge bundle is current", () =>
     Effect.gen(function* () {
       const outcomes = yield* resolveConfiguredAgentOutcomes(

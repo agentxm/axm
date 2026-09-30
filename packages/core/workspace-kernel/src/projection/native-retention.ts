@@ -11,7 +11,8 @@ import {
   nativeUnitKey,
   readCopiedDirectory,
   resolveNativeReadLocation,
-  resolveNativeEntry,
+  captureNativeLocationSet,
+  type NativeLocationSet,
   type NativeDirectoryInputs,
   type NativeLocationOutcome,
 } from "../locations/index.js";
@@ -107,11 +108,15 @@ const keyContent = (
     return [...new Set(contents)].sort();
   });
 
-const observeRetention = (unit: NativeLocationOutcome, context: NativeRetentionContext) =>
+const observeRetention = (
+  unit: NativeLocationOutcome,
+  context: NativeRetentionContext,
+  locations: NativeLocationSet,
+) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const address = yield* resolveNativeEntry(unit.address.path);
+    const address = yield* locations.entry(unit.address.path);
     if (address.kind === "absent" || address.referentPath === undefined)
       return yield* new ProjectionIoFailed({
         path: unit.address.path,
@@ -119,9 +124,11 @@ const observeRetention = (unit: NativeLocationOutcome, context: NativeRetentionC
         cause: "retained-native-unit-unavailable",
       });
     const aliases = yield* Effect.forEach([...new Set(unit.aliases)].sort(), (alias) =>
-      resolveNativeEntry(alias).pipe(
-        Effect.map((entry) => [alias, entry.entryPath, entry.referentPath, entry.linkTarget]),
-      ),
+      locations
+        .entry(alias)
+        .pipe(
+          Effect.map((entry) => [alias, entry.entryPath, entry.referentPath, entry.linkTarget]),
+        ),
     );
     let content: unknown;
     if (unit.address.kind === "key-path") {
@@ -192,8 +199,8 @@ export const captureNativeRetentionWitnesses = (
   locations: ReadonlyArray<NativeLocationOutcome>,
   context: NativeRetentionContext,
 ) =>
-  Effect.forEach(
-    [
+  Effect.gen(function* () {
+    const required = [
       ...new Map(
         locations
           .filter(
@@ -204,27 +211,39 @@ export const captureNativeRetentionWitnesses = (
           )
           .map((unit) => [nativeUnitKey(unit), unit]),
       ).values(),
-    ],
-    (location) =>
-      observeRetention(location, context).pipe(
+    ];
+    const observed = yield* captureNativeLocationSet({
+      entries: required.flatMap((unit) => [unit.address.path, ...unit.aliases]),
+    });
+    return yield* Effect.forEach(required, (location) =>
+      observeRetention(location, context, observed).pipe(
         Effect.map((fingerprint): NativeRetentionWitness => ({ location, fingerprint })),
       ),
-  );
+    );
+  });
 
 export const validateNativeRetentionWitnesses = (
   witnesses: ReadonlyArray<NativeRetentionWitness>,
   context: NativeRetentionContext,
 ) =>
-  Effect.forEach(
-    witnesses,
-    (witness) =>
-      Effect.gen(function* () {
-        if ((yield* observeRetention(witness.location, context)) !== witness.fingerprint)
-          return yield* new ProjectionIoFailed({
-            path: witness.location.address.path,
-            step: "inspect",
-            cause: "retained-native-unit-changed",
-          });
-      }),
-    { discard: true },
-  );
+  Effect.gen(function* () {
+    // Capture a fresh set after mutation; no physical evidence crosses phases.
+    const observed = yield* captureNativeLocationSet({
+      entries: witnesses.flatMap(({ location }) => [location.address.path, ...location.aliases]),
+    });
+    yield* Effect.forEach(
+      witnesses,
+      (witness) =>
+        Effect.gen(function* () {
+          if (
+            (yield* observeRetention(witness.location, context, observed)) !== witness.fingerprint
+          )
+            return yield* new ProjectionIoFailed({
+              path: witness.location.address.path,
+              step: "inspect",
+              cause: "retained-native-unit-changed",
+            });
+        }),
+      { discard: true },
+    );
+  });

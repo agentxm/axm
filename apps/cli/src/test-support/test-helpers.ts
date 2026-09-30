@@ -42,6 +42,10 @@ import {
   layer as coreWorkspaceLayer,
   type WorkspaceStateServices,
 } from "@agentxm/workspace-kernel/workspace-state/live";
+import {
+  CodingAgentRepository,
+  type CodingAgentRepositoryService,
+} from "@agentxm/workspace-kernel/projection";
 import { ConfiguredAgentOutcomesProviderLive } from "@agentxm/workspace-kernel/reconciliation/live";
 import { ConfiguredAgentOutcomesProviderTest } from "@agentxm/workspace-kernel/workspace-state/testing";
 import type {
@@ -643,6 +647,8 @@ export const cliTestBuiltInSources = (
 ];
 
 export const makeWorkspaceHandlerTestContext = (opts?: {
+  /** Override catalog answers before the production lifecycle services capture them. */
+  readonly codingAgentRepository?: CodingAgentRepositoryService;
   readonly prompt?: TestPromptConfig | undefined;
   readonly flags?:
     | {
@@ -697,7 +703,12 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
   }
 
   const projectionLayer = Layer.provideMerge(
-    Layer.merge(CodingAgentRepositoryLive, NativeWriteAuthorityLive),
+    Layer.merge(
+      opts?.codingAgentRepository === undefined
+        ? CodingAgentRepositoryLive
+        : Layer.succeed(CodingAgentRepository, opts.codingAgentRepository),
+      NativeWriteAuthorityLive,
+    ),
     opts?.workspaceLayer ?? coreWorkspaceLayer(wsOptions),
   ).pipe(Layer.provide(cliTestContext.baseLayer));
   const wsLayer = Layer.mergeAll(

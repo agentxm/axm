@@ -22,7 +22,7 @@ import { formatFqn } from "@agentxm/extension-model/unstable/extensions/fqn";
 import {
   CodingAgentRepository,
   observeConfiguredSkillLocations,
-  observeProjectionPlans,
+  observeInstructionSurfacePlans,
   inspectDesiredMcpServer,
 } from "../projection/index.js";
 import { NativeWriteAuthority } from "../agent-adapters/index.js";
@@ -118,7 +118,14 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
         Effect.gen(function* () {
           const observed = yield* manager
             .projectionPlans({ configuredAgents: request.agentIds })
-            .pipe(Effect.flatMap(observeProjectionPlans));
+            .pipe(
+              Effect.flatMap((plans) =>
+                observeInstructionSurfacePlans(plans, {
+                  view: "current",
+                  configuredAgents: request.agentIds,
+                }),
+              ),
+            );
           const graph = yield* (yield* DesiredStateReader).graph();
           const accepted = yield* (yield* LockfileReader).entries(request.type);
           return new Map(
@@ -146,15 +153,28 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
               );
               const nativeLocations = combineNativeLocationOutcomes(
                 related.flatMap((observation) =>
-                  (observation.nativeLocations ?? []).map((unit): NativeLocationOutcome => ({
-                    ...unit,
-                    ownership: !observation.present ? "absent" : unit.ownership,
-                    state: observation.current
-                      ? "unchanged"
-                      : observation.present
-                        ? "blocked"
-                        : "absent",
-                  })),
+                  (observation.nativeLocations ?? []).map((unit): NativeLocationOutcome =>
+                    unit.policyReasons.includes("instruction-propagation")
+                      ? !observation.current &&
+                        unit.ownership === "owned" &&
+                        unit.state === "unchanged"
+                        ? {
+                            ...unit,
+                            state: "blocked",
+                            reason:
+                              "The copied instruction content's contributor region differs from desired state.",
+                          }
+                        : unit
+                      : {
+                          ...unit,
+                          ownership: !observation.present ? "absent" : unit.ownership,
+                          state: observation.current
+                            ? "unchanged"
+                            : observation.present
+                              ? "blocked"
+                              : "absent",
+                        },
+                  ),
                 ),
               );
               return [row.name, fromNative(request, row.name, nativeLocations)] as const;

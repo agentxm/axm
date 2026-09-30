@@ -385,6 +385,12 @@ export const prepareSyncWorkspace = (
               ? yield* collectInstructionStep({
                   nativeProjection: collected.ruleProjection,
                   projectionFacts: ruleProjectionFacts,
+                  precedingNativeLocations: [
+                    ...Option.toArray(knowledgeStep),
+                    ...Option.toArray(hooksStep),
+                  ].flatMap((step) =>
+                    step.readiness === "ready" ? (step.artifact?.nativeLocations ?? []) : [],
+                  ),
                   touchesRule: selectionTouches(selection, "rule"),
                   adapter: conversion,
                 })

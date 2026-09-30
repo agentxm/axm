@@ -31,6 +31,7 @@ import {
   type Plan,
   type PlannedJobStep,
   type ConfiguredAgentOperation,
+  type ConfiguredAgentOutcome,
   type PlanExecution,
   StepFailure,
   type PlanInteractionFailed,
@@ -61,6 +62,7 @@ import {
 } from "../../workspace-state/testing.js";
 import {
   ConfiguredAgentOutcomesProvider,
+  ConfiguredAgentOutcomesUnavailable,
   WorkspaceRecords,
   workspaceTransactionFailureToStepFailure,
 } from "../../workspace-state/index.js";
@@ -801,6 +803,172 @@ describe("previewOrApply", () => {
     }).pipe(Effect.provide(context.layer));
   });
 
+  it.effect.each(["step", "artifact", "empty-step", "empty-artifact", "generic"] as const)(
+    "uses %s planning evidence without treating a pending source as current",
+    (evidence) => {
+      const context = makeTestContext();
+      let observationCalls = 0;
+      const owner: ConfiguredAgentOutcome = {
+        extensionType: "rule",
+        name: "review",
+        agentId: "claude-code",
+        outcome: "projected",
+        reasonCode: "planned-native-unit",
+        reason: "Prospective source passed owner preflight",
+        nativeUnitKeys: [
+          JSON.stringify(["project", "region", "/tmp/axm-preview/AGENTS.md", "rules"]),
+        ],
+      };
+      const plan: Plan = {
+        _tag: "Plan",
+        name: "Install rule",
+        description: Option.none(),
+        jobs: [
+          {
+            concurrency: 1,
+            steps: [
+              {
+                readiness: "ready",
+                key: "rule:review",
+                label: "review",
+                ...(evidence === "step" ? { agentOutcomes: [owner] } : {}),
+                ...(evidence === "empty-step" ? { agentOutcomes: [] } : {}),
+                ...(evidence === "artifact" || evidence === "empty-artifact"
+                  ? {
+                      artifact: {
+                        path: "AGENTS.md",
+                        scope: "project",
+                        change: "created",
+                        agentOutcomes: evidence === "artifact" ? [owner] : [],
+                      },
+                    }
+                  : {}),
+                run: Effect.succeed({ result: "success", message: "installed" }),
+              },
+            ],
+          },
+        ],
+      };
+      return Effect.gen(function* () {
+        const candidate = yield* prepareExecutionCandidate(plan, {
+          configuredAgentOperations: [
+            {
+              extensionType: "rule",
+              name: "review",
+              plannedState: "enabled",
+            },
+          ],
+        }).pipe(
+          Effect.provideService(ConfiguredAgentOutcomesProvider, {
+            byExtensionType: {
+              rule: () =>
+                Effect.sync(() => {
+                  observationCalls += 1;
+                }).pipe(
+                  Effect.andThen(
+                    new ConfiguredAgentOutcomesUnavailable({
+                      category: "conflict",
+                      detail: "The current source has no accepted resolution",
+                    }),
+                  ),
+                ),
+            },
+          }),
+        );
+        const step = candidate.plan.jobs[0]?.steps[0];
+        if (evidence === "step" || evidence === "artifact") {
+          expect(observationCalls).toBe(0);
+          expect(step?.readiness).toBe("ready");
+          expect(step?.agentOutcomes).toEqual([owner]);
+        } else {
+          expect(observationCalls).toBe(1);
+          expect(step).toMatchObject({
+            readiness: "error",
+            agentOutcomes: [
+              {
+                outcome: "blocked",
+                reasonCode: "native-observation-unavailable",
+                reason: "The current source has no accepted resolution",
+              },
+            ],
+          });
+        }
+      }).pipe(Effect.provide(context.layer));
+    },
+  );
+
+  it.effect.each(["step", "artifact", "generic"] as const)(
+    "does not resolve current sources for %s reporting without configured agents",
+    (evidence) => {
+      const context = makeTestContext(undefined, undefined, {
+        baseDir: "/tmp/axm-preview",
+        configuredAgents: [],
+      });
+      let observationCalls = 0;
+      const plan: Plan = {
+        _tag: "Plan",
+        name: "Install rule",
+        description: Option.none(),
+        jobs: [
+          {
+            concurrency: 1,
+            steps: [
+              {
+                readiness: "ready",
+                key: "rule:review",
+                label: "review",
+                ...(evidence === "step" ? { agentOutcomes: [] } : {}),
+                ...(evidence === "artifact"
+                  ? {
+                      artifact: {
+                        path: "AGENTS.md",
+                        scope: "project",
+                        change: "created",
+                        agentOutcomes: [],
+                      },
+                    }
+                  : {}),
+                run: Effect.succeed({ result: "success", message: "installed" }),
+              },
+            ],
+          },
+        ],
+      };
+      return Effect.gen(function* () {
+        const candidate = yield* prepareExecutionCandidate(plan, {
+          configuredAgentOperations: [
+            {
+              extensionType: "rule",
+              name: "review",
+              plannedState: "enabled",
+            },
+          ],
+        }).pipe(
+          Effect.provideService(ConfiguredAgentOutcomesProvider, {
+            byExtensionType: {
+              rule: () =>
+                Effect.sync(() => {
+                  observationCalls += 1;
+                }).pipe(
+                  Effect.andThen(
+                    new ConfiguredAgentOutcomesUnavailable({
+                      category: "conflict",
+                      detail: "The current source has no accepted resolution",
+                    }),
+                  ),
+                ),
+            },
+          }),
+        );
+        expect(observationCalls).toBe(0);
+        expect(candidate.plan.jobs[0]?.steps[0]).toMatchObject({
+          readiness: "ready",
+          agentOutcomes: [],
+        });
+      }).pipe(Effect.provide(context.layer));
+    },
+  );
+
   it.effect("shares final inventory readback across enabled operations of one type", () => {
     const context = makeTestContext();
     const plan: Plan = {
@@ -1240,6 +1408,101 @@ describe("previewOrApply", () => {
       expect(before.id).not.toBe(after.id);
       expect(before.observedInputFingerprint).toBe("before");
     }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect.each(["region", "key-path"] as const)(
+    "keeps %s native linkage in candidate identity relative to the workspace",
+    (kind) =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const directory = yield* fs.makeTempDirectoryScoped({ prefix: "axm-native-identity-" });
+        const left = path.join(directory, "left");
+        const right = path.join(directory, "right");
+        for (const baseDir of [left, right]) {
+          yield* fs.makeDirectory(baseDir);
+          yield* fs.writeFileString(path.join(baseDir, "native.md"), "Original content");
+        }
+        const makePlan = (baseDir: string, reference: "first" | "second"): Plan => {
+          const nativeLocations = ["first", "second"].map((selector): NativeLocationOutcome => ({
+            scope: "project",
+            address:
+              kind === "region"
+                ? { kind, path: path.join(baseDir, "native.md"), region: selector }
+                : { kind, path: path.join(baseDir, "native.md"), keys: ["servers", selector] },
+            aliases: [path.join(baseDir, "native.md")],
+            configuredConsumers: ["claude-code"],
+            potentialReaders: ["claude-code"],
+            policyReasons: [],
+            ownership: "owned",
+            state: "updated",
+            availability: [{ agentId: "claude-code", state: "verified" }],
+          }));
+          return {
+            _tag: "Plan",
+            name: "Native projection",
+            description: Option.none(),
+            jobs: [
+              {
+                concurrency: 1,
+                steps: [
+                  {
+                    key: "rule:review",
+                    label: "review",
+                    readiness: "ready",
+                    artifact: {
+                      path: "native.md",
+                      scope: "project",
+                      change: "updated",
+                      nativeLocations,
+                      agentOutcomes: [
+                        {
+                          extensionType: "rule",
+                          name: "review",
+                          agentId: "claude-code",
+                          outcome: "projected",
+                          reasonCode: "planned-native-unit",
+                          reason: "Owner-prepared native realization",
+                          nativeUnitKeys: nativeLocations
+                            .filter((unit) =>
+                              unit.address.kind === "region"
+                                ? unit.address.region === reference
+                                : unit.address.kind === "key-path" &&
+                                  unit.address.keys[1] === reference,
+                            )
+                            .map(nativeUnitKey),
+                        },
+                      ],
+                    },
+                    run: Effect.succeed({ result: "success", message: "Projected" }),
+                  },
+                ],
+              },
+            ],
+          };
+        };
+        const candidateAt = (baseDir: string, reference: "first" | "second") =>
+          makeExecutionCandidate(makePlan(baseDir, reference), {
+            baseDir,
+            settingsPath: path.join(baseDir, "axm.json"),
+            lockPath: path.join(baseDir, "axm-lock.yaml"),
+          });
+        const first = yield* candidateAt(left, "first");
+        const relocated = yield* candidateAt(right, "first");
+        const differentReference = yield* candidateAt(left, "second");
+
+        expect(first.id).toBe(relocated.id);
+        expect(first.materialFingerprint).toBe(relocated.materialFingerprint);
+        expect(differentReference.id).not.toBe(first.id);
+        expect(differentReference.materialFingerprint).toBe(first.materialFingerprint);
+        expect(first.plan.jobs[0]?.steps[0]?.artifact?.nativeLocations?.[0]?.address.path).toBe(
+          path.join(left, "native.md"),
+        );
+        expect(yield* isExecutionCandidateFresh(first)).toBe(true);
+        yield* fs.writeFileString(path.join(left, "native.md"), "Changed after planning");
+        expect(yield* isExecutionCandidateFresh(first)).toBe(false);
+        expect(yield* isExecutionCandidateFresh(relocated)).toBe(true);
+      }).pipe(Effect.provide(NodeServices.layer)),
   );
 
   it.effect("fingerprints the layout's exact settings and lock paths", () =>

@@ -1,4 +1,10 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
+
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Layer from "effect/Layer";
+import * as PlatformError from "effect/PlatformError";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
@@ -7,7 +13,11 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { writeLocalSkillPackage } from "../../testing/local-packages.js";
 import { localLifecycleRows } from "./test-helpers.js";
-import { operationNativeLocations } from "@agentxm/workspace-kernel/operations";
+import { WorkspaceRecords } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  deriveOperationOutcome,
+  operationNativeLocations,
+} from "@agentxm/workspace-kernel/operations";
 import {
   previewInstall,
   applyInstall,
@@ -87,6 +97,237 @@ describe("Install realizes the extension for configured agents", () => {
       )
       .pipe(Effect.provide(NodeServices.layer));
   });
+
+  const copyPlatform = Layer.provideMerge(
+    Layer.effect(
+      FileSystem.FileSystem,
+      Effect.map(FileSystem.FileSystem, (filesystem) => ({
+        ...filesystem,
+        symlink: (_from: string, to: string) =>
+          Effect.fail(
+            PlatformError.systemError({
+              _tag: "PermissionDenied",
+              module: "FileSystem",
+              method: "symlink",
+              pathOrDescriptor: to,
+              description: "Exercise the instruction owner copy fallback.",
+            }),
+          ),
+      })),
+    ),
+    NodeServices.layer,
+  );
+
+  for (const row of localLifecycleRows.filter(
+    ({ type }) => type === "rule" || type === "knowledge",
+  )) {
+    for (const mechanism of ["symlink", "copy"] as const)
+      it.effect(
+        `previews the new Claude instruction ${mechanism} for a ${row.label} before acquisition`,
+        () => {
+          const { workspace, cleanup } = makeInstallWorld({
+            settings: { instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false } },
+          });
+          cleanups.push(cleanup);
+          const name = `proposed-${row.label}`;
+          const source = row.writePackage(workspace.root, { name });
+          // A discovered nested source must not hide the prospective root source.
+          fs.mkdirSync(path.join(workspace.root, "docs"));
+          fs.writeFileSync(path.join(workspace.root, "docs", "AGENTS.md"), "Nested guidance\n");
+          const before = workspace.snapshot();
+          return workspace
+            .provide(
+              Effect.gen(function* () {
+                const request = installRequest({
+                  type: row.type,
+                  subject: { kind: "source", source },
+                });
+                const preview = yield* previewInstall(request);
+                expect(deriveOperationOutcome(preview)).toBe("previewed");
+                expect(workspace.snapshot()).toEqual(before);
+                expect(workspace.exists("AGENTS.md")).toBe(false);
+                expect(workspace.exists("CLAUDE.md")).toBe(false);
+                const region = operationNativeLocations(preview).find(
+                  (unit) =>
+                    unit.address.kind === "region" &&
+                    unit.address.region === (row.type === "rule" ? "rules" : "knowledge"),
+                );
+                if (mechanism === "symlink") {
+                  expect(region).toMatchObject({
+                    state: "created",
+                    configuredConsumers: ["claude-code"],
+                    aliases: expect.arrayContaining([path.join(workspace.root, "CLAUDE.md")]),
+                  });
+                } else {
+                  expect(region?.configuredConsumers).not.toContain("claude-code");
+                  expect(region?.aliases).not.toContain(path.join(workspace.root, "CLAUDE.md"));
+                  expect(operationNativeLocations(preview)).toContainEqual(
+                    expect.objectContaining({
+                      address: { kind: "entry", path: path.join(workspace.root, "CLAUDE.md") },
+                      state: "created",
+                      ownership: "absent",
+                      mechanism: "generated-file",
+                      configuredConsumers: ["claude-code"],
+                    }),
+                  );
+                }
+                const outcome = preview.units
+                  .flatMap((unit) => unit.artifact?.agentOutcomes ?? [])
+                  .find(
+                    (item) =>
+                      item.extensionType === row.type &&
+                      item.name === name &&
+                      item.agentId === "claude-code",
+                  );
+                expect(outcome).toMatchObject({
+                  outcome: "projected",
+                  reasonCode: "planned-native-unit",
+                });
+                expect(outcome?.nativeUnitKeys).toHaveLength(1);
+                const applied = yield* applyInstall(request);
+                expect(deriveOperationOutcome(applied)).toBe("applied");
+                expect(fs.lstatSync(path.join(workspace.root, "CLAUDE.md")).isSymbolicLink()).toBe(
+                  mechanism === "symlink",
+                );
+                expect(workspace.readFile("CLAUDE.md")).toContain(workspace.readFile("AGENTS.md"));
+              }),
+            )
+            .pipe(Effect.provide(mechanism === "copy" ? copyPlatform : NodeServices.layer));
+        },
+      );
+
+    it.effect(`does not omit a missing alias for an already-current ${row.label} region`, () => {
+      const { workspace, cleanup } = makeInstallWorld({
+        settings: { instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false } },
+      });
+      cleanups.push(cleanup);
+      const name = `current-${row.label}`;
+      const source = row.writePackage(workspace.root, { name });
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            const request = installRequest({ type: row.type, subject: { kind: "source", source } });
+            const initial = yield* applyInstall(request);
+            expect(deriveOperationOutcome(initial)).toBe("applied");
+            expect(workspace.exists("CLAUDE.md")).toBe(true);
+            const instructions = workspace.readFile("AGENTS.md");
+            const accepted = workspace.readFile("axm-lock.yaml");
+            fs.unlinkSync(path.join(workspace.root, "CLAUDE.md"));
+            const before = workspace.snapshot();
+            const inventory = yield* (yield* WorkspaceRecords).getExtensionInventory(row.type, {});
+            const observed = inventory.items.find((item) => item.name === name);
+            expect(observed?.agentOutcomes).toContainEqual(
+              expect.objectContaining({
+                agentId: "claude-code",
+                outcome: "blocked",
+                reasonCode: "native-projection-not-current",
+              }),
+            );
+            expect(observed?.nativeLocations).toContainEqual(
+              expect.objectContaining({
+                address: { kind: "entry", path: path.join(workspace.root, "CLAUDE.md") },
+                ownership: "absent",
+                state: "absent",
+                configuredConsumers: ["claude-code"],
+                policyReasons: ["instruction-propagation"],
+              }),
+            );
+            expect(workspace.snapshot()).toEqual(before);
+
+            const preview = yield* previewInstall(request).pipe(Effect.result);
+            const afterPreview = workspace.snapshot();
+            const applied = yield* applyInstall(request).pipe(Effect.result);
+            expect(afterPreview).toEqual(before);
+            expect(applied._tag).toBe(preview._tag);
+            if (preview._tag === "Failure") {
+              expect(preview.failure).toMatchObject({
+                _tag: "ExtensionLifecycleFailed",
+                category: "conflict",
+                cause: {
+                  _tag: "InstructionMaintenanceFailed",
+                  detail: expect.stringContaining("CLAUDE.md"),
+                },
+              });
+            } else {
+              expect(deriveOperationOutcome(preview.success)).toBe("previewed");
+              const planned = preview.success.units
+                .flatMap((unit) => unit.artifact?.agentOutcomes ?? [])
+                .find(
+                  (outcome) =>
+                    outcome.extensionType === row.type &&
+                    outcome.name === name &&
+                    outcome.agentId === "claude-code",
+                );
+              expect(planned).toMatchObject({ outcome: "projected" });
+              expect(planned?.nativeUnitKeys?.length).toBeGreaterThan(0);
+            }
+            if (applied._tag === "Failure") {
+              expect(applied.failure).toMatchObject({
+                _tag: "ExtensionLifecycleFailed",
+                category: "conflict",
+                cause: {
+                  _tag: "InstructionMaintenanceFailed",
+                  detail: expect.stringContaining("CLAUDE.md"),
+                },
+              });
+              expect(workspace.snapshot()).toEqual(before);
+              expect(workspace.exists("CLAUDE.md")).toBe(false);
+            } else {
+              expect(deriveOperationOutcome(applied.success)).toBe("applied");
+              expect(workspace.exists("CLAUDE.md")).toBe(true);
+              expect(workspace.readFile("CLAUDE.md")).toContain(instructions);
+            }
+            expect(workspace.readFile("AGENTS.md")).toBe(instructions);
+            expect(workspace.readFile("axm-lock.yaml")).toBe(accepted);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    });
+
+    for (const obstruction of [
+      "foreign file",
+      "different target",
+      "malformed copy marker",
+    ] as const) {
+      it.effect(`refuses a ${obstruction} at the proposed ${row.label} instruction alias`, () => {
+        const { workspace, cleanup } = makeInstallWorld({
+          settings: { instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false } },
+        });
+        cleanups.push(cleanup);
+        const source = row.writePackage(workspace.root, { name: `blocked-${row.label}` });
+        const alias = path.join(workspace.root, "CLAUDE.md");
+        if (obstruction === "different target") {
+          fs.writeFileSync(path.join(workspace.root, "OTHER.md"), "Foreign instructions\n");
+          fs.symlinkSync("OTHER.md", alias);
+        } else {
+          fs.writeFileSync(
+            alias,
+            obstruction === "foreign file"
+              ? "Foreign instructions\n"
+              : "<!-- axm:file v=1 ext=@agentxm/instructions/alias src=AGENTS.md src=OTHER.md -->\nForeign instructions\n",
+          );
+        }
+        const before = workspace.snapshot();
+        return workspace
+          .provide(
+            Effect.gen(function* () {
+              const request = installRequest({
+                type: row.type,
+                subject: { kind: "source", source },
+              });
+              const preview = yield* previewInstall(request).pipe(Effect.result);
+              expect(preview._tag).toBe("Failure");
+              expect(workspace.snapshot()).toEqual(before);
+              const apply = yield* applyInstall(request).pipe(Effect.result);
+              expect(apply._tag).toBe("Failure");
+              expect(workspace.snapshot()).toEqual(before);
+              expect(workspace.exists("agent_extensions")).toBe(false);
+            }),
+          )
+          .pipe(Effect.provide(NodeServices.layer));
+      });
+    }
+  }
 
   it.effect.each(localLifecycleRows)(
     "realizes the applicable agent surfaces for a local $label",

@@ -239,6 +239,8 @@ export {
   instructionReadinessDetail,
   instructionStateIsCurrent,
   observeInstructions,
+  observeInstructionSurfacePlans,
+  plannedInstructionContributorObservation,
   reconcileInstructions,
   reconcileInstructionAliases,
   removeInstructionTargetsFor,

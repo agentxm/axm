@@ -3,6 +3,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as Ref from "effect/Ref";
 import type { NativeLocationOutcome } from "../locations/index.js";
 import {
   captureNativeRetentionWitnesses,
@@ -22,6 +23,62 @@ const location = (address: NativeLocationOutcome["address"]): NativeLocationOutc
 });
 
 describe("retained native content", () => {
+  it.effect.each(["region", "key-path"] as const)(
+    "shares route reads for multiple %s units only within one retention phase",
+    (kind) =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* fs.makeTempDirectoryScoped();
+        const file = path.join(root, kind === "region" ? "AGENTS.md" : ".mcp.json");
+        const alias = path.join(root, "alias");
+        const names = kind === "region" ? ["rules", "knowledge"] : ["one", "two"];
+        const raw =
+          kind === "region"
+            ? names
+                .map(
+                  (name) =>
+                    `<!-- axm:start v=1 region=${name} -->\nKept ${name}.\n<!-- axm:end v=1 region=${name} -->\n`,
+                )
+                .join("")
+            : JSON.stringify({ mcpServers: { one: { command: "one" }, two: { command: "two" } } });
+        yield* fs.writeFileString(file, raw);
+        yield* fs.symlink(path.basename(file), alias);
+        const units = names.map((name): NativeLocationOutcome => ({
+          ...location(
+            kind === "region"
+              ? { kind: "region", path: file, region: name }
+              : { kind: "key-path", path: file, keys: ["mcpServers", name] },
+          ),
+          aliases: [file, alias],
+        }));
+        const context = {
+          workspaceRoot: root,
+          nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+        };
+        const reads = yield* Ref.make<ReadonlyMap<string, number>>(new Map());
+        const observedFs = {
+          ...fs,
+          readDirectory: (target: string) =>
+            Ref.update(reads, (previous) =>
+              new Map(previous).set(target, (previous.get(target) ?? 0) + 1),
+            ).pipe(Effect.andThen(fs.readDirectory(target))),
+        } satisfies FileSystem.FileSystem;
+        yield* Effect.gen(function* () {
+          const before = yield* captureNativeRetentionWitnesses(units, context);
+          expect(before).toHaveLength(2);
+          const capturedReads = yield* Ref.get(reads);
+          expect(capturedReads.size).toBeGreaterThan(0);
+          expect([...capturedReads.values()].every((count) => count === 1)).toBe(true);
+          yield* Ref.set(reads, new Map());
+          yield* validateNativeRetentionWitnesses(before, context);
+          const validationReads = yield* Ref.get(reads);
+          expect(validationReads.size).toBeGreaterThan(0);
+          expect([...validationReads.values()].every((count) => count === 1)).toBe(true);
+        }).pipe(Effect.provideService(FileSystem.FileSystem, observedFs));
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
   it.effect(
     "accepts existing opaque body changes but rejects a later change to the retained file",
     () =>

@@ -285,6 +285,7 @@ export const reconcileNativeHookConfig = (args: NativeHookConfigArgs) =>
         current = after;
       }
       const changed = planned !== raw;
+      const owned = observed.length > 0 || (args.dryRun !== true && expected.length > 0);
       const finalPresent = args.dryRun === true ? expected.length > 0 : Option.isSome(current);
       return {
         changed,
@@ -302,15 +303,8 @@ export const reconcileNativeHookConfig = (args: NativeHookConfigArgs) =>
             ),
           ].sort(),
           policyReasons: [],
-          ownership:
-            expected.length > 0 || observed.length > 0
-              ? "owned"
-              : foreignOnly
-                ? "unowned"
-                : "absent",
-          ...(expected.length > 0 || observed.length > 0
-            ? { proof: "exact-hook-identity-scope-and-source-root" }
-            : {}),
+          ownership: owned ? "owned" : foreignOnly ? "unowned" : "absent",
+          ...(owned ? { proof: "exact-hook-identity-scope-and-source-root" } : {}),
           state: !changed
             ? expected.length > 0
               ? "unchanged"

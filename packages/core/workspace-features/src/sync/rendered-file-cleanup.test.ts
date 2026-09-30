@@ -617,7 +617,11 @@ describe("authored skill cleanup exclusion", () => {
                 expectedNames: expectedNames({ skill: enabled ? ["review"] : [] }),
                 dryRun: true,
               });
-              expect(cleanup).toEqual({ removedPaths: [], preservedPaths: [] });
+              expect(cleanup).toEqual({
+                removedPaths: [],
+                preservedPaths: [],
+                nativeLocations: [],
+              });
               yield* previewSync();
               expect(workspace.snapshot()).toEqual(before);
               yield* applySync();

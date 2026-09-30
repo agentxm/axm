@@ -11,16 +11,19 @@
 import * as Effect from "effect/Effect";
 import {
   WorkspaceLocation,
+  SettingsReader,
   DesiredStateReader,
   desiredReachability,
   type DesiredStateGraph,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 
 import { RuleManager } from "@agentxm/workspace-kernel/materialization";
 import {
   buildInstallOperation,
+  forecastInstallChange,
   type InstallArtifactPresentation,
   kernelFailureToStepFailure,
   type InstallStepRequirements,
@@ -37,7 +40,11 @@ import {
 import {
   applyInstructionSurfacePlans,
   captureAgentOutputAuthority,
+  observeInstructionSurfacePlans,
+  plannedInstructionContributorObservation,
 } from "@agentxm/workspace-kernel/projection";
+
+import { formatFqn } from "@agentxm/extension-model/unstable/extensions/fqn";
 
 import type { RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
 
@@ -61,6 +68,7 @@ export const planRuleInstall: (
   InstallStepRequirements | RuleManager
 > = Effect.fn("InstallExtensions.planRules")(function* (intent: RuleInstallIntent) {
   const location = yield* WorkspaceLocation;
+  const path = yield* Path.Path;
   const ruleManager = yield* RuleManager;
   const priorGraph = yield* (yield* DesiredStateReader).graph().pipe(
     Effect.mapError((cause) =>
@@ -93,9 +101,10 @@ export const planRuleInstall: (
         .map(({ ref }) => ref.rule.name),
     ),
   };
-  yield* ruleManager
+  const prepared = yield* ruleManager
     .prepareProjection(intent.projectionRefs ?? intent.refs.map(({ ref }) => ref), nativeProjection)
     .pipe(
+      Effect.flatMap(observeInstructionSurfacePlans),
       Effect.mapError((cause) =>
         installRefused({
           category: "conflict",
@@ -108,33 +117,76 @@ export const planRuleInstall: (
   // one operation defer it so the region is rendered once, from the complete
   // contributor set.
   const deferProjections = intent.deferProjections === true || intent.refs.length > 1;
-  const memberSteps = intent.refs.map(({ ref, versionRange }) =>
-    buildInstallOperation(ruleManager, {
-      toStepFailure: kernelFailureToStepFailure,
-      ref,
-      declaration: { name: ref.rule.name, versionRange },
-      ...(deferProjections
-        ? { enclosingClosure: { projections: [ref.type], postconditions: [] } }
-        : {}),
-      buildArtifact: ({ change }) =>
-        Effect.gen(function* () {
-          const materialization = yield* ruleManager.aggregateProjectionObservation;
-          const targets = materialization.targets.map((target) => ({
-            path: target.path,
-            change,
-            ...(target.agentIds === undefined ? {} : { agentIds: target.agentIds }),
-          }));
-          return {
-            path: targets[0]?.path ?? ref.rule.name,
-            scope: location.scope,
-            agents: materialization.agents,
-            ...(materialization.nativeLocations === undefined
-              ? {}
-              : { nativeLocations: materialization.nativeLocations }),
-            ...(ref.refType === "registry" ? { version: ref.version } : {}),
-            ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
-          } satisfies InstallArtifactPresentation;
-        }),
+  const configuredAgents = yield* (yield* SettingsReader).configuredAgents.pipe(
+    Effect.mapError((cause) =>
+      installRefused({
+        category: "validation",
+        detail: "Cannot establish configured agents for Rule install planning",
+        cause,
+      }),
+    ),
+  );
+  const memberSteps = yield* Effect.forEach(intent.refs, ({ ref, versionRange }) =>
+    Effect.gen(function* () {
+      const installedBefore = yield* ruleManager
+        .isInstalled({
+          target: { type: "rule", name: ref.rule.name },
+        })
+        .pipe(
+          Effect.mapError((cause) =>
+            installRefused({
+              category: "internal",
+              detail: `Rule install planning failed for ${ref.rule.name}`,
+              cause,
+            }),
+          ),
+        );
+      const { nativeLocations, agentOutcomes } = plannedInstructionContributorObservation({
+        type: ref.type,
+        name: ref.rule.name,
+        contributor: formatFqn({ owner: ref.owner, type: ref.type, name: ref.name }),
+        observations: prepared,
+        agentIds: configuredAgents,
+        scope: location.scope,
+      });
+      const firstLocation = nativeLocations[0];
+      return buildInstallOperation(ruleManager, {
+        plannedArtifact: {
+          path:
+            firstLocation === undefined
+              ? ref.rule.name
+              : path.relative(location.baseDir, firstLocation.address.path),
+          scope: location.scope,
+          change: forecastInstallChange({ installedBefore }),
+          nativeLocations,
+          agentOutcomes,
+        },
+        toStepFailure: kernelFailureToStepFailure,
+        ref,
+        declaration: { name: ref.rule.name, versionRange },
+        ...(deferProjections
+          ? { enclosingClosure: { projections: [ref.type], postconditions: [] } }
+          : {}),
+        buildArtifact: ({ change }) =>
+          Effect.gen(function* () {
+            const materialization = yield* ruleManager.aggregateProjectionObservation;
+            const targets = materialization.targets.map((target) => ({
+              path: target.path,
+              change,
+              ...(target.agentIds === undefined ? {} : { agentIds: target.agentIds }),
+            }));
+            return {
+              path: targets[0]?.path ?? ref.rule.name,
+              scope: location.scope,
+              agents: materialization.agents,
+              ...(materialization.nativeLocations === undefined
+                ? {}
+                : { nativeLocations: materialization.nativeLocations }),
+              ...(ref.refType === "registry" ? { version: ref.version } : {}),
+              ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
+            } satisfies InstallArtifactPresentation;
+          }),
+      });
     }),
   );
   const projectionSteps: ReadonlyArray<PlannedJobStep<InstallStepRequirements>> =

@@ -28,6 +28,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 
 import { acceptedRowKey, desiredReachesAcceptedRow } from "./accepted-reachability.js";
+import { lockEntries } from "./entry-accessors.js";
 import { isInstallRootStagingName } from "./constants.js";
 import type { DesiredStateGraph } from "./desired-state-graph.js";
 import { unresolvedPackRoutes } from "./desired-state-queries.js";
@@ -121,7 +122,7 @@ const isIdentityPrefix = (segments: ReadonlyArray<string>) => {
 export interface ObserveInstallRootArgs {
   readonly layout: WorkspaceLayout;
   readonly graph: DesiredStateGraph;
-  readonly locks: Pick<LockfileReaderService, "entries">;
+  readonly locks: Pick<LockfileReaderService, "lockfile">;
 }
 
 /**
@@ -135,15 +136,16 @@ export const observeInstallRoot = ({ layout, graph, locks }: ObserveInstallRootA
     const path = yield* Path.Path;
     const root = layout.acquiredRoot;
 
-    const accepted = (yield* Effect.forEach(extensionTypes, (type) =>
-      locks
-        .entries(type)
-        .pipe(
-          Effect.map((entries) =>
-            Object.entries(entries).map(([key, entry]) => ({ type, key, entry })),
-          ),
-        ),
-    )).flat();
+    // One accepted-resolution observation supplies every type in this inventory.
+    // A later invocation reads again, including when called after a mutation.
+    const lockfile = yield* locks.lockfile;
+    const accepted = extensionTypes.flatMap((type) =>
+      Object.entries(lockEntries[type].entries(lockfile)).map(([key, entry]) => ({
+        type,
+        key,
+        entry,
+      })),
+    );
     const lockedPaths = new Map<string, (typeof accepted)[number] & { readonly reached: boolean }>(
       accepted.map((row) => [
         computeExtensionPathsForLayout(

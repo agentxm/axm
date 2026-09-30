@@ -2,12 +2,22 @@ import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Layer from "effect/Layer";
+import * as PlatformError from "effect/PlatformError";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { copiedDirectoryCanReplace } from "@agentxm/workspace-kernel/locations";
+import { WorkspaceRecords } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  deriveOperationOutcome,
+  operationNativeLocations,
+} from "@agentxm/workspace-kernel/operations";
+
+import { writeLocalHookPackage } from "../testing/local-packages.js";
 
 import {
   applySync,
@@ -15,6 +25,7 @@ import {
   makeSyncFixture,
   previewSync,
   writeAuthoredRule,
+  writeAuthoredKnowledge,
   type SyncFixture,
   type SyncOutcome,
 } from "../testing/sync-fixture.js";
@@ -46,7 +57,7 @@ export const specification = defineSpecification({
     },
     {
       limitation:
-        "The instruction-copy currency rows run beside the instruction-management use case that owns them, in `packages/core/workspace-features/src/configuration/instructions/instruction-copy-currency.test.ts`; a reconciliation cannot reach that feature. They establish copy currency on a host filesystem with symlink creation refused, not Windows permissions, native symlink probing, or Windows filesystem behavior; the dedicated Windows instruction suite supplies that evidence separately.",
+        "The direct instruction-management copy rows run beside their owner in `packages/core/workspace-features/src/configuration/instructions/instruction-copy-currency.test.ts`. The authored Rule/Knowledge rows here cover contributor currency, read-only inventory, and sync recovery; the Rule row also checks declared dependent-copy updates, while initial Rule/Knowledge/Hook-fallback previews and Rule withdrawal exercise prospective sources and retained authored prose. Unrelated nested copies remain unchanged. These fixtures inject symlink-creation refusal; they do not establish Windows permissions, native symlink probing, or Windows filesystem behavior. The dedicated Windows instruction suite supplies that evidence separately.",
       retirementCondition:
         "Retain the same instruction-copy currency observations through real symlink-unavailable environments on each supported platform, alongside separately attributable Windows execution.",
     },
@@ -116,6 +127,293 @@ describe("Generated document projection currency", () => {
   afterEach(() => {
     for (const cleanup of cleanups.splice(0)) cleanup();
   });
+
+  const copyPlatform = Layer.provideMerge(
+    Layer.effect(
+      FileSystem.FileSystem,
+      Effect.map(FileSystem.FileSystem, (filesystem) => ({
+        ...filesystem,
+        symlink: (_from: string, to: string) =>
+          Effect.fail(
+            PlatformError.systemError({
+              _tag: "PermissionDenied",
+              module: "FileSystem",
+              method: "symlink",
+              pathOrDescriptor: to,
+              description: "Exercise the instruction owner copy fallback.",
+            }),
+          ),
+      })),
+    ),
+    NodeServices.layer,
+  );
+
+  for (const row of [
+    { type: "rule", settingsKey: "rules", write: writeAuthoredRule },
+    { type: "knowledge", settingsKey: "knowledge", write: writeAuthoredKnowledge },
+  ] as const) {
+    it.effect(
+      `blocks an owned instruction copy while authored ${row.type} content is stale`,
+      () => {
+        const workspace = makeSyncFixture({
+          settings: {
+            owner: "@acme",
+            agents: ["claude-code"],
+            instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
+            [row.settingsKey]: { review: "workspace" },
+          },
+        });
+        cleanups.push(workspace.cleanup);
+        row.write(workspace.root, "review", "Initial authoritative guidance.");
+        workspace.writeFile("docs/AGENTS.md", "Unrelated nested guidance.\n");
+        return workspace
+          .provide(
+            Effect.gen(function* () {
+              const beforeInitial = workspace.snapshot();
+              const planned = expectResolved(yield* previewSync());
+              expect(operationNativeLocations(planned)).toContainEqual(
+                expect.objectContaining({
+                  address: { kind: "entry", path: nodePath.join(workspace.root, "CLAUDE.md") },
+                  ownership: "absent",
+                  state: "created",
+                  configuredConsumers: ["claude-code"],
+                }),
+              );
+              expect(workspace.snapshot()).toEqual(beforeInitial);
+              expect(workspace.exists("AGENTS.md")).toBe(false);
+              expect(workspace.exists("CLAUDE.md")).toBe(false);
+              const initial = expectResolved(yield* applySync());
+              expect(deriveOperationOutcome(initial)).toBe("applied");
+              const records = yield* WorkspaceRecords;
+              const before = (yield* records.getExtensionInventory(row.type, {})).items.find(
+                (item) => item.name === "review",
+              );
+              expect(before?.agentOutcomes).toContainEqual(
+                expect.objectContaining({
+                  agentId: "claude-code",
+                  outcome: "current",
+                }),
+              );
+              const aliasPath = nodePath.join(workspace.root, "CLAUDE.md");
+              expect(fs.lstatSync(aliasPath).isSymbolicLink()).toBe(false);
+              const instructions = workspace.readFile("AGENTS.md");
+              const copy = workspace.readFile("CLAUDE.md");
+              const nestedCopy = workspace.readFile("docs/CLAUDE.md");
+              expect(copy).toContain(instructions);
+              expect(before?.nativeLocations).toContainEqual(
+                expect.objectContaining({
+                  address: { kind: "entry", path: aliasPath },
+                  ownership: "owned",
+                  state: "unchanged",
+                  proof: "exact-instruction-copy-banner",
+                  configuredConsumers: ["claude-code"],
+                }),
+              );
+
+              row.write(workspace.root, "review", "Revised authoritative guidance.");
+              const afterSourceEdit = workspace.snapshot();
+              const stale = (yield* records.getExtensionInventory(row.type, {})).items.find(
+                (item) => item.name === "review",
+              );
+              expect(stale?.agentOutcomes).toContainEqual(
+                expect.objectContaining({
+                  agentId: "claude-code",
+                  outcome: "blocked",
+                  reasonCode: "native-projection-not-current",
+                }),
+              );
+              expect(stale?.nativeLocations).toContainEqual(
+                expect.objectContaining({
+                  address: { kind: "entry", path: aliasPath },
+                  ownership: "owned",
+                  state: "blocked",
+                  proof: "exact-instruction-copy-banner",
+                  configuredConsumers: ["claude-code"],
+                }),
+              );
+              expect(workspace.readFile("AGENTS.md")).toBe(instructions);
+              expect(workspace.readFile("CLAUDE.md")).toBe(copy);
+              expect(workspace.snapshot()).toEqual(afterSourceEdit);
+
+              if (row.type === "rule") {
+                const proposed = expectResolved(yield* previewSync());
+                expect(operationNativeLocations(proposed)).toContainEqual(
+                  expect.objectContaining({
+                    address: { kind: "entry", path: aliasPath },
+                    ownership: "owned",
+                    state: "updated",
+                    proof: "exact-instruction-copy-banner",
+                    configuredConsumers: ["claude-code"],
+                  }),
+                );
+                expect(operationNativeLocations(proposed)).toContainEqual(
+                  expect.objectContaining({
+                    address: {
+                      kind: "entry",
+                      path: nodePath.join(workspace.root, "docs", "CLAUDE.md"),
+                    },
+                    ownership: "owned",
+                    state: "unchanged",
+                    proof: "exact-instruction-copy-banner",
+                  }),
+                );
+                expect(workspace.snapshot()).toEqual(afterSourceEdit);
+              }
+              const recovered = expectResolved(yield* applySync());
+              expect(
+                recovered.failure ??
+                  recovered.units.find((unit) => unit.error !== undefined)?.error,
+              ).toBeUndefined();
+              expect(deriveOperationOutcome(recovered)).toBe("applied");
+              expect(workspace.readFile("AGENTS.md")).toContain("Revised authoritative guidance.");
+              expect(workspace.readFile("CLAUDE.md")).toContain(workspace.readFile("AGENTS.md"));
+              const current = (yield* records.getExtensionInventory(row.type, {})).items.find(
+                (item) => item.name === "review",
+              );
+              expect(current?.agentOutcomes).toContainEqual(
+                expect.objectContaining({
+                  agentId: "claude-code",
+                  outcome: "current",
+                }),
+              );
+              expect(current?.nativeLocations).toContainEqual(
+                expect.objectContaining({
+                  address: { kind: "entry", path: aliasPath },
+                  ownership: "owned",
+                  state: "unchanged",
+                  proof: "exact-instruction-copy-banner",
+                  configuredConsumers: ["claude-code"],
+                }),
+              );
+              expect(workspace.readFile("docs/CLAUDE.md")).toBe(nestedCopy);
+              expectNothingToReconcile(yield* applySync());
+            }),
+          )
+          .pipe(Effect.provide(copyPlatform));
+      },
+      { timeout: FIXTURE_TIMEOUT },
+    );
+  }
+
+  it.effect(
+    "previews the root instruction copy created by a Hook fallback beside a nested source",
+    () => {
+      const workspace = makeSyncFixture({
+        settings: {
+          owner: "@acme",
+          agents: ["claude-code", "windsurf"],
+          instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
+          hooks: { review: "./vendor/review" },
+        },
+        files: { "docs/AGENTS.md": "Unrelated nested guidance.\n" },
+      });
+      cleanups.push(workspace.cleanup);
+      writeLocalHookPackage(workspace.root, { name: "review" });
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            const before = workspace.snapshot();
+            const planned = expectResolved(yield* previewSync());
+            expect(operationNativeLocations(planned)).toContainEqual(
+              expect.objectContaining({
+                address: {
+                  kind: "region",
+                  path: nodePath.join(workspace.root, "AGENTS.md"),
+                  region: "hook-fallbacks",
+                },
+                ownership: "absent",
+                state: "created",
+              }),
+            );
+            expect(operationNativeLocations(planned)).toContainEqual(
+              expect.objectContaining({
+                address: { kind: "entry", path: nodePath.join(workspace.root, "CLAUDE.md") },
+                ownership: "absent",
+                state: "created",
+                configuredConsumers: ["claude-code"],
+              }),
+            );
+            expect(workspace.snapshot()).toEqual(before);
+            expect(workspace.exists("AGENTS.md")).toBe(false);
+            expect(workspace.exists("CLAUDE.md")).toBe(false);
+            const applied = expectResolved(yield* applySync());
+            expect(
+              applied.failure ?? applied.units.find((unit) => unit.error !== undefined)?.error,
+            ).toBeUndefined();
+            expect(deriveOperationOutcome(applied)).toBe("applied");
+            expect(workspace.readFile("AGENTS.md")).toContain("region=hook-fallbacks");
+            expect(workspace.readFile("CLAUDE.md")).toContain(workspace.readFile("AGENTS.md"));
+            expect(fs.lstatSync(nodePath.join(workspace.root, "CLAUDE.md")).isSymbolicLink()).toBe(
+              false,
+            );
+          }),
+        )
+        .pipe(Effect.provide(copyPlatform));
+    },
+    { timeout: FIXTURE_TIMEOUT },
+  );
+
+  it.effect(
+    "updates an instruction copy when withdrawing a Rule region from retained authored prose",
+    () => {
+      const authored = "# Authored guidance\n\nKeep this exact text.\n";
+      const workspace = makeSyncFixture({
+        settings: {
+          owner: "@acme",
+          agents: ["claude-code"],
+          instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
+          rules: { review: "workspace" },
+        },
+        files: { "AGENTS.md": authored },
+      });
+      cleanups.push(workspace.cleanup);
+      writeAuthoredRule(workspace.root, "review", "Contribution to remove.");
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            const initial = expectResolved(yield* applySync());
+            expect(deriveOperationOutcome(initial)).toBe("applied");
+            expect(workspace.readFile("CLAUDE.md")).toContain("Contribution to remove.");
+            workspace.writeSettings({
+              ...workspace.readSettings(),
+              rules: { review: { source: "workspace", enabled: false } },
+            });
+            const before = workspace.snapshot();
+            const planned = expectResolved(yield* previewSync());
+            expect(operationNativeLocations(planned)).toContainEqual(
+              expect.objectContaining({
+                address: {
+                  kind: "region",
+                  path: nodePath.join(workspace.root, "AGENTS.md"),
+                  region: "rules",
+                },
+                state: "removed",
+              }),
+            );
+            expect(operationNativeLocations(planned)).toContainEqual(
+              expect.objectContaining({
+                address: { kind: "entry", path: nodePath.join(workspace.root, "CLAUDE.md") },
+                ownership: "owned",
+                state: "updated",
+                proof: "exact-instruction-copy-banner",
+              }),
+            );
+            expect(workspace.snapshot()).toEqual(before);
+            const applied = expectResolved(yield* applySync());
+            expect(
+              applied.failure ?? applied.units.find((unit) => unit.error !== undefined)?.error,
+            ).toBeUndefined();
+            expect(deriveOperationOutcome(applied)).toBe("applied");
+            expect(workspace.readFile("AGENTS.md")).toBe(authored);
+            expect(workspace.readFile("CLAUDE.md")).toContain(authored);
+            expect(workspace.readFile("CLAUDE.md")).not.toContain("Contribution to remove.");
+            expectNothingToReconcile(yield* applySync());
+          }),
+        )
+        .pipe(Effect.provide(copyPlatform));
+    },
+    { timeout: FIXTURE_TIMEOUT },
+  );
 
   it.effect(
     "preserves arbitrary body rewrites while authoritative inputs are unchanged",

@@ -9,6 +9,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { observeInstructionProjection, removeManagedInstructionTargets } from "./instructions.js";
 import { reconcileInstructions } from "./reconciliation.js";
+import { resolveNativeReferent } from "../../locations/index.js";
 
 const run = <A, E>(effect: Effect.Effect<A, E, NodeServices.NodeServices | NativeWriteAuthority>) =>
   effect.pipe(Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NodeServices.layer)));
@@ -24,8 +25,9 @@ describe("Windows instruction-file materialization", () => {
             expect(path.sep).toBe("\\");
             expect(path.parse(workspaceRoot).root).toMatch(/^[A-Za-z]:\\$/u);
 
+            const physicalRoot = yield* resolveNativeReferent(workspaceRoot);
             const sourcePath = path.join(workspaceRoot, "AGENTS.md");
-            const targetPath = path.join(workspaceRoot, "CLAUDE.md");
+            const targetPath = path.join(physicalRoot, "CLAUDE.md");
             fs.mkdirSync(path.join(workspaceRoot, ".git"));
             fs.mkdirSync(path.join(workspaceRoot, "docs"));
             fs.writeFileSync(path.join(workspaceRoot, "docs", "AGENTS.md"), "# Docs\n");
@@ -63,7 +65,7 @@ describe("Windows instruction-file materialization", () => {
               snapshot: yield* observeInstructionProjection(args),
               dryRun: false,
             });
-            expect(removed).toEqual([targetPath, path.join(workspaceRoot, "docs", "CLAUDE.md")]);
+            expect(removed).toEqual([targetPath, path.join(physicalRoot, "docs", "CLAUDE.md")]);
             expect(fs.existsSync(targetPath)).toBe(false);
             expect(fs.existsSync(sourcePath)).toBe(true);
 

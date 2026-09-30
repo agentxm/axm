@@ -93,7 +93,7 @@ export {
   admitLintRequest,
   fixLintWorkspace,
   lintSelectionRoot,
-  lintSelectionFileSystem,
+  lintSelectionLayer,
   queryLintWorkspace,
   type LintSelection,
   type LintWorkspaceFailure,

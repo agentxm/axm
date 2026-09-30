@@ -30,7 +30,7 @@ import {
 import {
   admitLintRequest,
   lintSelectionRoot,
-  lintSelectionFileSystem,
+  lintSelectionLayer,
   queryLintWorkspace,
 } from "./lint-workspace.js";
 import { isolatedGitEnvironment } from "./staged-workspace.js";
@@ -103,9 +103,8 @@ const lintView = (
           workspaceRoot: lintSelectionRoot(selection),
           observationView: selection.nativeView,
           cliVersion: workspace.cliVersion,
-        }),
+        }).pipe(Layer.provideMerge(lintSelectionLayer(selection))),
       ),
-      Effect.provideService(FileSystem.FileSystem, yield* lintSelectionFileSystem(selection)),
     );
   }).pipe(Effect.scoped);
 
@@ -139,7 +138,9 @@ describe("Selected lint filesystem view", () => {
         view: "git-index",
         fix: false,
       });
-      const captured = yield* lintSelectionFileSystem(selection);
+      const captured = yield* FileSystem.FileSystem.pipe(
+        Effect.provide(lintSelectionLayer(selection)),
+      );
       const externalReads: string[] = [];
       const observed = FileSystem.make({
         ...captured,
@@ -163,17 +164,25 @@ describe("Selected lint filesystem view", () => {
             workspaceRoot: lintSelectionRoot(selection),
             observationView: selection.nativeView,
             cliVersion: workspace.cliVersion,
-          }),
-        ),
-        Effect.provideService(FileSystem.FileSystem, observed),
-        Effect.provide(
-          ConfigProvider.layer(
-            ConfigProvider.fromEnv({
-              env: {
-                AXM_USER_HOME: home,
-                AXM_CLAUDE_SKILLS_DIR: nodePath.join(selection.workspaceRoot, "selected-skills"),
-              },
-            }),
+          }).pipe(
+            Layer.provideMerge(
+              Layer.succeed(FileSystem.FileSystem, observed).pipe(
+                Layer.provideMerge(lintSelectionLayer(selection)),
+              ),
+            ),
+            Layer.provideMerge(
+              ConfigProvider.layer(
+                ConfigProvider.fromEnv({
+                  env: {
+                    AXM_USER_HOME: home,
+                    AXM_CLAUDE_SKILLS_DIR: nodePath.join(
+                      selection.workspaceRoot,
+                      "selected-skills",
+                    ),
+                  },
+                }),
+              ),
+            ),
           ),
         ),
       );
@@ -196,7 +205,9 @@ describe("Selected lint filesystem view", () => {
         view: "git-index",
         fix: false,
       });
-      const captured = yield* lintSelectionFileSystem(selection);
+      const captured = yield* FileSystem.FileSystem.pipe(
+        Effect.provide(lintSelectionLayer(selection)),
+      );
       const selectedSettings = nodePath.join(selection.workspaceRoot, "axm.json");
       const denied = FileSystem.make({
         ...captured,
@@ -218,9 +229,14 @@ describe("Selected lint filesystem view", () => {
             workspaceRoot: lintSelectionRoot(selection),
             observationView: selection.nativeView,
             cliVersion: workspace.cliVersion,
-          }),
+          }).pipe(
+            Layer.provideMerge(
+              Layer.succeed(FileSystem.FileSystem, denied).pipe(
+                Layer.provideMerge(lintSelectionLayer(selection)),
+              ),
+            ),
+          ),
         ),
-        Effect.provideService(FileSystem.FileSystem, denied),
         Effect.result,
       );
       expect(result._tag).toBe("Failure");
@@ -256,7 +272,9 @@ describe("Selected lint filesystem view", () => {
           view: "git-index",
           fix: false,
         });
-        const captured = yield* lintSelectionFileSystem(selection);
+        const captured = yield* FileSystem.FileSystem.pipe(
+          Effect.provide(lintSelectionLayer(selection)),
+        );
         expect(
           yield* captured.readFileString(nodePath.join(selection.workspaceRoot, "alias")),
         ).toBe("staged bytes");

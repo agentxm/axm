@@ -1,3 +1,4 @@
+import { resolveNativeReferent } from "@agentxm/workspace-kernel/locations";
 import {
   WorkspaceTransactionScopesLive,
   WorkspaceFileWriteLocksLive,
@@ -495,7 +496,10 @@ export const withRuntime =
           detail: `Could not run from the selected directory '${selected}'.`,
           cause,
         });
-      const canonical = yield* fs.realPath(selected).pipe(Effect.mapError(directoryError));
+      const existing = yield* fs.realPath(selected).pipe(Effect.mapError(directoryError));
+      const canonical = yield* resolveNativeReferent(existing).pipe(
+        Effect.mapError(directoryError),
+      );
       const info = yield* fs.stat(canonical).pipe(Effect.mapError(directoryError));
       if (info.type !== "Directory") {
         return yield* makeAppError({

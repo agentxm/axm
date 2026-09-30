@@ -3,7 +3,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import { observationViewFileSystem } from "./observation-view.js";
+import { observationViewLayer } from "./observation-view.js";
 
 describe("captured filesystem view", () => {
   it.effect("maps absolute links to staged bytes and refuses external links before reading", () =>
@@ -19,12 +19,16 @@ describe("captured filesystem view", () => {
       yield* fs.symlink(path.join(live, "config"), path.join(staged, "alias"));
       yield* fs.symlink(path.join(external, "config"), path.join(staged, "escape"));
       yield* fs.symlink("loop", path.join(staged, "loop"));
-      const view = yield* observationViewFileSystem({
-        kind: "git-index",
-        readRoot: staged,
-        displayRoot: live,
-        fingerprint: "captured-index",
-      });
+      const view = yield* FileSystem.FileSystem.pipe(
+        Effect.provide(
+          observationViewLayer({
+            kind: "git-index",
+            readRoot: staged,
+            displayRoot: live,
+            fingerprint: "captured-index",
+          }),
+        ),
+      );
       expect(yield* view.readFileString(path.join(staged, "alias"))).toBe("staged-only");
       expect(yield* view.readLink(path.join(staged, "alias"))).toBe(path.join(live, "config"));
       expect(yield* view.realPath(path.join(staged, "alias"))).toBe(path.join(staged, "config"));

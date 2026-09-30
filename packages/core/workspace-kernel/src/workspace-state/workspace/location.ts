@@ -19,7 +19,8 @@ import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import { envOption } from "@agentxm/host-primitives";
 
-import type { AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
+import { makeAbsolutePath, type AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
+import { resolveNativeReferent } from "../../locations/index.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
   createDefaultSettings,
@@ -27,7 +28,7 @@ import {
   type SourceHostConfig,
 } from "../desired/settings/index.js";
 import type { Lockfile } from "../desired/lockfile/schema.js";
-import { WorkspaceNotInitialized } from "./errors.js";
+import { WorkspaceNotInitialized, WorkspaceLayoutError } from "./errors.js";
 import {
   resolveProjectWorkspaceLayout,
   resolveProjectWorkspaceStatePaths,
@@ -140,25 +141,40 @@ export const makeWorkspaceLocation = (
 > =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const userHome = yield* resolveUserHome();
+    const configuredUserHome = yield* resolveUserHome();
+    const selectedRoot = yield* resolveNativeReferent(
+      options.scope === "user" ? configuredUserHome : options.projectRoot,
+    ).pipe(
+      Effect.mapError(
+        (cause) =>
+          new WorkspaceLayoutError({
+            detail: "Cannot resolve the selected workspace's physical location",
+            cause,
+          }),
+      ),
+    );
+    const projectRoot =
+      options.scope === "project" ? makeAbsolutePath(path, selectedRoot) : options.projectRoot;
+    const userHome =
+      options.scope === "user" ? makeAbsolutePath(path, selectedRoot) : configuredUserHome;
     const nativeDirectoryInputs = yield* captureNativeDirectoryInputs(userHome);
     const initialUserLayout = yield* resolveUserWorkspaceLayout(userHome);
     const userRuntimeDir = initialUserLayout.runtimeDir;
-    const projectRuntimeDir = yield* getProjectRuntimeDir(options.projectRoot);
+    const projectRuntimeDir = yield* getProjectRuntimeDir(projectRoot);
     const runtimeDir = options.scope === "user" ? userRuntimeDir : projectRuntimeDir;
-    const initialProjectState = resolveProjectWorkspaceStatePaths(path, options.projectRoot);
+    const initialProjectState = resolveProjectWorkspaceStatePaths(path, projectRoot);
     const settingsPath =
       options.scope === "user" ? initialUserLayout.settingsPath : initialProjectState.settingsPath;
     const lockPath =
       options.scope === "user" ? initialUserLayout.lockPath : initialProjectState.lockPath;
-    const baseDir: AbsolutePath = options.scope === "user" ? userHome : options.projectRoot;
+    const baseDir: AbsolutePath = options.scope === "user" ? userHome : projectRoot;
     const cells: StateCellPaths = {
       ...(options.observationView === undefined
         ? {}
         : { observationView: options.observationView }),
       scope: options.scope,
       nativeDirectoryInputs,
-      projectRoot: options.projectRoot,
+      projectRoot,
       userHome,
       projectRuntimeDir,
       userRuntimeDir,
@@ -179,10 +195,7 @@ export const makeWorkspaceLocation = (
     const userSettings = yield* readSettingsCell(cells, userRuntimeDir, "user").pipe(
       Effect.map(Option.getOrElse(() => createDefaultSettings())),
     );
-    const projectLayout = yield* resolveProjectWorkspaceLayout(
-      options.projectRoot,
-      projectSettings,
-    );
+    const projectLayout = yield* resolveProjectWorkspaceLayout(projectRoot, projectSettings);
     const userLayout = yield* resolveUserWorkspaceLayout(userHome, userSettings);
     const layout = yield* Ref.make<WorkspaceLayout>(
       options.scope === "project" ? projectLayout : userLayout,

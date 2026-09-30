@@ -84,6 +84,7 @@ describe("classifyCiChanges", () => {
         "verify-pr",
         "verify-e2e",
         "windows-workspace",
+        "binary-smoke",
       ],
     ],
     [

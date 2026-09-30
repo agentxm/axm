@@ -388,7 +388,9 @@ artifacts; installed and published consumers retain the artifact boundary.
 - CI owns job topology, platform matrices, credentials, and always-run report
   collection, but not a second repository task graph.
 - The change classifier publishes the required job list; the aggregate
-  `required` job only reads results.
+  `required` job only reads results. Native compiled-binary verification
+  joins relevant pull-request and merge-group gates; release artifact uploads
+  remain exclusive to canonical release commits.
 
 ## Gaps
 

@@ -30,7 +30,7 @@ import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Result from "effect/Result";
 import {
-  observationViewFileSystem,
+  observationViewLayer,
   type NativeObservationView,
 } from "@agentxm/workspace-kernel/locations";
 
@@ -189,8 +189,8 @@ export const lintSelectionRoot = (selection: LintSelection) =>
   decodeAbsolutePathSync(selection.workspaceRoot);
 
 /** Provide this read view before constructing the selected workspace's services. */
-export const lintSelectionFileSystem = (selection: LintSelection) =>
-  observationViewFileSystem(selection.nativeView);
+export const lintSelectionLayer = (selection: LintSelection) =>
+  observationViewLayer(selection.nativeView);
 
 // -----------------------------------------------------------------------------
 // Result

@@ -1,8 +1,12 @@
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import {
   decodeJsonMcpConfig,
+  resolveAgentMcpConfigTargetPath,
   managedNativeMcpEntryNames,
   readNativeMcpEntry,
   readNativeMcpServers,
@@ -131,5 +135,61 @@ describe("native MCP config reads", () => {
         if (result._tag === "Failure")
           expect(result.failure.detail).toContain("mcp must be an object");
       }),
+  );
+});
+
+describe("native MCP config boundaries", () => {
+  it.effect("requires both project containment and a distinct native root", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const project = yield* fs.makeTempDirectoryScoped();
+      const external = yield* fs.makeTempDirectoryScoped();
+      const native = path.join(project, "native");
+      yield* fs.makeDirectory(native);
+      const target = { scope: "project", format: "json", attribution: "agent" } as const;
+      for (const root of [undefined, project]) {
+        const destination = path.join(project, ".mcp.json");
+        expect(
+          yield* resolveAgentMcpConfigTargetPath(project, {
+            ...target,
+            ...(root === undefined ? {} : { nativeRoot: root }),
+            path: destination,
+          }),
+        ).toBe(destination);
+      }
+      const destination = path.join(native, "config.json");
+      expect(
+        yield* resolveAgentMcpConfigTargetPath(project, {
+          ...target,
+          nativeRoot: native,
+          path: destination,
+        }),
+      ).toBe(destination);
+      for (const route of [
+        { nativeRoot: external, path: path.join(external, "config.json") },
+        { nativeRoot: native, path: path.join(project, ".mcp.json") },
+      ]) {
+        const failure = yield* resolveAgentMcpConfigTargetPath(project, {
+          ...target,
+          ...route,
+        }).pipe(Effect.flip);
+        expect(failure).toMatchObject({
+          _tag: "McpConfigInvalid",
+          detail: expect.stringContaining("escape"),
+        });
+      }
+      const alias = path.join(project, "external");
+      yield* fs.symlink(external, alias);
+      const failure = yield* resolveAgentMcpConfigTargetPath(project, {
+        ...target,
+        nativeRoot: project,
+        path: path.join(alias, "config.json"),
+      }).pipe(Effect.flip);
+      expect(failure).toMatchObject({
+        _tag: "McpConfigInvalid",
+        detail: expect.stringContaining("escape"),
+      });
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 });

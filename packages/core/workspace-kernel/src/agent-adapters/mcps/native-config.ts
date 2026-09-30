@@ -16,7 +16,6 @@ import * as Path from "effect/Path";
 import { parse, type ParseError } from "jsonc-parser";
 import { parse as parseToml } from "smol-toml";
 import type { McpConfigTarget } from "@agentxm/extension-model/unstable/agent-capabilities";
-import { isPathSafe } from "@agentxm/extension-model/unstable/path-types";
 import { McpConfigInvalid, McpConfigIoFailed } from "../errors.js";
 import { managedKeyedBlockNames } from "../managed-regions-keyed-block.js";
 import { parseTomlValue, stringifyTomlKey } from "../toml.js";
@@ -39,13 +38,21 @@ export const resolveAgentMcpConfigTargetPath = (
       target.scope === "user" && target.path.startsWith("~/") ? target.path.slice(2) : target.path,
     );
 
-    if (target.scope === "project" && !isPathSafe(path, workspaceRoot, base)) {
-      return yield* new McpConfigInvalid({
-        detail: `MCP config target escapes workspace root: ${target.path}`,
-      });
+    const nativeRoot = target.nativeRoot ?? workspaceRoot;
+    // The native boundary already checks the project root when the paths are identical.
+    if (target.scope === "project" && path.resolve(nativeRoot) !== path.resolve(workspaceRoot)) {
+      yield* assertNativeMutationWithin(workspaceRoot, base, "content", workspaceRoot).pipe(
+        Effect.mapError(
+          (cause) =>
+            new McpConfigInvalid({
+              detail: `Cannot use MCP location ${target.path}: ${cause.reason}`,
+              cause,
+            }),
+        ),
+      );
     }
     const address = yield* assertNativeMutationWithin(
-      target.nativeRoot ?? workspaceRoot,
+      nativeRoot,
       base,
       "content",
       workspaceRoot,

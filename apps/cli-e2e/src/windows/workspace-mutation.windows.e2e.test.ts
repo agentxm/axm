@@ -1,4 +1,6 @@
+import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
+import { withoutLocalGitEnvironment } from "@agentxm/client-e2e-utils";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import YAML from "yaml";
@@ -9,7 +11,10 @@ import { createTempDir, runCli as runBaseCli, SKILLS_REPO_FIXTURE } from "../uti
  * literal shape is read by the specification catalog.
  */
 export const executionBinding = {
-  requirements: ["system/compatibility/supported-platform-matrix"],
+  requirements: [
+    "system/compatibility/supported-platform-matrix",
+    "cli/lint/observes-selected-filesystem-view",
+  ],
   boundary: "platform",
   rationale:
     "Exercises workspace mutation semantics on a real Windows filesystem, where path, symlink, and lock behavior differ from POSIX.",
@@ -30,6 +35,75 @@ const expectSuccess = (result: {
 const readJson = (filePath: string): unknown => JSON.parse(fs.readFileSync(filePath, "utf8"));
 
 describe("Windows workspace mutation contract", () => {
+  it("lints staged Windows bytes without changing the index or working tree", async () => {
+    expect(process.platform).toBe("win32");
+    const workspace = createTempDir("axm windows staged view ");
+    const userHome = path.join(workspace.path, "user home");
+    const env = {
+      HOME: userHome,
+      USERPROFILE: userHome,
+      AXM_USER_HOME: userHome,
+      DO_NOT_TRACK: "1",
+    };
+    fs.mkdirSync(userHome, { recursive: true });
+    const git = (args: ReadonlyArray<string>) =>
+      execFileSync("git", args, {
+        cwd: workspace.path,
+        encoding: "utf8",
+        env: withoutLocalGitEnvironment(process.env),
+      });
+    try {
+      git(["init", "--quiet", "--initial-branch=main"]);
+      git(["config", "user.email", "test@example.com"]);
+      git(["config", "user.name", "Test"]);
+      expectSuccess(
+        await runCli(
+          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
+          { cwd: workspace.path, env },
+        ),
+      );
+      git(["add", "."]);
+      git(["commit", "--quiet", "-m", "fixture"]);
+      const settingsPath = path.join(workspace.path, "axm.json");
+      const validSettings = fs.readFileSync(settingsPath, "utf8");
+      const settings: unknown = JSON.parse(validSettings);
+      if (typeof settings !== "object" || settings === null || Array.isArray(settings))
+        throw new Error("Expected object-valued workspace settings");
+      fs.writeFileSync(
+        settingsPath,
+        JSON.stringify({ ...settings, skills: { demo: "@acme/skills/demo" } }),
+      );
+      git(["add", "axm.json"]);
+      fs.writeFileSync(settingsPath, validSettings);
+      const statusBefore = git(["status", "--porcelain=v2", "-z"]);
+      const indexBefore = git(["ls-files", "--stage", "-z"]);
+      const result = await runCli(["lint", "--view", "git-index", "--json"], {
+        cwd: path.join(workspace.path, ".claude"),
+        env,
+      });
+      expect(result.exitCode, `${result.stderr}\n${result.stdout}`).toBe(1);
+      expect(JSON.parse(result.stdout)).toMatchObject({
+        result: {
+          input: {
+            view: "git-index",
+            fingerprint: expect.stringMatching(/^sha256:[0-9a-f]{64}$/u),
+          },
+          findings: expect.arrayContaining([
+            expect.objectContaining({
+              ruleId: "workspace/skills-lockfile-aligned",
+              message: expect.stringContaining("@acme/skills/demo"),
+            }),
+          ]),
+        },
+      });
+      expect(git(["status", "--porcelain=v2", "-z"])).toBe(statusBefore);
+      expect(git(["ls-files", "--stage", "-z"])).toBe(indexBefore);
+      expect(fs.readFileSync(settingsPath, "utf8")).toBe(validSettings);
+    } finally {
+      workspace.cleanup();
+    }
+  });
+
   it("preserves lifecycle, native writer, path, lock, and rollback guarantees", async () => {
     expect(process.platform).toBe("win32");
     expect(path.sep).toBe("\\");

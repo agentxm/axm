@@ -1,5 +1,5 @@
 /** Physical native addresses. Identity is an observation, never ownership authority. */
-export { observationViewFileSystem, type NativeObservationView } from "./observation-view.js";
+export { observationViewLayer, type NativeObservationView } from "./observation-view.js";
 export { nativeInode } from "./native-inode.js";
 export {
   OwnershipUnitAddressSchema,

@@ -425,6 +425,122 @@ describe("aggregate required verification", () => {
     expect(JSON.stringify(jobs["verify-pr"])).toContain("--exclude=cli-e2e");
     expect(jobs).not.toHaveProperty("verify-main-hosted");
   });
+
+  it.each([
+    { name: "normal detach", testStatus: 0, detachStatus: 0, forceStatus: 0, expected: 0 },
+    {
+      name: "partial unmount then force success",
+      testStatus: 0,
+      detachStatus: 16,
+      forceStatus: 0,
+      expected: 0,
+    },
+    {
+      name: "test failure with successful cleanup",
+      testStatus: 17,
+      detachStatus: 16,
+      forceStatus: 0,
+      expected: 17,
+    },
+    {
+      name: "cleanup failure after passing tests",
+      testStatus: 0,
+      detachStatus: 16,
+      forceStatus: 19,
+      expected: 19,
+    },
+    {
+      name: "test failure with cleanup failure",
+      testStatus: 17,
+      detachStatus: 16,
+      forceStatus: 19,
+      expected: 17,
+    },
+  ])("preserves APFS cleanup identity and exit status: $name", (scenario) => {
+    const job = readWorkflow().jobs["binary-smoke"];
+    if (typeof job !== "object" || job === null || !("steps" in job) || !Array.isArray(job.steps))
+      throw new Error("Binary smoke must declare its native filesystem checks.");
+    const step: unknown = job.steps.find(
+      (candidate: unknown) =>
+        typeof candidate === "object" &&
+        candidate !== null &&
+        "name" in candidate &&
+        candidate.name === "Verify native lifecycle on case-sensitive APFS",
+    );
+    if (
+      typeof step !== "object" ||
+      step === null ||
+      !("run" in step) ||
+      typeof step.run !== "string"
+    )
+      throw new Error("APFS verification must execute a shell step.");
+    const directory = fs.mkdtempSync(path.join(tmpdir(), "axm-apfs-cleanup-"));
+    const attachPlist =
+      '<?xml version="1.0"?><plist version="1.0"><dict><key>system-entities</key><array><dict><key>dev-entry</key><string>/dev/disk42</string></dict></array></dict></plist>';
+    try {
+      const execution = spawnSync(
+        "bash",
+        [
+          "-e",
+          "-o",
+          "pipefail",
+          "-c",
+          `
+        hdiutil() {
+          case "$1" in
+            create) return 0 ;;
+            attach)
+              if [[ " $* " == *" -plist "* ]]; then
+                printf '%s\\n' "$ATTACH_PLIST"
+              else
+                printf '/dev/disk42 Apple_APFS\\n'
+              fi
+              ;;
+            detach)
+              printf '%s\\n' "$*" >> "$RUNNER_TEMP/detach-calls"
+              if [[ "$2" == "-force" ]]; then
+                [[ "$3" == "/dev/disk42" ]] || return 21
+                return "$FORCE_STATUS"
+              fi
+              [[ "$2" == "/dev/disk42" || "$2" == "$RUNNER_TEMP/axm-case-sensitive" ]] || return 22
+              # A failed eject can already have removed the mount point.
+              rm -rf "$RUNNER_TEMP/axm-case-sensitive"
+              return "$DETACH_STATUS"
+              ;;
+          esac
+        }
+        plutil() {
+          [[ "$1 $2 $3" == "-extract system-entities.0.dev-entry raw" ]] || return 23
+          [[ "$(cat "$4")" == "$ATTACH_PLIST" ]] || return 24
+          printf '/dev/disk42\\n'
+        }
+        pnpm() { return "$TEST_STATUS"; }
+        ${step.run}
+      `,
+        ],
+        {
+          cwd: directory,
+          encoding: "utf8",
+          env: {
+            ...process.env,
+            RUNNER_TEMP: directory,
+            ATTACH_PLIST: attachPlist,
+            TEST_STATUS: String(scenario.testStatus),
+            DETACH_STATUS: String(scenario.detachStatus),
+            FORCE_STATUS: String(scenario.forceStatus),
+          },
+        },
+      );
+      expect(execution.status, execution.stderr).toBe(scenario.expected);
+      expect(fs.readFileSync(path.join(directory, "detach-calls"), "utf8")).toBe(
+        scenario.detachStatus === 0
+          ? "detach /dev/disk42\n"
+          : "detach /dev/disk42\ndetach -force /dev/disk42\n",
+      );
+    } finally {
+      fs.rmSync(directory, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("native cache setup trust and configuration", () => {

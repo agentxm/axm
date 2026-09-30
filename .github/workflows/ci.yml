@@ -781,8 +781,21 @@ jobs:
           mount="$RUNNER_TEMP/axm-case-sensitive"
           hdiutil create -size 256m -type SPARSE -fs 'Case-sensitive APFS' -volname AXMCaseSensitive "$image"
           mkdir -p "$mount"
-          hdiutil attach "$image" -mountpoint "$mount" -nobrowse
-          trap 'hdiutil detach "$mount" || hdiutil detach -force "$mount"' EXIT
+          hdiutil attach "$image" -mountpoint "$mount" -nobrowse -plist > "$RUNNER_TEMP/axm-case-sensitive.plist"
+          device="$(plutil -extract system-entities.0.dev-entry raw "$RUNNER_TEMP/axm-case-sensitive.plist")"
+          cleanup() {
+            status=$?
+            trap - EXIT
+            # A failed eject may already have unmounted the filesystem.
+            hdiutil detach "$device" || hdiutil detach -force "$device" || {
+              cleanup_status=$?
+              if [[ "$status" -eq 0 ]]; then
+                status=$cleanup_status
+              fi
+            }
+            exit "$status"
+          }
+          trap cleanup EXIT
           mkdir -p "$mount/tmp"
           NX_DAEMON=false NX_ISOLATE_PLUGINS=false TMPDIR="$mount/tmp" pnpm exec nx run cli-e2e:binary-smoke-artifact --outputStyle=static --args='-t "preserves native case aliases and remaining Skill consumers"'
 

@@ -425,6 +425,61 @@ describe("overwrite behavior", () => {
     ),
   );
 
+  it.effect("preserves an opaque body at the same generation and refreshes changed inputs", () =>
+    withNode(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const root = mkdtempSync(nodePath.join(tmpdir(), "axm-subagent-generation-"));
+        try {
+          const base = makeAddArgs(root, "claude-code");
+          const args = {
+            ...base,
+            input: {
+              ...base.input,
+              ownershipBanner: {
+                ...ownershipBanner,
+                markdown: ownershipBanner.markdown.replace(" -->", " gen=first -->"),
+              },
+            },
+          } satisfies AddSubagentArgs;
+          const first = yield* claudeCodeCodingAgent.addSubagent(args);
+          expect(first._tag).toBe("success");
+          const file = nodePath.join(root, ".claude/agents/test-subagent.md");
+          const rewritten = (yield* fs.readFileString(file)).replace(
+            "You are a helpful test subagent.",
+            "Repository-formatted body.",
+          );
+          yield* fs.writeFileString(file, rewritten);
+          const unchanged = yield* claudeCodeCodingAgent.addSubagent(args);
+          expect(unchanged).toMatchObject({
+            _tag: "success",
+            nativeTargets: [{ change: "unchanged" }],
+          });
+          expect(yield* fs.readFileString(file)).toBe(rewritten);
+
+          const updated = yield* claudeCodeCodingAgent.addSubagent({
+            ...args,
+            input: {
+              ...args.input,
+              body: "Changed authoritative body.",
+              ownershipBanner: {
+                ...ownershipBanner,
+                markdown: ownershipBanner.markdown.replace(" -->", " gen=second -->"),
+              },
+            },
+          });
+          expect(updated).toMatchObject({
+            _tag: "success",
+            nativeTargets: [{ change: "updated" }],
+          });
+          expect(yield* fs.readFileString(file)).toContain("Changed authoritative body.");
+        } finally {
+          rmSync(root, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
   it.effect("roo refuses to claim an existing mode by slug", () =>
     withNode(
       Effect.gen(function* () {

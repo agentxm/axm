@@ -5,6 +5,7 @@ import {
   collectCleanupStep,
   validateNativeOutputPostconditions,
   captureRequiredNativeOutputs,
+  captureNativeOutputRetention,
   type KernelFailure,
   proposeDesiredState,
   StepFailureConversion,
@@ -624,8 +625,18 @@ export const planPackUninstall: (
       });
     }),
     validate: validatePackGraphPostcondition({ absent: orderedTargets }),
-    validateNativeOutputs: (locations, expected) =>
-      validateNativeOutputPostconditions(locations, [...retainedNativeOutputs, ...expected]).pipe(
+    captureNativeRetention: (expected) =>
+      captureNativeOutputRetention([...retainedNativeOutputs, ...expected]).pipe(
+        Effect.mapError((cause) =>
+          installRefused({ category: "conflict", detail: cause.detail, cause }),
+        ),
+      ),
+    validateNativeOutputs: (locations, expected, retained) =>
+      validateNativeOutputPostconditions(
+        locations,
+        [...retainedNativeOutputs, ...expected],
+        retained,
+      ).pipe(
         Effect.mapError((cause) =>
           installRefused({ category: "conflict", detail: cause.detail, cause }),
         ),

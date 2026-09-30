@@ -23,23 +23,10 @@ import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 
-import { ConfiguredAgentOutcomesProviderLive } from "@agentxm/workspace-kernel/reconciliation/live";
-
 import { ReleaseAgePosture } from "@agentxm/workspace-kernel/resolution";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
 
-import {
-  HookManagerLive,
-  KnowledgeManagerLive,
-  McpServerManagerLive,
-  PackManagerLive,
-  RuleManagerLive,
-  SkillManagerLive,
-  SourceHostProvidersLive,
-  SubagentManagerLive,
-  makeWorkspaceHandlerTestContext,
-} from "./test-helpers.js";
-import { workspaceInvariantFactsLive } from "./workspace-invariant-facts-live.js";
+import { makeWorkspaceLifecycleTestContext } from "./test-helpers.js";
 
 export interface AgentMembershipFixtureOptions {
   /** Settings document written to `axm.json`; `agents` defaults to empty. */
@@ -87,31 +74,19 @@ export const makeAgentMembershipFixture = (options: AgentMembershipFixtureOption
     writeFile(relativePath, contents);
   }
 
-  const context = makeWorkspaceHandlerTestContext({
+  const context = makeWorkspaceLifecycleTestContext({
     ...(options.fileSystemLayer === undefined ? {} : { fileSystemLayer: options.fileSystemLayer }),
     ...(options.machine === undefined ? {} : { machine: options.machine }),
     flags: { nonInteractive: true },
     wsOptions: { projectRoot: root, scope: "project" },
   });
 
-  const workspaceServiceLayer = Layer.provideMerge(
-    Layer.mergeAll(SourceHostProvidersLive, makeAxmSkillCompatibilityPolicyLayer("0.0.0-spec")),
+  const workspaceServiceLayer = Layer.merge(
     context.fullLayer,
+    makeAxmSkillCompatibilityPolicyLayer("0.0.0-spec"),
   );
-  const coreExtensions = Layer.mergeAll(
-    RuleManagerLive,
-    HookManagerLive,
-    McpServerManagerLive,
-    SkillManagerLive,
-    SubagentManagerLive,
-    KnowledgeManagerLive,
-  );
-  const extensionsLayer = Layer.provideMerge(PackManagerLive, coreExtensions);
-  const fullLayer = Layer.provideMerge(extensionsLayer, workspaceServiceLayer);
   const composed = Layer.mergeAll(
-    fullLayer,
-    Layer.provide(ConfiguredAgentOutcomesProviderLive, fullLayer),
-    Layer.provide(workspaceInvariantFactsLive, fullLayer),
+    workspaceServiceLayer,
     Layer.succeed(ReleaseAgePosture, "enforce"),
   );
   // The user home is read through configuration, whose provider snapshots the

@@ -17,6 +17,7 @@ import {
   prepareUninstallArtifact,
   validateNativeOutputPostconditions,
   captureRequiredNativeOutputs,
+  captureNativeOutputRetention,
   collectCleanupStep,
   buildReconciliationClosure,
   StepFailureConversion,
@@ -348,18 +349,26 @@ export const prepareUninstallExtensions: (
             ],
             toStepFailure: conversion.toStepFailure,
             validate: Effect.void,
-            validateNativeOutputs: (locations, expected) =>
-              validateNativeOutputPostconditions(locations, [
-                ...retainedNativeOutputs,
-                ...expected,
-              ]),
-          });
+            captureNativeRetention: (expected) =>
+              captureNativeOutputRetention([...retainedNativeOutputs, ...expected]),
+            validateNativeOutputs: (locations, expected, retained) =>
+              validateNativeOutputPostconditions(
+                locations,
+                [...retainedNativeOutputs, ...expected],
+                retained,
+              ),
+          }).pipe(
+            Effect.map((closure) => ({
+              ...closure,
+              ...(step.key === undefined ? {} : { key: step.key }),
+            })),
+          );
         }),
       );
       return { ...job, steps };
     }),
   );
-  const plan = {
+  const plan: Plan<PrepareUninstallRequirements> = {
     ...planned.plan,
     jobs,
     presentation: operationPresentation(

@@ -1,131 +1,12 @@
-/**
- * `workspace/skills-artifacts-correct` — each enabled skill has artifacts in
- * every declared agent's skill target; disabled skills have none.
- *
- * Three symptoms of the same invariant (§10.workspace.Skills note):
- *
- * - **Enabled-but-not-linked** — a skill declared `enabled: true` is missing
- *   its per-agent artifact for at least one declared agent. Autofix:
- *   `enable-skill` (the handler recreates symlinks across configured agents).
- * - **Disabled-but-still-present** — a skill declared `enabled: false` still
- *   has a per-agent artifact for at least one declared agent. Autofix:
- *   `disable-skill`.
- * - **Cross-agent-inconsistent** — an enabled skill has artifacts in some
- *   declared agents but not others. Autofix: `enable-skill`.
- *
- * One finding per affected skill (per-entity cascade); the first arm that
- * fires for a skill emits its finding and the other arms for the same skill
- * do not. Configured skills keep the existing autofix arms; pack-provided
- * implicit skills emit advisory findings because the repair is a pack-level
- * reinstall.
- *
- * @experimental This API is unstable and may change without notice.
- * @packageDocumentation
- */
-
+/** Skill realization findings derived from the shared native location observations. */
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
-import type { AdvisoryFinding, AdvisoryRule, LintFinding } from "@agentxm/extension-content/lint";
-import { EMPTY_LINT_FINDINGS } from "./helpers/empty.js";
-import {
-  isUniversalSkillsRelativeDir,
-  resolveUniversalDirPresence,
-} from "@agentxm/extension-model/unstable/extensions/universal-skills-dir";
-import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
+import type { AdvisoryFinding, AdvisoryRule } from "@agentxm/extension-content/lint";
+import { settingsDisplayPath } from "@agentxm/workspace-kernel/workspace-state";
 import { deferringNodes } from "./canonical-observation-findings.js";
-import {
-  settingsDisplayPath,
-  setupScopeSupportOutcomes,
-} from "@agentxm/workspace-kernel/workspace-state";
-import { desiredPackMemberBindings } from "./helpers/pack-members.js";
 
 const RULE_ID = "workspace/skills-artifacts-correct";
-const enableFinding = (name: string, reason: string, path: string): AdvisoryFinding => ({
-  kind: "advisory",
-  ruleId: RULE_ID,
-  severity: "error",
-  message: `Skill '${name}' is enabled, but it is missing from declared agents: ${reason}.`,
-  location: { file: path },
-});
-
-const disableFinding = (name: string, reason: string, path: string): AdvisoryFinding => ({
-  kind: "advisory",
-  ruleId: RULE_ID,
-  severity: "error",
-  message: `Skill '${name}' is disabled, but it is still present for declared agents: ${reason}.`,
-  location: { file: path },
-});
-
-const inconsistentFinding = (name: string, details: string, path: string): AdvisoryFinding => ({
-  kind: "advisory",
-  ruleId: RULE_ID,
-  severity: "error",
-  message: `Skill '${name}' is present for some declared agents but missing from others. ${details}.`,
-  location: { file: path },
-});
-
-interface ArtifactViolation {
-  readonly finding: LintFinding;
-}
-
-const implicitEnableFinding = (name: string, reason: string, path: string): AdvisoryFinding => ({
-  kind: "advisory",
-  ruleId: RULE_ID,
-  severity: "error",
-  message: `Pack-provided skill '${name}' is missing from declared agents: ${reason}.`,
-  location: { file: path },
-});
-
-const collectArtifactViolations = (
-  existenceBySkill: ReadonlyArray<{
-    readonly name: string;
-    readonly enabled: boolean;
-    readonly presentAgents: ReadonlyArray<string>;
-    readonly missingAgents: ReadonlyArray<string>;
-    readonly implicit: boolean;
-  }>,
-  settingsPath: string,
-): ReadonlyArray<ArtifactViolation> => {
-  const violations: Array<ArtifactViolation> = [];
-
-  for (const { name, enabled, presentAgents, missingAgents, implicit } of existenceBySkill) {
-    if (enabled) {
-      if (missingAgents.length === 0) {
-        continue;
-      }
-      if (implicit) {
-        violations.push({
-          finding: implicitEnableFinding(name, missingAgents.join(", "), settingsPath),
-        });
-        continue;
-      }
-      if (presentAgents.length === 0) {
-        violations.push({
-          finding: enableFinding(name, missingAgents.join(", "), settingsPath),
-        });
-        continue;
-      }
-      violations.push({
-        finding: inconsistentFinding(
-          name,
-          `Present for agents: ${presentAgents.join(", ")}. Missing from agents: ${missingAgents.join(", ")}`,
-          settingsPath,
-        ),
-      });
-      continue;
-    }
-
-    if (presentAgents.length > 0) {
-      violations.push({
-        finding: disableFinding(name, presentAgents.join(", "), settingsPath),
-      });
-    }
-  }
-
-  return violations;
-};
 
 export const skillsArtifactsCorrectRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
@@ -134,81 +15,47 @@ export const skillsArtifactsCorrectRule: AdvisoryRule<WorkspaceRuleContext> = {
   severity: "error",
   check: (context) =>
     Effect.gen(function* () {
-      const scoped = context.workspace;
-      const settingsResult = yield* Effect.result(scoped.state.settings);
-      // The schema/readability rules own these failures and emit the precise
-      // finding. This dependent rule cannot evaluate artifact correctness.
-      if (Result.isFailure(settingsResult)) return EMPTY_LINT_FINDINGS;
-      const settings = settingsResult.success;
-      if (Option.isNone(settings)) {
-        return EMPTY_LINT_FINDINGS;
-      }
-      const declaredAgentIds = new Set(settings.value.agents ?? []);
-      if (declaredAgentIds.size === 0) {
-        return EMPTY_LINT_FINDINGS;
-      }
-      const knownAgents = yield* scoped.agents.known;
-      // A missing artifact requires a known writer destination in this scope.
-      // Configured-agent outcomes own unsupported/unverified scope diagnostics;
-      // their absence is not evidence that an expected native artifact is missing.
-      const supportedAgentIds = new Set(
-        setupScopeSupportOutcomes("skill", [...declaredAgentIds], scoped.scope).flatMap(
-          (outcome) =>
-            outcome.status === "supported" && outcome.agentId !== undefined
-              ? [outcome.agentId]
-              : [],
-        ),
-      );
-      const declaredAgents = knownAgents.filter(
-        (agent) => isConfigurableAgentId(agent.id) && supportedAgentIds.has(agent.id),
-      );
-
-      const universalAgentIds = new Set(
-        declaredAgents
-          .filter(
-            (agent) =>
-              agent.skills?.locations.some(
-                (location) =>
-                  location.scope === scoped.scope && isUniversalSkillsRelativeDir(location.path),
-              ) === true,
-          )
-          .map((agent) => agent.id),
-      );
-      const members = yield* desiredPackMemberBindings(context, "skill");
-      const installedResult = yield* Effect.result(
-        Effect.all([scoped.skills.installed, scoped.skills.packMemberRows(members)]),
-      );
-      // The lockfile/readability rules own this failure; avoid turning it into
-      // a defect or duplicating a less precise finding here.
-      if (Result.isFailure(installedResult)) return EMPTY_LINT_FINDINGS;
-      const installed = installedResult.success.flat();
-      // A skill whose canonical tree is absent has no content to project; the
-      // one finding for that absence covers its absent artifacts.
-      const deferred = yield* deferringNodes(context);
-      const existenceBySkill = installed.flatMap((row) => {
-        if (deferred.has(`skill:${row.key.name}`)) return [];
-        const implicit = row.installationOrigin._tag === "pack-member";
-        const present = new Set(
-          row.actual.flatMap((actual) =>
-            actual.origin._tag === "agent-skill-dir" ? [actual.origin.agentId] : [],
-          ),
-        );
-        const collapsed = resolveUniversalDirPresence(
-          declaredAgents.map((agent) => ({ agentId: agent.id, exists: present.has(agent.id) })),
-          universalAgentIds,
-        );
-        return {
-          name: row.key.name,
-          enabled: row.activation === "enabled",
-          presentAgents: collapsed.filter((p) => p.exists).map((p) => p.agentId),
-          missingAgents: collapsed.filter((p) => !p.exists).map((p) => p.agentId),
-          implicit,
-        };
+      if (context.nativeSkills === undefined) return [];
+      const finding = (message: string): AdvisoryFinding => ({
+        kind: "advisory",
+        ruleId: RULE_ID,
+        severity: "error",
+        message,
+        location: { file: settingsDisplayPath(context.subject.scope) },
       });
-      const violations = collectArtifactViolations(
-        existenceBySkill,
-        settingsDisplayPath(context.subject.scope),
-      );
-      return violations.map((violation): LintFinding => violation.finding);
+      const observed = yield* Effect.result(context.nativeSkills);
+      if (Result.isFailure(observed))
+        return [finding("Native Skill locations could not be verified for this workspace.")];
+      const deferred = yield* deferringNodes(context);
+      return observed.success.flatMap(({ name, enabled, implicit, observation }) => {
+        if (deferred.has(`skill:${name}`)) return [];
+        const subject = `${implicit ? "Pack-provided skill" : "Skill"} '${name}'`;
+        if (!enabled)
+          return observation.nativeLocations.some((unit) => unit.ownership === "owned")
+            ? [finding(`${subject} is disabled, but owned native output is still present.`)]
+            : [];
+        const missingPolicy = observation.nativeLocations.some(
+          (unit) =>
+            unit.state === "absent" && unit.policyReasons.includes("workspace-shared-skills"),
+        );
+        const missingAgents = observation.agentOutcomes
+          .filter((outcome) => outcome.reasonCode === "projection-missing")
+          .map((outcome) => outcome.agentId);
+        if (missingPolicy || missingAgents.length > 0) {
+          const reasons = [
+            ...(missingAgents.length > 0 ? [`declared agents: ${missingAgents.join(", ")}`] : []),
+            ...(missingPolicy ? ["the shared Skill policy location"] : []),
+          ];
+          return [
+            finding(`${subject} is enabled, but it is missing from ${reasons.join(" and ")}.`),
+          ];
+        }
+        const ownedConflict = observation.nativeLocations.some(
+          (unit) => unit.ownership === "owned" && unit.state === "blocked",
+        );
+        return ownedConflict
+          ? [finding(`${subject} has owned native output that differs from its canonical content.`)]
+          : [];
+      });
     }),
 };

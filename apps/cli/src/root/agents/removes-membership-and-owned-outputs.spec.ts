@@ -1,6 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
@@ -13,6 +14,8 @@ import {
 import { handleAgentsAdd } from "./add.js";
 import { WorkspaceRecords } from "@agentxm/workspace-kernel/workspace-state";
 import { handleAgentsRemove } from "./remove.js";
+import { handleSync } from "../sync/handler.js";
+import { PlanResolutionDocumentSchema } from "../../operation-output.js";
 
 export const specification = defineSpecification({
   requirement: "cli/agents/remove/removes-membership-and-owned-outputs",
@@ -133,11 +136,56 @@ describe("Removing a coding agent", () => {
         expect(fixture.readFile(nativePath)).toBe(content);
         expect(fixture.readFile(".claude/agents/planner.md")).toBe(content);
         expect(fixture.rendererState.results.at(-1)).not.toMatchObject({
-          data: { outcome: "applied" },
+          data: { result: { outcome: "applied" } },
         });
       });
     },
   );
+
+  it.effect("retains a previously rewritten Subagent body while removing another agent", () => {
+    const fixture = makeAgentMembershipFixture({
+      machine: true,
+      settings: {
+        owner: "@acme",
+        agents: [],
+        subagents: { planner: { source: "workspace", enabled: true } },
+      },
+      files: {
+        "subagents/planner/subagent.json": JSON.stringify({
+          owner: "@acme",
+          type: "subagent",
+          name: "planner",
+          version: "1.0.0",
+          description: "Plans work",
+        }),
+        "subagents/planner/src/planner.md":
+          "---\nname: planner\ndescription: Plans work\n---\nPlan carefully\n",
+      },
+    });
+    cleanups.push(fixture.cleanup);
+    return Effect.gen(function* () {
+      yield* fixture.provide(
+        handleAgentsAdd({
+          ids: ["claude-code", "opencode"],
+          detected: false,
+          force: false,
+          preview: false,
+        }),
+      );
+      const nativePath = ".claude/agents/planner.md";
+      const original = fixture.readFile(nativePath);
+      const rewritten = original.replace("Plan carefully", "Repository-formatted body");
+      expect(rewritten).not.toBe(original);
+      fixture.writeFile(nativePath, rewritten);
+      yield* removeAgent(fixture, "opencode");
+      expect(fixture.readSettings()["agents"]).toEqual(["claude-code"]);
+      expect(fixture.readFile(nativePath)).toBe(rewritten);
+      expect(fixture.exists(".opencode/agents/planner.md")).toBe(false);
+      expect(fixture.rendererState.results.at(-1)).toMatchObject({
+        data: { result: { outcome: "applied" } },
+      });
+    });
+  });
 
   it.effect.each(["body", "ownership marker"] as const)(
     "restores membership when a retained native Subagent %s changes before final validation",
@@ -221,8 +269,146 @@ describe("Removing a coding agent", () => {
         expect(fixture.readFile(retainedPath)).toBe(foreign);
         expect(fixture.readFile(".opencode/agents/planner.md")).toBe(departingBefore);
         expect(fixture.rendererState.results.at(-1)).not.toMatchObject({
-          data: { outcome: "applied" },
+          data: { result: { outcome: "applied" } },
         });
+      });
+    },
+  );
+
+  const instructionSettings = {
+    owner: "@acme",
+    agents: ["claude-code", "codex"],
+    instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
+    rules: { guide: { source: "workspace", enabled: true } },
+    knowledge: { reference: { source: "workspace", enabled: true } },
+  };
+  const instructionFiles = {
+    "rules/guide/rule.json": JSON.stringify({
+      owner: "@acme",
+      type: "rule",
+      name: "guide",
+      version: "1.0.0",
+      description: "Repository guidance",
+    }),
+    "rules/guide/src/RULE.md": "Keep every change reviewable.\n",
+    "knowledge/reference/knowledge.json": JSON.stringify({
+      owner: "@acme",
+      type: "knowledge",
+      name: "reference",
+      version: "1.0.0",
+      description: "Reference knowledge",
+      format: { name: "okf", version: "0.2" },
+      bundleRoot: "src",
+    }),
+    "knowledge/reference/src/index.md":
+      '---\nokf_version: "0.2"\ndescription: Reference knowledge\n---\n\n# Reference\n',
+  };
+
+  it.effect.each([
+    { kind: "Rules", body: "Keep every change reviewable." },
+    { kind: "Knowledge", body: "Reference knowledge" },
+  ])("restores membership when retained $kind content changes during removal", ({ body }) => {
+    let armed = false;
+    let changed = false;
+    let foreign = "";
+    const fixture = makeAgentMembershipFixture({
+      machine: true,
+      settings: instructionSettings,
+      files: instructionFiles,
+      fileSystemLayer: Layer.effect(
+        FileSystem.FileSystem,
+        Effect.map(FileSystem.FileSystem, (fs) =>
+          FileSystem.make({
+            ...fs,
+            rename: (source, target) =>
+              fs.rename(source, target).pipe(
+                Effect.andThen(
+                  Effect.suspend(() => {
+                    if (!armed || changed || !target.endsWith("/axm.json")) return Effect.void;
+                    changed = true;
+                    return fs.writeFileString(
+                      target.slice(0, -"axm.json".length) + "AGENTS.md",
+                      foreign,
+                    );
+                  }),
+                ),
+              ),
+          }),
+        ),
+      ),
+    });
+    cleanups.push(fixture.cleanup);
+    return Effect.gen(function* () {
+      yield* fixture.provide(handleSync({ preview: false }));
+      const synced = yield* Schema.decodeUnknownEffect(PlanResolutionDocumentSchema)(
+        fixture.rendererState.results.at(-1)?.data,
+      );
+      expect(synced.result.outcome).toBe("applied");
+      const settingsBefore = fixture.readFile("axm.json");
+      const retainedBefore = fixture.readFile("AGENTS.md");
+      expect(fixture.readFile("CLAUDE.md")).toBe(retainedBefore);
+      expect(retainedBefore).toContain(body);
+      foreign = retainedBefore.replace(body, "Foreign changed content");
+      expect(foreign).not.toBe(retainedBefore);
+      armed = true;
+      yield* removeAgent(fixture, "claude-code");
+      const removed = yield* Schema.decodeUnknownEffect(PlanResolutionDocumentSchema)(
+        fixture.rendererState.results.at(-1)?.data,
+      );
+      expect(changed).toBe(true);
+      expect(removed.result.outcome).not.toBe("applied");
+      expect(fixture.readFile("axm.json")).toBe(settingsBefore);
+      expect(fixture.readFile("AGENTS.md")).toBe(foreign);
+      // The external region edit survives; the transaction restores its own alias retirement.
+      expect(fixture.readFile("CLAUDE.md")).toBe(foreign);
+    });
+  });
+
+  it.effect(
+    "removes a departing instruction alias while preserving both required shared regions",
+    () => {
+      const fixture = makeAgentMembershipFixture({
+        machine: true,
+        settings: instructionSettings,
+        files: instructionFiles,
+      });
+      cleanups.push(fixture.cleanup);
+      return Effect.gen(function* () {
+        yield* fixture.provide(handleSync({ preview: false }));
+        const synced = yield* Schema.decodeUnknownEffect(PlanResolutionDocumentSchema)(
+          fixture.rendererState.results.at(-1)?.data,
+        );
+        expect(synced.result.outcome).toBe("applied");
+        const retainedBefore = fixture.readFile("AGENTS.md");
+        expect(fixture.readFile("CLAUDE.md")).toBe(retainedBefore);
+        yield* removeAgent(fixture, "claude-code");
+        const removed = yield* Schema.decodeUnknownEffect(PlanResolutionDocumentSchema)(
+          fixture.rendererState.results.at(-1)?.data,
+        );
+        expect(removed.result.outcome).toBe("applied");
+        expect(fixture.readSettings()["agents"]).toEqual(["codex"]);
+        expect(fixture.exists("CLAUDE.md")).toBe(false);
+        expect(fixture.readFile("AGENTS.md")).toBe(retainedBefore);
+        expect(removed.result.nativeLocations).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              address: { kind: "entry", path: `${fixture.root}/CLAUDE.md` },
+              state: "removed",
+            }),
+          ]),
+        );
+        const retainedRegions = removed.result.nativeLocations.filter(
+          (unit) =>
+            unit.address.kind === "region" &&
+            (unit.address.region === "rules" || unit.address.region === "knowledge"),
+        );
+        expect(retainedRegions).toHaveLength(2);
+        for (const region of retainedRegions) {
+          expect(region.state).toBe("retained");
+          expect(region.configuredConsumers).toEqual(["codex"]);
+          expect(region.aliases).toContain(`${fixture.root}/AGENTS.md`);
+          expect(region.aliases).not.toContain(`${fixture.root}/CLAUDE.md`);
+        }
       });
     },
   );
@@ -279,6 +465,73 @@ describe("Removing a coding agent", () => {
 
         expect(fixture.exists(`.agents/skills/${SKILL}`)).toBe(true);
         expect(fixture.readSettings()).toMatchObject({ agents: ["claude-code"] });
+      });
+    },
+  );
+
+  it.effect.each(["trae", "trae-cn"] as const)(
+    "retains the literal shared vendor Skill and MCP locations after removing %s",
+    (departing) => {
+      const remaining = departing === "trae" ? "trae-cn" : "trae";
+      const fixture = makeAgentMembershipFixture({
+        machine: true,
+        settings: {
+          owner: "@acme",
+          agents: [departing, remaining],
+          skills: { [SKILL]: { source: "workspace", enabled: true } },
+          mcpServers: { context: { command: "node", args: ["server.js"] } },
+        },
+        files: {
+          [`skills/${SKILL}/skill.json`]: SKILL_MANIFEST,
+          [`skills/${SKILL}/src/SKILL.md`]: SKILL_BODY,
+          ".trae/mcp.json": '{"mcpServers":{"foreign":{"command":"keep-me"}}}\n',
+        },
+      });
+      cleanups.push(fixture.cleanup);
+      const decodeResult = () =>
+        Schema.decodeUnknownEffect(PlanResolutionDocumentSchema)(
+          fixture.rendererState.results.at(-1)?.data,
+        );
+      return Effect.gen(function* () {
+        yield* fixture.provide(handleSync({ preview: false }));
+        const first = yield* decodeResult();
+        expect(first.result.outcome).toBe("applied");
+        for (const suffix of [`.trae/skills/${SKILL}`, ".trae/mcp.json"]) {
+          const units = first.result.nativeLocations.filter((unit) =>
+            unit.address.path.endsWith(suffix),
+          );
+          expect(units).toHaveLength(1);
+          expect(units[0]?.configuredConsumers).toEqual(["trae", "trae-cn"]);
+        }
+        const nativeBefore = fixture.snapshotOf(".trae");
+        const sourceBefore = fixture.snapshotOf("skills");
+        const mcpBefore = fixture.readFile(".trae/mcp.json");
+        expect(mcpBefore).toContain('"keep-me"');
+        expect(fixture.readFile(`.trae/skills/${SKILL}/SKILL.md`)).toBe(SKILL_BODY);
+
+        yield* removeAgent(fixture, departing);
+        const removed = yield* decodeResult();
+        expect(removed.result.outcome).toBe("applied");
+        expect(fixture.readSettings()["agents"]).toEqual([remaining]);
+        expect(fixture.snapshotOf(".trae")).toEqual(nativeBefore);
+        expect(fixture.snapshotOf("skills")).toEqual(sourceBefore);
+        expect(fixture.readFile(".trae/mcp.json")).toBe(mcpBefore);
+        for (const suffix of [`.trae/skills/${SKILL}`, ".trae/mcp.json"]) {
+          const retained = removed.result.nativeLocations.filter((unit) =>
+            unit.address.path.endsWith(suffix),
+          );
+          expect(retained).toHaveLength(1);
+          expect(retained[0]).toMatchObject({
+            state: "retained",
+            configuredConsumers: [remaining],
+          });
+        }
+        expect(removed.result.nativeLocationCounts.changed).toBe(0);
+
+        const settled = fixture.snapshot();
+        yield* fixture.provide(handleSync({ preview: false }));
+        expect(fixture.snapshot()).toEqual(settled);
+        expect((yield* decodeResult()).result.outcome).toBe("no-op");
       });
     },
   );

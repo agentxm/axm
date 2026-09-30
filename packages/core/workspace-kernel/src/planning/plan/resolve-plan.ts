@@ -92,7 +92,7 @@ import {
   WorkspaceLocation,
   WorkspaceRecords,
   configuredAgentLifecycleOutcomes,
-  resolveConfiguredAgentOutcomes,
+  resolveConfiguredExtensionObservations,
   type ConfiguredAgentOutcomesProviderService,
   candidateFingerprintFailedToStepFailure,
   configErrorToStepFailure,
@@ -100,6 +100,7 @@ import {
   workspaceStateReadFailureToStepFailure,
   workspaceTransactionFailureToStepFailure,
 } from "../../workspace-state/index.js";
+import { nativeUnitKey, type NativeLocationOutcome } from "../../locations/index.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
   FootprintRecorder,
@@ -146,30 +147,42 @@ const acquisitionRefsForStep = <Requirements, Output>(
 
 const withPlannedAgentOutcomes = <Requirements, Output>(
   plan: Plan<Requirements, Output>,
-  outcomes: ReadonlyArray<ConfiguredAgentOutcome>,
+  outcomes: ReadonlyMap<
+    PlannedJobStep<Requirements, Output>,
+    ReadonlyArray<ConfiguredAgentOutcome>
+  >,
 ): Plan<Requirements, Output> => ({
   ...plan,
   jobs: plan.jobs.map((job) => ({
     ...job,
-    steps: job.steps.map((step) => ({
-      ...step,
-      agentOutcomes:
-        step.agentOutcomes === undefined || step.agentOutcomes.length === 0
-          ? outcomes
-          : step.agentOutcomes,
-      ...(step.artifact === undefined
-        ? {}
-        : {
-            artifact: {
-              ...step.artifact,
-              agentOutcomes:
-                step.artifact.agentOutcomes === undefined ||
-                step.artifact.agentOutcomes.length === 0
-                  ? outcomes
-                  : step.artifact.agentOutcomes,
-            },
-          }),
-    })),
+    steps: job.steps.map((step): PlannedJobStep<Requirements, Output> => {
+      const effective = step.agentOutcomes?.length
+        ? step.agentOutcomes
+        : step.artifact?.agentOutcomes?.length
+          ? step.artifact.agentOutcomes
+          : (outcomes.get(step) ?? []);
+      const agentOutcomes = effective.map((outcome): ConfiguredAgentOutcome =>
+        step.readiness === "error" && outcome.outcome === "projected"
+          ? {
+              ...outcome,
+              outcome: "blocked",
+              reasonCode: "plan-step-blocked",
+              reason: step.errorMessage,
+            }
+          : outcome,
+      );
+      const reporting = {
+        agentOutcomes,
+        ...(step.artifact === undefined ? {} : { artifact: { ...step.artifact, agentOutcomes } }),
+      };
+      if (step.readiness === "error") return { ...step, ...reporting };
+      const obstruction = agentOutcomes.find(
+        ({ outcome }) => outcome === "blocked" || outcome === "failed",
+      );
+      if (obstruction !== undefined)
+        return { ...step, ...reporting, readiness: "error", errorMessage: obstruction.reason };
+      return { ...step, ...reporting };
+    }),
   })),
 });
 
@@ -182,7 +195,14 @@ const withExecutedAgentOutcomes = <Output>(
     ...job,
     steps: job.steps.map((step) => ({
       ...step,
-      agentOutcomes: outcomes,
+      agentOutcomes: outcomes.filter((current) =>
+        step.agentOutcomes?.some(
+          (planned) =>
+            planned.extensionType === current.extensionType &&
+            planned.name === current.name &&
+            planned.agentId === current.agentId,
+        ),
+      ),
       ...(step.result.result === "success" && step.result.artifact !== undefined
         ? {
             result: {
@@ -192,7 +212,14 @@ const withExecutedAgentOutcomes = <Output>(
                 agentOutcomes:
                   step.result.artifact.agentOutcomes === undefined ||
                   step.result.artifact.agentOutcomes.length === 0
-                    ? outcomes
+                    ? outcomes.filter((current) =>
+                        step.agentOutcomes?.some(
+                          (planned) =>
+                            planned.extensionType === current.extensionType &&
+                            planned.name === current.name &&
+                            planned.agentId === current.agentId,
+                        ),
+                      )
                     : step.result.artifact.agentOutcomes,
               },
             },
@@ -203,42 +230,136 @@ const withExecutedAgentOutcomes = <Output>(
 });
 
 /**
- * The generic lifecycle outcomes for one operation, refined by the provider's
- * per-type override when the operation enables the extension.
+ * Project the requested lifecycle state, preserving current owner evidence of
+ * obstructions. Missing output is work for the prepared plan, not a failed
+ * projection; only apply's fresh readback can claim verified currency.
  */
 const outcomesFor = (
   scope: WorkspaceScope,
   provider: ConfiguredAgentOutcomesProviderService,
   configuredAgents: ReadonlyArray<string>,
   operation: ConfiguredAgentOperation,
-  state: "projected" | "current",
+  plannedLocations: ReadonlyArray<NativeLocationOutcome>,
+  plannedTargets: ReadonlySet<string>,
 ): Effect.Effect<ReadonlyArray<ConfiguredAgentOutcome>> => {
   const generic = configuredAgentLifecycleOutcomes({
     type: operation.extensionType,
     name: operation.name,
     agentIds: configuredAgents,
     scope,
-    state,
+    state: "projected",
     targetState: operation.plannedState,
-    installed: state === "projected",
-    observedAgentIds: state === "projected" ? configuredAgents : [],
+    installed: true,
   });
-  return resolveConfiguredAgentOutcomes(provider, {
+  if (operation.plannedState !== "enabled" || operation.extensionType === "pack")
+    return Effect.succeed(generic);
+  return resolveConfiguredExtensionObservations(provider, {
     type: operation.extensionType,
-    state,
+    state: "current",
     scope,
     agentIds: configuredAgents,
     rows: [
       {
         name: operation.name,
         targetState: operation.plannedState,
-        installed: state === "projected",
-        observedAgentIds: state === "projected" ? configuredAgents : [],
+        installed: true,
       },
     ],
   }).pipe(
-    Effect.map((outcomes) => outcomes.get(operation.name) ?? generic),
-    Effect.catchTag("ConfiguredAgentOutcomesUnavailable", () => Effect.succeed(generic)),
+    Effect.map((observations) => {
+      const observed = observations.get(operation.name);
+      return generic.map((planned): ConfiguredAgentOutcome => {
+        const current = observed?.agentOutcomes.find(({ agentId }) => agentId === planned.agentId);
+        const units =
+          observed?.nativeLocations.filter((unit) =>
+            unit.configuredConsumers.includes(planned.agentId),
+          ) ?? [];
+        const nativePlan = plannedLocations.filter((unit) =>
+          unit.configuredConsumers.includes(planned.agentId),
+        );
+        const writtenUnitKeys = new Set(
+          nativePlan
+            .filter(
+              (unit) =>
+                unit.state === "created" || unit.state === "updated" || unit.state === "removed",
+            )
+            .map(nativeUnitKey),
+        );
+        const writesUnit = (unit: NativeLocationOutcome) =>
+          writtenUnitKeys.has(nativeUnitKey(unit)) ||
+          (nativePlan.length === 0 &&
+            (plannedTargets.has(unit.address.path) ||
+              unit.aliases.some((alias) => plannedTargets.has(alias))));
+        const obstruction = units.find(
+          (unit) =>
+            writesUnit(unit) && (unit.ownership === "unowned" || unit.ownership === "unverified"),
+        );
+        const verified = units.filter(
+          (unit) => unit.ownership === "owned" && unit.state === "unchanged",
+        );
+        const supportedByOwner =
+          verified.length > 0 ||
+          nativePlan.some(
+            (unit) =>
+              unit.state === "created" ||
+              unit.state === "updated" ||
+              ((unit.state === "unchanged" || unit.state === "retained") &&
+                unit.ownership === "owned"),
+          );
+        if (planned.outcome !== "projected" && !supportedByOwner && obstruction === undefined)
+          return planned;
+        if (current?.outcome === "unsupported" && !supportedByOwner) return current;
+        if (
+          observed === undefined ||
+          current?.reasonCode === "native-observation-unavailable" ||
+          (current?.reasonCode === "native-location-unverified" && !supportedByOwner) ||
+          obstruction !== undefined
+        )
+          return {
+            ...planned,
+            outcome: "blocked",
+            reasonCode:
+              obstruction === undefined
+                ? "native-observation-unavailable"
+                : "native-content-conflict",
+            reason:
+              obstruction?.reason ??
+              current?.reason ??
+              "Native ownership could not be verified before planning the projection.",
+            nativeUnitKeys: units.map(nativeUnitKey),
+          };
+        return {
+          ...planned,
+          outcome: "projected",
+          ...(planned.outcome === "unsupported"
+            ? {
+                reasonCode: "planned-native-unit",
+                reason:
+                  "The owner has established a native realization for this agent; runtime selection remains unverified.",
+              }
+            : {}),
+          nativeUnitKeys: [
+            ...new Set(
+              [...nativePlan, ...verified, ...units.filter(writesUnit)].map(nativeUnitKey),
+            ),
+          ].sort(),
+        };
+      });
+    }),
+    Effect.catchTag("ConfiguredAgentOutcomesUnavailable", (failure) =>
+      Effect.succeed(
+        generic.map((outcome): ConfiguredAgentOutcome =>
+          outcome.outcome === "projected"
+            ? {
+                ...outcome,
+                outcome: "blocked",
+                reasonCode: "native-observation-unavailable",
+                reason: failure.detail,
+              }
+            : outcome,
+        ),
+      ),
+    ),
   );
 };
 
@@ -301,9 +422,38 @@ export const prepareExecutionCandidate = Effect.fn("prepareExecutionCandidate")(
 
   const operations = options?.configuredAgentOperations ?? [];
   const configuredAgents = operations.length === 0 ? [] : yield* settings.configuredAgents;
-  const projectedOutcomes = (yield* Effect.forEach(operations, (operation) =>
-    outcomesFor(location.scope, provider, configuredAgents, operation, "projected"),
-  )).flat();
+  const path = yield* Path.Path;
+  const originalSteps = plan.jobs.flatMap((job) => job.steps);
+  const subjectsForStep = (step: PlannedJobStep<Requirements, Output>) =>
+    operations.filter(
+      (operation) =>
+        (originalSteps.length === 1 && originalSteps[0] === step) ||
+        step.key === `${operation.extensionType}:${operation.name}` ||
+        (operation.extensionType === "pack" &&
+          step.key?.startsWith("pack:") === true &&
+          step.key.endsWith(`/${operation.name}`)) ||
+        (step.sourceBinding?.extensionType === operation.extensionType &&
+          step.sourceBinding.target === operation.name) ||
+        (step.key === undefined && step.label === operation.name),
+    );
+  const projectedOutcomes = new Map(
+    yield* Effect.forEach(
+      augmented.plan.jobs.flatMap((job) => job.steps),
+      (step) =>
+        Effect.gen(function* () {
+          const locations = step.artifact?.nativeLocations ?? [];
+          const targets = new Set(
+            (step.artifact?.targets ?? [])
+              .filter((target) => target.change !== "unchanged")
+              .map((target) => path.resolve(location.baseDir, target.path)),
+          );
+          const outcomes = (yield* Effect.forEach(subjectsForStep(step), (operation) =>
+            outcomesFor(location.scope, provider, configuredAgents, operation, locations, targets),
+          )).flat();
+          return [step, outcomes] as const;
+        }),
+    ),
+  );
   const augmentedPlan =
     operations.length === 0
       ? augmented.plan

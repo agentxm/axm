@@ -170,8 +170,19 @@ export const writeSubagentFiles = (
               _tag: "conflict",
               reason: `Preserved unowned Subagent file: ${filePath}`,
             } as const;
-          if (Option.isSome(prior) && prior.value === output.content)
-            return { _tag: "written", change: "unchanged" } as const;
+          if (Option.isSome(prior)) {
+            const marker = nativeSubagentMarker(prior.value, filePath);
+            // The owner stamps authoritative render inputs in gen. Preserve
+            // accepted body edits whenever those inputs have not changed.
+            const current =
+              expectedMarker?.generation !== undefined &&
+              Option.isSome(marker) &&
+              marker.value.ext === expectedMarker.ext &&
+              marker.value.src === expectedMarker.src &&
+              marker.value.generation === expectedMarker.generation;
+            if (current || prior.value === output.content)
+              return { _tag: "written", change: "unchanged" } as const;
+          }
           const capture = yield* authority.captureCreatedDirectories({
             path: filePath,
             unit: JSON.stringify(["subagent-parent-directories", filePath]),

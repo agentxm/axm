@@ -7,8 +7,7 @@ import {
   copiedDirectoryIsCurrent,
   nativeUnitKey,
   readCopiedDirectory,
-  resolveNativeEntry,
-  resolveNativeReferent,
+  captureNativeLocationSet,
   type NativeLocationOutcome,
 } from "../locations/index.js";
 import {
@@ -39,11 +38,27 @@ export const observeConfiguredSkillLocations = (request: ConfiguredAgentOutcomes
           Effect.map((locations) => locations.map((reader) => ({ agentId: agent.id, ...reader }))),
         ),
     )).flat();
+    const locations = yield* captureNativeLocationSet({
+      entries: request.rows.flatMap((row) => [
+        path.join(location.baseDir, ".agents/skills", row.name),
+        ...readers.map((reader) => path.join(reader.path, row.name)),
+      ]),
+      referents: [
+        path.join(location.baseDir, ".agents/skills"),
+        ...readers.map((reader) => reader.path),
+        ...request.rows.flatMap((row) => authority.expectedSkillSources[row.name] ?? []),
+      ],
+    });
+    const artifactReaders = readers.map(({ agentId, ...location }) => ({
+      agentId,
+      kind: "skill" as const,
+      location,
+    }));
     const results = new Map<string, ConfiguredExtensionObservation>();
     for (const row of request.rows) {
       const sources = yield* Effect.forEach(
         authority.expectedSkillSources[row.name] ?? [],
-        resolveNativeReferent,
+        locations.referent,
       );
       const targets = new Set(
         row.targetState === "absent"
@@ -52,7 +67,7 @@ export const observeConfiguredSkillLocations = (request: ConfiguredAgentOutcomes
       );
       for (const reader of readers) {
         const target = path.join(reader.path, row.name);
-        const address = yield* resolveNativeEntry(target);
+        const address = yield* locations.entry(target);
         if (
           (address.kind !== "absent" &&
             (address.kind === "symlink" || (yield* fs.exists(path.join(target, "SKILL.md"))))) ||
@@ -62,72 +77,83 @@ export const observeConfiguredSkillLocations = (request: ConfiguredAgentOutcomes
         )
           targets.add(target);
       }
-      const proposed = yield* nativeArtifactLocationOutcomes({
-        workspaceRoot: location.baseDir,
-        scope: location.scope,
-        agents,
-        configuredAgentIds: new Set(request.agentIds),
-        sharedSkillPolicy: row.targetState === "enabled",
-        targets: [...targets].map((target) => ({
-          path: target,
-          kind: "skill" as const,
-          state: "unverified" as const,
-        })),
-      });
-      const nativeLocations = yield* Effect.forEach(proposed, (fact) =>
+      const observedTargets = yield* Effect.forEach([...targets], (target) =>
         Effect.gen(function* () {
-          const address = yield* resolveNativeEntry(fact.address.path);
+          const address = yield* locations.entry(target);
+          let mechanism: NativeLocationOutcome["mechanism"] =
+            address.kind === "symlink" ? "symlink" : undefined;
           let owned = sources.includes(address.entryPath);
           let current = owned && (yield* fs.exists(path.join(address.entryPath, "SKILL.md")));
           if (address.kind === "symlink" && address.linkTarget !== undefined) {
-            const immediate = yield* resolveNativeEntry(
+            const immediate = yield* locations.entry(
               path.resolve(path.dirname(address.entryPath), address.linkTarget),
             );
             owned = immediate.kind !== "symlink" && sources.includes(immediate.entryPath);
             current = owned && (yield* fs.exists(path.join(immediate.entryPath, "SKILL.md")));
           } else if (address.kind === "directory" && !owned) {
             const receipt = yield* readCopiedDirectory(address.entryPath);
+            if (Option.isSome(receipt)) mechanism = "copied-directory";
             owned = Option.isSome(receipt) && sources.includes(receipt.value.source);
             current =
               owned &&
               Option.isSome(receipt) &&
               (yield* copiedDirectoryIsCurrent(address.entryPath, receipt.value.source));
           }
-          const { proof: _proof, ...facts } = fact;
           return {
-            ...facts,
-            ownership: address.kind === "absent" ? "absent" : owned ? "owned" : "unowned",
-            state: address.kind === "absent" ? "absent" : current ? "unchanged" : "blocked",
-            ...(owned
-              ? {
-                  proof:
-                    address.kind === "symlink"
-                      ? "exact-canonical-source-link"
-                      : sources.includes(address.entryPath)
-                        ? "canonical-source-coincidence"
-                        : "bounded-copy-receipt",
-                }
-              : {}),
-            ...(!current && address.kind !== "absent"
-              ? {
-                  reason: owned
-                    ? "The owned copy differs from its canonical source."
-                    : "This native entry is not owned by the configured Skill.",
-                }
-              : {}),
-          } satisfies NativeLocationOutcome;
+            path: target,
+            kind: "skill" as const,
+            state:
+              address.kind === "absent"
+                ? ("absent" as const)
+                : current
+                  ? ("unchanged" as const)
+                  : ("blocked" as const),
+            ownerObservation: {
+              ownership: address.kind === "absent" ? "absent" : owned ? "owned" : "unowned",
+              ...(mechanism === undefined ? {} : { mechanism }),
+              ...(owned
+                ? {
+                    proof:
+                      address.kind === "symlink"
+                        ? "exact-canonical-source-link"
+                        : sources.includes(address.entryPath)
+                          ? "canonical-source-coincidence"
+                          : "bounded-copy-receipt",
+                  }
+                : {}),
+              ...(!current && address.kind !== "absent"
+                ? {
+                    reason: owned
+                      ? "The owned copy differs from its canonical source."
+                      : "This native entry is not owned by the configured Skill.",
+                  }
+                : {}),
+            } satisfies Pick<NativeLocationOutcome, "ownership" | "proof" | "mechanism" | "reason">,
+          };
         }),
       );
+      const nativeLocations = yield* nativeArtifactLocationOutcomes({
+        workspaceRoot: location.baseDir,
+        scope: location.scope,
+        agents,
+        configuredAgentIds: new Set(request.agentIds),
+        sharedSkillPolicy: row.targetState === "enabled",
+        readers: artifactReaders,
+        locationSet: locations,
+        targets: observedTargets,
+      });
       const agentOutcomes = request.agentIds.map((agentId): ConfiguredAgentOutcome => {
         const units = nativeLocations.filter((unit) => unit.configuredConsumers.includes(agentId));
-        const blocked = units.some((unit) => unit.state === "blocked");
         const required = readers
           .filter((reader) => reader.agentId === agentId && reader.declaration.role === "primary")
           .map((reader) => path.join(reader.path, row.name));
-        const missingRequired = units.some(
-          (unit) =>
-            unit.state === "absent" && unit.aliases.some((alias) => required.includes(alias)),
+        const requiredUnit = (unit: NativeLocationOutcome) =>
+          unit.policyReasons.includes("workspace-shared-skills") ||
+          unit.aliases.some((alias) => required.includes(alias));
+        const blocked = units.some(
+          (unit) => unit.state === "blocked" && (unit.ownership === "owned" || requiredUnit(unit)),
         );
+        const missingRequired = units.some((unit) => unit.state === "absent" && requiredUnit(unit));
         const current = !missingRequired && units.some((unit) => unit.state === "unchanged");
         return {
           extensionType: "skill",
@@ -148,9 +174,9 @@ export const observeConfiguredSkillLocations = (request: ConfiguredAgentOutcomes
                 ? "native-location-unverified"
                 : "projection-missing",
           reason: blocked
-            ? "A declared native Skill entry is unowned or differs from the canonical source."
+            ? "A required native Skill entry is unowned, or an owned entry differs from the canonical source."
             : current
-              ? "The declared native Skill entries match the canonical source; runtime selection is unverified."
+              ? "Required and owned native Skill entries match the canonical source; runtime selection is unverified."
               : units.length === 0
                 ? "Native Skill availability is unverified: no concrete applicable location could be resolved for this agent and scope."
                 : "A required native Skill entry is missing.",

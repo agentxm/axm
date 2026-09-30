@@ -55,6 +55,15 @@ Lint and sync consume the same intrinsic facts. Sync may add live operational
 evidence such as source availability or acquisition failure; that evidence does
 not become a lint predicate.
 
+Native location resolution captures a finite set of entry and referent facts
+for each read phase. Shared ancestor observations belong to that capture and
+cannot outlive it. Projection owners join those physical facts with their
+reader, representation and ownership rules; lint consumes those same owner
+observations. Acquisition, candidate revalidation and final readback take fresh
+captures in the selected filesystem view. Captured location facts are not write
+authority: containment, physical-boundary admission and restoration still read
+live state.
+
 After construction succeeds, one operation uses one valid settings-backed
 snapshot. Diagnostics may tolerate later invalid workspace state to describe
 it, but planning preserves the distinction among missing, invalid, unsupported,
@@ -154,6 +163,21 @@ Authoritative files publish through atomic replacement. Canonical directories
 publish as complete directories rather than partially populated destinations.
 Read-modify-write adapters validate their independently owned entry or region
 and preserve all surrounding content, owned and unowned.
+
+Projection currency and retention answer separate questions. A generated
+document can remain current after a legitimate body rewrite when its
+authoritative inputs and generation record have not changed. A closure that
+promises to retain that document also checks that its observed content survives
+the transition. Reconciliation carries temporary owner-unit fingerprints
+through the existing transaction to final validation, without publishing them
+or treating them as deletion authority. Region and keyed-entry fingerprints
+exclude unrelated siblings so an authorized sibling update can still commit.
+Instruction propagation preserves entry routing; the managed region owners
+separately verify their content. Membership retention uses the resulting
+consumer set and excludes routes explicitly planned for retirement.
+Changed units follow their owner's expected postimage. A foreign change to an
+untouched retained unit fails validation while preserving the foreign bytes;
+only AXM's actual writes enter rollback snapshots.
 
 ## Interruption and recovery
 

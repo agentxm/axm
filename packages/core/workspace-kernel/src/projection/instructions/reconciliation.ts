@@ -214,6 +214,7 @@ export function reconcileInstructions(
 
 /** Bring owned aliases current after a shared-surface write, when management is enabled. */
 export const reconcileInstructionAliases = (options?: {
+  readonly configuredAgents?: ReadonlyArray<string>;
   readonly eligibleAgentIds?: ReadonlyArray<string>;
   readonly eligibleTargets?: ReadonlyArray<string>;
 }): Effect.Effect<
@@ -230,7 +231,7 @@ export const reconcileInstructionAliases = (options?: {
       workspaceRoot: location.baseDir,
       scope: location.scope,
       nativeDirectoryInputs: location.nativeDirectoryInputs,
-      configuredAgents: yield* settings.configuredAgents,
+      configuredAgents: options?.configuredAgents ?? (yield* settings.configuredAgents),
       config: config.value,
       ...(options?.eligibleAgentIds === undefined
         ? {}

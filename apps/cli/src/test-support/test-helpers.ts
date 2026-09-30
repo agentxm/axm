@@ -70,6 +70,7 @@ export { SourceHostProvidersLive };
 import { workspaceInvariantFactsLive } from "./workspace-invariant-facts-live.js";
 export { KnowledgeIndexLive };
 import {
+  ExtensionKindsLive,
   HookManagerLive,
   KnowledgeManagerLive,
   McpSecretStoreLive,
@@ -742,17 +743,7 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
  */
 export const AllExtensionManagersLive = Layer.provideMerge(
   ConfiguredAgentOutcomesProviderLive,
-  Layer.provideMerge(
-    PackManagerLive,
-    Layer.mergeAll(
-      SkillManagerLive,
-      SubagentManagerLive,
-      RuleManagerLive,
-      HookManagerLive,
-      KnowledgeManagerLive,
-      McpServerManagerLive,
-    ),
-  ),
+  ExtensionKindsLive,
 );
 
 /** Complete workspace lifecycle composition for handlers that can plan a transition. */

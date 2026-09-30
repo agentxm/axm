@@ -62,6 +62,8 @@ import { runWorkspaceTransaction, type WorkspaceTransactionScope } from "../sett
 import {
   SettingsReader,
   DesiredStateReader,
+  ConfiguredAgentOutcomesProvider,
+  WorkspaceRecords,
   WorkspaceLocation,
   settingsDisplayPath,
   type WorkspaceLocationService,
@@ -70,7 +72,12 @@ import {
   type WorkspaceSettingsReadFailure,
 } from "../workspace-state/index.js";
 import { buildReconciliationClosure } from "./closure.js";
-import { validateNativeOutputPostconditions } from "./native-output-postconditions.js";
+import {
+  captureNativeOutputRetention,
+  captureRequiredNativeOutputs,
+  validateNativeOutputPostconditions,
+} from "./native-output-postconditions.js";
+import type { NativeRetentionWitness } from "../projection/index.js";
 import { reconcileAgentOutputs } from "./rendered-file-cleanup.js";
 import { WorkspaceSyncFailed, type WorkspaceSyncCleanupFailure } from "./errors.js";
 import type { StepFailureConversionService } from "./step-failure-conversion.js";
@@ -117,7 +124,9 @@ export type SyncStepRequirements =
   | RecipeRequirements
   | SettingsReader
   | WorkspaceLocation
-  | CodingAgentRepository;
+  | CodingAgentRepository
+  | ConfiguredAgentOutcomesProvider
+  | WorkspaceRecords;
 
 // Deliberately duplicated from the CLI-destined renderer helper: a feature
 // package may not depend on application presentation utilities, and this
@@ -478,6 +487,8 @@ export const collectCleanupStep: (args: {
   | SettingsReader
   | DesiredStateReader
   | NativeWriteAuthority
+  | ConfiguredAgentOutcomesProvider
+  | WorkspaceRecords
 > = Effect.fn("Sync.collectCleanupStep")(function* (args) {
   const location = yield* WorkspaceLocation;
   const agentRepo = yield* CodingAgentRepository;
@@ -501,6 +512,48 @@ export const collectCleanupStep: (args: {
     dryRun: true,
     ...(args.subjects === undefined ? {} : { subjects: args.subjects }),
   });
+  const retainedNativeLocations = Effect.gen(function* () {
+    if (args.desiredAgentIds === undefined) return [];
+    const graph = yield* (yield* DesiredStateReader).graph();
+    const subjects = graph.nodes.filter(
+      (node) =>
+        node.enabled &&
+        node.type !== "pack" &&
+        (args.subjects === undefined ||
+          args.subjects.some(
+            (subject) => subject.type === node.type && subject.name === node.name,
+          )),
+    );
+    const required = yield* captureRequiredNativeOutputs(subjects, {
+      configuredAgents: [...desiredAgentIds],
+      planned: preview.nativeLocations ?? [],
+    });
+    return required.map((unit): NativeLocationOutcome =>
+      unit.state !== "unchanged"
+        ? unit
+        : {
+            ...unit,
+            state: "retained",
+            reason:
+              unit.configuredConsumers.length > 0
+                ? `Still required by configured consumers: ${unit.configuredConsumers.join(", ")}.`
+                : "Still required by AXM's shared skills policy; no configured agents read this location.",
+          },
+    );
+  }).pipe(
+    Effect.mapError(
+      (cause) =>
+        new WorkspaceSyncFailed({
+          category: "conflict",
+          detail: "Cannot verify retained native outputs",
+          cause,
+        }),
+    ),
+  );
+  const previewNativeLocations = combineNativeLocationOutcomes([
+    ...(preview.nativeLocations ?? []),
+    ...(yield* retainedNativeLocations),
+  ]);
   const previewPaths = preview.removedPaths;
   if (
     previewPaths.length === 0 &&
@@ -508,7 +561,7 @@ export const collectCleanupStep: (args: {
     args.subjects === undefined
   )
     return Option.none<PlannedJobStep<SyncStepRequirements>>();
-  if (previewPaths.length === 0 && (preview.nativeLocations?.length ?? 0) === 0)
+  if (previewPaths.length === 0 && previewNativeLocations.length === 0)
     return Option.none<PlannedJobStep<SyncStepRequirements>>();
   return Option.some<PlannedJobStep<SyncStepRequirements>>({
     key: "projection:cleanup",
@@ -519,9 +572,7 @@ export const collectCleanupStep: (args: {
       scope: location.scope,
       change: previewPaths.length === 0 ? "unchanged" : "removed",
       fileCount: previewPaths.length,
-      ...(preview.nativeLocations === undefined
-        ? {}
-        : { nativeLocations: preview.nativeLocations }),
+      nativeLocations: previewNativeLocations,
       targets: previewPaths.map((filePath) => ({ path: filePath, change: "removed" })),
     },
     run: reconcileAgentOutputs({
@@ -530,6 +581,17 @@ export const collectCleanupStep: (args: {
       expectedNames: args.expectedNames,
       ...(args.subjects === undefined ? {} : { subjects: args.subjects }),
     }).pipe(
+      Effect.flatMap((result) =>
+        retainedNativeLocations.pipe(
+          Effect.map((retained) => ({
+            ...result,
+            nativeLocations: combineNativeLocationOutcomes([
+              ...(result.nativeLocations ?? []),
+              ...retained,
+            ]),
+          })),
+        ),
+      ),
       Effect.mapError(args.adapter.toStepFailure),
       Effect.map((result): JobStepResult => {
         const removedPaths = result.removedPaths;
@@ -807,7 +869,11 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
       const ruleLocations = args.touchesRule
         ? ((yield* manager.aggregateProjectionObservation).nativeLocations ?? [])
         : [];
-      const result = yield* reconcileInstructionAliases({ eligibleAgentIds, eligibleTargets });
+      const result = yield* reconcileInstructionAliases({
+        configuredAgents,
+        eligibleAgentIds,
+        eligibleTargets,
+      });
       return combineNativeLocationOutcomes([
         ...ruleLocations,
         ...(Option.isSome(result) ? result.value.nativeLocations : []),
@@ -942,23 +1008,33 @@ export const makeSyncPlan = <R>({
         return Effect.succeed({
           ...single,
           run: runWorkspaceTransaction<
-            JobStepResult,
+            {
+              readonly result: JobStepResult;
+              readonly retained: ReadonlyArray<NativeRetentionWitness>;
+            },
             WorkspaceSyncFailed | StepFailure,
             R | Effect.Services<ReturnType<typeof validateNativeOutputPostconditions>>
           >({
-            transition: single.run.pipe(
-              Effect.flatMap((result) =>
-                result.result === "error" ? Effect.fail(result.error) : Effect.succeed(result),
-              ),
-            ),
-            validate: (result) =>
+            transition: Effect.gen(function* () {
+              const retained = yield* captureNativeOutputRetention(
+                single.artifact?.nativeLocations ?? [],
+              );
+              const result = yield* single.run;
+              if (result.result === "error") return yield* result.error;
+              return { result, retained };
+            }),
+            validate: ({ result, retained }) =>
               result.result === "success"
                 ? validateNativeOutputPostconditions(
                     result.artifact?.nativeLocations ?? [],
                     single.artifact?.nativeLocations ?? [],
+                    retained,
                   )
                 : Effect.void,
-          }).pipe(Effect.mapError(adapter.toStepFailure)),
+          }).pipe(
+            Effect.map(({ result }) => result),
+            Effect.mapError(adapter.toStepFailure),
+          ),
         });
       if (single !== undefined) return Effect.succeed(single);
       // Preserve the topological order even when this step joins earlier components.
@@ -989,6 +1065,7 @@ export const makeSyncPlan = <R>({
         },
         children: steps.map((step) => ({ step, coverage: "ineligible" })),
         validate: Effect.void,
+        captureNativeRetention: captureNativeOutputRetention,
         validateNativeOutputs: validateNativeOutputPostconditions,
       });
     });

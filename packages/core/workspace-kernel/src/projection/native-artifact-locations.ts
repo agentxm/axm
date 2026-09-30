@@ -6,11 +6,42 @@ import type { CodingAgent } from "../agent-adapters/index.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
   resolveNativeEntry,
-  resolveNativeReferent,
+  captureNativeLocationSet,
   readCopiedDirectory,
   combineNativeLocationOutcomes,
+  type NativeLocationSet,
+  type ResolvedNativeReadLocation,
   type NativeLocationOutcome,
 } from "../locations/index.js";
+
+interface NativeArtifactReader {
+  readonly agentId: string;
+  readonly kind: "skill" | "subagent";
+  readonly location: ResolvedNativeReadLocation;
+}
+
+/** Capture reader recipes once; physical identity belongs to the read-phase set. */
+const nativeArtifactReaders = (args: {
+  readonly workspaceRoot: string;
+  readonly scope: WorkspaceScope;
+  readonly agents: ReadonlyArray<CodingAgent>;
+  readonly kinds: ReadonlyArray<"skill" | "subagent">;
+}) =>
+  Effect.forEach(args.agents, (agent) =>
+    Effect.forEach([...new Set(args.kinds)], (kind) =>
+      agent
+        .resolveNativeReadLocations({ workspaceRoot: args.workspaceRoot, scope: args.scope, kind })
+        .pipe(
+          Effect.map((locations) =>
+            locations.map((location): NativeArtifactReader => ({
+              agentId: agent.id,
+              kind,
+              location,
+            })),
+          ),
+        ),
+    ).pipe(Effect.map((readers) => readers.flat())),
+  ).pipe(Effect.map((readers) => readers.flat()));
 
 export const nativeArtifactLocationOutcomes = (args: {
   readonly workspaceRoot: string;
@@ -18,48 +49,51 @@ export const nativeArtifactLocationOutcomes = (args: {
   readonly agents: ReadonlyArray<CodingAgent>;
   readonly configuredAgentIds: ReadonlySet<string>;
   readonly sharedSkillPolicy: boolean;
+  readonly readers?: ReadonlyArray<NativeArtifactReader>;
+  readonly locationSet?: NativeLocationSet;
   readonly targets: ReadonlyArray<{
     readonly path: string;
     readonly kind: "skill" | "subagent";
     readonly state: NativeLocationOutcome["state"];
     readonly sourcePath?: string;
+    readonly ownerObservation?: Pick<
+      NativeLocationOutcome,
+      "ownership" | "proof" | "mechanism" | "reason"
+    >;
   }>;
 }) =>
   Effect.gen(function* () {
     if (args.targets.length === 0) return [];
     const path = yield* Path.Path;
-    const shared = args.sharedSkillPolicy
-      ? yield* resolveNativeReferent(path.join(args.workspaceRoot, ".agents/skills"))
-      : undefined;
-    const readers = yield* Effect.forEach(args.agents, (agent) =>
-      Effect.forEach(["skill", "subagent"] as const, (kind) =>
-        agent
-          .resolveNativeReadLocations({
-            workspaceRoot: args.workspaceRoot,
-            scope: args.scope,
-            kind,
-          })
-          .pipe(
-            Effect.flatMap((locations) =>
-              Effect.forEach(locations, (location) =>
-                resolveNativeReferent(location.path).pipe(
-                  Effect.option,
-                  Effect.map((physical) =>
-                    Option.map(physical, (physical) => ({
-                      agentId: agent.id,
-                      kind,
-                      location,
-                      physical,
-                    })),
-                  ),
-                ),
-              ),
-            ),
+    const declaredReaders =
+      args.readers ??
+      (yield* nativeArtifactReaders({
+        ...args,
+        kinds: args.targets.map((target) => target.kind),
+      }));
+    const locations =
+      args.locationSet ??
+      (yield* captureNativeLocationSet({
+        entries: args.targets.map((target) => path.resolve(args.workspaceRoot, target.path)),
+        referents: [
+          ...declaredReaders.map((reader) => reader.location.path),
+          ...(args.sharedSkillPolicy ? [path.join(args.workspaceRoot, ".agents/skills")] : []),
+          ...args.targets.flatMap((target) =>
+            target.sourcePath === undefined ? [] : [target.sourcePath],
           ),
-      ).pipe(Effect.map((locations) => locations.flat())),
+        ],
+      }));
+    const shared = args.sharedSkillPolicy
+      ? yield* locations.referent(path.join(args.workspaceRoot, ".agents/skills"))
+      : undefined;
+    const readers = yield* Effect.forEach(declaredReaders, (reader) =>
+      locations.referent(reader.location.path).pipe(
+        Effect.option,
+        Effect.map((physical) => Option.map(physical, (physical) => ({ ...reader, physical }))),
+      ),
     ).pipe(
-      Effect.map((locations) =>
-        locations.flat().flatMap((location) => (Option.isSome(location) ? [location.value] : [])),
+      Effect.map((readers) =>
+        readers.flatMap((reader) => (Option.isSome(reader) ? [reader.value] : [])),
       ),
     );
     const stateRank = (state: NativeLocationOutcome["state"]) =>
@@ -69,7 +103,7 @@ export const nativeArtifactLocationOutcomes = (args: {
       (target) =>
         Effect.gen(function* () {
           const lexical = path.resolve(args.workspaceRoot, target.path);
-          const address = yield* resolveNativeEntry(lexical);
+          const address = yield* locations.entry(lexical);
           const physical =
             target.kind === "skill"
               ? address.entryPath
@@ -94,13 +128,15 @@ export const nativeArtifactLocationOutcomes = (args: {
             ]),
           ].sort();
           const receipt =
-            target.kind === "skill" && address.kind === "directory"
+            target.ownerObservation === undefined &&
+            target.kind === "skill" &&
+            address.kind === "directory"
               ? yield* readCopiedDirectory(physical)
               : Option.none();
           const source =
             target.sourcePath === undefined
               ? undefined
-              : yield* resolveNativeReferent(target.sourcePath);
+              : yield* locations.referent(target.sourcePath);
           const sourceCoincidence = source === address.entryPath;
           const mechanism =
             target.kind === "subagent"
@@ -127,7 +163,7 @@ export const nativeArtifactLocationOutcomes = (args: {
                 ? ["workspace-shared-skills"]
                 : [],
             ownership,
-            ...(ownership === "owned"
+            ...(ownership === "owned" && target.ownerObservation === undefined
               ? {
                   proof: sourceCoincidence
                     ? "canonical-source-coincidence"
@@ -138,7 +174,10 @@ export const nativeArtifactLocationOutcomes = (args: {
                         : "exact-accepted-managed-file",
                 }
               : {}),
-            ...(mechanism === undefined ? {} : { mechanism }),
+            ...(mechanism === undefined || target.ownerObservation !== undefined
+              ? {}
+              : { mechanism }),
+            ...target.ownerObservation,
             state: target.state,
             availability: potentialReaders.map((agentId) => ({
               agentId,

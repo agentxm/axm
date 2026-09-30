@@ -4,10 +4,8 @@ import {
   type ActualSkill,
   type CanonicalObservation,
   type DesiredExtensionNode,
-  type InstalledSkill,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { desiredConstraintOf } from "@agentxm/workspace-kernel/workspace-state/testing";
-import * as Option from "effect/Option";
 
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
 import type { WorkspaceRuleContext } from "../../../../workspace-context.js";
@@ -221,32 +219,6 @@ export const skillsIntegrityValidConformance: WorkspaceRuleConformanceCase = {
   inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),
 };
 
-const installedReviewer = (projected: boolean): InstalledSkill => ({
-  key: { scope: "project", type: "skill", name: decodeExtensionNameSync("reviewer") },
-  installationOrigin: {
-    _tag: "direct",
-    declared: {
-      name: decodeExtensionNameSync("reviewer"),
-      entry: { source: "@acme/skills/reviewer@^1.0.0", enabled: true },
-    },
-  },
-  activation: "enabled",
-  resolved: Option.none(),
-  actual: projected
-    ? [
-        {
-          key: { scope: "project", type: "skill", name: decodeExtensionNameSync("reviewer") },
-          origin: { _tag: "agent-skill-dir", agentId: "claude-code" },
-          contentRoot: "/workspace/.claude/skills/reviewer",
-          sourcePath: "/workspace/.claude/skills/reviewer/SKILL.md",
-          packageRoot: null,
-          hasSkillMd: true,
-          hasSkillJson: false,
-        },
-      ]
-    : [],
-});
-
 const skillArtifactsContext = (projected: boolean) =>
   contextFor({
     settings: validSettings({
@@ -259,13 +231,28 @@ const skillArtifactsContext = (projected: boolean) =>
       (context) =>
         ({
           ...context,
-          workspace: {
-            ...context.workspace,
-            skills: {
-              ...context.workspace.skills,
-              installed: Effect.succeed([installedReviewer(projected)]),
+          nativeSkills: Effect.succeed([
+            {
+              name: "reviewer",
+              enabled: true,
+              implicit: false,
+              observation: {
+                nativeLocations: [],
+                agentOutcomes: [
+                  {
+                    extensionType: "skill",
+                    name: "reviewer",
+                    agentId: "claude-code",
+                    outcome: projected ? "current" : "failed",
+                    reasonCode: projected ? "verified-native-unit" : "projection-missing",
+                    reason: projected
+                      ? "Owned native Skill is current."
+                      : "Required native Skill is missing.",
+                  },
+                ],
+              },
             },
-          },
+          ]),
         }) satisfies WorkspaceRuleContext,
     ),
   );

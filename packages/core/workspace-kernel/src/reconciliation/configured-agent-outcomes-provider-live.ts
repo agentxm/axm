@@ -2,7 +2,8 @@
  * Extension-manager-backed implementation of the workspace-state
  * `ConfiguredAgentOutcomesProvider` port.
  *
- * Extension managers own the effective per-agent outcome facts; application
+ * Extension managers own current per-agent observations; proposed lifecycle
+ * outcomes belong to the prepared plan. Application
  * composition wires this layer over the managers and the step-failure
  * conversion it provides, so plan resolutions embed byte-identical step
  * failures on either side of the seam.
@@ -96,7 +97,7 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
           extensionType: request.type,
           name,
           agentId,
-          outcome: current ? request.state : units.length === 0 ? "not-applicable" : "blocked",
+          outcome: current ? "current" : units.length === 0 ? "not-applicable" : "blocked",
           reasonCode: current
             ? "verified-native-unit"
             : units.length === 0
@@ -116,7 +117,7 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
       (request: ConfiguredAgentOutcomesRequest) =>
         Effect.gen(function* () {
           const observed = yield* manager
-            .projectionPlans()
+            .projectionPlans({ configuredAgents: request.agentIds })
             .pipe(Effect.flatMap(observeProjectionPlans));
           const graph = yield* (yield* DesiredStateReader).graph();
           const accepted = yield* (yield* LockfileReader).entries(request.type);

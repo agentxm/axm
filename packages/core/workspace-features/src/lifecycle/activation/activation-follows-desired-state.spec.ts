@@ -14,7 +14,11 @@ import { applyInstall, installRequest, makeInstallWorld } from "../../testing/in
 import { DesiredStateReader, WorkspaceRecords } from "@agentxm/workspace-kernel/workspace-state";
 import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";
 import { writeAgentSkillDirectory } from "../../testing/local-packages.js";
-import { applyActivation, workspaceWithAuthoredExtension } from "./test-helpers.js";
+import {
+  applyActivation,
+  previewActivation,
+  workspaceWithAuthoredExtension,
+} from "./test-helpers.js";
 
 export const specification = defineSpecification({
   requirement: "cli/activation-follows-desired-state",
@@ -577,7 +581,37 @@ describe("Activation follows desired state", () => {
           yield* applyActivation({ type: "subagent", name: "review", enabled: false });
           expect(workspace.exists(fallback)).toBe(false);
 
-          yield* applyActivation({ type: "subagent", name: "review", enabled: true });
+          const previewed = yield* previewActivation({
+            type: "subagent",
+            name: "review",
+            enabled: true,
+          });
+          expect(previewed._tag).toBe("Resolved");
+          if (previewed._tag !== "Resolved") return;
+          expect(previewed.outcome).toBe("previewed");
+          const planned = previewed.resolution.units.flatMap((unit) => unit.agentOutcomes ?? []);
+          expect(planned).toMatchObject([
+            { extensionType: "subagent", name: "review", agentId: "cline", outcome: "projected" },
+          ]);
+          expect(planned[0]?.nativeUnitKeys?.length).toBeGreaterThan(0);
+          expect(
+            planned[0]?.nativeUnitKeys?.some((key) => key.includes(".cline/skills/review")),
+          ).toBe(true);
+          expect(workspace.exists(fallback)).toBe(false);
+
+          const applied = yield* applyActivation({
+            type: "subagent",
+            name: "review",
+            enabled: true,
+          });
+          expect(applied._tag).toBe("Resolved");
+          if (applied._tag !== "Resolved") return;
+          expect(applied.outcome).toBe("applied");
+          const observed = applied.resolution.units.flatMap((unit) => unit.agentOutcomes ?? []);
+          expect(observed).toMatchObject([
+            { extensionType: "subagent", name: "review", agentId: "cline", outcome: "current" },
+          ]);
+          expect(observed[0]?.nativeUnitKeys).toEqual(planned[0]?.nativeUnitKeys);
           expect(workspace.readFile(fallback)).toBe(projected);
         }),
       )

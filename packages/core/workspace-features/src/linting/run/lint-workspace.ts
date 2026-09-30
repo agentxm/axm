@@ -45,6 +45,7 @@ import {
   WorkspaceInvariantFacts,
   expectedProjectionNames,
   observeAgentOutputs,
+  observeConfiguredSkillLocations,
   observeWorkspaceOwnershipIssues,
   deriveAgentOutputAuthority,
 } from "@agentxm/workspace-kernel/projection";
@@ -326,6 +327,45 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
     // this workspace configures. Both come from the shared projection
     // capability, never from the reconciliation feature.
     const configuredAgents = yield* settingsReader.configuredAgents;
+    const skillNodes = desiredGraph.nodes.filter(
+      (node) => node.type === "skill" && !deferred.has(`skill:${node.name}`),
+    );
+    const nativeSkills = yield* Effect.cached(
+      observeConfiguredSkillLocations({
+        type: "skill",
+        state: "current",
+        scope: location.scope,
+        agentIds: configuredAgents,
+        rows: skillNodes.map((node) => ({
+          name: node.name,
+          targetState: node.enabled ? "enabled" : "disabled",
+          installed: true,
+        })),
+      }).pipe(
+        Effect.map((observations) =>
+          skillNodes.flatMap((node) => {
+            const observation = observations.get(node.name);
+            return observation === undefined
+              ? []
+              : [
+                  {
+                    name: node.name,
+                    enabled: node.enabled,
+                    implicit: !node.origins.some((origin) => origin.type === "settings"),
+                    observation,
+                  },
+                ];
+          }),
+        ),
+        Effect.provideService(FileSystem.FileSystem, fileSystem),
+        Effect.provideService(Path.Path, path),
+        Effect.provideService(WorkspaceLocation, location),
+        Effect.provideService(SettingsReader, settingsReader),
+        Effect.provideService(LockfileReader, lockfile),
+        Effect.provideService(DesiredStateReader, desiredState),
+        Effect.provideService(CodingAgentRepository, agentRepository),
+      ),
+    );
     const outputAuthority = deriveAgentOutputAuthority({
       path,
       baseDir: location.baseDir,
@@ -441,6 +481,7 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
             ...workspaceContext,
             ownership: Effect.succeed(ownership),
             agentOutputs: Effect.succeed(agentOutputs),
+            nativeSkills,
             ...(Option.isSome(installRoot)
               ? { installRoot: Effect.succeed(installRoot.value) }
               : {}),

@@ -132,5 +132,6 @@ export {
 
 export {
   captureRequiredNativeOutputs,
+  captureNativeOutputRetention,
   validateNativeOutputPostconditions,
 } from "./native-output-postconditions.js";

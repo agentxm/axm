@@ -90,8 +90,8 @@ const planAgentOutcomes = (stdout: string): ReadonlyArray<Readonly<Record<string
   });
 };
 
-const outcomeDecisions = (outcomes: ReadonlyArray<Readonly<Record<string, unknown>>>) =>
-  outcomes.map(({ outcome: _outcome, ...decision }) => decision);
+const outcomeIdentities = (outcomes: ReadonlyArray<Readonly<Record<string, unknown>>>) =>
+  outcomes.map(({ extensionType, name, agentId }) => ({ extensionType, name, agentId }));
 
 const showStatuses = (stdout: string): Readonly<Record<string, unknown>> => {
   const document: unknown = JSON.parse(stdout);
@@ -212,7 +212,28 @@ const runLifecycleMutation = async (
   const appliedOutcomes = planAgentOutcomes(applied.stdout);
   expect(previewOutcomes, `preview outcomes for ${command.join(" ")}`).not.toHaveLength(0);
   expect(appliedOutcomes, `apply outcomes for ${command.join(" ")}`).not.toHaveLength(0);
-  expect(outcomeDecisions(appliedOutcomes)).toEqual(outcomeDecisions(previewOutcomes));
+  expect(outcomeIdentities(appliedOutcomes)).toEqual(outcomeIdentities(previewOutcomes));
+  for (const [index, projected] of previewOutcomes.entries()) {
+    const current = appliedOutcomes[index];
+    expect(current).toBeDefined();
+    expect(projected["outcome"]).toMatch(/^(projected|not-applicable|unsupported)$/);
+    expect(current?.["outcome"]).toBe(
+      projected["outcome"] === "projected" ? "current" : projected["outcome"],
+    );
+    if (projected["outcome"] === "projected") {
+      // A plan describes future work; only the applied readback verifies it.
+      expect(projected["reasonCode"]).not.toBe("verified-native-unit");
+      const keys = projected["nativeUnitKeys"];
+      if (Array.isArray(keys) && keys.length > 0)
+        expect(current?.["nativeUnitKeys"]).toEqual(expect.arrayContaining(keys));
+      if (projected["extensionType"] === "skill") {
+        expect(keys).toEqual(expect.arrayContaining([expect.any(String)]));
+        expect(current?.["nativeUnitKeys"]).toEqual(keys);
+      }
+    } else {
+      expect(current?.["reasonCode"]).toBe(projected["reasonCode"]);
+    }
+  }
   const afterApply = snapshotTree(workspace);
 
   const second = await runCli([...command, "--json", "--non-interactive"], {

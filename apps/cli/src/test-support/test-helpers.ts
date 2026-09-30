@@ -5,6 +5,8 @@ import { PlanInteractionFailed } from "@agentxm/workspace-kernel/operations";
  * @internal Test-only.
  */
 
+import { WorkspaceBoundaryClaimsTest } from "@agentxm/workspace-kernel/settlement/testing";
+
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -647,6 +649,8 @@ export const cliTestBuiltInSources = (
 ];
 
 export const makeWorkspaceHandlerTestContext = (opts?: {
+  /** Borrow one coordinator for related workspaces; the supplying fixture owns cleanup. */
+  readonly boundaryClaimsDirectory?: string | undefined;
   /** Override catalog answers before the production lifecycle services capture them. */
   readonly codingAgentRepository?: CodingAgentRepositoryService;
   readonly prompt?: TestPromptConfig | undefined;
@@ -709,7 +713,11 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
         : Layer.succeed(CodingAgentRepository, opts.codingAgentRepository),
       NativeWriteAuthorityLive,
     ),
-    opts?.workspaceLayer ?? coreWorkspaceLayer(wsOptions),
+    (opts?.workspaceLayer ?? coreWorkspaceLayer(wsOptions)).pipe(
+      opts?.boundaryClaimsDirectory === undefined
+        ? (layer) => layer
+        : Layer.provide(WorkspaceBoundaryClaimsTest(opts.boundaryClaimsDirectory)),
+    ),
   ).pipe(Layer.provide(cliTestContext.baseLayer));
   const wsLayer = Layer.mergeAll(
     projectionLayer,

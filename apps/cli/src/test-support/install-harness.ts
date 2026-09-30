@@ -53,6 +53,8 @@ import {
 } from "@agentxm/workspace-kernel/workspace-state/testing";
 import { WorkspaceStateLive } from "@agentxm/workspace-kernel/workspace-state/live";
 export interface SpecWorkspaceOptions {
+  /** Borrow one coordinator for related workspaces; the supplying fixture owns cleanup. */
+  readonly boundaryClaimsDirectory?: string | undefined;
   /** Persistent-state implementation. Memory worlds never touch the host filesystem. */
   readonly storage?: "disk" | "memory";
   /** Workspace scope composed for command handlers. Defaults to project. */
@@ -144,6 +146,10 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
   const memory = storage === "memory" ? makeMemoryFileSystem() : undefined;
   const files = memory?.files ?? makeNativeFileStore();
   const root = files.makeTempDirectory("axm-spec-");
+  const boundaryClaimsDirectory =
+    storage === "memory"
+      ? undefined
+      : (options.boundaryClaimsDirectory ?? files.makeTempDirectory("axm-spec-claims-"));
   initializeWorkspace(files, root, options.settings ?? {});
 
   // A hermetic user home, so user-scope settings are this workspace's and the
@@ -199,6 +205,7 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
           }),
         );
   const context = makeWorkspaceLifecycleTestContext({
+    boundaryClaimsDirectory,
     ...(options.machine !== undefined ? { machine: options.machine } : {}),
     ...(options.httpClient === undefined ? {} : { httpClient: options.httpClient }),
     ...(screenLayer === undefined ? {} : { screenLayer }),
@@ -248,6 +255,7 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
         );
 
   return {
+    boundaryClaimsDirectory,
     /** Absolute project root of the temporary workspace. */
     root,
     files,
@@ -318,6 +326,8 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
     cleanup: (): void => {
       files.remove(root);
       if (userHome !== undefined) files.remove(userHome);
+      if (boundaryClaimsDirectory !== undefined && options.boundaryClaimsDirectory === undefined)
+        files.remove(boundaryClaimsDirectory);
     },
   };
 };

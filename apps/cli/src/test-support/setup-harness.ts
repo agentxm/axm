@@ -18,6 +18,8 @@ import {
  * nor its installed agents reach a specification.
  */
 
+import { WorkspaceBoundaryClaimsTest } from "@agentxm/workspace-kernel/settlement/testing";
+
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -40,6 +42,8 @@ import { BundledAxmSkillAssetLive } from "../cli-runtime/index.js";
 import { ExecutionDirectory } from "../execution-directory.js";
 
 export interface SetupSpecContextOptions {
+  /** Borrow one coordinator for related workspaces; the supplying fixture owns cleanup. */
+  readonly boundaryClaimsDirectory?: string | undefined;
   /** Render through the machine (JSON) renderer instead of the human one. */
   readonly machine?: boolean;
   readonly flags?: {
@@ -73,6 +77,9 @@ const environmentWithHome = (home: string): Record<string, string> =>
 export const makeSetupSpecContext = (options: SetupSpecContextOptions = {}) => {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "axm-setup-spec-")));
   const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "axm-setup-spec-home-")));
+  const boundaryClaimsDirectory =
+    options.boundaryClaimsDirectory ??
+    fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "axm-setup-spec-claims-")));
   // Agent detection resolves the workstation home through the platform, which
   // reads the live environment; configuration reads a snapshot, so the pinned
   // home is supplied both ways and restored on cleanup.
@@ -97,7 +104,10 @@ export const makeSetupSpecContext = (options: SetupSpecContextOptions = {}) => {
       : NodeServices.layer;
   const foundation = Layer.provideMerge(WorkspaceFileWriteLocksLive, platformLayer);
   const layer = Layer.mergeAll(
-    Layer.provide(WorkspaceTransactionScopesLive, platformLayer),
+    Layer.provide(
+      WorkspaceTransactionScopesLive,
+      Layer.merge(platformLayer, WorkspaceBoundaryClaimsTest(boundaryClaimsDirectory)),
+    ),
     foundation,
     FetchHttpClient.layer,
     Layer.provide(
@@ -123,6 +133,7 @@ export const makeSetupSpecContext = (options: SetupSpecContextOptions = {}) => {
   );
 
   return {
+    boundaryClaimsDirectory,
     /** Absolute path of the bare directory setup runs against. */
     root,
     /** Absolute path of the pinned user home. */
@@ -139,6 +150,8 @@ export const makeSetupSpecContext = (options: SetupSpecContextOptions = {}) => {
     cleanup: (): void => {
       fs.rmSync(root, { recursive: true, force: true });
       fs.rmSync(home, { recursive: true, force: true });
+      if (options.boundaryClaimsDirectory === undefined)
+        fs.rmSync(boundaryClaimsDirectory, { recursive: true, force: true });
       if (previousHome === undefined) {
         delete process.env["HOME"];
       } else {

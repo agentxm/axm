@@ -141,8 +141,10 @@ describe("repository task interface", () => {
     if (typeof verifyPr !== "string") throw new Error("Missing verify:pr script.");
     if (typeof verifyPrSource !== "string") throw new Error("Missing verify:pr:source script.");
     expect(verifyPr).toContain("pnpm run verify:pr:source");
-    expect(verifyPrSource).toContain("pnpm run verify:clean");
-    expect(verifyPrSource).toContain("pnpm run format:check");
+    expect(verifyPrSource).toContain("pnpm run verify:pr:preflight");
+    expect(scripts["verify:pr:preflight"]).toContain("pnpm exec nx run axm:audit:dependencies");
+    expect(scripts["verify:pr:preflight"]).toContain("pnpm run verify:clean");
+    expect(scripts["verify:pr:preflight"]).toContain("pnpm run format:check:affected");
     expect(verifyPrSource).toContain("pnpm run verify:affected");
     expect(verifyPrSource).toContain("pnpm exec nx run axm:verify-artifacts");
     expect(verifyPr).toContain("pnpm run test:e2e:affected");

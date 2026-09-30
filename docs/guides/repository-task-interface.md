@@ -144,9 +144,21 @@ and affected CLI E2E. `ci` runs full-workspace source and CLI diagnostics for
 automation and scheduled coverage; it is not the routine substitute for
 `verify:affected`.
 
-`verify:pr:source` owns the source and packed-artifact portion of that gate.
-CI runs it alongside the existing CLI E2E shards, using the same Nx affected
-range for every partition. Other projects' E2E targets stay in the proposed-change
+`verify:pr:source` owns the source and packed-artifact portion of that gate:
+`verify:pr:preflight`, `verify:affected`, and `axm:verify-artifacts`. CI exposes
+those same phases as separate steps alongside the existing CLI E2E shards,
+using the same Nx affected range for every partition. This makes setup, checks,
+source computation, packaging, and reporting durations distinguishable. The
+proposed-change job preserves a separate native Nx profile for source,
+artifacts, and remaining E2E; each profile describes its final Nx invocation,
+not earlier commands in the phase. Step outcomes remain the gate authority.
+Proposed-change prerequisites check formatting in the affected range through
+the existing Nx command; full-workspace CI retains the full formatting scan.
+After changing formatter configuration or its toolchain, run the full
+`format:check` locally to verify its effect on unchanged files too.
+The job starts with empty test results and uses the fresh `axm:allure-report`
+target after execution, including a source failure, so reporting does not hide
+the failed phase or discard preceding results. Other projects' E2E targets stay in the proposed-change
 job. Main and recovery runs use the full partitions. Each partition must succeed
 for Required CI; splitting execution does not make E2E optional. Locally,
 `verify:pr` remains the complete local reproduction command.

@@ -267,7 +267,9 @@ jobs:
       checks: write
       contents: read
     env:
-      NX_PARALLEL: "3"
+      # Keep nested test pools within the hosted runner CPU budget.
+      NX_PARALLEL: "2"
+      VITEST_MAX_WORKERS: "1"
       NX_BASE: ${{ needs.classify.outputs.base }}
       NX_HEAD: ${{ needs.classify.outputs.head }}
     steps:
@@ -496,7 +498,7 @@ jobs:
         id: verify
         env:
           NX_PARALLEL: "2"
-          VITEST_MAX_WORKERS: "2"
+          VITEST_MAX_WORKERS: "1"
         run: pnpm run ci:workspace:report
 
       - name: Publish workspace verification summary
@@ -590,8 +592,9 @@ jobs:
       - name: Verify fresh CLI E2E partition
         id: verify
         env:
-          NX_PARALLEL: "3"
-          VITEST_MAX_WORKERS: "4"
+          # Each E2E worker also launches the CLI under test.
+          NX_PARALLEL: "2"
+          VITEST_MAX_WORKERS: "2"
           NX_BASE: ${{ needs.classify.outputs.base }}
           NX_HEAD: ${{ needs.classify.outputs.head }}
           AXM_E2E_COMMAND: >-

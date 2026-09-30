@@ -24,13 +24,11 @@ import { makeScannerFileSystem, type InstructionsConfig } from "../../workspace-
 import { createSymlink } from "../../workspace-state/index.js";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 import { DISCOVERY_SKIPPED_DIRECTORIES } from "@agentxm/extension-model/unstable/discovery-walk";
-import { AXM_DIR_NAME } from "@agentxm/host-primitives";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
   protectWorkspacePath,
   protectCreatedAncestors,
   retireWorkspacePath,
-  createWorkspaceDirectories,
   removeEmptyRuntimeDirectories,
 } from "../../settlement/index.js";
 import {
@@ -548,20 +546,16 @@ export const probeSymlinkSupport = (workspaceRoot: string) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const tmpDir = path.join(workspaceRoot, AXM_DIR_NAME, "tmp");
-      yield* assertNativeMutationWithin(workspaceRoot, tmpDir, "content");
-      yield* Effect.acquireRelease(
-        createWorkspaceDirectories({
-          nativeRoot: workspaceRoot,
-          workspaceDir: path.join(workspaceRoot, AXM_DIR_NAME),
-          target: tmpDir,
-          record: () => Effect.void,
-        }),
-        removeEmptyRuntimeDirectories,
-      );
+      const root = yield* assertNativeMutationWithin(workspaceRoot, workspaceRoot, "content");
+      if (root.referentPath === undefined) return false;
+      // Each probe owns one child of the existing native root. Shared scratch
+      // parents cannot be retired by the creator while another probe uses them.
       const directoryIdentity = yield* Effect.acquireRelease(
         Effect.flatMap(
-          fs.makeTempDirectory({ directory: tmpDir, prefix: "instructions-symlink-probe-" }),
+          fs.makeTempDirectory({
+            directory: root.referentPath,
+            prefix: ".axm-instructions-symlink-probe-",
+          }),
           (target) => captureContainerIdentity({ nativeRoot: workspaceRoot, target }),
         ),
         (identity) => removeEmptyRuntimeDirectories([identity]),

@@ -198,6 +198,7 @@ prove container cleanup; they carry no command intent or workspace authority.
 | Project-local scratch                     | Unique children of `.axm/tmp/`; the workspace mutex is `.axm/tmp/workspace-transition.lock`                                                  |
 | Active physical-boundary claims           | OS account home’s `.axm-runtime/physical-boundaries/`; invocation leases and active metadata retire after settlement or stale-owner recovery |
 | Invocation scratch and rollback snapshots | Uniquely prefixed directories in the operating-system temporary directory                                                                    |
+| Native filesystem capability probes       | Unique children of the existing native root; each observation owns and retires its own probe without creating shared scratch parents         |
 | Atomic single-file publication            | Exact `<target>.tmp.<unique>` siblings, swept only by that target's writer                                                                   |
 | Atomic canonical-directory publication    | Exact `<canonical>.axm-staging` and `<canonical>.axm-backup` siblings                                                                        |
 | Native insertion cleanup evidence         | Selected workspace runtime directory's `projection-containers.json`; removed when its last receipt is retired                                |

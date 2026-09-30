@@ -9,7 +9,7 @@ runs-in:
   - ../environments/native-platform-ci.md
 generated:
   by: codex/gpt-6
-  at: 2026-09-30T03:17:00Z
+  at: 2026-09-30T14:52:02Z
 ---
 
 # Nx in AXM
@@ -27,15 +27,62 @@ distribution, version, and resolved task configuration. Toolchain preparation
 is described in [CONTRIBUTING](../../CONTRIBUTING.md); dependencies are installed
 explicitly. No global Nx installation is required.
 
-Task inputs, dependency artifacts, declared outputs, and supported host adapters
-are governed by the binding. Use Nx's native opt-in profile for diagnosed task
-timing questions; routine workflows do not maintain a repository-specific cache
-report. A restored dependency archive is not a task verdict. Upgrade
-configuration and its conformance evidence together. For diagnosed freshness
-needs, use the binding's local/remote cache-bypass semantics; native HTTP
-configuration and remote-restoration proof also live there. Do not disable unknown-cache
-safeguards. Recovery from a failed task follows its owning target and source
-diagnostics, not an automatic dependency installation.
+## Client configuration and recovery
+
+The [task-interface binding](../../docs/guides/repository-task-interface.md)
+owns cache eligibility, output ownership and evidence meaning. Do not disable
+unknown-cache safeguards. A dependency archive is not a task verdict.
+
+For a single Nx invocation, append `--skip-nx-cache`. For a multi-stage root
+workflow, set `NX_SKIP_NX_CACHE=true`; pnpm would otherwise forward an appended
+flag only to the final stage.
+
+The stock Nx HTTP client uses `NX_SELF_HOSTED_REMOTE_CACHE_SERVER` and
+`NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN`. Local users supply an approved HTTPS
+origin and a **read-only** repository credential in their environment or ignored
+root `.env.local`. Keep tokens out of source, logs, and release assets. Set
+`NX_SKIP_REMOTE_CACHE=true` to bypass remote reuse while retaining local caching;
+set `NX_SKIP_NX_CACHE=true` as well for complete re-execution.
+
+GitHub's setup action accepts `NX_REMOTE_CACHE_URL` and the read-only
+`NX_REMOTE_CACHE_READ_TOKEN`. A repository variable `NX_SKIP_REMOTE_CACHE=true`
+disables remote consumers and warming, including during initial rollout before
+reader installation. Its value must be `true`, `false`, or absent. An invocation's
+native bypass also remains effective. Fully absent configuration disables remote access;
+partial or malformed configuration fails explicitly. Failed results are never
+cached. Fork and Dependabot runs bypass remote access;
+forks receive no cache credential. Only the separate successful-main warmer
+uses `NX_REMOTE_CACHE_WRITE_TOKEN` from the protected `nx-cache-writer`
+environment. Its live deployment branch policy must allow main only. Warming
+runs after CI completion and does not gate publication. The GitHub caller visits
+each selected lane's eligible graph; native hits avoid recomputation
+while missing hashes are populated. This covers cancelled predecessors and
+expired objects without separate warming state.
+`cache:warm:affected` remains available for an explicit bounded revision range.
+Scheduled source assurance bypasses both local and remote task caches.
+
+Use the setup action and [cache workflow](../../.github/workflows/nx-cache.yml)
+for exact platform selection. Ordinary push warming populates source checks on
+Linux x64 and native binary prerequisites on the other platform lanes; assurance
+continuations can backfill the complete eligible graph. Include all warmer jobs
+when comparing total runner work.
+
+## Diagnose reuse
+
+Set Nx's native `NX_PROFILE=test-results/nx-profile.json` for the invocation
+being investigated, using a workspace-relative file. The trace records task
+timing; it is separate from the task-cache `run.json` used to inspect cache
+outcomes. Invocations writing the same profile path overwrite it, leaving the
+last recorded invocation rather than the complete multi-stage workflow. Use a
+distinct relative path per phase and Actions step durations for setup and other
+commands. Nx 23 does not expose cache lookup time through the trace, so do not
+infer network time from task duration. A GitHub dependency-cache hit is a
+separate setup/transport signal.
+
+[Reproduce AXM Linux CI](../runbooks/reproduce-linux-ci.md) owns isolated-cache
+restoration checks and retained evidence. Recovery follows the owning target's
+source diagnostics, not an automatic dependency installation. Upgrade
+configuration and its conformance evidence together.
 
 ## Accountability, gaps, and maintenance
 

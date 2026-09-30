@@ -41,24 +41,18 @@ Before adding a script, an Nx target, or a wrapper script, read the
 which of the three a new piece of work belongs in, and records every deliberate
 exception.
 
-| Command                      | Purpose                                   |
-| ---------------------------- | ----------------------------------------- |
-| `pnpm build`                 | Build all packages                        |
-| `pnpm test`                  | Run all tests                             |
-| `pnpm test:e2e`              | Run E2E tests only                        |
-| `pnpm typecheck`             | Type-check without emitting               |
-| `pnpm format`                | Format the whole repo with Prettier       |
-| `pnpm format:check`          | Check whole-repo formatting with Prettier |
-| `pnpm format:affected`       | Format only Nx-selected changed files     |
-| `pnpm format:check:affected` | Check only Nx-selected changed files      |
-| `pnpm lint`                  | Lint with ESLint                          |
-| `pnpm lint:fix`              | Lint and auto-fix                         |
-| `pnpm run verify:affected`   | Run fast source checks selected by Nx     |
-| `pnpm run verify:pr`         | Verify the complete pull-request boundary |
-| `pnpm run ci`                | Run full-workspace automation diagnostics |
-| `pnpm build:affected`        | Build only packages changed since `main`  |
-| `pnpm test:affected`         | Test only packages changed since `main`   |
-| `pnpm lint:affected`         | Lint only packages changed since `main`   |
+| Need                                         | Command                               |
+| -------------------------------------------- | ------------------------------------- |
+| Check one project or task                    | `pnpm exec nx run <project>:<target>` |
+| Verify changed source before merge           | `pnpm run verify:affected`            |
+| Reproduce the complete pull-request boundary | `pnpm run verify:pr`                  |
+| Run full-workspace automation diagnostics    | `pnpm run ci`                         |
+| Format the workspace                         | `pnpm run format`                     |
+
+[package.json](package.json) and the resolved Nx graph own the complete command
+inventory. The [task-interface binding](docs/guides/repository-task-interface.md#workflow-outcomes)
+explains which outcome each workflow establishes; test reports restored from
+cache are earlier input-bound verdicts, not fresh executions on this host.
 
 ## Making Changes
 

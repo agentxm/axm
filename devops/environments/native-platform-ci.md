@@ -18,8 +18,8 @@ generated:
 
 ## Purpose and configuration
 
-Native GitHub-hosted jobs establish platform-specific behavior that the Linux
-container cannot. [ci.yml](../../.github/workflows/ci.yml) owns runner selection,
+Native GitHub-hosted jobs establish platform-specific behavior that a Linux
+runner cannot. [ci.yml](../../.github/workflows/ci.yml) owns runner selection,
 Windows workspace tests, binary compilation/smoke, timeouts, and uploaded
 evidence. [publish.yml](../../.github/workflows/publish.yml) owns the separate
 installed-product and package-manager verification matrix. Native macOS,
@@ -32,14 +32,11 @@ verifying compiler or cache changes before a release.
 
 ## Native Windows verification
 
-Required CI runs the bounded `Windows workspace lifecycle` job on
-`windows-latest` for pull requests, main pushes, and manual CI dispatches. It
-uses the repository toolchain setup and these Nx targets:
-
-```powershell
-pnpm nx run workspace-kernel:test-windows --outputStyle=static
-pnpm nx run cli-e2e:e2e-windows --outputStyle=static
-```
+The change classifier selects Windows workspace verification for applicable
+pull requests and merge groups. Full scheduled/manual assurance and canonical
+release production retain their own platform obligations; ordinary main pushes
+do not run the full Windows gate. The executable workflow owns selection and
+target names, avoiding a second command or platform inventory here.
 
 The core target exercises instruction-file managed copies on the native
 Windows filesystem. The CLI target uses a workspace and user home whose paths
@@ -49,7 +46,8 @@ JSON/JSONC/TOML/YAML writers, lock refresh, and transactional recovery from an
 injected filesystem failure. Both suites assert that they are running on
 Windows; they never convert a substrate mismatch into a skip.
 
-The job has a 25-minute ceiling and one Vitest worker per target. The workflow selects JUnit diagnostics and Allure report artifacts;
+The workflow owns its timeout and worker limits and retains JUnit diagnostics
+and Allure report artifacts;
 [CI artifact upload paths](../../.github/workflows/ci.yml) own the current
 allowlist. Do not broaden uploads to process environments or workspace configuration
 values.

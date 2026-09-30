@@ -82,6 +82,7 @@ jobs:
           COMPILE_PLATFORM: ${{ matrix.platform }}
         run: |
           pnpm exec nx run "cli:compile-$COMPILE_PLATFORM"
+          mkdir -p .nx/cache/profiles
           cp .nx/cache/run.json .nx/cache/profiles/native.json
 
       - name: Upload task execution profile

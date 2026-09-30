@@ -812,12 +812,20 @@ jobs:
               fi
             fi
             # A failed eject may already have unmounted the filesystem.
-            hdiutil detach "$device" || hdiutil detach -force "$device" || {
-              cleanup_status=$?
+            cleanup_status=0
+            hdiutil detach "$device" || cleanup_status=$?
+            if [[ "$cleanup_status" -ne 0 ]]; then
+              for attempt in 1 2 3 4 5; do
+                cleanup_status=0
+                hdiutil detach -force "$device" || cleanup_status=$?
+                [[ "$cleanup_status" -eq 16 && "$attempt" -lt 5 ]] || break
+                echo "Image still busy after container cleanup; retrying detach ($attempt/5)."
+                sleep 2
+              done
               if [[ "$status" -eq 0 ]]; then
                 status=$cleanup_status
               fi
-            }
+            fi
             exit "$status"
           }
           trap cleanup EXIT

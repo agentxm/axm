@@ -529,6 +529,29 @@ describe("aggregate required verification", () => {
       expected: 0,
     },
     {
+      name: "busy image settles before retry budget is exhausted",
+      testStatus: 0,
+      detachStatus: 16,
+      forceStatus: 0,
+      busyAttempts: 2,
+      expected: 0,
+    },
+    {
+      name: "persistent busy image remains a cleanup failure",
+      testStatus: 0,
+      detachStatus: 16,
+      forceStatus: 16,
+      expected: 16,
+    },
+    {
+      name: "busy retry preserves an earlier test failure",
+      testStatus: 17,
+      detachStatus: 16,
+      forceStatus: 0,
+      busyAttempts: 1,
+      expected: 17,
+    },
+    {
       name: "test failure with successful cleanup",
       testStatus: 17,
       detachStatus: 16,
@@ -579,6 +602,11 @@ describe("aggregate required verification", () => {
           "pipefail",
           "-c",
           `
+        force_attempts=0
+        sleep() {
+          [[ "$1" == 2 ]] || return 33
+          printf '%s\\n' "$1" >> "$RUNNER_TEMP/retry-delays"
+        }
         hdiutil() {
           case "$1" in
             create) return 0 ;;
@@ -597,6 +625,10 @@ describe("aggregate required verification", () => {
               printf '%s\\n' "$*" >> "$RUNNER_TEMP/detach-calls"
               if [[ "$2" == "-force" ]]; then
                 [[ "$3" == "/dev/disk42" ]] || return 21
+                force_attempts=$((force_attempts + 1))
+                if [[ "$force_attempts" -le "$BUSY_ATTEMPTS" ]]; then
+                  return 16
+                fi
                 return "$FORCE_STATUS"
               fi
               [[ "$2" == "/dev/disk42" || "$2" == "$RUNNER_TEMP/axm-case-sensitive" ]] || return 22
@@ -659,6 +691,7 @@ describe("aggregate required verification", () => {
             TEST_STATUS: String(scenario.testStatus),
             DETACH_STATUS: String(scenario.detachStatus),
             FORCE_STATUS: String(scenario.forceStatus),
+            BUSY_ATTEMPTS: String(scenario.busyAttempts ?? 0),
             DEVICE_STATUS: String(scenario.deviceStatus ?? 0),
             LSOF_STATUS: String(scenario.lsofStatus ?? 1),
             CONTAINER_STATUS: String(scenario.containerStatus ?? 0),
@@ -699,10 +732,18 @@ describe("aggregate required verification", () => {
         expect(execution.stdout).toContain(
           "::warning::Could not inspect the attached APFS device.",
         );
-      expect(fs.readFileSync(path.join(directory, "detach-calls"), "utf8")).toBe(
+      const forceAttempts =
         scenario.detachStatus === 0
-          ? "detach /dev/disk42\n"
-          : "detach /dev/disk42\ndetach -force /dev/disk42\n",
+          ? 0
+          : scenario.forceStatus === 16
+            ? 5
+            : 1 + (scenario.busyAttempts ?? 0);
+      expect(fs.readFileSync(path.join(directory, "detach-calls"), "utf8")).toBe(
+        "detach /dev/disk42\n" + "detach -force /dev/disk42\n".repeat(forceAttempts),
+      );
+      const retryDelays = path.join(directory, "retry-delays");
+      expect(fs.existsSync(retryDelays) ? fs.readFileSync(retryDelays, "utf8") : "").toBe(
+        "2\n".repeat(Math.max(0, forceAttempts - 1)),
       );
     } finally {
       fs.rmSync(directory, { recursive: true, force: true });

@@ -1,5 +1,7 @@
 /** Shared filesystem and service world for state-changing workspace fixtures. */
 
+import { WorkspaceBoundaryClaimsTest } from "@agentxm/workspace-kernel/settlement/testing";
+
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as nodePath from "node:path";
@@ -52,6 +54,8 @@ import { PlanInvocationTest } from "@agentxm/workspace-kernel/planning/testing";
 import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlement/live";
 
 export interface WorkspaceDirectoriesOptions {
+  /** Borrow one coordinator for related workspaces; the supplying fixture owns cleanup. */
+  readonly boundaryClaimsDirectory?: string | undefined;
   readonly prefix: string;
   readonly scope?: WorkspaceScope | undefined;
   readonly settings?: Readonly<Record<string, unknown>> | undefined;
@@ -69,6 +73,9 @@ export const makeWorkspaceDirectories = (options: WorkspaceDirectoriesOptions) =
   const home = fs.realpathSync(
     fs.mkdtempSync(nodePath.join(os.tmpdir(), `${options.prefix}home-`)),
   );
+  const boundaryClaimsDirectory =
+    options.boundaryClaimsDirectory ??
+    fs.realpathSync(fs.mkdtempSync(nodePath.join(os.tmpdir(), `${options.prefix}claims-`)));
   const workspaceRoot = scope === "user" ? nodePath.join(home, ".axm", "workspace") : root;
   if (!options.bare) {
     fs.mkdirSync(nodePath.join(root, ".axm"), { recursive: true });
@@ -112,6 +119,7 @@ export const makeWorkspaceDirectories = (options: WorkspaceDirectoriesOptions) =
   }
 
   return {
+    boundaryClaimsDirectory,
     root,
     home,
     workspaceRoot,
@@ -135,6 +143,8 @@ export const makeWorkspaceDirectories = (options: WorkspaceDirectoriesOptions) =
     cleanup: () => {
       fs.rmSync(root, { recursive: true, force: true });
       fs.rmSync(home, { recursive: true, force: true });
+      if (options.boundaryClaimsDirectory === undefined)
+        fs.rmSync(boundaryClaimsDirectory, { recursive: true, force: true });
     },
   };
 };
@@ -186,7 +196,7 @@ export const makeWorkspaceWorld = <P>(
         scope: options.scope ?? "project",
         projectRoot: decodeAbsolutePathSync(directories.root),
         allowUninitialized: options.settings === undefined,
-      }),
+      }).pipe(Layer.provide(WorkspaceBoundaryClaimsTest(directories.boundaryClaimsDirectory))),
     ),
     ConfigProvider.layer(options.configureConfigProvider?.(isolatedConfig) ?? isolatedConfig),
   );

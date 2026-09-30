@@ -29,6 +29,8 @@ import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/o
 import { makeWorkspaceLifecycleTestContext } from "./test-helpers.js";
 
 export interface AgentMembershipFixtureOptions {
+  /** Borrow one coordinator for related workspaces; the supplying fixture owns cleanup. */
+  readonly boundaryClaimsDirectory?: string | undefined;
   /** Settings document written to `axm.json`; `agents` defaults to empty. */
   readonly settings?: Readonly<Record<string, unknown>>;
   /** Lockfile document written to `axm-lock.yaml`. */
@@ -45,6 +47,10 @@ export interface AgentMembershipFixtureOptions {
 export const makeAgentMembershipFixture = (options: AgentMembershipFixtureOptions = {}) => {
   const root = fs.realpathSync(fs.mkdtempSync(nodePath.join(os.tmpdir(), "axm-agents-spec-")));
   const home = fs.realpathSync(fs.mkdtempSync(nodePath.join(os.tmpdir(), "axm-agents-home-")));
+
+  const boundaryClaimsDirectory =
+    options.boundaryClaimsDirectory ??
+    fs.realpathSync(fs.mkdtempSync(nodePath.join(os.tmpdir(), "axm-agents-claims-")));
 
   const absolute = (relativePath: string) => nodePath.join(root, relativePath);
   const writeFile = (relativePath: string, contents: string): void => {
@@ -75,6 +81,7 @@ export const makeAgentMembershipFixture = (options: AgentMembershipFixtureOption
   }
 
   const context = makeWorkspaceLifecycleTestContext({
+    boundaryClaimsDirectory,
     ...(options.fileSystemLayer === undefined ? {} : { fileSystemLayer: options.fileSystemLayer }),
     ...(options.machine === undefined ? {} : { machine: options.machine }),
     flags: { nonInteractive: true },
@@ -108,6 +115,7 @@ export const makeAgentMembershipFixture = (options: AgentMembershipFixtureOption
   );
 
   return {
+    boundaryClaimsDirectory,
     root,
     home,
     writeFile,
@@ -131,6 +139,8 @@ export const makeAgentMembershipFixture = (options: AgentMembershipFixtureOption
     cleanup: () => {
       fs.rmSync(root, { recursive: true, force: true });
       fs.rmSync(home, { recursive: true, force: true });
+      if (options.boundaryClaimsDirectory === undefined)
+        fs.rmSync(boundaryClaimsDirectory, { recursive: true, force: true });
     },
   };
 };

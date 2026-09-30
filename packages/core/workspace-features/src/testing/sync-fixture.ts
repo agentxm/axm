@@ -44,6 +44,8 @@ export { syncRequest };
 export { makeFileRegistry, type FileRegistry };
 
 export interface SyncFixtureOptions {
+  /** Borrow one coordinator for related workspaces; the supplying fixture owns cleanup. */
+  readonly boundaryClaimsDirectory?: string | undefined;
   readonly scope?: WorkspaceScope;
   /** Settings document for the selected scope; written as authored. */
   readonly settings?: Readonly<Record<string, unknown>>;
@@ -76,6 +78,7 @@ export const makeSyncFixture = (options: SyncFixtureOptions = {}) => {
   const world = makeWorkspaceWorld({
     prefix: "axm-sync-",
     scope: options.scope,
+    boundaryClaimsDirectory: options.boundaryClaimsDirectory,
     settings: options.settings,
     lockfile: options.lockfile,
     files: options.files,
@@ -108,6 +111,7 @@ export const makeSyncFixture = (options: SyncFixtureOptions = {}) => {
   } = world;
 
   return {
+    boundaryClaimsDirectory: world.boundaryClaimsDirectory,
     root,
     home,
     workspaceRoot,

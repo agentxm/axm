@@ -2,6 +2,7 @@ import {
   WorkspaceTransactionScopesLive,
   WorkspaceFileWriteLocksLive,
 } from "@agentxm/workspace-kernel/settlement/live";
+import { WorkspaceBoundaryClaimsTest } from "@agentxm/workspace-kernel/settlement/testing";
 /**
  * @agentxm/workspace-features/configuration deterministic fixtures and ports.
  *
@@ -45,6 +46,8 @@ import {
 export { WorkspaceInitializationInteractionTest, type WorkspaceInitializationInteractionTestState };
 
 export interface ConfigurationFixtureOptions {
+  /** Borrow one coordinator for related workspaces; the supplying fixture owns cleanup. */
+  readonly boundaryClaimsDirectory?: string | undefined;
   readonly scope?: WorkspaceScope;
   /** Settings document for the selected scope; written as authored. */
   readonly settings?: Readonly<Record<string, unknown>>;
@@ -74,6 +77,7 @@ export const makeConfigurationFixture = (options: ConfigurationFixtureOptions = 
   const world = makeWorkspaceWorld({
     prefix: "axm-configuration-",
     scope: options.scope,
+    boundaryClaimsDirectory: options.boundaryClaimsDirectory,
     settings: options.settings,
     lockfile: options.lockfile,
     files: options.files,
@@ -98,6 +102,7 @@ export const makeConfigurationFixture = (options: ConfigurationFixtureOptions = 
   } = world;
 
   return {
+    boundaryClaimsDirectory: world.boundaryClaimsDirectory,
     root,
     home,
     workspaceRoot,
@@ -119,6 +124,8 @@ export const makeConfigurationFixture = (options: ConfigurationFixtureOptions = 
 export type ConfigurationFixture = ReturnType<typeof makeConfigurationFixture>;
 
 export interface SetupFixtureOptions {
+  /** Borrow one coordinator for related workspaces; the supplying fixture owns cleanup. */
+  readonly boundaryClaimsDirectory?: string | undefined;
   /** Canned answers for the prompts an interactive setup raises. */
   readonly selectAgents?: ReadonlyArray<string>;
   readonly confirmSetupPlan?: boolean;
@@ -143,6 +150,7 @@ export interface SetupFixtureOptions {
 export const makeSetupFixture = (options: SetupFixtureOptions = {}) => {
   const directories = makeWorkspaceDirectories({
     prefix: "axm-setup-",
+    boundaryClaimsDirectory: options.boundaryClaimsDirectory,
     bare: true,
     files: options.files,
     homeFiles: options.homeFiles,
@@ -173,7 +181,9 @@ export const makeSetupFixture = (options: SetupFixtureOptions = {}) => {
   const installedExecutables = new Set(options.installedExecutables ?? []);
   const services = Layer.mergeAll(
     WorkspaceFileWriteLocksLive,
-    WorkspaceTransactionScopesLive,
+    WorkspaceTransactionScopesLive.pipe(
+      Layer.provide(WorkspaceBoundaryClaimsTest(directories.boundaryClaimsDirectory)),
+    ),
     ConfigProvider.layer(ConfigProvider.fromEnv({ env: { AXM_USER_HOME: home, HOME: home } })),
     Layer.succeed(AgentExecutableResolver, {
       exists: (name: string) => Effect.succeed(installedExecutables.has(name)),
@@ -182,6 +192,7 @@ export const makeSetupFixture = (options: SetupFixtureOptions = {}) => {
   );
 
   return {
+    boundaryClaimsDirectory: directories.boundaryClaimsDirectory,
     root,
     home,
     writeFile,

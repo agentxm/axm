@@ -94,6 +94,8 @@ export const bundledAxmSkillAsset = (
 };
 
 export interface LifecycleFixtureOptions {
+  /** Borrow one coordinator for related workspaces; the supplying fixture owns cleanup. */
+  readonly boundaryClaimsDirectory?: string | undefined;
   readonly scope?: WorkspaceScope;
   /** Settings document for the selected scope; written as authored. */
   readonly settings?: Readonly<Record<string, unknown>>;
@@ -159,6 +161,7 @@ export const makeLifecycleFixture = (options: LifecycleFixtureOptions = {}) => {
   const world = makeWorkspaceWorld({
     prefix: "axm-lifecycle-",
     scope: options.scope,
+    boundaryClaimsDirectory: options.boundaryClaimsDirectory,
     settings: options.settings,
     lockfile: options.lockfile,
     files: options.files,
@@ -190,6 +193,7 @@ export const makeLifecycleFixture = (options: LifecycleFixtureOptions = {}) => {
   } = world;
 
   return {
+    boundaryClaimsDirectory: world.boundaryClaimsDirectory,
     root,
     home,
     workspaceRoot,

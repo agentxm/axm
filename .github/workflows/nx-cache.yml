@@ -58,6 +58,7 @@ jobs:
       - name: Set up cache producer
         uses: ./.github/actions/setup-workspace
         with:
+          remote-cache-bypass: ${{ vars.NX_SKIP_REMOTE_CACHE }}
           remote-cache-url: ${{ vars.NX_REMOTE_CACHE_URL }}
           remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_WRITE_TOKEN }}
 

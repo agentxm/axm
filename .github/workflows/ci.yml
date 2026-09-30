@@ -69,6 +69,7 @@ jobs:
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
         with:
+          remote-cache-bypass: ${{ vars.NX_SKIP_REMOTE_CACHE }}
           remote-cache-url: ${{ vars.NX_REMOTE_CACHE_URL }}
           remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_READ_TOKEN }}
           install: "false"
@@ -115,6 +116,7 @@ jobs:
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
         with:
+          remote-cache-bypass: ${{ vars.NX_SKIP_REMOTE_CACHE }}
           remote-cache-url: ${{ vars.NX_REMOTE_CACHE_URL }}
           remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_READ_TOKEN }}
           install: "false"
@@ -178,6 +180,7 @@ jobs:
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
         with:
+          remote-cache-bypass: ${{ vars.NX_SKIP_REMOTE_CACHE }}
           remote-cache-url: ${{ vars.NX_REMOTE_CACHE_URL }}
           remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_READ_TOKEN }}
 
@@ -201,6 +204,7 @@ jobs:
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
         with:
+          remote-cache-bypass: ${{ vars.NX_SKIP_REMOTE_CACHE }}
           remote-cache-url: ${{ vars.NX_REMOTE_CACHE_URL }}
           remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_READ_TOKEN }}
 
@@ -247,6 +251,7 @@ jobs:
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
         with:
+          remote-cache-bypass: ${{ vars.NX_SKIP_REMOTE_CACHE }}
           remote-cache-url: ${{ vars.NX_REMOTE_CACHE_URL }}
           remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_READ_TOKEN }}
           install: "false"
@@ -365,6 +370,7 @@ jobs:
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
         with:
+          remote-cache-bypass: ${{ vars.NX_SKIP_REMOTE_CACHE }}
           remote-cache-url: ${{ vars.NX_REMOTE_CACHE_URL }}
           remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_READ_TOKEN }}
           install: "false"
@@ -408,6 +414,7 @@ jobs:
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
         with:
+          remote-cache-bypass: ${{ vars.NX_SKIP_REMOTE_CACHE }}
           remote-cache-url: ${{ vars.NX_REMOTE_CACHE_URL }}
           remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_READ_TOKEN }}
 
@@ -502,6 +509,7 @@ jobs:
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
         with:
+          remote-cache-bypass: ${{ vars.NX_SKIP_REMOTE_CACHE }}
           remote-cache-url: ${{ vars.NX_REMOTE_CACHE_URL }}
           remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_READ_TOKEN }}
 
@@ -585,6 +593,7 @@ jobs:
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
         with:
+          remote-cache-bypass: ${{ vars.NX_SKIP_REMOTE_CACHE }}
           remote-cache-url: ${{ vars.NX_REMOTE_CACHE_URL }}
           remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_READ_TOKEN }}
 
@@ -673,6 +682,7 @@ jobs:
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
         with:
+          remote-cache-bypass: ${{ vars.NX_SKIP_REMOTE_CACHE }}
           remote-cache-url: ${{ vars.NX_REMOTE_CACHE_URL }}
           remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_READ_TOKEN }}
 
@@ -742,6 +752,7 @@ jobs:
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
         with:
+          remote-cache-bypass: ${{ vars.NX_SKIP_REMOTE_CACHE }}
           remote-cache-url: ${{ vars.NX_REMOTE_CACHE_URL }}
           remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_READ_TOKEN }}
 
@@ -771,6 +782,7 @@ jobs:
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
         with:
+          remote-cache-bypass: ${{ vars.NX_SKIP_REMOTE_CACHE }}
           remote-cache-url: ${{ vars.NX_REMOTE_CACHE_URL }}
           remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_READ_TOKEN }}
 
@@ -801,6 +813,7 @@ jobs:
       - name: Set up workspace and the pinned scanner
         uses: ./.github/actions/setup-workspace
         with:
+          remote-cache-bypass: ${{ vars.NX_SKIP_REMOTE_CACHE }}
           remote-cache-url: ${{ vars.NX_REMOTE_CACHE_URL }}
           remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_READ_TOKEN }}
       - name: Scan source and prove the scanner contract

@@ -1,3 +1,13 @@
+## 0.37.3 (2026-09-30)
+
+### 🩹 Fixes
+
+- Fix physical Windows case aliases and verify native binary lifecycle before release ([6a2750c47](https://github.com/agentxm/axm/commit/6a2750c47))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.37.2 (2026-09-30)
 
 ### 🚀 Features

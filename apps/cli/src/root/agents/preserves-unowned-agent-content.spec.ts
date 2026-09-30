@@ -5,6 +5,7 @@ import { afterEach } from "vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { makeAgentMembershipFixture } from "../../test-support/agent-membership-fixture.js";
+import { expectAppliedPlanResult } from "../../test-support/test-helpers.js";
 import { handleAgentsRemove } from "./remove.js";
 
 export const specification = defineSpecification({
@@ -39,6 +40,7 @@ describe("Removing a coding agent preserves unowned content", () => {
 
   it.effect("removing an agent preserves native content it cannot prove it owns", () => {
     const fixture = makeAgentMembershipFixture({
+      machine: true,
       settings: {
         agents: ["claude-code", "opencode"],
         owner: "@acme",
@@ -72,6 +74,10 @@ describe("Removing a coding agent preserves unowned content", () => {
         handleAgentsRemove({ ids: ["opencode"], force: false, preview: false }),
       );
 
+      expectAppliedPlanResult(fixture.rendererState.results[0]?.data, {
+        planName: "Remove coding agents",
+        totalSteps: 2,
+      });
       expect(fixture.exists(".opencode/skills/code-review")).toBe(false);
       expect(fixture.readFile(".opencode/skills/hand-authored/SKILL.md")).toBe(AUTHORED_BY_HAND);
     });

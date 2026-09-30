@@ -42,6 +42,7 @@ import {
   layer as coreWorkspaceLayer,
   type WorkspaceStateServices,
 } from "@agentxm/workspace-kernel/workspace-state/live";
+import { ConfiguredAgentOutcomesProviderLive } from "@agentxm/workspace-kernel/reconciliation/live";
 import { ConfiguredAgentOutcomesProviderTest } from "@agentxm/workspace-kernel/workspace-state/testing";
 import type {
   WorkspaceTransactionScope,
@@ -703,10 +704,8 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
     Layer.provide(WorkspaceCatalogLive, projectionLayer),
     AxmSkillCandidateGateLive,
     RegistryResolutionPolicyLive,
-    // No per-type outcome refinement: every configured-agent outcome stays
-    // generic, as it did before the provider became a boundary requirement.
-    // Tests that need the native refinement merge
-    // `ConfiguredAgentOutcomesProviderLive` over this layer.
+    // Minimal read fixtures have no native owner services. Lifecycle fixtures
+    // compose the live observer with their real extension managers below.
     ConfiguredAgentOutcomesProviderTest,
   ).pipe(Layer.provide(cliTestContext.baseLayer));
   const fullLayer = Layer.mergeAll(
@@ -742,14 +741,17 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
  * workflows that dispatch across kinds provide this over their workspace layer.
  */
 export const AllExtensionManagersLive = Layer.provideMerge(
-  PackManagerLive,
-  Layer.mergeAll(
-    SkillManagerLive,
-    SubagentManagerLive,
-    RuleManagerLive,
-    HookManagerLive,
-    KnowledgeManagerLive,
-    McpServerManagerLive,
+  ConfiguredAgentOutcomesProviderLive,
+  Layer.provideMerge(
+    PackManagerLive,
+    Layer.mergeAll(
+      SkillManagerLive,
+      SubagentManagerLive,
+      RuleManagerLive,
+      HookManagerLive,
+      KnowledgeManagerLive,
+      McpServerManagerLive,
+    ),
   ),
 );
 

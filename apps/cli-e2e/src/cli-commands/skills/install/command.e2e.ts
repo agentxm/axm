@@ -632,8 +632,11 @@ describe("axm skills install", () => {
         expect(result.exitCode, result.stdout + result.stderr).toBe(0);
         const output = getOutput(result);
         expect(output).toContain("my-skill");
-        expect(output).toMatch(/\+.*my-skill|to install/);
+        expect(output).toMatch(/~.*my-skill.*update/);
         expect(output).toContain("Would install");
+        expect(fs.readFileSync(skillMdPath, "utf-8")).toBe(
+          `${originalContent}\n# Modified locally`,
+        );
       } finally {
         temp.cleanup();
       }

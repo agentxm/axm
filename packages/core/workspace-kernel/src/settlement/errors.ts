@@ -66,7 +66,7 @@ export class WorkspaceSnapshotError extends Data.TaggedError("WorkspaceSnapshotE
 
 /** A live independent authority already claims this physical mutation boundary. */
 export class WorkspaceBoundaryConflict extends Data.TaggedError("WorkspaceBoundaryConflict")<{
-  readonly reason: "overlap" | "ambiguous-case";
+  readonly reason: "overlap" | "ambiguous-spelling";
   readonly owner: string;
   readonly target: string;
   readonly conflictingTarget: string;

@@ -74,8 +74,8 @@ describe("configuredAgentLifecycleOutcomes", () => {
     ]);
   });
 
-  it("marks workspace and container types intentionally not applicable per agent", () => {
-    for (const type of ["knowledge", "pack"] as const) {
+  it("marks lifecycle containers intentionally not applicable per agent", () => {
+    for (const type of ["pack"] as const) {
       expect(
         configuredAgentLifecycleOutcomes({
           type,
@@ -136,6 +136,24 @@ const providerOutcome = (name: string): ConfiguredAgentOutcome => ({
 });
 
 describe("resolveConfiguredAgentOutcomes", () => {
+  it.effect("requires native observation before claiming a Knowledge bundle is current", () =>
+    Effect.gen(function* () {
+      const outcomes = yield* resolveConfiguredAgentOutcomes(
+        { byExtensionType: {} },
+        {
+          type: "knowledge",
+          state: "current",
+          scope: "project",
+          agentIds: ["claude-code"],
+          rows: [{ name: "handbook", targetState: "enabled", installed: true }],
+        },
+      );
+      expect(outcomes.get("handbook")).toMatchObject([
+        { outcome: "blocked", reasonCode: "native-observation-unavailable" },
+      ]);
+    }),
+  );
+
   it.effect("uses one provider read for enabled rows and generic outcomes for disabled rows", () =>
     Effect.gen(function* () {
       let calls = 0;

@@ -487,8 +487,8 @@ export const workspaceTransactionFailureToStepFailure = (
         return makeStepFailure({
           category: "conflict",
           detail:
-            conflict.reason === "ambiguous-case"
-              ? `Cannot establish that native target ${conflict.target} is distinct from ${conflict.conflictingTarget}, held by workspace ${conflict.owner}; filesystem case behavior is unresolved`
+            conflict.reason === "ambiguous-spelling"
+              ? `Cannot establish that native target ${conflict.target} is distinct from ${conflict.conflictingTarget}, held by workspace ${conflict.owner}; filesystem spelling equivalence is unresolved`
               : `Native target ${conflict.target} overlaps ${conflict.conflictingTarget}, held by workspace ${conflict.owner}`,
           cause: conflict,
         });

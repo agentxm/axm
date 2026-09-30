@@ -3,7 +3,7 @@ import { WorkspaceBoundaryConflict, WorkspaceSnapshotError } from "../settlement
 import { workspaceTransactionFailureToStepFailure } from "./step-failures.js";
 
 describe("transaction boundary failure rendering", () => {
-  it.each(["overlap", "ambiguous-case"] as const)(
+  it.each(["overlap", "ambiguous-spelling"] as const)(
     "preserves the typed %s refusal and identifies its holder and targets",
     (reason) => {
       const conflict = new WorkspaceBoundaryConflict({
@@ -24,8 +24,8 @@ describe("transaction boundary failure rendering", () => {
       expect(result.detail).toContain(conflict.owner);
       expect(result.detail).toContain(conflict.target);
       expect(result.detail).toContain(conflict.conflictingTarget);
-      if (reason === "ambiguous-case") {
-        expect(result.detail).toContain("filesystem case behavior is unresolved");
+      if (reason === "ambiguous-spelling") {
+        expect(result.detail).toContain("filesystem spelling equivalence is unresolved");
         expect(result.detail).not.toContain(" overlaps ");
       } else {
         expect(result.detail).toContain(" overlaps ");

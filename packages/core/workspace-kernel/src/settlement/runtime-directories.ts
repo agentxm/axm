@@ -20,6 +20,7 @@ export const createWorkspaceDirectories = (args: {
   readonly target: string;
   /** Runtime ancestors can precede the workspace owner's creation. */
   readonly identityOwnerRoot?: string;
+  readonly mode?: number;
   readonly prepare?: (target: string) => Effect.Effect<void, unknown>;
   readonly record: (identity: ContainerIdentity) => Effect.Effect<void>;
 }) =>
@@ -54,7 +55,7 @@ export const createWorkspaceDirectories = (args: {
       yield* Effect.uninterruptible(
         Effect.gen(function* () {
           if (args.prepare !== undefined) yield* args.prepare(directory);
-          const created = yield* fs.makeDirectory(directory).pipe(
+          const created = yield* fs.makeDirectory(directory, { mode: args.mode }).pipe(
             Effect.as(true),
             Effect.catch((cause) =>
               cause.reason._tag === "AlreadyExists" ? Effect.succeed(false) : Effect.fail(cause),

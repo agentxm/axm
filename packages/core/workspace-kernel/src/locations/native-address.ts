@@ -40,12 +40,11 @@ export const NativeResolutionRoot = Context.Reference<string | undefined>(
   { defaultValue: () => undefined },
 );
 
-/** Windows realPath resolves links but can retain the caller's case or short-name spelling. */
+/** realPath can retain caller spelling; actual directory entries establish volume identity. */
 const existingNativeSpelling = (target: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    if (path.sep !== "\\") return target;
     const root = (yield* NativeResolutionRoot) ?? path.parse(target).root;
     let current = /^[a-z]:\\$/i.test(root) ? root.toUpperCase() : root;
     for (const name of path.relative(root, target).split(path.sep).filter(Boolean)) {
@@ -179,7 +178,7 @@ export const resolveNativeEntry = (
       : Option.none<string>();
     return {
       lexicalPath,
-      // realPath supplies actual spelling for existing non-links, including case aliases.
+      // Referent resolution supplies observed spelling for existing non-links, including case aliases.
       entryPath: Option.isNone(link) && referentPath !== undefined ? referentPath : canonicalEntry,
       referentPath,
       kind: Option.isSome(link)

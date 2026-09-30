@@ -121,7 +121,11 @@ displacing a live owner. Normal settlement removes active metadata; an empty
 stable runtime directory may remain.
 
 Coordination requires a writable operating-system account home shared by the
-participating processes. It excludes separate accounts, hosts, or containers
+participating processes. Bun executables resolve that home through the OS account
+service: `getent` on Linux, `dscacheutil` on macOS, and PowerShell's .NET user-profile
+lookup on Windows. An unavailable or invalid account lookup refuses mutation;
+environment-selected home paths cannot substitute for account identity.
+Coordination excludes separate accounts, hosts, or containers
 without that shared namespace, and does not detect historical claims by
 sequential, otherwise undiscoverable owners. Existing bounded workspace-root
 authority checks still apply. Editors, agents, and other filesystem writers do

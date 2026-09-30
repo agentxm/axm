@@ -99,10 +99,14 @@ describe("compiled binary smoke", () => {
         ["sync"],
         ["agents", "remove", "codex"],
       ]) {
-        const result = await runBinary([...args, "--non-interactive", "--json"], {
+        const started = performance.now();
+        const result = await runBinary([...args, "--non-interactive", "--json", "--debug"], {
           cwd: root,
           env: environment,
         });
+        console.info(
+          `Native lifecycle ${args[0]} completed in ${Math.round(performance.now() - started)}ms`,
+        );
         expect(result.exitCode, `${args.join(" ")}\n${getOutput(result)}`).toBe(0);
         expect(fs.readFileSync(sourceFile, "utf8")).toBe(body);
         expect(fs.readlinkSync(alias)).toBe(routing);
@@ -127,7 +131,7 @@ describe("compiled binary smoke", () => {
     } finally {
       temp.cleanup();
     }
-  });
+  }, 600_000);
 
   it("exits 0 with --version and prints a semver", async () => {
     const result = await runBinary(["--version"]);

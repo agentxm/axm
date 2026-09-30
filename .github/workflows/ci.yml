@@ -617,7 +617,9 @@ jobs:
     needs: classify
     if: >-
       !cancelled() &&
-      needs.classify.outputs.release-artifacts == 'true'
+      (needs.classify.outputs.release-artifacts == 'true' ||
+       ((github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
+        needs.classify.outputs.windows == 'true'))
     strategy:
       fail-fast: false
       matrix:
@@ -665,9 +667,9 @@ jobs:
           hdiutil create -size 256m -type SPARSE -fs 'Case-sensitive APFS' -volname AXMCaseSensitive "$image"
           mkdir -p "$mount"
           hdiutil attach "$image" -mountpoint "$mount" -nobrowse
-          trap 'hdiutil detach "$mount"' EXIT
+          trap 'hdiutil detach "$mount" || hdiutil detach -force "$mount"' EXIT
           mkdir -p "$mount/tmp"
-          TMPDIR="$mount/tmp" pnpm exec nx run cli-e2e:binary-smoke-artifact --outputStyle=static --args='-t "preserves native case aliases and remaining Skill consumers"'
+          NX_DAEMON=false NX_ISOLATE_PLUGINS=false TMPDIR="$mount/tmp" pnpm exec nx run cli-e2e:binary-smoke-artifact --outputStyle=static --args='-t "preserves native case aliases and remaining Skill consumers"'
 
       - name: Generate Allure report
         if: always()
@@ -683,6 +685,7 @@ jobs:
           retention-days: 14
 
       - name: Upload compiled binary
+        if: needs.classify.outputs.release-artifacts == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: axm-binary-${{ matrix.binary_name }}-${{ github.sha }}

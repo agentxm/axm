@@ -1,7 +1,10 @@
+import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as PlatformError from "effect/PlatformError";
+import { NativeResolutionRoot } from "./native-address.js";
 
 /** A captured read view. Snapshot facts never establish native runtime availability. */
 export type NativeObservationView =
@@ -17,7 +20,7 @@ export type NativeObservationView =
  * A read-only filesystem over captured index bytes. Resolve links ourselves:
  * asking the host to follow a captured absolute link would consult the live tree.
  */
-export const observationViewFileSystem = (view: NativeObservationView) =>
+const observationViewFileSystem = (view: NativeObservationView) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -25,6 +28,12 @@ export const observationViewFileSystem = (view: NativeObservationView) =>
     const readRoot = path.resolve(view.readRoot);
     const displayRoot = path.resolve(view.displayRoot);
     const within = (root: string, candidate: string) => {
+      // Captured roots are capability prefixes, not arbitrary live aliases.
+      if (path.sep === "\\")
+        return (
+          candidate === root ||
+          candidate.startsWith(root.endsWith(path.sep) ? root : `${root}${path.sep}`)
+        );
       const relative = path.relative(root, candidate);
       return (
         relative === "" ||
@@ -143,3 +152,15 @@ export const observationViewFileSystem = (view: NativeObservationView) =>
       writeFile: (target) => refused(target, "writeFile"),
     });
   });
+
+/** Supply the captured filesystem and its native resolution boundary together. */
+export const observationViewLayer = (view: NativeObservationView) =>
+  Layer.effectContext(
+    observationViewFileSystem(view).pipe(
+      Effect.map((fs) =>
+        Context.make(FileSystem.FileSystem, fs).pipe(
+          Context.add(NativeResolutionRoot, view.kind === "git-index" ? view.readRoot : undefined),
+        ),
+      ),
+    ),
+  );

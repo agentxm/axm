@@ -222,6 +222,7 @@ describe("aggregate required verification", () => {
     );
     expect(JSON.stringify(jobs["verify-e2e"])).toContain("needs.classify.outputs.cli-e2e");
     expect(JSON.stringify(jobs["windows-workspace"])).toContain("needs.classify.outputs.windows");
+    expect(JSON.stringify(jobs["binary-smoke"])).toContain("needs.classify.outputs.windows");
     expect(JSON.stringify(jobs["workflow-validation"])).toContain(
       "needs.classify.outputs.workflow-security",
     );
@@ -239,6 +240,25 @@ describe("aggregate required verification", () => {
         "needs.classify.outputs.release-artifacts == 'true'",
       );
     }
+    const binary = jobs["binary-smoke"];
+    if (
+      typeof binary !== "object" ||
+      binary === null ||
+      !("steps" in binary) ||
+      !Array.isArray(binary.steps)
+    ) {
+      throw new Error("binary smoke must declare steps");
+    }
+    const binaryUpload = binary.steps.find(
+      (step: unknown) =>
+        typeof step === "object" &&
+        step !== null &&
+        "name" in step &&
+        step.name === "Upload compiled binary",
+    );
+    expect(binaryUpload).toMatchObject({
+      if: "needs.classify.outputs.release-artifacts == 'true'",
+    });
     expect(JSON.stringify(jobs["release-content"])).toContain("axm:produce-release-content");
     expect(JSON.stringify(jobs["release-content"])).toContain(
       "axm-release-content-${{ github.sha }}",

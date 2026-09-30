@@ -1,7 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as FileSystem from "effect/FileSystem";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { withArgvTracking } from "../../cli-runtime/index.js";
@@ -9,7 +8,7 @@ import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace
 import {
   LintWorkspace,
   lintSelectionRoot,
-  lintSelectionFileSystem,
+  lintSelectionLayer,
   type LintView,
 } from "@agentxm/workspace-features/linting";
 import { resolveUserHome } from "@agentxm/workspace-kernel/workspace-state";
@@ -88,7 +87,7 @@ export const runLintCommand = Effect.fn("Lint.command")(function* (args: RunLint
       projectRoot: lintSelectionRoot(selection),
       allowUninitialized: true,
     }),
-    Effect.provideService(FileSystem.FileSystem, yield* lintSelectionFileSystem(selection)),
+    Effect.provide(lintSelectionLayer(selection)),
   );
 });
 

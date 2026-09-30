@@ -33,6 +33,39 @@ describe("Physical Skill locations", () => {
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
+  it.effect(
+    "coalesces case aliases only when the selected volume addresses one physical directory",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* fs.makeTempDirectoryScoped();
+        const upper = path.join(root, ".Agents", "skills");
+        const lower = path.join(root, ".agents", "skills");
+        yield* fs.makeDirectory(upper, { recursive: true });
+        const folds = yield* fs.exists(lower);
+        const targets = [
+          { agentId: "claude-code", targetDir: upper },
+          { agentId: "codex", targetDir: lower },
+        ] as const;
+        for (const order of [targets, [...targets].reverse()]) {
+          const locations = yield* groupInstallTargetsByDirectory(order, root);
+          expect(locations).toHaveLength(folds ? 1 : 2);
+          if (folds) {
+            expect(locations[0]?.targetDir).toBe(upper);
+            expect(new Set(locations[0]?.agentIds)).toEqual(new Set(["claude-code", "codex"]));
+          } else {
+            expect(locations.find((location) => location.targetDir === upper)?.agentIds).toEqual([
+              "claude-code",
+            ]);
+            expect(locations.find((location) => location.targetDir === lower)?.agentIds).toEqual([
+              "codex",
+            ]);
+          }
+        }
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("folds directory aliases in either configured order", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;

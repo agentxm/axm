@@ -237,6 +237,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Derived from: `cli/lint/reports-facts-without-mutation`
 - Open questions: How should an explicit lint path select a nested workspace inside a Git index, and how should user scope combine with a supplied path? Current root-selection precedence remains an implementation observation.
 - Additional evidence: process via [`apps/cli-e2e/src/lint.e2e.test.ts`](../apps/cli-e2e/src/lint.e2e.test.ts) — Runs the real lint process against built workspaces and Git repositories, proving exit codes, human and machine channel output, git-index views, and untouched on-disk and staged state that the in-memory entry cannot observe.
+- Additional evidence: platform via [`apps/cli-e2e/src/windows/workspace-mutation.windows.e2e.test.ts`](../apps/cli-e2e/src/windows/workspace-mutation.windows.e2e.test.ts) — Exercises workspace mutation semantics on a real Windows filesystem, where path, symlink, and lock behavior differ from POSIX.
 - Source: [`packages/core/workspace-features/src/linting/run/observes-selected-filesystem-view.spec.ts`](../packages/core/workspace-features/src/linting/run/observes-selected-filesystem-view.spec.ts)
 
 ##### Lint reports agent content in a project folder without workspace settings

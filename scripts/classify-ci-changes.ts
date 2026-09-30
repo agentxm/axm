@@ -273,6 +273,7 @@ export const requiredCiJobs = (
   selected("source", "verify-pr");
   selected("cli-e2e", "verify-e2e");
   selected("windows", "windows-workspace");
+  selected("windows", "binary-smoke");
   return required;
 };
 

@@ -1,5 +1,6 @@
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
+import * as Context from "effect/Context";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -33,6 +34,65 @@ export interface NativeEntryAddress {
 
 const notFound = (error: PlatformError.PlatformError): boolean => error.reason._tag === "NotFound";
 
+/** A captured filesystem owns this spelling prefix; resolution must stay inside its read capability. */
+export const NativeResolutionRoot = Context.Reference<string | undefined>(
+  "@agentxm/workspace-kernel/locations/NativeResolutionRoot",
+  { defaultValue: () => undefined },
+);
+
+/** Windows realPath resolves links but can retain the caller's case or short-name spelling. */
+const existingNativeSpelling = (target: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    if (path.sep !== "\\") return target;
+    const root = (yield* NativeResolutionRoot) ?? path.parse(target).root;
+    let current = /^[a-z]:\\$/i.test(root) ? root.toUpperCase() : root;
+    for (const name of path.relative(root, target).split(path.sep).filter(Boolean)) {
+      const entries = yield* fs.readDirectory(current);
+      if (entries.includes(name)) {
+        current = path.join(current, name);
+        continue;
+      }
+      const supplied = path.join(current, name);
+      const info = yield* fs.stat(supplied);
+      const inode = yield* nativeInode(supplied, info);
+      if (Option.isNone(inode))
+        return yield* new NativeLocationError({ target, reason: "unreadable" });
+      const folded = entries.filter((entry) => entry.toLowerCase() === name.toLowerCase());
+      // A short-name alias need not have a textual match. Compare real entries,
+      // never lowercase a volume's paths or assume case-insensitive behavior.
+      const candidates = folded.length === 1 ? folded : entries;
+      const matches = yield* Effect.forEach(candidates, (entry) =>
+        Effect.gen(function* () {
+          const candidate = path.join(current, entry);
+          const observed = yield* fs.stat(candidate);
+          const observedInode = yield* nativeInode(candidate, observed);
+          return Option.isSome(observedInode) &&
+            observed.dev === info.dev &&
+            observedInode.value === inode.value &&
+            observed.mode === info.mode &&
+            Option.getOrUndefined(observed.birthtime)?.getTime() ===
+              Option.getOrUndefined(info.birthtime)?.getTime()
+            ? Option.some(entry)
+            : Option.none<string>();
+        }),
+      );
+      const names = matches.flatMap((entry) => (Option.isSome(entry) ? [entry.value] : []));
+      const actual = names[0];
+      if (names.length !== 1 || actual === undefined)
+        return yield* new NativeLocationError({ target, reason: "unreadable" });
+      current = path.join(current, actual);
+    }
+    return current;
+  }).pipe(
+    Effect.mapError((cause) =>
+      cause instanceof NativeLocationError
+        ? cause
+        : new NativeLocationError({ target, reason: "unreadable", cause }),
+    ),
+  );
+
 /** Resolve missing suffixes through the nearest existing physical ancestor. */
 export const resolveNativeReferent = (
   target: string,
@@ -44,7 +104,8 @@ export const resolveNativeReferent = (
     const suffix: Array<string> = [];
     while (true) {
       const resolved = yield* fs.realPath(current).pipe(Effect.result);
-      if (resolved._tag === "Success") return path.join(resolved.success, ...suffix.reverse());
+      if (resolved._tag === "Success")
+        return path.join(yield* existingNativeSpelling(resolved.success), ...suffix.reverse());
       if (!notFound(resolved.failure)) {
         return yield* new NativeLocationError({
           target,
@@ -138,6 +199,13 @@ export const resolveNativeEntry = (
   });
 
 const contains = (path: Path.Path, parent: string, child: string): boolean => {
+  if (path.sep === "\\") {
+    const root = path.resolve(parent);
+    const target = path.resolve(child);
+    return (
+      target === root || target.startsWith(root.endsWith(path.sep) ? root : `${root}${path.sep}`)
+    );
+  }
   const relative = path.relative(parent, child);
   return (
     relative === "" ||

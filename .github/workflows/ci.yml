@@ -78,12 +78,36 @@ jobs:
         id: affected-fallback
         run: echo "sha=$(git rev-list --max-parents=0 HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Derive affected SHAs
-        id: set-shas
+      - name: Derive non-queue affected SHAs
+        id: nx-shas
+        if: github.event_name != 'merge_group'
         uses: nrwl/nx-set-shas@afb73a62d26e41464e9254689e1fd6122ee683c1 # v5.0.1
         with:
           fallback-sha: ${{ steps.affected-fallback.outputs.sha }}
           main-branch-name: main
+
+      # A rebase queue entry can contain several commits. Its final parent is
+      # not the comparison base for the complete proposed integration.
+      - name: Select complete affected range
+        id: set-shas
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          QUEUE_BASE_SHA: ${{ github.event.merge_group.base_sha }}
+          QUEUE_HEAD_SHA: ${{ github.event.merge_group.head_sha }}
+          NX_BASE_SHA: ${{ steps.nx-shas.outputs.base }}
+          NX_HEAD_SHA: ${{ steps.nx-shas.outputs.head }}
+        run: |
+          if [[ "$EVENT_NAME" == "merge_group" ]]; then
+            base="$QUEUE_BASE_SHA"
+            head="$QUEUE_HEAD_SHA"
+          else
+            base="$NX_BASE_SHA"
+            head="$NX_HEAD_SHA"
+          fi
+          test -n "$base"
+          test -n "$head"
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+          echo "head=$head" >> "$GITHUB_OUTPUT"
 
       - name: Classify changed paths and publish the selection contract
         id: classify

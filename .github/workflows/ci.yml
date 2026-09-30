@@ -786,6 +786,14 @@ jobs:
           cleanup() {
             status=$?
             trap - EXIT
+            echo "::group::Case-sensitive APFS cleanup diagnostics"
+            if ! diskutil info "$device"; then
+              echo "::warning::Could not inspect the attached APFS device."
+            fi
+            lsof_status=0
+            lsof -nP +f -- "$mount" || lsof_status=$?
+            echo "Mount open-file inspection status: $lsof_status (1 may mean no matches)."
+            echo "::endgroup::"
             # A failed eject may already have unmounted the filesystem.
             hdiutil detach "$device" || hdiutil detach -force "$device" || {
               cleanup_status=$?
@@ -796,8 +804,7 @@ jobs:
             exit "$status"
           }
           trap cleanup EXIT
-          mkdir -p "$mount/tmp"
-          NX_DAEMON=false NX_ISOLATE_PLUGINS=false TMPDIR="$mount/tmp" pnpm exec nx run cli-e2e:binary-smoke-artifact --outputStyle=static --args='-t "preserves native case aliases and remaining Skill consumers"'
+          AXM_NATIVE_FIXTURE_PARENT="$mount" NX_DAEMON=false NX_ISOLATE_PLUGINS=false pnpm exec nx run cli-e2e:binary-smoke-artifact --outputStyle=static --args='-t "preserves native case aliases and remaining Skill consumers"'
 
       - name: Generate Allure report
         if: always()

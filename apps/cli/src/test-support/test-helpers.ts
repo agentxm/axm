@@ -687,7 +687,7 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
 
     if (opts?.wsOptions?.projectRoot === undefined && isRepositoryPath(workspaceRoot)) {
       throw new Error(
-        "Project workspace tests must set wsOptions.projectRoot or chdir into a temp dir before calling makeWorkspaceHandlerTestContext().",
+        `Project workspace tests must set wsOptions.projectRoot or chdir into a temp dir before calling makeWorkspaceHandlerTestContext(). Refused implicit repository root: ${workspaceRoot}`,
       );
     }
 

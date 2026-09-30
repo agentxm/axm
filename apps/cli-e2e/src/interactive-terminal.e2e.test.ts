@@ -232,45 +232,54 @@ describe.skipIf(!ptyIsSupported)("the review gate under a pseudo-terminal", () =
 });
 
 describe.skipIf(!ptyIsSupported)("axm prompts under a pseudo-terminal", () => {
-  it("opens the agent selection, takes keys, and restores the terminal on interrupt", async () => {
-    const result = await runCliUnderPty(["setup", "--scope", "project"], {
-      home: tempDir("axm-pty-home-"),
-      cwd: tempDir("axm-pty-workspace-"),
-      columns: 100,
-      rows: 30,
-      actions: [
-        { awaiting: "Select agents to configure" },
-        { send: Keys.down },
-        { send: "clau" },
-        { send: Keys.space },
-        { send: Keys.interrupt },
-      ],
-    });
+  it.each([40, 80, 120, 200])(
+    "opens the agent selection at %i columns and restores the terminal on interrupt",
+    async (columns) => {
+      const result = await runCliUnderPty(["setup", "--scope", "project"], {
+        home: tempDir("axm-pty-home-"),
+        cwd: tempDir("axm-pty-workspace-"),
+        columns,
+        rows: 30,
+        actions: [
+          { awaiting: "Select agents to configure" },
+          { send: Keys.down },
+          { send: "clau" },
+          { send: Keys.space },
+          { send: Keys.escape },
+          { send: Keys.interrupt },
+        ],
+      });
 
-    const [opened, moved, filtered, toggled] = result.actions;
-    expect(opened?.matched, result.transcript).toBe(true);
+      const [opened, moved, filtered, toggled, cleared] = result.actions;
+      expect(opened?.matched, result.transcript).toBe(true);
 
-    // An arrow arrives as an escape sequence and has to be decoded as one key.
-    expect(cursorRow(moved?.emitted ?? "")).not.toBe(cursorRow(opened?.emitted ?? ""));
+      // An arrow arrives as an escape sequence and has to be decoded as one key.
+      expect(cursorRow(moved?.emitted ?? "")).not.toBe(cursorRow(opened?.emitted ?? ""));
 
-    // The full question is committed once; its short label identifies controls.
-    expect(filtered?.emitted).toContain("Agents  clau");
-    expect(result.transcript.split("Select agents to configure")).toHaveLength(2);
-    expect(filtered?.emitted).toContain("Claude Code");
-    expect(filtered?.emitted).toMatch(/\d+ of \d+ shown · esc clears the filter/u);
+      // The full question is committed once; its short label identifies controls.
+      expect(filtered?.emitted).toContain("Agents  clau");
+      expect(result.transcript.split("Select agents to configure")).toHaveLength(2);
+      expect(filtered?.emitted).toContain("Claude Code");
+      expect(filtered?.emitted).toMatch(/\d+ of \d+ shown · esc/u);
+      if (columns >= 80) expect(filtered?.emitted).toContain("esc clears the filter");
 
-    // Space toggles the row the cursor sits on.
-    expect(claudeCodeMark(toggled?.emitted ?? "")).not.toBe(
-      claudeCodeMark(filtered?.emitted ?? ""),
-    );
+      // Space toggles the row the cursor sits on.
+      expect(claudeCodeMark(toggled?.emitted ?? "")).not.toBe(
+        claudeCodeMark(filtered?.emitted ?? ""),
+      );
 
-    // Raw mode suppresses SIGINT, so the interrupt is the prompt's own quit
-    // and the terminal has to come back from it.
-    expect(result.timedOut, result.transcript).toBe(false);
-    expect(result.exitCode, result.transcript).toBe(0);
-    expect(result.rawModeRestored, "raw mode was not handed back").toBe(true);
-    expect(result.cursorRestored, "the cursor was left hidden").toBe(true);
-  });
+      // Clearing the filter works even when the narrow footer abbreviates its hint.
+      expect(cleared?.emitted).toContain("Codex");
+      expect(cleared?.emitted).not.toContain("Agents  clau");
+
+      // Raw mode suppresses SIGINT, so the interrupt is the prompt's own quit
+      // and the terminal has to come back from it.
+      expect(result.timedOut, result.transcript).toBe(false);
+      expect(result.exitCode, result.transcript).toBe(0);
+      expect(result.rawModeRestored, "raw mode was not handed back").toBe(true);
+      expect(result.cursorRestored, "the cursor was left hidden").toBe(true);
+    },
+  );
 });
 
 describe.skipIf(!ptyIsSupported)("setup's instructions source under a pseudo-terminal", () => {

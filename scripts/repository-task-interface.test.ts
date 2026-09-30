@@ -383,7 +383,15 @@ describe("repository task interface", () => {
     }
 
     const e2eTargets = readTargets("apps/cli-e2e/project.json");
-    for (const targetName of ["binary-smoke-artifact", "install-suite", "install-verification"]) {
+    for (const targetName of [
+      "e2e-main",
+      "e2e-windows",
+      "e2e-keychain",
+      "binary-smoke",
+      "binary-smoke-artifact",
+      "install-suite",
+      "install-verification",
+    ]) {
       expect(targetCache(e2eTargets, targetName), targetName).toBe(false);
     }
   });

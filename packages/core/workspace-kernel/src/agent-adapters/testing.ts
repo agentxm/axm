@@ -11,6 +11,8 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Ref from "effect/Ref";
+import * as RcMap from "effect/RcMap";
+import * as Semaphore from "effect/Semaphore";
 import * as Path from "effect/Path";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -21,20 +23,27 @@ import {
   type NativeWriteAuthorityService,
 } from "./native-write-authority.js";
 import { WorkspaceFileWriteLocks } from "../settlement/index.js";
-import { WorkspaceFileWriteLocksLive } from "../settlement/live.js";
 
 // This permissive port deliberately models lexical paths. Physical identity
 // and refusal belong to the live authority and its filesystem specifications.
-const writeLocks = Layer.provide(
-  WorkspaceFileWriteLocksLive,
-  Layer.merge(
-    Path.layer,
-    Layer.succeed(
-      FileSystem.FileSystem,
-      FileSystem.makeNoop({ realPath: (target) => Effect.succeed(target) }),
-    ),
-  ),
-);
+const writeLocks = Layer.effect(
+  WorkspaceFileWriteLocks,
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    // Borrow before waiting; zero idle retention releases keys after the last
+    // active writer or waiter leaves its scope.
+    const locks = yield* RcMap.make({ lookup: (_key: string) => Semaphore.make(1) });
+    return WorkspaceFileWriteLocks.of({
+      withLock: (target, effect) =>
+        Effect.scoped(
+          Effect.gen(function* () {
+            const semaphore = yield* RcMap.get(locks, path.resolve(target));
+            return yield* semaphore.withPermits(1)(effect);
+          }),
+        ),
+    });
+  }),
+).pipe(Layer.provide(Path.layer));
 
 const permissiveInsertions = {
   createParentDirectories: (target) =>

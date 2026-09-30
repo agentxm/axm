@@ -340,10 +340,37 @@ For a single Nx invocation, append `--skip-nx-cache`. For a multi-stage root
 workflow, set `NX_SKIP_NX_CACHE=true`; pnpm would otherwise forward an appended
 flag only to the final stage.
 
-GitHub Actions may restore the repository's lockfile- and revision-scoped Nx
-cache. A restored entry is trusted only as a deterministic result for its Nx
-hash. Package-store caches supply dependencies, not task
-verdicts.
+The stock Nx HTTP client uses `NX_SELF_HOSTED_REMOTE_CACHE_SERVER` and
+`NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN`. Local users supply an approved HTTPS
+origin and a **read-only** repository credential in their environment or ignored
+root `.env.local`. Keep tokens out of source, logs, and release assets. Set
+`NX_SKIP_REMOTE_CACHE=true` to bypass remote reuse while retaining local caching;
+set `NX_SKIP_NX_CACHE=true` as well for complete re-execution.
+
+GitHub's setup action accepts `NX_REMOTE_CACHE_URL` and the read-only
+`NX_REMOTE_CACHE_READ_TOKEN`. Missing configuration disables remote access;
+forks receive no cache credential. Only the separate successful-main warmer
+uses `NX_REMOTE_CACHE_WRITE_TOKEN` from the protected `nx-cache-writer`
+environment. Its live deployment branch policy must allow main only. Warming
+runs after CI completion and does not gate publication. Scheduled source
+assurance bypasses both local and remote task caches.
+
+Toolchain inputs include the complete lockfile, patches, runtime versions, and
+host platform. Lockfile changes deliberately invalidate deterministic tasks;
+source inputs stay project-scoped. Each `cli:compile-<platform>-<architecture>`
+target owns one release binary. `cli:compile` coordinates those targets;
+`compile-host-dev`, E2E, binary smoke, and installation leaves still run fresh.
+A restored entry is trusted only as a deterministic result for its Nx hash.
+Package-store caches supply dependencies, not task verdicts. Exact-SHA verified
+CI artifacts remain the release authority; task-cache presence is insufficient.
+
+Verify remote adoption in a second disposable checkout with an empty local
+cache: require `remote-cache-hit` in `.nx/cache/run.json`, matching task hashes,
+correct restored bytes/modes/reports, and no task-body execution. Relevant
+source, dependency/type, generator, toolchain, platform, and environment changes
+must miss; credentials and checkout locations must not change semantic task
+hashes. Measure archived binary sizes against the configured server limit and
+include all warmer jobs when comparing total runner work.
 
 When task-level timing is needed for a diagnosed question, set Nx's native
 `NX_PROFILE=<file>` trace for that invocation. Routine workflows do not collect

@@ -23,7 +23,7 @@
       "executor": "nx:run-commands",
       "cache": true,
       "dependsOn": ["^build"],
-      "inputs": ["default", "^production"],
+      "inputs": ["default", "^production", "toolchain"],
       "outputs": ["{workspaceRoot}/test-results/workspace-windows"],
       "options": {
         "command": "pnpm exec vitest run --config vitest.windows.config.ts",

@@ -300,7 +300,9 @@ describe("repository task interface", () => {
     const targets = cli?.data.targets;
     for (const sourceTargetName of ["build", "watch"]) {
       const sourceOutputs = targets?.[sourceTargetName]?.outputs ?? [];
-      for (const compileTargetName of ["compile", "compile-host", "compile-host-dev"]) {
+      for (const compileTargetName of Object.keys(targets ?? {}).filter(
+        (name) => name === "compile" || name.startsWith("compile-"),
+      )) {
         const compileOutputs = targets?.[compileTargetName]?.outputs ?? [];
         for (const sourceOutput of sourceOutputs) {
           for (const compileOutput of compileOutputs) {
@@ -312,6 +314,35 @@ describe("repository task interface", () => {
         }
       }
     }
+  });
+
+  it("gives each platform release asset one independently cached producer", () => {
+    const targets = projects.find((project) => project.name === "cli")?.data.targets;
+    const platforms = ["darwin-arm64", "darwin-x64", "linux-arm64", "linux-x64", "windows-x64"];
+    const outputs: string[] = [];
+    expect(targets?.["compile"]?.cache).toBe(false);
+    expect(targets?.["compile"]?.outputs ?? []).toEqual([]);
+    for (const platform of platforms) {
+      const name = `compile-${platform}`;
+      const producer = targets?.[name];
+      const asset = `axm-${platform}${platform.startsWith("windows") ? ".exe" : ""}`;
+      expect(producer?.cache, name).toBe(true);
+      expect(producer?.dependsOn, name).toContain("build");
+      expect(targets?.["compile"]?.dependsOn, name).toContain(name);
+      expect(producer?.inputs, name).toContain("hostPlatform");
+      expect(producer?.inputs, name).toContain("toolchain");
+      expect(producer?.inputs, name).toContainEqual({
+        dependentTasksOutputFiles: "**/*",
+        transitive: true,
+      });
+      expect(commandText(producer?.options?.command), name).toContain(`--target=bun-${platform}`);
+      expect(producer?.outputs, name).toEqual([`{projectRoot}/dist/bin/${asset}`]);
+      for (const output of producer?.outputs ?? []) {
+        for (const previous of outputs) expect(outputsOverlap(previous, output)).toBe(false);
+        outputs.push(output);
+      }
+    }
+    expect(targets?.["compile-host-dev"]?.cache).toBe(false);
   });
 
   it("keeps typecheck writes inside their declared output", () => {

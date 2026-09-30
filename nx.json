@@ -55,7 +55,9 @@
       "{workspaceRoot}/scripts/specification-evidence*.ts",
       "{workspaceRoot}/scripts/test-purpose.ts",
       "{workspaceRoot}/scripts/workspace-discovery.ts",
-      "{workspaceRoot}/scripts/placement-tags-plugin.ts"
+      "{workspaceRoot}/scripts/placement-tags-plugin.ts",
+      "toolchain",
+      "hostPlatform"
     ],
     "hostPlatform": [
       {
@@ -74,6 +76,20 @@
       "!{projectRoot}/**/*.type-test.ts",
       "!{projectRoot}/vitest*.config.ts",
       "!{projectRoot}/**/*.bench.ts"
+    ],
+    "toolchain": [
+      "{workspaceRoot}/mise.toml",
+      "{workspaceRoot}/.npmrc",
+      "{workspaceRoot}/.pnpmfile.cjs",
+      "{workspaceRoot}/pnpm-workspace.yaml",
+      {
+        "runtime": "node --version"
+      },
+      {
+        "runtime": "bun --version"
+      },
+      "{workspaceRoot}/pnpm-lock.yaml",
+      "{workspaceRoot}/patches/**/*"
     ]
   },
   "targetDefaults": {

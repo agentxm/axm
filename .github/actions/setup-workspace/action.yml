@@ -11,6 +11,15 @@ inputs:
     required: false
     default: "true"
 
+  remote-cache-url:
+    description: Native Nx remote-cache server URL; empty disables remote caching.
+    required: false
+    default: ""
+  remote-cache-token:
+    description: Read-only cache credential; only the trusted main warmer supplies a writer.
+    required: false
+    default: ""
+
 runs:
   using: composite
   steps:
@@ -31,3 +40,24 @@ runs:
       if: inputs.install == 'true'
       shell: bash
       run: pnpm install --frozen-lockfile
+
+    - name: Configure native Nx remote caching
+      shell: bash
+      env:
+        REMOTE_CACHE_URL: ${{ inputs.remote-cache-url }}
+        REMOTE_CACHE_TOKEN: ${{ inputs.remote-cache-token }}
+      run: |
+        if [[ "${NX_SKIP_REMOTE_CACHE:-false}" == "true" || -z "$REMOTE_CACHE_URL" || -z "$REMOTE_CACHE_TOKEN" ]]; then
+          echo "NX_SKIP_REMOTE_CACHE=true" >> "$GITHUB_ENV"
+          exit 0
+        fi
+        if [[ ! "$REMOTE_CACHE_URL" =~ ^https://[a-zA-Z0-9.-]+(:[0-9]+)?/?$ || "$REMOTE_CACHE_TOKEN" == *$'\n'* || "$REMOTE_CACHE_TOKEN" == *$'\r'* ]]; then
+          echo "::error::Invalid remote cache configuration"
+          exit 1
+        fi
+        echo "::add-mask::$REMOTE_CACHE_TOKEN"
+        {
+          echo "NX_SELF_HOSTED_REMOTE_CACHE_SERVER=${REMOTE_CACHE_URL%/}"
+          echo "NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN=$REMOTE_CACHE_TOKEN"
+          echo "NX_SKIP_REMOTE_CACHE=false"
+        } >> "$GITHUB_ENV"

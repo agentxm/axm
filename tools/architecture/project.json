@@ -19,7 +19,8 @@
         "{workspaceRoot}/pnpm-lock.yaml",
         "{workspaceRoot}/packages/**/package.json",
         "{workspaceRoot}/eslint.config.mjs",
-        "{workspaceRoot}/packages/core/extension-model/tsconfig*.json"
+        "{workspaceRoot}/packages/core/extension-model/tsconfig*.json",
+        "toolchain"
       ],
       "options": {
         "command": "node --test tools/architecture/*.test.mjs",
@@ -39,7 +40,8 @@
         {
           "runtime": "node -p \"[process.version, process.platform, process.arch].join('/')\""
         },
-        "{workspaceRoot}/pnpm-lock.yaml"
+        "{workspaceRoot}/pnpm-lock.yaml",
+        "toolchain"
       ],
       "options": {
         "command": "node tools/architecture/check.mjs",

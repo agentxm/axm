@@ -10,10 +10,10 @@ Prerequisites:
 Run:
 
 ```sh
-pnpm nx run cli:compile
+pnpm exec nx run cli:compile
 ```
 
-The target depends on `cli:build`, compiles from `dist/src/main.js`, and writes binaries to `apps/cli/dist/bin/`:
+The aggregate target runs the five platform compile targets. Each depends on `cli:build`, compiles from `dist/src/main.js`, and owns one binary in `apps/cli/dist/bin/`:
 
 - `axm-darwin-arm64`
 - `axm-darwin-x64`
@@ -21,14 +21,15 @@ The target depends on `cli:build`, compiles from `dist/src/main.js`, and writes 
 - `axm-linux-x64`
 - `axm-windows-x64.exe`
 
-Each compile target owns a distinct output directory and clears it before writing, so a cached artifact set always matches the target that produced it:
+Each platform producer is independently cached and replaces only its own binary. Host and development targets own separate directories:
 
-| Target                 | Output directory         | Contents                                   |
-| ---------------------- | ------------------------ | ------------------------------------------ |
-| `cli:compile`          | `apps/cli/dist/bin`      | every supported platform                   |
-| `cli:compile-host`     | `apps/cli/dist/host-bin` | the host platform only                     |
-| `cli:compile-host-dev` | `apps/cli/dist/dev-bin`  | the host platform only, dev version suffix |
+| Target                   | Output directory         | Contents                                   |
+| ------------------------ | ------------------------ | ------------------------------------------ |
+| `cli:compile`            | —                        | orchestrates every supported platform      |
+| `cli:compile-<platform>` | `apps/cli/dist/bin`      | one release binary                         |
+| `cli:compile-host`       | `apps/cli/dist/host-bin` | the host platform only                     |
+| `cli:compile-host-dev`   | `apps/cli/dist/dev-bin`  | the host platform only, dev version suffix |
 
-Compile a host-only binary with `pnpm exec nx run cli:compile-host` rather than passing `--host-only` to `cli:compile`. The flag redirects the write to `dist/host-bin`, which `cli:compile` does not declare as an output, so `cli:compile` produces nothing in its declared `dist/bin` and caches an empty artifact set under the full-platform key.
+Use `pnpm exec nx run cli:compile-host` for a host-only binary. To produce one release asset, use its platform target, for example `pnpm exec nx run cli:compile-linux-x64`. Development compilation runs fresh because its version includes Git state. The [repository task interface](../../docs/guides/repository-task-interface.md) owns cache and verification semantics.
 
 The compile targets also inject the package version at build time so compiled binaries report the correct `axm --version`.

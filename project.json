@@ -62,7 +62,8 @@
         "^production",
         "{workspaceRoot}/eslint.config.mjs",
         "{workspaceRoot}/benchmarks/**/*",
-        "{workspaceRoot}/scripts/placement-tags-plugin.ts"
+        "{workspaceRoot}/scripts/placement-tags-plugin.ts",
+        "toolchain"
       ],
       "options": {
         "command": "eslint .pnpmfile.cjs allurerc.ts eslint.config.mjs vitest.config.ts vitest.execution.ts vitest.reporting.ts vitest.purpose.setup.ts benchmarks scripts --max-warnings=0",
@@ -87,7 +88,8 @@
         "{workspaceRoot}/benchmarks/**/*",
         "{workspaceRoot}/scripts/**/*",
         "sharedGlobals",
-        "^production"
+        "^production",
+        "toolchain"
       ],
       "options": {
         "command": "tsc -p scripts/tsconfig.json --noEmit",
@@ -109,7 +111,8 @@
         "{workspaceRoot}/tsconfig*.json",
         {
           "externalDependencies": ["@typescript/native"]
-        }
+        },
+        "toolchain"
       ],
       "outputs": ["{workspaceRoot}/out-tsc/reporting"],
       "options": {
@@ -307,7 +310,8 @@
         "{workspaceRoot}/apps/**/*",
         "{workspaceRoot}/packages/**/*",
         "{workspaceRoot}/tools/**/*",
-        "{workspaceRoot}/specifications/product-goals.ts"
+        "{workspaceRoot}/specifications/product-goals.ts",
+        "toolchain"
       ],
       "options": {
         "command": "bun scripts/verify-source-hygiene.ts",
@@ -370,7 +374,54 @@
         "{workspaceRoot}/scripts/specification-catalog.ts",
         "{workspaceRoot}/scripts/specification-catalog-lib.ts",
         "sharedGlobals",
-        "^production"
+        "^production",
+        "toolchain",
+        {
+          "externalDependencies": [
+            "@boundaries/elements",
+            "@effect/eslint-plugin",
+            "@effect/language-service",
+            "@effect/platform-node",
+            "@effect/tsgo",
+            "@effect/vitest",
+            "@eslint/js",
+            "@nx/devkit",
+            "@nx/eslint",
+            "@nx/eslint-plugin",
+            "@nx/js",
+            "@nx/vitest",
+            "@stryker-mutator/core",
+            "@swc-node/register",
+            "@swc/core",
+            "@types/bun",
+            "@types/node",
+            "@types/semver",
+            "@typescript-eslint/parser",
+            "@typescript/native",
+            "@vitest/coverage-v8",
+            "allure",
+            "allure-js-commons",
+            "allure-vitest",
+            "dependency-cruiser",
+            "effect",
+            "eslint",
+            "eslint-import-resolver-typescript",
+            "eslint-plugin-boundaries",
+            "husky",
+            "jsonc-eslint-parser",
+            "knip",
+            "lint-staged",
+            "nx",
+            "prettier",
+            "publint",
+            "semver",
+            "typescript",
+            "typescript-eslint",
+            "vite",
+            "vitest",
+            "yaml"
+          ]
+        }
       ],
       "outputs": ["{workspaceRoot}/specifications/catalog.md"],
       "options": {

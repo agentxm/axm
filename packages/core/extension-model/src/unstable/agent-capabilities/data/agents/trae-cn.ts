@@ -117,9 +117,10 @@ export const traeCnAgent = {
     },
     subagent: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "unknown" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
         docs: [],
         sources: [],
       },
@@ -131,9 +132,10 @@ export const traeCnAgent = {
     },
     hook: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "unknown" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
         docs: [],
         sources: [],
       },
@@ -178,9 +180,10 @@ export const traeCnAgent = {
   },
   permissions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "unknown" },
       vendorStatus: { state: "active" },
-      notes: null,
+      notes:
+        "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
       docs: [],
       sources: [],
     },
@@ -189,5 +192,28 @@ export const traeCnAgent = {
       lastVerified: null,
       writer: null,
     },
+  },
+
+  profile: {
+    identity: {
+      product: "Trae CN",
+      surface: "TRAE CN IDE; TraeWork is a separate reviewed surface",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: ["https://docs.trae.cn/work_skills"],
+      conditions: [
+        "TraeWork documentation describes .trae/skills locally and ~/.trae-cn/skills globally plus uploads; it does not establish the existing IDE reader contract.",
+      ],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: skill, mcp-server, subagent, hook, instructions, permissions.",
+      ],
+      claimScope: "TraeWork skill discovery; IDE capability details remain unreviewed",
+    },
+    lifecycleQualifications: [],
   },
 } as const satisfies Agent;

@@ -1,7 +1,7 @@
 /**
  * Markdown + YAML frontmatter adapter for subagent rendering.
  *
- * For: Claude Code, Copilot, Cursor, Gemini CLI, OpenCode, Augment,
+ * For: Antigravity, Antigravity CLI, Claude Code, Copilot, Cursor, Gemini CLI, OpenCode, Augment,
  * Junie, Kilo Code, Kiro IDE.
  *
  * Produces `.md` with YAML frontmatter and body. The user's frontmatter

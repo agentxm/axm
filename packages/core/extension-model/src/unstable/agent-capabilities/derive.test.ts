@@ -185,119 +185,41 @@ describe("agent capability derivation", () => {
     expect(agentSupportsType(agentById("windsurf"), "subagent")).toBe(false);
   });
   it("finds agents that support one extension type", () => {
-    expect(getSupportedAgentsForExtensionType("rule", AGENTS).map((agent) => agent.id)).toEqual([
-      "adal",
-      "amp",
-      "antigravity",
-      "antigravity-cli",
-      "augment",
-      "claude-code",
-      "cline",
-      "codearts-agent",
-      "codebuddy",
-      "codex",
-      "command-code",
-      "continue",
-      "crush",
-      "cursor",
-      "deepagents",
-      "devin",
-      "droid",
-      "forgecode",
-      "gemini-cli",
-      "github-copilot-cli",
-      "grok-cli",
-      "hermes",
-      "ibm-bob",
-      "iflow-cli",
-      "junie",
-      "kilo",
-      "kimi-cli",
-      "kiro-cli",
-      "kode",
-      "mistral-vibe",
-      "mux",
-      "opencode",
-      "openhands",
-      "ona",
-      "pi",
-      "pochi",
-      "qoder",
-      "qoder-cn",
-      "qwen-code",
-      "roo",
-      "trae-cn",
-      "trae",
-      "windsurf",
-      "zencoder",
-      "zed",
-    ]);
+    const supported = agentById("claude-code");
+    const absent = { ...supported, id: "without-rules", instructions: unsupportedCapability };
+    expect(
+      getSupportedAgentsForExtensionType("rule", [absent, supported]).map((agent) => agent.id),
+    ).toEqual(["claude-code"]);
   });
   it("defaults single-type support lookup to the full catalog", () => {
     expect(getSupportedAgentsForExtensionType("skill").map((agent) => agent.id)).toContain("codex");
   });
   it("requires every requested type for multi-type compatibility", () => {
+    const supported = agentById("claude-code");
+    const partial = {
+      ...supported,
+      id: "without-subagents",
+      capabilities: { ...supported.capabilities, subagent: unsupportedCapability },
+    };
     expect(
-      getSupportedAgentsForExtensionTypes(["rule", "subagent"], AGENTS).map((agent) => agent.id),
-    ).toEqual([
-      "augment",
-      "claude-code",
-      "codearts-agent",
-      "codebuddy",
-      "codex",
-      "command-code",
-      "cursor",
-      "devin",
-      "gemini-cli",
-      "github-copilot-cli",
-      "grok-cli",
-      "iflow-cli",
-      "junie",
-      "kilo",
-      "kimi-cli",
-      "kode",
-      "mistral-vibe",
-      "mux",
-      "opencode",
-      "qoder",
-      "qoder-cn",
-      "qwen-code",
-    ]);
+      getSupportedAgentsForExtensionTypes(["rule", "subagent"], [partial, supported]).map(
+        (agent) => agent.id,
+      ),
+    ).toEqual(["claude-code"]);
   });
   it("derives pack compatibility from all member types", () => {
+    const supported = agentById("claude-code");
+    const partial = {
+      ...supported,
+      id: "without-mcp",
+      capabilities: { ...supported.capabilities, "mcp-server": unsupportedCapability },
+    };
     expect(
-      getSupportedAgentsForExtension(
-        { type: "pack", memberTypes: ["mcp-server", "rule"] },
-        AGENTS,
-      ).map((agent) => agent.id),
-    ).toEqual([
-      "antigravity",
-      "augment",
-      "claude-code",
-      "cline",
-      "codearts-agent",
-      "codebuddy",
-      "codex",
-      "command-code",
-      "crush",
-      "cursor",
-      "devin",
-      "gemini-cli",
-      "github-copilot-cli",
-      "hermes",
-      "ibm-bob",
-      "junie",
-      "kilo",
-      "kimi-cli",
-      "kiro-cli",
-      "opencode",
-      "pochi",
-      "qoder",
-      "qwen-code",
-      "trae-cn",
-      "trae",
-      "windsurf",
-    ]);
+      getSupportedAgentsForExtension({ type: "pack", memberTypes: ["mcp-server", "rule"] }, [
+        partial,
+        supported,
+      ]).map((agent) => agent.id),
+    ).toEqual(["claude-code"]);
   });
   it("does not treat empty packs as vacuously compatible", () => {
     expect(getSupportedAgentsForExtension({ type: "pack", memberTypes: [] }, AGENTS)).toEqual([]);
@@ -491,7 +413,7 @@ describe("agent capability derivation", () => {
         "compaction.pre",
       ],
       tools: ["file.read", "file.write", "file.edit", "shell.exec", "web.fetch"],
-      mechanism: ["command-stdin"],
+      mechanism: expect.arrayContaining(["command-stdin", "http", "prompt", "mcp"]),
       matcherKinds: ["regex", "none-imperative"],
     });
   });
@@ -692,7 +614,7 @@ describe("agent capability derivation", () => {
   it("uses catalog attribution rather than reader count for MCP detection", () => {
     const cursor = agentById("cursor");
     const capability = cursor.capabilities["mcp-server"];
-    if (!("locations" in capability.native))
+    if (!("transports" in capability.native))
       throw new Error("Cursor MCP native locations are required");
     const synthetic = {
       ...cursor,

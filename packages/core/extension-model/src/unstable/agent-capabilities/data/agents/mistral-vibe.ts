@@ -80,7 +80,8 @@ export const mistralVibeAgent = {
       native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: "No industry spec for subagents yet; AXM bridges to the agent's native layout.",
+        notes:
+          "Custom definitions are TOML files under project or home .vibe/agents. agent_type is required; subagent definitions are invoked by task delegation, not --agent.",
         docs: [],
         sources: ["https://docs.mistral.ai/vibe/code/cli/agents"],
         scopes: ["user", "project"],
@@ -92,10 +93,36 @@ export const mistralVibeAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".vibe/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://docs.mistral.ai/vibe/code/cli/agents"],
+          conditions: [],
+          limitations: ["No vendor runtime or AXM writer execution was performed."],
+          claimScope: "Project and home .vibe/agents TOML with agent_type agent or subagent",
+        },
       },
       axm: {
         status: "supported",
@@ -282,5 +309,26 @@ export const mistralVibeAgent = {
       lastVerified: null,
       writer: null,
     },
+  },
+
+  profile: {
+    identity: {
+      product: "Mistral Vibe",
+      surface: "Mistral Vibe Code CLI",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: ["https://docs.mistral.ai/vibe/code/cli/agents"],
+      conditions: [],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: skill, mcp-server, hook, instructions, permissions.",
+      ],
+      claimScope: "TOML custom agents and subagent types",
+    },
+    lifecycleQualifications: [],
   },
 } as const satisfies Agent;

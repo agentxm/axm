@@ -55,7 +55,10 @@ export const adalAgent = {
         notes:
           "AdaL manages MCP servers through the /mcp CLI flow and stores OAuth tokens under ~/.adal/mcp-auth; the docs describe add/remove/test actions rather than a stable editable config file.",
         docs: [],
-        sources: ["https://docs.sylph.ai/features/mcp-support-proposed"],
+        sources: [
+          "https://docs.sylph.ai/features/mcp-support-proposed",
+          "https://docs.sylph.ai/features/mcp-support-proposed/",
+        ],
         scopes: ["user"],
         standardsCompliance: "partial",
         convention: "vendor",
@@ -68,6 +71,17 @@ export const adalAgent = {
         locations: [],
 
         entryDialect: null,
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://docs.sylph.ai/features/mcp-support-proposed/"],
+          conditions: [],
+          limitations: [
+            "No vendor runtime or AXM writer execution was performed.",
+            "Existing file dialect and environment expansion were not revalidated.",
+          ],
+          claimScope: "CLI-managed MCP connections and supported local/remote transports",
+        },
       },
       axm: {
         status: "unsupported",
@@ -78,9 +92,10 @@ export const adalAgent = {
     },
     subagent: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "unknown" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
         docs: [],
         sources: [],
       },
@@ -92,11 +107,47 @@ export const adalAgent = {
     },
     hook: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "AdaL supports command-only PreToolUse, PostToolUse, PostToolUseFailure, UserPromptSubmit, PermissionRequest and Stop hooks in user settings. Project and plugin hook scopes are not supported.",
         docs: [],
-        sources: [],
+        sources: ["https://docs.sylph.ai/customize/lifecycle-hooks/"],
+
+        scopes: ["user"],
+        modeling: "native-unmodeled",
+        entryDialect: null,
+        locations: [
+          {
+            scope: "user",
+            root: "home",
+            path: ".adal/settings.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            id: "user",
+            format: "json",
+            keyPath: ["hooks"],
+            attribution: "agent",
+          },
+        ],
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://docs.sylph.ai/customize/lifecycle-hooks/"],
+          conditions: [],
+          limitations: [
+            "No vendor runtime or AXM writer execution was performed.",
+            "Event serialization and AXM writing remain unmodeled.",
+          ],
+          claimScope:
+            "AdaL supports command-only PreToolUse, PostToolUse, PostToolUseFailure, UserPromptSubmit, PermissionRequest and Stop hooks in user settings. Project and plugin hook scopes are not supported.",
+        },
       },
       axm: {
         status: "unsupported",
@@ -159,5 +210,29 @@ export const adalAgent = {
       reason:
         "AXM has not implemented an AdaL permission writer for the interactive /permissions surface.",
     },
+  },
+
+  profile: {
+    identity: {
+      product: "AdaL",
+      surface: "AdaL CLI and editor integration",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: [
+        "https://docs.sylph.ai/customize/lifecycle-hooks/",
+        "https://docs.sylph.ai/features/mcp-support-proposed/",
+      ],
+      conditions: [],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: skill, subagent, instructions, permissions.",
+      ],
+      claimScope: "User-scoped command lifecycle hooks",
+    },
+    lifecycleQualifications: [],
   },
 } as const satisfies Agent;

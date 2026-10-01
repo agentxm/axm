@@ -25,7 +25,10 @@ export const ampAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://ampcode.com/manual#agent-skills"],
+        sources: [
+          "https://ampcode.com/manual#agent-skills",
+          "https://ampcode.com/docs/customize/skills",
+        ],
         scopes: ["user", "project"],
         standardsCompliance: "partial",
         convention: "universal",
@@ -37,10 +40,95 @@ export const ampAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".config/agents/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".agents/skills",
+            shape: "directory",
+            role: "additional",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".config/amp/skills",
+            shape: "directory",
+            role: "additional",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+          },
+          {
+            scope: "project",
+            root: "project",
+            path: ".claude/skills",
+            shape: "directory",
+            role: "additional",
+            status: "compat",
+            applicability: {
+              kind: "conditional",
+              condition: "Claude skill discovery must be enabled.",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".claude/skills",
+            shape: "directory",
+            role: "additional",
+            status: "compat",
+            applicability: {
+              kind: "conditional",
+              condition: "Claude skill discovery must be enabled.",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://ampcode.com/docs/customize/skills"],
+          conditions: [],
+          limitations: ["No vendor runtime or AXM writer execution was performed."],
+          claimScope:
+            "Documented skill roots, compatibility discovery and optional hosted skill repositories",
+        },
       },
       axm: {
         status: "supported",
@@ -151,7 +239,10 @@ export const ampAgent = {
       vendorStatus: { state: "active" },
       notes: null,
       docs: [],
-      sources: ["https://ampcode.com/manual#agentsmd"],
+      sources: [
+        "https://ampcode.com/manual#agentsmd",
+        "https://ampcode.com/docs/customize/agents-md",
+      ],
       scopes: ["user", "project"],
       standardsCompliance: "full",
       convention: "universal",
@@ -164,12 +255,55 @@ export const ampAgent = {
           shape: "file",
           role: "primary",
           status: "canonical",
-          applicability: { kind: "always" },
-          provenance: { kind: "capability-sources" },
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
+        },
+        {
+          scope: "user",
+          root: "home",
+          path: ".config/amp/AGENTS.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
+        },
+        {
+          scope: "user",
+          root: "home",
+          path: ".config/AGENTS.md",
+          shape: "file",
+          role: "additional",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
         },
       ],
       nestedDiscovery: true,
       importSyntax: "at-path",
+
+      review: {
+        reviewedAt: "2026-10-01",
+        sources: ["https://ampcode.com/docs/customize/agents-md"],
+        conditions: [],
+        limitations: [
+          "No vendor runtime or AXM writer execution was performed.",
+          "Hosted workspace guidance does not apply to every custom or built-in subagent.",
+        ],
+        claimScope: "AGENTS.md search and personal/workspace guidance",
+      },
     },
     axm: {
       status: "supported",
@@ -241,5 +375,29 @@ export const ampAgent = {
       lastVerified: null,
       writer: null,
     },
+  },
+
+  profile: {
+    identity: {
+      product: "Amp",
+      surface: "Amp CLI and editor integration",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: [
+        "https://ampcode.com/docs/customize/skills",
+        "https://ampcode.com/docs/customize/agents-md",
+      ],
+      conditions: [],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: mcp-server, subagent, hook, permissions.",
+      ],
+      claimScope: "Skill discovery and global guidance",
+    },
+    lifecycleQualifications: [],
   },
 } as const satisfies Agent;

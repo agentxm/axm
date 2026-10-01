@@ -172,7 +172,10 @@ export const commandCodeAgent = {
         notes:
           "Command Code Custom Agents / Sub-Agents are single Markdown files with frontmatter under .commandcode/agents (project) and ~/.commandcode/agents (user).",
         docs: [],
-        sources: ["https://commandcode.ai/docs/core-concepts/custom-agents"],
+        sources: [
+          "https://commandcode.ai/docs/core-concepts/custom-agents",
+          "https://commandcode.ai/docs/agents",
+        ],
         scopes: ["user", "project"],
         locations: [
           {
@@ -196,6 +199,14 @@ export const commandCodeAgent = {
             provenance: { kind: "capability-sources" },
           },
         ],
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://commandcode.ai/docs/agents"],
+          conditions: [],
+          limitations: ["No vendor runtime or AXM writer execution was performed."],
+          claimScope: "Project and home .commandcode/agents Markdown definitions",
+        },
       },
       axm: {
         status: "supported",
@@ -318,5 +329,26 @@ export const commandCodeAgent = {
       writer: null,
       reason: "AXM has not implemented a Command Code permission grant writer.",
     },
+  },
+
+  profile: {
+    identity: {
+      product: "Command Code",
+      surface: "Command Code CLI",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: ["https://commandcode.ai/docs/agents"],
+      conditions: [],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: skill, mcp-server, hook, instructions, permissions.",
+      ],
+      claimScope: "Custom agent definitions and scopes",
+    },
+    lifecycleQualifications: [],
   },
 } as const satisfies Agent;

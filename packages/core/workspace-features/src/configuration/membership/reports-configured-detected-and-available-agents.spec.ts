@@ -105,7 +105,7 @@ describe("Agent inventory selection", () => {
 
           expect(inventory.items).toEqual(
             expect.arrayContaining([
-              expect.objectContaining({ id: "gemini-cli", configured: true, lifecycle: "retired" }),
+              expect.objectContaining({ id: "gemini-cli", configured: true, lifecycle: "active" }),
               expect.objectContaining({ id: "roo", configured: true, lifecycle: "retired" }),
             ]),
           );

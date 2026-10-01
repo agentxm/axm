@@ -32,6 +32,52 @@ export const specification = defineSpecification({
 const config = { fileName: "AGENTS.md", gitignoreAliases: true };
 
 describe("native instruction boundaries", () => {
+  it.effect("uses the authored project instructions directly for FX and Muse Code", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped();
+      const source = path.join(root, "AGENTS.md");
+      yield* fs.writeFileString(source, "# Workspace instructions\nPreserve this content.\n");
+      const args = {
+        workspaceRoot: root,
+        scope: "project" as const,
+        configuredAgents: ["fx", "muse-code"],
+        eligibleAgentIds: ["fx", "muse-code"],
+        config,
+        symlinkSupported: true,
+        dryRun: false,
+      };
+      const installed = yield* syncInstructions(args);
+      expect(installed.snapshot.status.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            agentId: "fx",
+            targetFile: source,
+            mechanism: "native",
+            health: "ok",
+          }),
+          expect.objectContaining({
+            agentId: "muse-code",
+            targetFile: source,
+            mechanism: "native",
+            health: "ok",
+          }),
+        ]),
+      );
+      yield* syncInstructions(args);
+      yield* syncInstructions({ ...args, configuredAgents: [], eligibleAgentIds: [] });
+      expect(yield* fs.readFileString(source)).toBe(
+        "# Workspace instructions\nPreserve this content.\n",
+      );
+      expect(yield* fs.readDirectory(root)).not.toContain(".fx");
+      expect(yield* fs.readDirectory(root)).not.toContain(".muse");
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NodeServices.layer)),
+    ),
+  );
+
   it.effect("retires all probe scratch after overlapping observations finish", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;

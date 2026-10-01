@@ -19,8 +19,8 @@ const SOURCE = "AGENTS.md";
 /**
  * Frozen expectations that turn `resolveInstructionTarget` into a drift guard
  * over the whole capability catalog. Adding (or removing) an `instructions:`
- * block in a catalog agent's YAML changes its action, which fails this test
- * until the lists below — and the gap audit they mirror — are updated.
+ * block in a catalog agent changes its action, which fails this test until the
+ * lists below are updated from the reviewed native and AXM capability facts.
  *
  * Every agent NOT listed here is expected to resolve to `native` (reads the
  * shared source file directly), so the ~40 agents-md agents need no upkeep.
@@ -36,18 +36,16 @@ const EXPECTED_ADAPTER: ReadonlyArray<MaterializationTargetId> = [
   "cline",
   "continue",
   "kiro-cli",
-  "roo",
   "trae",
   "trae-cn",
   "zencoder",
 ];
-// Catalog agents without a native instruction surface, plus the synthetic
-// `universal` agent. Each is a gap-audit candidate: encoding `kind: agents-md`
-// (or own-file/rules-dir) in its catalog YAML flips it out of this list and
-// forces a deliberate update here.
+// Native absence, unverified selection, missing AXM support, and retired
+// surfaces all fail closed instead of acquiring an instruction writer.
 const EXPECTED_SKIP: ReadonlyArray<MaterializationTargetId> = [
   "aider-desk",
   "codemaker",
+  "coder-agents",
   "codestudio",
   "cortex",
   "dexto",
@@ -55,10 +53,12 @@ const EXPECTED_SKIP: ReadonlyArray<MaterializationTargetId> = [
   "goose",
   "lingma",
   "mcpjam",
+  "mimo-code",
   "minimax-code",
   "neovate",
   "openclaw",
   "replit",
+  "roo",
   "rovodev",
   "tabnine-cli",
   "warp",
@@ -201,10 +201,11 @@ describe("resolveInstructionTarget", () => {
         "/home/test/.custom-codex/AGENTS.md",
         "/home/test/.gemini/GEMINI.md",
         "/home/test/.config/opencode/AGENTS.md",
+        "/home/test/.config/amp/AGENTS.md",
       ]);
       expect(plan.items.find((item) => item.agentId === "amp")).toMatchObject({
-        action: "skip",
-        reason: "unverified-scope",
+        action: "write",
+        targetPath: "/home/test/.config/amp/AGENTS.md",
       });
     }).pipe(Effect.provide(Path.layer)),
   );

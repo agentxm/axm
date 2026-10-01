@@ -134,7 +134,8 @@ export const firebenderAgent = {
       native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: "Firebender subagents are Markdown definitions under .firebender/agents.",
+        notes:
+          "Custom agent Markdown files must be listed in the agents array of firebender.json or ~/.firebender/firebender.json. A conventional directory alone does not register an agent.",
         docs: [],
         sources: ["https://docs.firebender.com/api-reference/agents"],
         scopes: ["user", "project"],
@@ -146,10 +147,26 @@ export const firebenderAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "conditional",
+              condition:
+                "Register each Markdown file in the agents array of firebender.json; the directory is not auto-discovered.",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://docs.firebender.com/api-reference/agents"],
+          conditions: [
+            "Paths are resolved relative to the applicable project or personal configuration.",
+          ],
+          limitations: ["No vendor runtime or AXM writer execution was performed."],
+          claimScope: "Explicit custom agent path registration",
+        },
       },
       axm: {
         status: "unsupported",
@@ -334,9 +351,10 @@ export const firebenderAgent = {
   },
   permissions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "unknown" },
       vendorStatus: { state: "active" },
-      notes: null,
+      notes:
+        "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
       docs: [],
       sources: [],
     },
@@ -345,5 +363,26 @@ export const firebenderAgent = {
       lastVerified: null,
       writer: null,
     },
+  },
+
+  profile: {
+    identity: {
+      product: "Firebender",
+      surface: "Firebender IDE agent",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: ["https://docs.firebender.com/api-reference/agents"],
+      conditions: [],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: skill, mcp-server, hook, instructions, permissions.",
+      ],
+      claimScope: "Explicit registration of custom agent Markdown files",
+    },
+    lifecycleQualifications: [],
   },
 } as const satisfies Agent;

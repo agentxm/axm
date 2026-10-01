@@ -213,4 +213,27 @@ export const qoderCnAgent = {
       reason: "AXM has not implemented regional Qoder permission settings.",
     },
   },
+
+  profile: {
+    identity: {
+      product: "Qoder CN CLI",
+      surface: "Qoder CN CLI; distinct from the legacy Lingma IDE surface",
+      edition: "Mainland China CLI",
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: ["https://docs.qoder.cn/en/cli/built-ins"],
+      conditions: [
+        "The Lingma-to-Qoder CN rename does not make legacy IDE paths interchangeable with the Qoder CN CLI.",
+      ],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: skill, mcp-server, subagent, hook, instructions, permissions.",
+      ],
+      claimScope: "Current CLI built-in capabilities and product identity",
+    },
+    lifecycleQualifications: [],
+  },
 } as const satisfies Agent;

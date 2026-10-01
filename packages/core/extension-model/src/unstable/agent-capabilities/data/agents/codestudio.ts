@@ -130,7 +130,7 @@ export const codestudioAgent = {
       availability: { via: "native" },
       vendorStatus: { state: "active" },
       notes:
-        "Code Studio supports AGENTS.md and its own instruction/rule surfaces; this entry models the universal AGENTS.md surface.",
+        "The current Global Agent guide specifies lowercase agents.md at the workspace root, enabled with Agent Enabled and Use Agent MD File.",
       docs: [],
       sources: [
         "https://help.syncfusion.com/code-studio/features/globalagent",
@@ -138,22 +138,38 @@ export const codestudioAgent = {
       ],
       scopes: ["user", "project"],
       standardsCompliance: "full",
-      convention: "universal",
-      kind: "agents-md",
+      convention: "vendor",
+      kind: "own-file",
       locations: [
         {
           scope: "project",
           root: "project",
-          path: "AGENTS.md",
+          path: "agents.md",
           shape: "file",
           role: "primary",
           status: "canonical",
-          applicability: { kind: "always" },
-          provenance: { kind: "capability-sources" },
+          applicability: {
+            kind: "conditional",
+            condition: "Enable Agent Enabled and Use Agent MD File in Code Studio.",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
         },
       ],
       nestedDiscovery: false,
       importSyntax: null,
+
+      review: {
+        reviewedAt: "2026-10-01",
+        sources: ["https://help.syncfusion.com/code-studio/features/globalagent"],
+        conditions: ["Agent Enabled and Use Agent MD File must both be enabled."],
+        limitations: [
+          "No vendor runtime or AXM writer execution was performed.",
+          "Other Code Studio instruction surfaces were not reviewed.",
+        ],
+        claimScope: "Exact lowercase filename and opt-in requirements",
+      },
     },
     axm: {
       status: "unsupported",
@@ -163,9 +179,10 @@ export const codestudioAgent = {
   },
   permissions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "unknown" },
       vendorStatus: { state: "active" },
-      notes: null,
+      notes:
+        "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
       docs: [],
       sources: [],
     },
@@ -174,5 +191,26 @@ export const codestudioAgent = {
       lastVerified: null,
       writer: null,
     },
+  },
+
+  profile: {
+    identity: {
+      product: "Code Studio",
+      surface: "Code Studio editor agent",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: ["https://help.syncfusion.com/code-studio/features/globalagent"],
+      conditions: [],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: skill, mcp-server, subagent, hook, permissions.",
+      ],
+      claimScope: "Opt-in project instruction file",
+    },
+    lifecycleQualifications: [],
   },
 } as const satisfies Agent;

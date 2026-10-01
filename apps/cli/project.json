@@ -294,7 +294,6 @@
       "inputs": [
         "production",
         "^production",
-        "{projectRoot}/scripts/agent-catalog-reference.ts",
         "{projectRoot}/scripts/generate-agent-catalog.ts",
         "{workspaceRoot}/.prettierrc.json",
         "toolchain",

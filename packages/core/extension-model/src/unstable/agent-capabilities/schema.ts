@@ -322,6 +322,7 @@ export type PluginDescriptor = Schema.Schema.Type<typeof PluginDescriptorSchema>
 /** @experimental This API is unstable and may change without notice. */
 const NativeAvailabilitySchema = Schema.Struct({ via: Schema.Literal("native") });
 const NoneAvailabilitySchema = Schema.Struct({ via: Schema.Literal("none") });
+const UnknownAvailabilitySchema = Schema.Struct({ via: Schema.Literal("unknown") });
 const PluginAvailabilitySchema = Schema.Struct({
   via: Schema.Literal("plugin"),
   provider: Schema.Literals(["first-party", "third-party"]),
@@ -337,11 +338,12 @@ const AvailableCapabilityAvailabilitySchema = Schema.Union([
 export const AvailabilitySchema = Schema.Union([
   NativeAvailabilitySchema,
   NoneAvailabilitySchema,
+  UnknownAvailabilitySchema,
   PluginAvailabilitySchema,
 ]).annotate({
   identifier: "Availability",
   title: "Availability",
-  description: "Whether the agent capability surface is obtainable natively, via plugin, or not.",
+  description: "Whether a surface is native, plugin-backed, documented absent, or not established.",
 });
 
 /** @experimental This API is unstable and may change without notice. */
@@ -380,6 +382,9 @@ export type VendorStatus = Schema.Schema.Type<typeof VendorStatusSchema>;
 export const AgentInterfaceSchema = Schema.Literals([
   "cli",
   "ide-extension",
+  "desktop",
+  "embedded",
+  "workspace-agent",
   "chat",
   "hosted-agent",
 ]).annotate({
@@ -515,6 +520,65 @@ export const LastVerifiedDateSchema = Schema.NonEmptyString.pipe(
 /** @experimental This API is unstable and may change without notice. */
 export type LastVerifiedDate = Schema.Schema.Type<typeof LastVerifiedDateSchema>;
 
+/** A source review establishes only the claims within its stated scope. */
+export const CatalogReviewSchema = Schema.Struct({
+  reviewedAt: LastVerifiedDateSchema,
+  sources: Schema.NonEmptyArray(UrlSchema),
+  conditions: Schema.Array(Schema.NonEmptyString),
+  limitations: Schema.Array(Schema.NonEmptyString),
+  claimScope: Schema.optionalKey(Schema.NonEmptyString),
+}).annotate({
+  identifier: "CatalogReview",
+  description: "Documented claim review, independent of AXM or vendor runtime execution.",
+});
+
+export type CatalogReview = Schema.Schema.Type<typeof CatalogReviewSchema>;
+
+/** Execution evidence is never inferred from documentation or a legacy date. */
+export const AxmVerificationSchema = Schema.Struct({
+  verifiedAt: LastVerifiedDateSchema,
+  boundary: Schema.Literals(["configuration", "vendor-runtime"]),
+  evidence: Schema.NonEmptyArray(Schema.NonEmptyString),
+  limitations: Schema.Array(Schema.NonEmptyString),
+}).annotate({
+  identifier: "AxmVerification",
+  description: "Attributable evidence of AXM configuration output or actual vendor runtime use.",
+});
+
+export type AxmVerification = Schema.Schema.Type<typeof AxmVerificationSchema>;
+
+export const AgentProfileSchema = Schema.Struct({
+  identity: Schema.Struct({
+    product: Schema.NonEmptyString,
+    surface: Schema.NonEmptyString,
+    edition: Schema.NullOr(Schema.NonEmptyString),
+    ownership: Schema.NullOr(
+      Schema.Struct({
+        company: Schema.NonEmptyString,
+        parentCompany: Schema.NullOr(Schema.NonEmptyString),
+        sources: Schema.NonEmptyArray(UrlSchema),
+      }),
+    ),
+    modelProviders: Schema.NullOr(Schema.Array(Schema.NonEmptyString)),
+  }),
+  review: CatalogReviewSchema,
+  lifecycleQualifications: Schema.Array(
+    Schema.Struct({
+      scope: Schema.Literals(["vendor", "product", "surface", "edition"]),
+      subject: Schema.NonEmptyString,
+      state: Schema.Literals(["active", "maintenance", "deprecated", "retired"]),
+      since: Schema.NullOr(LastVerifiedDateSchema),
+      note: Schema.NonEmptyString,
+      sources: Schema.NonEmptyArray(UrlSchema),
+    }),
+  ),
+}).annotate({
+  identifier: "AgentProfile",
+  description: "Scoped product identity and research; it does not certify every capability.",
+});
+
+export type AgentProfile = Schema.Schema.Type<typeof AgentProfileSchema>;
+
 const CapabilityNotesSchema = Schema.NullOr(Schema.NonEmptyString);
 const CapabilityDocsSchema = Schema.Array(DocLinkSchema);
 const CapabilitySourcesSchema = Schema.Array(UrlSchema);
@@ -548,11 +612,12 @@ export const ProvenanceSchema = Schema.Struct(NullableProvenanceFields).annotate
 export type Provenance = Schema.Schema.Type<typeof ProvenanceSchema>;
 
 const UnavailableNativeCapabilityFields = {
-  availability: NoneAvailabilitySchema,
+  availability: Schema.Union([NoneAvailabilitySchema, UnknownAvailabilitySchema]),
   vendorStatus: VendorStatusSchema,
   notes: CapabilityNotesSchema,
   docs: CapabilityDocsSchema,
   sources: CapabilitySourcesSchema,
+  review: Schema.optionalKey(CatalogReviewSchema),
 };
 
 const AvailableNativeCapabilityBaseFields = {
@@ -561,6 +626,7 @@ const AvailableNativeCapabilityBaseFields = {
   notes: CapabilityNotesSchema,
   docs: CapabilityDocsSchema,
   sources: CapabilitySourcesSchema,
+  review: Schema.optionalKey(CatalogReviewSchema),
   scopes: NonEmptyScopesSchema,
 };
 
@@ -575,7 +641,7 @@ const AvailableSpecTrackedNativeCapabilityFields = {
 };
 
 const axmCapabilityStateDescription =
-  "AXM integration state for this capability: AXM support status, AXM verification date, optional writer metadata, and AXM-owned rationale. This is not a vendor fact.";
+  "AXM integration state. lastVerified is a legacy record date with no recorded method; only verification carries attributable execution evidence. Neither is a vendor research review.";
 
 const axmCapabilityStateSchema = <WriterSchema extends Schema.Top>(
   writerSchema: WriterSchema,
@@ -584,6 +650,7 @@ const axmCapabilityStateSchema = <WriterSchema extends Schema.Top>(
   Schema.Struct({
     status: AxmSupportSchema,
     lastVerified: Schema.NullOr(LastVerifiedDateSchema),
+    verification: Schema.optionalKey(Schema.NullOr(AxmVerificationSchema)),
     reason: Schema.optionalKey(Schema.NonEmptyString),
     writer: Schema.NullOr(writerSchema),
   }).annotate({
@@ -672,6 +739,13 @@ export const SubagentsExtensionCapabilitySchema = Schema.Struct({
       ...AvailableNativeCapabilityBaseFields,
       availability: NativeAvailabilitySchema,
       locations: Schema.Array(NativeReadLocationSchema),
+    }),
+    Schema.Struct({
+      ...AvailableNativeCapabilityBaseFields,
+      availability: NativeAvailabilitySchema,
+      modeling: Schema.Literal("native-unmodeled"),
+      scopes: Schema.Array(ScopeSchema),
+      locations: Schema.Array(Schema.Never),
     }),
     PluginSubagentsNativeCapabilitySchema,
     Schema.Struct(UnavailableNativeCapabilityFields),
@@ -777,7 +851,7 @@ export const NativeConfigReadLocationSchema = Schema.Struct({
   shape: Schema.Literal("file"),
   id: Schema.NonEmptyString,
   format: ConfigFileFormatSchema,
-  keyPath: Schema.optionalKey(Schema.NonEmptyArray(Schema.NonEmptyString)),
+  keyPath: Schema.optionalKey(Schema.Array(Schema.NonEmptyString)),
   attribution: Schema.optionalKey(Schema.Literals(["shared", "agent"])),
   gitignored: Schema.optionalKey(Schema.Boolean),
 })
@@ -1028,8 +1102,20 @@ const McpAvailableCapabilityStruct = Schema.Struct({
   axm: axmCapabilityStateSchema(Schema.Struct({ config: McpConfigSchema }), "McpAxmState"),
 });
 
+const McpUnmodeledCapabilityStruct = Schema.Struct({
+  native: Schema.Struct({
+    ...AvailableNativeCapabilityBaseFields,
+    modeling: Schema.Literal("native-unmodeled"),
+    scopes: Schema.Array(ScopeSchema),
+    locations: Schema.Array(Schema.Never),
+    entryDialect: Schema.Null,
+  }),
+  axm: NoWriterAxmCapabilityStateSchema,
+});
+
 const McpExtensionCapabilityStruct = Schema.Union([
   McpAvailableCapabilityStruct,
+  McpUnmodeledCapabilityStruct,
   McpUnavailableCapabilityStruct,
 ]);
 
@@ -1239,7 +1325,14 @@ export const HookToolMappingSchema = Schema.Struct({
 export type HookToolMapping = Schema.Schema.Type<typeof HookToolMappingSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const HookMechanismFamilySchema = Schema.Literals(["command-stdin", "raw"]).annotate({
+export const HookMechanismFamilySchema = Schema.Literals([
+  "command-stdin",
+  "http",
+  "prompt",
+  "agent",
+  "mcp",
+  "raw",
+]).annotate({
   identifier: "HookMechanismFamily",
   title: "Hook Mechanism Family",
   description: "How a native hook system invokes a hook.",
@@ -1441,6 +1534,7 @@ const HooksAvailableNativeCapabilitySchema = Schema.Struct({
 
 const HooksUnmodeledNativeCapabilitySchema = Schema.Struct({
   ...AvailableNativeCapabilityBaseFields,
+  scopes: Schema.Array(ScopeSchema),
   modeling: Schema.Literal("native-unmodeled"),
   entryDialect: Schema.NullOr(HookEntryDialectSchema),
   locations: Schema.Array(NativeConfigReadLocationSchema),
@@ -1471,12 +1565,12 @@ export const HooksExtensionCapabilitySchema = HooksExtensionCapabilityStruct.pip
         const selected = new Set(capability.axm.writer?.locationIds ?? []);
         if (
           capability.native.locations.some(
-            (location) => selected.has(location.id) && location.keyPath === undefined,
+            (location) => selected.has(location.id) && location.keyPath?.length !== 1,
           )
         )
           issues.push({
             path: ["native", "locations"],
-            issue: "Writable Hook reader locations require a static keyPath.",
+            issue: "Writable Hook reader locations require a single static container key.",
           });
       }
       if (
@@ -1788,6 +1882,7 @@ const AgentStruct = Schema.Struct({
   rootDir: Schema.NullOr(Schema.NonEmptyString),
   installTarget: Schema.optionalKey(HostedInstallTargetSchema),
   lifecycle: AgentLifecycleSchema,
+  profile: Schema.optionalKey(AgentProfileSchema),
   detection: DetectionSchema,
   docs: Schema.Array(DocLinkSchema),
   capabilities: AgentCapabilitiesSchema,

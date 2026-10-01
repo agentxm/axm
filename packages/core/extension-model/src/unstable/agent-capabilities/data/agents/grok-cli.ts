@@ -1,4 +1,5 @@
 import type { Agent } from "../../schema.js";
+
 export const grokCliAgent = {
   id: "grok-cli",
   name: "Grok Build",
@@ -6,11 +7,41 @@ export const grokCliAgent = {
   homepage: "https://x.ai/cli",
   interfaces: ["cli"],
   family: "xai",
+  profile: {
+    identity: {
+      product: "Grok Build",
+      surface: "CLI",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      claimScope:
+        "Product identity and the specific capability or lifecycle changes described in this review; other capability evidence is retained separately.",
+      reviewedAt: "2026-10-01",
+      sources: [
+        "https://docs.x.ai/build/features/skills-plugins-marketplaces",
+        "https://x.ai/news/grok-build-for-everyone",
+      ],
+      conditions: [],
+      limitations: [
+        "Official product and plugin capability reviewed; web/mobile access does not imply local-file support for hosted sessions.",
+        "This review does not renew historical AXM runtime verification.",
+      ],
+    },
+    lifecycleQualifications: [],
+  },
   rootDir: ".grok",
-  lifecycle: { state: "active" },
+  lifecycle: {
+    state: "active",
+  },
   detection: {
-    project: { markers: [] },
-    user: { markers: [] },
+    project: {
+      markers: [],
+    },
+    user: {
+      markers: [],
+    },
   },
   docs: [
     {
@@ -21,8 +52,12 @@ export const grokCliAgent = {
   capabilities: {
     skill: {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes:
           "Reads SKILL.md Agent Skills from project (.grok/skills) and user (~/.grok/skills, ~/.agents/skills) locations, plus additional paths configured via [skills] in ~/.grok/config.toml.\n",
         docs: [],
@@ -38,8 +73,12 @@ export const grokCliAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
           {
             scope: "user",
@@ -48,8 +87,12 @@ export const grokCliAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
           {
             scope: "user",
@@ -58,8 +101,12 @@ export const grokCliAgent = {
             shape: "directory",
             role: "additional",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
       },
@@ -71,8 +118,12 @@ export const grokCliAgent = {
     },
     "mcp-server": {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes:
           "MCP servers are managed with grok mcp commands or [mcp_servers] tables in ~/.grok/config.toml and project .grok/config.toml. Grok also reads ~/.claude.json, .cursor/mcp.json, and .mcp.json compatibility files.",
         docs: [],
@@ -81,10 +132,11 @@ export const grokCliAgent = {
         standardsCompliance: "partial",
         convention: "vendor",
         transports: ["stdio", "http", "sse"],
-        mcpEnvExpansion: { variables: "braced", defaults: true },
-
+        mcpEnvExpansion: {
+          variables: "braced",
+          defaults: true,
+        },
         locations: [],
-
         entryDialect: null,
       },
       axm: {
@@ -96,8 +148,12 @@ export const grokCliAgent = {
     },
     subagent: {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes:
           "Agent definitions are Markdown files in .grok/agents or ~/.grok/agents and may add new subagent types or shadow the built-in general-purpose, explore, and plan types. Personas are a separate TOML overlay under .grok/personas and are not modeled as subagents.",
         docs: [],
@@ -114,8 +170,12 @@ export const grokCliAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
           {
             scope: "user",
@@ -124,8 +184,12 @@ export const grokCliAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
       },
@@ -137,17 +201,19 @@ export const grokCliAgent = {
     },
     hook: {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes:
           "xAI Grok CLI discovers hook scripts from .grok hooks paths and also advertises Claude Code hook compatibility. Exact in-app hook event details should be reverified before adding a writer.",
         docs: [],
         sources: ["https://docs.x.ai/build/features/skills-plugins-marketplaces"],
         scopes: ["user", "project"],
         modeling: "native-unmodeled",
-
         locations: [],
-
         entryDialect: null,
       },
       axm: {
@@ -160,8 +226,12 @@ export const grokCliAgent = {
   },
   instructions: {
     native: {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
+      availability: {
+        via: "native",
+      },
+      vendorStatus: {
+        state: "active",
+      },
       notes:
         "Project rules are merged by directory depth from the repository root. Grok also reads documented AGENTS.md filename variants and Markdown files in .grok/rules, with compatibility for .claude/rules and .cursor/rules; AXM writes the universal AGENTS.md surface.",
       docs: [],
@@ -178,8 +248,12 @@ export const grokCliAgent = {
           shape: "file",
           role: "primary",
           status: "canonical",
-          applicability: { kind: "always" },
-          provenance: { kind: "capability-sources" },
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
         },
       ],
       nestedDiscovery: true,
@@ -193,8 +267,12 @@ export const grokCliAgent = {
   },
   permissions: {
     native: {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
+      availability: {
+        via: "native",
+      },
+      vendorStatus: {
+        state: "active",
+      },
       notes:
         "Grok [permission] settings define allow, deny, and ask lists using Tool(pattern) rules. UI permission modes and CLI flags provide coarse approval behavior in addition to the per-tool grammar.",
       docs: [],

@@ -1,4 +1,5 @@
 import type { Agent } from "../../schema.js";
+
 export const devinAgent = {
   id: "devin",
   name: "Devin CLI",
@@ -6,12 +7,54 @@ export const devinAgent = {
   homepage: "https://devin.ai",
   interfaces: ["cli"],
   family: null,
+  profile: {
+    identity: {
+      product: "Devin",
+      surface: "CLI",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      claimScope:
+        "Product identity and the specific capability or lifecycle changes described in this review; other capability evidence is retained separately.",
+      reviewedAt: "2026-10-01",
+      sources: [
+        "https://docs.devin.ai/cli/subagents",
+        "https://docs.devin.ai/cli/extensibility/mcp/configuration",
+      ],
+      conditions: [],
+      limitations: [
+        "Flat and directory subagent forms reviewed; MCP uses current CLI documentation rather than older desktop configuration descriptions.",
+        "This review does not renew historical AXM runtime verification.",
+      ],
+    },
+    lifecycleQualifications: [],
+  },
   rootDir: ".devin",
-  lifecycle: { state: "active" },
+  lifecycle: {
+    state: "active",
+  },
   detection: {
-    project: { markers: [{ kind: "dir", path: ".devin", signal: "definitive", note: null }] },
+    project: {
+      markers: [
+        {
+          kind: "dir",
+          path: ".devin",
+          signal: "definitive",
+          note: null,
+        },
+      ],
+    },
     user: {
-      markers: [{ kind: "dir", path: "$XDG_CONFIG_HOME/devin", signal: "definitive", note: null }],
+      markers: [
+        {
+          kind: "dir",
+          path: "$XDG_CONFIG_HOME/devin",
+          signal: "definitive",
+          note: null,
+        },
+      ],
     },
   },
   docs: [
@@ -23,8 +66,12 @@ export const devinAgent = {
   capabilities: {
     skill: {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes:
           "Devin also reads universal .agents/skills locations; AXM targets the native .devin/skills project path and XDG user path.\n",
         docs: [],
@@ -40,8 +87,12 @@ export const devinAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
       },
@@ -53,8 +104,12 @@ export const devinAgent = {
     },
     "mcp-server": {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes:
           "Devin CLI stores MCP servers under mcpServers in layered config files. Remote URL servers default to Streamable HTTP and can fall back to SSE.",
         docs: [],
@@ -67,7 +122,6 @@ export const devinAgent = {
           variables: "braced",
           defaults: false,
         },
-
         locations: [
           {
             id: "project",
@@ -106,14 +160,27 @@ export const devinAgent = {
             attribution: "agent",
           },
         ],
-
         entryDialect: {
           activationField: {
-            required: { name: "disabled", enabled: false, disabled: true },
-            accepted: [{ name: "disabled", enabled: false, disabled: true }, null],
+            required: {
+              name: "disabled",
+              enabled: false,
+              disabled: true,
+            },
+            accepted: [
+              {
+                name: "disabled",
+                enabled: false,
+                disabled: true,
+              },
+              null,
+            ],
           },
           stdio: {
-            typeField: { required: null, accepted: [null] },
+            typeField: {
+              required: null,
+              accepted: [null],
+            },
             command: "split",
             envKey: "env",
           },
@@ -156,8 +223,12 @@ export const devinAgent = {
     },
     subagent: {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes:
           "Custom Devin CLI subagents are AGENT.md files under .devin/agents, .agents/agents, or the global Devin agents directory. Claude Code .claude/agents/*.md files are also imported.",
         docs: [],
@@ -171,8 +242,12 @@ export const devinAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
       },
@@ -184,8 +259,12 @@ export const devinAgent = {
     },
     hook: {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes:
           "Devin CLI hooks are compatible with Claude Code hooks. AXM writes to the hooks key in .devin/config.json rather than the standalone hooks.v1.json file.",
         docs: [],
@@ -270,27 +349,59 @@ export const devinAgent = {
           {
             nativeName: "SessionStart",
             canonical: "session.start",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "observe" }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+            ],
             sources: ["https://docs.devin.ai/cli/extensibility/hooks/overview"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "UserPromptSubmit",
             canonical: "prompt.submit",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+              {
+                kind: "modify",
+                operations: ["inject-context"],
+              },
+            ],
             sources: ["https://docs.devin.ai/cli/extensibility/hooks/overview"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "PreToolUse",
             canonical: "tool.pre",
-            matcher: { kind: "regex", example: "exec|edit|write", notes: null },
+            matcher: {
+              kind: "regex",
+              example: "exec|edit|write",
+              notes: null,
+            },
             decision: [
-              { kind: "observe" },
-              { kind: "block", outcomes: ["allow", "deny"] },
-              { kind: "modify", operations: ["modify-input"] },
+              {
+                kind: "observe",
+              },
+              {
+                kind: "block",
+                outcomes: ["allow", "deny"],
+              },
+              {
+                kind: "modify",
+                operations: ["modify-input"],
+              },
             ],
             sources: ["https://docs.devin.ai/cli/extensibility/hooks/overview"],
             lastVerified: "2026-08-05",
@@ -298,16 +409,32 @@ export const devinAgent = {
           {
             nativeName: "PostToolUse",
             canonical: "tool.post",
-            matcher: { kind: "regex", example: "exec|edit|write", notes: null },
-            decision: [{ kind: "observe" }],
+            matcher: {
+              kind: "regex",
+              example: "exec|edit|write",
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+            ],
             sources: ["https://docs.devin.ai/cli/extensibility/hooks/overview"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "Stop",
             canonical: "turn.end",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "observe" }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+            ],
             sources: ["https://docs.devin.ai/cli/extensibility/hooks/overview"],
             lastVerified: "2026-08-05",
           },
@@ -338,7 +465,6 @@ export const devinAgent = {
             lastVerified: "2026-08-05",
           },
         ],
-
         entryDialect: {
           serializer: "command-stdin",
           matcherKind: "regex",
@@ -351,7 +477,6 @@ export const devinAgent = {
         status: "supported",
         writer: {
           locationIds: ["project-additional-1"],
-
           eventMap: "native.events",
         },
         lastVerified: "2026-08-05",
@@ -360,8 +485,12 @@ export const devinAgent = {
   },
   instructions: {
     native: {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
+      availability: {
+        via: "native",
+      },
+      vendorStatus: {
+        state: "active",
+      },
       notes: null,
       docs: [],
       sources: ["https://docs.devin.ai/cli/extensibility/rules"],
@@ -377,8 +506,12 @@ export const devinAgent = {
           shape: "file",
           role: "primary",
           status: "canonical",
-          applicability: { kind: "always" },
-          provenance: { kind: "capability-sources" },
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
         },
       ],
       nestedDiscovery: true,
@@ -392,8 +525,12 @@ export const devinAgent = {
   },
   permissions: {
     native: {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
+      availability: {
+        via: "native",
+      },
+      vendorStatus: {
+        state: "active",
+      },
       notes:
         "Devin CLI permissions use allow/ask/deny arrays in layered config files. Rules cover scope matchers such as Read/Write/Exec/Fetch and tool names such as read/edit/grep/glob/exec.",
       docs: [],
@@ -477,7 +614,10 @@ export const devinAgent = {
       writer: {
         grants: {
           shell: {
-            destination: { kind: "location", locationId: "project" },
+            destination: {
+              kind: "location",
+              locationId: "project",
+            },
             patch: {
               permissions: {
                 allow: ["Exec(${tool})"],
@@ -486,7 +626,10 @@ export const devinAgent = {
             template: null,
           },
           filesystem: {
-            destination: { kind: "location", locationId: "project" },
+            destination: {
+              kind: "location",
+              locationId: "project",
+            },
             patch: {
               permissions: {
                 allow: ["Read(**)", "Write(**)", "edit"],

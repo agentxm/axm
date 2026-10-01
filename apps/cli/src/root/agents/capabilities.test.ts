@@ -23,9 +23,9 @@ describe("agents capabilities.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleAgentsCapabilities("gemini-cli");
+        yield* handleAgentsCapabilities("codemaker");
 
-        expect(rendererState.tables[0]?.caption).toContain("retired -> antigravity");
+        expect(rendererState.tables[0]?.caption).toContain("retired");
       }),
     );
   });

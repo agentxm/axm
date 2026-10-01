@@ -37,10 +37,36 @@ export const pochiAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+          },
+          {
+            scope: "project",
+            root: "project",
+            path: ".agents/skills",
+            shape: "directory",
+            role: "additional",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://docs.getpochi.com/skills/"],
+          conditions: [],
+          limitations: ["No vendor runtime or AXM writer execution was performed."],
+          claimScope: "Project Pochi and shared skill roots and invocation controls",
+        },
       },
       axm: {
         status: "supported",
@@ -137,11 +163,52 @@ export const pochiAgent = {
     },
     subagent: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Custom agents are Markdown files in project or home .pochi/agents with YAML frontmatter. Description is required; name defaults to the filename.",
         docs: [],
-        sources: [],
+        sources: ["https://docs.getpochi.com/custom-agent/"],
+
+        scopes: ["user", "project"],
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".pochi/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".pochi/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+          },
+        ],
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://docs.getpochi.com/custom-agent/"],
+          conditions: [],
+          limitations: ["No vendor runtime or AXM writer execution was performed."],
+          claimScope:
+            "Custom agents are Markdown files in project or home .pochi/agents with YAML frontmatter. Description is required; name defaults to the filename.",
+        },
       },
       axm: {
         status: "unsupported",
@@ -151,9 +218,10 @@ export const pochiAgent = {
     },
     hook: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "unknown" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
         docs: [],
         sources: [],
       },
@@ -199,16 +267,60 @@ export const pochiAgent = {
   },
   permissions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "native" },
       vendorStatus: { state: "active" },
-      notes: null,
+      notes:
+        "UI Auto-Approve controls cover reading, writing, execution, MCP use and retry behavior.",
       docs: [],
-      sources: [],
+      sources: ["https://docs.getpochi.com/permissions/"],
+
+      scopes: ["user"],
+      mechanism: ["ui-only"],
+      locations: [],
+      grammar: null,
+      prerequisites: [],
+      cliFlags: [],
+      review: {
+        reviewedAt: "2026-10-01",
+        sources: ["https://docs.getpochi.com/permissions/"],
+        conditions: [],
+        limitations: [
+          "No vendor runtime or AXM writer execution was performed.",
+          "No AXM permission writer was verified.",
+        ],
+        claimScope:
+          "UI Auto-Approve controls cover reading, writing, execution, MCP use and retry behavior.",
+      },
     },
     axm: {
       status: "unsupported",
       lastVerified: null,
       writer: null,
     },
+  },
+
+  profile: {
+    identity: {
+      product: "Pochi",
+      surface: "Pochi editor agent and CLI",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: [
+        "https://docs.getpochi.com/custom-agent/",
+        "https://docs.getpochi.com/permissions/",
+        "https://docs.getpochi.com/skills/",
+      ],
+      conditions: [],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: mcp-server, hook, instructions.",
+      ],
+      claimScope: "Custom agent Markdown definitions and UI approvals",
+    },
+    lifecycleQualifications: [],
   },
 } as const satisfies Agent;

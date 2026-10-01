@@ -77,7 +77,10 @@ export const droidAgent = {
         vendorStatus: { state: "active" },
         notes: "Factory custom droids are Markdown files under .factory/droids.",
         docs: [],
-        sources: ["https://docs.factory.ai/cli/configuration/custom-droids"],
+        sources: [
+          "https://docs.factory.ai/cli/configuration/custom-droids",
+          "https://docs.factory.ai/harness/subagents",
+        ],
         scopes: ["user", "project"],
         locations: [
           {
@@ -87,10 +90,39 @@ export const droidAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".factory/droids",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://docs.factory.ai/harness/subagents"],
+          conditions: [],
+          limitations: [
+            "No vendor runtime or AXM writer execution was performed.",
+            "Subagents do not spawn further subagents or use AskUser.",
+          ],
+          claimScope: "Custom droids and builtin delegation boundaries",
+        },
       },
       axm: {
         status: "unsupported",
@@ -102,9 +134,13 @@ export const droidAgent = {
       native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: "Factory hooks execute commands with event payloads on standard input.",
+        notes:
+          "Factory prefers .factory/hooks.json and ~/.factory/hooks.json with an unwrapped event map. The hooks key in settings files is a fallback; older .factory/hooks/hooks.json is a migration source.",
         docs: [],
-        sources: ["https://docs.factory.ai/cli/configuration/hooks-guide"],
+        sources: [
+          "https://docs.factory.ai/cli/configuration/hooks-guide",
+          "https://docs.factory.ai/harness/hooks",
+        ],
         scopes: ["user", "project"],
         mechanism: ["command-stdin"],
         locations: [
@@ -124,6 +160,7 @@ export const droidAgent = {
             },
             format: "json",
             gitignored: false,
+            keyPath: [],
           },
           {
             id: "project",
@@ -141,6 +178,61 @@ export const droidAgent = {
             },
             format: "json",
             gitignored: false,
+            keyPath: [],
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".factory/settings.json",
+            shape: "file",
+            role: "additional",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            id: "user-settings",
+            format: "json",
+            keyPath: [],
+            attribution: "agent",
+          },
+          {
+            scope: "project",
+            root: "project",
+            path: ".factory/settings.json",
+            shape: "file",
+            role: "additional",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            id: "project-settings",
+            format: "json",
+            keyPath: [],
+            attribution: "agent",
+          },
+          {
+            scope: "project",
+            root: "project",
+            path: ".factory/settings.local.json",
+            shape: "file",
+            role: "additional",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            id: "project-local-settings",
+            format: "json",
+            keyPath: [],
+            attribution: "agent",
           },
         ],
         events: [
@@ -229,6 +321,19 @@ export const droidAgent = {
         ],
 
         entryDialect: null,
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://docs.factory.ai/harness/hooks"],
+          conditions: [
+            "Canonical hooks.json uses an unwrapped event map; settings.json wraps entries in hooks.",
+          ],
+          limitations: [
+            "No vendor runtime or AXM writer execution was performed.",
+            "Existing event mappings are not an exhaustive review of every hook event.",
+          ],
+          claimScope: "Canonical hooks.json files and settings-file fallback",
+        },
       },
       axm: {
         status: "unsupported",
@@ -337,5 +442,29 @@ export const droidAgent = {
       lastVerified: null,
       writer: null,
     },
+  },
+
+  profile: {
+    identity: {
+      product: "Droid",
+      surface: "Factory Droid shared harness; CLI configuration",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: [
+        "https://docs.factory.ai/harness/hooks",
+        "https://docs.factory.ai/harness/subagents",
+      ],
+      conditions: [],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: skill, mcp-server, instructions, permissions.",
+      ],
+      claimScope: "Hook configuration and custom droids",
+    },
+    lifecycleQualifications: [],
   },
 } as const satisfies Agent;

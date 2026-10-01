@@ -1,17 +1,5 @@
 import type { Agent } from "../../schema.js";
 
-const claudePlugin = {
-  name: "Claude plugins",
-  homepage: "https://support.claude.com/en/articles/13837440-use-plugins-in-claude",
-  author: "Anthropic",
-  distribution: {
-    mechanism: "agent-native",
-    installHint: "Install or upload the plugin from Customize > Plugins in Cowork.",
-    packageRef: null,
-  },
-  detection: null,
-} as const;
-
 export const coworkAgent = {
   id: "cowork",
   name: "Claude Cowork",
@@ -19,6 +7,27 @@ export const coworkAgent = {
   homepage: "https://claude.ai",
   interfaces: ["hosted-agent"],
   family: "claude",
+  profile: {
+    identity: {
+      product: "Claude Cowork",
+      surface: "Hosted task runtime across web, desktop and mobile",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      claimScope:
+        "Product identity and the specific capability or lifecycle changes described in this review; other capability evidence is retained separately.",
+      reviewedAt: "2026-10-01",
+      sources: ["https://support.claude.com/en/articles/13345190-get-started-with-cowork"],
+      conditions: [],
+      limitations: [
+        "Product surface reviewed; no hosted interoperability exercise was performed.",
+        "This review does not renew historical AXM runtime verification.",
+      ],
+    },
+    lifecycleQualifications: [],
+  },
   rootDir: null,
   installTarget: {
     kind: "hosted",
@@ -28,8 +37,17 @@ export const coworkAgent = {
       "Run axm lint to validate the skill, package its folder as a ZIP, then use Customize > Skills in Cowork to upload it or install a shared skill from the directory.",
     docs: "https://support.claude.com/en/articles/12512180-use-skills-in-claude",
   },
-  lifecycle: { state: "active" },
-  detection: { project: { markers: [] }, user: { markers: [] } },
+  lifecycle: {
+    state: "active",
+  },
+  detection: {
+    project: {
+      markers: [],
+    },
+    user: {
+      markers: [],
+    },
+  },
   docs: [
     {
       label: "Use skills in Claude",
@@ -47,8 +65,12 @@ export const coworkAgent = {
   capabilities: {
     skill: {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes:
           "Cowork uses the Claude account's custom and shared skills, which are uploaded as ZIP-packaged skill folders or installed from an organization directory.",
         docs: [],
@@ -57,12 +79,20 @@ export const coworkAgent = {
         standardsCompliance: "full",
         convention: "hosted",
       },
-      axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
+      axm: {
+        status: "supported",
+        lastVerified: "2026-08-05",
+        writer: null,
+      },
     },
     "mcp-server": {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes:
           "Cowork uses Claude account connectors backed by publicly reachable remote MCP servers.",
         docs: [],
@@ -73,9 +103,7 @@ export const coworkAgent = {
         standardsCompliance: "full",
         convention: "hosted",
         transports: ["http"],
-
         locations: [],
-
         entryDialect: null,
       },
       axm: {
@@ -87,8 +115,24 @@ export const coworkAgent = {
     },
     subagent: {
       native: {
-        availability: { via: "plugin", provider: "first-party", plugin: claudePlugin },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "plugin",
+          provider: "first-party",
+          plugin: {
+            name: "Claude plugins",
+            homepage: "https://support.claude.com/en/articles/13837440-use-plugins-in-claude",
+            author: "Anthropic",
+            distribution: {
+              mechanism: "agent-native",
+              installHint: "Install or upload the plugin from Customize > Plugins in Cowork.",
+              packageRef: null,
+            },
+            detection: null,
+          },
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes: "Claude plugins can bundle subagents, which run only in Cowork.",
         docs: [],
         sources: ["https://support.claude.com/en/articles/13837440-use-plugins-in-claude"],
@@ -103,16 +147,30 @@ export const coworkAgent = {
     },
     hook: {
       native: {
-        availability: { via: "plugin", provider: "first-party", plugin: claudePlugin },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "plugin",
+          provider: "first-party",
+          plugin: {
+            name: "Claude plugins",
+            homepage: "https://support.claude.com/en/articles/13837440-use-plugins-in-claude",
+            author: "Anthropic",
+            distribution: {
+              mechanism: "agent-native",
+              installHint: "Install or upload the plugin from Customize > Plugins in Cowork.",
+              packageRef: null,
+            },
+            detection: null,
+          },
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes: "Claude plugin hooks run only in Cowork; event mechanics are not cataloged yet.",
         docs: [],
         sources: ["https://support.claude.com/en/articles/13837440-use-plugins-in-claude"],
         scopes: ["user"],
         modeling: "native-unmodeled",
-
         locations: [],
-
         entryDialect: null,
       },
       axm: {
@@ -125,22 +183,38 @@ export const coworkAgent = {
   },
   instructions: {
     native: {
-      availability: { via: "none" },
-      vendorStatus: { state: "active" },
-      notes: null,
+      availability: {
+        via: "unknown",
+      },
+      vendorStatus: {
+        state: "active",
+      },
+      notes: "No scoped primary-source evidence establishes absence of this capability.",
       docs: [],
       sources: [],
     },
-    axm: { status: "unsupported", lastVerified: null, writer: null },
+    axm: {
+      status: "unsupported",
+      lastVerified: null,
+      writer: null,
+    },
   },
   permissions: {
     native: {
-      availability: { via: "none" },
-      vendorStatus: { state: "active" },
-      notes: null,
+      availability: {
+        via: "unknown",
+      },
+      vendorStatus: {
+        state: "active",
+      },
+      notes: "No scoped primary-source evidence establishes absence of this capability.",
       docs: [],
       sources: [],
     },
-    axm: { status: "unsupported", lastVerified: null, writer: null },
+    axm: {
+      status: "unsupported",
+      lastVerified: null,
+      writer: null,
+    },
   },
 } as const satisfies Agent;

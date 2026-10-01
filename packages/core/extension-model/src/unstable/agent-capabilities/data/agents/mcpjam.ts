@@ -41,6 +41,17 @@ export const mcpjamAgent = {
             provenance: { kind: "capability-sources" },
           },
         ],
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://docs.mcpjam.com/inspector/skills"],
+          conditions: [],
+          limitations: [
+            "No vendor runtime or AXM writer execution was performed.",
+            "Existing local filesystem reader paths were not revalidated by the hosted workflow review.",
+          ],
+          claimScope: "Skill use in local Inspector and cloud projects",
+        },
       },
       axm: {
         status: "supported",
@@ -75,9 +86,10 @@ export const mcpjamAgent = {
     },
     subagent: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "unknown" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
         docs: [],
         sources: [],
       },
@@ -89,9 +101,10 @@ export const mcpjamAgent = {
     },
     hook: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "unknown" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
         docs: [],
         sources: [],
       },
@@ -104,9 +117,10 @@ export const mcpjamAgent = {
   },
   instructions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "unknown" },
       vendorStatus: { state: "active" },
-      notes: null,
+      notes:
+        "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
       docs: [],
       sources: [],
     },
@@ -118,9 +132,10 @@ export const mcpjamAgent = {
   },
   permissions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "unknown" },
       vendorStatus: { state: "active" },
-      notes: null,
+      notes:
+        "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
       docs: [],
       sources: [],
     },
@@ -129,5 +144,26 @@ export const mcpjamAgent = {
       lastVerified: null,
       writer: null,
     },
+  },
+
+  profile: {
+    identity: {
+      product: "MCPJam",
+      surface: "MCPJam local Inspector; cloud skill workflows are a separate surface",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: ["https://docs.mcpjam.com/inspector/skills"],
+      conditions: [],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: mcp-server, subagent, hook, instructions, permissions.",
+      ],
+      claimScope: "Local and hosted skill use",
+    },
+    lifecycleQualifications: [],
   },
 } as const satisfies Agent;

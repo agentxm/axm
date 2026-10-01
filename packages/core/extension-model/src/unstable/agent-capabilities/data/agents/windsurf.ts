@@ -1,4 +1,5 @@
 import type { Agent } from "../../schema.js";
+
 export const windsurfAgent = {
   id: "windsurf",
   name: "Devin Desktop (Windsurf)",
@@ -6,11 +7,41 @@ export const windsurfAgent = {
   homepage: "https://devin.ai/desktop",
   interfaces: ["ide-extension"],
   family: "cognition",
+  profile: {
+    identity: {
+      product: "Devin Desktop",
+      surface: "Desktop",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      claimScope:
+        "Product identity and the specific capability or lifecycle changes described in this review; other capability evidence is retained separately.",
+      reviewedAt: "2026-10-01",
+      sources: [
+        "https://docs.devin.ai/desktop/changelog",
+        "https://docs.devin.ai/desktop/devin-local",
+      ],
+      conditions: [],
+      limitations: [
+        "Cascade removal and Devin Local reviewed. Stable catalog ID is retained; legacy Cascade capability paths are not automatically Devin Local paths.",
+        "This review does not renew historical AXM runtime verification.",
+      ],
+    },
+    lifecycleQualifications: [],
+  },
   rootDir: ".windsurf",
-  lifecycle: { state: "active" },
+  lifecycle: {
+    state: "active",
+  },
   detection: {
-    project: { markers: [] },
-    user: { markers: [] },
+    project: {
+      markers: [],
+    },
+    user: {
+      markers: [],
+    },
   },
   docs: [
     {
@@ -25,8 +56,12 @@ export const windsurfAgent = {
   capabilities: {
     skill: {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes:
           "Devin Desktop reads SKILL.md skills from .windsurf/skills (project) and ~/.codeium/windsurf/skills (user) with progressive disclosure. It also discovers universal .agents/skills paths. The built-in Cascade agent reached end-of-life 2026-07-01 and is being replaced by Devin Local; the .windsurf/* and ~/.codeium/windsurf/* config surfaces persist under Devin Local.\n",
         docs: [],
@@ -42,8 +77,12 @@ export const windsurfAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
           {
             scope: "user",
@@ -52,8 +91,12 @@ export const windsurfAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
       },
@@ -65,8 +108,12 @@ export const windsurfAgent = {
     },
     "mcp-server": {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes: null,
         docs: [],
         sources: ["https://docs.devin.ai/desktop/cascade/mcp"],
@@ -78,7 +125,6 @@ export const windsurfAgent = {
           variables: "braced",
           defaults: false,
         },
-
         locations: [
           {
             id: "user",
@@ -99,19 +145,24 @@ export const windsurfAgent = {
             attribution: "agent",
           },
         ],
-
         entryDialect: {
           activationField: {
             required: null,
             accepted: [null],
           },
           stdio: {
-            typeField: { required: null, accepted: [null] },
+            typeField: {
+              required: null,
+              accepted: [null],
+            },
             command: "split",
             envKey: "env",
           },
           remote: {
-            typeField: { required: null, accepted: [null] },
+            typeField: {
+              required: null,
+              accepted: [null],
+            },
             urlKey: {
               "streamable-http": "serverUrl",
             },
@@ -131,10 +182,14 @@ export const windsurfAgent = {
     },
     subagent: {
       native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "unknown",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes:
-          "Cascade exposes only built-in and internal subagents plus multi-agent sessions; no user-authorable custom subagent extension type is documented.\n",
+          "The reviewed desktop instruction documentation does not establish a reusable custom-subagent target. This is not evidence that the current product lacks subagents.",
         docs: [],
         sources: ["https://docs.devin.ai/desktop/cascade/agents-md"],
       },
@@ -146,8 +201,12 @@ export const windsurfAgent = {
     },
     hook: {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes:
           "Devin Desktop/Cascade hooks are direct per-event command arrays in hooks.json. AXM's generic hook writer emits grouped command-stdin hooks and cannot serialize this shape yet.",
         docs: [],
@@ -194,88 +253,196 @@ export const windsurfAgent = {
           {
             nativeName: "pre_read_code",
             canonical: "tool.pre",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+              {
+                kind: "block",
+                outcomes: ["allow", "deny"],
+              },
+            ],
             sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "post_read_code",
             canonical: "tool.post",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "observe" }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+            ],
             sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "pre_write_code",
             canonical: "tool.pre",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+              {
+                kind: "block",
+                outcomes: ["allow", "deny"],
+              },
+            ],
             sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "post_write_code",
             canonical: "tool.post",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "observe" }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+            ],
             sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "pre_run_command",
             canonical: "tool.pre",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+              {
+                kind: "block",
+                outcomes: ["allow", "deny"],
+              },
+            ],
             sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "post_run_command",
             canonical: "tool.post",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "observe" }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+            ],
             sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "pre_mcp_tool_use",
             canonical: "tool.pre",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+              {
+                kind: "block",
+                outcomes: ["allow", "deny"],
+              },
+            ],
             sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "post_mcp_tool_use",
             canonical: "tool.post",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "observe" }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+            ],
             sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "pre_user_prompt",
             canonical: "prompt.submit",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+              {
+                kind: "block",
+                outcomes: ["allow", "deny"],
+              },
+            ],
             sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "post_cascade_response",
             canonical: "turn.end",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "observe" }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+            ],
             sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "post_cascade_response_with_transcript",
             canonical: "turn.end",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "observe" }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+            ],
             sources: ["https://docs.devin.ai/desktop/cascade/hooks"],
             lastVerified: "2026-08-05",
           },
@@ -306,7 +473,6 @@ export const windsurfAgent = {
             lastVerified: "2026-08-05",
           },
         ],
-
         entryDialect: null,
       },
       axm: {
@@ -319,8 +485,12 @@ export const windsurfAgent = {
   },
   instructions: {
     native: {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
+      availability: {
+        via: "native",
+      },
+      vendorStatus: {
+        state: "active",
+      },
       notes: null,
       docs: [],
       sources: ["https://docs.devin.ai/desktop/cascade/agents-md"],
@@ -336,8 +506,12 @@ export const windsurfAgent = {
           shape: "file",
           role: "primary",
           status: "canonical",
-          applicability: { kind: "always" },
-          provenance: { kind: "capability-sources" },
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
         },
         {
           scope: "project",
@@ -346,8 +520,12 @@ export const windsurfAgent = {
           shape: "directory",
           role: "additional",
           status: "canonical",
-          applicability: { kind: "always" },
-          provenance: { kind: "capability-sources" },
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
         },
       ],
       nestedDiscovery: true,
@@ -361,8 +539,12 @@ export const windsurfAgent = {
   },
   permissions: {
     native: {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
+      availability: {
+        via: "native",
+      },
+      vendorStatus: {
+        state: "active",
+      },
       notes: null,
       docs: [],
       sources: ["https://docs.devin.ai/desktop/terminal", "https://docs.devin.ai/desktop/cascade"],
@@ -391,7 +573,9 @@ export const windsurfAgent = {
       writer: {
         grants: {
           shell: {
-            destination: { kind: "settings-ui" },
+            destination: {
+              kind: "settings-ui",
+            },
             patch: {
               "windsurf.cascadeCommandsAllowList": ["${tool}"],
             },

@@ -1,23 +1,45 @@
-import type { Agent, AgentExtensionCapability, PermissionsExtensionCapability } from "./schema.js";
+import * as Schema from "effect/Schema";
+import {
+  AxmSupportSchema,
+  LastVerifiedDateSchema,
+  type Agent,
+  type AgentExtensionCapability,
+  type PermissionsExtensionCapability,
+} from "./schema.js";
 
 /** @experimental This API is unstable and may change without notice. */
 export const CAPABILITY_VERIFICATION_BUDGET_DAYS = {
   skill: 90,
+  "mcp-server": 90,
+  subagent: 90,
+  hook: 90,
+  rule: 90,
+  permissions: 90,
 } as const;
 
 /** @experimental This API is unstable and may change without notice. */
 export type AgentCapabilitySlot = keyof Agent["capabilities"] | "rule" | "permissions";
 
 /** @experimental This API is unstable and may change without notice. */
-export interface CapabilityVerificationAge {
-  readonly agentId: string;
-  readonly capability: AgentCapabilitySlot;
-  readonly status: AgentExtensionCapability["axm"]["status"];
-  readonly lastVerified: string | null;
-  readonly ageDays: number | null;
-  readonly budgetDays: number | null;
-  readonly overdue: boolean;
-}
+export const CapabilityVerificationAgeSchema = Schema.Struct({
+  agentId: Schema.String,
+  capability: Schema.Literals(["skill", "mcp-server", "subagent", "hook", "rule", "permissions"]),
+  status: AxmSupportSchema,
+  legacyLastVerified: Schema.NullOr(LastVerifiedDateSchema),
+  legacyAgeDays: Schema.NullOr(Schema.Number),
+  reviewedAt: Schema.NullOr(LastVerifiedDateSchema),
+  reviewAgeDays: Schema.NullOr(Schema.Number),
+  reviewMissing: Schema.Boolean,
+  verifiedAt: Schema.NullOr(LastVerifiedDateSchema),
+  verificationAgeDays: Schema.NullOr(Schema.Number),
+  verificationMissing: Schema.Boolean,
+  verificationBoundary: Schema.NullOr(Schema.Literals(["configuration", "vendor-runtime"])),
+  budgetDays: Schema.Number,
+  reviewOverdue: Schema.Boolean,
+  verificationOverdue: Schema.Boolean,
+});
+
+export type CapabilityVerificationAge = Schema.Schema.Type<typeof CapabilityVerificationAgeSchema>;
 
 type VerifiableCapability = AgentExtensionCapability | PermissionsExtensionCapability;
 
@@ -41,8 +63,9 @@ const ageInDays = (lastVerified: string, asOf: string): number => {
 };
 
 /**
- * Reports verification age for every catalog capability independently. Pass an
- * ISO date explicitly so CI and maintenance tooling produce reproducible output.
+ * Reports source review, execution verification and historical record age
+ * independently. Missing evidence stays missing, even after a profile review.
+ * Pass an ISO date explicitly so maintenance tooling is reproducible.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -52,21 +75,31 @@ export const capabilityVerificationAgeReport = (
 ): ReadonlyArray<CapabilityVerificationAge> =>
   agents.flatMap((agent) =>
     capabilitySlots(agent).map(([capabilityName, capability]) => {
-      const budgetDays =
-        capabilityName === "skill" ? CAPABILITY_VERIFICATION_BUDGET_DAYS.skill : null;
-      const ageDays =
+      const budgetDays = CAPABILITY_VERIFICATION_BUDGET_DAYS[capabilityName];
+      const legacyAgeDays =
         capability.axm.lastVerified === null ? null : ageInDays(capability.axm.lastVerified, asOf);
+      const reviewedAt = capability.native.review?.reviewedAt ?? null;
+      const verifiedAt = capability.axm.verification?.verifiedAt ?? null;
+      const reviewAgeDays = reviewedAt === null ? null : ageInDays(reviewedAt, asOf);
+      const verificationAgeDays = verifiedAt === null ? null : ageInDays(verifiedAt, asOf);
       return {
         agentId: agent.id,
         capability: capabilityName,
         status: capability.axm.status,
-        lastVerified: capability.axm.lastVerified,
-        ageDays,
+        legacyLastVerified: capability.axm.lastVerified,
+        legacyAgeDays,
+        reviewedAt,
+        reviewAgeDays,
+        reviewMissing: reviewedAt === null,
+        verifiedAt,
+        verificationAgeDays,
+        verificationMissing: verifiedAt === null,
+        verificationBoundary: capability.axm.verification?.boundary ?? null,
         budgetDays,
-        overdue:
-          capability.axm.status === "supported" &&
-          budgetDays !== null &&
-          (ageDays === null || ageDays > budgetDays),
+        reviewOverdue: reviewAgeDays === null || reviewAgeDays > budgetDays,
+        verificationOverdue:
+          (capability.axm.status === "supported" || capability.axm.writer !== null) &&
+          (verificationAgeDays === null || verificationAgeDays > budgetDays),
       };
     }),
   );

@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import * as DateTime from "effect/DateTime";
 import * as Schema from "effect/Schema";
 import { Argument, Command } from "effect/unstable/cli";
 import {
@@ -7,9 +8,16 @@ import {
   axmIntegrationStatus,
   getSupportedExtensionTypesForAgent,
   listCapabilities,
+  AgentCatalogCapabilitySchema,
+  AgentProfileSchema,
+  makeAgentCatalogCapability,
+  capabilityVerificationAgeReport,
+  CapabilityVerificationAgeSchema,
+  type CapabilityVerificationAge,
   NativeReadLocationSchema,
   type NativeReadLocation,
   type Agent,
+  type AgentCatalogCapability,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { makeAppError } from "../../app-error/index.js";
 import { emitResult, count, tableDoc, type ViewColumn } from "../../screen/index.js";
@@ -36,6 +44,8 @@ interface AgentCapabilityItem {
   readonly axm: string;
   readonly locations: ReadonlyArray<NativeReadLocation>;
   readonly scopes: string;
+  readonly assessment: AgentCatalogCapability;
+  readonly freshness: CapabilityVerificationAge | null;
 }
 
 const AgentCapabilityItemSchema = Schema.Struct({
@@ -45,12 +55,17 @@ const AgentCapabilityItemSchema = Schema.Struct({
   axm: Schema.String,
   locations: Schema.Array(NativeReadLocationSchema),
   scopes: Schema.String,
+  assessment: AgentCatalogCapabilitySchema,
+  freshness: Schema.NullOr(CapabilityVerificationAgeSchema),
 });
 
 export const AgentCapabilitiesOutputSchema = Schema.Struct({
   agent: Schema.String,
   name: Schema.String,
   lifecycle: Schema.String,
+  asOf: Schema.String,
+  freshness: Schema.Array(CapabilityVerificationAgeSchema),
+  profile: Schema.NullOr(AgentProfileSchema),
   supported: Schema.Array(Schema.String),
   items: Schema.Array(AgentCapabilityItemSchema),
   count: Schema.Number,
@@ -66,6 +81,37 @@ const AgentCapabilityColumns = [
   },
   { header: "Native", value: (row: AgentCapabilityItem) => row.native },
   { header: "AXM", value: (row: AgentCapabilityItem) => row.axm },
+  {
+    header: "Installability",
+    value: (row: AgentCapabilityItem) => row.assessment.installability.status,
+  },
+  {
+    header: "Evidence",
+    value: (row: AgentCapabilityItem) => {
+      const review = row.assessment.native.review;
+      const verification = row.assessment.axm.verification;
+      const legacy = row.assessment.axm.legacyLastVerified;
+      const age = row.freshness;
+      return [
+        review === null
+          ? "Source review missing"
+          : `Sources reviewed ${review.reviewedAt} (${age?.reviewAgeDays ?? "?"} days${age?.reviewOverdue === true ? ", overdue" : ""})`,
+        verification === null
+          ? "Execution verification missing"
+          : `${verification.boundary} verified ${verification.verifiedAt} (${age?.verificationAgeDays ?? "?"} days${age?.verificationOverdue === true ? ", overdue" : ""})`,
+        ...(legacy === null ? [] : [`Legacy record ${legacy} (method unrecorded)`]),
+      ].join("; ");
+    },
+  },
+  {
+    header: "Qualifications",
+    priority: "optional",
+    value: (row: AgentCapabilityItem) =>
+      [
+        ...row.assessment.installability.conditions,
+        ...row.assessment.installability.limitations,
+      ].join("; ") || NONE,
+  },
   {
     header: "Locations",
     priority: "optional",
@@ -85,7 +131,10 @@ const AgentCapabilityColumns = [
   { header: "Scopes", priority: "optional", value: (row: AgentCapabilityItem) => row.scopes },
 ] satisfies ReadonlyArray<ViewColumn<AgentCapabilityItem>>;
 
-const capabilityRows = (agent: Agent): ReadonlyArray<AgentCapabilityItem> =>
+const capabilityRows = (
+  agent: Agent,
+  freshness: ReadonlyArray<CapabilityVerificationAge>,
+): ReadonlyArray<AgentCapabilityItem> =>
   listCapabilities(agent).map(({ type, capability }) => {
     const native = capability.native;
     return {
@@ -95,6 +144,8 @@ const capabilityRows = (agent: Agent): ReadonlyArray<AgentCapabilityItem> =>
       axm: axmIntegrationStatus(capability),
       locations: "locations" in native ? native.locations : [],
       scopes: "scopes" in native ? [...native.scopes].sort().join(", ") : NONE,
+      assessment: makeAgentCatalogCapability(agent, capability),
+      freshness: freshness.find((entry) => entry.capability === type) ?? null,
     };
   });
 
@@ -115,11 +166,16 @@ export const handleAgentsCapabilities = Effect.fn("Agents.capabilities")(functio
   }
 
   const agent = agentById(agentId);
-  const items = capabilityRows(agent);
+  const asOf = DateTime.formatIsoDate(yield* DateTime.now);
+  const freshness = capabilityVerificationAgeReport([agent], asOf);
+  const items = capabilityRows(agent, freshness);
   const output = {
     agent: agent.id,
     name: agent.name,
     lifecycle: agentLifecycle(agent.id).state,
+    asOf,
+    freshness,
+    profile: agent.profile ?? null,
     supported: [...getSupportedExtensionTypesForAgent(agent)],
     items,
     count: items.length,

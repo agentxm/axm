@@ -1,4 +1,5 @@
 import type { Agent } from "../../schema.js";
+
 export const claudeCodeAgent = {
   id: "claude-code",
   name: "Claude Code",
@@ -6,13 +7,36 @@ export const claudeCodeAgent = {
   homepage: "https://claude.com/product/claude-code",
   interfaces: ["cli", "ide-extension"],
   family: "anthropic",
+  profile: {
+    identity: {
+      product: "Claude Code",
+      surface: "Terminal, IDE, desktop and cloud",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      claimScope:
+        "Product identity and the specific capability or lifecycle changes described in this review; other capability evidence is retained separately.",
+      reviewedAt: "2026-10-01",
+      sources: ["https://code.claude.com/docs/en/hooks"],
+      conditions: [],
+      limitations: [
+        "Hook mechanisms reviewed across documented surfaces. AXM currently writes command handlers; other handlers do not inherit AXM support.",
+        "This review does not renew historical AXM runtime verification.",
+      ],
+    },
+    lifecycleQualifications: [],
+  },
   rootDir: ".claude",
   targeting: {
     extends: null,
     capabilities: {
       "structured-input": {
         grades: ["native"],
-        nouns: { "tool:structured-input": "AskUserQuestion" },
+        nouns: {
+          "tool:structured-input": "AskUserQuestion",
+        },
         affordances: {
           "do:ask-structured":
             "Use the AskUserQuestion tool to collect structured input, then STOP and wait for the response.",
@@ -20,13 +44,27 @@ export const claudeCodeAgent = {
       },
     },
   },
-  lifecycle: { state: "active" },
+  lifecycle: {
+    state: "active",
+  },
   detection: {
-    project: { markers: [] },
+    project: {
+      markers: [],
+    },
     user: {
       markers: [
-        { kind: "dir", path: "~/.claude", signal: "definitive", note: null },
-        { kind: "executable", name: "claude", signal: "definitive", note: "CLI on PATH." },
+        {
+          kind: "dir",
+          path: "~/.claude",
+          signal: "definitive",
+          note: null,
+        },
+        {
+          kind: "executable",
+          name: "claude",
+          signal: "definitive",
+          note: "CLI on PATH.",
+        },
       ],
     },
   },
@@ -39,8 +77,12 @@ export const claudeCodeAgent = {
   capabilities: {
     skill: {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes: null,
         docs: [],
         sources: ["https://code.claude.com/docs/en/skills"],
@@ -55,8 +97,12 @@ export const claudeCodeAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
           {
             scope: "user",
@@ -66,8 +112,12 @@ export const claudeCodeAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
       },
@@ -79,8 +129,12 @@ export const claudeCodeAgent = {
     },
     "mcp-server": {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes: null,
         docs: [],
         sources: ["https://code.claude.com/docs/en/mcp"],
@@ -92,7 +146,6 @@ export const claudeCodeAgent = {
           variables: "braced",
           defaults: true,
         },
-
         locations: [
           {
             id: "project",
@@ -113,7 +166,6 @@ export const claudeCodeAgent = {
             attribution: "shared",
           },
         ],
-
         entryDialect: {
           activationField: {
             required: null,
@@ -175,8 +227,12 @@ export const claudeCodeAgent = {
     },
     subagent: {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes: "No industry spec for subagents yet; AXM bridges to the agent's native layout.",
         docs: [],
         sources: ["https://code.claude.com/docs/en/sub-agents"],
@@ -189,8 +245,12 @@ export const claudeCodeAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
           {
             scope: "user",
@@ -200,8 +260,12 @@ export const claudeCodeAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
       },
@@ -213,8 +277,12 @@ export const claudeCodeAgent = {
     },
     hook: {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes:
           "Managed hooks merge into the Claude Code settings hooks block and execute materialized AXM package entrypoints. Claude Code exposes additional native events such as Notification, SessionEnd, CwdChanged, FileChanged, and WorktreeCreate; this catalog maps the subset covered by AXM's canonical hook event registry.",
         docs: [],
@@ -223,7 +291,7 @@ export const claudeCodeAgent = {
           "https://code.claude.com/docs/en/settings",
         ],
         scopes: ["user", "project"],
-        mechanism: ["command-stdin"],
+        mechanism: ["command-stdin", "http", "prompt", "agent", "mcp"],
         locations: [
           {
             id: "user",
@@ -285,11 +353,23 @@ export const claudeCodeAgent = {
           {
             nativeName: "PreToolUse",
             canonical: "tool.pre",
-            matcher: { kind: "regex", example: "Write|Edit", notes: null },
+            matcher: {
+              kind: "regex",
+              example: "Write|Edit",
+              notes: null,
+            },
             decision: [
-              { kind: "observe" },
-              { kind: "block", outcomes: ["allow", "deny", "ask"] },
-              { kind: "modify", operations: ["modify-input"] },
+              {
+                kind: "observe",
+              },
+              {
+                kind: "block",
+                outcomes: ["allow", "deny", "ask"],
+              },
+              {
+                kind: "modify",
+                operations: ["modify-input"],
+              },
             ],
             sources: ["https://code.claude.com/docs/en/hooks"],
             lastVerified: "2026-08-05",
@@ -297,19 +377,43 @@ export const claudeCodeAgent = {
           {
             nativeName: "PostToolUse",
             canonical: "tool.post",
-            matcher: { kind: "regex", example: "Write|Edit", notes: null },
-            decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
+            matcher: {
+              kind: "regex",
+              example: "Write|Edit",
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+              {
+                kind: "modify",
+                operations: ["inject-context"],
+              },
+            ],
             sources: ["https://code.claude.com/docs/en/hooks"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "UserPromptSubmit",
             canonical: "prompt.submit",
-            matcher: { kind: "none-imperative", example: null, notes: null },
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
             decision: [
-              { kind: "observe" },
-              { kind: "block", outcomes: ["allow", "deny"] },
-              { kind: "modify", operations: ["inject-context"] },
+              {
+                kind: "observe",
+              },
+              {
+                kind: "block",
+                outcomes: ["allow", "deny"],
+              },
+              {
+                kind: "modify",
+                operations: ["inject-context"],
+              },
             ],
             sources: ["https://code.claude.com/docs/en/hooks"],
             lastVerified: "2026-08-05",
@@ -317,32 +421,80 @@ export const claudeCodeAgent = {
           {
             nativeName: "SessionStart",
             canonical: "session.start",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+              {
+                kind: "modify",
+                operations: ["inject-context"],
+              },
+            ],
             sources: ["https://code.claude.com/docs/en/hooks"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "Stop",
             canonical: "turn.end",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+              {
+                kind: "block",
+                outcomes: ["allow", "deny"],
+              },
+            ],
             sources: ["https://code.claude.com/docs/en/hooks"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "SubagentStop",
             canonical: "subagent.stop",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+              {
+                kind: "block",
+                outcomes: ["allow", "deny"],
+              },
+            ],
             sources: ["https://code.claude.com/docs/en/hooks"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "PreCompact",
             canonical: "compaction.pre",
-            matcher: { kind: "regex", example: "manual|auto", notes: null },
-            decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
+            matcher: {
+              kind: "regex",
+              example: "manual|auto",
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+              {
+                kind: "modify",
+                operations: ["inject-context"],
+              },
+            ],
             sources: ["https://code.claude.com/docs/en/hooks"],
             lastVerified: "2026-08-05",
           },
@@ -379,7 +531,6 @@ export const claudeCodeAgent = {
             lastVerified: "2026-08-05",
           },
         ],
-
         entryDialect: {
           serializer: "command-stdin",
           matcherKind: "regex",
@@ -387,12 +538,20 @@ export const claudeCodeAgent = {
           timeoutSerialization: "seconds",
           commandNameSerialization: "omit",
         },
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://code.claude.com/docs/en/hooks"],
+          claimScope: "Native hook invocation families",
+          conditions: [],
+          limitations: [
+            "Agent hooks are also documented. AXM projects command handlers only; other native handlers are descriptive.",
+          ],
+        },
       },
       axm: {
         status: "supported",
         writer: {
           locationIds: ["project", "project-additional-1"],
-
           eventMap: "native.events",
         },
         lastVerified: "2026-08-05",
@@ -401,8 +560,12 @@ export const claudeCodeAgent = {
   },
   instructions: {
     native: {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
+      availability: {
+        via: "native",
+      },
+      vendorStatus: {
+        state: "active",
+      },
       notes: "Reads CLAUDE.md, not the AGENTS.md spec filename.",
       docs: [],
       sources: ["https://code.claude.com/docs/en/memory"],
@@ -418,8 +581,12 @@ export const claudeCodeAgent = {
           shape: "file",
           role: "primary",
           status: "canonical",
-          applicability: { kind: "always" },
-          provenance: { kind: "capability-sources" },
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
         },
         {
           scope: "user",
@@ -429,7 +596,9 @@ export const claudeCodeAgent = {
           shape: "file",
           role: "primary",
           status: "canonical",
-          applicability: { kind: "always" },
+          applicability: {
+            kind: "always",
+          },
           provenance: {
             kind: "sources",
             sources: [
@@ -450,8 +619,12 @@ export const claudeCodeAgent = {
   },
   permissions: {
     native: {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
+      availability: {
+        via: "native",
+      },
+      vendorStatus: {
+        state: "active",
+      },
       notes: null,
       docs: [],
       sources: [
@@ -529,7 +702,10 @@ export const claudeCodeAgent = {
       writer: {
         grants: {
           shell: {
-            destination: { kind: "location", locationId: "user" },
+            destination: {
+              kind: "location",
+              locationId: "user",
+            },
             patch: {
               permissions: {
                 allow: ["Bash(${tool}:*)"],
@@ -538,7 +714,10 @@ export const claudeCodeAgent = {
             template: null,
           },
           filesystem: {
-            destination: { kind: "location", locationId: "user" },
+            destination: {
+              kind: "location",
+              locationId: "user",
+            },
             patch: {
               permissions: {
                 allow: [

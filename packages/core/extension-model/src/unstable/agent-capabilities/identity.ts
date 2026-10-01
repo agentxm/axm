@@ -4,6 +4,10 @@ import * as Schema from "effect/Schema";
 /** @experimental This API is unstable and may change without notice. */
 export const CONFIGURABLE_AGENT_IDS = [
   "adal",
+  "fx",
+  "muse-code",
+  "mimo-code",
+  "coder-agents",
   "aider-desk",
   "amp",
   "antigravity",

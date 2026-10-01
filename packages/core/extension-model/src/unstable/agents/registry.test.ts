@@ -17,8 +17,10 @@ describe("derived agent descriptors", () => {
   );
 
   it("exposes declared native Skill readers separately from writer support", () => {
-    expect(skillAgents).toHaveLength(60);
-    expect(agents.length - skillAgents.length).toBe(2);
+    expect(AGENT_DESCRIPTORS.roo.skills).toMatchObject({ writerSupported: false });
+    for (const id of ["fx", "muse-code", "mimo-code", "coder-agents"] as const) {
+      expect(AGENT_DESCRIPTORS[id].skills).toMatchObject({ writerSupported: true });
+    }
   });
 
   it.each(skillAgents)("agent $id declares its Skill reader locations", (config) => {

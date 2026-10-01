@@ -1,16 +1,47 @@
 import type { Agent } from "../../schema.js";
+
 export const clineAgent = {
   id: "cline",
   name: "Cline",
   vendor: "Cline",
   homepage: "https://cline.bot",
-  interfaces: ["cli", "ide-extension"],
+  interfaces: ["cli", "ide-extension", "desktop"],
   family: null,
+  profile: {
+    identity: {
+      product: "Cline",
+      surface: "CLI, IDE and desktop",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      claimScope:
+        "Product identity and the specific capability or lifecycle changes described in this review; other capability evidence is retained separately.",
+      reviewedAt: "2026-10-01",
+      sources: [
+        "https://cline.bot/blog/cline-desktop-an-open-source-app-for-open-weight-models",
+        "https://cline.bot/blog/how-we-migrated-11-million-users-to-clines-biggest-harness-upgrade",
+      ],
+      conditions: [],
+      limitations: [
+        "Desktop and harness migration reviewed; parallel sessions do not establish a custom subagent definition format.",
+        "This review does not renew historical AXM runtime verification.",
+      ],
+    },
+    lifecycleQualifications: [],
+  },
   rootDir: ".cline",
-  lifecycle: { state: "active" },
+  lifecycle: {
+    state: "active",
+  },
   detection: {
-    project: { markers: [] },
-    user: { markers: [] },
+    project: {
+      markers: [],
+    },
+    user: {
+      markers: [],
+    },
   },
   docs: [
     {
@@ -21,8 +52,12 @@ export const clineAgent = {
   capabilities: {
     skill: {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes: null,
         docs: [],
         sources: ["https://docs.cline.bot/customization/skills"],
@@ -37,8 +72,12 @@ export const clineAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
           {
             scope: "project",
@@ -47,8 +86,12 @@ export const clineAgent = {
             shape: "directory",
             role: "additional",
             status: "compat",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
           {
             scope: "project",
@@ -57,8 +100,12 @@ export const clineAgent = {
             shape: "directory",
             role: "additional",
             status: "compat",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
       },
@@ -70,8 +117,12 @@ export const clineAgent = {
     },
     "mcp-server": {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes:
           "Cline supports MCP in both the extension and CLI. The CLI MCP config is ~/.cline/mcp.json; extension config is exposed through the MCP settings UI. Entries use the community-standard mcpServers shape with a streamableHttp remote discriminator plus Cline-specific disabled and autoApprove fields.",
         docs: [],
@@ -84,7 +135,6 @@ export const clineAgent = {
           variables: "none",
           defaults: false,
         },
-
         locations: [
           {
             id: "user",
@@ -105,14 +155,27 @@ export const clineAgent = {
             attribution: "agent",
           },
         ],
-
         entryDialect: {
           activationField: {
-            required: { name: "disabled", enabled: false, disabled: true },
-            accepted: [{ name: "disabled", enabled: false, disabled: true }, null],
+            required: {
+              name: "disabled",
+              enabled: false,
+              disabled: true,
+            },
+            accepted: [
+              {
+                name: "disabled",
+                enabled: false,
+                disabled: true,
+              },
+              null,
+            ],
           },
           stdio: {
-            typeField: { required: null, accepted: [null] },
+            typeField: {
+              required: null,
+              accepted: [null],
+            },
             command: "split",
             envKey: "env",
           },
@@ -155,9 +218,13 @@ export const clineAgent = {
     },
     subagent: {
       native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
+        availability: {
+          via: "unknown",
+        },
+        vendorStatus: {
+          state: "active",
+        },
+        notes: "No scoped primary-source evidence establishes absence of this capability.",
         docs: [],
         sources: [],
       },
@@ -169,17 +236,19 @@ export const clineAgent = {
     },
     hook: {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes:
           "Cline stores executable hooks under ~/Documents/Cline/Hooks and .clinerules/hooks. The native script-directory shape is not compatible with AXM's grouped JSON command-hook writer.",
         docs: [],
         sources: ["https://docs.cline.bot/customization/hooks"],
         scopes: ["user", "project"],
         modeling: "native-unmodeled",
-
         locations: [],
-
         entryDialect: null,
       },
       axm: {
@@ -192,8 +261,12 @@ export const clineAgent = {
   },
   instructions: {
     native: {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
+      availability: {
+        via: "native",
+      },
+      vendorStatus: {
+        state: "active",
+      },
       notes: "Uses a vendor rule directory under the AGENTS.md-governed rule umbrella.",
       docs: [],
       sources: ["https://docs.cline.bot/customization/cline-rules"],
@@ -209,8 +282,12 @@ export const clineAgent = {
           shape: "directory",
           role: "primary",
           status: "canonical",
-          applicability: { kind: "always" },
-          provenance: { kind: "capability-sources" },
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
         },
       ],
       nestedDiscovery: false,
@@ -224,8 +301,12 @@ export const clineAgent = {
   },
   permissions: {
     native: {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
+      availability: {
+        via: "native",
+      },
+      vendorStatus: {
+        state: "active",
+      },
       notes:
         "Cline exposes auto-approve controls in the extension/CLI UI and toolPolicies in the SDK. The public docs do not define a stable AXM-writable project permission grant file.",
       docs: [],

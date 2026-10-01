@@ -6,6 +6,30 @@ export const antigravityCliAgent = {
   homepage: "https://antigravity.google/product/antigravity-cli",
   interfaces: ["cli"],
   family: "google",
+  profile: {
+    identity: {
+      product: "Antigravity",
+      surface: "CLI",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      claimScope:
+        "Product identity and the specific capability or lifecycle changes described in this review; other capability evidence is retained separately.",
+      reviewedAt: "2026-10-01",
+      sources: [
+        "https://antigravity.google/docs/subagents/",
+        "https://antigravity.google/docs/cli/overview/",
+      ],
+      conditions: [],
+      limitations: [
+        "Custom subagents and CLI surface reviewed; other native mechanics retain their separate evidence.",
+        "This review does not renew historical AXM runtime verification.",
+      ],
+    },
+    lifecycleQualifications: [],
+  },
   rootDir: null,
   lifecycle: { state: "active" },
   detection: {
@@ -82,18 +106,60 @@ export const antigravityCliAgent = {
     },
     subagent: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "The CLI manages background subagents in its Agent Manager, but the vendor docs do not define a custom-subagent file directory.",
-        docs: [],
-        sources: ["https://antigravity.google/product/antigravity-cli"],
+          "Custom Markdown subagents are read by Antigravity 2.0 and the CLI. Authors supply native frontmatter; AXM preserves it and applies explicit agent overrides without translating tool names or changing execution-policy defaults.",
+        docs: [{ label: "Custom subagents", url: "https://antigravity.google/docs/subagents/" }],
+        sources: ["https://antigravity.google/docs/subagents/"],
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://antigravity.google/docs/subagents/"],
+          conditions: [
+            "Use Antigravity 2.0 or the Antigravity CLI with native name and description frontmatter; tool names, model, skills, plugins, and execution-policy settings must match the target harness.",
+          ],
+          limitations: [
+            "Vendor execution of the generated subagent was not tested.",
+            "AXM workspace setup currently supports project-scope Subagents; isolated user-scope adapter projection is checked but user-scope workspace installation remains unavailable.",
+          ],
+          claimScope: "Custom-subagent file discovery and native frontmatter contract.",
+        },
+        scopes: ["user", "project"],
+        locations: [
+          {
+            scope: "project",
+            root: "project",
+            path: ".agents/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".gemini/config/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+          },
+        ],
       },
       axm: {
-        status: "unsupported",
+        status: "supported",
         lastVerified: null,
         writer: null,
-        reason: "No vendor-documented custom-subagent file target is available.",
+        verification: {
+          verifiedAt: "2026-10-01",
+          boundary: "configuration",
+          evidence: ["specification:workspace/subagents/native-locations-respect-shape-and-proof"],
+          limitations: [
+            "Checks cover project and isolated user-scope file projection, shared ownership metadata, repetition, removal, and preservation of unowned files. They do not execute Antigravity.",
+          ],
+        },
       },
     },
     hook: {

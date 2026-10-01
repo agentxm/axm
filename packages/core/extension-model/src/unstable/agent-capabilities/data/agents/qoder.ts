@@ -25,7 +25,7 @@ export const qoderAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://docs.qoder.com/en/cli/Skills"],
+        sources: ["https://docs.qoder.com/en/cli/Skills", "https://docs.qoder.com/cli/Skills"],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
@@ -41,6 +41,17 @@ export const qoderAgent = {
             provenance: { kind: "capability-sources" },
           },
         ],
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://docs.qoder.com/cli/Skills"],
+          conditions: [],
+          limitations: [
+            "No vendor runtime or AXM writer execution was performed.",
+            "Other capability contracts were not revalidated.",
+          ],
+          claimScope: "CLI project/user skill discovery and /skills reload",
+        },
       },
       axm: {
         status: "supported",
@@ -492,5 +503,26 @@ export const qoderAgent = {
         },
       },
     },
+  },
+
+  profile: {
+    identity: {
+      product: "Qoder",
+      surface: "Qoder CLI",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: ["https://docs.qoder.com/cli/Skills"],
+      conditions: [],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: mcp-server, subagent, hook, instructions, permissions.",
+      ],
+      claimScope: "CLI skill discovery and reload behavior",
+    },
+    lifecycleQualifications: [],
   },
 } as const satisfies Agent;

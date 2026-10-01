@@ -1,16 +1,51 @@
 import type { Agent } from "../../schema.js";
+
 export const warpAgent = {
   id: "warp",
   name: "Warp",
   vendor: "Warp",
   homepage: "https://www.warp.dev",
-  interfaces: ["cli"],
+  interfaces: ["cli", "desktop"],
   family: null,
+  profile: {
+    identity: {
+      product: "Warp",
+      surface: "Desktop and CLI",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      claimScope:
+        "Product identity and the specific capability or lifecycle changes described in this review; other capability evidence is retained separately.",
+      reviewedAt: "2026-10-01",
+      sources: ["https://www.warp.dev/blog/introducing-the-warp-agent-cli-coding-agent"],
+      conditions: [],
+      limitations: [
+        "Standalone CLI/product surface reviewed. Orchestration does not establish a file-based custom-subagent definition.",
+        "This review does not renew historical AXM runtime verification.",
+      ],
+    },
+    lifecycleQualifications: [],
+  },
   rootDir: null,
-  lifecycle: { state: "active" },
+  lifecycle: {
+    state: "active",
+  },
   detection: {
-    project: { markers: [] },
-    user: { markers: [{ kind: "dir", path: "~/.warp", signal: "definitive", note: null }] },
+    project: {
+      markers: [],
+    },
+    user: {
+      markers: [
+        {
+          kind: "dir",
+          path: "~/.warp",
+          signal: "definitive",
+          note: null,
+        },
+      ],
+    },
   },
   docs: [
     {
@@ -21,8 +56,12 @@ export const warpAgent = {
   capabilities: {
     skill: {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes: null,
         docs: [],
         sources: ["https://docs.warp.dev/agent-platform/capabilities/skills/"],
@@ -37,8 +76,12 @@ export const warpAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
       },
@@ -50,8 +93,12 @@ export const warpAgent = {
     },
     "mcp-server": {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes:
           "Warp stores project MCP servers in .warp/.mcp.json and user servers in ~/.warp/.mcp.json under mcpServers.",
         docs: [],
@@ -60,10 +107,11 @@ export const warpAgent = {
         standardsCompliance: "full",
         convention: "universal",
         transports: ["stdio", "sse", "http"],
-        mcpEnvExpansion: { variables: "braced", defaults: false },
-
+        mcpEnvExpansion: {
+          variables: "braced",
+          defaults: false,
+        },
         locations: [],
-
         entryDialect: null,
       },
       axm: {
@@ -74,9 +122,13 @@ export const warpAgent = {
     },
     subagent: {
       native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
+        availability: {
+          via: "unknown",
+        },
+        vendorStatus: {
+          state: "active",
+        },
+        notes: "No scoped primary-source evidence establishes absence of this capability.",
         docs: [],
         sources: [],
       },
@@ -88,9 +140,13 @@ export const warpAgent = {
     },
     hook: {
       native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
+        availability: {
+          via: "unknown",
+        },
+        vendorStatus: {
+          state: "active",
+        },
+        notes: "No scoped primary-source evidence establishes absence of this capability.",
         docs: [],
         sources: [],
       },
@@ -103,8 +159,12 @@ export const warpAgent = {
   },
   instructions: {
     native: {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
+      availability: {
+        via: "native",
+      },
+      vendorStatus: {
+        state: "active",
+      },
       notes:
         "Warp discovers hierarchical AGENTS.md project rules and exposes user-level rules through Warp Drive.",
       docs: [],
@@ -121,8 +181,12 @@ export const warpAgent = {
           shape: "file",
           role: "primary",
           status: "canonical",
-          applicability: { kind: "always" },
-          provenance: { kind: "capability-sources" },
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
         },
       ],
       nestedDiscovery: true,
@@ -136,8 +200,12 @@ export const warpAgent = {
   },
   permissions: {
     native: {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
+      availability: {
+        via: "native",
+      },
+      vendorStatus: {
+        state: "active",
+      },
       notes:
         "Warp Agent Profiles configure autonomy per action and regular-expression command allowlists and denylists; deny rules take precedence.",
       docs: [],

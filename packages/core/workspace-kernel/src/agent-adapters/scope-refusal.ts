@@ -1,12 +1,9 @@
 /**
  * Refusal messages for user-scope resolves.
  *
- * AXM writes subagents to a single workspace-relative directory,
- * so every user-scope resolve is refused. The reason why differs, and the
- * catalog knows which: an agent whose capability declares the `user` scope has
- * a real user-scope surface AXM has not modeled, while an agent without it has
- * nowhere to write at all. Reporting both as "does not support" mislabels the
- * first group.
+ * Workspace setup currently manages Subagents only in project scope. Native
+ * user paths can still be modeled and independently resolved by adapters. A
+ * missing native user-scope declaration is not proof that the agent lacks it.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -35,5 +32,5 @@ export const userScopeRefusal = (args: {
   readonly type: UserScopedExtension;
 }): string =>
   declaresUserScope(args.agentId)
-    ? `AXM manages only the project-scope ${args.type} directory for ${args.agentName}; ${args.agentName} supports user-scope ${args.type} natively but AXM has not modeled that location`
-    : `${args.agentName} does not support user-scope ${args.type}`;
+    ? `AXM workspace setup manages only project-scope ${args.type} for ${args.agentName}; ${args.agentName} supports user-scope ${args.type} natively`
+    : `AXM has not established a native user-scope ${args.type} target for ${args.agentName}`;

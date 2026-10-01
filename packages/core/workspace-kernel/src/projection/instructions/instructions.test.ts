@@ -1504,28 +1504,28 @@ describe("agent instructions", () => {
 
         const { status } = yield* observe({
           // cursor: agents-md plus a secondary native rules directory.
-          // roo: rules-dir, which AXM resolves to the unwritten adapter path.
+          // cline: rules-dir, which AXM resolves to the unwritten adapter path.
           // codex: agents-md with no secondary directory.
-          configuredAgents: ["cursor", "roo", "codex"],
+          configuredAgents: ["cursor", "cline", "codex"],
         });
         const detailsById = new Map(status.items.map((item) => [item.agentId, item.details]));
 
         expect(detailsById.get("cursor")).toBe(
           "Instruction file is current. Native rules directories .cursor/rules are not synced by AXM.",
         );
-        expect(detailsById.get("roo")).toBe(
+        expect(detailsById.get("cline")).toBe(
           "The declared native rules directory is not yet synced by AXM.",
         );
         expect(detailsById.get("codex")).toBe("Instruction file is current.");
 
         // Reporting is parity work only: the adapter mechanism stays unbuilt, so
         // rules-dir agents keep reporting unsupported and nothing is written.
-        expect(status.items.find((item) => item.agentId === "roo")).toMatchObject({
+        expect(status.items.find((item) => item.agentId === "cline")).toMatchObject({
           health: "unsupported",
           ownership: "absent",
           observedForm: "none",
         });
-        expect(fs.existsSync(path.join(tempDir, ".roo"))).toBe(false);
+        expect(fs.existsSync(path.join(tempDir, ".clinerules"))).toBe(false);
         expect(fs.existsSync(path.join(tempDir, ".cursor"))).toBe(false);
       }),
     ),

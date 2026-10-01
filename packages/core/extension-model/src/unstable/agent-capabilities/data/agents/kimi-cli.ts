@@ -1,4 +1,5 @@
 import type { Agent } from "../../schema.js";
+
 export const kimiCliAgent = {
   id: "kimi-cli",
   name: "Kimi Code CLI",
@@ -6,11 +7,45 @@ export const kimiCliAgent = {
   homepage: "https://www.kimi.com/code/docs/en/kimi-code-cli/",
   interfaces: ["cli"],
   family: "moonshot",
+  profile: {
+    identity: {
+      product: "Kimi Code",
+      surface: "CLI",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      claimScope:
+        "Product identity and the specific capability or lifecycle changes described in this review; other capability evidence is retained separately.",
+      reviewedAt: "2026-10-01",
+      sources: ["https://www.kimi.com/code/docs/en/kimi-code/whats-new.html"],
+      conditions: [],
+      limitations: [
+        "Recent releases and remote/web features reviewed. Existing local definition paths retain their earlier evidence; remote session access is not a distinct writer.",
+        "This review does not renew historical AXM runtime verification.",
+      ],
+    },
+    lifecycleQualifications: [],
+  },
   rootDir: ".kimi-code",
-  lifecycle: { state: "active" },
+  lifecycle: {
+    state: "active",
+  },
   detection: {
-    project: { markers: [] },
-    user: { markers: [{ kind: "dir", path: "~/.kimi-code", signal: "definitive", note: null }] },
+    project: {
+      markers: [],
+    },
+    user: {
+      markers: [
+        {
+          kind: "dir",
+          path: "~/.kimi-code",
+          signal: "definitive",
+          note: null,
+        },
+      ],
+    },
   },
   docs: [
     {
@@ -21,8 +56,12 @@ export const kimiCliAgent = {
   capabilities: {
     skill: {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes:
           "Kimi Code discovers skills from Kimi-specific and cross-tool directories; AXM writes the universal .agents/skills location.",
         docs: [],
@@ -38,8 +77,12 @@ export const kimiCliAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
       },
@@ -51,8 +94,12 @@ export const kimiCliAgent = {
     },
     "mcp-server": {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes: null,
         docs: [],
         sources: ["https://www.kimi.com/code/docs/en/kimi-code-cli/customization/mcp.html"],
@@ -64,7 +111,6 @@ export const kimiCliAgent = {
           variables: "none",
           defaults: false,
         },
-
         locations: [
           {
             id: "project",
@@ -103,14 +149,23 @@ export const kimiCliAgent = {
             attribution: "agent",
           },
         ],
-
         entryDialect: {
           activationField: {
             required: null,
-            accepted: [{ name: "enabled", enabled: true, disabled: false }, null],
+            accepted: [
+              {
+                name: "enabled",
+                enabled: true,
+                disabled: false,
+              },
+              null,
+            ],
           },
           stdio: {
-            typeField: { required: null, accepted: [null] },
+            typeField: {
+              required: null,
+              accepted: [null],
+            },
             command: "split",
             envKey: "env",
           },
@@ -118,13 +173,19 @@ export const kimiCliAgent = {
             typeField: {
               required: {
                 name: "transport",
-                value: { "streamable-http": "http", sse: "sse" },
+                value: {
+                  "streamable-http": "http",
+                  sse: "sse",
+                },
               },
               accepted: [
                 null,
                 {
                   name: "transport",
-                  value: { "streamable-http": "http", sse: "sse" },
+                  value: {
+                    "streamable-http": "http",
+                    sse: "sse",
+                  },
                 },
               ],
             },
@@ -149,8 +210,12 @@ export const kimiCliAgent = {
     },
     subagent: {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes:
           "Kimi Code recursively discovers Markdown custom agents with YAML frontmatter and can delegate to them as subagents.",
         docs: [],
@@ -164,8 +229,12 @@ export const kimiCliAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
       },
@@ -177,8 +246,12 @@ export const kimiCliAgent = {
     },
     hook: {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes:
           "Kimi Code hooks are TOML array entries, execute commands with JSON on standard input, and can block selected events.",
         docs: [],
@@ -208,62 +281,129 @@ export const kimiCliAgent = {
           {
             nativeName: "PreToolUse",
             canonical: "tool.pre",
-            matcher: { kind: "regex", example: "Bash|Read|Write", notes: null },
-            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
+            matcher: {
+              kind: "regex",
+              example: "Bash|Read|Write",
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+              {
+                kind: "block",
+                outcomes: ["allow", "deny"],
+              },
+            ],
             sources: ["https://www.kimi.com/code/docs/en/kimi-code-cli/customization/hooks.html"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "PostToolUse",
             canonical: "tool.post",
-            matcher: { kind: "regex", example: "Bash|Read|Write", notes: null },
-            decision: [{ kind: "observe" }],
+            matcher: {
+              kind: "regex",
+              example: "Bash|Read|Write",
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+            ],
             sources: ["https://www.kimi.com/code/docs/en/kimi-code-cli/customization/hooks.html"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "UserPromptSubmit",
             canonical: "prompt.submit",
-            matcher: { kind: "regex", example: "deploy|release", notes: null },
-            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
+            matcher: {
+              kind: "regex",
+              example: "deploy|release",
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+              {
+                kind: "block",
+                outcomes: ["allow", "deny"],
+              },
+            ],
             sources: ["https://www.kimi.com/code/docs/en/kimi-code-cli/customization/hooks.html"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "Stop",
             canonical: "turn.end",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+              {
+                kind: "block",
+                outcomes: ["allow", "deny"],
+              },
+            ],
             sources: ["https://www.kimi.com/code/docs/en/kimi-code-cli/customization/hooks.html"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "SessionStart",
             canonical: "session.start",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "observe" }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+            ],
             sources: ["https://www.kimi.com/code/docs/en/kimi-code-cli/customization/hooks.html"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "SubagentStop",
             canonical: "subagent.stop",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "observe" }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+            ],
             sources: ["https://www.kimi.com/code/docs/en/kimi-code-cli/customization/hooks.html"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "PreCompact",
             canonical: "compaction.pre",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "observe" }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+            ],
             sources: ["https://www.kimi.com/code/docs/en/kimi-code-cli/customization/hooks.html"],
             lastVerified: "2026-08-05",
           },
         ],
         tools: [],
-
         entryDialect: null,
       },
       axm: {
@@ -276,8 +416,12 @@ export const kimiCliAgent = {
   },
   instructions: {
     native: {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
+      availability: {
+        via: "native",
+      },
+      vendorStatus: {
+        state: "active",
+      },
       notes:
         "Kimi Code loads AGENTS.md from project and Kimi-specific or cross-tool user locations.",
       docs: [],
@@ -294,8 +438,12 @@ export const kimiCliAgent = {
           shape: "file",
           role: "primary",
           status: "canonical",
-          applicability: { kind: "always" },
-          provenance: { kind: "capability-sources" },
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
         },
       ],
       nestedDiscovery: false,
@@ -309,8 +457,12 @@ export const kimiCliAgent = {
   },
   permissions: {
     native: {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
+      availability: {
+        via: "native",
+      },
+      vendorStatus: {
+        state: "active",
+      },
       notes:
         "Kimi Code loads ordered allow, deny, and ask rules from its user configuration; invocation flags can still apply coarse session modes.",
       docs: [],

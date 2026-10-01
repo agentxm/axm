@@ -716,7 +716,7 @@ Configured extensions realize correctly and completely for every configured codi
 
 - Requirement: `cli/agents/capabilities/describes-native-support-and-axm-integration`
 - Owner: `cli`
-- Statement: When a person inspects a coding agent’s capabilities, AXM shall report, per extension type, whether the vendor supports it natively and separately whether AXM integrates with it, together with the declared scoped native locations, and shall report the agent’s lifecycle rather than treating a retired agent as unknown.
+- Statement: When a person inspects a coding agent’s capabilities, AXM shall report native availability separately from AXM integration and qualified installability, distinguish scoped source review from attributable execution verification and legacy record dates, expose missing evidence and its age against the quarterly review budget for every capability, preserve declared native locations and conditions, and report the agent’s lifecycle rather than treating a retired agent as unknown.
 - Class: functional
 - Role: experience
 - Product goals: `agent-interoperability`, `actionable-diagnostics`
@@ -724,7 +724,7 @@ Configured extensions realize correctly and completely for every configured codi
 - Boundary rationale: The report is assembled from the shipped capability catalog and emitted through the machine Screen; it reads no workspace, so the handler over a captured Screen is the whole subject.
 - Methods: example
 - Derived from: `apps/cli/src/root/agents/capabilities.test.ts`, `apps/cli/src/root/agents/capabilities.ts`
-- Assumptions: Claude Code models native Skill support that AXM integrates with, and a Hook surface AXM writes for it; Pi models a natively-supported, a plugin-only, and an absent surface in one agent.
+- Assumptions: Claude Code models native Skill support that AXM integrates with, and a Hook surface AXM writes for it; Pi models natively-supported, plugin-only, and unresolved surfaces in one agent.
 - Limitation: These cases inspect AXM's catalog report; they do not establish that the named vendors or plugins currently realize the modeled behavior. Retires when: Verify vendor interoperability through separately identified vendor/runtime evidence when making that claim.
 - Limitation: The current catalog provides no planned or unknown AXM-support row for this handler to report; those distinctions retain producer-only fixture evidence. Retires when: Exercise a real catalog row or an explicitly controlled production catalog input for each missing report distinction.
 - Source: [`apps/cli/src/root/agents/capabilities/describes-native-support-and-axm-integration.spec.ts`](../apps/cli/src/root/agents/capabilities/describes-native-support-and-axm-integration.spec.ts)
@@ -4490,7 +4490,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `workspace/subagents/native-locations-respect-shape-and-proof`
 - Owner: `workspace-kernel`
-- Statement: AXM shall place Subagent files under their resolved catalog directory, render identical shared representations with identical generation metadata regardless of reader enumeration, preserve unowned native files, and report native writing unsupported when a file or keyed surface has no verified ownership representation rather than treating a filename as a directory or a slug as ownership.
+- Statement: AXM shall place Subagent files under their resolved catalog directory, preserve authored native frontmatter and explicit agent overrides without inventing tool mappings or execution-policy defaults, render identical shared representations with identical generation metadata regardless of reader enumeration, preserve unowned native files, and report native writing unsupported when a file or keyed surface has no verified ownership representation rather than treating a filename as a directory or a slug as ownership.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
@@ -4560,6 +4560,25 @@ People and agents can understand invalid workspace state and recover it through 
 - Boundary: memory; selection: per-change
 - Methods: decision-table, contract, example
 - Source: [`packages/core/workspace-features/src/sync/reports-aggregate-projection-drift-at-unit-precision.spec.ts`](../packages/core/workspace-features/src/sync/reports-aggregate-projection-drift-at-unit-precision.spec.ts)
+
+### Goal: agent-interoperability
+
+Configured extensions realize correctly and completely for every configured coding agent's native surfaces.
+
+#### Functional
+
+##### Agent catalog claims preserve uncertainty, conditions, and evidence boundaries
+
+- Requirement: `agents/catalog/preserves-qualified-support-and-evidence`
+- Owner: `extension-model`
+- Statement: When publishing agent capability claims, AXM shall distinguish unknown native availability from documented absence, qualify conditional and manual installation, preserve the scope of product and edition research, and report source review separately from attributable execution verification without treating historical record dates as execution evidence.
+- Class: functional
+- Role: interface
+- Product goals: `agent-interoperability`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Limitation: Controlled catalog claims establish reporting semantics, not current vendor behavior or actual vendor execution. Retires when: Attach separately attributable source and vendor runtime evidence to the claims being published.
+- Source: [`packages/core/extension-model/src/unstable/agent-capabilities/reference.spec.ts`](../packages/core/extension-model/src/unstable/agent-capabilities/reference.spec.ts)
 
 ### Goal: authoring-and-creation
 

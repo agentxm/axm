@@ -1,16 +1,48 @@
 import type { Agent } from "../../schema.js";
+
 export const junieAgent = {
   id: "junie",
   name: "Junie",
   vendor: "JetBrains",
   homepage: "https://www.jetbrains.com/junie",
-  interfaces: ["ide-extension"],
+  interfaces: ["ide-extension", "cli"],
   family: "jetbrains",
+  profile: {
+    identity: {
+      product: "Junie",
+      surface: "IDE and CLI",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      claimScope:
+        "Product identity and the specific capability or lifecycle changes described in this review; other capability evidence is retained separately.",
+      reviewedAt: "2026-10-01",
+      sources: [
+        "https://junie.jetbrains.com/docs/junie-cli.html",
+        "https://junie.jetbrains.com/docs/agent-skills.html",
+        "https://junie.jetbrains.com/docs/junie-cli-hooks.html",
+      ],
+      conditions: ["CLI hooks remain an Early Access surface."],
+      limitations: [
+        "CLI and skill discovery reviewed; CLI hooks are Early Access and must not be inferred for every IDE.",
+        "This review does not renew historical AXM runtime verification.",
+      ],
+    },
+    lifecycleQualifications: [],
+  },
   rootDir: ".junie",
-  lifecycle: { state: "active" },
+  lifecycle: {
+    state: "active",
+  },
   detection: {
-    project: { markers: [] },
-    user: { markers: [] },
+    project: {
+      markers: [],
+    },
+    user: {
+      markers: [],
+    },
   },
   docs: [
     {
@@ -21,8 +53,12 @@ export const junieAgent = {
   capabilities: {
     skill: {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes: null,
         docs: [],
         sources: ["https://junie.jetbrains.com/docs/agent-skills.html"],
@@ -37,8 +73,12 @@ export const junieAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
       },
@@ -50,8 +90,12 @@ export const junieAgent = {
     },
     "mcp-server": {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes: null,
         docs: [],
         sources: ["https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html"],
@@ -63,7 +107,6 @@ export const junieAgent = {
           variables: "none",
           defaults: false,
         },
-
         locations: [
           {
             id: "project",
@@ -102,19 +145,24 @@ export const junieAgent = {
             attribution: "agent",
           },
         ],
-
         entryDialect: {
           activationField: {
             required: null,
             accepted: [null],
           },
           stdio: {
-            typeField: { required: null, accepted: [null] },
+            typeField: {
+              required: null,
+              accepted: [null],
+            },
             command: "split",
             envKey: "env",
           },
           remote: {
-            typeField: { required: null, accepted: [null] },
+            typeField: {
+              required: null,
+              accepted: [null],
+            },
             urlKey: {
               "streamable-http": "url",
               sse: "url",
@@ -135,8 +183,12 @@ export const junieAgent = {
     },
     subagent: {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes: "No industry spec for subagents yet; AXM bridges to the agent's native layout.",
         docs: [],
         sources: ["https://junie.jetbrains.com/docs/junie-cli-subagents.html"],
@@ -149,8 +201,12 @@ export const junieAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
       },
@@ -162,8 +218,12 @@ export const junieAgent = {
     },
     hook: {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes:
           "Junie CLI hooks support seven command (type:command) event types: SessionStart, UserPromptSubmit, PreToolUse, Stop, StopFailure, PermissionRequest, and SessionEnd, configured from user config or explicit --config-location files. Default project hooks are still ignored for safety, so AXM does not write Junie hooks yet.",
         docs: [],
@@ -173,9 +233,7 @@ export const junieAgent = {
         ],
         scopes: ["user"],
         modeling: "native-unmodeled",
-
         locations: [],
-
         entryDialect: null,
       },
       axm: {
@@ -188,8 +246,12 @@ export const junieAgent = {
   },
   instructions: {
     native: {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
+      availability: {
+        via: "native",
+      },
+      vendorStatus: {
+        state: "active",
+      },
       notes:
         "Junie CLI reads persistent project guidance from .junie/AGENTS.md and suggests importing AGENTS.md-style files from other agents into that location.",
       docs: [],
@@ -209,8 +271,12 @@ export const junieAgent = {
           shape: "file",
           role: "primary",
           status: "canonical",
-          applicability: { kind: "always" },
-          provenance: { kind: "capability-sources" },
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
         },
       ],
       nestedDiscovery: false,
@@ -224,8 +290,12 @@ export const junieAgent = {
   },
   permissions: {
     native: {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
+      availability: {
+        via: "native",
+      },
+      vendorStatus: {
+        state: "active",
+      },
       notes:
         "Junie CLI uses the Action Allowlist for terminal commands, MCP tools, and other sensitive actions; brave mode allows all sensitive actions for a session.",
       docs: [],

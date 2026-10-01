@@ -73,7 +73,7 @@ describe("agents list.handler", () => {
   };
 
   it("formats lifecycle cells with optional successor text", () => {
-    expect(lifecycleCell("gemini-cli")).toBe("retired -> antigravity");
+    expect(lifecycleCell("gemini-cli")).toBe("");
     expect(lifecycleCell("roo")).toBe("retired");
     expect(lifecycleCell("claude-code")).toBe("");
   });

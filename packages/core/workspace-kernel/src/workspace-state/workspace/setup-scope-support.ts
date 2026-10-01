@@ -6,6 +6,8 @@
 
 import {
   CONFIGURABLE_AGENTS_BY_ID,
+  type Agent,
+  isCapabilitySupported,
   type ConfigurableAgentId,
   type NativeCapability,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
@@ -50,7 +52,10 @@ const isConfigurableAgentId = (id: string): id is ConfigurableAgentId =>
   Object.hasOwn(CONFIGURABLE_AGENTS_BY_ID, id);
 
 const nativeSupportsScope = (native: NativeCapability, scope: WorkspaceScope): boolean =>
-  native.availability.via !== "none" && "scopes" in native && native.scopes.includes(scope);
+  (native.availability.via === "native" || native.availability.via === "plugin") &&
+  native.vendorStatus.state !== "removed" &&
+  "scopes" in native &&
+  native.scopes.includes(scope);
 
 const capabilityReason = (axm: unknown, fallback: string): string =>
   typeof axm === "object" && axm !== null && "reason" in axm && typeof axm.reason === "string"
@@ -155,18 +160,21 @@ const skillOutcome = (
   agentId: ConfigurableAgentId,
   scope: WorkspaceScope,
 ): SetupScopeSupportOutcome => {
-  const agent = CONFIGURABLE_AGENTS_BY_ID[agentId];
+  const agent: Agent = CONFIGURABLE_AGENTS_BY_ID[agentId];
   const capability = agent.capabilities.skill;
   const projectSupported =
-    capability.axm.status === "supported" && nativeSupportsScope(capability.native, "project");
-  if (capability.native.availability.via === "none") {
+    isCapabilitySupported(capability) && nativeSupportsScope(capability.native, "project");
+  if (
+    capability.native.availability.via === "none" ||
+    capability.native.availability.via === "unknown"
+  ) {
     return capabilityUnavailableOutcome({
       agentId,
       agentName: agent.name,
       typeLabel: "Skills",
     });
   }
-  if (capability.axm.status !== "supported") {
+  if (!isCapabilitySupported(capability)) {
     return capabilityUnavailableOutcome({
       agentId,
       agentName: agent.name,
@@ -207,16 +215,19 @@ const mcpOutcome = (
   agentId: ConfigurableAgentId,
   scope: WorkspaceScope,
 ): SetupScopeSupportOutcome => {
-  const agent = CONFIGURABLE_AGENTS_BY_ID[agentId];
+  const agent: Agent = CONFIGURABLE_AGENTS_BY_ID[agentId];
   const capability = agent.capabilities["mcp-server"];
-  if (capability.native.availability.via === "none") {
+  if (
+    capability.native.availability.via === "none" ||
+    capability.native.availability.via === "unknown"
+  ) {
     return capabilityUnavailableOutcome({
       agentId,
       agentName: agent.name,
       typeLabel: "MCP servers",
     });
   }
-  if (capability.axm.status !== "supported" || capability.axm.writer === null) {
+  if (!isCapabilitySupported(capability) || capability.axm.writer === null) {
     return capabilityUnavailableOutcome({
       agentId,
       agentName: agent.name,
@@ -265,12 +276,10 @@ const subagentOutcome = (
   agentId: ConfigurableAgentId,
   scope: WorkspaceScope,
 ): SetupScopeSupportOutcome => {
-  const agent = CONFIGURABLE_AGENTS_BY_ID[agentId];
+  const agent: Agent = CONFIGURABLE_AGENTS_BY_ID[agentId];
   const capability = agent.capabilities.subagent;
   const projectSupported =
-    capability.native.availability.via !== "none" &&
-    capability.axm.status === "supported" &&
-    nativeSupportsScope(capability.native, "project");
+    isCapabilitySupported(capability) && nativeSupportsScope(capability.native, "project");
   if (!projectSupported) {
     return capabilityUnavailableOutcome({
       agentId,
@@ -314,11 +323,12 @@ const hookOutcome = (
   agentId: ConfigurableAgentId,
   scope: WorkspaceScope,
 ): SetupScopeSupportOutcome => {
-  const agent = CONFIGURABLE_AGENTS_BY_ID[agentId];
+  const agent: Agent = CONFIGURABLE_AGENTS_BY_ID[agentId];
   const capability = agent.capabilities.hook;
   if (
     capability.native.availability.via === "none" ||
-    capability.axm.status !== "supported" ||
+    capability.native.availability.via === "unknown" ||
+    !isCapabilitySupported(capability) ||
     capability.axm.writer === null
   ) {
     return capabilityUnavailableOutcome({
@@ -372,16 +382,19 @@ const instructionOutcome = (
   agentId: ConfigurableAgentId,
   scope: WorkspaceScope,
 ): SetupScopeSupportOutcome => {
-  const agent = CONFIGURABLE_AGENTS_BY_ID[agentId];
+  const agent: Agent = CONFIGURABLE_AGENTS_BY_ID[agentId];
   const capability = agent.instructions;
-  if (capability.native.availability.via === "none") {
+  if (
+    capability.native.availability.via === "none" ||
+    capability.native.availability.via === "unknown"
+  ) {
     return capabilityUnavailableOutcome({
       agentId,
       agentName: agent.name,
       typeLabel: "instruction files",
     });
   }
-  if (capability.axm.status !== "supported") {
+  if (!isCapabilitySupported(capability)) {
     return capabilityUnavailableOutcome({
       agentId,
       agentName: agent.name,

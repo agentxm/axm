@@ -12,6 +12,9 @@ export {
   AgentLifecycleSchema,
   AgentLifecycleStateSchema,
   AgentSchema,
+  AgentProfileSchema,
+  CatalogReviewSchema,
+  AxmVerificationSchema,
   ActiveAxmSupportSchema,
   AvailabilitySchema,
   AxmSupportSchema,
@@ -55,6 +58,7 @@ export {
   McpTypeFieldRepresentationSchema,
   McpTypeFieldSchema,
   McpTransportSchema,
+  McpServersPathSchema,
   NativeCapabilityBaseSchema,
   NativeReadLocationSchema,
   PermissionCliFlagSchema,
@@ -82,6 +86,9 @@ export {
   SUPPORTED_AXM_SUPPORT,
   VendorStatusSchema,
   type Agent,
+  type AgentProfile,
+  type CatalogReview,
+  type AxmVerification,
   type AgentCapabilities,
   type AgentExtensionCapability,
   type ActiveAxmSupport,
@@ -176,6 +183,7 @@ export { type PerAgentType } from "../extensions/common.js";
 export { STANDARDS } from "../extension-types/standards.js";
 export {
   CAPABILITY_VERIFICATION_BUDGET_DAYS,
+  CapabilityVerificationAgeSchema,
   capabilityVerificationAgeReport,
   type AgentCapabilitySlot,
   type CapabilityVerificationAge,
@@ -222,3 +230,17 @@ export {
   type HostedAgentId,
 } from "./identity.js";
 export { agentById } from "./lookup.js";
+export {
+  AgentCatalogCapabilitySchema,
+  AgentCatalogEntrySchema,
+  AgentCatalogReferenceSchema,
+  AgentInstallabilitySchema,
+  capabilityInstallability,
+  makeAgentCatalogCapability,
+  makeAgentCatalogEntry,
+  makeAgentCatalogReference,
+  type AgentCatalogCapability,
+  type AgentCatalogEntry,
+  type AgentCatalogReference,
+  type AgentInstallability,
+} from "./reference.js";

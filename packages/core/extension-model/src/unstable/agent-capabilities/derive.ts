@@ -62,7 +62,7 @@ export const isLeafExtensionType = (value: ExtensionType): value is LeafExtensio
 
 /** @experimental This API is unstable and may change without notice. */
 export type AgentCapabilityStatus =
-  "native" | "native-deprecated" | "plugin" | "plugin-deprecated" | "none";
+  "native" | "native-deprecated" | "plugin" | "plugin-deprecated" | "none" | "unknown";
 
 /** @experimental This API is unstable and may change without notice. */
 export type AxmIntegrationStatus = AxmSupport | "writer";
@@ -72,6 +72,8 @@ export const agentCapabilityStatus = (
   capability: AgentExtensionCapability,
 ): AgentCapabilityStatus => {
   switch (capability.native.availability.via) {
+    case "unknown":
+      return "unknown";
     case "none":
       return "none";
     case "native":
@@ -88,7 +90,10 @@ export const axmIntegrationStatus = (capability: AgentExtensionCapability): AxmI
 /** @experimental This API is unstable and may change without notice. */
 export const isCapabilitySupported = (capability: AgentExtensionCapability): boolean =>
   (capability.axm.writer !== null || capability.axm.status === SUPPORTED_AXM_SUPPORT) &&
-  capability.native.availability.via !== "none";
+  !("modeling" in capability.native && capability.native.modeling === "native-unmodeled") &&
+  (capability.native.availability.via === "native" ||
+    capability.native.availability.via === "plugin") &&
+  capability.native.vendorStatus.state !== "removed";
 
 const perAgentTypes = new Set<string>(PER_AGENT_EXTENSION_TYPES);
 
@@ -449,14 +454,29 @@ export const installable = (
   binding: HookInstallBinding,
 ): HookInstallabilityVerdict => {
   const hook = agent.capabilities.hook;
+  if (hook.native.availability.via === "unknown") {
+    return {
+      installable: false,
+      reason: `${agent.name}'s hook availability has not been established.`,
+    };
+  }
   if (hook.native.availability.via === "none") {
     return { installable: false, reason: `${agent.name} has no hook system.` };
+  }
+  if (hook.native.vendorStatus.state === "removed") {
+    return { installable: false, reason: `${agent.name}'s native hook surface has been removed.` };
   }
   if (!("events" in hook.native)) {
     return { installable: false, reason: `${agent.name} has no modeled hook events.` };
   }
   if (hook.axm.writer === null) {
     return { installable: false, reason: `AXM has not built a hook writer for ${agent.name}.` };
+  }
+  if (!hook.native.mechanism.includes("command-stdin")) {
+    return {
+      installable: false,
+      reason: `AXM's hook writer requires command-stdin invocation for ${agent.name}.`,
+    };
   }
 
   const event = hookEventForBinding(agent, binding);
@@ -535,6 +555,9 @@ export const deriveHookPortability = (
   const availableDecisionKinds = hookDecisionKinds(decisions);
   const missingDecisions = missingValues(requirement.decisions, availableDecisionKinds);
   const partialReasons = [
+    ...(requirement.mechanisms.some((mechanism) => mechanism !== "command-stdin")
+      ? ["AXM implements command-stdin hook invocation only"]
+      : []),
     ...(missingMechanisms.length === 0
       ? []
       : [`missing mechanism(s): ${missingMechanisms.join(", ")}`]),
@@ -568,6 +591,7 @@ export const toNativeAgent = (agent: Agent): NativeAgent => ({
   rootDir: agent.rootDir,
   ...(agent.installTarget === undefined ? {} : { installTarget: agent.installTarget }),
   lifecycle: agent.lifecycle,
+  ...(agent.profile === undefined ? {} : { profile: agent.profile }),
   detection: agent.detection,
   docs: agent.docs,
   capabilities: {

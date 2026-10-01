@@ -167,4 +167,25 @@ export const iflowCliAgent = {
       reason: "AXM does not emit broad bypass flags as permission grants.",
     },
   },
+
+  profile: {
+    identity: {
+      product: "iFlow CLI",
+      surface: "iFlow CLI",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: ["https://platform.iflow.cn/en/cli/quickstart"],
+      conditions: [],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: skill, mcp-server, subagent, hook, instructions, permissions.",
+      ],
+      claimScope: "CLI product availability and advertised MCP/subagent support",
+    },
+    lifecycleQualifications: [],
+  },
 } as const satisfies Agent;

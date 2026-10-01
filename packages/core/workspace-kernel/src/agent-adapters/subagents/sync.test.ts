@@ -147,7 +147,7 @@ describe("resolveEffectiveSubagentsDir", () => {
       ),
     );
 
-    it.effect("does not invent a user directory from native scope support", () =>
+    it.effect("exposes the documented user directory without granting writer support", () =>
       withNode(
         Effect.gen(function* () {
           expect(
@@ -156,7 +156,16 @@ describe("resolveEffectiveSubagentsDir", () => {
               scope: "user",
               kind: "subagent",
             }),
-          ).toEqual([]);
+          ).toEqual([
+            expect.objectContaining({
+              path: "/workspace/.kiro/agents",
+              declaration: expect.objectContaining({
+                root: "home",
+                scope: "user",
+                shape: "directory",
+              }),
+            }),
+          ]);
           const outcome = yield* kiroCliCodingAgent.resolveEffectiveSubagentsDir({
             workspaceRoot: "/workspace",
             scope: "user",

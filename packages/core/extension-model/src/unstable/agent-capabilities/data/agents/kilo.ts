@@ -197,10 +197,36 @@ export const kiloAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".config/kilo/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://kilo.ai/docs/customize/custom-subagents"],
+          conditions: [],
+          limitations: ["No vendor runtime or AXM writer execution was performed."],
+          claimScope: "CLI project .kilo/agents and user ~/.config/kilo/agents Markdown files",
+        },
       },
       axm: {
         status: "supported",
@@ -210,9 +236,10 @@ export const kiloAgent = {
     },
     hook: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "unknown" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
         docs: [],
         sources: [],
       },
@@ -366,5 +393,26 @@ export const kiloAgent = {
         },
       },
     },
+  },
+
+  profile: {
+    identity: {
+      product: "Kilo Code",
+      surface: "Kilo CLI; editor extensions have separate configuration",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: ["https://kilo.ai/docs/customize/custom-subagents"],
+      conditions: [],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: skill, mcp-server, hook, instructions, permissions.",
+      ],
+      claimScope: "CLI custom subagent paths and configuration precedence",
+    },
+    lifecycleQualifications: [],
   },
 } as const satisfies Agent;

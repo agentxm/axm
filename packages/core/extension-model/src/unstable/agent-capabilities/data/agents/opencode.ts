@@ -40,8 +40,12 @@ export const opencodeAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
           {
             scope: "project",
@@ -50,8 +54,12 @@ export const opencodeAgent = {
             shape: "directory",
             role: "additional",
             status: "compat",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
           {
             scope: "project",
@@ -60,8 +68,12 @@ export const opencodeAgent = {
             shape: "directory",
             role: "additional",
             status: "compat",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
           {
             scope: "user",
@@ -70,8 +82,12 @@ export const opencodeAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
           {
             scope: "user",
@@ -80,8 +96,12 @@ export const opencodeAgent = {
             shape: "directory",
             role: "additional",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
           {
             scope: "user",
@@ -90,10 +110,22 @@ export const opencodeAgent = {
             shape: "directory",
             role: "additional",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://opencode.ai/docs/skills/"],
+          conditions: [],
+          limitations: ["No vendor runtime or AXM writer execution was performed."],
+          claimScope: "Canonical and compatible project/home skills",
+        },
       },
       axm: {
         status: "supported",
@@ -465,5 +497,26 @@ export const opencodeAgent = {
         },
       },
     },
+  },
+
+  profile: {
+    identity: {
+      product: "OpenCode",
+      surface: "OpenCode CLI",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: ["https://opencode.ai/docs/skills/"],
+      conditions: [],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: mcp-server, subagent, hook, instructions, permissions.",
+      ],
+      claimScope: "Local skill discovery and compatible skill directories",
+    },
+    lifecycleQualifications: [],
   },
 } as const satisfies Agent;

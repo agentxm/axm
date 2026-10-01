@@ -85,14 +85,15 @@ export const lingmaAgent = {
     },
     subagent: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "unknown" },
         vendorStatus: {
           state: "deprecated",
           since: "2026-05-20",
           note: "The Lingma product name was replaced by Qoder CN.",
           supersededByType: null,
         },
-        notes: null,
+        notes:
+          "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
         docs: [],
         sources: [],
       },
@@ -127,14 +128,15 @@ export const lingmaAgent = {
   },
   instructions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "unknown" },
       vendorStatus: {
         state: "deprecated",
         since: "2026-05-20",
         note: "The Lingma product name was replaced by Qoder CN.",
         supersededByType: null,
       },
-      notes: null,
+      notes:
+        "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
       docs: [],
       sources: [],
     },
@@ -166,5 +168,36 @@ export const lingmaAgent = {
       writer: null,
       reason: "AXM cannot write UI-only Lingma Auto-Run settings.",
     },
+  },
+
+  profile: {
+    identity: {
+      product: "Lingma",
+      surface: "Legacy Lingma IDE identity, renamed to Qoder CN",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: ["https://help.aliyun.com/en/lingma/introduction-of-lingma"],
+      conditions: [],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Alibaba warns that the Lingma documentation may be outdated; current Qoder CN IDE reader mechanics were not revalidated.",
+        "Capability mechanics not revalidated in this review: skill, mcp-server, subagent, hook, instructions, permissions.",
+      ],
+      claimScope: "May 2026 product rename and current documentation authority",
+    },
+    lifecycleQualifications: [
+      {
+        scope: "product",
+        subject: "TONGYI Lingma branding",
+        state: "deprecated",
+        since: "2026-05-20",
+        note: "Alibaba renamed the product Qoder CN. This identity records the legacy IDE surface; the qoder-cn entry models the CLI, not every renamed product.",
+        sources: ["https://help.aliyun.com/en/lingma/introduction-of-lingma"],
+      },
+    ],
   },
 } as const satisfies Agent;

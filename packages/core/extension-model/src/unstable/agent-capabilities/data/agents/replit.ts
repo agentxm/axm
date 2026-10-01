@@ -4,7 +4,7 @@ export const replitAgent = {
   name: "Replit",
   vendor: "Replit",
   homepage: "https://replit.com",
-  interfaces: ["ide-extension"],
+  interfaces: ["workspace-agent"],
   family: null,
   rootDir: null,
   lifecycle: { state: "active" },
@@ -23,10 +23,14 @@ export const replitAgent = {
       native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Project skills are repository files. Team workspace skills are a separate centrally managed Workspace Settings surface, not a local user-home reader.",
         docs: [],
-        sources: ["https://docs.replit.com/core-concepts/agent/skills"],
-        scopes: ["project", "user"],
+        sources: [
+          "https://docs.replit.com/core-concepts/agent/skills",
+          "https://docs.replit.com/features/agent/skills",
+        ],
+        scopes: ["project"],
         standardsCompliance: "full",
         convention: "universal",
         locations: [
@@ -41,6 +45,14 @@ export const replitAgent = {
             provenance: { kind: "capability-sources" },
           },
         ],
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://docs.replit.com/features/agent/skills"],
+          conditions: ["Workspace skills are configured centrally in Workspace Settings."],
+          limitations: ["No vendor runtime or AXM writer execution was performed."],
+          claimScope: "Project .agents/skills and workspace-managed skills",
+        },
       },
       axm: {
         status: "supported",
@@ -75,9 +87,10 @@ export const replitAgent = {
     },
     subagent: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "unknown" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
         docs: [],
         sources: [],
       },
@@ -89,9 +102,10 @@ export const replitAgent = {
     },
     hook: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "unknown" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
         docs: [],
         sources: [],
       },
@@ -104,9 +118,10 @@ export const replitAgent = {
   },
   instructions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "unknown" },
       vendorStatus: { state: "active" },
-      notes: null,
+      notes:
+        "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
       docs: [],
       sources: [],
     },
@@ -118,9 +133,10 @@ export const replitAgent = {
   },
   permissions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "unknown" },
       vendorStatus: { state: "active" },
-      notes: null,
+      notes:
+        "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
       docs: [],
       sources: [],
     },
@@ -129,5 +145,26 @@ export const replitAgent = {
       lastVerified: null,
       writer: null,
     },
+  },
+
+  profile: {
+    identity: {
+      product: "Replit",
+      surface: "Replit Agent reading project files in its hosted workspace",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: ["https://docs.replit.com/features/agent/skills"],
+      conditions: [],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: mcp-server, subagent, hook, instructions, permissions.",
+      ],
+      claimScope: "Project and workspace-managed skills",
+    },
+    lifecycleQualifications: [],
   },
 } as const satisfies Agent;

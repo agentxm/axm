@@ -37,8 +37,12 @@ export const crushAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
           {
             scope: "project",
@@ -47,8 +51,12 @@ export const crushAgent = {
             shape: "directory",
             role: "additional",
             status: "compat",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
           {
             scope: "project",
@@ -57,8 +65,12 @@ export const crushAgent = {
             shape: "directory",
             role: "additional",
             status: "compat",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
           {
             scope: "project",
@@ -67,10 +79,78 @@ export const crushAgent = {
             shape: "directory",
             role: "additional",
             status: "compat",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".agents/skills",
+            shape: "directory",
+            role: "additional",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".claude/skills",
+            shape: "directory",
+            role: "additional",
+            status: "compat",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+          },
+          {
+            scope: "user",
+            root: "xdg-config",
+            path: "agents/skills",
+            shape: "directory",
+            role: "additional",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+          },
+          {
+            scope: "user",
+            root: "xdg-config",
+            path: "crush/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://github.com/charmbracelet/crush"],
+          conditions: [],
+          limitations: ["No vendor runtime or AXM writer execution was performed."],
+          claimScope: "Documented project, global and configurable skill roots",
+        },
       },
       axm: {
         status: "supported",
@@ -186,9 +266,10 @@ export const crushAgent = {
     },
     subagent: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "unknown" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
         docs: [],
         sources: [],
       },
@@ -312,6 +393,17 @@ export const crushAgent = {
           note: "Skips all permission prompts for the workspace.",
         },
       ],
+
+      review: {
+        reviewedAt: "2026-10-01",
+        sources: ["https://github.com/charmbracelet/crush"],
+        conditions: [],
+        limitations: [
+          "No vendor runtime or AXM writer execution was performed.",
+          "Existing grant grammar and writer behavior were not revalidated.",
+        ],
+        claimScope: "Permission allow/deny controls and yolo bypass",
+      },
     },
     axm: {
       status: "unsupported",
@@ -319,5 +411,26 @@ export const crushAgent = {
       writer: null,
       reason: "AXM has not implemented a narrow Crush permission grant writer.",
     },
+  },
+
+  profile: {
+    identity: {
+      product: "Crush",
+      surface: "Crush terminal agent",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: ["https://github.com/charmbracelet/crush"],
+      conditions: [],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: mcp-server, subagent, hook, instructions.",
+      ],
+      claimScope: "Skill discovery and permission controls",
+    },
+    lifecycleQualifications: [],
   },
 } as const satisfies Agent;

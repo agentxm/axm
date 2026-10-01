@@ -67,6 +67,14 @@ export const forgecodeAgent = {
             provenance: { kind: "capability-sources" },
           },
         ],
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://forgecode.dev/docs/skills/"],
+          conditions: [],
+          limitations: ["No vendor runtime or AXM writer execution was performed."],
+          claimScope: "Project .forge/skills, shared ~/.agents/skills and global ~/forge/skills",
+        },
       },
       axm: {
         status: "supported",
@@ -125,9 +133,10 @@ export const forgecodeAgent = {
     },
     hook: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "unknown" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
         docs: [],
         sources: [],
       },
@@ -237,5 +246,26 @@ export const forgecodeAgent = {
       lastVerified: null,
       writer: null,
     },
+  },
+
+  profile: {
+    identity: {
+      product: "ForgeCode",
+      surface: "ForgeCode CLI",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: ["https://forgecode.dev/docs/skills/"],
+      conditions: [],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: mcp-server, subagent, hook, instructions, permissions.",
+      ],
+      claimScope: "Project and global skill discovery",
+    },
+    lifecycleQualifications: [],
   },
 } as const satisfies Agent;

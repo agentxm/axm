@@ -4,10 +4,15 @@ export const onaAgent = {
   name: "Ona",
   vendor: "Ona",
   homepage: "https://ona.com",
-  interfaces: ["ide-extension"],
+  interfaces: ["workspace-agent"],
   family: null,
   rootDir: ".ona",
-  lifecycle: { state: "active" },
+  lifecycle: {
+    state: "deprecated",
+    since: null,
+    note: "The original Ona Agent is deprecated. Ona Cloud migrated to Codex; Enterprise customer-managed Anthropic remains temporarily available.",
+    supersededBy: null,
+  },
   detection: {
     project: { markers: [{ kind: "dir", path: ".ona", signal: "definitive", note: null }] },
     user: { markers: [] },
@@ -76,9 +81,10 @@ export const onaAgent = {
     },
     subagent: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "unknown" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
         docs: [],
         sources: [],
       },
@@ -86,9 +92,10 @@ export const onaAgent = {
     },
     hook: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "unknown" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
         docs: [],
         sources: [],
       },
@@ -144,5 +151,46 @@ export const onaAgent = {
       writer: null,
       reason: "Ona guardrails are managed through the organization administration surface.",
     },
+  },
+
+  profile: {
+    identity: {
+      product: "Ona",
+      surface:
+        "Original Ona Agent harness in isolated development environments; not the whole Ona platform",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: ["https://ona.com/docs/ona/agents/overview"],
+      conditions: [
+        "Continued use requires Enterprise with customer-managed Anthropic model access on a supported AWS or GCP runner.",
+      ],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: skill, mcp-server, subagent, hook, instructions, permissions.",
+      ],
+      claimScope: "Harness deprecation with cloud and Enterprise qualifications",
+    },
+    lifecycleQualifications: [
+      {
+        scope: "surface",
+        subject: "Original Ona Agent on Ona Cloud",
+        state: "retired",
+        since: null,
+        note: "No longer available; affected projects move to Codex Agent.",
+        sources: ["https://ona.com/docs/ona/agents/overview"],
+      },
+      {
+        scope: "edition",
+        subject: "Enterprise customer-managed Anthropic Ona Agent",
+        state: "deprecated",
+        since: null,
+        note: "Remains available temporarily on supported AWS/GCP Enterprise deployments. This does not retire the Ona platform.",
+        sources: ["https://ona.com/docs/ona/agents/overview"],
+      },
+    ],
   },
 } as const satisfies Agent;

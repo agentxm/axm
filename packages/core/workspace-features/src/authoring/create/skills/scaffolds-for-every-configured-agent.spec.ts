@@ -98,6 +98,24 @@ describe("Creating a skill", () => {
       );
     }).pipe(Effect.provide(authoringWorkspaceLayer(target)));
 
+  it.effect(
+    "projects emerging targets through their declared directories and shared Skill policy",
+    () =>
+      Effect.gen(function* () {
+        const created = makeAuthoringWorkspace({
+          owner: "@acme",
+          agents: ["fx", "muse-code", "mimo-code", "coder-agents"],
+        });
+        cleanups.push(created.cleanup);
+        const resolution = yield* createSkill(created, "apply");
+        expect(deriveOperationOutcome(resolution)).toBe("applied");
+        const source = created.read(`${AUTHORED_ROOT}/src/SKILL.md`);
+        for (const directory of [".fx/skills", ".mimocode/skills", ".agents/skills"]) {
+          expect(created.read(`${directory}/${SKILL}/SKILL.md`)).toBe(source);
+        }
+      }),
+  );
+
   it.effect("records the manifest, content, and enabled settings entry together", () =>
     Effect.gen(function* () {
       const created = workspace();

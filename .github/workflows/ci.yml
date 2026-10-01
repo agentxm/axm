@@ -262,7 +262,7 @@ jobs:
       (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
       needs.classify.outputs.code == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     permissions:
       checks: write
       contents: read
@@ -476,7 +476,7 @@ jobs:
       github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'push' && needs.classify.outputs.release-artifacts == 'true')
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     permissions:
       checks: write
       contents: read

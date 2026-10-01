@@ -48,11 +48,11 @@
     "ConfigurableAgentId": {
       "type": "string",
       "enum": [
+        "adal",
         "fx",
         "muse-code",
         "mimo-code",
         "coder-agents",
-        "adal",
         "aider-desk",
         "amp",
         "antigravity",
